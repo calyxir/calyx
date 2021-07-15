@@ -6,9 +6,6 @@ import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     add0 = std_add(3); //this was Sadd - return before pushing!
-    const0 = std_const(3,0); // Initialize the counter (3-bit 0)
-    const1 = std_const(3,4);
-    const2 = std_const(3,1); // Increment by 1.
     counter = std_reg(3);
     r_2 = std_reg(32);
     t = std_reg(32);
@@ -22,7 +19,7 @@ component main() -> () {
     group is_less_than<"static"=0> {
       is_less_than[done] = 1'd1;
       lt0.left = counter.out;
-      lt0.right = const1.out;
+      lt0.right = 3'd4;
     } // Control segment for `counter` < `4`.
 
     group initialize_mem_0 {
@@ -74,7 +71,7 @@ component main() -> () {
     }
 
     group initialize_counter<"static"=1> {
-      counter.in = const0.out;
+      counter.in = 3'd0;
       counter.write_en = 1'd1;
       initialize_counter[done] = counter.done;
     }
@@ -82,7 +79,7 @@ component main() -> () {
     group incr_counter<"static"=1> {
       counter.write_en = 1'd1;
       add0.left = counter.out;
-      add0.right = const2.out; // Increment by 1.
+      add0.right = 3'd1; // Increment by 1.
       counter.in = add0.out;
       incr_counter[done] = counter.done ? 1'd1;
     }

@@ -23,9 +23,10 @@ pub struct StdMultPipe {
     pub width: u64,
     pub product: Value,
     update: Option<Value>,
-    left: Value,
-    right: Value,
-    cycle_count: u64, //0, 1
+    // right now, trying to be 1 cycle, so no need for these
+    // left: Value,
+    // right: Value,
+    //cycle_count: u64, //0, 1
 }
 
 impl StdMultPipe {
@@ -34,9 +35,9 @@ impl StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
             update: None,
-            left: Value::zeroes(width as usize),
-            right: Value::zeroes(width as usize),
-            cycle_count: 0,
+            // left: Value::zeroes(width as usize),
+            // right: Value::zeroes(width as usize),
+            // cycle_count: 0,
         }
     }
 
@@ -88,70 +89,76 @@ impl Primitive for StdMultPipe {
         if go.as_u64() == 1 {
             //if [go] is high and
             //if left and right are the same as the interior left and right
-            if (left.as_u64() == self.left.as_u64())
-                & (right.as_u64() == self.right.as_u64())
-            {
-                if self.cycle_count == 1 {
-                    //and cycle_count == 1, return the product, and write product as update
-                    self.update = Some(
-                        Value::from(left.as_u64() * right.as_u64(), self.width)
-                            .unwrap(),
-                    );
-                    //reset cycle_count
-                    self.cycle_count = 0;
-                    //return
-                    return vec![
-                        (
-                            ir::Id::from("out"),
-                            TimeLockedValue::new(
-                                (&Value::from(
-                                    left.as_u64() * right.as_u64(),
-                                    self.width,
-                                )
-                                .unwrap())
-                                    .clone(),
-                                1,
-                                Some(self.product.clone()),
-                            )
-                            .into(),
-                        ),
-                        (
-                            "done".into(),
-                            PulseValue::new(
-                                done_val.unwrap().clone(),
-                                Value::bit_high(),
-                                Value::bit_low(),
-                                1,
-                            )
-                            .into(),
-                        ),
-                    ];
-                } else {
-                    //else just increment cycle_count
-                    self.cycle_count += 1;
-                    // and return whatever was committed to [product]
-                    // not a TLV
-                    return vec![(
-                        ir::Id::from("out"),
-                        self.product.clone().into(),
-                    )];
-                }
-            } else {
-                //else, left!=left and so on, restart (write these new left and right to interior left and right),
-                //set cycle_count to 1
-                self.cycle_count = 1;
-                self.left = Value::clone(left);
-                self.right = Value::clone(right);
-                // and return whatever was committed to [product]
-                return vec![(
+            // if (left.as_u64() == self.left.as_u64())
+            //     & (right.as_u64() == self.right.as_u64())
+            // {
+            //if self.cycle_count == 1 {
+            //and cycle_count == 1, return the product, and write product as update
+            self.update = Some(
+                Value::from(left.as_u64() * right.as_u64(), self.width)
+                    .unwrap(),
+            );
+            // //reset cycle_count
+            // self.cycle_count = 0;
+            //return
+            return vec![
+                (
                     ir::Id::from("out"),
-                    self.product.clone().into(),
-                )];
-            }
+                    TimeLockedValue::new(
+                        (&Value::from(
+                            left.as_u64() * right.as_u64(),
+                            self.width,
+                        )
+                        .unwrap())
+                            .clone(),
+                        1,
+                        //Some(Value::from(0, self.width).unwrap()),
+                        Some(self.product.clone()),
+                    )
+                    .into(),
+                ),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        done_val.unwrap().clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
+                        1,
+                    )
+                    .into(),
+                ),
+            ];
+            // } else {
+            //     //else just increment cycle_count
+            //     self.cycle_count += 1;
+            //     // and return whatever was committed to [product]
+            //     // not a TLV
+            //     return vec![(
+            //         ir::Id::from("out"),
+            //         self.product.clone().into(),
+            //     )];
+            // }
+            // } else {
+            //     //else, left!=left and so on, restart (write these new left and right to interior left and right),
+            //     //set cycle_count to 1
+            //     self.cycle_count = 1;
+            //     self.left = Value::clone(left);
+            //     self.right = Value::clone(right);
+            //     // and return whatever was committed to [product]
+            //     return vec![(
+            //         ir::Id::from("out"),
+            //         self.product.clone().into(),
+            //     )];
+            // }
         } else {
             //if [go] is low, return whatever is in product
             //this is not guaranteed to be meaningful
-            return vec![(ir::Id::from("out"), self.product.clone().into())];
+            return vec![(
+                ir::Id::from("out"),
+                //     Value::from(0, self.width).unwrap().into(),
+                // )];
+                self.product.clone().into(),
+            )];
         }
     }
 
@@ -159,18 +166,18 @@ impl Primitive for StdMultPipe {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
-        if self.cycle_count == 2 {
-            vec![
-                (ir::Id::from("out"), self.product.clone().into()),
-                (ir::Id::from("done"), Value::bit_high().into()),
-            ]
-        } else {
-            //this component hasn't computed, so it's all zeroed out
-            vec![
-                (ir::Id::from("out"), Value::zeroes(1).into()),
-                (ir::Id::from("done"), Value::zeroes(1).into()),
-            ]
-        }
+        //if self.cycle_count == 2 {
+        vec![
+            (ir::Id::from("out"), self.product.clone().into()),
+            (ir::Id::from("done"), Value::bit_high().into()),
+        ]
+        // } else {
+        //     //this component hasn't computed, so it's all zeroed out
+        //     vec![
+        //         (ir::Id::from("out"), Value::zeroes(1).into()),
+        //         (ir::Id::from("done"), Value::zeroes(1).into()),
+        //     ]
+        // }
     }
 
     fn commit_updates(&mut self) {
@@ -185,11 +192,13 @@ impl Primitive for StdMultPipe {
 
     fn serialize(&self) -> Serializeable {
         Serializeable::Array(
-            vec![self.left.clone(), self.right.clone(), self.product.clone()]
+            //vec![self.left.clone(), self.right.clone(), self.product.clone()]
+            vec![self.product.clone()]
                 .iter()
                 .map(Value::as_u64)
                 .collect(),
-            3.into(),
+            1.into(),
+            //3.into(),
         )
     }
 }
