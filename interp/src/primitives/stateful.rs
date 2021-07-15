@@ -249,10 +249,10 @@ impl Primitive for StdDivPipe {
     /// Must call [execute] two consecutive (with [go] high; can be
     /// buffered by any # of calls with [go] low) times with the
     /// same values on the [right] and [left] port each time. On the second call,
-    /// the output will be a TLV of [left] * [right].
-    /// For the first call, whatever product was committed by [commit_updates]
+    /// the output will be a vec of two TLVs (quotient and remainder), and done
+    /// For the first call, whatever quotient and remainder were committed by [commit_updates]
     /// will be the Value returned.
-    /// So, call this component once, then call it again, and a TLV needing one
+    /// So, call this component once, then call it again, and a TLVs needing one
     /// cycle will be emitted the second time. That one cycle represents the
     /// time it takes to write that value.
     fn execute(
@@ -317,7 +317,7 @@ impl Primitive for StdDivPipe {
                 } else {
                     //else just increment cycle_count
                     self.cycle_count += 1;
-                    // and return whatever was committed to [product]
+                    // and return whatever was committed to quotient and remainder
                     // not a TLV
                     return vec![
                         (
@@ -336,7 +336,7 @@ impl Primitive for StdDivPipe {
                 self.cycle_count = 1;
                 self.left = Value::clone(left);
                 self.right = Value::clone(right);
-                // and return whatever was committed to [product]
+                // and return whatever was committed to quotient and remainder
                 return vec![
                     (
                         ir::Id::from("out_quotient"),
