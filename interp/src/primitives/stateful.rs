@@ -297,7 +297,7 @@ impl Primitive for StdDivPipe {
                             .clone(),
                         1,
                         //Some(Value::from(0, self.width).unwrap()),
-                        Some(self.quotient.clone()),
+                        Some(self.remainder.clone()),
                     )
                     .into(),
                 ),
