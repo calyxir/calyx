@@ -408,7 +408,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
 pub struct InvokeInterpreter {}
 
 impl InvokeInterpreter {
-    pub fn new(invoke: &ir::Invoke, env: InterpreterState) -> Self {
+    pub fn new(_invoke: &ir::Invoke, _env: InterpreterState) -> Self {
         todo!()
     }
 }
