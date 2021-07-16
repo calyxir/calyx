@@ -201,22 +201,20 @@ impl Value {
         }
         let pow_base = -2;
         let msb_weight = i64::pow(pow_base, vec_len - 1);
-        let mut place: u32 = 0;
         let mut tr: i64 = 0;
         let iter = self.vec.iter().by_ref();
         //which way will it iterate? Hopefully w/ LsB = 0
-        for b in iter {
+        for (place, b) in iter.enumerate() {
             if *b {
-                if place >= (vec_len - 1).try_into().unwrap() {
+                if place >= (vec_len - 1) as usize {
                     //2s complement, so MSB has negative weight
                     //this is the last place
                     tr += msb_weight;
                 } else {
                     //before MSB, increase as unsigned bitnum
-                    tr += i64::pow(2, place); //
+                    tr += i64::pow(2, place as u32); //
                 }
             }
-            place += 1;
         }
         tr
     }

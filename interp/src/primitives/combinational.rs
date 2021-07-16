@@ -176,12 +176,10 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         if WIDTH > 64 {
             //check if right is greater than or equal to  2 ^ 64
             let r_vec = &right.vec;
-            let mut index: u64 = 0;
-            for bit in r_vec.iter().by_ref() {
+            for (index, bit) in r_vec.iter().by_ref().enumerate() {
                 if (index >= 64) & *bit {
                     return Value::zeroes(WIDTH as usize).into();
                 }
-                index += 1;
             }
         }
 
@@ -192,20 +190,18 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         //when [bit] is 1, which can only be true for bits below the 65th (first
         // bit is 2^0)
 
-        let mut index: u32 = 0;
         let mut tr = BitVec::new();
         //first push the requisite # of zeroes
-        for bit in right.vec.iter().by_ref() {
+        for (index, bit) in right.vec.iter().by_ref().enumerate() {
             if *bit {
                 //not possible for bit to be 1 after the 64th bit
-                for _ in 0..u64::pow(2, index) {
+                for _ in 0..u64::pow(2, index as u32) {
                     if tr.len() < WIDTH as usize {
                         tr.push(false);
                     }
                     //no point in appending once we've filled it all with zeroes
                 }
             }
-            index += 1;
         }
         //then copy over the bits from [left] onto the back (higher-place bits) of
         //[tr]. Then truncate, aka slicing off the bits that exceed the width of this
@@ -226,27 +222,23 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         if WIDTH > 64 {
             //check if right is greater than or equal to  2 ^ 64
             let r_vec = &right.vec;
-            let mut index: u64 = 0;
-            for bit in r_vec.iter().by_ref() {
+            for (index, bit) in r_vec.iter().by_ref().enumerate() {
                 if (index >= 64) & *bit {
                     return Value::zeroes(WIDTH as usize).into();
                 }
-                index += 1;
             }
         }
 
-        let mut index: u32 = 0;
         let mut tr = left.vec.clone();
         //first remove [right] bits
-        for bit in right.vec.iter().by_ref() {
+        for (index, bit) in right.vec.iter().by_ref().enumerate() {
             if *bit {
-                for _ in 0..u64::pow(2, index) {
-                    if tr.len() > 0 {
+                for _ in 0..u64::pow(2, index as u32) {
+                    if !tr.is_empty() {
                         tr.remove(0);
                     }
                 }
             }
-            index += 1;
         }
         //now resize to proper size, putting 0s at the end (0 is false)
         tr.resize(WIDTH as usize, false);
