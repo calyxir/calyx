@@ -256,6 +256,10 @@ impl<'a> AssignmentInterpreter<'a> {
         Self::finish_interpretation(env, done_signal, assigns)
     }
 
+    pub fn get_val(&self, port: ConstPort) -> &Value {
+        self.state.get_as_val_const(port)
+    }
+
     /// Concludes interpretation to a group, effectively setting the go signal low
     /// for a given group. This function updates the values in the environment
     /// accordingly using zero as a placeholder for values that are undefined
