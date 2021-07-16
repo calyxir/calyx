@@ -44,11 +44,43 @@ fn eval_seq(
 /// Interpret Par
 
 fn eval_par(
-    _p: &ir::Par,
-    _continuous_assignments: &[ir::Assignment],
-    mut _env: InterpreterState,
-    _comp: &ir::Component,
+    p: &ir::Par,
+    continuous_assignments: &[ir::Assignment],
+    mut env: InterpreterState,
+    comp: &ir::Component,
 ) -> FutilResult<InterpreterState> {
+    let mut sts = Vec::new();
+
+    for st in &p.stmts {
+        sts.push(interpret_control(
+            st,
+            continuous_assignments,
+            env.fork(),
+            comp,
+        )?);
+    }
+
+    let mut tl = 0;
+    let mut sms = Vec::new();
+    let mut first = 1;
+
+    let mut final_st;
+
+    for is in sts {
+        if is.clk > tl {
+            tl = is.clk;
+        }
+
+        if first == 1 {
+            first = 0;
+            final_st = is;
+        } else {
+            sms.push(is.pv_map);
+        }
+    }
+
+    final_st.pv_map = final_st.pv_map.merge_many(sms);
+    final_st.clk = tl;
     todo!("par control operator")
 }
 
