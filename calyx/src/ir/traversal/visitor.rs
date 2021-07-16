@@ -329,10 +329,6 @@ impl Visitable for Control {
                 .and_then(|| visitor.finish_if(ctrl, component, sigs))?,
             Control::While(ctrl) => visitor
                 .start_while(ctrl, component, sigs)?
-                .and_then(|| {
-                    ir::Control::enable(ctrl.cond.clone())
-                        .visit(visitor, component, sigs)
-                })?
                 .and_then(|| ctrl.body.visit(visitor, component, sigs))?
                 .pop()
                 .and_then(|| visitor.finish_while(ctrl, component, sigs))?,
