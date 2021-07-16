@@ -51,6 +51,8 @@ fn eval_par(
 ) -> FutilResult<InterpreterState> {
     let mut sts = Vec::new();
 
+    env = env.fork();
+
     for st in &p.stmts {
         sts.push(interpret_control(
             st,
@@ -62,26 +64,21 @@ fn eval_par(
 
     let mut tl = 0;
     let mut sms = Vec::new();
-    let mut first = 1;
 
-    let mut final_st;
+    let mut final_st = sts.remove(0);
 
     for is in sts {
         if is.clk > tl {
             tl = is.clk;
         }
 
-        if first == 1 {
-            first = 0;
-            final_st = is;
-        } else {
-            sms.push(is.pv_map);
-        }
+        sms.push(is.pv_map);
     }
 
     final_st.pv_map = final_st.pv_map.merge_many(sms);
     final_st.clk = tl;
-    todo!("par control operator")
+
+    Ok(final_st)
 }
 
 /// Interpret If
