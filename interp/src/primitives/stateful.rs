@@ -67,15 +67,8 @@ impl Primitive for StdMultPipe {
         }
     }
 
-    /// Must call [execute] two consecutive (with [go] high; can be
-    /// buffered by any # of calls with [go] low) times with the
-    /// same values on the [right] and [left] port each time. On the second call,
-    /// the output will be a TLV of [left] * [right].
-    /// For the first call, whatever product was committed by [commit_updates]
-    /// will be the Value returned.
-    /// So, call this component once, then call it again, and a TLV needing one
-    /// cycle will be emitted the second time. That one cycle represents the
-    /// time it takes to write that value.
+    /// Currently a 1 cycle std_mult_pipe that has a similar interface
+    /// to a register.
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
@@ -169,7 +162,7 @@ impl Primitive for StdMultPipe {
         //if self.cycle_count == 2 {
         vec![
             (ir::Id::from("out"), self.product.clone().into()),
-            (ir::Id::from("done"), Value::bit_high().into()),
+            (ir::Id::from("done"), Value::bit_low().into()),
         ]
         // } else {
         //     //this component hasn't computed, so it's all zeroed out
