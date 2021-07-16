@@ -15,7 +15,7 @@ pub fn interpret_control(
 ) -> FutilResult<InterpreterState> {
     match ctrl {
         ir::Control::Seq(s) => eval_seq(s, continuous_assignments, env, comp),
-        ir::Control::Par(p) => eval_par(p, continuous_assignments, env),
+        ir::Control::Par(p) => eval_par(p, continuous_assignments, env, comp),
         ir::Control::If(i) => eval_if(i, continuous_assignments, env, comp),
         ir::Control::While(w) => {
             eval_while(w, continuous_assignments, env, comp)
@@ -42,16 +42,14 @@ fn eval_seq(
 }
 
 /// Interpret Par
-/// at the moment behaves like seq
+
 fn eval_par(
     _p: &ir::Par,
     _continuous_assignments: &[ir::Assignment],
     mut _env: InterpreterState,
+    _comp: &ir::Component,
 ) -> FutilResult<InterpreterState> {
-    // for stmt in &p.stmts {
-    //     env = interpret_control(stmt, comp.clone(), env)?;
-    // }
-    todo!()
+    todo!("par control operator")
 }
 
 /// Interpret If
@@ -117,7 +115,7 @@ fn eval_invoke(
     _continuous_assignments: &[ir::Assignment],
     _env: InterpreterState,
 ) -> FutilResult<InterpreterState> {
-    todo!()
+    todo!("invoke control operator")
 }
 
 /// Interpret Enable
