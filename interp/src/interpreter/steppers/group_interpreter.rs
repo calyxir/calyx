@@ -284,6 +284,13 @@ impl<'a> AssignmentInterpreter<'a> {
         self.state.get_as_val_const(port)
     }
 
+    // This is not currenty relevant for anything, but may be needed later
+    // pending adjustments to the primitive contract as we will need the ability
+    // to pass new inputs to components
+    pub(super) fn _insert(&mut self, port: ConstPort, val: Value) {
+        self.state.update_val_const_port(port, val.into())
+    }
+
     /// Concludes interpretation to a group, effectively setting the go signal low
     /// for a given group. This function updates the values in the environment
     /// accordingly using zero as a placeholder for values that are undefined
