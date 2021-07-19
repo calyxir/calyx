@@ -51,16 +51,17 @@ fn eval_par(
 ) -> FutilResult<InterpreterState> {
     let mut sts = Vec::new();
 
-    env = env.fork();
-
     for st in &p.stmts {
         sts.push(interpret_control(
             st,
             continuous_assignments,
+            //change fork to do fork first and then tail
             env.fork(),
             comp,
         )?);
     }
+
+    sts.push(env);
 
     let mut tl = 0;
     let mut sms = Vec::new();
