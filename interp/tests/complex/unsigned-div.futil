@@ -1,0 +1,39 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+//a simple test for division
+
+component main() -> () {
+  cells {
+    reg1 = std_reg(1);
+    reg_q = std_reg(32);
+    reg_r = std_reg(32);
+    div = std_div_pipe(32);
+  }
+  wires {
+
+    group div_group {
+      div.go = 1'd1; 
+      div.left = 32'd56; 
+      div.right = 32'd5; 
+      reg_q.write_en = div.done ? 1'd1; 
+      reg_r.write_en = div.done ? 1'd1; 
+      reg_q.in = div.out_quotient;
+      reg_r.in = div.out_remainder;
+      div_group[done] = reg_q.done;
+    }
+    group reg_group {
+      reg1.write_en = 1'd1; 
+      reg1.in = reg_q.out > 32'd10 ? 1'd1; 
+      reg1.in = reg_q.out <= 32'd10 ? 1'd0; 
+      reg_group[done] = reg1.done;
+    }
+
+  }
+  control {
+    seq {
+        div_group;
+        reg_group;
+    }
+  }
+}

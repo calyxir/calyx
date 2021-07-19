@@ -16,6 +16,360 @@ where
     })
 }
 
+//pipelined multiplication, but as of now takes one cycle
+#[derive(Default)]
+pub struct StdMultPipe {
+    pub width: u64,
+    pub product: Value,
+    update: Option<Value>,
+    // right now, trying to be 1 cycle, so no need for these
+    // left: Value,
+    // right: Value,
+    //cycle_count: u64, //0, 1, 2
+}
+
+impl StdMultPipe {
+    pub fn from_constants(width: u64) -> Self {
+        StdMultPipe {
+            width,
+            product: Value::zeroes(width as usize),
+            update: None,
+            // left: Value::zeroes(width as usize),
+            // right: Value::zeroes(width as usize),
+            // cycle_count: 0,
+        }
+    }
+
+    pub fn new(params: ir::Binding) -> Self {
+        let width = params
+            .iter()
+            .find(|(n, _)| n.as_ref() == "WIDTH")
+            .expect("Missing `WIDTH` param from std_mult_pipe binding")
+            .1;
+        Self::from_constants(width)
+    }
+}
+
+impl Primitive for StdMultPipe {
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "left" => assert_eq!(v.len() as u64, self.width),
+                "right" => assert_eq!(v.len() as u64, self.width),
+                "go" => assert_eq!(v.len() as u64, 1),
+                p => unreachable!("Unknown port: {}", p),
+            }
+        }
+    }
+
+    /// Currently a 1 cycle std_mult_pipe that has a similar interface
+    /// to a register.
+    fn execute(
+        &mut self,
+        inputs: &[(calyx::ir::Id, &Value)],
+        done_val: Option<&Value>,
+    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+        //unwrap the arguments, left, right, and go
+        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
+        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
+        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
+        //continue computation
+        if go.as_u64() == 1 {
+            //if [go] is high and
+            //if left and right are the same as the interior left and right
+            // if (left.as_u64() == self.left.as_u64())
+            //     & (right.as_u64() == self.right.as_u64())
+            // {
+            //if self.cycle_count == 1 {
+            //and cycle_count == 1, return the product, and write product as update
+            self.update = Some(
+                Value::from(left.as_u64() * right.as_u64(), self.width)
+                    .unwrap(),
+            );
+            // //reset cycle_count
+            // self.cycle_count = 0;
+            //return
+            return vec![
+                (
+                    ir::Id::from("out"),
+                    TimeLockedValue::new(
+                        (&Value::from(
+                            left.as_u64() * right.as_u64(),
+                            self.width,
+                        )
+                        .unwrap())
+                            .clone(),
+                        1,
+                        //Some(Value::from(0, self.width).unwrap()),
+                        Some(self.product.clone()),
+                    )
+                    .into(),
+                ),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        done_val.unwrap().clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
+                        1,
+                    )
+                    .into(),
+                ),
+            ];
+            // } else {
+            //     //else just increment cycle_count
+            //     self.cycle_count += 1;
+            //     // and return whatever was committed to [product]
+            //     // not a TLV
+            //     return vec![(
+            //         ir::Id::from("out"),
+            //         self.product.clone().into(),
+            //     )];
+            // }
+            // } else {
+            //     //else, left!=left and so on, restart (write these new left and right to interior left and right),
+            //     //set cycle_count to 1
+            //     self.cycle_count = 1;
+            //     self.left = Value::clone(left);
+            //     self.right = Value::clone(right);
+            //     // and return whatever was committed to [product]
+            //     return vec![(
+            //         ir::Id::from("out"),
+            //         self.product.clone().into(),
+            //     )];
+            // }
+        } else {
+            //if [go] is low, return whatever is in product
+            //this is not guaranteed to be meaningful
+            return vec![(
+                ir::Id::from("out"),
+                //     Value::from(0, self.width).unwrap().into(),
+                // )];
+                self.product.clone().into(),
+            )];
+        }
+    }
+
+    fn reset(
+        &mut self,
+        _: &[(calyx::ir::Id, &Value)],
+    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+        //if self.cycle_count == 2 {
+        vec![
+            (ir::Id::from("out"), self.product.clone().into()),
+            (ir::Id::from("done"), Value::bit_low().into()),
+        ]
+        // } else {
+        //     //this component hasn't computed, so it's all zeroed out
+        //     vec![
+        //         (ir::Id::from("out"), Value::zeroes(1).into()),
+        //         (ir::Id::from("done"), Value::zeroes(1).into()),
+        //     ]
+        // }
+    }
+
+    fn commit_updates(&mut self) {
+        if let Some(val) = self.update.take() {
+            self.product = val;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update = None;
+    }
+
+    fn serialize(&self) -> Serializeable {
+        Serializeable::Array(
+            //vec![self.left.clone(), self.right.clone(), self.product.clone()]
+            vec![self.product.clone()]
+                .iter()
+                .map(Value::as_u64)
+                .collect(),
+            1.into(),
+            //3.into(),
+        )
+    }
+}
+
+//pipelined division, but as of now takes one cycle
+#[derive(Default)]
+pub struct StdDivPipe {
+    pub width: u64,
+    pub quotient: Value,
+    pub remainder: Value,
+    update_quotient: Option<Value>,
+    update_remainder: Option<Value>,
+    // right now, trying to be 1 cycle, so no need for these
+    // left: Value,
+    // right: Value,
+    //cycle_count: u64, //0, 1, 2
+}
+
+impl StdDivPipe {
+    pub fn from_constants(width: u64) -> Self {
+        StdDivPipe {
+            width,
+            quotient: Value::zeroes(width as usize),
+            remainder: Value::zeroes(width as usize),
+            update_quotient: None,
+            update_remainder: None,
+            // left: Value::zeroes(width as usize),
+            // right: Value::zeroes(width as usize),
+            // cycle_count: 0,
+        }
+    }
+
+    pub fn new(params: ir::Binding) -> Self {
+        let width = params
+            .iter()
+            .find(|(n, _)| n.as_ref() == "WIDTH")
+            .expect("Missing `WIDTH` param from std_mult_pipe binding")
+            .1;
+        Self::from_constants(width)
+    }
+}
+
+impl Primitive for StdDivPipe {
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "left" => assert_eq!(v.len() as u64, self.width),
+                "right" => assert_eq!(v.len() as u64, self.width),
+                "go" => assert_eq!(v.len() as u64, 1),
+                p => unreachable!("Unknown port: {}", p),
+            }
+        }
+    }
+
+    /// Currently a 1 cycle std_div_pipe that has a similar interface
+    /// to a register.
+    fn execute(
+        &mut self,
+        inputs: &[(calyx::ir::Id, &Value)],
+        done_val: Option<&Value>,
+    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+        //unwrap the arguments, left, right, and go
+        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
+        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
+        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
+        //continue computation
+        if go.as_u64() == 1 {
+            self.update_quotient = Some(
+                Value::from(left.as_u64() / right.as_u64(), self.width)
+                    .unwrap(),
+            );
+            self.update_remainder = Some(
+                Value::from(left.as_u64() % right.as_u64(), self.width)
+                    .unwrap(),
+            );
+            return vec![
+                (
+                    ir::Id::from("out_quotient"),
+                    TimeLockedValue::new(
+                        (&Value::from(
+                            left.as_u64() / right.as_u64(),
+                            self.width,
+                        )
+                        .unwrap())
+                            .clone(),
+                        1,
+                        //Some(Value::from(0, self.width).unwrap()),
+                        Some(self.quotient.clone()),
+                    )
+                    .into(),
+                ),
+                (
+                    ir::Id::from("out_remainder"),
+                    TimeLockedValue::new(
+                        (&Value::from(
+                            left.as_u64() % right.as_u64(),
+                            self.width,
+                        )
+                        .unwrap())
+                            .clone(),
+                        1,
+                        //Some(Value::from(0, self.width).unwrap()),
+                        Some(self.remainder.clone()),
+                    )
+                    .into(),
+                ),
+                (
+                    "done".into(),
+                    PulseValue::new(
+                        done_val.unwrap().clone(),
+                        Value::bit_high(),
+                        Value::bit_low(),
+                        1,
+                    )
+                    .into(),
+                ),
+            ];
+        } else {
+            //if [go] is low, return whatever is in product
+            //this is not guaranteed to be meaningful
+            return vec![
+                (
+                    ir::Id::from("out_quotient"),
+                    //     Value::from(0, self.width).unwrap().into(),
+                    // )];
+                    self.quotient.clone().into(),
+                ),
+                (
+                    ir::Id::from("out_remainder"),
+                    //     Value::from(0, self.width).unwrap().into(),
+                    // )];
+                    self.remainder.clone().into(),
+                ),
+            ];
+        }
+    }
+
+    fn reset(
+        &mut self,
+        _: &[(calyx::ir::Id, &Value)],
+    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+        //if self.cycle_count == 2 {
+        vec![
+            (ir::Id::from("out_quotient"), self.quotient.clone().into()),
+            (ir::Id::from("out_remainder"), self.remainder.clone().into()),
+            (ir::Id::from("done"), Value::bit_low().into()),
+        ]
+    }
+
+    fn commit_updates(&mut self) {
+        if let Some(val) = self.update_quotient.take() {
+            self.quotient = val;
+        }
+        if let Some(val) = self.update_remainder.take() {
+            self.remainder = val;
+        }
+    }
+
+    fn clear_update_buffer(&mut self) {
+        self.update_quotient = None;
+        self.update_remainder = None;
+    }
+
+    fn serialize(&self) -> Serializeable {
+        Serializeable::Array(
+            //vec![self.left.clone(), self.right.clone(), self.product.clone()]
+            vec![self.quotient.clone(), self.remainder.clone()]
+                .iter()
+                .map(Value::as_u64)
+                .collect(),
+            2.into(),
+        )
+    }
+}
+
 /// A register.
 #[derive(Default)]
 pub struct StdReg {
