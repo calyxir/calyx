@@ -10,30 +10,38 @@ use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
 use std::ops::Deref;
 
-enum RefOrBorrow<'a, T> {
+enum ReferenceHolder<'a, T> {
     Ref(Ref<'a, T>),
     Borrow(&'a T),
+    Owned(T),
 }
 
-impl<'a, T> From<&'a T> for RefOrBorrow<'a, T> {
+impl<'a, T> From<&'a T> for ReferenceHolder<'a, T> {
     fn from(input: &'a T) -> Self {
         Self::Borrow(input)
     }
 }
 
-impl<'a, T> From<Ref<'a, T>> for RefOrBorrow<'a, T> {
+impl<'a, T> From<T> for ReferenceHolder<'a, T> {
+    fn from(input: T) -> Self {
+        Self::Owned(input)
+    }
+}
+
+impl<'a, T> From<Ref<'a, T>> for ReferenceHolder<'a, T> {
     fn from(input: Ref<'a, T>) -> Self {
         Self::Ref(input)
     }
 }
 
-impl<'a, T> Deref for RefOrBorrow<'a, T> {
+impl<'a, T> Deref for ReferenceHolder<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
         match self {
-            RefOrBorrow::Ref(r) => r,
-            RefOrBorrow::Borrow(b) => *b,
+            ReferenceHolder::Ref(r) => r,
+            ReferenceHolder::Borrow(b) => *b,
+            ReferenceHolder::Owned(ow) => ow,
         }
     }
 }
@@ -95,9 +103,9 @@ impl<'a> Interpreter for EmptyInterpreter<'a> {
     }
 }
 
-type EnableHolder<'a> = RefOrBorrow<'a, ir::Group>;
+type EnableHolder<'a> = ReferenceHolder<'a, ir::Group>;
 
-impl<'a> From<&'a ir::Enable> for RefOrBorrow<'a, ir::Group> {
+impl<'a> From<&'a ir::Enable> for ReferenceHolder<'a, ir::Group> {
     fn from(e: &'a ir::Enable) -> Self {
         e.group.borrow().into()
     }
