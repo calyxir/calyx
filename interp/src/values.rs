@@ -164,8 +164,7 @@ impl Value {
             if *bit {
                 //protects against panic in case of # less than u64::max in
                 // value of width greater than 64
-                val += u64::pow(2, (index as usize).try_into().unwrap())
-                    * (*bit as u64);
+                val |= 1 << index;
             }
         }
         val
@@ -181,8 +180,9 @@ impl Value {
     pub fn as_u128(&self) -> u128 {
         let mut val: u128 = 0;
         for (index, bit) in self.vec.iter().by_ref().enumerate() {
-            val += u128::pow(2, (index as usize).try_into().unwrap())
-                * (*bit as u128);
+            if *bit {
+                val |= 1 << index;
+            }
         }
         val
     }
@@ -237,15 +237,7 @@ impl Value {
 #[allow(clippy::from_over_into)]
 impl Into<u64> for Value {
     fn into(self) -> u64 {
-        let mut val: u64 = 0;
-        //panics if value has more than 64 bits
-        for (index, bit) in self.vec.into_iter().enumerate() {
-            if bit {
-                val += u64::pow(2, (index as usize).try_into().unwrap())
-                    * (bit as u64);
-            }
-        }
-        val
+        self.as_u64()
     }
 }
 

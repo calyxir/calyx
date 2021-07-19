@@ -95,7 +95,7 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.vec.clone();
-    let mut adder = StdAdd::from_constants(WIDTH + 1);
+    let mut adder = StdAdd::from_constants(WIDTH);
     let new_right = adder
         .execute(
             &[("left".into(), &Value { vec: new_right }),
@@ -106,25 +106,9 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         .map(|(_, v)| v)
         .unwrap()
         .unwrap_imm();
-
-    //now do addition. maybe better to use the adder and unwrap the OutputValue?
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = new_right.vec.iter().by_ref();
-    let mut c_in = false;
-    let mut sum = BitVec::new();
-    for (ai, bi) in a_iter.zip(b_iter) {
-        sum.push(
-            c_in & !ai & !bi
-                || bi & !c_in & !ai
-                || ai & !c_in & !bi
-                || ai & bi & c_in,
-        );
-        c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
-    }
-    //actually ok if there is overflow from 2sc subtraction (?)
-    //have to check if this is ok behavior
-    return Value { vec: sum }.into();
-    todo!()
+    //then add left and new_right
+    adder.execute(&[("left".into(), &left),
+    ("right".into(), &new_right)], None).into_iter().next().map(|(_, v)| v).unwrap()
 });
 comb_primitive!(StdDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     todo!()
@@ -176,8 +160,8 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         if WIDTH > 64 {
             //check if right is greater than or equal to  2 ^ 64
             let r_vec = &right.vec;
-            for (index, bit) in r_vec.iter().by_ref().enumerate() {
-                if (index >= 64) & *bit {
+            for bit in r_vec.iter().by_ref().skip(64) {
+                if *bit {
                     return Value::zeroes(WIDTH as usize).into();
                 }
             }
@@ -222,8 +206,8 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         if WIDTH > 64 {
             //check if right is greater than or equal to  2 ^ 64
             let r_vec = &right.vec;
-            for (index, bit) in r_vec.iter().by_ref().enumerate() {
-                if (index >= 64) & *bit {
+            for bit in r_vec.iter().by_ref().skip(64) {
+                if *bit {
                     return Value::zeroes(WIDTH as usize).into();
                 }
             }
