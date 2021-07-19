@@ -49,25 +49,31 @@ fn eval_par(
     mut env: InterpreterState,
     comp: &ir::Component,
 ) -> FutilResult<InterpreterState> {
+    //vector to keep track of all updated states
     let mut sts = Vec::new();
 
+    //evaluate each expression within the starter environment by forking from it
     for st in &p.stmts {
         sts.push(interpret_control(
             st,
             continuous_assignments,
-            //change fork to do fork first and then tail
             env.fork(),
             comp,
         )?);
     }
 
+    //since we have to merge the original branch too
     sts.push(env);
 
+    //clock updates
     let mut tl = 0;
+
+    //vector of smooshers from the states
     let mut sms = Vec::new();
 
     let mut final_st = sts.remove(0);
 
+    //i do this using loops for clock updates
     for is in sts {
         if is.clk > tl {
             tl = is.clk;
