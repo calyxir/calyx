@@ -85,6 +85,8 @@ impl InterpreterState {
             "std_slice" => Box::new(combinational::StdSlice::new(params)),
             "std_pad" => Box::new(combinational::StdPad::new(params)),
             "std_reg" => Box::new(stateful::StdReg::new(params)),
+            "std_mult_pipe" => Box::new(stateful::StdMultPipe::new(params)),
+            "std_div_pipe" => Box::new(stateful::StdDivPipe::new(params)),
             "std_const" => Box::new(combinational::StdConst::new(params)),
             "std_mem_d1" => {
                 let mut prim = Box::new(stateful::StdMemD1::new(params));

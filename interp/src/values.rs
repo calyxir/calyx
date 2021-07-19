@@ -161,10 +161,62 @@ impl Value {
     pub fn as_u64(&self) -> u64 {
         let mut val: u64 = 0;
         for (index, bit) in self.vec.iter().by_ref().enumerate() {
-            val += u64::pow(2, (index as usize).try_into().unwrap())
-                * (*bit as u64);
+            if *bit {
+                //protects against panic in case of # less than u64::max in
+                // value of width greater than 64
+                val |= 1 << index;
+            }
         }
         val
+    }
+
+    /// Converts value into u128 type. Vector within Value can be of any width.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// let unsign_128_16 = (Value::try_from_init(16, 16).unwrap()).as_u128();
+    /// ```
+    pub fn as_u128(&self) -> u128 {
+        let mut val: u128 = 0;
+        for (index, bit) in self.vec.iter().by_ref().enumerate() {
+            if *bit {
+                val |= 1 << index;
+            }
+        }
+        val
+    }
+
+    /// Converts value into i64 type using 2C representation.
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// let signed_neg_1_4 = (Value::try_from_init(15, 4).unwrap()).as_i64();
+    /// assert_eq!(signed_neg_1_4, -1);
+    /// ```
+    pub fn as_i64(&self) -> i64 {
+        let vec_len = self.vec.len() as u32;
+        if vec_len == 0 {
+            return 0;
+        }
+        let pow_base = -2;
+        let msb_weight = i64::pow(pow_base, vec_len - 1);
+        let mut tr: i64 = 0;
+        let iter = self.vec.iter().by_ref();
+        //which way will it iterate? Hopefully w/ LsB = 0
+        for (place, b) in iter.enumerate() {
+            if *b {
+                if place >= (vec_len - 1) as usize {
+                    //2s complement, so MSB has negative weight
+                    //this is the last place
+                    tr += msb_weight;
+                } else {
+                    //before MSB, increase as unsigned bitnum
+                    tr += i64::pow(2, place as u32); //
+                }
+            }
+        }
+        tr
     }
 
     #[allow(clippy::len_without_is_empty)]
@@ -185,12 +237,7 @@ impl Value {
 #[allow(clippy::from_over_into)]
 impl Into<u64> for Value {
     fn into(self) -> u64 {
-        let mut val: u64 = 0;
-        for (index, bit) in self.vec.into_iter().enumerate() {
-            val += u64::pow(2, (index as usize).try_into().unwrap())
-                * (bit as u64);
-        }
-        val
+        self.as_u64()
     }
 }
 

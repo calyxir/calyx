@@ -8,6 +8,152 @@ use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
 use calyx::ir;
 
 #[test]
+fn test_std_mult_pipe() {
+    let mut std_mult = stfl::StdMultPipe::from_constants(16);
+    port_bindings![binds;
+        left -> (3, 16),
+        right -> (5, 16),
+        go -> (1, 1)
+    ];
+    let mut output_vals =
+        std_mult.validate_and_execute(&binds, Some(&Value::bit_low()));
+    assert_eq!(output_vals.len(), 2); //should be a done val
+    match &mut output_vals[..] {
+        [out, done] => match (out, done) {
+            (
+                (_, OutputValue::LockedValue(prod)),
+                (_, OutputValue::PulseValue(d)),
+            ) => {
+                assert_eq!(prod.get_count(), 1);
+                assert_eq!(d.get_val().as_u64(), 0);
+                prod.dec_count();
+                d.tick();
+                assert!(prod.unlockable());
+                assert_eq!(
+                    prod.clone().unlock().as_u64(), //the product should be 15
+                    15
+                );
+                //check done value goes to zero
+                assert_eq!(d.get_val().as_u64(), 1);
+                let d = d.clone().do_tick();
+                assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                if let OutputValue::ImmediateValue(iv) = d {
+                    assert_eq!(iv.as_u64(), 0);
+                }
+            }
+            _ => {
+                panic!("std_mult_pipe did not return the expected output types")
+            }
+        },
+        _ => panic!("std_mult_pipe returned more than 2 outputs"),
+    }
+    //now commit updates, and see if changing inputs with a low go give a vec that still has 15
+    std_mult.commit_updates();
+    port_bindings![binds;
+        left -> (7, 16),
+        right -> (5, 16),
+        go -> (0, 1)
+    ];
+    let mut diff_inputs =
+        std_mult.validate_and_execute(&binds, Some(&Value::bit_low()));
+    match &mut diff_inputs[..] {
+        [out] => {
+            match out {
+                (_, OutputValue::ImmediateValue(val)) => {
+                    assert_eq!(val.as_u64(), 15);
+                }
+                _ => {
+                    panic!("std_mult_pipe didn't return an IV when [done] is low")
+                }
+            }
+        }
+        _ => panic!(
+            "std_mult_pipe returned more than 1 output after executing with low done"
+        ),
+    }
+}
+
+#[test]
+fn test_std_div_pipe() {
+    let mut std_div = stfl::StdDivPipe::from_constants(16);
+    port_bindings![binds;
+        left -> (25, 16), //25/3 = 8 r. 1
+        right -> (3, 16),
+        go -> (1, 1)
+    ];
+    let mut output_vals =
+        std_div.validate_and_execute(&binds, Some(&Value::bit_low()));
+    assert_eq!(output_vals.len(), 3); //should be a quotient, remainder, and done val
+    match &mut output_vals[..] {
+        [out_quotient, out_remainder, done] => {
+            match (out_quotient, out_remainder, done) {
+                (
+                    (_, OutputValue::LockedValue(q)),
+                    (_, OutputValue::LockedValue(r)),
+                    (_, OutputValue::PulseValue(d)),
+                ) => {
+                    assert_eq!(q.get_count(), 1);
+                    assert_eq!(r.get_count(), 1);
+                    assert_eq!(d.get_val().as_u64(), 0);
+                    q.dec_count();
+                    r.dec_count();
+                    d.tick();
+                    assert!(q.unlockable());
+                    assert_eq!(
+                        q.clone().unlock().as_u64(), //the product should be 15
+                        8
+                    );
+                    assert!(r.unlockable());
+                    assert_eq!(
+                        r.clone().unlock().as_u64(), //the product should be 15
+                        1
+                    );
+                    //check done value goes to zero
+                    assert_eq!(d.get_val().as_u64(), 1);
+                    let d = d.clone().do_tick();
+                    assert!(matches!(d, OutputValue::ImmediateValue(_)));
+                    if let OutputValue::ImmediateValue(iv) = d {
+                        assert_eq!(iv.as_u64(), 0);
+                    }
+                }
+                _ => {
+                    panic!(
+                        "std_div_pipe did not return the expected output types"
+                    )
+                }
+            }
+        }
+        _ => panic!("std_div_pipe did not return 3 outputs"),
+    }
+    //now commit updates, and see if changing inputs with a low go give a vec that still has 8, 1
+    std_div.commit_updates();
+    port_bindings![binds;
+        left -> (7, 16),
+        right -> (5, 16),
+        go -> (0, 1)
+    ];
+    let mut diff_inputs =
+        std_div.validate_and_execute(&binds, Some(&Value::bit_low()));
+    match &mut diff_inputs[..] {
+        [out_quotient, out_remainder] => match (out_quotient, out_remainder) {
+            (
+                (_, OutputValue::ImmediateValue(q)),
+                (_, OutputValue::ImmediateValue(r)),
+            ) => {
+                assert_eq!(q.as_u64(), 8);
+                assert_eq!(r.as_u64(), 1);
+            }
+            _ => {
+                panic!("std_div_pipe didn't return an IV when [done] is low")
+            }
+        },
+        _ => panic!(
+            "std_div_pipe returned not 2 outputs after executing with low done"
+        ),
+    }
+}
+
+#[test]
 fn test_mem_d1_tlv() {
     let mut mem_d1 = stfl::StdMemD1::from_constants(32, 8, 3);
     port_bindings![binds;
@@ -541,6 +687,41 @@ fn test_std_lsh() {
         .unwrap_imm();
     assert_eq!(out.as_u64(), 32);
 }
+
+#[test]
+fn test_std_lsh_above64() {
+    // lsh with overflow
+    let mut lsh = comb::StdLsh::from_constants(275);
+    port_bindings![binds;
+        left -> (31, 275),
+        right -> (275, 275)
+    ];
+    let out = lsh
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(out.as_u64(), 0);
+
+    // lsh without overflow
+    // lsh [010000] (16) by 1 -> [100000] (32)
+    let mut lsh = comb::StdLsh::from_constants(381);
+    port_bindings![binds;
+        left -> (16, 381),
+        right -> (1, 381)
+    ];
+    let out = lsh
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(out.as_u64(), 32);
+}
+
 #[test]
 fn test_std_rsh() {
     // Not sure how to catagorize this
@@ -573,6 +754,37 @@ fn test_std_rsh() {
         .unwrap_imm();
     assert_eq!(out.as_u64(), 4);
 }
+
+#[test]
+fn test_std_rsh_above64() {
+    let mut rsh = comb::StdRsh::from_constants(275);
+    port_bindings![binds;
+        left -> (8, 275),
+        right -> (4, 275)
+    ];
+    let out = rsh
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(out.as_u64(), 0);
+    let mut rsh = comb::StdRsh::from_constants(381);
+    port_bindings![binds;
+        left -> (40, 381),
+        right -> (3, 381)
+    ];
+    let out = rsh
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(out.as_u64(), 5);
+}
+
 #[test]
 fn test_std_add() {
     // without overflow
@@ -605,6 +817,25 @@ fn test_std_add() {
         .unwrap_imm();
     assert_eq!(res_add.as_u64(), 0);
 }
+
+#[test]
+fn test_std_add_above64() {
+    // without overflow
+    let mut add = comb::StdAdd::from_constants(165);
+    port_bindings![binds;
+        left -> (17, 165),
+        right -> (35, 165)
+    ];
+    let res_add = add
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(res_add.as_u64(), 52);
+}
+
 #[test]
 #[should_panic]
 fn test_std_add_panic() {
@@ -662,6 +893,25 @@ fn test_std_sub() {
         .unwrap_imm();
     assert_eq!(res_sub.as_u64(), 9);
 }
+
+#[test]
+fn test_std_sub_above64() {
+    // without overflow
+    let mut sub = comb::StdSub::from_constants(1605);
+    port_bindings![binds;
+        left -> (57, 1605),
+        right -> (35, 1605)
+    ];
+    let res_sub = sub
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(res_sub.as_u64(), 22);
+}
+
 #[test]
 #[should_panic]
 fn test_std_sub_panic() {
@@ -959,6 +1209,40 @@ fn test_std_gt() {
         0
     );
 }
+
+#[test]
+fn test_std_gt_above64() {
+    let mut std_gt = comb::StdGt::from_constants(716);
+    port_bindings![binds;
+        left -> (18446744073709551615_u64, 716),
+        right -> (14333, 716)
+    ];
+    let res_gt = std_gt
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(res_gt.as_u64(), 1);
+    //7 > 7 ? no!
+    let mut std_gt = comb::StdGt::from_constants(423);
+    port_bindings![binds;
+        left -> (7, 423),
+        right -> (7, 423)
+    ];
+    assert_eq!(
+        std_gt
+            .validate_and_execute(&binds, None)
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm()
+            .as_u64(),
+        0
+    );
+}
 #[test]
 #[should_panic]
 fn test_std_gt_panic() {
@@ -1001,6 +1285,42 @@ fn test_std_lt() {
         0
     );
 }
+
+#[test]
+fn test_std_lt_above64() {
+    //7298791842 < 17298791842
+    let mut std_lt = comb::StdLt::from_constants(2706);
+    port_bindings![binds;
+        left -> (72987918, 2706),
+        right -> (18446744073709551615_u64, 2706)
+    ];
+    let res_lt = std_lt
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(res_lt.as_u64(), 1);
+    //3_000_000 < 3_000_000 ? no!
+    let mut std_lt = comb::StdLt::from_constants(2423);
+    port_bindings![binds;
+        left -> (3_000_000, 2423),
+        right -> (3_000_000, 2423)
+    ];
+    assert_eq!(
+        std_lt
+            .validate_and_execute(&binds, None)
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm()
+            .as_u64(),
+        0
+    );
+}
+
 #[test]
 #[should_panic]
 fn test_std_lt_panic() {
@@ -1043,6 +1363,41 @@ fn test_std_eq() {
         0
     );
 }
+
+#[test]
+fn test_std_eq_above64() {
+    let mut std_eq = comb::StdEq::from_constants(716);
+    port_bindings![binds;
+        left -> (18446744073709551615_u64, 716),
+        right -> (18446744073709551615_u64, 716)
+    ];
+    let res_eq = std_eq
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(res_eq.as_u64(), 1);
+    // 123456 =12377456 ? no!
+    let mut std_eq = comb::StdEq::from_constants(421113);
+    port_bindings![binds;
+        left -> (123456, 421113),
+        right -> (12377456, 421113)
+    ];
+    assert_eq!(
+        std_eq
+            .validate_and_execute(&binds, None)
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm()
+            .as_u64(),
+        0
+    );
+}
+
 #[test]
 #[should_panic]
 fn test_std_eq_panic() {
@@ -1086,6 +1441,40 @@ fn test_std_neq() {
         1
     );
 }
+
+#[test]
+fn test_std_neq_above64() {
+    let mut std_neq = comb::StdNeq::from_constants(4321);
+    port_bindings![binds;
+        left -> (18446744073709551615_u64, 4321),
+        right -> (18446744073709551615_u64, 4321)
+    ];
+    let res_neq = std_neq
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    //max != max ? no!
+    assert!(res_neq.as_u64() == 0);
+    port_bindings![binds;
+    left -> (18446744073709551615_u64, 4321),
+    right -> (18446744073709500000_u64, 4321)
+    ];
+    assert_eq!(
+        std_neq
+            .validate_and_execute(&binds, None)
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm()
+            .as_u64(),
+        1
+    );
+}
+
 #[test]
 #[should_panic]
 fn test_std_neq_panic() {
@@ -1130,6 +1519,41 @@ fn test_std_ge() {
         1
     );
 }
+
+#[test]
+fn test_std_ge_above64() {
+    let mut std_ge = comb::StdGe::from_constants(716);
+    port_bindings![binds;
+        left -> (18446744073709551615_u64, 716),
+        right -> (14333, 716)
+    ];
+    let res_ge = std_ge
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(res_ge.as_u64(), 1);
+    // 35 >= 35 ? yes
+    let mut std_ge = comb::StdGe::from_constants(423);
+    port_bindings![binds;
+        left -> (35, 423),
+        right -> (35, 423)
+    ];
+    assert_eq!(
+        std_ge
+            .validate_and_execute(&binds, None)
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm()
+            .as_u64(),
+        1
+    );
+}
+
 #[test]
 #[should_panic]
 fn test_std_ge_panic() {
@@ -1173,6 +1597,42 @@ fn test_std_le() {
         1
     );
 }
+
+#[test]
+fn test_std_le_above64() {
+    //72987918 <= 9729879
+    let mut std_le = comb::StdLe::from_constants(2706);
+    port_bindings![binds;
+        left -> (72_987_918, 2706),
+        right -> (93_729_879, 2706)
+    ];
+    let res_le = std_le
+        .validate_and_execute(&binds, None)
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap()
+        .unwrap_imm();
+    assert_eq!(res_le.as_u64(), 1);
+    //3_000_000 <= 3_000_000 ? yes!
+    let mut std_le = comb::StdLe::from_constants(2423);
+    port_bindings![binds;
+        left -> (3_000_000, 2423),
+        right -> (3_000_000, 2423)
+    ];
+    assert_eq!(
+        std_le
+            .validate_and_execute(&binds, None)
+            .into_iter()
+            .next()
+            .map(|(_, v)| v)
+            .unwrap()
+            .unwrap_imm()
+            .as_u64(),
+        1
+    );
+}
+
 #[test]
 #[should_panic]
 fn test_std_le_panic() {
