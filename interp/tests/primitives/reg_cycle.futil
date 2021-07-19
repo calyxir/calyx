@@ -1,0 +1,31 @@
+import "primitives/core.futil";
+
+// The purpose of this test is to understand interpreter's
+// behavior w.r.t registers before moving over to "do_tick()"
+// interface
+
+component main() -> () {
+  cells {
+    reg0 = std_reg(32);
+  }
+
+  wires {
+    group write<"static"=1> {
+      reg0.write_en = 1'd1; 
+      reg0.in = 32'd145;
+      write[done] = reg0.done;
+    }
+    //if output of this one-cycle group 
+    //shows reg0's [done] as high and it's [in]
+    //as meaningful, then in our new interface 
+    //the first "do_tick()" call to registers should
+    //return a high done and asserted value, not the second
+
+  }
+
+  control {
+    seq {
+      write;
+    }
+  }
+}
