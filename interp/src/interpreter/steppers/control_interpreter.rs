@@ -8,6 +8,35 @@ use crate::{
 use calyx::ir::{self, Assignment, Component, Control, Group};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
+use std::ops::Deref;
+
+enum RefOrBorrow<'a, T> {
+    Ref(Ref<'a, T>),
+    Borrow(&'a T),
+}
+
+impl<'a, T> From<&'a T> for RefOrBorrow<'a, T> {
+    fn from(input: &'a T) -> Self {
+        Self::Borrow(input)
+    }
+}
+
+impl<'a, T> From<Ref<'a, T>> for RefOrBorrow<'a, T> {
+    fn from(input: Ref<'a, T>) -> Self {
+        Self::Ref(input)
+    }
+}
+
+impl<'a, T> Deref for RefOrBorrow<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            RefOrBorrow::Ref(r) => r,
+            RefOrBorrow::Borrow(b) => *b,
+        }
+    }
+}
 
 // this almost certainly doesn't need to exist but it can't be a trait fn with a
 // default impl because it consumes self
@@ -66,47 +95,16 @@ impl<'a> Interpreter for EmptyInterpreter<'a> {
     }
 }
 
-pub enum EnableBox<'a> {
-    Enable(Ref<'a, ir::Group>),
-    Group(&'a ir::Group),
-}
+type EnableHolder<'a> = RefOrBorrow<'a, ir::Group>;
 
-impl<'a> EnableBox<'a> {
-    fn get_grp(&self) -> &ir::Group {
-        match self {
-            EnableBox::Enable(g) => g,
-            EnableBox::Group(g) => g,
-        }
-    }
-
-    fn iter(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
-        match self {
-            EnableBox::Enable(g) => Box::new(g.assignments.iter()),
-            EnableBox::Group(g) => Box::new(g.assignments.iter()),
-        }
-    }
-}
-
-impl<'a> From<&'a ir::Enable> for EnableBox<'a> {
-    fn from(en: &'a ir::Enable) -> Self {
-        Self::Enable(en.group.borrow())
-    }
-}
-
-impl<'a> From<&'a ir::Group> for EnableBox<'a> {
-    fn from(g: &'a ir::Group) -> Self {
-        Self::Group(g)
-    }
-}
-
-impl<'a> From<Ref<'a, ir::Group>> for EnableBox<'a> {
-    fn from(g: Ref<'a, ir::Group>) -> Self {
-        Self::Enable(g)
+impl<'a> From<&'a ir::Enable> for RefOrBorrow<'a, ir::Group> {
+    fn from(e: &'a ir::Enable) -> Self {
+        e.group.borrow().into()
     }
 }
 
 pub struct EnableInterpreter<'a> {
-    enable: EnableBox<'a>,
+    enable: EnableHolder<'a>,
     interp: AssignmentInterpreter<'a>,
 }
 
@@ -117,14 +115,14 @@ impl<'a> EnableInterpreter<'a> {
         continuous: &'a [Assignment],
     ) -> Self
     where
-        E: Into<EnableBox<'a>>,
+        E: Into<EnableHolder<'a>>,
     {
-        let enable: EnableBox = enable.into();
+        let enable: EnableHolder = enable.into();
         let assigns = (
-            enable.iter().cloned().collect_vec(),
+            enable.assignments.iter().cloned().collect_vec(),
             continuous.iter().cloned().collect_vec(),
         );
-        let done = get_done_port(enable.get_grp());
+        let done = get_done_port(&enable);
         let interp = AssignmentInterpreter::new_owned(
             env,
             &done.borrow() as &ir::Port as *const ir::Port,
@@ -136,7 +134,7 @@ impl<'a> EnableInterpreter<'a> {
 
 impl<'a> EnableInterpreter<'a> {
     fn reset(self) -> InterpreterState {
-        self.interp.reset(self.enable.iter())
+        self.interp.reset(self.enable.assignments.iter())
     }
     fn get(&self, port: ConstPort) -> &Value {
         self.interp.get_val(port)
