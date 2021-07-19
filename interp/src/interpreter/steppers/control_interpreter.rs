@@ -9,6 +9,8 @@ use calyx::ir::{self, Assignment, Control, Group};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
 
+// this almost certainly doesn't need to exist but it can't be a trait fn with a
+// default impl because it consumes self
 macro_rules! run_and_deconstruct {
     ($name:ident) => {{
         $name.run();
@@ -208,6 +210,8 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
     }
 
     fn is_done(&self) -> bool {
+        // we don't use peek here because that requires mutable access to the
+        // iterator
         self.current_interpreter.is_none() && self.done_flag
     }
 
@@ -431,6 +435,8 @@ impl Interpreter for InvokeInterpreter {
     }
 }
 
+// internal use macro that just captures the same name and expression for each
+// arm of the control interpreter match. This is largely as a convenience
 macro_rules! control_match {
     ($matched: ident, $name:ident, $exp:expr) => {{
         match $matched {
