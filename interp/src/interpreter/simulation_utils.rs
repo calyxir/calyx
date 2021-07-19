@@ -40,3 +40,15 @@ where
     })
     .collect()
 }
+
+pub fn control_is_empty(control: &ir::Control) -> bool {
+    match control {
+        ir::Control::Seq(s) => s.stmts.iter().all(control_is_empty),
+        ir::Control::Par(p) => p.stmts.iter().all(control_is_empty),
+        ir::Control::If(_) => false,
+        ir::Control::While(_) => false,
+        ir::Control::Invoke(_) => false,
+        ir::Control::Enable(_) => false,
+        ir::Control::Empty(_) => true,
+    }
+}
