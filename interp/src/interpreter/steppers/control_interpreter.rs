@@ -120,12 +120,15 @@ impl<'a> EnableInterpreter<'a> {
         E: Into<EnableBox<'a>>,
     {
         let enable: EnableBox = enable.into();
-        let assigns = enable.iter().chain(continuous.iter()).cloned();
+        let assigns = (
+            enable.iter().cloned().collect_vec(),
+            continuous.iter().cloned().collect_vec(),
+        );
         let done = get_done_port(enable.get_grp());
         let interp = AssignmentInterpreter::new_owned(
             env,
             &done.borrow() as &ir::Port as *const ir::Port,
-            assigns.collect(),
+            assigns,
         );
         Self { enable, interp }
     }

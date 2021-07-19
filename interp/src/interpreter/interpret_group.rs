@@ -67,7 +67,7 @@ pub fn interp_cont(
     let mut assign_interp = AssignmentInterpreter::new(
         env,
         done_prt_ref,
-        continuous_assignments.iter(),
+        (std::iter::empty(), continuous_assignments.iter()),
     );
     assign_interp.run();
 
@@ -101,10 +101,7 @@ pub fn interpret_group(
     let interp = AssignmentInterpreter::new(
         env,
         grp_done_ref,
-        group
-            .assignments
-            .iter()
-            .chain(continuous_assignments.iter()),
+        (group.assignments.iter(), continuous_assignments.iter()),
     );
 
     Ok(interp.run_and_deconstruct())
@@ -112,7 +109,6 @@ pub fn interpret_group(
 
 pub fn finish_group_interpretation(
     group: &ir::Group,
-    // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
 ) -> FutilResult<InterpreterState> {

@@ -11,29 +11,52 @@ use std::collections::HashSet;
 /// An internal wrapper enum which allows the Assignment Interpreter to own the
 /// assignments it iterates over
 enum AssignmentOwner<'a> {
-    Ref(Vec<&'a Assignment>),
-    Owned(Vec<Assignment>),
+    // first is always normal, second is always continuous
+    Ref(Vec<&'a Assignment>, Vec<&'a Assignment>),
+    Owned(Vec<Assignment>, Vec<Assignment>),
 }
 
 impl<'a> AssignmentOwner<'a> {
     // I'm sorry
-    fn iter(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
+    fn iter_all(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
         match self {
-            AssignmentOwner::Ref(assigns) => {
-                Box::new((*assigns).iter().copied())
+            AssignmentOwner::Ref(assigns, cont) => {
+                Box::new((*assigns).iter().chain((*cont).iter()).copied())
             }
-            AssignmentOwner::Owned(assigns) => Box::new((*assigns).iter()),
+            AssignmentOwner::Owned(assigns, cont) => {
+                Box::new((*assigns).iter().chain((*cont).iter()))
+            }
         }
     }
 
-    fn from_vec(vec: Vec<Assignment>) -> Self {
-        Self::Owned(vec)
+    fn _iter_group_assigns(
+        &self,
+    ) -> Box<dyn Iterator<Item = &Assignment> + '_> {
+        match self {
+            AssignmentOwner::Ref(v1, _) => Box::new(v1.iter().copied()),
+            AssignmentOwner::Owned(v1, _) => Box::new(v1.iter()),
+        }
+    }
+
+    fn _iter_cont(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
+        match self {
+            AssignmentOwner::Ref(_, v2) => Box::new(v2.iter().copied()),
+            AssignmentOwner::Owned(_, v2) => Box::new(v2.iter()),
+        }
+    }
+
+    fn from_vecs((v1, v2): (Vec<Assignment>, Vec<Assignment>)) -> Self {
+        Self::Owned(v1, v2)
     }
 }
 
-impl<'a, I: Iterator<Item = &'a Assignment>> From<I> for AssignmentOwner<'a> {
-    fn from(iter: I) -> Self {
-        Self::Ref(iter.collect())
+impl<'a, I1, I2> From<(I1, I2)> for AssignmentOwner<'a>
+where
+    I1: Iterator<Item = &'a Assignment>,
+    I2: Iterator<Item = &'a Assignment>,
+{
+    fn from(iter: (I1, I2)) -> Self {
+        Self::Ref(iter.0.collect(), iter.1.collect())
     }
 }
 
@@ -46,18 +69,19 @@ pub struct AssignmentInterpreter<'a> {
 }
 
 impl<'a> AssignmentInterpreter<'a> {
-    pub fn new<I>(
+    pub fn new<I1, I2>(
         env: InterpreterState,
         done_signal: ConstPort,
-        assigns: I,
+        assigns: (I1, I2),
     ) -> Self
     where
-        I: Iterator<Item = &'a Assignment>,
+        I1: Iterator<Item = &'a Assignment>,
+        I2: Iterator<Item = &'a Assignment>,
     {
         let state = env.into();
         let done_port = done_signal;
         let assigns: AssignmentOwner = assigns.into();
-        let cells = simulation_utils::get_dst_cells(assigns.iter());
+        let cells = simulation_utils::get_dst_cells(assigns.iter_all());
 
         Self {
             state,
@@ -71,12 +95,12 @@ impl<'a> AssignmentInterpreter<'a> {
     pub fn new_owned(
         env: InterpreterState,
         done_signal: ConstPort,
-        vec: Vec<Assignment>,
+        vecs: (Vec<Assignment>, Vec<Assignment>),
     ) -> Self {
         let state = env.into();
         let done_port = done_signal;
-        let assigns: AssignmentOwner = AssignmentOwner::from_vec(vec);
-        let cells = simulation_utils::get_dst_cells(assigns.iter());
+        let assigns: AssignmentOwner = AssignmentOwner::from_vecs(vecs);
+        let cells = simulation_utils::get_dst_cells(assigns.iter_all());
 
         Self {
             state,
@@ -114,7 +138,7 @@ impl<'a> AssignmentInterpreter<'a> {
 
         let possible_ports: HashSet<*const ir::Port> = self
             .assigns
-            .iter()
+            .iter_all()
             .map(|a| get_const_from_rrc(&a.dst))
             .collect();
 
@@ -126,7 +150,7 @@ impl<'a> AssignmentInterpreter<'a> {
             let mut updates_list = vec![];
 
             // compute all updates from the assignments
-            for assignment in self.assigns.iter() {
+            for assignment in self.assigns.iter_all() {
                 // if assignment.dst.borrow().name == "done"
                 // println!("{:?}", assignment.);
                 if self.state.eval_guard(&assignment.guard) {
