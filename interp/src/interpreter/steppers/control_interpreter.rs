@@ -5,7 +5,7 @@ use crate::{
     interpreter::simulation_utils::{is_signal_high, ConstPort},
     values::Value,
 };
-use calyx::ir::{self, Assignment, Control, Group};
+use calyx::ir::{self, Assignment, Component, Control, Group};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
 
@@ -528,5 +528,65 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
 
     fn is_done(&self) -> bool {
         control_match!(self, i, i.is_done())
+    }
+}
+
+pub struct StructuralInterpreter<'a> {
+    interp: AssignmentInterpreter<'a>,
+    continuous: &'a [Assignment],
+    done_port: ConstPort,
+    go_port: ConstPort,
+}
+
+impl<'a> StructuralInterpreter<'a> {
+    pub fn from_component(
+        comp: &Component,
+        mut env: InterpreterState,
+        continuous_assignments: &'a [Assignment],
+    ) -> Self {
+        let comp_sig = comp.signature.borrow();
+        let done_port: ConstPort = comp_sig.get("done").as_ptr();
+        let go_port: ConstPort = comp_sig.get("go").as_ptr();
+
+        if !is_signal_high(env.get_from_const_port(done_port).into()) {
+            env.insert(go_port, Value::bit_high());
+        }
+
+        let interp = AssignmentInterpreter::new(
+            env,
+            done_port,
+            (std::iter::empty(), continuous_assignments.iter()),
+        );
+
+        Self {
+            interp,
+            continuous: continuous_assignments,
+            done_port,
+            go_port,
+        }
+    }
+}
+
+impl<'a> Interpreter for StructuralInterpreter<'a> {
+    fn step(&mut self) {
+        self.interp.step();
+    }
+
+    fn deconstruct(self) -> InterpreterState {
+        let mut final_env = self.interp.deconstruct();
+        final_env.insert(self.go_port, Value::bit_low());
+        AssignmentInterpreter::finish_interpretation(
+            final_env,
+            self.done_port,
+            self.continuous.iter(),
+        )
+    }
+
+    fn run(&mut self) {
+        self.interp.run();
+    }
+
+    fn is_done(&self) -> bool {
+        self.interp.is_deconstructable()
     }
 }

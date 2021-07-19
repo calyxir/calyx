@@ -246,7 +246,7 @@ impl<'a> AssignmentInterpreter<'a> {
     }
 
     #[inline]
-    pub fn is_done(&self) -> bool {
+    fn is_done(&self) -> bool {
         simulation_utils::is_signal_high(self.state.get_const(self.done_port))
     }
 
