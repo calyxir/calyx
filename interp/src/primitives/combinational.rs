@@ -110,16 +110,13 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     adder.execute(&[("left".into(), &left),
     ("right".into(), &new_right)], None).into_iter().next().map(|(_, v)| v).unwrap()
 });
-comb_primitive!(StdDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
 // ===================== Signed binary operations ======================
-comb_primitive!(StdSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
-comb_primitive!(StdSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
+// comb_primitive!(StdSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+//     todo!()
+// });
+// comb_primitive!(StdSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+//     todo!()
+// });
 // ===================== Unsigned FP binary operations ======================
 comb_primitive!(StdFpAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     todo!()
@@ -127,12 +124,12 @@ comb_primitive!(StdFpAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 comb_primitive!(StdFpSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     todo!()
 });
-comb_primitive!(StdFpMultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
-comb_primitive!(StdFpDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
+// comb_primitive!(StdFpMultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+//     todo!()
+// });
+// comb_primitive!(StdFpDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+//     todo!()
+// });
 
 // ===================== Signed FP binary operations ======================
 comb_primitive!(StdFpSadd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -141,12 +138,12 @@ comb_primitive!(StdFpSadd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 comb_primitive!(StdFpSsub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     todo!()
 });
-comb_primitive!(StdFpSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
-comb_primitive!(StdFpSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
+// comb_primitive!(StdFpSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+//     todo!()
+// });
+// comb_primitive!(StdFpSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+//     todo!()
+// });
 
 // ===================== Shift Operations ======================
 comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
