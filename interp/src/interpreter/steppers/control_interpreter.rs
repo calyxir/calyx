@@ -540,13 +540,13 @@ pub struct StructuralInterpreter<'a> {
 
 impl<'a> StructuralInterpreter<'a> {
     pub fn from_component(
-        comp: &Component,
+        comp: &'a Component,
         mut env: InterpreterState,
-        continuous_assignments: &'a [Assignment],
     ) -> Self {
         let comp_sig = comp.signature.borrow();
         let done_port: ConstPort = comp_sig.get("done").as_ptr();
         let go_port: ConstPort = comp_sig.get("go").as_ptr();
+        let continuous_assignments = &comp.continuous_assignments;
 
         if !is_signal_high(env.get_from_const_port(done_port).into()) {
             env.insert(go_port, Value::bit_high());
