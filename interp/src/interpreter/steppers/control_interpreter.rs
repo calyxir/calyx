@@ -10,7 +10,7 @@ use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
 use std::ops::Deref;
 
-enum ReferenceHolder<'a, T> {
+pub enum ReferenceHolder<'a, T> {
     Ref(Ref<'a, T>),
     Borrow(&'a T),
     Owned(T),
