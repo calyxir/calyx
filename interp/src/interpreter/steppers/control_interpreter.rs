@@ -2,41 +2,14 @@ use super::super::simulation_utils::get_done_port;
 use super::AssignmentInterpreter;
 use crate::{
     environment::InterpreterState,
-    interpreter::simulation_utils::{is_signal_high, ConstPort},
+    interpreter::simulation_utils::{
+        is_signal_high, ConstPort, ReferenceHolder,
+    },
     values::Value,
 };
 use calyx::ir::{self, Assignment, Component, Control, Group};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
-use std::ops::Deref;
-
-pub enum ReferenceHolder<'a, T> {
-    Ref(Ref<'a, T>),
-    Borrow(&'a T),
-}
-
-impl<'a, T> From<&'a T> for ReferenceHolder<'a, T> {
-    fn from(input: &'a T) -> Self {
-        Self::Borrow(input)
-    }
-}
-
-impl<'a, T> From<Ref<'a, T>> for ReferenceHolder<'a, T> {
-    fn from(input: Ref<'a, T>) -> Self {
-        Self::Ref(input)
-    }
-}
-
-impl<'a, T> Deref for ReferenceHolder<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            ReferenceHolder::Ref(r) => r,
-            ReferenceHolder::Borrow(b) => *b,
-        }
-    }
-}
 
 // this almost certainly doesn't need to exist but it can't be a trait fn with a
 // default impl because it consumes self

@@ -2,6 +2,8 @@ use crate::utils::{get_const_from_rrc, OutputValueRef};
 use crate::values::{OutputValue, ReadableValue, Value};
 use calyx::ir;
 use calyx::ir::RRC;
+use std::cell::Ref;
+use std::ops::Deref;
 
 pub type ConstPort = *const ir::Port;
 pub type ConstCell = *const ir::Cell;
@@ -50,5 +52,33 @@ pub fn control_is_empty(control: &ir::Control) -> bool {
         ir::Control::Invoke(_) => false,
         ir::Control::Enable(_) => false,
         ir::Control::Empty(_) => true,
+    }
+}
+
+pub enum ReferenceHolder<'a, T> {
+    Ref(Ref<'a, T>),
+    Borrow(&'a T),
+}
+
+impl<'a, T> From<&'a T> for ReferenceHolder<'a, T> {
+    fn from(input: &'a T) -> Self {
+        Self::Borrow(input)
+    }
+}
+
+impl<'a, T> From<Ref<'a, T>> for ReferenceHolder<'a, T> {
+    fn from(input: Ref<'a, T>) -> Self {
+        Self::Ref(input)
+    }
+}
+
+impl<'a, T> Deref for ReferenceHolder<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            ReferenceHolder::Ref(r) => r,
+            ReferenceHolder::Borrow(b) => *b,
+        }
     }
 }
