@@ -1,11 +1,11 @@
-// #[allow(unused)]
-// use crate::port_bindings;
-// #[allow(unused)]
-// use crate::primitives::{combinational as comb, stateful as stfl, Primitive};
-// #[allow(unused)]
-// use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
-// #[allow(unused)]
-// use calyx::ir;
+#[allow(unused)]
+use crate::port_bindings;
+#[allow(unused)]
+use crate::primitives::{combinational as comb, stateful as stfl, Primitive};
+#[allow(unused)]
+use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
+#[allow(unused)]
+use calyx::ir;
 
 // #[test]
 // fn test_std_mult_pipe() {
@@ -607,25 +607,62 @@
 //     }
 // }
 
-// #[test]
-// fn test_std_reg_imval() {
-//     let mut reg1 = stfl::StdReg::from_constants(6);
-//     port_bindings![binds;
-//         r#in -> (16, 6),
-//         write_en -> (0, 1)
-//     ];
-//     let output_vals =
-//         reg1.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     println!("output_vals: {:?}", output_vals);
-//     let mut output_vals = output_vals.into_iter();
-//     if let (read_data, None) = (output_vals.next().unwrap(), output_vals.next())
-//     {
-//         let rd = read_data.1.unwrap_imm();
-//         assert_eq!(rd.as_u64(), 0); // assuming this b/c reg1 hasn't been initialized
-//     } else {
-//         panic!()
-//     }
-// }
+#[test]
+fn test_std_reg_imval() {
+    let mut reg1 = stfl::StdReg::from_constants(6);
+    //see that unitialized register, executed w/ write_en low,
+    //returns 0 and 0
+    port_bindings![binds;
+        r#in -> (16, 6),
+        write_en -> (0, 1)
+    ];
+    let output_vals = reg1.validate_and_execute(&binds);
+    assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
+    let output_vals = reg1.do_tick();
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    //should be a 0 and a 0 ([out] and [done])
+    let (out, done_val) =
+        (output_vals.next().unwrap(), output_vals.next().unwrap());
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    let d = done_val.1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
+    //now have write_en high and see output from do_tick() is 16, 1
+    port_bindings![binds;
+        r#in -> (16, 6),
+        write_en -> (1, 1)
+    ];
+    let output_vals = reg1.validate_and_execute(&binds);
+    assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
+    let output_vals = reg1.do_tick();
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    //should be a 16 and a 1 ([out] and [done])
+    let (out, done_val) =
+        (output_vals.next().unwrap(), output_vals.next().unwrap());
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 16);
+    let d = done_val.1.unwrap_imm();
+    assert_eq!(d.as_u64(), 1);
+    //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
+    port_bindings![binds;
+        r#in -> (16, 6),
+        write_en -> (0, 1)
+    ];
+    let output_vals = reg1.validate_and_execute(&binds);
+    assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
+    let output_vals = reg1.do_tick();
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    //should be a 16 and a 1 ([out] and [done])
+    let (out, done_val) =
+        (output_vals.next().unwrap(), output_vals.next().unwrap());
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 16);
+    let d = done_val.1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
+}
 // #[test]
 // #[should_panic]
 // fn reg_too_big() {

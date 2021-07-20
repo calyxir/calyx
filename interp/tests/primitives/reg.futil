@@ -13,19 +13,19 @@ component main() -> () {
       write[done] = reg0.done;
     }
 
-    group dont_write{
-      reg0.write_en = 1'd0;
-      reg0.in = 32'd0;
-      reg1.write_en = 1'd1; 
-      reg1.in = 32'd23;
-      dont_write[done] = reg1.done; 
-    }
+    //group dont_write{
+    //  reg0.write_en = 1'd0;
+    //  reg0.in = 32'd0;
+    //  reg1.write_en = 1'd1; 
+    //  reg1.in = 32'd23;
+    //  dont_write[done] = reg1.done; 
+    //}
   }
 
   control {
     seq {
       write;
-      dont_write;
+      //dont_write;
     }
   }
 }
