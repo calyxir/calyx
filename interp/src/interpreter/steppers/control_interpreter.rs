@@ -413,6 +413,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
     fn is_done(&self) -> bool {
         self.body_interp.is_none()
             && self.cond_interp.is_some()
+            && self.cond_interp.as_ref().unwrap().is_done()
             && !is_signal_high(
                 self.cond_interp.as_ref().unwrap().get(self.port).into(),
             )
