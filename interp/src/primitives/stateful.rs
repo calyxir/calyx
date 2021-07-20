@@ -409,8 +409,9 @@ impl Primitive for StdReg {
             //done is low, but there is still data in this reg to return
             vec![
                 (ir::Id::from("out"), self.data[0].clone().into()),
-                (ir::Id::from("done"), Value::bit_low().into()),
+                //(ir::Id::from("done"), Value::bit_low().into()),
                 //not sure if we shld return low done, or just not specify done?
+                //NOTE: goes in an infinite loop if we return a low done; why?
             ]
         } else {
             panic!("StdReg's cycle_count is not 0 or 1!: {}", self.cycle_count);
