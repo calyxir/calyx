@@ -447,6 +447,7 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
         if let Some(prim) = executable {
             //note: w/ new do_tick() interface, no need for this [done] stuff
             let new_vals = if reset_flag {
+                //note: need to clear update buffer in reset
                 prim.reset(&inputs)
             } else {
                 prim.execute(&inputs)

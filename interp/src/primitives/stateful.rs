@@ -360,6 +360,11 @@ pub struct StdReg {
     pub width: u64,
     pub data: [Value; 1],
     update: Option<Value>,
+    //does it need a cycle count?
+    //yes. execute will set cycle count to 1,
+    //do_tick() will set it to 0. if you call
+    //do_tick() while cycle count is 0, no done signal will be emitted
+    cycle_count: u64,
 }
 
 impl StdReg {
@@ -368,6 +373,7 @@ impl StdReg {
             width,
             data: [Value::new(width as usize)],
             update: None,
+            cycle_count: 0,
         }
     }
 
@@ -382,9 +388,33 @@ impl StdReg {
 }
 
 impl Primitive for StdReg {
-    //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        //first commit any updates
+        //is there a point in only putting this in cycle_count == 1?
+        //idt it's possible for there to be an update that wasn't read right
+        //after the execute call.
+        if let Some(val) = self.update.take() {
+            self.data[0] = val;
+        }
+        //then, based on cycle count, return
+        if self.cycle_count == 1 {
+            self.cycle_count = 0; //we are done for this cycle
+                                  //if do_tick() is called again w/o an execute() preceeding it,
+                                  //then done will be low.
+            vec![
+                (ir::Id::from("out"), self.data[0].clone().into()),
+                (ir::Id::from("done"), Value::bit_high().into()),
+            ]
+        } else if self.cycle_count == 0 {
+            //done is low, but there is still data in this reg to return
+            vec![
+                (ir::Id::from("out"), self.data[0].clone().into()),
+                (ir::Id::from("done"), Value::bit_low().into()),
+                //not sure if we shld return low done, or just not specify done?
+            ]
+        } else {
+            panic!("StdReg's cycle_count is not 0 or 1!: {}", self.cycle_count);
+        }
     }
 
     fn is_comb(&self) -> bool {
@@ -412,46 +442,23 @@ impl Primitive for StdReg {
         //write the input to the register
         if write_en.as_u64() == 1 {
             self.update = Some((*input).clone());
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("out"),
-                    TimeLockedValue::new(
-                        (*input).clone(),
-                        1,
-                        Some(self.data[0].clone()),
-                    )
-                    .into(),
-                ),
-                // (
-                //     "done".into(),
-                //     PulseValue::new(
-                //         // XXX(rachit): Do we always expect done_val to exist
-                //         // here?
-                //         done_val.unwrap().clone(),
-                //         Value::bit_high(),
-                //         Value::bit_low(),
-                //         1,
-                //     )
-                //     .into(),
-                // ),
-            ]
-        } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // OUT: the old value in the register, b/c we couldn't write
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("out"), self.data[0].clone().into())]
+            //put cycle_count as 1! B/c do_tick() should return a high done
+            self.cycle_count = 1;
         }
+        //if write_en wasn't high, cycle_count shouldn't be set 1, b/c register shouldn't emit
+        //a high done from a low write_en. But, cycle_count shouldn't explicitly be set to 0; what if execute() is called
+        //multiple times in a cycle, j/ w write_en on only once? Then in the next cycle
+        //the register should still emit a value + high done, as it just ignored the write_en off
+        //executes.
+        vec![]
     }
 
     fn reset(
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+        self.update = None;
+        self.cycle_count = 0; //might be redundant, not too sure when reset is used
         vec![
             (ir::Id::from("out"), self.data[0].clone().into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
