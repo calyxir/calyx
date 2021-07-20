@@ -194,6 +194,6 @@ class InvalidExternalStage(FudError):
     """
 
     def __init__(self, stage_name, msg):
-        msg = f"""The external stage: {stage_name}, was unable to be loaded:
+        msg = f"""Unable to load external stage: {stage_name}
 {msg}"""
         super().__init__(msg)
