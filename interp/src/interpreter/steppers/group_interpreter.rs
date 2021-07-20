@@ -1,6 +1,4 @@
-use super::super::simulation_utils::{
-    self, get_done_port, ConstCell, ConstPort,
-};
+use super::super::utils::{self, get_done_port, ConstCell, ConstPort};
 use super::super::working_environment::WorkingEnvironment;
 use crate::environment::InterpreterState;
 use crate::utils::get_const_from_rrc;
@@ -81,7 +79,7 @@ impl<'a> AssignmentInterpreter<'a> {
         let state = env.into();
         let done_port = done_signal;
         let assigns: AssignmentOwner = assigns.into();
-        let cells = simulation_utils::get_dst_cells(assigns.iter_all());
+        let cells = utils::get_dst_cells(assigns.iter_all());
 
         Self {
             state,
@@ -100,7 +98,7 @@ impl<'a> AssignmentInterpreter<'a> {
         let state = env.into();
         let done_port = done_signal;
         let assigns: AssignmentOwner = AssignmentOwner::from_vecs(vecs);
-        let cells = simulation_utils::get_dst_cells(assigns.iter_all());
+        let cells = utils::get_dst_cells(assigns.iter_all());
 
         Self {
             state,
@@ -247,7 +245,7 @@ impl<'a> AssignmentInterpreter<'a> {
 
     #[inline]
     fn is_done(&self) -> bool {
-        simulation_utils::is_signal_high(self.state.get_const(self.done_port))
+        utils::is_signal_high(self.state.get_const(self.done_port))
     }
 
     pub fn deconstruct(self) -> InterpreterState {
@@ -309,7 +307,7 @@ impl<'a> AssignmentInterpreter<'a> {
             );
         }
 
-        let cells = simulation_utils::get_dst_cells(assigns.iter().copied());
+        let cells = utils::get_dst_cells(assigns.iter().copied());
 
         env.insert(done_signal as ConstPort, Value::bit_low());
         let mut working_env: WorkingEnvironment = env.into();

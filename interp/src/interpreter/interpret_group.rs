@@ -3,9 +3,7 @@
 
 use crate::environment::InterpreterState;
 
-use super::simulation_utils::{
-    get_done_port, get_dst_cells, is_signal_high, ConstPort,
-};
+use super::utils::{get_done_port, get_dst_cells, is_signal_high, ConstPort};
 use super::working_environment::WorkingEnvironment;
 use crate::primitives::Primitive;
 use crate::utils::{get_const_from_rrc, OutputValueRef};

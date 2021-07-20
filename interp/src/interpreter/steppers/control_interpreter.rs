@@ -1,10 +1,8 @@
-use super::super::simulation_utils::get_done_port;
+use super::super::utils::get_done_port;
 use super::AssignmentInterpreter;
 use crate::{
     environment::InterpreterState,
-    interpreter::simulation_utils::{
-        is_signal_high, ConstPort, ReferenceHolder,
-    },
+    interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
     values::Value,
 };
 use calyx::ir::{self, Assignment, Component, Control, Group};

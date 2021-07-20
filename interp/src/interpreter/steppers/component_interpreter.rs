@@ -1,4 +1,4 @@
-use super::super::simulation_utils::control_is_empty;
+use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
