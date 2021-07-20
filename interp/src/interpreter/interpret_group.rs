@@ -81,6 +81,7 @@ impl WorkingEnvironment {
     }
 
     //for use w/ smoosher: maybe add a new scope onto backing_env for the tick?
+    //this is not used now w/ primitives having do_tick(). they are ticked in interp_assignments()
     fn do_tick(&mut self) {
         self.backing_env.clk += 1;
 
@@ -287,16 +288,39 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         //if done signal is low and we haven't yet changed anything, means primitives are done,
         //time to evaluate sequential components
         if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
-            working_env.do_tick();
+            let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
+            //no need to do zero-assign check cuz this is run just once (?)
             for cell in cells.iter() {
                 if let Some(x) =
                     working_env.backing_env.cell_prim_map.borrow_mut().get_mut(
                         &(&cell.borrow() as &ir::Cell as *const ir::Cell),
                     )
                 {
-                    x.commit_updates()
+                    let new_vals = x.do_tick();
+                    for (port, val) in new_vals {
+                        let port_ref = cell.borrow().find(port).unwrap();
+                        update_list.push((Rc::clone(&port_ref), val));
+                    }
+
+                    //call do_tick on each cell's primitive, and then
+                    //write the updates as done in eval_prims
+                    //specifically line 419, 448, 455 (create update list, push to it, env.update_val)
+                    //then call working_env.do_tick(), so everything is written to backing_env for us :=)
+                    //no need to worry about done values anymore; the done values will be written
+                    //to env, and primitives will remember their previous [done] state
+                    //no need to treat [done] special anymore.
                 }
             }
+            //put everything from update list into working_env, then
+            //working_env will put the IMM values (all values) into
+            //backing_env
+            for (port, val) in update_list {
+                working_env.update_val(&port.borrow(), val);
+            }
+            working_env.do_tick();
+
+            //after this if statement runs ONCE, end of a cycle. Should only run once!
+            //but prims above can run as much as they want before they stabilize
         }
     }
 
@@ -421,16 +445,11 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
         let executable = prim_map.get_mut(&get_const_from_rrc(&cell));
 
         if let Some(prim) = executable {
+            //note: w/ new do_tick() interface, no need for this [done] stuff
             let new_vals = if reset_flag {
-                prim.clear_update_buffer();
                 prim.reset(&inputs)
             } else {
-                let done_val = if prim.is_comb() {
-                    None
-                } else {
-                    Some(env.get_as_val(&(cell.borrow().get("done").borrow())))
-                };
-                prim.execute(&inputs, done_val)
+                prim.execute(&inputs)
             };
 
             for (port, val) in new_vals {

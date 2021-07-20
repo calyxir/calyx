@@ -1,6 +1,6 @@
 use super::{Primitive, Serializeable};
 use crate::utils::construct_bindings;
-use crate::values::{PulseValue, TimeLockedValue, Value};
+use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
 use calyx::ir;
 
 pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
@@ -51,6 +51,11 @@ impl StdMultPipe {
 }
 
 impl Primitive for StdMultPipe {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        todo!()
+    }
+    //
     fn is_comb(&self) -> bool {
         false
     }
@@ -71,7 +76,6 @@ impl Primitive for StdMultPipe {
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
-        done_val: Option<&Value>,
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
         //unwrap the arguments, left, right, and go
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
@@ -109,16 +113,16 @@ impl Primitive for StdMultPipe {
                     )
                     .into(),
                 ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
+                // (
+                //     "done".into(),
+                //     PulseValue::new(
+                //         done_val.unwrap().clone(),
+                //         Value::bit_high(),
+                //         Value::bit_low(),
+                //         1,
+                //     )
+                //     .into(),
+                // ),
             ];
             // } else {
             //     //else just increment cycle_count
@@ -170,16 +174,6 @@ impl Primitive for StdMultPipe {
         //         (ir::Id::from("done"), Value::zeroes(1).into()),
         //     ]
         // }
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some(val) = self.update.take() {
-            self.product = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
-        self.update = None;
     }
 
     fn serialize(&self) -> Serializeable {
@@ -234,6 +228,11 @@ impl StdDivPipe {
 }
 
 impl Primitive for StdDivPipe {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        todo!()
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -254,7 +253,6 @@ impl Primitive for StdDivPipe {
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
-        done_val: Option<&Value>,
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
         //unwrap the arguments, left, right, and go
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
@@ -301,16 +299,16 @@ impl Primitive for StdDivPipe {
                     )
                     .into(),
                 ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
+                // (
+                //     "done".into(),
+                //     PulseValue::new(
+                //         done_val.unwrap().clone(),
+                //         Value::bit_high(),
+                //         Value::bit_low(),
+                //         1,
+                //     )
+                //     .into(),
+                // ),
             ];
         } else {
             //if [go] is low, return whatever is in product
@@ -342,20 +340,6 @@ impl Primitive for StdDivPipe {
             (ir::Id::from("out_remainder"), self.remainder.clone().into()),
             (ir::Id::from("done"), Value::bit_low().into()),
         ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some(val) = self.update_quotient.take() {
-            self.quotient = val;
-        }
-        if let Some(val) = self.update_remainder.take() {
-            self.remainder = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
-        self.update_quotient = None;
-        self.update_remainder = None;
     }
 
     fn serialize(&self) -> Serializeable {
@@ -398,6 +382,11 @@ impl StdReg {
 }
 
 impl Primitive for StdReg {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        todo!()
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -415,7 +404,6 @@ impl Primitive for StdReg {
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
-        done_val: Option<&Value>,
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
         //unwrap the arguments
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
@@ -438,18 +426,18 @@ impl Primitive for StdReg {
                     )
                     .into(),
                 ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // XXX(rachit): Do we always expect done_val to exist
-                        // here?
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
+                // (
+                //     "done".into(),
+                //     PulseValue::new(
+                //         // XXX(rachit): Do we always expect done_val to exist
+                //         // here?
+                //         done_val.unwrap().clone(),
+                //         Value::bit_high(),
+                //         Value::bit_low(),
+                //         1,
+                //     )
+                //     .into(),
+                // ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -468,16 +456,6 @@ impl Primitive for StdReg {
             (ir::Id::from("out"), self.data[0].clone().into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some(val) = self.update.take() {
-            self.data[0] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
-        self.update = None;
     }
 
     fn serialize(&self) -> Serializeable {
@@ -552,6 +530,11 @@ impl StdMemD1 {
 }
 
 impl Primitive for StdMemD1 {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        todo!()
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -573,7 +556,6 @@ impl Primitive for StdMemD1 {
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
         let (_, input) =
             inputs.iter().find(|(id, _)| id == "write_data").unwrap();
@@ -596,18 +578,18 @@ impl Primitive for StdMemD1 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): Remove this done_val buisiness
-                        // pending updates to primitive responsibilities
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
+                // (
+                //     "done".into(),
+                //     PulseValue::new(
+                //         // TODO (griffin): Remove this done_val buisiness
+                //         // pending updates to primitive responsibilities
+                //         done_val.unwrap().clone(),
+                //         Value::bit_high(),
+                //         Value::bit_low(),
+                //         1,
+                //     )
+                //     .into(),
+                // ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -631,16 +613,6 @@ impl Primitive for StdMemD1 {
             ("read_data".into(), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((idx, val)) = self.update.take() {
-            self.data[idx as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
-        self.update = None;
     }
 
     fn serialize(&self) -> Serializeable {
@@ -748,6 +720,11 @@ impl StdMemD2 {
 }
 
 impl Primitive for StdMemD2 {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        todo!()
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -773,7 +750,6 @@ impl Primitive for StdMemD2 {
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -806,17 +782,17 @@ impl Primitive for StdMemD2 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): FIXME
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
+                // (
+                //     "done".into(),
+                //     PulseValue::new(
+                //         // TODO (griffin): FIXME
+                //         done_val.unwrap().clone(),
+                //         Value::bit_high(),
+                //         Value::bit_low(),
+                //         1,
+                //     )
+                //     .into(),
+                // ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -844,16 +820,6 @@ impl Primitive for StdMemD2 {
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((addr, val)) = self.update.take() {
-            self.data[addr as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
-        self.update = None;
     }
 
     fn serialize(&self) -> Serializeable {
@@ -976,6 +942,11 @@ impl StdMemD3 {
 }
 
 impl Primitive for StdMemD3 {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        todo!()
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -1005,7 +976,6 @@ impl Primitive for StdMemD3 {
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -1040,17 +1010,17 @@ impl Primitive for StdMemD3 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): FIXME
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
+                // (
+                //     "done".into(),
+                //     PulseValue::new(
+                //         // TODO (griffin): FIXME
+                //         done_val.unwrap().clone(),
+                //         Value::bit_high(),
+                //         Value::bit_low(),
+                //         1,
+                //     )
+                //     .into(),
+                // ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -1080,16 +1050,6 @@ impl Primitive for StdMemD3 {
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((addr, val)) = self.update.take() {
-            self.data[addr as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
-        self.update = None;
     }
 
     fn serialize(&self) -> Serializeable {
@@ -1236,6 +1196,11 @@ impl StdMemD4 {
     }
 }
 impl Primitive for StdMemD4 {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        todo!()
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -1269,7 +1234,6 @@ impl Primitive for StdMemD4 {
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
@@ -1307,17 +1271,17 @@ impl Primitive for StdMemD4 {
                     ir::Id::from("read_data"),
                     TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
                 ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): FIXME
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
+                // (
+                //     "done".into(),
+                //     PulseValue::new(
+                //         // TODO (griffin): FIXME
+                //         done_val.unwrap().clone(),
+                //         Value::bit_high(),
+                //         Value::bit_low(),
+                //         1,
+                //     )
+                //     .into(),
+                // ),
             ]
         } else {
             // if write_en was low, so done is 0 b/c nothing was written here
@@ -1349,16 +1313,6 @@ impl Primitive for StdMemD4 {
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
         ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((addr, val)) = self.update.take() {
-            self.data[addr as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
-        self.update = None;
     }
 
     fn serialize(&self) -> Serializeable {
