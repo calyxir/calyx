@@ -13,18 +13,11 @@ use std::ops::Deref;
 pub enum ReferenceHolder<'a, T> {
     Ref(Ref<'a, T>),
     Borrow(&'a T),
-    Owned(T),
 }
 
 impl<'a, T> From<&'a T> for ReferenceHolder<'a, T> {
     fn from(input: &'a T) -> Self {
         Self::Borrow(input)
-    }
-}
-
-impl<'a, T> From<T> for ReferenceHolder<'a, T> {
-    fn from(input: T) -> Self {
-        Self::Owned(input)
     }
 }
 
@@ -41,7 +34,6 @@ impl<'a, T> Deref for ReferenceHolder<'a, T> {
         match self {
             ReferenceHolder::Ref(r) => r,
             ReferenceHolder::Borrow(b) => *b,
-            ReferenceHolder::Owned(ow) => ow,
         }
     }
 }
@@ -69,27 +61,17 @@ pub trait Interpreter {
     fn is_done(&self) -> bool;
 }
 
-pub struct EmptyInterpreter<'a> {
-    _empty: &'a ir::Empty,
+pub struct EmptyInterpreter {
     env: InterpreterState,
-    _continuous: &'a [Assignment],
 }
 
-impl<'a> EmptyInterpreter<'a> {
-    pub fn new(
-        empty: &'a ir::Empty,
-        env: InterpreterState,
-        continuous_assignments: &'a [Assignment],
-    ) -> Self {
-        Self {
-            _empty: empty,
-            env,
-            _continuous: continuous_assignments,
-        }
+impl EmptyInterpreter {
+    pub fn new(env: InterpreterState) -> Self {
+        Self { env }
     }
 }
 
-impl<'a> Interpreter for EmptyInterpreter<'a> {
+impl Interpreter for EmptyInterpreter {
     fn step(&mut self) {}
 
     fn run(&mut self) {}
@@ -462,7 +444,7 @@ macro_rules! control_match {
 }
 
 pub enum ControlInterpreter<'a> {
-    Empty(Box<EmptyInterpreter<'a>>),
+    Empty(Box<EmptyInterpreter>),
     Enable(Box<EnableInterpreter<'a>>),
     Seq(Box<SeqInterpreter<'a>>),
     Par(Box<ParInterpreter<'a>>),
@@ -504,20 +486,11 @@ impl<'a> ControlInterpreter<'a> {
             Control::Enable(e) => Self::Enable(Box::new(
                 EnableInterpreter::new(e, env, continuous_assignments),
             )),
-            Control::Empty(e) => Self::Empty(Box::new(EmptyInterpreter::new(
-                e,
-                env,
-                continuous_assignments,
-            ))),
+            Control::Empty(_) => {
+                Self::Empty(Box::new(EmptyInterpreter::new(env)))
+            }
         }
     }
-
-    // fn as_dyn_mut(&mut self) -> &mut dyn Interpreter {
-    //     control_match!(self, inner, &mut (**inner))
-    // }
-    // fn as_dyn(&self) -> &dyn Interpreter {
-    //     control_match!(self, inner, &(**inner))
-    // }
 }
 
 impl<'a> Interpreter for ControlInterpreter<'a> {
