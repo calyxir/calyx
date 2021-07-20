@@ -1,6 +1,8 @@
 import argparse
 import logging as log
 from sys import exit
+import importlib.util
+from pathlib import Path
 
 import toml
 
@@ -144,6 +146,55 @@ def register_stages(registry, cfg):
     # Interpreter
     registry.register(interpreter.InterpreterStage(cfg, "", "Run the interpreter"))
 
+    # register external stages
+    register_external_stages(cfg, registry)
+
+
+def register_external_stages(cfg, registry):
+    """
+    Find external stages by looking for tables in the `external-stages` key
+    and register them. An external stage must have a `location` key defined
+    that points to a python module containing the external fud stages.
+    """
+
+    if ["external-stages"] in cfg:
+        # search through external stages
+        for stage in cfg[["external-stages"]]:
+            # get file location of stage and ensure that it exists
+            location = cfg["external-stages", stage, "location"]
+            if not Path(location).exists():
+                raise errors.InvalidExternalStage(
+                    stage, f"No such file or directory: '{location}'"
+                )
+
+            # import the module from `location`
+            spec = importlib.util.spec_from_file_location(stage, location)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+
+            # check to make sure that module has `__STAGES__` defined.
+            if not hasattr(mod, "__STAGES__"):
+                raise errors.InvalidExternalStage(
+                    stage, "The module doesn't have attribute: '__STAGES__'"
+                )
+
+            # register the discovered stages
+            for stage_class in mod.__STAGES__:
+                try:
+                    registry.register(stage_class(cfg))
+                except Exception as e:
+                    raise errors.InvalidExternalStage(
+                        stage,
+                        "\n".join(
+                            [
+                                f"In {stage_class.__name__} from '{location}':",
+                                "```",
+                                str(e),
+                                "```",
+                            ]
+                        ),
+                    )
+
 
 def display_config(args, cfg):
     if args.key is None:
@@ -215,6 +266,13 @@ def main():
             description="Check to make sure configuration is valid.",
         )
     )
+    config_register(
+        subparsers.add_parser(
+            "register",
+            help="Register an external stage.",
+            description="Register an external stage.",
+        )
+    )
 
     args = parser.parse_args()
     # Setup logging
@@ -245,6 +303,8 @@ def main():
             display_config(args, cfg)
         elif args.command == "check":
             check.check(cfg)
+        elif args.command == "register":
+            cfg.setup_external_stage(args)
 
     except errors.FudError as e:
         log.error(e)
@@ -295,3 +355,17 @@ def config_info(parser):
 
 def config_check(parser):
     parser.set_defaults(command="check")
+
+
+def config_register(parser):
+    parser.add_argument("name", help="The name of the external stage to be registered.")
+    parser.add_argument(
+        "-p --path", help="The path of the stage to be registered.", dest="path"
+    )
+    parser.add_argument(
+        "-d --delete",
+        help="Removes an external registered stage.",
+        dest="delete",
+        action="store_true",
+    )
+    parser.set_defaults(command="register")
