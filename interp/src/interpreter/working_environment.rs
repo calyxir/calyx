@@ -6,8 +6,11 @@ use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
 };
-use std::collections::{HashMap, HashSet};
+use serde::Serialize;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
+
+use super::utils::ConstCell;
 
 type ConstPort = *const ir::Port;
 
@@ -271,4 +274,83 @@ impl WorkingEnvironment {
 
         val_changed
     }
+
+    pub fn state_as_str(&self) -> String {
+        serde_json::to_string_pretty(&self).unwrap()
+    }
+}
+
+// This is basically a copy-paste from InterpreterState
+impl Serialize for WorkingEnvironment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let ctx: &ir::Context = &self.backing_env.context.borrow();
+
+        let cell_prim_map = self.backing_env.cell_prim_map.borrow();
+
+        let bmap: BTreeMap<_, _> = ctx
+            .components
+            .iter()
+            .map(|comp| {
+                let inner_map: BTreeMap<_, _> = comp
+                    .cells
+                    .iter()
+                    .map(|cell| {
+                        let inner_map: BTreeMap<_, _> = cell
+                            .borrow()
+                            .ports
+                            .iter()
+                            .map(|port| {
+                                (
+                                    port.borrow().name.clone(),
+                                    self.get_as_val(&port.borrow()).as_u64(),
+                                )
+                            })
+                            .collect();
+                        (cell.borrow().name().clone(), inner_map)
+                    })
+                    .collect();
+                (comp.name.clone(), inner_map)
+            })
+            .collect();
+
+        let cell_map: BTreeMap<_, _> = ctx
+            .components
+            .iter()
+            .map(|comp| {
+                let inner_map: BTreeMap<_, _> = comp
+                    .cells
+                    .iter()
+                    .filter_map(|cell| {
+                        if let Some(prim) = cell_prim_map
+                            .get(&(&cell.borrow() as &ir::Cell as ConstCell))
+                        {
+                            if !prim.is_comb() {
+                                return Some((
+                                    cell.borrow().name().clone(),
+                                    prim,
+                                ));
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+                (comp.name.clone(), inner_map)
+            })
+            .collect();
+
+        let p = Printable {
+            ports: bmap,
+            memories: cell_map,
+        };
+        p.serialize(serializer)
+    }
+}
+#[derive(Serialize)]
+#[allow(clippy::borrowed_box)]
+struct Printable<'a> {
+    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
 }

@@ -18,6 +18,7 @@ pub enum Command {
     Step,
     Continue,
     Empty,
+    Display,
 }
 
 impl Command {
@@ -28,6 +29,7 @@ impl Command {
             [] => Ok(Command::Empty),
             ["step"] | ["s"] => Ok(Command::Step),
             ["continue"] => Ok(Command::Continue),
+            ["display"] => Ok(Command::Display),
             _ => Err(InterpreterError::UnknownCommand),
         }
     }

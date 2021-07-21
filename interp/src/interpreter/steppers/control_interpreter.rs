@@ -30,6 +30,8 @@ pub trait Interpreter {
     fn deconstruct(self) -> InterpreterState;
 
     fn is_done(&self) -> bool;
+
+    fn state_as_string(&self) -> String;
 }
 
 pub struct EmptyInterpreter {
@@ -53,6 +55,10 @@ impl Interpreter for EmptyInterpreter {
 
     fn is_done(&self) -> bool {
         true
+    }
+
+    fn state_as_string(&self) -> String {
+        self.env.state_as_str()
     }
 }
 
@@ -118,6 +124,10 @@ impl<'a> Interpreter for EnableInterpreter<'a> {
     fn is_done(&self) -> bool {
         self.interp.is_deconstructable()
     }
+
+    fn state_as_string(&self) -> String {
+        self.interp.state_as_str()
+    }
 }
 
 pub struct SeqInterpreter<'a> {
@@ -180,6 +190,16 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
     fn deconstruct(self) -> InterpreterState {
         self.env.unwrap()
     }
+
+    fn state_as_string(&self) -> String {
+        if let Some(e) = &self.current_interpreter {
+            e.state_as_string()
+        } else if let Some(e) = &self.env {
+            e.state_as_str()
+        } else {
+            panic!("INVALID STATE")
+        }
+    }
 }
 
 pub struct ParInterpreter<'a> {
@@ -216,6 +236,10 @@ impl<'a> Interpreter for ParInterpreter<'a> {
 
     fn is_done(&self) -> bool {
         self.interpreters.iter().all(|x| x.is_done())
+    }
+
+    fn state_as_string(&self) -> String {
+        todo!()
     }
 }
 pub struct IfInterpreter<'a> {
@@ -289,6 +313,14 @@ impl<'a> Interpreter for IfInterpreter<'a> {
         self.cond.is_none()
             && self.branch_interp.is_some()
             && self.branch_interp.as_ref().unwrap().is_done()
+    }
+
+    fn state_as_string(&self) -> String {
+        if let Some(e) = &self.cond {
+            e.state_as_string()
+        } else {
+            self.branch_interp.as_ref().unwrap().state_as_string()
+        }
     }
 }
 pub struct WhileInterpreter<'a> {
@@ -371,6 +403,14 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
                 self.cond_interp.as_ref().unwrap().get(self.port).into(),
             )
     }
+
+    fn state_as_string(&self) -> String {
+        if let Some(e) = &self.cond_interp {
+            e.state_as_string()
+        } else {
+            self.body_interp.as_ref().unwrap().state_as_string()
+        }
+    }
 }
 pub struct InvokeInterpreter {}
 
@@ -394,6 +434,10 @@ impl Interpreter for InvokeInterpreter {
     }
 
     fn is_done(&self) -> bool {
+        todo!()
+    }
+
+    fn state_as_string(&self) -> String {
         todo!()
     }
 }
@@ -480,6 +524,10 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
     fn is_done(&self) -> bool {
         control_match!(self, i, i.is_done())
     }
+
+    fn state_as_string(&self) -> String {
+        control_match!(self, i, i.state_as_string())
+    }
 }
 
 pub struct StructuralInterpreter<'a> {
@@ -539,5 +587,9 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
 
     fn is_done(&self) -> bool {
         self.interp.is_deconstructable()
+    }
+
+    fn state_as_string(&self) -> String {
+        self.interp.state_as_str()
     }
 }

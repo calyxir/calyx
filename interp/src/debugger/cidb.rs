@@ -35,6 +35,13 @@ impl<'a> Debugger<'a> {
                 Command::Step => component_interpreter.step(),
                 Command::Continue => todo!(),
                 Command::Empty => {}
+                Command::Display => {
+                    println!("{}", component_interpreter.state_as_string())
+                }
+            }
+
+            if component_interpreter.is_done() {
+                return component_interpreter.deconstruct();
             }
         }
     }

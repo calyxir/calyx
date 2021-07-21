@@ -28,7 +28,11 @@ impl Input {
             print_shell_prompt();
             let result = self.buffer.read_line(&mut line);
             match result {
-                Ok(len) => {}
+                Ok(len) => {
+                    if len == 0 {
+                        panic!("No new input")
+                    }
+                }
                 Err(err) => panic!("Unable to read from stdin! {}", err),
             }
             match Command::parse(&line) {

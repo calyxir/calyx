@@ -109,6 +109,10 @@ impl<'a> AssignmentInterpreter<'a> {
         }
     }
 
+    pub fn state_as_str(&self) -> String {
+        self.state.state_as_str()
+    }
+
     pub fn step_cycle(&mut self) {
         if !self.is_done()
             && self.val_changed.is_some()

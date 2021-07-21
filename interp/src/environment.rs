@@ -262,6 +262,10 @@ impl InterpreterState {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
+    pub fn state_as_str(&self) -> String {
+        serde_json::to_string_pretty(&self).unwrap()
+    }
+
     pub fn cell_is_comb(&self, cell: &ir::Cell) -> bool {
         self.cell_prim_map
             .borrow()

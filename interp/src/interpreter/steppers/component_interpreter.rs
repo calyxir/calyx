@@ -70,4 +70,11 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
             StructuralOrControl::Control(c) => c.is_done(),
         }
     }
+
+    fn state_as_string(&self) -> String {
+        match &self.interp {
+            StructuralOrControl::Structural(s) => s.state_as_string(),
+            StructuralOrControl::Control(c) => c.state_as_string(),
+        }
+    }
 }
