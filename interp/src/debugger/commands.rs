@@ -2,16 +2,18 @@ use std::fmt::Display;
 
 pub enum InterpreterError {
     InvalidCommand,
-    UnknownCommand,
+    UnknownCommand(String),
 }
 
 impl Display for InterpreterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let out_str = match self {
-            InterpreterError::InvalidCommand => "Invalid command",
-            InterpreterError::UnknownCommand => "Unknown command",
+            InterpreterError::InvalidCommand => "Invalid command".to_string(),
+            InterpreterError::UnknownCommand(s) => {
+                format!("Unknown command {}", s)
+            }
         };
-        f.write_str(out_str)
+        f.write_str(&out_str)
     }
 }
 pub enum Command {
@@ -30,7 +32,7 @@ impl Command {
             ["step"] | ["s"] => Ok(Command::Step),
             ["continue"] => Ok(Command::Continue),
             ["display"] => Ok(Command::Display),
-            _ => Err(InterpreterError::UnknownCommand),
+            _ => Err(InterpreterError::UnknownCommand(input.join(" "))),
         }
     }
 }

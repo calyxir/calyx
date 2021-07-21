@@ -37,7 +37,10 @@ impl Input {
             }
             match Command::parse(&line) {
                 Ok(comm) => return comm,
-                Err(e) => println!("Error: {}", e),
+                Err(e) => {
+                    println!("Error: {}", e);
+                    line = String::new()
+                }
             }
         }
     }
