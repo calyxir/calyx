@@ -50,11 +50,11 @@ fn eval_par(
     comp: &ir::Component,
 ) -> FutilResult<InterpreterState> {
     //vector to keep track of all updated states
-    let mut sts = Vec::new();
+    let mut states = Vec::new();
 
-    //evaluate each expression within the starter environment by forking from it
+    // evaluate each expression within the starter environment by forking from it
     for st in &p.stmts {
-        sts.push(interpret_control(
+        states.push(interpret_control(
             st,
             continuous_assignments,
             env.fork(),
@@ -62,27 +62,28 @@ fn eval_par(
         )?);
     }
 
-    //since we have to merge the original branch too
-    sts.push(env);
+    // states = &p.stmts.into_iter().map(|ctr| {
+    //     interpret_control(ctr, continuous_assignments, env.fork(), comp)?
+    // });
 
     //clock updates
     let mut tl = 0;
 
     //vector of smooshers from the states
-    let mut sms = Vec::new();
+    let mut smooshers = Vec::new();
 
-    let mut final_st = sts.remove(0);
+    let mut final_st = env;
 
     //i do this using loops for clock updates
-    for is in sts {
+    for is in states {
         if is.clk > tl {
             tl = is.clk;
         }
 
-        sms.push(is.pv_map);
+        smooshers.push(is.pv_map);
     }
 
-    final_st.pv_map = final_st.pv_map.merge_many(sms);
+    final_st.pv_map = final_st.pv_map.merge_many(smooshers);
     final_st.clk = tl;
 
     Ok(final_st)
