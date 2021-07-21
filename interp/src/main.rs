@@ -5,12 +5,12 @@ use calyx::{
     utils::OutputFile,
 };
 
+use interp::debugger::Debugger;
 use interp::environment;
 use interp::interpreter::interpret_component;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use structopt::StructOpt;
-
 /// CLI Options
 #[derive(Debug, StructOpt)]
 #[structopt(name = "interpreter", about = "interpreter CLI")]
@@ -31,6 +31,9 @@ pub struct Opts {
     /// provided memories will be initialzed with zeros
     #[structopt(long = "data", short = "d", parse(from_os_str))]
     pub data_file: Option<PathBuf>,
+
+    #[structopt(short, long)]
+    pub interactive: bool,
 }
 
 //first half of this is tests
@@ -64,11 +67,19 @@ fn main() -> FutilResult<()> {
             Error::Impossible("Cannot find main component".to_string())
         })?;
 
-    match interpret_component(main_component, env) {
-        Ok(e) => {
-            e.print_env();
-            Ok(())
+    if opts.interactive {
+        let cidb = Debugger::new(ctx_ref, main_component);
+        let output = cidb.main_loop(env);
+        output.print_env();
+
+        Ok(())
+    } else {
+        match interpret_component(main_component, env) {
+            Ok(e) => {
+                e.print_env();
+                Ok(())
+            }
+            Err(err) => FutilResult::Err(err),
         }
-        Err(err) => FutilResult::Err(err),
     }
 }
