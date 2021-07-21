@@ -220,6 +220,23 @@ class Configuration:
         if changed:
             self.commit()
 
+    def setup_external_stage(self, args):
+        """
+        Adds an `external-stages` entry for a stage passed
+        via the command line.
+        """
+        if not args.delete and args.path is not None:
+            path = Path(args.path)
+            if not path.exists():
+                raise FileNotFoundError(path)
+            stage = {"location": str(path.absolute())}
+            self["external-stages", args.name] = stage
+            self.commit()
+        elif args.delete:
+            if args.name in self[["external-stages"]]:
+                del self["external-stages", args.name]
+                self.commit()
+
     def __getitem__(self, keys):
         try:
             return self.config[keys]

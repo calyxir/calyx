@@ -20,6 +20,16 @@ cmd = """
 ../target/debug/interp {}
 """
 
+[[tests]]
+name = "complex"
+paths = [
+    "tests/complex/*.futil"
+]
+
+cmd = """
+../target/debug/interp {}
+"""
+
 # [[tests]]
 # name = "Assorted tests"
 # paths = [

@@ -123,6 +123,22 @@ Frontend specific instructions:
 tools to generate area and resource estimates for Calyx designs.
 See [the instructions](./synthesis.md) to configure them.
 
+## Adding External Stages
+
+`fud` supports using stages that aren't defined in it's main source tree.
+These are known as 'external stages' and the provide a mechanism
+for projects using Calyx to take advantage of `fud`. You can register an
+external stage with:
+```
+fud register stage_name -p /path/to/stage.py
+```
+Once an external stage is registered, it behaves exactly like any other stage.
+
+You can remove an external stage with:
+```
+fud register stage_name --delete
+```
+
 ## Working with Stages
 
 Fud is structured as a sequence of stages that transform inputs of one form
