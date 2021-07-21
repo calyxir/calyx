@@ -17,6 +17,7 @@ impl Display for InterpreterError {
 pub enum Command {
     Step,
     Continue,
+    Empty,
 }
 
 impl Command {
@@ -24,8 +25,8 @@ impl Command {
         let input = input.trim().to_lowercase();
         let input: Vec<_> = input.split_whitespace().collect();
         match input[..] {
-            [] => Err(InterpreterError::InvalidCommand),
-            ["step"] => Ok(Command::Step),
+            [] => Ok(Command::Empty),
+            ["step"] | ["s"] => Ok(Command::Step),
             ["continue"] => Ok(Command::Continue),
             _ => Err(InterpreterError::UnknownCommand),
         }

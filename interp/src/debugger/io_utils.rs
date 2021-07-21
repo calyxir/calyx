@@ -1,12 +1,13 @@
 use super::commands::Command;
 use std::io::prelude::*;
-use std::io::{stdin, BufReader, Stdin};
+use std::io::{stdin, stdout, BufReader, Stdin};
 
-const SHELL_PROMPT: &str = "$> ";
+const SHELL_PROMPT: &str = " > ";
 
 #[inline]
 fn print_shell_prompt() {
     print!("{}", SHELL_PROMPT);
+    stdout().flush().expect("Cannot flush stdout");
 }
 pub struct Input {
     buffer: BufReader<Stdin>,

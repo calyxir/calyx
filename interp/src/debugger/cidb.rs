@@ -27,12 +27,14 @@ impl<'a> Debugger<'a> {
             env,
         );
         let mut input_stream = Input::default();
+        println!("== Calyx Interactive Debugger ==");
         loop {
             let comm = input_stream.next_command();
 
             match comm {
                 Command::Step => component_interpreter.step(),
                 Command::Continue => todo!(),
+                Command::Empty => {}
             }
         }
     }
