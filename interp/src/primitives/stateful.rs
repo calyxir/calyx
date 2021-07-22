@@ -551,7 +551,7 @@ impl Primitive for StdMemD1 {
         //if the cycle_count is 1. Then if cycle_count is 1 (panic if else),
         //return the vector.
         if let Some((idx, val)) = self.update.take() {
-            assert_eq!(idx, self.last_idx); //the most recent [execute] sets both update and last_idx
+            //assert_eq!(idx, self.last_idx); //the most recent [execute] sets both update and last_idx
             self.data[idx as usize] = val;
             if self.cycle_count == 1 {
                 self.cycle_count = 0;
