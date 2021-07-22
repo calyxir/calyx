@@ -496,6 +496,12 @@ pub struct StdMemD1 {
     pub idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
+    cycle_count: u64,
+    //NOTE: in old implementation, execute w/ write_en low would just return
+    //whatever was at [addr0]. So [last_idx] should just follow the u64 in
+    //[update], because we need to have something to return even if the update
+    //was taken (for instance, last cycle)
+    last_idx: u64,
 }
 
 impl StdMemD1 {
@@ -524,6 +530,8 @@ impl StdMemD1 {
             idx_size, //the width of the values used to address the memory
             data,
             update: None,
+            cycle_count: 0,
+            last_idx: 0,
         }
     }
 
@@ -538,9 +546,38 @@ impl StdMemD1 {
 }
 
 impl Primitive for StdMemD1 {
-    //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        //get the index from the update, which is only filled
+        //if the cycle_count is 1. Then if cycle_count is 1 (panic if else),
+        //return the vector.
+        if let Some((idx, val)) = self.update.take() {
+            assert_eq!(idx, self.last_idx); //the most recent [execute] sets both update and last_idx
+            self.data[idx as usize] = val;
+            if self.cycle_count == 1 {
+                self.cycle_count = 0;
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone().into(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high().into()),
+                ]
+            } else {
+                panic!("std_mem_d1 had an update, and cycle_count was not 1")
+            }
+        } else if self.cycle_count == 0 {
+            //done is low, but there is still data in this mem to return, the last_idx
+            //this really may not be meaningful -- last data output
+            vec![(
+                ir::Id::from("read_data"),
+                self.data[self.last_idx as usize].clone().into(),
+            )]
+        } else {
+            panic!(
+                "std_mem_d1 has no update but cycle_count is not 0: {}",
+                self.cycle_count
+            );
+        }
     }
 
     fn is_comb(&self) -> bool {
@@ -572,40 +609,14 @@ impl Primitive for StdMemD1 {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
 
         let addr0 = addr0.as_u64();
-        let old = self.data[addr0 as usize].clone();
-
+        //no matter what, we need to remember the most recent index
+        //requested
+        self.last_idx = addr0;
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, (*input).clone()));
-
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                // (
-                //     "done".into(),
-                //     PulseValue::new(
-                //         // TODO (griffin): Remove this done_val buisiness
-                //         // pending updates to primitive responsibilities
-                //         done_val.unwrap().clone(),
-                //         Value::bit_high(),
-                //         Value::bit_low(),
-                //         1,
-                //     )
-                //     .into(),
-                // ),
-            ]
-        } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.cycle_count = 1;
         }
+        vec![]
     }
 
     fn reset(
