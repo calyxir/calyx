@@ -11,31 +11,32 @@ component main() -> () {
     group write{
       mem0.write_en = 1'd1;
       mem0.addr0 = 3'd4;
-      mem0.write_data = 32'd157; 
+      mem0.write_data = 32'd1; 
       write[done] = mem0.done;
     }
 
     group write2{
         mem0.write_en = 1'd1; 
         mem0.addr0 = 3'd3; 
-        mem0.write_data = 32'd105;
-        write2[done] = mem0.done;
+        mem0.write_data = 32'd2;
+        write2[done] = mem0.done; //do_tick() should be called here; but seems like
+                                  //it's only called in [dont_write], that's why there is the panic
     }
 
     group dont_write{
       mem0.write_en = 1'd0;
       mem0.addr0 = 3'd2;
-      mem0.write_data = 32'd9; 
+      mem0.write_data = 32'd4; 
       mem1.write_en = 1'd1; 
       mem1.addr0 = 3'd4;
-      mem1.write_data = 32'd23; 
+      mem1.write_data = 32'd1; 
       dont_write[done] = mem1.done; 
     }
 
     group write_en_low_outputs{
         mem0.write_en = 1'd0;
         mem0.addr0 = 3'd4;
-        mem0.write_data = 32'd142;
+        mem0.write_data = 32'd8;
         reg0.write_en = 1'd1;
         reg0.in = mem0.read_data; //reg0 should get 157
         write_en_low_outputs[done] = reg0.done;
