@@ -547,14 +547,17 @@ impl StdMemD1 {
 
 impl Primitive for StdMemD1 {
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        //get the index from the update, which is only filled
-        //if the cycle_count is 1. Then if cycle_count is 1 (panic if else),
-        //return the vector.
-        if let Some((idx, val)) = self.update.take() {
-            assert_eq!(idx, self.last_idx, "idx: {} and last_idx: {} are not equal. Val associated with idx: {}", idx, self.last_idx, val.as_u64()); //the most recent [execute] sets both update and last_idx
-            self.data[idx as usize] = val;
-            if self.cycle_count == 1 {
-                self.cycle_count = 0;
+        //if there is an update, update and return along w/ a done
+        //else this memory was used combinationally and there is nothing to tick
+        if self.cycle_count == 1 {
+            assert!(self.update.is_some());
+            //set cycle_count to 0 for future
+            self.cycle_count = 0;
+            //take update
+            if let Some((idx, val)) = self.update.take() {
+                //alter data
+                self.data[idx as usize] = val;
+                //return vec w/ done
                 vec![
                     (
                         ir::Id::from("read_data"),
@@ -563,20 +566,10 @@ impl Primitive for StdMemD1 {
                     (ir::Id::from("done"), Value::bit_high().into()),
                 ]
             } else {
-                panic!("std_mem_d1 had an update, and cycle_count was not 1")
+                panic!("self.update is None, while self.cycle_count == 1");
             }
-        } else if self.cycle_count == 0 {
-            //done is low, but there is still data in this mem to return, the last_idx
-            //this really may not be meaningful -- last data output
-            vec![(
-                ir::Id::from("read_data"),
-                self.data[self.last_idx as usize].clone().into(),
-            )]
         } else {
-            panic!(
-                "std_mem_d1 has no update but cycle_count is not 0: {}",
-                self.cycle_count
-            );
+            vec![]
         }
     }
 
@@ -607,16 +600,21 @@ impl Primitive for StdMemD1 {
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-
         let addr0 = addr0.as_u64();
-        //no matter what, we need to remember the most recent index
-        //requested
-        self.last_idx = addr0;
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, (*input).clone()));
             self.cycle_count = 1;
+        } else {
+            self.update = None;
+            self.cycle_count = 0;
         }
-        vec![]
+        //read_data is combinational w.r.t addr0;
+        //if there was an update, [do_tick()] will return a vector w/ a done value
+        //else, empty vector return
+        vec![(
+            ir::Id::from("read_data"),
+            self.data[addr0 as usize].clone().into(),
+        )]
     }
 
     fn reset(

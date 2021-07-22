@@ -20,12 +20,25 @@ component main() -> () {
       reg1.in = 32'd23;
       dont_write[done] = reg1.done; 
     }
+
+    //see if we can replicate the bug in [mem2.futil]
+    //which may not be a bug but a timing issue
+    //see if, w/ reg0.write_en low, we can't get reg0.out
+    //into reg1.in.
+    //well we should be able to get it, actually, b/c reg has
+    //just one output. It's [out] is saved between groups, i think
+    group dont_write2{
+      reg1.write_en = 1'd1; 
+      reg1.in = reg0.out;
+      dont_write2[done] = reg1.done;
+    }
   }
 
   control {
     seq {
       write;
       dont_write;
+      dont_write2;
     }
   }
 }
