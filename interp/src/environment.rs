@@ -247,7 +247,8 @@ impl InterpreterState {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
-    // Returns a string representing the current state
+    /// Returns a string representing the current state of the environment. This
+    /// just serializes the environment to a string and returns that string
     pub fn state_as_str(&self) -> String {
         serde_json::to_string_pretty(&self).unwrap()
     }
