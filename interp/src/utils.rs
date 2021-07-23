@@ -235,3 +235,19 @@ where
     }
     vec
 }
+
+pub trait AsRaw {
+    fn as_raw(&self) -> *const Self;
+}
+
+impl<T> AsRaw for &T {
+    fn as_raw(&self) -> *const Self {
+        self as *const Self
+    }
+}
+
+impl<T> AsRaw for *const T {
+    fn as_raw(&self) -> *const Self {
+        self
+    }
+}
