@@ -68,7 +68,72 @@ fn test_std_mult_pipe() {
 
 #[test]
 fn test_std_div_pipe() {
-    todo!()
+    let mut div = stfl::StdDivPipe::from_constants(32);
+    port_bindings![binds;
+        go -> (1, 1),
+        left -> (20, 32),
+        right -> (7, 32)  //20/7 = 2 r. 6
+    ];
+    //each execute needs to be followed by a do_tick() for the input to be
+    //captured
+    div.validate_and_execute(&binds);
+    let output_vals = div.do_tick(); //internal q: [(2, 6), N, N]
+    assert_eq!(output_vals.len(), 0);
+    port_bindings![binds;
+        go -> (1, 1),
+        left -> (20, 32),
+        right -> (6, 32) //20/6 = 3 r. 2
+    ];
+    div.validate_and_execute(&binds);
+    port_bindings![binds;
+        go -> (0, 1), //b/c go is low, this should not overwrite 20/6!
+        left -> (4, 32),
+        right -> (7, 32)
+    ];
+    div.validate_and_execute(&binds);
+    let output_vals = div.do_tick(); //internal q: [(3, 2), (2, 6), N]
+    assert_eq!(output_vals.len(), 0);
+    port_bindings![binds;
+        go -> (1, 1),
+        left -> (20, 32),
+        right -> (5, 32) //20/5 = 4 r. 0
+    ];
+    div.validate_and_execute(&binds);
+    div.do_tick(); //internal q: [(4, 0), (3, 2), (2, 6)]
+    let mut output_vals = div.do_tick().into_iter(); //should output done and out_quotient 2 and out_remainder 6
+    assert_eq!(output_vals.len(), 3);
+    let out_quotient = output_vals.next().unwrap();
+    assert_eq!(out_quotient.0, "out_quotient");
+    assert_eq!(out_quotient.1.unwrap_imm().as_u64(), 2);
+    let out_remainder = output_vals.next().unwrap();
+    assert_eq!(out_remainder.0, "out_remainder");
+    assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 6);
+    let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(done.as_u64(), 1);
+    //internal q: [N, (4, 0), (3, 2)]
+    output_vals = div.do_tick().into_iter(); //out_q : 3, out_r: 2
+    assert_eq!(output_vals.len(), 3);
+    let out_quotient = output_vals.next().unwrap();
+    assert_eq!(out_quotient.0, "out_quotient");
+    assert_eq!(out_quotient.1.unwrap_imm().as_u64(), 3);
+    let out_remainder = output_vals.next().unwrap();
+    assert_eq!(out_remainder.0, "out_remainder");
+    assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 2);
+    let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(done.as_u64(), 1);
+    //internal q: [N, N, (4, 0)]
+    output_vals = div.do_tick().into_iter(); //out_q : 4, out_r: 0
+    assert_eq!(output_vals.len(), 3);
+    let out_quotient = output_vals.next().unwrap();
+    assert_eq!(out_quotient.0, "out_quotient");
+    assert_eq!(out_quotient.1.unwrap_imm().as_u64(), 4);
+    let out_remainder = output_vals.next().unwrap();
+    assert_eq!(out_remainder.0, "out_remainder");
+    assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 0);
+    let done = output_vals.next().unwrap().1.unwrap_imm();
+    //none (empty output vec)
+    output_vals = div.do_tick().into_iter(); //should output done and 14
+    assert_eq!(output_vals.len(), 0);
 }
 
 #[test]

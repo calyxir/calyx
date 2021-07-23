@@ -48,7 +48,6 @@ impl StdMultPipe {
 }
 
 impl Primitive for StdMultPipe {
-    //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
         if let Some(Some(out)) = self.queue.pop_back() {
             //push update to the front
@@ -95,8 +94,6 @@ impl Primitive for StdMultPipe {
         }
     }
 
-    /// Currently a 1 cycle std_mult_pipe that has a similar interface
-    /// to a register.
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
@@ -153,12 +150,8 @@ pub struct StdDivPipe {
     pub width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update_quotient: Option<Value>,
-    update_remainder: Option<Value>,
-    // right now, trying to be 1 cycle, so no need for these
-    // left: Value,
-    // right: Value,
-    //cycle_count: u64, //0, 1, 2
+    update: Option<(Value, Value)>, //first is quotient, second is remainder
+    queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 3
 }
 
 impl StdDivPipe {
@@ -167,11 +160,8 @@ impl StdDivPipe {
             width,
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
-            update_quotient: None,
-            update_remainder: None,
-            // left: Value::zeroes(width as usize),
-            // right: Value::zeroes(width as usize),
-            // cycle_count: 0,
+            update: None,
+            queue: VecDeque::from(vec![None, None, None]),
         }
     }
 
@@ -186,9 +176,30 @@ impl StdDivPipe {
 }
 
 impl Primitive for StdDivPipe {
-    //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        if let Some(Some((q, r))) = self.queue.pop_back() {
+            self.queue.push_front(self.update.take());
+            assert_eq!(
+                self.queue.len(),
+                3,
+                "std_div_pipe's internal queue has length {} != 3",
+                self.queue.len()
+            );
+            vec![
+                (ir::Id::from("out_quotient"), q.into()),
+                (ir::Id::from("out_remainder"), r.into()),
+                (ir::Id::from("done"), Value::bit_high().into()),
+            ]
+        } else {
+            self.queue.push_front(self.update.take());
+            assert_eq!(
+                self.queue.len(),
+                3,
+                "std_div_pipe's internal queue has length {} != 3",
+                self.queue.len()
+            );
+            vec![]
+        }
     }
 
     fn is_comb(&self) -> bool {
@@ -206,8 +217,6 @@ impl Primitive for StdDivPipe {
         }
     }
 
-    /// Currently a 1 cycle std_div_pipe that has a similar interface
-    /// to a register.
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
@@ -218,74 +227,14 @@ impl Primitive for StdDivPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            self.update_quotient = Some(
-                Value::from(left.as_u64() / right.as_u64(), self.width)
-                    .unwrap(),
-            );
-            self.update_remainder = Some(
-                Value::from(left.as_u64() % right.as_u64(), self.width)
-                    .unwrap(),
-            );
-            return vec![
-                (
-                    ir::Id::from("out_quotient"),
-                    TimeLockedValue::new(
-                        (&Value::from(
-                            left.as_u64() / right.as_u64(),
-                            self.width,
-                        )
-                        .unwrap())
-                            .clone(),
-                        1,
-                        //Some(Value::from(0, self.width).unwrap()),
-                        Some(self.quotient.clone()),
-                    )
-                    .into(),
-                ),
-                (
-                    ir::Id::from("out_remainder"),
-                    TimeLockedValue::new(
-                        (&Value::from(
-                            left.as_u64() % right.as_u64(),
-                            self.width,
-                        )
-                        .unwrap())
-                            .clone(),
-                        1,
-                        //Some(Value::from(0, self.width).unwrap()),
-                        Some(self.remainder.clone()),
-                    )
-                    .into(),
-                ),
-                // (
-                //     "done".into(),
-                //     PulseValue::new(
-                //         done_val.unwrap().clone(),
-                //         Value::bit_high(),
-                //         Value::bit_low(),
-                //         1,
-                //     )
-                //     .into(),
-                // ),
-            ];
-        } else {
-            //if [go] is low, return whatever is in product
-            //this is not guaranteed to be meaningful
-            return vec![
-                (
-                    ir::Id::from("out_quotient"),
-                    //     Value::from(0, self.width).unwrap().into(),
-                    // )];
-                    self.quotient.clone().into(),
-                ),
-                (
-                    ir::Id::from("out_remainder"),
-                    //     Value::from(0, self.width).unwrap().into(),
-                    // )];
-                    self.remainder.clone().into(),
-                ),
-            ];
+            let q = left.as_u64() / right.as_u64();
+            let r = left.as_u64() % right.as_u64();
+            self.update = Some((
+                Value::from(q, self.width).unwrap(),
+                Value::from(r, self.width).unwrap(),
+            ));
         }
+        vec![]
     }
 
     fn reset(
