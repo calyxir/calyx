@@ -239,19 +239,6 @@ impl InterpreterState {
         &self.pv_map.get(&port.as_raw()).unwrap()
     }
 
-    /// Gets the cell in a component based on the name;
-    /// XXX: similar to find_cell in component.rs
-    /// Does this function *need* to be in environment?
-    pub fn get_cell(
-        &self,
-        comp: &ir::Id,
-        cell: &ir::Id,
-    ) -> Option<ir::RRC<ir::Cell>> {
-        let a = self.context.borrow();
-        let temp = a.components.iter().find(|cm| cm.name == *comp)?;
-        temp.find_cell(&(cell.id))
-    }
-
     /// Outputs the cell state;
     ///TODO (write to a specified output in the future) We could do the printing
     ///of values here for tracing purposes as discussed. Could also have a
@@ -265,14 +252,20 @@ impl InterpreterState {
         serde_json::to_string_pretty(&self).unwrap()
     }
 
-    pub fn cell_is_comb(&self, cell: &ir::Cell) -> bool {
+    /// A predicate that checks if the given cell points to a combinational
+    /// primitive (or component?)
+    pub fn cell_is_comb<C: AsRaw<ir::Cell>>(&self, cell: C) -> bool {
         self.cell_prim_map
             .borrow()
-            .get(&(cell as ConstCell))
+            .get(&cell.as_raw())
             .unwrap()
             .is_comb()
     }
 
+    /// Creates a fork of the source environment which has the same clock and
+    /// underlying primitive map but whose stack environment has been forked
+    /// from the source's stack environment allowing divergence from the fork
+    /// point
     pub fn fork(&mut self) -> Self {
         Self {
             clk: self.clk,
