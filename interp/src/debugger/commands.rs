@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 pub enum InterpreterError {
-    _InvalidCommand, // this isn't used yet, but may be useful later
+    _InvalidCommand, // this isn't used yet, but may be useful later when commands have more syntax
     UnknownCommand(String),
 }
 
@@ -17,21 +17,25 @@ impl Display for InterpreterError {
     }
 }
 pub enum Command {
-    Step,
-    Continue,
-    Empty,
-    Display,
+    Step,     // Step execution
+    Continue, // Execute until breakpoint
+    Empty,    // Empty command, does nothing
+    Display,  // Display full environment contents
 }
 
 impl Command {
+    /// Parse the given input string into a Command returning an
+    /// InterpreterError if the parse is invalid
     pub fn parse(input: &str) -> Result<Self, InterpreterError> {
-        let input = input.trim().to_lowercase();
+        let input = input.trim().to_lowercase(); // basic normalization
         let input: Vec<_> = input.split_whitespace().collect();
+
         match input[..] {
             [] => Ok(Command::Empty),
             ["step"] | ["s"] => Ok(Command::Step),
             ["continue"] => Ok(Command::Continue),
             ["display"] => Ok(Command::Display),
+            // can't get the size of the pattern match so use `input`
             _ => Err(InterpreterError::UnknownCommand(input.join(" "))),
         }
     }
