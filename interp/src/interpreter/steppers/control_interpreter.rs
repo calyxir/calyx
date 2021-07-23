@@ -5,7 +5,7 @@ use crate::{
     interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
     values::Value,
 };
-use calyx::ir::{self, Assignment, Component, Control, Group};
+use calyx::ir::{self, Assignment, Component, Control};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
 

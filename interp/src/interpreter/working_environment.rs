@@ -2,12 +2,9 @@ use crate::environment::InterpreterState;
 use crate::primitives::Primitive;
 use crate::utils::{get_const_from_rrc, OutputValueRef};
 use crate::values::{OutputValue, ReadableValue, Value};
-use calyx::{
-    errors::FutilResult,
-    ir::{self, RRC},
-};
+use calyx::ir::{self, RRC};
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 use super::utils::ConstCell;

@@ -1,14 +1,14 @@
 use std::fmt::Display;
 
 pub enum InterpreterError {
-    InvalidCommand,
+    _InvalidCommand, // this isn't used yet, but may be useful later
     UnknownCommand(String),
 }
 
 impl Display for InterpreterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let out_str = match self {
-            InterpreterError::InvalidCommand => "Invalid command".to_string(),
+            InterpreterError::_InvalidCommand => "Invalid command".to_string(),
             InterpreterError::UnknownCommand(s) => {
                 format!("Unknown command {}", s)
             }
@@ -24,7 +24,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn parse(input: &String) -> Result<Self, InterpreterError> {
+    pub fn parse(input: &str) -> Result<Self, InterpreterError> {
         let input = input.trim().to_lowercase();
         let input: Vec<_> = input.split_whitespace().collect();
         match input[..] {

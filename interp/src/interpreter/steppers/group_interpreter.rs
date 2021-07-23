@@ -1,9 +1,9 @@
-use super::super::utils::{self, get_done_port, ConstCell, ConstPort};
+use super::super::utils::{self, ConstCell, ConstPort};
 use super::super::working_environment::WorkingEnvironment;
 use crate::environment::InterpreterState;
 use crate::utils::get_const_from_rrc;
-use crate::values::{OutputValue, ReadableValue, Value};
-use calyx::ir::{self, Assignment, Cell, Port, RRC};
+use crate::values::{OutputValue, Value};
+use calyx::ir::{self, Assignment, Cell, RRC};
 use std::collections::HashSet;
 
 /// An internal wrapper enum which allows the Assignment Interpreter to own the

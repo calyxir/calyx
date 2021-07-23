@@ -3,18 +3,9 @@
 
 use crate::environment::InterpreterState;
 
-use super::utils::{get_done_port, get_dst_cells, is_signal_high, ConstPort};
-use super::working_environment::WorkingEnvironment;
-use crate::primitives::Primitive;
-use crate::utils::{get_const_from_rrc, OutputValueRef};
-use crate::values::{OutputValue, ReadableValue, Value};
-use calyx::{
-    errors::FutilResult,
-    ir::{self, RRC},
-};
-use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use super::utils::{get_done_port, ConstPort};
+use crate::values::Value;
+use calyx::{errors::FutilResult, ir};
 
 use super::steppers::AssignmentInterpreter;
 

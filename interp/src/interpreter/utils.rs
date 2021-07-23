@@ -1,5 +1,5 @@
-use crate::utils::{get_const_from_rrc, OutputValueRef};
-use crate::values::{OutputValue, ReadableValue, Value};
+use crate::utils::OutputValueRef;
+use crate::values::ReadableValue;
 use calyx::ir;
 use calyx::ir::RRC;
 use std::cell::Ref;
