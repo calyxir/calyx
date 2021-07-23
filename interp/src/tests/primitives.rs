@@ -7,151 +7,69 @@ use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
 #[allow(unused)]
 use calyx::ir;
 
-// #[test]
-// fn test_std_mult_pipe() {
-//     let mut std_mult = stfl::StdMultPipe::from_constants(16);
-//     port_bindings![binds;
-//         left -> (3, 16),
-//         right -> (5, 16),
-//         go -> (1, 1)
-//     ];
-//     let mut output_vals =
-//         std_mult.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     assert_eq!(output_vals.len(), 2); //should be a done val
-//     match &mut output_vals[..] {
-//         [out, done] => match (out, done) {
-//             (
-//                 (_, OutputValue::LockedValue(prod)),
-//                 (_, OutputValue::PulseValue(d)),
-//             ) => {
-//                 assert_eq!(prod.get_count(), 1);
-//                 assert_eq!(d.get_val().as_u64(), 0);
-//                 prod.dec_count();
-//                 d.tick();
-//                 assert!(prod.unlockable());
-//                 assert_eq!(
-//                     prod.clone().unlock().as_u64(), //the product should be 15
-//                     15
-//                 );
-//                 //check done value goes to zero
-//                 assert_eq!(d.get_val().as_u64(), 1);
-//                 let d = d.clone().do_tick();
-//                 assert!(matches!(d, OutputValue::ImmediateValue(_)));
-//                 if let OutputValue::ImmediateValue(iv) = d {
-//                     assert_eq!(iv.as_u64(), 0);
-//                 }
-//             }
-//             _ => {
-//                 panic!("std_mult_pipe did not return the expected output types")
-//             }
-//         },
-//         _ => panic!("std_mult_pipe returned more than 2 outputs"),
-//     }
-//     //now commit updates, and see if changing inputs with a low go give a vec that still has 15
-//     std_mult.commit_updates();
-//     port_bindings![binds;
-//         left -> (7, 16),
-//         right -> (5, 16),
-//         go -> (0, 1)
-//     ];
-//     let mut diff_inputs =
-//         std_mult.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     match &mut diff_inputs[..] {
-//         [out] => {
-//             match out {
-//                 (_, OutputValue::ImmediateValue(val)) => {
-//                     assert_eq!(val.as_u64(), 15);
-//                 }
-//                 _ => {
-//                     panic!("std_mult_pipe didn't return an IV when [done] is low")
-//                 }
-//             }
-//         }
-//         _ => panic!(
-//             "std_mult_pipe returned more than 1 output after executing with low done"
-//         ),
-//     }
-// }
+#[test]
+fn test_std_mult_pipe() {
+    let mut mult = stfl::StdMultPipe::from_constants(32);
+    port_bindings![binds;
+        go -> (1, 1),
+        left -> (2, 32),
+        right -> (7, 32)
+    ];
+    //each execute needs to be followed by a do_tick() for the input to be
+    //captured
+    mult.validate_and_execute(&binds);
+    let output_vals = mult.do_tick(); //internal q: [14, N, N]
+    assert_eq!(output_vals.len(), 0);
+    port_bindings![binds;
+        go -> (1, 1),
+        left -> (3, 32),
+        right -> (7, 32)
+    ];
+    mult.validate_and_execute(&binds);
+    port_bindings![binds;
+        go -> (0, 1), //b/c go is low, this should not overwrite 3*7!
+        left -> (4, 32),
+        right -> (7, 32)
+    ];
+    mult.validate_and_execute(&binds);
+    let output_vals = mult.do_tick(); //internal q: [21, 14, N]
+    assert_eq!(output_vals.len(), 0);
+    port_bindings![binds;
+        go -> (1, 1),
+        left -> (5, 32),
+        right -> (7, 32)
+    ];
+    mult.validate_and_execute(&binds);
+    mult.do_tick(); //internal q: [35, 21, 14]
+    let mut output_vals = mult.do_tick().into_iter(); //should output done and 14
+    assert_eq!(output_vals.len(), 2);
+    let out = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(out.as_u64(), 14);
+    let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(done.as_u64(), 1);
+    //now tick 3 more times; get 21, 35, and empty vec
+    output_vals = mult.do_tick().into_iter(); //should output done and 14
+    assert_eq!(output_vals.len(), 2);
+    let out = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(out.as_u64(), 21);
+    let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(done.as_u64(), 1);
+    //35
+    output_vals = mult.do_tick().into_iter(); //should output done and 14
+    assert_eq!(output_vals.len(), 2);
+    let out = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(out.as_u64(), 35);
+    let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(done.as_u64(), 1);
+    //none (empty output vec)
+    output_vals = mult.do_tick().into_iter(); //should output done and 14
+    assert_eq!(output_vals.len(), 0);
+}
 
-// #[test]
-// fn test_std_div_pipe() {
-//     let mut std_div = stfl::StdDivPipe::from_constants(16);
-//     port_bindings![binds;
-//         left -> (25, 16), //25/3 = 8 r. 1
-//         right -> (3, 16),
-//         go -> (1, 1)
-//     ];
-//     let mut output_vals =
-//         std_div.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     assert_eq!(output_vals.len(), 3); //should be a quotient, remainder, and done val
-//     match &mut output_vals[..] {
-//         [out_quotient, out_remainder, done] => {
-//             match (out_quotient, out_remainder, done) {
-//                 (
-//                     (_, OutputValue::LockedValue(q)),
-//                     (_, OutputValue::LockedValue(r)),
-//                     (_, OutputValue::PulseValue(d)),
-//                 ) => {
-//                     assert_eq!(q.get_count(), 1);
-//                     assert_eq!(r.get_count(), 1);
-//                     assert_eq!(d.get_val().as_u64(), 0);
-//                     q.dec_count();
-//                     r.dec_count();
-//                     d.tick();
-//                     assert!(q.unlockable());
-//                     assert_eq!(
-//                         q.clone().unlock().as_u64(), //the product should be 15
-//                         8
-//                     );
-//                     assert!(r.unlockable());
-//                     assert_eq!(
-//                         r.clone().unlock().as_u64(), //the product should be 15
-//                         1
-//                     );
-//                     //check done value goes to zero
-//                     assert_eq!(d.get_val().as_u64(), 1);
-//                     let d = d.clone().do_tick();
-//                     assert!(matches!(d, OutputValue::ImmediateValue(_)));
-//                     if let OutputValue::ImmediateValue(iv) = d {
-//                         assert_eq!(iv.as_u64(), 0);
-//                     }
-//                 }
-//                 _ => {
-//                     panic!(
-//                         "std_div_pipe did not return the expected output types"
-//                     )
-//                 }
-//             }
-//         }
-//         _ => panic!("std_div_pipe did not return 3 outputs"),
-//     }
-//     //now commit updates, and see if changing inputs with a low go give a vec that still has 8, 1
-//     std_div.commit_updates();
-//     port_bindings![binds;
-//         left -> (7, 16),
-//         right -> (5, 16),
-//         go -> (0, 1)
-//     ];
-//     let mut diff_inputs =
-//         std_div.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     match &mut diff_inputs[..] {
-//         [out_quotient, out_remainder] => match (out_quotient, out_remainder) {
-//             (
-//                 (_, OutputValue::ImmediateValue(q)),
-//                 (_, OutputValue::ImmediateValue(r)),
-//             ) => {
-//                 assert_eq!(q.as_u64(), 8);
-//                 assert_eq!(r.as_u64(), 1);
-//             }
-//             _ => {
-//                 panic!("std_div_pipe didn't return an IV when [done] is low")
-//             }
-//         },
-//         _ => panic!(
-//             "std_div_pipe returned not 2 outputs after executing with low done"
-//         ),
-//     }
-// }
+#[test]
+fn test_std_div_pipe() {
+    todo!()
+}
 
 #[test]
 fn test_std_reg_imval() {

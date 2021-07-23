@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::{Primitive, Serializeable};
 use crate::utils::construct_bindings;
 use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
@@ -22,10 +24,7 @@ pub struct StdMultPipe {
     pub width: u64,
     pub product: Value,
     update: Option<Value>,
-    // right now, trying to be 1 cycle, so no need for these
-    // left: Value,
-    // right: Value,
-    //cycle_count: u64, //0, 1, 2
+    queue: VecDeque<Option<Value>>, //invariant: always length 3.
 }
 
 impl StdMultPipe {
@@ -34,9 +33,7 @@ impl StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
             update: None,
-            // left: Value::zeroes(width as usize),
-            // right: Value::zeroes(width as usize),
-            // cycle_count: 0,
+            queue: VecDeque::from(vec![None, None, None]),
         }
     }
 
@@ -53,7 +50,34 @@ impl StdMultPipe {
 impl Primitive for StdMultPipe {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        if let Some(Some(out)) = self.queue.pop_back() {
+            //push update to the front
+            self.queue.push_front(self.update.take());
+            //assert queue still has length 3
+            assert_eq!(
+                self.queue.len(),
+                3,
+                "std_mult_pipe's internal queue has length {} != 3",
+                self.queue.len()
+            );
+            //return vec w/ out and done
+            vec![
+                (ir::Id::from("out"), out.into()),
+                (ir::Id::from("done"), Value::bit_high().into()),
+            ]
+        } else {
+            //push update to the front
+            self.queue.push_front(self.update.take());
+            //assert queue still has length 3
+            assert_eq!(
+                self.queue.len(),
+                3,
+                "std_mult_pipe's internal queue has length {} != 3",
+                self.queue.len()
+            );
+            //return empty vec
+            vec![]
+        }
     }
     //
     fn is_comb(&self) -> bool {
@@ -83,79 +107,13 @@ impl Primitive for StdMultPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            //if [go] is high and
-            //if left and right are the same as the interior left and right
-            // if (left.as_u64() == self.left.as_u64())
-            //     & (right.as_u64() == self.right.as_u64())
-            // {
-            //if self.cycle_count == 1 {
-            //and cycle_count == 1, return the product, and write product as update
             self.update = Some(
                 Value::from(left.as_u64() * right.as_u64(), self.width)
                     .unwrap(),
             );
-            // //reset cycle_count
-            // self.cycle_count = 0;
-            //return
-            return vec![
-                (
-                    ir::Id::from("out"),
-                    TimeLockedValue::new(
-                        (&Value::from(
-                            left.as_u64() * right.as_u64(),
-                            self.width,
-                        )
-                        .unwrap())
-                            .clone(),
-                        1,
-                        //Some(Value::from(0, self.width).unwrap()),
-                        Some(self.product.clone()),
-                    )
-                    .into(),
-                ),
-                // (
-                //     "done".into(),
-                //     PulseValue::new(
-                //         done_val.unwrap().clone(),
-                //         Value::bit_high(),
-                //         Value::bit_low(),
-                //         1,
-                //     )
-                //     .into(),
-                // ),
-            ];
-            // } else {
-            //     //else just increment cycle_count
-            //     self.cycle_count += 1;
-            //     // and return whatever was committed to [product]
-            //     // not a TLV
-            //     return vec![(
-            //         ir::Id::from("out"),
-            //         self.product.clone().into(),
-            //     )];
-            // }
-            // } else {
-            //     //else, left!=left and so on, restart (write these new left and right to interior left and right),
-            //     //set cycle_count to 1
-            //     self.cycle_count = 1;
-            //     self.left = Value::clone(left);
-            //     self.right = Value::clone(right);
-            //     // and return whatever was committed to [product]
-            //     return vec![(
-            //         ir::Id::from("out"),
-            //         self.product.clone().into(),
-            //     )];
-            // }
-        } else {
-            //if [go] is low, return whatever is in product
-            //this is not guaranteed to be meaningful
-            return vec![(
-                ir::Id::from("out"),
-                //     Value::from(0, self.width).unwrap().into(),
-                // )];
-                self.product.clone().into(),
-            )];
         }
+        //if go is low don't do anything (don't overwrite Update)
+        vec![]
     }
 
     fn reset(
