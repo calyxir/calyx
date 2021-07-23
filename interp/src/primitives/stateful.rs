@@ -584,7 +584,7 @@ impl Primitive for StdMemD1 {
                 "write_en" => assert_eq!(v.len(), 1),
                 "addr0" => {
                     assert!(v.as_u64() < self.size);
-                    assert_eq!(v.len() as u64, self.idx_size)
+                    assert_eq!(v.len() as u64, self.idx_size, "std_mem_d1: addr0 is not same width ({}) as idx_size ({})", v.len(), self.idx_size)
                 }
                 p => unreachable!("Unknown port: {}", p),
             }

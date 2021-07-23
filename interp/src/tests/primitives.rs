@@ -659,6 +659,69 @@ fn test_std_reg_imval() {
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 16);
 }
+
+#[test]
+fn test_std_mem_d1() {
+    let mut mem = stfl::StdMemD1::from_constants(6, 10, 4);
+    //see that unitialized mem, executed w/ write_en low,
+    //returns 0, and no DONE
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (0, 1),
+        addr0 -> (4, 4)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
+    assert_eq!(output_vals.len(), 0);
+    println!("output_vals: {:?}", output_vals);
+
+    //now have write_en high and see output of execute is 0, and output of write is 16
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (1, 1),
+        addr0 -> (4, 4)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    //now that we are ticking, update should be written (and returned)
+    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    assert_eq!(output_vals.len(), 2);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    let rd = output_vals.next().unwrap();
+    let d = output_vals.next().unwrap();
+    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
+    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (0, 1),
+        addr0 -> (4, 4)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    //should be a 16 and a 1 ([out] and [done])
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 16);
+}
 // #[test]
 // #[should_panic]
 // fn reg_too_big() {
