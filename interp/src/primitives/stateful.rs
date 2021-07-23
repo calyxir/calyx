@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use super::{Primitive, Serializeable};
 use crate::utils::construct_bindings;
-use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
+use crate::values::{OutputValue, Value};
 use calyx::ir;
 
 pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
