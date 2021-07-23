@@ -497,11 +497,6 @@ pub struct StdMemD1 {
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
     cycle_count: u64,
-    //NOTE: in old implementation, execute w/ write_en low would just return
-    //whatever was at [addr0]. So [last_idx] should just follow the u64 in
-    //[update], because we need to have something to return even if the update
-    //was taken (for instance, last cycle)
-    last_idx: u64,
 }
 
 impl StdMemD1 {
@@ -531,7 +526,6 @@ impl StdMemD1 {
             data,
             update: None,
             cycle_count: 0,
-            last_idx: 0,
         }
     }
 
@@ -566,7 +560,7 @@ impl Primitive for StdMemD1 {
                     (ir::Id::from("done"), Value::bit_high().into()),
                 ]
             } else {
-                panic!("self.update is None, while self.cycle_count == 1");
+                panic!("[std_mem_d1] : self.update is None, while self.cycle_count == 1");
             }
         } else {
             vec![]
@@ -669,6 +663,7 @@ pub struct StdMemD2 {
     pub d1_idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
+    cycle_count: u64,
 }
 
 impl StdMemD2 {
@@ -718,6 +713,7 @@ impl StdMemD2 {
             d1_idx_size,
             data,
             update: None,
+            cycle_count: 0,
         }
     }
 
@@ -739,7 +735,24 @@ impl StdMemD2 {
 impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        if self.cycle_count == 1 {
+            assert!(self.update.is_some());
+            self.cycle_count = 0;
+            if let Some((idx, val)) = self.update.take() {
+                self.data[idx as usize] = val;
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone().into(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high().into()),
+                ]
+            } else {
+                panic!("[std_mem_d2]: self.update is None, while self.cycle_count == 1");
+            }
+        } else {
+            vec![]
+        }
     }
 
     fn is_comb(&self) -> bool {
@@ -777,47 +790,22 @@ impl Primitive for StdMemD2 {
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        //chec that write_data is the exact right width
-        //check that addr0 is not out of bounds and that it is the proper width!
-        let addr0 = addr0.as_u64();
 
-        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
         let real_addr = self.calc_addr(addr0, addr1);
 
-        let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
-                                                         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update =
-                Some((self.calc_addr(addr0, addr1), (*input).clone()));
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                // (
-                //     "done".into(),
-                //     PulseValue::new(
-                //         // TODO (griffin): FIXME
-                //         done_val.unwrap().clone(),
-                //         Value::bit_high(),
-                //         Value::bit_low(),
-                //         1,
-                //     )
-                //     .into(),
-                // ),
-            ]
+            self.update = Some((real_addr, (*input).clone()));
+            self.cycle_count = 1;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.update = None;
+            self.cycle_count = 0;
         }
+        vec![(
+            ir::Id::from("read_data"),
+            self.data[real_addr as usize].clone().into(),
+        )]
     }
 
     fn reset(
@@ -877,6 +865,7 @@ pub struct StdMemD3 {
     d2_idx_size: u64,
     data: Vec<Value>,
     update: Option<(u64, Value)>,
+    cycle_count: u64,
 }
 
 impl StdMemD3 {
@@ -937,6 +926,7 @@ impl StdMemD3 {
             d2_idx_size,
             data,
             update: None,
+            cycle_count: 0,
         }
     }
 
@@ -961,7 +951,24 @@ impl StdMemD3 {
 impl Primitive for StdMemD3 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        if self.cycle_count == 1 {
+            assert!(self.update.is_some());
+            self.cycle_count = 0;
+            if let Some((idx, val)) = self.update.take() {
+                self.data[idx as usize] = val;
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone().into(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high().into()),
+                ]
+            } else {
+                panic!("[std_mem_d2] : self.update is None, while self.cycle_count == 1");
+            }
+        } else {
+            vec![]
+        }
     }
 
     fn is_comb(&self) -> bool {
@@ -1010,42 +1017,17 @@ impl Primitive for StdMemD3 {
         let addr2 = addr2.as_u64();
 
         let real_addr = self.calc_addr(addr0, addr1, addr2);
-
-        let old = self.data[real_addr as usize].clone();
-        //not sure if this could lead to errors (Some(old)) is borrow?
-        // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update =
-                Some((self.calc_addr(addr0, addr1, addr2), (*input).clone()));
-
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                // (
-                //     "done".into(),
-                //     PulseValue::new(
-                //         // TODO (griffin): FIXME
-                //         done_val.unwrap().clone(),
-                //         Value::bit_high(),
-                //         Value::bit_low(),
-                //         1,
-                //     )
-                //     .into(),
-                // ),
-            ]
+            self.update = Some((real_addr, (*input).clone()));
+            self.cycle_count = 1;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.update = None;
+            self.cycle_count = 0;
         }
+        vec![(
+            ir::Id::from("read_data"),
+            self.data[real_addr as usize].clone().into(),
+        )]
     }
 
     fn reset(
@@ -1118,6 +1100,7 @@ pub struct StdMemD4 {
     d3_idx_size: u64,
     data: Vec<Value>,
     update: Option<(u64, Value)>,
+    cycle_count: u64,
 }
 
 impl StdMemD4 {
@@ -1190,6 +1173,7 @@ impl StdMemD4 {
             d3_idx_size,
             data,
             update: None,
+            cycle_count: 0,
         }
     }
 
@@ -1215,7 +1199,24 @@ impl StdMemD4 {
 impl Primitive for StdMemD4 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        if self.cycle_count == 1 {
+            assert!(self.update.is_some());
+            self.cycle_count = 0;
+            if let Some((idx, val)) = self.update.take() {
+                self.data[idx as usize] = val;
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone().into(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high().into()),
+                ]
+            } else {
+                panic!("[std_mem_d4] : self.update is None, while self.cycle_count == 1");
+            }
+        } else {
+            vec![]
+        }
     }
 
     fn is_comb(&self) -> bool {
@@ -1270,43 +1271,17 @@ impl Primitive for StdMemD4 {
         let addr3 = addr3.as_u64();
 
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
-
-        let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
-                                                         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update = Some((
-                self.calc_addr(addr0, addr1, addr2, addr3),
-                (*input).clone(),
-            ));
-
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                // (
-                //     "done".into(),
-                //     PulseValue::new(
-                //         // TODO (griffin): FIXME
-                //         done_val.unwrap().clone(),
-                //         Value::bit_high(),
-                //         Value::bit_low(),
-                //         1,
-                //     )
-                //     .into(),
-                // ),
-            ]
+            self.update = Some((real_addr, (*input).clone()));
+            self.cycle_count = 1;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.update = None;
+            self.cycle_count = 0;
         }
+        vec![(
+            ir::Id::from("read_data"),
+            self.data[real_addr as usize].clone().into(),
+        )]
     }
 
     fn reset(
