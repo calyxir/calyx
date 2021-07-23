@@ -1,5 +1,6 @@
 use crate::environment::InterpreterState;
 use crate::primitives::Primitive;
+use crate::utils::AsRaw;
 use crate::utils::{get_const_from_rrc, OutputValueRef};
 use crate::values::{OutputValue, ReadableValue, Value};
 use calyx::ir::{self, RRC};
@@ -38,41 +39,30 @@ impl From<InterpreterState> for WorkingEnvironment {
 }
 
 impl WorkingEnvironment {
-    pub fn get_const(&self, port: *const ir::Port) -> OutputValueRef {
-        let working_val = self.working_env.get(&port);
-        match working_val {
-            Some(v) => v.into(),
-            None => self.backing_env.get_from_const_port(port).into(),
-        }
-    }
     /// Attempts to first get value from the working_env (PortOutputValMap)
     /// If doesn't exist, gets from backing_env (InterpreterState)
-    pub fn get(&self, port: &ir::Port) -> OutputValueRef {
-        self.get_const(port as *const ir::Port)
+    pub fn get<P: AsRaw<ir::Port>>(&self, port: P) -> OutputValueRef {
+        let working_val = self.working_env.get(&port.as_raw());
+        match working_val {
+            Some(v) => v.into(),
+            None => self.backing_env.get_from_port(port).into(),
+        }
     }
 
-    pub fn update_val_const_port(
+    pub fn update_val<P: AsRaw<ir::Port>>(
         &mut self,
-        port: *const ir::Port,
+        port: P,
         value: OutputValue,
     ) {
-        self.working_env.insert(port, value);
+        self.working_env.insert(port.as_raw(), value);
     }
 
-    pub fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
-        self.update_val_const_port(port as *const ir::Port, value);
-    }
-
-    pub fn get_as_val_const(&self, port: *const ir::Port) -> &Value {
-        match self.get_const(port) {
+    pub fn get_as_val<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
+        match self.get(port) {
             OutputValueRef::ImmediateValue(iv) => iv.get_val(),
             OutputValueRef::LockedValue(tlv) => tlv.get_val(),
             OutputValueRef::PulseValue(pv) => pv.get_val(),
         }
-    }
-
-    pub fn get_as_val(&self, port: &ir::Port) -> &Value {
-        self.get_as_val_const(port as *const ir::Port)
     }
 
     //for use w/ smoosher: maybe add a new scope onto backing_env for the tick?

@@ -1,5 +1,6 @@
 use super::super::utils::get_done_port;
 use super::AssignmentInterpreter;
+use crate::utils::AsRaw;
 use crate::{
     environment::InterpreterState,
     interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
@@ -103,8 +104,8 @@ impl<'a> EnableInterpreter<'a> {
     fn reset(self) -> InterpreterState {
         self.interp.reset(self.enable.assignments.iter())
     }
-    fn get(&self, port: ConstPort) -> &Value {
-        self.interp.get_val(port)
+    fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
+        self.interp.get(port)
     }
 }
 
@@ -547,7 +548,7 @@ impl<'a> StructuralInterpreter<'a> {
         let go_port: ConstPort = comp_sig.get("go").as_ptr();
         let continuous_assignments = &comp.continuous_assignments;
 
-        if !is_signal_high(env.get_from_const_port(done_port).into()) {
+        if !is_signal_high(env.get_from_port(done_port).into()) {
             env.insert(go_port, Value::bit_high());
         }
 

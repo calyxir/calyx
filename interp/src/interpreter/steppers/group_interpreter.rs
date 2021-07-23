@@ -1,7 +1,7 @@
 use super::super::utils::{self, ConstCell, ConstPort};
 use super::super::working_environment::WorkingEnvironment;
 use crate::environment::InterpreterState;
-use crate::utils::get_const_from_rrc;
+use crate::utils::{get_const_from_rrc, AsRaw};
 use crate::values::{OutputValue, Value};
 use calyx::ir::{self, Assignment, Cell, RRC};
 use std::collections::HashSet;
@@ -27,6 +27,7 @@ impl<'a> AssignmentOwner<'a> {
         }
     }
 
+    // this is not currently used but may be relevant for mixed interpretation
     fn _iter_group_assigns(
         &self,
     ) -> Box<dyn Iterator<Item = &Assignment> + '_> {
@@ -36,6 +37,7 @@ impl<'a> AssignmentOwner<'a> {
         }
     }
 
+    // this is not currently used but may be relevant for mixed interpretation
     fn _iter_cont(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
         match self {
             AssignmentOwner::Ref(_, v2) => Box::new(v2.iter().copied()),
@@ -202,7 +204,7 @@ impl<'a> AssignmentInterpreter<'a> {
                 //need to find appropriate-sized 0, so just read
                 //width of old_val
 
-                let old_val = self.state.get_as_val_const(port);
+                let old_val = self.state.get_as_val(port);
                 let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
                 let new_val: OutputValue =
                     Value::from(0, old_val_width).unwrap().into();
@@ -216,7 +218,7 @@ impl<'a> AssignmentInterpreter<'a> {
                 }
 
                 //update directly
-                self.state.update_val_const_port(port, new_val);
+                self.state.update_val(port, new_val);
             }
 
             // perform all the updates
@@ -249,7 +251,7 @@ impl<'a> AssignmentInterpreter<'a> {
 
     #[inline]
     fn is_done(&self) -> bool {
-        utils::is_signal_high(self.state.get_const(self.done_port))
+        utils::is_signal_high(self.state.get(self.done_port))
     }
 
     pub fn deconstruct(self) -> InterpreterState {
@@ -282,15 +284,15 @@ impl<'a> AssignmentInterpreter<'a> {
         Self::finish_interpretation(env, done_signal, assigns)
     }
 
-    pub fn get_val(&self, port: ConstPort) -> &Value {
-        self.state.get_as_val_const(port)
+    pub fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
+        self.state.get_as_val(port)
     }
 
     // This is not currenty relevant for anything, but may be needed later
     // pending adjustments to the primitive contract as we will need the ability
     // to pass new inputs to components
-    pub(super) fn _insert(&mut self, port: ConstPort, val: Value) {
-        self.state.update_val_const_port(port, val.into())
+    pub(super) fn _insert<P: AsRaw<ir::Port>>(&mut self, port: P, val: Value) {
+        self.state.update_val(port, val.into())
     }
 
     /// Concludes interpretation to a group, effectively setting the go signal low

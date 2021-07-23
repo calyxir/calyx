@@ -2,6 +2,7 @@
 
 use super::primitives::{combinational, stateful, Primitive};
 use super::stk_env::Smoosher;
+use super::utils::AsRaw;
 use super::utils::MemoryMap;
 use super::values::Value;
 use calyx::ir::{self, RRC};
@@ -57,6 +58,7 @@ impl InterpreterState {
         }
     }
 
+    /// Insert a new value for the given constant port into the environment
     pub fn insert(&mut self, port: ConstPort, value: Value) {
         self.pv_map.set(port, value);
     }
@@ -233,12 +235,8 @@ impl InterpreterState {
     }
 
     /// Return the value associated with a component's port.
-    pub fn get_from_port(&self, port: &ir::Port) -> &Value {
-        &self.pv_map.get(&(port as ConstPort)).unwrap()
-    }
-
-    pub fn get_from_const_port(&self, port: *const ir::Port) -> &Value {
-        &self.pv_map.get(&port).unwrap()
+    pub fn get_from_port<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
+        &self.pv_map.get(&port.as_raw()).unwrap()
     }
 
     /// Gets the cell in a component based on the name;
@@ -262,6 +260,7 @@ impl InterpreterState {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
+    // Returns a string representing the current state
     pub fn state_as_str(&self) -> String {
         serde_json::to_string_pretty(&self).unwrap()
     }
