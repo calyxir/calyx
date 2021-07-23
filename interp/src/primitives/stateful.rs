@@ -18,7 +18,15 @@ where
     })
 }
 
-//pipelined multiplication, but as of now takes one cycle
+///Pipelined Multiplication (3 cycles)
+///Still bounded by u64.
+///How to use:
+///[execute] with the desired bindings. To capture these bindings
+///into the internal (out) queue, [do_tick()].
+///The product associated with a given input will
+///be output on the third [do_tick()].
+///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
+///the last set of inputs prior to the [do_tick()] will be saved.
 #[derive(Default)]
 pub struct StdMultPipe {
     pub width: u64,
@@ -144,7 +152,15 @@ impl Primitive for StdMultPipe {
     }
 }
 
-//pipelined division, but as of now takes one cycle
+///Pipelined Division (3 cycles)
+///Still bounded by u64.
+///How to use:
+///[execute] with the desired bindings. To capture these bindings
+///into the internal (out_quotient, out_remainder) queue, [do_tick()].
+///The out_quotient and out_remainder associated with a given input will
+///be output on the third [do_tick()].
+///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
+///the last set of inputs prior to the [do_tick()] will be saved.
 #[derive(Default)]
 pub struct StdDivPipe {
     pub width: u64,
