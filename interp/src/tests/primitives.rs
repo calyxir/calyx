@@ -153,460 +153,6 @@ use calyx::ir;
 //     }
 // }
 
-// #[test]
-// fn test_mem_d1_tlv() {
-//     let mut mem_d1 = stfl::StdMemD1::from_constants(32, 8, 3);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (2, 3)
-//     ];
-//     let mut mem_out =
-//         mem_d1.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     match &mut mem_out[..] {
-//         [read_data, done] => match (read_data, done) {
-//             (
-//                 (_, OutputValue::LockedValue(rd)),
-//                 (_, OutputValue::PulseValue(d)),
-//             ) => {
-//                 assert_eq!(rd.get_count(), 1);
-//                 assert_eq!(d.get_val().as_u64(), 0);
-//                 rd.dec_count();
-//                 d.tick();
-//                 assert!(rd.unlockable());
-//                 assert_eq!(
-//                     rd.clone().unlock().as_u64(),
-//                     write_data.clone().as_u64()
-//                 );
-//                 assert_eq!(d.get_val().as_u64(), 1);
-//                 let d = d.clone().do_tick();
-//                 assert!(matches!(d, OutputValue::ImmediateValue(_)));
-//                 if let OutputValue::ImmediateValue(iv) = d {
-//                     assert_eq!(iv.as_u64(), 0);
-//                 }
-//             }
-//             _ => {
-//                 panic!("std_mem did not return the expected output types")
-//             }
-//         },
-//         _ => panic!("Returned more than 2 outputs"),
-//     }
-// }
-// #[test]
-// fn test_mem_d1_imval() {
-//     let mut mem_d1 = stfl::StdMemD1::from_constants(32, 8, 3);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (0, 1),
-//         addr0 -> (2, 3)
-//     ];
-//     let mut mem_out = mem_d1
-//         .validate_and_execute(&binds, (&Value::bit_low()).into())
-//         .into_iter();
-//     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
-//         let rd = read_data.1.unwrap_imm();
-//         assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-//     } else {
-//         panic!()
-//     }
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d1_panic_addr() {
-//     // Access address larger than the size of memory
-//     let mut mem_d1 = stfl::StdMemD1::from_constants(32, 2, 1);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (4, 3)
-//     ];
-//     mem_d1.validate_and_execute(&binds, (&Value::bit_low()).into());
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d1_panic_input() {
-//     // Input width larger than the memory capacity
-//     let mut mem_d1 = stfl::StdMemD1::from_constants(2, 2, 1);
-//     port_bindings![binds;
-//         write_data -> (10, 4),
-//         write_en -> (1, 1),
-//         addr0 -> (1, 1)
-//     ];
-//     let mut _mem_out =
-//         mem_d1.validate_and_execute(&binds, (&Value::bit_low()).into());
-// }
-// #[test]
-// fn test_mem_d2_tlv() {
-//     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 8, 8, 3, 3);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (2, 3),
-//         addr1 -> (0 ,3)
-//     ];
-//     let mut mem_out =
-//         mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     match &mut mem_out[..] {
-//         [read_data, done] => match (read_data, done) {
-//             (
-//                 (_, OutputValue::LockedValue(rd)),
-//                 (_, OutputValue::PulseValue(d)),
-//             ) => {
-//                 assert_eq!(rd.get_count(), 1);
-//                 assert_eq!(d.get_val().as_u64(), 0);
-//                 rd.dec_count();
-//                 d.tick();
-//                 assert!(rd.unlockable());
-//                 assert_eq!(d.get_val().as_u64(), 1);
-//                 assert_eq!(
-//                     rd.clone().unlock().as_u64(),
-//                     write_data.clone().as_u64()
-//                 );
-//                 let d = d.clone().do_tick();
-//                 assert!(matches!(d, OutputValue::ImmediateValue(_)));
-//                 if let OutputValue::ImmediateValue(iv) = d {
-//                     assert_eq!(iv.as_u64(), 0);
-//                 }
-//             }
-//             _ => {
-//                 panic!("std_mem did not return a lockedval and a pulseval")
-//             }
-//         },
-//         _ => panic!("Returned more than 2 outputs"),
-//     }
-// }
-// #[test]
-// fn test_mem_d2_imval() {
-//     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 8, 8, 3, 3);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (0, 1),
-//         addr0 -> (2, 3),
-//         addr1 -> (0 ,3)
-//     ];
-//     let mut mem_out = mem_d2
-//         .validate_and_execute(&binds, Some(&Value::bit_low()))
-//         .into_iter();
-//     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
-//         let rd = read_data.1.unwrap_imm();
-//         assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-//     } else {
-//         panic!()
-//     }
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d2_panic_addr0() {
-//     // Access address larger than the size of memory
-//     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 2, 1, 2, 1);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (4, 3),
-//         addr1 -> (0 ,3)
-//     ];
-//     mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d2_panic_addr1() {
-//     // Access address larger than the size of memory
-//     let mut mem_d2 = stfl::StdMemD2::from_constants(32, 2, 1, 2, 1);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (4, 3),
-//         addr1 -> (0 ,3)
-//     ];
-//     mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-
-// #[test]
-// #[should_panic]
-// fn test_mem_d2_panic_input() {
-//     // Input width larger than the memory capacity
-//     let mut mem_d2 = stfl::StdMemD2::from_constants(2, 2, 1, 2, 1);
-//     port_bindings![binds;
-//         write_data -> (10, 4),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 1),
-//         addr1 -> (1, 1)
-//     ];
-//     mem_d2.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// fn test_mem_d3_tlv() {
-//     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
-//     port_bindings![binds;
-//         write_data -> (1, 1),
-//         write_en -> (1, 1),
-//         addr0 -> (1, 1),
-//         addr1 -> (1, 1),
-//         addr2 -> (1, 1)
-//     ];
-//     let mut mem_out = mem_d3
-//         .validate_and_execute(&binds, Some(&Value::bit_low()))
-//         .into_iter();
-//     let (read_data, done) = (mem_out.next().unwrap(), mem_out.next().unwrap());
-//     assert!(mem_out.next().is_none()); //make sure it's only of length 2
-//     let mut rd = read_data.1.unwrap_tlv();
-//     if let OutputValue::PulseValue(mut d) = done.1 {
-//         assert_eq!(rd.get_count(), 1);
-//         assert_eq!(d.get_val().as_u64(), 0);
-//         rd.dec_count();
-//         d.tick();
-//         assert!(rd.unlockable());
-//         assert_eq!(d.get_val().as_u64(), 1);
-
-//         assert_eq!(rd.unlock().as_u64(), write_data.as_u64());
-//         let d = d.do_tick();
-//         assert!(matches!(d, OutputValue::ImmediateValue(_)));
-//         if let OutputValue::ImmediateValue(iv) = d {
-//             assert_eq!(iv.as_u64(), 0);
-//         }
-//     } else {
-//         panic!()
-//     }
-// }
-// #[test]
-// fn test_mem_d3_imval() {
-//     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
-//     port_bindings![binds;
-//         write_data -> (1, 1),
-//         write_en -> (0, 1),
-//         addr0 -> (1, 1),
-//         addr1 -> (1, 1),
-//         addr2 -> (1, 1)
-//     ];
-//     let mut mem_out = mem_d3
-//         .validate_and_execute(&binds, Some(&Value::bit_low()))
-//         .into_iter();
-//     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
-//         let rd = read_data.1.unwrap_imm();
-//         assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-//     } else {
-//         panic!()
-//     }
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d3_panic_addr0() {
-//     // Access address larger than the size of memory
-//     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
-//     port_bindings![binds;
-//         write_data -> (1, 1),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 4),
-//         addr1 -> (1, 1),
-//         addr2 -> (1, 1)
-//     ];
-//     mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d3_panic_addr1() {
-//     // Access address larger than the size of memory
-//     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
-//     port_bindings![binds;
-//         write_data -> (1, 1),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 1),
-//         addr1 -> (1, 4),
-//         addr2 -> (1, 1)
-//     ];
-//     mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d3_panic_addr2() {
-//     // Access address larger than the size of memory
-//     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1); //2 x 2 x 2, storing 1 bit in each slot
-//     port_bindings![binds;
-//         write_data -> (1, 1),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 1),
-//         addr1 -> (1, 1),
-//         addr2 -> (1, 4)
-//     ];
-//     mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d3_panic_input() {
-//     // Input width larger than the memory capacity
-//     let mut mem_d3 = stfl::StdMemD3::from_constants(1, 2, 2, 2, 1, 1, 1);
-//     port_bindings![binds;
-//         write_data -> (10, 4),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 1),
-//         addr1 -> (1, 1),
-//         addr2 -> (1, 1)
-//     ];
-//     mem_d3.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// fn test_mem_d4_tlv() {
-//     let mut mem_d4 = stfl::StdMemD4::from_constants(1, 2, 2, 2, 2, 1, 1, 1, 1);
-//     port_bindings![binds;
-//         write_data -> (1, 1),
-//         write_en -> (1, 1),
-//         addr0 -> (1, 1),
-//         addr1 -> (1, 1),
-//         addr2 -> (1, 1),
-//         addr3 -> (1, 1)
-//     ];
-//     let mut mem_out = mem_d4
-//         .validate_and_execute(&binds, Some(&Value::bit_low()))
-//         .into_iter();
-//     let (read_data, done) = (mem_out.next().unwrap(), mem_out.next().unwrap());
-//     assert!(mem_out.next().is_none()); //make sure it's only of length 2
-//     let mut rd = read_data.1.unwrap_tlv();
-//     if let OutputValue::PulseValue(mut d) = done.1 {
-//         assert_eq!(rd.get_count(), 1);
-//         assert_eq!(d.get_val().as_u64(), 0);
-//         rd.dec_count();
-//         d.tick();
-//         assert!(rd.unlockable());
-//         assert_eq!(d.get_val().as_u64(), 1);
-
-//         assert_eq!(rd.unlock().as_u64(), write_data.as_u64());
-//         let d = d.do_tick();
-//         assert!(matches!(d, OutputValue::ImmediateValue(_)));
-//         if let OutputValue::ImmediateValue(iv) = d {
-//             assert_eq!(iv.as_u64(), 0);
-//         }
-//     } else {
-//         panic!()
-//     }
-// }
-// #[test]
-// fn test_mem_d4_imval() {
-//     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 8, 8, 8, 8, 3, 3, 3, 3);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (0, 1),
-//         addr0 -> (2, 3),
-//         addr1 -> (1, 3),
-//         addr2 -> (5, 3),
-//         addr3 -> (2, 3)
-//     ];
-//     let mut mem_out = mem_d4
-//         .validate_and_execute(&binds, Some(&Value::bit_low()))
-//         .into_iter();
-//     if let (read_data, None) = (mem_out.next().unwrap(), mem_out.next()) {
-//         let rd = read_data.1.unwrap_imm();
-//         assert_eq!(rd.as_u64(), 0); // assuming this b/c mem hasn't been initialized
-//     }
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d4_panic_addr0() {
-//     // Access address larger than the size of memory
-//     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (4, 3),
-//         addr1 -> (0, 2),
-//         addr2 -> (1, 2),
-//         addr3 -> (2, 2)
-//     ];
-//     mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d4_panic_addr1() {
-//     // Access address larger than the size of memory
-//     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 2),
-//         addr1 -> (4, 3),
-//         addr2 -> (1, 2),
-//         addr3 -> (2, 2)
-//     ];
-//     mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d4_panic_addr2() {
-//     // Access address larger than the size of memory
-//     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 2),
-//         addr1 -> (1, 2),
-//         addr2 -> (4, 3),
-//         addr3 -> (2, 2)
-//     ];
-//     mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d4_panic_addr3() {
-//     // Access address larger than the size of memory
-//     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-//     port_bindings![binds;
-//         write_data -> (5, 32),
-//         write_en -> (1, 1),
-//         addr0 -> (0, 2),
-//         addr1 -> (1, 2),
-//         addr2 -> (2, 2),
-//         addr3 -> (4, 3)
-//     ];
-//     mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// #[should_panic]
-// fn test_mem_d4_panic_input() {
-//     // Input width larger than the memory capacity
-//     let mut mem_d4 = stfl::StdMemD4::from_constants(32, 3, 2, 3, 2, 3, 2, 3, 2);
-//     port_bindings![binds;
-//         write_enable -> (1, 1),
-//         write_data -> (10, 4),
-//         addr0 -> (0, 2),
-//         addr1 -> (1, 2),
-//         addr2 -> (2, 2),
-//         addr3 -> (3, 2)
-//     ];
-//     mem_d4.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
-// #[test]
-// fn test_std_reg_tlv() {
-//     let mut reg1 = stfl::StdReg::from_constants(6);
-//     port_bindings![binds;
-//         r#in -> (16, 6),
-//         write_en -> (1, 1)
-//     ];
-//     let output_vals =
-//         reg1.validate_and_execute(&binds, Some(&Value::bit_low()));
-//     println!("output_vals: {:?}", output_vals);
-//     let mut output_vals = output_vals.into_iter();
-//     let (read_data, done) =
-//         (output_vals.next().unwrap(), output_vals.next().unwrap());
-//     assert!(output_vals.next().is_none()); //make sure it's only of length 2
-
-//     if let OutputValue::PulseValue(mut d) = done.1 {
-//         let mut rd = read_data.1.unwrap_tlv();
-//         assert_eq!(rd.get_count(), 1);
-//         assert_eq!(d.get_val().as_u64(), 0);
-//         rd.dec_count();
-//         d.tick();
-//         assert!(rd.unlockable());
-//         assert_eq!(d.get_val().as_u64(), 1);
-//         assert_eq!(rd.unlock().as_u64(), r#in.as_u64());
-//         let d = d.do_tick();
-//         assert!(matches!(d, OutputValue::ImmediateValue(_)));
-//         if let OutputValue::ImmediateValue(iv) = d {
-//             assert_eq!(iv.as_u64(), 0);
-//         }
-//     } else {
-//         panic!()
-//     }
-// }
-
 #[test]
 fn test_std_reg_imval() {
     let mut reg1 = stfl::StdReg::from_constants(6);
@@ -709,7 +255,7 @@ fn test_std_mem_d1() {
     assert_eq!(d.1.unwrap_imm().as_u64(), 1);
     //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
     port_bindings![binds;
-        write_data -> (16, 6),
+        write_data -> (3, 6),
         write_en -> (0, 1),
         addr0 -> (4, 4)
     ];
@@ -722,17 +268,213 @@ fn test_std_mem_d1() {
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 16);
 }
-// #[test]
-// #[should_panic]
-// fn reg_too_big() {
-//     let mut reg1 = stfl::StdReg::from_constants(5);
-//     // now try loading in a value that is too big(??)
-//     port_bindings![binds;
-//         r#in -> (32, 6),
-//         write_en -> (1, 1)
-//     ];
-//     reg1.validate_and_execute(&binds, Some(&Value::bit_low()));
-// }
+
+#[test]
+fn test_std_mem_d2() {
+    let mut mem = stfl::StdMemD2::from_constants(6, 4, 4, 2, 2);
+    //see that unitialized mem, executed w/ write_en low,
+    //returns 0, and no DONE
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (0, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
+    assert_eq!(output_vals.len(), 0);
+    println!("output_vals: {:?}", output_vals);
+
+    //now have write_en high and see output of execute is 0, and output of write is 16
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (1, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    //now that we are ticking, update should be written (and returned)
+    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    assert_eq!(output_vals.len(), 2);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    let rd = output_vals.next().unwrap();
+    let d = output_vals.next().unwrap();
+    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
+    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
+    port_bindings![binds;
+        write_data -> (3, 6),
+        write_en -> (0, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    //should be a 16 and a 1 ([out] and [done])
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 16);
+}
+
+#[test]
+fn test_std_mem_d3() {
+    let mut mem = stfl::StdMemD3::from_constants(6, 4, 4, 4, 2, 2, 2);
+    //see that unitialized mem, executed w/ write_en low,
+    //returns 0, and no DONE
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (0, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2),
+        addr2 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
+    assert_eq!(output_vals.len(), 0);
+    println!("output_vals: {:?}", output_vals);
+
+    //now have write_en high and see output of execute is 0, and output of write is 16
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (1, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2),
+        addr2 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    //now that we are ticking, update should be written (and returned)
+    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    assert_eq!(output_vals.len(), 2);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    let rd = output_vals.next().unwrap();
+    let d = output_vals.next().unwrap();
+    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
+    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
+    port_bindings![binds;
+        write_data -> (3, 6),
+        write_en -> (0, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2),
+        addr2 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    //should be a 16 and a 1 ([out] and [done])
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 16);
+}
+
+#[test]
+fn test_std_mem_d4() {
+    let mut mem = stfl::StdMemD4::from_constants(6, 4, 4, 4, 4, 2, 2, 2, 2);
+    //see that unitialized mem, executed w/ write_en low,
+    //returns 0, and no DONE
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (0, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2),
+        addr2 -> (3, 2),
+        addr3 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
+    assert_eq!(output_vals.len(), 0);
+    println!("output_vals: {:?}", output_vals);
+
+    //now have write_en high and see output of execute is 0, and output of write is 16
+    port_bindings![binds;
+        write_data -> (16, 6),
+        write_en -> (1, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2),
+        addr2 -> (3, 2),
+        addr3 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
+                                      //should be a 0
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 0);
+    assert_eq!(out.0, "read_data");
+    //now that we are ticking, update should be written (and returned)
+    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    assert_eq!(output_vals.len(), 2);
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    let rd = output_vals.next().unwrap();
+    let d = output_vals.next().unwrap();
+    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
+    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
+    port_bindings![binds;
+        write_data -> (3, 6),
+        write_en -> (0, 1),
+        addr0 -> (3, 2),
+        addr1 -> (3, 2),
+        addr2 -> (3, 2),
+        addr3 -> (3, 2)
+    ];
+    let output_vals = mem.validate_and_execute(&binds);
+    assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
+    println!("output_vals: {:?}", output_vals);
+    let mut output_vals = output_vals.into_iter();
+    //should be a 16 and a 1 ([out] and [done])
+    let out = output_vals.next().unwrap();
+    let rd = out.1.unwrap_imm();
+    assert_eq!(rd.as_u64(), 16);
+}
 
 // /* #[test]
 // fn test_std_const() {
