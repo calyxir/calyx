@@ -36,7 +36,6 @@ pub struct Opts {
     pub interactive: bool,
 }
 
-//first half of this is tests
 /// Interpret a group from a Calyx program
 fn main() -> FutilResult<()> {
     let opts = Opts::from_args();
@@ -54,9 +53,6 @@ fn main() -> FutilResult<()> {
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
     let env = environment::InterpreterState::init(&ctx, &mems);
-
-    // Get main component; assuming that opts.component is main
-    // TODO: handle when component, group are not default values
 
     let ctx_ref: &ir::Context = &ctx.borrow();
     let main_component = ctx_ref
