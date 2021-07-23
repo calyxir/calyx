@@ -236,18 +236,18 @@ where
     vec
 }
 
-pub trait AsRaw {
-    fn as_raw(&self) -> *const Self;
+pub trait AsRaw<Target> {
+    fn as_raw(&self) -> *const Target;
 }
 
-impl<T> AsRaw for &T {
-    fn as_raw(&self) -> *const Self {
-        self as *const Self
+impl<T> AsRaw<T> for &T {
+    fn as_raw(&self) -> *const T {
+        *self as *const T
     }
 }
 
-impl<T> AsRaw for *const T {
-    fn as_raw(&self) -> *const Self {
-        self
+impl<T> AsRaw<T> for *const T {
+    fn as_raw(&self) -> *const T {
+        *self
     }
 }
