@@ -297,7 +297,6 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                     )
                 {
                     let new_vals = x.do_tick();
-                    println!("ticked {}", &cell.borrow().name());
                     for (port, val) in new_vals {
                         println!("updated port: {} w/ val {:?}", port.id, val);
                         let port_ref = cell.borrow().find(port).unwrap();
