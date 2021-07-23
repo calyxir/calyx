@@ -3,6 +3,7 @@ use calyx::errors::Error;
 use calyx::ir::Binding;
 use calyx::ir::{Assignment, Cell, Id, Port, RRC};
 use serde::Deserialize;
+use std::cell::Ref;
 use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -249,5 +250,11 @@ impl<T> AsRaw<T> for &T {
 impl<T> AsRaw<T> for *const T {
     fn as_raw(&self) -> *const T {
         *self
+    }
+}
+
+impl<'a, T> AsRaw<T> for &Ref<'a, T> {
+    fn as_raw(&self) -> *const T {
+        self as &T as *const T
     }
 }
