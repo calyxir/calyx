@@ -39,20 +39,6 @@ pub trait Primitive {
         inputs: &[(ir::Id, &Value)],
     ) -> Vec<(ir::Id, OutputValue)>;
 
-    //The below are subsumed by do_tick()
-
-    /// Transfers the update held in a primitive's buffer into the
-    /// state contained within the primitive itself. Until this method is
-    /// invoked, the primitive's internal state will remain unchanged by
-    /// execution. This is to prevent ephemeral changes due to repeated
-    /// invocations
-    // fn commit_updates(&mut self);
-
-    /// Resets the primitive's update buffer without commiting the held changes,
-    /// effectively reverting the write and ensuring it does not occur. Use to
-    /// reset stateful primitives after a group execution.
-    // fn clear_update_buffer(&mut self);
-
     /// Serialize the state of this primitive, if any.
     fn serialize(&self) -> Serializeable {
         Serializeable::Empty

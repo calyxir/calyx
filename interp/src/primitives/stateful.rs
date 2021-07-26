@@ -32,7 +32,7 @@ pub struct StdMultPipe {
     pub width: u64,
     pub product: Value,
     update: Option<Value>,
-    queue: VecDeque<Option<Value>>, //invariant: always length 3.
+    queue: VecDeque<Option<Value>>, //invariant: always length 2.
 }
 
 impl StdMultPipe {
@@ -41,7 +41,7 @@ impl StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
             update: None,
-            queue: VecDeque::from(vec![None, None, None]),
+            queue: VecDeque::from(vec![None, None]),
         }
     }
 
@@ -57,31 +57,23 @@ impl StdMultPipe {
 
 impl Primitive for StdMultPipe {
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        if let Some(Some(out)) = self.queue.pop_back() {
-            //push update to the front
-            self.queue.push_front(self.update.take());
-            //assert queue still has length 3
-            assert_eq!(
-                self.queue.len(),
-                3,
-                "std_mult_pipe's internal queue has length {} != 3",
-                self.queue.len()
-            );
+        let out = self.queue.pop_back();
+        //push update to the front
+        self.queue.push_front(self.update.take());
+        //assert queue still has length 2
+        assert_eq!(
+            self.queue.len(),
+            2,
+            "std_mult_pipe's internal queue has length {} != 2",
+            self.queue.len()
+        );
+        if let Some(Some(out)) = out {
             //return vec w/ out and done
             vec![
                 (ir::Id::from("out"), out.into()),
                 (ir::Id::from("done"), Value::bit_high().into()),
             ]
         } else {
-            //push update to the front
-            self.queue.push_front(self.update.take());
-            //assert queue still has length 3
-            assert_eq!(
-                self.queue.len(),
-                3,
-                "std_mult_pipe's internal queue has length {} != 3",
-                self.queue.len()
-            );
             //return empty vec
             vec![]
         }

@@ -72,8 +72,6 @@ macro_rules! comb_primitive {
             fn execute(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
-                // done_val not used in any prims, b/c do_tick()
-                //_done_val: Option<&crate::values::Value>
             ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
 
                 #[derive(Default)]

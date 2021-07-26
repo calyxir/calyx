@@ -18,7 +18,7 @@ fn test_std_mult_pipe() {
     //each execute needs to be followed by a do_tick() for the input to be
     //captured
     mult.validate_and_execute(&binds);
-    let output_vals = mult.do_tick(); //internal q: [14, N, N]
+    let output_vals = mult.do_tick(); //internal q: [14, N]
     assert_eq!(output_vals.len(), 0);
     port_bindings![binds;
         go -> (1, 1),
@@ -32,7 +32,7 @@ fn test_std_mult_pipe() {
         right -> (7, 32)
     ];
     mult.validate_and_execute(&binds);
-    let output_vals = mult.do_tick(); //internal q: [21, 14, N]
+    let output_vals = mult.do_tick(); //internal q: [21, 14]
     assert_eq!(output_vals.len(), 0);
     port_bindings![binds;
         go -> (1, 1),
@@ -40,29 +40,28 @@ fn test_std_mult_pipe() {
         right -> (7, 32)
     ];
     mult.validate_and_execute(&binds);
-    mult.do_tick(); //internal q: [35, 21, 14]
-    let mut output_vals = mult.do_tick().into_iter(); //should output done and 14
+    let mut output_vals = mult.do_tick().into_iter(); //should output done and 14, internal queue: [35, 21]
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(out.as_u64(), 14);
     let done = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(done.as_u64(), 1);
     //now tick 3 more times; get 21, 35, and empty vec
-    output_vals = mult.do_tick().into_iter(); //should output done and 14
+    output_vals = mult.do_tick().into_iter(); //should output done and 21
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(out.as_u64(), 21);
     let done = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(done.as_u64(), 1);
     //35
-    output_vals = mult.do_tick().into_iter(); //should output done and 14
+    output_vals = mult.do_tick().into_iter(); //should output done and 35
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(out.as_u64(), 35);
     let done = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(done.as_u64(), 1);
     //none (empty output vec)
-    output_vals = mult.do_tick().into_iter(); //should output done and 14
+    output_vals = mult.do_tick().into_iter(); //should output empty vec
     assert_eq!(output_vals.len(), 0);
 }
 
