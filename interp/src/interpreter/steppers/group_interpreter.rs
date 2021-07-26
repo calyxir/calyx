@@ -60,6 +60,8 @@ where
     }
 }
 
+/// An interpreter object which exposes a pausable interface to interpreting a
+/// group of assignments
 pub struct AssignmentInterpreter<'a> {
     state: WorkingEnvironment,
     done_port: ConstPort,
@@ -69,6 +71,8 @@ pub struct AssignmentInterpreter<'a> {
 }
 
 impl<'a> AssignmentInterpreter<'a> {
+    /// Creates a new AssignmentInterpreter which borrows the references to the
+    /// assignments from an outside context
     pub fn new<I1, I2>(
         env: InterpreterState,
         done_signal: ConstPort,
@@ -92,6 +96,8 @@ impl<'a> AssignmentInterpreter<'a> {
         }
     }
 
+    /// Creates a new AssignmentInterpreter which owns the assignments that it
+    /// interpretes
     pub fn new_owned(
         env: InterpreterState,
         done_signal: ConstPort,
@@ -111,10 +117,12 @@ impl<'a> AssignmentInterpreter<'a> {
         }
     }
 
+    /// Return a string containing the current state of the owned environment
     pub fn state_as_str(&self) -> String {
         self.state.state_as_str()
     }
 
+    /// Advance the stepper by a clock cycle
     pub fn step_cycle(&mut self) {
         if !self.is_done()
             && self.val_changed.is_some()
@@ -136,6 +144,8 @@ impl<'a> AssignmentInterpreter<'a> {
         }
     }
 
+    /// Continue interpreting the assignments until the combinational portions
+    /// converge
     pub fn step_convergence(&mut self) {
         // retain old value
         self.val_changed.get_or_insert(true);
@@ -232,16 +242,20 @@ impl<'a> AssignmentInterpreter<'a> {
             }
         }
     }
+    /// Advance the interpreter by a cycle, if possible
     pub fn step(&mut self) {
         self.step_cycle();
         self.step_convergence();
     }
 
+    /// Run interpreter until it is finished executing and return the output
+    /// environment
     pub fn run_and_deconstruct(mut self) -> InterpreterState {
         self.run();
         self.deconstruct()
     }
 
+    /// Run the interpreter until it finishes executing
     pub fn run(&mut self) {
         while !self.is_done() {
             self.step();
