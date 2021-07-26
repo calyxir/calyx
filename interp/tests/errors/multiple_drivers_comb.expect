@@ -1,5 +1,5 @@
 ---CODE---
 101
 ---STDERR---
-thread 'main' panicked at '[interpret_group]: multiple assignments to one port: add0.left', interp/src/interpreter/steppers/group_interpreter.rs:93:25
+thread 'main' panicked at '[interpret_group]: multiple assignments to one port: add0.left', interp/src/interpreter/steppers/group_interpreter.rs:180:25
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
