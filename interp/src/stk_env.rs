@@ -749,17 +749,21 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// a.set("bye", 0);
     /// let mut b = a.fork();
     /// let mut c = a.fork_from_tail();
+    /// let mut e = a.fork_from_tail();
     /// a.set("hi!", 3);
     /// b.set("bye", 2);
     /// c.set("privet", 11);
+    /// e.set("hola", 13);
     /// let mut lst = Vec::new();
     /// lst.push(b);
     /// lst.push(c);
+    /// lst.push(e);
     /// let d = Smoosher::merge_many(a, lst);
     /// assert_eq!(*d.get(&"privet").unwrap(), 11);
     /// assert_eq!(*d.get(&"hi!").unwrap(), 3);
     /// assert_eq!(*d.get(&"bye").unwrap(), 2);
     /// assert_eq!(*d.get(&"hello").unwrap(), 15);
+    /// assert_eq!(*d.get(&"hola").unwrap(), 13);
     /// ```
     /// will panic:
     /// ```should_panic

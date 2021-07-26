@@ -51,6 +51,16 @@ cmd = """
 """
 
 [[tests]]
+name = "par to seq"
+paths = [
+      "tests/control/par_reg.futil",
+      "tests/control/par_mem.futil"
+]
+cmd = """
+../target/debug/futil {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories
+"""
+
+[[tests]]
 name = "control"
 paths = [
     "tests/control/*.futil",
