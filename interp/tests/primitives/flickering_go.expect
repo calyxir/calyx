@@ -1,5 +1,13 @@
 {
   "main": {
+    "mult0": [
+      0
+    ],
+    "mult1": [
+      0
+    ],
+    "mult_reg0": 0,
+    "mult_reg1": 32,
     "reg0": 0,
     "reg1": 12
   }
