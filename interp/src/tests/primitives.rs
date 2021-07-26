@@ -76,7 +76,7 @@ fn test_std_div_pipe() {
     //each execute needs to be followed by a do_tick() for the input to be
     //captured
     div.validate_and_execute(&binds);
-    let output_vals = div.do_tick(); //internal q: [(2, 6), N, N]
+    let output_vals = div.do_tick(); //internal q: [(2, 6), N]
     assert_eq!(output_vals.len(), 0);
     port_bindings![binds;
         go -> (1, 1),
@@ -90,7 +90,7 @@ fn test_std_div_pipe() {
         right -> (7, 32)
     ];
     div.validate_and_execute(&binds);
-    let output_vals = div.do_tick(); //internal q: [(3, 2), (2, 6), N]
+    let output_vals = div.do_tick(); //internal q: [(3, 2), (2, 6)]
     assert_eq!(output_vals.len(), 0);
     port_bindings![binds;
         go -> (1, 1),
@@ -98,8 +98,8 @@ fn test_std_div_pipe() {
         right -> (5, 32) //20/5 = 4 r. 0
     ];
     div.validate_and_execute(&binds);
-    div.do_tick(); //internal q: [(4, 0), (3, 2), (2, 6)]
     let mut output_vals = div.do_tick().into_iter(); //should output done and out_quotient 2 and out_remainder 6
+                                                     //internal q: [(4, 0), (3, 2)]
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
     assert_eq!(out_quotient.0, "out_quotient");

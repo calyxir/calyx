@@ -1,0 +1,33 @@
+import "primitives/core.futil";
+
+//point of this test:
+//seeing if a flickering go can be created
+//flickering go as in, reg0 depends on a guard that is true for 1 pass
+//of the eval_prims cycle, but not true for them all (aka the entire cycle), and so the register
+//gets an update it should have ignored
+
+component main() -> () {
+  cells {
+    reg0 = std_reg(32);
+    add0 = std_add(1); //
+  }
+
+  wires {
+    group exec {
+        reg0.write_en = add0.out == 1'd0 ? 1'd1;
+        
+        reg0.in = 32'd12;
+        add0.left = 1'd1;
+        add0.right = 1'd0; 
+
+        exec[done] = reg0.done; //| add0.out ? 1'd1; 
+                                //when you add the above, reg0 gets 0 instead of 12? why?
+    }
+  }
+
+  control {
+    seq {
+      exec;
+    }
+  }
+}

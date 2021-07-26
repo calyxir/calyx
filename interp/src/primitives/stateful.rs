@@ -117,29 +117,21 @@ impl Primitive for StdMultPipe {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
-        //if self.cycle_count == 2 {
+        self.update = None;
+        self.queue = VecDeque::from(vec![None, None]);
         vec![
             (ir::Id::from("out"), self.product.clone().into()),
             (ir::Id::from("done"), Value::bit_low().into()),
         ]
-        // } else {
-        //     //this component hasn't computed, so it's all zeroed out
-        //     vec![
-        //         (ir::Id::from("out"), Value::zeroes(1).into()),
-        //         (ir::Id::from("done"), Value::zeroes(1).into()),
-        //     ]
-        // }
     }
 
     fn serialize(&self) -> Serializeable {
         Serializeable::Array(
-            //vec![self.left.clone(), self.right.clone(), self.product.clone()]
             vec![self.product.clone()]
                 .iter()
                 .map(Value::as_u64)
                 .collect(),
             1.into(),
-            //3.into(),
         )
     }
 }
@@ -159,7 +151,7 @@ pub struct StdDivPipe {
     pub quotient: Value,
     pub remainder: Value,
     update: Option<(Value, Value)>, //first is quotient, second is remainder
-    queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 3
+    queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
 }
 
 impl StdDivPipe {
@@ -169,7 +161,7 @@ impl StdDivPipe {
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
             update: None,
-            queue: VecDeque::from(vec![None, None, None]),
+            queue: VecDeque::from(vec![None, None]),
         }
     }
 
@@ -185,27 +177,21 @@ impl StdDivPipe {
 
 impl Primitive for StdDivPipe {
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        if let Some(Some((q, r))) = self.queue.pop_back() {
-            self.queue.push_front(self.update.take());
-            assert_eq!(
-                self.queue.len(),
-                3,
-                "std_div_pipe's internal queue has length {} != 3",
-                self.queue.len()
-            );
+        let out = self.queue.pop_back();
+        self.queue.push_front(self.update.take());
+        assert_eq!(
+            self.queue.len(),
+            2,
+            "std_div_pipe's internal queue has length {} != 2",
+            self.queue.len()
+        );
+        if let Some(Some((q, r))) = out {
             vec![
                 (ir::Id::from("out_quotient"), q.into()),
                 (ir::Id::from("out_remainder"), r.into()),
                 (ir::Id::from("done"), Value::bit_high().into()),
             ]
         } else {
-            self.queue.push_front(self.update.take());
-            assert_eq!(
-                self.queue.len(),
-                3,
-                "std_div_pipe's internal queue has length {} != 3",
-                self.queue.len()
-            );
             vec![]
         }
     }
@@ -249,7 +235,8 @@ impl Primitive for StdDivPipe {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
-        //if self.cycle_count == 2 {
+        self.update = None;
+        self.queue = VecDeque::from(vec![None, None]);
         vec![
             (ir::Id::from("out_quotient"), self.quotient.clone().into()),
             (ir::Id::from("out_remainder"), self.remainder.clone().into()),
@@ -275,11 +262,7 @@ pub struct StdReg {
     pub width: u64,
     pub data: [Value; 1],
     update: Option<Value>,
-    //does it need a cycle count?
-    //yes. execute will set cycle count to 1,
-    //do_tick() will set it to 0. if you call
-    //do_tick() while cycle count is 0, no done signal will be emitted
-    cycle_count: u64,
+    write_en: bool,
 }
 
 impl StdReg {
@@ -288,7 +271,7 @@ impl StdReg {
             width,
             data: [Value::new(width as usize)],
             update: None,
-            cycle_count: 0,
+            write_en: false,
         }
     }
 
@@ -305,31 +288,21 @@ impl StdReg {
 impl Primitive for StdReg {
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
         //first commit any updates
-        //is there a point in only putting this in cycle_count == 1?
-        //idt it's possible for there to be an update that wasn't read right
-        //after the execute call.
         if let Some(val) = self.update.take() {
             self.data[0] = val;
         }
-        //then, based on cycle count, return
-        if self.cycle_count == 1 {
-            self.cycle_count = 0; //we are done for this cycle
-                                  //if do_tick() is called again w/o an execute() preceeding it,
-                                  //then done will be low.
+        //then, based on write_en, return
+        if self.write_en {
+            self.write_en = false; //we are done for this cycle
+                                   //if do_tick() is called again w/o an execute() preceeding it,
+                                   //then done will be low.
             vec![
                 (ir::Id::from("out"), self.data[0].clone().into()),
                 (ir::Id::from("done"), Value::bit_high().into()),
             ]
-        } else if self.cycle_count == 0 {
-            //done is low, but there is still data in this reg to return
-            vec![
-                (ir::Id::from("out"), self.data[0].clone().into()),
-                //(ir::Id::from("done"), Value::bit_low().into()),
-                //not sure if we shld return low done, or just not specify done?
-                //NOTE: goes in an infinite loop if we return a low done; why?
-            ]
         } else {
-            panic!("StdReg's cycle_count is not 0 or 1!: {}", self.cycle_count);
+            //done is low, but there is still data in this reg to return
+            vec![(ir::Id::from("out"), self.data[0].clone().into())]
         }
     }
 
@@ -359,13 +332,8 @@ impl Primitive for StdReg {
         if write_en.as_u64() == 1 {
             self.update = Some((*input).clone());
             //put cycle_count as 1! B/c do_tick() should return a high done
-            self.cycle_count = 1;
+            self.write_en = true;
         }
-        //if write_en wasn't high, cycle_count shouldn't be set 1, b/c register shouldn't emit
-        //a high done from a low write_en. But, cycle_count shouldn't explicitly be set to 0; what if execute() is called
-        //multiple times in a cycle, j/ w write_en on only once? Then in the next cycle
-        //the register should still emit a value + high done, as it just ignored the write_en off
-        //executes.
         vec![]
     }
 
@@ -374,7 +342,7 @@ impl Primitive for StdReg {
         _: &[(calyx::ir::Id, &Value)],
     ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
         self.update = None;
-        self.cycle_count = 0; //might be redundant, not too sure when reset is used
+        self.write_en = false; //might be redundant, not too sure when reset is used
         vec![
             (ir::Id::from("out"), self.data[0].clone().into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
@@ -411,7 +379,7 @@ pub struct StdMemD1 {
     pub idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
-    cycle_count: u64,
+    write_en: bool,
 }
 
 impl StdMemD1 {
@@ -440,7 +408,7 @@ impl StdMemD1 {
             idx_size, //the width of the values used to address the memory
             data,
             update: None,
-            cycle_count: 0,
+            write_en: false,
         }
     }
 
@@ -458,10 +426,10 @@ impl Primitive for StdMemD1 {
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
-        if self.cycle_count == 1 {
+        if self.write_en {
             assert!(self.update.is_some());
             //set cycle_count to 0 for future
-            self.cycle_count = 0;
+            self.write_en = false;
             //take update
             if let Some((idx, val)) = self.update.take() {
                 //alter data
@@ -512,10 +480,10 @@ impl Primitive for StdMemD1 {
         let addr0 = addr0.as_u64();
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, (*input).clone()));
-            self.cycle_count = 1;
+            self.write_en = true;
         } else {
             self.update = None;
-            self.cycle_count = 0;
+            self.write_en = false;
         }
         //read_data is combinational w.r.t addr0;
         //if there was an update, [do_tick()] will return a vector w/ a done value
@@ -535,6 +503,9 @@ impl Primitive for StdMemD1 {
         let addr0 = addr0.as_u64();
         //check that input data is the appropriate width as well
         let old = self.data[addr0 as usize].clone();
+        //also clear update
+        self.update = None;
+        self.write_en = false;
         vec![
             ("read_data".into(), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
@@ -578,7 +549,7 @@ pub struct StdMemD2 {
     pub d1_idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
-    cycle_count: u64,
+    write_en: bool,
 }
 
 impl StdMemD2 {
@@ -628,7 +599,7 @@ impl StdMemD2 {
             d1_idx_size,
             data,
             update: None,
-            cycle_count: 0,
+            write_en: false,
         }
     }
 
@@ -650,9 +621,9 @@ impl StdMemD2 {
 impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        if self.cycle_count == 1 {
+        if self.write_en {
             assert!(self.update.is_some());
-            self.cycle_count = 0;
+            self.write_en = false;
             if let Some((idx, val)) = self.update.take() {
                 self.data[idx as usize] = val;
                 vec![
@@ -712,10 +683,10 @@ impl Primitive for StdMemD2 {
 
         if write_en.as_u64() == 1 {
             self.update = Some((real_addr, (*input).clone()));
-            self.cycle_count = 1;
+            self.write_en = true;
         } else {
             self.update = None;
-            self.cycle_count = 0;
+            self.write_en = false;
         }
         vec![(
             ir::Id::from("read_data"),
@@ -735,6 +706,10 @@ impl Primitive for StdMemD2 {
         let real_addr = self.calc_addr(addr0, addr1);
 
         let old = self.data[real_addr as usize].clone();
+
+        //clear update
+        self.update = None;
+        self.write_en = false;
 
         vec![
             (ir::Id::from("read_data"), old.into()),
@@ -780,7 +755,7 @@ pub struct StdMemD3 {
     d2_idx_size: u64,
     data: Vec<Value>,
     update: Option<(u64, Value)>,
-    cycle_count: u64,
+    write_en: bool,
 }
 
 impl StdMemD3 {
@@ -841,7 +816,7 @@ impl StdMemD3 {
             d2_idx_size,
             data,
             update: None,
-            cycle_count: 0,
+            write_en: false,
         }
     }
 
@@ -866,9 +841,9 @@ impl StdMemD3 {
 impl Primitive for StdMemD3 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        if self.cycle_count == 1 {
+        if self.write_en {
             assert!(self.update.is_some());
-            self.cycle_count = 0;
+            self.write_en = false;
             if let Some((idx, val)) = self.update.take() {
                 self.data[idx as usize] = val;
                 vec![
@@ -934,10 +909,10 @@ impl Primitive for StdMemD3 {
         let real_addr = self.calc_addr(addr0, addr1, addr2);
         if write_en.as_u64() == 1 {
             self.update = Some((real_addr, (*input).clone()));
-            self.cycle_count = 1;
+            self.write_en = true;
         } else {
             self.update = None;
-            self.cycle_count = 0;
+            self.write_en = false;
         }
         vec![(
             ir::Id::from("read_data"),
@@ -960,6 +935,9 @@ impl Primitive for StdMemD3 {
         let real_addr = self.calc_addr(addr0, addr1, addr2);
 
         let old = self.data[real_addr as usize].clone();
+        //clear update, and set write_en false
+        self.update = None;
+        self.write_en = false;
         vec![
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
@@ -1015,7 +993,7 @@ pub struct StdMemD4 {
     d3_idx_size: u64,
     data: Vec<Value>,
     update: Option<(u64, Value)>,
-    cycle_count: u64,
+    write_en: bool,
 }
 
 impl StdMemD4 {
@@ -1088,7 +1066,7 @@ impl StdMemD4 {
             d3_idx_size,
             data,
             update: None,
-            cycle_count: 0,
+            write_en: false,
         }
     }
 
@@ -1114,9 +1092,9 @@ impl StdMemD4 {
 impl Primitive for StdMemD4 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        if self.cycle_count == 1 {
+        if self.write_en {
             assert!(self.update.is_some());
-            self.cycle_count = 0;
+            self.write_en = false;
             if let Some((idx, val)) = self.update.take() {
                 self.data[idx as usize] = val;
                 vec![
@@ -1188,10 +1166,10 @@ impl Primitive for StdMemD4 {
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
         if write_en.as_u64() == 1 {
             self.update = Some((real_addr, (*input).clone()));
-            self.cycle_count = 1;
+            self.write_en = true;
         } else {
             self.update = None;
-            self.cycle_count = 0;
+            self.write_en = false;
         }
         vec![(
             ir::Id::from("read_data"),
@@ -1215,7 +1193,9 @@ impl Primitive for StdMemD4 {
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
 
         let old = self.data[real_addr as usize].clone();
-
+        //clear update and write_en
+        self.update = None;
+        self.write_en = false;
         vec![
             (ir::Id::from("read_data"), old.into()),
             (ir::Id::from("done"), Value::zeroes(1).into()),
