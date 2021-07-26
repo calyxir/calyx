@@ -108,7 +108,10 @@ impl Primitive for StdMultPipe {
                 Value::from(left.as_u64() * right.as_u64(), self.width)
                     .unwrap(),
             );
+        } else {
+            self.update = None;
         }
+
         //if go is low don't do anything (don't overwrite Update)
         vec![]
     }
@@ -227,6 +230,8 @@ impl Primitive for StdDivPipe {
                 Value::from(q, self.width).unwrap(),
                 Value::from(r, self.width).unwrap(),
             ));
+        } else {
+            self.update = None;
         }
         vec![]
     }
@@ -333,6 +338,9 @@ impl Primitive for StdReg {
             self.update = Some((*input).clone());
             //put cycle_count as 1! B/c do_tick() should return a high done
             self.write_en = true;
+        } else {
+            self.update = None;
+            self.write_en = false;
         }
         vec![]
     }

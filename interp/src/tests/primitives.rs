@@ -8,6 +8,33 @@ use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
 use calyx::ir;
 
 #[test]
+fn mult_flickering_go() {
+    let mut mult = stfl::StdMultPipe::from_constants(32);
+    port_bindings![binds;
+        go -> (0, 1),
+        left -> (2, 32),
+        right -> (7, 32)
+    ];
+    mult.validate_and_execute(&binds);
+    port_bindings![binds;
+        go -> (1, 1),
+        left -> (3, 32),
+        right -> (7, 32)
+    ];
+    mult.validate_and_execute(&binds);
+    mult.do_tick();
+    mult.do_tick();
+    let mut output_vals = mult.do_tick().into_iter(); //should output done and 21, not 14
+    assert_eq!(output_vals.len(), 2);
+    let out = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(out.as_u64(), 21);
+    let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(done.as_u64(), 1);
+    output_vals = mult.do_tick().into_iter();
+    assert_eq!(output_vals.len(), 0);
+}
+
+#[test]
 fn test_std_mult_pipe() {
     let mut mult = stfl::StdMultPipe::from_constants(32);
     port_bindings![binds;
@@ -25,6 +52,11 @@ fn test_std_mult_pipe() {
         left -> (3, 32),
         right -> (7, 32)
     ];
+    // I don't think that as written this works correctly. If the go "flickers" on
+    // for a portion of the cycle but does not remain high (i.e. is not high by
+    // the time do_tick is called) then the multiplier should not run.
+    // based on the above comment, b/c go is now low, nothing should be written
+    // to the queue!
     mult.validate_and_execute(&binds);
     port_bindings![binds;
         go -> (0, 1), //b/c go is low, this should not overwrite 3*7!
@@ -32,7 +64,7 @@ fn test_std_mult_pipe() {
         right -> (7, 32)
     ];
     mult.validate_and_execute(&binds);
-    let output_vals = mult.do_tick(); //internal q: [21, 14]
+    let output_vals = mult.do_tick(); //internal q: [N, 14]
     assert_eq!(output_vals.len(), 0);
     port_bindings![binds;
         go -> (1, 1),
@@ -40,20 +72,15 @@ fn test_std_mult_pipe() {
         right -> (7, 32)
     ];
     mult.validate_and_execute(&binds);
-    let mut output_vals = mult.do_tick().into_iter(); //should output done and 14, internal queue: [35, 21]
+    let mut output_vals = mult.do_tick().into_iter(); //should output done and 14, internal queue: [35, N]
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(out.as_u64(), 14);
     let done = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(done.as_u64(), 1);
-    //now tick 3 more times; get 21, 35, and empty vec
-    output_vals = mult.do_tick().into_iter(); //should output done and 21
-    assert_eq!(output_vals.len(), 2);
-    let out = output_vals.next().unwrap().1.unwrap_imm();
-    assert_eq!(out.as_u64(), 21);
-    let done = output_vals.next().unwrap().1.unwrap_imm();
-    assert_eq!(done.as_u64(), 1);
-    //35
+    //now tick 3 more times; get empty vec, 35, empty vec
+    output_vals = mult.do_tick().into_iter(); //should output empty vec
+    assert_eq!(output_vals.len(), 0);
     output_vals = mult.do_tick().into_iter(); //should output done and 35
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1.unwrap_imm();
@@ -89,8 +116,13 @@ fn test_std_div_pipe() {
         left -> (4, 32),
         right -> (7, 32)
     ];
+    // I don't think that as written this works correctly. If the go "flickers" on
+    // for a portion of the cycle but does not remain high (i.e. is not high by
+    // the time do_tick is called) then the multiplier should not run.
+    // based on the above comment, b/c go is now low, nothing should be written
+    // to the queue!
     div.validate_and_execute(&binds);
-    let output_vals = div.do_tick(); //internal q: [(3, 2), (2, 6)]
+    let output_vals = div.do_tick(); //internal q: [N, (2, 6)]
     assert_eq!(output_vals.len(), 0);
     port_bindings![binds;
         go -> (1, 1),
@@ -99,7 +131,7 @@ fn test_std_div_pipe() {
     ];
     div.validate_and_execute(&binds);
     let mut output_vals = div.do_tick().into_iter(); //should output done and out_quotient 2 and out_remainder 6
-                                                     //internal q: [(4, 0), (3, 2)]
+                                                     //internal q: [(4, 0), N]
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
     assert_eq!(out_quotient.0, "out_quotient");
@@ -109,18 +141,10 @@ fn test_std_div_pipe() {
     assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 6);
     let done = output_vals.next().unwrap().1.unwrap_imm();
     assert_eq!(done.as_u64(), 1);
-    //internal q: [N, (4, 0), (3, 2)]
-    output_vals = div.do_tick().into_iter(); //out_q : 3, out_r: 2
-    assert_eq!(output_vals.len(), 3);
-    let out_quotient = output_vals.next().unwrap();
-    assert_eq!(out_quotient.0, "out_quotient");
-    assert_eq!(out_quotient.1.unwrap_imm().as_u64(), 3);
-    let out_remainder = output_vals.next().unwrap();
-    assert_eq!(out_remainder.0, "out_remainder");
-    assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 2);
-    let done = output_vals.next().unwrap().1.unwrap_imm();
-    assert_eq!(done.as_u64(), 1);
-    //internal q: [N, N, (4, 0)]
+    //internal q: [(4, 0), N]
+    output_vals = div.do_tick().into_iter(); //give none
+    assert_eq!(output_vals.len(), 0);
+    //internal q: [N, (4, 0)]
     output_vals = div.do_tick().into_iter(); //out_q : 4, out_r: 0
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
