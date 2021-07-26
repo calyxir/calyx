@@ -104,7 +104,9 @@ impl Visitor for StaticTiming {
                 let body_done =
                     guard!(fsm["out"]).eq(guard!(body_end_const["out"]));
                 // Should we increment the FSM this cycle.
-                let fsm_incr = !body_done.clone();
+                let fsm_incr = !body_done.clone()
+                    & (guard!(cond_stored["out"]) | cond_computed.clone());
+                let body_not_done = !body_done.clone();
 
                 // Compute the cond group
                 let cond_go =
@@ -124,7 +126,7 @@ impl Visitor for StaticTiming {
                     incr["left"] = ? fsm["out"];
                     incr["right"] = ? fsm_one["out"];
                     fsm["in"] = fsm_incr ? incr["out"];
-                    fsm["write_en"] = fsm_incr ? signal_on["out"];
+                    fsm["write_en"] = body_not_done ? signal_on["out"];
 
                     // Compute the cond group and save the result
                     cond["go"] = cond_go ? signal_on["out"];
