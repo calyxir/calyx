@@ -14,26 +14,35 @@ use structopt::StructOpt;
 /// CLI Options
 #[derive(Debug, StructOpt)]
 #[structopt(name = "interpreter", about = "interpreter CLI")]
-pub struct Opts {
+struct Opts {
     /// Input file
     #[structopt(parse(from_os_str))]
-    pub file: Option<PathBuf>,
+    file: Option<PathBuf>,
 
     /// Output file, default is stdout
     #[structopt(short = "o", long = "output", default_value)]
-    pub output: OutputFile,
+    output: OutputFile,
 
     /// Path to the primitives library
     #[structopt(long, short, default_value = "..")]
-    pub lib_path: PathBuf,
+    lib_path: PathBuf,
 
     /// Path to optional datafile used to initialze memories. If it is not
     /// provided memories will be initialzed with zeros
     #[structopt(long = "data", short = "d", parse(from_os_str))]
-    pub data_file: Option<PathBuf>,
+    data_file: Option<PathBuf>,
 
-    #[structopt(short, long)]
-    pub interactive: bool,
+    #[structopt(subcommand)]
+    comm: Option<Command>,
+}
+
+#[derive(StructOpt, Debug)]
+enum Command {
+    Interpret,
+    Debug {
+        #[structopt(short = "p", long = "pass-through")]
+        pass_through: bool,
+    },
 }
 
 /// Interpret a group from a Calyx program
@@ -63,19 +72,19 @@ fn main() -> FutilResult<()> {
             Error::Impossible("Cannot find main component".to_string())
         })?;
 
-    if opts.interactive {
-        let cidb = Debugger::new(ctx_ref, main_component);
-        let output = cidb.main_loop(env);
-        output.print_env();
-
-        Ok(())
-    } else {
-        match interpret_component(main_component, env) {
+    match opts.comm.unwrap_or(Command::Interpret) {
+        Command::Interpret => match interpret_component(main_component, env) {
             Ok(e) => {
                 e.print_env();
                 Ok(())
             }
             Err(err) => FutilResult::Err(err),
+        },
+        Command::Debug { pass_through } => {
+            let cidb = Debugger::new(ctx_ref, main_component);
+            let output = cidb.main_loop(env, pass_through);
+            output.print_env();
+            Ok(())
         }
     }
 }
