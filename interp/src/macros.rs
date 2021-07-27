@@ -111,10 +111,9 @@ macro_rules! comb_primitive {
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
             ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
-                self.execute(inputs, /* Value is not used None*/)
+                self.execute(inputs)
             }
 
-            //no need for commit & clear commit
         }
     };
 }

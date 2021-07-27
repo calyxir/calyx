@@ -20,17 +20,15 @@ pub trait Primitive {
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-        // done_val: Option<&Value>, rip
     ) -> Vec<(ir::Id, OutputValue)>;
 
     /// Execute the component.
     fn validate_and_execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-        // done_val: Option<&Value>,
     ) -> Vec<(ir::Id, OutputValue)> {
         self.validate(inputs);
-        self.execute(inputs) //, done_val)
+        self.execute(inputs)
     }
 
     /// Reset the component.

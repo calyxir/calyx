@@ -32,9 +32,8 @@ impl StdConst {
 }
 
 impl Primitive for StdConst {
-    //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
-        todo!()
+        vec![]
     }
 
     fn is_comb(&self) -> bool {
@@ -99,7 +98,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let new_right = adder
         .execute(
             &[("left".into(), &Value { vec: new_right }),
-            ("right".into(), &Value::from(1, WIDTH).unwrap())], /*None no need for done*/
+            ("right".into(), &Value::from(1, WIDTH).unwrap())],
         )
         .into_iter()
         .next()

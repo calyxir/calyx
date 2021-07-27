@@ -307,7 +307,9 @@ impl Primitive for StdReg {
             ]
         } else {
             //done is low, but there is still data in this reg to return
-            vec![(ir::Id::from("out"), self.data[0].clone().into())]
+            vec![
+                (ir::Id::from("out"), self.data[0].clone().into()), // (ir::Id::from("done"), Value::bit_low().into()),
+            ]
         }
     }
 
