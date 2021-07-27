@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use super::{Primitive, Serializeable};
 use crate::utils::construct_bindings;
-use crate::values::{OutputValue, Value};
+use crate::values::Value;
 use calyx::ir;
 
 pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
@@ -56,7 +56,7 @@ impl StdMultPipe {
 }
 
 impl Primitive for StdMultPipe {
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let out = self.queue.pop_back();
         //push update to the front
         self.queue.push_front(self.update.take());
@@ -70,8 +70,8 @@ impl Primitive for StdMultPipe {
         if let Some(Some(out)) = out {
             //return vec w/ out and done
             vec![
-                (ir::Id::from("out"), out.into()),
-                (ir::Id::from("done"), Value::bit_high().into()),
+                (ir::Id::from("out"), out),
+                (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
             //return empty vec
@@ -97,7 +97,7 @@ impl Primitive for StdMultPipe {
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+    ) -> Vec<(calyx::ir::Id, Value)> {
         //unwrap the arguments, left, right, and go
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
@@ -119,12 +119,12 @@ impl Primitive for StdMultPipe {
     fn reset(
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+    ) -> Vec<(calyx::ir::Id, crate::values::Value)> {
         self.update = None;
         self.queue = VecDeque::from(vec![None, None]);
         vec![
-            (ir::Id::from("out"), self.product.clone().into()),
-            (ir::Id::from("done"), Value::bit_low().into()),
+            (ir::Id::from("out"), self.product.clone()),
+            (ir::Id::from("done"), Value::bit_low()),
         ]
     }
 
@@ -179,7 +179,7 @@ impl StdDivPipe {
 }
 
 impl Primitive for StdDivPipe {
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let out = self.queue.pop_back();
         self.queue.push_front(self.update.take());
         assert_eq!(
@@ -190,9 +190,9 @@ impl Primitive for StdDivPipe {
         );
         if let Some(Some((q, r))) = out {
             vec![
-                (ir::Id::from("out_quotient"), q.into()),
-                (ir::Id::from("out_remainder"), r.into()),
-                (ir::Id::from("done"), Value::bit_high().into()),
+                (ir::Id::from("out_quotient"), q),
+                (ir::Id::from("out_remainder"), r),
+                (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
             vec![]
@@ -217,7 +217,7 @@ impl Primitive for StdDivPipe {
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+    ) -> Vec<(calyx::ir::Id, Value)> {
         //unwrap the arguments, left, right, and go
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
@@ -239,13 +239,13 @@ impl Primitive for StdDivPipe {
     fn reset(
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+    ) -> Vec<(calyx::ir::Id, Value)> {
         self.update = None;
         self.queue = VecDeque::from(vec![None, None]);
         vec![
-            (ir::Id::from("out_quotient"), self.quotient.clone().into()),
-            (ir::Id::from("out_remainder"), self.remainder.clone().into()),
-            (ir::Id::from("done"), Value::bit_low().into()),
+            (ir::Id::from("out_quotient"), self.quotient.clone()),
+            (ir::Id::from("out_remainder"), self.remainder.clone()),
+            (ir::Id::from("done"), Value::bit_low()),
         ]
     }
 
@@ -291,7 +291,7 @@ impl StdReg {
 }
 
 impl Primitive for StdReg {
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         //first commit any updates
         if let Some(val) = self.update.take() {
             self.data[0] = val;
@@ -302,14 +302,14 @@ impl Primitive for StdReg {
                                    //if do_tick() is called again w/o an execute() preceeding it,
                                    //then done will be low.
             vec![
-                (ir::Id::from("out"), self.data[0].clone().into()),
-                (ir::Id::from("done"), Value::bit_high().into()),
+                (ir::Id::from("out"), self.data[0].clone()),
+                (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
             //done is low, but there is still data in this reg to return
             vec![
-                (ir::Id::from("out"), self.data[0].clone().into()),
-                (ir::Id::from("done"), Value::bit_low().into()),
+                (ir::Id::from("out"), self.data[0].clone()),
+                (ir::Id::from("done"), Value::bit_low()),
             ]
         }
     }
@@ -331,7 +331,7 @@ impl Primitive for StdReg {
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+    ) -> Vec<(calyx::ir::Id, Value)> {
         //unwrap the arguments
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         let (_, write_en) =
@@ -351,12 +351,12 @@ impl Primitive for StdReg {
     fn reset(
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+    ) -> Vec<(calyx::ir::Id, Value)> {
         self.update = None;
         self.write_en = false; //might be redundant, not too sure when reset is used
         vec![
-            (ir::Id::from("out"), self.data[0].clone().into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
+            (ir::Id::from("out"), self.data[0].clone()),
+            (ir::Id::from("done"), Value::zeroes(1)),
         ]
     }
 
@@ -434,7 +434,7 @@ impl StdMemD1 {
 }
 
 impl Primitive for StdMemD1 {
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
         if self.write_en {
@@ -449,15 +449,15 @@ impl Primitive for StdMemD1 {
                 vec![
                     (
                         ir::Id::from("read_data"),
-                        self.data[idx as usize].clone().into(),
+                        self.data[idx as usize].clone(),
                     ),
-                    (ir::Id::from("done"), Value::bit_high().into()),
+                    (ir::Id::from("done"), Value::bit_high()),
                 ]
             } else {
                 panic!("[std_mem_d1] : self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![(ir::Id::from("done"), Value::bit_low().into())]
+            vec![(ir::Id::from("done"), Value::bit_low())]
         }
     }
 
@@ -479,10 +479,7 @@ impl Primitive for StdMemD1 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, input) =
             inputs.iter().find(|(id, _)| id == "write_data").unwrap();
         let (_, write_en) =
@@ -499,16 +496,10 @@ impl Primitive for StdMemD1 {
         //read_data is combinational w.r.t addr0;
         //if there was an update, [do_tick()] will return a vector w/ a done value
         //else, empty vector return
-        vec![(
-            ir::Id::from("read_data"),
-            self.data[addr0 as usize].clone().into(),
-        )]
+        vec![(ir::Id::from("read_data"), self.data[addr0 as usize].clone())]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         //so we don't have to keep using .as_u64()
         let addr0 = addr0.as_u64();
@@ -518,8 +509,8 @@ impl Primitive for StdMemD1 {
         self.update = None;
         self.write_en = false;
         vec![
-            ("read_data".into(), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
+            ("read_data".into(), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
         ]
     }
 
@@ -631,7 +622,7 @@ impl StdMemD2 {
 
 impl Primitive for StdMemD2 {
     //null-op for now
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         if self.write_en {
             assert!(self.update.is_some());
             self.write_en = false;
@@ -640,15 +631,15 @@ impl Primitive for StdMemD2 {
                 vec![
                     (
                         ir::Id::from("read_data"),
-                        self.data[idx as usize].clone().into(),
+                        self.data[idx as usize].clone(),
                     ),
-                    (ir::Id::from("done"), Value::bit_high().into()),
+                    (ir::Id::from("done"), Value::bit_high()),
                 ]
             } else {
                 panic!("[std_mem_d2]: self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![(ir::Id::from("done"), Value::bit_low().into())]
+            vec![(ir::Id::from("done"), Value::bit_low())]
         }
     }
 
@@ -674,10 +665,7 @@ impl Primitive for StdMemD2 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
         //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
@@ -701,14 +689,11 @@ impl Primitive for StdMemD2 {
         }
         vec![(
             ir::Id::from("read_data"),
-            self.data[real_addr as usize].clone().into(),
+            self.data[real_addr as usize].clone(),
         )]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let addr0 = addr0.as_u64();
@@ -723,8 +708,8 @@ impl Primitive for StdMemD2 {
         self.write_en = false;
 
         vec![
-            (ir::Id::from("read_data"), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
+            (ir::Id::from("read_data"), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
         ]
     }
 
@@ -851,7 +836,7 @@ impl StdMemD3 {
 
 impl Primitive for StdMemD3 {
     //null-op for now
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         if self.write_en {
             assert!(self.update.is_some());
             self.write_en = false;
@@ -860,15 +845,15 @@ impl Primitive for StdMemD3 {
                 vec![
                     (
                         ir::Id::from("read_data"),
-                        self.data[idx as usize].clone().into(),
+                        self.data[idx as usize].clone(),
                     ),
-                    (ir::Id::from("done"), Value::bit_high().into()),
+                    (ir::Id::from("done"), Value::bit_high()),
                 ]
             } else {
                 panic!("[std_mem_d2] : self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![(ir::Id::from("done"), Value::bit_low().into())]
+            vec![(ir::Id::from("done"), Value::bit_low())]
         }
     }
 
@@ -898,10 +883,7 @@ impl Primitive for StdMemD3 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
         //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
@@ -927,14 +909,11 @@ impl Primitive for StdMemD3 {
         }
         vec![(
             ir::Id::from("read_data"),
-            self.data[real_addr as usize].clone().into(),
+            self.data[real_addr as usize].clone(),
         )]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
@@ -950,8 +929,8 @@ impl Primitive for StdMemD3 {
         self.update = None;
         self.write_en = false;
         vec![
-            (ir::Id::from("read_data"), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
+            (ir::Id::from("read_data"), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
         ]
     }
 
@@ -1102,7 +1081,7 @@ impl StdMemD4 {
 }
 impl Primitive for StdMemD4 {
     //null-op for now
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         if self.write_en {
             assert!(self.update.is_some());
             self.write_en = false;
@@ -1111,15 +1090,15 @@ impl Primitive for StdMemD4 {
                 vec![
                     (
                         ir::Id::from("read_data"),
-                        self.data[idx as usize].clone().into(),
+                        self.data[idx as usize].clone(),
                     ),
-                    (ir::Id::from("done"), Value::bit_high().into()),
+                    (ir::Id::from("done"), Value::bit_high()),
                 ]
             } else {
                 panic!("[std_mem_d4] : self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![(ir::Id::from("done"), Value::bit_low().into())]
+            vec![(ir::Id::from("done"), Value::bit_low())]
         }
     }
 
@@ -1153,10 +1132,7 @@ impl Primitive for StdMemD4 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
         //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
@@ -1184,14 +1160,11 @@ impl Primitive for StdMemD4 {
         }
         vec![(
             ir::Id::from("read_data"),
-            self.data[real_addr as usize].clone().into(),
+            self.data[real_addr as usize].clone(),
         )]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
@@ -1208,8 +1181,8 @@ impl Primitive for StdMemD4 {
         self.update = None;
         self.write_en = false;
         vec![
-            (ir::Id::from("read_data"), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
+            (ir::Id::from("read_data"), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
         ]
     }
 

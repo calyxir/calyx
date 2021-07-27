@@ -134,8 +134,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                     for (port, val) in new_vals {
                         let port_ref = cell.borrow().find(port).unwrap();
 
-                        update_list
-                            .push((Rc::clone(&port_ref), val.unwrap_imm()));
+                        update_list.push((Rc::clone(&port_ref), val));
                     }
                 }
             }
@@ -280,8 +279,6 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
                 let port_ref = cell.borrow().find(port).unwrap();
 
                 let current_val = env.get_from_port(&port_ref.borrow());
-
-                let val = val.unwrap_imm();
 
                 if *current_val != val {
                     val_changed = true;
