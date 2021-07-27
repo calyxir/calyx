@@ -3,7 +3,7 @@ use crate::port_bindings;
 #[allow(unused)]
 use crate::primitives::{combinational as comb, stateful as stfl, Primitive};
 #[allow(unused)]
-use crate::values::{OutputValue, ReadableValue, TickableValue, Value};
+use crate::values::Value;
 #[allow(unused)]
 use calyx::ir;
 
@@ -26,9 +26,9 @@ fn mult_flickering_go() {
     mult.do_tick();
     let mut output_vals = mult.do_tick().into_iter(); //should output done and 21, not 14
     assert_eq!(output_vals.len(), 2);
-    let out = output_vals.next().unwrap().1.unwrap_imm();
+    let out = output_vals.next().unwrap().1;
     assert_eq!(out.as_u64(), 21);
-    let done = output_vals.next().unwrap().1.unwrap_imm();
+    let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     output_vals = mult.do_tick().into_iter();
     assert_eq!(output_vals.len(), 0);
@@ -74,18 +74,18 @@ fn test_std_mult_pipe() {
     mult.validate_and_execute(&binds);
     let mut output_vals = mult.do_tick().into_iter(); //should output done and 14, internal queue: [35, N]
     assert_eq!(output_vals.len(), 2);
-    let out = output_vals.next().unwrap().1.unwrap_imm();
+    let out = output_vals.next().unwrap().1;
     assert_eq!(out.as_u64(), 14);
-    let done = output_vals.next().unwrap().1.unwrap_imm();
+    let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     //now tick 3 more times; get empty vec, 35, empty vec
     output_vals = mult.do_tick().into_iter(); //should output empty vec
     assert_eq!(output_vals.len(), 0);
     output_vals = mult.do_tick().into_iter(); //should output done and 35
     assert_eq!(output_vals.len(), 2);
-    let out = output_vals.next().unwrap().1.unwrap_imm();
+    let out = output_vals.next().unwrap().1;
     assert_eq!(out.as_u64(), 35);
-    let done = output_vals.next().unwrap().1.unwrap_imm();
+    let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     //none (empty output vec)
     output_vals = mult.do_tick().into_iter(); //should output empty vec
@@ -135,11 +135,11 @@ fn test_std_div_pipe() {
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
     assert_eq!(out_quotient.0, "out_quotient");
-    assert_eq!(out_quotient.1.unwrap_imm().as_u64(), 2);
+    assert_eq!(out_quotient.1.as_u64(), 2);
     let out_remainder = output_vals.next().unwrap();
     assert_eq!(out_remainder.0, "out_remainder");
-    assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 6);
-    let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(out_remainder.1.as_u64(), 6);
+    let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     //internal q: [(4, 0), N]
     output_vals = div.do_tick().into_iter(); //give none
@@ -149,11 +149,11 @@ fn test_std_div_pipe() {
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
     assert_eq!(out_quotient.0, "out_quotient");
-    assert_eq!(out_quotient.1.unwrap_imm().as_u64(), 4);
+    assert_eq!(out_quotient.1.as_u64(), 4);
     let out_remainder = output_vals.next().unwrap();
     assert_eq!(out_remainder.0, "out_remainder");
-    assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 0);
-    //let done = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(out_remainder.1.as_u64(), 0);
+    //let done = output_vals.next().unwrap().1;
     //none (empty output vec)
     output_vals = div.do_tick().into_iter(); //should output done and 14
     assert_eq!(output_vals.len(), 0);
@@ -176,9 +176,9 @@ fn test_std_reg_imval() {
     assert_eq!(2, output_vals.len());
     //should be a 0 and a 0 ([out] and [done])
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
-    let d = output_vals.next().unwrap().1.unwrap_imm();
+    let d = output_vals.next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
     //now have write_en high and see output from do_tick() is 16, 1
     port_bindings![binds;
@@ -193,9 +193,9 @@ fn test_std_reg_imval() {
     //should be a 16 and a 1 ([out] and [done])
     let (out, done_val) =
         (output_vals.next().unwrap(), output_vals.next().unwrap());
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
-    let d = done_val.1.unwrap_imm();
+    let d = done_val.1;
     assert_eq!(d.as_u64(), 1);
     //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
     port_bindings![binds;
@@ -209,9 +209,9 @@ fn test_std_reg_imval() {
     assert_eq!(2, output_vals.len());
     let mut output_vals = output_vals.into_iter();
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
-    let d = output_vals.next().unwrap().1.unwrap_imm();
+    let d = output_vals.next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
 }
 
@@ -230,12 +230,12 @@ fn test_std_mem_d1() {
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick(); //this should have low done
     assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
@@ -250,7 +250,7 @@ fn test_std_mem_d1() {
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
                                       //should be a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
@@ -260,8 +260,8 @@ fn test_std_mem_d1() {
     let mut output_vals = output_vals.into_iter();
     let rd = output_vals.next().unwrap();
     let d = output_vals.next().unwrap();
-    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
-    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    assert_eq!(rd.1.as_u64(), 16);
+    assert_eq!(d.1.as_u64(), 1);
     //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
     port_bindings![binds;
         write_data -> (3, 6),
@@ -275,10 +275,10 @@ fn test_std_mem_d1() {
     //should be a 16 and a 0 ([out] and [done])
     assert_eq!(output_vals.len(), 1);
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
     let mut output_vals = mem.do_tick().into_iter();
-    let d = output_vals.next().unwrap().1.unwrap_imm();
+    let d = output_vals.next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
 }
 
@@ -299,12 +299,12 @@ fn test_std_mem_d2() {
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
                                       //should be a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick(); //this should have low done
     assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
     //now have write_en high and see output of execute is 0, and output of write is 16
     port_bindings![binds;
@@ -319,7 +319,7 @@ fn test_std_mem_d2() {
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
                                       //should be a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
@@ -329,8 +329,8 @@ fn test_std_mem_d2() {
     let mut output_vals = output_vals.into_iter();
     let rd = output_vals.next().unwrap();
     let d = output_vals.next().unwrap();
-    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
-    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    assert_eq!(rd.1.as_u64(), 16);
+    assert_eq!(d.1.as_u64(), 1);
     //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
     port_bindings![binds;
         write_data -> (3, 6),
@@ -343,7 +343,7 @@ fn test_std_mem_d2() {
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
 }
 
@@ -365,12 +365,12 @@ fn test_std_mem_d3() {
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
                                       //should be a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick(); //this should have done as 0
     assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
@@ -387,7 +387,7 @@ fn test_std_mem_d3() {
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
                                       //should be a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
@@ -397,8 +397,8 @@ fn test_std_mem_d3() {
     let mut output_vals = output_vals.into_iter();
     let rd = output_vals.next().unwrap();
     let d = output_vals.next().unwrap();
-    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
-    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    assert_eq!(rd.1.as_u64(), 16);
+    assert_eq!(d.1.as_u64(), 1);
     //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
     port_bindings![binds;
         write_data -> (3, 6),
@@ -413,7 +413,7 @@ fn test_std_mem_d3() {
     let mut output_vals = output_vals.into_iter();
     //should be a 16 and a 1 ([out] and [done])
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
 }
 
@@ -436,12 +436,12 @@ fn test_std_mem_d4() {
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
                                       //should be a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick(); //this should have low done
     assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
@@ -459,7 +459,7 @@ fn test_std_mem_d4() {
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
                                       //should be a 0
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
@@ -469,8 +469,8 @@ fn test_std_mem_d4() {
     let mut output_vals = output_vals.into_iter();
     let rd = output_vals.next().unwrap();
     let d = output_vals.next().unwrap();
-    assert_eq!(rd.1.unwrap_imm().as_u64(), 16);
-    assert_eq!(d.1.unwrap_imm().as_u64(), 1);
+    assert_eq!(rd.1.as_u64(), 16);
+    assert_eq!(d.1.as_u64(), 1);
     //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
     port_bindings![binds;
         write_data -> (3, 6),
@@ -486,7 +486,7 @@ fn test_std_mem_d4() {
     let mut output_vals = output_vals.into_iter();
     //should be a 16 and a 1 ([out] and [done])
     let out = output_vals.next().unwrap();
-    let rd = out.1.unwrap_imm();
+    let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
 }
 
@@ -517,8 +517,7 @@ fn test_std_lsh() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     println!("lsh of 31 by 2: {}", out);
     assert_eq!(out.as_u64(), 28);
 
@@ -534,8 +533,7 @@ fn test_std_lsh() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(out.as_u64(), 32);
 }
 
@@ -552,8 +550,7 @@ fn test_std_lsh_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(out.as_u64(), 0);
 
     // lsh without overflow
@@ -568,8 +565,7 @@ fn test_std_lsh_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(out.as_u64(), 32);
 }
 
@@ -587,8 +583,7 @@ fn test_std_rsh() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(out.as_u64(), 3);
     // Division by 2
     // [1000] (8) -> [0100] ( 4)
@@ -601,8 +596,7 @@ fn test_std_rsh() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(out.as_u64(), 4);
 }
 
@@ -618,8 +612,7 @@ fn test_std_rsh_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(out.as_u64(), 0);
     let mut rsh = comb::StdRsh::from_constants(381);
     port_bindings![binds;
@@ -631,8 +624,7 @@ fn test_std_rsh_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(out.as_u64(), 5);
 }
 
@@ -650,8 +642,7 @@ fn test_std_add() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_add.as_u64(), 13);
     // with overflow
     // add [1010] (10) and [0110] (6) -> [0000] (0)
@@ -664,8 +655,7 @@ fn test_std_add() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_add.as_u64(), 0);
 }
 
@@ -682,8 +672,7 @@ fn test_std_add_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_add.as_u64(), 52);
 }
 
@@ -711,8 +700,7 @@ fn test_std_sub() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_sub.as_u64(), 4);
     // with overflow (would produce a negative #, depending on how program thinks abt this...)
     // sub [1011] (11) from [1010] (10) ->  [1010] + [0101] = [1111] which is -1 in 2bc and 15 unsigned
@@ -726,8 +714,7 @@ fn test_std_sub() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_sub.as_u64(), 15);
     // sub [1111] (15) from [1000] (8) -> [1000] + [0001] which is [1001] -7 in 2c but 9 in unsigned
 
@@ -740,8 +727,7 @@ fn test_std_sub() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_sub.as_u64(), 9);
 }
 
@@ -758,8 +744,7 @@ fn test_std_sub_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_sub.as_u64(), 22);
 }
 
@@ -783,8 +768,7 @@ fn test_std_slice() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm(); //note that once we implement execute_unary, have to change this
+        .unwrap(); //note that once we implement execute_unary, have to change this
     assert_eq!(res_slice.as_u64(), 5);
     // Slice the entire bit
     let to_slice = Value::from(548, 10).unwrap();
@@ -794,8 +778,7 @@ fn test_std_slice() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_slice.as_u64(), 548);
 }
 #[test]
@@ -815,8 +798,7 @@ fn test_std_pad() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_pad.as_u64(), 101);
     // hard to think of another test case but just to have 2:
     let to_pad = Value::from(1, 7).unwrap();
@@ -825,8 +807,7 @@ fn test_std_pad() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_pad.as_u64(), 1);
 }
 #[test]
@@ -847,8 +828,7 @@ fn test_std_not() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_not.as_u64(), 5);
     // ![0000] (!0) -> [1111] (15)
     let not0 = Value::from(0, 4).unwrap();
@@ -857,8 +837,7 @@ fn test_std_not() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_not.as_u64(), 15);
 }
 
@@ -873,8 +852,7 @@ fn test_std_not_panic() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
 }
 
 #[test]
@@ -890,8 +868,7 @@ fn test_std_and() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_and.as_u64(), 68);
     //[1010] (10) & [0101] (5) is [0000]
 
@@ -905,8 +882,7 @@ fn test_std_and() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_and.as_u64(), 0);
 }
 
@@ -923,8 +899,7 @@ fn test_std_and_panic() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
 }
 
 #[test]
@@ -940,8 +915,7 @@ fn test_std_or() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_or.as_u64(), 7);
     //anything or zero is itself
     //[001] (1) or [000] (0) is [001] (1)
@@ -954,8 +928,7 @@ fn test_std_or() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_or.as_u64(), left.as_u64());
 }
 
@@ -972,8 +945,7 @@ fn test_std_or_panic() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
 }
 #[test]
 fn test_std_xor() {
@@ -988,8 +960,7 @@ fn test_std_xor() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_xor.as_u64(), 6);
     //anything xor itself is 0
     port_bindings![binds;
@@ -1003,7 +974,6 @@ fn test_std_xor() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         0
     );
@@ -1021,8 +991,7 @@ fn test_std_xor_panic() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
 }
 /// Comparison Operators
 // is there any point in testing this more than once?
@@ -1040,8 +1009,7 @@ fn test_std_gt() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_gt.as_u64(), 1);
     //7 > 7 ? no!
     port_bindings![binds;
@@ -1055,7 +1023,6 @@ fn test_std_gt() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         0
     );
@@ -1073,8 +1040,7 @@ fn test_std_gt_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_gt.as_u64(), 1);
     //7 > 7 ? no!
     let mut std_gt = comb::StdGt::from_constants(423);
@@ -1089,7 +1055,6 @@ fn test_std_gt_above64() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         0
     );
@@ -1116,8 +1081,7 @@ fn test_std_lt() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_lt.as_u64(), 0);
     // 7 < 7 ? no!
     port_bindings![binds;
@@ -1131,7 +1095,6 @@ fn test_std_lt() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         0
     );
@@ -1150,8 +1113,7 @@ fn test_std_lt_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_lt.as_u64(), 1);
     //3_000_000 < 3_000_000 ? no!
     let mut std_lt = comb::StdLt::from_constants(2423);
@@ -1166,7 +1128,6 @@ fn test_std_lt_above64() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         0
     );
@@ -1194,8 +1155,7 @@ fn test_std_eq() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_eq.as_u64(), 1);
     // 4 = 5 ? no!
     port_bindings![binds;
@@ -1209,7 +1169,6 @@ fn test_std_eq() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         0
     );
@@ -1227,8 +1186,7 @@ fn test_std_eq_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_eq.as_u64(), 1);
     // 123456 =12377456 ? no!
     let mut std_eq = comb::StdEq::from_constants(421113);
@@ -1243,7 +1201,6 @@ fn test_std_eq_above64() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         0
     );
@@ -1271,8 +1228,7 @@ fn test_std_neq() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     //4 != 4 ? no!
     assert!(res_neq.as_u64() == 0);
     // 4 != 5? yes!
@@ -1287,7 +1243,6 @@ fn test_std_neq() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         1
     );
@@ -1305,8 +1260,7 @@ fn test_std_neq_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     //max != max ? no!
     assert!(res_neq.as_u64() == 0);
     port_bindings![binds;
@@ -1320,7 +1274,6 @@ fn test_std_neq_above64() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         1
     );
@@ -1349,8 +1302,7 @@ fn test_std_ge() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     //35 >= 165 ? no!
     assert_eq!(res_ge.as_u64(), 0);
     // 35 >= 35 ? yes
@@ -1365,7 +1317,6 @@ fn test_std_ge() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         1
     );
@@ -1383,8 +1334,7 @@ fn test_std_ge_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_ge.as_u64(), 1);
     // 35 >= 35 ? yes
     let mut std_ge = comb::StdGe::from_constants(423);
@@ -1399,7 +1349,6 @@ fn test_std_ge_above64() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         1
     );
@@ -1427,8 +1376,7 @@ fn test_std_le() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     //12 <= 4 ? no!
     assert_eq!(res_le.as_u64(), 0);
     //12 <= 12? yes!
@@ -1443,7 +1391,6 @@ fn test_std_le() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         1
     );
@@ -1462,8 +1409,7 @@ fn test_std_le_above64() {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     assert_eq!(res_le.as_u64(), 1);
     //3_000_000 <= 3_000_000 ? yes!
     let mut std_le = comb::StdLe::from_constants(2423);
@@ -1478,7 +1424,6 @@ fn test_std_le_above64() {
             .next()
             .map(|(_, v)| v)
             .unwrap()
-            .unwrap_imm()
             .as_u64(),
         1
     );
