@@ -107,12 +107,8 @@ fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
 }
 
-fn is_signal_high(done: OutputValueRef) -> bool {
-    match done {
-        OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
-        OutputValueRef::LockedValue(_) => false,
-        OutputValueRef::PulseValue(v) => v.get_val().as_u64() == 1,
-    }
+fn is_signal_high(done: &Value) -> bool {
+    done.as_u64() == 1
 }
 
 /// An internal method that does the main work of interpreting a set of
@@ -121,12 +117,14 @@ fn is_signal_high(done: OutputValueRef) -> bool {
 /// provided with a port which will be treated as the revelant done signal for
 /// the execution
 fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
-    env: InterpreterState,
+    mut env: InterpreterState,
     done_signal: &ir::Port,
     assigns: I,
 ) -> FutilResult<InterpreterState> {
     let assigns = assigns.collect_vec();
-    let mut working_env: WorkingEnvironment = env.into(); //env as backing_env, fresh slate as working_env
+
+    //first step in re-typing: deal only with [env], don't use a WorkingEnvironment
+    //let mut working_env: WorkingEnvironment = env.into(); //env as backing_env, fresh slate as working_env
 
     let cells = get_cells(assigns.iter().copied());
 
@@ -134,7 +132,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
     let mut val_changed_flag = false;
 
-    while !is_signal_high(working_env.get(done_signal)) || val_changed_flag {
+    while !is_signal_high(env.get_from_port(done_signal)) || val_changed_flag {
         //helps us tell if there are multiple assignments to same port >:0
         let mut assigned_ports: HashSet<*const ir::Port> = HashSet::new();
         val_changed_flag = false;
@@ -146,7 +144,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         let mut updates_list = vec![];
         // compute all updates from the assignments
         for assignment in &assigns {
-            if eval_guard(&assignment.guard, &working_env) {
+            if eval_guard(&assignment.guard, &env) {
                 //first check nothing has been assigned to this destination yet
                 if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
                 {
@@ -163,16 +161,14 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 //the below (get) attempts to get from working_env HM first, then
                 //backing_env Smoosher. What does it mean for the value to be in HM?
                 //That it's a locked value?
-                let old_val = working_env.get(&assignment.dst.borrow());
-                let new_val_ref =
-                    working_env.get_as_val(&assignment.src.borrow());
+                let old_val = env.get_from_port(&assignment.dst.borrow());
+                let new_val_ref = env.get_from_port(&assignment.src.borrow());
                 // no need to make updates if the value has not changed
                 let port = assignment.dst.clone(); // Rc clone
-                let new_val: OutputValue = new_val_ref.clone().into();
+                let new_val = new_val_ref.clone();
 
-                if old_val != new_val_ref.into() {
+                if old_val != new_val_ref {
                     updates_list.push((port, new_val)); //no point in rewriting same value to this list
-
                     val_changed_flag = true;
                 }
             }
@@ -187,75 +183,61 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             //need to find appropriate-sized 0, so just read
             //width of old_val
 
-            let old_val = working_env.get_as_val_const(port);
+            let old_val = env.get_from_const_port(port);
             let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
-            let new_val: OutputValue =
-                Value::from(0, old_val_width).unwrap().into();
-            //updates_list.push((port, new_val));
+            let new_val = Value::from(0, old_val_width).unwrap();
 
-            //how to avoid infinite loop?
-            //if old_val is imm value and zero, then that's
-            //when val_changed_flag is false, else true.
             if old_val.as_u64() != 0 {
                 val_changed_flag = true;
             }
 
             //update directly
-            working_env.update_val_const_port(port, new_val);
+            env.insert(port, new_val);
         }
 
         // perform all the updates
         for (port, value) in updates_list {
-            working_env.update_val(&port.borrow(), value);
+            env.insert(get_const_from_rrc(&port), value);
         }
 
-        let changed = eval_prims(&mut working_env, cells.iter(), false);
+        let changed = eval_prims(&mut env, cells.iter(), false);
         if changed {
             val_changed_flag = true;
         }
 
         //if done signal is low and we haven't yet changed anything, means primitives are done,
         //time to evaluate sequential components
-        if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
-            let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
+        if !is_signal_high(env.get_from_port(done_signal)) && !val_changed_flag
+        {
+            let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];
 
             //no need to do zero-assign check cuz this is run just once (?)
             for cell in cells.iter() {
-                if let Some(x) =
-                    working_env.backing_env.cell_prim_map.borrow_mut().get_mut(
-                        &(&cell.borrow() as &ir::Cell as *const ir::Cell),
-                    )
+                if let Some(x) = env
+                    .cell_prim_map
+                    .borrow_mut()
+                    .get_mut(&(&cell.borrow() as &ir::Cell as *const ir::Cell))
                 {
                     let new_vals = x.do_tick();
                     for (port, val) in new_vals {
                         let port_ref = cell.borrow().find(port).unwrap();
 
-                        update_list.push((Rc::clone(&port_ref), val));
+                        update_list
+                            .push((Rc::clone(&port_ref), val.unwrap_imm()));
                     }
-
-                    //call do_tick on each cell's primitive, and then
-                    //write the updates as done in eval_prims
-                    //specifically line 419, 448, 455 (create update list, push to it, env.update_val)
-                    //then call working_env.do_tick(), so everything is written to backing_env for us :=)
-                    //no need to worry about done values anymore; the done values will be written
-                    //to env, and primitives will remember their previous [done] state
-                    //no need to treat [done] special anymore.
                 }
             }
-            //put everything from update list into working_env, then
-            //working_env will put the IMM values (all values) into
-            //backing_env
+            //now that we've ticked everything, put them back in the environment
             for (port, val) in update_list {
-                working_env.update_val(&port.borrow(), val);
+                env.insert(get_const_from_rrc(&port), val);
             }
-            working_env.do_tick();
 
             //after this if statement runs ONCE, end of a cycle. Should only run once!
             //but prims above can run as much as they want before they stabilize
         }
     }
 
-    Ok(working_env.collapse_env(false))
+    Ok(env)
 }
 
 /// Interprets the given set of continuous assigments and returns a result
@@ -358,17 +340,17 @@ pub fn finish_group_interpretation(
 /// given cell RRCs is unrelated and largely irrelevant as the prim_map is keyed
 /// off of port raw pointers whose lifetime is uncoupled from the cells.
 fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
-    env: &mut WorkingEnvironment,
+    env: &mut InterpreterState,
     exec_list: I,
     reset_flag: bool, // reset vals or execute normally
 ) -> bool {
     let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
-    let ref_clone = env.backing_env.cell_prim_map.clone(); // RC clone
+    let ref_clone = env.cell_prim_map.clone(); // RC clone
     let mut prim_map = ref_clone.borrow_mut();
 
-    let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
+    let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];
 
     for cell in exec_list {
         let inputs = get_inputs(&env, &cell.borrow());
@@ -376,9 +358,7 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
         let executable = prim_map.get_mut(&get_const_from_rrc(&cell));
 
         if let Some(prim) = executable {
-            //note: w/ new do_tick() interface, no need for this [done] stuff
             let new_vals = if reset_flag {
-                //note: need to clear update buffer in reset
                 prim.reset(&inputs)
             } else {
                 prim.execute(&inputs)
@@ -387,9 +367,11 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
             for (port, val) in new_vals {
                 let port_ref = cell.borrow().find(port).unwrap();
 
-                let current_val = env.get(&port_ref.borrow());
+                let current_val = env.get_from_port(&port_ref.borrow());
 
-                if current_val != (&val).into() {
+                let val = val.unwrap_imm();
+
+                if *current_val != val {
                     val_changed = true;
                     // defer value update until after all executions
                     update_list.push((Rc::clone(&port_ref), val));
@@ -399,14 +381,14 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     }
 
     for (port, val) in update_list {
-        env.update_val(&port.borrow(), val);
+        env.insert(get_const_from_rrc(&port), val);
     }
 
     val_changed
 }
 
 fn get_inputs<'a>(
-    env: &'a WorkingEnvironment,
+    env: &'a InterpreterState,
     cell: &ir::Cell,
 ) -> Vec<(ir::Id, &'a Value)> {
     cell.ports
@@ -415,7 +397,7 @@ fn get_inputs<'a>(
             let p_ref: &ir::Port = &p.borrow();
             match &p_ref.direction {
                 ir::Direction::Input => {
-                    Some((p_ref.name.clone(), env.get_as_val(p_ref)))
+                    Some((p_ref.name.clone(), env.get_from_port(p_ref)))
                 }
                 _ => None,
             }
@@ -423,31 +405,31 @@ fn get_inputs<'a>(
         .collect()
 }
 
-fn eval_guard(guard: &ir::Guard, env: &WorkingEnvironment) -> bool {
+fn eval_guard(guard: &ir::Guard, env: &InterpreterState) -> bool {
     match guard {
         ir::Guard::Or(g1, g2) => eval_guard(g1, env) || eval_guard(g2, env),
         ir::Guard::And(g1, g2) => eval_guard(g1, env) && eval_guard(g2, env),
         ir::Guard::Not(g) => !eval_guard(g, &env),
         ir::Guard::Eq(g1, g2) => {
-            env.get_as_val(&g1.borrow()) == env.get_as_val(&g2.borrow())
+            env.get_from_port(&g1.borrow()) == env.get_from_port(&g2.borrow())
         }
         ir::Guard::Neq(g1, g2) => {
-            env.get_as_val(&g1.borrow()) != env.get_as_val(&g2.borrow())
+            env.get_from_port(&g1.borrow()) != env.get_from_port(&g2.borrow())
         }
         ir::Guard::Gt(g1, g2) => {
-            env.get_as_val(&g1.borrow()) > env.get_as_val(&g2.borrow())
+            env.get_from_port(&g1.borrow()) > env.get_from_port(&g2.borrow())
         }
         ir::Guard::Lt(g1, g2) => {
-            env.get_as_val(&g1.borrow()) < env.get_as_val(&g2.borrow())
+            env.get_from_port(&g1.borrow()) < env.get_from_port(&g2.borrow())
         }
         ir::Guard::Geq(g1, g2) => {
-            env.get_as_val(&g1.borrow()) >= env.get_as_val(&g2.borrow())
+            env.get_from_port(&g1.borrow()) >= env.get_from_port(&g2.borrow())
         }
         ir::Guard::Leq(g1, g2) => {
-            env.get_as_val(&g1.borrow()) <= env.get_as_val(&g2.borrow())
+            env.get_from_port(&g1.borrow()) <= env.get_from_port(&g2.borrow())
         }
         ir::Guard::Port(p) => {
-            let val = env.get_as_val(&p.borrow());
+            let val = env.get_from_port(&p.borrow());
             if val.vec.len() != 1 {
                 panic!(
                     "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
@@ -481,10 +463,9 @@ fn finish_interpretation<'a, I: Iterator<Item = &'a ir::Assignment>>(
     let cells = get_cells(assigns.iter().copied());
 
     env.insert(done_signal as ConstPort, Value::bit_low());
-    let mut working_env: WorkingEnvironment = env.into();
-    eval_prims(&mut working_env, cells.iter(), true);
+    eval_prims(&mut env, cells.iter(), true);
 
-    Ok(working_env.collapse_env(false))
+    Ok(env)
 }
 
 fn get_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
