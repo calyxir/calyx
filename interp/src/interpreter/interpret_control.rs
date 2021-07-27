@@ -44,12 +44,49 @@ fn eval_seq(
 /// Interpret Par
 
 fn eval_par(
-    _p: &ir::Par,
-    _continuous_assignments: &[ir::Assignment],
-    mut _env: InterpreterState,
-    _comp: &ir::Component,
+    p: &ir::Par,
+    continuous_assignments: &[ir::Assignment],
+    mut env: InterpreterState,
+    comp: &ir::Component,
 ) -> FutilResult<InterpreterState> {
-    todo!("par control operator")
+    //vector to keep track of all updated states
+    let mut states = Vec::new();
+
+    // evaluate each expression within the starter environment by forking from it
+    for st in &p.stmts {
+        states.push(interpret_control(
+            st,
+            continuous_assignments,
+            env.fork(),
+            comp,
+        )?);
+    }
+
+    // states = &p.stmts.into_iter().map(|ctr| {
+    //     interpret_control(ctr, continuous_assignments, env.fork(), comp)?
+    // });
+
+    //clock updates
+    let mut tl = 0;
+
+    //vector of smooshers from the states
+    let mut smooshers = Vec::new();
+
+    let mut final_st = env;
+
+    //i do this using loops for clock updates
+    for is in states {
+        if is.clk > tl {
+            tl = is.clk;
+        }
+
+        smooshers.push(is.pv_map);
+    }
+
+    final_st.pv_map = final_st.pv_map.merge_many(smooshers);
+    final_st.clk = tl;
+
+    Ok(final_st)
 }
 
 /// Interpret If
