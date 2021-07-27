@@ -3,105 +3,17 @@
 
 use crate::environment::InterpreterState;
 
-use crate::utils::{get_const_from_rrc, OutputValueRef};
-use crate::values::{OutputValue, ReadableValue, Value};
+use crate::utils::get_const_from_rrc;
+use crate::values::Value;
 use calyx::{
     errors::FutilResult,
     ir::{self, RRC},
 };
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::rc::Rc;
 
 type ConstPort = *const ir::Port;
-
-/// A wrapper for a map assigning OutputValues to each port. Used in the working
-/// environment to track values that are not of type Value which is used in the
-/// environment.
-// TODO (griffin): Update environment definition to allow for things of type
-//                 OutputValue?
-type PortOutputValMap = HashMap<ConstPort, OutputValue>;
-
-/// A wrapper struct to keep the passed environment and a map tracking the
-/// updates made in the current environment. It is only really needed because
-/// the environment maps to values of type Value, but during group
-/// interpretation, ports need to be mapped to values of type OutputValue
-// TODO (griffin): Update / remove pending changes to environment definition
-struct WorkingEnvironment {
-    //InterpreterState has a pv_map which is a Smoosher<*const ir::Port, Value>
-    pub backing_env: InterpreterState,
-    pub working_env: PortOutputValMap, // HashMap<*const ir::Port, OutputValue>
-}
-
-impl From<InterpreterState> for WorkingEnvironment {
-    fn from(input: InterpreterState) -> Self {
-        Self {
-            backing_env: input,
-            working_env: PortOutputValMap::default(),
-        }
-    }
-}
-
-impl WorkingEnvironment {
-    fn get_const(&self, port: *const ir::Port) -> OutputValueRef {
-        let working_val = self.working_env.get(&port);
-        match working_val {
-            Some(v) => v.into(),
-            None => self.backing_env.get_from_const_port(port).into(),
-        }
-    }
-    /// Attempts to first get value from the working_env (PortOutputValMap)
-    /// If doesn't exist, gets from backing_env (InterpreterState)
-    fn get(&self, port: &ir::Port) -> OutputValueRef {
-        self.get_const(port as *const ir::Port)
-    }
-
-    fn update_val_const_port(
-        &mut self,
-        port: *const ir::Port,
-        value: OutputValue,
-    ) {
-        self.working_env.insert(port, value);
-    }
-
-    fn update_val(&mut self, port: &ir::Port, value: OutputValue) {
-        self.update_val_const_port(port as *const ir::Port, value);
-    }
-
-    fn get_as_val_const(&self, port: *const ir::Port) -> &Value {
-        match self.get_const(port) {
-            OutputValueRef::ImmediateValue(iv) => iv.get_val(),
-            OutputValueRef::LockedValue(tlv) => tlv.get_val(),
-            OutputValueRef::PulseValue(pv) => pv.get_val(),
-        }
-    }
-
-    fn get_as_val(&self, port: &ir::Port) -> &Value {
-        self.get_as_val_const(port as *const ir::Port)
-    }
-
-    //for use w/ smoosher: maybe add a new scope onto backing_env for the tick?
-    //this is not used now w/ primitives having do_tick(). they are ticked in interp_assignments()
-    fn do_tick(&mut self) {
-        self.backing_env.clk += 1;
-    }
-
-    fn collapse_env(mut self, panic_on_invalid_val: bool) -> InterpreterState {
-        let working_env = self.working_env;
-
-        for (port, v) in working_env {
-            match v {
-                OutputValue::ImmediateValue(iv) => {
-                    self.backing_env.insert(port, iv)
-                }
-                _ => {
-                    panic!("somehow a non-iv during interpretation")
-                }
-            }
-        }
-        self.backing_env
-    }
-}
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
