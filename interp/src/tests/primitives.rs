@@ -153,7 +153,7 @@ fn test_std_div_pipe() {
     let out_remainder = output_vals.next().unwrap();
     assert_eq!(out_remainder.0, "out_remainder");
     assert_eq!(out_remainder.1.unwrap_imm().as_u64(), 0);
-    let done = output_vals.next().unwrap().1.unwrap_imm();
+    //let done = output_vals.next().unwrap().1.unwrap_imm();
     //none (empty output vec)
     output_vals = div.do_tick().into_iter(); //should output done and 14
     assert_eq!(output_vals.len(), 0);
