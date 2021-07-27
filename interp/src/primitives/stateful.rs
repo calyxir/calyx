@@ -308,7 +308,8 @@ impl Primitive for StdReg {
         } else {
             //done is low, but there is still data in this reg to return
             vec![
-                (ir::Id::from("out"), self.data[0].clone().into()), // (ir::Id::from("done"), Value::bit_low().into()),
+                (ir::Id::from("out"), self.data[0].clone().into()),
+                (ir::Id::from("done"), Value::bit_low().into()),
             ]
         }
     }
@@ -456,7 +457,7 @@ impl Primitive for StdMemD1 {
                 panic!("[std_mem_d1] : self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![]
+            vec![(ir::Id::from("done"), Value::bit_low().into())]
         }
     }
 
@@ -647,7 +648,7 @@ impl Primitive for StdMemD2 {
                 panic!("[std_mem_d2]: self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![]
+            vec![(ir::Id::from("done"), Value::bit_low().into())]
         }
     }
 
@@ -867,7 +868,7 @@ impl Primitive for StdMemD3 {
                 panic!("[std_mem_d2] : self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![]
+            vec![(ir::Id::from("done"), Value::bit_low().into())]
         }
     }
 
@@ -1118,7 +1119,7 @@ impl Primitive for StdMemD4 {
                 panic!("[std_mem_d4] : self.update is None, while self.cycle_count == 1");
             }
         } else {
-            vec![]
+            vec![(ir::Id::from("done"), Value::bit_low().into())]
         }
     }
 

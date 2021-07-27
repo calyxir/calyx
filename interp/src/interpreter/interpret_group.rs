@@ -84,27 +84,6 @@ impl WorkingEnvironment {
     //this is not used now w/ primitives having do_tick(). they are ticked in interp_assignments()
     fn do_tick(&mut self) {
         self.backing_env.clk += 1;
-
-        let mut w_env = std::mem::take(&mut self.working_env);
-
-        self.working_env = w_env
-            .drain()
-            .filter_map(|(port, val)| match val {
-                OutputValue::ImmediateValue(iv) => {
-                    self.backing_env.insert(port, iv); //if you have an IV, remove from WorkingEnv and put in BackingEnv
-                    None
-                }
-                out @ OutputValue::PulseValue(_)
-                | out @ OutputValue::LockedValue(_) => match out.do_tick() {
-                    OutputValue::ImmediateValue(iv) => {
-                        self.backing_env.insert(port, iv); //if you have a Locked/PulseValue, tick it, and if it's now IV, put in BackEnv
-                        None
-                    }
-                    v @ OutputValue::LockedValue(_) => Some((port, v)),
-                    OutputValue::PulseValue(pv) => Some((port, pv.into())),
-                },
-            })
-            .collect();
     }
 
     fn collapse_env(mut self, panic_on_invalid_val: bool) -> InterpreterState {
@@ -185,15 +164,6 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let cells = get_cells(assigns.iter().copied());
 
-    //another issue w/ using smoosher: say we are in tick X. If the guard fails
-    //for a given port N, and that guard has failed since tick X, would we know
-    //to assign N a zero? The first tick has to be done seperately
-    //so that all ports in [assigns] are put in the bottom scope of the Smoosher
-    //(failed guards go in as zeroes)
-    //and the we can trust it to catch unassigned port sin higher scopes using
-    //perhaps smoosher.tail_to_hm() - smoosher.top(). But still the issue of output
-    //values ? No, we don't intend to change the WorkingEnvironment struct, just this
-    //possible_ports stuff
     let possible_ports: HashSet<*const ir::Port> =
         assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
     let mut val_changed_flag = false;
@@ -210,13 +180,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         let mut updates_list = vec![];
         // compute all updates from the assignments
         for assignment in &assigns {
-            // if assignment.dst.borrow().name == "done"
-            // println!("{:?}", assignment.);
             if eval_guard(&assignment.guard, &working_env) {
-                //if we change to smoosher, we need to add functionality that
-                //still prevents multiple drivers to same port, like below
-                //Perhaps use Smoosher's diff_other func?
-
                 //first check nothing has been assigned to this destination yet
                 if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
                 {
@@ -236,7 +200,6 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 let old_val = working_env.get(&assignment.dst.borrow());
                 let new_val_ref =
                     working_env.get_as_val(&assignment.src.borrow());
-
                 // no need to make updates if the value has not changed
                 let port = assignment.dst.clone(); // Rc clone
                 let new_val: OutputValue = new_val_ref.clone().into();
@@ -289,6 +252,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         //time to evaluate sequential components
         if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
             let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
+
             //no need to do zero-assign check cuz this is run just once (?)
             for cell in cells.iter() {
                 if let Some(x) =
@@ -299,6 +263,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                     let new_vals = x.do_tick();
                     for (port, val) in new_vals {
                         let port_ref = cell.borrow().find(port).unwrap();
+
                         update_list.push((Rc::clone(&port_ref), val));
                     }
 
@@ -560,12 +525,21 @@ fn get_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
 where
     I: Iterator<Item = &'a ir::Assignment>,
 {
+    let mut assign_set: HashSet<*const ir::Cell> = HashSet::new();
     iter.filter_map(|assign| {
         match &assign.dst.borrow().parent {
             ir::PortParent::Cell(c) => {
                 match &c.upgrade().borrow().prototype {
                     ir::CellType::Primitive { .. }
-                    | ir::CellType::Constant { .. } => Some(c.upgrade()),
+                    | ir::CellType::Constant { .. } => {
+                        let const_cell: *const ir::Cell = c.upgrade().as_ptr();
+                        if assign_set.contains(&const_cell) {
+                            None //b/c we don't want duplicates
+                        } else {
+                            assign_set.insert(const_cell);
+                            Some(c.upgrade())
+                        }
+                    }
                     ir::CellType::Component { .. } => {
                         // TODO (griffin): We'll need to handle this case at some point
                         todo!()

@@ -173,11 +173,13 @@ fn test_std_reg_imval() {
     let output_vals = reg1.do_tick();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
-    assert_eq!(1, output_vals.len());
+    assert_eq!(2, output_vals.len());
     //should be a 0 and a 0 ([out] and [done])
     let out = output_vals.next().unwrap();
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 0);
+    let d = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
     //now have write_en high and see output from do_tick() is 16, 1
     port_bindings![binds;
         r#in -> (16, 6),
@@ -203,13 +205,14 @@ fn test_std_reg_imval() {
     let output_vals = reg1.validate_and_execute(&binds);
     assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
     let output_vals = reg1.do_tick();
-    assert_eq!(1, output_vals.len());
-    println!("output_vals: {:?}", output_vals);
+    ////should be a 16 and a 0 ([out] and [done])
+    assert_eq!(2, output_vals.len());
     let mut output_vals = output_vals.into_iter();
-    //should be a 16 and a 1 ([out] and [done])
     let out = output_vals.next().unwrap();
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 16);
+    let d = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
 }
 
 #[test]
@@ -226,14 +229,14 @@ fn test_std_mem_d1() {
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
-                                      //should be a 0
     let out = output_vals.next().unwrap();
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
-    assert_eq!(output_vals.len(), 0);
-    println!("output_vals: {:?}", output_vals);
+    let output_vals = mem.do_tick(); //this should have low done
+    assert_eq!(output_vals.len(), 1);
+    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
     port_bindings![binds;
@@ -269,10 +272,14 @@ fn test_std_mem_d1() {
     assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
-    //should be a 16 and a 1 ([out] and [done])
+    //should be a 16 and a 0 ([out] and [done])
+    assert_eq!(output_vals.len(), 1);
     let out = output_vals.next().unwrap();
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 16);
+    let mut output_vals = mem.do_tick().into_iter();
+    let d = output_vals.next().unwrap().1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
 }
 
 #[test]
@@ -295,10 +302,10 @@ fn test_std_mem_d2() {
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
-    assert_eq!(output_vals.len(), 0);
-    println!("output_vals: {:?}", output_vals);
-
+    let output_vals = mem.do_tick(); //this should have low done
+    assert_eq!(output_vals.len(), 1);
+    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
     //now have write_en high and see output of execute is 0, and output of write is 16
     port_bindings![binds;
         write_data -> (16, 6),
@@ -335,7 +342,6 @@ fn test_std_mem_d2() {
     assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
-    //should be a 16 and a 1 ([out] and [done])
     let out = output_vals.next().unwrap();
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 16);
@@ -362,9 +368,10 @@ fn test_std_mem_d3() {
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
-    assert_eq!(output_vals.len(), 0);
-    println!("output_vals: {:?}", output_vals);
+    let output_vals = mem.do_tick(); //this should have done as 0
+    assert_eq!(output_vals.len(), 1);
+    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
     port_bindings![binds;
@@ -432,9 +439,10 @@ fn test_std_mem_d4() {
     let rd = out.1.unwrap_imm();
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should be empty, b/c [write_en] was low
-    assert_eq!(output_vals.len(), 0);
-    println!("output_vals: {:?}", output_vals);
+    let output_vals = mem.do_tick(); //this should have low done
+    assert_eq!(output_vals.len(), 1);
+    let d = output_vals.into_iter().next().unwrap().1.unwrap_imm();
+    assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
     port_bindings![binds;
