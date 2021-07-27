@@ -5,7 +5,6 @@ import "primitives/binary_operators.futil";
 
 component main() -> () {
   cells {
-    reg1 = std_reg(1);
     reg_q = std_reg(32);
     reg_r = std_reg(32);
     div = std_div_pipe(32);
@@ -19,21 +18,15 @@ component main() -> () {
       reg_q.write_en = div.done ? 1'd1; 
       reg_r.write_en = div.done ? 1'd1; 
       reg_q.in = div.out_quotient;
-      reg_r.in = div.out_remainder;
-      div_group[done] = reg_q.done;
+      reg_r.in = div.out_remainder; 
+      div_group[done] = reg_q.done; //b/c this group ends a cycle after div ends, the next output of div will be 0
+                                    //aka, div will not assert 11 and 1 in its outputs
     }
-    group reg_group {
-      reg1.write_en = 1'd1; 
-      reg1.in = reg_q.out > 32'd10 ? 1'd1; 
-      reg1.in = reg_q.out <= 32'd10 ? 1'd0; 
-      reg_group[done] = reg1.done;
-    }
-
+    //is it ok that mult and div only assert their output for 1 cycle?
   }
   control {
     seq {
         div_group;
-        reg_group;
     }
   }
 }

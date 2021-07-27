@@ -1,0 +1,66 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+
+//point of this test:
+//seeing if a flickering go can be created
+//flickering go as in, reg0 depends on a guard that is true for 1 pass
+//of the eval_prims cycle, but not true for them all (aka the entire cycle), and so the register
+//gets an update it should have ignored
+
+component main() -> () {
+  cells {
+    reg0 = std_reg(32);
+    reg1 = std_reg(32);
+    add0 = std_add(1); 
+    mult0 = std_mult_pipe(32);    
+    mult1 = std_mult_pipe(32);
+    mult_reg0 = std_reg(32);
+    mult_reg1 = std_reg(32);
+  }
+
+  wires {
+    group exec_reg {
+        reg0.write_en = add0.out == 1'd0 ? 1'd1;
+        reg1.write_en = add0.out;
+
+        reg0.in = 32'd12;
+        add0.left = 1'd1;
+        add0.right = 1'd0; 
+
+        reg1.in = 32'd12;
+
+        exec_reg[done] = reg0.done | reg1.done ? 1'd1; 
+    }
+    group exec_mult {
+        mult0.go = add0.out == 1'd0 ? 1'd1; //mult_reg0 should have a 0 written to it
+        mult1.go = add0.out;
+
+        mult0.left = 32'd1; 
+        mult0.right = 32'd32;
+
+        mult1.left = 32'd1; 
+        mult1.right = 32'd32;
+
+        mult_reg0.write_en = mult1.done; //not a typo
+        mult_reg1.write_en = mult1.done;
+
+        mult_reg0.in = mult0.out;
+        mult_reg1.in = mult1.out;
+
+        add0.left = 1'd1;
+        add0.right = 1'd0; 
+
+        
+
+        exec_mult[done] = mult_reg0.done | mult_reg1.done ? 1'd1; 
+    }
+  }
+
+  control {
+    seq {
+      exec_reg;
+      exec_mult;
+    }
+  }
+}

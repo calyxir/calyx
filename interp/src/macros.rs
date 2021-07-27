@@ -49,6 +49,11 @@ macro_rules! comb_primitive {
 
         impl Primitive for $name {
 
+            //null-op; comb don't use do_tick()
+            fn do_tick(&mut self) -> Vec<(calyx::ir::Id, crate::values::OutputValue)>{
+                vec![]
+            }
+
             fn is_comb(&self) -> bool { true }
 
             fn validate(
@@ -67,8 +72,6 @@ macro_rules! comb_primitive {
             fn execute(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
-                // done_val not used in combinational primitives
-                _done_val: Option<&crate::values::Value>
             ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
 
                 #[derive(Default)]
@@ -108,14 +111,9 @@ macro_rules! comb_primitive {
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
             ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
-                self.execute(inputs, /* Value is not used */ None)
+                self.execute(inputs)
             }
 
-            // No-op for combinational primitives.
-            fn commit_updates(&mut self) {}
-
-            // No-op for combinational primitives.
-            fn clear_update_buffer(&mut self) {}
         }
     };
 }

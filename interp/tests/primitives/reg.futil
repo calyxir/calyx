@@ -1,0 +1,38 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    reg0 = std_reg(32);
+    reg1 = std_reg(32);
+  }
+
+  wires {
+    group write{
+      reg0.write_en = 1'd1;
+      reg0.in = 32'd157; 
+      write[done] = reg0.done;
+    }
+
+    group dont_write{
+      reg0.write_en = 1'd0;
+      reg0.in = 32'd0;
+      reg1.write_en = 1'd1; 
+      reg1.in = 32'd23;
+      dont_write[done] = reg1.done; 
+    }
+
+    group dont_write2{
+      reg1.write_en = 1'd1; 
+      reg1.in = reg0.out;
+      dont_write2[done] = reg1.done;
+    }
+  }
+
+  control {
+    seq {
+      write;
+      dont_write;
+      dont_write2;
+    }
+  }
+}

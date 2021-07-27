@@ -81,29 +81,9 @@ impl WorkingEnvironment {
     }
 
     //for use w/ smoosher: maybe add a new scope onto backing_env for the tick?
+    //this is not used now w/ primitives having do_tick(). they are ticked in interp_assignments()
     fn do_tick(&mut self) {
         self.backing_env.clk += 1;
-
-        let mut w_env = std::mem::take(&mut self.working_env);
-
-        self.working_env = w_env
-            .drain()
-            .filter_map(|(port, val)| match val {
-                OutputValue::ImmediateValue(iv) => {
-                    self.backing_env.insert(port, iv); //if you have an IV, remove from WorkingEnv and put in BackingEnv
-                    None
-                }
-                out @ OutputValue::PulseValue(_)
-                | out @ OutputValue::LockedValue(_) => match out.do_tick() {
-                    OutputValue::ImmediateValue(iv) => {
-                        self.backing_env.insert(port, iv); //if you have a Locked/PulseValue, tick it, and if it's now IV, put in BackEnv
-                        None
-                    }
-                    v @ OutputValue::LockedValue(_) => Some((port, v)),
-                    OutputValue::PulseValue(pv) => Some((port, pv.into())),
-                },
-            })
-            .collect();
     }
 
     fn collapse_env(mut self, panic_on_invalid_val: bool) -> InterpreterState {
@@ -184,15 +164,6 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let cells = get_cells(assigns.iter().copied());
 
-    //another issue w/ using smoosher: say we are in tick X. If the guard fails
-    //for a given port N, and that guard has failed since tick X, would we know
-    //to assign N a zero? The first tick has to be done seperately
-    //so that all ports in [assigns] are put in the bottom scope of the Smoosher
-    //(failed guards go in as zeroes)
-    //and the we can trust it to catch unassigned port sin higher scopes using
-    //perhaps smoosher.tail_to_hm() - smoosher.top(). But still the issue of output
-    //values ? No, we don't intend to change the WorkingEnvironment struct, just this
-    //possible_ports stuff
     let possible_ports: HashSet<*const ir::Port> =
         assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
     let mut val_changed_flag = false;
@@ -209,13 +180,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         let mut updates_list = vec![];
         // compute all updates from the assignments
         for assignment in &assigns {
-            // if assignment.dst.borrow().name == "done"
-            // println!("{:?}", assignment.);
             if eval_guard(&assignment.guard, &working_env) {
-                //if we change to smoosher, we need to add functionality that
-                //still prevents multiple drivers to same port, like below
-                //Perhaps use Smoosher's diff_other func?
-
                 //first check nothing has been assigned to this destination yet
                 if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
                 {
@@ -235,7 +200,6 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 let old_val = working_env.get(&assignment.dst.borrow());
                 let new_val_ref =
                     working_env.get_as_val(&assignment.src.borrow());
-
                 // no need to make updates if the value has not changed
                 let port = assignment.dst.clone(); // Rc clone
                 let new_val: OutputValue = new_val_ref.clone().into();
@@ -287,16 +251,41 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         //if done signal is low and we haven't yet changed anything, means primitives are done,
         //time to evaluate sequential components
         if !is_signal_high(working_env.get(done_signal)) && !val_changed_flag {
-            working_env.do_tick();
+            let mut update_list: Vec<(RRC<ir::Port>, OutputValue)> = vec![];
+
+            //no need to do zero-assign check cuz this is run just once (?)
             for cell in cells.iter() {
                 if let Some(x) =
                     working_env.backing_env.cell_prim_map.borrow_mut().get_mut(
                         &(&cell.borrow() as &ir::Cell as *const ir::Cell),
                     )
                 {
-                    x.commit_updates()
+                    let new_vals = x.do_tick();
+                    for (port, val) in new_vals {
+                        let port_ref = cell.borrow().find(port).unwrap();
+
+                        update_list.push((Rc::clone(&port_ref), val));
+                    }
+
+                    //call do_tick on each cell's primitive, and then
+                    //write the updates as done in eval_prims
+                    //specifically line 419, 448, 455 (create update list, push to it, env.update_val)
+                    //then call working_env.do_tick(), so everything is written to backing_env for us :=)
+                    //no need to worry about done values anymore; the done values will be written
+                    //to env, and primitives will remember their previous [done] state
+                    //no need to treat [done] special anymore.
                 }
             }
+            //put everything from update list into working_env, then
+            //working_env will put the IMM values (all values) into
+            //backing_env
+            for (port, val) in update_list {
+                working_env.update_val(&port.borrow(), val);
+            }
+            working_env.do_tick();
+
+            //after this if statement runs ONCE, end of a cycle. Should only run once!
+            //but prims above can run as much as they want before they stabilize
         }
     }
 
@@ -421,16 +410,12 @@ fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
         let executable = prim_map.get_mut(&get_const_from_rrc(&cell));
 
         if let Some(prim) = executable {
+            //note: w/ new do_tick() interface, no need for this [done] stuff
             let new_vals = if reset_flag {
-                prim.clear_update_buffer();
+                //note: need to clear update buffer in reset
                 prim.reset(&inputs)
             } else {
-                let done_val = if prim.is_comb() {
-                    None
-                } else {
-                    Some(env.get_as_val(&(cell.borrow().get("done").borrow())))
-                };
-                prim.execute(&inputs, done_val)
+                prim.execute(&inputs)
             };
 
             for (port, val) in new_vals {
@@ -540,12 +525,21 @@ fn get_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
 where
     I: Iterator<Item = &'a ir::Assignment>,
 {
+    let mut assign_set: HashSet<*const ir::Cell> = HashSet::new();
     iter.filter_map(|assign| {
         match &assign.dst.borrow().parent {
             ir::PortParent::Cell(c) => {
                 match &c.upgrade().borrow().prototype {
                     ir::CellType::Primitive { .. }
-                    | ir::CellType::Constant { .. } => Some(c.upgrade()),
+                    | ir::CellType::Constant { .. } => {
+                        let const_cell: *const ir::Cell = c.upgrade().as_ptr();
+                        if assign_set.contains(&const_cell) {
+                            None //b/c we don't want duplicates
+                        } else {
+                            assign_set.insert(const_cell);
+                            Some(c.upgrade())
+                        }
+                    }
                     ir::CellType::Component { .. } => {
                         // TODO (griffin): We'll need to handle this case at some point
                         todo!()

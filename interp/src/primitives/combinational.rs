@@ -1,6 +1,6 @@
 use super::{stateful::get_param, Primitive};
 use crate::comb_primitive;
-use crate::values::Value;
+use crate::values::{OutputValue, Value};
 use bitvec::vec::BitVec;
 use calyx::ir;
 use std::ops::Not;
@@ -32,6 +32,10 @@ impl StdConst {
 }
 
 impl Primitive for StdConst {
+    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+        vec![]
+    }
+
     fn is_comb(&self) -> bool {
         true
     }
@@ -41,7 +45,6 @@ impl Primitive for StdConst {
     fn execute(
         &mut self,
         _inputs: &[(ir::Id, &Value)],
-        _done_val: Option<&Value>,
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
         vec![("out".into(), self.value.clone().into())]
     }
@@ -52,10 +55,6 @@ impl Primitive for StdConst {
     ) -> Vec<(ir::Id, crate::values::OutputValue)> {
         vec![("out".into(), self.value.clone().into())]
     }
-
-    fn commit_updates(&mut self) {}
-
-    fn clear_update_buffer(&mut self) {}
 }
 
 // ===================== New core ======================
@@ -99,7 +98,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let new_right = adder
         .execute(
             &[("left".into(), &Value { vec: new_right }),
-            ("right".into(), &Value::from(1, WIDTH).unwrap())], None
+            ("right".into(), &Value::from(1, WIDTH).unwrap())],
         )
         .into_iter()
         .next()
@@ -108,7 +107,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         .unwrap_imm();
     //then add left and new_right
     adder.execute(&[("left".into(), &left),
-    ("right".into(), &new_right)], None).into_iter().next().map(|(_, v)| v).unwrap()
+    ("right".into(), &new_right)]).into_iter().next().map(|(_, v)| v).unwrap()
 });
 // ===================== Signed binary operations ======================
 // comb_primitive!(StdSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
