@@ -94,47 +94,13 @@ impl WorkingEnvironment {
                 OutputValue::ImmediateValue(iv) => {
                     self.backing_env.insert(port, iv)
                 }
-                OutputValue::LockedValue(tlv) => {
-                    if tlv.unlockable() {
-                        let iv = tlv.unlock();
-                        self.backing_env.insert(port, iv);
-                    } else if panic_on_invalid_val {
-                        panic!("Group is done with an invalid value?")
-                    } else if let Some(old) = tlv.old_value {
-                        self.backing_env.insert(port, old)
-                    }
-                }
-                OutputValue::PulseValue(v) => {
-                    self.backing_env.insert(port, v.take_val())
+                _ => {
+                    panic!("somehow a non-iv during interpretation")
                 }
             }
         }
         self.backing_env
     }
-
-    // For debugging purpose
-    /*fn _dump_state(&self, cell: &ir::Cell) {
-        println!("{} on cycle {}: ", cell.name(), self.backing_env.clk);
-        for p in &cell.ports {
-            let p_ref: &ir::Port = &p.borrow();
-            println!("  {} : {}", p_ref.name, self.get_as_val(p_ref).as_u64());
-        }
-        match self
-            .backing_env
-            .cell_prim_map
-            .borrow()
-            .get(&(cell as *const ir::Cell))
-            .unwrap()
-        {
-            Primitive::StdReg(ref reg) => {
-                println!("  internal state: {}", reg.data[0])
-            }
-            Primitive::StdMemD1(ref mem) => {
-                println!("  memval : {}", mem.data[0])
-            }
-            _ => {}
-        }
-    }*/
 }
 
 fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
