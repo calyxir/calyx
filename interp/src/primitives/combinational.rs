@@ -1,6 +1,6 @@
 use super::{stateful::get_param, Primitive};
 use crate::comb_primitive;
-use crate::values::{OutputValue, Value};
+use crate::values::Value;
 use bitvec::vec::BitVec;
 use calyx::ir;
 use std::ops::Not;
@@ -32,7 +32,7 @@ impl StdConst {
 }
 
 impl Primitive for StdConst {
-    fn do_tick(&mut self) -> Vec<(ir::Id, OutputValue)> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         vec![]
     }
 
@@ -45,15 +45,12 @@ impl Primitive for StdConst {
     fn execute(
         &mut self,
         _inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
-        vec![("out".into(), self.value.clone().into())]
+    ) -> Vec<(ir::Id, Value)> {
+        vec![("out".into(), self.value.clone())]
     }
 
-    fn reset(
-        &mut self,
-        _inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
-        vec![("out".into(), self.value.clone().into())]
+    fn reset(&mut self, _inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        vec![("out".into(), self.value.clone())]
     }
 }
 
@@ -68,7 +65,7 @@ comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
     Value {
         vec: r#in.vec.clone().not(),
     }
-    .into()
+
 });
 
 // ===================== Unsigned binary operations ======================
@@ -89,7 +86,7 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let tr = Value { vec: sum };
     //as a sanity check, check tr has same width as left
     assert_eq!(tr.width(), left.width());
-    tr.into()
+    tr
 });
 comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
@@ -103,8 +100,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         .into_iter()
         .next()
         .map(|(_, v)| v)
-        .unwrap()
-        .unwrap_imm();
+        .unwrap();
     //then add left and new_right
     adder.execute(&[("left".into(), &left),
     ("right".into(), &new_right)]).into_iter().next().map(|(_, v)| v).unwrap()
@@ -158,7 +154,7 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
             let r_vec = &right.vec;
             for bit in r_vec.iter().by_ref().skip(64) {
                 if *bit {
-                    return Value::zeroes(WIDTH as usize).into();
+                    return Value::zeroes(WIDTH as usize);
                 }
             }
         }
@@ -192,7 +188,7 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         let tr = Value { vec: tr };
         assert_eq!(tr.width(), WIDTH);
         //sanity check the widths
-        tr.into()
+        tr
 });
 comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //remove [right] bits from index 0
@@ -204,7 +200,7 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
             let r_vec = &right.vec;
             for bit in r_vec.iter().by_ref().skip(64) {
                 if *bit {
-                    return Value::zeroes(WIDTH as usize).into();
+                    return Value::zeroes(WIDTH as usize);
                 }
             }
         }
@@ -225,7 +221,7 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         let tr = Value { vec: tr };
         assert_eq!(tr.width(), WIDTH);
         //sanity check the widths
-        tr.into()
+        tr
 });
 
 // ===================== Signed Shift Operations ======================
@@ -239,17 +235,17 @@ todo!()
 comb_primitive!(StdAnd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     Value {
         vec: left.vec.clone() & right.vec.clone(),
-    }.into()
+    }
 });
 comb_primitive!(StdOr[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     Value {
         vec: left.vec.clone() | right.vec.clone(),
-    }.into()
+    }
 });
 comb_primitive!(StdXor[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     Value {
         vec: left.vec.clone() ^ right.vec.clone(),
-    }.into()
+    }
 });
 
 // ===================== Comparison Operations ======================
@@ -266,9 +262,9 @@ comb_primitive!(StdGt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     }
 
     if tr {
-        Value::bit_high().into()
+        Value::bit_high()
     } else {
-        Value::bit_low().into()
+        Value::bit_low()
     }
 });
 comb_primitive!(StdLt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -284,9 +280,9 @@ comb_primitive!(StdLt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //same as gt, just reverse the if.
     //but actually not so if they are equal... should change the loop
     if tr {
-        Value::bit_high().into()
+        Value::bit_high()
     } else {
-        Value::bit_low().into()
+        Value::bit_low()
     }
 });
 comb_primitive!(StdGe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -302,9 +298,9 @@ comb_primitive!(StdGe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     }
 
     if tr {
-        Value::bit_high().into()
+        Value::bit_high()
     } else {
-        Value::bit_low().into()
+        Value::bit_low()
     }
 });
 comb_primitive!(StdLe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -320,9 +316,9 @@ comb_primitive!(StdLe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //same as gt, just reverse the if.
     //but actually not so if they are equal... should change the loop
     if tr {
-        Value::bit_high().into()
+        Value::bit_high()
     } else {
-        Value::bit_low().into()
+        Value::bit_low()
     }
 });
 comb_primitive!(StdEq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -332,11 +328,11 @@ comb_primitive!(StdEq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //tr represents a = b
     for (ai, bi) in a_iter.zip(b_iter) {
         if !ai & bi || !bi & ai {
-            return Value::bit_low().into();
+            return Value::bit_low();
         }
     }
 
-    Value::bit_high().into()
+    Value::bit_high()
 });
 comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let a_iter = left.vec.iter().by_ref();
@@ -345,11 +341,11 @@ comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //tr represents a = b
     for (ai, bi) in a_iter.zip(b_iter) {
         if bi & !ai || !bi & ai {
-            return Value::bit_high().into();
+            return Value::bit_high();
         }
     }
 
-    Value::bit_low().into()
+    Value::bit_low()
 });
 
 // ===================== Signed Comparison Operations ======================
@@ -385,9 +381,9 @@ comb_primitive!(StdFpSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 // ===================== Resizing Operations ======================
 comb_primitive!(StdSlice[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
     let tr = r#in.clone();
-    tr.truncate(OUT_WIDTH as usize).into()
+    tr.truncate(OUT_WIDTH as usize)
 });
 comb_primitive!(StdPad[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
     let pd = r#in.clone();
-    pd.ext(OUT_WIDTH as usize).into()
+    pd.ext(OUT_WIDTH as usize)
 });

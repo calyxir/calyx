@@ -50,7 +50,7 @@ macro_rules! comb_primitive {
         impl Primitive for $name {
 
             //null-op; comb don't use do_tick()
-            fn do_tick(&mut self) -> Vec<(calyx::ir::Id, crate::values::OutputValue)>{
+            fn do_tick(&mut self) -> Vec<(calyx::ir::Id, crate::values::Value)>{
                 vec![]
             }
 
@@ -72,7 +72,7 @@ macro_rules! comb_primitive {
             fn execute(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
-            ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+            ) -> Vec<(calyx::ir::Id, Value)> {
 
                 #[derive(Default)]
                 struct Ports<'a> {
@@ -88,7 +88,7 @@ macro_rules! comb_primitive {
                     }
                 }
 
-                let exec_func = |$($param: u64),+, $( $port: &Value ),+| -> crate::values::OutputValue {
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+| -> Value {
                     $execute
                 };
 
@@ -110,7 +110,7 @@ macro_rules! comb_primitive {
             fn reset(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &crate::values::Value)],
-            ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+            ) -> Vec<(calyx::ir::Id, Value)> {
                 self.execute(inputs)
             }
 

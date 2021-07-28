@@ -1,5 +1,5 @@
 ---CODE---
 101
 ---STDERR---
-thread 'main' panicked at '[interpret_group]: multiple assignments to one port: reg0.in', interp/src/interpreter/interpret_group.rs:188:21
+thread 'main' panicked at '[interpret_group]: multiple assignments to one port: reg0.in', interp/src/interpreter/interpret_group.rs:61:21
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
