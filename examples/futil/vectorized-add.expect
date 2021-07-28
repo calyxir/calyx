@@ -58,9 +58,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm0.write_en = fsm0.out != 2'd3 & cond_stored.out & fsm1.out >= 3'd1 & fsm1.out < 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm0.out == 2'd3 ? 1'd1;
     fsm1.clk = clk;
     fsm1.in = fsm1.out == 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd1 & !cond_stored.out ? 3'd0;
-    fsm1.in = fsm1.out != 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr1.out;
+    fsm1.in = fsm1.out != 3'd4 & (cond_stored.out | fsm1.out < 3'd1) & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go ? incr1.out;
     fsm1.reset = reset;
-    fsm1.write_en = fsm1.out != 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd1 & !cond_stored.out ? 1'd1;
+    fsm1.write_en = fsm1.out != 3'd4 & (cond_stored.out | fsm1.out < 3'd1) & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd4 & !(fsm1.out == 3'd1 & !cond_stored.out) & fsm2.out == 2'd1 & go | fsm1.out == 3'd1 & !cond_stored.out ? 1'd1;
     fsm2.clk = clk;
     fsm2.in = fsm2.out == 2'd2 ? 2'd0;
     fsm2.in = fsm2.out == 2'd0 & i0.done & go ? 2'd1;
