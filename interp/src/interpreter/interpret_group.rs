@@ -35,9 +35,6 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 ) -> FutilResult<InterpreterState> {
     let assigns = assigns.collect_vec();
 
-    //first step in re-typing: deal only with [env], don't use a WorkingEnvironment
-    //let mut working_env: WorkingEnvironment = env.into(); //env as backing_env, fresh slate as working_env
-
     let cells = get_cells(assigns.iter().copied());
 
     let possible_ports: HashSet<*const ir::Port> =
