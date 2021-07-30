@@ -37,19 +37,16 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let cells = get_cells(assigns.iter().copied());
 
-    // let possible_ports: HashSet<*const ir::Port> =
-    //     assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
-    let mut test_ports: HashSet<PortAssignment> = HashSet::new();
+    let mut possible_ports: HashSet<PortAssignment> = HashSet::new();
     for assign in &assigns {
         let pa = PortAssignment::new(&*assign.dst.borrow(), assign);
-        test_ports.insert(pa);
+        possible_ports.insert(pa);
     }
     let mut val_changed_flag = false;
 
     while !is_signal_high(env.get_from_port(done_signal)) || val_changed_flag {
         //helps us tell if there are multiple assignments to same port >:0
-        // let mut assigned_ports: HashSet<*const ir::Port> = HashSet::new();
-        let mut test_ports_assigned: HashSet<PortAssignment> = HashSet::new();
+        let mut assigned_ports: HashSet<PortAssignment> = HashSet::new();
         val_changed_flag = false;
 
         // do all assigns
@@ -61,41 +58,41 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
         for assignment in &assigns {
             if eval_guard(&assignment.guard, &env) {
                 //first check nothing has been assigned to this destination yet
-                // if assigned_ports.contains(&get_const_from_rrc(&assignment.dst))
-                let pa = PortAssignment::new(&*assignment.dst.borrow(), assignment);
-                if test_ports_assigned.contains(&pa) {
-                    let mut str = vec![];
-                    let mut str2 = vec![];
+                let pa =
+                    PortAssignment::new(&*assignment.dst.borrow(), assignment);
+                if assigned_ports.contains(&pa) {
+                    let mut orig_str = vec![];
+                    let mut conf_str = vec![];
 
                     let curr_assign = &pa.get_assignment();
 
-                    ir::IRPrinter::write_assignment(assignment, 0, &mut str)?;
-                    let s =
-                        String::from_utf8(str).expect("Found invalid UTF-8");
+                    ir::IRPrinter::write_assignment(
+                        assigned_ports.get(&pa).unwrap().get_assignment(),
+                        0,
+                        &mut orig_str,
+                    )?;
+                    let s_orig = String::from_utf8(orig_str)
+                        .expect("Found invalid UTF-8");
 
                     ir::IRPrinter::write_assignment(
                         curr_assign,
                         0,
-                        &mut str2,
+                        &mut conf_str,
                     )?;
-                    let s2 =
-                        String::from_utf8(str2).expect("Found invalid UTF-8");
+                    let s_conf = String::from_utf8(conf_str)
+                        .expect("Found invalid UTF-8");
 
                     let dst = assignment.dst.borrow();
                     panic!(
                         "[interpret_group]: multiple assignments to one port: {}.{} \nBetween assignments \
                         [ {} ] and [ {} ]", 
-                        dst.get_parent_name(),
-                        dst.name,
-                        s,
-                        s2
+                        dst.get_parent_name(), dst.name, s_orig, s_conf
                     );
                 }
                 //now add to the HS, because we are assigning
                 //regardless of whether value has changed this is still a
                 //value driving the port
-                // assigned_ports.insert(get_const_from_rrc(&assignment.dst));
-                test_ports_assigned.insert(pa);
+                assigned_ports.insert(pa);
                 //ok now proceed
                 //the below (get) attempts to get from working_env HM first, then
                 //backing_env Smoosher. What does it mean for the value to be in HM?
@@ -115,17 +112,13 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
         //now assign rest to 0
         //first get all that need to be 0
-        // for port in &possible_ports - &assigned_ports {
-        // for port in &test_ports - &test_ports_assigned {
-        for pa in test_ports.difference(&test_ports_assigned) {
+        for pa in possible_ports.difference(&assigned_ports) {
             //need to set to zero, because unassigned
             //ok now proceed
 
             //need to find appropriate-sized 0, so just read
             //width of old_val
-            // let something = &*(unsafe { port.as_ref() }.unwrap());
 
-            // let old_val = env.get_from_const_port(port);
             let old_val = env.get_from_const_port(pa.get_port());
             let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
             let new_val = Value::from(0, old_val_width).unwrap();
@@ -135,7 +128,6 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             }
 
             //update directly
-            // env.insert(port, new_val);
             env.insert(pa.get_port(), new_val);
         }
 
