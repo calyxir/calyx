@@ -1,4 +1,7 @@
 #!/bin/bash
+# Takes in two arguments
+# - First argument: relative path to the test file
+# - Second argument: pattern of interest
 
 passes=(
   "well-formed" "papercut" "guard-canonical" "infer-static-timing" "collapse-control" "resource-sharing"
@@ -15,12 +18,12 @@ flag=""
 for (( i = 0; i < $len; i++ )); do
   pass="-p ${passes[i]}"
   flag+=" $pass"
-  fud e ../interp/tests/control/iteration/iter_mult.futil -s futil.flags "$flag" --to futil-lowered > "pass_seq/$i-${passes[i]}.futil"
+  fud e $1 -s futil.flags "$flag" --to futil-lowered > "pass_seq/$i-${passes[i]}.futil"
 done
 
-pattern=$1
+pattern=$2
 
-echo "======================================pass_seq======================================"
+echo "======================================Result======================================"
 for file in pass_seq/*; do
   if [ -f "$file" ]; then
     name=$(echo $file | cut -d "/" -f 2)
