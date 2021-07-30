@@ -27,8 +27,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group static_while {
       incr.left = fsm.out;
       incr.right = 2'd1;
-      fsm.in = fsm.out != 2'd2 ? incr.out;
-      fsm.write_en = fsm.out != 2'd2 ? 1'd1;
+      fsm.in = fsm.out != 2'd2 & (cond_stored.out | fsm.out < 2'd1) ? incr.out;
+      fsm.write_en = fsm.out != 2'd2 & (cond_stored.out | fsm.out < 2'd1) ? 1'd1;
       cond[go] = fsm.out < 2'd1 ? 1'd1;
       cond_stored.write_en = fsm.out < 2'd1 ? 1'd1;
       do_add[go] = cond_stored.out & fsm.out >= 2'd1 & fsm.out < 2'd2 ? 1'd1;

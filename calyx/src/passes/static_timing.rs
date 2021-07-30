@@ -104,7 +104,8 @@ impl Visitor for StaticTiming {
                 let body_done =
                     guard!(fsm["out"]).eq(guard!(body_end_const["out"]));
                 // Should we increment the FSM this cycle.
-                let fsm_incr = !body_done.clone();
+                let fsm_incr = !body_done.clone()
+                    & (guard!(cond_stored["out"]) | cond_computed.clone());
 
                 // Compute the cond group
                 let cond_go =
