@@ -204,7 +204,7 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     map.values()
         .sorted_by_key(|(port, _)| port.borrow().canonical())
         .for_each(|asgns| {
-            module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
+            module.add_stmt(v::Stmt::new_parallel(emit_unique_if(asgns)));
         });
 
     module
@@ -269,6 +269,7 @@ fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
     let dst = dst_ref.borrow();
+    // Default assignment to '0.
     let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
     let rhs = assignments.iter().rfold(init, |acc, e| {
         let guard = guard_to_expr(&e.guard);
@@ -276,6 +277,32 @@ fn emit_assignment(
         v::Expr::new_mux(guard, asgn, acc)
     });
     v::Parallel::ParAssign(port_to_ref(Rc::clone(dst_ref)), rhs)
+}
+
+fn emit_unique_if(
+    (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
+) -> v::Parallel {
+    let dst = dst_ref.borrow();
+    // Default assignment to '0.
+    let zero = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
+
+    let init =
+        v::Sequential::new_blk_assign(port_to_ref(Rc::clone(dst_ref)), zero);
+
+    let stmt: v::Sequential = assignments.iter().rfold(init, |acc, e| {
+        let mut cond = v::SequentialIfElse::new(guard_to_expr(&e.guard));
+        let asgn = v::Sequential::new_blk_assign(
+            port_to_ref(Rc::clone(dst_ref)),
+            port_to_ref(Rc::clone(&e.src)),
+        );
+        cond.add_seq(asgn);
+        cond.set_else(acc);
+        v::Sequential::If(cond)
+    });
+
+    let mut comb = v::ParallelProcess::new_always_comb();
+    comb.add_seq(stmt);
+    v::Parallel::Process(comb)
 }
 
 fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
