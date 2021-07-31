@@ -289,7 +289,7 @@ fn emit_unique_if(
     let init =
         v::Sequential::new_blk_assign(port_to_ref(Rc::clone(dst_ref)), zero);
 
-    let stmt: v::Sequential = assignments.iter().rfold(init, |acc, e| {
+    let mut stmt: v::Sequential = assignments.iter().rfold(init, |acc, e| {
         let mut cond = v::SequentialIfElse::new(guard_to_expr(&e.guard));
         let asgn = v::Sequential::new_blk_assign(
             port_to_ref(Rc::clone(dst_ref)),
@@ -299,6 +299,11 @@ fn emit_unique_if(
         cond.set_else(acc);
         v::Sequential::If(cond)
     });
+
+    // Mark the top-level if with `unique`.
+    if let v::Sequential::If(cond) = &mut stmt {
+        cond.set_unique();
+    };
 
     let mut comb = v::ParallelProcess::new_always_comb();
     comb.add_seq(stmt);
