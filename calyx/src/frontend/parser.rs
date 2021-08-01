@@ -17,7 +17,7 @@ type ParseResult<T> = Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, Rc<str>>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
-const _GRAMMAR: &str = include_str!("futil_syntax.pest");
+const _GRAMMAR: &str = include_str!("syntax.pest");
 
 // Define the precedence of binary operations. We use `lazy_static` so that
 // this is only ever constructed once.
@@ -33,7 +33,7 @@ lazy_static::lazy_static! {
 }
 
 #[derive(Parser)]
-#[grammar = "frontend/futil_syntax.pest"]
+#[grammar = "frontend/syntax.pest"]
 pub struct CalyxParser;
 
 impl CalyxParser {
