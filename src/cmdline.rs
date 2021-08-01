@@ -1,3 +1,4 @@
+use argh::FromArgs;
 use calyx::backend::traits::Backend;
 use calyx::backend::{
     verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
@@ -5,61 +6,56 @@ use calyx::backend::{
 };
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 use itertools::Itertools;
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
-pub use structopt::StructOpt;
 
-// Definition of the command line interface. Uses the `structopt` derive macro
-#[derive(StructOpt, Debug)]
-#[structopt(
-    name = env!("CARGO_PKG_NAME"),
-    version = env!("CARGO_PKG_VERSION"),
-    author = env!("CARGO_PKG_AUTHORS")
-)]
-#[allow(clippy::option_option)]
+#[derive(FromArgs, Debug)]
+/// The Calyx compiler
 pub struct Opts {
-    /// Input calyx program
-    #[structopt(parse(from_os_str))]
+    /// input calyx program
+    #[argh(positional, from_str_fn(read_path))]
     pub file: Option<PathBuf>,
 
-    /// Output file
-    #[structopt(long = "output", short = "o", default_value)]
+    /// output file
+    #[argh(option, short = 'o', default = "OutputFile::default()")]
     pub output: OutputFile,
 
-    #[structopt(long = "force-color")]
-    pub color: bool,
-
-    /// Path to the primitives library
-    #[structopt(long, short, default_value = ".")]
+    /// path to the primitives library
+    #[argh(option, short = 'l', default = "Path::new(\".\").into()")]
     pub lib_path: PathBuf,
 
-    /// Enable debug mode output
-    #[structopt(long = "debug")]
+    /// enable debug mode output
+    #[argh(switch, long = "debug")]
     pub enable_debug: bool,
 
-    /// Enable synthesis mode.
-    #[structopt(long = "synthesis")]
+    /// enable synthesis mode
+    #[argh(switch, long = "synthesis")]
     pub enable_synthesis: bool,
 
-    /// Select a backend.
-    #[structopt(short = "b", long = "backend", default_value)]
+    /// select a backend
+    #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,
 
-    /// Toplevel component
-    #[structopt(short = "t", long = "toplevel", default_value = "main")]
+    /// toplevel component
+    #[argh(option, short = 't', default = "\"main\".to_string()")]
     pub toplevel: String,
 
-    /// Run this pass during execution
-    #[structopt(short = "p", long = "pass", default_value = "all")]
+    /// run this pass during execution
+    #[argh(option, short = 'p')]
     pub pass: Vec<String>,
 
-    /// Disable pass during execution
-    #[structopt(short = "d", long = "disable-pass")]
+    /// disable pass during execution
+    #[argh(option, short = 'd', long = "disable-pass")]
     pub disable_pass: Vec<String>,
 
     /// list all avaliable pass options
-    #[structopt(long = "list-passes")]
+    #[argh(switch, long = "list-passes")]
     pub list_passes: bool,
+}
+
+fn read_path(path: &str) -> Result<PathBuf, String> {
+    Ok(Path::new(path).into())
 }
 
 // ================== Backend Variant and Parsing ===================== //
@@ -71,7 +67,6 @@ pub enum BackendOpt {
     Xilinx,
     XilinxXml,
     Calyx,
-    // Dot,
     None,
 }
 

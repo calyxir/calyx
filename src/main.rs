@@ -2,13 +2,12 @@ mod cmdline;
 
 use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
 use cmdline::Opts;
-use structopt::StructOpt;
 
 fn main() -> CalyxResult<()> {
     let pm = PassManager::default_passes()?;
 
     // parse the command line arguments into Opts struct
-    let opts: Opts = Opts::from_args();
+    let opts: Opts = argh::from_env();
 
     // list all the avaliable pass options when flag --list-passes is enabled
     if opts.list_passes {
