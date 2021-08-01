@@ -139,15 +139,15 @@ impl Opts {
         match self.backend {
             BackendOpt::Verilog => {
                 let backend = VerilogBackend::default();
-                backend.run(&context, self.output)
+                backend.run(context, self.output)
             }
             BackendOpt::Xilinx => {
                 let backend = XilinxInterfaceBackend::default();
-                backend.run(&context, self.output)
+                backend.run(context, self.output)
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend::default();
-                backend.run(&context, self.output)
+                backend.run(context, self.output)
             }
             BackendOpt::Futil => {
                 for import_path in &context.imports {

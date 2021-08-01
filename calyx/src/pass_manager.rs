@@ -98,35 +98,43 @@ impl PassManager {
         ret
     }
 
+    /// Attempts to resolve the alias name. If there is no alias with this name,
+    /// assumes that this is a pass instead.
+    fn resolve_alias(&self, maybe_alias: &str) -> Vec<String> {
+        self.aliases
+            .get(maybe_alias)
+            .cloned()
+            .unwrap_or_else(|| vec![maybe_alias.to_string()])
+    }
+
     /// Creates a plan using an inclusion and exclusion list which might contain
     /// aliases.
     fn create_plan(
         &self,
         incls: &[String],
         excls: &[String],
-    ) -> (Vec<String>, HashSet<String>) {
+    ) -> FutilResult<(Vec<String>, HashSet<String>)> {
         // Incls and excls can both have aliases in them. Resolve them.
         let passes = incls
             .iter()
-            .flat_map(|maybe_alias| {
-                self.aliases
-                    .get(maybe_alias)
-                    .cloned()
-                    .unwrap_or_else(|| vec![maybe_alias.clone()])
-            })
+            .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<Vec<_>>();
 
         let excl_set = excls
             .iter()
-            .flat_map(|maybe_alias| {
-                self.aliases
-                    .get(maybe_alias)
-                    .cloned()
-                    .unwrap_or_else(|| vec![maybe_alias.clone()])
-            })
+            .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<HashSet<String>>();
 
-        (passes, excl_set)
+        // Validate that names of passes in incl and excl sets are known
+        passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
+            if !self.passes.contains_key(pass) {
+                Err(Error::UnknownPass(pass.to_string()))
+            } else {
+                Ok(())
+            }
+        })?;
+
+        Ok((passes, excl_set))
     }
 
     /// Executes a given "plan" constructed using the incl and excl lists.
@@ -136,17 +144,13 @@ impl PassManager {
         incl: &[String],
         excl: &[String],
     ) -> FutilResult<()> {
-        let (passes, excl_set) = self.create_plan(incl, excl);
+        let (passes, excl_set) = self.create_plan(incl, excl)?;
         for name in passes {
-            if let Some(pass) = self.passes.get(&name) {
-                if !excl_set.contains(&name) {
-                    pass(ctx)?;
-                }
-            } else {
-                return Err(Error::UnknownPass(
-                    name.to_string(),
-                    self.show_names(),
-                ));
+            // Pass is known to exist because create_plan validates the
+            // names of passes.
+            let pass = &self.passes[&name];
+            if !excl_set.contains(&name) {
+                pass(ctx)?;
             }
         }
 

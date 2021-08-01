@@ -15,7 +15,7 @@ pub enum Error {
     ReservedName(ir::Id),
 
     /// The given string does not correspond to any known pass.
-    UnknownPass(String, String),
+    UnknownPass(String),
     /// The input file is invalid (does not exist).
     InvalidFile(String),
     /// Failed to write the output
@@ -154,12 +154,11 @@ impl std::fmt::Debug for Error {
                     name.fmt_err(&msg)
                 )
             }
-            UnknownPass(pass, known_passes) => {
+            UnknownPass(pass) => {
                 write!(
                     f,
-                    "Unknown pass: {}. Known passes: {}.",
+                    "Unknown pass: {}. Use the flag `--list-passes` to view known passes.",
                     pass,
-                    known_passes
                 )
             },
             InvalidFile(err) => write!(f, "{}", err),
