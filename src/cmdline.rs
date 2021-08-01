@@ -126,8 +126,7 @@ impl ToString for BackendOpt {
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
-            Self::Calyx => "futil",
-            // Self::Dot => "dot",
+            Self::Calyx => "calyx",
             Self::None => "none",
         }
         .to_string()
