@@ -4,7 +4,7 @@ import "primitives/std.lib";
 component main() -> () {
   cells {
     add = std_add(4);
-    reg0 = std_reg(4);
+    @external reg0 = std_reg(4);
   }
 
   wires {
