@@ -7,7 +7,7 @@ fn main() -> CalyxResult<()> {
     let pm = PassManager::default_passes()?;
 
     // parse the command line arguments into Opts struct
-    let opts: Opts = argh::from_env();
+    let opts = Opts::get_opts();
 
     // list all the avaliable pass options when flag --list-passes is enabled
     if opts.list_passes {

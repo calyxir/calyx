@@ -164,4 +164,16 @@ impl Opts {
             BackendOpt::None => Ok(()),
         }
     }
+
+    /// Get the current set of options from the command line invocation.
+    pub fn get_opts() -> Opts {
+        let mut opts: Opts = argh::from_env();
+
+        // argh doesn't allow us to specify a default for this so we fill it
+        // in manually.
+        if opts.pass.is_empty() {
+            opts.pass = vec!["all".into()];
+        }
+        opts
+    }
 }
