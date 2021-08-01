@@ -59,7 +59,7 @@ pub enum Error {
 }
 
 /// Convience wrapper to represent success or meaningul compiler error.
-pub type FutilResult<T> = std::result::Result<T, Error>;
+pub type CalyxResult<T> = std::result::Result<T, Error>;
 
 /// A span of the input program.
 /// Used for reporting location-based errors.
@@ -216,13 +216,13 @@ impl From<std::io::Error> for Error {
 /// `Option<NodeIndex>` to provide convienent error reporting for
 /// undefined components / groups.
 pub trait Extract<T, R> {
-    /// Unpacks `T` into `FutilResult<R>` using `id: ir::Id`
+    /// Unpacks `T` into `CalyxResult<R>` using `id: ir::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: &ir::Id) -> FutilResult<R>;
+    fn extract(&self, id: &ir::Id) -> CalyxResult<R>;
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: &ir::Id) -> FutilResult<NodeIndex> {
+    fn extract(&self, id: &ir::Id) -> CalyxResult<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
             None => Err(Error::Undefined(id.clone(), "component".to_string())),

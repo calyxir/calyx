@@ -1,13 +1,13 @@
 //! Define the PassManager structure that is used to construct and run pass
 //! passes.
 use crate::{
-    errors::{Error, FutilResult},
+    errors::{CalyxResult, Error},
     ir,
 };
 use std::collections::{HashMap, HashSet};
 
 /// Top-level type for all passes that transform an [ir::Context]
-pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> FutilResult<()>>;
+pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> CalyxResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
 #[derive(Default)]
@@ -26,7 +26,7 @@ impl PassManager {
         &mut self,
         name: String,
         pass_func: PassClosure,
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         if self.passes.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Pass with name '{}' is already registered.",
@@ -44,7 +44,7 @@ impl PassManager {
         &mut self,
         name: String,
         passes: Vec<String>,
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         if self.aliases.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Alias with name '{}'  already registered.",
@@ -113,7 +113,7 @@ impl PassManager {
         &self,
         incls: &[String],
         excls: &[String],
-    ) -> FutilResult<(Vec<String>, HashSet<String>)> {
+    ) -> CalyxResult<(Vec<String>, HashSet<String>)> {
         // Incls and excls can both have aliases in them. Resolve them.
         let passes = incls
             .iter()
@@ -143,7 +143,7 @@ impl PassManager {
         ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl)?;
         for name in passes {
             // Pass is known to exist because create_plan validates the

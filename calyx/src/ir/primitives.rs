@@ -1,5 +1,5 @@
 use super::{Attributes, Direction, Id};
-use crate::errors::{Error, FutilResult};
+use crate::errors::{CalyxResult, Error};
 use linked_hash_map::LinkedHashMap;
 use smallvec::SmallVec;
 
@@ -35,7 +35,7 @@ impl Primitive {
     pub fn resolve(
         &self,
         parameters: &[u64],
-    ) -> FutilResult<(
+    ) -> CalyxResult<(
         SmallVec<[(Id, u64); 5]>,
         Vec<(Id, u64, Direction, Attributes)>,
     )> {
@@ -102,7 +102,7 @@ impl PortDef {
     pub fn resolve(
         &self,
         binding: &LinkedHashMap<Id, u64>,
-    ) -> FutilResult<(Id, u64, Attributes)> {
+    ) -> CalyxResult<(Id, u64, Attributes)> {
         match &self.width {
             Width::Const { value } => {
                 Ok((self.name.clone(), *value, self.attributes.clone()))

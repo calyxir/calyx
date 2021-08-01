@@ -1,4 +1,4 @@
-use crate::errors::FutilResult;
+use crate::errors::CalyxResult;
 use crate::ir::{self, CellType};
 use petgraph::algo;
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -22,7 +22,7 @@ use std::collections::HashMap;
 /// // Construct a post order.
 /// let post = PostOrder::new(comps);
 /// // Apply a mutable update to components.
-/// let upd: FnMut(&mut ir::Component) -> FutilResult<()>;
+/// let upd: FnMut(&mut ir::Component) -> CalyxResult<()>;
 /// post.apply_update(upd);
 /// // Recover the components in original order.
 /// let new_comps = post.take();
@@ -65,9 +65,9 @@ impl PostOrder {
     }
 
     /// Traverses components in post-order and applies `upd`.
-    pub fn apply_update<F>(&mut self, mut upd: F) -> FutilResult<()>
+    pub fn apply_update<F>(&mut self, mut upd: F) -> CalyxResult<()>
     where
-        F: FnMut(&mut ir::Component) -> FutilResult<()>,
+        F: FnMut(&mut ir::Component) -> CalyxResult<()>,
     {
         self.order
             .clone()

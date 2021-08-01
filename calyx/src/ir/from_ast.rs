@@ -4,7 +4,7 @@ use super::{
     Width, RRC,
 };
 use crate::{
-    errors::{Error, FutilResult},
+    errors::{CalyxResult, Error},
     frontend::ast,
     utils::NameGenerator,
 };
@@ -25,7 +25,7 @@ struct SigCtx {
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(sig: &[PortDef]) -> FutilResult<()> {
+fn check_signature(sig: &[PortDef]) -> CalyxResult<()> {
     let mut inputs: HashSet<&Id> = HashSet::new();
     let mut outputs: HashSet<&Id> = HashSet::new();
     for pd in sig {
@@ -93,7 +93,7 @@ pub fn ast_to_ir(
     mut namespace: ast::NamespaceDef,
     debug_mode: bool,
     synthesis_mode: bool,
-) -> FutilResult<Context> {
+) -> CalyxResult<Context> {
     let mut all_names: HashSet<&Id> = HashSet::with_capacity(
         namespace.components.len() + namespace.externs.len(),
     );
@@ -148,7 +148,7 @@ pub fn ast_to_ir(
 fn validate_component(
     comp: &ast::ComponentDef,
     sig_ctx: &SigCtx,
-) -> FutilResult<()> {
+) -> CalyxResult<()> {
     let mut cells = HashSet::new();
     let mut groups = HashSet::new();
 
@@ -191,7 +191,7 @@ fn validate_component(
 fn build_component(
     comp: ast::ComponentDef,
     sig_ctx: &SigCtx,
-) -> FutilResult<Component> {
+) -> CalyxResult<Component> {
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
@@ -224,7 +224,7 @@ fn build_component(
         .continuous_assignments
         .into_iter()
         .map(|w| build_assignment(w, &mut builder))
-        .collect::<FutilResult<Vec<_>>>()?;
+        .collect::<CalyxResult<Vec<_>>>()?;
     builder.component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
@@ -277,7 +277,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 ///////////////// Group Construction /////////////////////////
 
 /// Build an IR group using the AST Group.
-fn add_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
+fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
     let ir_group = builder.add_group(group.name);
     ir_group.borrow_mut().attributes = group.attributes;
 
@@ -293,7 +293,7 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> FutilResult<()> {
 ///////////////// Assignment Construction /////////////////////////
 
 /// Get the pointer to the Port represented by `port`.
-fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
+fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
     match port {
         ast::Port::Comp { component, port } => comp
             .find_cell(&component)
@@ -324,7 +324,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> FutilResult<RRC<Port>> {
 fn atom_to_port(
     atom: ast::Atom,
     builder: &mut Builder,
-) -> FutilResult<RRC<Port>> {
+) -> CalyxResult<RRC<Port>> {
     match atom {
         ast::Atom::Num(n) => {
             let port = builder.add_constant(n.val, n.width).borrow().get("out");
@@ -339,7 +339,7 @@ fn atom_to_port(
 fn build_assignment(
     wire: ast::Wire,
     builder: &mut Builder,
-) -> FutilResult<Assignment> {
+) -> CalyxResult<Assignment> {
     let src_port: RRC<Port> = atom_to_port(wire.src.expr, builder)?;
     let dst_port: RRC<Port> = get_port_ref(wire.dest, &builder.component)?;
     let guard = match wire.src.guard {
@@ -351,10 +351,10 @@ fn build_assignment(
 }
 
 /// Transform an ast::GuardExpr to an ir::Guard.
-fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
+fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> CalyxResult<Guard> {
     use ast::GuardExpr as GE;
 
-    let into_box_guard = |g: Box<GE>, bd: &mut Builder| -> FutilResult<_> {
+    let into_box_guard = |g: Box<GE>, bd: &mut Builder| -> CalyxResult<_> {
         Ok(Box::new(build_guard(*g, bd)?))
     };
 
@@ -378,7 +378,7 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> FutilResult<Guard> {
 fn build_control(
     control: ast::Control,
     builder: &mut Builder,
-) -> FutilResult<Control> {
+) -> CalyxResult<Control> {
     Ok(match control {
         ast::Control::Enable {
             comp: component,
@@ -420,7 +420,7 @@ fn build_control(
                 stmts
                     .into_iter()
                     .map(|c| build_control(c, builder))
-                    .collect::<FutilResult<Vec<_>>>()?,
+                    .collect::<CalyxResult<Vec<_>>>()?,
             );
             *(s.get_mut_attributes().unwrap()) = attributes;
             s
@@ -430,7 +430,7 @@ fn build_control(
                 stmts
                     .into_iter()
                     .map(|c| build_control(c, builder))
-                    .collect::<FutilResult<Vec<_>>>()?,
+                    .collect::<CalyxResult<Vec<_>>>()?,
             );
             *(p.get_mut_attributes().unwrap()) = attributes;
             p

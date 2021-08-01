@@ -1,5 +1,5 @@
 use calyx::{
-    errors::{Error, FutilResult},
+    errors::{CalyxResult, Error},
     frontend, ir,
     pass_manager::PassManager,
     utils::OutputFile,
@@ -35,7 +35,7 @@ pub struct Opts {
 
 //first half of this is tests
 /// Interpret a group from a Calyx program
-fn main() -> FutilResult<()> {
+fn main() -> CalyxResult<()> {
     let opts = Opts::from_args();
 
     // Construct IR
@@ -69,6 +69,6 @@ fn main() -> FutilResult<()> {
             e.print_env();
             Ok(())
         }
-        Err(err) => FutilResult::Err(err),
+        Err(err) => CalyxResult::Err(err),
     }
 }

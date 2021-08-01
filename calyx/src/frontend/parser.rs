@@ -2,7 +2,7 @@
 
 //! Parser for Calyx programs.
 use super::ast::{self, BitNum, NumType};
-use crate::errors::{self, FutilResult, Span};
+use crate::errors::{self, CalyxResult, Span};
 use crate::ir;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
@@ -34,11 +34,11 @@ lazy_static::lazy_static! {
 
 #[derive(Parser)]
 #[grammar = "frontend/futil_syntax.pest"]
-pub struct FutilParser;
+pub struct CalyxParser;
 
-impl FutilParser {
+impl CalyxParser {
     /// Parse a Calyx program into an AST representation.
-    pub fn parse_file(path: &Path) -> FutilResult<ast::NamespaceDef> {
+    pub fn parse_file(path: &Path) -> CalyxResult<ast::NamespaceDef> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
                 "Failed to read {}: {}",
@@ -47,17 +47,17 @@ impl FutilParser {
             ))
         })?;
         let string_content = std::str::from_utf8(content)?;
-        let inputs = FutilParser::parse_with_userdata(
+        let inputs = CalyxParser::parse_with_userdata(
             Rule::file,
             string_content,
             Rc::from(string_content),
         )
         .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
-        Ok(FutilParser::file(input)?)
+        Ok(CalyxParser::file(input)?)
     }
 
-    pub fn parse<R: Read>(mut r: R) -> FutilResult<ast::NamespaceDef> {
+    pub fn parse<R: Read>(mut r: R) -> CalyxResult<ast::NamespaceDef> {
         let mut buf = String::new();
         r.read_to_string(&mut buf).map_err(|err| {
             errors::Error::InvalidFile(format!(
@@ -65,13 +65,13 @@ impl FutilParser {
                 err.to_string()
             ))
         })?;
-        let inputs = FutilParser::parse_with_userdata(
+        let inputs = CalyxParser::parse_with_userdata(
             Rule::file,
             &buf,
             Rc::from(buf.as_str()),
         )?;
         let input = inputs.single()?;
-        Ok(FutilParser::file(input)?)
+        Ok(CalyxParser::file(input)?)
     }
 }
 
@@ -82,7 +82,7 @@ enum ExtOrComp {
 }
 
 #[pest_consume::parser]
-impl FutilParser {
+impl CalyxParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }

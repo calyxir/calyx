@@ -1,10 +1,10 @@
 mod cmdline;
 
-use calyx::{errors::FutilResult, frontend, ir, pass_manager::PassManager};
+use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
 use cmdline::Opts;
 use structopt::StructOpt;
 
-fn main() -> FutilResult<()> {
+fn main() -> CalyxResult<()> {
     let pm = PassManager::default_passes()?;
 
     // parse the command line arguments into Opts struct
