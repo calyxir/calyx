@@ -51,7 +51,6 @@ impl PassManager {
             pm,
             "pre-opt",
             [
-                GuardCanonical,
                 InferStaticTiming,
                 CollapseControl,
                 ResourceSharing,
@@ -62,7 +61,7 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [CompileEmpty, StaticTiming, TopDownCompileControl]
+            [CompileEmpty, RemoveCombGroups, StaticTiming, TopDownCompileControl]
         );
         register_alias!(pm, "post-opt", [DeadCellRemoval]);
         register_alias!(
