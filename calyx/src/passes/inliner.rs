@@ -67,7 +67,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
 
     // initialize the worklist to have guards that have no holes
     for (key, (_, guard)) in map.iter() {
-        if !has_holes(&guard) {
+        if !has_holes(guard) {
             worklist.push(key.clone())
         }
     }

@@ -68,7 +68,7 @@ impl Schedule {
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(&g));
+                eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(g));
             })
     }
 }
@@ -142,7 +142,7 @@ fn calculate_states(
             let mut cond_save_assigns = vec![
                 builder.build_assignment(
                     cs_if.borrow().get("in"),
-                    Rc::clone(&port),
+                    Rc::clone(port),
                     pre_guard.clone(),
                 ),
                 builder.build_assignment(
@@ -227,7 +227,7 @@ fn calculate_states(
             let mut cond_save_assigns = vec![
                 builder.build_assignment(
                     cs_wh.borrow().get("in"),
-                    Rc::clone(&port),
+                    Rc::clone(port),
                     pre_guard.clone(),
                 ),
                 builder.build_assignment(
@@ -258,7 +258,7 @@ fn calculate_states(
             // Build the FSM for the body
             let body_go = guard!(cs_wh["out"]) & pre_guard.clone();
             let nxt = calculate_states(
-                &body,
+                body,
                 after_cond_compute,
                 &body_go,
                 schedule,
@@ -464,7 +464,7 @@ impl Visitor for TopDownCompileControl {
                 _ => {
                     let mut schedule = Schedule::default();
                     calculate_states(
-                        &con,
+                        con,
                         0,
                         &ir::Guard::True,
                         &mut schedule,

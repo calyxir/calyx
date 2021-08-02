@@ -3,7 +3,6 @@
 use crate::frontend::{ast, parser};
 use crate::ir;
 use petgraph::stable_graph::NodeIndex;
-use std::iter::repeat;
 use std::rc::Rc;
 
 /// Standard error type for Calyx errors.
@@ -94,12 +93,9 @@ impl Span {
             let new_pos = pos + l.len() + 1;
             if self.start > pos && self.end < pos + (l.len()) {
                 let linum_text = format!("{} ", linum);
-                let linum_space: String =
-                    repeat(" ").take(linum_text.len()).collect();
-                let mark: String =
-                    repeat("^").take(self.end - self.start).collect();
-                let space: String =
-                    repeat(" ").take(self.start - pos).collect();
+                let linum_space: String = " ".repeat(linum_text.len());
+                let mark: String = "^".repeat(self.end - self.start);
+                let space: String = " ".repeat(self.start - pos);
                 buf += "\n";
                 buf += &format!("{}|{}\n", linum_text, l);
                 buf +=

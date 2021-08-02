@@ -454,7 +454,7 @@ fn build_reaching_def(
             // only kill a def if the value is not read.
             let (mut cur_reach, killed) =
                 reach.kill_from_writeread(&write_set, &read_set);
-            cur_reach.extend(write_set, &en.group.borrow().name());
+            cur_reach.extend(write_set, en.group.borrow().name());
 
             rd.reach.insert(
                 GroupOrInvoke::Group(en.group.clone_name()),

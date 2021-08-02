@@ -44,7 +44,7 @@ impl NamespaceDef {
     /// a whole program context.
     pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> CalyxResult<Self> {
         let mut namespace = match file {
-            Some(file) => parser::CalyxParser::parse_file(&file),
+            Some(file) => parser::CalyxParser::parse_file(file),
             None => {
                 if atty::isnt(Stream::Stdin) {
                     parser::CalyxParser::parse(stdin())

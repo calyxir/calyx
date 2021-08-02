@@ -52,7 +52,7 @@ impl PostOrder {
         for comp in &comps {
             for cell in comp.cells.iter() {
                 if let CellType::Component { name } = &cell.borrow().prototype {
-                    graph.add_edge(rev_map[&name], rev_map[&comp.name], ());
+                    graph.add_edge(rev_map[name], rev_map[&comp.name], ());
                 }
             }
         }

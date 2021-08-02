@@ -164,7 +164,7 @@ fn validate_component(
         let proto_name = &cell.prototype.name;
 
         if sig_ctx.lib.find_primitive(&proto_name).is_none()
-            && !sig_ctx.comp_sigs.contains_key(&proto_name)
+            && !sig_ctx.comp_sigs.contains_key(proto_name)
         {
             return Err(Error::Undefined(
                 proto_name.clone(),
@@ -214,7 +214,7 @@ fn build_component(
     // required information.
     comp.cells
         .into_iter()
-        .for_each(|cell| add_cell(cell, &sig_ctx, &mut builder));
+        .for_each(|cell| add_cell(cell, sig_ctx, &mut builder));
 
     comp.groups
         .into_iter()
@@ -330,7 +330,7 @@ fn atom_to_port(
             let port = builder.add_constant(n.val, n.width).borrow().get("out");
             Ok(Rc::clone(&port))
         }
-        ast::Atom::Port(p) => get_port_ref(p, &builder.component),
+        ast::Atom::Port(p) => get_port_ref(p, builder.component),
     }
 }
 
@@ -341,7 +341,7 @@ fn build_assignment(
     builder: &mut Builder,
 ) -> CalyxResult<Assignment> {
     let src_port: RRC<Port> = atom_to_port(wire.src.expr, builder)?;
-    let dst_port: RRC<Port> = get_port_ref(wire.dest, &builder.component)?;
+    let dst_port: RRC<Port> = get_port_ref(wire.dest, builder.component)?;
     let guard = match wire.src.guard {
         Some(g) => build_guard(g, builder)?,
         None => Guard::True,

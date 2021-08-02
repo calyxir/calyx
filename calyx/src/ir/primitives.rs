@@ -107,7 +107,7 @@ impl PortDef {
             Width::Const { value } => {
                 Ok((self.name.clone(), *value, self.attributes.clone()))
             }
-            Width::Param { value } => match binding.get(&value) {
+            Width::Param { value } => match binding.get(value) {
                 Some(width) => {
                     Ok((self.name.clone(), *width, self.attributes.clone()))
                 }

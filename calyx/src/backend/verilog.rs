@@ -117,7 +117,7 @@ impl Backend for VerilogBackend {
         let modules = &ctx
             .components
             .iter()
-            .map(|comp| emit_component(&comp, !ctx.synthesis_mode).to_string())
+            .map(|comp| emit_component(comp, !ctx.synthesis_mode).to_string())
             .collect::<Vec<_>>();
 
         write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
@@ -152,7 +152,7 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
 
     // Add memory initial and final blocks
     if memory_simulation {
-        memory_read_write(&comp).into_iter().for_each(|stmt| {
+        memory_read_write(comp).into_iter().for_each(|stmt| {
             module.add_stmt(stmt);
         });
     }

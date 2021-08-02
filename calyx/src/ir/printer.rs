@@ -212,7 +212,7 @@ impl IRPrinter {
         match control {
             ir::Control::Enable(ir::Enable { group, attributes }) => {
                 if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                    write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 writeln!(f, "{};", group.borrow().name().id)
             }
@@ -223,7 +223,7 @@ impl IRPrinter {
                 attributes,
             }) => {
                 if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                    write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 write!(f, "invoke {}(", comp.borrow().name())?;
                 for (i, (arg, port)) in inputs.iter().enumerate() {
@@ -259,7 +259,7 @@ impl IRPrinter {
             }
             ir::Control::Seq(ir::Seq { stmts, attributes }) => {
                 if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                    write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 writeln!(f, "seq {{")?;
                 for stmt in stmts {
@@ -269,7 +269,7 @@ impl IRPrinter {
             }
             ir::Control::Par(ir::Par { stmts, attributes }) => {
                 if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                    write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 writeln!(f, "par {{")?;
                 for stmt in stmts {
@@ -285,7 +285,7 @@ impl IRPrinter {
                 attributes,
             }) => {
                 if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                    write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 writeln!(
                     f,
@@ -310,7 +310,7 @@ impl IRPrinter {
                 attributes,
             }) => {
                 if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(&attributes))?
+                    write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 writeln!(
                     f,
