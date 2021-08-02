@@ -4,6 +4,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     t = std_reg(1);
     f = std_reg(1);
     lt = std_lt(1);
+    @generated comb_reg = std_reg(1);
     @generated fsm = std_reg(2);
     @generated cond_stored = std_reg(1);
     @generated incr = std_add(2);
@@ -19,25 +20,27 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       f.write_en = 1'd1;
       false[done] = f.done;
     }
-    group cond<"static"=0> {
+    group cond<"static"=1> {
       lt.left = 1'd1;
       lt.right = 1'd0;
-      cond[done] = 1'd1;
+      cond[done] = comb_reg.done ? 1'd1;
+      comb_reg.in = lt.out;
+      comb_reg.write_en = 1'd1;
     }
-    group static_if<"static"=2> {
+    group static_if<"static"=3> {
       incr.left = fsm.out;
       incr.right = 2'd1;
-      fsm.in = fsm.out != 2'd2 ? incr.out;
-      fsm.write_en = fsm.out != 2'd2 ? 1'd1;
-      cond[go] = fsm.out == 2'd0 ? 1'd1;
-      cond_stored.write_en = fsm.out == 2'd0 ? 1'd1;
-      true[go] = fsm.out > 2'd0 & fsm.out < 2'd2 & cond_stored.out ? 1'd1;
-      false[go] = fsm.out > 2'd0 & fsm.out < 2'd2 & !cond_stored.out ? 1'd1;
-      static_if[done] = fsm.out == 2'd2 ? 1'd1;
-      cond_stored.in = fsm.out == 2'd0 ? lt.out;
+      fsm.in = fsm.out != 2'd3 ? incr.out;
+      fsm.write_en = fsm.out != 2'd3 ? 1'd1;
+      cond[go] = fsm.out < 2'd1 ? 1'd1;
+      cond_stored.write_en = fsm.out == 2'd1 ? 1'd1;
+      true[go] = fsm.out > 2'd1 & fsm.out < 2'd3 & cond_stored.out ? 1'd1;
+      false[go] = fsm.out > 2'd1 & fsm.out < 2'd3 & !cond_stored.out ? 1'd1;
+      static_if[done] = fsm.out == 2'd3 ? 1'd1;
+      cond_stored.in = fsm.out == 2'd1 ? comb_reg.out;
     }
-    fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.write_en = fsm.out == 2'd2 ? 1'd1;
+    fsm.in = fsm.out == 2'd3 ? 2'd0;
+    fsm.write_en = fsm.out == 2'd3 ? 1'd1;
   }
 
   control {

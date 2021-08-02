@@ -4,8 +4,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     a = std_reg(2);
     b = std_reg(2);
     c = std_reg(2);
-    @generated fsm = std_reg(1);
-    @generated incr = std_add(1);
+    @generated par_reset = std_reg(1);
+    @generated par_done_reg = std_reg(1);
+    @generated par_done_reg0 = std_reg(1);
+    @generated par_done_reg1 = std_reg(1);
   }
   wires {
     group A<"static"=1> {
@@ -23,21 +25,31 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       c.write_en = 1'd1;
       C[done] = c.done;
     }
-    group static_par<"static"=1> {
-      incr.left = 1'd1;
-      incr.right = fsm.out;
-      fsm.in = fsm.out != 1'd1 ? incr.out;
-      fsm.write_en = fsm.out != 1'd1 ? 1'd1;
-      static_par[done] = fsm.out == 1'd1 ? 1'd1;
-      A[go] = fsm.out < 1'd1 ? 1'd1;
-      B[go] = fsm.out < 1'd1 ? 1'd1;
-      C[go] = fsm.out < 1'd1 ? 1'd1;
+    group par {
+      A[go] = !(par_done_reg.out | A[done]) ? 1'd1;
+      par_done_reg.in = A[done] ? 1'd1;
+      par_done_reg.write_en = A[done] ? 1'd1;
+      B[go] = !(par_done_reg0.out | B[done]) ? 1'd1;
+      par_done_reg0.in = B[done] ? 1'd1;
+      par_done_reg0.write_en = B[done] ? 1'd1;
+      C[go] = !(par_done_reg1.out | C[done]) ? 1'd1;
+      par_done_reg1.in = C[done] ? 1'd1;
+      par_done_reg1.write_en = C[done] ? 1'd1;
+      par_reset.in = par_done_reg.out & par_done_reg0.out & par_done_reg1.out ? 1'd1;
+      par_reset.write_en = par_done_reg.out & par_done_reg0.out & par_done_reg1.out ? 1'd1;
+      par[done] = par_reset.out ? 1'd1;
     }
-    fsm.in = fsm.out == 1'd1 ? 1'd0;
-    fsm.write_en = fsm.out == 1'd1 ? 1'd1;
+    par_reset.in = par_reset.out ? 1'd0;
+    par_reset.write_en = par_reset.out ? 1'd1;
+    par_done_reg.in = par_reset.out ? 1'd0;
+    par_done_reg.write_en = par_reset.out ? 1'd1;
+    par_done_reg0.in = par_reset.out ? 1'd0;
+    par_done_reg0.write_en = par_reset.out ? 1'd1;
+    par_done_reg1.in = par_reset.out ? 1'd0;
+    par_done_reg1.write_en = par_reset.out ? 1'd1;
   }
 
   control {
-    static_par;
+    par;
   }
 }
