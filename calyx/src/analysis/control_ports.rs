@@ -10,11 +10,11 @@ pub struct ControlPorts {
 
 impl ControlPorts {
     pub fn get(&self, group: &ir::Id) -> Option<&Vec<RRC<ir::Port>>> {
-        self.used_ports.get(&group)
+        self.used_ports.get(group)
     }
 
     pub fn remove(&mut self, group: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
-        self.used_ports.remove(&group)
+        self.used_ports.remove(group)
     }
 }
 
@@ -38,8 +38,8 @@ fn construct(
                 .or_default()
                 .push(Rc::clone(port));
 
-            construct(&tbranch, used_ports);
-            construct(&fbranch, used_ports);
+            construct(tbranch, used_ports);
+            construct(fbranch, used_ports);
         }
         ir::Control::While(ir::While {
             cond, port, body, ..
@@ -48,7 +48,7 @@ fn construct(
                 .entry(cond.borrow().name().clone())
                 .or_default()
                 .push(Rc::clone(port));
-            construct(&body, used_ports);
+            construct(body, used_ports);
         }
         ir::Control::Seq(ir::Seq { stmts, .. })
         | ir::Control::Par(ir::Par { stmts, .. }) => {
