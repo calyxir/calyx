@@ -38,7 +38,7 @@ impl ShareComponents for MinimizeRegs {
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
-        self.live = LiveRangeAnalysis::new(&comp, &*comp.control.borrow());
+        self.live = LiveRangeAnalysis::new(comp, &*comp.control.borrow());
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
@@ -58,7 +58,7 @@ impl ShareComponents for MinimizeRegs {
         F: FnMut(Vec<ir::Id>),
     {
         for group in comp.groups.iter() {
-            let conflicts = self.live.get(&group.borrow().name());
+            let conflicts = self.live.get(group.borrow().name());
             add_conflicts(conflicts.iter().cloned().collect());
         }
     }

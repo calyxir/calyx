@@ -1,13 +1,13 @@
 //! Define the PassManager structure that is used to construct and run pass
 //! passes.
 use crate::{
-    errors::{Error, FutilResult},
+    errors::{CalyxResult, Error},
     ir,
 };
 use std::collections::{HashMap, HashSet};
 
 /// Top-level type for all passes that transform an [ir::Context]
-pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> FutilResult<()>>;
+pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> CalyxResult<()>>;
 
 /// Structure that tracks all registered passes for the compiler.
 #[derive(Default)]
@@ -26,7 +26,7 @@ impl PassManager {
         &mut self,
         name: String,
         pass_func: PassClosure,
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         if self.passes.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Pass with name '{}' is already registered.",
@@ -44,7 +44,7 @@ impl PassManager {
         &mut self,
         name: String,
         passes: Vec<String>,
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         if self.aliases.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Alias with name '{}'  already registered.",
@@ -98,35 +98,43 @@ impl PassManager {
         ret
     }
 
+    /// Attempts to resolve the alias name. If there is no alias with this name,
+    /// assumes that this is a pass instead.
+    fn resolve_alias(&self, maybe_alias: &str) -> Vec<String> {
+        self.aliases
+            .get(maybe_alias)
+            .cloned()
+            .unwrap_or_else(|| vec![maybe_alias.to_string()])
+    }
+
     /// Creates a plan using an inclusion and exclusion list which might contain
     /// aliases.
     fn create_plan(
         &self,
         incls: &[String],
         excls: &[String],
-    ) -> (Vec<String>, HashSet<String>) {
+    ) -> CalyxResult<(Vec<String>, HashSet<String>)> {
         // Incls and excls can both have aliases in them. Resolve them.
         let passes = incls
             .iter()
-            .flat_map(|maybe_alias| {
-                self.aliases
-                    .get(maybe_alias)
-                    .cloned()
-                    .unwrap_or_else(|| vec![maybe_alias.clone()])
-            })
+            .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<Vec<_>>();
 
         let excl_set = excls
             .iter()
-            .flat_map(|maybe_alias| {
-                self.aliases
-                    .get(maybe_alias)
-                    .cloned()
-                    .unwrap_or_else(|| vec![maybe_alias.clone()])
-            })
+            .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<HashSet<String>>();
 
-        (passes, excl_set)
+        // Validate that names of passes in incl and excl sets are known
+        passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
+            if !self.passes.contains_key(pass) {
+                Err(Error::UnknownPass(pass.to_string()))
+            } else {
+                Ok(())
+            }
+        })?;
+
+        Ok((passes, excl_set))
     }
 
     /// Executes a given "plan" constructed using the incl and excl lists.
@@ -135,18 +143,14 @@ impl PassManager {
         ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
-    ) -> FutilResult<()> {
-        let (passes, excl_set) = self.create_plan(incl, excl);
+    ) -> CalyxResult<()> {
+        let (passes, excl_set) = self.create_plan(incl, excl)?;
         for name in passes {
-            if let Some(pass) = self.passes.get(&name) {
-                if !excl_set.contains(&name) {
-                    pass(ctx)?;
-                }
-            } else {
-                return Err(Error::UnknownPass(
-                    name.to_string(),
-                    self.show_names(),
-                ));
+            // Pass is known to exist because create_plan validates the
+            // names of passes.
+            let pass = &self.passes[&name];
+            if !excl_set.contains(&name) {
+                pass(ctx)?;
             }
         }
 

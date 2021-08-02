@@ -10,10 +10,10 @@ import "primitives/core.futil";
 component main() -> () {
 
   cells {
-    m = std_reg(4); //multiplicand (13)
-    c = std_reg(1); //carry -- shld be initialized to zero
-    a = std_reg(4); //accumulator -- shld be initialized to zeroes
-    q = std_reg(4); //multiplier (11)
+    @external m = std_reg(4); //multiplicand (13)
+    @external c = std_reg(1); //carry -- shld be initialized to zero
+    @external a = std_reg(4); //accumulator -- shld be initialized to zeroes
+    @external q = std_reg(4); //multiplier (11)
 
     //to check carry
     pad_5bit = std_pad(4, 5);
@@ -33,7 +33,7 @@ component main() -> () {
 
     //for the while loop
     lt = std_lt(3); //counting to 4, b/c multiplying 4 bit numbers (4 = [100])
-    i = std_reg(3); //counting to 4  (4 = [100])
+    @external i = std_reg(3); //counting to 4  (4 = [100])
     add3 = std_add(3);
 
     //to shift right some # and put a 1 as MSB, just shift right and add 8 ([1000])

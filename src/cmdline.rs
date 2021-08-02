@@ -3,7 +3,7 @@ use calyx::backend::{
     verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
     xilinx::XilinxXmlBackend,
 };
-use calyx::{errors::FutilResult, ir, utils::OutputFile};
+use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 use itertools::Itertools;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -18,7 +18,7 @@ pub use structopt::StructOpt;
 )]
 #[allow(clippy::option_option)]
 pub struct Opts {
-    /// Input futil program
+    /// Input calyx program
     #[structopt(parse(from_os_str))]
     pub file: Option<PathBuf>,
 
@@ -70,7 +70,7 @@ pub enum BackendOpt {
     Verilog,
     Xilinx,
     XilinxXml,
-    Futil,
+    Calyx,
     // Dot,
     None,
 }
@@ -80,14 +80,15 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("verilog", BackendOpt::Verilog),
         ("xilinx", BackendOpt::Xilinx),
         ("xilinx-xml", BackendOpt::XilinxXml),
-        ("futil", BackendOpt::Futil),
+        ("futil", BackendOpt::Calyx),
+        ("calyx", BackendOpt::Calyx),
         ("none", BackendOpt::None),
     ]
 }
 
 impl Default for BackendOpt {
     fn default() -> Self {
-        BackendOpt::Futil
+        BackendOpt::Calyx
     }
 }
 
@@ -125,7 +126,7 @@ impl ToString for BackendOpt {
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
-            Self::Futil => "futil",
+            Self::Calyx => "futil",
             // Self::Dot => "dot",
             Self::None => "none",
         }
@@ -135,21 +136,21 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend(self, context: &ir::Context) -> FutilResult<()> {
+    pub fn run_backend(self, context: &ir::Context) -> CalyxResult<()> {
         match self.backend {
             BackendOpt::Verilog => {
                 let backend = VerilogBackend::default();
-                backend.run(&context, self.output)
+                backend.run(context, self.output)
             }
             BackendOpt::Xilinx => {
                 let backend = XilinxInterfaceBackend::default();
-                backend.run(&context, self.output)
+                backend.run(context, self.output)
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend::default();
-                backend.run(&context, self.output)
+                backend.run(context, self.output)
             }
-            BackendOpt::Futil => {
+            BackendOpt::Calyx => {
                 for import_path in &context.imports {
                     writeln!(
                         &mut self.output.get_write(),

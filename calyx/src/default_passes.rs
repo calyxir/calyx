@@ -8,14 +8,14 @@ use crate::passes::{
     WellFormed,
 };
 use crate::{
-    errors::FutilResult,
+    errors::CalyxResult,
     ir::traversal::{Named, Visitor},
     pass_manager::PassManager,
     register_alias, register_pass,
 };
 
 impl PassManager {
-    pub fn default_passes() -> FutilResult<Self> {
+    pub fn default_passes() -> CalyxResult<Self> {
         // Construct the pass manager and register all passes.
         let mut pm = PassManager::default();
 

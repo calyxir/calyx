@@ -82,7 +82,7 @@ impl<T: ShareComponents> Visitor for T {
         comp: &mut ir::Component,
         sigs: &ir::LibrarySignatures,
     ) -> VisResult {
-        self.initialize(&comp, &sigs);
+        self.initialize(comp, sigs);
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
@@ -136,7 +136,7 @@ impl<T: ShareComponents> Visitor for T {
                     if let Some(confs) = conflict_group_b.get(&id_to_type[&a]) {
                         for b in confs {
                             if a != b {
-                                g.insert_conflict(&a, &b);
+                                g.insert_conflict(&a, b);
                             }
                         }
                     }
@@ -144,7 +144,7 @@ impl<T: ShareComponents> Visitor for T {
             });
 
         // add custom conflicts
-        self.custom_conflicts(&comp, |confs: Vec<ir::Id>| {
+        self.custom_conflicts(comp, |confs: Vec<ir::Id>| {
             for (a, b) in confs.iter().tuple_combinations() {
                 if id_to_type[a] == id_to_type[b] {
                     if let Some(g) = graphs_by_type.get_mut(&id_to_type[a]) {
