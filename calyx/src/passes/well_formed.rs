@@ -62,7 +62,10 @@ impl Visitor for WellFormed {
             let group = group_ref.borrow();
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
-                if dst.is_hole() && *group.name() != dst.get_parent_name() {
+                if dst.is_hole()
+                    && dst.name == "done"
+                    && *group.name() != dst.get_parent_name()
+                {
                     return Err(
                         Error::MalformedStructure(
                             format!("Group `{}` refers to the done condition of another group (`{}`).",

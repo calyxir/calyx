@@ -87,6 +87,8 @@ impl InterpreterState {
             "std_slice" => Box::new(combinational::StdSlice::new(params)),
             "std_pad" => Box::new(combinational::StdPad::new(params)),
             "std_reg" => Box::new(stateful::StdReg::new(params)),
+            "std_mult_pipe" => Box::new(stateful::StdMultPipe::new(params)),
+            "std_div_pipe" => Box::new(stateful::StdDivPipe::new(params)),
             "std_const" => Box::new(combinational::StdConst::new(params)),
             "std_mem_d1" => {
                 let mut prim = Box::new(stateful::StdMemD1::new(params));
@@ -268,10 +270,15 @@ impl InterpreterState {
     /// from the source's stack environment allowing divergence from the fork
     /// point
     pub fn fork(&mut self) -> Self {
+        let other_pv_map = if self.pv_map.top().is_empty() {
+            self.pv_map.fork_from_tail()
+        } else {
+            self.pv_map.fork()
+        };
         Self {
             clk: self.clk,
             cell_prim_map: Rc::clone(&self.cell_prim_map),
-            pv_map: self.pv_map.fork(),
+            pv_map: other_pv_map,
             context: Rc::clone(&self.context),
         }
     }
@@ -283,7 +290,6 @@ impl Serialize for InterpreterState {
         S: serde::Serializer,
     {
         let ctx: &ir::Context = &self.context.borrow();
-
         let cell_prim_map = self.cell_prim_map.borrow();
 
         let bmap: BTreeMap<_, _> = ctx
@@ -319,15 +325,15 @@ impl Serialize for InterpreterState {
                 let inner_map: BTreeMap<_, _> = comp
                     .cells
                     .iter()
-                    .filter_map(|cell| {
-                        if let Some(prim) = cell_prim_map
-                            .get(&(&cell.borrow() as &ir::Cell as ConstCell))
-                        {
-                            if !prim.is_comb() {
-                                return Some((
-                                    cell.borrow().name().clone(),
-                                    prim,
-                                ));
+                    .filter_map(|cell_ref| {
+                        let cell = cell_ref.borrow();
+                        if cell.get_attribute("external").is_some() {
+                            if let Some(prim) = cell_prim_map
+                                .get(&(&cell as &ir::Cell as ConstCell))
+                            {
+                                if !prim.is_comb() {
+                                    return Some((cell.name().clone(), prim));
+                                }
                             }
                         }
                         None
@@ -337,7 +343,7 @@ impl Serialize for InterpreterState {
             })
             .collect();
 
-        let p = Printable {
+        let p = FullySerialize {
             ports: bmap,
             memories: cell_map,
         };
@@ -347,7 +353,8 @@ impl Serialize for InterpreterState {
 
 #[derive(Serialize)]
 #[allow(clippy::borrowed_box)]
-struct Printable<'a> {
+/// Struct to fully serialize the internal state of the environment
+struct FullySerialize<'a> {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
 }

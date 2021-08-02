@@ -1,0 +1,19 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    zero = std_const(1, 0);
+  }
+
+  wires {
+    group cond_while {
+      cond_while[done] = 1'b1;
+    }
+  }
+
+  control {
+    while zero.out with cond_while {
+      seq {}
+    }
+  }
+}

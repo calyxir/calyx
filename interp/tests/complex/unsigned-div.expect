@@ -1,0 +1,50 @@
+{
+  "ports": {
+    "main": {
+      "_1_1": {
+        "out": 1
+      },
+      "_56_32": {
+        "out": 56
+      },
+      "_5_32": {
+        "out": 5
+      },
+      "div": {
+        "clk": 0,
+        "done": 0,
+        "go": 0,
+        "left": 0,
+        "out_quotient": 0,
+        "out_remainder": 0,
+        "right": 0
+      },
+      "reg_q": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 11,
+        "reset": 0,
+        "write_en": 0
+      },
+      "reg_r": {
+        "clk": 0,
+        "done": 0,
+        "in": 0,
+        "out": 1,
+        "reset": 0,
+        "write_en": 0
+      }
+    }
+  },
+  "memories": {
+    "main": {
+      "div": [
+        0,
+        0
+      ],
+      "reg_q": 11,
+      "reg_r": 1
+    }
+  }
+}

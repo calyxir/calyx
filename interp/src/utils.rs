@@ -1,4 +1,4 @@
-use crate::values::{OutputValue, PulseValue, TimeLockedValue, Value};
+use crate::values::Value;
 use calyx::errors::Error;
 use calyx::ir::Binding;
 use calyx::ir::{Assignment, Cell, Id, Port, RRC};
@@ -76,69 +76,6 @@ impl<'a> Deref for AssignmentRef<'a> {
 
     fn deref(&self) -> &Self::Target {
         self.0
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum OutputValueRef<'a> {
-    ImmediateValue(&'a Value),
-    LockedValue(&'a TimeLockedValue),
-    PulseValue(&'a PulseValue),
-}
-
-impl<'a> OutputValueRef<'a> {
-    pub fn _clone_referenced(&self) -> OutputValue {
-        match &self {
-            OutputValueRef::ImmediateValue(iv) => {
-                OutputValue::ImmediateValue((*iv).clone())
-            }
-            OutputValueRef::LockedValue(tlv) => {
-                OutputValue::LockedValue((*tlv).clone())
-            }
-            OutputValueRef::PulseValue(pv) => {
-                OutputValue::PulseValue((*pv).clone())
-            }
-        }
-    }
-}
-
-impl<'a> From<&'a Value> for OutputValueRef<'a> {
-    fn from(input: &'a Value) -> Self {
-        Self::ImmediateValue(input)
-    }
-}
-
-impl<'a> From<&'a OutputValue> for OutputValueRef<'a> {
-    fn from(input: &'a OutputValue) -> Self {
-        match input {
-            OutputValue::ImmediateValue(val) => Self::ImmediateValue(val),
-            OutputValue::LockedValue(val) => Self::LockedValue(val),
-            OutputValue::PulseValue(val) => Self::PulseValue(val),
-        }
-    }
-}
-
-impl<'a> OutputValueRef<'a> {
-    pub fn _unwrap_imm(self) -> &'a Value {
-        match self {
-            OutputValueRef::ImmediateValue(v) => v,
-            _ => panic!("Not an immediate value, cannot unwrap_imm"),
-        }
-    }
-
-    pub fn _unwrap_tlv(self) -> &'a TimeLockedValue {
-        match self {
-            OutputValueRef::LockedValue(v) => v,
-            _ => panic!("Not a TimeLockedValue, cannot unwrap_tlv"),
-        }
-    }
-
-    pub fn _is_tlv(&self) -> bool {
-        matches!(self, OutputValueRef::LockedValue(_))
-    }
-
-    pub fn _is_imm(&self) -> bool {
-        matches!(self, OutputValueRef::ImmediateValue(_))
     }
 }
 

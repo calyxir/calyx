@@ -186,3 +186,14 @@ class Malformed(FudError):
     def __init__(self, name, msg):
         msg = f"""Malformed {name}: {msg}"""
         super().__init__(msg)
+
+
+class InvalidExternalStage(FudError):
+    """
+    An error raised when an external stage is not valid.
+    """
+
+    def __init__(self, stage_name, msg):
+        msg = f"""Unable to load external stage: {stage_name}
+{msg}"""
+        super().__init__(msg)

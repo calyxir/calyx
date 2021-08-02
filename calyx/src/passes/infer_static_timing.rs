@@ -173,7 +173,7 @@ impl InferStaticTiming {
                         &cell.ports.iter().find(|p| p.borrow().name == *done);
 
                     if let (Some(g), Some(d)) = (go_port, done_port) {
-                        go_done_edges.push((Rc::clone(&g), Rc::clone(&d)));
+                        go_done_edges.push((Rc::clone(g), Rc::clone(d)));
                     }
                 }
             }

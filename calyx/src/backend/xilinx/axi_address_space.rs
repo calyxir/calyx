@@ -182,7 +182,7 @@ impl AddressSpace {
     /// Add declarations for internal registers.
     pub fn internal_registers(&self, module: &mut v::Module) {
         for (register, size) in &self.registers {
-            module.add_decl(v::Decl::new_reg(&register, *size as u64));
+            module.add_decl(v::Decl::new_reg(register, *size as u64));
         }
     }
 
@@ -205,18 +205,18 @@ impl AddressSpace {
             for meaning in &addr.bit_meaning {
                 branch.add_seq(v::Sequential::new_nonblk_assign(
                     slice(
-                        &data_variable,
+                        data_variable,
                         self.data_width as u64,
                         &meaning.address_range,
                     ),
-                    self.slice(&meaning),
+                    self.slice(meaning),
                 ));
                 end = meaning.address_range.end;
             }
 
             if end < 32 {
                 branch.add_seq(v::Sequential::new_nonblk_assign(
-                    slice(&data_variable, self.data_width as u64, &(end..32)),
+                    slice(data_variable, self.data_width as u64, &(end..32)),
                     v::Expr::new_int(0),
                 ));
             }
@@ -269,17 +269,17 @@ impl AddressSpace {
         let mut writes_exist: bool = false;
         for meaning in addr.bit_meaning.iter().filter(|m| m.flags.write) {
             if_stmt.add_seq(v::Sequential::new_nonblk_assign(
-                self.slice(&meaning),
+                self.slice(meaning),
                 v::Expr::new_int(0),
             ));
             else_br.add_seq(v::Sequential::new_nonblk_assign(
-                self.slice(&meaning),
+                self.slice(meaning),
                 slice(data, self.data_width as u64, &meaning.address_range),
             ));
             if let Some(name) = &meaning.flags.clear_on_handshake {
                 let mut clear_if = v::SequentialIfElse::new(name.as_str());
                 clear_if.add_seq(v::Sequential::new_nonblk_assign(
-                    self.slice(&meaning),
+                    self.slice(meaning),
                     0,
                 ));
                 else_br.set_else(clear_if);
@@ -310,7 +310,7 @@ impl AddressSpace {
                 }
                 let always = super::utils::cond_non_blk_assign(
                     "ACLK",
-                    self.slice(&meaning),
+                    self.slice(meaning),
                     branches,
                 );
                 module.add_stmt(always);

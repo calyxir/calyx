@@ -1,6 +1,8 @@
+use std::collections::VecDeque;
+
 use super::{Primitive, Serializeable};
 use crate::utils::construct_bindings;
-use crate::values::{PulseValue, TimeLockedValue, Value};
+use crate::values::Value;
 use calyx::ir;
 
 pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
@@ -16,12 +18,256 @@ where
     })
 }
 
+///Pipelined Multiplication (3 cycles)
+///Still bounded by u64.
+///How to use:
+///[execute] with the desired bindings. To capture these bindings
+///into the internal (out) queue, [do_tick()].
+///The product associated with a given input will
+///be output on the third [do_tick()].
+///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
+///the last set of inputs prior to the [do_tick()] will be saved.
+#[derive(Default)]
+pub struct StdMultPipe {
+    pub width: u64,
+    pub product: Value,
+    update: Option<Value>,
+    queue: VecDeque<Option<Value>>, //invariant: always length 2.
+}
+
+impl StdMultPipe {
+    pub fn from_constants(width: u64) -> Self {
+        StdMultPipe {
+            width,
+            product: Value::zeroes(width as usize),
+            update: None,
+            queue: VecDeque::from(vec![None, None]),
+        }
+    }
+
+    pub fn new(params: ir::Binding) -> Self {
+        let width = params
+            .iter()
+            .find(|(n, _)| n.as_ref() == "WIDTH")
+            .expect("Missing `WIDTH` param from std_mult_pipe binding")
+            .1;
+        Self::from_constants(width)
+    }
+}
+
+impl Primitive for StdMultPipe {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        let out = self.queue.pop_back();
+        //push update to the front
+        self.queue.push_front(self.update.take());
+        //assert queue still has length 2
+        assert_eq!(
+            self.queue.len(),
+            2,
+            "std_mult_pipe's internal queue has length {} != 2",
+            self.queue.len()
+        );
+        if let Some(Some(out)) = out {
+            //return vec w/ out and done
+            vec![
+                (ir::Id::from("out"), out),
+                (ir::Id::from("done"), Value::bit_high()),
+            ]
+        } else {
+            //return empty vec
+            vec![]
+        }
+    }
+    //
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "left" => assert_eq!(v.len() as u64, self.width),
+                "right" => assert_eq!(v.len() as u64, self.width),
+                "go" => assert_eq!(v.len() as u64, 1),
+                p => unreachable!("Unknown port: {}", p),
+            }
+        }
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(calyx::ir::Id, &Value)],
+    ) -> Vec<(calyx::ir::Id, Value)> {
+        //unwrap the arguments, left, right, and go
+        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
+        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
+        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
+        //continue computation
+        if go.as_u64() == 1 {
+            self.update = Some(
+                Value::from(left.as_u64() * right.as_u64(), self.width)
+                    .unwrap(),
+            );
+        } else {
+            self.update = None;
+        }
+
+        //if go is low don't do anything (don't overwrite Update)
+        vec![]
+    }
+
+    fn reset(
+        &mut self,
+        _: &[(calyx::ir::Id, &Value)],
+    ) -> Vec<(calyx::ir::Id, crate::values::Value)> {
+        self.update = None;
+        self.queue = VecDeque::from(vec![None, None]);
+        vec![
+            (ir::Id::from("out"), self.product.clone()),
+            (ir::Id::from("done"), Value::bit_low()),
+        ]
+    }
+
+    fn serialize(&self) -> Serializeable {
+        Serializeable::Array(
+            vec![self.product.clone()]
+                .iter()
+                .map(Value::as_u64)
+                .collect(),
+            1.into(),
+        )
+    }
+}
+
+///Pipelined Division (3 cycles)
+///Still bounded by u64.
+///How to use:
+///[execute] with the desired bindings. To capture these bindings
+///into the internal (out_quotient, out_remainder) queue, [do_tick()].
+///The out_quotient and out_remainder associated with a given input will
+///be output on the third [do_tick()].
+///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
+///the last set of inputs prior to the [do_tick()] will be saved.
+#[derive(Default)]
+pub struct StdDivPipe {
+    pub width: u64,
+    pub quotient: Value,
+    pub remainder: Value,
+    update: Option<(Value, Value)>, //first is quotient, second is remainder
+    queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
+}
+
+impl StdDivPipe {
+    pub fn from_constants(width: u64) -> Self {
+        StdDivPipe {
+            width,
+            quotient: Value::zeroes(width as usize),
+            remainder: Value::zeroes(width as usize),
+            update: None,
+            queue: VecDeque::from(vec![None, None]),
+        }
+    }
+
+    pub fn new(params: ir::Binding) -> Self {
+        let width = params
+            .iter()
+            .find(|(n, _)| n.as_ref() == "WIDTH")
+            .expect("Missing `WIDTH` param from std_mult_pipe binding")
+            .1;
+        Self::from_constants(width)
+    }
+}
+
+impl Primitive for StdDivPipe {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        let out = self.queue.pop_back();
+        self.queue.push_front(self.update.take());
+        assert_eq!(
+            self.queue.len(),
+            2,
+            "std_div_pipe's internal queue has length {} != 2",
+            self.queue.len()
+        );
+        if let Some(Some((q, r))) = out {
+            vec![
+                (ir::Id::from("out_quotient"), q),
+                (ir::Id::from("out_remainder"), r),
+                (ir::Id::from("done"), Value::bit_high()),
+            ]
+        } else {
+            vec![]
+        }
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "left" => assert_eq!(v.len() as u64, self.width),
+                "right" => assert_eq!(v.len() as u64, self.width),
+                "go" => assert_eq!(v.len() as u64, 1),
+                p => unreachable!("Unknown port: {}", p),
+            }
+        }
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(calyx::ir::Id, &Value)],
+    ) -> Vec<(calyx::ir::Id, Value)> {
+        //unwrap the arguments, left, right, and go
+        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
+        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
+        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
+        //continue computation
+        if go.as_u64() == 1 {
+            let q = left.as_u64() / right.as_u64();
+            let r = left.as_u64() % right.as_u64();
+            self.update = Some((
+                Value::from(q, self.width).unwrap(),
+                Value::from(r, self.width).unwrap(),
+            ));
+        } else {
+            self.update = None;
+        }
+        vec![]
+    }
+
+    fn reset(
+        &mut self,
+        _: &[(calyx::ir::Id, &Value)],
+    ) -> Vec<(calyx::ir::Id, Value)> {
+        self.update = None;
+        self.queue = VecDeque::from(vec![None, None]);
+        vec![
+            (ir::Id::from("out_quotient"), self.quotient.clone()),
+            (ir::Id::from("out_remainder"), self.remainder.clone()),
+            (ir::Id::from("done"), Value::bit_low()),
+        ]
+    }
+
+    fn serialize(&self) -> Serializeable {
+        Serializeable::Array(
+            //vec![self.left.clone(), self.right.clone(), self.product.clone()]
+            vec![self.quotient.clone(), self.remainder.clone()]
+                .iter()
+                .map(Value::as_u64)
+                .collect(),
+            2.into(),
+        )
+    }
+}
+
 /// A register.
 #[derive(Default)]
 pub struct StdReg {
     pub width: u64,
     pub data: [Value; 1],
     update: Option<Value>,
+    write_en: bool,
 }
 
 impl StdReg {
@@ -30,6 +276,7 @@ impl StdReg {
             width,
             data: [Value::new(width as usize)],
             update: None,
+            write_en: false,
         }
     }
 
@@ -44,6 +291,29 @@ impl StdReg {
 }
 
 impl Primitive for StdReg {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        //first commit any updates
+        if let Some(val) = self.update.take() {
+            self.data[0] = val;
+        }
+        //then, based on write_en, return
+        if self.write_en {
+            self.write_en = false; //we are done for this cycle
+                                   //if do_tick() is called again w/o an execute() preceeding it,
+                                   //then done will be low.
+            vec![
+                (ir::Id::from("out"), self.data[0].clone()),
+                (ir::Id::from("done"), Value::bit_high()),
+            ]
+        } else {
+            //done is low, but there is still data in this reg to return
+            vec![
+                (ir::Id::from("out"), self.data[0].clone()),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
+        }
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -63,8 +333,7 @@ impl Primitive for StdReg {
     fn execute(
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
-        done_val: Option<&Value>,
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
+    ) -> Vec<(calyx::ir::Id, Value)> {
         //unwrap the arguments
         let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
         let (_, write_en) =
@@ -72,60 +341,25 @@ impl Primitive for StdReg {
         //write the input to the register
         if write_en.as_u64() == 1 {
             self.update = Some((*input).clone());
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new register data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("out"),
-                    TimeLockedValue::new(
-                        (*input).clone(),
-                        1,
-                        Some(self.data[0].clone()),
-                    )
-                    .into(),
-                ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // XXX(rachit): Do we always expect done_val to exist
-                        // here?
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
-            ]
+            //put cycle_count as 1! B/c do_tick() should return a high done
+            self.write_en = true;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // OUT: the old value in the register, b/c we couldn't write
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("out"), self.data[0].clone().into())]
+            self.update = None;
+            self.write_en = false;
         }
+        vec![]
     }
 
     fn reset(
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
-    ) -> Vec<(calyx::ir::Id, crate::values::OutputValue)> {
-        vec![
-            (ir::Id::from("out"), self.data[0].clone().into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
-        ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some(val) = self.update.take() {
-            self.data[0] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
+    ) -> Vec<(calyx::ir::Id, Value)> {
         self.update = None;
+        self.write_en = false; //might be redundant, not too sure when reset is used
+        vec![
+            (ir::Id::from("out"), self.data[0].clone()),
+            (ir::Id::from("done"), Value::zeroes(1)),
+        ]
     }
 
     fn serialize(&self) -> Serializeable {
@@ -158,6 +392,7 @@ pub struct StdMemD1 {
     pub idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
+    write_en: bool,
 }
 
 impl StdMemD1 {
@@ -186,6 +421,7 @@ impl StdMemD1 {
             idx_size, //the width of the values used to address the memory
             data,
             update: None,
+            write_en: false,
         }
     }
 
@@ -200,6 +436,33 @@ impl StdMemD1 {
 }
 
 impl Primitive for StdMemD1 {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        //if there is an update, update and return along w/ a done
+        //else this memory was used combinationally and there is nothing to tick
+        if self.write_en {
+            assert!(self.update.is_some());
+            //set cycle_count to 0 for future
+            self.write_en = false;
+            //take update
+            if let Some((idx, val)) = self.update.take() {
+                //alter data
+                self.data[idx as usize] = val;
+                //return vec w/ done
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high()),
+                ]
+            } else {
+                panic!("[std_mem_d1] : self.update is None, while self.cycle_count == 1");
+            }
+        } else {
+            vec![(ir::Id::from("done"), Value::bit_low())]
+        }
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -211,7 +474,7 @@ impl Primitive for StdMemD1 {
                 "write_en" => assert_eq!(v.len(), 1),
                 "addr0" => {
                     assert!(v.as_u64() < self.size);
-                    assert_eq!(v.len() as u64, self.idx_size)
+                    assert_eq!(v.len() as u64, self.idx_size, "std_mem_d1: addr0 is not same width ({}) as idx_size ({})", v.len(), self.idx_size)
                 }
                 "clk" => assert_eq!(v.len(), 1),
                 "reset" => assert_eq!(v.len(), 1),
@@ -220,77 +483,39 @@ impl Primitive for StdMemD1 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, input) =
             inputs.iter().find(|(id, _)| id == "write_data").unwrap();
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-
         let addr0 = addr0.as_u64();
-        let old = self.data[addr0 as usize].clone();
-
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, (*input).clone()));
-
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): Remove this done_val buisiness
-                        // pending updates to primitive responsibilities
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
-            ]
+            self.write_en = true;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.update = None;
+            self.write_en = false;
         }
+        //read_data is combinational w.r.t addr0;
+        //if there was an update, [do_tick()] will return a vector w/ a done value
+        //else, empty vector return
+        vec![(ir::Id::from("read_data"), self.data[addr0 as usize].clone())]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         //so we don't have to keep using .as_u64()
         let addr0 = addr0.as_u64();
         //check that input data is the appropriate width as well
         let old = self.data[addr0 as usize].clone();
-        vec![
-            ("read_data".into(), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
-        ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((idx, val)) = self.update.take() {
-            self.data[idx as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
+        //also clear update
         self.update = None;
+        self.write_en = false;
+        vec![
+            ("read_data".into(), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
+        ]
     }
 
     fn serialize(&self) -> Serializeable {
@@ -330,6 +555,7 @@ pub struct StdMemD2 {
     pub d1_idx_size: u64, // # bits needed to index a piece of mem
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
+    write_en: bool,
 }
 
 impl StdMemD2 {
@@ -379,6 +605,7 @@ impl StdMemD2 {
             d1_idx_size,
             data,
             update: None,
+            write_en: false,
         }
     }
 
@@ -398,6 +625,28 @@ impl StdMemD2 {
 }
 
 impl Primitive for StdMemD2 {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        if self.write_en {
+            assert!(self.update.is_some());
+            self.write_en = false;
+            if let Some((idx, val)) = self.update.take() {
+                self.data[idx as usize] = val;
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high()),
+                ]
+            } else {
+                panic!("[std_mem_d2]: self.update is None, while self.cycle_count == 1");
+            }
+        } else {
+            vec![(ir::Id::from("done"), Value::bit_low())]
+        }
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -422,11 +671,7 @@ impl Primitive for StdMemD2 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
         //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
@@ -436,53 +681,25 @@ impl Primitive for StdMemD2 {
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        //chec that write_data is the exact right width
-        //check that addr0 is not out of bounds and that it is the proper width!
-        let addr0 = addr0.as_u64();
 
-        //chech that addr1 is not out of bounds and that it is the proper iwdth
+        let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
         let real_addr = self.calc_addr(addr0, addr1);
 
-        let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
-                                                         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update =
-                Some((self.calc_addr(addr0, addr1), (*input).clone()));
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): FIXME
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
-            ]
+            self.update = Some((real_addr, (*input).clone()));
+            self.write_en = true;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.update = None;
+            self.write_en = false;
         }
+        vec![(
+            ir::Id::from("read_data"),
+            self.data[real_addr as usize].clone(),
+        )]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let addr0 = addr0.as_u64();
@@ -492,20 +709,14 @@ impl Primitive for StdMemD2 {
 
         let old = self.data[real_addr as usize].clone();
 
-        vec![
-            (ir::Id::from("read_data"), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
-        ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((addr, val)) = self.update.take() {
-            self.data[addr as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
+        //clear update
         self.update = None;
+        self.write_en = false;
+
+        vec![
+            (ir::Id::from("read_data"), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
+        ]
     }
 
     fn serialize(&self) -> Serializeable {
@@ -546,6 +757,7 @@ pub struct StdMemD3 {
     d2_idx_size: u64,
     data: Vec<Value>,
     update: Option<(u64, Value)>,
+    write_en: bool,
 }
 
 impl StdMemD3 {
@@ -606,6 +818,7 @@ impl StdMemD3 {
             d2_idx_size,
             data,
             update: None,
+            write_en: false,
         }
     }
 
@@ -628,6 +841,28 @@ impl StdMemD3 {
 }
 
 impl Primitive for StdMemD3 {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        if self.write_en {
+            assert!(self.update.is_some());
+            self.write_en = false;
+            if let Some((idx, val)) = self.update.take() {
+                self.data[idx as usize] = val;
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high()),
+                ]
+            } else {
+                panic!("[std_mem_d2] : self.update is None, while self.cycle_count == 1");
+            }
+        } else {
+            vec![(ir::Id::from("done"), Value::bit_low())]
+        }
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -656,11 +891,7 @@ impl Primitive for StdMemD3 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
         //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
@@ -677,48 +908,20 @@ impl Primitive for StdMemD3 {
         let addr2 = addr2.as_u64();
 
         let real_addr = self.calc_addr(addr0, addr1, addr2);
-
-        let old = self.data[real_addr as usize].clone();
-        //not sure if this could lead to errors (Some(old)) is borrow?
-        // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update =
-                Some((self.calc_addr(addr0, addr1, addr2), (*input).clone()));
-
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): FIXME
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
-            ]
+            self.update = Some((real_addr, (*input).clone()));
+            self.write_en = true;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.update = None;
+            self.write_en = false;
         }
+        vec![(
+            ir::Id::from("read_data"),
+            self.data[real_addr as usize].clone(),
+        )]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
@@ -730,20 +933,13 @@ impl Primitive for StdMemD3 {
         let real_addr = self.calc_addr(addr0, addr1, addr2);
 
         let old = self.data[real_addr as usize].clone();
-        vec![
-            (ir::Id::from("read_data"), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
-        ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((addr, val)) = self.update.take() {
-            self.data[addr as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
+        //clear update, and set write_en false
         self.update = None;
+        self.write_en = false;
+        vec![
+            (ir::Id::from("read_data"), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
+        ]
     }
 
     fn serialize(&self) -> Serializeable {
@@ -795,6 +991,7 @@ pub struct StdMemD4 {
     d3_idx_size: u64,
     data: Vec<Value>,
     update: Option<(u64, Value)>,
+    write_en: bool,
 }
 
 impl StdMemD4 {
@@ -867,6 +1064,7 @@ impl StdMemD4 {
             d3_idx_size,
             data,
             update: None,
+            write_en: false,
         }
     }
 
@@ -890,6 +1088,28 @@ impl StdMemD4 {
     }
 }
 impl Primitive for StdMemD4 {
+    //null-op for now
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        if self.write_en {
+            assert!(self.update.is_some());
+            self.write_en = false;
+            if let Some((idx, val)) = self.update.take() {
+                self.data[idx as usize] = val;
+                vec![
+                    (
+                        ir::Id::from("read_data"),
+                        self.data[idx as usize].clone(),
+                    ),
+                    (ir::Id::from("done"), Value::bit_high()),
+                ]
+            } else {
+                panic!("[std_mem_d4] : self.update is None, while self.cycle_count == 1");
+            }
+        } else {
+            vec![(ir::Id::from("done"), Value::bit_low())]
+        }
+    }
+
     fn is_comb(&self) -> bool {
         false
     }
@@ -922,11 +1142,7 @@ impl Primitive for StdMemD4 {
         }
     }
 
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         //unwrap the arguments
         //these come from the primitive definition in verilog
         //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
@@ -945,49 +1161,20 @@ impl Primitive for StdMemD4 {
         let addr3 = addr3.as_u64();
 
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
-
-        let old = self.data[real_addr as usize].clone(); //not sure if this could lead to errors (Some(old)) is borrow?
-                                                         // only write to memory if write_en is 1
         if write_en.as_u64() == 1 {
-            self.update = Some((
-                self.calc_addr(addr0, addr1, addr2, addr3),
-                (*input).clone(),
-            ));
-
-            // what's in this vector:
-            // the "out" -- TimeLockedValue ofthe new mem data. Needs 1 cycle before readable
-            // "done" -- TimeLockedValue of DONE, which is asserted 1 cycle after we write
-            // all this coordination is done by the interpreter. We just set it up correctly
-            vec![
-                (
-                    ir::Id::from("read_data"),
-                    TimeLockedValue::new((*input).clone(), 1, Some(old)).into(),
-                ),
-                (
-                    "done".into(),
-                    PulseValue::new(
-                        // TODO (griffin): FIXME
-                        done_val.unwrap().clone(),
-                        Value::bit_high(),
-                        Value::bit_low(),
-                        1,
-                    )
-                    .into(),
-                ),
-            ]
+            self.update = Some((real_addr, (*input).clone()));
+            self.write_en = true;
         } else {
-            // if write_en was low, so done is 0 b/c nothing was written here
-            // in this vector i
-            // READ_DATA: (immediate), just the old value b/c write was unsuccessful
-            // DONE: not TimeLockedValue, b/c it's just 0, b/c our write was unsuccessful
-            vec![(ir::Id::from("read_data"), old.into())]
+            self.update = None;
+            self.write_en = false;
         }
+        vec![(
+            ir::Id::from("read_data"),
+            self.data[real_addr as usize].clone(),
+        )]
     }
 
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, crate::values::OutputValue)> {
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
         let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
@@ -1000,21 +1187,13 @@ impl Primitive for StdMemD4 {
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
 
         let old = self.data[real_addr as usize].clone();
-
-        vec![
-            (ir::Id::from("read_data"), old.into()),
-            (ir::Id::from("done"), Value::zeroes(1).into()),
-        ]
-    }
-
-    fn commit_updates(&mut self) {
-        if let Some((addr, val)) = self.update.take() {
-            self.data[addr as usize] = val;
-        }
-    }
-
-    fn clear_update_buffer(&mut self) {
+        //clear update and write_en
         self.update = None;
+        self.write_en = false;
+        vec![
+            (ir::Id::from("read_data"), old),
+            (ir::Id::from("done"), Value::zeroes(1)),
+        ]
     }
 
     fn serialize(&self) -> Serializeable {

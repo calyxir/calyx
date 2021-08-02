@@ -1,53 +1,51 @@
 use calyx::{
-    errors::{Error, FutilResult},
+    errors::{CalyxResult, Error},
     frontend, ir,
     pass_manager::PassManager,
     utils::OutputFile,
 };
 
+use argh::FromArgs;
 use interp::debugger::Debugger;
 use interp::environment;
 use interp::interpreter::interpret_component;
-use std::cell::RefCell;
 use std::path::PathBuf;
-use structopt::StructOpt;
-/// CLI Options
-#[derive(Debug, StructOpt)]
-#[structopt(name = "interpreter", about = "interpreter CLI")]
-struct Opts {
-    /// Input file
-    #[structopt(parse(from_os_str))]
-    file: Option<PathBuf>,
+use std::{cell::RefCell, path::Path};
 
-    /// Output file, default is stdout
-    #[structopt(short = "o", long = "output", default_value)]
-    output: OutputFile,
+#[derive(FromArgs)]
+/// The Calyx Interpreter
+pub struct Opts {
+    /// input file
+    #[argh(positional, from_str_fn(read_path))]
+    pub file: Option<PathBuf>,
 
-    /// Path to the primitives library
-    #[structopt(long, short, default_value = "..")]
-    lib_path: PathBuf,
+    /// output file, default is stdout
+    #[argh(
+        option,
+        short = 'o',
+        long = "output",
+        default = "OutputFile::default()"
+    )]
+    pub output: OutputFile,
 
-    /// Path to optional datafile used to initialze memories. If it is not
+    /// path to the primitives library
+    #[argh(option, short = 'l', default = "Path::new(\"..\").into()")]
+    pub lib_path: PathBuf,
+
+    /// path to optional datafile used to initialze memories. If it is not
     /// provided memories will be initialzed with zeros
-    #[structopt(long = "data", short = "d", parse(from_os_str))]
-    data_file: Option<PathBuf>,
-
-    #[structopt(subcommand)]
-    comm: Option<Command>,
+    #[argh(option, long = "data", short = 'd', from_str_fn(read_path))]
+    pub data_file: Option<PathBuf>,
 }
 
-#[derive(StructOpt, Debug)]
-enum Command {
-    Interpret,
-    Debug {
-        #[structopt(short = "p", long = "pass-through")]
-        pass_through: bool,
-    },
+fn read_path(path: &str) -> Result<PathBuf, String> {
+    Ok(Path::new(path).into())
 }
 
+//first half of this is tests
 /// Interpret a group from a Calyx program
-fn main() -> FutilResult<()> {
-    let opts = Opts::from_args();
+fn main() -> CalyxResult<()> {
+    let opts: Opts = argh::from_env();
 
     // Construct IR
     let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;

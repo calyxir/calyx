@@ -3,8 +3,8 @@ import "primitives/core.futil";
 component main() -> () {
   cells {
     adder = std_add(4); //we will try adding 8 and 15 and confirm result is 7
-    reg0 = std_reg(4);
-    reg1 = std_reg(5);
+    @external reg0 = std_reg(4);
+    @external reg1 = std_reg(5);
     pad4_5 = std_pad(4, 5);
   }
 

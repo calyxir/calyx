@@ -4,7 +4,7 @@ use super::interpret_group::{
     finish_group_interpretation, interp_cont, interpret_group,
 };
 use crate::environment::InterpreterState;
-use calyx::{errors::FutilResult, ir};
+use calyx::{errors::CalyxResult, ir};
 
 /// Helper function to evaluate control
 pub fn interpret_control(
@@ -12,10 +12,10 @@ pub fn interpret_control(
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     match ctrl {
         ir::Control::Seq(s) => eval_seq(s, continuous_assignments, env, comp),
-        ir::Control::Par(p) => eval_par(p, continuous_assignments, env),
+        ir::Control::Par(p) => eval_par(p, continuous_assignments, env, comp),
         ir::Control::If(i) => eval_if(i, continuous_assignments, env, comp),
         ir::Control::While(w) => {
             eval_while(w, continuous_assignments, env, comp)
@@ -34,7 +34,7 @@ fn eval_seq(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     for stmt in &s.stmts {
         env = interpret_control(stmt, continuous_assignments, env, comp)?;
     }
@@ -42,16 +42,51 @@ fn eval_seq(
 }
 
 /// Interpret Par
-/// at the moment behaves like seq
+
 fn eval_par(
-    _p: &ir::Par,
-    _continuous_assignments: &[ir::Assignment],
-    mut _env: InterpreterState,
-) -> FutilResult<InterpreterState> {
-    // for stmt in &p.stmts {
-    //     env = interpret_control(stmt, comp.clone(), env)?;
-    // }
-    todo!()
+    p: &ir::Par,
+    continuous_assignments: &[ir::Assignment],
+    mut env: InterpreterState,
+    comp: &ir::Component,
+) -> CalyxResult<InterpreterState> {
+    //vector to keep track of all updated states
+    let mut states = Vec::new();
+
+    // evaluate each expression within the starter environment by forking from it
+    for st in &p.stmts {
+        states.push(interpret_control(
+            st,
+            continuous_assignments,
+            env.fork(),
+            comp,
+        )?);
+    }
+
+    // states = &p.stmts.into_iter().map(|ctr| {
+    //     interpret_control(ctr, continuous_assignments, env.fork(), comp)?
+    // });
+
+    //clock updates
+    let mut tl = 0;
+
+    //vector of smooshers from the states
+    let mut smooshers = Vec::new();
+
+    let mut final_st = env;
+
+    //i do this using loops for clock updates
+    for is in states {
+        if is.clk > tl {
+            tl = is.clk;
+        }
+
+        smooshers.push(is.pv_map);
+    }
+
+    final_st.pv_map = final_st.pv_map.merge_many(smooshers);
+    final_st.clk = tl;
+
+    Ok(final_st)
 }
 
 /// Interpret If
@@ -60,7 +95,7 @@ fn eval_if(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     env = interpret_group(&i.cond.borrow(), continuous_assignments, env)?;
     let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
     env = finish_group_interpretation(
@@ -88,7 +123,7 @@ fn eval_while(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     loop {
         env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
 
@@ -116,8 +151,8 @@ fn eval_invoke(
     _i: &ir::Invoke,
     _continuous_assignments: &[ir::Assignment],
     _env: InterpreterState,
-) -> FutilResult<InterpreterState> {
-    todo!()
+) -> CalyxResult<InterpreterState> {
+    todo!("invoke control operator")
 }
 
 /// Interpret Enable
@@ -125,7 +160,7 @@ fn eval_enable(
     e: &ir::Enable,
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     env = interpret_group(&e.group.borrow(), continuous_assignments, env)?;
     finish_group_interpretation(&e.group.borrow(), continuous_assignments, env)
 }
@@ -137,7 +172,7 @@ fn eval_empty(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     env = interp_cont(continuous_assignments, env, comp)?;
     Ok(env)
 }

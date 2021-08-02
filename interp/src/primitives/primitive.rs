@@ -1,4 +1,4 @@
-use crate::values::{OutputValue, Value};
+use crate::values::Value;
 use calyx::ir;
 use itertools::Itertools;
 use serde::Serialize;
@@ -7,6 +7,9 @@ use serde::Serialize;
 /// Roughly corresponds to the cells defined in the primitives library for the Calyx compiler.
 /// Primitives can be either stateful or combinational.
 pub trait Primitive {
+    /// Does nothing for comb. prims; mutates internal state for stateful
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)>;
+
     /// Returns true if this primitive is combinational
     fn is_comb(&self) -> bool;
 
@@ -14,39 +17,19 @@ pub trait Primitive {
     fn validate(&self, inputs: &[(ir::Id, &Value)]);
 
     /// Execute the component.
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
-    ) -> Vec<(ir::Id, OutputValue)>;
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)>;
 
     /// Execute the component.
     fn validate_and_execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-        done_val: Option<&Value>,
-    ) -> Vec<(ir::Id, OutputValue)> {
+    ) -> Vec<(ir::Id, Value)> {
         self.validate(inputs);
-        self.execute(inputs, done_val)
+        self.execute(inputs)
     }
 
     /// Reset the component.
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, OutputValue)>;
-
-    /// Transfers the update held in a primitive's buffer into the
-    /// state contained within the primitive itself. Until this method is
-    /// invoked, the primitive's internal state will remain unchanged by
-    /// execution. This is to prevent ephemeral changes due to repeated
-    /// invocations
-    fn commit_updates(&mut self);
-
-    /// Resets the primitive's update buffer without commiting the held changes,
-    /// effectively reverting the write and ensuring it does not occur. Use to
-    /// reset stateful primitives after a group execution.
-    fn clear_update_buffer(&mut self);
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)>;
 
     /// Serialize the state of this primitive, if any.
     fn serialize(&self) -> Serializeable {
