@@ -49,7 +49,7 @@ where
 }
 
 /// Trait defining method that can be used to construct a Visitor from an
-/// ir::Context.
+/// [ir::Context].
 /// This is useful when a pass needs to construct information using the context
 /// *before* visiting the components.
 ///

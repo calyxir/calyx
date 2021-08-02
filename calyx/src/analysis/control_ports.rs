@@ -9,15 +9,18 @@ pub struct ControlPorts {
 }
 
 impl ControlPorts {
+    /// Return a reference to the port reads associated with the group.
     pub fn get(&self, group: &ir::Id) -> Option<&Vec<RRC<ir::Port>>> {
         self.used_ports.get(group)
     }
 
+    /// Remove the port reads associated with the group.
     pub fn remove(&mut self, group: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
         self.used_ports.remove(group)
     }
 }
 
+/// Helper method to construct a [ControlPorts] instance.
 fn construct(
     con: &ir::Control,
     used_ports: &mut HashMap<ir::Id, Vec<RRC<ir::Port>>>,
