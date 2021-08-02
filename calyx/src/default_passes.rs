@@ -61,7 +61,12 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [CompileEmpty, RemoveCombGroups, StaticTiming, TopDownCompileControl]
+            [
+                CompileEmpty,
+                RemoveCombGroups,
+                StaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(pm, "post-opt", [DeadCellRemoval]);
         register_alias!(

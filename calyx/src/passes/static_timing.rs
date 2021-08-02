@@ -1,7 +1,9 @@
 use super::math_utilities::get_bit_width_from;
+use crate::errors::CalyxResult;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
-use crate::{build_assignments, guard, structure};
+use crate::passes::RemoveCombGroups;
+use crate::{build_assignments, errors::Error, guard, structure};
 use itertools::Itertools;
 use std::{cmp, rc::Rc};
 
@@ -42,6 +44,20 @@ where
         .fold_options(0, acc)
 }
 
+/// Attempts to get the value of the "static" attribute from the group if
+/// present. Also ensures that the group is not a combinational group.
+fn check_not_comb(group: &ir::RRC<ir::Group>) -> CalyxResult<Option<u64>> {
+    if let Some(&time) = group.borrow().attributes.get("static") {
+        if time < 1 {
+            return Err(Error::MalformedControl(format!("static-timing: Group `{}` is a combinational group (it takes less than one cycle to run). Run `{}` to remove all combinational groups before running static-timing.", group.borrow().name(), RemoveCombGroups::name())));
+        } else {
+            Ok(Some(time))
+        }
+    } else {
+        Ok(None)
+    }
+}
+
 impl Visitor for StaticTiming {
     fn finish_while(
         &mut self,
@@ -70,15 +86,10 @@ impl Visitor for StaticTiming {
             //   n -> n+1: when cond == false
 
             // The group is statically compilable with combinational condition.
-            if let (Some(&ctime), Some(&btime)) = (
-                cond.borrow().attributes.get("static"),
-                body.borrow().attributes.get("static"),
-            ) {
+            if let (Some(ctime), Some(btime)) =
+                (check_not_comb(cond)?, check_not_comb(body)?)
+            {
                 let while_group = builder.add_group("static_while");
-
-                // take at least one cycle for computing the body and condition
-                let ctime = cmp::max(ctime, 1);
-                let btime = cmp::max(btime, 1);
 
                 let body_end_time = ctime + btime;
                 // `0` state + (ctime + btime) states.
@@ -99,7 +110,7 @@ impl Visitor for StaticTiming {
 
                 // Cond is computed on this cycle.
                 let cond_computed =
-                    guard!(fsm["out"]).lt(guard!(cond_time_const["out"]));
+                    guard!(fsm["out"]).eq(guard!(cond_time_const["out"]));
 
                 let body_done =
                     guard!(fsm["out"]).eq(guard!(body_end_const["out"]));
@@ -181,10 +192,10 @@ impl Visitor for StaticTiming {
             let fal = &fdata.group;
 
             // combinational condition
-            if let (Some(&ctime), Some(&ttime), Some(&ftime)) = (
-                cond.borrow().attributes.get("static"),
-                tru.borrow().attributes.get("static"),
-                fal.borrow().attributes.get("static"),
+            if let (Some(ctime), Some(ttime), Some(ftime)) = (
+                check_not_comb(cond)?,
+                check_not_comb(tru)?,
+                check_not_comb(fal)?,
             ) {
                 let mut builder = ir::Builder::new(comp, ctx);
                 let if_group = builder.add_group("static_if");
