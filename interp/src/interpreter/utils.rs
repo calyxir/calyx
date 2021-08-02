@@ -1,10 +1,9 @@
-use crate::utils::OutputValueRef;
-use crate::values::ReadableValue;
+use crate::values::Value;
 use calyx::ir;
 use calyx::ir::RRC;
 use std::cell::Ref;
+use std::collections::HashSet;
 use std::ops::Deref;
-
 pub type ConstPort = *const ir::Port;
 pub type ConstCell = *const ir::Cell;
 
@@ -12,24 +11,29 @@ pub fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get(&"done")
 }
 
-pub fn is_signal_high(done: OutputValueRef) -> bool {
-    match done {
-        OutputValueRef::ImmediateValue(v) => v.as_u64() == 1,
-        OutputValueRef::LockedValue(_) => false,
-        OutputValueRef::PulseValue(v) => v.get_val().as_u64() == 1,
-    }
+pub fn is_signal_high(done: &Value) -> bool {
+    done.as_u64() == 1
 }
 
-pub fn get_dst_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
+pub fn get_dest_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
 where
     I: Iterator<Item = &'a ir::Assignment>,
 {
+    let mut assign_set: HashSet<*const ir::Cell> = HashSet::new();
     iter.filter_map(|assign| {
         match &assign.dst.borrow().parent {
             ir::PortParent::Cell(c) => {
                 match &c.upgrade().borrow().prototype {
                     ir::CellType::Primitive { .. }
-                    | ir::CellType::Constant { .. } => Some(c.upgrade()),
+                    | ir::CellType::Constant { .. } => {
+                        let const_cell: *const ir::Cell = c.upgrade().as_ptr();
+                        if assign_set.contains(&const_cell) {
+                            None //b/c we don't want duplicates
+                        } else {
+                            assign_set.insert(const_cell);
+                            Some(c.upgrade())
+                        }
+                    }
                     ir::CellType::Component { .. } => {
                         // TODO (griffin): We'll need to handle this case at some point
                         todo!()
@@ -42,7 +46,6 @@ where
     })
     .collect()
 }
-
 pub fn control_is_empty(control: &ir::Control) -> bool {
     match control {
         ir::Control::Seq(s) => s.stmts.iter().all(control_is_empty),

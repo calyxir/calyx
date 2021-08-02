@@ -1,10 +1,11 @@
+use super::super::interpret_group::{eval_prims, finish_interpretation};
 use super::super::utils::{self, ConstCell, ConstPort};
-use super::super::working_environment::WorkingEnvironment;
 use crate::environment::InterpreterState;
 use crate::utils::{get_const_from_rrc, AsRaw};
-use crate::values::{OutputValue, Value};
+use crate::values::Value;
 use calyx::ir::{self, Assignment, Cell, RRC};
 use std::collections::HashSet;
+use std::rc::Rc;
 
 /// An internal wrapper enum which allows the Assignment Interpreter to own the
 /// assignments it iterates over
@@ -63,7 +64,7 @@ where
 /// An interpreter object which exposes a pausable interface to interpreting a
 /// group of assignments
 pub struct AssignmentInterpreter<'a> {
-    state: WorkingEnvironment,
+    state: InterpreterState,
     done_port: ConstPort,
     assigns: AssignmentOwner<'a>,
     cells: Vec<RRC<Cell>>,
@@ -74,7 +75,7 @@ impl<'a> AssignmentInterpreter<'a> {
     /// Creates a new AssignmentInterpreter which borrows the references to the
     /// assignments from an outside context
     pub fn new<I1, I2>(
-        env: InterpreterState,
+        state: InterpreterState,
         done_signal: ConstPort,
         assigns: (I1, I2),
     ) -> Self
@@ -82,10 +83,9 @@ impl<'a> AssignmentInterpreter<'a> {
         I1: Iterator<Item = &'a Assignment>,
         I2: Iterator<Item = &'a Assignment>,
     {
-        let state = env.into();
         let done_port = done_signal;
         let assigns: AssignmentOwner = assigns.into();
-        let cells = utils::get_dst_cells(assigns.iter_all());
+        let cells = utils::get_dest_cells(assigns.iter_all());
 
         Self {
             state,
@@ -99,14 +99,13 @@ impl<'a> AssignmentInterpreter<'a> {
     /// Creates a new AssignmentInterpreter which owns the assignments that it
     /// interpretes
     pub fn new_owned(
-        env: InterpreterState,
+        state: InterpreterState,
         done_signal: ConstPort,
         vecs: (Vec<Assignment>, Vec<Assignment>),
     ) -> Self {
-        let state = env.into();
         let done_port = done_signal;
         let assigns: AssignmentOwner = AssignmentOwner::from_vecs(vecs);
-        let cells = utils::get_dst_cells(assigns.iter_all());
+        let cells = utils::get_dest_cells(assigns.iter_all());
 
         Self {
             state,
@@ -128,17 +127,26 @@ impl<'a> AssignmentInterpreter<'a> {
             && self.val_changed.is_some()
             && !self.val_changed.unwrap()
         {
-            self.state.do_tick();
+            let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];
+
             for cell in self.cells.iter() {
                 if let Some(x) = self
                     .state
-                    .backing_env
                     .cell_prim_map
                     .borrow_mut()
                     .get_mut(&(&cell.borrow() as &Cell as ConstCell))
                 {
-                    x.commit_updates()
+                    let new_vals = x.do_tick();
+                    for (port, val) in new_vals {
+                        let port_ref = cell.borrow().find(port).unwrap();
+
+                        update_list.push((Rc::clone(&port_ref), val));
+                    }
                 }
+            }
+
+            for (port, val) in update_list {
+                self.state.insert(port, val);
             }
             self.val_changed = None;
         }
@@ -162,44 +170,36 @@ impl<'a> AssignmentInterpreter<'a> {
             self.val_changed = Some(false);
 
             let mut updates_list = vec![];
-
             // compute all updates from the assignments
             for assignment in self.assigns.iter_all() {
-                // if assignment.dst.borrow().name == "done"
-                // println!("{:?}", assignment.);
                 if self.state.eval_guard(&assignment.guard) {
-                    //if we change to smoosher, we need to add functionality that
-                    //still prevents multiple drivers to same port, like below
-                    //Perhaps use Smoosher's diff_other func?
-
                     //first check nothing has been assigned to this destination yet
                     if assigned_ports
                         .contains(&get_const_from_rrc(&assignment.dst))
                     {
                         let dst = assignment.dst.borrow();
                         panic!(
-                        "[interpret_group]: multiple assignments to one port: {}.{}", dst.get_parent_name(), dst.name
-                    );
+                          "[interpret_group]: multiple assignments to one port: {}.{}", dst.get_parent_name(), dst.name
+                      );
                     }
                     //now add to the HS, because we are assigning
                     //regardless of whether value has changed this is still a
                     //value driving the port
-                    assigned_ports.insert(get_const_from_rrc(&assignment.dst));
+                    assigned_ports.insert(assignment.dst.as_raw());
                     //ok now proceed
                     //the below (get) attempts to get from working_env HM first, then
                     //backing_env Smoosher. What does it mean for the value to be in HM?
                     //That it's a locked value?
-                    let old_val = self.state.get(&assignment.dst.borrow());
+                    let old_val =
+                        self.state.get_from_port(&assignment.dst.borrow());
                     let new_val_ref =
-                        self.state.get_as_val(&assignment.src.borrow());
-
+                        self.state.get_from_port(&assignment.src.borrow());
                     // no need to make updates if the value has not changed
                     let port = assignment.dst.clone(); // Rc clone
-                    let new_val: OutputValue = new_val_ref.clone().into();
+                    let new_val = new_val_ref.clone();
 
-                    if old_val != new_val_ref.into() {
+                    if old_val != new_val_ref {
                         updates_list.push((port, new_val)); //no point in rewriting same value to this list
-
                         self.val_changed = Some(true);
                     }
                 }
@@ -214,29 +214,24 @@ impl<'a> AssignmentInterpreter<'a> {
                 //need to find appropriate-sized 0, so just read
                 //width of old_val
 
-                let old_val = self.state.get_as_val(port);
+                let old_val = self.state.get_from_port(port);
                 let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
-                let new_val: OutputValue =
-                    Value::from(0, old_val_width).unwrap().into();
-                //updates_list.push((port, new_val));
+                let new_val = Value::from(0, old_val_width).unwrap();
 
-                //how to avoid infinite loop?
-                //if old_val is imm value and zero, then that's
-                //when val_changed_flag is false, else true.
                 if old_val.as_u64() != 0 {
                     self.val_changed = Some(true);
                 }
 
                 //update directly
-                self.state.update_val(port, new_val);
+                self.state.insert(port, new_val);
             }
 
             // perform all the updates
             for (port, value) in updates_list {
-                self.state.update_val(&port.borrow(), value);
+                self.state.insert(port, value);
             }
 
-            let changed = self.state.eval_prims(self.cells.iter(), false);
+            let changed = eval_prims(&mut self.state, self.cells.iter(), false);
             if changed {
                 self.val_changed = Some(true);
             }
@@ -265,7 +260,7 @@ impl<'a> AssignmentInterpreter<'a> {
 
     #[inline]
     fn is_done(&self) -> bool {
-        utils::is_signal_high(self.state.get(self.done_port))
+        utils::is_signal_high(self.state.get_from_port(self.done_port))
     }
 
     pub fn deconstruct(self) -> InterpreterState {
@@ -278,7 +273,7 @@ impl<'a> AssignmentInterpreter<'a> {
 
     #[inline]
     pub fn deconstruct_no_check(self) -> InterpreterState {
-        self.state.collapse_env(false)
+        self.state
     }
 
     pub fn is_deconstructable(&self) -> bool {
@@ -295,44 +290,17 @@ impl<'a> AssignmentInterpreter<'a> {
         let done_signal = self.done_port;
         let env = self.deconstruct();
 
-        Self::finish_interpretation(env, done_signal, assigns)
+        finish_interpretation(env, done_signal, assigns).unwrap()
     }
 
     pub fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
-        self.state.get_as_val(port)
+        self.state.get_from_port(port)
     }
 
     // This is not currenty relevant for anything, but may be needed later
     // pending adjustments to the primitive contract as we will need the ability
     // to pass new inputs to components
     pub(super) fn _insert<P: AsRaw<ir::Port>>(&mut self, port: P, val: Value) {
-        self.state.update_val(port, val.into())
-    }
-
-    /// Concludes interpretation to a group, effectively setting the go signal low
-    /// for a given group. This function updates the values in the environment
-    /// accordingly using zero as a placeholder for values that are undefined
-    pub fn finish_interpretation<I: Iterator<Item = &'a ir::Assignment>>(
-        mut env: InterpreterState,
-        done_signal: ConstPort,
-        assigns: I,
-    ) -> InterpreterState {
-        // replace port values for all the assignments
-        let assigns = assigns.collect::<Vec<_>>();
-
-        for &ir::Assignment { dst, .. } in &assigns {
-            env.insert(
-                &dst.borrow() as &ir::Port as ConstPort,
-                Value::zeroes(dst.borrow().width as usize),
-            );
-        }
-
-        let cells = utils::get_dst_cells(assigns.iter().copied());
-
-        env.insert(done_signal as ConstPort, Value::bit_low());
-        let mut working_env: WorkingEnvironment = env.into();
-        working_env.eval_prims(cells.iter(), true);
-
-        working_env.collapse_env(false)
+        self.state.insert(port, val.into())
     }
 }

@@ -1,5 +1,6 @@
 use super::super::utils::get_done_port;
 use super::AssignmentInterpreter;
+use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
 use crate::{
     environment::InterpreterState,
@@ -575,11 +576,8 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
     fn deconstruct(self) -> InterpreterState {
         let mut final_env = self.interp.deconstruct();
         final_env.insert(self.go_port, Value::bit_low());
-        AssignmentInterpreter::finish_interpretation(
-            final_env,
-            self.done_port,
-            self.continuous.iter(),
-        )
+        finish_interpretation(final_env, self.done_port, self.continuous.iter())
+            .unwrap()
     }
 
     fn run(&mut self) {

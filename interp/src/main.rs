@@ -36,10 +36,33 @@ pub struct Opts {
     /// provided memories will be initialzed with zeros
     #[argh(option, long = "data", short = 'd', from_str_fn(read_path))]
     pub data_file: Option<PathBuf>,
+
+    #[argh(subcommand)]
+    comm: Option<Command>,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(Path::new(path).into())
+}
+#[derive(FromArgs)]
+#[argh(subcommand)]
+enum Command {
+    Interpret(CommandInterpret),
+    Debug(CommandDebug),
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "interpret")]
+/// Interpret the given program directly
+struct CommandInterpret {}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "debug")]
+/// Interpret the given program with the interactive debugger
+struct CommandDebug {
+    #[argh(switch, short = 'p', long = "pass-through")]
+    /// flag which runs the program to completion through the debugger
+    pass_through: bool,
 }
 
 //first half of this is tests
@@ -70,15 +93,16 @@ fn main() -> CalyxResult<()> {
             Error::Impossible("Cannot find main component".to_string())
         })?;
 
-    match opts.comm.unwrap_or(Command::Interpret) {
-        Command::Interpret => match interpret_component(main_component, env) {
+    match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {})) {
+        Command::Interpret(_) => match interpret_component(main_component, env)
+        {
             Ok(e) => {
                 e.print_env();
                 Ok(())
             }
-            Err(err) => FutilResult::Err(err),
+            Err(err) => CalyxResult::Err(err),
         },
-        Command::Debug { pass_through } => {
+        Command::Debug(CommandDebug { pass_through }) => {
             let cidb = Debugger::new(ctx_ref, main_component);
             let output = cidb.main_loop(env, pass_through);
             output.print_env();

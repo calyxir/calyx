@@ -59,8 +59,8 @@ impl InterpreterState {
     }
 
     /// Insert a new value for the given constant port into the environment
-    pub fn insert(&mut self, port: ConstPort, value: Value) {
-        self.pv_map.set(port, value);
+    pub fn insert<P: AsRaw<ir::Port>>(&mut self, port: P, value: Value) {
+        self.pv_map.set(port.as_raw(), value);
     }
 
     fn make_primitive(
@@ -280,6 +280,51 @@ impl InterpreterState {
             cell_prim_map: Rc::clone(&self.cell_prim_map),
             pv_map: other_pv_map,
             context: Rc::clone(&self.context),
+        }
+    }
+
+    pub fn eval_guard(&self, guard: &ir::Guard) -> bool {
+        match guard {
+            ir::Guard::Or(g1, g2) => self.eval_guard(g1) || self.eval_guard(g2),
+            ir::Guard::And(g1, g2) => {
+                self.eval_guard(g1) && self.eval_guard(g2)
+            }
+            ir::Guard::Not(g) => !self.eval_guard(g),
+            ir::Guard::Eq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    == self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Neq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    != self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Gt(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    > self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Lt(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    < self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Geq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    >= self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Leq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    <= self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Port(p) => {
+                let val = self.get_from_port(&p.borrow());
+                if val.vec.len() != 1 {
+                    panic!(
+                        "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
+                    )
+                } else {
+                    val.as_u64() == 1
+                }
+            }
+            ir::Guard::True => true,
         }
     }
 }
