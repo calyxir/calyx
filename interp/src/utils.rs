@@ -8,6 +8,8 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::path::PathBuf;
+
+/// TODO: Documentation
 pub(super) struct PortRef(RRC<Port>);
 
 impl Deref for PortRef {
@@ -47,6 +49,7 @@ impl From<&RRC<Port>> for PortRef {
     }
 }
 
+/// A wrapper to enable hashing of assignments by their destination port.
 pub(super) struct PortAssignment<'a>(*const Port, &'a Assignment);
 
 impl<'a> Hash for PortAssignment<'a> {
@@ -68,8 +71,8 @@ impl<'a, 'b> PortAssignment<'a> {
         Self(p_ref as *const Port, a_ref)
     }
 
-    pub fn get_port(&self) -> &Port {
-        unsafe { self.0.as_ref().unwrap() }
+    pub fn get_port(&self) -> *const Port {
+        self.0
     }
 
     pub fn get_assignment(&self) -> &Assignment {
@@ -77,6 +80,7 @@ impl<'a, 'b> PortAssignment<'a> {
     }
 }
 
+/// TODO: Documentation
 #[derive(Debug, Clone)]
 pub(super) struct AssignmentRef<'a>(&'a Assignment);
 
@@ -108,6 +112,7 @@ impl<'a> Deref for AssignmentRef<'a> {
     }
 }
 
+/// TODO: Documentation
 pub(super) struct CellRef(RRC<Cell>);
 
 impl<'a> From<&'a CellRef> for &'a RRC<Cell> {

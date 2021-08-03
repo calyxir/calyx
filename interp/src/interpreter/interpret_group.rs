@@ -23,6 +23,13 @@ fn is_signal_high(done: &Value) -> bool {
     done.as_u64() == 1
 }
 
+fn assignment_to_string(assignment: &ir::Assignment) -> String {
+    let mut str = vec![];
+    ir::IRPrinter::write_assignment(assignment, 0, &mut str)
+        .expect("Write Failed");
+    String::from_utf8(str).expect("Found invalid UTF-8")
+}
+
 /// An internal method that does the main work of interpreting a set of
 /// assignments. It takes the assigments as an interator as continguity of
 /// memory is not a requirement and importantly, the function must also be
@@ -37,11 +44,9 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
 
     let cells = get_cells(assigns.iter().copied());
 
-    let mut possible_ports: HashSet<PortAssignment> = HashSet::new();
-    for assign in &assigns {
-        let pa = PortAssignment::new(&*assign.dst.borrow(), assign);
-        possible_ports.insert(pa);
-    }
+    let possible_ports: HashSet<*const ir::Port> =
+        assigns.iter().map(|a| get_const_from_rrc(&a.dst)).collect();
+
     let mut val_changed_flag = false;
 
     while !is_signal_high(env.get_from_port(done_signal)) || val_changed_flag {
@@ -61,31 +66,18 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 let pa =
                     PortAssignment::new(&*assignment.dst.borrow(), assignment);
                 if assigned_ports.contains(&pa) {
-                    let mut orig_str = vec![];
-                    let mut conf_str = vec![];
-
-                    let curr_assign = &pa.get_assignment();
-
-                    ir::IRPrinter::write_assignment(
+                    let s_orig = assignment_to_string(
                         assigned_ports.get(&pa).unwrap().get_assignment(),
-                        0,
-                        &mut orig_str,
-                    )?;
-                    let s_orig = String::from_utf8(orig_str)
-                        .expect("Found invalid UTF-8");
-
-                    ir::IRPrinter::write_assignment(
-                        curr_assign,
-                        0,
-                        &mut conf_str,
-                    )?;
-                    let s_conf = String::from_utf8(conf_str)
-                        .expect("Found invalid UTF-8");
+                    );
+                    let s_conf = assignment_to_string(&pa.get_assignment());
 
                     let dst = assignment.dst.borrow();
                     panic!(
-                        "[interpret_group]: multiple assignments to one port: {}.{} \nBetween assignments \
-                        [ {} ] and [ {} ]", 
+                        "[interpret_group]: multiple assignments to one port: {}.{}\n\
+                          Between assignments:\n\
+                          {}\n\
+                          and\n\
+                          {}", 
                         dst.get_parent_name(), dst.name, s_orig, s_conf
                     );
                 }
@@ -109,17 +101,19 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
                 }
             }
         }
+        let assigned_const_ports: HashSet<*const ir::Port> =
+            assigned_ports.iter().map(|a| a.get_port()).collect();
 
         //now assign rest to 0
         //first get all that need to be 0
-        for pa in possible_ports.difference(&assigned_ports) {
+        for port in &possible_ports - &assigned_const_ports {
             //need to set to zero, because unassigned
             //ok now proceed
 
             //need to find appropriate-sized 0, so just read
             //width of old_val
 
-            let old_val = env.get_from_const_port(pa.get_port());
+            let old_val = env.get_from_const_port(port);
             let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
             let new_val = Value::from(0, old_val_width).unwrap();
 
@@ -128,7 +122,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
             }
 
             //update directly
-            env.insert(pa.get_port(), new_val);
+            env.insert(port, new_val);
         }
 
         // perform all the updates
