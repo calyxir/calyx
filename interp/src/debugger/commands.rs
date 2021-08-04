@@ -24,17 +24,18 @@ const HELP_LIST: [Command<&str>; 5] = [
     Command::Step,
     Command::Continue,
     Command::Display,
-    Command::Print(""),
+    Command::PrintOne(""),
     Command::Help,
 ];
 pub enum Command<S: AsRef<str>> {
-    Step,            // Step execution
-    Continue,        // Execute until breakpoint
-    Empty,           // Empty command, does nothing
-    Display,         // Display full environment contents
-    Print(S),        // Print a cell's ports
-    PrintPort(S, S), // Print a specific port
-    Help,
+    Step,                // Step execution
+    Continue,            // Execute until breakpoint
+    Empty,               // Empty command, does nothing
+    Display,             // Display full environment contents
+    PrintOne(S),         // Print a cell's ports
+    PrintTwo(S, S),      // Print a specific port or specific cell
+    PrintThree(S, S, S), // Print a specific port (fully specified)
+    Help,                // Help message
 }
 
 impl Command<&str> {
@@ -54,7 +55,7 @@ impl<S: AsRef<str>> Command<S> {
             Command::Step => (vec!["Step", "S"], "Advance the execution by a step"),
             Command::Continue => ( vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
             Command::Display => (vec!["Display"], "Display the full state"),
-            Command::Print(_) | Command::PrintPort(_,_) => (vec!["Print", "P"], "Print target value"),
+            Command::PrintOne(_) | Command::PrintTwo(..) | Command::PrintThree(..) => (vec!["Print", "P"], "Print target value"),
             Command::Help => (vec!["Help"], "Print this message"),
             Command::Empty => unimplemented!(), // This command needs no public facing
         }
@@ -73,10 +74,15 @@ impl<S: AsRef<str>> Command<S> {
             ["continue"] => Ok(Command::Continue),
             ["display"] => Ok(Command::Display),
             ["print", _target] => {
-                let target: Vec<_> = saved_input[0].split(".").collect();
+                let target: Vec<_> = saved_input[0].split('.').collect();
                 match target[..] {
-                    [t] => Ok(Command::Print(t.to_string())),
-                    [cell, port] => Ok(Command::PrintPort(
+                    [t] => Ok(Command::PrintOne(t.to_string())),
+                    [first, second] => Ok(Command::PrintTwo(
+                        first.to_string(),
+                        second.to_string(),
+                    )),
+                    [component, cell, port] => Ok(Command::PrintThree(
+                        component.to_string(),
                         cell.to_string(),
                         port.to_string(),
                     )),

@@ -345,6 +345,18 @@ impl InterpreterState {
             ir::Guard::True => true,
         }
     }
+
+    pub fn get_cell<S: AsRef<str> + Clone>(
+        &self,
+        name: &S,
+    ) -> Vec<RRC<ir::Cell>> {
+        let ctx_ref = self.context.borrow();
+        ctx_ref
+            .components
+            .iter()
+            .filter_map(|x| x.find_cell(name))
+            .collect()
+    }
 }
 
 impl Serialize for InterpreterState {

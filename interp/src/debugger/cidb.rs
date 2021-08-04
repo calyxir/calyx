@@ -2,10 +2,11 @@ use super::commands::Command;
 use super::io_utils::Input;
 use crate::environment::InterpreterState;
 use crate::interpreter::{ComponentInterpreter, Interpreter};
-use calyx::ir;
+use calyx::ir::{self, RRC};
 
+const SPACING: &str = "    ";
 pub struct Debugger<'a> {
-    _context: &'a ir::Context,
+    context: &'a ir::Context,
     main_component: &'a ir::Component,
 }
 
@@ -15,7 +16,7 @@ impl<'a> Debugger<'a> {
         main_component: &'a ir::Component,
     ) -> Self {
         Self {
-            _context: context,
+            context,
             main_component,
         }
     }
@@ -57,8 +58,119 @@ impl<'a> Debugger<'a> {
                         }
                     )
                 }
-                Command::Print(_) => todo!(),
-                Command::PrintPort(_, _) => todo!(),
+                Command::PrintOne(cell) => {
+                    let env: Vec<_> = component_interpreter
+                        .get_env()
+                        .into_iter()
+                        .map(|x| (x, x.get_cell(&cell)))
+                        .collect();
+                    if env.iter().any(|(_, x)| x.len() > 1) {
+                        println!(
+                            "{}Unable to print. '{}' is ambiguous",
+                            SPACING, &cell
+                        )
+                    } else if env.iter().all(|(_, x)| x.is_empty()) {
+                        println!(
+                            "{}Unable to print. No cell named '{}'",
+                            SPACING, &cell
+                        )
+                    } else {
+                        for (state, cells) in env {
+                            if let Some(cell_ref) = cells.first() {
+                                print_cell(cell_ref, state)
+                            }
+                        }
+                    }
+                }
+                Command::PrintTwo(first, second) => {
+                    // component & cell/port
+                    if let Some(comp) =
+                        self.context.components.iter().find(|x| x.name == first)
+                    {
+                        if let Some(cell) = comp.find_cell(&second) {
+                            for env in component_interpreter.get_env() {
+                                print_cell(&cell, env)
+                            }
+                        } else if let Some(port) =
+                            comp.signature.borrow().find(&second)
+                        {
+                            for env in component_interpreter.get_env() {
+                                println!(
+                                    "{}{}.{} = {}",
+                                    SPACING,
+                                    &first,
+                                    &second,
+                                    env.get_from_port(&port)
+                                )
+                            }
+                        } else {
+                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, &second, &first)
+                        }
+                    }
+                    // cell & port
+                    else {
+                        let envs: Vec<_> = component_interpreter
+                            .get_env()
+                            .into_iter()
+                            .map(|x| (x, x.get_cell(&first)))
+                            .collect();
+
+                        // multiple possible cells
+                        if envs.iter().any(|(_, x)| x.len() > 1) {
+                            println!(
+                                "{}Unable to print. '{}' is ambiguous",
+                                SPACING, &first
+                            )
+                        } else if envs.iter().all(|(_, x)| x.is_empty()) {
+                            println!(
+                                "{}Unable to print. There is no component/cell named '{}'",
+                                SPACING,
+                                &first,
+                            )
+                        } else if envs
+                            .iter()
+                            .flat_map(|(_, x)| x.iter())
+                            .all(|x| x.borrow().find(&second).is_none())
+                        {
+                            println!(
+                                "{}Unable to print. Component '{}' has no cell named '{}'",
+                                SPACING,
+                                &first, &second
+                            )
+                        } else {
+                            for (state, cells) in envs {
+                                if let Some(cell_ref) = cells.first() {
+                                    if let Some(port) =
+                                        cell_ref.borrow().find(&second)
+                                    {
+                                        print_port(&port, state)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Command::PrintThree(comp, cell, port) => {
+                    if let Some(comp_ref) =
+                        self.context.components.iter().find(|x| x.name == comp)
+                    {
+                        if let Some(cell_rrc) = comp_ref.find_cell(&cell) {
+                            let cell_ref = cell_rrc.borrow();
+                            if let Some(port_ref) = cell_ref.find(&port) {
+                                for state in component_interpreter.get_env() {
+                                    print_port(&port_ref, state)
+                                }
+                            } else {
+                                println!("{}Unable to print. Cell '{}' has no port named '{}'", SPACING, cell, port)
+                            }
+                        } else {
+                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, comp, cell)
+                        }
+                    } else {
+                        println!("{}Unable to print. There is no component named '{}'", SPACING, comp)
+                    }
+                }
+
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
@@ -69,4 +181,30 @@ impl<'a> Debugger<'a> {
             }
         }
     }
+}
+
+fn print_cell(target: &RRC<ir::Cell>, state: &InterpreterState) {
+    let cell_ref = target.borrow();
+    println!("{}{}", SPACING, cell_ref.name());
+    for port in cell_ref.ports.iter() {
+        println!(
+            "{}  {} = {}",
+            SPACING,
+            port.borrow().name,
+            state.get_from_port(port)
+        )
+    }
+}
+
+fn print_port(target: &RRC<ir::Port>, state: &InterpreterState) {
+    let port_ref = target.borrow();
+    let parent_name = port_ref.get_parent_name();
+
+    println!(
+        "{}{}.{} = {}",
+        SPACING,
+        parent_name,
+        port_ref.name,
+        state.get_from_port(&port_ref)
+    )
 }

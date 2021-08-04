@@ -207,3 +207,9 @@ impl<T> AsRaw<T> for RRC<T> {
         self.as_ptr()
     }
 }
+
+impl<T> AsRaw<T> for &RRC<T> {
+    fn as_raw(&self) -> *const T {
+        self.as_ptr()
+    }
+}
