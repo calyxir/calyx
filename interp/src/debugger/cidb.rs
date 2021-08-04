@@ -52,6 +52,7 @@ impl<'a> Debugger<'a> {
                         component_interpreter.get_env().state_as_str()
                     )
                 }
+                Command::Print(_) => todo!(),
             }
 
             if component_interpreter.is_done() {
