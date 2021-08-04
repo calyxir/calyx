@@ -71,10 +71,10 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
         }
     }
 
-    fn state_as_string(&self) -> String {
+    fn get_env(&self) -> &InterpreterState {
         match &self.interp {
-            StructuralOrControl::Structural(s) => s.state_as_string(),
-            StructuralOrControl::Control(c) => c.state_as_string(),
+            StructuralOrControl::Structural(s) => s.get_env(),
+            StructuralOrControl::Control(c) => c.get_env(),
         }
     }
 }

@@ -194,9 +194,9 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
     }
 
     fn get_env(&self) -> &InterpreterState {
-        if let Some(cur) = self.current_interpreter {
+        if let Some(cur) = &self.current_interpreter {
             cur.get_env()
-        } else if let Some(env) = self.env {
+        } else if let Some(env) = &self.env {
             &env
         } else {
             unreachable!("Invalid internal state for SeqInterpreter")
@@ -328,9 +328,9 @@ impl<'a> Interpreter for IfInterpreter<'a> {
     }
 
     fn get_env(&self) -> &InterpreterState {
-        if let Some(cond) = self.cond {
+        if let Some(cond) = &self.cond {
             cond.get_env()
-        } else if let Some(branch) = self.branch_interp {
+        } else if let Some(branch) = &self.branch_interp {
             branch.get_env()
         } else {
             unreachable!("Invalid internal state for IfInterpreter")
@@ -419,9 +419,9 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
     }
 
     fn get_env(&self) -> &InterpreterState {
-        if let Some(cond) = self.cond_interp {
+        if let Some(cond) = &self.cond_interp {
             cond.get_env()
-        } else if let Some(body) = self.body_interp {
+        } else if let Some(body) = &self.body_interp {
             body.get_env()
         } else {
             unreachable!("Invalid internal state for WhileInterpreter")
