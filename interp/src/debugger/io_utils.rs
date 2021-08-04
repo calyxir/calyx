@@ -22,7 +22,7 @@ impl Default for Input {
 }
 
 impl Input {
-    pub fn next_command(&mut self) -> Command {
+    pub fn next_command(&mut self) -> Command<String> {
         let mut line = String::new();
         loop {
             print_shell_prompt();
@@ -35,7 +35,7 @@ impl Input {
                 }
                 Err(err) => panic!("Unable to read from stdin! {}", err),
             }
-            match Command::parse(&line) {
+            match Command::<String>::parse(&line) {
                 Ok(comm) => return comm,
                 Err(e) => {
                     println!("Error: {}", e);

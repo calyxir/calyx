@@ -71,7 +71,7 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
         }
     }
 
-    fn get_env(&self) -> &InterpreterState {
+    fn get_env(&self) -> Vec<&InterpreterState> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),

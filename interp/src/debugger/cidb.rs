@@ -47,12 +47,21 @@ impl<'a> Debugger<'a> {
                 Command::Continue => todo!(),
                 Command::Empty => {}
                 Command::Display => {
+                    let states = component_interpreter.get_env();
                     println!(
                         "{}",
-                        component_interpreter.get_env().state_as_str()
+                        if states.len() == 1 {
+                            states[0].state_as_str()
+                        } else {
+                            "There are mutliple states".into()
+                        }
                     )
                 }
                 Command::Print(_) => todo!(),
+                Command::PrintPort(_, _) => todo!(),
+                Command::Help => {
+                    print!("{}", Command::get_help_string())
+                }
             }
 
             if component_interpreter.is_done() {

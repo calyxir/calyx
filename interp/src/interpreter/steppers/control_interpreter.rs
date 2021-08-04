@@ -33,7 +33,7 @@ pub trait Interpreter {
 
     fn is_done(&self) -> bool;
 
-    fn get_env(&self) -> &InterpreterState;
+    fn get_env(&self) -> Vec<&InterpreterState>;
 }
 
 pub struct EmptyInterpreter {
@@ -59,8 +59,8 @@ impl Interpreter for EmptyInterpreter {
         true
     }
 
-    fn get_env(&self) -> &InterpreterState {
-        &self.env
+    fn get_env(&self) -> Vec<&InterpreterState> {
+        vec![&self.env]
     }
 }
 
@@ -127,8 +127,8 @@ impl<'a> Interpreter for EnableInterpreter<'a> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> &InterpreterState {
-        self.interp.get_env()
+    fn get_env(&self) -> Vec<&InterpreterState> {
+        vec![self.interp.get_env()]
     }
 }
 
@@ -193,11 +193,11 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
         self.env.unwrap()
     }
 
-    fn get_env(&self) -> &InterpreterState {
+    fn get_env(&self) -> Vec<&InterpreterState> {
         if let Some(cur) = &self.current_interpreter {
             cur.get_env()
         } else if let Some(env) = &self.env {
-            &env
+            vec![&env]
         } else {
             unreachable!("Invalid internal state for SeqInterpreter")
         }
@@ -250,8 +250,8 @@ impl<'a> Interpreter for ParInterpreter<'a> {
         self.interpreters.iter().all(|x| x.is_done())
     }
 
-    fn get_env(&self) -> &InterpreterState {
-        todo!()
+    fn get_env(&self) -> Vec<&InterpreterState> {
+        self.interpreters.iter().flat_map(|x| x.get_env()).collect()
     }
 }
 pub struct IfInterpreter<'a> {
@@ -327,7 +327,7 @@ impl<'a> Interpreter for IfInterpreter<'a> {
             && self.branch_interp.as_ref().unwrap().is_done()
     }
 
-    fn get_env(&self) -> &InterpreterState {
+    fn get_env(&self) -> Vec<&InterpreterState> {
         if let Some(cond) = &self.cond {
             cond.get_env()
         } else if let Some(branch) = &self.branch_interp {
@@ -418,7 +418,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
             )
     }
 
-    fn get_env(&self) -> &InterpreterState {
+    fn get_env(&self) -> Vec<&InterpreterState> {
         if let Some(cond) = &self.cond_interp {
             cond.get_env()
         } else if let Some(body) = &self.body_interp {
@@ -453,7 +453,7 @@ impl Interpreter for InvokeInterpreter {
         todo!()
     }
 
-    fn get_env(&self) -> &InterpreterState {
+    fn get_env(&self) -> Vec<&InterpreterState> {
         todo!()
     }
 }
@@ -541,7 +541,7 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
         control_match!(self, i, i.is_done())
     }
 
-    fn get_env(&self) -> &InterpreterState {
+    fn get_env(&self) -> Vec<&InterpreterState> {
         control_match!(self, i, i.get_env())
     }
 }
@@ -602,7 +602,7 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> &InterpreterState {
-        self.interp.get_env()
+    fn get_env(&self) -> Vec<&InterpreterState> {
+        vec![self.interp.get_env()]
     }
 }
