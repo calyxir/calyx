@@ -206,6 +206,7 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
 
 pub struct ParInterpreter<'a> {
     interpreters: Vec<ControlInterpreter<'a>>,
+    in_state: InterpreterState,
 }
 
 impl<'a> ParInterpreter<'a> {
@@ -220,7 +221,10 @@ impl<'a> ParInterpreter<'a> {
             .map(|x| ControlInterpreter::new(x, env.fork(), continuous_assigns))
             .collect();
 
-        Self { interpreters }
+        Self {
+            interpreters,
+            in_state: env,
+        }
     }
 }
 
@@ -232,8 +236,14 @@ impl<'a> Interpreter for ParInterpreter<'a> {
     }
 
     fn deconstruct(self) -> InterpreterState {
-        // need to incorporate stk_env stuff
-        todo!()
+        assert!(self.interpreters.iter().all(|x| x.is_done()));
+        let envs = self
+            .interpreters
+            .into_iter()
+            .map(ControlInterpreter::deconstruct)
+            .collect_vec();
+
+        self.in_state.merge_many(envs)
     }
 
     fn is_done(&self) -> bool {

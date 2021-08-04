@@ -9,6 +9,7 @@ use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
+use std::iter::once;
 use std::rc::Rc;
 
 /// A raw pointer reference to a cell. Can only be used as a key, but cannot be
@@ -281,6 +282,23 @@ impl InterpreterState {
             pv_map: other_pv_map,
             context: Rc::clone(&self.context),
         }
+    }
+
+    /// Merge the given environments. Must be called from the root environment
+    pub fn merge_many(mut self, others: Vec<Self>) -> Self {
+        let clk = others
+            .iter()
+            .chain(once(&self))
+            .map(|x| x.clk)
+            .max()
+            .unwrap(); // safe because of once
+
+        self.pv_map = self
+            .pv_map
+            .merge_many(others.into_iter().map(|x| x.pv_map).collect());
+        self.clk = clk;
+
+        self
     }
 
     pub fn eval_guard(&self, guard: &ir::Guard) -> bool {
