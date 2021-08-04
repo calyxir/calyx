@@ -73,7 +73,7 @@ impl<S: AsRef<str>> Command<S> {
             ["step"] | ["s"] => Ok(Command::Step),
             ["continue"] => Ok(Command::Continue),
             ["display"] => Ok(Command::Display),
-            ["print", _target] => {
+            ["print", _target] | ["p", _target] => {
                 let target: Vec<_> = saved_input[0].split('.').collect();
                 match target[..] {
                     [t] => Ok(Command::PrintOne(t.to_string())),
@@ -91,7 +91,7 @@ impl<S: AsRef<str>> Command<S> {
                     )),
                 }
             }
-            ["print", ..] => Err(InterpreterError::InvalidCommand(
+            ["print", ..] | ["p", ..] => Err(InterpreterError::InvalidCommand(
                 "Print requires exactly one target".to_string(),
             )),
             ["help"] => Ok(Command::Help),
