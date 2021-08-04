@@ -33,7 +33,7 @@ pub trait Interpreter {
 
     fn is_done(&self) -> bool;
 
-    fn state_as_string(&self) -> String;
+    fn get_env(&self) -> &InterpreterState;
 }
 
 pub struct EmptyInterpreter {
@@ -59,8 +59,8 @@ impl Interpreter for EmptyInterpreter {
         true
     }
 
-    fn state_as_string(&self) -> String {
-        self.env.state_as_str()
+    fn get_env(&self) -> &InterpreterState {
+        &self.env
     }
 }
 
@@ -127,8 +127,8 @@ impl<'a> Interpreter for EnableInterpreter<'a> {
         self.interp.is_deconstructable()
     }
 
-    fn state_as_string(&self) -> String {
-        self.interp.state_as_str()
+    fn get_env(&self) -> &InterpreterState {
+        self.interp.get_env()
     }
 }
 
@@ -193,13 +193,13 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
         self.env.unwrap()
     }
 
-    fn state_as_string(&self) -> String {
-        if let Some(e) = &self.current_interpreter {
-            e.state_as_string()
-        } else if let Some(e) = &self.env {
-            e.state_as_str()
+    fn get_env(&self) -> &InterpreterState {
+        if let Some(cur) = self.current_interpreter {
+            cur.get_env()
+        } else if let Some(env) = self.env {
+            &env
         } else {
-            panic!("INVALID STATE")
+            unreachable!("Invalid internal state for SeqInterpreter")
         }
     }
 }
@@ -250,7 +250,7 @@ impl<'a> Interpreter for ParInterpreter<'a> {
         self.interpreters.iter().all(|x| x.is_done())
     }
 
-    fn state_as_string(&self) -> String {
+    fn get_env(&self) -> &InterpreterState {
         todo!()
     }
 }
@@ -327,11 +327,13 @@ impl<'a> Interpreter for IfInterpreter<'a> {
             && self.branch_interp.as_ref().unwrap().is_done()
     }
 
-    fn state_as_string(&self) -> String {
-        if let Some(e) = &self.cond {
-            e.state_as_string()
+    fn get_env(&self) -> &InterpreterState {
+        if let Some(cond) = self.cond {
+            cond.get_env()
+        } else if let Some(branch) = self.branch_interp {
+            branch.get_env()
         } else {
-            self.branch_interp.as_ref().unwrap().state_as_string()
+            unreachable!("Invalid internal state for IfInterpreter")
         }
     }
 }
@@ -416,11 +418,13 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
             )
     }
 
-    fn state_as_string(&self) -> String {
-        if let Some(e) = &self.cond_interp {
-            e.state_as_string()
+    fn get_env(&self) -> &InterpreterState {
+        if let Some(cond) = self.cond_interp {
+            cond.get_env()
+        } else if let Some(body) = self.body_interp {
+            body.get_env()
         } else {
-            self.body_interp.as_ref().unwrap().state_as_string()
+            unreachable!("Invalid internal state for WhileInterpreter")
         }
     }
 }
@@ -449,7 +453,7 @@ impl Interpreter for InvokeInterpreter {
         todo!()
     }
 
-    fn state_as_string(&self) -> String {
+    fn get_env(&self) -> &InterpreterState {
         todo!()
     }
 }
@@ -537,8 +541,8 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
         control_match!(self, i, i.is_done())
     }
 
-    fn state_as_string(&self) -> String {
-        control_match!(self, i, i.state_as_string())
+    fn get_env(&self) -> &InterpreterState {
+        control_match!(self, i, i.get_env())
     }
 }
 
@@ -598,7 +602,7 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
         self.interp.is_deconstructable()
     }
 
-    fn state_as_string(&self) -> String {
-        self.interp.state_as_str()
+    fn get_env(&self) -> &InterpreterState {
+        self.interp.get_env()
     }
 }

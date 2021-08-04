@@ -47,7 +47,10 @@ impl<'a> Debugger<'a> {
                 Command::Continue => todo!(),
                 Command::Empty => {}
                 Command::Display => {
-                    println!("{}", component_interpreter.state_as_string())
+                    println!(
+                        "{}",
+                        component_interpreter.get_env().state_as_str()
+                    )
                 }
             }
 

@@ -303,4 +303,8 @@ impl<'a> AssignmentInterpreter<'a> {
     pub(super) fn _insert<P: AsRaw<ir::Port>>(&mut self, port: P, val: Value) {
         self.state.insert(port, val.into())
     }
+
+    pub fn get_env(&self) -> &InterpreterState {
+        &self.state
+    }
 }
