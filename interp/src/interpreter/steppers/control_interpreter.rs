@@ -292,7 +292,7 @@ impl<'a> Interpreter for IfInterpreter<'a> {
             if i.is_done() {
                 let i = self.cond.take().unwrap();
                 let branch;
-                if is_signal_high(i.get(self.port).into()) {
+                if is_signal_high(i.get(self.port)) {
                     let env = i.deconstruct();
                     branch = ControlInterpreter::new(
                         self.tbranch,
@@ -375,7 +375,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
         if let Some(ci) = &mut self.cond_interp {
             if ci.is_done() {
                 let ci = self.cond_interp.take().unwrap();
-                if is_signal_high(ci.get(self.port).into()) {
+                if is_signal_high(ci.get(self.port)) {
                     let body_interp = ControlInterpreter::new(
                         self.body,
                         ci.deconstruct(),
@@ -414,7 +414,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
             && self.cond_interp.is_some()
             && self.cond_interp.as_ref().unwrap().is_done()
             && !is_signal_high(
-                self.cond_interp.as_ref().unwrap().get(self.port).into(),
+                self.cond_interp.as_ref().unwrap().get(self.port),
             )
     }
 
@@ -563,7 +563,7 @@ impl<'a> StructuralInterpreter<'a> {
         let go_port: ConstPort = comp_sig.get("go").as_ptr();
         let continuous_assignments = &comp.continuous_assignments;
 
-        if !is_signal_high(env.get_from_port(done_port).into()) {
+        if !is_signal_high(env.get_from_port(done_port)) {
             env.insert(go_port, Value::bit_high());
         }
 

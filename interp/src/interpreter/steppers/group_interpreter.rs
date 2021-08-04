@@ -116,11 +116,6 @@ impl<'a> AssignmentInterpreter<'a> {
         }
     }
 
-    /// Return a string containing the current state of the owned environment
-    pub fn state_as_str(&self) -> String {
-        self.state.state_as_str()
-    }
-
     /// Advance the stepper by a clock cycle
     pub fn step_cycle(&mut self) {
         if !self.is_done()
@@ -301,7 +296,7 @@ impl<'a> AssignmentInterpreter<'a> {
     // pending adjustments to the primitive contract as we will need the ability
     // to pass new inputs to components
     pub(super) fn _insert<P: AsRaw<ir::Port>>(&mut self, port: P, val: Value) {
-        self.state.insert(port, val.into())
+        self.state.insert(port, val)
     }
 
     pub fn get_env(&self) -> &InterpreterState {
