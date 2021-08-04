@@ -15,18 +15,18 @@ component main() -> () {
     neq0 = std_neq(32);
     le0 = std_le(32);
 
-    or_reg = std_reg(32);
-    sub_reg = std_reg(32);
-    xor_reg = std_reg(32);
-    add_reg = std_reg(32);
-    and_reg = std_reg(32);
+    @external or_reg = std_reg(32);
+    @external sub_reg = std_reg(32);
+    @external xor_reg = std_reg(32);
+    @external add_reg = std_reg(32);
+    @external and_reg = std_reg(32);
 
-    lt_reg = std_reg(1);
-    le_reg = std_reg(1);
-    neq_reg = std_reg(1);
-    gt_reg = std_reg(1);
-    ge_reg = std_reg(1);
-    eq_reg = std_reg(1);
+    @external lt_reg = std_reg(1);
+    @external le_reg = std_reg(1);
+    @external neq_reg = std_reg(1);
+    @external gt_reg = std_reg(1);
+    @external ge_reg = std_reg(1);
+    @external eq_reg = std_reg(1);
 
     /** Not implemented yet
     div_reg = std_reg(32);

@@ -2,7 +2,7 @@ use crate::errors::Span;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
-/// Represents an identifier in a Futil program
+/// Represents an identifier in a Calyx program
 #[derive(Derivative, Clone, PartialOrd, Ord, Deserialize)]
 #[derivative(Hash, Eq, Debug)]
 #[serde(transparent)]

@@ -109,7 +109,7 @@ fn build_conflict_graph(
         ir::Control::Empty(_) => (),
         ir::Control::Invoke(_) => (),
         ir::Control::Enable(ir::Enable { group, .. }) => {
-            confs.add_node(&group.borrow().name());
+            confs.add_node(group.borrow().name());
             all_enables.push(group.clone_name());
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => stmts
@@ -122,13 +122,13 @@ fn build_conflict_graph(
             ..
         }) => {
             all_enables.push(cond.clone_name());
-            confs.add_node(&cond.borrow().name());
+            confs.add_node(cond.borrow().name());
             build_conflict_graph(tbranch, confs, all_enables);
             build_conflict_graph(fbranch, confs, all_enables);
         }
         ir::Control::While(ir::While { cond, body, .. }) => {
             all_enables.push(cond.clone_name());
-            confs.add_node(&cond.borrow().name());
+            confs.add_node(cond.borrow().name());
             build_conflict_graph(body, confs, all_enables);
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {

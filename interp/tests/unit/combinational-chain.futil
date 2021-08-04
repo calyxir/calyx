@@ -4,7 +4,7 @@ component main() -> () {
   cells {
     add1 = std_add(32);
     add2 = std_add(32);
-    reg1 = std_reg(32);
+    @external reg1 = std_reg(32);
   }
 
   wires {

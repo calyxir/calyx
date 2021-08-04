@@ -98,7 +98,7 @@ impl Visitor for Papercut<'_> {
         let no_done_group = comp
             .groups
             .iter()
-            .find(|g| !hole_writes.contains(&g.borrow().name()))
+            .find(|g| !hole_writes.contains(g.borrow().name()))
             .map(|g| g.clone_name());
 
         // If there is a group that hasn't been assigned to, throw an error.

@@ -78,7 +78,7 @@ impl ShareComponents for ResourceSharing {
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
         if let Some(type_name) = cell.type_name() {
-            self.shareable_components.contains(&type_name)
+            self.shareable_components.contains(type_name)
         } else {
             false
         }

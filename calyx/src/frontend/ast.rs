@@ -1,6 +1,6 @@
 //! Abstract Syntax Tree for Calyx
 use super::parser;
-use crate::errors::{Error, FutilResult, Span};
+use crate::errors::{CalyxResult, Error, Span};
 use crate::ir;
 use atty::Stream;
 use std::io::stdin;
@@ -42,12 +42,12 @@ pub struct NamespaceDef {
 impl NamespaceDef {
     /// Parse the program and all of its transitive dependencies to build
     /// a whole program context.
-    pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> FutilResult<Self> {
+    pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> CalyxResult<Self> {
         let mut namespace = match file {
-            Some(file) => parser::FutilParser::parse_file(&file),
+            Some(file) => parser::CalyxParser::parse_file(file),
             None => {
                 if atty::isnt(Stream::Stdin) {
-                    parser::FutilParser::parse(stdin())
+                    parser::CalyxParser::parse(stdin())
                 } else {
                     Err(Error::InvalidFile(
                         "No file provided and terminal not a TTY".to_string(),
@@ -69,7 +69,7 @@ impl NamespaceDef {
             .collect();
 
         while let Some(path) = deps.pop() {
-            let mut ns = parser::FutilParser::parse_file(&path)?;
+            let mut ns = parser::CalyxParser::parse_file(&path)?;
             namespace.components.append(&mut ns.components);
 
             let parent = match path.parent() {

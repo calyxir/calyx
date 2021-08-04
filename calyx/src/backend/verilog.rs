@@ -5,7 +5,7 @@
 
 use crate::{
     backend::traits::Backend,
-    errors::{Error, FutilResult},
+    errors::{CalyxResult, Error},
     ir,
     utils::OutputFile,
 };
@@ -16,8 +16,8 @@ use std::io;
 use std::{collections::HashMap, rc::Rc};
 use vast::v17::ast as v;
 
-/// Implements a simple Verilog backend. The backend
-/// only accepts Futil programs with no control and no groups.
+/// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
+/// and no groups.
 #[derive(Default)]
 pub struct VerilogBackend;
 
@@ -43,7 +43,7 @@ fn validate_guard(guard: &ir::Guard) -> bool {
 }
 
 /// Returns `Ok` if there are no groups defined.
-fn validate_structure<'a, I>(groups: I) -> FutilResult<()>
+fn validate_structure<'a, I>(groups: I) -> CalyxResult<()>
 where
     I: Iterator<Item = &'a RRC<Group>>,
 {
@@ -70,7 +70,7 @@ where
 
 /// Returns `Ok` if the control for `comp` is either a single `enable`
 /// or `empty`.
-fn validate_control(ctrl: &ir::Control) -> FutilResult<()> {
+fn validate_control(ctrl: &ir::Control) -> CalyxResult<()> {
     match ctrl {
         Control::Empty(_) => Ok(()),
         _ => Err(Error::MalformedControl("Control must be empty".to_string())),
@@ -82,7 +82,7 @@ impl Backend for VerilogBackend {
         "verilog"
     }
 
-    fn validate(ctx: &ir::Context) -> FutilResult<()> {
+    fn validate(ctx: &ir::Context) -> CalyxResult<()> {
         for component in &ctx.components {
             validate_structure(component.groups.iter())?;
             validate_control(&component.control.borrow())?;
@@ -96,7 +96,7 @@ impl Backend for VerilogBackend {
     fn link_externs(
         ctx: &ir::Context,
         file: &mut OutputFile,
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         for extern_path in &ctx.lib.paths {
             let mut ext = File::open(extern_path).map_err(|err| {
                 let std::io::Error { .. } = err;
@@ -113,11 +113,11 @@ impl Backend for VerilogBackend {
         Ok(())
     }
 
-    fn emit(ctx: &ir::Context, file: &mut OutputFile) -> FutilResult<()> {
+    fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let modules = &ctx
             .components
             .iter()
-            .map(|comp| emit_component(&comp, !ctx.synthesis_mode).to_string())
+            .map(|comp| emit_component(comp, !ctx.synthesis_mode).to_string())
             .collect::<Vec<_>>();
 
         write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
@@ -152,7 +152,7 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
 
     // Add memory initial and final blocks
     if memory_simulation {
-        memory_read_write(&comp).into_iter().for_each(|stmt| {
+        memory_read_write(comp).into_iter().for_each(|stmt| {
             module.add_stmt(stmt);
         });
     }

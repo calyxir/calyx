@@ -6,7 +6,7 @@ use crate::environment::InterpreterState;
 use crate::utils::{get_const_from_rrc, PortAssignment};
 use crate::values::Value;
 use calyx::{
-    errors::FutilResult,
+    errors::CalyxResult,
     ir::{self, RRC},
 };
 use itertools::Itertools;
@@ -39,7 +39,7 @@ fn interp_assignments<'a, I: Iterator<Item = &'a ir::Assignment>>(
     mut env: InterpreterState,
     done_signal: &ir::Port,
     assigns: I,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     let assigns = assigns.collect_vec();
 
     let cells = get_cells(assigns.iter().copied());
@@ -180,7 +180,7 @@ pub fn interp_cont(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     let comp_sig = comp.signature.borrow();
 
     let go_port = comp_sig
@@ -227,7 +227,7 @@ pub fn interpret_group(
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
     interp_assignments(
@@ -245,7 +245,7 @@ pub fn finish_group_interpretation(
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     let grp_done = get_done_port(&group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
@@ -376,7 +376,7 @@ fn finish_interpretation<'a, I: Iterator<Item = &'a ir::Assignment>>(
     mut env: InterpreterState,
     done_signal: &ir::Port,
     assigns: I,
-) -> FutilResult<InterpreterState> {
+) -> CalyxResult<InterpreterState> {
     // replace port values for all the assignments
     let assigns = assigns.collect::<Vec<_>>();
 

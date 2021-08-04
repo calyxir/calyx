@@ -91,7 +91,7 @@ impl GraphAnalysis {
             let guard_key = port.borrow().canonical();
             nodes
                 .entry(guard_key.clone())
-                .or_insert_with(|| graph.add_node(Rc::clone(&port)));
+                .or_insert_with(|| graph.add_node(Rc::clone(port)));
             graph.add_edge(nodes[&guard_key], dst_node, ());
         }
     }
