@@ -143,7 +143,7 @@ impl Visitor for StaticTiming {
                 );
                 assignments.push(builder.build_assignment(
                     cond_stored.borrow().get("in"),
-                    Rc::clone(&port),
+                    Rc::clone(port),
                     cond_computed,
                 ));
 

@@ -236,11 +236,11 @@ impl InterpreterState {
 
     /// Return the value associated with a component's port.
     pub fn get_from_port(&self, port: &ir::Port) -> &Value {
-        &self.pv_map.get(&(port as ConstPort)).unwrap()
+        self.pv_map.get(&(port as ConstPort)).unwrap()
     }
 
     pub fn get_from_const_port(&self, port: *const ir::Port) -> &Value {
-        &self.pv_map.get(&port).unwrap()
+        self.pv_map.get(&port).unwrap()
     }
 
     /// Gets the cell in a component based on the name;
@@ -293,7 +293,6 @@ impl Serialize for InterpreterState {
         S: serde::Serializer,
     {
         let ctx: &ir::Context = &self.context.borrow();
-
         let cell_prim_map = self.cell_prim_map.borrow();
 
         let bmap: BTreeMap<_, _> = ctx
@@ -329,15 +328,15 @@ impl Serialize for InterpreterState {
                 let inner_map: BTreeMap<_, _> = comp
                     .cells
                     .iter()
-                    .filter_map(|cell| {
-                        if let Some(prim) = cell_prim_map
-                            .get(&(&cell.borrow() as &ir::Cell as ConstCell))
-                        {
-                            if !prim.is_comb() {
-                                return Some((
-                                    cell.borrow().name().clone(),
-                                    prim,
-                                ));
+                    .filter_map(|cell_ref| {
+                        let cell = cell_ref.borrow();
+                        if cell.get_attribute("external").is_some() {
+                            if let Some(prim) = cell_prim_map
+                                .get(&(&cell as &ir::Cell as ConstCell))
+                            {
+                                if !prim.is_comb() {
+                                    return Some((cell.name().clone(), prim));
+                                }
                             }
                         }
                         None
@@ -347,7 +346,7 @@ impl Serialize for InterpreterState {
             })
             .collect();
 
-        let p = Printable {
+        let p = FullySerialize {
             ports: bmap,
             memories: cell_map,
         };
@@ -357,7 +356,8 @@ impl Serialize for InterpreterState {
 
 #[derive(Serialize)]
 #[allow(clippy::borrowed_box)]
-struct Printable<'a> {
+/// Struct to fully serialize the internal state of the environment
+struct FullySerialize<'a> {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
 }

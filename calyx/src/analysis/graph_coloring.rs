@@ -120,7 +120,7 @@ where
         while !degree_ordering.is_empty() {
             let head = degree_ordering.remove(0);
             // eprintln!("{}", self.graph.degree(head));
-            if !coloring.contains_key(&head) {
+            if !coloring.contains_key(head) {
                 coloring.insert(head.clone(), head.clone());
                 for &node in &degree_ordering {
                     if coloring.contains_key(node) {

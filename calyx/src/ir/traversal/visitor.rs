@@ -3,7 +3,7 @@
 //! [`ir::Context`] to compile every [`ir::Component`] using the pass.
 use super::action::{Action, VisResult};
 use super::PostOrder;
-use crate::errors::FutilResult;
+use crate::errors::CalyxResult;
 use crate::ir::{self, Component, Context, Control, LibrarySignatures};
 use std::rc::Rc;
 
@@ -92,7 +92,7 @@ pub trait Visitor {
         &mut self,
         comp: &mut ir::Component,
         signatures: &LibrarySignatures,
-    ) -> FutilResult<()>
+    ) -> CalyxResult<()>
     where
         Self: Sized,
     {
@@ -120,7 +120,7 @@ pub trait Visitor {
     ///
     /// # Panics
     /// Panics if the pass attempts to use the control program mutably.
-    fn do_pass(&mut self, context: &mut Context) -> FutilResult<()>
+    fn do_pass(&mut self, context: &mut Context) -> CalyxResult<()>
     where
         Self: Sized,
     {
@@ -148,7 +148,7 @@ pub trait Visitor {
     /// Build a [Default] implementation of this pass and call [`Visitor::do_pass`]
     /// using it.
     #[inline(always)]
-    fn do_pass_default(context: &mut Context) -> FutilResult<Self>
+    fn do_pass_default(context: &mut Context) -> CalyxResult<Self>
     where
         Self: ConstructVisitor + Sized,
     {

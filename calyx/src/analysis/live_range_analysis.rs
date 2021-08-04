@@ -256,7 +256,7 @@ impl LiveRangeAnalysis {
     }
     /// Look up the set of things live at a group definition.
     pub fn get(&self, group: &ir::Id) -> &HashSet<ir::Id> {
-        &self.live[&group].set
+        &self.live[group].set
     }
 
     /// Get a unique list of all live registers in `component`.
@@ -287,7 +287,7 @@ impl LiveRangeAnalysis {
         // if the group contains what looks like a variable write,
         // then just add variable to write set
         if let Some(variable) =
-            VariableDetection::variable_like(Rc::clone(&group_ref))
+            VariableDetection::variable_like(Rc::clone(group_ref))
         {
             // we don't want to read the control signal of `variable`
             let assignments = group
@@ -393,8 +393,7 @@ fn build_live_ranges(
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {
             // XXX(sam) no reason to compute this every time
-            let (reads, writes) =
-                LiveRangeAnalysis::find_gen_kill_group(&group);
+            let (reads, writes) = LiveRangeAnalysis::find_gen_kill_group(group);
 
             // compute transfer function
             let alive = alive.transfer(&reads, &writes);
@@ -407,7 +406,7 @@ fn build_live_ranges(
         ir::Control::Seq(ir::Seq { stmts, .. }) => stmts.iter().rev().fold(
             (alive, gens, kills),
             |(alive, gens, kills), e| {
-                build_live_ranges(&e, alive, gens, kills, lr)
+                build_live_ranges(e, alive, gens, kills, lr)
             },
         ),
         ir::Control::If(ir::If {
@@ -418,14 +417,14 @@ fn build_live_ranges(
         }) => {
             // compute each branch
             let (t_alive, t_gens, t_kills) = build_live_ranges(
-                &tbranch,
+                tbranch,
                 alive.clone(),
                 gens.clone(),
                 kills.clone(),
                 lr,
             );
             let (f_alive, f_gens, f_kills) =
-                build_live_ranges(&fbranch, alive, gens, kills, lr);
+                build_live_ranges(fbranch, alive, gens, kills, lr);
 
             // take union
             let alive = &t_alive | &f_alive;
@@ -470,7 +469,7 @@ fn build_live_ranges(
         }
         ir::Control::While(ir::While { body, cond, .. }) => {
             let (alive, gens, kills) =
-                build_live_ranges(&body, alive, gens, kills, lr);
+                build_live_ranges(body, alive, gens, kills, lr);
             let (alive, gens, kills) = build_live_ranges(
                 &ir::Control::enable(cond.clone()),
                 alive,
@@ -478,7 +477,7 @@ fn build_live_ranges(
                 kills,
                 lr,
             );
-            build_live_ranges(&body, alive, gens, kills, lr)
+            build_live_ranges(body, alive, gens, kills, lr)
         }
     }
 }

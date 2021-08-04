@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     backend::traits::Backend,
-    errors::{Error, FutilResult},
+    errors::{CalyxResult, Error},
     ir,
 };
 use vast::v05::ast as v;
@@ -18,21 +18,21 @@ impl Backend for XilinxInterfaceBackend {
         "xilinx-axi"
     }
 
-    fn validate(_ctx: &ir::Context) -> FutilResult<()> {
+    fn validate(_ctx: &ir::Context) -> CalyxResult<()> {
         Ok(())
     }
 
     fn link_externs(
         _prog: &ir::Context,
         _write: &mut crate::utils::OutputFile,
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         Ok(())
     }
 
     fn emit(
         prog: &ir::Context,
         file: &mut crate::utils::OutputFile,
-    ) -> FutilResult<()> {
+    ) -> CalyxResult<()> {
         let toplevel = prog
             .components
             .iter()

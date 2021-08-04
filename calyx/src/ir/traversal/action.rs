@@ -1,9 +1,9 @@
 //! Actions control the traversal of control programs.
-use crate::errors::FutilResult;
+use crate::errors::CalyxResult;
 use crate::ir::Control;
 
 /// Result of performing a visit.
-pub type VisResult = FutilResult<Action>;
+pub type VisResult = CalyxResult<Action>;
 
 /// Action performed at the end of visiting a control statement.
 pub enum Action {

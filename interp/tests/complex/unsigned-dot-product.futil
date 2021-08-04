@@ -6,14 +6,14 @@ import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     add0 = std_add(3); //this was Sadd - return before pushing!
-    counter = std_reg(3);
-    r_2 = std_reg(32);
-    t = std_reg(32);
+    @external counter = std_reg(3);
+    @external r_2 = std_reg(32);
+    @external t = std_reg(32);
     lt0 = std_lt(3);
-    @external(1) mem0 = std_mem_d2(32, 4, 4, 3, 3);
-    @external(1) mem1 = std_mem_d2(32, 4, 4, 3, 3);
+    @external mem0 = std_mem_d2(32, 4, 4, 3, 3);
+    @external mem1 = std_mem_d2(32, 4, 4, 3, 3);
     add1 = std_add(32);
-    mult = std_mult_pipe(32);
+    @external mult = std_mult_pipe(32);
   }
   wires {
     group is_less_than<"static"=0> {

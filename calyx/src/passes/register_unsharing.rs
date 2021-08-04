@@ -56,7 +56,7 @@ impl Bookkeeper {
             .collect();
 
         let analysis =
-            ReachingDefinitionAnalysis::new(&comp, &comp.control.borrow());
+            ReachingDefinitionAnalysis::new(comp, &comp.control.borrow());
 
         let invoke_map = HashMap::new();
 
@@ -186,7 +186,7 @@ impl Visitor for RegisterUnsharing {
             .fetch_label(invoke)
         {
             let vec_array =
-                &self.bookkeeper.as_ref().unwrap().invoke_map.get(&name);
+                &self.bookkeeper.as_ref().unwrap().invoke_map.get(name);
 
             // only do rewrites if there is actually rewriting to do
             if let Some(rename_vec) = vec_array {

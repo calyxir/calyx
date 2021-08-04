@@ -22,7 +22,7 @@ fn resource_sharing_bench(c: &mut Criterion) {
 
                         let namespace = frontend::NamespaceDef::new(
                             &Some(bench.into()),
-                            &lib,
+                            lib,
                         )
                         .unwrap();
 

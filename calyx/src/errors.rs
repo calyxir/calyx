@@ -3,7 +3,6 @@
 use crate::frontend::{ast, parser};
 use crate::ir;
 use petgraph::stable_graph::NodeIndex;
-use std::iter::repeat;
 use std::rc::Rc;
 
 /// Standard error type for Calyx errors.
@@ -15,7 +14,7 @@ pub enum Error {
     ReservedName(ir::Id),
 
     /// The given string does not correspond to any known pass.
-    UnknownPass(String, String),
+    UnknownPass(String),
     /// The input file is invalid (does not exist).
     InvalidFile(String),
     /// Failed to write the output
@@ -59,7 +58,7 @@ pub enum Error {
 }
 
 /// Convience wrapper to represent success or meaningul compiler error.
-pub type FutilResult<T> = std::result::Result<T, Error>;
+pub type CalyxResult<T> = std::result::Result<T, Error>;
 
 /// A span of the input program.
 /// Used for reporting location-based errors.
@@ -94,12 +93,9 @@ impl Span {
             let new_pos = pos + l.len() + 1;
             if self.start > pos && self.end < pos + (l.len()) {
                 let linum_text = format!("{} ", linum);
-                let linum_space: String =
-                    repeat(" ").take(linum_text.len()).collect();
-                let mark: String =
-                    repeat("^").take(self.end - self.start).collect();
-                let space: String =
-                    repeat(" ").take(self.start - pos).collect();
+                let linum_space: String = " ".repeat(linum_text.len());
+                let mark: String = "^".repeat(self.end - self.start);
+                let space: String = " ".repeat(self.start - pos);
                 buf += "\n";
                 buf += &format!("{}|{}\n", linum_text, l);
                 buf +=
@@ -154,12 +150,11 @@ impl std::fmt::Debug for Error {
                     name.fmt_err(&msg)
                 )
             }
-            UnknownPass(pass, known_passes) => {
+            UnknownPass(pass) => {
                 write!(
                     f,
-                    "Unknown pass: {}. Known passes: {}.",
+                    "Unknown pass: {}. Use the flag `--list-passes` to view known passes.",
                     pass,
-                    known_passes
                 )
             },
             InvalidFile(err) => write!(f, "{}", err),
@@ -217,13 +212,13 @@ impl From<std::io::Error> for Error {
 /// `Option<NodeIndex>` to provide convienent error reporting for
 /// undefined components / groups.
 pub trait Extract<T, R> {
-    /// Unpacks `T` into `FutilResult<R>` using `id: ir::Id`
+    /// Unpacks `T` into `CalyxResult<R>` using `id: ir::Id`
     /// for error reporting with locations.
-    fn extract(&self, id: &ir::Id) -> FutilResult<R>;
+    fn extract(&self, id: &ir::Id) -> CalyxResult<R>;
 }
 
 impl Extract<NodeIndex, NodeIndex> for Option<NodeIndex> {
-    fn extract(&self, id: &ir::Id) -> FutilResult<NodeIndex> {
+    fn extract(&self, id: &ir::Id) -> CalyxResult<NodeIndex> {
         match self {
             Some(t) => Ok(*t),
             None => Err(Error::Undefined(id.clone(), "component".to_string())),

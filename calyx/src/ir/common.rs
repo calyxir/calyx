@@ -28,7 +28,7 @@ impl<T> WRC<T> {
 impl<T> From<&RRC<T>> for WRC<T> {
     fn from(internal: &RRC<T>) -> Self {
         Self {
-            internal: Rc::downgrade(&internal),
+            internal: Rc::downgrade(internal),
         }
     }
 }
