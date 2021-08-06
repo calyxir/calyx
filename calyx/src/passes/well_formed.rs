@@ -63,14 +63,34 @@ impl Visitor for WellFormed {
         for group_ref in comp.groups.iter() {
             let group = group_ref.borrow();
             let gname = group.name();
+            let mut count = 0;
             // Find an assignment writing to this group's done condition.
-            let done = group.assignments.iter().find(|assign| {
+            group.assignments.iter().filter(|assign| {
                 let dst = assign.dst.borrow();
                 dst.is_hole()
                     && dst.name == "done"
                     && dst.get_parent_name() == gname
-            });
-            if done.is_none() {
+            }).try_for_each(|assign| {
+                // Increment the number of writes to the done signal.
+                count += 1;
+                // Check if the done signal depends on the input port.
+                let src = assign.src.borrow();
+                if let ir::PortParent::Cell(cell_wref) = &src.parent {
+                    if matches!(
+                        cell_wref.upgrade().borrow().prototype,
+                        ir::CellType::ThisComponent
+                    ) {
+                        let msg = gname.fmt_err(&format!(
+                                "Group's done signal depends on component's input port {}.{}",
+                                comp.name,
+                                src.name
+                                ));
+                        return Err(Error::MalformedStructure(msg))
+                    }
+                }
+                Ok(())
+            })?;
+            if count == 0 {
                 return Err(Error::MalformedStructure(gname.fmt_err(
                     &format!(
                         "No writes to the `done' hole for group `{}'",
