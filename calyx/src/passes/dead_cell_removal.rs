@@ -55,7 +55,6 @@ impl Visitor for DeadCellRemoval {
         for group in comp.groups.iter() {
             self.used_cells.extend(
                 &mut analysis::ReadWriteSet::uses(&group.borrow().assignments)
-                    .into_iter()
                     .map(|c| c.clone_name()),
             )
         }
@@ -63,7 +62,6 @@ impl Visitor for DeadCellRemoval {
         // All cells used in continuous assignments.
         self.used_cells.extend(
             &mut analysis::ReadWriteSet::uses(&comp.continuous_assignments)
-                .into_iter()
                 .map(|c| c.clone_name()),
         );
 

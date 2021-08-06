@@ -1,4 +1,4 @@
-use crate::ir::{self, CloneName, RRC};
+use crate::ir::{self, CloneName};
 use itertools::Itertools;
 use std::rc::Rc;
 
@@ -6,9 +6,9 @@ use std::rc::Rc;
 pub struct ReadWriteSet;
 
 impl ReadWriteSet {
-    /// Returns the name of the cells these assignments read from.
+    /// Returns [ir::Cell] which are read from in the assignments.
     /// **Ignores** reads from group holes.
-    pub fn read_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
+    pub fn read_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
         let guard_ports = assigns.iter().flat_map(|assign| {
             assign.guard.all_ports().into_iter().filter_map(|port_ref| {
                 let port = port_ref.borrow();
@@ -19,7 +19,7 @@ impl ReadWriteSet {
                 }
             })
         });
-        assigns
+        let iter = assigns
             .iter()
             .filter_map(|assign| {
                 let src_ref = assign.src.borrow();
@@ -30,13 +30,16 @@ impl ReadWriteSet {
                 }
             })
             .chain(guard_ports)
-            .unique_by(|cell| cell.clone_name())
-            .collect()
+            .unique_by(|cell| cell.clone_name());
+
+        ir::CellIterator {
+            port_iter: Box::new(iter),
+        }
     }
 
     /// Returns the register cells whose out port is read anywhere in the given
     /// assignments
-    pub fn register_reads(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
+    pub fn register_reads(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
         let guard_ports = assigns.iter().flat_map(|assign| {
             assign.guard.all_ports().into_iter().filter_map(|port_ref| {
                 let port = port_ref.borrow();
@@ -48,7 +51,7 @@ impl ReadWriteSet {
                 None
             })
         });
-        assigns
+        let iter = assigns
             .iter()
             .filter_map(|assign| {
                 let src_ref = assign.src.borrow();
@@ -67,14 +70,17 @@ impl ReadWriteSet {
                     false
                 }
             })
-            .unique_by(|cell| cell.clone_name())
-            .collect()
+            .unique_by(|cell| cell.clone_name());
+
+        ir::CellIterator {
+            port_iter: Box::new(iter),
+        }
     }
 
-    /// Returns the name of the cells these assignments write to.
+    /// Returns [ir::Cell] which are written to by the assignments.
     /// **Ignores** reads from group holes.
-    pub fn write_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
-        assigns
+    pub fn write_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
+        let iter = assigns
             .iter()
             .filter_map(|assign| {
                 let dst_ref = assign.dst.borrow();
@@ -84,15 +90,17 @@ impl ReadWriteSet {
                     None
                 }
             })
-            .unique_by(|cell| cell.clone_name())
-            .collect()
+            .unique_by(|cell| cell.clone_name());
+        ir::CellIterator {
+            port_iter: Box::new(iter),
+        }
     }
 
     /// Return the name of the cells that these assignments write to for writes
     /// that are guarded by true.
     /// **Ignores** writes to group holes.
-    pub fn must_write_set(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
-        assigns
+    pub fn must_write_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
+        let iter = assigns
             .iter()
             .filter_map(|assignment| {
                 if let ir::Guard::True = *assignment.guard {
@@ -103,18 +111,23 @@ impl ReadWriteSet {
                 }
                 None
             })
-            .unique_by(|cell| cell.clone_name())
-            .collect()
+            .unique_by(|cell| cell.clone_name());
+
+        ir::CellIterator {
+            port_iter: Box::new(iter),
+        }
     }
 
     /// Returns all uses of cells in this group. Uses constitute both reads and
     /// writes to cells.
-    pub fn uses(assigns: &[ir::Assignment]) -> Vec<RRC<ir::Cell>> {
-        let mut reads = Self::read_set(assigns);
-        reads.append(&mut Self::write_set(assigns));
-        reads
-            .into_iter()
-            .unique_by(|cell| cell.clone_name())
-            .collect()
+    pub fn uses(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
+        let reads = Self::read_set(assigns);
+        let iter = reads
+            .chain(Self::write_set(assigns))
+            .unique_by(|cell| cell.clone_name());
+
+        ir::CellIterator {
+            port_iter: Box::new(iter),
+        }
     }
 }

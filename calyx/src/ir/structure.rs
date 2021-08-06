@@ -91,6 +91,29 @@ impl PartialEq for Port {
 
 impl Eq for Port {}
 
+/// Wraps generic iterators over ports to allow functions to build and return port iterators in
+/// different ways.
+pub struct PortIterator<'a> {
+    pub port_iter: Box<dyn Iterator<Item = RRC<Port>> + 'a>,
+}
+
+impl PortIterator<'_> {
+    /// Returns an empty iterator over ports.
+    pub fn empty() -> Self {
+        PortIterator {
+            port_iter: Box::new(vec![].into_iter()),
+        }
+    }
+}
+
+impl Iterator for PortIterator<'_> {
+    type Item = RRC<Port>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.port_iter.next()
+    }
+}
+
 /// Alias for bindings
 pub type Binding = SmallVec<[(Id, u64); 5]>;
 
@@ -248,6 +271,19 @@ impl Cell {
     /// Grants immutable access to the name of this cell.
     pub fn name(&self) -> &Id {
         &self.name
+    }
+}
+
+/// Generic wrapper for iterators that return [RRC] of [ir::Cell].
+pub struct CellIterator<'a> {
+    pub port_iter: Box<dyn Iterator<Item = RRC<Cell>> + 'a>,
+}
+
+impl Iterator for CellIterator<'_> {
+    type Item = RRC<Cell>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.port_iter.next()
     }
 }
 
