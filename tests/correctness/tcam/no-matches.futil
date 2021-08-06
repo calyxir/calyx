@@ -5,14 +5,13 @@ component main() -> () {
   cells {
     tcam = TCAM_IPv4();
     @external(1) index = std_mem_d1(5, 1, 1);
-    r = std_reg(5);
   }
 
   wires {
     group save_index<"static"=1> {
       index.write_en = 1'd1;
       index.addr0 = 1'd0;
-      index.write_data = r.out;
+      index.write_data = tcam.index;
       save_index[done] = index.done;
     }
   }
@@ -23,7 +22,7 @@ component main() -> () {
       invoke tcam(write_en=1'd1, write_index=5'd31, in=32'b00000000000000000000000000000000, prefix_len=6'd0)();
 
       // Search.
-      invoke tcam(search_en=1'd1, in=32'b11000000000000000000000000000000, rdone=r.done)(rwrite_en=r.write_en, index=r.in);
+      invoke tcam(search_en=1'd1, in=32'b11000000000000000000000000000000)();
       save_index;
     }
   }
