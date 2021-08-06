@@ -1,55 +1,108 @@
-use crate::errors::Error;
-use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::analysis;
+use crate::errors::{CalyxResult, Error};
+use crate::ir::traversal::{
+    Action, ConstructVisitor, Named, VisResult, Visitor,
+};
 use crate::ir::{self, CloneName, LibrarySignatures};
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
+
+/// Tuple containing (port, set of ports).
+/// When the first port is read from, all of the ports in the set must be written to.
+type ReadTogether = (ir::Id, HashSet<ir::Id>);
 
 /// Pass to check for common errors such as missing assignments to `done` holes
 /// of groups.
-pub struct Papercut<'a> {
-    /// Map from (primitive name) -> (signal, signal).
-    /// Implies that when the first signal is driven for the primitive, the
-    /// second must also be driven.
-    /// For example, when driving the input port of a register, the `write_en`
+pub struct Papercut {
+    /// Map from (primitive name) -> Vec<(set of ports)>
+    /// When any of the ports in a set is driven, all ports in that set must
+    /// be driven.
+    /// For example, when driving the `in` port of a register, the `write_en`
     /// signal must also be driven.
-    drive_together: HashMap<&'a str, Vec<(&'a str, &'a str)>>,
+    write_together: HashMap<ir::Id, Vec<HashSet<ir::Id>>>,
+
+    /// Map from (primitive name) -> Vec<(port, set of ports)>
+    /// When the `port` in the tuple is being read from, all the ports in the
+    /// set must be driven.
+    read_together: HashMap<ir::Id, Vec<ReadTogether>>,
 }
 
-impl Default for Papercut<'_> {
-    fn default() -> Self {
-        let drive_together = [
-            ("std_reg", vec![("in", "write_en")]),
-            (
-                "std_mem_d1",
-                vec![("write_data", "write_en"), ("write_data", "addr0")],
-            ),
-            (
-                "std_mem_d2",
-                vec![
-                    ("write_data", "write_en"),
-                    ("write_data", "addr0"),
-                    ("write_data", "addr1"),
-                ],
-            ),
-            (
-                "std_mem_d3",
-                vec![
-                    ("write_data", "write_en"),
-                    ("write_data", "addr0"),
-                    ("write_data", "addr1"),
-                    ("write_data", "addr2"),
-                ],
-            ),
-            ("std_mul_pipe", vec![("go", "left"), ("go", "right")]),
-            ("std_mod_pipe", vec![("go", "left"), ("go", "right")]),
-        ]
-        .iter()
-        .cloned()
-        .collect();
-        Papercut { drive_together }
+/// Construct @write_together specs from the primitive definitions.
+fn write_together_specs<'a>(
+    primitives: impl Iterator<Item = &'a ir::Primitive>,
+) -> HashMap<ir::Id, Vec<HashSet<ir::Id>>> {
+    let mut write_together = HashMap::new();
+    for prim in primitives {
+        let writes: Vec<HashSet<ir::Id>> = prim
+            .find_all_with_attr("write_together")
+            .into_iter()
+            .map(|pd| {
+                (
+                    pd.attributes.get("write_together").unwrap(),
+                    pd.name.clone(),
+                )
+            })
+            .into_group_map()
+            .into_values()
+            .map(|writes| writes.into_iter().collect::<HashSet<_>>())
+            .collect();
+        if !writes.is_empty() {
+            write_together.insert(prim.name.clone(), writes);
+        }
+    }
+    write_together
+}
+
+/// Construct @read_together specs from the primitive definitions.
+fn read_together_specs<'a>(
+    primitives: impl Iterator<Item = &'a ir::Primitive>,
+) -> CalyxResult<HashMap<ir::Id, Vec<ReadTogether>>> {
+    let mut read_together = HashMap::new();
+    for prim in primitives {
+        let reads: Vec<ReadTogether> = prim
+                .find_all_with_attr("read_together")
+                .into_iter()
+                .map(|pd| (pd.attributes.get("read_together").unwrap(), pd))
+                .into_group_map()
+                .into_values()
+                .map(|ports| {
+                    let (outputs, inputs): (Vec<_>, Vec<_>) =
+                        ports.into_iter().partition(|&port| {
+                            matches!(port.direction, ir::Direction::Output)
+                        });
+                    // There should only be one port in the read_together specification.
+                    if outputs.len() != 1 {
+                        return Err(Error::Papercut(format!("Invalid @read_together specification for primitive `{}`. Each specification groups is only allowed to have one output port specified.", prim.name), prim.name.clone()))
+                    }
+                    assert!(outputs.len() == 1);
+                    Ok((
+                        outputs[0].name.clone(),
+                        inputs
+                            .into_iter()
+                            .map(|port| port.name.clone())
+                            .collect::<HashSet<_>>(),
+                    ))
+                })
+                .collect::<CalyxResult<_>>()?;
+        if !reads.is_empty() {
+            read_together.insert(prim.name.clone(), reads);
+        }
+    }
+    Ok(read_together)
+}
+
+impl ConstructVisitor for Papercut {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
+        let write_together = write_together_specs(ctx.lib.sigs.values());
+        let read_together = read_together_specs(ctx.lib.sigs.values())?;
+        Ok(Papercut {
+            write_together,
+            read_together,
+        })
     }
 }
 
-impl Named for Papercut<'_> {
+impl Named for Papercut {
     fn name() -> &'static str {
         "papercut"
     }
@@ -59,7 +112,25 @@ impl Named for Papercut<'_> {
     }
 }
 
-impl Visitor for Papercut<'_> {
+/// Extract information about a port.
+fn port_information(
+    port_ref: ir::RRC<ir::Port>,
+) -> Option<((ir::Id, ir::Id), ir::Id)> {
+    let port = port_ref.borrow();
+    if let ir::PortParent::Cell(cell_wref) = &port.parent {
+        let cell_ref = cell_wref.upgrade();
+        let cell = cell_ref.borrow();
+        if let ir::CellType::Primitive { name, .. } = &cell.prototype {
+            return Some((
+                (cell.name().clone(), name.clone()),
+                port.name.clone(),
+            ));
+        }
+    }
+    None
+}
+
+impl Visitor for Papercut {
     fn start(
         &mut self,
         comp: &mut ir::Component,
@@ -80,86 +151,87 @@ impl Visitor for Papercut<'_> {
             }
         }
 
-        // For each group, check if there is at least one write to the done
-        // signal of that group.
-        // Names of the groups whose `done` hole has been written to.
-        let mut hole_writes = HashSet::new();
-        for group in comp.groups.iter() {
-            for assign_ref in &group.borrow().assignments {
-                let assign = assign_ref.dst.borrow();
-                if assign.is_hole() && assign.name == "done" {
-                    if let ir::PortParent::Group(group_ref) = &assign.parent {
-                        hole_writes.insert(group_ref.upgrade().clone_name());
-                    }
-                }
-            }
-        }
-
-        let no_done_group = comp
-            .groups
-            .iter()
-            .find(|g| !hole_writes.contains(g.borrow().name()))
-            .map(|g| g.clone_name());
-
-        // If there is a group that hasn't been assigned to, throw an error.
-        if let Some(g) = no_done_group {
-            return Err(Error::Papercut(
-                format!(
-                    "No writes to the `done' hole for group `{}'",
-                    g.to_string()
-                ),
-                g,
-            ));
-        }
-
         // For each component that's being driven in a group, make
         // sure all signals defined for that component's
-        // `drive_together' are also driven.
+        // `write_together' and `read_together' are also driven.
         // For example, for a register, both the `.in' port and the
         // `.write_en' port need to be driven.
+        for group_ref in comp.groups.iter() {
+            let group = group_ref.borrow();
+            // Build a map from (instance name, primitive name) to the signals being
+            // read from and written to.
+            let all_writes =
+                analysis::ReadWriteSet::port_write_set(&group.assignments)
+                    .filter_map(port_information)
+                    .into_grouping_map()
+                    .collect::<HashSet<_>>();
+            let all_reads =
+                analysis::ReadWriteSet::port_read_set(&group.assignments)
+                    .filter_map(port_information)
+                    .into_grouping_map()
+                    .collect::<HashSet<_>>();
 
-        for group in comp.groups.iter() {
-            // 1. Build a map from (instance_name, type) to the signals being
-            // driven.
-            let mut drives: HashMap<(String, String), Vec<String>> =
-                HashMap::new();
-
-            // Get all the input ports driven for each component in this
-            // group.
-            for assign in &group.borrow().assignments {
-                let dst = assign.dst.borrow();
-                if let ir::PortParent::Cell(cell_wref) = &dst.parent {
-                    let cell_ref = cell_wref.upgrade();
-                    let cell = cell_ref.borrow();
-                    // If this is a primitive cell, collect the driver
-                    if let ir::CellType::Primitive { name, .. } =
-                        &cell.prototype
-                    {
-                        drives
-                            .entry((cell.name().id.clone(), name.id.clone()))
-                            .or_insert_with(Vec::new)
-                            .push(dst.name.id.clone())
+            for ((inst, comp_type), reads) in all_reads {
+                if let Some(spec) = self.read_together.get(&comp_type) {
+                    let empty = HashSet::new();
+                    let writes = all_writes
+                        .get(&(inst.clone(), comp_type.clone()))
+                        .unwrap_or(&empty);
+                    for (read, required) in spec {
+                        if reads.contains(read)
+                            && matches!(
+                                required.difference(writes).next(),
+                                Some(_)
+                            )
+                        {
+                            let missing = required
+                                .difference(writes)
+                                .sorted()
+                                .map(|port| {
+                                    format!("{}.{}", inst.clone(), port)
+                                })
+                                .join(", ");
+                            let msg =
+                                format!("Required signal not driven inside the group.\
+                                        \nWhen read the port `{}.{}', the ports [{}] must be written to.\
+                                        \nThe primitive type `{}' requires this invariant.",
+                                        inst,
+                                        read,
+                                        missing,
+                                        comp_type);
+                            return Err(Error::Papercut(
+                                msg,
+                                group.clone_name(),
+                            ));
+                        }
                     }
                 }
             }
-
-            // 2. Check if this matches the `drive_together' specification.
-            for ((inst, comp_type), signals) in drives {
-                if let Some(spec) = self.drive_together.get(comp_type.as_str())
-                {
-                    for (first, second) in spec {
-                        // If the first signal is driven, the second must also be
-                        // driven.
-                        if signals.contains(&first.to_string())
-                            && !signals.contains(&second.to_string())
-                        {
-                            let msg = format!(
-                        "Required signal not driven inside the group.\nWhen driving the signal `{}.{}' the signal `{}.{}' must also be driven. The primitive type `{}' requires this invariant.",
-                        inst,
-                        first,
-                        inst,
-                        second,
-                        comp_type);
+            // Check if this matches the `write_together' and `read_together' specification.
+            for ((inst, comp_type), writes) in all_writes {
+                if let Some(spec) = self.write_together.get(&comp_type) {
+                    for required in spec {
+                        // It should either be the case that:
+                        // 1. `writes` contains no writes that overlap with `required`
+                        //     In which case `required - writes` == `required`.
+                        // 2. `writes` contains writes that overlap with `required`
+                        //     In which case `required - writes == {}`
+                        let mut diff = required - &writes;
+                        if !diff.is_empty() && diff != *required {
+                            let first = writes.iter().sorted().next().unwrap();
+                            let missing = diff
+                                .drain()
+                                .sorted()
+                                .map(|port| format!("{}.{}", inst, port))
+                                .join(", ");
+                            let msg =
+                                format!("Required signal not driven inside the group.\
+                                        \nWhen writing to the port `{}.{}', the ports [{}] must also be written to.\
+                                        \nThe primitive type `{}' requires this invariant.",
+                                        inst,
+                                        first,
+                                        missing,
+                                        comp_type);
                             return Err(Error::Papercut(
                                 msg,
                                 group.clone_name(),
