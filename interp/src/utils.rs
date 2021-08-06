@@ -1,133 +1,55 @@
 use crate::values::Value;
 use calyx::errors::Error;
 use calyx::ir::Binding;
-use calyx::ir::{Assignment, Cell, Id, Port, RRC};
+use calyx::ir::{Assignment, Id, Port, RRC};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
-pub(super) struct PortRef(RRC<Port>);
 
-impl Deref for PortRef {
-    type Target = RRC<Port>;
+/// A wrapper to enable hashing of assignments by their destination port.
+pub(super) struct PortAssignment<'a>(*const Port, &'a Assignment);
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Hash for PortRef {
+impl<'a> Hash for PortAssignment<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (&self.0.borrow() as &Port as *const Port).hash(state);
+        self.0.hash(state);
     }
 }
 
-impl PartialEq for PortRef {
+impl<'a> PartialEq for PortAssignment<'a> {
     fn eq(&self, other: &Self) -> bool {
-        let self_const: *const Port = &*self.0.borrow();
-        let other_const: *const Port = &*other.0.borrow();
-
-        std::ptr::eq(self_const, other_const)
+        std::ptr::eq(self.0, other.0)
     }
 }
 
-impl Eq for PortRef {}
+impl<'a> Eq for PortAssignment<'a> {}
 
-impl From<RRC<Port>> for PortRef {
-    fn from(input: RRC<Port>) -> Self {
-        Self(input)
+impl<'a, 'b> PortAssignment<'a> {
+    /// Construct a new PortAssignment.
+    pub fn new(p_ref: &'b Port, a_ref: &'a Assignment) -> Self {
+        Self(p_ref as *const Port, a_ref)
     }
-}
 
-impl From<&RRC<Port>> for PortRef {
-    fn from(input: &RRC<Port>) -> Self {
-        Self(input.clone())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub(super) struct AssignmentRef<'a>(&'a Assignment);
-
-impl<'a> Hash for AssignmentRef<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        (self.0 as *const Assignment).hash(state);
-    }
-}
-
-impl<'a> PartialEq for AssignmentRef<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.0 as *const Assignment, other.0 as *const Assignment)
-    }
-}
-
-impl<'a> Eq for AssignmentRef<'a> {}
-
-impl<'a> From<&'a Assignment> for AssignmentRef<'a> {
-    fn from(input: &'a Assignment) -> Self {
-        Self(input)
-    }
-}
-
-impl<'a> Deref for AssignmentRef<'a> {
-    type Target = Assignment;
-
-    fn deref(&self) -> &Self::Target {
+    /// Get the associated port.
+    pub fn get_port(&self) -> *const Port {
         self.0
     }
-}
 
-pub(super) struct CellRef(RRC<Cell>);
-
-impl<'a> From<&'a CellRef> for &'a RRC<Cell> {
-    fn from(val: &'a CellRef) -> Self {
-        &val.0
+    /// Get the associated assignment.
+    pub fn get_assignment(&self) -> &Assignment {
+        &self.1
     }
 }
 
-impl Deref for CellRef {
-    type Target = RRC<Cell>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Hash for CellRef {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        (&self.0.borrow() as &Cell as *const Cell).hash(state);
-    }
-}
-
-impl PartialEq for CellRef {
-    fn eq(&self, other: &Self) -> bool {
-        let self_const: *const Cell = &*self.0.borrow();
-        let other_const: *const Cell = &*other.0.borrow();
-
-        std::ptr::eq(self_const, other_const)
-    }
-}
-
-impl Eq for CellRef {}
-
-impl From<RRC<Cell>> for CellRef {
-    fn from(input: RRC<Cell>) -> Self {
-        Self(input)
-    }
-}
-
-impl From<&RRC<Cell>> for CellRef {
-    fn from(input: &RRC<Cell>) -> Self {
-        Self(input.clone())
-    }
-}
-
-//new utility:
+/// Represent the RRC input as a raw pointer.
 pub fn get_const_from_rrc<T>(input: &RRC<T>) -> *const T {
     input.as_ptr()
 }
 
+/// A map representing all the identifiers and its associated values in a
+/// Futil program.
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
 pub struct MemoryMap(HashMap<Id, Vec<Value>>);
@@ -153,14 +75,13 @@ impl Deref for MemoryMap {
     }
 }
 
-use std::ops::DerefMut;
-
 impl DerefMut for MemoryMap {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
+/// Construct memory bindings.
 pub fn construct_bindings<'a, I, S: 'a>(iter: I) -> Binding
 where
     S: AsRef<str>,
