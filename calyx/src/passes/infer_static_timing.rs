@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
-use crate::errors::Error;
+use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
@@ -29,7 +29,7 @@ pub struct InferStaticTiming {
 // Override constructor to build latency_data information from the primitives
 // library.
 impl ConstructVisitor for InferStaticTiming {
-    fn from(ctx: &ir::Context) -> Self {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut latency_data = HashMap::new();
         // XXX(rachit): This is unneccesarily rebuilt for every component
         // Build latency data by traversing primitive cells
@@ -50,10 +50,10 @@ impl ConstructVisitor for InferStaticTiming {
                 }
             }
         }
-        InferStaticTiming {
+        Ok(InferStaticTiming {
             latency_data,
             comp_latency: HashMap::new(),
-        }
+        })
     }
 }
 

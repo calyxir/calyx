@@ -74,7 +74,7 @@ across groups. This is used by the `-p resource-sharing` to decide which compone
 can be shared.
 
 ### `bound(n)`
-Used in `infer-static-timing` and `static-timing` when the number of iterations 
+Used in `infer-static-timing` and `static-timing` when the number of iterations
 of a `While` control is known statically, as indicated by `n`.
 
 ### `generated`
@@ -82,5 +82,41 @@ Added by [`ir::Builder`][builder] to denote that the cell was added by a pass.
 
 ### `clk`
 Marks the special clock signal inserted by the `clk-insertion` pass, which helps with lowering to RTL languages that require an explicit clock.
+
+### `write_together(n)`
+Used by the `papercut` pass.
+Defines a group `n` of signals that all must be driven together:
+```
+primitive std_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+  @write_together(2) addr0: D0_IDX_SIZE,
+  @write_together(2) addr1: D1_IDX_SIZE,
+  @write_together(1) write_data: WIDTH,
+  @write_together(1) @go write_en: 1,
+  ...
+) -> (...);
+```
+
+This defines two groups.
+The first group requires that `write_en` and `write_data` signals together
+while the second requires that `addr0` and `addr1` are driven together.
+
+Note that `@write_together` specifications cannot encode implication of the
+form "if port `x` is driven then `y` should be driven".
+
+### `read_together(n)`
+Used by the `papercut` pass.
+Defines a group `n` in which when the read port is used then all the write
+ports must be driven as well.
+```
+primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
+  @read_together(1) addr0: IDX_SIZE, ...
+) -> (
+  @read_together(1) read_data: WIDTH, ...
+);
+```
+
+This requires that when `read_data` is used then `addr0` must be driven.
+Note that each group must have exactly one output port in it.
+
 
 [builder]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/ir/struct.Builder.html

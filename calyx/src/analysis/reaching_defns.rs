@@ -202,7 +202,6 @@ impl ReachingDefinitionAnalysis {
     ) -> OverlapMap {
         let continuous_regs: Vec<ir::Id> =
             ReadWriteSet::uses(continuous_assignments)
-                .into_iter()
                 .filter_map(|cell| {
                     let cell_ref = cell.borrow();
                     if let Some(name) = cell_ref.type_name() {
@@ -432,14 +431,13 @@ fn build_reaching_def(
             (new_reach, killed)
         }
         ir::Control::Enable(en) => {
-            let writes =
-                ReadWriteSet::must_write_set(&en.group.borrow().assignments);
+            let asgns = &en.group.borrow().assignments;
+            let writes = ReadWriteSet::must_write_set(asgns);
             // for each write:
             // Killing all other reaching defns for that var
             // generating a new defn (Id, GROUP)
             let write_set = writes
-                .iter()
-                .filter(|&x| match &x.borrow().prototype {
+                .filter(|x| match &x.borrow().prototype {
                     ir::CellType::Primitive { name, .. } => name == "std_reg",
                     _ => false,
                 })
@@ -448,7 +446,6 @@ fn build_reaching_def(
 
             let read_set =
                 ReadWriteSet::register_reads(&en.group.borrow().assignments)
-                    .iter()
                     .map(|x| x.clone_name())
                     .collect::<BTreeSet<_>>();
             // only kill a def if the value is not read.

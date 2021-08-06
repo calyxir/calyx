@@ -58,6 +58,17 @@ impl Primitive {
 
         Ok((bindings.into_iter().collect(), ports))
     }
+
+    /// Return all ports that have the attribute `attr`.
+    pub fn find_all_with_attr<S>(&self, attr: S) -> Vec<&PortDef>
+    where
+        S: AsRef<str>,
+    {
+        self.signature
+            .iter()
+            .filter(|&g| g.attributes.has(attr.as_ref()))
+            .collect()
+    }
 }
 
 /// Definition of a port.

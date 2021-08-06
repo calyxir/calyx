@@ -1,4 +1,4 @@
-use crate::ir::{self, Id, RRC};
+use crate::ir::{self, Id, PortIterator, RRC};
 use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},
@@ -315,29 +315,5 @@ impl ToString for GraphAnalysis {
             .expect("Failed to write to ScheduleConflicts string");
         }
         out
-    }
-}
-
-/// An iterator over ports. Wraps generic iterators
-/// over ports to allow functions to build and return
-/// port iterators in different ways.
-pub struct PortIterator<'a> {
-    port_iter: Box<dyn Iterator<Item = RRC<ir::Port>> + 'a>,
-}
-
-impl PortIterator<'_> {
-    /// Returns an empty iterator over ports.
-    fn empty() -> Self {
-        PortIterator {
-            port_iter: Box::new(vec![].into_iter()),
-        }
-    }
-}
-
-impl Iterator for PortIterator<'_> {
-    type Item = RRC<ir::Port>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.port_iter.next()
     }
 }

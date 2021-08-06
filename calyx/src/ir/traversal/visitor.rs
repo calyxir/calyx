@@ -56,12 +56,14 @@ where
 /// For most passes that don't need to use, this is just going to use the
 /// default() method.
 pub trait ConstructVisitor {
-    fn from(_ctx: &ir::Context) -> Self;
+    fn from(_ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized;
 }
 
 impl<T: Default + Sized + Visitor> ConstructVisitor for T {
-    fn from(_ctx: &ir::Context) -> Self {
-        T::default()
+    fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
+        Ok(T::default())
     }
 }
 
@@ -152,7 +154,7 @@ pub trait Visitor {
     where
         Self: ConstructVisitor + Sized,
     {
-        let mut visitor = Self::from(&*context);
+        let mut visitor = Self::from(&*context)?;
         visitor.do_pass(context)?;
         Ok(visitor)
     }

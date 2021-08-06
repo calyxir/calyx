@@ -243,7 +243,6 @@ impl LiveRangeAnalysis {
         // add global reads to every point
         let global_reads: Prop =
             ReadWriteSet::read_set(&comp.continuous_assignments)
-                .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
                 .collect::<HashSet<_>>()
@@ -310,7 +309,6 @@ impl LiveRangeAnalysis {
 
             // calculate reads, but ignore `variable`. we've already dealt with that
             let reads: HashSet<_> = ReadWriteSet::read_set(&assignments)
-                .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
                 .collect();
@@ -321,7 +319,6 @@ impl LiveRangeAnalysis {
             (reads.into(), writes.into())
         } else {
             let reads: HashSet<_> = ReadWriteSet::read_set(&group.assignments)
-                .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
                 .collect();
@@ -335,7 +332,6 @@ impl LiveRangeAnalysis {
                 .collect::<Vec<_>>();
 
             let writes: HashSet<_> = ReadWriteSet::write_set(&assignments)
-                .into_iter()
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
                 .collect();
