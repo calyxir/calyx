@@ -6,30 +6,64 @@ use std::rc::Rc;
 pub struct ReadWriteSet;
 
 impl ReadWriteSet {
+    /// Returns [ir::Port] which are read from in the assignments.
+    pub fn port_read_set(assigns: &[ir::Assignment]) -> ir::PortIterator<'_> {
+        let guard_ports = assigns
+            .iter()
+            .flat_map(|assign| assign.guard.all_ports().into_iter());
+        let iter = assigns
+            .iter()
+            .map(|assign| Rc::clone(&assign.src))
+            .chain(guard_ports)
+            .filter(|port| {
+                matches!(port.borrow().parent, ir::PortParent::Cell(_))
+            });
+        ir::PortIterator {
+            port_iter: Box::new(iter),
+        }
+    }
+
+    /// Returns [ir::Port] which are written to in the assignments.
+    pub fn port_write_set(assigns: &[ir::Assignment]) -> ir::PortIterator<'_> {
+        let iter = assigns.iter().map(|assign| Rc::clone(&assign.dst)).filter(
+            |port| matches!(port.borrow().parent, ir::PortParent::Cell(_)),
+        );
+        ir::PortIterator {
+            port_iter: Box::new(iter),
+        }
+    }
+
     /// Returns [ir::Cell] which are read from in the assignments.
     /// **Ignores** reads from group holes.
     pub fn read_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
-        let guard_ports = assigns.iter().flat_map(|assign| {
-            assign.guard.all_ports().into_iter().filter_map(|port_ref| {
+        let iter = Self::port_read_set(assigns)
+            .map(|port_ref| {
                 let port = port_ref.borrow();
                 if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                    Some(Rc::clone(&cell_wref.upgrade()))
+                    Rc::clone(&cell_wref.upgrade())
                 } else {
-                    None
+                    unreachable!()
                 }
             })
-        });
-        let iter = assigns
-            .iter()
-            .filter_map(|assign| {
-                let src_ref = assign.src.borrow();
-                if let ir::PortParent::Cell(cell_wref) = &src_ref.parent {
-                    Some(Rc::clone(&cell_wref.upgrade()))
+            .unique_by(|cell| cell.clone_name());
+
+        ir::CellIterator {
+            port_iter: Box::new(iter),
+        }
+    }
+
+    /// Returns [ir::Cell] which are written to by the assignments.
+    /// **Ignores** reads from group holes.
+    pub fn write_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
+        let iter = Self::port_write_set(assigns)
+            .map(|port_ref| {
+                let port = port_ref.borrow();
+                if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                    Rc::clone(&cell_wref.upgrade())
                 } else {
-                    None
+                    unreachable!()
                 }
             })
-            .chain(guard_ports)
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
@@ -72,25 +106,6 @@ impl ReadWriteSet {
             })
             .unique_by(|cell| cell.clone_name());
 
-        ir::CellIterator {
-            port_iter: Box::new(iter),
-        }
-    }
-
-    /// Returns [ir::Cell] which are written to by the assignments.
-    /// **Ignores** reads from group holes.
-    pub fn write_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
-        let iter = assigns
-            .iter()
-            .filter_map(|assign| {
-                let dst_ref = assign.dst.borrow();
-                if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
-                    Some(Rc::clone(&cell_wref.upgrade()))
-                } else {
-                    None
-                }
-            })
-            .unique_by(|cell| cell.clone_name());
         ir::CellIterator {
             port_iter: Box::new(iter),
         }
