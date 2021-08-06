@@ -11,7 +11,8 @@ syn region futilString start=/\v"/ skip=/\v\\./ end=/\v("|$)/
 hi link futilString String
 
 " @ style attributes
-syn region futilAttr start=/\v\@[a-zA-Z_]+\(/ end=/\v\)/ contains=futilConstant
+syn match futilAttr '\v\@[a-zA-Z_]+' nextgroup=futilAttrVal
+syn region futilAttrVal start=/\v\(/ end=/\v\)/ contains=futilConstant
 hi link futilAttr String
 
 " Control statements
@@ -28,7 +29,7 @@ syn match futilBoundName '\v[_a-zA-Z]((\-+)?[_a-zA-Z0-9]+)*' contained nextgroup
 hi link futilBoundName Include
 
 " Parameters attached to primitives
-syn region futilParams start=/\v\[/  end=/\v\]/ contains=futilParam
+syn region futilParams start=/\v\[/  end=/\v\]/ contains=futilParam nextgroup=futilPorts skipwhite skipnl
 syn match futilParam '\v[_a-zA-Z]((\-+)?[_a-zA-Z0-9]+)*' contained
 hi link futilParam Type
 
@@ -41,6 +42,7 @@ hi link futilPortParam Type
 
 " Output ports come after the arrow
 syn match futilArrow '->' nextgroup=futilPorts skipwhite skipnl
+hi link futilArrow futilOperator
 
 
 " Highlight holes
