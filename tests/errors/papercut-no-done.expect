@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: 
+Error: Malformed Structure: 
 8 |    group no_drive {
-  |          ^^^^^^^^ [Papercut] No writes to the `done' hole for group `no_drive'
+  |          ^^^^^^^^ No writes to the `done' hole for group `no_drive'
