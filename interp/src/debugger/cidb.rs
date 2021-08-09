@@ -197,6 +197,7 @@ impl<'a> Debugger<'a> {
                 Command::Break(target) => {
                     self.debugging_ctx.add_breakpoint(target)
                 }
+                Command::Exit => todo!(),
             }
 
             if component_interpreter.is_done() {

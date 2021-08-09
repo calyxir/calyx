@@ -38,6 +38,7 @@ pub enum Command<S: AsRef<str>> {
     PrintThree(S, S, S), // Print a specific port (fully specified)
     Break(S),            // Create a breakpoint
     Help,                // Help message
+    Exit,
 }
 
 impl Command<&str> {
@@ -59,7 +60,7 @@ impl<S: AsRef<str>> Command<S> {
             Command::Display => (vec!["Display"], "Display the full state"),
             Command::PrintOne(_) | Command::PrintTwo(..) | Command::PrintThree(..) => (vec!["Print", "P"], "Print target value"),
             Command::Help => (vec!["Help"], "Print this message"),
-            Command::Empty => unimplemented!(),
+            Command::Empty | Command::Exit => unimplemented!(),
             Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"), // This command needs no public facing
         }
     }
@@ -102,6 +103,7 @@ impl<S: AsRef<str>> Command<S> {
                 Ok(Command::Break(target.to_string()))
             }
             ["help"] => Ok(Command::Help),
+            ["quit"] | ["exit"] => Ok(Command::Exit),
             // can't get the size of the pattern match so use `input`
             _ => Err(InterpreterError::UnknownCommand(input.join(" "))),
         }
