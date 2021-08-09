@@ -34,6 +34,8 @@ pub trait Interpreter {
     fn is_done(&self) -> bool;
 
     fn get_env(&self) -> Vec<&InterpreterState>;
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id>;
 }
 
 pub struct EmptyInterpreter {
@@ -62,6 +64,10 @@ impl Interpreter for EmptyInterpreter {
     fn get_env(&self) -> Vec<&InterpreterState> {
         vec![&self.env]
     }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        vec![]
+    }
 }
 
 type EnableHolder<'a> = ReferenceHolder<'a, ir::Group>;
@@ -74,12 +80,14 @@ impl<'a> From<&'a ir::Enable> for ReferenceHolder<'a, ir::Group> {
 
 pub struct EnableInterpreter<'a> {
     enable: EnableHolder<'a>,
+    group_name: Option<ir::Id>,
     interp: AssignmentInterpreter<'a>,
 }
 
 impl<'a> EnableInterpreter<'a> {
     pub fn new<E>(
         enable: E,
+        group_name: Option<ir::Id>,
         env: InterpreterState,
         continuous: &'a [Assignment],
     ) -> Self
@@ -97,7 +105,11 @@ impl<'a> EnableInterpreter<'a> {
             &done.borrow() as &ir::Port as *const ir::Port,
             assigns,
         );
-        Self { enable, interp }
+        Self {
+            enable,
+            group_name,
+            interp,
+        }
     }
 }
 
@@ -129,6 +141,14 @@ impl<'a> Interpreter for EnableInterpreter<'a> {
 
     fn get_env(&self) -> Vec<&InterpreterState> {
         vec![self.interp.get_env()]
+    }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        if let Some(name) = &self.group_name {
+            vec![name]
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -202,6 +222,14 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
             unreachable!("Invalid internal state for SeqInterpreter")
         }
     }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        if let Some(grp) = &self.current_interpreter {
+            grp.currently_executing_group()
+        } else {
+            vec![]
+        }
+    }
 }
 
 pub struct ParInterpreter<'a> {
@@ -253,6 +281,13 @@ impl<'a> Interpreter for ParInterpreter<'a> {
     fn get_env(&self) -> Vec<&InterpreterState> {
         self.interpreters.iter().flat_map(|x| x.get_env()).collect()
     }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        self.interpreters
+            .iter()
+            .flat_map(|x| x.currently_executing_group())
+            .collect()
+    }
 }
 pub struct IfInterpreter<'a> {
     port: ConstPort,
@@ -272,6 +307,7 @@ impl<'a> IfInterpreter<'a> {
         let port: ConstPort = ctrl_if.port.as_ptr();
         let cond = EnableInterpreter::new(
             ctrl_if.cond.borrow(),
+            Some(ctrl_if.cond.borrow().name().clone()),
             env,
             continuous_assigns,
         );
@@ -336,6 +372,16 @@ impl<'a> Interpreter for IfInterpreter<'a> {
             unreachable!("Invalid internal state for IfInterpreter")
         }
     }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        if let Some(grp) = &self.cond {
+            grp.currently_executing_group()
+        } else if let Some(branch) = &self.branch_interp {
+            branch.currently_executing_group()
+        } else {
+            vec![]
+        }
+    }
 }
 pub struct WhileInterpreter<'a> {
     port: ConstPort,
@@ -356,6 +402,7 @@ impl<'a> WhileInterpreter<'a> {
         let cond = ctrl_while.cond.borrow();
         let cond_interp = EnableInterpreter::new(
             Ref::clone(&cond),
+            Some(cond.name().clone()),
             env,
             continuous_assignments,
         );
@@ -395,6 +442,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
                 let bi = self.body_interp.take().unwrap();
                 let cond_interp = EnableInterpreter::new(
                     Ref::clone(&self.cond),
+                    Some(self.cond.name().clone()),
                     bi.deconstruct(),
                     self.continuous_assignments,
                 );
@@ -427,6 +475,16 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
             unreachable!("Invalid internal state for WhileInterpreter")
         }
     }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        if let Some(cond) = &self.cond_interp {
+            cond.currently_executing_group()
+        } else if let Some(body) = &self.body_interp {
+            body.currently_executing_group()
+        } else {
+            vec![]
+        }
+    }
 }
 pub struct InvokeInterpreter {}
 
@@ -454,6 +512,10 @@ impl Interpreter for InvokeInterpreter {
     }
 
     fn get_env(&self) -> Vec<&InterpreterState> {
+        todo!()
+    }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
         todo!()
     }
 }
@@ -514,9 +576,14 @@ impl<'a> ControlInterpreter<'a> {
             Control::Invoke(i) => {
                 Self::Invoke(Box::new(InvokeInterpreter::new(i, env)))
             }
-            Control::Enable(e) => Self::Enable(Box::new(
-                EnableInterpreter::new(e, env, continuous_assignments),
-            )),
+            Control::Enable(e) => {
+                Self::Enable(Box::new(EnableInterpreter::new(
+                    e,
+                    Some(e.group.borrow().name().clone()),
+                    env,
+                    continuous_assignments,
+                )))
+            }
             Control::Empty(_) => {
                 Self::Empty(Box::new(EmptyInterpreter::new(env)))
             }
@@ -543,6 +610,10 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
 
     fn get_env(&self) -> Vec<&InterpreterState> {
         control_match!(self, i, i.get_env())
+    }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        control_match!(self, i, i.currently_executing_group())
     }
 }
 
@@ -604,5 +675,9 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
 
     fn get_env(&self) -> Vec<&InterpreterState> {
         vec![self.interp.get_env()]
+    }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        vec![]
     }
 }

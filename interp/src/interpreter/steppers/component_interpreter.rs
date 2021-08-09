@@ -77,4 +77,11 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
             StructuralOrControl::Control(c) => c.get_env(),
         }
     }
+
+    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        match &self.interp {
+            StructuralOrControl::Structural(s) => s.currently_executing_group(),
+            StructuralOrControl::Control(c) => c.currently_executing_group(),
+        }
+    }
 }
