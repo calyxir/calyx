@@ -74,7 +74,7 @@ impl<S: AsRef<str>> Command<S> {
         match input[..] {
             [] => Ok(Command::Empty),
             ["step"] | ["s"] => Ok(Command::Step),
-            ["continue"] => Ok(Command::Continue),
+            ["continue"] | ["c"] => Ok(Command::Continue),
             ["display"] => Ok(Command::Display),
             ["print", _target] | ["p", _target] => {
                 let target: Vec<_> = saved_input[0].split('.').collect();
