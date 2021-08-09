@@ -103,7 +103,7 @@ fn main() -> CalyxResult<()> {
             Err(err) => CalyxResult::Err(err),
         },
         Command::Debug(CommandDebug { pass_through }) => {
-            let cidb = Debugger::new(ctx_ref, main_component);
+            let mut cidb = Debugger::new(ctx_ref, main_component);
             let output = cidb.main_loop(env, pass_through);
             output.print_env();
             Ok(())

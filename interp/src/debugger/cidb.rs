@@ -1,4 +1,5 @@
 use super::commands::Command;
+use super::context::DebuggingContext;
 use super::io_utils::Input;
 use crate::environment::InterpreterState;
 use crate::interpreter::{ComponentInterpreter, Interpreter};
@@ -8,6 +9,7 @@ const SPACING: &str = "    ";
 pub struct Debugger<'a> {
     context: &'a ir::Context,
     main_component: &'a ir::Component,
+    debugging_ctx: DebuggingContext,
 }
 
 impl<'a> Debugger<'a> {
@@ -18,11 +20,12 @@ impl<'a> Debugger<'a> {
         Self {
             context,
             main_component,
+            debugging_ctx: DebuggingContext::default(),
         }
     }
 
     pub fn main_loop(
-        &self,
+        &mut self,
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version
     ) -> InterpreterState {
@@ -45,7 +48,25 @@ impl<'a> Debugger<'a> {
 
             match comm {
                 Command::Step => component_interpreter.step(),
-                Command::Continue => todo!(),
+                Command::Continue => {
+                    let mut breakpoints = self.debugging_ctx.hit_breakpoints(
+                        &component_interpreter.currently_executing_group(),
+                    );
+
+                    while breakpoints.is_empty()
+                        && !component_interpreter.is_done()
+                    {
+                        component_interpreter.step();
+                        breakpoints = self.debugging_ctx.hit_breakpoints(
+                            &component_interpreter.currently_executing_group(),
+                        );
+                    }
+                    if !component_interpreter.is_done() {
+                        for breakpoint in breakpoints {
+                            println!("Hit breakpoint: {}", breakpoint);
+                        }
+                    }
+                }
                 Command::Empty => {}
                 Command::Display => {
                     let states = component_interpreter.get_env();
@@ -170,9 +191,11 @@ impl<'a> Debugger<'a> {
                         println!("{}Unable to print. There is no component named '{}'", SPACING, comp)
                     }
                 }
-
                 Command::Help => {
                     print!("{}", Command::get_help_string())
+                }
+                Command::Break(target) => {
+                    self.debugging_ctx.add_breakpoint(target)
                 }
             }
 

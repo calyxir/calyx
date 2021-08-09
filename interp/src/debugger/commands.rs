@@ -20,11 +20,12 @@ impl Display for InterpreterError {
     }
 }
 
-const HELP_LIST: [Command<&str>; 5] = [
+const HELP_LIST: [Command<&str>; 6] = [
     Command::Step,
     Command::Continue,
     Command::Display,
     Command::PrintOne(""),
+    Command::Break(""),
     Command::Help,
 ];
 pub enum Command<S: AsRef<str>> {
@@ -35,6 +36,7 @@ pub enum Command<S: AsRef<str>> {
     PrintOne(S),         // Print a cell's ports
     PrintTwo(S, S),      // Print a specific port or specific cell
     PrintThree(S, S, S), // Print a specific port (fully specified)
+    Break(S),            // Create a breakpoint
     Help,                // Help message
 }
 
@@ -57,7 +59,8 @@ impl<S: AsRef<str>> Command<S> {
             Command::Display => (vec!["Display"], "Display the full state"),
             Command::PrintOne(_) | Command::PrintTwo(..) | Command::PrintThree(..) => (vec!["Print", "P"], "Print target value"),
             Command::Help => (vec!["Help"], "Print this message"),
-            Command::Empty => unimplemented!(), // This command needs no public facing
+            Command::Empty => unimplemented!(),
+            Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"), // This command needs no public facing
         }
     }
 
@@ -94,6 +97,10 @@ impl<S: AsRef<str>> Command<S> {
             ["print", ..] | ["p", ..] => Err(InterpreterError::InvalidCommand(
                 "Print requires exactly one target".to_string(),
             )),
+            ["break", _target] | ["br", _target] => {
+                let target = saved_input[0];
+                Ok(Command::Break(target.to_string()))
+            }
             ["help"] => Ok(Command::Help),
             // can't get the size of the pattern match so use `input`
             _ => Err(InterpreterError::UnknownCommand(input.join(" "))),
