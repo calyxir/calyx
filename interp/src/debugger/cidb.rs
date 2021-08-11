@@ -5,7 +5,7 @@ use crate::environment::InterpreterState;
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use calyx::ir::{self, RRC};
 
-const SPACING: &str = "    ";
+pub(super) const SPACING: &str = "    ";
 pub struct Debugger<'a> {
     context: &'a ir::Context,
     main_component: &'a ir::Component,
@@ -198,6 +198,9 @@ impl<'a> Debugger<'a> {
                     self.debugging_ctx.add_breakpoint(target)
                 }
                 Command::Exit => todo!(),
+                Command::InfoBreak => todo!(),
+                Command::DelByNum(_) => todo!(),
+                Command::DelByName(_) => todo!(),
             }
 
             if component_interpreter.is_done() {

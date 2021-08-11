@@ -39,6 +39,9 @@ pub enum Command<S: AsRef<str>> {
     Break(S),            // Create a breakpoint
     Help,                // Help message
     Exit,
+    InfoBreak,
+    DelByNum(u64),
+    DelByName(S),
 }
 
 impl Command<&str> {
@@ -60,8 +63,10 @@ impl<S: AsRef<str>> Command<S> {
             Command::Display => (vec!["Display"], "Display the full state"),
             Command::PrintOne(_) | Command::PrintTwo(..) | Command::PrintThree(..) => (vec!["Print", "P"], "Print target value"),
             Command::Help => (vec!["Help"], "Print this message"),
-            Command::Empty | Command::Exit => unimplemented!(),
-            Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"), // This command needs no public facing
+            Command::Empty | Command::Exit => unimplemented!(), // This command needs no public facing
+            Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"),
+            Command::InfoBreak => (vec!["Info break"], "List all breakpoints"),
+            Command::DelByNum(_) | Command::DelByName(_) => (vec!["del"], "Delete target breakpoint"),
         }
     }
 
@@ -101,6 +106,17 @@ impl<S: AsRef<str>> Command<S> {
             ["break", _target] | ["br", _target] => {
                 let target = saved_input[0];
                 Ok(Command::Break(target.to_string()))
+            }
+            ["info", "break"]
+            | ["info", "br"]
+            | ["i", "br"]
+            | ["i", "break"] => Ok(Command::InfoBreak),
+            ["del", target] | ["d", target] => {
+                if let Ok(num) = target.parse::<u64>() {
+                    Ok(Command::DelByNum(num))
+                } else {
+                    Ok(Command::DelByName(saved_input[0].to_string()))
+                }
             }
             ["help"] => Ok(Command::Help),
             ["quit"] | ["exit"] => Ok(Command::Exit),
