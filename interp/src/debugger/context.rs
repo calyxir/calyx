@@ -52,7 +52,7 @@ impl DebuggingContext {
     }
 
     pub fn remove_breakpoint(&mut self, target: String) {
-        self.breakpoints.retain(|x| &x.name != &target)
+        self.breakpoints.retain(|x| x.name != target)
     }
 
     pub fn remove_breakpoint_by_number(&mut self, target: u64) {

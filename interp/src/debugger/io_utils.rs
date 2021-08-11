@@ -1,24 +1,19 @@
 use super::commands::Command;
+//use rustyline::error::ReadlineError;
+use rustyline::Editor;
 use std::collections::VecDeque;
-use std::io::prelude::*;
-use std::io::{stdin, stdout, BufReader, Stdin};
 
 const SHELL_PROMPT: &str = " > ";
 
-#[inline]
-fn print_shell_prompt() {
-    print!("{}", SHELL_PROMPT);
-    stdout().flush().expect("Cannot flush stdout");
-}
 pub struct Input {
-    buffer: BufReader<Stdin>,
+    buffer: Editor<()>,
     command_buffer: VecDeque<Command<String>>,
 }
 
 impl Default for Input {
     fn default() -> Self {
         Self {
-            buffer: BufReader::new(stdin()),
+            buffer: Editor::new(),
             command_buffer: VecDeque::default(),
         }
     }
@@ -29,32 +24,27 @@ impl Input {
         if !self.command_buffer.is_empty() {
             return self.command_buffer.pop_front().unwrap();
         }
-        let mut line = String::new();
         loop {
-            print_shell_prompt();
-            let result = self.buffer.read_line(&mut line);
+            let result = self.buffer.readline(SHELL_PROMPT);
             match result {
-                Ok(len) => {
-                    if len == 0 {
-                        panic!("No new input")
+                Ok(result) => {
+                    self.buffer.add_history_entry(result.clone());
+                    match Command::<String>::parse(&result) {
+                        Ok(mut comm) => {
+                            if comm.len() == 1 {
+                                return comm.remove(0);
+                            } else {
+                                let res = comm.remove(0);
+                                self.command_buffer.extend(comm);
+                                return res;
+                            }
+                        }
+                        Err(e) => {
+                            println!("Error: {}", e);
+                        }
                     }
                 }
-                Err(err) => panic!("Unable to read from stdin! {}", err),
-            }
-            match Command::<String>::parse(&line) {
-                Ok(mut comm) => {
-                    if comm.len() == 1 {
-                        return comm.remove(0);
-                    } else {
-                        let res = comm.remove(0);
-                        self.command_buffer.extend(comm);
-                        return res;
-                    }
-                }
-                Err(e) => {
-                    println!("Error: {}", e);
-                    line = String::new()
-                }
+                Err(err) => panic!("{}", err),
             }
         }
     }
