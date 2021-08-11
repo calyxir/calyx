@@ -195,7 +195,19 @@ impl<'a> Debugger<'a> {
                     print!("{}", Command::get_help_string())
                 }
                 Command::Break(target) => {
-                    self.debugging_ctx.add_breakpoint(target)
+                    if self
+                        .context
+                        .components
+                        .iter()
+                        .any(|x| x.groups.find(&target).is_some())
+                    {
+                        self.debugging_ctx.add_breakpoint(target)
+                    } else {
+                        println!(
+                            "{}There is no group named: {}",
+                            SPACING, target
+                        )
+                    }
                 }
                 Command::Exit => todo!(),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
