@@ -72,29 +72,31 @@ impl<S: AsRef<str>> Command<S> {
 
     /// Parse the given input string into a Command returning an
     /// InterpreterError if the parse is invalid
-    pub fn parse(input: &str) -> Result<Command<String>, InterpreterError> {
+    pub fn parse(
+        input: &str,
+    ) -> Result<Vec<Command<String>>, InterpreterError> {
         let saved_input: Vec<_> = input.split_whitespace().skip(1).collect();
         let input = input.trim().to_lowercase(); // basic normalization
         let input: Vec<_> = input.split_whitespace().collect();
 
         match input[..] {
-            [] => Ok(Command::Empty),
-            ["step"] | ["s"] => Ok(Command::Step),
-            ["continue"] | ["c"] => Ok(Command::Continue),
-            ["display"] => Ok(Command::Display),
+            [] => Ok(vec![Command::Empty]),
+            ["step"] | ["s"] => Ok(vec![Command::Step]),
+            ["continue"] | ["c"] => Ok(vec![Command::Continue]),
+            ["display"] => Ok(vec![Command::Display]),
             ["print", _target] | ["p", _target] => {
                 let target: Vec<_> = saved_input[0].split('.').collect();
                 match target[..] {
-                    [t] => Ok(Command::PrintOne(t.to_string())),
-                    [first, second] => Ok(Command::PrintTwo(
+                    [t] => Ok(vec![Command::PrintOne(t.to_string())]),
+                    [first, second] => Ok(vec![Command::PrintTwo(
                         first.to_string(),
                         second.to_string(),
-                    )),
-                    [component, cell, port] => Ok(Command::PrintThree(
+                    )]),
+                    [component, cell, port] => Ok(vec![Command::PrintThree(
                         component.to_string(),
                         cell.to_string(),
                         port.to_string(),
-                    )),
+                    )]),
                     _ => Err(InterpreterError::InvalidCommand(
                         "Print requires exactly one target".to_string(),
                     )),
@@ -103,23 +105,35 @@ impl<S: AsRef<str>> Command<S> {
             ["print", ..] | ["p", ..] => Err(InterpreterError::InvalidCommand(
                 "Print requires exactly one target".to_string(),
             )),
-            ["break", _target] | ["br", _target] => {
-                let target = saved_input[0];
-                Ok(Command::Break(target.to_string()))
+            ["break", _target, ..] | ["br", _target, ..] => {
+                let vec = saved_input
+                    .iter()
+                    .map(|x| Command::Break(x.to_string()))
+                    .collect();
+                Ok(vec)
             }
             ["info", "break"]
             | ["info", "br"]
             | ["i", "br"]
-            | ["i", "break"] => Ok(Command::InfoBreak),
-            ["del", target] | ["d", target] => {
-                if let Ok(num) = target.parse::<u64>() {
-                    Ok(Command::DelByNum(num))
-                } else {
-                    Ok(Command::DelByName(saved_input[0].to_string()))
-                }
+            | ["i", "break"] => Ok(vec![Command::InfoBreak]),
+            ["del"] | ["d"] => Err(InterpreterError::InvalidCommand(
+                "Command requires a target".to_string(),
+            )),
+            ["del", ..] | ["d", ..] => {
+                let vec = saved_input
+                    .iter()
+                    .map(|target| {
+                        if let Ok(num) = target.parse::<u64>() {
+                            Command::DelByNum(num)
+                        } else {
+                            Command::DelByName(saved_input[0].to_string())
+                        }
+                    })
+                    .collect();
+                Ok(vec)
             }
-            ["help"] => Ok(Command::Help),
-            ["quit"] | ["exit"] => Ok(Command::Exit),
+            ["help"] => Ok(vec![Command::Help]),
+            ["quit"] | ["exit"] => Ok(vec![Command::Exit]),
             // can't get the size of the pattern match so use `input`
             _ => Err(InterpreterError::UnknownCommand(input.join(" "))),
         }
