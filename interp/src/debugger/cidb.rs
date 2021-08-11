@@ -198,9 +198,13 @@ impl<'a> Debugger<'a> {
                     self.debugging_ctx.add_breakpoint(target)
                 }
                 Command::Exit => todo!(),
-                Command::InfoBreak => todo!(),
-                Command::DelByNum(_) => todo!(),
-                Command::DelByName(_) => todo!(),
+                Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
+                Command::DelByNum(target) => {
+                    self.debugging_ctx.remove_breakpoint_by_number(target)
+                }
+                Command::DelByName(target) => {
+                    self.debugging_ctx.remove_breakpoint(target)
+                }
             }
 
             if component_interpreter.is_done() {
