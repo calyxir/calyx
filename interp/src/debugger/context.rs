@@ -42,13 +42,17 @@ pub(super) struct DebuggingContext {
 
 impl DebuggingContext {
     pub fn add_breakpoint(&mut self, target: String) {
-        self.count += 1;
-        let br = BreakPoint {
-            id: self.count,
-            name: target,
-            enabled: true,
-        };
-        self.breakpoints.push(br);
+        if !self.breakpoints.iter().any(|x| x.name == target) {
+            self.count += 1;
+            let br = BreakPoint {
+                id: self.count,
+                name: target,
+                enabled: true,
+            };
+            self.breakpoints.push(br);
+        } else {
+            println!("A breakpoint already exists for \"{}\"", target)
+        }
     }
 
     pub fn remove_breakpoint(&mut self, target: String) {
@@ -57,6 +61,42 @@ impl DebuggingContext {
 
     pub fn remove_breakpoint_by_number(&mut self, target: u64) {
         self.breakpoints.retain(|x| x.id != target)
+    }
+
+    pub fn enable_breakpoint(&mut self, target: &str) {
+        for x in self.breakpoints.iter_mut() {
+            if x.name == target {
+                x.enable();
+                break;
+            }
+        }
+    }
+
+    pub fn enable_breakpoint_by_num(&mut self, target: u64) {
+        for x in self.breakpoints.iter_mut() {
+            if x.id == target {
+                x.enable();
+                break;
+            }
+        }
+    }
+
+    pub fn disable_breakpoint(&mut self, target: &str) {
+        for x in self.breakpoints.iter_mut() {
+            if x.name == target {
+                x.disable();
+                break;
+            }
+        }
+    }
+
+    pub fn disable_breakpoint_by_num(&mut self, target: u64) {
+        for x in self.breakpoints.iter_mut() {
+            if x.id == target {
+                x.disable();
+                break;
+            }
+        }
     }
 
     pub fn hit_breakpoints(
