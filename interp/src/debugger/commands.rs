@@ -136,7 +136,33 @@ impl<S: AsRef<str>> Command<S> {
                         if let Ok(num) = target.parse::<u64>() {
                             Command::DelByNum(num)
                         } else {
-                            Command::DelByName(saved_input[0].to_string())
+                            Command::DelByName(target.to_string())
+                        }
+                    })
+                    .collect();
+                Ok(vec)
+            }
+            ["enable", ..] => {
+                let vec = saved_input
+                    .iter()
+                    .map(|target| {
+                        if let Ok(num) = target.parse::<u64>() {
+                            Command::EnableByNum(num)
+                        } else {
+                            Command::EnableByName(target.to_string())
+                        }
+                    })
+                    .collect();
+                Ok(vec)
+            }
+            ["disable", ..] => {
+                let vec = saved_input
+                    .iter()
+                    .map(|target| {
+                        if let Ok(num) = target.parse::<u64>() {
+                            Command::DisableByNum(num)
+                        } else {
+                            Command::DisableByName(target.to_string())
                         }
                     })
                     .collect();
