@@ -20,13 +20,17 @@ impl Display for InterpreterError {
     }
 }
 
-const HELP_LIST: [Command<&str>; 6] = [
+const HELP_LIST: [Command<&str>; 10] = [
     Command::Step,
     Command::Continue,
     Command::Display,
     Command::PrintOne(""),
     Command::Break(""),
     Command::Help,
+    Command::InfoBreak,
+    Command::DelByName(""),
+    Command::EnableByName(""),
+    Command::DisableByName(""),
 ];
 pub enum Command<S: AsRef<str>> {
     Step,                // Step execution
@@ -42,6 +46,10 @@ pub enum Command<S: AsRef<str>> {
     InfoBreak,
     DelByNum(u64),
     DelByName(S),
+    EnableByNum(u64),
+    EnableByName(S),
+    DisableByNum(u64),
+    DisableByName(S),
 }
 
 impl Command<&str> {
@@ -67,6 +75,8 @@ impl<S: AsRef<str>> Command<S> {
             Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"),
             Command::InfoBreak => (vec!["Info break"], "List all breakpoints"),
             Command::DelByNum(_) | Command::DelByName(_) => (vec!["del"], "Delete target breakpoint"),
+            Command::EnableByNum(_) | Command::EnableByName(_) => (vec!["enable"], "Enable target breakpoint"),
+            Command::DisableByNum(_) | Command::DisableByName(_) => (vec!["disable"], "Disable target breakpoint"),
         }
     }
 

@@ -217,6 +217,18 @@ impl<'a> Debugger<'a> {
                 Command::DelByName(target) => {
                     self.debugging_ctx.remove_breakpoint(target)
                 }
+                Command::EnableByNum(target) => {
+                    self.debugging_ctx.enable_breakpoint_by_num(target)
+                }
+                Command::EnableByName(target) => {
+                    self.debugging_ctx.enable_breakpoint(&target)
+                }
+                Command::DisableByNum(target) => {
+                    self.debugging_ctx.disable_breakpoint_by_num(target)
+                }
+                Command::DisableByName(target) => {
+                    self.debugging_ctx.disable_breakpoint(&target)
+                }
             }
 
             if component_interpreter.is_done() {
