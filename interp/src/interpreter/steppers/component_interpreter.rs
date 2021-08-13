@@ -34,7 +34,7 @@ impl<'a> ComponentInterpreter<'a> {
     ) -> Self {
         let interp;
 
-        if control_is_empty(&control) {
+        if control_is_empty(control) {
             interp = StructuralInterpreter::from_component(comp, env).into();
         } else {
             interp = ControlInterpreter::new(

@@ -31,7 +31,7 @@ impl<'a> Debugger<'a> {
     ) -> InterpreterState {
         let control: &ir::Control = &self.main_component.control.borrow();
         let mut component_interpreter = ComponentInterpreter::from_component(
-            &self.main_component,
+            self.main_component,
             control,
             env,
         );

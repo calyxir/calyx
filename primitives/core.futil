@@ -25,34 +25,34 @@ extern "core.sv" {
 
   /// Memories
   primitive std_reg<"static"=1>[WIDTH](
-    in: WIDTH,
-    @go(1) write_en: 1,
-    @clk(1) clk: 1,
-    @reset(1) reset: 1
+    @write_together(1) in: WIDTH,
+    @write_together(1) @go write_en: 1,
+    @clk clk: 1,
+    @reset reset: 1
   ) -> (
     out: WIDTH,
-    @done(1) done: 1
+    @done done: 1
   );
 
   primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
-    addr0: IDX_SIZE,
-    write_data: WIDTH,
-    @go(1) write_en: 1,
-    @clk(1) clk: 1
+    @read_together(1) addr0: IDX_SIZE,
+    @write_together(1) write_data: WIDTH,
+    @write_together(1) @go write_en: 1,
+    @clk clk: 1
   ) -> (
-    read_data: WIDTH,
-    @done(1) done: 1
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
   );
 
   primitive std_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
-    addr0: D0_IDX_SIZE,
-    addr1: D1_IDX_SIZE,
-    write_data: WIDTH,
-    @go(1) write_en: 1,
-    @clk(1) clk: 1
+    @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
+    @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
+    @write_together(1) write_data: WIDTH,
+    @write_together(1) @go write_en: 1,
+    @clk clk: 1
   ) -> (
-    read_data: WIDTH,
-    @done(1) done: 1
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
   );
 
   primitive std_mem_d3<"static"=1>[
@@ -64,15 +64,15 @@ extern "core.sv" {
       D1_IDX_SIZE,
       D2_IDX_SIZE
   ] (
-    addr0: D0_IDX_SIZE,
-    addr1: D1_IDX_SIZE,
-    addr2: D2_IDX_SIZE,
-    write_data: WIDTH,
-    @go(1) write_en: 1,
-    @clk(1) clk: 1
+    @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
+    @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
+    @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
+    @write_together(1) write_data: WIDTH,
+    @write_together(1) @go write_en: 1,
+    @clk clk: 1
   ) -> (
-    read_data: WIDTH,
-    @done(1) done: 1
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
   );
 
   primitive std_mem_d4<"static"=1>[
@@ -86,15 +86,15 @@ extern "core.sv" {
       D2_IDX_SIZE,
       D3_IDX_SIZE
   ] (
-    addr0: D0_IDX_SIZE,
-    addr1: D1_IDX_SIZE,
-    addr2: D2_IDX_SIZE,
-    addr3: D3_IDX_SIZE,
-    write_data: WIDTH,
-    @go(1) write_en: 1,
-    @clk(1) clk: 1
+    @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
+    @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
+    @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
+    @read_together(1) @write_together(2) addr3: D3_IDX_SIZE,
+    @write_together(1) write_data: WIDTH,
+    @write_together(1) @go write_en: 1,
+    @clk clk: 1
   ) -> (
-    read_data: WIDTH,
-    @done(1) done: 1
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
   );
 }

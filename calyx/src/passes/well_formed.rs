@@ -57,6 +57,29 @@ impl Visitor for WellFormed {
             }
         }
 
+        // For each group, check if there is at least one write to the done
+        // signal of that group.
+        // Names of the groups whose `done` hole has been written to.
+        for group_ref in comp.groups.iter() {
+            let group = group_ref.borrow();
+            let gname = group.name();
+            // Find an assignment writing to this group's done condition.
+            let done = group.assignments.iter().find(|assign| {
+                let dst = assign.dst.borrow();
+                dst.is_hole()
+                    && dst.name == "done"
+                    && dst.get_parent_name() == gname
+            });
+            if done.is_none() {
+                return Err(Error::MalformedStructure(gname.fmt_err(
+                    &format!(
+                        "No writes to the `done' hole for group `{}'",
+                        gname.to_string()
+                    ),
+                )));
+            }
+        }
+
         // Check if any groups refer to another group's done signal.
         for group_ref in comp.groups.iter() {
             let group = group_ref.borrow();

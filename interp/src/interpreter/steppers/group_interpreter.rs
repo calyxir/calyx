@@ -1,7 +1,7 @@
 use super::super::interpret_group::{eval_prims, finish_interpretation};
 use super::super::utils::{self, ConstCell, ConstPort};
 use crate::environment::InterpreterState;
-use crate::utils::{get_const_from_rrc, AsRaw};
+use crate::utils::{AsRaw, PortAssignment};
 use crate::values::Value;
 use calyx::ir::{self, Assignment, Cell, RRC};
 use std::collections::HashSet;
@@ -153,34 +153,41 @@ impl<'a> AssignmentInterpreter<'a> {
         // retain old value
         self.val_changed.get_or_insert(true);
 
-        let possible_ports: HashSet<*const ir::Port> = self
-            .assigns
-            .iter_all()
-            .map(|a| get_const_from_rrc(&a.dst))
-            .collect();
+        let possible_ports: HashSet<*const ir::Port> =
+            self.assigns.iter_all().map(|a| a.dst.as_raw()).collect();
 
         // this unwrap is safe
         while self.val_changed.unwrap() {
-            let mut assigned_ports: HashSet<*const ir::Port> = HashSet::new();
+            let mut assigned_ports: HashSet<PortAssignment> = HashSet::new();
             self.val_changed = Some(false);
 
             let mut updates_list = vec![];
             // compute all updates from the assignments
             for assignment in self.assigns.iter_all() {
                 if self.state.eval_guard(&assignment.guard) {
+                    let pa = PortAssignment::new(assignment);
                     //first check nothing has been assigned to this destination yet
-                    if assigned_ports
-                        .contains(&get_const_from_rrc(&assignment.dst))
-                    {
+                    if let Some(prior_assign) = assigned_ports.get(&pa) {
+                        let s_orig = utils::assignment_to_string(
+                            prior_assign.get_assignment(),
+                        );
+                        let s_conf =
+                            utils::assignment_to_string(pa.get_assignment());
+
                         let dst = assignment.dst.borrow();
                         panic!(
-                          "[interpret_group]: multiple assignments to one port: {}.{}", dst.get_parent_name(), dst.name
-                      );
+                            "[interpret_group]: multiple assignments to one port: {}.{}\n\
+                              Between assignments:\n\
+                              {}\n\
+                              and\n\
+                              {}",
+                            dst.get_parent_name(), dst.name, s_orig, s_conf
+                        );
                     }
                     //now add to the HS, because we are assigning
                     //regardless of whether value has changed this is still a
                     //value driving the port
-                    assigned_ports.insert(assignment.dst.as_raw());
+                    assigned_ports.insert(pa);
                     //ok now proceed
                     //the below (get) attempts to get from working_env HM first, then
                     //backing_env Smoosher. What does it mean for the value to be in HM?
@@ -200,9 +207,14 @@ impl<'a> AssignmentInterpreter<'a> {
                 }
             }
 
+            let assigned_const_ports: HashSet<_> = assigned_ports
+                .iter()
+                .map(PortAssignment::get_port)
+                .collect();
+
             //now assign rest to 0
             //first get all that need to be 0
-            for port in &possible_ports - &assigned_ports {
+            for port in &possible_ports - &assigned_const_ports {
                 //need to set to zero, because unassigned
                 //ok now proceed
 

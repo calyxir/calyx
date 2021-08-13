@@ -10,6 +10,7 @@
 - [Tools](./tools/index.md)
   - [Runt](./tools/runt.md)
   - [`exp` Generator](./tools/exp-generator.md)
+  - [Editor Highlighting](./tools/editor-highlighting.md)
 - [Language Tutorial](./tutorial/language-tut.md)
   - [Multi-Component Designs](./lang/multi-component.md)
   - [Passing Memories by Reference](./lang/memories-by-reference.md)

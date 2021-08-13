@@ -1,5 +1,9 @@
 ---CODE---
 101
 ---STDERR---
-thread 'main' panicked at '[interpret_group]: multiple assignments to one port: reg0.in', interp/src/interpreter/steppers/group_interpreter.rs:176:25
+thread 'main' panicked at '[interpret_group]: multiple assignments to one port: reg0.in
+Between assignments:
+reg0.in = const0.out;
+and
+reg0.in = const1.out;', interp/src/interpreter/steppers/group_interpreter.rs:178:25
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

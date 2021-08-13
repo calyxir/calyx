@@ -23,7 +23,6 @@ use super::steppers::AssignmentInterpreter;
 //     assigns: I,
 // ) -> FutilResult<InterpreterState> {
 // }
-use crate::utils::get_const_from_rrc;
 
 use std::rc::Rc;
 
@@ -89,7 +88,7 @@ pub fn interpret_group(
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
 ) -> CalyxResult<InterpreterState> {
-    let grp_done = get_done_port(&group);
+    let grp_done = get_done_port(group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
     let interp = AssignmentInterpreter::new(
@@ -106,7 +105,7 @@ pub fn finish_group_interpretation(
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
 ) -> CalyxResult<InterpreterState> {
-    let grp_done = get_done_port(&group);
+    let grp_done = get_done_port(group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
     finish_interpretation(
@@ -142,9 +141,9 @@ pub(crate) fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];
 
     for cell in exec_list {
-        let inputs = get_inputs(&env, &cell.borrow());
+        let inputs = get_inputs(env, &cell.borrow());
 
-        let executable = prim_map.get_mut(&get_const_from_rrc(&cell));
+        let executable = prim_map.get_mut(&cell.as_raw());
 
         if let Some(prim) = executable {
             let new_vals = if reset_flag {
@@ -168,7 +167,7 @@ pub(crate) fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     }
 
     for (port, val) in update_list {
-        env.insert(get_const_from_rrc(&port), val);
+        env.insert(port, val);
     }
 
     val_changed

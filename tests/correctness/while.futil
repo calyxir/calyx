@@ -9,6 +9,7 @@ component main() -> () {
 
   wires {
     group cond<"static"=0> {
+      i.addr0 = 1'd0;
       lt.left = i.read_data;
       lt.right = 32'd8;
       cond[done] = 1'b1;

@@ -217,7 +217,7 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
         if let Some(cur) = &self.current_interpreter {
             cur.get_env()
         } else if let Some(env) = &self.env {
-            vec![&env]
+            vec![env]
         } else {
             unreachable!("Invalid internal state for SeqInterpreter")
         }
@@ -328,6 +328,7 @@ impl<'a> Interpreter for IfInterpreter<'a> {
             if i.is_done() {
                 let i = self.cond.take().unwrap();
                 let branch;
+                #[allow(clippy::branches_sharing_code)]
                 if is_signal_high(i.get(self.port)) {
                     let env = i.deconstruct();
                     branch = ControlInterpreter::new(

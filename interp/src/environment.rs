@@ -13,33 +13,33 @@ use std::iter::once;
 use std::rc::Rc;
 
 /// A raw pointer reference to a cell. Can only be used as a key, but cannot be
-/// used to access the cell itself
+/// used to access the cell itself.
 type ConstCell = *const ir::Cell;
 
 /// A raw pointer reference to a port. As with cell, it is only suitable for use
-/// as a key and cannot be used to access the port itself
+/// as a key and cannot be used to access the port itself.
 type ConstPort = *const ir::Port;
 
 /// A map defining primitive implementations for Cells. As it is keyed by
-/// CellRefs the lifetime of the keys is independent of the actual cells
+/// ConstCell the lifetime of the keys is independent of the actual cells.
 type PrimitiveMap =
     RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>;
 
-/// A map defining values for ports. As it is keyed by PortRefs, the lifetime of
+/// A map defining values for ports. As it is keyed by ConstPort, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
-/// than heirarchical which simplifies the access interface
+/// than heirarchical which simplifies the access interface.
 type PortValMap = Smoosher<ConstPort, Value>;
 
 /// The environment to interpret a Calyx program.
 pub struct InterpreterState {
-    ///clock count
+    /// Clock count
     pub clk: u64,
 
-    ///mapping from cells to prims
+    /// Mapping from cells to prims.
     pub cell_prim_map: PrimitiveMap,
 
-    ///use raw pointers for hashmap: ports to values
-    //this is a Smoosher (see stk_env.rs)
+    /// Use raw pointers for hashmap: ports to values
+    // This is a Smoosher (see stk_env.rs)
     pub pv_map: PortValMap,
 
     /// A reference to the context.
@@ -239,13 +239,13 @@ impl InterpreterState {
 
     /// Return the value associated with a component's port.
     pub fn get_from_port<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
-        &self.pv_map.get(&port.as_raw()).unwrap()
+        self.pv_map.get(&port.as_raw()).unwrap()
     }
 
     /// Outputs the cell state;
-    ///TODO (write to a specified output in the future) We could do the printing
-    ///of values here for tracing purposes as discussed. Could also have a
-    ///separate DS that we could put the cell states into for more custom tracing
+    // TODO (write to a specified output in the future) We could do the printing
+    // of values here for tracing purposes as discussed. Could also have a
+    // separate DS that we could put the cell states into for more custom tracing
     pub fn print_env(&self) {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
