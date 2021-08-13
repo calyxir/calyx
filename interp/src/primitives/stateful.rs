@@ -570,6 +570,7 @@ pub struct StdMemD2 {
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
     write_en: bool,
+    last_idx: (u64, u64),
 }
 
 impl StdMemD2 {
@@ -591,6 +592,11 @@ impl StdMemD2 {
             .iter(),
         );
         Self::new(bindings)
+    }
+
+    #[inline]
+    fn max_idx(&self) -> u64 {
+        self.d0_size * self.d1_size
     }
 
     /// Instantiates a new StdMemD2 storing data of width [width], containing
@@ -620,6 +626,7 @@ impl StdMemD2 {
             data,
             update: None,
             write_en: false,
+            last_idx: (0, 0),
         }
     }
 
@@ -641,6 +648,12 @@ impl StdMemD2 {
 impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        if self.calc_addr(self.last_idx.0, self.last_idx.1) >= self.max_idx() {
+            panic!(
+                "[std_mem_d2] Supplied with an invalid index {},{}",
+                self.last_idx.0, self.last_idx.1
+            );
+        }
         if self.write_en {
             assert!(self.update.is_some());
             self.write_en = false;
@@ -696,6 +709,7 @@ impl Primitive for StdMemD2 {
 
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
+        self.last_idx = (addr0, addr1);
         let real_addr = self.calc_addr(addr0, addr1);
 
         if write_en.as_u64() == 1 {
@@ -707,7 +721,11 @@ impl Primitive for StdMemD2 {
         }
         vec![(
             ir::Id::from("read_data"),
-            self.data[real_addr as usize].clone(),
+            if real_addr < self.max_idx() {
+                self.data[real_addr as usize].clone()
+            } else {
+                Value::zeroes(self.width as usize)
+            },
         )]
     }
 
@@ -724,6 +742,7 @@ impl Primitive for StdMemD2 {
         //clear update
         self.update = None;
         self.write_en = false;
+        self.last_idx = (addr0, addr1);
 
         vec![
             (ir::Id::from("read_data"), old),
