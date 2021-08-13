@@ -508,7 +508,7 @@ impl Primitive for StdMemD1 {
         //else, empty vector return
         vec![(
             ir::Id::from("read_data"),
-            if addr0 < self.idx_size {
+            if addr0 < self.size {
                 self.data[addr0 as usize].clone()
             } else {
                 Value::zeroes(self.width as usize)
