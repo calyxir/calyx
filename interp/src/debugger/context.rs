@@ -34,7 +34,6 @@ impl std::fmt::Display for BreakPoint {
 }
 
 #[derive(Default)]
-
 pub(super) struct DebuggingContext {
     breakpoints: Vec<BreakPoint>,
     count: u64,

@@ -6,6 +6,10 @@ use crate::interpreter::{ComponentInterpreter, Interpreter};
 use calyx::ir::{self, RRC};
 
 pub(super) const SPACING: &str = "    ";
+
+/// The interactive Calyx debugger. The debugger itself is run with the
+/// [main_loop] function while this struct holds auxilliary information used to
+/// coordinate the debugging process.
 pub struct Debugger<'a> {
     context: &'a ir::Context,
     main_component: &'a ir::Component,
@@ -27,7 +31,7 @@ impl<'a> Debugger<'a> {
     pub fn main_loop(
         &mut self,
         env: InterpreterState,
-        pass_through: bool, //flag to just evaluate the debugger version
+        pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterState {
         let control: &ir::Control = &self.main_component.control.borrow();
         let mut component_interpreter = ComponentInterpreter::from_component(
@@ -79,7 +83,7 @@ impl<'a> Debugger<'a> {
                         }
                     )
                 }
-                Command::PrintOne(cell) => {
+                Command::PrintCell(cell) => {
                     let env: Vec<_> = component_interpreter
                         .get_env()
                         .into_iter()
@@ -103,7 +107,7 @@ impl<'a> Debugger<'a> {
                         }
                     }
                 }
-                Command::PrintTwo(first, second) => {
+                Command::PrintCellOrPort(first, second) => {
                     // component & cell/port
                     if let Some(comp) =
                         self.context.components.iter().find(|x| x.name == first)
@@ -171,7 +175,7 @@ impl<'a> Debugger<'a> {
                         }
                     }
                 }
-                Command::PrintThree(comp, cell, port) => {
+                Command::PrintFullySpecified(comp, cell, port) => {
                     if let Some(comp_ref) =
                         self.context.components.iter().find(|x| x.name == comp)
                     {
@@ -211,22 +215,22 @@ impl<'a> Debugger<'a> {
                 }
                 Command::Exit => todo!(),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
-                Command::DelByNum(target) => {
+                Command::DelBreakpointByNum(target) => {
                     self.debugging_ctx.remove_breakpoint_by_number(target)
                 }
-                Command::DelByName(target) => {
+                Command::DelBreakpointByName(target) => {
                     self.debugging_ctx.remove_breakpoint(target)
                 }
-                Command::EnableByNum(target) => {
+                Command::EnableBreakpointByNum(target) => {
                     self.debugging_ctx.enable_breakpoint_by_num(target)
                 }
-                Command::EnableByName(target) => {
+                Command::EnableBreakpointByName(target) => {
                     self.debugging_ctx.enable_breakpoint(&target)
                 }
-                Command::DisableByNum(target) => {
+                Command::DisableBreakpointByNum(target) => {
                     self.debugging_ctx.disable_breakpoint_by_num(target)
                 }
-                Command::DisableByName(target) => {
+                Command::DisableBreakpointByName(target) => {
                     self.debugging_ctx.disable_breakpoint(&target)
                 }
             }

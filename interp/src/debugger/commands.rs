@@ -24,32 +24,32 @@ const HELP_LIST: [Command<&str>; 10] = [
     Command::Step,
     Command::Continue,
     Command::Display,
-    Command::PrintOne(""),
+    Command::PrintCell(""),
     Command::Break(""),
     Command::Help,
     Command::InfoBreak,
-    Command::DelByName(""),
-    Command::EnableByName(""),
-    Command::DisableByName(""),
+    Command::DelBreakpointByName(""),
+    Command::EnableBreakpointByName(""),
+    Command::DisableBreakpointByName(""),
 ];
 pub enum Command<S: AsRef<str>> {
-    Step,                // Step execution
-    Continue,            // Execute until breakpoint
-    Empty,               // Empty command, does nothing
-    Display,             // Display full environment contents
-    PrintOne(S),         // Print a cell's ports
-    PrintTwo(S, S),      // Print a specific port or specific cell
-    PrintThree(S, S, S), // Print a specific port (fully specified)
-    Break(S),            // Create a breakpoint
-    Help,                // Help message
+    Step,                         // Step execution
+    Continue,                     // Execute until breakpoint
+    Empty,                        // Empty command, does nothing
+    Display,                      // Display full environment contents
+    PrintCell(S),                 // Print a cell's ports
+    PrintCellOrPort(S, S),        // Print a specific port or specific cell
+    PrintFullySpecified(S, S, S), // Print a specific port (fully specified)
+    Break(S),                     // Create a breakpoint
+    Help,                         // Help message
     Exit,
     InfoBreak,
-    DelByNum(u64),
-    DelByName(S),
-    EnableByNum(u64),
-    EnableByName(S),
-    DisableByNum(u64),
-    DisableByName(S),
+    DelBreakpointByNum(u64),
+    DelBreakpointByName(S),
+    EnableBreakpointByNum(u64),
+    EnableBreakpointByName(S),
+    DisableBreakpointByNum(u64),
+    DisableBreakpointByName(S),
 }
 
 impl Command<&str> {
@@ -69,14 +69,14 @@ impl<S: AsRef<str>> Command<S> {
             Command::Step => (vec!["Step", "S"], "Advance the execution by a step"),
             Command::Continue => ( vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
             Command::Display => (vec!["Display"], "Display the full state"),
-            Command::PrintOne(_) | Command::PrintTwo(..) | Command::PrintThree(..) => (vec!["Print", "P"], "Print target value"),
+            Command::PrintCell(_) | Command::PrintCellOrPort(..) | Command::PrintFullySpecified(..) => (vec!["Print", "P"], "Print target value"),
             Command::Help => (vec!["Help"], "Print this message"),
-            Command::Empty | Command::Exit => unimplemented!(), // This command needs no public facing
+            Command::Empty | Command::Exit => unreachable!(), // This command needs no public facing help message
             Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"),
             Command::InfoBreak => (vec!["Info break"], "List all breakpoints"),
-            Command::DelByNum(_) | Command::DelByName(_) => (vec!["del"], "Delete target breakpoint"),
-            Command::EnableByNum(_) | Command::EnableByName(_) => (vec!["enable"], "Enable target breakpoint"),
-            Command::DisableByNum(_) | Command::DisableByName(_) => (vec!["disable"], "Disable target breakpoint"),
+            Command::DelBreakpointByNum(_) | Command::DelBreakpointByName(_) => (vec!["del"], "Delete target breakpoint"),
+            Command::EnableBreakpointByNum(_) | Command::EnableBreakpointByName(_) => (vec!["enable"], "Enable target breakpoint"),
+            Command::DisableBreakpointByNum(_) | Command::DisableBreakpointByName(_) => (vec!["disable"], "Disable target breakpoint"),
         }
     }
 
@@ -97,16 +97,18 @@ impl<S: AsRef<str>> Command<S> {
             ["print", _target] | ["p", _target] => {
                 let target: Vec<_> = saved_input[0].split('.').collect();
                 match target[..] {
-                    [t] => Ok(vec![Command::PrintOne(t.to_string())]),
-                    [first, second] => Ok(vec![Command::PrintTwo(
+                    [t] => Ok(vec![Command::PrintCell(t.to_string())]),
+                    [first, second] => Ok(vec![Command::PrintCellOrPort(
                         first.to_string(),
                         second.to_string(),
                     )]),
-                    [component, cell, port] => Ok(vec![Command::PrintThree(
-                        component.to_string(),
-                        cell.to_string(),
-                        port.to_string(),
-                    )]),
+                    [component, cell, port] => {
+                        Ok(vec![Command::PrintFullySpecified(
+                            component.to_string(),
+                            cell.to_string(),
+                            port.to_string(),
+                        )])
+                    }
                     _ => Err(InterpreterError::InvalidCommand(
                         "Print requires exactly one target".to_string(),
                     )),
@@ -134,9 +136,9 @@ impl<S: AsRef<str>> Command<S> {
                     .iter()
                     .map(|target| {
                         if let Ok(num) = target.parse::<u64>() {
-                            Command::DelByNum(num)
+                            Command::DelBreakpointByNum(num)
                         } else {
-                            Command::DelByName(target.to_string())
+                            Command::DelBreakpointByName(target.to_string())
                         }
                     })
                     .collect();
@@ -147,9 +149,9 @@ impl<S: AsRef<str>> Command<S> {
                     .iter()
                     .map(|target| {
                         if let Ok(num) = target.parse::<u64>() {
-                            Command::EnableByNum(num)
+                            Command::EnableBreakpointByNum(num)
                         } else {
-                            Command::EnableByName(target.to_string())
+                            Command::EnableBreakpointByName(target.to_string())
                         }
                     })
                     .collect();
@@ -160,9 +162,9 @@ impl<S: AsRef<str>> Command<S> {
                     .iter()
                     .map(|target| {
                         if let Ok(num) = target.parse::<u64>() {
-                            Command::DisableByNum(num)
+                            Command::DisableBreakpointByNum(num)
                         } else {
-                            Command::DisableByName(target.to_string())
+                            Command::DisableBreakpointByName(target.to_string())
                         }
                     })
                     .collect();
