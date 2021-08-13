@@ -1,5 +1,4 @@
-use super::commands::Command;
-//use rustyline::error::ReadlineError;
+use super::commands::{Command, InterpreterError};
 use rustyline::Editor;
 use std::collections::VecDeque;
 
@@ -20,32 +19,23 @@ impl Default for Input {
 }
 
 impl Input {
-    pub fn next_command(&mut self) -> Command<String> {
+    pub fn next_command(
+        &mut self,
+    ) -> Result<Command<String>, InterpreterError> {
         if !self.command_buffer.is_empty() {
-            return self.command_buffer.pop_front().unwrap();
+            return Ok(self.command_buffer.pop_front().unwrap());
         }
-        loop {
-            let result = self.buffer.readline(SHELL_PROMPT);
-            match result {
-                Ok(result) => {
-                    self.buffer.add_history_entry(result.clone());
-                    match Command::<String>::parse(&result) {
-                        Ok(mut comm) => {
-                            if comm.len() == 1 {
-                                return comm.remove(0);
-                            } else {
-                                let res = comm.remove(0);
-                                self.command_buffer.extend(comm);
-                                return res;
-                            }
-                        }
-                        Err(e) => {
-                            println!("Error: {}", e);
-                        }
-                    }
-                }
-                Err(err) => panic!("{}", err),
-            }
+
+        let result = self.buffer.readline(SHELL_PROMPT)?;
+        self.buffer.add_history_entry(result.clone());
+        let mut comm = Command::<String>::parse(&result)?;
+
+        if comm.len() == 1 {
+            Ok(comm.remove(0))
+        } else {
+            let res = comm.remove(0);
+            self.command_buffer.extend(comm);
+            Ok(res)
         }
     }
 }

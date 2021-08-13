@@ -1,4 +1,4 @@
-use super::commands::Command;
+use super::commands::{Command, InterpreterError};
 use super::context::DebuggingContext;
 use super::io_utils::Input;
 use crate::environment::InterpreterState;
@@ -32,7 +32,7 @@ impl<'a> Debugger<'a> {
         &mut self,
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
-    ) -> InterpreterState {
+    ) -> Result<InterpreterState, InterpreterError> {
         let control: &ir::Control = &self.main_component.control.borrow();
         let mut component_interpreter = ComponentInterpreter::from_component(
             self.main_component,
@@ -42,13 +42,26 @@ impl<'a> Debugger<'a> {
 
         if pass_through {
             component_interpreter.run();
-            return component_interpreter.deconstruct();
+            return Ok(component_interpreter.deconstruct());
         }
 
         let mut input_stream = Input::default();
         println!("== Calyx Interactive Debugger ==");
         loop {
             let comm = input_stream.next_command();
+            if let Err(e) = comm {
+                match e {
+                    err @ InterpreterError::InvalidCommand(_)
+                    | err @ InterpreterError::UnknownCommand(_) => {
+                        println!("{}", err);
+                        continue;
+                    }
+                    err @ InterpreterError::ReadlineError(_) => {
+                        return Err(err)
+                    }
+                }
+            }
+            let comm = comm.unwrap();
 
             match comm {
                 Command::Step => component_interpreter.step(),
@@ -236,7 +249,7 @@ impl<'a> Debugger<'a> {
             }
 
             if component_interpreter.is_done() {
-                return component_interpreter.deconstruct();
+                return Ok(component_interpreter.deconstruct());
             }
         }
     }

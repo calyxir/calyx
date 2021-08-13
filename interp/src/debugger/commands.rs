@@ -1,9 +1,13 @@
 use std::fmt::Display;
 use std::fmt::Write;
 
+use rustyline::error::ReadlineError;
+
+#[derive(Debug)]
 pub enum InterpreterError {
     InvalidCommand(String), // this isn't used yet, but may be useful later when commands have more syntax
     UnknownCommand(String),
+    ReadlineError(ReadlineError),
 }
 
 impl Display for InterpreterError {
@@ -15,8 +19,17 @@ impl Display for InterpreterError {
             InterpreterError::UnknownCommand(s) => {
                 format!("Unknown command {}", s)
             }
+            InterpreterError::ReadlineError(e) => {
+                format!("Failed to read from command line: {}", e)
+            }
         };
         f.write_str(&out_str)
+    }
+}
+
+impl From<ReadlineError> for InterpreterError {
+    fn from(e: ReadlineError) -> Self {
+        InterpreterError::ReadlineError(e)
     }
 }
 

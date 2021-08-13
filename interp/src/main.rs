@@ -104,9 +104,13 @@ fn main() -> CalyxResult<()> {
         },
         Command::Debug(CommandDebug { pass_through }) => {
             let mut cidb = Debugger::new(ctx_ref, main_component);
-            let output = cidb.main_loop(env, pass_through);
-            output.print_env();
-            Ok(())
+            match cidb.main_loop(env, pass_through) {
+                Ok(env) => {
+                    env.print_env();
+                    Ok(())
+                }
+                Err(err) => Err(Error::Misc(format!("{}", err))),
+            }
         }
     }
 }
