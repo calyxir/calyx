@@ -391,6 +391,7 @@ pub struct StdMemD1 {
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
     write_en: bool,
+    last_index: u64,
 }
 
 impl StdMemD1 {
@@ -420,6 +421,7 @@ impl StdMemD1 {
             data,
             update: None,
             write_en: false,
+            last_index: 0,
         }
     }
 
@@ -437,6 +439,13 @@ impl Primitive for StdMemD1 {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
+        if self.last_index >= self.size {
+            panic!(
+                "[std_mem_d1] Supplied with an invalid index: {}",
+                self.last_index
+            )
+        }
+
         if self.write_en {
             assert!(self.update.is_some());
             //set cycle_count to 0 for future
@@ -472,7 +481,7 @@ impl Primitive for StdMemD1 {
                 "write_en" => assert_eq!(v.len(), 1),
                 "addr0" => {
                     assert!(v.as_u64() < self.size);
-                    assert_eq!(v.len() as u64, self.idx_size, "std_mem_d1: addr0 is not same width ({}) as idx_size ({})", v.len(), self.idx_size)
+                    assert_eq!(v.len() as u64, self.size, "std_mem_d1: addr0 is not same width ({}) as idx_size ({})", v.len(), self.idx_size)
                 }
                 p => unreachable!("Unknown port: {}", p),
             }
@@ -486,6 +495,7 @@ impl Primitive for StdMemD1 {
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let addr0 = addr0.as_u64();
+        self.last_index = addr0;
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, (*input).clone()));
             self.write_en = true;
@@ -496,7 +506,14 @@ impl Primitive for StdMemD1 {
         //read_data is combinational w.r.t addr0;
         //if there was an update, [do_tick()] will return a vector w/ a done value
         //else, empty vector return
-        vec![(ir::Id::from("read_data"), self.data[addr0 as usize].clone())]
+        vec![(
+            ir::Id::from("read_data"),
+            if addr0 < self.idx_size {
+                self.data[addr0 as usize].clone()
+            } else {
+                Value::zeroes(self.width as usize)
+            },
+        )]
     }
 
     fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
@@ -508,6 +525,7 @@ impl Primitive for StdMemD1 {
         //also clear update
         self.update = None;
         self.write_en = false;
+        self.last_index = addr0;
         vec![
             ("read_data".into(), old),
             (ir::Id::from("done"), Value::zeroes(1)),
