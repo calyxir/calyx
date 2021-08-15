@@ -391,6 +391,7 @@ pub struct StdMemD1 {
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
     write_en: bool,
+    last_index: u64,
 }
 
 impl StdMemD1 {
@@ -420,6 +421,7 @@ impl StdMemD1 {
             data,
             update: None,
             write_en: false,
+            last_index: 0,
         }
     }
 
@@ -437,6 +439,13 @@ impl Primitive for StdMemD1 {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
+        if self.last_index >= self.size {
+            panic!(
+                "[std_mem_d1] Supplied with an invalid index: {}",
+                self.last_index
+            )
+        }
+
         if self.write_en {
             assert!(self.update.is_some());
             //set cycle_count to 0 for future
@@ -486,6 +495,7 @@ impl Primitive for StdMemD1 {
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let addr0 = addr0.as_u64();
+        self.last_index = addr0;
         if write_en.as_u64() == 1 {
             self.update = Some((addr0, (*input).clone()));
             self.write_en = true;
@@ -496,7 +506,14 @@ impl Primitive for StdMemD1 {
         //read_data is combinational w.r.t addr0;
         //if there was an update, [do_tick()] will return a vector w/ a done value
         //else, empty vector return
-        vec![(ir::Id::from("read_data"), self.data[addr0 as usize].clone())]
+        vec![(
+            ir::Id::from("read_data"),
+            if addr0 < self.size {
+                self.data[addr0 as usize].clone()
+            } else {
+                Value::zeroes(self.width as usize)
+            },
+        )]
     }
 
     fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
@@ -508,6 +525,7 @@ impl Primitive for StdMemD1 {
         //also clear update
         self.update = None;
         self.write_en = false;
+        self.last_index = addr0;
         vec![
             ("read_data".into(), old),
             (ir::Id::from("done"), Value::zeroes(1)),
@@ -552,6 +570,7 @@ pub struct StdMemD2 {
     pub data: Vec<Value>,
     update: Option<(u64, Value)>,
     write_en: bool,
+    last_idx: (u64, u64),
 }
 
 impl StdMemD2 {
@@ -573,6 +592,11 @@ impl StdMemD2 {
             .iter(),
         );
         Self::new(bindings)
+    }
+
+    #[inline]
+    fn max_idx(&self) -> u64 {
+        self.d0_size * self.d1_size
     }
 
     /// Instantiates a new StdMemD2 storing data of width [width], containing
@@ -602,6 +626,7 @@ impl StdMemD2 {
             data,
             update: None,
             write_en: false,
+            last_idx: (0, 0),
         }
     }
 
@@ -623,6 +648,12 @@ impl StdMemD2 {
 impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        if self.calc_addr(self.last_idx.0, self.last_idx.1) >= self.max_idx() {
+            panic!(
+                "[std_mem_d2] Supplied with an invalid index {},{}",
+                self.last_idx.0, self.last_idx.1
+            );
+        }
         if self.write_en {
             assert!(self.update.is_some());
             self.write_en = false;
@@ -678,6 +709,7 @@ impl Primitive for StdMemD2 {
 
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
+        self.last_idx = (addr0, addr1);
         let real_addr = self.calc_addr(addr0, addr1);
 
         if write_en.as_u64() == 1 {
@@ -689,7 +721,11 @@ impl Primitive for StdMemD2 {
         }
         vec![(
             ir::Id::from("read_data"),
-            self.data[real_addr as usize].clone(),
+            if real_addr < self.max_idx() {
+                self.data[real_addr as usize].clone()
+            } else {
+                Value::zeroes(self.width as usize)
+            },
         )]
     }
 
@@ -706,6 +742,7 @@ impl Primitive for StdMemD2 {
         //clear update
         self.update = None;
         self.write_en = false;
+        self.last_idx = (addr0, addr1);
 
         vec![
             (ir::Id::from("read_data"), old),
@@ -752,6 +789,7 @@ pub struct StdMemD3 {
     data: Vec<Value>,
     update: Option<(u64, Value)>,
     write_en: bool,
+    last_idx: (u64, u64, u64),
 }
 
 impl StdMemD3 {
@@ -813,6 +851,7 @@ impl StdMemD3 {
             data,
             update: None,
             write_en: false,
+            last_idx: (0, 0, 0),
         }
     }
 
@@ -829,6 +868,11 @@ impl StdMemD3 {
     }
 
     #[inline]
+    fn max_idx(&self) -> u64 {
+        self.d0_size * self.d1_size * self.d2_size
+    }
+
+    #[inline]
     fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64) -> u64 {
         self.d2_size * (addr0 * self.d1_size + addr1) + addr2
     }
@@ -837,6 +881,14 @@ impl StdMemD3 {
 impl Primitive for StdMemD3 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        let (addr0, addr1, addr2) = self.last_idx;
+        if self.calc_addr(addr0, addr1, addr2) >= self.max_idx() {
+            panic!(
+                "[std_mem_d3] Supplied with invalid index {:?}",
+                self.last_idx
+            )
+        }
+
         if self.write_en {
             assert!(self.update.is_some());
             self.write_en = false;
@@ -898,6 +950,7 @@ impl Primitive for StdMemD3 {
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
         let addr2 = addr2.as_u64();
+        self.last_idx = (addr0, addr1, addr2);
 
         let real_addr = self.calc_addr(addr0, addr1, addr2);
         if write_en.as_u64() == 1 {
@@ -909,7 +962,11 @@ impl Primitive for StdMemD3 {
         }
         vec![(
             ir::Id::from("read_data"),
-            self.data[real_addr as usize].clone(),
+            if real_addr < self.max_idx() {
+                self.data[real_addr as usize].clone()
+            } else {
+                Value::zeroes(self.width as usize)
+            },
         )]
     }
 
@@ -921,6 +978,8 @@ impl Primitive for StdMemD3 {
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
         let addr2 = addr2.as_u64();
+
+        self.last_idx = (addr0, addr1, addr2);
 
         let real_addr = self.calc_addr(addr0, addr1, addr2);
 
@@ -984,6 +1043,7 @@ pub struct StdMemD4 {
     data: Vec<Value>,
     update: Option<(u64, Value)>,
     write_en: bool,
+    last_idx: (u64, u64, u64, u64),
 }
 
 impl StdMemD4 {
@@ -1057,6 +1117,7 @@ impl StdMemD4 {
             data,
             update: None,
             write_en: false,
+            last_idx: (0, 0, 0, 0),
         }
     }
 
@@ -1078,10 +1139,19 @@ impl StdMemD4 {
         self.d3_size * (self.d2_size * (addr0 * self.d1_size + addr1) + addr2)
             + addr3
     }
+
+    fn max_idx(&self) -> u64 {
+        self.d0_size * self.d1_size * self.d2_size * self.d3_size
+    }
 }
 impl Primitive for StdMemD4 {
     //null-op for now
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        let (addr0, addr1, addr2, addr3) = self.last_idx;
+        if self.calc_addr(addr0, addr1, addr2, addr3) >= self.max_idx() {
+            panic!("[std_mem_d4] Supplied an invalid index {:?}", self.last_idx)
+        }
+
         if self.write_en {
             assert!(self.update.is_some());
             self.write_en = false;
@@ -1149,6 +1219,7 @@ impl Primitive for StdMemD4 {
         let addr1 = addr1.as_u64();
         let addr2 = addr2.as_u64();
         let addr3 = addr3.as_u64();
+        self.last_idx = (addr0, addr1, addr2, addr3);
 
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
         if write_en.as_u64() == 1 {
@@ -1160,7 +1231,11 @@ impl Primitive for StdMemD4 {
         }
         vec![(
             ir::Id::from("read_data"),
-            self.data[real_addr as usize].clone(),
+            if real_addr < self.max_idx() {
+                self.data[real_addr as usize].clone()
+            } else {
+                Value::zeroes(self.width as usize)
+            },
         )]
     }
 
@@ -1174,6 +1249,7 @@ impl Primitive for StdMemD4 {
         let addr1 = addr1.as_u64();
         let addr2 = addr2.as_u64();
         let addr3 = addr3.as_u64();
+        self.last_idx = (addr0, addr1, addr2, addr3);
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
 
         let old = self.data[real_addr as usize].clone();
