@@ -6,6 +6,7 @@ use calyx::{
 };
 
 use argh::FromArgs;
+use interp::debugger::Debugger;
 use interp::environment;
 use interp::interpreter::interpret_component;
 use std::path::PathBuf;
@@ -35,10 +36,33 @@ pub struct Opts {
     /// provided memories will be initialzed with zeros
     #[argh(option, long = "data", short = 'd', from_str_fn(read_path))]
     pub data_file: Option<PathBuf>,
+
+    #[argh(subcommand)]
+    comm: Option<Command>,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(Path::new(path).into())
+}
+#[derive(FromArgs)]
+#[argh(subcommand)]
+enum Command {
+    Interpret(CommandInterpret),
+    Debug(CommandDebug),
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "interpret")]
+/// Interpret the given program directly
+struct CommandInterpret {}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "debug")]
+/// Interpret the given program with the interactive debugger
+struct CommandDebug {
+    #[argh(switch, short = 'p', long = "pass-through")]
+    /// flag which runs the program to completion through the debugger
+    pass_through: bool,
 }
 
 //first half of this is tests
@@ -60,9 +84,6 @@ fn main() -> CalyxResult<()> {
 
     let env = environment::InterpreterState::init(&ctx, &mems);
 
-    // Get main component; assuming that opts.component is main
-    // TODO: handle when component, group are not default values
-
     let ctx_ref: &ir::Context = &ctx.borrow();
     let main_component = ctx_ref
         .components
@@ -72,11 +93,24 @@ fn main() -> CalyxResult<()> {
             Error::Impossible("Cannot find main component".to_string())
         })?;
 
-    match interpret_component(main_component, env) {
-        Ok(e) => {
-            e.print_env();
-            Ok(())
+    match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {})) {
+        Command::Interpret(_) => match interpret_component(main_component, env)
+        {
+            Ok(e) => {
+                e.print_env();
+                Ok(())
+            }
+            Err(err) => CalyxResult::Err(err),
+        },
+        Command::Debug(CommandDebug { pass_through }) => {
+            let mut cidb = Debugger::new(ctx_ref, main_component);
+            match cidb.main_loop(env, pass_through) {
+                Ok(env) => {
+                    env.print_env();
+                    Ok(())
+                }
+                Err(err) => Err(Error::Misc(format!("{}", err))),
+            }
         }
-        Err(err) => CalyxResult::Err(err),
     }
 }

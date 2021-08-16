@@ -30,17 +30,6 @@ cmd = """
 ../target/debug/interp {}
 """
 
-# [[tests]]
-# name = "Assorted tests"
-# paths = [
-#     "tests/assorted_tests/*.futil"
-# ]
-
-# cmd = """
-# ../target/debug/interp {} | jq .memories
-# """
-
-
 [[tests]]
 name = "primitives"
 paths = [
@@ -82,6 +71,47 @@ cmd = """
 ../target/debug/futil {} -d static-timing -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
+
+
+
+[[tests]]
+name = "unit (CIDB)"
+paths = [
+  "tests/unit/*.futil"
+]
+cmd = """
+  ../target/debug/interp {} debug -p | jq .memories
+"""
+
+[[tests]]
+name = "primitives (CIDB)"
+paths = [
+    "tests/primitives/*.futil"
+]
+cmd = """
+../target/debug/interp {} debug -p | jq .memories
+"""
+
+[[tests]]
+name = "control (CIDB)"
+paths = [
+    "tests/control/*.futil",
+    "tests/control/iteration/*.futil"
+]
+cmd = """
+../target/debug/interp {} debug -p | jq .memories
+"""
+
+[[tests]]
+name = "fully structural (CIDB)"
+paths = [
+    "tests/control/*.futil",
+  # Disabled iteration tests due to bug
+  #    "tests/control/iteration/*.futil"
+]
+cmd = """
+../target/debug/futil {} -d static-timing -d pre-opt -d post-opt -l ../ | ../target/debug/interp debug -p | jq .memories
+"""
 
 [[tests]]
 name = "fully structural static"
