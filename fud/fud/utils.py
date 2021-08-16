@@ -206,6 +206,6 @@ def transparent_shell(cmd):
 
     log.debug(cmd)
 
-    proc = subprocess.Popen(cmd, shell=True, env=os.environ)
+    proc = subprocess.Popen(cmd, env=os.environ)
 
     proc.wait()
