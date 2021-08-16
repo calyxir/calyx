@@ -101,7 +101,7 @@ def run_fud(args, config):
         for ed in path:
             sp.start_stage(f"{ed.stage.name} → {ed.stage.target_stage}")
             try:
-                if getattr(ed.stage, "_no_spinner", False):
+                if ed.stage._no_spinner:
                     sp.stop()
                     result = ed.stage.run(data, None)
                 else:
@@ -122,5 +122,5 @@ def run_fud(args, config):
             else:
                 with Path(args.output_file).open("wb") as f:
                     f.write(data.convert_to(SourceType.Bytes).data)
-        elif data is not None:
+        elif data:
             print(data.convert_to(SourceType.String).data)
