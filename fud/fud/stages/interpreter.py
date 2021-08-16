@@ -53,22 +53,21 @@ class InterpreterStage(Stage):
 
     def _define_steps(self, input_data):
 
-        cmd = " ".join(
-            [
-                self.cmd,
-                self.flags,
-                unwrap_or(self.config["stages", self.name, "flags"], ""),
-                "-l",
-                self.config["global", "futil_directory"],
-                "--data {data_file}" if self.data_path else "",
-                "{target}",
-                "debug" if self.target_stage == _DEBUGGER_TARGET else "",
-                self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
-                unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
-                if self.target_stage == _DEBUGGER_TARGET
-                else "",
-            ]
-        )
+        cmd = [
+            self.cmd,
+            self.flags,
+            unwrap_or(self.config["stages", self.name, "flags"], ""),
+            "-l",
+            self.config["global", "futil_directory"],
+            "--data" if self.data_path else "",
+            "{data_file}" if self.data_path else "",
+            "{target}",
+            "debug" if self.target_stage == _DEBUGGER_TARGET else "",
+            self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
+            unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
+            if self.target_stage == _DEBUGGER_TARGET
+            else "",
+        ]
 
         @self.step()
         def mktmp() -> SourceType.Directory:
@@ -101,9 +100,11 @@ class InterpreterStage(Stage):
             Invoke the interpreter
             """
 
-            command = cmd.format(
-                data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
-            )
+            command = [
+                x.format(data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target))
+                for x in cmd
+                if x
+            ]
 
             if self.target_stage == _DEBUGGER_TARGET:
                 return transparent_shell(command)
