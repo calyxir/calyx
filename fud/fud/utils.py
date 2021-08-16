@@ -192,3 +192,24 @@ def shell(cmd, stdin=None, stdout_as_debug=False):
         else:
             raise errors.StepFailure(cmd, "No stdout captured.", "No stderr captured.")
     return stdout
+
+def transparent_shell(cmd, stdout_as_debug=False):
+    """
+    Runs `cmd` in the shell. Does not capture output or input. Does nothing
+    fancy and returns nothing
+    """
+    if isinstance(cmd, list):
+        cmd = " ".join(cmd)
+
+    if stdout_as_debug:
+        cmd += ">&2"
+
+    assert isinstance(cmd, str)
+
+    log.debug(cmd)
+
+    proc = subprocess.Popen(
+        cmd, shell=True, env=os.environ
+    )
+
+    proc.wait()

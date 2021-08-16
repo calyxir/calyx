@@ -5,26 +5,34 @@ import numpy as np
 from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
-
-from ..utils import shell, TmpDir
+from sys import stdin
+from ..utils import shell, TmpDir, unwrap_or, transparent_shell
 
 # A local constant used only within this file largely for organizational
 # purposes and to avoid magic strings
 _FILE_NAME = "data.json"
+_DEBUGGER_TARGET = "debugger"
 
 
 class InterpreterStage(Stage):
-    def __init__(self, config, flags, desc):
+    @classmethod
+    def debugger(cls, config, interp_flags, debug_flags, desc):
+        self = cls(config, interp_flags, debug_flags, desc, output_name=_DEBUGGER_TARGET, output_type=None)
+        self._no_spinner = True
+        return self
+
+    def __init__(self, config, flags, debugger_flags, desc, output_type=SourceType.Stream, output_name="interpreter-out"):
         super().__init__(
             "interpreter",
-            "interpreter-out",
+            output_name,
             SourceType.Stream,
-            SourceType.Stream,
+            output_type,
             config,
             desc,
         )
 
         self.flags = flags
+        self.debugger_flags = debugger_flags
         self.data_path = self.config["stages", self.name, "data"]
 
         self.setup()
@@ -35,10 +43,14 @@ class InterpreterStage(Stage):
             [
                 self.cmd,
                 self.flags,
+                unwrap_or(self.config["stages", self.name, "flags"], ""),
                 "-l",
                 self.config["global", "futil_directory"],
                 "--data {data_file}" if self.data_path else "",
                 "{target}",
+                "debug" if self.target_stage == _DEBUGGER_TARGET else "",
+                self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
+                unwrap_or(self.config["stages", self.name, "debugger", "flags"], "") if self.target_stage == _DEBUGGER_TARGET else "",
             ]
         )
 
@@ -72,9 +84,13 @@ class InterpreterStage(Stage):
             """
             Invoke the interpreter
             """
-            return shell(
-                cmd.format(data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target))
-            )
+
+            command = cmd.format(data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target))
+
+            if self.target_stage == _DEBUGGER_TARGET:
+                return transparent_shell(command)
+            else:
+                return shell(command)
 
         @self.step()
         def cleanup(tmpdir: SourceType.Directory):
@@ -95,7 +111,10 @@ class InterpreterStage(Stage):
         result = interpret(input_data, tmpdir)
         cleanup(tmpdir)
 
-        return result
+        if self.target_stage == _DEBUGGER_TARGET:
+            return
+        else:
+            return result
 
 
 def convert_to_json(output_dir, data, round_float_to_fixed):
