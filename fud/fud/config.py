@@ -31,9 +31,7 @@ DEFAULT_CONFIGURATION = {
             "flags": None,
             "data": None,
             "round_float_to_fixed": True,
-            "debugger": {
-                "flags": None
-            }
+            "debugger": {"flags": None},
         },
         "dahlia": {
             "exec": "dahlia",

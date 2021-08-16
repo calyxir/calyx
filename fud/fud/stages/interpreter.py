@@ -16,11 +16,26 @@ _DEBUGGER_TARGET = "debugger"
 class InterpreterStage(Stage):
     @classmethod
     def debugger(cls, config, interp_flags, debug_flags, desc):
-        self = cls(config, interp_flags, debug_flags, desc, output_name=_DEBUGGER_TARGET, output_type=None)
+        self = cls(
+            config,
+            interp_flags,
+            debug_flags,
+            desc,
+            output_name=_DEBUGGER_TARGET,
+            output_type=None,
+        )
         self._no_spinner = True
         return self
 
-    def __init__(self, config, flags, debugger_flags, desc, output_type=SourceType.Stream, output_name="interpreter-out"):
+    def __init__(
+        self,
+        config,
+        flags,
+        debugger_flags,
+        desc,
+        output_type=SourceType.Stream,
+        output_name="interpreter-out",
+    ):
         super().__init__(
             "interpreter",
             output_name,
@@ -49,7 +64,9 @@ class InterpreterStage(Stage):
                 "{target}",
                 "debug" if self.target_stage == _DEBUGGER_TARGET else "",
                 self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
-                unwrap_or(self.config["stages", self.name, "debugger", "flags"], "") if self.target_stage == _DEBUGGER_TARGET else "",
+                unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
+                if self.target_stage == _DEBUGGER_TARGET
+                else "",
             ]
         )
 
@@ -84,7 +101,9 @@ class InterpreterStage(Stage):
             Invoke the interpreter
             """
 
-            command = cmd.format(data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target))
+            command = cmd.format(
+                data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
+            )
 
             if self.target_stage == _DEBUGGER_TARGET:
                 return transparent_shell(command)

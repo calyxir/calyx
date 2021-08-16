@@ -101,7 +101,7 @@ def run_fud(args, config):
         for ed in path:
             sp.start_stage(f"{ed.stage.name} → {ed.stage.target_stage}")
             try:
-                if getattr(ed.stage, '_no_spinner', False):
+                if getattr(ed.stage, "_no_spinner", False):
                     sp.stop()
                     result = ed.stage.run(data, None)
                 else:
