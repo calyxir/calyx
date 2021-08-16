@@ -199,10 +199,10 @@ def transparent_shell(cmd):
     Runs `cmd` in the shell. Does not capture output or input. Does nothing
     fancy and returns nothing
     """
-    if isinstance(cmd, list):
-        cmd = " ".join(cmd)
+    if isinstance(cmd, str):
+        cmd = cmd.split()
 
-    assert isinstance(cmd, str)
+    assert isinstance(cmd, list)
 
     log.debug(cmd)
 
