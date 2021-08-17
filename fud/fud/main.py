@@ -144,8 +144,10 @@ def register_stages(registry, cfg):
     registry.register(xilinx.HwExecutionStage(cfg))
 
     # Interpreter
-    registry.register(interpreter.InterpreterStage(cfg, "", "Run the interpreter"))
-
+    registry.register(interpreter.InterpreterStage(cfg, "", "", "Run the interpreter"))
+    registry.register(
+        interpreter.InterpreterStage.debugger(cfg, "", "", "Run the debugger")
+    )
     # register external stages
     register_external_stages(cfg, registry)
 
