@@ -22,11 +22,14 @@ pub enum Error {
 
     /// The control program is malformed.
     MalformedControl(String),
-
     /// The connections are malformed.
     MalformedStructure(String),
+
     /// The port widths don't match up on an edge.
     MismatchedPortWidths(ast::Port, u64, ast::Port, u64),
+
+    /// Requirement of a pass was not satisfied
+    PassAssumption(String, String),
 
     /// The name has not been bound
     Undefined(ir::Id, String),
@@ -173,6 +176,7 @@ impl std::fmt::Debug for Error {
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
+            PassAssumption(pass, msg) => write!(f, "Pass `{}` requires: {}", pass, msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
             NotSubcomponent => write!(f, "Not a subcomponent"),
             Misc(msg) => write!(f, "{}", msg),

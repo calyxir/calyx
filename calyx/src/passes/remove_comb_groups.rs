@@ -59,6 +59,8 @@ use crate::{analysis, guard, structure};
 pub struct RemoveCombGroups {
     // Mapping from (group_name, (cell_name, port_name)) -> port.
     port_rewrite: HashMap<(ir::Id, (ir::Id, ir::Id)), RRC<ir::Port>>,
+    // The pass updated combinational groups for this component.
+    updated: bool,
 }
 
 impl Named for RemoveCombGroups {
@@ -77,6 +79,8 @@ impl Visitor for RemoveCombGroups {
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
+        self.updated = false;
+
         let mut used_ports =
             analysis::ControlPorts::from(&*comp.control.borrow());
 
@@ -107,6 +111,10 @@ impl Visitor for RemoveCombGroups {
             if !is_comb {
                 continue;
             }
+
+            // If any groups were updated, tell the pass that updates
+            // were made.
+            self.updated = true;
 
             // Register the ports read by the combinational group's usages.
             let used_ports =
@@ -197,6 +205,20 @@ impl Visitor for RemoveCombGroups {
         let key = (s.cond.borrow().name().clone(), s.port.borrow().canonical());
         if let Some(new_port) = self.port_rewrite.get(&key) {
             s.port = Rc::clone(new_port);
+        }
+        Ok(Action::Continue)
+    }
+
+    fn finish(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if self.updated && comp.attributes.get("static").is_some() {
+            return Err(Error::PassAssumption(
+                Self::name().to_string(),
+                format!("Component {} has both a top-level \"static\" annotations and combinational groups which is not supported", comp.name)
+            ));
         }
         Ok(Action::Continue)
     }
