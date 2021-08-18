@@ -1,0 +1,24 @@
+// -p remove-comb-groups
+import "primitives/core.futil";
+component main<"static"=1>(in: 32) -> () {
+  cells {
+    e0 = std_eq(32);
+    r = std_reg(32);
+  }
+  wires {
+    group find_index {
+      e0.left = in;
+      e0.right = 32'd1;
+      find_index[done] = 1'd1;
+    }
+
+    group write {
+      r.write_en = 1'd1;
+      r.in = 32'd1;
+      write[done] = r.done;
+    }
+  }
+  control {
+    if e0.out with find_index { write; }
+  }
+}

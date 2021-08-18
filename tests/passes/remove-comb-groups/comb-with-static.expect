@@ -1,0 +1,4 @@
+---CODE---
+1
+---STDERR---
+Error: Pass `remove-comb-groups` requires: Components cannot have `static` annotations on them. Pass does not know how to update them. Please report this error to the developers.
