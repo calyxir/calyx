@@ -55,6 +55,11 @@ impl ConstructVisitor for InferStaticTiming {
             comp_latency: HashMap::new(),
         }
     }
+
+    // This pass shared information between components
+    fn clear_data(&mut self) {
+        /* All data is transferred between components */
+    }
 }
 
 /// Function to iterate over a vector of control statements and collect
