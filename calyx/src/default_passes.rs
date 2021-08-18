@@ -51,6 +51,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
+                RemoveCombGroups, // Must run before `infer-static-timing`.
                 InferStaticTiming,
                 CollapseControl,
                 ResourceSharing,
@@ -61,12 +62,7 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [
-                CompileEmpty,
-                RemoveCombGroups,
-                StaticTiming,
-                TopDownCompileControl
-            ]
+            [CompileEmpty, StaticTiming, TopDownCompileControl]
         );
         register_alias!(pm, "post-opt", [DeadCellRemoval]);
         register_alias!(
