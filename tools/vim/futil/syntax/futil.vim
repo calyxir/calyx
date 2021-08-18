@@ -19,7 +19,7 @@ syn keyword futilControl while if with seq par invoke else
 hi link futilControl Special
 
 " Other keywords
-syn keyword futilKeyword import cells wires control group prim extern
+syn keyword futilKeyword import cells wires control group extern
 hi link futilKeyword Keyword
 
 " Names of components and groups
