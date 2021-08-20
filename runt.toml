@@ -34,6 +34,19 @@ cmd = """
 ./target/debug/futil {} -p well-formed -p papercut -p synthesis-papercut
 """
 
+## Tests errors that occur at runtime
+[[tests]]
+name = "[core] runtime errors"
+paths = [
+  "tests/errors/runtime/*.futil"
+]
+cmd = """
+fud exec -s futil.exec './target/debug/futil' \
+         -s verilog.cycle_limit 500 \
+         {} --to dat -q | \
+         grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
+"""
+
 ##### Correctness Tests #####
 ## Tests that ensure that individual control
 ## constructs have correct behavior when compiled.

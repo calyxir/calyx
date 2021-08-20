@@ -201,8 +201,8 @@ fn emit_component(comp: &ir::Component, synthesis_mode: bool) -> v::Module {
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
-    // Build a top-level always_ff block to contain verilator checks for assignments
-    let mut checks = v::ParallelProcess::new_always_ff();
+    // Build a top-level always block to contain verilator checks for assignments
+    let mut checks = v::ParallelProcess::new_always_comb();
 
     map.values()
         .sorted_by_key(|(port, _)| port.borrow().canonical())
@@ -302,7 +302,7 @@ fn emit_guard_disjoint_check(
     // Generated error message
     let (cell, port) = dst_ref.borrow().canonical();
     let err = v::Sequential::new_error(&format!(
-        "Multiple assignment to port {}.{}",
+        "Multiple assignment to port `{}.{}'.",
         cell, port
     ));
     check.add_seq(err);
