@@ -100,6 +100,10 @@ impl ConstructVisitor for Papercut {
             read_together,
         })
     }
+
+    fn clear_data(&mut self) {
+        /* All data is shared between components. */
+    }
 }
 
 impl Named for Papercut {
