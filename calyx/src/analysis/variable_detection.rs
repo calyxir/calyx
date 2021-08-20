@@ -16,7 +16,6 @@ impl VariableDetection {
         let group = group_ref.borrow();
 
         let writes = ReadWriteSet::write_set(&group.assignments)
-            .into_iter()
             .filter(|cell| cell.borrow().type_name() == Some(&"std_reg".into()))
             .collect::<Vec<_>>();
 

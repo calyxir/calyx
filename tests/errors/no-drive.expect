@@ -4,4 +4,5 @@
 Error: 
 8 |    group no_drive {
   |          ^^^^^^^^ [Papercut] Required signal not driven inside the group.
-When driving the signal `r.in' the signal `r.write_en' must also be driven. The primitive type `std_reg' requires this invariant.
+When writing to the port `r.in', the ports [r.write_en] must also be written to.
+The primitive type `std_reg' requires this invariant.

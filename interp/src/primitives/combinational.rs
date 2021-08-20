@@ -102,7 +102,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         .map(|(_, v)| v)
         .unwrap();
     //then add left and new_right
-    adder.execute(&[("left".into(), &left),
+    adder.execute(&[("left".into(), left),
     ("right".into(), &new_right)]).into_iter().next().map(|(_, v)| v).unwrap()
 });
 // ===================== Signed binary operations ======================

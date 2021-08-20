@@ -57,7 +57,9 @@ where
 /// be derived from [Default].
 pub trait ConstructVisitor {
     /// Construct the visitor using information from the Context
-    fn from(_ctx: &ir::Context) -> Self;
+    fn from(_ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized;
 
     /// Clear the data stored in the visitor. Called before traversing the
     /// next component by [ir::traversal::Visitor].
@@ -66,8 +68,8 @@ pub trait ConstructVisitor {
 
 /// Derive ConstructVisitor when [Default] is provided for a visitor.
 impl<T: Default + Sized + Visitor> ConstructVisitor for T {
-    fn from(_ctx: &ir::Context) -> Self {
-        T::default()
+    fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
+        Ok(T::default())
     }
 
     fn clear_data(&mut self) {
@@ -171,7 +173,7 @@ pub trait Visitor {
     where
         Self: ConstructVisitor + Sized,
     {
-        let mut visitor = Self::from(&*context);
+        let mut visitor = Self::from(&*context)?;
         visitor.do_pass(context)?;
         Ok(visitor)
     }

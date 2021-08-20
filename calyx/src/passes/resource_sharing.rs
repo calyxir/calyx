@@ -1,5 +1,6 @@
 use super::sharing_components::ShareComponents;
 use crate::analysis;
+use crate::errors::CalyxResult;
 use crate::ir::{self, traversal::Named, CloneName, RRC};
 use ir::traversal::ConstructVisitor;
 use std::collections::{HashMap, HashSet};
@@ -28,7 +29,7 @@ impl Named for ResourceSharing {
 }
 
 impl ConstructVisitor for ResourceSharing {
-    fn from(ctx: &ir::Context) -> Self {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut shareable_components = HashSet::new();
         // add share=1 primitives to the shareable_components set
         for prim in ctx.lib.sigs.values() {
@@ -42,11 +43,11 @@ impl ConstructVisitor for ResourceSharing {
                 shareable_components.insert(comp.name.clone());
             }
         }
-        ResourceSharing {
+        Ok(ResourceSharing {
             used_cells_map: HashMap::new(),
             rewrites: Vec::new(),
             shareable_components,
-        }
+        })
     }
 
     fn clear_data(&mut self) {
@@ -68,7 +69,6 @@ impl ShareComponents for ResourceSharing {
                 (
                     group.clone_name(),
                     analysis::ReadWriteSet::uses(&group.borrow().assignments)
-                        .into_iter()
                         .filter(|cell| self.cell_filter(&cell.borrow()))
                         .map(|cell| cell.clone_name())
                         .collect::<Vec<_>>(),

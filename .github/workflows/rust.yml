@@ -250,7 +250,7 @@ jobs:
     - name: Install stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: 1.52.1
+          toolchain: 1.54.0
           override: true
           components: rustfmt, clippy
     - name: Check formatting

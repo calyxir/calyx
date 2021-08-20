@@ -31,8 +31,8 @@ pub use id::Id;
 pub use primitives::{PortDef, Primitive, Width};
 pub use printer::IRPrinter;
 pub use structure::{
-    Assignment, Binding, Cell, CellType, CloneName, Direction, GetName, Group,
-    Port, PortParent,
+    Assignment, Binding, Cell, CellIterator, CellType, CloneName, Direction,
+    GetName, Group, Port, PortIterator, PortParent,
 };
 
 /// Visitor to traverse a control program.
