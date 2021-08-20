@@ -117,7 +117,7 @@ impl Backend for VerilogBackend {
         let modules = &ctx
             .components
             .iter()
-            .map(|comp| emit_component(comp, !ctx.synthesis_mode).to_string())
+            .map(|comp| emit_component(comp, ctx.synthesis_mode).to_string())
             .collect::<Vec<_>>();
 
         write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
@@ -131,7 +131,7 @@ impl Backend for VerilogBackend {
     }
 }
 
-fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
+fn emit_component(comp: &ir::Component, synthesis_mode: bool) -> v::Module {
     let mut module = v::Module::new(comp.name.as_ref());
     let sig = comp.signature.borrow();
     for port_ref in &sig.ports {
@@ -151,7 +151,7 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
     }
 
     // Add memory initial and final blocks
-    if memory_simulation {
+    if !synthesis_mode {
         memory_read_write(comp).into_iter().for_each(|stmt| {
             module.add_stmt(stmt);
         });
@@ -201,12 +201,21 @@ fn emit_component(comp: &ir::Component, memory_simulation: bool) -> v::Module {
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
+    // Build a top-level always_ff block to contain verilator checks for assignments
+    let mut checks = v::ParallelProcess::new_always_ff();
+
     map.values()
         .sorted_by_key(|(port, _)| port.borrow().canonical())
         .for_each(|asgns| {
             module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
+            if let Some(check) = emit_guard_disjoint_check(asgns) {
+                checks.add_seq(check);
+            };
         });
 
+    if !synthesis_mode {
+        module.add_process(checks);
+    }
     module
 }
 
@@ -265,6 +274,55 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
     }
 }
 
+/// Generates an always block that checks of the guards are disjoint when the
+/// length of assignments is greater than 1:
+/// ```verilog
+/// always_ff @(posedge clk) begin
+///   if (!$onehot0({fsm_out < 1'd1 & go, fsm_out < 1'd1 & go})) begin
+///     $error("Multiple assignments to r_in");
+///   end
+/// end
+/// ```
+fn emit_guard_disjoint_check(
+    (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
+) -> Option<v::Sequential> {
+    if assignments.len() < 2 {
+        return None;
+    }
+    // Construct concat with all guards.
+    let mut concat = v::ExprConcat::default();
+    assignments.iter().for_each(|assign| {
+        concat.add_expr(guard_to_expr(&assign.guard));
+    });
+
+    let onehot0 = v::Expr::new_call("$onehot0", vec![v::Expr::Concat(concat)]);
+    let not_onehot0 = v::Expr::new_not(onehot0);
+    let mut check = v::SequentialIfElse::new(not_onehot0);
+
+    // Generated error message
+    let (cell, port) = dst_ref.borrow().canonical();
+    let err = v::Sequential::new_error(&format!(
+        "Multiple assignment to port {}.{}",
+        cell, port
+    ));
+    check.add_seq(err);
+    Some(v::Sequential::If(check))
+}
+
+/// Generates an assign statement that uses ternaries to select the correct
+/// assignment to enable and adds a default assignment to 0 when none of the
+/// guards are active.
+///
+/// Example:
+/// ```
+/// // Input Calyx code
+/// a.in = foo ? 2'd0;
+/// a.in = bar ? 2'd1;
+/// ```
+/// Into:
+/// ```
+/// assign a_in = foo ? 2'd0 : bar ? 2d'1 : 2'd0;
+/// ```
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
