@@ -28,7 +28,6 @@ impl Visitor for CompileInvoke {
 
         let invoke_group = builder.add_group("invoke");
 
-        // Generate state elements to make sure that component is only run once.
         // comp.go = 1'd1;
         // invoke[done] = comp.done;
         structure!(builder;
@@ -57,7 +56,7 @@ impl Visitor for CompileInvoke {
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 
-        // Copy "static" annotation if present
+        // Copy "static" annotation from the `invoke` statement if present
         if let Some(time) = s.attributes.get("static") {
             invoke_group.borrow_mut().attributes.insert("static", *time);
         }

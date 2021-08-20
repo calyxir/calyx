@@ -1,4 +1,4 @@
-// -p static-timing
+// -p remove-comb-groups -p compile-control
 
 import "primitives/std.lib";
 

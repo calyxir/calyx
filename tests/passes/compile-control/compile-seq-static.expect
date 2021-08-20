@@ -5,7 +5,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     b = std_reg(2);
     c = std_reg(2);
     @generated fsm = std_reg(2);
-    @generated incr = std_add(2);
   }
   wires {
     group A<"static"=1> {
@@ -23,21 +22,23 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       c.write_en = 1'd1;
       C[done] = c.done;
     }
-    group static_seq<"static"=3> {
-      A[go] = fsm.out == 2'd0 ? 1'd1;
-      B[go] = fsm.out == 2'd1 ? 1'd1;
-      C[go] = fsm.out == 2'd2 ? 1'd1;
-      incr.left = 2'd1;
-      incr.right = fsm.out;
-      fsm.in = fsm.out != 2'd3 ? incr.out;
-      fsm.write_en = fsm.out != 2'd3 ? 1'd1;
-      static_seq[done] = fsm.out == 2'd3 ? 1'd1;
+    group seq {
+      A[go] = fsm.out == 2'd0 & !A[done] ? 1'd1;
+      fsm.in = fsm.out == 2'd0 & A[done] ? 2'd1;
+      fsm.write_en = fsm.out == 2'd0 & A[done] ? 1'd1;
+      B[go] = fsm.out == 2'd1 & !B[done] ? 1'd1;
+      fsm.in = fsm.out == 2'd1 & B[done] ? 2'd2;
+      fsm.write_en = fsm.out == 2'd1 & B[done] ? 1'd1;
+      C[go] = fsm.out == 2'd2 & !C[done] ? 1'd1;
+      fsm.in = fsm.out == 2'd2 & C[done] ? 2'd3;
+      fsm.write_en = fsm.out == 2'd2 & C[done] ? 1'd1;
+      seq[done] = fsm.out == 2'd3 ? 1'd1;
     }
     fsm.in = fsm.out == 2'd3 ? 2'd0;
     fsm.write_en = fsm.out == 2'd3 ? 1'd1;
   }
 
   control {
-    static_seq;
+    seq;
   }
 }

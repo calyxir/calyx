@@ -49,6 +49,11 @@ impl ConstructVisitor for ResourceSharing {
             shareable_components,
         })
     }
+
+    fn clear_data(&mut self) {
+        self.used_cells_map = HashMap::new();
+        self.rewrites = Vec::new();
+    }
 }
 
 impl ShareComponents for ResourceSharing {
