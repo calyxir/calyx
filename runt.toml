@@ -34,6 +34,19 @@ cmd = """
 ./target/debug/futil {} -p well-formed -p papercut -p synthesis-papercut
 """
 
+## Tests errors that occur at runtime
+[[tests]]
+name = "[core] runtime errors"
+paths = [
+  "tests/errors/runtime/*.futil"
+]
+cmd = """
+fud exec -s futil.exec './target/debug/futil' \
+         -s verilog.cycle_limit 500 \
+         {} --to dat -q | \
+         grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
+"""
+
 ##### Correctness Tests #####
 ## Tests that ensure that individual control
 ## constructs have correct behavior when compiled.
@@ -65,7 +78,7 @@ fud exec -s verilog.data {}.data \
 """
 
 [[tests]]
-name = "tcam testing"
+name = "[frontend] tcam testing"
 paths = [
   "tests/correctness/tcam/*.futil"
 ]
@@ -88,7 +101,7 @@ fud exec -s verilog.cycle_limit 500 \
 """
 
 [[tests]]
-name = "systolic array correctness"
+name = "[frontend] systolic array correctness"
 paths = [ "tests/correctness/systolic/*.systolic" ]
 cmd = """
 fud e --from systolic --to vcd_json \
@@ -101,7 +114,7 @@ fud e --from systolic --to vcd_json \
 """
 
 [[tests]]
-name = "NTT pipeline correctness"
+name = "[frontend] NTT pipeline correctness"
 paths = [ "tests/correctness/ntt-pipeline/*.txt" ]
 cmd = """
 python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {} > {}.futil; \
@@ -119,14 +132,14 @@ rm {}.futil;
 """
 
 [[tests]]
-name = "mrxl correctness"
+name = "[frontend] mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
 fud e -q {} --from mrxl --to dat -s verilog.data {}.data | jq .memories
 """
 
 [[tests]]
-name = "relay correctness"
+name = "[frontend] relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
 cmd = """
 fud e -q {} --from relay --to dat -s verilog.data {}.data | jq .memories
@@ -144,7 +157,7 @@ flags=$(head -n 1 {} | cut -c 3-)
 
 ##### Frontend Tests #####
 [[tests]]
-name = "dahlia frontend"
+name = "[frontend] dahlia"
 paths = [ "tests/frontend/dahlia/*.fuse" ]
 cmd = """
 fud e {} --to futil -q \
@@ -153,14 +166,14 @@ fud e {} --to futil -q \
 """
 
 [[tests]]
-name = "systolic array frontend"
+name = "[frontend] systolic array"
 paths = [ "tests/frontend/systolic/array-*.systolic" ]
 cmd = """
 ./frontends/systolic-lang/gen-systolic.py {}
 """
 
 [[tests]]
-name = "NTT pipeline frontend generation"
+name = "[frontend] NTT pipeline generation"
 paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
 cmd = """
 python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
@@ -168,12 +181,12 @@ python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
 
 
 [[tests]]
-name = "relay frontend"
+name = "[frontend] relay"
 paths = ["tests/frontend/relay/*.relay"]
 cmd = "python3 frontends/relay/relay_visitor.py {}"
 
 [[tests]]
-name = "exp frontend"
+name = "[frontend] exp"
 paths = ["tests/frontend/exp/*.txt"]
 cmd = "python3 calyx-py/calyx/gen_exp.py {}"
 
