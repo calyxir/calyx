@@ -21,7 +21,7 @@ impl BreakPoint {
     }
 }
 
-impl std::fmt::Display for BreakPoint {
+impl std::fmt::Debug for BreakPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -112,7 +112,7 @@ impl DebuggingContext {
     pub fn print_breakpoints(&self) {
         println!("{}Current breakpoints:", SPACING);
         for breakpoint in self.breakpoints.iter() {
-            println!("{}{}", SPACING, breakpoint)
+            println!("{}{:?}", SPACING, breakpoint)
         }
     }
 }
