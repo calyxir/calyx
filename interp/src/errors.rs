@@ -5,10 +5,23 @@ use std::fmt::Debug;
 // Utility type
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 pub enum InterpreterError {
-    InvalidCommand(String), // this isn't used yet, but may be useful later when commands have more syntax
+    /// The given debugger command is invalid/malformed
+    InvalidCommand(String),
+
+    /// The given debugger command does not exist
     UnknownCommand(String),
+
+    /// Wrapper for errors coming from the interactive CLI
     ReadlineError(ReadlineError),
-    CompilerError(Error),
+
+    /// An error for an interrupt to the interactive debugger
+    Interrupt,
+
+    /// Wrapper error for parsing & related compiler errors
+    CompilerError(Box<Error>),
+
+    /// There is no main component in the given program
+    MissingMainComponent,
 }
 
 impl Debug for InterpreterError {
@@ -26,18 +39,28 @@ impl Debug for InterpreterError {
             InterpreterError::CompilerError(err) => {
                 write!(f, "{:?}", err)
             }
+            InterpreterError::MissingMainComponent => {
+                write!(f, "Interpreter Error: There is no main component")
+            }
+            InterpreterError::Interrupt => {
+                write!(f, "Interrupted")
+            }
         }
     }
 }
 
 impl From<Error> for InterpreterError {
     fn from(e: Error) -> Self {
-        Self::CompilerError(e)
+        Self::CompilerError(Box::new(e))
     }
 }
 
 impl From<ReadlineError> for InterpreterError {
     fn from(e: ReadlineError) -> Self {
-        InterpreterError::ReadlineError(e)
+        if let ReadlineError::Interrupted = e {
+            InterpreterError::Interrupt
+        } else {
+            InterpreterError::ReadlineError(e)
+        }
     }
 }

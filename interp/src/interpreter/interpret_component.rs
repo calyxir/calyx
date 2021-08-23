@@ -2,7 +2,8 @@
 
 use super::interpret_control::interpret_control;
 use crate::environment::InterpreterState;
-use calyx::{errors::CalyxResult, ir};
+use crate::errors::InterpreterResult;
+use calyx::ir;
 //use std::cell::RefCell;
 //use std::rc::Rc;
 
@@ -11,7 +12,7 @@ use calyx::{errors::CalyxResult, ir};
 pub fn interpret_component(
     comp: &ir::Component,
     env: InterpreterState,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     interpret_control(
         &comp.control.borrow(),
         &comp.continuous_assignments,

@@ -225,7 +225,7 @@ impl<'a> Debugger<'a> {
                         )
                     }
                 }
-                Command::Exit => todo!(),
+                Command::Exit => return Err(InterpreterError::Interrupt),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
                 Command::DelBreakpointByNum(target) => {
                     self.debugging_ctx.remove_breakpoint_by_number(target)

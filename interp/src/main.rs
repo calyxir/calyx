@@ -1,10 +1,9 @@
+use crate::environment::InterpreterState;
 use argh::FromArgs;
-use calyx::{
-    errors::Error, frontend, ir, pass_manager::PassManager, utils::OutputFile,
-};
+use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
 use interp::debugger::Debugger;
 use interp::environment;
-use interp::errors::InterpreterResult;
+use interp::errors::{InterpreterError, InterpreterResult};
 use interp::interpreter::interpret_component;
 use std::path::PathBuf;
 use std::{cell::RefCell, path::Path};
@@ -62,6 +61,20 @@ struct CommandDebug {
     pass_through: bool,
 }
 
+#[inline]
+fn print_res(
+    res: InterpreterResult<InterpreterState>,
+) -> InterpreterResult<()> {
+    match res {
+        Ok(env) => {
+            env.print_env();
+            Ok(())
+        }
+        Err(InterpreterError::Interrupt) => Ok(()), // Interrupts are fine
+        Err(e) => Err(e),
+    }
+}
+
 //first half of this is tests
 /// Interpret a group from a Calyx program
 fn main() -> InterpreterResult<()> {
@@ -70,15 +83,12 @@ fn main() -> InterpreterResult<()> {
     // Construct IR
     let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
     let ir = ir::from_ast::ast_to_ir(namespace, false, false)?;
-
     let ctx = ir::RRC::new(RefCell::new(ir));
-
     let pm = PassManager::default_passes()?;
 
     pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
-
     let env = environment::InterpreterState::init(&ctx, &mems);
 
     let ctx_ref: &ir::Context = &ctx.borrow();
@@ -86,28 +96,16 @@ fn main() -> InterpreterResult<()> {
         .components
         .iter()
         .find(|&cm| cm.name == "main")
-        .ok_or_else(|| {
-            Error::Impossible("Cannot find main component".to_string())
-        })?;
+        .ok_or(InterpreterError::MissingMainComponent)?;
 
-    match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {})) {
-        Command::Interpret(_) => match interpret_component(main_component, env)
-        {
-            Ok(e) => {
-                e.print_env();
-                Ok(())
-            }
-            Err(err) => Err(err.into()),
-        },
+    let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
+    {
+        Command::Interpret(_) => interpret_component(main_component, env),
         Command::Debug(CommandDebug { pass_through }) => {
             let mut cidb = Debugger::new(ctx_ref, main_component);
-            match cidb.main_loop(env, pass_through) {
-                Ok(env) => {
-                    env.print_env();
-                    Ok(())
-                }
-                Err(err) => Err(err),
-            }
+            cidb.main_loop(env, pass_through)
         }
-    }
+    };
+
+    print_res(res)
 }
