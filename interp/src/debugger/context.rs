@@ -3,7 +3,7 @@ use calyx::ir;
 
 struct BreakPoint {
     id: u64,
-    name: String,
+    name: String, // Name of the group
     enabled: bool,
 }
 

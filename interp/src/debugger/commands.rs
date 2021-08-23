@@ -33,6 +33,7 @@ impl From<ReadlineError> for InterpreterError {
     }
 }
 
+// This is used internally to print out the help message but otherwise is not used for anything
 const HELP_LIST: [Command<&str>; 10] = [
     Command::Step,
     Command::Continue,
@@ -55,8 +56,8 @@ pub enum Command<S: AsRef<str>> {
     PrintFullySpecified(S, S, S), // Print a specific port (fully specified)
     Break(S),                     // Create a breakpoint
     Help,                         // Help message
-    Exit,
-    InfoBreak,
+    Exit,                         // Exit the debugger
+    InfoBreak,                    // List breakpoints
     DelBreakpointByNum(u64),
     DelBreakpointByName(S),
     EnableBreakpointByNum(u64),
