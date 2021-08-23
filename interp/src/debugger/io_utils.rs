@@ -1,4 +1,5 @@
-use super::commands::{Command, InterpreterError};
+use super::commands::Command;
+use crate::errors::InterpreterResult;
 use rustyline::Editor;
 use std::collections::VecDeque;
 
@@ -19,9 +20,7 @@ impl Default for Input {
 }
 
 impl Input {
-    pub fn next_command(
-        &mut self,
-    ) -> Result<Command<String>, InterpreterError> {
+    pub fn next_command(&mut self) -> InterpreterResult<Command<String>> {
         if !self.command_buffer.is_empty() {
             return Ok(self.command_buffer.pop_front().unwrap());
         }

@@ -1,37 +1,5 @@
-use std::fmt::Display;
+use crate::errors::{InterpreterError, InterpreterResult};
 use std::fmt::Write;
-
-use rustyline::error::ReadlineError;
-
-#[derive(Debug)]
-pub enum InterpreterError {
-    InvalidCommand(String), // this isn't used yet, but may be useful later when commands have more syntax
-    UnknownCommand(String),
-    ReadlineError(ReadlineError),
-}
-
-impl Display for InterpreterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let out_str = match self {
-            InterpreterError::InvalidCommand(msg) => {
-                format!("Invalid Command: {}", msg)
-            }
-            InterpreterError::UnknownCommand(s) => {
-                format!("Unknown command {}", s)
-            }
-            InterpreterError::ReadlineError(e) => {
-                format!("Failed to read from command line: {}", e)
-            }
-        };
-        f.write_str(&out_str)
-    }
-}
-
-impl From<ReadlineError> for InterpreterError {
-    fn from(e: ReadlineError) -> Self {
-        InterpreterError::ReadlineError(e)
-    }
-}
 
 // This is used internally to print out the help message but otherwise is not used for anything
 const HELP_LIST: [Command<&str>; 10] = [
@@ -96,9 +64,7 @@ impl<S: AsRef<str>> Command<S> {
 
     /// Parse the given input string into a Command returning an
     /// InterpreterError if the parse is invalid
-    pub fn parse(
-        input: &str,
-    ) -> Result<Vec<Command<String>>, InterpreterError> {
+    pub fn parse(input: &str) -> InterpreterResult<Vec<Command<String>>> {
         let saved_input: Vec<_> = input.split_whitespace().skip(1).collect();
         let input = input.trim().to_lowercase(); // basic normalization
         let input: Vec<_> = input.split_whitespace().collect();

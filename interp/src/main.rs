@@ -1,13 +1,10 @@
-use calyx::{
-    errors::{CalyxResult, Error},
-    frontend, ir,
-    pass_manager::PassManager,
-    utils::OutputFile,
-};
-
 use argh::FromArgs;
+use calyx::{
+    errors::Error, frontend, ir, pass_manager::PassManager, utils::OutputFile,
+};
 use interp::debugger::Debugger;
 use interp::environment;
+use interp::errors::InterpreterResult;
 use interp::interpreter::interpret_component;
 use std::path::PathBuf;
 use std::{cell::RefCell, path::Path};
@@ -67,7 +64,7 @@ struct CommandDebug {
 
 //first half of this is tests
 /// Interpret a group from a Calyx program
-fn main() -> CalyxResult<()> {
+fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
     // Construct IR
@@ -100,7 +97,7 @@ fn main() -> CalyxResult<()> {
                 e.print_env();
                 Ok(())
             }
-            Err(err) => CalyxResult::Err(err),
+            Err(err) => Err(err.into()),
         },
         Command::Debug(CommandDebug { pass_through }) => {
             let mut cidb = Debugger::new(ctx_ref, main_component);
@@ -109,7 +106,7 @@ fn main() -> CalyxResult<()> {
                     env.print_env();
                     Ok(())
                 }
-                Err(err) => Err(Error::Misc(format!("{}", err))),
+                Err(err) => Err(err),
             }
         }
     }
