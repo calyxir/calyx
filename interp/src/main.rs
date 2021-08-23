@@ -70,7 +70,7 @@ fn print_res(
             env.print_env();
             Ok(())
         }
-        Err(InterpreterError::Interrupt) => Ok(()), // Interrupts are fine
+        Err(InterpreterError::Interrupted) => Ok(()), // Interrupts are fine
         Err(e) => Err(e),
     }
 }
