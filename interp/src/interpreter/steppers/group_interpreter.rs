@@ -1,7 +1,7 @@
 use super::super::interpret_group::{eval_prims, finish_interpretation};
 use super::super::utils::{self, ConstCell, ConstPort};
 use crate::environment::InterpreterState;
-use crate::errors::InterpreterResult;
+use crate::errors::{InterpreterError, InterpreterResult};
 use crate::utils::{AsRaw, PortAssignment};
 use crate::values::Value;
 use calyx::ir::{self, Assignment, Cell, RRC};
@@ -170,21 +170,17 @@ impl<'a> AssignmentInterpreter<'a> {
                     let pa = PortAssignment::new(assignment);
                     //first check nothing has been assigned to this destination yet
                     if let Some(prior_assign) = assigned_ports.get(&pa) {
-                        let s_orig = utils::assignment_to_string(
-                            prior_assign.get_assignment(),
-                        );
-                        let s_conf =
-                            utils::assignment_to_string(pa.get_assignment());
+                        let s_orig = prior_assign.get_assignment();
+                        let s_conf = pa.get_assignment();
 
                         let dst = assignment.dst.borrow();
-                        panic!(
-                            "[interpret_group]: multiple assignments to one port: {}.{}\n\
-                              Between assignments:\n\
-                              {}\n\
-                              and\n\
-                              {}",
-                            dst.get_parent_name(), dst.name, s_orig, s_conf
-                        );
+
+                        return Err(InterpreterError::conflicting_assignments(
+                            dst.name.clone(),
+                            dst.get_parent_name(),
+                            s_orig,
+                            s_conf,
+                        ));
                     }
                     //now add to the HS, because we are assigning
                     //regardless of whether value has changed this is still a

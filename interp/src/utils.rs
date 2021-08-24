@@ -1,7 +1,6 @@
 use crate::values::Value;
 use calyx::errors::Error;
-use calyx::ir::Binding;
-use calyx::ir::{Assignment, Id, Port, RRC};
+use calyx::ir::{self, Assignment, Binding, Id, Port, RRC};
 use serde::Deserialize;
 use std::cell::Ref;
 use std::collections::HashMap;
@@ -128,4 +127,11 @@ impl<T> AsRaw<T> for &RRC<T> {
     fn as_raw(&self) -> *const T {
         self.as_ptr()
     }
+}
+
+pub fn assignment_to_string(assignment: &ir::Assignment) -> String {
+    let mut str = vec![];
+    ir::IRPrinter::write_assignment(assignment, 0, &mut str)
+        .expect("Write Failed");
+    String::from_utf8(str).expect("Found invalid UTF-8")
 }
