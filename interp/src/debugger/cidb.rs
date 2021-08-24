@@ -42,7 +42,7 @@ impl<'a> Debugger<'a> {
         );
 
         if pass_through {
-            component_interpreter.run();
+            component_interpreter.run()?;
             return Ok(component_interpreter.deconstruct());
         }
 
@@ -63,7 +63,9 @@ impl<'a> Debugger<'a> {
             };
 
             match comm {
-                Command::Step => component_interpreter.step(),
+                Command::Step => {
+                    component_interpreter.step()?;
+                }
                 Command::Continue => {
                     let mut breakpoints = self.debugging_ctx.hit_breakpoints(
                         &component_interpreter.currently_executing_group(),
@@ -72,7 +74,7 @@ impl<'a> Debugger<'a> {
                     while breakpoints.is_empty()
                         && !component_interpreter.is_done()
                     {
-                        component_interpreter.step();
+                        component_interpreter.step()?;
                         breakpoints = self.debugging_ctx.hit_breakpoints(
                             &component_interpreter.currently_executing_group(),
                         );
@@ -93,7 +95,7 @@ impl<'a> Debugger<'a> {
                         } else {
                             "There are mutliple states".into()
                         }
-                    )
+                    );
                 }
                 Command::PrintCell(cell) => {
                     let env: Vec<_> = component_interpreter

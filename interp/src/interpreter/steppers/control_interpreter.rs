@@ -4,6 +4,7 @@ use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
 use crate::{
     environment::InterpreterState,
+    errors::InterpreterResult,
     interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
     values::Value,
 };
@@ -15,18 +16,19 @@ use std::cell::Ref;
 // default impl because it consumes self
 macro_rules! run_and_deconstruct {
     ($name:ident) => {{
-        $name.run();
+        $name.run()?;
         $name.deconstruct()
     }};
 }
 
 pub trait Interpreter {
-    fn step(&mut self);
+    fn step(&mut self) -> InterpreterResult<()>;
 
-    fn run(&mut self) {
+    fn run(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
-            self.step()
+            self.step()?;
         }
+        Ok(())
     }
 
     fn deconstruct(self) -> InterpreterState;
@@ -49,9 +51,13 @@ impl EmptyInterpreter {
 }
 
 impl Interpreter for EmptyInterpreter {
-    fn step(&mut self) {}
+    fn step(&mut self) -> InterpreterResult<()> {
+        Ok(())
+    }
 
-    fn run(&mut self) {}
+    fn run(&mut self) -> InterpreterResult<()> {
+        Ok(())
+    }
 
     fn deconstruct(self) -> InterpreterState {
         self.env
@@ -123,12 +129,12 @@ impl<'a> EnableInterpreter<'a> {
 }
 
 impl<'a> Interpreter for EnableInterpreter<'a> {
-    fn step(&mut self) {
-        self.interp.step();
+    fn step(&mut self) -> InterpreterResult<()> {
+        self.interp.step()
     }
 
-    fn run(&mut self) {
-        self.interp.run();
+    fn run(&mut self) -> InterpreterResult<()> {
+        self.interp.run()
     }
 
     fn deconstruct(self) -> InterpreterState {
@@ -176,7 +182,7 @@ impl<'a> SeqInterpreter<'a> {
 }
 
 impl<'a> Interpreter for SeqInterpreter<'a> {
-    fn step(&mut self) {
+    fn step(&mut self) -> InterpreterResult<()> {
         if self.current_interpreter.is_none() && self.sequence.peek().is_some()
         // There is more to execute, make new interpreter
         {
@@ -194,13 +200,15 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
                 let res = run_and_deconstruct!(interp);
                 self.env = Some(res);
             } else {
-                self.current_interpreter.as_mut().unwrap().step()
+                self.current_interpreter.as_mut().unwrap().step()?
             }
         } else if self.sequence.peek().is_none()
         // there is nothing left to do
         {
             self.done_flag = true
         }
+
+        Ok(())
     }
 
     fn is_done(&self) -> bool {
@@ -257,10 +265,11 @@ impl<'a> ParInterpreter<'a> {
 }
 
 impl<'a> Interpreter for ParInterpreter<'a> {
-    fn step(&mut self) {
+    fn step(&mut self) -> InterpreterResult<()> {
         for i in &mut self.interpreters {
-            i.step()
+            i.step()?;
         }
+        Ok(())
     }
 
     fn deconstruct(self) -> InterpreterState {
@@ -323,7 +332,7 @@ impl<'a> IfInterpreter<'a> {
 }
 
 impl<'a> Interpreter for IfInterpreter<'a> {
-    fn step(&mut self) {
+    fn step(&mut self) -> InterpreterResult<()> {
         if let Some(i) = &mut self.cond {
             if i.is_done() {
                 let i = self.cond.take().unwrap();
@@ -345,7 +354,8 @@ impl<'a> Interpreter for IfInterpreter<'a> {
                     );
                 }
 
-                self.branch_interp = Some(branch)
+                self.branch_interp = Some(branch);
+                Ok(())
             } else {
                 i.step()
             }
@@ -419,7 +429,7 @@ impl<'a> WhileInterpreter<'a> {
 }
 
 impl<'a> Interpreter for WhileInterpreter<'a> {
-    fn step(&mut self) {
+    fn step(&mut self) -> InterpreterResult<()> {
         if let Some(ci) = &mut self.cond_interp {
             if ci.is_done() {
                 let ci = self.cond_interp.take().unwrap();
@@ -434,11 +444,11 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
                     self.cond_interp = Some(ci)
                 }
             } else {
-                ci.step()
+                ci.step()?
             }
         } else if let Some(bi) = &mut self.body_interp {
             if !bi.is_done() {
-                bi.step()
+                bi.step()?
             } else {
                 let bi = self.body_interp.take().unwrap();
                 let cond_interp = EnableInterpreter::new(
@@ -452,6 +462,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
         } else {
             panic!("While Interpreter is in an invalid state")
         }
+        Ok(())
     }
 
     fn deconstruct(self) -> InterpreterState {
@@ -496,11 +507,11 @@ impl InvokeInterpreter {
 }
 
 impl Interpreter for InvokeInterpreter {
-    fn step(&mut self) {
+    fn step(&mut self) -> InterpreterResult<()> {
         todo!()
     }
 
-    fn run(&mut self) {
+    fn run(&mut self) -> InterpreterResult<()> {
         todo!()
     }
 
@@ -593,11 +604,11 @@ impl<'a> ControlInterpreter<'a> {
 }
 
 impl<'a> Interpreter for ControlInterpreter<'a> {
-    fn step(&mut self) {
+    fn step(&mut self) -> InterpreterResult<()> {
         control_match!(self, i, i.step())
     }
 
-    fn run(&mut self) {
+    fn run(&mut self) -> InterpreterResult<()> {
         control_match!(self, i, i.run())
     }
 
@@ -655,8 +666,8 @@ impl<'a> StructuralInterpreter<'a> {
 }
 
 impl<'a> Interpreter for StructuralInterpreter<'a> {
-    fn step(&mut self) {
-        self.interp.step();
+    fn step(&mut self) -> InterpreterResult<()> {
+        self.interp.step()
     }
 
     fn deconstruct(self) -> InterpreterState {
@@ -666,8 +677,8 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
             .unwrap()
     }
 
-    fn run(&mut self) {
-        self.interp.run();
+    fn run(&mut self) -> InterpreterResult<()> {
+        self.interp.run()
     }
 
     fn is_done(&self) -> bool {

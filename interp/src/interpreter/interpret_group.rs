@@ -61,9 +61,9 @@ pub fn interp_cont(
         done_prt_ref,
         (std::iter::empty(), continuous_assignments.iter()),
     );
-    assign_interp.run();
+    assign_interp.run()?;
 
-    let mut res = assign_interp.deconstruct_no_check();
+    let mut res = assign_interp.deconstruct();
 
     res.insert(
         &go_port.borrow() as &ir::Port as ConstPort,
@@ -95,7 +95,7 @@ pub fn interpret_group(
         (group.assignments.iter(), continuous_assignments.iter()),
     );
 
-    Ok(interp.run_and_deconstruct())
+    interp.run_and_deconstruct()
 }
 
 pub fn finish_group_interpretation(

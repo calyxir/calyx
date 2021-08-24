@@ -1,6 +1,7 @@
 use super::super::interpret_group::{eval_prims, finish_interpretation};
 use super::super::utils::{self, ConstCell, ConstPort};
 use crate::environment::InterpreterState;
+use crate::errors::InterpreterResult;
 use crate::utils::{AsRaw, PortAssignment};
 use crate::values::Value;
 use calyx::ir::{self, Assignment, Cell, RRC};
@@ -117,7 +118,7 @@ impl<'a> AssignmentInterpreter<'a> {
     }
 
     /// Advance the stepper by a clock cycle
-    pub fn step_cycle(&mut self) {
+    pub fn step_cycle(&mut self) -> InterpreterResult<()> {
         if !self.is_done()
             && self.val_changed.is_some()
             && !self.val_changed.unwrap()
@@ -145,11 +146,12 @@ impl<'a> AssignmentInterpreter<'a> {
             }
             self.val_changed = None;
         }
+        Ok(())
     }
 
     /// Continue interpreting the assignments until the combinational portions
     /// converge
-    pub fn step_convergence(&mut self) {
+    pub fn step_convergence(&mut self) -> InterpreterResult<()> {
         // retain old value
         self.val_changed.get_or_insert(true);
 
@@ -243,26 +245,29 @@ impl<'a> AssignmentInterpreter<'a> {
                 self.val_changed = Some(true);
             }
         }
+        Ok(())
     }
     /// Advance the interpreter by a cycle, if possible
-    pub fn step(&mut self) {
-        self.step_cycle();
-        self.step_convergence();
+    pub fn step(&mut self) -> InterpreterResult<()> {
+        self.step_cycle()?;
+        self.step_convergence()
     }
 
     /// Run interpreter until it is finished executing and return the output
     /// environment
-    pub fn run_and_deconstruct(mut self) -> InterpreterState {
-        self.run();
-        self.deconstruct()
+    pub fn run_and_deconstruct(
+        mut self,
+    ) -> InterpreterResult<InterpreterState> {
+        self.run()?;
+        Ok(self.deconstruct())
     }
 
     /// Run the interpreter until it finishes executing
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
-            self.step();
+            self.step()?;
         }
-        self.step_convergence();
+        self.step_convergence()
     }
 
     #[inline]
@@ -279,7 +284,7 @@ impl<'a> AssignmentInterpreter<'a> {
     }
 
     #[inline]
-    pub fn deconstruct_no_check(self) -> InterpreterState {
+    fn deconstruct_no_check(self) -> InterpreterState {
         self.state
     }
 
