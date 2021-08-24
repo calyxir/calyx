@@ -75,7 +75,7 @@ expect_dir = "tests/lowered/"
 
 
 [[tests]]
-name = "unit (CIDB)"
+name = "unit (CIDR)"
 paths = [
   "tests/unit/*.futil"
 ]
@@ -84,7 +84,7 @@ cmd = """
 """
 
 [[tests]]
-name = "primitives (CIDB)"
+name = "primitives (CIDR)"
 paths = [
     "tests/primitives/*.futil"
 ]
@@ -93,7 +93,7 @@ cmd = """
 """
 
 [[tests]]
-name = "control (CIDB)"
+name = "control (CIDR)"
 paths = [
     "tests/control/*.futil",
     "tests/control/iteration/*.futil"
@@ -103,7 +103,7 @@ cmd = """
 """
 
 [[tests]]
-name = "fully structural (CIDB)"
+name = "fully structural (CIDR)"
 paths = [
     "tests/control/*.futil",
   # Disabled iteration tests due to bug

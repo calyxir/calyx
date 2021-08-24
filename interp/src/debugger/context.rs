@@ -1,4 +1,4 @@
-use super::cidb::SPACING;
+use super::cidr::SPACING;
 use calyx::ir;
 
 struct BreakPoint {
