@@ -1,9 +1,9 @@
-use super::cidb::SPACING;
+use super::cidr::SPACING;
 use calyx::ir;
 
 struct BreakPoint {
     id: u64,
-    name: String,
+    name: String, // Name of the group
     enabled: bool,
 }
 
@@ -21,7 +21,7 @@ impl BreakPoint {
     }
 }
 
-impl std::fmt::Display for BreakPoint {
+impl std::fmt::Debug for BreakPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -112,7 +112,7 @@ impl DebuggingContext {
     pub fn print_breakpoints(&self) {
         println!("{}Current breakpoints:", SPACING);
         for breakpoint in self.breakpoints.iter() {
-            println!("{}{}", SPACING, breakpoint)
+            println!("{}{:?}", SPACING, breakpoint)
         }
     }
 }

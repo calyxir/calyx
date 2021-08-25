@@ -1,7 +1,8 @@
-use super::commands::{Command, InterpreterError};
+use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
 use crate::environment::InterpreterState;
+use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use calyx::ir::{self, RRC};
 
@@ -32,7 +33,7 @@ impl<'a> Debugger<'a> {
         &mut self,
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
-    ) -> Result<InterpreterState, InterpreterError> {
+    ) -> InterpreterResult<InterpreterState> {
         let control: &ir::Control = &self.main_component.control.borrow();
         let mut component_interpreter = ComponentInterpreter::from_component(
             self.main_component,
@@ -41,7 +42,7 @@ impl<'a> Debugger<'a> {
         );
 
         if pass_through {
-            component_interpreter.run();
+            component_interpreter.run()?;
             return Ok(component_interpreter.deconstruct());
         }
 
@@ -49,22 +50,22 @@ impl<'a> Debugger<'a> {
         println!("== Calyx Interactive Debugger ==");
         loop {
             let comm = input_stream.next_command();
-            if let Err(e) = comm {
-                match e {
-                    err @ InterpreterError::InvalidCommand(_)
-                    | err @ InterpreterError::UnknownCommand(_) => {
-                        println!("{}", err);
+            let comm = match comm {
+                Ok(c) => c,
+                Err(e) => match &e {
+                    InterpreterError::InvalidCommand(_)
+                    | InterpreterError::UnknownCommand(_) => {
+                        println!("{:?}", e);
                         continue;
                     }
-                    err @ InterpreterError::ReadlineError(_) => {
-                        return Err(err)
-                    }
-                }
-            }
-            let comm = comm.unwrap();
+                    _ => return Err(e),
+                },
+            };
 
             match comm {
-                Command::Step => component_interpreter.step(),
+                Command::Step => {
+                    component_interpreter.step()?;
+                }
                 Command::Continue => {
                     let mut breakpoints = self.debugging_ctx.hit_breakpoints(
                         &component_interpreter.currently_executing_group(),
@@ -73,7 +74,7 @@ impl<'a> Debugger<'a> {
                     while breakpoints.is_empty()
                         && !component_interpreter.is_done()
                     {
-                        component_interpreter.step();
+                        component_interpreter.step()?;
                         breakpoints = self.debugging_ctx.hit_breakpoints(
                             &component_interpreter.currently_executing_group(),
                         );
@@ -94,7 +95,7 @@ impl<'a> Debugger<'a> {
                         } else {
                             "There are mutliple states".into()
                         }
-                    )
+                    );
                 }
                 Command::PrintCell(cell) => {
                     let env: Vec<_> = component_interpreter
@@ -226,7 +227,7 @@ impl<'a> Debugger<'a> {
                         )
                     }
                 }
-                Command::Exit => todo!(),
+                Command::Exit => return Err(InterpreterError::Exit),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
                 Command::DelBreakpointByNum(target) => {
                     self.debugging_ctx.remove_breakpoint_by_number(target)

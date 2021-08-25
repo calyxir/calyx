@@ -3,6 +3,7 @@ use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
 use crate::environment::InterpreterState;
+use crate::errors::InterpreterResult;
 use calyx::ir::{self, Component};
 
 enum StructuralOrControl<'a> {
@@ -50,7 +51,7 @@ impl<'a> ComponentInterpreter<'a> {
 }
 
 impl<'a> Interpreter for ComponentInterpreter<'a> {
-    fn step(&mut self) {
+    fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.interp {
             StructuralOrControl::Structural(s) => s.step(),
             StructuralOrControl::Control(c) => c.step(),

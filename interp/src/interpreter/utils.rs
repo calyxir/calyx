@@ -15,13 +15,6 @@ pub fn is_signal_high(done: &Value) -> bool {
     done.as_u64() == 1
 }
 
-pub fn assignment_to_string(assignment: &ir::Assignment) -> String {
-    let mut str = vec![];
-    ir::IRPrinter::write_assignment(assignment, 0, &mut str)
-        .expect("Write Failed");
-    String::from_utf8(str).expect("Found invalid UTF-8")
-}
-
 pub fn get_dest_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
 where
     I: Iterator<Item = &'a ir::Assignment>,

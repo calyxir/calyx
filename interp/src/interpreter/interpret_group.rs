@@ -5,12 +5,10 @@ use crate::{environment::InterpreterState, utils::AsRaw};
 
 use super::utils::{get_dest_cells, get_done_port, ConstPort};
 use crate::values::Value;
-use calyx::{
-    errors::CalyxResult,
-    ir::{self, RRC},
-};
+use calyx::ir::{self, RRC};
 
 use super::steppers::AssignmentInterpreter;
+use crate::errors::InterpreterResult;
 
 // /// An internal method that does the main work of interpreting a set of
 // /// assignments. It takes the assigments as an interator as continguity of
@@ -37,7 +35,7 @@ pub fn interp_cont(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     let comp_sig = comp.signature.borrow();
 
     let go_port = comp_sig
@@ -63,9 +61,9 @@ pub fn interp_cont(
         done_prt_ref,
         (std::iter::empty(), continuous_assignments.iter()),
     );
-    assign_interp.run();
+    assign_interp.run()?;
 
-    let mut res = assign_interp.deconstruct_no_check();
+    let mut res = assign_interp.deconstruct();
 
     res.insert(
         &go_port.borrow() as &ir::Port as ConstPort,
@@ -87,7 +85,7 @@ pub fn interpret_group(
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     let grp_done = get_done_port(group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
@@ -97,14 +95,14 @@ pub fn interpret_group(
         (group.assignments.iter(), continuous_assignments.iter()),
     );
 
-    Ok(interp.run_and_deconstruct())
+    interp.run_and_deconstruct()
 }
 
 pub fn finish_group_interpretation(
     group: &ir::Group,
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     let grp_done = get_done_port(group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
@@ -202,7 +200,7 @@ pub(crate) fn finish_interpretation<
     mut env: InterpreterState,
     done_signal: P,
     assigns: I,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     // replace port values for all the assignments
     let assigns = assigns.collect::<Vec<_>>();
 
