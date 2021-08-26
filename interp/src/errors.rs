@@ -46,6 +46,9 @@ pub enum InterpreterError {
         a1: String,
         a2: String,
     },
+
+    #[error("unable to find component named \"{0}\"")]
+    UnknownComponent(String),
 }
 
 impl InterpreterError {

@@ -3,8 +3,9 @@ use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
 use crate::environment::InterpreterState;
-use crate::errors::InterpreterResult;
-use calyx::ir::{self, Component};
+use crate::errors::{InterpreterError, InterpreterResult};
+use crate::primitives::Primitive;
+use calyx::ir::{self, Cell, Component, Context, Port, RRC};
 
 enum StructuralOrControl<'a> {
     Structural(StructuralInterpreter<'a>),
@@ -48,6 +49,23 @@ impl<'a> ComponentInterpreter<'a> {
 
         Self { interp }
     }
+
+    pub fn new(ctx: &ir::Context, cell: &RRC<Cell>) -> Self {
+        let cell_borrow = cell.borrow();
+        if let ir::CellType::Component { name: comp_name } =
+            &cell_borrow.prototype
+        {
+            // If there is no component with this name then the parsing into IR should
+            // break
+            let component =
+                ctx.components.iter().find(|x| x.name == comp_name).unwrap();
+        } else {
+            // If this happens it's definitely an error in the interpreter code
+            panic!("New component called on something that is not a component")
+        }
+
+        todo!()
+    }
 }
 
 impl<'a> Interpreter for ComponentInterpreter<'a> {
@@ -84,5 +102,33 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
             StructuralOrControl::Structural(s) => s.currently_executing_group(),
             StructuralOrControl::Control(c) => c.currently_executing_group(),
         }
+    }
+}
+
+impl<'a> Primitive for ComponentInterpreter<'a> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, crate::values::Value)> {
+        todo!()
+    }
+
+    fn is_comb(&self) -> bool {
+        todo!()
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &crate::values::Value)]) {
+        todo!()
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &crate::values::Value)],
+    ) -> Vec<(ir::Id, crate::values::Value)> {
+        todo!()
+    }
+
+    fn reset(
+        &mut self,
+        inputs: &[(ir::Id, &crate::values::Value)],
+    ) -> Vec<(ir::Id, crate::values::Value)> {
+        todo!()
     }
 }
