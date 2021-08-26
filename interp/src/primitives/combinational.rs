@@ -18,7 +18,7 @@ impl StdConst {
         }
     }
 
-    pub fn new(params: ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding) -> Self {
         let width = get_param(&params, "WIDTH")
             .expect("Missing width parameter from std_const binding");
 

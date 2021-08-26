@@ -88,9 +88,6 @@ fn main() -> InterpreterResult<()> {
 
     pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
-    let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
-    let env = environment::InterpreterState::init(&ctx, &mems);
-
     let ctx_ref: &ir::Context = &ctx.borrow();
     let main_component = ctx_ref
         .components
@@ -98,6 +95,8 @@ fn main() -> InterpreterResult<()> {
         .find(|&cm| cm.name == "main")
         .ok_or(InterpreterError::MissingMainComponent)?;
 
+    let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
+    let env = environment::InterpreterState::init(&ctx, main_component, &mems);
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
         Command::Interpret(_) => interpret_component(main_component, env),

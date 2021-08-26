@@ -133,7 +133,7 @@ pub(crate) fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
-    let ref_clone = env.cell_prim_map.clone(); // RC clone
+    let ref_clone = env.cell_map.clone(); // RC clone
     let mut prim_map = ref_clone.borrow_mut();
 
     let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];

@@ -36,11 +36,11 @@ pub struct InterpreterState {
     pub clk: u64,
 
     /// Mapping from cells to prims.
-    pub cell_prim_map: PrimitiveMap,
+    pub cell_map: PrimitiveMap,
 
     /// Use raw pointers for hashmap: ports to values
     // This is a Smoosher (see stk_env.rs)
-    pub pv_map: PortValMap,
+    pub port_map: PortValMap,
 
     /// A reference to the context.
     pub context: ir::RRC<ir::Context>,
@@ -50,23 +50,27 @@ pub struct InterpreterState {
 impl InterpreterState {
     /// Construct an environment
     /// ctx : A context from the IR
-    pub fn init(ctx: &ir::RRC<ir::Context>, mems: &Option<MemoryMap>) -> Self {
+    pub fn init(
+        ctx: &ir::RRC<ir::Context>,
+        target: &ir::Component,
+        mems: &Option<MemoryMap>,
+    ) -> Self {
         Self {
             context: ctx.clone(),
             clk: 0,
-            pv_map: InterpreterState::construct_pv_map(&ctx.borrow()),
-            cell_prim_map: Self::construct_cp_map(&ctx.borrow(), mems),
+            port_map: InterpreterState::construct_port_map(target),
+            cell_map: Self::construct_cell_map(target, mems),
         }
     }
 
     /// Insert a new value for the given constant port into the environment
     pub fn insert<P: AsRaw<ir::Port>>(&mut self, port: P, value: Value) {
-        self.pv_map.set(port.as_raw(), value);
+        self.port_map.set(port.as_raw(), value);
     }
 
     fn make_primitive(
-        prim_name: ir::Id,
-        params: ir::Binding,
+        prim_name: &ir::Id,
+        params: &ir::Binding,
         cell_name: Option<&ir::Id>,
         mems: &Option<MemoryMap>,
     ) -> Box<dyn Primitive> {
@@ -144,20 +148,19 @@ impl InterpreterState {
         }
     }
 
-    fn construct_cp_map(
-        ctx: &ir::Context,
+    fn construct_cell_map(
+        comp: &ir::Component,
         mems: &Option<MemoryMap>,
     ) -> PrimitiveMap {
         let mut map = HashMap::new();
-        for comp in &ctx.components {
-            for cell in comp.cells.iter() {
-                let cl: &ir::Cell = &cell.borrow();
+        for cell in comp.cells.iter() {
+            let cl: &ir::Cell = &cell.borrow();
 
-                if let ir::CellType::Primitive {
+            match &cl.prototype {
+                ir::CellType::Primitive {
                     name,
                     param_binding,
-                } = cl.prototype.clone()
-                {
+                } => {
                     let cell_name = match name.as_ref() {
                         "std_mem_d1" | "std_mem_d2" | "std_mem_d3"
                         | "std_mem_d4" => Some(cl.name()),
@@ -174,72 +177,71 @@ impl InterpreterState {
                         ),
                     );
                 }
+                ir::CellType::Component { name } => todo!(),
+                ir::CellType::ThisComponent => todo!(),
+                ir::CellType::Constant { val, width } => todo!(),
             }
         }
         Rc::new(RefCell::new(map))
     }
 
-    fn construct_pv_map(ctx: &ir::Context) -> PortValMap {
+    fn construct_port_map(comp: &ir::Component) -> PortValMap {
         let mut map = HashMap::new();
-        for comp in &ctx.components {
-            for port in comp.signature.borrow().ports.iter() {
-                let pt: &ir::Port = &port.borrow();
+
+        for port in comp.signature.borrow().ports.iter() {
+            let pt: &ir::Port = &port.borrow();
+            map.insert(pt as ConstPort, Value::bit_low());
+        }
+        for group in comp.groups.iter() {
+            let grp = group.borrow();
+            for hole in &grp.holes {
+                let pt: &ir::Port = &hole.borrow();
                 map.insert(pt as ConstPort, Value::bit_low());
             }
-            for group in comp.groups.iter() {
-                let grp = group.borrow();
-                for hole in &grp.holes {
-                    let pt: &ir::Port = &hole.borrow();
-                    map.insert(pt as ConstPort, Value::bit_low());
+        }
+        for cell in comp.cells.iter() {
+            //also iterate over groups cuz they also have ports
+            //iterate over ports, getting their value and putting into map
+            let cll = cell.borrow();
+            match &cll.prototype {
+                ir::CellType::Constant { val, width } => {
+                    for port in &cll.ports {
+                        let pt: &ir::Port = &port.borrow();
+                        map.insert(
+                            pt as ConstPort,
+                            Value::from(*val, *width).unwrap(),
+                        );
+                    }
                 }
-            }
-            for cell in comp.cells.iter() {
-                //also iterate over groups cuz they also have ports
-                //iterate over ports, getting their value and putting into map
-                let cll = cell.borrow();
-                match &cll.prototype {
-                    ir::CellType::Constant { val, width } => {
-                        for port in &cll.ports {
-                            let pt: &ir::Port = &port.borrow();
-                            map.insert(
-                                pt as ConstPort,
-                                Value::from(*val, *width).unwrap(),
-                            );
-                        }
+                ir::CellType::Primitive { .. } => {
+                    for port in &cll.ports {
+                        let pt: &ir::Port = &port.borrow();
+                        map.insert(
+                            pt as ConstPort,
+                            Value::from(
+                                cll.get_parameter("VALUE").unwrap_or_default(),
+                                pt.width,
+                            )
+                            .unwrap(),
+                        );
                     }
-                    ir::CellType::Primitive { .. } => {
-                        for port in &cll.ports {
-                            let pt: &ir::Port = &port.borrow();
-                            map.insert(
-                                pt as ConstPort,
-                                Value::from(
-                                    cll.get_parameter("VALUE")
-                                        .unwrap_or_default(),
-                                    pt.width,
-                                )
-                                .unwrap(),
-                            );
-                        }
-                    }
-                    ir::CellType::Component { .. } => {
-                        for port in &cll.ports {
-                            let pt: &ir::Port = &port.borrow();
-                            map.insert(
-                                pt as ConstPort,
-                                Value::from(0, 0).unwrap(),
-                            );
-                        }
-                    }
-                    _ => unreachable!(),
                 }
+                ir::CellType::Component { .. } => {
+                    for port in &cll.ports {
+                        let pt: &ir::Port = &port.borrow();
+                        map.insert(pt as ConstPort, Value::from(0, 0).unwrap());
+                    }
+                }
+                _ => unreachable!(),
             }
         }
+
         map.into()
     }
 
     /// Return the value associated with a component's port.
     pub fn get_from_port<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
-        self.pv_map.get(&port.as_raw()).unwrap()
+        self.port_map.get(&port.as_raw()).unwrap()
     }
 
     /// Outputs the cell state;
@@ -259,7 +261,7 @@ impl InterpreterState {
     /// A predicate that checks if the given cell points to a combinational
     /// primitive (or component?)
     pub fn cell_is_comb<C: AsRaw<ir::Cell>>(&self, cell: C) -> bool {
-        self.cell_prim_map
+        self.cell_map
             .borrow()
             .get(&cell.as_raw())
             .unwrap()
@@ -271,15 +273,15 @@ impl InterpreterState {
     /// from the source's stack environment allowing divergence from the fork
     /// point
     pub fn fork(&mut self) -> Self {
-        let other_pv_map = if self.pv_map.top().is_empty() {
-            self.pv_map.fork_from_tail()
+        let other_pv_map = if self.port_map.top().is_empty() {
+            self.port_map.fork_from_tail()
         } else {
-            self.pv_map.fork()
+            self.port_map.fork()
         };
         Self {
             clk: self.clk,
-            cell_prim_map: Rc::clone(&self.cell_prim_map),
-            pv_map: other_pv_map,
+            cell_map: Rc::clone(&self.cell_map),
+            port_map: other_pv_map,
             context: Rc::clone(&self.context),
         }
     }
@@ -293,9 +295,9 @@ impl InterpreterState {
             .max()
             .unwrap(); // safe because of once
 
-        self.pv_map = self
-            .pv_map
-            .merge_many(others.into_iter().map(|x| x.pv_map).collect());
+        self.port_map = self
+            .port_map
+            .merge_many(others.into_iter().map(|x| x.port_map).collect());
         self.clk = clk;
 
         self
@@ -365,7 +367,7 @@ impl Serialize for InterpreterState {
         S: serde::Serializer,
     {
         let ctx: &ir::Context = &self.context.borrow();
-        let cell_prim_map = self.cell_prim_map.borrow();
+        let cell_prim_map = self.cell_map.borrow();
 
         let bmap: BTreeMap<_, _> = ctx
             .components

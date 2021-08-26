@@ -45,7 +45,7 @@ impl StdMultPipe {
         }
     }
 
-    pub fn new(params: ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
@@ -168,7 +168,7 @@ impl StdDivPipe {
         }
     }
 
-    pub fn new(params: ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
@@ -280,7 +280,7 @@ impl StdReg {
         }
     }
 
-    pub fn new(params: ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
@@ -401,13 +401,13 @@ impl StdMemD1 {
         let bindings = construct_bindings(
             [("WIDTH", width), ("SIZE", size), ("IDX_SIZE", idx_size)].iter(),
         );
-        Self::new(bindings)
+        Self::new(&bindings)
     }
     /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
     /// slots for memory, accepting indecies (addr0) of width [idx_size].
     /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
     /// you will not be able to access the slots near the end of the memory.
-    pub fn new(params: ir::Binding) -> StdMemD1 {
+    pub fn new(params: &ir::Binding) -> StdMemD1 {
         let width = get_param(&params, "WIDTH")
             .expect("Missing width param for std_mem_d1");
         let size = get_param(&params, "SIZE")
@@ -595,7 +595,7 @@ impl StdMemD2 {
             ]
             .iter(),
         );
-        Self::new(bindings)
+        Self::new(&bindings)
     }
 
     #[inline]
@@ -607,7 +607,7 @@ impl StdMemD2 {
     /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
     /// [d0_idx_size] and [d1_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: ir::Binding) -> StdMemD2 {
+    pub fn new(params: &ir::Binding) -> StdMemD2 {
         let width = get_param(&params, "WIDTH")
             .expect("Missing width parameter for std_mem_d2");
         let d0_size = get_param(&params, "D0_SIZE")
@@ -820,13 +820,13 @@ impl StdMemD3 {
             ]
             .iter(),
         );
-        Self::new(bindings)
+        Self::new(&bindings)
     }
     /// Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
     /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: ir::Binding) -> StdMemD3 {
+    pub fn new(params: &ir::Binding) -> StdMemD3 {
         let width = get_param(&params, "WIDTH")
             .expect("Missing width parameter for std_mem_d3");
         let d0_size = get_param(&params, "D0_SIZE")
@@ -1081,13 +1081,13 @@ impl StdMemD4 {
             ]
             .iter(),
         );
-        Self::new(bindings)
+        Self::new(&bindings)
     }
     // Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
     /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: ir::Binding) -> StdMemD4 {
+    pub fn new(params: &ir::Binding) -> StdMemD4 {
         // yes this was incredibly tedious to write. Why do you ask?
         let width = get_param(&params, "WIDTH")
             .expect("Missing width parameter for std_mem_d4");

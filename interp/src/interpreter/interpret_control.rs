@@ -81,10 +81,10 @@ fn eval_par(
             tl = is.clk;
         }
 
-        smooshers.push(is.pv_map);
+        smooshers.push(is.port_map);
     }
 
-    final_st.pv_map = final_st.pv_map.merge_many(smooshers);
+    final_st.port_map = final_st.port_map.merge_many(smooshers);
     final_st.clk = tl;
 
     Ok(final_st)

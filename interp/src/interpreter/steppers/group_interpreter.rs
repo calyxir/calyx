@@ -128,7 +128,7 @@ impl<'a> AssignmentInterpreter<'a> {
             for cell in self.cells.iter() {
                 if let Some(x) = self
                     .state
-                    .cell_prim_map
+                    .cell_map
                     .borrow_mut()
                     .get_mut(&(&cell.borrow() as &Cell as ConstCell))
                 {
