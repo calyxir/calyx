@@ -1,10 +1,12 @@
 //! Environment for interpreter.
 
+use super::interpreter::ComponentInterpreter;
 use super::primitives::{combinational, stateful, Primitive};
 use super::stk_env::Smoosher;
 use super::utils::AsRaw;
 use super::utils::MemoryMap;
 use super::values::Value;
+use super::RefHandler;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -51,15 +53,16 @@ impl InterpreterState {
     /// Construct an environment
     /// ctx : A context from the IR
     pub fn init(
-        ctx: &ir::RRC<ir::Context>,
+        ctx: ir::RRC<ir::Context>,
         target: &ir::Component,
+        ref_handler: &RefHandler,
         mems: &Option<MemoryMap>,
     ) -> Self {
         Self {
             context: ctx.clone(),
             clk: 0,
             port_map: InterpreterState::construct_port_map(target),
-            cell_map: Self::construct_cell_map(target, mems),
+            cell_map: Self::construct_cell_map(target, &ctx, ref_handler, mems),
         }
     }
 
@@ -148,8 +151,10 @@ impl InterpreterState {
         }
     }
 
-    fn construct_cell_map(
+    fn construct_cell_map<'a>(
         comp: &ir::Component,
+        ctx: &ir::RRC<ir::Context>,
+        handler: &RefHandler<'a>,
         mems: &Option<MemoryMap>,
     ) -> PrimitiveMap {
         let mut map = HashMap::new();
@@ -177,9 +182,16 @@ impl InterpreterState {
                         ),
                     );
                 }
-                ir::CellType::Component { name } => todo!(),
-                ir::CellType::ThisComponent => todo!(),
-                ir::CellType::Constant { val, width } => todo!(),
+                ir::CellType::Component { name } => {
+                    let (comp, control) = handler.get_by_name(name);
+                    let env = Self::init(ctx.clone(), comp, handler, mems);
+                    let comp_interp: Box<dyn Primitive> =
+                        Box::new(ComponentInterpreter::from_component(
+                            comp, control, env,
+                        ));
+                    map.insert(cl as ConstCell, comp_interp);
+                }
+                _ => {}
             }
         }
         Rc::new(RefCell::new(map))
@@ -280,7 +292,7 @@ impl InterpreterState {
         };
         Self {
             clk: self.clk,
-            cell_map: Rc::clone(&self.cell_map),
+            cell_map: self.cell_map.clone(),
             port_map: other_pv_map,
             context: Rc::clone(&self.context),
         }
@@ -361,7 +373,7 @@ impl InterpreterState {
     }
 }
 
-impl Serialize for InterpreterState {
+impl<'a> Serialize for InterpreterState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

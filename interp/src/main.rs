@@ -5,6 +5,7 @@ use interp::debugger::Debugger;
 use interp::environment;
 use interp::errors::{InterpreterError, InterpreterResult};
 use interp::interpreter::interpret_component;
+use interp::RefHandler;
 use std::path::PathBuf;
 use std::{cell::RefCell, path::Path};
 
@@ -89,6 +90,16 @@ fn main() -> InterpreterResult<()> {
     pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
 
     let ctx_ref: &ir::Context = &ctx.borrow();
+    let components = ctx_ref.components.iter();
+    let controls: Vec<_> = ctx_ref
+        .components
+        .iter()
+        .map(|x| x.control.borrow())
+        .collect();
+    let control_refs: Vec<&ir::Control> =
+        controls.iter().map(|x| x as &ir::Control).collect();
+    let ref_handler =
+        RefHandler::construct(components, control_refs.iter().copied());
     let main_component = ctx_ref
         .components
         .iter()
@@ -96,7 +107,12 @@ fn main() -> InterpreterResult<()> {
         .ok_or(InterpreterError::MissingMainComponent)?;
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
-    let env = environment::InterpreterState::init(&ctx, main_component, &mems);
+    let env = environment::InterpreterState::init(
+        ctx.clone(),
+        main_component,
+        &ref_handler,
+        &mems,
+    );
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
         Command::Interpret(_) => interpret_component(main_component, env),
