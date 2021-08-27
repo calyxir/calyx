@@ -91,6 +91,10 @@ impl CalyxParser {
         Ok(())
     }
 
+    fn comb(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
     // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
         Ok(ir::Id::new(
@@ -487,7 +491,14 @@ impl CalyxParser {
             [name_with_attribute((name, attrs)), wire(wire)..] => ast::Group {
                 name,
                 attributes: attrs,
-                wires: wire.collect()
+                wires: wire.collect(),
+                is_comb: false,
+            },
+            [comb(_), name_with_attribute((name, attrs)), wire(wire)..] => ast::Group {
+                name,
+                attributes: attrs,
+                wires: wire.collect(),
+                is_comb: true,
             }
         ))
     }

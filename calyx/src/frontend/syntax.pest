@@ -203,8 +203,9 @@ at_attributes = {
       at_attribute*
 }
 
+comb = { "comb" }
 group = {
-     "group" ~ name_with_attribute ~ "{"
+     comb? ~ "group" ~ name_with_attribute ~ "{"
       ~ wire*
       ~ "}"
 }

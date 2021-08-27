@@ -189,6 +189,9 @@ impl IRPrinter {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
+        if group.is_comb() {
+            write!(f, "comb")?;
+        }
         write!(f, "group {}", group.name().id)?;
         if !group.attributes.is_empty() {
             write!(f, "{}", Self::format_attributes(&group.attributes))?;

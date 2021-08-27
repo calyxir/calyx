@@ -276,16 +276,22 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
 ///////////////// Group Construction /////////////////////////
 
-/// Build an IR group using the AST Group.
+/// Build an [ir::Group] from an [ast::Group] and attach it to the [ir::Compoennt]
+/// associated with the [ir::Builder]
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
-    let ir_group = builder.add_group(group.name);
-    ir_group.borrow_mut().attributes = group.attributes;
+    let assigns = group
+        .wires
+        .into_iter()
+        .map(|assign| build_assignment(assign, builder))
+        .collect::<CalyxResult<Vec<_>>>()?;
 
-    // Add assignemnts to the group
-    for wire in group.wires {
-        let assign = build_assignment(wire, builder)?;
-        ir_group.borrow_mut().assignments.push(assign)
-    }
+    let ir_group = if group.is_comb {
+        builder.add_comb_group(group.name)
+    } else {
+        builder.add_group(group.name)
+    };
+    ir_group.borrow_mut().attributes = group.attributes;
+    ir_group.borrow_mut().assignments = assigns;
 
     Ok(())
 }

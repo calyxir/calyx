@@ -251,6 +251,7 @@ pub struct Group {
     pub name: ir::Id,
     pub wires: Vec<Wire>,
     pub attributes: ir::Attributes,
+    pub is_comb: bool,
 }
 
 /// Data for the `->` structure statement.

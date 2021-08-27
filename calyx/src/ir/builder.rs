@@ -66,6 +66,7 @@ impl<'a> Builder<'a> {
             attributes: ir::Attributes::default(),
             holes: smallvec![],
             assignments: vec![],
+            is_comb: false,
         }));
 
         // Add default holes to the group.
@@ -79,6 +80,28 @@ impl<'a> Builder<'a> {
             }));
             group.borrow_mut().holes.push(hole);
         }
+
+        // Add the group to the component.
+        self.component.groups.add(Rc::clone(&group));
+
+        group
+    }
+
+    /// Construct a combinational group
+    pub fn add_comb_group<S>(&mut self, prefix: S) -> RRC<ir::Group>
+    where
+        S: Into<ir::Id> + ToString + Clone,
+    {
+        let name = self.component.generate_name(prefix);
+
+        // Check if there is a group with the same name.
+        let group = Rc::new(RefCell::new(ir::Group {
+            name,
+            attributes: ir::Attributes::default(),
+            assignments: vec![],
+            holes: smallvec![],
+            is_comb: true,
+        }));
 
         // Add the group to the component.
         self.component.groups.add(Rc::clone(&group));

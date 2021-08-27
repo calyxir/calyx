@@ -319,6 +319,11 @@ pub struct Group {
 
     /// Attributes for this group.
     pub attributes: Attributes,
+
+    /// True if this is a combinational group. A combinational group does
+    /// not have any holes and should only contain assignments that should be
+    /// combinationally active
+    pub(super) is_comb: bool,
 }
 impl Group {
     /// Get a reference to the named hole if it exists.
@@ -346,6 +351,14 @@ impl Group {
         })
     }
 
+    /// Returns true if this group is combinational.
+    #[inline]
+    pub fn is_comb(&self) -> bool {
+        debug_assert!(self.holes.is_empty());
+        self.is_comb
+    }
+
+    /// The name of this group.
     pub fn name(&self) -> &Id {
         &self.name
     }
