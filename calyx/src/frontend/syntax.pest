@@ -50,7 +50,7 @@ extern_or_component = {
 }
 
 component = {
-      "component" ~ identifier ~ attributes? ~ signature
+      "component" ~ name_with_attribute ~ signature
       ~ "{"
       ~ cells
       ~ connections
@@ -92,7 +92,7 @@ params = {
 }
 
 primitive = {
-      "primitive" ~ identifier ~ attributes? ~ params? ~ signature ~ ";"
+      "primitive" ~ name_with_attribute ~ params? ~ signature ~ ";"
 }
 
 ext = {
@@ -188,6 +188,9 @@ attribute = {
 attributes = {
       "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
 }
+name_with_attribute = {
+  identifier ~ attributes?
+}
 
 // @static(1) style annotation
 attr_val = {
@@ -201,7 +204,7 @@ at_attributes = {
 }
 
 group = {
-      "group" ~ identifier ~ attributes? ~ "{"
+     "group" ~ name_with_attribute ~ "{"
       ~ wire*
       ~ "}"
 }

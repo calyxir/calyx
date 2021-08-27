@@ -209,11 +209,19 @@ impl CalyxParser {
             [string_lit(key), bitwidth(num)] => (key, num)
         ))
     }
-
     fn attributes(input: Node) -> ParseResult<ir::Attributes> {
         Ok(match_nodes!(
             input.into_children();
             [attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
+        ))
+    }
+    fn name_with_attribute(
+        input: Node,
+    ) -> ParseResult<(ir::Id, ir::Attributes)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), attributes(attrs)] => (name, attrs),
+            [identifier(name)] => (name, vec![].into()),
         ))
     }
 
@@ -307,30 +315,18 @@ impl CalyxParser {
     fn primitive(input: Node) -> ParseResult<ir::Primitive> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name), attributes(attrs), params(p), signature(s)] => ir::Primitive {
+            [name_with_attribute((name, attrs)), params(p), signature(s)] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs,
             },
-            [identifier(name), attributes(attrs), signature(s)] => ir::Primitive {
+            [name_with_attribute((name, attrs)), signature(s)] => ir::Primitive {
                 name,
                 params: Vec::with_capacity(0),
                 signature: s,
                 attributes: attrs,
             },
-            [identifier(name), params(p), signature(s)] => ir::Primitive {
-                name,
-                params: p,
-                signature: s,
-                attributes: ir::Attributes::default()
-            },
-            [identifier(name), signature(s)] => ir::Primitive {
-                name,
-                params: Vec::with_capacity(0),
-                signature: s,
-                attributes: ir::Attributes::default()
-            }
         ))
     }
 
@@ -488,14 +484,9 @@ impl CalyxParser {
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name), attributes(attrs), wire(wire)..] => ast::Group {
+            [name_with_attribute((name, attrs)), wire(wire)..] => ast::Group {
                 name,
                 attributes: attrs,
-                wires: wire.collect()
-            },
-            [identifier(name), wire(wire)..] => ast::Group {
-                name,
-                attributes: ir::Attributes::default(),
                 wires: wire.collect()
             }
         ))
@@ -658,7 +649,7 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [
-                identifier(id),
+                name_with_attribute((name, attributes)),
                 signature(sig),
                 cells(cells),
                 connections(connections),
@@ -666,26 +657,7 @@ impl CalyxParser {
             ] => {
                 let (continuous_assignments, groups) = connections;
                 ast::ComponentDef {
-                    name: id,
-                    signature: sig,
-                    cells,
-                    groups,
-                    continuous_assignments,
-                    control,
-                    attributes: ir::Attributes::default()
-                }
-            },
-            [
-                identifier(id),
-                attributes(attributes),
-                signature(sig),
-                cells(cells),
-                connections(connections),
-                control(control)
-            ] => {
-                let (continuous_assignments, groups) = connections;
-                ast::ComponentDef {
-                    name: id,
+                    name,
                     signature: sig,
                     cells,
                     groups,
