@@ -36,10 +36,12 @@ fn construct(
             fbranch,
             ..
         }) => {
-            used_ports
-                .entry(cond.borrow().name().clone())
-                .or_default()
-                .push(Rc::clone(port));
+            if let Some(c) = cond {
+                used_ports
+                    .entry(c.borrow().name().clone())
+                    .or_default()
+                    .push(Rc::clone(port));
+            }
 
             construct(tbranch, used_ports);
             construct(fbranch, used_ports);

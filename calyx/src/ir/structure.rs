@@ -354,7 +354,7 @@ impl Group {
     /// Returns true if this group is combinational.
     #[inline]
     pub fn is_comb(&self) -> bool {
-        debug_assert!(self.holes.is_empty());
+        debug_assert!(!self.is_comb || self.holes.is_empty());
         self.is_comb
     }
 

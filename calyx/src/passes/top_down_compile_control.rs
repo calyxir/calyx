@@ -1,10 +1,14 @@
 use super::math_utilities::get_bit_width_from;
-use crate::ir::{
-    self,
-    traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures, RRC,
-};
+use crate::errors::CalyxResult;
 use crate::{build_assignments, guard, structure};
+use crate::{
+    errors::Error,
+    ir::{
+        self,
+        traversal::{Action, Named, VisResult, Visitor},
+        LibrarySignatures, RRC,
+    },
+};
 use ir::IRPrinter;
 use itertools::Itertools;
 use petgraph::{algo::connected_components, graph::DiGraph};
@@ -84,7 +88,7 @@ fn calculate_states(
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> u64 {
+) -> CalyxResult<u64> {
     match con {
         // Compiled to:
         // ```
@@ -106,23 +110,23 @@ fn calculate_states(
                 .append(&mut en_go);
 
             schedule.transitions.push((cur_state, nxt_state, done_cond));
-            nxt_state
+            Ok(nxt_state)
         }
         // Give children the states `cur`, `cur + 1`, `cur + 2`, ...
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let mut cur = cur_state;
             for stmt in stmts {
-                cur = calculate_states(stmt, cur, pre_guard, schedule, builder);
+                cur =
+                    calculate_states(stmt, cur, pre_guard, schedule, builder)?;
             }
-            cur
+            Ok(cur)
         }
         // Generate the following transitions:
-        // 1. cur -> cur + 1: Compute the condition and store the generated value.
-        // 2. (cur + 1 -> cur + t): Compute the true branch when stored condition
+        // 1. (cur -> cur + t): Compute the true branch when stored condition
         //    is true.
-        // 3. (cur + 1 -> cur + f): Compute the true branch when stored condition
+        // 2. (cur -> cur + f): Compute the true branch when stored condition
         //    is false.
-        // 4. (cur + t -> cur + max(t, f) + 1)
+        // 3. (cur + t -> cur + max(t, f) + 1)
         //    (cur + f -> cur + max(t, f) + 1): Transition to a "join" stage
         //    after running the branch.
         ir::Control::If(ir::If {
@@ -132,81 +136,34 @@ fn calculate_states(
             fbranch,
             ..
         }) => {
-            structure!(builder;
-                let signal_on = constant(1, 1);
-                let signal_off = constant(0, 1);
-                let cs_if = prim std_reg(1);
-            );
-
-            // Compute the condition and save its value in cs_if
-            let mut cond_save_assigns = vec![
-                builder.build_assignment(
-                    cs_if.borrow().get("in"),
-                    Rc::clone(port),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cs_if.borrow().get("write_en"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cond.borrow().get("go"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-            ];
-
-            // Schedule the condition computation first and transition to next
-            // state.
-            let after_cond_compute = cur_state + 1;
-            schedule
-                .enables
-                .entry(cur_state)
-                .or_default()
-                .append(&mut cond_save_assigns);
-            schedule.transitions.push((
-                cur_state,
-                after_cond_compute,
-                guard!(cond["done"]),
-            ));
+            // The port must be marked as stable before compilation can proceed
+            if !matches!(port.borrow().attributes.get("stable"), Some(1)) {
+                let (cell, port) = port.borrow().canonical();
+                return Err(Error::MalformedStructure(format!("{}: `{}.{}` is not marked with @stable. It cannot be used for computing `if` condition.", TopDownCompileControl::name(), cell, port)));
+            }
+            // There shouldn't be a group in `with` position.
+            if cond.is_some() {
+                return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
+            }
+            let port_guard = ir::Guard::port(Rc::clone(port));
 
             // Computation for true branch
-            let true_go = guard!(cs_if["out"]) & pre_guard.clone();
+            let true_go = port_guard.clone() & pre_guard.clone();
             let after_true = calculate_states(
-                tbranch,
-                after_cond_compute,
-                &true_go,
-                schedule,
-                builder,
-            );
+                tbranch, cur_state, &true_go, schedule, builder,
+            )?;
             // Computation for false branch
-            let false_go = !guard!(cs_if["out"]) & pre_guard.clone();
+            let false_go = !port_guard & pre_guard.clone();
             let after_false = calculate_states(
-                fbranch,
-                after_cond_compute,
-                &false_go,
-                schedule,
-                builder,
-            );
+                fbranch, cur_state, &false_go, schedule, builder,
+            )?;
 
             // Transition to a join stage
             let next = std::cmp::max(after_true, after_false) + 1;
             schedule.transitions.push((after_true, next, true_go));
             schedule.transitions.push((after_false, next, false_go));
 
-            // Cleanup: Reset cs_if in the join stage.
-            let mut cleanup = build_assignments!(builder;
-                cs_if["in"] = pre_guard ? signal_off["out"];
-                cs_if["write_en"] = pre_guard ? signal_on["out"];
-            );
-            schedule
-                .enables
-                .entry(next)
-                .or_default()
-                .append(&mut cleanup);
-
-            next
+            Ok(next)
         }
         // Compile in three stage:
         // 1. cur -> cur + 1: Compute the condition and store the generated value.
@@ -263,7 +220,7 @@ fn calculate_states(
                 &body_go,
                 schedule,
                 builder,
-            );
+            )?;
 
             // Back edge jump when condition was true
             schedule.transitions.push((nxt, cur_state, body_go));
@@ -286,7 +243,7 @@ fn calculate_states(
                 .or_default()
                 .append(&mut cleanup);
 
-            exit
+            Ok(exit)
         }
         // `par` sub-programs should already be compiled
         ir::Control::Par(..) => {
@@ -469,7 +426,7 @@ impl Visitor for TopDownCompileControl {
                         &ir::Guard::True,
                         &mut schedule,
                         &mut builder,
-                    );
+                    )?;
                     realize_schedule(schedule, &mut builder)
                 }
             };
@@ -546,7 +503,7 @@ impl Visitor for TopDownCompileControl {
             &ir::Guard::True,
             &mut schedule,
             &mut builder,
-        );
+        )?;
         let comp_group = realize_schedule(schedule, &mut builder);
 
         Ok(Action::Change(ir::Control::enable(comp_group)))

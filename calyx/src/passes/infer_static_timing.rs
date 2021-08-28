@@ -424,8 +424,7 @@ impl Visitor for InferStaticTiming {
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
-        if let (Some(ctime), Some(ttime), Some(ftime)) = (
-            s.cond.borrow().attributes.get("static"),
+        if let (Some(ttime), Some(ftime)) = (
             s.tbranch
                 .get_attributes()
                 .and_then(|attr| attr.get("static")),
@@ -433,8 +432,7 @@ impl Visitor for InferStaticTiming {
                 .get_attributes()
                 .and_then(|attr| attr.get("static")),
         ) {
-            s.attributes
-                .insert("static", ctime + 1 + cmp::max(ttime, ftime));
+            s.attributes.insert("static", 1 + cmp::max(ttime, ftime));
         }
 
         Ok(Action::Continue)

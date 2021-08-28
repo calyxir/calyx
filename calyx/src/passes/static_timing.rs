@@ -194,24 +194,26 @@ impl Visitor for StaticTiming {
         if let (ir::Control::Enable(tdata), ir::Control::Enable(fdata)) =
             (&*s.tbranch, &*s.fbranch)
         {
-            let cond = &s.cond;
             let tru = &tdata.group;
             let fal = &fdata.group;
 
-            if let (Some(ctime), Some(ttime), Some(ftime)) = (
-                check_not_comb(cond)?,
-                check_not_comb(tru)?,
-                check_not_comb(fal)?,
-            ) {
-                let mut builder = ir::Builder::new(comp, ctx);
+            if s.cond.is_some() {
+                return Err(Error::MalformedStructure(format!("{}: condition group should be removed from if. Run `{}` before this pass.", Self::name(), RemoveCombGroups::name())));
+            }
+
+            if let (Some(ttime), Some(ftime)) =
+                (check_not_comb(tru)?, check_not_comb(fal)?)
+            {
+                todo!()
+                /* let mut builder = ir::Builder::new(comp, ctx);
                 let if_group = builder.add_group("static_if");
                 if_group
                     .borrow_mut()
                     .attributes
-                    .insert("static", ctime + 1 + cmp::max(ttime, ftime));
+                    .insert("static", 1 + cmp::max(ttime, ftime));
 
-                let end_true_time = ttime + ctime + 1;
-                let end_false_time = ftime + ctime + 1;
+                let end_true_time = ttime + 1;
+                let end_false_time = ftime + 1;
                 // `0` state + (ctime + max(ttime, ftime) + 1) states.
                 let fsm_size = get_bit_width_from(
                     1 + cmp::max(end_true_time, end_false_time),
@@ -222,9 +224,6 @@ impl Visitor for StaticTiming {
                     let signal_on = constant(1, 1);
                     let cond_stored = prim std_reg(1);
                     let reset_val = constant(0, fsm_size);
-
-                    let cond_time_const = constant(ctime, fsm_size);
-                    let cond_done_time_const = constant(ctime, fsm_size);
 
                     let true_end_const = constant(end_true_time, fsm_size);
                     let false_end_const = constant(end_false_time, fsm_size);
@@ -302,6 +301,7 @@ impl Visitor for StaticTiming {
                 comp.continuous_assignments.append(&mut clean_assigns);
 
                 return Ok(Action::Change(ir::Control::enable(if_group)));
+                */
             }
         }
 

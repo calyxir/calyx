@@ -5,6 +5,7 @@ use crate::ir::{
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures,
 };
+use crate::passes::TopDownCompileControl;
 use crate::{build_assignments, guard, structure};
 use std::convert::TryInto;
 use std::rc::Rc;
@@ -78,7 +79,15 @@ impl Visitor for CompileControl {
         // create a new group for if related structure
         let if_group = builder.add_group("if");
 
-        let cond_group = Rc::clone(&cif.cond);
+        if cif.cond.is_some() {
+            return Err(Error::MalformedStructure(format!(
+                "{}: if without `with` is not supported. Use `{}` instead",
+                Self::name(),
+                TopDownCompileControl::name()
+            )));
+        }
+
+        let cond_group = Rc::clone(cif.cond.as_ref().unwrap());
         let cond = Rc::clone(&cif.port);
 
         // extract group names from control statement

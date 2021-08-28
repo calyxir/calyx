@@ -429,7 +429,10 @@ fn build_live_ranges(
 
             // feed to condition to compute
             build_live_ranges(
-                &ir::Control::enable(cond.clone()),
+                &cond
+                    .as_ref()
+                    .map(|c| ir::Control::enable(Rc::clone(c)))
+                    .unwrap_or_else(ir::Control::empty),
                 alive,
                 gens,
                 kills,

@@ -121,8 +121,10 @@ fn build_conflict_graph(
             fbranch,
             ..
         }) => {
-            all_enables.push(cond.clone_name());
-            confs.add_node(cond.borrow().name());
+            if let Some(c) = cond {
+                all_enables.push(c.clone_name());
+                confs.add_node(c.borrow().name());
+            }
             build_conflict_graph(tbranch, confs, all_enables);
             build_conflict_graph(fbranch, confs, all_enables);
         }

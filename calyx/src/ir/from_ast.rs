@@ -279,17 +279,17 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 /// Build an [ir::Group] from an [ast::Group] and attach it to the [ir::Compoennt]
 /// associated with the [ir::Builder]
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
+    let ir_group = if group.is_comb {
+        builder.add_comb_group(group.name)
+    } else {
+        builder.add_group(group.name)
+    };
     let assigns = group
         .wires
         .into_iter()
         .map(|assign| build_assignment(assign, builder))
         .collect::<CalyxResult<Vec<_>>>()?;
 
-    let ir_group = if group.is_comb {
-        builder.add_comb_group(group.name)
-    } else {
-        builder.add_group(group.name)
-    };
     ir_group.borrow_mut().attributes = group.attributes;
     ir_group.borrow_mut().assignments = assigns;
 
@@ -448,11 +448,18 @@ fn build_control(
             fbranch,
             attributes,
         } => {
+            let group =
+                builder.component.find_group(&cond).ok_or_else(|| {
+                    Error::Undefined(cond.clone(), "group".to_string())
+                })?;
+            /* if !group.borrow().is_comb() {
+                return Err(Error::MalformedControl(
+                    cond.fmt_err("This should be a combinational group."),
+                ));
+            } */
             let mut con = Control::if_(
                 get_port_ref(port, builder.component)?,
-                Rc::clone(&builder.component.find_group(&cond).ok_or_else(
-                    || Error::Undefined(cond.clone(), "group".to_string()),
-                )?),
+                Some(group),
                 Box::new(build_control(*tbranch, builder)?),
                 Box::new(build_control(*fbranch, builder)?),
             );
@@ -465,11 +472,18 @@ fn build_control(
             body,
             attributes,
         } => {
+            let group =
+                builder.component.find_group(&cond).ok_or_else(|| {
+                    Error::Undefined(cond.clone(), "group".to_string())
+                })?;
+            /* if !group.borrow().is_comb() {
+                return Err(Error::MalformedControl(
+                    cond.fmt_err("This should be a combinational group."),
+                ));
+            } */
             let mut con = Control::while_(
                 get_port_ref(port, builder.component)?,
-                Rc::clone(&builder.component.find_group(&cond).ok_or_else(
-                    || Error::Undefined(cond.clone(), "group".to_string()),
-                )?),
+                group,
                 Box::new(build_control(*body, builder)?),
             );
             *(con.get_mut_attributes().unwrap()) = attributes;

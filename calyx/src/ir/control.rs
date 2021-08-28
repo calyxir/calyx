@@ -24,8 +24,8 @@ pub struct If {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
 
-    /// Group that makes the signal on the conditional port valid.
-    pub cond: RRC<Group>,
+    /// Optional combinational group attached using `with`.
+    pub cond: Option<RRC<Group>>,
 
     /// Control for the true branch.
     pub tbranch: Box<Control>,
@@ -169,7 +169,7 @@ impl Control {
     /// Convience constructor for if
     pub fn if_(
         port: RRC<Port>,
-        cond: RRC<Group>,
+        cond: Option<RRC<Group>>,
         tbranch: Box<Control>,
         fbranch: Box<Control>,
     ) -> Self {

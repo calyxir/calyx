@@ -169,8 +169,17 @@ impl Visitor for WellFormed {
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
+        /* let cond = s.cond.borrow();
+        if !cond.is_comb() {
+            return Err(Error::MalformedControl(
+                cond.name()
+                    .fmt_err(&format!("Group `{}` was used with `with` syntax. It should be a combinational group.", cond.name())),
+            ));
+        } */
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.clone_name());
+        if let Some(cond) = &s.cond {
+            self.used_groups.insert(cond.clone_name());
+        }
         Ok(Action::Continue)
     }
 
@@ -180,6 +189,13 @@ impl Visitor for WellFormed {
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
+        /* let cond = s.cond.borrow();
+        if !cond.is_comb() {
+            return Err(Error::MalformedControl(
+                cond.name()
+                    .fmt_err(&format!("Group `{}` was used with `with` syntax. It should be a combinational group.", cond.name())),
+            ));
+        } */
         // Add cond group as a used port.
         self.used_groups.insert(s.cond.clone_name());
         Ok(Action::Continue)

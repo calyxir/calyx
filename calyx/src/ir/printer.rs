@@ -290,12 +290,11 @@ impl IRPrinter {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
-                writeln!(
-                    f,
-                    "if {} with {} {{",
-                    Self::get_port_access(&port.borrow()),
-                    cond.borrow().name().id
-                )?;
+                writeln!(f, "if {} ", Self::get_port_access(&port.borrow()),)?;
+                if let Some(c) = cond {
+                    write!(f, "with {} ", c.borrow().name.id)?;
+                }
+                writeln!(f, "{{")?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
                 if let ir::Control::Empty(_) = **fbranch {

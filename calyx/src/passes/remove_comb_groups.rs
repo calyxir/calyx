@@ -202,9 +202,12 @@ impl Visitor for RemoveCombGroups {
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
-        let key = (s.cond.borrow().name().clone(), s.port.borrow().canonical());
-        if let Some(new_port) = self.port_rewrite.get(&key) {
-            s.port = Rc::clone(new_port);
+        if let Some(cond) = &s.cond {
+            let key =
+                (cond.borrow().name().clone(), s.port.borrow().canonical());
+            if let Some(new_port) = self.port_rewrite.get(&key) {
+                s.port = Rc::clone(new_port);
+            }
         }
         Ok(Action::Continue)
     }

@@ -331,12 +331,12 @@ fn build_reaching_def(
             cond,
             ..
         }) => {
-            let fake_enable = ir::Control::Enable(ir::Enable {
-                attributes: ir::Attributes::default(),
-                group: Rc::clone(cond),
-            });
+            let cond = &cond
+                .as_ref()
+                .map(|c| ir::Control::enable(Rc::clone(c)))
+                .unwrap_or_else(ir::Control::empty);
             let (post_cond_def, post_cond_killed) =
-                build_reaching_def(&fake_enable, reach, killed, rd, counter);
+                build_reaching_def(cond, reach, killed, rd, counter);
             let (t_case_def, t_case_killed) = build_reaching_def(
                 tbranch,
                 post_cond_def.clone(),
