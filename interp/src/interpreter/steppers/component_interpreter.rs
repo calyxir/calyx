@@ -25,7 +25,7 @@ impl<'a> From<ControlInterpreter<'a>> for StructuralOrControl<'a> {
 }
 
 pub struct ComponentInterpreter<'a> {
-    interp: StructuralOrControl<'a>,
+    interp: Box<dyn Interpreter + 'a>,
 }
 
 impl<'a> ComponentInterpreter<'a> {
@@ -34,17 +34,16 @@ impl<'a> ComponentInterpreter<'a> {
         control: &'a ir::Control,
         env: InterpreterState,
     ) -> Self {
-        let interp;
+        let interp: Box<dyn Interpreter>;
 
         if control_is_empty(control) {
-            interp = StructuralInterpreter::from_component(comp, env).into();
+            interp = Box::new(StructuralInterpreter::from_component(comp, env));
         } else {
-            interp = ControlInterpreter::new(
+            interp = Box::new(ControlInterpreter::new(
                 control,
                 env,
                 &comp.continuous_assignments,
-            )
-            .into()
+            ))
         };
 
         Self { interp }
@@ -70,38 +69,23 @@ impl<'a> ComponentInterpreter<'a> {
 
 impl<'a> Interpreter for ComponentInterpreter<'a> {
     fn step(&mut self) -> InterpreterResult<()> {
-        match &mut self.interp {
-            StructuralOrControl::Structural(s) => s.step(),
-            StructuralOrControl::Control(c) => c.step(),
-        }
+        self.interp.step()
     }
 
     fn deconstruct(self) -> InterpreterState {
-        match self.interp {
-            StructuralOrControl::Structural(s) => s.deconstruct(),
-            StructuralOrControl::Control(c) => c.deconstruct(),
-        }
+        self.interp.deconstruct()
     }
 
     fn is_done(&self) -> bool {
-        match &self.interp {
-            StructuralOrControl::Structural(s) => s.is_done(),
-            StructuralOrControl::Control(c) => c.is_done(),
-        }
+        self.interp.is_done()
     }
 
     fn get_env(&self) -> Vec<&InterpreterState> {
-        match &self.interp {
-            StructuralOrControl::Structural(s) => s.get_env(),
-            StructuralOrControl::Control(c) => c.get_env(),
-        }
+        self.interp.get_env()
     }
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
-        match &self.interp {
-            StructuralOrControl::Structural(s) => s.currently_executing_group(),
-            StructuralOrControl::Control(c) => c.currently_executing_group(),
-        }
+        self.interp.currently_executing_group()
     }
 }
 
