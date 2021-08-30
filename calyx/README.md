@@ -13,22 +13,15 @@ See the [Calyx website][site], [language documentation][docs] and the
 [documentation for the source code][source-docs]
 for more information. Calyx's design is based on [our paper][paper].
 
-## Installation
+The `calyx` crate contains the Rust implementation of the intermediate
+representation, the compiler passes, and a frontend to parse source programs
+into the intermediate representation.
 
-### Quick
-If you want to try out the compiler, install it using `cargo`:
-```
-cargo install futil
-```
-
-This will install the `futil` binary which includes the calyx frontend,
-optimization passes, and several backends.
-
-### Recommended
-
-Follow the [getting started][docs] instructions.
+If you'd like try out the compiler infrastructure, take a look at the
+[`futil`][futil] crate instead.
 
 [site]: https://capra.cs.cornell.edu/calyx
 [docs]: https://capra.cs.cornell.edu/docs/calyx/
 [source-docs]: https://capra.cs.cornell.edu/docs/calyx/source/calyx
 [paper]: https://rachitnigam.com/files/pubs/calyx.pdf
+[futil]: https://crates.io/crates/futil

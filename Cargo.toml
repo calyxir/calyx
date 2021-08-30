@@ -1,18 +1,18 @@
 [package]
 name = "futil"
-version = "0.1.0"
+version = "0.1.1"
 authors = [ "The Calyx Team" ]
 edition = "2018"
 build = false
 license-file = "LICENSE"
-keywords = ["intermediate language", "compiler"]
+keywords = ["ir", "compiler"]
 repository = "https://github.com/cucapra/calyx"
 readme = "README.md"
 description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 
 [dependencies]
-calyx = { path = "calyx" }
+calyx = { path = "calyx", version = "0.1.0" }
 pest = "2.0"
 itertools = "0.9.0"
 atty = "0.2.14"
