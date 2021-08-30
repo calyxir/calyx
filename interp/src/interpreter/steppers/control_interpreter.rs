@@ -1,5 +1,5 @@
 use super::super::utils::get_done_port;
-use super::AssignmentInterpreter;
+use super::{AssignmentInterpreter, AssignmentInterpreterMarker};
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
 use crate::{
@@ -39,10 +39,14 @@ pub trait Interpreter<'outer> {
     fn get_env(&self) -> Vec<&InterpreterState<'outer>>;
 
     fn currently_executing_group(&self) -> Vec<&ir::Id>;
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker>;
 }
 
 pub struct EmptyInterpreter<'outer> {
-    env: InterpreterState<'outer>,
+    pub(super) env: InterpreterState<'outer>,
 }
 
 impl<'outer> EmptyInterpreter<'outer> {
@@ -74,6 +78,12 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
         vec![]
+    }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        None
     }
 }
 
@@ -157,6 +167,12 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
             vec![]
         }
     }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        Some(&mut self.interp)
+    }
 }
 
 pub struct SeqInterpreter<'a, 'outer> {
@@ -239,6 +255,15 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
             vec![]
         }
     }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        self.current_interpreter
+            .as_mut()
+            .map(|x| x.get_current_interp())
+            .flatten()
+    }
 }
 
 pub struct ParInterpreter<'a, 'outer> {
@@ -297,6 +322,12 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
             .iter()
             .flat_map(|x| x.currently_executing_group())
             .collect()
+    }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        None
     }
 }
 pub struct IfInterpreter<'a, 'outer> {
@@ -392,6 +423,16 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
             branch.currently_executing_group()
         } else {
             vec![]
+        }
+    }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        match (&mut self.cond, &mut self.branch_interp) {
+            (None, Some(x)) => x.get_current_interp(),
+            (Some(x), None) => x.get_current_interp(),
+            _ => unreachable!("If interpreter in invalid state"),
         }
     }
 }
@@ -498,6 +539,15 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
             vec![]
         }
     }
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        match (&mut self.cond_interp, &mut self.body_interp) {
+            (None, Some(x)) => x.get_current_interp(),
+            (Some(x), None) => x.get_current_interp(),
+            _ => unreachable!("If interpreter in invalid state"),
+        }
+    }
 }
 pub struct InvokeInterpreter<'outer> {
     phantom: PhantomData<InterpreterState<'outer>>, // placeholder to force lifetime annotations
@@ -531,6 +581,12 @@ impl<'outer> Interpreter<'outer> for InvokeInterpreter<'outer> {
     }
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
+        todo!()
+    }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
         todo!()
     }
 }
@@ -630,6 +686,12 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
         control_match!(self, i, i.currently_executing_group())
     }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        control_match!(self, i, i.get_current_interp())
+    }
 }
 
 pub struct StructuralInterpreter<'a, 'outer> {
@@ -694,5 +756,11 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
         vec![]
+    }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        Some(&mut self.interp)
     }
 }

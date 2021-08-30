@@ -90,6 +90,12 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Control(c) => c.currently_executing_group(),
         }
     }
+
+    fn get_current_interp(
+        &mut self,
+    ) -> Option<&mut dyn super::AssignmentInterpreterMarker> {
+        None
+    }
 }
 
 impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {

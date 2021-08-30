@@ -316,3 +316,9 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
         &self.state
     }
 }
+
+impl<'a, 'outer> AssignmentInterpreterMarker
+    for AssignmentInterpreter<'a, 'outer>
+{
+}
+pub trait AssignmentInterpreterMarker {}
