@@ -8,12 +8,12 @@ use crate::errors::InterpreterResult;
 use calyx::ir;
 
 /// Helper function to evaluate control
-pub fn interpret_control(
+pub fn interpret_control<'outer>(
     ctrl: &ir::Control,
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState,
+    env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     match ctrl {
         ir::Control::Seq(s) => eval_seq(s, continuous_assignments, env, comp),
         ir::Control::Par(p) => eval_par(p, continuous_assignments, env, comp),
@@ -30,12 +30,12 @@ pub fn interpret_control(
 }
 
 /// Interpret Seq
-fn eval_seq(
+fn eval_seq<'outer>(
     s: &ir::Seq,
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
+    mut env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     for stmt in &s.stmts {
         env = interpret_control(stmt, continuous_assignments, env, comp)?;
     }
@@ -44,12 +44,12 @@ fn eval_seq(
 
 /// Interpret Par
 
-fn eval_par(
+fn eval_par<'outer>(
     p: &ir::Par,
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
+    mut env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     //vector to keep track of all updated states
     let mut states = Vec::new();
 
@@ -91,12 +91,12 @@ fn eval_par(
 }
 
 /// Interpret If
-fn eval_if(
+fn eval_if<'outer>(
     i: &ir::If,
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
+    mut env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     env = interpret_group(&i.cond.borrow(), continuous_assignments, env)?;
     let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
     env = finish_group_interpretation(
@@ -119,12 +119,12 @@ fn eval_if(
 // cond_group and uses port_name as the conditional value. When the
 // value is high, it executes body_stmt and recomputes the conditional
 // using cond_group.
-fn eval_while(
+fn eval_while<'outer>(
     w: &ir::While,
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
+    mut env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     loop {
         env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
 
@@ -148,32 +148,32 @@ fn eval_while(
 /// Interpret Invoke
 /// TODO
 #[allow(clippy::unnecessary_wraps)]
-fn eval_invoke(
+fn eval_invoke<'outer>(
     _i: &ir::Invoke,
     _continuous_assignments: &[ir::Assignment],
-    _env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    _env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     todo!("invoke control operator")
 }
 
 /// Interpret Enable
-fn eval_enable(
+fn eval_enable<'outer>(
     e: &ir::Enable,
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    mut env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     env = interpret_group(&e.group.borrow(), continuous_assignments, env)?;
     finish_group_interpretation(&e.group.borrow(), continuous_assignments, env)
 }
 
 /// Interpret Empty
 #[allow(clippy::unnecessary_wraps)]
-fn eval_empty(
+fn eval_empty<'outer>(
     _e: &ir::Empty,
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
+    mut env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     env = interp_cont(continuous_assignments, env, comp)?;
     Ok(env)
 }

@@ -7,32 +7,36 @@ use crate::errors::{InterpreterError, InterpreterResult};
 use crate::primitives::Primitive;
 use calyx::ir::{self, Cell, Component, Context, Port, RRC};
 
-enum StructuralOrControl<'a> {
-    Structural(StructuralInterpreter<'a>),
-    Control(ControlInterpreter<'a>),
+enum StructuralOrControl<'a, 'outer> {
+    Structural(StructuralInterpreter<'a, 'outer>),
+    Control(ControlInterpreter<'a, 'outer>),
 }
 
-impl<'a> From<StructuralInterpreter<'a>> for StructuralOrControl<'a> {
-    fn from(input: StructuralInterpreter<'a>) -> Self {
+impl<'a, 'outer> From<StructuralInterpreter<'a, 'outer>>
+    for StructuralOrControl<'a, 'outer>
+{
+    fn from(input: StructuralInterpreter<'a, 'outer>) -> Self {
         Self::Structural(input)
     }
 }
 
-impl<'a> From<ControlInterpreter<'a>> for StructuralOrControl<'a> {
-    fn from(input: ControlInterpreter<'a>) -> Self {
+impl<'a, 'outer> From<ControlInterpreter<'a, 'outer>>
+    for StructuralOrControl<'a, 'outer>
+{
+    fn from(input: ControlInterpreter<'a, 'outer>) -> Self {
         Self::Control(input)
     }
 }
 
-pub struct ComponentInterpreter<'a> {
-    interp: StructuralOrControl<'a>,
+pub struct ComponentInterpreter<'a, 'outer> {
+    interp: StructuralOrControl<'a, 'outer>,
 }
 
-impl<'a> ComponentInterpreter<'a> {
+impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
     pub fn from_component(
         comp: &'a Component,
         control: &'a ir::Control,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
     ) -> Self {
         let interp;
 
@@ -68,7 +72,7 @@ impl<'a> ComponentInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for ComponentInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.interp {
             StructuralOrControl::Structural(s) => s.step(),
@@ -76,7 +80,7 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
         }
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         match self.interp {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
@@ -90,7 +94,7 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
         }
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),
@@ -105,7 +109,7 @@ impl<'a> Interpreter for ComponentInterpreter<'a> {
     }
 }
 
-impl<'a> Primitive for ComponentInterpreter<'a> {
+impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
     fn do_tick(&mut self) -> Vec<(ir::Id, crate::values::Value)> {
         todo!()
     }

@@ -64,19 +64,19 @@ where
 
 /// An interpreter object which exposes a pausable interface to interpreting a
 /// group of assignments
-pub struct AssignmentInterpreter<'a> {
-    state: InterpreterState,
+pub struct AssignmentInterpreter<'a, 'outer> {
+    state: InterpreterState<'outer>,
     done_port: ConstPort,
     assigns: AssignmentOwner<'a>,
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
 }
 
-impl<'a> AssignmentInterpreter<'a> {
+impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     /// Creates a new AssignmentInterpreter which borrows the references to the
     /// assignments from an outside context
     pub fn new<I1, I2>(
-        state: InterpreterState,
+        state: InterpreterState<'outer>,
         done_signal: ConstPort,
         assigns: (I1, I2),
     ) -> Self
@@ -100,7 +100,7 @@ impl<'a> AssignmentInterpreter<'a> {
     /// Creates a new AssignmentInterpreter which owns the assignments that it
     /// interpretes
     pub fn new_owned(
-        state: InterpreterState,
+        state: InterpreterState<'outer>,
         done_signal: ConstPort,
         vecs: (Vec<Assignment>, Vec<Assignment>),
     ) -> Self {
@@ -253,7 +253,7 @@ impl<'a> AssignmentInterpreter<'a> {
     /// environment
     pub fn run_and_deconstruct(
         mut self,
-    ) -> InterpreterResult<InterpreterState> {
+    ) -> InterpreterResult<InterpreterState<'outer>> {
         self.run()?;
         Ok(self.deconstruct())
     }
@@ -271,7 +271,7 @@ impl<'a> AssignmentInterpreter<'a> {
         utils::is_signal_high(self.state.get_from_port(self.done_port))
     }
 
-    pub fn deconstruct(self) -> InterpreterState {
+    pub fn deconstruct(self) -> InterpreterState<'outer> {
         if self.is_deconstructable() {
             self.deconstruct_no_check()
         } else {
@@ -280,7 +280,7 @@ impl<'a> AssignmentInterpreter<'a> {
     }
 
     #[inline]
-    fn deconstruct_no_check(self) -> InterpreterState {
+    fn deconstruct_no_check(self) -> InterpreterState<'outer> {
         self.state
     }
 
@@ -294,7 +294,7 @@ impl<'a> AssignmentInterpreter<'a> {
     pub fn reset<I: Iterator<Item = &'a ir::Assignment>>(
         self,
         assigns: I,
-    ) -> InterpreterState {
+    ) -> InterpreterState<'outer> {
         let done_signal = self.done_port;
         let env = self.deconstruct();
 
@@ -312,7 +312,7 @@ impl<'a> AssignmentInterpreter<'a> {
         self.state.insert(port, val)
     }
 
-    pub fn get_env(&self) -> &InterpreterState {
+    pub fn get_env(&self) -> &InterpreterState<'outer> {
         &self.state
     }
 }

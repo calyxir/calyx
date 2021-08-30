@@ -1,13 +1,15 @@
 //! Environment for interpreter.
 
 use super::interpreter::ComponentInterpreter;
-use super::primitives::{combinational, stateful, Primitive};
+use super::primitives::{combinational, stateful, Primitive, Serializeable};
 use super::stk_env::Smoosher;
 use super::utils::AsRaw;
 use super::utils::MemoryMap;
 use super::values::Value;
 use super::RefHandler;
 use calyx::ir::{self, RRC};
+use serde::ser::SerializeMap;
+use serde::ser::SerializeStruct;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -24,8 +26,8 @@ type ConstPort = *const ir::Port;
 
 /// A map defining primitive implementations for Cells. As it is keyed by
 /// ConstCell the lifetime of the keys is independent of the actual cells.
-type PrimitiveMap =
-    RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>;
+type PrimitiveMap<'outer> =
+    RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive + 'outer>>>;
 
 /// A map defining values for ports. As it is keyed by ConstPort, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
@@ -33,12 +35,12 @@ type PrimitiveMap =
 type PortValMap = Smoosher<ConstPort, Value>;
 
 /// The environment to interpret a Calyx program.
-pub struct InterpreterState {
+pub struct InterpreterState<'outer> {
     /// Clock count
     pub clk: u64,
 
     /// Mapping from cells to prims.
-    pub cell_map: PrimitiveMap,
+    pub cell_map: PrimitiveMap<'outer>,
 
     /// Use raw pointers for hashmap: ports to values
     // This is a Smoosher (see stk_env.rs)
@@ -49,13 +51,13 @@ pub struct InterpreterState {
 }
 
 /// Helper functions for the environment.
-impl InterpreterState {
+impl<'outer> InterpreterState<'outer> {
     /// Construct an environment
     /// ctx : A context from the IR
     pub fn init(
         ctx: ir::RRC<ir::Context>,
         target: &ir::Component,
-        ref_handler: &RefHandler,
+        ref_handler: &'outer RefHandler<'outer>,
         mems: &Option<MemoryMap>,
     ) -> Self {
         Self {
@@ -151,12 +153,12 @@ impl InterpreterState {
         }
     }
 
-    fn construct_cell_map<'a>(
+    fn construct_cell_map(
         comp: &ir::Component,
         ctx: &ir::RRC<ir::Context>,
-        handler: &RefHandler<'a>,
+        handler: &'outer RefHandler<'outer>,
         mems: &Option<MemoryMap>,
-    ) -> PrimitiveMap {
+    ) -> PrimitiveMap<'outer> {
         let mut map = HashMap::new();
         for cell in comp.cells.iter() {
             let cl: &ir::Cell = &cell.borrow();
@@ -373,13 +375,13 @@ impl InterpreterState {
     }
 }
 
-impl<'a> Serialize for InterpreterState {
+impl<'outer> Serialize for InterpreterState<'outer> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         let ctx: &ir::Context = &self.context.borrow();
-        let cell_prim_map = self.cell_map.borrow();
+        let cell_prim_map = &self.cell_map.borrow();
 
         let bmap: BTreeMap<_, _> = ctx
             .components
@@ -421,7 +423,10 @@ impl<'a> Serialize for InterpreterState {
                                 .get(&(&cell as &ir::Cell as ConstCell))
                             {
                                 if !prim.is_comb() {
-                                    return Some((cell.name().clone(), prim));
+                                    return Some((
+                                        cell.name().clone(),
+                                        Primitive::serialize(&**prim),
+                                    ));
                                 }
                             }
                         }
@@ -439,11 +444,10 @@ impl<'a> Serialize for InterpreterState {
         p.serialize(serializer)
     }
 }
-
-#[derive(Serialize)]
 #[allow(clippy::borrowed_box)]
+#[derive(Serialize)]
 /// Struct to fully serialize the internal state of the environment
-struct FullySerialize<'a> {
+struct FullySerialize {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
-    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, &'a Box<dyn Primitive>>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
 }

@@ -9,10 +9,10 @@ use calyx::ir;
 
 /// Interpret a component.
 
-pub fn interpret_component(
+pub fn interpret_component<'outer>(
     comp: &ir::Component,
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     interpret_control(
         &comp.control.borrow(),
         &comp.continuous_assignments,

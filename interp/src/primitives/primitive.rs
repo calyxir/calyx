@@ -85,6 +85,7 @@ impl From<(usize, usize, usize, usize)> for Shape {
     }
 }
 
+#[derive(Clone)]
 pub enum Serializeable {
     Empty,
     Val(u64),

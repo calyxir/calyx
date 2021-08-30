@@ -31,11 +31,11 @@ use std::rc::Rc;
 ///
 /// Prior to evaluation the interpreter sets the value of go to high and it
 /// returns it to low after execution concludes
-pub fn interp_cont(
+pub fn interp_cont<'outer>(
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
+    mut env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     let comp_sig = comp.signature.borrow();
 
     let go_port = comp_sig
@@ -80,12 +80,12 @@ pub fn interp_cont(
 }
 
 /// Evaluates a group, given an environment.
-pub fn interpret_group(
+pub fn interpret_group<'outer>(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 
@@ -98,11 +98,11 @@ pub fn interpret_group(
     interp.run_and_deconstruct()
 }
 
-pub fn finish_group_interpretation(
+pub fn finish_group_interpretation<'outer>(
     group: &ir::Group,
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
     let grp_done_ref: &ir::Port = &grp_done.borrow();
 

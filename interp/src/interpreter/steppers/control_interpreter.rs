@@ -11,6 +11,7 @@ use crate::{
 use calyx::ir::{self, Assignment, Component, Control};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
+use std::marker::PhantomData;
 
 // this almost certainly doesn't need to exist but it can't be a trait fn with a
 // default impl because it consumes self
@@ -21,7 +22,7 @@ macro_rules! run_and_deconstruct {
     }};
 }
 
-pub trait Interpreter {
+pub trait Interpreter<'outer> {
     fn step(&mut self) -> InterpreterResult<()>;
 
     fn run(&mut self) -> InterpreterResult<()> {
@@ -31,26 +32,26 @@ pub trait Interpreter {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState;
+    fn deconstruct(self) -> InterpreterState<'outer>;
 
     fn is_done(&self) -> bool;
 
-    fn get_env(&self) -> Vec<&InterpreterState>;
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>>;
 
     fn currently_executing_group(&self) -> Vec<&ir::Id>;
 }
 
-pub struct EmptyInterpreter {
-    env: InterpreterState,
+pub struct EmptyInterpreter<'outer> {
+    env: InterpreterState<'outer>,
 }
 
-impl EmptyInterpreter {
-    pub fn new(env: InterpreterState) -> Self {
+impl<'outer> EmptyInterpreter<'outer> {
+    pub fn new(env: InterpreterState<'outer>) -> Self {
         Self { env }
     }
 }
 
-impl Interpreter for EmptyInterpreter {
+impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         Ok(())
     }
@@ -59,7 +60,7 @@ impl Interpreter for EmptyInterpreter {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         self.env
     }
 
@@ -67,7 +68,7 @@ impl Interpreter for EmptyInterpreter {
         true
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         vec![&self.env]
     }
 
@@ -84,17 +85,17 @@ impl<'a> From<&'a ir::Enable> for ReferenceHolder<'a, ir::Group> {
     }
 }
 
-pub struct EnableInterpreter<'a> {
+pub struct EnableInterpreter<'a, 'outer> {
     enable: EnableHolder<'a>,
     group_name: Option<ir::Id>,
-    interp: AssignmentInterpreter<'a>,
+    interp: AssignmentInterpreter<'a, 'outer>,
 }
 
-impl<'a> EnableInterpreter<'a> {
+impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
     pub fn new<E>(
         enable: E,
         group_name: Option<ir::Id>,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
         continuous: &'a [Assignment],
     ) -> Self
     where
@@ -119,8 +120,8 @@ impl<'a> EnableInterpreter<'a> {
     }
 }
 
-impl<'a> EnableInterpreter<'a> {
-    fn reset(self) -> InterpreterState {
+impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
+    fn reset(self) -> InterpreterState<'outer> {
         self.interp.reset(self.enable.assignments.iter())
     }
     fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
@@ -128,7 +129,7 @@ impl<'a> EnableInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for EnableInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         self.interp.step()
     }
@@ -137,7 +138,7 @@ impl<'a> Interpreter for EnableInterpreter<'a> {
         self.interp.run()
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         self.reset()
     }
 
@@ -145,7 +146,7 @@ impl<'a> Interpreter for EnableInterpreter<'a> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         vec![self.interp.get_env()]
     }
 
@@ -158,17 +159,17 @@ impl<'a> Interpreter for EnableInterpreter<'a> {
     }
 }
 
-pub struct SeqInterpreter<'a> {
+pub struct SeqInterpreter<'a, 'outer> {
     sequence: PeekNth<std::slice::Iter<'a, Control>>,
-    current_interpreter: Option<ControlInterpreter<'a>>,
+    current_interpreter: Option<ControlInterpreter<'a, 'outer>>,
     continuous_assignments: &'a [Assignment],
-    env: Option<InterpreterState>,
+    env: Option<InterpreterState<'outer>>,
     done_flag: bool,
 }
-impl<'a> SeqInterpreter<'a> {
+impl<'a, 'outer> SeqInterpreter<'a, 'outer> {
     pub fn new(
         seq: &'a ir::Seq,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
         continuous_assigns: &'a [Assignment],
     ) -> Self {
         Self {
@@ -181,7 +182,7 @@ impl<'a> SeqInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for SeqInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         if self.current_interpreter.is_none() && self.sequence.peek().is_some()
         // There is more to execute, make new interpreter
@@ -217,11 +218,11 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
         self.current_interpreter.is_none() && self.done_flag
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         self.env.unwrap()
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         if let Some(cur) = &self.current_interpreter {
             cur.get_env()
         } else if let Some(env) = &self.env {
@@ -240,15 +241,15 @@ impl<'a> Interpreter for SeqInterpreter<'a> {
     }
 }
 
-pub struct ParInterpreter<'a> {
-    interpreters: Vec<ControlInterpreter<'a>>,
-    in_state: InterpreterState,
+pub struct ParInterpreter<'a, 'outer> {
+    interpreters: Vec<ControlInterpreter<'a, 'outer>>,
+    in_state: InterpreterState<'outer>,
 }
 
-impl<'a> ParInterpreter<'a> {
+impl<'a, 'outer> ParInterpreter<'a, 'outer> {
     pub fn new(
         par: &'a ir::Par,
-        mut env: InterpreterState,
+        mut env: InterpreterState<'outer>,
         continuous_assigns: &'a [Assignment],
     ) -> Self {
         let interpreters = par
@@ -264,7 +265,7 @@ impl<'a> ParInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for ParInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         for i in &mut self.interpreters {
             i.step()?;
@@ -272,7 +273,7 @@ impl<'a> Interpreter for ParInterpreter<'a> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         assert!(self.interpreters.iter().all(|x| x.is_done()));
         let envs = self
             .interpreters
@@ -287,7 +288,7 @@ impl<'a> Interpreter for ParInterpreter<'a> {
         self.interpreters.iter().all(|x| x.is_done())
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         self.interpreters.iter().flat_map(|x| x.get_env()).collect()
     }
 
@@ -298,19 +299,19 @@ impl<'a> Interpreter for ParInterpreter<'a> {
             .collect()
     }
 }
-pub struct IfInterpreter<'a> {
+pub struct IfInterpreter<'a, 'outer> {
     port: ConstPort,
-    cond: Option<EnableInterpreter<'a>>,
+    cond: Option<EnableInterpreter<'a, 'outer>>,
     tbranch: &'a Control,
     fbranch: &'a Control,
-    branch_interp: Option<ControlInterpreter<'a>>,
+    branch_interp: Option<ControlInterpreter<'a, 'outer>>,
     continuous_assignments: &'a [Assignment],
 }
 
-impl<'a> IfInterpreter<'a> {
+impl<'a, 'outer> IfInterpreter<'a, 'outer> {
     pub fn new(
         ctrl_if: &'a ir::If,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
         continuous_assigns: &'a [Assignment],
     ) -> Self {
         let port: ConstPort = ctrl_if.port.as_ptr();
@@ -331,7 +332,7 @@ impl<'a> IfInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for IfInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         if let Some(i) = &mut self.cond {
             if i.is_done() {
@@ -364,7 +365,7 @@ impl<'a> Interpreter for IfInterpreter<'a> {
         }
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         self.branch_interp.unwrap().deconstruct()
     }
 
@@ -374,7 +375,7 @@ impl<'a> Interpreter for IfInterpreter<'a> {
             && self.branch_interp.as_ref().unwrap().is_done()
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         if let Some(cond) = &self.cond {
             cond.get_env()
         } else if let Some(branch) = &self.branch_interp {
@@ -394,19 +395,19 @@ impl<'a> Interpreter for IfInterpreter<'a> {
         }
     }
 }
-pub struct WhileInterpreter<'a> {
+pub struct WhileInterpreter<'a, 'outer> {
     port: ConstPort,
     cond: Ref<'a, ir::Group>,
     body: &'a Control,
     continuous_assignments: &'a [ir::Assignment],
-    cond_interp: Option<EnableInterpreter<'a>>,
-    body_interp: Option<ControlInterpreter<'a>>,
+    cond_interp: Option<EnableInterpreter<'a, 'outer>>,
+    body_interp: Option<ControlInterpreter<'a, 'outer>>,
 }
 
-impl<'a> WhileInterpreter<'a> {
+impl<'a, 'outer> WhileInterpreter<'a, 'outer> {
     pub fn new(
         ctrl_while: &'a ir::While,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
         continuous_assignments: &'a [Assignment],
     ) -> Self {
         let port: ConstPort = ctrl_while.port.as_ptr();
@@ -428,7 +429,7 @@ impl<'a> WhileInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for WhileInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         if let Some(ci) = &mut self.cond_interp {
             if ci.is_done() {
@@ -465,7 +466,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         self.cond_interp.unwrap().deconstruct()
     }
 
@@ -478,7 +479,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
             )
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         if let Some(cond) = &self.cond_interp {
             cond.get_env()
         } else if let Some(body) = &self.body_interp {
@@ -498,15 +499,17 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
         }
     }
 }
-pub struct InvokeInterpreter {}
+pub struct InvokeInterpreter<'outer> {
+    phantom: PhantomData<InterpreterState<'outer>>, // placeholder to force lifetime annotations
+}
 
-impl InvokeInterpreter {
-    pub fn new(_invoke: &ir::Invoke, _env: InterpreterState) -> Self {
+impl<'outer> InvokeInterpreter<'outer> {
+    pub fn new(_invoke: &ir::Invoke, _env: InterpreterState<'outer>) -> Self {
         todo!()
     }
 }
 
-impl Interpreter for InvokeInterpreter {
+impl<'outer> Interpreter<'outer> for InvokeInterpreter<'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         todo!()
     }
@@ -515,7 +518,7 @@ impl Interpreter for InvokeInterpreter {
         todo!()
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         todo!()
     }
 
@@ -523,7 +526,7 @@ impl Interpreter for InvokeInterpreter {
         todo!()
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         todo!()
     }
 
@@ -548,20 +551,20 @@ macro_rules! control_match {
     }};
 }
 
-pub enum ControlInterpreter<'a> {
-    Empty(Box<EmptyInterpreter>),
-    Enable(Box<EnableInterpreter<'a>>),
-    Seq(Box<SeqInterpreter<'a>>),
-    Par(Box<ParInterpreter<'a>>),
-    If(Box<IfInterpreter<'a>>),
-    While(Box<WhileInterpreter<'a>>),
-    Invoke(Box<InvokeInterpreter>),
+pub enum ControlInterpreter<'a, 'outer> {
+    Empty(Box<EmptyInterpreter<'outer>>),
+    Enable(Box<EnableInterpreter<'a, 'outer>>),
+    Seq(Box<SeqInterpreter<'a, 'outer>>),
+    Par(Box<ParInterpreter<'a, 'outer>>),
+    If(Box<IfInterpreter<'a, 'outer>>),
+    While(Box<WhileInterpreter<'a, 'outer>>),
+    Invoke(Box<InvokeInterpreter<'outer>>),
 }
 
-impl<'a> ControlInterpreter<'a> {
+impl<'a, 'outer> ControlInterpreter<'a, 'outer> {
     pub fn new(
         control: &'a Control,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
         continuous_assignments: &'a [Assignment],
     ) -> Self {
         match control {
@@ -603,7 +606,7 @@ impl<'a> ControlInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for ControlInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         control_match!(self, i, i.step())
     }
@@ -612,7 +615,7 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
         control_match!(self, i, i.run())
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         control_match!(self, i, i.deconstruct())
     }
 
@@ -620,7 +623,7 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
         control_match!(self, i, i.is_done())
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         control_match!(self, i, i.get_env())
     }
 
@@ -629,17 +632,17 @@ impl<'a> Interpreter for ControlInterpreter<'a> {
     }
 }
 
-pub struct StructuralInterpreter<'a> {
-    interp: AssignmentInterpreter<'a>,
+pub struct StructuralInterpreter<'a, 'outer> {
+    interp: AssignmentInterpreter<'a, 'outer>,
     continuous: &'a [Assignment],
     done_port: ConstPort,
     go_port: ConstPort,
 }
 
-impl<'a> StructuralInterpreter<'a> {
+impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
     pub fn from_component(
         comp: &'a Component,
-        mut env: InterpreterState,
+        mut env: InterpreterState<'outer>,
     ) -> Self {
         let comp_sig = comp.signature.borrow();
         let done_port: ConstPort = comp_sig.get("done").as_ptr();
@@ -665,12 +668,12 @@ impl<'a> StructuralInterpreter<'a> {
     }
 }
 
-impl<'a> Interpreter for StructuralInterpreter<'a> {
+impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         self.interp.step()
     }
 
-    fn deconstruct(self) -> InterpreterState {
+    fn deconstruct(self) -> InterpreterState<'outer> {
         let mut final_env = self.interp.deconstruct();
         final_env.insert(self.go_port, Value::bit_low());
         finish_interpretation(final_env, self.done_port, self.continuous.iter())
@@ -685,7 +688,7 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState> {
+    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
         vec![self.interp.get_env()]
     }
 

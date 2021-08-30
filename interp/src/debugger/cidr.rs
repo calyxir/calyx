@@ -29,11 +29,11 @@ impl<'a> Debugger<'a> {
         }
     }
 
-    pub fn main_loop(
+    pub fn main_loop<'outer>(
         &mut self,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
-    ) -> InterpreterResult<InterpreterState> {
+    ) -> InterpreterResult<InterpreterState<'outer>> {
         let control: &ir::Control = &self.main_component.control.borrow();
         let mut component_interpreter = ComponentInterpreter::from_component(
             self.main_component,
