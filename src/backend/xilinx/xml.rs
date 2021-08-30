@@ -1,6 +1,4 @@
-use crate::{
-    backend::traits::Backend,
-};
+use crate::backend::traits::Backend;
 use calyx::{
     errors::{CalyxResult, Error},
     ir,
