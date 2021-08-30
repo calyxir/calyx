@@ -2,8 +2,8 @@ use super::{
     axi, control_axi::ControlInterface, fsm, memory_axi::bram,
     memory_axi::MemoryInterface, utils,
 };
-use crate::{
-    backend::traits::Backend,
+use crate::backend::traits::Backend;
+use calyx::{
     errors::{CalyxResult, Error},
     ir,
 };
@@ -24,14 +24,14 @@ impl Backend for XilinxInterfaceBackend {
 
     fn link_externs(
         _prog: &ir::Context,
-        _write: &mut crate::utils::OutputFile,
+        _write: &mut calyx::utils::OutputFile,
     ) -> CalyxResult<()> {
         Ok(())
     }
 
     fn emit(
         prog: &ir::Context,
-        file: &mut crate::utils::OutputFile,
+        file: &mut calyx::utils::OutputFile,
     ) -> CalyxResult<()> {
         let toplevel = prog
             .components

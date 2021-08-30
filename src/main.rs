@@ -1,3 +1,4 @@
+mod backend;
 mod cmdline;
 
 use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};

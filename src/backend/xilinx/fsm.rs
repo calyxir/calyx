@@ -1,4 +1,4 @@
-use crate::utils;
+use calyx::utils;
 use std::collections::BTreeMap;
 use vast::v05::ast as v;
 

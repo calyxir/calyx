@@ -3,8 +3,8 @@
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid SystemVerilog program.
 
-use crate::{
-    backend::traits::Backend,
+use crate::backend::traits::Backend;
+use calyx::{
     errors::{CalyxResult, Error},
     ir,
     utils::OutputFile,

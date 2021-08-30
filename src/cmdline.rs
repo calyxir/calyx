@@ -1,9 +1,9 @@
-use argh::FromArgs;
-use calyx::backend::traits::Backend;
-use calyx::backend::{
+use crate::backend::traits::Backend;
+use crate::backend::{
     verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
     xilinx::XilinxXmlBackend,
 };
+use argh::FromArgs;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 use itertools::Itertools;
 use std::path::Path;

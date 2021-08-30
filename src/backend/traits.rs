@@ -1,5 +1,5 @@
 //! Interface for a Calyx backend.
-use crate::{errors::CalyxResult, ir, utils::OutputFile};
+use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 
 /// A backend for Calyx.
 pub trait Backend {
