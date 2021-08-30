@@ -74,7 +74,9 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx);
+        todo!("compile-control support for if-with")
+
+        /* let mut builder = ir::Builder::new(comp, ctx);
 
         // create a new group for if related structure
         let if_group = builder.add_group("if");
@@ -170,7 +172,7 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut cleanup_assigns);
 
-        Ok(Action::Change(ir::Control::enable(if_group)))
+        Ok(Action::Change(ir::Control::enable(if_group))) */
     }
 
     /// XXX(rachit): The explanation is not consistent with the code.

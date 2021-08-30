@@ -326,17 +326,15 @@ fn build_reaching_def(
             (par_exit_defs, &global_killed | &killed)
         }
         ir::Control::If(ir::If {
-            tbranch,
-            fbranch,
-            cond,
-            ..
+            tbranch, fbranch, ..
         }) => {
-            let cond = &cond
-                .as_ref()
-                .map(|c| ir::Control::enable(Rc::clone(c)))
-                .unwrap_or_else(ir::Control::empty);
-            let (post_cond_def, post_cond_killed) =
-                build_reaching_def(cond, reach, killed, rd, counter);
+            let (post_cond_def, post_cond_killed) = build_reaching_def(
+                &ir::Control::empty(),
+                reach,
+                killed,
+                rd,
+                counter,
+            );
             let (t_case_def, t_case_killed) = build_reaching_def(
                 tbranch,
                 post_cond_def.clone(),

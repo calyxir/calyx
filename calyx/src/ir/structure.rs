@@ -319,11 +319,6 @@ pub struct Group {
 
     /// Attributes for this group.
     pub attributes: Attributes,
-
-    /// True if this is a combinational group. A combinational group does
-    /// not have any holes and should only contain assignments that should be
-    /// combinationally active
-    pub(super) is_comb: bool,
 }
 impl Group {
     /// Get a reference to the named hole if it exists.
@@ -351,14 +346,29 @@ impl Group {
         })
     }
 
-    /// Returns true if this group is combinational.
-    #[inline]
-    pub fn is_comb(&self) -> bool {
-        debug_assert!(!self.is_comb || self.holes.is_empty());
-        self.is_comb
-    }
-
     /// The name of this group.
+    #[inline]
+    pub fn name(&self) -> &Id {
+        &self.name
+    }
+}
+
+/// A combinational group.
+/// A combinational group does not have any holes and should only contain assignments that should
+/// will be combinationally active
+#[derive(Debug)]
+pub struct CombGroup {
+    /// Name of this group
+    pub(super) name: Id,
+
+    /// The assignments used in this group
+    pub assignments: Vec<Assignment>,
+
+    /// Attributes for this group.
+    pub attributes: Attributes,
+}
+impl CombGroup {
+    #[inline]
     pub fn name(&self) -> &Id {
         &self.name
     }
@@ -379,6 +389,12 @@ impl GetName for Cell {
 impl GetName for Group {
     fn name(&self) -> &Id {
         self.name()
+    }
+}
+
+impl GetName for CombGroup {
+    fn name(&self) -> &Id {
+        &self.name()
     }
 }
 

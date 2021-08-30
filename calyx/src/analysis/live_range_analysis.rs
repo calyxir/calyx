@@ -428,16 +428,7 @@ fn build_live_ranges(
             let kills = &t_kills | &f_kills;
 
             // feed to condition to compute
-            build_live_ranges(
-                &cond
-                    .as_ref()
-                    .map(|c| ir::Control::enable(Rc::clone(c)))
-                    .unwrap_or_else(ir::Control::empty),
-                alive,
-                gens,
-                kills,
-                lr,
-            )
+            build_live_ranges(&ir::Control::empty(), alive, gens, kills, lr)
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
             let (alive, gens, kills) = stmts

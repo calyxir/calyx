@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Attributes, Builder, Cell, CellType, CloneName, Control,
-    Direction, GetName, Group, Id, RRC,
+    Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
+    Control, Direction, GetName, Group, Id, RRC,
 };
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
@@ -24,6 +24,8 @@ pub struct Component {
     pub cells: IdList<Cell>,
     /// Groups of assignment wires.
     pub groups: IdList<Group>,
+    /// Groups of assignment wires.
+    pub comb_groups: IdList<CombGroup>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
     pub continuous_assignments: Vec<Assignment>,
@@ -74,6 +76,7 @@ impl Component {
             signature: this_sig,
             cells: IdList::default(),
             groups: IdList::default(),
+            comb_groups: IdList::default(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::with_prev_defined_names(port_names),
@@ -87,6 +90,14 @@ impl Component {
         S: Clone + AsRef<str>,
     {
         self.groups.find(name)
+    }
+
+    /// Return a refernece to a combination group with `name` if present.
+    pub fn find_comb_group<S>(&self, name: &S) -> Option<RRC<CombGroup>>
+    where
+        S: Clone + AsRef<str>,
+    {
+        self.comb_groups.find(name)
     }
 
     /// Return a reference to the cell with `name` if present.
@@ -130,6 +141,11 @@ impl<T: GetName> IdList<T> {
     /// Removes all elements from the collection
     pub fn clear(&mut self) {
         self.0.clear();
+    }
+
+    /// Returns true if there are no elements in the list.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Keep only the elements in the collection which satisfy the given

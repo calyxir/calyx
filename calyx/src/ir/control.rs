@@ -1,4 +1,4 @@
-use super::{Attributes, Cell, GetAttributes, Group, Id, Port, RRC};
+use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]
@@ -25,7 +25,7 @@ pub struct If {
     pub port: RRC<Port>,
 
     /// Optional combinational group attached using `with`.
-    pub cond: Option<RRC<Group>>,
+    pub cond: Option<RRC<CombGroup>>,
 
     /// Control for the true branch.
     pub tbranch: Box<Control>,
@@ -169,7 +169,7 @@ impl Control {
     /// Convience constructor for if
     pub fn if_(
         port: RRC<Port>,
-        cond: Option<RRC<Group>>,
+        cond: Option<RRC<CombGroup>>,
         tbranch: Box<Control>,
         fbranch: Box<Control>,
     ) -> Self {

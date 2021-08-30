@@ -504,6 +504,7 @@ impl Visitor for TopDownCompileControl {
             &mut schedule,
             &mut builder,
         )?;
+        schedule.display();
         let comp_group = realize_schedule(schedule, &mut builder);
 
         Ok(Action::Change(ir::Control::enable(comp_group)))
