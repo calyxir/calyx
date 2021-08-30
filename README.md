@@ -41,4 +41,6 @@ This repository contains the source code for the following:
 [site]: https://capra.cs.cornell.edu/calyx
 [docs]: https://capra.cs.cornell.edu/docs/calyx/
 [source-docs]: https://capra.cs.cornell.edu/docs/calyx/source/calyx
-[paper]: https://rachitnigam.com/files/pubs/calyx.pdf
+[paper]: https://rachitnigam.com/files/pubs/calyx.pdfinterpreter
+[`calyx`]: https://crates.io/crates/calyx
+[`futil`]: https://crates.io/crates/futil
