@@ -28,6 +28,16 @@ optimization passes, and several backends.
 
 Follow the [getting started][docs] instructions.
 
+## Organization
+
+This repository contains the source code for the following:
+1. [`calyx`][] (`calyx/`): The intermediate representation used for hardware
+   accelerator generation.
+2. [`futil`][] (`src/`): The compiler infrastructure for compiling Calyx programs.
+   If `calyx` is like LLVM, then `futil` is Clang.
+3. Calyx debugger (`interp/`): An interpreter and debugger for Calyx.
+4. `fud`, The Calyx driver: Utility tool that wraps various hardware toolchains.
+
 [site]: https://capra.cs.cornell.edu/calyx
 [docs]: https://capra.cs.cornell.edu/docs/calyx/
 [source-docs]: https://capra.cs.cornell.edu/docs/calyx/source/calyx
