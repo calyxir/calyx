@@ -1,4 +1,5 @@
 mod cmdline;
+mod backend;
 
 use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
 use cmdline::Opts;

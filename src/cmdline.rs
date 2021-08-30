@@ -1,6 +1,6 @@
 use argh::FromArgs;
-use calyx::backend::traits::Backend;
-use calyx::backend::{
+use crate::backend::traits::Backend;
+use crate::backend::{
     verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
     xilinx::XilinxXmlBackend,
 };

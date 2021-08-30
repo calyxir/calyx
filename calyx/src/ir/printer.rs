@@ -406,15 +406,3 @@ impl IRPrinter {
         }
     }
 }
-
-trait Surround {
-    fn surround(self, pre: &str, suf: &str) -> Self;
-}
-
-impl Surround for String {
-    fn surround(mut self, pre: &str, suf: &str) -> Self {
-        self.insert_str(0, pre);
-        self.push_str(suf);
-        self
-    }
-}

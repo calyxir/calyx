@@ -1,7 +1,7 @@
 [package]
 name = "calyx"
 version = "0.1.0"
-authors = [ "The FuTIL Team" ]
+authors = [ "The Calyx Team" ]
 edition = "2018"
 build = false
 
@@ -17,9 +17,7 @@ pest_derive = "2"
 pest_consume = "1"
 itertools = "0.10"
 lazy_static = "1"
-vast = "0.3.0"
 boolean_expression = "=0.4.1"
 linked-hash-map = "0.5"
 smallvec = "1"
-quick-xml = { version = "0.22.0", features = ["serialize"] }
-serde = { version = "1.0.125", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }

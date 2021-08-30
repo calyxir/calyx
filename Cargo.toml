@@ -1,7 +1,7 @@
 [package]
 name = "futil"
 version = "0.1.0"
-authors = [ "The FuTIL Authors" ]
+authors = [ "The Calyx Authors" ]
 edition = "2018"
 build = false
 
@@ -11,6 +11,9 @@ pest = "2.0"
 itertools = "0.9.0"
 atty = "0.2.14"
 argh = "0.1"
+vast = "0.3.0"
+serde = "1.0.129"
+quick-xml = { version = "0.22.0", features = ["serialize"] }
 
 [workspace]
 members = ["calyx", "interp"]

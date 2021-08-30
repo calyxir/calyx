@@ -4,7 +4,7 @@ use super::{
     axi::{AxiChannel, AxiInterface, ChannelDirection},
     fsm,
 };
-use crate::utils;
+use calyx::utils;
 use std::rc::Rc;
 
 /// Represents the interface for a AXI master that controls
