@@ -1,5 +1,5 @@
 use crate::utils::AsRaw;
-use calyx::ir::{self, Component, Context, Control, RRC};
+use calyx::ir::{Component, Control};
 use std::collections::HashMap;
 pub struct RefHandler<'a> {
     map: HashMap<*const Component, (&'a Component, &'a Control)>,

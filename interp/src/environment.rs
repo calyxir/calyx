@@ -8,8 +8,6 @@ use super::utils::MemoryMap;
 use super::values::Value;
 use super::RefHandler;
 use calyx::ir::{self, RRC};
-use serde::ser::SerializeMap;
-use serde::ser::SerializeStruct;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};

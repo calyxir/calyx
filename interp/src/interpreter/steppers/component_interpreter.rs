@@ -3,9 +3,9 @@ use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
 use crate::environment::InterpreterState;
-use crate::errors::{InterpreterError, InterpreterResult};
+use crate::errors::InterpreterResult;
 use crate::primitives::Primitive;
-use calyx::ir::{self, Cell, Component, Context, Port, RRC};
+use calyx::ir::{self, Component};
 
 enum StructuralOrControl<'a, 'outer> {
     Structural(StructuralInterpreter<'a, 'outer>),
@@ -52,23 +52,6 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
         };
 
         Self { interp }
-    }
-
-    pub fn new(ctx: &ir::Context, cell: &RRC<Cell>) -> Self {
-        let cell_borrow = cell.borrow();
-        if let ir::CellType::Component { name: comp_name } =
-            &cell_borrow.prototype
-        {
-            // If there is no component with this name then the parsing into IR should
-            // break
-            let component =
-                ctx.components.iter().find(|x| x.name == comp_name).unwrap();
-        } else {
-            // If this happens it's definitely an error in the interpreter code
-            panic!("New component called on something that is not a component")
-        }
-
-        todo!()
     }
 }
 
@@ -118,20 +101,20 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         todo!()
     }
 
-    fn validate(&self, inputs: &[(ir::Id, &crate::values::Value)]) {
+    fn validate(&self, _inputs: &[(ir::Id, &crate::values::Value)]) {
         todo!()
     }
 
     fn execute(
         &mut self,
-        inputs: &[(ir::Id, &crate::values::Value)],
+        _inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
         todo!()
     }
 
     fn reset(
         &mut self,
-        inputs: &[(ir::Id, &crate::values::Value)],
+        _inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
         todo!()
     }
