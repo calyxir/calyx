@@ -2,7 +2,7 @@ use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
-use crate::environment::InterpreterState;
+use crate::environment::{InterpreterState, StateView};
 use crate::errors::InterpreterResult;
 use crate::primitives::Primitive;
 use crate::utils::AsRaw;
@@ -103,7 +103,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_env(&self) -> Vec<&InterpreterState<'outer>> {
+    fn get_env(&self) -> &dyn StateView {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),

@@ -449,3 +449,56 @@ struct FullySerialize {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
 }
+
+pub trait StateView {
+    fn lookup(&self, target: ConstPort) -> &Value;
+}
+
+impl<'outer> StateView for InterpreterState<'outer> {
+    fn lookup(&self, target: ConstPort) -> &Value {
+        self.get_from_port(target)
+    }
+}
+
+pub struct ConsistentView<'a, 'outer>(
+    &'a InterpreterState<'outer>,
+    Vec<&'a dyn StateView>,
+);
+
+impl<'a, 'outer> ConsistentView<'a, 'outer> {
+    pub fn new(
+        state: &'a InterpreterState<'outer>,
+        vec: Vec<&'a dyn StateView>,
+    ) -> Self {
+        Self(state, vec)
+    }
+}
+
+impl<'a, 'outer> StateView for ConsistentView<'a, 'outer> {
+    fn lookup(&self, target: *const calyx::ir::Port) -> &Value {
+        match self.1.len() {
+            0 => self.0.lookup(target),
+            1 => self.1[0].lookup(target),
+            _ => {
+                let original = self.0.lookup(target);
+                let new = self
+                    .1
+                    .iter()
+                    .filter_map(|x| {
+                        let val = x.lookup(target);
+                        if val == original {
+                            None
+                        } else {
+                            Some(val)
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                match new.len() {
+                    0 => original,
+                    1 => new[1],
+                    _ => panic!("conflicting parallel values"),
+                }
+            }
+        }
+    }
+}
