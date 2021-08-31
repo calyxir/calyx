@@ -5,7 +5,8 @@ use super::control_interpreter::{
 use crate::environment::InterpreterState;
 use crate::errors::InterpreterResult;
 use crate::primitives::Primitive;
-use calyx::ir::{self, Component};
+use crate::utils::AsRaw;
+use calyx::ir::{self, Component, Port, RRC};
 
 enum StructuralOrControl<'a, 'outer> {
     Structural(StructuralInterpreter<'a, 'outer>),
@@ -30,6 +31,8 @@ impl<'a, 'outer> From<ControlInterpreter<'a, 'outer>>
 
 pub struct ComponentInterpreter<'a, 'outer> {
     interp: StructuralOrControl<'a, 'outer>,
+    input_ports: Vec<RRC<Port>>,
+    output_ports: Vec<RRC<Port>>,
 }
 
 impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
@@ -51,7 +54,30 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             .into()
         };
 
-        Self { interp }
+        let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
+
+        for port in comp.signature.borrow().ports.iter() {
+            let pt_ref = port.borrow();
+            match &pt_ref.direction {
+                ir::Direction::Input => outputs.push(port.clone()),
+                ir::Direction::Output => inputs.push(port.clone()),
+                ir::Direction::Inout => {
+                    panic!()
+                    // empty for now also probably shouldn't happen
+                }
+            }
+        }
+
+        Self {
+            interp,
+            input_ports: inputs,
+            output_ports: outputs,
+        }
+    }
+
+    fn look_up_outputs(&self) -> Vec<(ir::Id, crate::values::Value)> {
+        let env = self.get_env();
+        todo!()
     }
 }
 
@@ -100,22 +126,51 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
 
 impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
     fn do_tick(&mut self) -> Vec<(ir::Id, crate::values::Value)> {
-        todo!()
+        self.step().expect("Error when stepping");
+        self.look_up_outputs()
     }
 
     fn is_comb(&self) -> bool {
-        todo!()
+        false
     }
 
-    fn validate(&self, _inputs: &[(ir::Id, &crate::values::Value)]) {
-        todo!()
+    fn validate(&self, inputs: &[(ir::Id, &crate::values::Value)]) {
+        for (name, value) in inputs {
+            let port = self
+                .input_ports
+                .iter()
+                .find(|x| x.borrow().name == name)
+                .expect("Component given non-existant input");
+            assert_eq!(port.borrow().width, value.width())
+        }
     }
 
     fn execute(
         &mut self,
-        _inputs: &[(ir::Id, &crate::values::Value)],
+        inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
-        todo!()
+        if self.get_current_interp().is_none() {
+            return vec![];
+        }
+        let input_vec = inputs
+            .iter()
+            .map(|(name, val)| {
+                let port = self
+                    .input_ports
+                    .iter()
+                    .find(|x| x.borrow().name == name)
+                    .unwrap();
+                (port.as_raw(), (*val).clone())
+            })
+            .collect::<Vec<_>>();
+
+        let marker = self.get_current_interp().unwrap();
+
+        for (port, value) in input_vec {
+            marker.insert(port, value);
+        }
+        marker.step_convergence().unwrap();
+        self.look_up_outputs()
     }
 
     fn reset(
