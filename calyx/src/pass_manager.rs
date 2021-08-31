@@ -3,6 +3,7 @@
 use crate::{
     errors::{CalyxResult, Error},
     ir,
+    ir::traversal,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -20,20 +21,31 @@ pub struct PassManager {
 }
 
 impl PassManager {
-    /// Registers a new pass with the pass manager. Return `Err` if there is
-    /// already a pass with the same name.
-    pub fn add_pass(
-        &mut self,
-        name: String,
-        pass_func: PassClosure,
-    ) -> CalyxResult<()> {
+    /// Register a new Calyx pass and return an error if another pass with the
+    /// same name has already been registered.
+    ///
+    /// ## Example
+    /// ```rust
+    /// let pm = PassManager::default();
+    /// pm.register_pass::<WellFormed>()?;
+    /// ```
+    pub fn register_pass<Pass>(&mut self) -> CalyxResult<()>
+    where
+        Pass:
+            traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
+    {
+        let name = Pass::name().to_string();
         if self.passes.contains_key(&name) {
             return Err(Error::Misc(format!(
                 "Pass with name '{}' is already registered.",
                 name
             )));
         }
-        self.passes.insert(name, pass_func);
+        let pass_closure: PassClosure = Box::new(|ir| {
+            Pass::do_pass_default(ir)?;
+            Ok(())
+        });
+        self.passes.insert(name, pass_closure);
         Ok(())
     }
 
@@ -156,19 +168,6 @@ impl PassManager {
 
         Ok(())
     }
-}
-
-/// Simple macro to register a pass with a pass manager.
-#[macro_export]
-macro_rules! register_pass {
-    ($manager:expr, $pass:ident) => {
-        let name = $pass::name().to_string();
-        let pass_closure: crate::pass_manager::PassClosure = Box::new(|ir| {
-            $pass::do_pass_default(ir)?;
-            Ok(())
-        });
-        $manager.add_pass(name, pass_closure)?;
-    };
 }
 
 /// Simple macro to register an alias with a pass manager.
