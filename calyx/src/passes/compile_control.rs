@@ -184,7 +184,8 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx);
+        todo!()
+        /* let mut builder = ir::Builder::new(comp, ctx);
 
         // create group
         let while_group = builder.add_group("while");
@@ -264,7 +265,7 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut clean_assigns);
 
-        Ok(Action::Change(ir::Control::enable(while_group)))
+        Ok(Action::Change(ir::Control::enable(while_group))) */
     }
 
     fn finish_seq(

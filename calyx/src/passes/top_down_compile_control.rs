@@ -102,6 +102,7 @@ fn calculate_states(
             let mut en_go = build_assignments!(builder;
                 group["go"] = not_done ? signal_on["out"];
             );
+            // Transition to the next state.
             let nxt_state = cur_state + 1;
             schedule
                 .enables
@@ -122,7 +123,7 @@ fn calculate_states(
             Ok(cur)
         }
         // Generate the following transitions:
-        // 1. (cur -> cur + t): Compute the true branch when stored condition
+        // 1. (cur -> cur + t): Run the true branch
         //    is true.
         // 2. (cur -> cur + f): Compute the true branch when stored condition
         //    is false.
@@ -136,11 +137,6 @@ fn calculate_states(
             fbranch,
             ..
         }) => {
-            // The port must be marked as stable before compilation can proceed
-            if !matches!(port.borrow().attributes.get("stable"), Some(1)) {
-                let (cell, port) = port.borrow().canonical();
-                return Err(Error::MalformedStructure(format!("{}: `{}.{}` is not marked with @stable. It cannot be used for computing `if` condition.", TopDownCompileControl::name(), cell, port)));
-            }
             // There shouldn't be a group in `with` position.
             if cond.is_some() {
                 return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
@@ -150,7 +146,7 @@ fn calculate_states(
             // Computation for true branch
             let true_go = port_guard.clone() & pre_guard.clone();
             let after_true = calculate_states(
-                tbranch, cur_state, &true_go, schedule, builder,
+                tbranch, dbg!(cur_state), &true_go, schedule, builder,
             )?;
             // Computation for false branch
             let false_go = !port_guard & pre_guard.clone();
@@ -166,57 +162,24 @@ fn calculate_states(
             Ok(next)
         }
         // Compile in three stage:
-        // 1. cur -> cur + 1: Compute the condition and store the generated value.
-        // 2. cur + 1 -> cur + b: Compute the body when the stored condition
+        // 2. cur -> cur + b: Compute the body when the stored condition
         //    is true.
         // 3. cur + b -> cur: Jump to the start state when stored condition was true.
-        // 4. cur + 1 -> cur + b + 1: Exit stage
+        // 4. cur -> cur + b + 1: Exit stage
         ir::Control::While(ir::While {
             cond, port, body, ..
         }) => {
-            structure!(builder;
-                let signal_on = constant(1, 1);
-                let signal_off = constant(0, 1);
-                let cs_wh = prim std_reg(1);
-            );
-
-            // Compute the condition first and save its value.
-            let mut cond_save_assigns = vec![
-                builder.build_assignment(
-                    cs_wh.borrow().get("in"),
-                    Rc::clone(port),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cs_wh.borrow().get("write_en"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cond.borrow().get("go"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-            ];
-
-            // Compute the condition first
-            let after_cond_compute = cur_state + 1;
-            schedule
-                .enables
-                .entry(cur_state)
-                .or_default()
-                .append(&mut cond_save_assigns);
-            schedule.transitions.push((
-                cur_state,
-                after_cond_compute,
-                guard!(cond["done"]),
-            ));
+            // There shouldn't be a group in `with` position.
+            if cond.is_some() {
+                return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
+            }
 
             // Build the FSM for the body
-            let body_go = guard!(cs_wh["out"]) & pre_guard.clone();
+            let port_guard = ir::Guard::port(Rc::clone(port));
+            let body_go = pre_guard.clone();
             let nxt = calculate_states(
                 body,
-                after_cond_compute,
+                cur_state,
                 &body_go,
                 schedule,
                 builder,
@@ -226,22 +189,11 @@ fn calculate_states(
             schedule.transitions.push((nxt, cur_state, body_go));
 
             // Exit state: Jump to this when the condition is false.
-            let wh_done = !guard!(cs_wh["out"]) & pre_guard.clone();
+            let wh_done = !port_guard & pre_guard.clone();
             let exit = nxt + 1;
             schedule
                 .transitions
-                .push((after_cond_compute, exit, wh_done));
-
-            // Cleanup state registers in exit stage
-            let mut cleanup = build_assignments!(builder;
-                cs_wh["in"] = pre_guard ? signal_off["out"];
-                cs_wh["write_en"] = pre_guard ? signal_on["out"];
-            );
-            schedule
-                .enables
-                .entry(exit)
-                .or_default()
-                .append(&mut cleanup);
+                .push((cur_state, exit, wh_done));
 
             Ok(exit)
         }

@@ -6,7 +6,6 @@ use std::cmp::{Ord, PartialOrd};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     ops::BitOr,
-    rc::Rc,
 };
 
 const INVOKE_PREFIX: &str = "__invoke_";
@@ -351,13 +350,9 @@ fn build_reaching_def(
             );
             (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
         }
-        ir::Control::While(ir::While { cond, body, .. }) => {
-            let fake_enable = ir::Control::Enable(ir::Enable {
-                attributes: ir::Attributes::default(),
-                group: Rc::clone(cond),
-            });
+        ir::Control::While(ir::While { body, .. }) => {
             let (post_cond_def, post_cond_killed) = build_reaching_def(
-                &fake_enable,
+                &ir::Control::empty(),
                 reach.clone(),
                 killed,
                 rd,
@@ -375,7 +370,7 @@ fn build_reaching_def(
             remove_entries_defined_by(&mut round_1_killed, &reach);
 
             let (post_cond2_def, post_cond2_killed) = build_reaching_def(
-                &fake_enable,
+                &ir::Control::empty(),
                 &round_1_def | &reach,
                 round_1_killed,
                 rd,

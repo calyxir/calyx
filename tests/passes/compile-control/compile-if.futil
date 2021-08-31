@@ -22,10 +22,9 @@ component main() -> () {
       false[done] = f.done;
     }
 
-    group cond {
+    comb group cond {
       lt.left = 1'b1;
       lt.right = 1'b0;
-      cond[done] = 1'b1;
     }
   }
 

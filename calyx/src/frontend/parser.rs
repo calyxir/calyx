@@ -578,17 +578,25 @@ impl CalyxParser {
         ))
     }
 
+    fn port_with(input: Node) -> ParseResult<(ast::Port, Option<ir::Id>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [port(port), identifier(cond)] => (port, Some(cond)),
+            [port(port)] => (port, None),
+        ))
+    }
+
     fn if_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::If {
+            [at_attributes(attrs), port_with((port, cond)), block(stmt)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty{}),
                 attributes: attrs,
             },
-            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), port_with((port, cond)), block(tbranch), block(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
@@ -596,7 +604,7 @@ impl CalyxParser {
                     fbranch: Box::new(fbranch),
                     attributes: attrs,
                 },
-            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
+            [at_attributes(attrs), port_with((port, cond)), block(tbranch), if_stmt(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
@@ -611,7 +619,7 @@ impl CalyxParser {
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::While {
+            [at_attributes(attrs), port_with((port, cond)), block(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),

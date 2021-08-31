@@ -394,7 +394,7 @@ impl GetName for Group {
 
 impl GetName for CombGroup {
     fn name(&self) -> &Id {
-        &self.name()
+        self.name()
     }
 }
 

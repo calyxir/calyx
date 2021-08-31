@@ -247,12 +247,15 @@ block = {
       | stmts_without_block
 }
 
+port_with = {
+  port ~ ("with" ~ identifier)?
+}
 if_stmt = {
-      at_attributes ~ "if" ~ port ~ "with" ~ identifier ~ block ~ ("else" ~ (if_stmt | block))?
+      at_attributes ~ "if" ~ port_with ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
 while_stmt = {
-      at_attributes ~ "while" ~ port ~ "with" ~ identifier ~ block
+      at_attributes ~ "while" ~ port_with ~ block
 }
 
 stmt = {

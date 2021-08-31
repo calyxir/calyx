@@ -65,9 +65,8 @@ impl Visitor for StaticTiming {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        // let st = &mut comp.structure;
-
-        if let ir::Control::Enable(data) = &*wh.body {
+        todo!()
+        /* if let ir::Control::Enable(data) = &*wh.body {
             let cond = &wh.cond;
             let port = &wh.port;
             let body = &data.group;
@@ -183,6 +182,7 @@ impl Visitor for StaticTiming {
         }
 
         Ok(Action::Continue)
+        */
     }
 
     fn finish_if(

@@ -44,7 +44,7 @@ pub struct While {
     pub port: RRC<Port>,
 
     /// Group that makes the signal on the conditional port valid.
-    pub cond: RRC<Group>,
+    pub cond: Option<RRC<CombGroup>>,
 
     /// Control for the loop body.
     pub body: Box<Control>,
@@ -185,7 +185,7 @@ impl Control {
     /// Convience constructor for while
     pub fn while_(
         port: RRC<Port>,
-        cond: RRC<Group>,
+        cond: Option<RRC<CombGroup>>,
         body: Box<Control>,
     ) -> Self {
         Control::While(While {

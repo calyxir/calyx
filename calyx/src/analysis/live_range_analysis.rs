@@ -406,7 +406,6 @@ fn build_live_ranges(
             },
         ),
         ir::Control::If(ir::If {
-            cond,
             tbranch,
             fbranch,
             ..
@@ -457,11 +456,11 @@ fn build_live_ranges(
             let alive = alive.transfer(&gens, &kills);
             (alive, gens, kills)
         }
-        ir::Control::While(ir::While { body, cond, .. }) => {
+        ir::Control::While(ir::While { body, .. }) => {
             let (alive, gens, kills) =
                 build_live_ranges(body, alive, gens, kills, lr);
             let (alive, gens, kills) = build_live_ranges(
-                &ir::Control::enable(cond.clone()),
+                &ir::Control::empty(),
                 alive,
                 gens,
                 kills,

@@ -54,13 +54,17 @@ impl PassManager {
                 CollapseControl,
                 ResourceSharing,
                 MinimizeRegs,
-                CompileInvoke,
             ]
         );
         register_alias!(
             pm,
             "compile",
-            [CompileEmpty, StaticTiming, TopDownCompileControl]
+            [
+                CompileInvoke,
+                CompileEmpty,
+                StaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(pm, "post-opt", [DeadCellRemoval]);
         register_alias!(
@@ -88,6 +92,7 @@ impl PassManager {
             "external",
             [
                 "validate",
+                SynthesisPapercut,
                 "pre-opt",
                 "compile",
                 "post-opt",

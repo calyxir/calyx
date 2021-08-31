@@ -66,11 +66,13 @@ use crate::{analysis, guard, structure};
 /// ```
 pub struct RemoveCombGroups {
     // Mapping from (group_name, (cell_name, port_name)) -> (port, group).
-    port_rewrite:
-        HashMap<(ir::Id, (ir::Id, ir::Id)), (RRC<ir::Port>, RRC<ir::Group>)>,
+    port_rewrite: HashMap<PortInGroup, (RRC<ir::Port>, RRC<ir::Group>)>,
     // The pass updated combinational groups for this component.
     updated: bool,
 }
+
+/// Represents (group_name, (cell_name, port_name))
+type PortInGroup = (ir::Id, (ir::Id, ir::Id));
 
 impl Named for RemoveCombGroups {
     fn name() -> &'static str {
@@ -196,11 +198,32 @@ impl Visitor for RemoveCombGroups {
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
-        /* let key = (s.cond.borrow().name().clone(), s.port.borrow().canonical());
-        if let Some(new_port) = self.port_rewrite.get(&key) {
-            s.port = Rc::clone(new_port);
-        } */
-        Ok(Action::Continue)
+        if s.cond.is_some() {
+            // Construct a new `while` statement
+            let key = (
+                s.cond.as_ref().unwrap().borrow().name().clone(),
+                s.port.borrow().canonical(),
+            );
+            let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
+            let port = Rc::clone(port_ref);
+            // Add @stable annotation to port
+            port.borrow_mut().attributes.insert("stable", 1);
+            let cond_in_body = ir::Control::enable(Rc::clone(cond_ref));
+            let body = std::mem::replace(s.body.as_mut(), ir::Control::empty());
+            let new_body = ir::Control::seq(vec![body, cond_in_body]);
+            let while_ = ir::Control::while_(
+                Rc::clone(port_ref),
+                None,
+                Box::new(new_body),
+            );
+            let cond_before_body = ir::Control::enable(Rc::clone(cond_ref));
+            Ok(Action::Change(ir::Control::seq(vec![
+                cond_before_body,
+                while_,
+            ])))
+        } else {
+            Ok(Action::Continue)
+        }
     }
 
     /// Transforms a `if-with` into a `seq-if` which first runs the cond group
@@ -208,7 +231,7 @@ impl Visitor for RemoveCombGroups {
     fn start_if(
         &mut self,
         s: &mut ir::If,
-        comp: &mut ir::Component,
+        _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
         if s.cond.is_some() {
@@ -218,10 +241,13 @@ impl Visitor for RemoveCombGroups {
                 s.port.borrow().canonical(),
             );
             let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
+            let port = Rc::clone(port_ref);
+            // Add @stable annotation to port
+            port.borrow_mut().attributes.insert("stable", 1);
             let tbranch =
                 std::mem::replace(s.tbranch.as_mut(), ir::Control::empty());
             let fbranch =
-                std::mem::replace(s.tbranch.as_mut(), ir::Control::empty());
+                std::mem::replace(s.fbranch.as_mut(), ir::Control::empty());
             let if_ = ir::Control::if_(
                 Rc::clone(port_ref),
                 None,

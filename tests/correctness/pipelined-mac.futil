@@ -60,10 +60,6 @@ component pipelined_mac(
       unset_out_valid[done] = out_valid.done;
     }
 
-    group no_op {
-      no_op[done] = 1'd1;
-    }
-
     output_valid = out_valid.out;
     out = pipe2.out;
   }
@@ -71,17 +67,17 @@ component pipelined_mac(
     seq {
       // Execute all stages in parallel
       par {
-        if data_valid with no_op { stage1; }
-        if stage2_valid.out with no_op { stage2; }
+        if data_valid { stage1; }
+        if stage2_valid.out { stage2; }
       }
       // Configure valid signals for next invoke
       par {
-        if data_valid with no_op {
+        if data_valid {
           set_stage2_valid;
         } else {
           unset_stage2_valid;
         }
-        if stage2_valid.out with no_op {
+        if stage2_valid.out {
           set_out_valid;
         } else {
           unset_out_valid;
@@ -143,10 +139,9 @@ component main() -> () {
       out.write_data = mac.out;
       save_out[done] = out.done;
     }
-    group in_range {
+    comb group in_range {
       lt0.left = idx0.out;
       lt0.right = 4'd10;
-      in_range[done] = 1'd1;
     }
   }
   control {

@@ -7,10 +7,9 @@ component main() -> () {
   }
 
   wires {
-    group cond<"static"=0> {
+    comb group cond {
       lt.left = 32'd5;
       lt.right = 32'd9;
-      cond[done] = 1'd1;
     }
 
     group true<"static"=1> {
