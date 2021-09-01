@@ -19,7 +19,6 @@ impl PassManager {
 
         // Register passes.
         pm.register_pass::<WellFormed>()?;
-        pm.register_pass::<WellFormed>()?;
         pm.register_pass::<StaticTiming>()?;
         pm.register_pass::<CompileControl>()?;
         pm.register_pass::<CompileInvoke>()?;
