@@ -51,10 +51,10 @@ pub struct Context {
     pub components: Vec<Component>,
     /// Library definitions imported by the program.
     pub lib: LibrarySignatures,
-    /// Enable debug mode logging.
-    pub debug_mode: bool,
     /// Enables synthesis mode.
     pub synthesis_mode: bool,
+    /// Enables verification checks.
+    pub enable_verification: bool,
     /// Original import statements.
     pub imports: Vec<String>,
 }

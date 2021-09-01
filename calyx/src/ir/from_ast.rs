@@ -91,8 +91,8 @@ fn extend_signature(sig: &mut Vec<PortDef>) {
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
     mut namespace: ast::NamespaceDef,
-    debug_mode: bool,
     synthesis_mode: bool,
+    enable_verification: bool,
 ) -> CalyxResult<Context> {
     let mut all_names: HashSet<&Id> = HashSet::with_capacity(
         namespace.components.len() + namespace.externs.len(),
@@ -140,7 +140,7 @@ pub fn ast_to_ir(
         components: comps,
         lib: sig_ctx.lib,
         imports: namespace.imports,
-        debug_mode,
+        enable_verification,
         synthesis_mode,
     })
 }

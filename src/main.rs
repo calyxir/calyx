@@ -22,8 +22,8 @@ fn main() -> CalyxResult<()> {
     // Build the IR representation
     let mut rep = ir::from_ast::ast_to_ir(
         namespace,
-        opts.enable_debug,
         opts.enable_synthesis,
+        !opts.disable_verify,
     )?;
 
     // Run all passes specified by the command line
