@@ -335,11 +335,7 @@ impl IRPrinter {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
-                write!(
-                    f,
-                    "while {} ",
-                    Self::get_port_access(&port.borrow()),
-                )?;
+                write!(f, "while {} ", Self::get_port_access(&port.borrow()),)?;
                 if let Some(c) = cond {
                     write!(f, "with {} ", c.borrow().name.id)?;
                 }

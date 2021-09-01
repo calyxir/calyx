@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::errors::{CalyxResult, Error};
+use crate::ir::GetAttributes;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
@@ -192,7 +193,7 @@ impl Visitor for RemoveCombGroups {
         Ok(Action::Continue)
     }
 
-    fn start_while(
+    fn finish_while(
         &mut self,
         s: &mut ir::While,
         _comp: &mut ir::Component,
@@ -205,17 +206,17 @@ impl Visitor for RemoveCombGroups {
                 s.port.borrow().canonical(),
             );
             let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
-            let port = Rc::clone(port_ref);
-            // Add @stable annotation to port
-            port.borrow_mut().attributes.insert("stable", 1);
             let cond_in_body = ir::Control::enable(Rc::clone(cond_ref));
             let body = std::mem::replace(s.body.as_mut(), ir::Control::empty());
             let new_body = ir::Control::seq(vec![body, cond_in_body]);
-            let while_ = ir::Control::while_(
+            let mut while_ = ir::Control::while_(
                 Rc::clone(port_ref),
                 None,
                 Box::new(new_body),
             );
+            if let Some(attrs) = while_.get_mut_attributes() {
+                *attrs = std::mem::take(&mut s.attributes);
+            }
             let cond_before_body = ir::Control::enable(Rc::clone(cond_ref));
             Ok(Action::Change(ir::Control::seq(vec![
                 cond_before_body,
@@ -228,7 +229,7 @@ impl Visitor for RemoveCombGroups {
 
     /// Transforms a `if-with` into a `seq-if` which first runs the cond group
     /// and then the branch.
-    fn start_if(
+    fn finish_if(
         &mut self,
         s: &mut ir::If,
         _comp: &mut ir::Component,

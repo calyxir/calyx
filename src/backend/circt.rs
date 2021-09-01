@@ -333,11 +333,15 @@ impl CirctBackend {
                 fbranch,
                 ..
             }) => {
+                assert!(
+                    cond.is_some(),
+                    "`if` without `with` not support in CIRCT backend"
+                );
                 writeln!(
                     f,
                     "calyx.if {} with @{} {{",
                     Self::get_port_access(&port.borrow()),
-                    cond.borrow().name().id
+                    cond.as_ref().unwrap().borrow().name().id
                 )?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
@@ -352,11 +356,15 @@ impl CirctBackend {
             ir::Control::While(ir::While {
                 port, cond, body, ..
             }) => {
+                assert!(
+                    cond.is_some(),
+                    "`while` without `with` not support in CIRCT backend"
+                );
                 writeln!(
                     f,
                     "while {} with @{} {{",
                     Self::get_port_access(&port.borrow()),
-                    cond.borrow().name().id
+                    cond.as_ref().unwrap().borrow().name().id
                 )?;
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))

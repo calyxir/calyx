@@ -1,11 +1,11 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
+    ClkInsertion, CollapseControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
     GuardCanonical, InferStaticTiming, Inliner, MergeAssign, MinimizeRegs,
     Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
-    ResourceSharing, SimplifyGuards, StaticTiming, SynthesisPapercut,
-    TopDownCompileControl, WellFormed,
+    ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
+    WellFormed,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -19,8 +19,8 @@ impl PassManager {
 
         // Register passes.
         pm.register_pass::<WellFormed>()?;
-        pm.register_pass::<StaticTiming>()?;
-        pm.register_pass::<CompileControl>()?;
+        // pm.register_pass::<StaticTiming>()?;
+        // pm.register_pass::<CompileControl>()?;
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<GoInsertion>()?;
         pm.register_pass::<ComponentInterface>()?;
@@ -62,7 +62,7 @@ impl PassManager {
             [
                 CompileInvoke,
                 CompileEmpty,
-                StaticTiming,
+                // StaticTiming,
                 TopDownCompileControl
             ]
         );

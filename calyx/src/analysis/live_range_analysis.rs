@@ -406,9 +406,7 @@ fn build_live_ranges(
             },
         ),
         ir::Control::If(ir::If {
-            tbranch,
-            fbranch,
-            ..
+            tbranch, fbranch, ..
         }) => {
             // compute each branch
             let (t_alive, t_gens, t_kills) = build_live_ranges(

@@ -1,6 +1,6 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::CalyxResult;
-use crate::{build_assignments, guard, structure};
+use crate::{build_assignments, guard, passes, structure};
 use crate::{
     errors::Error,
     ir::{
@@ -77,59 +77,140 @@ impl Schedule {
     }
 }
 
-/// Recursively calcuate the states for each child in a control sub-program.
-fn calculate_states(
+/// Computes the entry and exit points of a given [ir::Control] program.
+///
+/// ## Example
+/// In the following Calyx program:
+/// ```
+/// while comb_reg.out {
+///   seq {
+///     incr;
+///     cond0;
+///   }
+/// }
+/// ```
+/// The entry point is `incr` and the exit point is `cond0`.
+///
+/// Multiple entry and exit points are created when conditions are used:
+/// ```
+/// while comb_reg.out {
+///   incr;
+///   if comb_reg2.out {
+///     true;
+///   } else {
+///     false;
+///   }
+/// }
+/// ```
+/// The entry set is `incr` while exit set is `[true, false]`.
+fn entries_and_exits(
+    con: &ir::Control,
+    cur_state: u64,
+    is_entry: bool,
+    is_exit: bool,
+    entries: &mut Vec<u64>,
+    exits: &mut Vec<u64>,
+) -> u64 {
+    match con {
+        ir::Control::Enable(_) => {
+            if is_entry {
+                entries.push(cur_state)
+            } else if is_exit {
+                exits.push(cur_state)
+            }
+            cur_state + 1
+        }
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            let len = stmts.len();
+            let mut cur = cur_state;
+            for (idx, stmt) in stmts.iter().enumerate() {
+                let entry = idx == 0 && is_entry;
+                let exit = idx == len - 1 && is_exit;
+                cur = entries_and_exits(stmt, cur, entry, exit, entries, exits);
+            }
+            cur
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            let tru_nxt = entries_and_exits(
+                tbranch, cur_state, is_entry, is_exit, entries, exits,
+            );
+            entries_and_exits(
+                fbranch, tru_nxt, is_entry, is_exit, entries, exits,
+            )
+        }
+        ir::Control::While(ir::While { body, .. }) => entries_and_exits(
+            body, cur_state, is_entry, is_exit, entries, exits,
+        ),
+        ir::Control::Invoke(_) => todo!(),
+        ir::Control::Empty(_) => todo!(),
+        ir::Control::Par(_) => todo!(),
+    }
+}
+
+/// Calculate [ir::Assignment] to enable in each FSM state and [ir::Guard] required to transition
+/// between FSM states. Each step of the calculation computes the previous states that still need
+/// to transition.
+fn calculate_states_recur(
     con: &ir::Control,
     // The current state
     cur_state: u64,
-    // Additional guard for this condition.
-    pre_guard: &ir::Guard,
+    // The set of previous states that want to transition into cur_state
+    prev_states: Vec<(u64, ir::Guard)>,
+    // Guard that needs to be true to reach this state
+    with_guard: &ir::Guard,
     // Current schedule.
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> CalyxResult<u64> {
+) -> CalyxResult<(Vec<(u64, ir::Guard)>, u64)> {
     match con {
-        // Compiled to:
-        // ```
-        // group[go] = (fsm.out == cur_state) & !group[done] & pre_guard ? 1'd1;
-        // fsm.in = (fsm.out == cur_state) & group[done] & pre_guard ? nxt_state;
-        // ```
+        // Enable the group in `cur_state` and construct all transitions from
+        // previous states to this enable.
         ir::Control::Enable(ir::Enable { group, .. }) => {
-            let done_cond = guard!(group["done"]) & pre_guard.clone();
-            let not_done = !guard!(group["done"]) & pre_guard.clone();
+            let not_done = !guard!(group["done"]);
             let signal_on = builder.add_constant(1, 1);
             let mut en_go = build_assignments!(builder;
                 group["go"] = not_done ? signal_on["out"];
             );
-            // Transition to the next state.
-            let nxt_state = cur_state + 1;
             schedule
                 .enables
                 .entry(cur_state)
                 .or_default()
                 .append(&mut en_go);
 
-            schedule.transitions.push((cur_state, nxt_state, done_cond));
-            Ok(nxt_state)
+            let transitions = prev_states
+                .into_iter()
+                .map(|(st, guard)| (st, cur_state, guard & with_guard.clone()));
+            schedule.transitions.extend(transitions);
+
+            let done_cond = guard!(group["done"]);
+            let nxt = cur_state + 1;
+            Ok((vec![(cur_state, done_cond)], nxt))
         }
-        // Give children the states `cur`, `cur + 1`, `cur + 2`, ...
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            let mut prev = prev_states;
             let mut cur = cur_state;
-            for stmt in stmts {
-                cur =
-                    calculate_states(stmt, cur, pre_guard, schedule, builder)?;
+            for (idx, stmt) in stmts.iter().enumerate() {
+                let res = calculate_states_recur(
+                    stmt,
+                    cur,
+                    prev,
+                    // Only the first group gets the with_guard for the previous state.
+                    if idx == 0 {
+                        with_guard
+                    } else {
+                        &ir::Guard::True
+                    },
+                    schedule,
+                    builder,
+                )?;
+                prev = res.0;
+                cur = res.1;
             }
-            Ok(cur)
+            Ok((prev, cur))
         }
-        // Generate the following transitions:
-        // 1. (cur -> cur + t): Run the true branch
-        //    is true.
-        // 2. (cur -> cur + f): Compute the true branch when stored condition
-        //    is false.
-        // 3. (cur + t -> cur + max(t, f) + 1)
-        //    (cur + f -> cur + max(t, f) + 1): Transition to a "join" stage
-        //    after running the branch.
         ir::Control::If(ir::If {
             port,
             cond,
@@ -137,80 +218,113 @@ fn calculate_states(
             fbranch,
             ..
         }) => {
-            // There shouldn't be a group in `with` position.
             if cond.is_some() {
                 return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
             }
             let port_guard = ir::Guard::port(Rc::clone(port));
-
-            // Computation for true branch
-            let true_go = port_guard.clone() & pre_guard.clone();
-            let after_true = calculate_states(
-                tbranch, dbg!(cur_state), &true_go, schedule, builder,
+            // Add transitions for the true branch
+            let (tru_prev, tru_nxt) = calculate_states_recur(
+                tbranch,
+                cur_state,
+                prev_states.clone(),
+                &port_guard,
+                schedule,
+                builder,
             )?;
-            // Computation for false branch
-            let false_go = !port_guard & pre_guard.clone();
-            let after_false = calculate_states(
-                fbranch, cur_state, &false_go, schedule, builder,
+            let (fal_prev, fal_nxt) = calculate_states_recur(
+                fbranch,
+                tru_nxt,
+                prev_states,
+                &!port_guard,
+                schedule,
+                builder,
             )?;
-
-            // Transition to a join stage
-            let next = std::cmp::max(after_true, after_false) + 1;
-            schedule.transitions.push((after_true, next, true_go));
-            schedule.transitions.push((after_false, next, false_go));
-
-            Ok(next)
+            let prevs =
+                tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
+            Ok((prevs, fal_nxt))
         }
-        // Compile in three stage:
-        // 2. cur -> cur + b: Compute the body when the stored condition
-        //    is true.
-        // 3. cur + b -> cur: Jump to the start state when stored condition was true.
-        // 4. cur -> cur + b + 1: Exit stage
         ir::Control::While(ir::While {
             cond, port, body, ..
         }) => {
-            // There shouldn't be a group in `with` position.
             if cond.is_some() {
                 return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
             }
 
-            // Build the FSM for the body
+            // Step 1: Generate the forward edges normally.
             let port_guard = ir::Guard::port(Rc::clone(port));
-            let body_go = pre_guard.clone();
-            let nxt = calculate_states(
+            let (prevs, nxt) = calculate_states_recur(
                 body,
                 cur_state,
-                &body_go,
+                prev_states.clone(),
+                &port_guard,
                 schedule,
                 builder,
             )?;
 
-            // Back edge jump when condition was true
-            schedule.transitions.push((nxt, cur_state, body_go));
+            // Step 2: Generate the backward edges
+            // First compute the entry and exit points.
+            let mut entries = vec![];
+            let mut exits = vec![];
+            entries_and_exits(
+                body,
+                cur_state,
+                true,
+                true,
+                &mut entries,
+                &mut exits,
+            );
+            // For each exit point, generate a map to the guards used.
+            let guard_map =
+                prevs.clone().into_iter().collect::<HashMap<_, _>>();
+            // Generate exit to entry transitions which occur when the condition
+            // is true at the end of the while body.
+            let exit_to_entry_transitions = exits
+                .into_iter()
+                .cartesian_product(entries)
+                .map(|(old, new)| {
+                    (old, new, guard_map[&old].clone() & port_guard.clone())
+                });
+            schedule.transitions.extend(exit_to_entry_transitions);
 
-            // Exit state: Jump to this when the condition is false.
-            let wh_done = !port_guard & pre_guard.clone();
-            let exit = nxt + 1;
-            schedule
-                .transitions
-                .push((cur_state, exit, wh_done));
+            // Step 3: The final out edges from the while come from:
+            //   - Before the body when the condition is false
+            //   - Inside the body when the condition is false
+            let not_port_guard = !port_guard;
+            let all_prevs = prev_states
+                .into_iter()
+                .chain(prevs.into_iter())
+                .map(|(st, guard)| (st, guard & not_port_guard.clone()))
+                .collect();
 
-            Ok(exit)
+            Ok((all_prevs, nxt))
         }
-        // `par` sub-programs should already be compiled
-        ir::Control::Par(..) => {
-            unreachable!("par should be compiled away!")
-        }
-        ir::Control::Empty(..) => {
-            unreachable!("empty control should have been compiled away!")
-        }
-        ir::Control::Invoke(..) => {
-            unreachable!("invoke should have been compiled away!")
-        }
+        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Par(_) => unreachable!(),
     }
 }
 
-/// Implement a given [Schedule] and return the name of the [`ir::Group`](crate::ir::Group) that
+fn calculate_states(
+    con: &ir::Control,
+    // The current state
+    schedule: &mut Schedule,
+    // Component builder
+    builder: &mut ir::Builder,
+) -> CalyxResult<()> {
+    let (prev, nxt) = calculate_states_recur(
+        con,
+        0,
+        vec![],
+        &ir::Guard::True,
+        schedule,
+        builder,
+    )?;
+    let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
+    schedule.transitions.extend(transitions);
+    Ok(())
+}
+
+/// Implement a given [Schedule] and return the name of the [ir::Group] that
 /// implements it.
 fn realize_schedule(
     schedule: Schedule,
@@ -300,15 +414,15 @@ fn realize_schedule(
 /// code using an finite-state machine (FSM).
 ///
 /// Lowering operates in two steps:
-/// 1. Compile all [`ir::Par`](crate::ir::Par) control sub-programs into a
-/// single [`ir::Enable`][enable] of a group that runs all children
+/// 1. Compile all [ir::Par] control sub-programs into a
+/// single [ir::Enable] of a group that runs all children
 /// to completion.
-/// 2. Compile the top-level control program into a single [`ir::Enable`][enable].
+/// 2. Compile the top-level control program into a single [ir::Enable].
 ///
 /// ## Compiling non-`par` programs
 /// Assuming all `par` statements have already been compiled in a control
 /// sub-program, we can build a schedule for executing it. We calculate a
-/// schedule by assigning an FSM state to each leaf node (an [`ir::Enable`][enable])
+/// schedule by assigning an FSM state to each leaf node (an [ir::Enable])
 /// as a guard condition. Each control program node also defines a transition
 /// function over the states calculated for its children.
 ///
@@ -326,8 +440,6 @@ fn realize_schedule(
 /// ## Compilation guarantee
 /// At the end of this pass, the control program will have no more than one
 /// group enable in it.
-///
-/// [enable]: crate::ir::Enable
 #[derive(Default)]
 pub struct TopDownCompileControl;
 
@@ -372,13 +484,7 @@ impl Visitor for TopDownCompileControl {
                 // Compile complex schedule and return the group.
                 _ => {
                     let mut schedule = Schedule::default();
-                    calculate_states(
-                        con,
-                        0,
-                        &ir::Guard::True,
-                        &mut schedule,
-                        &mut builder,
-                    )?;
+                    calculate_states(con, &mut schedule, &mut builder)?;
                     realize_schedule(schedule, &mut builder)
                 }
             };
@@ -449,13 +555,8 @@ impl Visitor for TopDownCompileControl {
         let control = Rc::clone(&comp.control);
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::default();
-        calculate_states(
-            &control.borrow(),
-            0,
-            &ir::Guard::True,
-            &mut schedule,
-            &mut builder,
-        )?;
+        // Add assignments for the final states
+        calculate_states(&control.borrow(), &mut schedule, &mut builder)?;
         schedule.display();
         let comp_group = realize_schedule(schedule, &mut builder);
 

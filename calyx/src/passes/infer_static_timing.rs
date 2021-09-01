@@ -411,8 +411,7 @@ impl Visitor for InferStaticTiming {
             s.attributes.get("bound").cloned(),
             s.body.get_attributes().and_then(|attr| attr.get("static")),
         ) {
-            s.attributes
-                .insert("static", bound * body_time);
+            s.attributes.insert("static", bound * body_time);
         }
         Ok(Action::Continue)
     }
