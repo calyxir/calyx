@@ -25,10 +25,6 @@ pub struct Opts {
     #[argh(option, short = 'l', default = "Path::new(\".\").into()")]
     pub lib_path: PathBuf,
 
-    /// enable debug mode output
-    #[argh(switch, long = "debug")]
-    pub enable_debug: bool,
-
     /// enable synthesis mode
     #[argh(switch, long = "synthesis")]
     pub enable_synthesis: bool,

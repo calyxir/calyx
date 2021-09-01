@@ -82,7 +82,7 @@ fn main() -> InterpreterResult<()> {
 
     // Construct IR
     let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
-    let ir = ir::from_ast::ast_to_ir(namespace, false, false)?;
+    let ir = ir::from_ast::ast_to_ir(namespace, false)?;
     let ctx = ir::RRC::new(RefCell::new(ir));
     let pm = PassManager::default_passes()?;
 
