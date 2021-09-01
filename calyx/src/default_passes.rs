@@ -8,10 +8,8 @@ use crate::passes::{
     TopDownCompileControl, WellFormed,
 };
 use crate::{
-    errors::CalyxResult,
-    ir::traversal::{Named, Visitor},
-    pass_manager::PassManager,
-    register_alias, register_pass,
+    errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
+    register_alias,
 };
 
 impl PassManager {
@@ -20,31 +18,31 @@ impl PassManager {
         let mut pm = PassManager::default();
 
         // Register passes.
-        register_pass!(pm, WellFormed);
-        register_pass!(pm, StaticTiming);
-        register_pass!(pm, CompileControl);
-        register_pass!(pm, CompileInvoke);
-        register_pass!(pm, GoInsertion);
-        register_pass!(pm, ComponentInterface);
-        register_pass!(pm, Inliner);
-        register_pass!(pm, Externalize);
-        register_pass!(pm, CollapseControl);
-        register_pass!(pm, CompileEmpty);
-        register_pass!(pm, Papercut);
-        register_pass!(pm, ClkInsertion);
-        register_pass!(pm, ResetInsertion);
-        register_pass!(pm, ResourceSharing);
-        register_pass!(pm, DeadCellRemoval);
-        register_pass!(pm, MinimizeRegs);
-        register_pass!(pm, InferStaticTiming);
-        register_pass!(pm, SimplifyGuards);
-        register_pass!(pm, MergeAssign);
-        register_pass!(pm, TopDownCompileControl);
-        register_pass!(pm, SynthesisPapercut);
-        register_pass!(pm, RegisterUnsharing);
-        register_pass!(pm, GuardCanonical);
-        register_pass!(pm, ParToSeq);
-        register_pass!(pm, RemoveCombGroups);
+        pm.register_pass::<WellFormed>()?;
+        pm.register_pass::<StaticTiming>()?;
+        pm.register_pass::<CompileControl>()?;
+        pm.register_pass::<CompileInvoke>()?;
+        pm.register_pass::<GoInsertion>()?;
+        pm.register_pass::<ComponentInterface>()?;
+        pm.register_pass::<Inliner>()?;
+        pm.register_pass::<Externalize>()?;
+        pm.register_pass::<CollapseControl>()?;
+        pm.register_pass::<CompileEmpty>()?;
+        pm.register_pass::<Papercut>()?;
+        pm.register_pass::<ClkInsertion>()?;
+        pm.register_pass::<ResetInsertion>()?;
+        pm.register_pass::<ResourceSharing>()?;
+        pm.register_pass::<DeadCellRemoval>()?;
+        pm.register_pass::<MinimizeRegs>()?;
+        pm.register_pass::<InferStaticTiming>()?;
+        pm.register_pass::<SimplifyGuards>()?;
+        pm.register_pass::<MergeAssign>()?;
+        pm.register_pass::<TopDownCompileControl>()?;
+        pm.register_pass::<SynthesisPapercut>()?;
+        pm.register_pass::<RegisterUnsharing>()?;
+        pm.register_pass::<GuardCanonical>()?;
+        pm.register_pass::<ParToSeq>()?;
+        pm.register_pass::<RemoveCombGroups>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, GuardCanonical]);
         register_alias!(
