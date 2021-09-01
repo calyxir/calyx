@@ -77,7 +77,13 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
 
     fn look_up_outputs(&self) -> Vec<(ir::Id, crate::values::Value)> {
         let env = self.get_env();
-        todo!()
+        self.output_ports
+            .iter()
+            .map(|x| {
+                let port_ref = x.borrow();
+                (port_ref.name.clone(), env.lookup(x.as_raw()).clone())
+            })
+            .collect()
     }
 }
 
