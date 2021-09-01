@@ -117,7 +117,14 @@ impl Backend for VerilogBackend {
         let modules = &ctx
             .components
             .iter()
-            .map(|comp| emit_component(comp, ctx.synthesis_mode).to_string())
+            .map(|comp| {
+                emit_component(
+                    comp,
+                    ctx.synthesis_mode,
+                    ctx.enable_verification,
+                )
+                .to_string()
+            })
             .collect::<Vec<_>>();
 
         write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
@@ -131,7 +138,11 @@ impl Backend for VerilogBackend {
     }
 }
 
-fn emit_component(comp: &ir::Component, synthesis_mode: bool) -> v::Module {
+fn emit_component(
+    comp: &ir::Component,
+    synthesis_mode: bool,
+    enable_verification: bool,
+) -> v::Module {
     let mut module = v::Module::new(comp.name.as_ref());
     let sig = comp.signature.borrow();
     for port_ref in &sig.ports {
@@ -208,9 +219,12 @@ fn emit_component(comp: &ir::Component, synthesis_mode: bool) -> v::Module {
         .sorted_by_key(|(port, _)| port.borrow().canonical())
         .for_each(|asgns| {
             module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
-            if let Some(check) = emit_guard_disjoint_check(asgns) {
-                checks.add_seq(check);
-            };
+            // If verification generation is enabled, emit disjointness check.
+            if enable_verification {
+                if let Some(check) = emit_guard_disjoint_check(asgns) {
+                    checks.add_seq(check);
+                };
+            }
         });
 
     if !synthesis_mode {

@@ -29,6 +29,10 @@ pub struct Opts {
     #[argh(switch, long = "synthesis")]
     pub enable_synthesis: bool,
 
+    /// disable verification checks emitted by backends
+    #[argh(switch)]
+    pub disable_verify: bool,
+
     /// select a backend
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,

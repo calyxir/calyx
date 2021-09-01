@@ -53,6 +53,8 @@ pub struct Context {
     pub lib: LibrarySignatures,
     /// Enables synthesis mode.
     pub synthesis_mode: bool,
+    /// Enables verification checks.
+    pub enable_verification: bool,
     /// Original import statements.
     pub imports: Vec<String>,
 }
