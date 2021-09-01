@@ -174,19 +174,45 @@ impl CirctBackend {
                         f,
                         "calyx.memory \"{}\"<[{}] X {}> [{}] : ",
                         cell_name,
-                        bind["WIDTH"],
                         bind["SIZE"],
+                        bind["WIDTH"],
                         bind["IDX_SIZE"]
                     ),
                     "std_mem_d2" => write!(
                         f,
                         "calyx.memory \"{}\"<[{}, {}] X {}> [{}, {}] : ",
                         cell_name,
-                        bind["WIDTH"],
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
+                        bind["WIDTH"],
                         bind["D0_IDX_SIZE"],
                         bind["D1_IDX_SIZE"]
+                    ),
+                    "std_mem_d3" => write!(
+                        f,
+                        "calyx.memory \"{}\"<[{}, {}, {}] X {}> [{}, {}, {}] : ",
+                        cell_name,
+                        bind["D0_SIZE"],
+                        bind["D1_SIZE"],
+                        bind["D2_SIZE"],
+                        bind["WIDTH"],
+                        bind["D0_IDX_SIZE"],
+                        bind["D1_IDX_SIZE"],
+                        bind["D2_IDX_SIZE"]
+                    ),
+                    "std_mem_d4" => write!(
+                        f,
+                        "calyx.memory \"{}\"<[{}, {}, {}, {}] X {}> [{}, {}, {}, {}] : ",
+                        cell_name,
+                        bind["D0_SIZE"],
+                        bind["D1_SIZE"],
+                        bind["D2_SIZE"],
+                        bind["D3_SIZE"],
+                        bind["WIDTH"],
+                        bind["D0_IDX_SIZE"],
+                        bind["D1_IDX_SIZE"],
+                        bind["D2_IDX_SIZE"],
+                        bind["D3_IDX_SIZE"]
                     ),
                     prim => todo!("Support for primitive: {}", prim),
                 }
