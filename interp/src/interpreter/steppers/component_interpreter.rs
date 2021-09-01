@@ -103,7 +103,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_env(&self) -> &dyn StateView {
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),

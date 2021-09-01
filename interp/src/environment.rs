@@ -264,12 +264,6 @@ impl<'outer> InterpreterState<'outer> {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
-    /// Returns a string representing the current state of the environment. This
-    /// just serializes the environment to a string and returns that string
-    pub fn state_as_str(&self) -> String {
-        serde_json::to_string_pretty(&self).unwrap()
-    }
-
     /// A predicate that checks if the given cell points to a combinational
     /// primitive (or component?)
     pub fn cell_is_comb<C: AsRaw<ir::Cell>>(&self, cell: C) -> bool {
@@ -359,18 +353,6 @@ impl<'outer> InterpreterState<'outer> {
             ir::Guard::True => true,
         }
     }
-
-    pub fn get_cell<S: AsRef<str> + Clone>(
-        &self,
-        name: &S,
-    ) -> Vec<RRC<ir::Cell>> {
-        let ctx_ref = self.context.borrow();
-        ctx_ref
-            .components
-            .iter()
-            .filter_map(|x| x.find_cell(name))
-            .collect()
-    }
 }
 
 impl<'outer> Serialize for InterpreterState<'outer> {
@@ -378,8 +360,40 @@ impl<'outer> Serialize for InterpreterState<'outer> {
     where
         S: serde::Serializer,
     {
-        let ctx: &ir::Context = &self.context.borrow();
-        let cell_prim_map = &self.cell_map.borrow();
+        self.gen_serialzer().serialize(serializer)
+    }
+}
+#[allow(clippy::borrowed_box)]
+#[derive(Serialize)]
+/// Struct to fully serialize the internal state of the environment
+pub struct FullySerialize {
+    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
+}
+
+pub trait StateView<'outer> {
+    fn lookup(&self, target: ConstPort) -> &Value;
+    fn get_ctx(&self) -> &RRC<ir::Context>;
+    fn get_cell_map(&self) -> &PrimitiveMap<'outer>;
+
+    /// Returns a string representing the current state of the environment. This
+    /// just serializes the environment to a string and returns that string
+    fn state_as_str(&self) -> String {
+        serde_json::to_string_pretty(&self.gen_serialzer()).unwrap()
+    }
+
+    fn get_cells(&self, name: &String) -> Vec<RRC<ir::Cell>> {
+        let ctx_ref = self.get_ctx().borrow();
+        ctx_ref
+            .components
+            .iter()
+            .filter_map(|x| x.find_cell(name))
+            .collect()
+    }
+
+    fn gen_serialzer(&self) -> FullySerialize {
+        let ctx: &ir::Context = &self.get_ctx().borrow();
+        let cell_prim_map = &self.get_cell_map().borrow();
 
         let bmap: BTreeMap<_, _> = ctx
             .components
@@ -396,7 +410,7 @@ impl<'outer> Serialize for InterpreterState<'outer> {
                             .map(|port| {
                                 (
                                     port.borrow().name.clone(),
-                                    self.get_from_port(&port.borrow()).as_u64(),
+                                    self.lookup(port.as_raw()).as_u64(),
                                 )
                             })
                             .collect();
@@ -435,46 +449,70 @@ impl<'outer> Serialize for InterpreterState<'outer> {
             })
             .collect();
 
-        let p = FullySerialize {
+        FullySerialize {
             ports: bmap,
             memories: cell_map,
-        };
-        p.serialize(serializer)
+        }
     }
 }
-#[allow(clippy::borrowed_box)]
-#[derive(Serialize)]
-/// Struct to fully serialize the internal state of the environment
-struct FullySerialize {
-    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
-    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
-}
 
-pub trait StateView {
-    fn lookup(&self, target: ConstPort) -> &Value;
-}
-
-impl<'outer> StateView for InterpreterState<'outer> {
+impl<'outer> StateView<'outer> for InterpreterState<'outer> {
     fn lookup(&self, target: ConstPort) -> &Value {
         self.get_from_port(target)
+    }
+
+    fn get_ctx(&self) -> &RRC<ir::Context> {
+        &self.context
+    }
+
+    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
+        &self.cell_map
+    }
+}
+
+impl<'outer, T: StateView<'outer>> StateView<'outer> for &T {
+    fn lookup(&self, target: ConstPort) -> &Value {
+        (**self).lookup(target)
+    }
+
+    fn get_ctx(&self) -> &RRC<ir::Context> {
+        (**self).get_ctx()
+    }
+
+    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
+        (**self).get_cell_map()
+    }
+}
+
+impl<'outer, T: StateView<'outer>> StateView<'outer> for Box<T> {
+    fn lookup(&self, target: ConstPort) -> &Value {
+        (**self).lookup(target)
+    }
+
+    fn get_ctx(&self) -> &RRC<ir::Context> {
+        (**self).get_ctx()
+    }
+
+    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
+        (**self).get_cell_map()
     }
 }
 
 pub struct ConsistentView<'a, 'outer>(
     &'a InterpreterState<'outer>,
-    Vec<&'a dyn StateView>,
+    Vec<Box<dyn StateView<'outer> + 'a>>,
 );
 
 impl<'a, 'outer> ConsistentView<'a, 'outer> {
     pub fn new(
         state: &'a InterpreterState<'outer>,
-        vec: Vec<&'a dyn StateView>,
+        vec: Vec<Box<dyn StateView<'outer> + 'a>>,
     ) -> Self {
         Self(state, vec)
     }
 }
 
-impl<'a, 'outer> StateView for ConsistentView<'a, 'outer> {
+impl<'a, 'outer> StateView<'outer> for ConsistentView<'a, 'outer> {
     fn lookup(&self, target: *const calyx::ir::Port) -> &Value {
         match self.1.len() {
             0 => self.0.lookup(target),
@@ -500,5 +538,22 @@ impl<'a, 'outer> StateView for ConsistentView<'a, 'outer> {
                 }
             }
         }
+    }
+
+    fn get_ctx(&self) -> &RRC<ir::Context> {
+        self.0.get_ctx()
+    }
+
+    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
+        &self.0.cell_map
+    }
+}
+
+impl<'outer> Serialize for dyn StateView<'outer> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.gen_serialzer().serialize(serializer)
     }
 }

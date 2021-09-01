@@ -36,7 +36,7 @@ pub trait Interpreter<'outer> {
 
     fn is_done(&self) -> bool;
 
-    fn get_env(&self) -> &dyn StateView;
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_>;
 
     fn currently_executing_group(&self) -> Vec<&ir::Id>;
 
@@ -72,8 +72,8 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
         true
     }
 
-    fn get_env(&self) -> &dyn StateView {
-        &self.env
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
+        Box::new(&self.env)
     }
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
@@ -156,8 +156,8 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> &dyn StateView {
-        self.interp.get_env()
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
+        Box::new(self.interp.get_env())
     }
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
@@ -238,11 +238,11 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
         self.env.unwrap()
     }
 
-    fn get_env(&self) -> &dyn StateView {
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
         if let Some(cur) = &self.current_interpreter {
             cur.get_env()
         } else if let Some(env) = &self.env {
-            env
+            Box::new(env)
         } else {
             unreachable!("Invalid internal state for SeqInterpreter")
         }
@@ -313,11 +313,11 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
         self.interpreters.iter().all(|x| x.is_done())
     }
 
-    fn get_env(&self) -> &dyn StateView {
-        &ConsistentView::new(
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
+        Box::new(ConsistentView::new(
             &self.in_state,
             self.interpreters.iter().map(|x| x.get_env()).collect(),
-        )
+        ))
     }
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
@@ -409,7 +409,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
             && self.branch_interp.as_ref().unwrap().is_done()
     }
 
-    fn get_env(&self) -> &dyn StateView {
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
         if let Some(cond) = &self.cond {
             cond.get_env()
         } else if let Some(branch) = &self.branch_interp {
@@ -523,7 +523,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
             )
     }
 
-    fn get_env(&self) -> &dyn StateView {
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
         if let Some(cond) = &self.cond_interp {
             cond.get_env()
         } else if let Some(body) = &self.body_interp {
@@ -579,7 +579,7 @@ impl<'outer> Interpreter<'outer> for InvokeInterpreter<'outer> {
         todo!()
     }
 
-    fn get_env(&self) -> &dyn StateView {
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
         todo!()
     }
 
@@ -682,7 +682,7 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
         control_match!(self, i, i.is_done())
     }
 
-    fn get_env(&self) -> &dyn StateView {
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
         control_match!(self, i, i.get_env())
     }
 
@@ -753,8 +753,8 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> &dyn StateView {
-        self.interp.get_env()
+    fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
+        Box::new(self.interp.get_env())
     }
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
