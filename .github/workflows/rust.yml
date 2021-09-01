@@ -196,7 +196,7 @@ jobs:
         cd ./dahlia && sbt assembly
       shell: bash
 
-    - name: Cache Futil dependencies
+    - name: Cache Calyx dependencies
       uses: actions/cache@v2
       with:
         path: |
@@ -228,7 +228,6 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all
 
     - name: Test
       run: |
