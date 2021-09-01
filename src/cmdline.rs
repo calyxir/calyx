@@ -1,6 +1,6 @@
 use crate::backend::traits::Backend;
 use crate::backend::{
-    circt::CirctBackend, verilog::VerilogBackend, 
+    circt::CirctBackend, verilog::VerilogBackend,
     xilinx::XilinxInterfaceBackend, xilinx::XilinxXmlBackend,
 };
 use argh::FromArgs;
