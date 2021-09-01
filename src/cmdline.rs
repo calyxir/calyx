@@ -1,7 +1,7 @@
 use crate::backend::traits::Backend;
 use crate::backend::{
-    verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
-    xilinx::XilinxXmlBackend,
+    circt::CirctBackend, verilog::VerilogBackend,
+    xilinx::XilinxInterfaceBackend, xilinx::XilinxXmlBackend,
 };
 use argh::FromArgs;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
@@ -67,6 +67,7 @@ pub enum BackendOpt {
     Xilinx,
     XilinxXml,
     Calyx,
+    Circt,
     None,
 }
 
@@ -77,6 +78,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("xilinx-xml", BackendOpt::XilinxXml),
         ("futil", BackendOpt::Calyx),
         ("calyx", BackendOpt::Calyx),
+        ("circt", BackendOpt::Circt),
         ("none", BackendOpt::None),
     ]
 }
@@ -118,6 +120,7 @@ impl FromStr for BackendOpt {
 impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
+            Self::Circt => "circt",
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
@@ -132,6 +135,10 @@ impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
     pub fn run_backend(self, context: &ir::Context) -> CalyxResult<()> {
         match self.backend {
+            BackendOpt::Circt => {
+                let backend = CirctBackend::default();
+                backend.run(context, self.output)
+            }
             BackendOpt::Verilog => {
                 let backend = VerilogBackend::default();
                 backend.run(context, self.output)

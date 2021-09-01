@@ -248,7 +248,7 @@ impl Cell {
 
     /// Return the canonical name for the cell generated to represent this
     /// (val, width) constant.
-    pub(super) fn constant_name(val: u64, width: u64) -> Id {
+    pub fn constant_name(val: u64, width: u64) -> Id {
         format!("_{}_{}", val, width).into()
     }
 
@@ -271,6 +271,11 @@ impl Cell {
     /// Grants immutable access to the name of this cell.
     pub fn name(&self) -> &Id {
         &self.name
+    }
+
+    /// Returns a reference to all [ir::Port] attached to this cells.
+    pub fn ports(&self) -> &SmallVec<[RRC<Port>; 10]> {
+        &self.ports
     }
 }
 
