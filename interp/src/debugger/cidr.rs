@@ -106,7 +106,7 @@ impl<'a> Debugger<'a> {
                             let cell_ref = &cells[0];
                             print_cell(
                                 cell_ref,
-                                &*component_interpreter.get_env(),
+                                &component_interpreter.get_env(),
                             );
                         }
                         _ => {
@@ -123,7 +123,7 @@ impl<'a> Debugger<'a> {
                         self.context.components.iter().find(|x| x.name == first)
                     {
                         if let Some(cell) = comp.find_cell(&second) {
-                            print_cell(&cell, &*component_interpreter.get_env())
+                            print_cell(&cell, &component_interpreter.get_env())
                         } else if let Some(port) =
                             comp.signature.borrow().find(&second)
                         {
@@ -172,7 +172,7 @@ impl<'a> Debugger<'a> {
                             if let Some(port) = entry.borrow().find(&second) {
                                 print_port(
                                     &port,
-                                    &*component_interpreter.get_env(),
+                                    &component_interpreter.get_env(),
                                 )
                             }
                         }
@@ -186,7 +186,7 @@ impl<'a> Debugger<'a> {
                             let cell_ref = cell_rrc.borrow();
                             if let Some(port_ref) = cell_ref.find(&port) {
                                 let state = component_interpreter.get_env();
-                                print_port(&port_ref, &*state)
+                                print_port(&port_ref, &state)
                             } else {
                                 println!("{}Unable to print. Cell '{}' has no port named '{}'", SPACING, cell, port)
                             }
@@ -244,7 +244,7 @@ impl<'a> Debugger<'a> {
     }
 }
 
-fn print_cell(target: &RRC<ir::Cell>, state: &dyn StateView) {
+fn print_cell(target: &RRC<ir::Cell>, state: &StateView) {
     let cell_ref = target.borrow();
     println!("{}{}", SPACING, cell_ref.name());
     for port in cell_ref.ports.iter() {
@@ -257,7 +257,7 @@ fn print_cell(target: &RRC<ir::Cell>, state: &dyn StateView) {
     }
 }
 
-fn print_port(target: &RRC<ir::Port>, state: &dyn StateView) {
+fn print_port(target: &RRC<ir::Port>, state: &StateView) {
     let port_ref = target.borrow();
     let parent_name = port_ref.get_parent_name();
 

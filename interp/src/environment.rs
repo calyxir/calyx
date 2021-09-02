@@ -360,7 +360,8 @@ impl<'outer> Serialize for InterpreterState<'outer> {
     where
         S: serde::Serializer,
     {
-        self.gen_serialzer().serialize(serializer)
+        let sv: StateView = self.into();
+        sv.gen_serialzer().serialize(serializer)
     }
 }
 #[allow(clippy::borrowed_box)]
@@ -371,18 +372,100 @@ pub struct FullySerialize {
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
 }
 
-pub trait StateView<'outer> {
-    fn lookup(&self, target: ConstPort) -> &Value;
-    fn get_ctx(&self) -> &RRC<ir::Context>;
-    fn get_cell_map(&self) -> &PrimitiveMap<'outer>;
+pub struct CompositeView<'a, 'outer>(
+    &'a InterpreterState<'outer>,
+    Vec<StateView<'a, 'outer>>,
+);
+
+impl<'a, 'outer> CompositeView<'a, 'outer> {
+    pub fn new(
+        state: &'a InterpreterState<'outer>,
+        vec: Vec<StateView<'a, 'outer>>,
+    ) -> Self {
+        Self(state, vec)
+    }
+}
+
+impl<'a, 'outer> Serialize for StateView<'a, 'outer> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.gen_serialzer().serialize(serializer)
+    }
+}
+
+pub enum StateView<'inner, 'outer> {
+    SingleView(&'inner InterpreterState<'outer>),
+    Composite(CompositeView<'inner, 'outer>),
+}
+
+impl<'a, 'outer> From<&'a InterpreterState<'outer>> for StateView<'a, 'outer> {
+    fn from(env: &'a InterpreterState<'outer>) -> Self {
+        Self::SingleView(env)
+    }
+}
+
+impl<'a, 'outer> From<CompositeView<'a, 'outer>> for StateView<'a, 'outer> {
+    fn from(cv: CompositeView<'a, 'outer>) -> Self {
+        Self::Composite(cv)
+    }
+}
+
+impl<'a, 'outer> StateView<'a, 'outer> {
+    pub fn lookup<P: AsRaw<ir::Port>>(&self, target: P) -> &Value {
+        match self {
+            StateView::SingleView(sv) => sv.get_from_port(target),
+            StateView::Composite(cv) => match cv.1.len() {
+                0 => cv.0.get_from_port(target),
+                1 => cv.1[0].lookup(target),
+                _ => {
+                    let original = cv.0.get_from_port(target.as_raw());
+                    let new =
+                        cv.1.iter()
+                            .filter_map(|x| {
+                                let val = x.lookup(target.as_raw());
+                                if val == original {
+                                    None
+                                } else {
+                                    Some(val)
+                                }
+                            })
+                            .collect::<Vec<_>>();
+                    match new.len() {
+                        0 => original,
+                        1 => new[1],
+                        _ => panic!("conflicting parallel values"),
+                    }
+                }
+            },
+        }
+    }
+
+    pub fn get_ctx(&self) -> &RRC<ir::Context> {
+        match self {
+            StateView::SingleView(sv) => &sv.context,
+            StateView::Composite(cv) => &cv.0.context,
+        }
+    }
+
+    pub fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
+        match self {
+            StateView::SingleView(sv) => &sv.cell_map,
+            StateView::Composite(cv) => &cv.0.cell_map,
+        }
+    }
 
     /// Returns a string representing the current state of the environment. This
     /// just serializes the environment to a string and returns that string
-    fn state_as_str(&self) -> String {
+    pub fn state_as_str(&self) -> String {
         serde_json::to_string_pretty(&self.gen_serialzer()).unwrap()
     }
 
-    fn get_cells(&self, name: &String) -> Vec<RRC<ir::Cell>> {
+    pub fn get_cells<S: AsRef<str> + Clone>(
+        &self,
+        name: &S,
+    ) -> Vec<RRC<ir::Cell>> {
         let ctx_ref = self.get_ctx().borrow();
         ctx_ref
             .components
@@ -391,7 +474,7 @@ pub trait StateView<'outer> {
             .collect()
     }
 
-    fn gen_serialzer(&self) -> FullySerialize {
+    pub fn gen_serialzer(&self) -> FullySerialize {
         let ctx: &ir::Context = &self.get_ctx().borrow();
         let cell_prim_map = &self.get_cell_map().borrow();
 
@@ -453,107 +536,5 @@ pub trait StateView<'outer> {
             ports: bmap,
             memories: cell_map,
         }
-    }
-}
-
-impl<'outer> StateView<'outer> for InterpreterState<'outer> {
-    fn lookup(&self, target: ConstPort) -> &Value {
-        self.get_from_port(target)
-    }
-
-    fn get_ctx(&self) -> &RRC<ir::Context> {
-        &self.context
-    }
-
-    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
-        &self.cell_map
-    }
-}
-
-impl<'outer, T: StateView<'outer>> StateView<'outer> for &T {
-    fn lookup(&self, target: ConstPort) -> &Value {
-        (**self).lookup(target)
-    }
-
-    fn get_ctx(&self) -> &RRC<ir::Context> {
-        (**self).get_ctx()
-    }
-
-    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
-        (**self).get_cell_map()
-    }
-}
-
-impl<'outer, T: StateView<'outer>> StateView<'outer> for Box<T> {
-    fn lookup(&self, target: ConstPort) -> &Value {
-        (**self).lookup(target)
-    }
-
-    fn get_ctx(&self) -> &RRC<ir::Context> {
-        (**self).get_ctx()
-    }
-
-    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
-        (**self).get_cell_map()
-    }
-}
-
-pub struct CompositeView<'a, 'outer>(
-    &'a InterpreterState<'outer>,
-    Vec<Box<dyn StateView<'outer> + 'a>>,
-);
-
-impl<'a, 'outer> CompositeView<'a, 'outer> {
-    pub fn new(
-        state: &'a InterpreterState<'outer>,
-        vec: Vec<Box<dyn StateView<'outer> + 'a>>,
-    ) -> Self {
-        Self(state, vec)
-    }
-}
-
-impl<'a, 'outer> StateView<'outer> for CompositeView<'a, 'outer> {
-    fn lookup(&self, target: *const calyx::ir::Port) -> &Value {
-        match self.1.len() {
-            0 => self.0.lookup(target),
-            1 => self.1[0].lookup(target),
-            _ => {
-                let original = self.0.lookup(target);
-                let new = self
-                    .1
-                    .iter()
-                    .filter_map(|x| {
-                        let val = x.lookup(target);
-                        if val == original {
-                            None
-                        } else {
-                            Some(val)
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                match new.len() {
-                    0 => original,
-                    1 => new[1],
-                    _ => panic!("conflicting parallel values"),
-                }
-            }
-        }
-    }
-
-    fn get_ctx(&self) -> &RRC<ir::Context> {
-        self.0.get_ctx()
-    }
-
-    fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
-        &self.0.cell_map
-    }
-}
-
-impl<'outer> Serialize for dyn StateView<'outer> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.gen_serialzer().serialize(serializer)
     }
 }
