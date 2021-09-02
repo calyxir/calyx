@@ -37,6 +37,7 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 // ====== toplevel ======
 
+comb = { "comb" }
 
 file = {
       SOI
@@ -91,8 +92,11 @@ params = {
       "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
 }
 
+sig_with_params = {
+  params? ~ signature
+}
 primitive = {
-      "primitive" ~ name_with_attribute ~ params? ~ signature ~ ";"
+     comb? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
 }
 
 ext = {
@@ -203,7 +207,6 @@ at_attributes = {
       at_attribute*
 }
 
-comb = { "comb" }
 group = {
      comb? ~ "group" ~ name_with_attribute ~ "{"
       ~ wire*

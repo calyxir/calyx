@@ -126,6 +126,8 @@ pub enum CellType {
         name: Id,
         /// Bindings for the parameters. Uses Vec to retain the input order.
         param_binding: Binding,
+        /// True iff this is a combinational primitive
+        is_comb: bool,
     },
     /// Cell constructed using a Calyx component
     Component {

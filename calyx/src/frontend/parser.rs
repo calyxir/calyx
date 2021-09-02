@@ -304,7 +304,7 @@ impl CalyxParser {
     fn signature(input: Node) -> ParseResult<Vec<ir::PortDef>> {
         Ok(match_nodes!(
             input.into_children();
-            // XXX(rachit): We expect the signature to be extended to have `go`,
+            // NOTE(rachit): We expect the signature to be extended to have `go`,
             // `done`, and `clk`.
             [] => Vec::with_capacity(3),
             [inputs(ins)] =>  ins ,
@@ -315,21 +315,32 @@ impl CalyxParser {
         ))
     }
 
-    // ==============PortDeftives =====================
+    // ==============Primitives=====================
+    fn sig_with_params(
+        input: Node,
+    ) -> ParseResult<(Vec<ir::Id>, Vec<ir::PortDef>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [params(p), signature(s)] => (p, s),
+            [signature(s)] => (vec![], s),
+        ))
+    }
     fn primitive(input: Node) -> ParseResult<ir::Primitive> {
         Ok(match_nodes!(
             input.into_children();
-            [name_with_attribute((name, attrs)), params(p), signature(s)] => ir::Primitive {
+            [name_with_attribute((name, attrs)), sig_with_params((p, s))] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs,
+                is_comb: false,
             },
-            [name_with_attribute((name, attrs)), signature(s)] => ir::Primitive {
+            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => ir::Primitive {
                 name,
-                params: Vec::with_capacity(0),
+                params: p,
                 signature: s,
                 attributes: attrs,
+                is_comb: true,
             },
         ))
     }
