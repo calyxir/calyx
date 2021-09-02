@@ -315,6 +315,10 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     pub fn get_env(&self) -> &InterpreterState<'outer> {
         &self.state
     }
+
+    pub fn get_mut_env(&mut self) -> &mut InterpreterState<'outer> {
+        &mut self.state
+    }
 }
 
 impl<'a, 'outer> AssignmentInterpreterMarker

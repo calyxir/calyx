@@ -538,3 +538,38 @@ impl<'a, 'outer> StateView<'a, 'outer> {
         }
     }
 }
+
+pub struct MutCompositeView<'a, 'outer>(
+    &'a mut InterpreterState<'outer>,
+    Vec<MutStateView<'a, 'outer>>,
+);
+
+pub enum MutStateView<'inner, 'outer> {
+    Single(&'inner mut InterpreterState<'outer>),
+    Composite(MutCompositeView<'inner, 'outer>),
+}
+
+impl<'inner, 'outer> MutCompositeView<'inner, 'outer> {
+    pub fn new(
+        state: &'inner mut InterpreterState<'outer>,
+        vec: Vec<MutStateView<'inner, 'outer>>,
+    ) -> Self {
+        Self(state, vec)
+    }
+}
+
+impl<'a, 'outer> From<&'a mut InterpreterState<'outer>>
+    for MutStateView<'a, 'outer>
+{
+    fn from(env: &'a mut InterpreterState<'outer>) -> Self {
+        Self::Single(env)
+    }
+}
+
+impl<'a, 'outer> From<MutCompositeView<'a, 'outer>>
+    for MutStateView<'a, 'outer>
+{
+    fn from(mv: MutCompositeView<'a, 'outer>) -> Self {
+        Self::Composite(mv)
+    }
+}

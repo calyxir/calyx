@@ -209,6 +209,14 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Nothing => unreachable!(),
         }
     }
+
+    fn get_mut_env(&mut self) -> crate::environment::MutStateView<'_, 'outer> {
+        match &mut self.interp {
+            StructuralOrControl::Structural(s) => s.get_mut_env(),
+            StructuralOrControl::Control(c) => c.get_mut_env(),
+            StructuralOrControl::Nothing => unreachable!(),
+        }
+    }
 }
 
 impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {

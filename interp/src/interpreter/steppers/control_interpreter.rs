@@ -3,7 +3,10 @@ use super::{AssignmentInterpreter, AssignmentInterpreterMarker};
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
 use crate::{
-    environment::{CompositeView, InterpreterState, StateView},
+    environment::{
+        CompositeView, InterpreterState, MutCompositeView, MutStateView,
+        StateView,
+    },
     errors::InterpreterResult,
     interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
     values::Value,
@@ -39,6 +42,8 @@ pub trait Interpreter<'outer> {
     fn get_env(&self) -> StateView<'_, 'outer>;
 
     fn currently_executing_group(&self) -> Vec<&ir::Id>;
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer>;
 
     fn get_current_interp(
         &mut self,
@@ -84,6 +89,10 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
         &mut self,
     ) -> Option<&mut dyn AssignmentInterpreterMarker> {
         None
+    }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        (&mut self.env).into()
     }
 }
 
@@ -172,6 +181,10 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
         &mut self,
     ) -> Option<&mut dyn AssignmentInterpreterMarker> {
         Some(&mut self.interp)
+    }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        (self.interp.get_mut_env()).into()
     }
 }
 
@@ -264,6 +277,16 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
             .map(|x| x.get_current_interp())
             .flatten()
     }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        if let Some(cur) = &mut self.current_interpreter {
+            cur.get_mut_env()
+        } else if let Some(env) = &mut self.env {
+            env.into()
+        } else {
+            unreachable!("Invalid internal state for SeqInterpreter")
+        }
+    }
 }
 
 pub struct ParInterpreter<'a, 'outer> {
@@ -332,6 +355,17 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
         &mut self,
     ) -> Option<&mut dyn AssignmentInterpreterMarker> {
         None
+    }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        MutCompositeView::new(
+            &mut self.in_state,
+            self.interpreters
+                .iter_mut()
+                .map(|x| x.get_mut_env())
+                .collect(),
+        )
+        .into()
     }
 }
 pub struct IfInterpreter<'a, 'outer> {
@@ -437,6 +471,16 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
             (None, Some(x)) => x.get_current_interp(),
             (Some(x), None) => x.get_current_interp(),
             _ => unreachable!("If interpreter in invalid state"),
+        }
+    }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        if let Some(cond) = &mut self.cond {
+            cond.get_mut_env()
+        } else if let Some(branch) = &mut self.branch_interp {
+            branch.get_mut_env()
+        } else {
+            unreachable!("Invalid internal state for IfInterpreter")
         }
     }
 }
@@ -552,6 +596,16 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
             _ => unreachable!("If interpreter in invalid state"),
         }
     }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        if let Some(cond) = &mut self.cond_interp {
+            cond.get_mut_env()
+        } else if let Some(body) = &mut self.body_interp {
+            body.get_mut_env()
+        } else {
+            unreachable!("Invalid internal state for WhileInterpreter")
+        }
+    }
 }
 pub struct InvokeInterpreter<'outer> {
     phantom: PhantomData<InterpreterState<'outer>>, // placeholder to force lifetime annotations
@@ -591,6 +645,10 @@ impl<'outer> Interpreter<'outer> for InvokeInterpreter<'outer> {
     fn get_current_interp(
         &mut self,
     ) -> Option<&mut dyn AssignmentInterpreterMarker> {
+        todo!()
+    }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         todo!()
     }
 }
@@ -696,6 +754,10 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
     ) -> Option<&mut dyn AssignmentInterpreterMarker> {
         control_match!(self, i, i.get_current_interp())
     }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        control_match!(self, i, i.get_mut_env())
+    }
 }
 
 pub struct StructuralInterpreter<'a, 'outer> {
@@ -766,5 +828,9 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
         &mut self,
     ) -> Option<&mut dyn AssignmentInterpreterMarker> {
         Some(&mut self.interp)
+    }
+
+    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        self.interp.get_mut_env().into()
     }
 }
