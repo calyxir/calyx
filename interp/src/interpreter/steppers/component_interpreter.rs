@@ -6,11 +6,28 @@ use crate::environment::{InterpreterState, StateView};
 use crate::errors::InterpreterResult;
 use crate::primitives::Primitive;
 use crate::utils::AsRaw;
+use crate::values::Value;
 use calyx::ir::{self, Component, Port, RRC};
 
 enum StructuralOrControl<'a, 'outer> {
     Structural(StructuralInterpreter<'a, 'outer>),
     Control(ControlInterpreter<'a, 'outer>),
+    Nothing, // a default variant which is only ever around transiently
+}
+impl<'a, 'outer> Default for StructuralOrControl<'a, 'outer> {
+    fn default() -> Self {
+        Self::Nothing
+    }
+}
+
+impl<'a, 'outer> StructuralOrControl<'a, 'outer> {
+    fn is_structural(&self) -> bool {
+        matches!(self, Self::Structural(_))
+    }
+
+    fn is_control(&self) -> bool {
+        matches!(self, Self::Control(_))
+    }
 }
 
 impl<'a, 'outer> From<StructuralInterpreter<'a, 'outer>>
@@ -33,6 +50,10 @@ pub struct ComponentInterpreter<'a, 'outer> {
     interp: StructuralOrControl<'a, 'outer>,
     input_ports: Vec<RRC<Port>>,
     output_ports: Vec<RRC<Port>>,
+    comp_ref: &'a Component,
+    control_ref: &'a ir::Control,
+    done_port: RRC<Port>,
+    go_port: RRC<Port>,
 }
 
 impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
@@ -68,10 +89,25 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             }
         }
 
+        let go_port = inputs
+            .iter()
+            .find(|x| x.borrow().attributes.has("go"))
+            .unwrap()
+            .clone();
+        let done_port = outputs
+            .iter()
+            .find(|x| x.borrow().attributes.has("done"))
+            .unwrap()
+            .clone();
+
         Self {
             interp,
             input_ports: inputs,
             output_ports: outputs,
+            comp_ref: comp,
+            control_ref: control,
+            go_port,
+            done_port,
         }
     }
 
@@ -85,6 +121,34 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             })
             .collect()
     }
+
+    fn go_high(&mut self) {
+        let raw = self.go_port.as_raw();
+        self.get_current_interp()
+            .unwrap()
+            .insert(raw, Value::bit_high())
+    }
+
+    fn go_low(&mut self) {
+        let raw = self.go_port.as_raw();
+        self.get_current_interp()
+            .unwrap()
+            .insert(raw, Value::bit_low())
+    }
+
+    fn done_high(&mut self) {
+        let raw = self.done_port.as_raw();
+        self.get_current_interp()
+            .unwrap()
+            .insert(raw, Value::bit_high())
+    }
+
+    fn done_low(&mut self) {
+        let raw = self.done_port.as_raw();
+        self.get_current_interp()
+            .unwrap()
+            .insert(raw, Value::bit_low())
+    }
 }
 
 impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
@@ -92,6 +156,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &mut self.interp {
             StructuralOrControl::Structural(s) => s.step(),
             StructuralOrControl::Control(c) => c.step(),
+            _ => unreachable!(""),
         }
     }
 
@@ -99,6 +164,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match self.interp {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
+            _ => unreachable!(""),
         }
     }
 
@@ -106,6 +172,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.is_done(),
             StructuralOrControl::Control(c) => c.is_done(),
+            _ => unreachable!(""),
         }
     }
 
@@ -113,6 +180,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),
+            _ => unreachable!(""),
         }
     }
 
@@ -120,19 +188,42 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.currently_executing_group(),
             StructuralOrControl::Control(c) => c.currently_executing_group(),
+            _ => unreachable!(""),
         }
     }
 
     fn get_current_interp(
         &mut self,
     ) -> Option<&mut dyn super::AssignmentInterpreterMarker> {
-        None
+        match &mut self.interp {
+            StructuralOrControl::Structural(s) => s.get_current_interp(),
+            StructuralOrControl::Control(c) => c.get_current_interp(),
+            StructuralOrControl::Nothing => unreachable!(),
+        }
     }
 }
 
 impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
-    fn do_tick(&mut self) -> Vec<(ir::Id, crate::values::Value)> {
-        self.step().expect("Error when stepping");
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        let currently_done =
+            self.get_env().lookup(self.done_port.as_raw()).as_u64() == 1;
+
+        // this component has been done for a cycle
+        if currently_done {
+            self.reset(&[]);
+        } else {
+            self.step().expect("Error when stepping");
+        }
+
+        // just became done for an imperative component
+        // so set done high
+        if !currently_done && self.is_done() && self.interp.is_control() {
+            let raw_done = self.done_port.as_raw();
+            self.get_current_interp()
+                .unwrap()
+                .insert(raw_done, Value::bit_high());
+        }
+
         self.look_up_outputs()
     }
 
@@ -183,6 +274,19 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         &mut self,
         _inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
+        assert!(
+            self.is_done(),
+            "Component interpreter reset before finishing"
+        );
+
+        let interp = std::mem::take(&mut self.interp);
+
+        match interp {
+            StructuralOrControl::Structural(structural) => todo!(),
+            StructuralOrControl::Control(control) => todo!(),
+            StructuralOrControl::Nothing => unreachable!(),
+        }
+
         todo!()
     }
 }
