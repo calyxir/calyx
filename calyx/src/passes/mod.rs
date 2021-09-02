@@ -25,6 +25,7 @@ mod simplify_guards;
 // mod static_timing;
 mod synthesis_papercut;
 mod top_down_compile_control;
+mod top_down_static_timing;
 mod well_formed;
 
 pub use clk_insertion::ClkInsertion;
@@ -51,4 +52,5 @@ pub use simplify_guards::SimplifyGuards;
 // pub use static_timing::StaticTiming;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
+pub use top_down_static_timing::TopDownStaticTiming;
 pub use well_formed::WellFormed;

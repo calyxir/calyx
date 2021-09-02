@@ -15,7 +15,7 @@ use petgraph::graph::DiGraph;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Represents the execution schedule of a control program.
+/// Represents the dyanmic execution schedule of a control program.
 #[derive(Default)]
 struct Schedule {
     /// Assigments that should be enabled in a given state.
@@ -303,7 +303,7 @@ fn calculate_states_recur(
             if cond.is_some() {
                 return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
             }
-            let port_guard = ir::Guard::port(Rc::clone(port));
+            let port_guard = Rc::clone(port).into();
             // Add transitions for the true branch
             let (tru_prev, tru_nxt) = calculate_states_recur(
                 tbranch,
@@ -333,7 +333,7 @@ fn calculate_states_recur(
             }
 
             // Step 1: Generate the forward edges normally.
-            let port_guard = ir::Guard::port(Rc::clone(port));
+            let port_guard = Rc::clone(port).into();
             let (prevs, nxt) = calculate_states_recur(
                 body,
                 cur_state,

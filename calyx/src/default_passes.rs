@@ -5,7 +5,7 @@ use crate::passes::{
     GuardCanonical, InferStaticTiming, Inliner, MergeAssign, MinimizeRegs,
     Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
     ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    WellFormed,
+    TopDownStaticTiming, WellFormed,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -38,6 +38,7 @@ impl PassManager {
         pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<MergeAssign>()?;
         pm.register_pass::<TopDownCompileControl>()?;
+        pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<SynthesisPapercut>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GuardCanonical>()?;
