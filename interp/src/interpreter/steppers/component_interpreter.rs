@@ -122,6 +122,14 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             .collect()
     }
 
+    fn go_is_high(&self) -> bool {
+        self.get_env().lookup(self.go_port.as_raw()).as_u64() == 1
+    }
+
+    fn done_is_high(&self) -> bool {
+        self.get_env().lookup(self.done_port.as_raw()).as_u64() == 1
+    }
+
     fn go_high(&mut self) {
         let raw = self.go_port.as_raw();
         self.get_current_interp()
