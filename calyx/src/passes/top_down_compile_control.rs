@@ -11,7 +11,7 @@ use crate::{
 };
 use ir::IRPrinter;
 use itertools::Itertools;
-use petgraph::{algo::connected_components, graph::DiGraph};
+use petgraph::graph::DiGraph;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -36,7 +36,7 @@ impl Schedule {
         );
 
         debug_assert!(
-            connected_components(&graph) == 1,
+            petgraph::algo::connected_components(&graph) == 1,
             "State transition graph has unreachable states (graph has more than one connected component).");
     }
 
@@ -74,6 +74,88 @@ impl Schedule {
             .for_each(|(i, f, g)| {
                 eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(g));
             })
+    }
+
+    /// Implement a given [Schedule] and return the name of the [ir::Group] that
+    /// implements it.
+    fn realize_schedule(self, builder: &mut ir::Builder) -> RRC<ir::Group> {
+        self.validate();
+        let final_state = self.last_state();
+        let fsm_size = get_bit_width_from(
+            final_state + 1, /* represent 0..final_state */
+        );
+        structure!(builder;
+            let fsm = prim std_reg(fsm_size);
+            let signal_on = constant(1, 1);
+            let last_state = constant(final_state, fsm_size);
+            let first_state = constant(0, fsm_size);
+        );
+
+        // The compilation group
+        let group = builder.add_group("tdcc");
+
+        // Enable assignments
+        group.borrow_mut().assignments.extend(
+            self.enables
+                .into_iter()
+                .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+                .flat_map(|(state, mut assigns)| {
+                    let state_const = builder.add_constant(state, fsm_size);
+                    let state_guard =
+                        guard!(fsm["out"]).eq(guard!(state_const["out"]));
+                    assigns.iter_mut().for_each(|asgn| {
+                        asgn.guard.update(|g| g.and(state_guard.clone()))
+                    });
+                    assigns
+                }),
+        );
+
+        // Transition assignments
+        group.borrow_mut().assignments.extend(
+            self.transitions.into_iter().flat_map(|(s, e, guard)| {
+                structure!(builder;
+                    let end_const = constant(e, fsm_size);
+                    let start_const = constant(s, fsm_size);
+                );
+                let ec_borrow = end_const.borrow();
+                let trans_guard =
+                    guard!(fsm["out"]).eq(guard!(start_const["out"])) & guard;
+
+                vec![
+                    builder.build_assignment(
+                        fsm.borrow().get("in"),
+                        ec_borrow.get("out"),
+                        trans_guard.clone(),
+                    ),
+                    builder.build_assignment(
+                        fsm.borrow().get("write_en"),
+                        signal_on.borrow().get("out"),
+                        trans_guard,
+                    ),
+                ]
+            }),
+        );
+
+        // Done condition for group
+        let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        let done_assign = builder.build_assignment(
+            group.borrow().get("done"),
+            signal_on.borrow().get("out"),
+            last_guard.clone(),
+        );
+        group.borrow_mut().assignments.push(done_assign);
+
+        // Cleanup: Add a transition from last state to the first state.
+        let mut reset_fsm = build_assignments!(builder;
+            fsm["in"] = last_guard ? first_state["out"];
+            fsm["write_en"] = last_guard ? signal_on["out"];
+        );
+        builder
+            .component
+            .continuous_assignments
+            .append(&mut reset_fsm);
+
+        group
     }
 }
 
@@ -306,107 +388,20 @@ fn calculate_states_recur(
 
 fn calculate_states(
     con: &ir::Control,
-    // The current state
-    schedule: &mut Schedule,
-    // Component builder
     builder: &mut ir::Builder,
-) -> CalyxResult<()> {
+) -> CalyxResult<Schedule> {
+    let mut schedule = Schedule::default();
     let (prev, nxt) = calculate_states_recur(
         con,
         0,
         vec![],
         &ir::Guard::True,
-        schedule,
+        &mut schedule,
         builder,
     )?;
     let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
     schedule.transitions.extend(transitions);
-    Ok(())
-}
-
-/// Implement a given [Schedule] and return the name of the [ir::Group] that
-/// implements it.
-fn realize_schedule(
-    schedule: Schedule,
-    builder: &mut ir::Builder,
-) -> RRC<ir::Group> {
-    schedule.validate();
-    let final_state = schedule.last_state();
-    let fsm_size =
-        get_bit_width_from(final_state + 1 /* represent 0..final_state */);
-    structure!(builder;
-        let fsm = prim std_reg(fsm_size);
-        let signal_on = constant(1, 1);
-        let last_state = constant(final_state, fsm_size);
-        let first_state = constant(0, fsm_size);
-    );
-
-    // The compilation group
-    let group = builder.add_group("tdcc");
-
-    // Enable assignments
-    group.borrow_mut().assignments.extend(
-        schedule
-            .enables
-            .into_iter()
-            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .flat_map(|(state, mut assigns)| {
-                let state_const = builder.add_constant(state, fsm_size);
-                let state_guard =
-                    guard!(fsm["out"]).eq(guard!(state_const["out"]));
-                assigns.iter_mut().for_each(|asgn| {
-                    asgn.guard.update(|g| g.and(state_guard.clone()))
-                });
-                assigns
-            }),
-    );
-
-    // Transition assignments
-    group.borrow_mut().assignments.extend(
-        schedule.transitions.into_iter().flat_map(|(s, e, guard)| {
-            structure!(builder;
-                let end_const = constant(e, fsm_size);
-                let start_const = constant(s, fsm_size);
-            );
-            let ec_borrow = end_const.borrow();
-            let trans_guard =
-                guard!(fsm["out"]).eq(guard!(start_const["out"])) & guard;
-
-            vec![
-                builder.build_assignment(
-                    fsm.borrow().get("in"),
-                    ec_borrow.get("out"),
-                    trans_guard.clone(),
-                ),
-                builder.build_assignment(
-                    fsm.borrow().get("write_en"),
-                    signal_on.borrow().get("out"),
-                    trans_guard,
-                ),
-            ]
-        }),
-    );
-
-    // Done condition for group
-    let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
-    let done_assign = builder.build_assignment(
-        group.borrow().get("done"),
-        signal_on.borrow().get("out"),
-        last_guard.clone(),
-    );
-    group.borrow_mut().assignments.push(done_assign);
-
-    // Cleanup: Add a transition from last state to the first state.
-    let mut reset_fsm = build_assignments!(builder;
-        fsm["in"] = last_guard ? first_state["out"];
-        fsm["write_en"] = last_guard ? signal_on["out"];
-    );
-    builder
-        .component
-        .continuous_assignments
-        .append(&mut reset_fsm);
-
-    group
+    Ok(schedule)
 }
 
 /// **Core lowering pass.**
@@ -483,9 +478,8 @@ impl Visitor for TopDownCompileControl {
                 }
                 // Compile complex schedule and return the group.
                 _ => {
-                    let mut schedule = Schedule::default();
-                    calculate_states(con, &mut schedule, &mut builder)?;
-                    realize_schedule(schedule, &mut builder)
+                    let schedule = calculate_states(con, &mut builder)?;
+                    schedule.realize_schedule(&mut builder)
                 }
             };
 
@@ -554,11 +548,10 @@ impl Visitor for TopDownCompileControl {
 
         let control = Rc::clone(&comp.control);
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::default();
         // Add assignments for the final states
-        calculate_states(&control.borrow(), &mut schedule, &mut builder)?;
+        let schedule = calculate_states(&control.borrow(), &mut builder)?;
         schedule.display();
-        let comp_group = realize_schedule(schedule, &mut builder);
+        let comp_group = schedule.realize_schedule(&mut builder);
 
         Ok(Action::Change(ir::Control::enable(comp_group)))
     }
