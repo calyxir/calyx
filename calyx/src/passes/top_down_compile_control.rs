@@ -240,8 +240,6 @@ fn calculate_states_recur(
     cur_state: u64,
     // The set of previous states that want to transition into cur_state
     prev_states: Vec<(u64, ir::Guard)>,
-    // Guard that needs to be true to reach this state
-    with_guard: &ir::Guard,
     // Current schedule.
     schedule: &mut Schedule,
     // Component builder
@@ -264,7 +262,7 @@ fn calculate_states_recur(
 
             let transitions = prev_states
                 .into_iter()
-                .map(|(st, guard)| (st, cur_state, guard & with_guard.clone()));
+                .map(|(st, guard)| (st, cur_state, guard));
             schedule.transitions.extend(transitions);
 
             let done_cond = guard!(group["done"]);
@@ -274,17 +272,11 @@ fn calculate_states_recur(
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let mut prev = prev_states;
             let mut cur = cur_state;
-            for (idx, stmt) in stmts.iter().enumerate() {
+            for stmt in stmts {
                 let res = calculate_states_recur(
                     stmt,
                     cur,
                     prev,
-                    // Only the first group gets the with_guard for the previous state.
-                    if idx == 0 {
-                        with_guard
-                    } else {
-                        &ir::Guard::True
-                    },
                     schedule,
                     builder,
                 )?;
@@ -303,21 +295,24 @@ fn calculate_states_recur(
             if cond.is_some() {
                 return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
             }
-            let port_guard = Rc::clone(port).into();
-            // Add transitions for the true branch
+            let port_guard: ir::Guard = Rc::clone(port).into();
+            // Previous states transitioning into true branch need the conditional
+            // to be true.
+            let tru_transitions = prev_states.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
             let (tru_prev, tru_nxt) = calculate_states_recur(
                 tbranch,
                 cur_state,
-                prev_states.clone(),
-                &port_guard,
+                tru_transitions,
                 schedule,
                 builder,
             )?;
+            // Previous states transitioning into false branch need the conditional
+            // to be false.
+            let fal_transitions = prev_states.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
             let (fal_prev, fal_nxt) = calculate_states_recur(
                 fbranch,
                 tru_nxt,
-                prev_states,
-                &!port_guard,
+                fal_transitions,
                 schedule,
                 builder,
             )?;
@@ -333,12 +328,14 @@ fn calculate_states_recur(
             }
 
             // Step 1: Generate the forward edges normally.
-            let port_guard = Rc::clone(port).into();
+            let port_guard: ir::Guard = Rc::clone(port).into();
+            // Previous transitions into the body require the condition to be
+            // true.
+            let transitions = prev_states.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
             let (prevs, nxt) = calculate_states_recur(
                 body,
                 cur_state,
-                prev_states.clone(),
-                &port_guard,
+                transitions,
                 schedule,
                 builder,
             )?;
@@ -391,14 +388,8 @@ fn calculate_states(
     builder: &mut ir::Builder,
 ) -> CalyxResult<Schedule> {
     let mut schedule = Schedule::default();
-    let (prev, nxt) = calculate_states_recur(
-        con,
-        0,
-        vec![],
-        &ir::Guard::True,
-        &mut schedule,
-        builder,
-    )?;
+    let (prev, nxt) =
+        calculate_states_recur(con, 0, vec![], &mut schedule, builder)?;
     let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
     schedule.transitions.extend(transitions);
     Ok(schedule)
