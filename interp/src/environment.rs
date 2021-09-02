@@ -498,12 +498,12 @@ impl<'outer, T: StateView<'outer>> StateView<'outer> for Box<T> {
     }
 }
 
-pub struct ConsistentView<'a, 'outer>(
+pub struct CompositeView<'a, 'outer>(
     &'a InterpreterState<'outer>,
     Vec<Box<dyn StateView<'outer> + 'a>>,
 );
 
-impl<'a, 'outer> ConsistentView<'a, 'outer> {
+impl<'a, 'outer> CompositeView<'a, 'outer> {
     pub fn new(
         state: &'a InterpreterState<'outer>,
         vec: Vec<Box<dyn StateView<'outer> + 'a>>,
@@ -512,7 +512,7 @@ impl<'a, 'outer> ConsistentView<'a, 'outer> {
     }
 }
 
-impl<'a, 'outer> StateView<'outer> for ConsistentView<'a, 'outer> {
+impl<'a, 'outer> StateView<'outer> for CompositeView<'a, 'outer> {
     fn lookup(&self, target: *const calyx::ir::Port) -> &Value {
         match self.1.len() {
             0 => self.0.lookup(target),

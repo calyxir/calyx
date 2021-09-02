@@ -3,7 +3,7 @@ use super::{AssignmentInterpreter, AssignmentInterpreterMarker};
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
 use crate::{
-    environment::{ConsistentView, InterpreterState, StateView},
+    environment::{CompositeView, InterpreterState, StateView},
     errors::InterpreterResult,
     interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
     values::Value,
@@ -314,7 +314,7 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
     }
 
     fn get_env(&self) -> Box<dyn StateView<'outer> + '_> {
-        Box::new(ConsistentView::new(
+        Box::new(CompositeView::new(
             &self.in_state,
             self.interpreters.iter().map(|x| x.get_env()).collect(),
         ))
