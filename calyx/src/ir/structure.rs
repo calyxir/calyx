@@ -273,13 +273,13 @@ impl Cell {
         &self.name
     }
 
-    /// Returns a reference to all [ir::Port] attached to this cells.
+    /// Returns a reference to all [super::Port] attached to this cells.
     pub fn ports(&self) -> &SmallVec<[RRC<Port>; 10]> {
         &self.ports
     }
 }
 
-/// Generic wrapper for iterators that return [RRC] of [ir::Cell].
+/// Generic wrapper for iterators that return [RRC] of [super::Cell].
 pub struct CellIterator<'a> {
     pub port_iter: Box<dyn Iterator<Item = RRC<Cell>> + 'a>,
 }
