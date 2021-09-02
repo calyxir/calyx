@@ -217,6 +217,14 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Nothing => unreachable!(),
         }
     }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        match &mut self.interp {
+            StructuralOrControl::Structural(s) => s.converge(),
+            StructuralOrControl::Control(c) => c.converge(),
+            StructuralOrControl::Nothing => unreachable!(),
+        }
+    }
 }
 
 impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {

@@ -28,6 +28,8 @@ macro_rules! run_and_deconstruct {
 pub trait Interpreter<'outer> {
     fn step(&mut self) -> InterpreterResult<()>;
 
+    fn converge(&mut self) -> InterpreterResult<()>;
+
     fn run(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
             self.step()?;
@@ -93,6 +95,10 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         (&mut self.env).into()
+    }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        Ok(())
     }
 }
 
@@ -185,6 +191,10 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         (self.interp.get_mut_env()).into()
+    }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        self.interp.step_convergence()
     }
 }
 
@@ -287,6 +297,10 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
             unreachable!("Invalid internal state for SeqInterpreter")
         }
     }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        todo!()
+    }
 }
 
 pub struct ParInterpreter<'a, 'outer> {
@@ -366,6 +380,10 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
                 .collect(),
         )
         .into()
+    }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        todo!()
     }
 }
 pub struct IfInterpreter<'a, 'outer> {
@@ -482,6 +500,10 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         } else {
             unreachable!("Invalid internal state for IfInterpreter")
         }
+    }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        todo!()
     }
 }
 pub struct WhileInterpreter<'a, 'outer> {
@@ -606,6 +628,10 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
             unreachable!("Invalid internal state for WhileInterpreter")
         }
     }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        todo!()
+    }
 }
 pub struct InvokeInterpreter<'outer> {
     phantom: PhantomData<InterpreterState<'outer>>, // placeholder to force lifetime annotations
@@ -649,6 +675,10 @@ impl<'outer> Interpreter<'outer> for InvokeInterpreter<'outer> {
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+        todo!()
+    }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
         todo!()
     }
 }
@@ -758,6 +788,10 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         control_match!(self, i, i.get_mut_env())
     }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        control_match!(self, i, i.converge())
+    }
 }
 
 pub struct StructuralInterpreter<'a, 'outer> {
@@ -832,5 +866,9 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         self.interp.get_mut_env().into()
+    }
+
+    fn converge(&mut self) -> InterpreterResult<()> {
+        self.interp.step_convergence()
     }
 }
