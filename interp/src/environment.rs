@@ -561,6 +561,13 @@ impl<'inner, 'outer> MutCompositeView<'inner, 'outer> {
     ) -> Self {
         Self(state, vec)
     }
+    pub fn insert<P: AsRaw<ir::Port>>(&mut self, port: P, value: Value) {
+        let raw = port.as_raw();
+        self.0.insert(raw, value.clone());
+        for view in self.1.iter_mut() {
+            view.insert(raw, value.clone())
+        }
+    }
 }
 
 impl<'a, 'outer> From<&'a mut InterpreterState<'outer>>
@@ -576,5 +583,14 @@ impl<'a, 'outer> From<MutCompositeView<'a, 'outer>>
 {
     fn from(mv: MutCompositeView<'a, 'outer>) -> Self {
         Self::Composite(mv)
+    }
+}
+
+impl<'a, 'outer> MutStateView<'a, 'outer> {
+    pub fn insert<P: AsRaw<ir::Port>>(&mut self, port: P, value: Value) {
+        match self {
+            MutStateView::Single(s) => s.insert(port, value),
+            MutStateView::Composite(c) => c.insert(port, value),
+        }
     }
 }
