@@ -3,6 +3,7 @@
 //! The analyses construct data-structures that make answering certain queries
 //! about Calyx programs easier.
 
+mod predecessors;
 mod control_ports;
 mod graph;
 mod graph_coloring;
