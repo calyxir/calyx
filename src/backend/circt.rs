@@ -214,7 +214,7 @@ impl CirctBackend {
                         bind["D2_IDX_SIZE"],
                         bind["D3_IDX_SIZE"]
                     ),
-                    prim => todo!("Support for primitive: {}", prim),
+                    prim => write!(f, "calyx.{} : ", prim)
                 }
             }
             ir::CellType::Component { name } => {
