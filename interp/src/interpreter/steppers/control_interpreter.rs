@@ -299,7 +299,11 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        todo!()
+        if let Some(cur) = &mut self.current_interpreter {
+            cur.converge()
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -383,7 +387,17 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        todo!()
+        for res in self
+            .interpreters
+            .iter_mut()
+            .map(ControlInterpreter::converge)
+        {
+            // return first error
+            if let err @ Err(_) = res {
+                return err;
+            }
+        }
+        Ok(())
     }
 }
 pub struct IfInterpreter<'a, 'outer> {
@@ -503,7 +517,11 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        todo!()
+        match (&mut self.cond, &mut self.branch_interp) {
+            (None, Some(i)) => i.converge(),
+            (Some(i), None) => i.converge(),
+            _ => unreachable!("if interpreter in invalid internal state"),
+        }
     }
 }
 pub struct WhileInterpreter<'a, 'outer> {
