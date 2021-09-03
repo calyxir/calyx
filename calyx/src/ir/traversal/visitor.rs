@@ -97,6 +97,17 @@ pub trait Visitor {
         false
     }
 
+    /// Returns true if the pass invalidates the node_ids associated with the
+    /// component being traversed.
+    /// By default, this is true for all passes.
+    #[inline(always)]
+    fn invalidates_node_ids() -> bool
+    where
+        Self: Sized,
+    {
+        true
+    }
+
     /// Define the traversal over a component.
     /// Calls [Visitor::start], visits each control node, and finally calls
     /// [Visitor::finish].
@@ -123,6 +134,11 @@ pub trait Visitor {
             })?
             .and_then(|| self.finish(comp, signatures))?
             .apply_change(&mut comp.control.borrow_mut());
+
+        // Invalidate the node_ids associated with the control program.
+        if Self::invalidates_node_ids() {
+            comp.invalidate_node_ids()
+        }
         Ok(())
     }
 

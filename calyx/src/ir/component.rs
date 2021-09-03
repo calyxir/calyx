@@ -1,6 +1,6 @@
-use super::{
-    Assignment, Attributes, Builder, Cell, CellType, CloneName, Control,
-    Direction, GetName, Group, Id, RRC,
+use crate::ir::{
+    self, Assignment, Attributes, Builder, Cell, CellType, CloneName,
+    Control, Direction, GetName, Group, Id, RRC,
 };
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
@@ -36,6 +36,9 @@ pub struct Component {
     /// Namegenerator that contains the names currently defined in this
     /// component (cell and group names).
     namegen: utils::NameGenerator,
+
+    /// True if the NODE_ID associated with each control node is valid
+    node_ids_valid: bool,
 }
 
 /// Builder methods for extracting and construction IR nodes.
@@ -78,6 +81,7 @@ impl Component {
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::with_prev_defined_names(port_names),
             attributes: Attributes::default(),
+            node_ids_valid: false,
         }
     }
 
@@ -103,6 +107,53 @@ impl Component {
         S: Into<Id> + ToString + Clone,
     {
         self.namegen.gen_name(prefix)
+    }
+
+    /// Returns [ir::Control] associated with this component which is guaranteed
+    /// to have valid valid node_ids.
+    /// If [Component::node_ids_valid] is false, then it rebuilds the node_ids
+    /// again before returning the control program.
+    pub fn control_with_node_ids(&mut self) -> RRC<Control> {
+        if !self.node_ids_valid {
+            attach_node_ids(0, &mut self.control.borrow_mut());
+            self.node_ids_valid = true;
+        }
+        Rc::clone(&self.control)
+    }
+
+    /// Invalidates the node_ids associated with the control program.
+    pub fn invalidate_node_ids(&mut self) {
+        self.node_ids_valid = false;
+    }
+}
+
+/// Calculate and attach a unique node id with each [ir::Enable] in the
+/// control program.
+fn attach_node_ids(cur_state: u64, con: &mut Control) -> u64 {
+    match con {
+        Control::Invoke(ir::Invoke { attributes, .. })
+        | Control::Enable(ir::Enable { attributes, .. }) => {
+            attributes.insert("node_id", cur_state);
+            cur_state + 1
+        }
+        Control::Seq(ir::Seq { stmts, .. })
+        | Control::Par(ir::Par { stmts, .. }) => {
+            let mut cur = cur_state;
+            stmts.iter_mut().for_each(|stmt| {
+                cur = attach_node_ids(cur, stmt);
+            });
+            cur
+        }
+        Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            let nxt = attach_node_ids(cur_state, tbranch);
+            attach_node_ids(nxt, fbranch)
+        }
+        Control::While(ir::While { body, .. }) => {
+            attach_node_ids(cur_state, body)
+        }
+        Control::Empty(_) => cur_state,
     }
 }
 
