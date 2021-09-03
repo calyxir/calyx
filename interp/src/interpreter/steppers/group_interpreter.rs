@@ -14,6 +14,8 @@ enum AssignmentOwner<'a> {
     // first is always normal, second is always continuous
     Ref(Vec<&'a Assignment>, Vec<&'a Assignment>),
     Owned(Vec<Assignment>, Vec<Assignment>),
+    OwnedCont(Vec<&'a Assignment>, Vec<Assignment>),
+    OwnedGrp(Vec<Assignment>, Vec<&'a Assignment>),
 }
 
 impl<'a> AssignmentOwner<'a> {
@@ -26,6 +28,12 @@ impl<'a> AssignmentOwner<'a> {
             AssignmentOwner::Owned(assigns, cont) => {
                 Box::new((*assigns).iter().chain((*cont).iter()))
             }
+            AssignmentOwner::OwnedCont(a, c) => {
+                Box::new(a.iter().copied().chain(c.iter()))
+            }
+            AssignmentOwner::OwnedGrp(a, c) => {
+                Box::new(a.iter().chain(c.iter().copied()))
+            }
         }
     }
 
@@ -34,16 +42,22 @@ impl<'a> AssignmentOwner<'a> {
         &self,
     ) -> Box<dyn Iterator<Item = &Assignment> + '_> {
         match self {
-            AssignmentOwner::Ref(v1, _) => Box::new(v1.iter().copied()),
-            AssignmentOwner::Owned(v1, _) => Box::new(v1.iter()),
+            AssignmentOwner::Ref(v1, _) | AssignmentOwner::OwnedCont(v1, _) => {
+                Box::new(v1.iter().copied())
+            }
+            AssignmentOwner::Owned(v1, _)
+            | AssignmentOwner::OwnedGrp(v1, _) => Box::new(v1.iter()),
         }
     }
 
     // this is not currently used but may be relevant for mixed interpretation
     fn _iter_cont(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
         match self {
-            AssignmentOwner::Ref(_, v2) => Box::new(v2.iter().copied()),
-            AssignmentOwner::Owned(_, v2) => Box::new(v2.iter()),
+            AssignmentOwner::Ref(_, v2) | AssignmentOwner::OwnedGrp(_, v2) => {
+                Box::new(v2.iter().copied())
+            }
+            AssignmentOwner::Owned(_, v2)
+            | AssignmentOwner::OwnedCont(_, v2) => Box::new(v2.iter()),
         }
     }
 
@@ -61,7 +75,6 @@ where
         Self::Ref(iter.0.collect(), iter.1.collect())
     }
 }
-
 /// An interpreter object which exposes a pausable interface to interpreting a
 /// group of assignments
 pub struct AssignmentInterpreter<'a, 'outer> {
@@ -106,6 +119,50 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     ) -> Self {
         let done_port = done_signal;
         let assigns: AssignmentOwner = AssignmentOwner::from_vecs(vecs);
+        let cells = utils::get_dest_cells(assigns.iter_all());
+
+        Self {
+            state,
+            done_port,
+            assigns,
+            cells,
+            val_changed: None,
+        }
+    }
+
+    pub fn new_owned_grp<I1>(
+        state: InterpreterState<'outer>,
+        done_signal: ConstPort,
+        vecs: (Vec<Assignment>, I1),
+    ) -> Self
+    where
+        I1: Iterator<Item = &'a Assignment>,
+    {
+        let done_port = done_signal;
+        let assigns: AssignmentOwner =
+            AssignmentOwner::OwnedGrp(vecs.0, vecs.1.collect());
+        let cells = utils::get_dest_cells(assigns.iter_all());
+
+        Self {
+            state,
+            done_port,
+            assigns,
+            cells,
+            val_changed: None,
+        }
+    }
+
+    pub fn _new_owned_cont<I1>(
+        state: InterpreterState<'outer>,
+        done_signal: ConstPort,
+        vecs: (I1, Vec<Assignment>),
+    ) -> Self
+    where
+        I1: Iterator<Item = &'a Assignment>,
+    {
+        let done_port = done_signal;
+        let assigns: AssignmentOwner =
+            AssignmentOwner::OwnedCont(vecs.0.collect(), vecs.1);
         let cells = utils::get_dest_cells(assigns.iter_all());
 
         Self {
