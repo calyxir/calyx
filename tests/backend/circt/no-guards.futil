@@ -1,0 +1,58 @@
+// -p well-formed -b circt
+import "primitives/core.futil";
+component A(in: 8, go: 1, clk: 1, reset: 1) -> (out: 8, done: 1) {
+  cells {
+  }
+  wires {
+  }
+  control {
+  }
+}
+component B(in: 1, go: 1, clk: 1, reset: 1) -> (out: 1, done: 1) {
+  cells {
+  }
+  wires {
+  }
+  control {
+  }
+}
+component main(go: 1, clk: 1, reset: 1) -> (done: 1) {
+  cells {
+    c0 = A();
+    c1 = B();
+    r = std_reg(8);
+    m0 = std_mem_d1(32, 1, 1);
+    m1 = std_mem_d2(8, 64, 64, 6, 6);
+    add = std_add(8);
+  }
+  wires {
+    group Group1 {
+      Group1[go] = c0.done;
+      c0.in = c0.out;
+      c1.in = c1.out;
+      Group1[done] = c0.done;
+    }
+    group Group2 {
+      add.left = r.out;
+      add.right = 8'd1;
+      r.in = add.out;
+      r.write_en = 1'd1;
+      Group2[done] = r.done;
+    }
+    c0.go = 1'd0;
+  }
+  control {
+    seq {
+      Group1;
+      while c1.out with Group2 {
+        seq {
+          Group1;
+          Group1;
+          if c1.out with Group2 {
+            Group2;
+          }
+        }
+      }
+    }
+  }
+}

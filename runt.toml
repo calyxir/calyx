@@ -147,8 +147,8 @@ fud e -q {} --from relay --to dat -s verilog.data {}.data | jq .memories
 
 ##### Backend Tests #####
 [[tests]]
-name = "[core] verilog backend"
-paths = [ "tests/backend/verilog/*.futil" ]
+name = "[core] backends"
+paths = [ "tests/backend/**/*.futil" ]
 cmd = """
 flags=$(head -n 1 {} | cut -c 3-)
 ./target/debug/futil {} $flags
