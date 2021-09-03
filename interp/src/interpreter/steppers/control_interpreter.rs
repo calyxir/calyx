@@ -859,10 +859,6 @@ impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
         let go_port: ConstPort = comp_sig.get("go").as_ptr();
         let continuous_assignments = &comp.continuous_assignments;
 
-        if !is_signal_high(env.get_from_port(done_port)) {
-            env.insert(go_port, Value::bit_high());
-        }
-
         let interp = AssignmentInterpreter::new(
             env,
             done_port,
@@ -885,7 +881,6 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
 
     fn deconstruct(self) -> InterpreterState<'outer> {
         let mut final_env = self.interp.deconstruct();
-        final_env.insert(self.go_port, Value::bit_low());
         finish_interpretation(final_env, self.done_port, self.continuous.iter())
             .unwrap()
     }

@@ -41,6 +41,7 @@ impl<'a> Debugger<'a> {
             control,
             env,
         );
+        component_interpreter.set_go_high();
 
         if pass_through {
             component_interpreter.run()?;
@@ -238,6 +239,7 @@ impl<'a> Debugger<'a> {
             }
 
             if component_interpreter.is_done() {
+                component_interpreter.set_go_low();
                 return Ok(component_interpreter.deconstruct());
             }
         }

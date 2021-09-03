@@ -310,7 +310,6 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         );
 
         self.set_done_low();
-        self.set_go_low();
 
         let interp = std::mem::take(&mut self.interp);
 
