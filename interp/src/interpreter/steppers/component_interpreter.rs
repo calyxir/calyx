@@ -57,6 +57,7 @@ pub struct ComponentInterpreter<'a, 'outer> {
     control_ref: &'a ir::Control,
     done_port: RRC<Port>,
     go_port: RRC<Port>,
+    input_hash_set: Rc<HashSet<*const ir::Port>>,
 }
 
 impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
@@ -92,7 +93,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
                 control,
                 env,
                 &comp.continuous_assignments,
-                input_hash_set,
+                Rc::clone(&input_hash_set),
             )
             .into()
         };
@@ -116,6 +117,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             control_ref: control,
             go_port,
             done_port,
+            input_hash_set,
         }
     }
 
@@ -138,40 +140,39 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
         self.get_env().lookup(self.done_port.as_raw()).as_u64() == 1
     }
 
-    fn go_high(&mut self) {
+    pub fn set_go_high(&mut self) {
         let raw = self.go_port.as_raw();
-        self.get_current_interp()
-            .unwrap()
-            .insert(raw, Value::bit_high())
+        self.get_mut_env().insert(raw, Value::bit_high())
     }
 
-    fn go_low(&mut self) {
+    pub fn set_go_low(&mut self) {
         let raw = self.go_port.as_raw();
-        self.get_current_interp()
-            .unwrap()
-            .insert(raw, Value::bit_low())
+        self.get_mut_env().insert(raw, Value::bit_low())
     }
 
-    fn done_high(&mut self) {
+    fn set_done_high(&mut self) {
         let raw = self.done_port.as_raw();
-        self.get_current_interp()
-            .unwrap()
-            .insert(raw, Value::bit_high())
+        self.get_mut_env().insert(raw, Value::bit_high())
     }
 
-    fn done_low(&mut self) {
+    fn set_done_low(&mut self) {
         let raw = self.done_port.as_raw();
-        self.get_current_interp()
-            .unwrap()
-            .insert(raw, Value::bit_low())
+        self.get_mut_env().insert(raw, Value::bit_low())
     }
 }
 
 impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
+        let go = self.go_is_high();
         match &mut self.interp {
             StructuralOrControl::Structural(s) => s.step(),
-            StructuralOrControl::Control(c) => c.step(),
+            StructuralOrControl::Control(c) => {
+                if go {
+                    c.step()
+                } else {
+                    Ok(())
+                }
+            }
             _ => unreachable!(""),
         }
     }
@@ -250,10 +251,7 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         // just became done for an imperative component
         // so set done high
         if !currently_done && self.is_done() && self.interp.is_control() {
-            let raw_done = self.done_port.as_raw();
-            self.get_current_interp()
-                .unwrap()
-                .insert(raw_done, Value::bit_high());
+            self.set_done_high()
         }
 
         self.look_up_outputs()
@@ -293,12 +291,12 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
             })
             .collect::<Vec<_>>();
 
-        let marker = self.get_current_interp().unwrap();
+        let mut env = self.get_mut_env();
 
         for (port, value) in input_vec {
-            marker.insert(port, value);
+            env.insert(port, value);
         }
-        marker.step_convergence().unwrap();
+        self.converge().unwrap();
         self.look_up_outputs()
     }
 
@@ -311,14 +309,31 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
             "Component interpreter reset before finishing"
         );
 
+        self.set_done_low();
+        self.set_go_low();
+
         let interp = std::mem::take(&mut self.interp);
 
-        match interp {
-            StructuralOrControl::Structural(structural) => todo!(),
-            StructuralOrControl::Control(control) => todo!(),
+        let new = match interp {
+            StructuralOrControl::Structural(mut s) => {
+                s.converge().unwrap();
+                StructuralOrControl::Structural(s)
+            }
+            StructuralOrControl::Control(control) => {
+                let env = control.deconstruct();
+                ControlInterpreter::new(
+                    self.control_ref,
+                    env,
+                    &self.comp_ref.continuous_assignments,
+                    self.input_hash_set.clone(),
+                )
+                .into()
+            }
             StructuralOrControl::Nothing => unreachable!(),
-        }
+        };
 
-        todo!()
+        self.interp = new;
+
+        self.look_up_outputs()
     }
 }
