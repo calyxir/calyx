@@ -1,5 +1,7 @@
 //! Inteprets a control in a component.
 
+use std::collections::HashSet;
+
 use super::interpret_group::{
     finish_group_interpretation, interp_cont, interpret_group,
 };
@@ -84,7 +86,8 @@ fn eval_par<'outer>(
         smooshers.push(is.port_map);
     }
 
-    final_st.port_map = final_st.port_map.merge_many(smooshers);
+    final_st.port_map =
+        final_st.port_map.merge_many(smooshers, &HashSet::new());
     final_st.clk = tl;
 
     Ok(final_st)

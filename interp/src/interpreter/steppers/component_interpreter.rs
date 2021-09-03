@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
@@ -8,6 +10,7 @@ use crate::primitives::Primitive;
 use crate::utils::AsRaw;
 use crate::values::Value;
 use calyx::ir::{self, Component, Port, RRC};
+use std::rc::Rc;
 
 enum StructuralOrControl<'a, 'outer> {
     Structural(StructuralInterpreter<'a, 'outer>),
@@ -62,19 +65,6 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
         control: &'a ir::Control,
         env: InterpreterState<'outer>,
     ) -> Self {
-        let interp;
-
-        if control_is_empty(control) {
-            interp = StructuralInterpreter::from_component(comp, env).into();
-        } else {
-            interp = ControlInterpreter::new(
-                control,
-                env,
-                &comp.continuous_assignments,
-            )
-            .into()
-        };
-
         let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
 
         for port in comp.signature.borrow().ports.iter() {
@@ -88,6 +78,24 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
                 }
             }
         }
+
+        let input_hash_set =
+            inputs.iter().map(|x| x.as_raw()).collect::<HashSet<_>>();
+
+        let input_hash_set = Rc::new(input_hash_set);
+        let interp;
+
+        if control_is_empty(control) {
+            interp = StructuralInterpreter::from_component(comp, env).into();
+        } else {
+            interp = ControlInterpreter::new(
+                control,
+                env,
+                &comp.continuous_assignments,
+                input_hash_set,
+            )
+            .into()
+        };
 
         let go_port = inputs
             .iter()

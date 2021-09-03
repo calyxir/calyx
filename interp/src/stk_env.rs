@@ -784,7 +784,11 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// let d = Smoosher::merge_many(a, lst); //a and b has a different fork point
     //from a and c
     /// ```
-    pub fn merge_many(self, other: Vec<Self>) -> Self {
+    pub fn merge_many(
+        self,
+        other: Vec<Self>,
+        overlap_keys: &HashSet<K>,
+    ) -> Self {
         //initialize all needed variables
         let mut a = self;
         //needed to check for common fork point for all smooshers
@@ -818,8 +822,13 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         //the head of the first smoosher.
         for sm in smooshed {
             for (k, v) in sm.head {
-                if a_head.insert(k, v).is_some() {
-                    panic!("arguments of merge are not disjoint");
+                if let Some(prev) = a_head.get(&k) {
+                    // overlap accepable for defined keys as long as they agree
+                    if overlap_keys.contains(&k) && prev == &v {
+                        a_head.insert(k, v);
+                    } else {
+                        panic!("arguments of merge are not disjoint");
+                    }
                 }
             }
             std::mem::drop(sm.tail);

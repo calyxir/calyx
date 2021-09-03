@@ -14,7 +14,9 @@ use crate::{
 use calyx::ir::{self, Assignment, Component, Control};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
+use std::collections::HashSet;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 // this almost certainly doesn't need to exist but it can't be a trait fn with a
 // default impl because it consumes self
@@ -204,12 +206,14 @@ pub struct SeqInterpreter<'a, 'outer> {
     continuous_assignments: &'a [Assignment],
     env: Option<InterpreterState<'outer>>,
     done_flag: bool,
+    input_ports: Rc<HashSet<*const ir::Port>>,
 }
 impl<'a, 'outer> SeqInterpreter<'a, 'outer> {
     pub fn new(
         seq: &'a ir::Seq,
         env: InterpreterState<'outer>,
         continuous_assigns: &'a [Assignment],
+        input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         Self {
             sequence: peek_nth(seq.stmts.iter()),
@@ -217,6 +221,7 @@ impl<'a, 'outer> SeqInterpreter<'a, 'outer> {
             continuous_assignments: continuous_assigns,
             env: Some(env),
             done_flag: false,
+            input_ports,
         }
     }
 }
@@ -230,6 +235,7 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
                 self.sequence.next().unwrap(),
                 self.env.take().unwrap(),
                 self.continuous_assignments,
+                Rc::clone(&self.input_ports),
             )
             .into()
         } else if self.current_interpreter.is_some()
@@ -310,6 +316,7 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
 pub struct ParInterpreter<'a, 'outer> {
     interpreters: Vec<ControlInterpreter<'a, 'outer>>,
     in_state: InterpreterState<'outer>,
+    input_ports: Rc<HashSet<*const ir::Port>>,
 }
 
 impl<'a, 'outer> ParInterpreter<'a, 'outer> {
@@ -317,16 +324,25 @@ impl<'a, 'outer> ParInterpreter<'a, 'outer> {
         par: &'a ir::Par,
         mut env: InterpreterState<'outer>,
         continuous_assigns: &'a [Assignment],
+        input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         let interpreters = par
             .stmts
             .iter()
-            .map(|x| ControlInterpreter::new(x, env.fork(), continuous_assigns))
+            .map(|x| {
+                ControlInterpreter::new(
+                    x,
+                    env.fork(),
+                    continuous_assigns,
+                    Rc::clone(&input_ports),
+                )
+            })
             .collect();
 
         Self {
             interpreters,
             in_state: env,
+            input_ports,
         }
     }
 }
@@ -347,7 +363,7 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
             .map(ControlInterpreter::deconstruct)
             .collect_vec();
 
-        self.in_state.merge_many(envs)
+        self.in_state.merge_many(envs, &self.input_ports)
     }
 
     fn is_done(&self) -> bool {
@@ -407,6 +423,7 @@ pub struct IfInterpreter<'a, 'outer> {
     fbranch: &'a Control,
     branch_interp: Option<ControlInterpreter<'a, 'outer>>,
     continuous_assignments: &'a [Assignment],
+    input_ports: Rc<HashSet<*const ir::Port>>,
 }
 
 impl<'a, 'outer> IfInterpreter<'a, 'outer> {
@@ -414,6 +431,7 @@ impl<'a, 'outer> IfInterpreter<'a, 'outer> {
         ctrl_if: &'a ir::If,
         env: InterpreterState<'outer>,
         continuous_assigns: &'a [Assignment],
+        input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         let port: ConstPort = ctrl_if.port.as_ptr();
         let cond = EnableInterpreter::new(
@@ -429,6 +447,7 @@ impl<'a, 'outer> IfInterpreter<'a, 'outer> {
             fbranch: &ctrl_if.fbranch,
             branch_interp: None,
             continuous_assignments: continuous_assigns,
+            input_ports,
         }
     }
 }
@@ -446,6 +465,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
                         self.tbranch,
                         env,
                         self.continuous_assignments,
+                        Rc::clone(&self.input_ports),
                     );
                 } else {
                     let env = i.deconstruct();
@@ -453,6 +473,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
                         self.fbranch,
                         env,
                         self.continuous_assignments,
+                        Rc::clone(&self.input_ports),
                     );
                 }
 
@@ -531,6 +552,7 @@ pub struct WhileInterpreter<'a, 'outer> {
     continuous_assignments: &'a [ir::Assignment],
     cond_interp: Option<EnableInterpreter<'a, 'outer>>,
     body_interp: Option<ControlInterpreter<'a, 'outer>>,
+    input_ports: Rc<HashSet<*const ir::Port>>,
 }
 
 impl<'a, 'outer> WhileInterpreter<'a, 'outer> {
@@ -538,6 +560,7 @@ impl<'a, 'outer> WhileInterpreter<'a, 'outer> {
         ctrl_while: &'a ir::While,
         env: InterpreterState<'outer>,
         continuous_assignments: &'a [Assignment],
+        input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         let port: ConstPort = ctrl_while.port.as_ptr();
         let cond = ctrl_while.cond.borrow();
@@ -554,6 +577,7 @@ impl<'a, 'outer> WhileInterpreter<'a, 'outer> {
             continuous_assignments,
             cond_interp: Some(cond_interp),
             body_interp: None,
+            input_ports,
         }
     }
 }
@@ -568,6 +592,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
                         self.body,
                         ci.deconstruct(),
                         self.continuous_assignments,
+                        Rc::clone(&self.input_ports),
                     );
                     self.body_interp = Some(body_interp)
                 } else {
@@ -732,27 +757,32 @@ impl<'a, 'outer> ControlInterpreter<'a, 'outer> {
         control: &'a Control,
         env: InterpreterState<'outer>,
         continuous_assignments: &'a [Assignment],
+        input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         match control {
             Control::Seq(s) => Self::Seq(Box::new(SeqInterpreter::new(
                 s,
                 env,
                 continuous_assignments,
+                input_ports,
             ))),
             Control::Par(par) => Self::Par(Box::new(ParInterpreter::new(
                 par,
                 env,
                 continuous_assignments,
+                input_ports,
             ))),
             Control::If(i) => Self::If(Box::new(IfInterpreter::new(
                 i,
                 env,
                 continuous_assignments,
+                input_ports,
             ))),
             Control::While(w) => Self::While(Box::new(WhileInterpreter::new(
                 w,
                 env,
                 continuous_assignments,
+                input_ports,
             ))),
             Control::Invoke(i) => {
                 Self::Invoke(Box::new(InvokeInterpreter::new(i, env)))

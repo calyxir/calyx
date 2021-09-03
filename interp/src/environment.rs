@@ -10,7 +10,7 @@ use super::RefHandler;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::iter::once;
 use std::rc::Rc;
 
@@ -293,7 +293,11 @@ impl<'outer> InterpreterState<'outer> {
     }
 
     /// Merge the given environments. Must be called from the root environment
-    pub fn merge_many(mut self, others: Vec<Self>) -> Self {
+    pub fn merge_many(
+        mut self,
+        others: Vec<Self>,
+        overlap: &HashSet<*const ir::Port>,
+    ) -> Self {
         let clk = others
             .iter()
             .chain(once(&self))
@@ -301,9 +305,10 @@ impl<'outer> InterpreterState<'outer> {
             .max()
             .unwrap(); // safe because of once
 
-        self.port_map = self
-            .port_map
-            .merge_many(others.into_iter().map(|x| x.port_map).collect());
+        self.port_map = self.port_map.merge_many(
+            others.into_iter().map(|x| x.port_map).collect(),
+            overlap,
+        );
         self.clk = clk;
 
         self
