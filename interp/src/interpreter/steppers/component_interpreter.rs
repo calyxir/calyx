@@ -238,8 +238,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
 
 impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
-        let currently_done =
-            self.get_env().lookup(self.done_port.as_raw()).as_u64() == 1;
+        let currently_done = self.done_is_high();
 
         // this component has been done for a cycle
         if currently_done {
@@ -309,8 +308,6 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
             "Component interpreter reset before finishing"
         );
 
-        self.set_done_low();
-
         let interp = std::mem::take(&mut self.interp);
 
         let new = match interp {
@@ -330,6 +327,8 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
             }
             StructuralOrControl::Nothing => unreachable!(),
         };
+
+        self.set_done_low();
 
         self.interp = new;
 

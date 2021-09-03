@@ -852,7 +852,7 @@ pub struct StructuralInterpreter<'a, 'outer> {
 impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
     pub fn from_component(
         comp: &'a Component,
-        mut env: InterpreterState<'outer>,
+        env: InterpreterState<'outer>,
     ) -> Self {
         let comp_sig = comp.signature.borrow();
         let done_port: ConstPort = comp_sig.get("done").as_ptr();
@@ -880,7 +880,7 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
     }
 
     fn deconstruct(self) -> InterpreterState<'outer> {
-        let mut final_env = self.interp.deconstruct();
+        let final_env = self.interp.deconstruct();
         finish_interpretation(final_env, self.done_port, self.continuous.iter())
             .unwrap()
     }
