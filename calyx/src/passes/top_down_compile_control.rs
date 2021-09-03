@@ -191,14 +191,15 @@ fn entries_and_exits(
     is_entry: bool,
     is_exit: bool,
     entries: &mut Vec<u64>,
-    exits: &mut Vec<u64>,
+    exits: &mut Vec<(u64, RRC<ir::Group>)>,
 ) -> u64 {
     match con {
-        ir::Control::Enable(_) => {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
             if is_entry {
                 entries.push(cur_state)
-            } else if is_exit {
-                exits.push(cur_state)
+            }
+            if is_exit {
+                exits.push((cur_state, Rc::clone(group)))
             }
             cur_state + 1
         }
@@ -327,20 +328,9 @@ fn calculate_states_recur(
                 return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
             }
 
-            // Step 1: Generate the forward edges normally.
             let port_guard: ir::Guard = Rc::clone(port).into();
-            // Previous transitions into the body require the condition to be
-            // true.
-            let transitions = prev_states.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
-            let (prevs, nxt) = calculate_states_recur(
-                body,
-                cur_state,
-                transitions,
-                schedule,
-                builder,
-            )?;
 
-            // Step 2: Generate the backward edges
+            // Step 1: Generate the backward edges
             // First compute the entry and exit points.
             let mut entries = vec![];
             let mut exits = vec![];
@@ -352,18 +342,24 @@ fn calculate_states_recur(
                 &mut entries,
                 &mut exits,
             );
-            // For each exit point, generate a map to the guards used.
-            let guard_map =
-                prevs.clone().into_iter().collect::<HashMap<_, _>>();
-            // Generate exit to entry transitions which occur when the condition
-            // is true at the end of the while body.
-            let exit_to_entry_transitions = exits
+            let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
+
+            // Step 2: Generate the forward edges normally.
+            // Previous transitions into the body require the condition to be
+            // true.
+            let transitions: Vec<(u64, ir::Guard)> = prev_states
+                .clone()
                 .into_iter()
-                .cartesian_product(entries)
-                .map(|(old, new)| {
-                    (old, new, guard_map[&old].clone() & port_guard.clone())
-                });
-            schedule.transitions.extend(exit_to_entry_transitions);
+                .chain(back_edge_prevs)
+                .map(|(s, g)| (s, g & port_guard.clone()))
+                .collect();
+            let (prevs, nxt) = calculate_states_recur(
+                body,
+                cur_state,
+                transitions,
+                schedule,
+                builder,
+            )?;
 
             // Step 3: The final out edges from the while come from:
             //   - Before the body when the condition is false
