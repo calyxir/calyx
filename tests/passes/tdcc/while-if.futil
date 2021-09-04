@@ -1,0 +1,44 @@
+// -x tdcc:dump-fsm -d post-opt -d lower -b none
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    is_even = std_reg(1);
+    is_not_zero = std_reg(1);
+    r = std_reg(32);
+  }
+  wires {
+    group one {
+      is_not_zero.in = 1'd0;
+      is_not_zero.write_en = 1'd0;
+      one[done] = is_not_zero.done;
+    }
+    group two {
+      r.in = 32'd0;
+      r.write_en = 1'd0;
+      two[done] = r.done;
+    }
+    group three {
+      r.in = 32'd0;
+      r.write_en = 1'd0;
+      three[done] = r.done;
+    }
+    group four {
+      is_even.in = 1'd0;
+      is_even.write_en = 1'd0;
+      four[done] = is_even.done;
+    }
+  }
+  control {
+    seq {
+      one;
+      while is_not_zero.out {
+        if is_even.out {
+          two;
+        } else {
+          three;
+        }
+      }
+      four;
+    }
+  }
+}
