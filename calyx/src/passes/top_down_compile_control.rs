@@ -22,8 +22,6 @@ struct Schedule {
     pub enables: HashMap<u64, Vec<ir::Assignment>>,
     /// Transition from one state to another when the guard is true.
     pub transitions: Vec<(u64, u64, ir::Guard)>,
-    /// Assignments that are always active
-    pub always_active: Vec<ir::Assignment>,
 }
 
 impl Schedule {
@@ -76,12 +74,6 @@ impl Schedule {
             .for_each(|(i, f, g)| {
                 eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(g));
             });
-        eprintln!("-----Always Active-----");
-        self.always_active.iter().for_each(|assign| {
-            IRPrinter::write_assignment(assign, 0, &mut std::io::stderr())
-                .expect("Printing failed!");
-            eprintln!();
-        })
     }
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
@@ -144,12 +136,6 @@ impl Schedule {
             }),
         );
 
-        // Always active assignments
-        group
-            .borrow_mut()
-            .assignments
-            .extend(self.always_active.into_iter());
-
         // Done condition for group
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
         let done_assign = builder.build_assignment(
@@ -173,7 +159,7 @@ impl Schedule {
     }
 }
 
-/// Computes the exit points of a given [ir::Control] program.
+/// Computes the entry and exit points of a given [ir::Control] program.
 ///
 /// ## Example
 /// In the following Calyx program:
@@ -199,31 +185,44 @@ impl Schedule {
 /// }
 /// ```
 /// The exit set is `[true, false]`.
-fn control_exits(con: &ir::Control, exits: &mut Vec<(u64, RRC<ir::Group>)>) {
+fn control_exits(
+    con: &ir::Control,
+    cur_state: u64,
+    is_exit: bool,
+    exits: &mut Vec<(u64, RRC<ir::Group>)>,
+) -> u64 {
     match con {
-        ir::Control::Enable(ir::Enable { attributes, group, .. }) => {
-            let cur_state = attributes
-                .get("node_id")
-                .expect("Group does not have node_id");
-            exits.push((*cur_state, Rc::clone(group)))
+        ir::Control::Enable(ir::Enable { group, .. }) => {
+            if is_exit {
+                exits.push((cur_state, Rc::clone(group)))
+            }
+            cur_state + 1
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            if let Some(con) = stmts.iter().last() {
-                control_exits(con, exits);
+            let len = stmts.len();
+            let mut cur = cur_state;
+            for (idx, stmt) in stmts.iter().enumerate() {
+                let exit = idx == len - 1 && is_exit;
+                cur = control_exits(stmt, cur, exit, exits);
             }
+            cur
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
-            control_exits(tbranch, exits);
-            control_exits(fbranch, exits)
+            let tru_nxt = control_exits(
+                tbranch, cur_state, is_exit, exits,
+            );
+            control_exits(
+                fbranch, tru_nxt, is_exit, exits,
+            )
         }
-        ir::Control::While(ir::While { body, .. }) => {
-            control_exits(body, exits)
-        }
-        ir::Control::Empty(..)
-        | ir::Control::Par(..)
-        | ir::Control::Invoke(..) => unreachable!()
+        ir::Control::While(ir::While { body, .. }) => control_exits(
+            body, cur_state, is_exit, exits,
+        ),
+        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Par(_) => unreachable!(),
     }
 }
 
@@ -350,6 +349,8 @@ fn calculate_states_recur(
             let mut exits = vec![];
             control_exits(
                 body,
+                cur_state,
+                true,
                 &mut exits,
             );
             let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
@@ -607,7 +608,6 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         // Add assignments for the final states
         let schedule = calculate_states(&control.borrow(), &mut builder)?;
-        schedule.display();
         let comp_group = schedule.realize_schedule(&mut builder);
 
         Ok(Action::Change(ir::Control::enable(comp_group)))

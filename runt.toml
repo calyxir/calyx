@@ -5,7 +5,6 @@ ver = "0.3.2"
 [[tests]]
 name = "[core] passes"
 paths = [
-  "tests/passes/*.futil",
   "tests/passes/**/*.futil",
 ]
 # gets the pass flags a comment on the first line of the test file
@@ -203,21 +202,27 @@ python3 {}
 name = "language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
-fud e {} --to dat -s verilog.data examples/tutorial/data.json -q
+fud e {} -s verilog.cycle_limit 500 \
+         -s verilog.data examples/tutorial/data.json \
+         --to dat -q
 """
 
 [[tests]]
 name = "memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
-fud e {} --to dat -s verilog.data {}.data -q
+fud e {} -s verilog.cycle_limit 500 \
+         -s verilog.data examples/tutorial/data.json \
+         --to dat -q
 """
 
 [[tests]]
 name = "dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
-fud e {} --to dat -s verilog.data {}.data -q
+fud e {} -s verilog.cycle_limit 500 \
+         -s verilog.data examples/tutorial/data.json \
+         --to dat -q
 """
 
 [[tests]]
