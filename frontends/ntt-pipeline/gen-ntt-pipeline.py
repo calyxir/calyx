@@ -266,6 +266,8 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
                  n, bitwidth), is_external=True),
         ]
         r_regs = [
+            Cell(CompVar(f"r{r}"), stdlib.register(input_bitwidth)) for r in range(n)
+        ]
         A_regs = [
             Cell(CompVar(f"A{r}"), stdlib.register(input_bitwidth)) for r in range(n)
         ]
@@ -378,23 +380,23 @@ if __name__ == "__main__":
     input_bitwidth, input_size, modulus = None, None, None
     required_fields = [args.input_bitwidth, args.input_size, args.modulus]
     if all(map(lambda x: x is not None, required_fields)):
-        input_bitwidth=args.input_bitwidth
-        input_size=args.input_size
-        modulus=args.modulus
-        parallel_reduction=args.parallel_reduction
+        input_bitwidth = args.input_bitwidth
+        input_size = args.input_size
+        modulus = args.modulus
+        parallel_reduction = args.parallel_reduction
     elif args.file is not None:
         with open(args.file, "r") as f:
-            spec=json.load(f)
-            input_bitwidth=spec["input_bitwidth"]
-            input_size=spec["input_size"]
-            modulus=spec["modulus"]
-            parallel_reduction=spec.get("parallel_reduction")
+            spec = json.load(f)
+            input_bitwidth = spec["input_bitwidth"]
+            input_size = spec["input_size"]
+            modulus = spec["modulus"]
+            parallel_reduction = spec.get("parallel_reduction")
     else:
         parser.error(
             "Need to pass either `-f FILE` or all of `-b INPUT_BITWIDTH -n INPUT_SIZE -q MODULUS`"
         )
 
-    program=generate_ntt_pipeline(input_bitwidth, input_size, modulus)
+    program = generate_ntt_pipeline(input_bitwidth, input_size, modulus)
 
     if parallel_reduction is not None:
         for c in program.components:

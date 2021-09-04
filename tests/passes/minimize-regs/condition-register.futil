@@ -48,11 +48,13 @@ component main() -> () {
   control {
     seq {
       wr_x;
-      if y.out with cond {
+      cond;
+      if y.out {
         some_math;
       }
       wr_z;
-      while z.out with cond1 {
+      cond1;
+      while z.out {
         some_math1;
       }
     }

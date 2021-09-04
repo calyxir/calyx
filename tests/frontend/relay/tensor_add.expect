@@ -35,13 +35,11 @@ component add_2x4(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_don
     y_read0_0 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = __j0.out;
       le1.right = const3.out;
     }

@@ -6,14 +6,16 @@ component main<"static"=1>(@stable(32) @go_port in: 32, go: 1, clk: 1, @go go0: 
     @external(32) le = std_le(32);
   }
   wires {
-    group cond<"stable"=1> {
-      cond[done] = 1'd1;
+    group upd<"stable"=1> {
+      upd[done] = r.done;
+    }
+    comb group cond<"stable"=0> {
     }
   }
 
   control {
     @bound(32) while le.out with cond {
-      cond;
+      upd;
     }
   }
 }

@@ -20,8 +20,7 @@ component main() -> () {
     @external(1) v0 = std_mem_d1(32,1,1);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = i0.out;
       le0.right = const1.out;
     }

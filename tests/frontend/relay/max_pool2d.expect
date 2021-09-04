@@ -82,38 +82,31 @@ component max_pool2d_2x2x2x2(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, res
     slice9 = std_slice(32,2);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __b0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = __c0.out;
       le1.right = const3.out;
     }
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
+    comb group cond2 {
       le2.left = __y0.out;
       le2.right = const5.out;
     }
-    group cond3<"static"=0> {
-      cond3[done] = 1'd1;
+    comb group cond3 {
       le3.left = __x0.out;
       le3.right = const7.out;
     }
-    group cond4<"static"=0> {
-      cond4[done] = 1'd1;
+    comb group cond4 {
       le4.left = __m0.out;
       le4.right = const11.out;
     }
-    group cond5<"static"=0> {
-      cond5[done] = 1'd1;
+    comb group cond5 {
       le5.left = __n0.out;
       le5.right = const13.out;
     }
-    group cond6<"static"=0> {
-      cond6[done] = 1'd1;
+    comb group cond6 {
       gt0.left = __current_0.out;
       gt0.right = __max_0.out;
     }

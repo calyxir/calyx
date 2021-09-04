@@ -3,4 +3,4 @@
 ---STDERR---
 Error: Malformed Structure: 
 7 |    group a {
-  |          ^ Group with constant done condition not allowed inside normal control operators
+  |          ^ Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.

@@ -10,8 +10,7 @@ component main() -> () {
     y_0 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       lt0.left = const0.out;
       lt0.right = const1.out;
     }
