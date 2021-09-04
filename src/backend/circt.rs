@@ -121,14 +121,12 @@ impl CirctBackend {
         )?;
 
         // Add the cells
-        writeln!(f, "  calyx.cells {{")?;
         for cell in comp.cells.iter() {
-            Self::write_cell(&cell.borrow(), 4, f)?;
+            Self::write_cell(&cell.borrow(), 2, f)?;
         }
-        writeln!(f, "  }}")?;
 
         // Add the wires
-        writeln!(f, "  wires {{")?;
+        writeln!(f, "  calyx.wires {{")?;
         for group in comp.groups.iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -142,9 +140,9 @@ impl CirctBackend {
 
         // Add the control program
         if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
-            writeln!(f, "  control {{}}")?;
+            writeln!(f, "  calyx.control {{}}")?;
         } else {
-            writeln!(f, "  control {{")?;
+            writeln!(f, "  calyx.control {{")?;
             Self::write_control(&comp.control.borrow(), 4, f)?;
             writeln!(f, "  }}")?;
         }
