@@ -212,7 +212,7 @@ name = "memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s verilog.data examples/tutorial/data.json \
+         -s verilog.data {}.data \
          --to dat -q
 """
 
@@ -221,7 +221,7 @@ name = "dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s verilog.data examples/tutorial/data.json \
+         -s verilog.data {}.data \
          --to dat -q
 """
 
