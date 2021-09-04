@@ -1,4 +1,4 @@
-// -p minimize-regs -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
 
 component main() -> () {

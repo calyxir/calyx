@@ -63,7 +63,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     seq {
       set_flag;
       zero;
-      if flag.out with cond {
+      cond;
+      if flag.out {
         seq {
           one;
         }

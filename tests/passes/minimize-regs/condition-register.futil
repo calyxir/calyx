@@ -1,4 +1,4 @@
-// -p minimize-regs -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
 component main() -> () {
   cells {
@@ -41,7 +41,7 @@ component main() -> () {
     group some_math1 {
       z.in = 1'd0;
       z.write_en = 1'd1;
-      some_math[done] = z.done;
+      some_math1[done] = z.done;
     }
   }
 

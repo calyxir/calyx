@@ -11,18 +11,9 @@ component kernel(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     i0 = std_reg(6);
     le0 = std_le(6);
     le1 = std_le(6);
+    @generated comb_reg = std_reg(1);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
-      le0.left = i0.out;
-      le0.right = 6'd31;
-    }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
-      le1.left = i0.out;
-      le1.right = 6'd31;
-    }
     group let0<"static"=1> {
       i0.in = 6'd0;
       i0.write_en = 1'd1;
@@ -83,28 +74,54 @@ component kernel(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       i0.in = add1.out;
       upd7[done] = i0.done;
     }
+    group cond00<"static"=1> {
+      le0.left = i0.out;
+      le0.right = 6'd31;
+      comb_reg.in = le0.out;
+      comb_reg.write_en = 1'd1;
+      cond00[done] = comb_reg.done ? 1'd1;
+    }
+    group cond10<"static"=1> {
+      le1.left = i0.out;
+      le1.right = 6'd31;
+      comb_reg.in = le1.out;
+      comb_reg.write_en = 1'd1;
+      cond10[done] = comb_reg.done ? 1'd1;
+    }
   }
 
   control {
     seq {
       let0;
-      while le0.out with cond0 {
-        seq {
-          upd0;
-          par {
-            upd1;
-            upd2;
+      seq {
+        cond00;
+        while comb_reg.out {
+          seq {
+            seq {
+              upd0;
+              par {
+                upd1;
+                upd2;
+              }
+              upd3;
+              upd4;
+            }
+            cond00;
           }
-          upd3;
-          upd4;
         }
       }
       let1;
-      while le1.out with cond1 {
-        seq {
-          upd5;
-          upd6;
-          upd7;
+      seq {
+        cond10;
+        while comb_reg.out {
+          seq {
+            seq {
+              upd5;
+              upd6;
+              upd7;
+            }
+            cond10;
+          }
         }
       }
     }

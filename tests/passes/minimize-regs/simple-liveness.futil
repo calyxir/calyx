@@ -1,4 +1,4 @@
-// -p minimize-regs -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
 component kernel() -> () {
   cells {
@@ -26,7 +26,7 @@ component kernel() -> () {
     group rd_x<"static"=1> {
       read_x.right = x.out;
       read_x.left = x.out;
-      rd_x[done] = 1'b1;
+      rd_x[done] = x.done; // XXX: This is functionally incorrect
     }
   }
   control {

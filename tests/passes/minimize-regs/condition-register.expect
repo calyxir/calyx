@@ -32,18 +32,20 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group some_math1 {
       x.in = 1'd0;
       x.write_en = 1'd1;
-      some_math[done] = x.done;
+      some_math1[done] = x.done;
     }
   }
 
   control {
     seq {
       wr_x;
-      if x.out with cond {
+      cond;
+      if x.out {
         some_math;
       }
       wr_z;
-      while x.out with cond1 {
+      cond1;
+      while x.out {
         some_math1;
       }
     }

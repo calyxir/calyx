@@ -26,23 +26,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     le0 = std_le(4);
     le1 = std_le(4);
     le2 = std_le(4);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(1);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
-      le0.left = i0.out;
-      le0.right = const1.out;
-    }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
-      le1.left = i1.out;
-      le1.right = const4.out;
-    }
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
-      le2.left = i0.out;
-      le2.right = const7.out;
-    }
     group let0<"static"=1> {
       i0.in = const0.out;
       i0.write_en = 1'd1;
@@ -115,6 +102,27 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       i0.in = add2.out;
       upd8[done] = i0.done ? 1'd1;
     }
+    group cond00<"static"=1> {
+      le0.left = i0.out;
+      le0.right = const1.out;
+      comb_reg.in = le0.out;
+      comb_reg.write_en = 1'd1;
+      cond00[done] = comb_reg.done ? 1'd1;
+    }
+    group cond10<"static"=1> {
+      le1.left = i1.out;
+      le1.right = const4.out;
+      comb_reg0.in = le1.out;
+      comb_reg0.write_en = 1'd1;
+      cond10[done] = comb_reg0.done ? 1'd1;
+    }
+    group cond20<"static"=1> {
+      le2.left = i0.out;
+      le2.right = const7.out;
+      comb_reg.in = le2.out;
+      comb_reg.write_en = 1'd1;
+      cond20[done] = comb_reg.done ? 1'd1;
+    }
   }
 
   control {
@@ -122,31 +130,49 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       par {
         seq {
           let0;
-          while le0.out with cond0 {
-            seq {
-              upd0;
-              upd1;
-              upd2;
+          seq {
+            cond00;
+            while comb_reg.out {
+              seq {
+                seq {
+                  upd0;
+                  upd1;
+                  upd2;
+                }
+                cond00;
+              }
             }
           }
         }
         seq {
           let1;
-          while le1.out with cond1 {
-            seq {
-              upd3;
-              upd4;
-              upd5;
+          seq {
+            cond10;
+            while comb_reg0.out {
+              seq {
+                seq {
+                  upd3;
+                  upd4;
+                  upd5;
+                }
+                cond10;
+              }
             }
           }
         }
       }
       let2;
-      while le2.out with cond2 {
-        seq {
-          upd6;
-          upd7;
-          upd8;
+      seq {
+        cond20;
+        while comb_reg.out {
+          seq {
+            seq {
+              upd6;
+              upd7;
+              upd8;
+            }
+            cond20;
+          }
         }
       }
     }

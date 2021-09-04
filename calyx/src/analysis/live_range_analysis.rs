@@ -471,7 +471,7 @@ fn build_live_ranges(
             if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(port) {
                 gens.insert(cell)
             }
-            build_live_ranges(body, alive, dbg!(gens), kills, lr)
+            build_live_ranges(body, alive, gens, kills, lr)
         }
     }
 }
