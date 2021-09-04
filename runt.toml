@@ -57,7 +57,6 @@ paths = [
 ]
 cmd = """
 fud exec -s verilog.data {}.data \
-         -s futil.flags '-d static-timing' \
          -s futil.exec './target/debug/futil' \
          -s verilog.cycle_limit 500 \
          {} --to dat \
@@ -87,18 +86,19 @@ fud exec -s verilog.data {}.data \
          {} --to dat -q | jq .memories
 """
 
-## Same as correctness dynamic but runs with static-timing.
-[[tests]]
-name = "correctness static timing"
-paths = [ "tests/correctness/*.futil" ]
-cmd = """
-fud exec -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s futil.exec './target/debug/futil' \
-         {} --to dat \
-         -q \
-         | jq .memories
-"""
+## XXX: Same as correctness dynamic but runs with static-timing.
+## Currently disabled.
+# [[tests]]
+# name = "correctness static timing"
+# paths = [ "tests/correctness/*.futil" ]
+# cmd = """
+# fud exec -s verilog.cycle_limit 500 \
+         # -s verilog.data {}.data \
+         # -s futil.exec './target/debug/futil' \
+         # {} --to dat \
+         # -q \
+         # | jq .memories
+# """
 
 [[tests]]
 name = "[frontend] systolic array correctness"

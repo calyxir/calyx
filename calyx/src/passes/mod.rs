@@ -1,7 +1,6 @@
 //! Passes for the Calyx compiler.
 mod clk_insertion;
 mod collapse_control;
-// mod compile_control;
 mod compile_empty;
 mod compile_invoke;
 mod component_interface;
@@ -23,15 +22,12 @@ mod reset_insertion;
 mod resource_sharing;
 mod sharing_components;
 mod simplify_guards;
-// mod static_timing;
 mod synthesis_papercut;
 mod top_down_compile_control;
-// mod top_down_static_timing;
 mod well_formed;
 
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
-// pub use compile_control::CompileControl;
 pub use compile_empty::CompileEmpty;
 pub use compile_invoke::CompileInvoke;
 pub use component_interface::ComponentInterface;
@@ -51,8 +47,6 @@ pub use remove_comb_groups::RemoveCombGroups;
 pub use reset_insertion::ResetInsertion;
 pub use resource_sharing::ResourceSharing;
 pub use simplify_guards::SimplifyGuards;
-// pub use static_timing::StaticTiming;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
-// pub use top_down_static_timing::TopDownStaticTiming;
 pub use well_formed::WellFormed;
