@@ -22,6 +22,8 @@ struct Schedule {
     pub enables: HashMap<u64, Vec<ir::Assignment>>,
     /// Transition from one state to another when the guard is true.
     pub transitions: Vec<(u64, u64, ir::Guard)>,
+    /// Assignments that are always active
+    pub always_active: Vec<ir::Assignment>,
 }
 
 impl Schedule {
@@ -73,7 +75,13 @@ impl Schedule {
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
                 eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(g));
-            })
+            });
+        eprintln!("-----Always Active-----");
+        self.always_active.iter().for_each(|assign| {
+            IRPrinter::write_assignment(assign, 0, &mut std::io::stderr())
+                .expect("Printing failed!");
+            eprintln!();
+        })
     }
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
@@ -135,6 +143,12 @@ impl Schedule {
                 ]
             }),
         );
+
+        // Always active assignments
+        group
+            .borrow_mut()
+            .assignments
+            .extend(self.always_active.into_iter());
 
         // Done condition for group
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
@@ -252,6 +266,8 @@ fn calculate_states_recur(
         ir::Control::Enable(ir::Enable { group, .. }) => {
             let not_done = !guard!(group["done"]);
             let signal_on = builder.add_constant(1, 1);
+
+            // Activate this group in the current state
             let mut en_go = build_assignments!(builder;
                 group["go"] = not_done ? signal_on["out"];
             );
@@ -260,6 +276,14 @@ fn calculate_states_recur(
                 .entry(cur_state)
                 .or_default()
                 .append(&mut en_go);
+
+            // Activate group when each previous states are done.
+            for (st, g) in &prev_states {
+                let mut early_go = build_assignments!(builder;
+                    group["go"] = g ? signal_on["out"];
+                );
+                schedule.enables.entry(*st).or_default().append(&mut early_go);
+            }
 
             let transitions = prev_states
                 .into_iter()
@@ -427,7 +451,7 @@ pub struct TopDownCompileControl;
 
 impl Named for TopDownCompileControl {
     fn name() -> &'static str {
-        "top-down-cc"
+        "tdcc"
     }
 
     fn description() -> &'static str {

@@ -155,7 +155,7 @@ pub struct Cell {
     /// Underlying type for this cell
     pub prototype: CellType,
     /// Attributes for this group.
-    pub(super) attributes: Attributes,
+    pub attributes: Attributes,
 }
 
 impl GetAttributes for Cell {

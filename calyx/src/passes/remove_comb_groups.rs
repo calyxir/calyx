@@ -241,7 +241,16 @@ impl Visitor for RemoveCombGroups {
                 s.cond.as_ref().unwrap().borrow().name().clone(),
                 s.port.borrow().canonical(),
             );
-            let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
+            let (port_ref, cond_ref) =
+                self.port_rewrite.get(&key).unwrap_or_else(|| {
+                    panic!(
+                        "{}: Port `{}.{}` in group `{}` doesn't have a rewrite",
+                        Self::name(),
+                        key.1 .0,
+                        key.1 .1,
+                        key.0
+                    )
+                });
             let port = Rc::clone(port_ref);
             // Add @stable annotation to port
             port.borrow_mut().attributes.insert("stable", 1);

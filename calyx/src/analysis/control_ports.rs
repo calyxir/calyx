@@ -73,7 +73,7 @@ impl From<&ir::Control> for ControlPorts {
         construct(con, &mut used_ports);
         // Deduplicate all vectors
         used_ports.values_mut().for_each(|v| {
-            *v = v.drain(..).unique_by(|p| p.borrow().name.clone()).collect()
+            *v = v.drain(..).unique_by(|p| p.borrow().canonical()).collect()
         });
         ControlPorts { used_ports }
     }

@@ -58,6 +58,12 @@ impl Visitor for DeadCellRemoval {
                     .map(|c| c.clone_name()),
             )
         }
+        for cg in comp.comb_groups.iter() {
+            self.used_cells.extend(
+                &mut analysis::ReadWriteSet::uses(&cg.borrow().assignments)
+                    .map(|c| c.clone_name()),
+            )
+        }
 
         // All cells used in continuous assignments.
         self.used_cells.extend(
@@ -66,8 +72,11 @@ impl Visitor for DeadCellRemoval {
         );
 
         // Remove cells that are not used.
-        comp.cells
-            .retain(|c| self.used_cells.contains(c.borrow().name()));
+        comp.cells.retain(|c| {
+            let cell = c.borrow();
+            cell.attributes.has("external")
+                || self.used_cells.contains(cell.name())
+        });
 
         Ok(Action::Stop)
     }

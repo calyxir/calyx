@@ -60,6 +60,11 @@ impl Prop {
     fn transfer(self, gen: &Prop, kill: &Prop) -> Self {
         &(&self - kill) | gen
     }
+
+    /// Add an element to Prop.
+    fn insert(&mut self, id: ir::Id) {
+        self.set.insert(id);
+    }
 }
 
 /// This analysis implements a parallel version of a classic liveness analysis.
@@ -340,29 +345,29 @@ impl LiveRangeAnalysis {
         }
     }
 
-    fn find_gen_kill_invoke(invoke: &ir::Invoke) -> (Prop, Prop) {
-        let register_filter = |port: &RRC<ir::Port>| {
-            if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-                cell_wref.upgrade().borrow().type_name()
-                    == Some(&"std_reg".into())
-            } else {
-                false
+    fn port_to_cell_name(port: &RRC<ir::Port>) -> Option<ir::Id> {
+        if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+            let cell = cell_wref.upgrade();
+            if cell.borrow().type_name() == Some(&"std_reg".into()) {
+                return Some(cell.borrow().clone_name());
             }
-        };
+        }
+        None
+    }
 
+    /// Returns (reads, writes) that occur in the [ir::Invoke] statement.
+    fn find_gen_kill_invoke(invoke: &ir::Invoke) -> (Prop, Prop) {
         let reads: Prop = invoke
             .inputs
             .iter()
-            .filter(|(_, src)| register_filter(src))
-            .map(|(_, src)| src.borrow().get_parent_name())
+            .filter_map(|(_, src)| Self::port_to_cell_name(src))
             .collect::<HashSet<ir::Id>>()
             .into();
 
         let writes: Prop = invoke
             .outputs
             .iter()
-            .filter(|(_, src)| register_filter(src))
-            .map(|(_, dest)| dest.borrow().get_parent_name())
+            .filter_map(|(_, src)| Self::port_to_cell_name(src))
             .collect::<HashSet<ir::Id>>()
             .into();
 
@@ -406,7 +411,10 @@ fn build_live_ranges(
             },
         ),
         ir::Control::If(ir::If {
-            tbranch, fbranch, ..
+            tbranch,
+            fbranch,
+            port,
+            ..
         }) => {
             // compute each branch
             let (t_alive, t_gens, t_kills) = build_live_ranges(
@@ -421,11 +429,14 @@ fn build_live_ranges(
 
             // take union
             let alive = &t_alive | &f_alive;
-            let gens = &t_gens | &f_gens;
+            let mut gens = &t_gens | &f_gens;
             let kills = &t_kills | &f_kills;
 
             // feed to condition to compute
-            build_live_ranges(&ir::Control::empty(), alive, gens, kills, lr)
+            if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(port) {
+                gens.insert(cell)
+            }
+            (alive, gens, kills)
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
             let (alive, gens, kills) = stmts
@@ -454,17 +465,13 @@ fn build_live_ranges(
             let alive = alive.transfer(&gens, &kills);
             (alive, gens, kills)
         }
-        ir::Control::While(ir::While { body, .. }) => {
-            let (alive, gens, kills) =
+        ir::Control::While(ir::While { body, port, .. }) => {
+            let (alive, mut gens, kills) =
                 build_live_ranges(body, alive, gens, kills, lr);
-            let (alive, gens, kills) = build_live_ranges(
-                &ir::Control::empty(),
-                alive,
-                gens,
-                kills,
-                lr,
-            );
-            build_live_ranges(body, alive, gens, kills, lr)
+            if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(port) {
+                gens.insert(cell)
+            }
+            build_live_ranges(body, alive, dbg!(gens), kills, lr)
         }
     }
 }
