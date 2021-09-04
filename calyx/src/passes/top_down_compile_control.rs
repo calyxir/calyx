@@ -1,5 +1,6 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::CalyxResult;
+use crate::ir::traversal::ConstructVisitor;
 use crate::{build_assignments, guard, passes, structure};
 use crate::{
     errors::Error,
@@ -13,6 +14,7 @@ use ir::IRPrinter;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
 use std::collections::HashMap;
+use std::io::Write;
 use std::rc::Rc;
 
 /// Represents the dyanmic execution schedule of a control program.
@@ -50,35 +52,36 @@ impl Schedule {
     }
 
     /// Print out the current schedule
-    #[allow(dead_code)]
-    fn display(&self) {
+    fn display(&self, group: String) {
+        let out = &mut std::io::stdout();
+        writeln!(out, "======== {} =========", group).unwrap();
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|(state, assigns)| {
-                eprintln!("======== {} =========", state);
+                writeln!(out, "{}:", state).unwrap();
                 assigns.iter().for_each(|assign| {
-                    IRPrinter::write_assignment(
-                        assign,
-                        0,
-                        &mut std::io::stderr(),
-                    )
-                    .expect("Printing failed!");
-                    eprintln!();
+                    IRPrinter::write_assignment(assign, 2, out).unwrap();
+                    writeln!(out).unwrap();
                 })
             });
-        eprintln!("------------");
+        writeln!(out, "transitions:").unwrap();
         self.transitions
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(g));
+                writeln!(out, "  ({}, {}): {}", i, f, IRPrinter::guard_str(g))
+                    .unwrap();
             });
     }
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
     /// implements it.
-    fn realize_schedule(self, builder: &mut ir::Builder) -> RRC<ir::Group> {
+    fn realize_schedule(
+        self,
+        group: RRC<ir::Group>,
+        builder: &mut ir::Builder,
+    ) -> RRC<ir::Group> {
         self.validate();
         let final_state = self.last_state();
         let fsm_size = get_bit_width_from(
@@ -90,9 +93,6 @@ impl Schedule {
             let last_state = constant(final_state, fsm_size);
             let first_state = constant(0, fsm_size);
         );
-
-        // The compilation group
-        let group = builder.add_group("tdcc");
 
         // Enable assignments
         group.borrow_mut().assignments.extend(
@@ -493,8 +493,26 @@ fn calculate_states(
 /// ## Compilation guarantee
 /// At the end of this pass, the control program will have no more than one
 /// group enable in it.
-#[derive(Default)]
-pub struct TopDownCompileControl;
+pub struct TopDownCompileControl {
+    dump_fsm: bool,
+}
+
+impl ConstructVisitor for TopDownCompileControl {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized + Named,
+    {
+        let dump_fsm = ctx
+            .extra_opts
+            .iter()
+            .any(|opt| opt == &format!("{}:{}", Self::name(), "dump-fsm"));
+        Ok(TopDownCompileControl { dump_fsm })
+    }
+
+    fn clear_data(&mut self) {
+        /* All data can be transferred between components */
+    }
+}
 
 impl Named for TopDownCompileControl {
     fn name() -> &'static str {
@@ -537,7 +555,15 @@ impl Visitor for TopDownCompileControl {
                 // Compile complex schedule and return the group.
                 _ => {
                     let schedule = calculate_states(con, &mut builder)?;
-                    schedule.realize_schedule(&mut builder)
+                    let group = builder.add_group("tdcc");
+                    if self.dump_fsm {
+                        schedule.display(format!(
+                            "{}:{}",
+                            builder.component.name,
+                            group.borrow().name()
+                        ));
+                    }
+                    schedule.realize_schedule(group, &mut builder)
                 }
             };
 
@@ -608,7 +634,15 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         // Add assignments for the final states
         let schedule = calculate_states(&control.borrow(), &mut builder)?;
-        let comp_group = schedule.realize_schedule(&mut builder);
+        let group = builder.add_group("tdcc");
+        if self.dump_fsm {
+            schedule.display(format!(
+                "{}:{}",
+                builder.component.name,
+                group.borrow().name()
+            ));
+        }
+        let comp_group = schedule.realize_schedule(group, &mut builder);
 
         Ok(Action::Change(ir::Control::enable(comp_group)))
     }

@@ -57,4 +57,7 @@ pub struct Context {
     pub enable_verification: bool,
     /// Original import statements.
     pub imports: Vec<String>,
+    /// Extra options provided to the command line. Interperted by individual
+    /// passes
+    pub extra_opts: Vec<String>,
 }

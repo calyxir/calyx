@@ -142,6 +142,7 @@ pub fn ast_to_ir(
         imports: namespace.imports,
         enable_verification,
         synthesis_mode,
+        extra_opts: vec![],
     })
 }
 
