@@ -1,4 +1,4 @@
-// -p compile-control
+// -x tdcc:dump-fsm -d post-opt -d lower -b none
 
 import "primitives/std.lib";
 

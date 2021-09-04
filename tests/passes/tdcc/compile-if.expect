@@ -1,0 +1,14 @@
+======== main:tdcc =========
+0:
+  cond0[go] = !cond0[done] ? 1'd1;
+  true[go] = cond0[done] & t.out ? 1'd1;
+  false[go] = cond0[done] & !t.out ? 1'd1;
+1:
+  true[go] = !true[done] ? 1'd1;
+2:
+  false[go] = !false[done] ? 1'd1;
+transitions:
+  (0, 1): cond0[done] & t.out
+  (0, 2): cond0[done] & !t.out
+  (1, 3): true[done]
+  (2, 3): false[done]

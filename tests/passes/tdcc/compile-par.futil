@@ -1,4 +1,4 @@
-// -p compile-control
+// -x tdcc:dump-fsm -d post-opt -d lower -b none
 
 import "primitives/std.lib";
 
@@ -30,6 +30,10 @@ component main() -> () {
   }
 
   control {
-    seq { A; B; C; }
+    seq {
+      A;
+      par { A; B; C; }
+      B;
+    }
   }
 }

@@ -1,0 +1,13 @@
+======== main:tdcc =========
+0:
+  A[go] = !A[done] ? 1'd1;
+  B[go] = A[done] ? 1'd1;
+1:
+  B[go] = !B[done] ? 1'd1;
+  C[go] = B[done] ? 1'd1;
+2:
+  C[go] = !C[done] ? 1'd1;
+transitions:
+  (0, 1): A[done]
+  (1, 2): B[done]
+  (2, 3): C[done]
