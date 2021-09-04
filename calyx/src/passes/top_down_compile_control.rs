@@ -173,7 +173,7 @@ impl Schedule {
     }
 }
 
-/// Computes the entry and exit points of a given [ir::Control] program.
+/// Computes the exit points of a given [ir::Control] program.
 ///
 /// ## Example
 /// In the following Calyx program:
@@ -185,9 +185,9 @@ impl Schedule {
 ///   }
 /// }
 /// ```
-/// The entry point is `incr` and the exit point is `cond0`.
+/// The exit point is `cond0`.
 ///
-/// Multiple entry and exit points are created when conditions are used:
+/// Multiple exit points are created when conditions are used:
 /// ```
 /// while comb_reg.out {
 ///   incr;
@@ -198,57 +198,46 @@ impl Schedule {
 ///   }
 /// }
 /// ```
-/// The entry set is `incr` while exit set is `[true, false]`.
-fn entries_and_exits(
-    con: &ir::Control,
-    cur_state: u64,
-    is_entry: bool,
-    is_exit: bool,
-    entries: &mut Vec<u64>,
-    exits: &mut Vec<(u64, RRC<ir::Group>)>,
-) -> u64 {
+/// The exit set is `[true, false]`.
+fn control_exits(con: &ir::Control, exits: &mut Vec<(u64, RRC<ir::Group>)>) {
     match con {
-        ir::Control::Enable(ir::Enable { group, .. }) => {
-            if is_entry {
-                entries.push(cur_state)
-            }
-            if is_exit {
-                exits.push((cur_state, Rc::clone(group)))
-            }
-            cur_state + 1
+        ir::Control::Enable(ir::Enable { attributes, group, .. }) => {
+            let cur_state = attributes
+                .get("node_id")
+                .expect("Group does not have node_id");
+            exits.push((*cur_state, Rc::clone(group)))
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            let len = stmts.len();
-            let mut cur = cur_state;
-            for (idx, stmt) in stmts.iter().enumerate() {
-                let entry = idx == 0 && is_entry;
-                let exit = idx == len - 1 && is_exit;
-                cur = entries_and_exits(stmt, cur, entry, exit, entries, exits);
+            if let Some(con) = stmts.iter().last() {
+                control_exits(con, exits);
             }
-            cur
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
-            let tru_nxt = entries_and_exits(
-                tbranch, cur_state, is_entry, is_exit, entries, exits,
-            );
-            entries_and_exits(
-                fbranch, tru_nxt, is_entry, is_exit, entries, exits,
-            )
+            control_exits(tbranch, exits);
+            control_exits(fbranch, exits)
         }
-        ir::Control::While(ir::While { body, .. }) => entries_and_exits(
-            body, cur_state, is_entry, is_exit, entries, exits,
-        ),
-        ir::Control::Invoke(_) => todo!(),
-        ir::Control::Empty(_) => todo!(),
-        ir::Control::Par(_) => todo!(),
+        ir::Control::While(ir::While { body, .. }) => {
+            control_exits(body, exits)
+        }
+        ir::Control::Empty(..)
+        | ir::Control::Par(..)
+        | ir::Control::Invoke(..) => unreachable!()
     }
 }
 
-/// Calculate [ir::Assignment] to enable in each FSM state and [ir::Guard] required to transition
-/// between FSM states. Each step of the calculation computes the previous states that still need
-/// to transition.
+/// Represents an edge from a predeccesor to the current control node.
+/// The `u64` represents the FSM state of the predeccesor and the guard needs
+/// to be true for the predeccesor to transition to the current state.
+type PredEdge = (u64, ir::Guard);
+
+/// Recursively build an dynamic finite state machine represented by a [Schedule].
+/// Does the following, given an [ir::Control]:
+///     1. If needed, add transitions from predeccesors to the current state.
+///     2. Enable the groups in the current state
+///     3. Calculate [PredEdge] implied by this state
+///     4. Return [PredEdge] and the next state.
 fn calculate_states_recur(
     con: &ir::Control,
     // The current state
@@ -259,10 +248,9 @@ fn calculate_states_recur(
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> CalyxResult<(Vec<(u64, ir::Guard)>, u64)> {
+) -> CalyxResult<(Vec<PredEdge>, u64)> {
     match con {
-        // Enable the group in `cur_state` and construct all transitions from
-        // previous states to this enable.
+        // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, .. }) => {
             let not_done = !guard!(group["done"]);
             let signal_on = builder.add_constant(1, 1);
@@ -277,7 +265,10 @@ fn calculate_states_recur(
                 .or_default()
                 .append(&mut en_go);
 
-            // Activate group when each previous states are done.
+            // Activate group in the cycle when previous state signals done.
+            // NOTE: We explicilty do not add `not_done` to the guard.
+            // See explanation in [ir::TopDownCompileControl] to understand
+            // why.
             for (st, g) in &prev_states {
                 let mut early_go = build_assignments!(builder;
                     group["go"] = g ? signal_on["out"];
@@ -356,14 +347,9 @@ fn calculate_states_recur(
 
             // Step 1: Generate the backward edges
             // First compute the entry and exit points.
-            let mut entries = vec![];
             let mut exits = vec![];
-            entries_and_exits(
+            control_exits(
                 body,
-                cur_state,
-                true,
-                true,
-                &mut entries,
                 &mut exits,
             );
             let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
@@ -416,32 +402,92 @@ fn calculate_states(
 }
 
 /// **Core lowering pass.**
-/// Compiles away the control programs in components into purely structural
-/// code using an finite-state machine (FSM).
+/// Compiles away the control programs in components into purely structural code using an
+/// finite-state machine (FSM).
 ///
 /// Lowering operates in two steps:
-/// 1. Compile all [ir::Par] control sub-programs into a
-/// single [ir::Enable] of a group that runs all children
-/// to completion.
+/// 1. Compile all [ir::Par] control sub-programs into a single [ir::Enable] of a group that runs
+///    all children to completion.
 /// 2. Compile the top-level control program into a single [ir::Enable].
 ///
 /// ## Compiling non-`par` programs
-/// Assuming all `par` statements have already been compiled in a control
-/// sub-program, we can build a schedule for executing it. We calculate a
-/// schedule by assigning an FSM state to each leaf node (an [ir::Enable])
-/// as a guard condition. Each control program node also defines a transition
-/// function over the states calculated for its children.
+/// At very high-level, the pass assigns an FSM state to each [ir::Enable] in the program and
+/// generates transitions to the state to activate the groups contained within the [ir::Enable].
 ///
-/// At the end of schedule generation, each FSM state has a set of groups to
-/// enable as well as a transition function.
-/// This FSM is realized into an implementation using a new group that implements
-/// the group enables and the transitions.
+/// The compilation process calculates all predeccesors of the [ir::Enable] while walking over the
+/// control program. A predeccesor is any enable statement that can directly "jump" to the current
+/// [ir::Enable]. The compilation process computes all such predeccesors and the guards that need
+/// to be true for the predeccesor to jump into this enable statement.
+///
+/// ```
+/// cond0;
+/// while lt.out {
+///   if gt.out { true } else { false }
+/// }
+/// next;
+/// ```
+/// The predeccesor sets are:
+/// ```
+/// cond0 -> []
+/// true -> [(cond0, lt.out & gt.out); (true; lt.out & gt.out); (false, lt.out & !gt.out)]
+/// false -> [(cond0, lt.out & !gt.out); (true; lt.out & gt.out); (false, lt.out & !gt.out)]
+/// next -> [(cond0, !lt.out); (true, !lt.out); (false, !lt.out)]
+/// ```
+///
+/// ### Compiling [ir::Enable]
+/// The process first takes all edges from predeccesors and transitions to the state for this
+/// enable and enables the group in this state:
+/// ```text
+/// let cur_state; // state of this enable
+/// for (state, guard) in predeccesors:
+///   transitions.insert(state, cur_state, guard)
+/// enables.insert(cur_state, group)
+/// ```
+///
+/// While this process will generate a functioning FSM, the FSM takes unnecessary cycles for FSM
+/// transitions.
+///
+/// For example:
+/// ```
+/// seq { one; two; }
+/// ```
+/// The FSM generated will look like this (where `f` is the FSM register):
+/// ```
+/// f.in = one[done] ? 1;
+/// f.in = two[done] ? 2;
+/// one[go] = !one[done] & f.out == 0;
+/// two[go] = !two[done] & f.out == 1;
+/// ```
+///
+/// The cycle-level timing for this FSM will look like:
+///     - cycle 0: (f.out == 0), enable one
+///     - cycle t: (f.out == 0), (one[done] == 1), disable one
+///     - cycle t+1: (f.out == 1), enable two
+///     - cycle t+l: (f.out == 1), (two[done] == 1), disable two
+///     - cycle t+l+1: finish
+///
+/// The transition t -> t+1 represents one where group one is done but group two hasn't started
+/// executing.
+///
+/// To address this specific problem, there is an additional enable added to run all groups within
+/// an enable *while the FSM is transitioning*.
+/// The final transition will look like this:
+/// ```
+/// f.in = one[done] ? 1;
+/// f.in = two[done] ? 2;
+/// one[go] = !one[done] & f.out == 0;
+/// two[go] = (!two[done] & f.out == 1) || (one[done] & f.out == 0);
+/// ```
+///
+/// Note that `!two[done]` isn't present in the second disjunct because all groups are guaranteed
+/// to run for at least one cycle and the second disjunct will only be true for one cycle before
+/// the first disjunct becomes true.
 ///
 /// ## Compiling `par` programs
-/// We have to generate new FSM-based controller for each child of a `par` node
-/// so that each child can indepdendently make progress.
-/// If we tie the children to one top-level FSM, their transitions would become
-/// interdependent and reduce available concurrency.
+/// We have to generate new FSM-based controller for each child of a `par` node so that each child
+/// can indepdendently make progress.
+/// If we tie the children to one top-level FSM, their transitions would become interdependent and
+/// reduce available concurrency.
 ///
 /// ## Compilation guarantee
 /// At the end of this pass, the control program will have no more than one
