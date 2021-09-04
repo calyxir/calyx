@@ -1,6 +1,9 @@
 from prettytable import PrettyTable
 import numpy as np
-from calyx.py_ast import *
+from calyx.py_ast import (
+    ParComp, SeqComp, Enable, CompVar, Connect, Atom, Not, Group, HolePort,
+    Component, Program, CompPort, Cell, ConstantPort, And, Import, Stdlib
+)
 from calyx.utils import bits_needed
 
 
@@ -133,7 +136,8 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
     Reference:
     https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
     """
-    assert n > 0 and (not (n & (n - 1))), f"Input length: {n} must be a power of 2."
+    assert n > 0 and (
+        not (n & (n - 1))), f"Input length: {n} must be a power of 2."
     bitwidth = bits_needed(n)
     num_stages = bitwidth - 1
 
@@ -198,7 +202,8 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             Connect(CompPort(reg, "out"), CompPort(op, "left")),
             Connect(CompPort(mul, "out"), CompPort(op, "right")),
             Connect(CompPort(op, "out"), CompPort(mod_pipe, "left")),
-            Connect(ConstantPort(input_bitwidth, q), CompPort(mod_pipe, "right")),
+            Connect(ConstantPort(input_bitwidth, q),
+                    CompPort(mod_pipe, "right")),
             Connect(
                 ConstantPort(1, 1),
                 CompPort(mod_pipe, "go"),
@@ -255,12 +260,12 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         stdlib = Stdlib()
 
         memories = [
-            Cell(input, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
-            Cell(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
+            Cell(input, stdlib.mem_d1(input_bitwidth,
+                 n, bitwidth), is_external=True),
+            Cell(phis, stdlib.mem_d1(input_bitwidth,
+                 n, bitwidth), is_external=True),
         ]
         r_regs = [
-            Cell(CompVar(f"r{r}"), stdlib.register(input_bitwidth)) for r in range(n)
-        ]
         A_regs = [
             Cell(CompVar(f"A{r}"), stdlib.register(input_bitwidth)) for r in range(n)
         ]
@@ -286,11 +291,13 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             for i in range(n // 2)
         ]
         adds = [
-            Cell(CompVar(f"add{i}"), stdlib.op("add", input_bitwidth, signed=True))
+            Cell(CompVar(f"add{i}"), stdlib.op(
+                "add", input_bitwidth, signed=True))
             for i in range(n // 2)
         ]
         subs = [
-            Cell(CompVar(f"sub{i}"), stdlib.op("sub", input_bitwidth, signed=True))
+            Cell(CompVar(f"sub{i}"), stdlib.op(
+                "sub", input_bitwidth, signed=True))
             for i in range(n // 2)
         ]
 
@@ -330,11 +337,14 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         for s in range(num_stages):
             if s != 0:
                 # Only append precursors if this is not the first stage.
-                ntt_stages.append(ParComp([Enable(f"precursor_{r}") for r in range(n)]))
+                ntt_stages.append(
+                    ParComp([Enable(f"precursor_{r}") for r in range(n)]))
             # Multiply
-            ntt_stages.append(ParComp([Enable(f"s{s}_mul{i}") for i in range(n // 2)]))
+            ntt_stages.append(
+                ParComp([Enable(f"s{s}_mul{i}") for i in range(n // 2)]))
             # Addition or subtraction mod `q`
-            ntt_stages.append(ParComp([Enable(f"s{s}_r{r}_op_mod") for r in range(n)]))
+            ntt_stages.append(
+                ParComp([Enable(f"s{s}_r{r}_op_mod") for r in range(n)]))
         return SeqComp(preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
@@ -353,7 +363,8 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
 
 if __name__ == "__main__":
-    import argparse, json
+    import argparse
+    import json
 
     parser = argparse.ArgumentParser(description="NTT")
     parser.add_argument("file", nargs="?", type=str)
@@ -367,23 +378,23 @@ if __name__ == "__main__":
     input_bitwidth, input_size, modulus = None, None, None
     required_fields = [args.input_bitwidth, args.input_size, args.modulus]
     if all(map(lambda x: x is not None, required_fields)):
-        input_bitwidth = args.input_bitwidth
-        input_size = args.input_size
-        modulus = args.modulus
-        parallel_reduction = args.parallel_reduction
+        input_bitwidth=args.input_bitwidth
+        input_size=args.input_size
+        modulus=args.modulus
+        parallel_reduction=args.parallel_reduction
     elif args.file is not None:
         with open(args.file, "r") as f:
-            spec = json.load(f)
-            input_bitwidth = spec["input_bitwidth"]
-            input_size = spec["input_size"]
-            modulus = spec["modulus"]
-            parallel_reduction = spec.get("parallel_reduction")
+            spec=json.load(f)
+            input_bitwidth=spec["input_bitwidth"]
+            input_size=spec["input_size"]
+            modulus=spec["modulus"]
+            parallel_reduction=spec.get("parallel_reduction")
     else:
         parser.error(
             "Need to pass either `-f FILE` or all of `-b INPUT_BITWIDTH -n INPUT_SIZE -q MODULUS`"
         )
 
-    program = generate_ntt_pipeline(input_bitwidth, input_size, modulus)
+    program=generate_ntt_pipeline(input_bitwidth, input_size, modulus)
 
     if parallel_reduction is not None:
         for c in program.components:
