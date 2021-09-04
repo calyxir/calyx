@@ -5,7 +5,10 @@ use crate::ir::{
 };
 use std::collections::HashSet;
 
-/// Removes unused cells from components.
+/// Removes unused groups and combinational groups from components.
+/// A group is considered in use when it shows up in an [ir::Enable].
+/// A combinational group is considered in use when it is a part of an
+/// [ir::If] or [ir::While].
 #[derive(Default)]
 pub struct DeadGroupRemoval {
     used_groups: HashSet<ir::Id>,
