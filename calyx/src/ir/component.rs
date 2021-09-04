@@ -1,6 +1,6 @@
 use crate::ir::{
-    self, Assignment, Attributes, Builder, Cell, CellType, CloneName,
-    Control, Direction, GetName, Group, Id, RRC,
+    self, Assignment, Attributes, Builder, Cell, CellType, CloneName, Control,
+    Direction, GetName, Group, Id, RRC,
 };
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
