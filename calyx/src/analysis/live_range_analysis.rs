@@ -428,13 +428,13 @@ fn build_live_ranges(
                 build_live_ranges(fbranch, alive, gens, kills, lr);
 
             // take union
-            let alive = &t_alive | &f_alive;
-            let mut gens = &t_gens | &f_gens;
+            let mut alive = &t_alive | &f_alive;
+            let gens = &t_gens | &f_gens;
             let kills = &t_kills | &f_kills;
 
             // feed to condition to compute
             if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(port) {
-                gens.insert(cell)
+                alive.insert(cell)
             }
             (alive, gens, kills)
         }
@@ -466,10 +466,10 @@ fn build_live_ranges(
             (alive, gens, kills)
         }
         ir::Control::While(ir::While { body, port, .. }) => {
-            let (alive, mut gens, kills) =
+            let (mut alive, gens, kills) =
                 build_live_ranges(body, alive, gens, kills, lr);
             if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(port) {
-                gens.insert(cell)
+                alive.insert(cell)
             }
             build_live_ranges(body, alive, gens, kills, lr)
         }
