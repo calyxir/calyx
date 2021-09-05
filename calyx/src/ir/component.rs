@@ -115,8 +115,12 @@ impl Component {
 #[derive(Debug)]
 pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
 
-impl<T: GetName> From<Vec<RRC<T>>> for IdList<T> {
-    fn from(list: Vec<RRC<T>>) -> Self {
+impl<T, F> From<F> for IdList<T>
+where
+    T: GetName,
+    F: IntoIterator<Item = RRC<T>>,
+{
+    fn from(list: F) -> Self {
         IdList(
             list.into_iter()
                 .map(|item| {
