@@ -1,0 +1,46 @@
+// -p dead-group-removal
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    lt = std_lt(32);
+  }
+  wires {
+    comb group dead_comb {
+      lt.left = 32'd0;
+      lt.right = r.out;
+    }
+    comb group cond {
+      lt.left = 32'd0;
+      lt.right = r.out;
+    }
+    group one {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      one[done] = r.done;
+    }
+    group two {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      two[done] = r.done;
+    }
+    group dead_one {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      dead_one[done] = r.done;
+    }
+    group dead_two {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      dead_two[done] = r.done;
+    }
+  }
+  control {
+    seq {
+      one;
+      if r.out with cond {
+        two;
+      }
+    }
+  }
+}
