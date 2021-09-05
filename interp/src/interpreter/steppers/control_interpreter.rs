@@ -526,7 +526,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
                     );
                     self.body_interp = Some(body_interp)
                 } else {
-                    self.cond_interp = Some(ci)
+                    self.terminal_env = Some(ci.deconstruct())
                 }
             } else {
                 ci.step()?
