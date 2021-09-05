@@ -576,7 +576,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
         } else if let Some(body) = &self.body_interp {
             body.get_env()
         } else if let Some(env) = &self.terminal_env {
-            vec![&env]
+            vec![env]
         } else {
             unreachable!("Invalid internal state for WhileInterpreter")
         }
