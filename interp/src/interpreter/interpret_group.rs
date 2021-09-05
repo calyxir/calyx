@@ -58,7 +58,7 @@ pub fn interp_cont(
 
     let mut assign_interp = AssignmentInterpreter::new(
         env,
-        done_prt_ref,
+        Some(done_prt_ref),
         (std::iter::empty(), continuous_assignments.iter()),
     );
     assign_interp.run()?;
@@ -73,7 +73,7 @@ pub fn interp_cont(
     // required because of lifetime shennanigans
     let final_env = finish_interpretation(
         res,
-        &done_port.borrow() as &ir::Port as ConstPort,
+        Some(&done_port.borrow() as &ir::Port as ConstPort),
         continuous_assignments.iter(),
     );
     final_env
@@ -91,7 +91,23 @@ pub fn interpret_group(
 
     let interp = AssignmentInterpreter::new(
         env,
-        grp_done_ref,
+        Some(grp_done_ref),
+        (group.assignments.iter(), continuous_assignments.iter()),
+    );
+
+    interp.run_and_deconstruct()
+}
+
+/// Evaluates a group, given an environment.
+pub fn interpret_comb_group(
+    group: &ir::CombGroup,
+    // TODO (griffin): Use these during interpretation
+    continuous_assignments: &[ir::Assignment],
+    env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
+    let interp = AssignmentInterpreter::new(
+        env,
+        None,
         (group.assignments.iter(), continuous_assignments.iter()),
     );
 
@@ -108,7 +124,22 @@ pub fn finish_group_interpretation(
 
     finish_interpretation(
         env,
-        grp_done_ref,
+        Some(grp_done_ref),
+        group
+            .assignments
+            .iter()
+            .chain(continuous_assignments.iter()),
+    )
+}
+
+pub fn finish_comb_group_interpretation(
+    group: &ir::CombGroup,
+    continuous_assignments: &[ir::Assignment],
+    env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
+    finish_interpretation::<_, ConstPort>(
+        env,
+        None,
         group
             .assignments
             .iter()
@@ -198,7 +229,7 @@ pub(crate) fn finish_interpretation<
     P: AsRaw<ir::Port>,
 >(
     mut env: InterpreterState,
-    done_signal: P,
+    done_signal: Option<P>,
     assigns: I,
 ) -> InterpreterResult<InterpreterState> {
     // replace port values for all the assignments
@@ -213,7 +244,10 @@ pub(crate) fn finish_interpretation<
 
     let cells = get_dest_cells(assigns.iter().copied());
 
-    env.insert(done_signal.as_raw(), Value::bit_low());
+    if let Some(done_signal) = done_signal {
+        env.insert(done_signal.as_raw(), Value::bit_low());
+    }
+
     eval_prims(&mut env, cells.iter(), true);
 
     Ok(env)

@@ -66,7 +66,7 @@ where
 /// group of assignments
 pub struct AssignmentInterpreter<'a> {
     state: InterpreterState,
-    done_port: ConstPort,
+    done_port: Option<ConstPort>,
     assigns: AssignmentOwner<'a>,
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
@@ -77,7 +77,7 @@ impl<'a> AssignmentInterpreter<'a> {
     /// assignments from an outside context
     pub fn new<I1, I2>(
         state: InterpreterState,
-        done_signal: ConstPort,
+        done_signal: Option<ConstPort>,
         assigns: (I1, I2),
     ) -> Self
     where
@@ -101,7 +101,7 @@ impl<'a> AssignmentInterpreter<'a> {
     /// interpretes
     pub fn new_owned(
         state: InterpreterState,
-        done_signal: ConstPort,
+        done_signal: Option<ConstPort>,
         vecs: (Vec<Assignment>, Vec<Assignment>),
     ) -> Self {
         let done_port = done_signal;
@@ -268,7 +268,10 @@ impl<'a> AssignmentInterpreter<'a> {
 
     #[inline]
     fn is_done(&self) -> bool {
-        utils::is_signal_high(self.state.get_from_port(self.done_port))
+        self.done_port.is_none()
+            || utils::is_signal_high(
+                self.state.get_from_port(self.done_port.unwrap()),
+            )
     }
 
     pub fn deconstruct(self) -> InterpreterState {
