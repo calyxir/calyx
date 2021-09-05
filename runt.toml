@@ -27,6 +27,7 @@ cmd = """
 name = "[core] errors"
 paths = [
   "tests/errors/*.futil",
+  "tests/errors/papercut/*.futil",
   "tests/errors/parser/*.futil"
 ]
 cmd = """
