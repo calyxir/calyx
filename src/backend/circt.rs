@@ -1,4 +1,5 @@
 use calyx::errors::Error;
+use calyx::ir::IRPrinter;
 
 use crate::ir::{self, RRC};
 use std::collections::HashMap;
@@ -170,7 +171,7 @@ impl CirctBackend {
                     }
                     "std_mem_d1" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}] X {}> [{}] : ",
+                        "calyx.memory \"{}\"<[{}] x {}> [{}] : ",
                         cell_name,
                         bind["SIZE"],
                         bind["WIDTH"],
@@ -178,7 +179,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d2" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}] X {}> [{}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}] x {}> [{}, {}] : ",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -188,7 +189,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d3" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}] X {}> [{}, {}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}, {}] x {}> [{}, {}, {}] : ",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -200,7 +201,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d4" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}, {}] X {}> [{}, {}, {}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}, {}, {}] x {}> [{}, {}, {}, {}] : ",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -212,7 +213,7 @@ impl CirctBackend {
                         bind["D2_IDX_SIZE"],
                         bind["D3_IDX_SIZE"]
                     ),
-                    prim => write!(f, "calyx.{} : ", prim)
+                    prim => write!(f, "calyx.{} \"{}\" : ", prim, cell_name)
                 }
             }
             ir::CellType::Component { name } => {
@@ -268,17 +269,17 @@ impl CirctBackend {
                     "calyx.assign {} = ",
                     Self::get_port_access(&assign.dst.borrow())
                 )?;
-                if !matches!(&*assign.guard, ir::Guard::True) {
-                    todo!("Guards in CIRCT backend")
-                }
             }
         }
-        write!(
-            f,
-            "{} : {}",
-            Self::get_port_access(&assign.src.borrow()),
-            assign.src.borrow().width
-        )
+        write!(f, "{}", Self::get_port_access(&assign.src.borrow()),)?;
+        if let ir::Guard::Port(p) = &*assign.guard {
+            write!(f, ", {} ?", Self::get_port_access(&p.borrow()))?;
+        } else if matches!(&*assign.guard, ir::Guard::True) {
+            /* Print nothing */
+        } else {
+            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", IRPrinter::guard_str(&*assign.guard));
+        }
+        write!(f, " : i{}", assign.src.borrow().width)
     }
 
     /// Format and write a group.
@@ -307,7 +308,7 @@ impl CirctBackend {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
             ir::Control::Enable(ir::Enable { group, .. }) => {
-                writeln!(f, "calyx.enable @{};", group.borrow().name().id)
+                writeln!(f, "calyx.enable @{}", group.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for CIRCT backend")
@@ -354,7 +355,7 @@ impl CirctBackend {
             }) => {
                 writeln!(
                     f,
-                    "while {} with @{} {{",
+                    "calyx.while {} with @{} {{",
                     Self::get_port_access(&port.borrow()),
                     cond.borrow().name().id
                 )?;
@@ -364,50 +365,6 @@ impl CirctBackend {
             ir::Control::Empty(_) => writeln!(f),
         }
     }
-
-    // Generate a String-based representation for a guard.
-    /* pub fn guard_str(guard: &ir::Guard) -> String {
-        match &guard {
-            ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
-                let left = if &**l > guard {
-                    format!("({})", Self::guard_str(l))
-                } else {
-                    Self::guard_str(l)
-                };
-                let right = if &**r > guard {
-                    format!("({})", Self::guard_str(r))
-                } else {
-                    Self::guard_str(r)
-                };
-                format!("{} {} {}", left, &guard.op_str(), right)
-            }
-            ir::Guard::Eq(l, r)
-            | ir::Guard::Neq(l, r)
-            | ir::Guard::Gt(l, r)
-            | ir::Guard::Lt(l, r)
-            | ir::Guard::Geq(l, r)
-            | ir::Guard::Leq(l, r) => {
-                format!(
-                    "{} {} {}",
-                    Self::get_port_access(&l.borrow()),
-                    &guard.op_str(),
-                    Self::get_port_access(&r.borrow())
-                )
-            }
-            ir::Guard::Not(g) => {
-                let s = if &**g > guard {
-                    format!("({})", Self::guard_str(g))
-                } else {
-                    Self::guard_str(g)
-                };
-                format!("!{}", s)
-            }
-            ir::Guard::Port(port_ref) => {
-                Self::get_port_access(&port_ref.borrow())
-            }
-            ir::Guard::True => "1'b1".to_string(),
-        }
-    } */
 
     /// Get the port access expression.
     fn get_port_access(port: &ir::Port) -> String {
