@@ -3,4 +3,4 @@
 ---STDERR---
 Error: 
 4 |    le = std_le(32);
-  |    ^^ [Papercut] Port `le.out` is an output port on combinational primitive `std_le` and will always output 0. Add a `with` statement to enable a combinational group to run the primitive.
+  |    ^^ [Papercut] Port `le.out` is an output port on combinational primitive `std_le` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.
