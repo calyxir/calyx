@@ -17,6 +17,7 @@ mod guard;
 mod id;
 mod primitives;
 mod printer;
+mod reserved_names;
 mod structure;
 
 // Re-export types at the module level.
@@ -30,6 +31,7 @@ pub use guard::Guard;
 pub use id::Id;
 pub use primitives::{PortDef, Primitive, Width};
 pub use printer::IRPrinter;
+pub use reserved_names::RESERVED_NAMES;
 pub use structure::{
     Assignment, Binding, Cell, CellIterator, CellType, CloneName, Direction,
     GetName, Group, Port, PortIterator, PortParent,

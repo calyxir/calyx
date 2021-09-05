@@ -1,6 +1,8 @@
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, CloneName, Component, LibrarySignatures};
+use crate::ir::{
+    self, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
+};
 use std::collections::HashSet;
 
 /// Pass to check if the program is well-formed.
@@ -18,13 +20,8 @@ pub struct WellFormed {
 
 impl Default for WellFormed {
     fn default() -> Self {
-        let reserved_names = vec![
-            "reg", "wire", "always", "posedge", "negedge", "logic", "tri",
-            "input", "output", "if", "generate", "var", "go", "done", "clk",
-        ]
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect();
+        let reserved_names =
+            RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
 
         WellFormed {
             reserved_names,
