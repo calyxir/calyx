@@ -131,6 +131,10 @@ impl CirctBackend {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
+        for comb_group in comp.comb_groups.iter() {
+            Self::write_comb_group(&comb_group.borrow(), 4, f)?;
+            writeln!(f)?;
+        }
         // Write the continuous assignments
         for assign in &comp.continuous_assignments {
             Self::write_assignment(assign, 4, f)?;
@@ -285,6 +289,23 @@ impl CirctBackend {
     /// Format and write a group.
     pub fn write_group<F: io::Write>(
         group: &ir::Group,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "calyx.group @{}", group.name().id)?;
+        writeln!(f, " {{")?;
+
+        for assign in &group.assignments {
+            Self::write_assignment(assign, indent_level + 2, f)?;
+            writeln!(f)?;
+        }
+        write!(f, "{}}}", " ".repeat(indent_level))
+    }
+
+    /// Format and write combinational groups
+    pub fn write_comb_group<F: io::Write>(
+        group: &ir::CombGroup,
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {
