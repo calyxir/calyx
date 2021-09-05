@@ -141,12 +141,18 @@ impl Visitor for LowerGuards {
         builder.component.continuous_assignments = new_conts;
 
         // Transform group assignments
-        let groups = builder.component.groups.drain().map(|group| {
-            let assigns = group.borrow_mut().assignments.drain(..).collect();
-            let new_assigns = lower_assigns(assigns, &mut builder);
-            group.borrow_mut().assignments = new_assigns;
-            group
-        }).into();
+        let groups = builder
+            .component
+            .groups
+            .drain()
+            .map(|group| {
+                let assigns =
+                    group.borrow_mut().assignments.drain(..).collect();
+                let new_assigns = lower_assigns(assigns, &mut builder);
+                group.borrow_mut().assignments = new_assigns;
+                group
+            })
+            .into();
         builder.component.groups = groups;
 
         Ok(Action::Stop)

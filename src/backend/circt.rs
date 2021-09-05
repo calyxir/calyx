@@ -25,6 +25,7 @@ impl Backend for CirctBackend {
         file: &mut calyx::utils::OutputFile,
     ) -> calyx::errors::CalyxResult<()> {
         let f = &mut file.get_write();
+        write!(f, "calyx.program {{").unwrap();
         ctx.components
             .iter()
             .try_for_each(|comp| {
@@ -37,7 +38,9 @@ impl Backend for CirctBackend {
                     "File not found: {}",
                     file.as_path_string()
                 ))
-            })
+            })?;
+        write!(f, "}}").unwrap();
+        Ok(())
     }
 
     fn link_externs(
@@ -123,11 +126,31 @@ impl CirctBackend {
 
         // Add the cells
         for cell in comp.cells.iter() {
-            Self::write_cell(&cell.borrow(), 2, f)?;
+            // Only print out non-constant cells.
+            // Constants are printed inside calyx.wires.
+            if cell.borrow().type_name().is_some() {
+                Self::write_cell(&cell.borrow(), 2, f)?;
+            }
         }
 
         // Add the wires
         writeln!(f, "  calyx.wires {{")?;
+        // Print out all the constants
+        comp.cells.iter().try_for_each(|cell_ref| {
+            let cell = cell_ref.borrow();
+            match &cell.prototype {
+                ir::CellType::Constant { val, width } => {
+                    writeln!(
+                        f,
+                        "    %{} = hw.constant {} : i{}",
+                        cell.name(),
+                        val,
+                        width
+                    )
+                }
+                _ => Ok(()),
+            }
+        })?;
         for group in comp.groups.iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -217,10 +240,11 @@ impl CirctBackend {
                 }
             }
             ir::CellType::Component { name } => {
-                write!(f, "calyx.instance \"{}\" @{} : ", name, cell_name)
+                write!(f, "calyx.instance \"{}\" @{} : ", cell_name, name)
             }
-            ir::CellType::Constant { val, .. } => {
-                write!(f, "hw.constant {} : ", val)
+            ir::CellType::Constant { .. } => {
+                /* Constants go in the calyx.wires section */
+                Ok(())
             }
             _ => Ok(()),
         }
