@@ -5,13 +5,12 @@ use crate::utils::AsRaw;
 use crate::{
     environment::InterpreterState,
     errors::InterpreterResult,
-    interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
+    interpreter::utils::{is_signal_high, ConstPort},
     values::Value,
 };
-use calyx::ir::{self, Assignment, Component, Control, RRC};
+use calyx::ir::{self, Assignment, Component, Control};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
-use std::rc::Rc;
 
 // this almost certainly doesn't need to exist but it can't be a trait fn with a
 // default impl because it consumes self
