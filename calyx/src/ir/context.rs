@@ -28,7 +28,12 @@ impl LibrarySignatures {
     where
         S: AsRef<str>,
     {
-        &self.sigs[&Id::from(name.as_ref())]
+        &self.sigs.get(&name.as_ref().into()).unwrap_or_else(|| {
+            panic!(
+                "Primitive `{}` is not defined in the context.",
+                name.as_ref()
+            )
+        })
     }
 }
 

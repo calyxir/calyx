@@ -1,0 +1,41 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    @generated gt = std_gt(32);
+    @generated lt = std_lt(32);
+    @generated and0 = std_and(1);
+    @generated ge = std_ge(32);
+    @generated or0 = std_or(1);
+    @generated le = std_le(32);
+    @generated not0 = std_not(1);
+    @generated or1 = std_or(1);
+  }
+  wires {
+    group foo {
+      gt.left = r.out;
+      gt.right = 32'd10;
+      lt.left = r.out;
+      lt.right = 32'd20;
+      and0.left = gt.out;
+      and0.right = lt.out;
+      ge.left = r.out;
+      ge.right = 32'd30;
+      or0.left = and0.out;
+      or0.right = ge.out;
+      le.left = r.out;
+      le.right = 32'd20;
+      not0.in = le.out;
+      or1.left = or0.out;
+      or1.right = not0.out;
+      r.in = or1.out ? 32'd0;
+      r.write_en = 1'd1 ? 1'd1;
+      foo[done] = 1'd1 ? r.done;
+    }
+  }
+
+  control {
+    foo;
+  }
+}

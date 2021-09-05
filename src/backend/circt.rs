@@ -1,4 +1,5 @@
 use calyx::errors::Error;
+use calyx::ir::IRPrinter;
 
 use crate::ir::{self, RRC};
 use std::collections::HashMap;
@@ -24,6 +25,7 @@ impl Backend for CirctBackend {
         file: &mut calyx::utils::OutputFile,
     ) -> calyx::errors::CalyxResult<()> {
         let f = &mut file.get_write();
+        write!(f, "calyx.program {{").unwrap();
         ctx.components
             .iter()
             .try_for_each(|comp| {
@@ -36,7 +38,9 @@ impl Backend for CirctBackend {
                     "File not found: {}",
                     file.as_path_string()
                 ))
-            })
+            })?;
+        write!(f, "}}").unwrap();
+        Ok(())
     }
 
     fn link_externs(
@@ -122,11 +126,31 @@ impl CirctBackend {
 
         // Add the cells
         for cell in comp.cells.iter() {
-            Self::write_cell(&cell.borrow(), 2, f)?;
+            // Only print out non-constant cells.
+            // Constants are printed inside calyx.wires.
+            if cell.borrow().type_name().is_some() {
+                Self::write_cell(&cell.borrow(), 2, f)?;
+            }
         }
 
         // Add the wires
         writeln!(f, "  calyx.wires {{")?;
+        // Print out all the constants
+        comp.cells.iter().try_for_each(|cell_ref| {
+            let cell = cell_ref.borrow();
+            match &cell.prototype {
+                ir::CellType::Constant { val, width } => {
+                    writeln!(
+                        f,
+                        "    %{} = hw.constant {} : i{}",
+                        cell.name(),
+                        val,
+                        width
+                    )
+                }
+                _ => Ok(()),
+            }
+        })?;
         for group in comp.groups.iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -170,7 +194,7 @@ impl CirctBackend {
                     }
                     "std_mem_d1" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}] X {}> [{}] : ",
+                        "calyx.memory \"{}\"<[{}] x {}> [{}] : ",
                         cell_name,
                         bind["SIZE"],
                         bind["WIDTH"],
@@ -178,7 +202,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d2" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}] X {}> [{}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}] x {}> [{}, {}] : ",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -188,7 +212,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d3" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}] X {}> [{}, {}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}, {}] x {}> [{}, {}, {}] : ",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -200,7 +224,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d4" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}, {}] X {}> [{}, {}, {}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}, {}, {}] x {}> [{}, {}, {}, {}] : ",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -212,14 +236,15 @@ impl CirctBackend {
                         bind["D2_IDX_SIZE"],
                         bind["D3_IDX_SIZE"]
                     ),
-                    prim => write!(f, "calyx.{} : ", prim)
+                    prim => write!(f, "calyx.{} \"{}\" : ", prim, cell_name)
                 }
             }
             ir::CellType::Component { name } => {
-                write!(f, "calyx.instance \"{}\" @{} : ", name, cell_name)
+                write!(f, "calyx.instance \"{}\" @{} : ", cell_name, name)
             }
-            ir::CellType::Constant { val, .. } => {
-                write!(f, "hw.constant {} : ", val)
+            ir::CellType::Constant { .. } => {
+                /* Constants go in the calyx.wires section */
+                Ok(())
             }
             _ => Ok(()),
         }
@@ -268,17 +293,17 @@ impl CirctBackend {
                     "calyx.assign {} = ",
                     Self::get_port_access(&assign.dst.borrow())
                 )?;
-                if !matches!(&*assign.guard, ir::Guard::True) {
-                    todo!("Guards in CIRCT backend")
-                }
             }
         }
-        write!(
-            f,
-            "{} : {}",
-            Self::get_port_access(&assign.src.borrow()),
-            assign.src.borrow().width
-        )
+        write!(f, "{}", Self::get_port_access(&assign.src.borrow()),)?;
+        if let ir::Guard::Port(p) = &*assign.guard {
+            write!(f, ", {} ?", Self::get_port_access(&p.borrow()))?;
+        } else if matches!(&*assign.guard, ir::Guard::True) {
+            /* Print nothing */
+        } else {
+            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", IRPrinter::guard_str(&*assign.guard));
+        }
+        write!(f, " : i{}", assign.src.borrow().width)
     }
 
     /// Format and write a group.
@@ -307,7 +332,7 @@ impl CirctBackend {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
             ir::Control::Enable(ir::Enable { group, .. }) => {
-                writeln!(f, "calyx.enable @{};", group.borrow().name().id)
+                writeln!(f, "calyx.enable @{}", group.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for CIRCT backend")
@@ -354,7 +379,7 @@ impl CirctBackend {
             }) => {
                 writeln!(
                     f,
-                    "while {} with @{} {{",
+                    "calyx.while {} with @{} {{",
                     Self::get_port_access(&port.borrow()),
                     cond.borrow().name().id
                 )?;
@@ -364,50 +389,6 @@ impl CirctBackend {
             ir::Control::Empty(_) => writeln!(f),
         }
     }
-
-    // Generate a String-based representation for a guard.
-    /* pub fn guard_str(guard: &ir::Guard) -> String {
-        match &guard {
-            ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
-                let left = if &**l > guard {
-                    format!("({})", Self::guard_str(l))
-                } else {
-                    Self::guard_str(l)
-                };
-                let right = if &**r > guard {
-                    format!("({})", Self::guard_str(r))
-                } else {
-                    Self::guard_str(r)
-                };
-                format!("{} {} {}", left, &guard.op_str(), right)
-            }
-            ir::Guard::Eq(l, r)
-            | ir::Guard::Neq(l, r)
-            | ir::Guard::Gt(l, r)
-            | ir::Guard::Lt(l, r)
-            | ir::Guard::Geq(l, r)
-            | ir::Guard::Leq(l, r) => {
-                format!(
-                    "{} {} {}",
-                    Self::get_port_access(&l.borrow()),
-                    &guard.op_str(),
-                    Self::get_port_access(&r.borrow())
-                )
-            }
-            ir::Guard::Not(g) => {
-                let s = if &**g > guard {
-                    format!("({})", Self::guard_str(g))
-                } else {
-                    Self::guard_str(g)
-                };
-                format!("!{}", s)
-            }
-            ir::Guard::Port(port_ref) => {
-                Self::get_port_access(&port_ref.borrow())
-            }
-            ir::Guard::True => "1'b1".to_string(),
-        }
-    } */
 
     /// Get the port access expression.
     fn get_port_access(port: &ir::Port) -> String {
