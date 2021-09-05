@@ -16,6 +16,8 @@
   four[go] = three[done] & !is_not_zero.out ? 1'd1;
 3:
   four[go] = !four[done] ? 1'd1;
+4:
+  <end>
 transitions:
   (0, 1): one[done] & is_not_zero.out & is_even.out
   (0, 2): one[done] & is_not_zero.out & !is_even.out

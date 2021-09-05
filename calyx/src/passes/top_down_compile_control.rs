@@ -65,7 +65,7 @@ impl Schedule {
                     writeln!(out).unwrap();
                 })
             });
-        // writeln!(out, "{}:\n  <end>", self.last_state()).unwrap();
+        writeln!(out, "{}:\n  <end>", self.last_state()).unwrap();
         writeln!(out, "transitions:").unwrap();
         self.transitions
             .iter()
@@ -243,7 +243,7 @@ fn calculate_states_recur(
     // The current state
     cur_state: u64,
     // The set of previous states that want to transition into cur_state
-    prev_states: Vec<(u64, ir::Guard)>,
+    preds: Vec<(u64, ir::Guard)>,
     // Current schedule.
     schedule: &mut Schedule,
     // Component builder
@@ -254,10 +254,10 @@ fn calculate_states_recur(
         ir::Control::Enable(ir::Enable { group, .. }) => {
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
-            let (cur_state, prev_states) = if prev_states.len() == 1 && prev_states[0].1.is_true() {
-                (prev_states[0].0, vec![])
+            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
+                (preds[0].0, vec![])
             } else {
-                (cur_state, prev_states)
+                (cur_state, preds)
             };
 
             let not_done = !guard!(group["done"]);
@@ -294,7 +294,7 @@ fn calculate_states_recur(
             Ok((vec![(cur_state, done_cond)], nxt))
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            let mut prev = prev_states;
+            let mut prev = preds;
             let mut cur = cur_state;
             for stmt in stmts {
                 let res = calculate_states_recur(
@@ -322,7 +322,7 @@ fn calculate_states_recur(
             let port_guard: ir::Guard = Rc::clone(port).into();
             // Previous states transitioning into true branch need the conditional
             // to be true.
-            let tru_transitions = prev_states.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
+            let tru_transitions = preds.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
             let (tru_prev, tru_nxt) = calculate_states_recur(
                 tbranch,
                 cur_state,
@@ -332,7 +332,7 @@ fn calculate_states_recur(
             )?;
             // Previous states transitioning into false branch need the conditional
             // to be false.
-            let fal_transitions = prev_states.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
+            let fal_transitions = preds.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
             let (fal_prev, fal_nxt) = calculate_states_recur(
                 fbranch,
                 tru_nxt,
@@ -367,7 +367,7 @@ fn calculate_states_recur(
             // Step 2: Generate the forward edges normally.
             // Previous transitions into the body require the condition to be
             // true.
-            let transitions: Vec<(u64, ir::Guard)> = prev_states
+            let transitions: Vec<(u64, ir::Guard)> = preds
                 .clone()
                 .into_iter()
                 .chain(back_edge_prevs)
@@ -385,7 +385,7 @@ fn calculate_states_recur(
             //   - Before the body when the condition is false
             //   - Inside the body when the condition is false
             let not_port_guard = !port_guard;
-            let all_prevs = prev_states
+            let all_prevs = preds
                 .into_iter()
                 .chain(prevs.into_iter())
                 .map(|(st, guard)| (st, guard & not_port_guard.clone()))

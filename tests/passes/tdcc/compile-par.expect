@@ -7,6 +7,8 @@
   B[go] = par[done] ? 1'd1;
 2:
   B[go] = !B[done] ? 1'd1;
+3:
+  <end>
 transitions:
   (0, 1): A[done]
   (1, 2): par[done]

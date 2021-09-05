@@ -7,6 +7,8 @@
   C[go] = B[done] ? 1'd1;
 2:
   C[go] = !C[done] ? 1'd1;
+3:
+  <end>
 transitions:
   (0, 1): A[done]
   (1, 2): B[done]

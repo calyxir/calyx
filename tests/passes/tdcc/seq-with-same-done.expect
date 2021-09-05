@@ -4,6 +4,8 @@
   two[go] = one[done] ? 1'd1;
 1:
   two[go] = !two[done] ? 1'd1;
+2:
+  <end>
 transitions:
   (0, 1): one[done]
   (1, 2): two[done]
