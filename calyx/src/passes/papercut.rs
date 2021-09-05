@@ -260,7 +260,12 @@ impl Visitor for Papercut {
             if let ir::PortParent::Cell(cell_wref) = &port.parent {
                 let cell_ref = cell_wref.upgrade();
                 let cell = cell_ref.borrow();
-                if let ir::CellType::Primitive { is_comb, name: prim_name, .. } = &cell.prototype {
+                if let ir::CellType::Primitive {
+                    is_comb,
+                    name: prim_name,
+                    ..
+                } = &cell.prototype
+                {
                     if *is_comb {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         return Err(Error::Papercut(msg, cell.name().clone()));
@@ -282,7 +287,12 @@ impl Visitor for Papercut {
             if let ir::PortParent::Cell(cell_wref) = &port.parent {
                 let cell_ref = cell_wref.upgrade();
                 let cell = cell_ref.borrow();
-                if let ir::CellType::Primitive { is_comb, name: prim_name, .. } = &cell.prototype {
+                if let ir::CellType::Primitive {
+                    is_comb,
+                    name: prim_name,
+                    ..
+                } = &cell.prototype
+                {
                     if *is_comb {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         return Err(Error::Papercut(msg, cell.name().clone()));
