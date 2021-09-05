@@ -6,8 +6,7 @@ component main() -> () {
   }
 
   wires {
-    group cond_while {
-      cond_while[done] = 1'b1;
+    comb group cond_while {
     }
   }
 

@@ -9,6 +9,7 @@ paths = [
 cmd = """
   ../target/debug/interp {} | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "errors"
@@ -19,6 +20,7 @@ paths = [
 cmd = """
 ../target/debug/interp {}
 """
+timeout = 3
 
 [[tests]]
 name = "complex"
@@ -29,6 +31,7 @@ paths = [
 cmd = """
 ../target/debug/interp {}
 """
+timeout = 3
 
 [[tests]]
 name = "primitives"
@@ -38,6 +41,7 @@ paths = [
 cmd = """
 ../target/debug/interp {} | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "par to seq"
@@ -48,6 +52,7 @@ paths = [
 cmd = """
 ../target/debug/futil {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "control"
@@ -59,6 +64,7 @@ paths = [
 cmd = """
 ../target/debug/interp {} | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "fully structural"
@@ -68,10 +74,10 @@ paths = [
   #    "tests/control/iteration/*.futil"
 ]
 cmd = """
-../target/debug/futil {} -d static-timing -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
+../target/debug/futil {}  -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
-
+timeout = 3
 
 
 [[tests]]
@@ -82,6 +88,7 @@ paths = [
 cmd = """
   ../target/debug/interp {} debug -p | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "primitives (CIDR)"
@@ -91,6 +98,7 @@ paths = [
 cmd = """
 ../target/debug/interp {} debug -p | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "control (CIDR)"
@@ -101,6 +109,7 @@ paths = [
 cmd = """
 ../target/debug/interp {} debug -p | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "fully structural (CIDR)"
@@ -110,8 +119,9 @@ paths = [
   #    "tests/control/iteration/*.futil"
 ]
 cmd = """
-../target/debug/futil {} -d static-timing -d pre-opt -d post-opt -l ../ | ../target/debug/interp debug -p | jq .memories
+../target/debug/futil {}  -d pre-opt -d post-opt -l ../ | ../target/debug/interp debug -p | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "fully structural static"
@@ -122,3 +132,4 @@ cmd = """
 ../target/debug/futil {} -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
+timeout = 3
