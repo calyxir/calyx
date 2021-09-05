@@ -65,6 +65,7 @@ impl Schedule {
                     writeln!(out).unwrap();
                 })
             });
+        // writeln!(out, "{}:\n  <end>", self.last_state()).unwrap();
         writeln!(out, "transitions:").unwrap();
         self.transitions
             .iter()
@@ -251,6 +252,14 @@ fn calculate_states_recur(
     match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, .. }) => {
+            // If there is exactly one previous transition state with a `true`
+            // guard, then merge this state into previous state.
+            let (cur_state, prev_states) = if prev_states.len() == 1 && prev_states[0].1.is_true() {
+                (prev_states[0].0, vec![])
+            } else {
+                (cur_state, prev_states)
+            };
+
             let not_done = !guard!(group["done"]);
             let signal_on = builder.add_constant(1, 1);
 
@@ -395,8 +404,18 @@ fn calculate_states(
     builder: &mut ir::Builder,
 ) -> CalyxResult<Schedule> {
     let mut schedule = Schedule::default();
-    let (prev, nxt) =
-        calculate_states_recur(con, 0, vec![], &mut schedule, builder)?;
+    let first_state = (0, ir::Guard::True);
+    // We create an empty first state in case the control program starts with
+    // a branch (if, while).
+    // If the program doesn't branch, then the initial state is merged into
+    // the first group.
+    let (prev, nxt) = calculate_states_recur(
+        con,
+        1,
+        vec![first_state],
+        &mut schedule,
+        builder,
+    )?;
     let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
     schedule.transitions.extend(transitions);
     Ok(schedule)
