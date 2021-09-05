@@ -1,0 +1,18 @@
+// -p validate -p lower-guards
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    group foo {
+      r.in = r.out > 32'd10 & r.out < 32'd20 | r.out >= 32'd30 | !(r.out <= 32'd20) ? 32'd0;
+      r.write_en = 1'd1;
+      foo[done] = r.done;
+    }
+  }
+  control {
+    foo;
+  }
+}

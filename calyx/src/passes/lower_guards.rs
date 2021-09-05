@@ -27,8 +27,8 @@ fn guard_to_prim(guard: &ir::Guard) -> Option<String> {
         ir::Guard::Neq(..) => "neq",
         ir::Guard::Gt(..) => "gt",
         ir::Guard::Lt(..) => "lt",
-        ir::Guard::Geq(..) => "geq",
-        ir::Guard::Leq(..) => "leq",
+        ir::Guard::Geq(..) => "ge",
+        ir::Guard::Leq(..) => "le",
         ir::Guard::True | ir::Guard::Not(_) | ir::Guard::Port(_) => {
             return None;
         }
