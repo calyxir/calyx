@@ -193,7 +193,7 @@ jobs:
     - name: Build Dahlia
       if: steps.dahlia-cache.outputs.cache-hit != 'true'
       run: |
-        cd ./dahlia && sbt assembly
+        cd ./dahlia && sbt "; getHeaders; assembly"
       shell: bash
 
     - name: Cache Calyx dependencies
