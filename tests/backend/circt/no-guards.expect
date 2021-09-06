@@ -17,10 +17,10 @@ calyx.component @main(%go: i1, %clk: i1, %reset: i1, %go0: i1, %clk0: i1, %reset
   %m0.addr0, %m0.write_data, %m0.write_en, %m0.clk, %m0.read_data, %m0.done = calyx.memory "m0"<[1] x 32> [1] : i1, i32, i1, i1, i32, i1
   %m1.addr0, %m1.addr1, %m1.write_data, %m1.write_en, %m1.clk, %m1.read_data, %m1.done = calyx.memory "m1"<[64, 64] x 8> [6, 6] : i6, i6, i8, i1, i1, i8, i1
   %add.left, %add.right, %add.out = calyx.std_add "add" : i8, i8, i8
+  %_1_8.out = hw.constant 1 : i8
+  %_1_1.out = hw.constant 1 : i1
+  %_0_1.out = hw.constant 0 : i1
   calyx.wires {
-    %_1_8 = hw.constant 1 : i8
-    %_1_1 = hw.constant 1 : i1
-    %_0_1 = hw.constant 0 : i1
     calyx.group @Group1 {
       calyx.group_go %c0.done : i1
       calyx.assign %c0.in = %c0.out : i8
@@ -29,12 +29,12 @@ calyx.component @main(%go: i1, %clk: i1, %reset: i1, %go0: i1, %clk0: i1, %reset
     }
     calyx.group @Group2 {
       calyx.assign %add.left = %r.out : i8
-      calyx.assign %add.right = %_1_8 : i8
+      calyx.assign %add.right = %_1_8.out : i8
       calyx.assign %r.in = %add.out : i8
-      calyx.assign %r.write_en = %_1_1 : i1
+      calyx.assign %r.write_en = %_1_1.out : i1
       calyx.group_done %r.done : i1
     }
-    calyx.assign %c0.go = %_0_1 : i1
+    calyx.assign %c0.go = %_0_1.out : i1
   }
 
   calyx.control {
