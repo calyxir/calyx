@@ -2,6 +2,7 @@ use super::{
     Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
     Control, Direction, GetName, Group, Id, RRC,
 };
+use crate::ir::RESERVED_NAMES;
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
@@ -54,9 +55,10 @@ impl Component {
         S: AsRef<str>,
         N: AsRef<str>,
     {
-        let port_names: HashSet<_> = ports
+        let prev_names: HashSet<_> = ports
             .iter()
             .map(|(name, _, _, _)| name.as_ref().to_string())
+            .chain(RESERVED_NAMES.iter().map(|s| s.to_string()))
             .collect();
 
         let this_sig = Builder::cell_from_signature(
@@ -79,7 +81,7 @@ impl Component {
             comb_groups: IdList::default(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
-            namegen: utils::NameGenerator::with_prev_defined_names(port_names),
+            namegen: utils::NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
         }
     }
@@ -124,8 +126,12 @@ impl Component {
 #[derive(Debug)]
 pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
 
-impl<T: GetName> From<Vec<RRC<T>>> for IdList<T> {
-    fn from(list: Vec<RRC<T>>) -> Self {
+impl<T, F> From<F> for IdList<T>
+where
+    T: GetName,
+    F: IntoIterator<Item = RRC<T>>,
+{
+    fn from(list: F) -> Self {
         IdList(
             list.into_iter()
                 .map(|item| {
