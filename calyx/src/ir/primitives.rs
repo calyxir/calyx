@@ -14,7 +14,7 @@ use smallvec::SmallVec;
 /// );
 /// ```
 ///
-/// The signature of a port is represented using [`PortDef`] which also specify
+/// The signature of a port is represented using [PortDef] which also specify
 /// the direction of the port.
 #[derive(Clone, Debug)]
 pub struct Primitive {
@@ -26,6 +26,8 @@ pub struct Primitive {
     pub signature: Vec<PortDef>,
     /// Key-value attributes for this primitive.
     pub attributes: Attributes,
+    /// True iff this is a combinational primitive
+    pub is_comb: bool,
 }
 
 impl Primitive {

@@ -142,6 +142,7 @@ pub fn ast_to_ir(
         imports: namespace.imports,
         enable_verification,
         synthesis_mode,
+        extra_opts: vec![],
     })
 }
 
@@ -276,16 +277,30 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
 ///////////////// Group Construction /////////////////////////
 
-/// Build an IR group using the AST Group.
+/// Build an [ir::Group] from an [ast::Group] and attach it to the [ir::Compoennt]
+/// associated with the [ir::Builder]
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
-    let ir_group = builder.add_group(group.name);
-    ir_group.borrow_mut().attributes = group.attributes;
+    if group.is_comb {
+        let ir_group = builder.add_comb_group(group.name);
+        let assigns = group
+            .wires
+            .into_iter()
+            .map(|assign| build_assignment(assign, builder))
+            .collect::<CalyxResult<Vec<_>>>()?;
 
-    // Add assignemnts to the group
-    for wire in group.wires {
-        let assign = build_assignment(wire, builder)?;
-        ir_group.borrow_mut().assignments.push(assign)
-    }
+        ir_group.borrow_mut().attributes = group.attributes;
+        ir_group.borrow_mut().assignments = assigns;
+    } else {
+        let ir_group = builder.add_group(group.name);
+        let assigns = group
+            .wires
+            .into_iter()
+            .map(|assign| build_assignment(assign, builder))
+            .collect::<CalyxResult<Vec<_>>>()?;
+
+        ir_group.borrow_mut().attributes = group.attributes;
+        ir_group.borrow_mut().assignments = assigns;
+    };
 
     Ok(())
 }
@@ -437,16 +452,24 @@ fn build_control(
         }
         ast::Control::If {
             port,
-            cond,
+            cond: maybe_cond,
             tbranch,
             fbranch,
             attributes,
         } => {
+            let group = maybe_cond
+                .map(|cond| {
+                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                        Error::Undefined(
+                            cond.clone(),
+                            "combinational group".to_string(),
+                        )
+                    })
+                })
+                .transpose()?;
             let mut con = Control::if_(
                 get_port_ref(port, builder.component)?,
-                Rc::clone(&builder.component.find_group(&cond).ok_or_else(
-                    || Error::Undefined(cond.clone(), "group".to_string()),
-                )?),
+                group,
                 Box::new(build_control(*tbranch, builder)?),
                 Box::new(build_control(*fbranch, builder)?),
             );
@@ -455,15 +478,23 @@ fn build_control(
         }
         ast::Control::While {
             port,
-            cond,
+            cond: maybe_cond,
             body,
             attributes,
         } => {
+            let group = maybe_cond
+                .map(|cond| {
+                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                        Error::Undefined(
+                            cond.clone(),
+                            "combinational group".to_string(),
+                        )
+                    })
+                })
+                .transpose()?;
             let mut con = Control::while_(
                 get_port_ref(port, builder.component)?,
-                Rc::clone(&builder.component.find_group(&cond).ok_or_else(
-                    || Error::Undefined(cond.clone(), "group".to_string()),
-                )?),
+                group,
                 Box::new(build_control(*body, builder)?),
             );
             *(con.get_mut_attributes().unwrap()) = attributes;

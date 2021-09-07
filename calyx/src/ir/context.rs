@@ -28,7 +28,7 @@ impl LibrarySignatures {
     where
         S: AsRef<str>,
     {
-        &self.sigs.get(&name.as_ref().into()).unwrap_or_else(|| {
+        self.sigs.get(&name.as_ref().into()).unwrap_or_else(|| {
             panic!(
                 "Primitive `{}` is not defined in the context.",
                 name.as_ref()
@@ -62,4 +62,7 @@ pub struct Context {
     pub enable_verification: bool,
     /// Original import statements.
     pub imports: Vec<String>,
+    /// Extra options provided to the command line. Interperted by individual
+    /// passes
+    pub extra_opts: Vec<String>,
 }

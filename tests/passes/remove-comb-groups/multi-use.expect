@@ -12,7 +12,12 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 
     @generated comb_reg2 = std_reg(1);
   }
   wires {
-    group find_index<"static"=1> {
+    group write {
+      r.write_en = 1'd1;
+      r.in = 32'd1;
+      write[done] = r.done;
+    }
+    group find_index0<"static"=1> {
       e0.left = in;
       e0.right = 32'd1;
       e1.left = in;
@@ -21,7 +26,6 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 
       e2.right = 32'd2;
       e3.left = in;
       e3.right = 32'd3;
-      find_index[done] = comb_reg.done & comb_reg0.done & comb_reg1.done & comb_reg2.done ? 1'd1;
       comb_reg.in = e0.out;
       comb_reg.write_en = 1'd1;
       comb_reg0.in = e1.out;
@@ -30,27 +34,44 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 
       comb_reg1.write_en = 1'd1;
       comb_reg2.in = e3.out;
       comb_reg2.write_en = 1'd1;
-    }
-    group write {
-      r.write_en = 1'd1;
-      r.in = 32'd1;
-      write[done] = r.done;
+      find_index0[done] = comb_reg.done & comb_reg0.done & comb_reg1.done & comb_reg2.done ? 1'd1;
     }
   }
 
   control {
     par {
-      if comb_reg.out with find_index {
-        write;
+      seq {
+        find_index0;
+        if comb_reg.out {
+          write;
+        }
       }
-      if comb_reg0.out with find_index {
-        write;
+      seq {
+        find_index0;
+        if comb_reg0.out {
+          write;
+        }
       }
-      if comb_reg1.out with find_index {
-        write;
+      seq {
+        find_index0;
+        if comb_reg1.out {
+          write;
+        }
       }
-      if comb_reg2.out with find_index {
-        write;
+      seq {
+        find_index0;
+        if comb_reg2.out {
+          write;
+        }
+      }
+      seq {
+        find_index0;
+        while comb_reg.out {
+          seq {
+            write;
+            find_index0;
+          }
+        }
       }
     }
   }

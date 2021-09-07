@@ -1,6 +1,0 @@
----CODE---
-1
----STDERR---
-Error: 
-4 |    reg = std_reg(32);
-  |    ^^^ Use of reserved keyword: reg

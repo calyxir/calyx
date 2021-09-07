@@ -91,6 +91,10 @@ impl CalyxParser {
         Ok(())
     }
 
+    fn comb(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
     // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
         Ok(ir::Id::new(
@@ -209,11 +213,19 @@ impl CalyxParser {
             [string_lit(key), bitwidth(num)] => (key, num)
         ))
     }
-
     fn attributes(input: Node) -> ParseResult<ir::Attributes> {
         Ok(match_nodes!(
             input.into_children();
             [attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
+        ))
+    }
+    fn name_with_attribute(
+        input: Node,
+    ) -> ParseResult<(ir::Id, ir::Attributes)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(name), attributes(attrs)] => (name, attrs),
+            [identifier(name)] => (name, vec![].into()),
         ))
     }
 
@@ -292,7 +304,7 @@ impl CalyxParser {
     fn signature(input: Node) -> ParseResult<Vec<ir::PortDef>> {
         Ok(match_nodes!(
             input.into_children();
-            // XXX(rachit): We expect the signature to be extended to have `go`,
+            // NOTE(rachit): We expect the signature to be extended to have `go`,
             // `done`, and `clk`.
             [] => Vec::with_capacity(3),
             [inputs(ins)] =>  ins ,
@@ -303,34 +315,33 @@ impl CalyxParser {
         ))
     }
 
-    // ==============PortDeftives =====================
+    // ==============Primitives=====================
+    fn sig_with_params(
+        input: Node,
+    ) -> ParseResult<(Vec<ir::Id>, Vec<ir::PortDef>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [params(p), signature(s)] => (p, s),
+            [signature(s)] => (vec![], s),
+        ))
+    }
     fn primitive(input: Node) -> ParseResult<ir::Primitive> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name), attributes(attrs), params(p), signature(s)] => ir::Primitive {
+            [name_with_attribute((name, attrs)), sig_with_params((p, s))] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs,
+                is_comb: false,
             },
-            [identifier(name), attributes(attrs), signature(s)] => ir::Primitive {
-                name,
-                params: Vec::with_capacity(0),
-                signature: s,
-                attributes: attrs,
-            },
-            [identifier(name), params(p), signature(s)] => ir::Primitive {
+            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
-                attributes: ir::Attributes::default()
+                attributes: attrs,
+                is_comb: true,
             },
-            [identifier(name), signature(s)] => ir::Primitive {
-                name,
-                params: Vec::with_capacity(0),
-                signature: s,
-                attributes: ir::Attributes::default()
-            }
         ))
     }
 
@@ -488,15 +499,17 @@ impl CalyxParser {
     fn group(input: Node) -> ParseResult<ast::Group> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(name), attributes(attrs), wire(wire)..] => ast::Group {
+            [name_with_attribute((name, attrs)), wire(wire)..] => ast::Group {
                 name,
                 attributes: attrs,
-                wires: wire.collect()
+                wires: wire.collect(),
+                is_comb: false,
             },
-            [identifier(name), wire(wire)..] => ast::Group {
+            [comb(_), name_with_attribute((name, attrs)), wire(wire)..] => ast::Group {
                 name,
-                attributes: ir::Attributes::default(),
-                wires: wire.collect()
+                attributes: attrs,
+                wires: wire.collect(),
+                is_comb: true,
             }
         ))
     }
@@ -576,17 +589,25 @@ impl CalyxParser {
         ))
     }
 
+    fn port_with(input: Node) -> ParseResult<(ast::Port, Option<ir::Id>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [port(port), identifier(cond)] => (port, Some(cond)),
+            [port(port)] => (port, None),
+        ))
+    }
+
     fn if_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::If {
+            [at_attributes(attrs), port_with((port, cond)), block(stmt)] => ast::Control::If {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty{}),
                 attributes: attrs,
             },
-            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), port_with((port, cond)), block(tbranch), block(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
@@ -594,7 +615,7 @@ impl CalyxParser {
                     fbranch: Box::new(fbranch),
                     attributes: attrs,
                 },
-            [at_attributes(attrs), port(port), identifier(cond), block(tbranch), if_stmt(fbranch)] =>
+            [at_attributes(attrs), port_with((port, cond)), block(tbranch), if_stmt(fbranch)] =>
                 ast::Control::If {
                     port,
                     cond,
@@ -609,7 +630,7 @@ impl CalyxParser {
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), port(port), identifier(cond), block(stmt)] => ast::Control::While {
+            [at_attributes(attrs), port_with((port, cond)), block(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),
@@ -658,7 +679,7 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [
-                identifier(id),
+                name_with_attribute((name, attributes)),
                 signature(sig),
                 cells(cells),
                 connections(connections),
@@ -666,26 +687,7 @@ impl CalyxParser {
             ] => {
                 let (continuous_assignments, groups) = connections;
                 ast::ComponentDef {
-                    name: id,
-                    signature: sig,
-                    cells,
-                    groups,
-                    continuous_assignments,
-                    control,
-                    attributes: ir::Attributes::default()
-                }
-            },
-            [
-                identifier(id),
-                attributes(attributes),
-                signature(sig),
-                cells(cells),
-                connections(connections),
-                control(control)
-            ] => {
-                let (continuous_assignments, groups) = connections;
-                ast::ComponentDef {
-                    name: id,
+                    name,
                     signature: sig,
                     cells,
                     groups,

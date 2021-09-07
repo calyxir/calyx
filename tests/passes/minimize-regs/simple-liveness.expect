@@ -24,7 +24,7 @@ component kernel(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group rd_x<"static"=1> {
       read_x.right = before.out;
       read_x.left = before.out;
-      rd_x[done] = 1'd1;
+      rd_x[done] = before.done;
     }
   }
 

@@ -5,13 +5,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     gt1 = std_gt(32);
     x_0 = std_reg(32);
     y_0 = std_reg(1);
+    @generated comb_reg = std_reg(1);
   }
   wires {
-    group cond0 {
-      cond0[done] = 1'd1;
-      gt0.left = x_0.out;
-      gt0.right = 32'd2;
-    }
     group let0 {
       x_0.in = 32'd1;
       x_0.write_en = 1'd1;
@@ -29,14 +25,24 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       x_0.in = 32'd10;
       upd0[done] = x_0.done ? 1'd1;
     }
+    group cond00<"static"=1> {
+      gt0.left = x_0.out;
+      gt0.right = 32'd2;
+      comb_reg.in = gt0.out;
+      comb_reg.write_en = 1'd1;
+      cond00[done] = comb_reg.done ? 1'd1;
+    }
   }
 
   control {
     seq {
       let0;
       let1;
-      if gt0.out with cond0 {
-        upd0;
+      seq {
+        cond00;
+        if comb_reg.out {
+          upd0;
+        }
       }
     }
   }

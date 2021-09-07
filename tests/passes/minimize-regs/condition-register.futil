@@ -1,10 +1,9 @@
-// -p minimize-regs -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
 component main() -> () {
   cells {
     x = std_reg(1);
     y = std_reg(1);
-    z = std_reg(1);
   }
 
   wires {
@@ -14,46 +13,24 @@ component main() -> () {
       wr_x[done] = x.done;
     }
 
-    group cond {
+    group wr_y {
       y.in = 1'd1;
       y.write_en = 1'd1;
-      cond[done] = y.done;
+      wr_y[done] = y.done;
     }
 
-    group some_math {
-      y.in = 1'd0;
-      y.write_en = 1'd1;
-      some_math[done] = y.done;
+    group rd_y {
+      rd_y[done] = y.out;
     }
 
-    group wr_z {
-      z.in = 1'd1;
-      z.write_en = 1'd1;
-      wr_z[done] = z.done;
-    }
-
-    group cond1 {
-      z.in = 1'd1;
-      z.write_en = 1'd1;
-      cond1[done] = z.done;
-    }
-
-    group some_math1 {
-      z.in = 1'd0;
-      z.write_en = 1'd1;
-      some_math[done] = z.done;
-    }
   }
 
   control {
     seq {
-      wr_x;
-      if y.out with cond {
-        some_math;
-      }
-      wr_z;
-      while z.out with cond1 {
-        some_math1;
+      wr_x;       // writes to x
+      wr_y;       // writes to y
+      if x.out {  // reads x
+        rd_y;     // reads y
       }
     }
   }

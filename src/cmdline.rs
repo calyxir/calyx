@@ -49,6 +49,10 @@ pub struct Opts {
     #[argh(option, short = 'd', long = "disable-pass")]
     pub disable_pass: Vec<String>,
 
+    /// extra options passed to the context
+    #[argh(option, short = 'x', long = "extra-opt")]
+    pub extra_opts: Vec<String>,
+
     /// list all avaliable pass options
     #[argh(switch, long = "list-passes")]
     pub list_passes: bool,

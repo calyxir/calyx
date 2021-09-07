@@ -134,6 +134,10 @@ impl CirctBackend {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
+        for comb_group in comp.comb_groups.iter() {
+            Self::write_comb_group(&comb_group.borrow(), 4, f)?;
+            writeln!(f)?;
+        }
         // Write the continuous assignments
         for assign in &comp.continuous_assignments {
             Self::write_assignment(assign, 4, f)?;
@@ -162,6 +166,7 @@ impl CirctBackend {
             ir::CellType::Primitive {
                 name,
                 param_binding,
+                ..
             } => {
                 let bind: HashMap<&str, u64> = param_binding
                     .iter()
@@ -301,6 +306,23 @@ impl CirctBackend {
         write!(f, "{}}}", " ".repeat(indent_level))
     }
 
+    /// Format and write combinational groups
+    pub fn write_comb_group<F: io::Write>(
+        group: &ir::CombGroup,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "calyx.group @{}", group.name().id)?;
+        writeln!(f, " {{")?;
+
+        for assign in &group.assignments {
+            Self::write_assignment(assign, indent_level + 2, f)?;
+            writeln!(f)?;
+        }
+        write!(f, "{}}}", " ".repeat(indent_level))
+    }
+
     /// Format and write a control program
     pub fn write_control<F: io::Write>(
         control: &ir::Control,
@@ -336,11 +358,15 @@ impl CirctBackend {
                 fbranch,
                 ..
             }) => {
+                assert!(
+                    cond.is_some(),
+                    "`if` without `with` not support in CIRCT backend"
+                );
                 writeln!(
                     f,
                     "calyx.if {} with @{} {{",
                     Self::get_port_access(&port.borrow()),
-                    cond.borrow().name().id
+                    cond.as_ref().unwrap().borrow().name().id
                 )?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
@@ -355,11 +381,15 @@ impl CirctBackend {
             ir::Control::While(ir::While {
                 port, cond, body, ..
             }) => {
+                assert!(
+                    cond.is_some(),
+                    "`while` without `with` not support in CIRCT backend"
+                );
                 writeln!(
                     f,
                     "calyx.while {} with @{} {{",
                     Self::get_port_access(&port.borrow()),
-                    cond.borrow().name().id
+                    cond.as_ref().unwrap().borrow().name().id
                 )?;
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))

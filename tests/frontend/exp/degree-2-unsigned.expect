@@ -130,10 +130,9 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
       count.write_en = 1'd1;
       incr_count[done] = count.done;
     }
-    group cond {
+    comb group cond {
       lt.left = count.out;
       lt.right = integer_exp;
-      cond[done] = 1'd1;
     }
     out = pow.out;
   }

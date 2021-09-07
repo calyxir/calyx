@@ -156,6 +156,7 @@ impl InterpreterState {
                 if let ir::CellType::Primitive {
                     name,
                     param_binding,
+                    is_comb: _,
                 } = cl.prototype.clone()
                 {
                     let cell_name = match name.as_ref() {

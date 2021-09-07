@@ -1,0 +1,32 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    lt = std_lt(32);
+  }
+  wires {
+    group one {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      one[done] = r.done;
+    }
+    group two {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      two[done] = r.done;
+    }
+    comb group cond {
+      lt.left = 32'd0;
+      lt.right = r.out;
+    }
+  }
+
+  control {
+    seq {
+      one;
+      if r.out with cond {
+        two;
+      }
+    }
+  }
+}

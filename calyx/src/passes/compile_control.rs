@@ -5,6 +5,7 @@ use crate::ir::{
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures,
 };
+use crate::passes::TopDownCompileControl;
 use crate::{build_assignments, guard, structure};
 use std::convert::TryInto;
 use std::rc::Rc;
@@ -73,12 +74,22 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx);
+        todo!("compile-control support for if-with")
+
+        /* let mut builder = ir::Builder::new(comp, ctx);
 
         // create a new group for if related structure
         let if_group = builder.add_group("if");
 
-        let cond_group = Rc::clone(&cif.cond);
+        if cif.cond.is_some() {
+            return Err(Error::MalformedStructure(format!(
+                "{}: if without `with` is not supported. Use `{}` instead",
+                Self::name(),
+                TopDownCompileControl::name()
+            )));
+        }
+
+        let cond_group = Rc::clone(cif.cond.as_ref().unwrap());
         let cond = Rc::clone(&cif.port);
 
         // extract group names from control statement
@@ -161,7 +172,7 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut cleanup_assigns);
 
-        Ok(Action::Change(ir::Control::enable(if_group)))
+        Ok(Action::Change(ir::Control::enable(if_group))) */
     }
 
     /// XXX(rachit): The explanation is not consistent with the code.
@@ -173,7 +184,8 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx);
+        todo!()
+        /* let mut builder = ir::Builder::new(comp, ctx);
 
         // create group
         let while_group = builder.add_group("while");
@@ -253,7 +265,7 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut clean_assigns);
 
-        Ok(Action::Change(ir::Control::enable(while_group)))
+        Ok(Action::Change(ir::Control::enable(while_group))) */
     }
 
     fn finish_seq(

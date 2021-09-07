@@ -2,6 +2,7 @@ import "primitives/std.lib";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     x = std_reg(1);
+    y = std_reg(1);
   }
   wires {
     group wr_x {
@@ -9,42 +10,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       x.write_en = 1'd1;
       wr_x[done] = x.done;
     }
-    group cond {
-      x.in = 1'd1;
-      x.write_en = 1'd1;
-      cond[done] = x.done;
+    group wr_y {
+      y.in = 1'd1;
+      y.write_en = 1'd1;
+      wr_y[done] = y.done;
     }
-    group some_math {
-      x.in = 1'd0;
-      x.write_en = 1'd1;
-      some_math[done] = x.done;
-    }
-    group wr_z {
-      x.in = 1'd1;
-      x.write_en = 1'd1;
-      wr_z[done] = x.done;
-    }
-    group cond1 {
-      x.in = 1'd1;
-      x.write_en = 1'd1;
-      cond1[done] = x.done;
-    }
-    group some_math1 {
-      x.in = 1'd0;
-      x.write_en = 1'd1;
-      some_math[done] = x.done;
+    group rd_y {
+      rd_y[done] = y.out;
     }
   }
 
   control {
     seq {
       wr_x;
-      if x.out with cond {
-        some_math;
-      }
-      wr_z;
-      while x.out with cond1 {
-        some_math1;
+      wr_y;
+      if x.out {
+        rd_y;
       }
     }
   }

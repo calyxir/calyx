@@ -36,10 +36,14 @@ component main() -> () {
     //b/c this isn't just 1 group prog, 
     //reg1 should have [done] low 
     //at the end of execution (tho prog. ends when reg1.done is high)
-    if lt0.out with cond {
+    seq {
+      cond;
+      if reg0.out {
       true;
     } else {
       false;
     }
+    }
+
   }
 }

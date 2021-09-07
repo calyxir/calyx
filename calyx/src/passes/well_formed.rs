@@ -1,33 +1,20 @@
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{
-    self, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
-};
+use crate::ir::{self, CloneName, Component, LibrarySignatures};
 use std::collections::HashSet;
 
 /// Pass to check if the program is well-formed.
 ///
 /// Catches the following errors:
-/// 1. Programs that use reserved SystemVerilog keywords as identifiers.
-/// 2. Programs that don't use a defined group.
+/// 1. Programs that don't use a defined group or combinational group.
+/// 2. Groups that don't write to their done signal.
+/// 3. Groups that write to another group's done signal.
+#[derive(Default)]
 pub struct WellFormed {
-    /// Set of names that components and cells are not allowed to have.
-    reserved_names: HashSet<String>,
-
     /// Names of the groups that have been used in the control.
     used_groups: HashSet<ir::Id>,
-}
-
-impl Default for WellFormed {
-    fn default() -> Self {
-        let reserved_names =
-            RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
-
-        WellFormed {
-            reserved_names,
-            used_groups: HashSet::new(),
-        }
-    }
+    /// Names of combinational groups used in the control.
+    used_comb_groups: HashSet<ir::Id>,
 }
 
 impl Named for WellFormed {
@@ -46,18 +33,10 @@ impl Visitor for WellFormed {
         comp: &mut Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        // Check if any of the cells use a reserved name.
-        for cell_ref in comp.cells.iter() {
-            let cell = cell_ref.borrow();
-            if self.reserved_names.contains(&cell.name().id) {
-                return Err(Error::ReservedName(cell.clone_name()));
-            }
-        }
-
-        // For each group, check if there is at least one write to the done
+        // For each non-combinational group, check if there is at least one write to the done
         // signal of that group.
         // Names of the groups whose `done` hole has been written to.
-        for group_ref in comp.groups.iter() {
+        comp.groups.iter().try_for_each(|group_ref| {
             let group = group_ref.borrow();
             let gname = group.name();
             // Find an assignment writing to this group's done condition.
@@ -68,14 +47,14 @@ impl Visitor for WellFormed {
                     && dst.get_parent_name() == gname
             });
             if done.is_none() {
-                return Err(Error::MalformedStructure(gname.fmt_err(
-                    &format!(
-                        "No writes to the `done' hole for group `{}'",
-                        gname.to_string()
-                    ),
-                )));
+                Err(Error::MalformedStructure(gname.fmt_err(&format!(
+                    "No writes to the `done' hole for group `{}'",
+                    gname.to_string()
+                ))))
+            } else {
+                Ok(())
             }
-        }
+        })?;
 
         // Check if any groups refer to another group's done signal.
         for group_ref in comp.groups.iter() {
@@ -127,7 +106,7 @@ impl Visitor for WellFormed {
             .unwrap_or(false)
             || done_assign.unwrap_or(false)
         {
-            return Err(Error::MalformedStructure(group.name().fmt_err("Group with constant done condition not allowed inside normal control operators")));
+            return Err(Error::MalformedStructure(group.name().fmt_err("Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.")));
         }
 
         Ok(Action::Continue)
@@ -167,7 +146,9 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.clone_name());
+        if let Some(cond) = &s.cond {
+            self.used_comb_groups.insert(cond.clone_name());
+        }
         Ok(Action::Continue)
     }
 
@@ -178,7 +159,9 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // Add cond group as a used port.
-        self.used_groups.insert(s.cond.clone_name());
+        if let Some(cond) = &s.cond {
+            self.used_comb_groups.insert(cond.clone_name());
+        }
         Ok(Action::Continue)
     }
 
@@ -189,11 +172,21 @@ impl Visitor for WellFormed {
     ) -> VisResult {
         let all_groups: HashSet<ir::Id> =
             comp.groups.iter().map(|g| g.clone_name()).collect();
-        let unused_group =
-            all_groups.difference(&self.used_groups).into_iter().next();
-        match unused_group {
-            Some(group) => Err(Error::UnusedGroup(group.clone())),
-            None => Ok(Action::Continue),
+        if let Some(group) =
+            all_groups.difference(&self.used_groups).into_iter().next()
+        {
+            return Err(Error::UnusedGroup(group.clone()));
+        };
+
+        let all_comb_groups: HashSet<ir::Id> =
+            comp.comb_groups.iter().map(|g| g.clone_name()).collect();
+        if let Some(group) = all_comb_groups
+            .difference(&self.used_comb_groups)
+            .into_iter()
+            .next()
+        {
+            return Err(Error::UnusedGroup(group.clone()));
         }
+        Ok(Action::Continue)
     }
 }

@@ -39,16 +39,20 @@ component main(go: 1, clk: 1, reset: 1) -> (done: 1) {
       r.write_en = 1'd1;
       Group2[done] = r.done;
     }
+    comb group CombGroup {
+      add.left = r.out;
+      add.right = 8'd1;
+    }
     c0.go = 1'd0;
   }
   control {
     seq {
-      Group1;
-      while c1.out with Group2 {
+      Group2;
+      while c1.out with CombGroup {
         seq {
           Group1;
           Group1;
-          if c1.out with Group2 {
+          if c1.out with CombGroup {
             Group2;
           }
         }

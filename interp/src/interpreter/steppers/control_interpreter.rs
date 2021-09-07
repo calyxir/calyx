@@ -5,7 +5,7 @@ use crate::utils::AsRaw;
 use crate::{
     environment::InterpreterState,
     errors::InterpreterResult,
-    interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
+    interpreter::utils::{is_signal_high, ConstPort},
     values::Value,
 };
 use calyx::ir::{self, Assignment, Component, Control};
@@ -76,11 +76,60 @@ impl Interpreter for EmptyInterpreter {
     }
 }
 
-type EnableHolder<'a> = ReferenceHolder<'a, ir::Group>;
+pub enum EnableHolder<'a> {
+    RefGroup(Ref<'a, ir::Group>),
+    RefCombGroup(Ref<'a, ir::CombGroup>),
+    BorrowGrp(&'a ir::Group),
+    BorrowCombGroup(&'a ir::CombGroup),
+}
 
-impl<'a> From<&'a ir::Enable> for ReferenceHolder<'a, ir::Group> {
-    fn from(e: &'a ir::Enable) -> Self {
-        e.group.borrow().into()
+impl<'a> From<&'a ir::Group> for EnableHolder<'a> {
+    fn from(grp: &'a ir::Group) -> Self {
+        Self::BorrowGrp(grp)
+    }
+}
+
+impl<'a> From<&'a ir::CombGroup> for EnableHolder<'a> {
+    fn from(comb_grp: &'a ir::CombGroup) -> Self {
+        Self::BorrowCombGroup(comb_grp)
+    }
+}
+
+impl<'a> From<Ref<'a, ir::Group>> for EnableHolder<'a> {
+    fn from(grp: Ref<'a, ir::Group>) -> Self {
+        Self::RefGroup(grp)
+    }
+}
+
+impl<'a> From<Ref<'a, ir::CombGroup>> for EnableHolder<'a> {
+    fn from(comb_grp: Ref<'a, ir::CombGroup>) -> Self {
+        Self::RefCombGroup(comb_grp)
+    }
+}
+
+impl<'a> From<&'a ir::Enable> for EnableHolder<'a> {
+    fn from(en: &'a ir::Enable) -> Self {
+        Self::RefGroup(en.group.borrow())
+    }
+}
+
+impl<'a> EnableHolder<'a> {
+    fn assignments(&self) -> &[ir::Assignment] {
+        match self {
+            EnableHolder::RefGroup(x) => &x.assignments,
+            EnableHolder::RefCombGroup(x) => &x.assignments,
+            EnableHolder::BorrowGrp(x) => &x.assignments,
+            EnableHolder::BorrowCombGroup(x) => &x.assignments,
+        }
+    }
+
+    fn done_port(&self) -> Option<ConstPort> {
+        match self {
+            EnableHolder::RefGroup(x) => Some(get_done_port(x).as_raw()),
+            EnableHolder::BorrowGrp(x) => Some(get_done_port(x).as_raw()),
+            EnableHolder::BorrowCombGroup(_)
+            | EnableHolder::RefCombGroup(_) => None,
+        }
     }
 }
 
@@ -102,15 +151,11 @@ impl<'a> EnableInterpreter<'a> {
     {
         let enable: EnableHolder = enable.into();
         let assigns = (
-            enable.assignments.iter().cloned().collect_vec(),
+            enable.assignments().iter().cloned().collect_vec(),
             continuous.iter().cloned().collect_vec(),
         );
-        let done = get_done_port(&enable);
-        let interp = AssignmentInterpreter::new_owned(
-            env,
-            &done.borrow() as &ir::Port as *const ir::Port,
-            assigns,
-        );
+        let done = enable.done_port();
+        let interp = AssignmentInterpreter::new_owned(env, done, assigns);
         Self {
             enable,
             group_name,
@@ -121,7 +166,7 @@ impl<'a> EnableInterpreter<'a> {
 
 impl<'a> EnableInterpreter<'a> {
     fn reset(self) -> InterpreterState {
-        self.interp.reset(self.enable.assignments.iter())
+        self.interp.reset(self.enable.assignments().iter())
     }
     fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
         self.interp.get(port)
@@ -299,7 +344,7 @@ impl<'a> Interpreter for ParInterpreter<'a> {
     }
 }
 pub struct IfInterpreter<'a> {
-    port: ConstPort,
+    cond_port: ConstPort,
     cond: Option<EnableInterpreter<'a>>,
     tbranch: &'a Control,
     fbranch: &'a Control,
@@ -313,19 +358,36 @@ impl<'a> IfInterpreter<'a> {
         env: InterpreterState,
         continuous_assigns: &'a [Assignment],
     ) -> Self {
-        let port: ConstPort = ctrl_if.port.as_ptr();
-        let cond = EnableInterpreter::new(
-            ctrl_if.cond.borrow(),
-            Some(ctrl_if.cond.borrow().name().clone()),
-            env,
-            continuous_assigns,
-        );
+        let cond_port: ConstPort = ctrl_if.port.as_ptr();
+
+        let (cond, branch_interp) = if let Some(cond) = &ctrl_if.cond {
+            (
+                Some(EnableInterpreter::new(
+                    cond.borrow(),
+                    Some(cond.borrow().name().clone()),
+                    env,
+                    continuous_assigns,
+                )),
+                None,
+            )
+        } else {
+            let grp = if is_signal_high(env.get_from_port(cond_port)) {
+                &ctrl_if.tbranch
+            } else {
+                &ctrl_if.fbranch
+            };
+            (
+                None,
+                Some(ControlInterpreter::new(grp, env, continuous_assigns)),
+            )
+        };
+
         Self {
-            port,
-            cond: Some(cond),
+            cond_port,
+            cond,
             tbranch: &ctrl_if.tbranch,
             fbranch: &ctrl_if.fbranch,
-            branch_interp: None,
+            branch_interp,
             continuous_assignments: continuous_assigns,
         }
     }
@@ -338,7 +400,7 @@ impl<'a> Interpreter for IfInterpreter<'a> {
                 let i = self.cond.take().unwrap();
                 let branch;
                 #[allow(clippy::branches_sharing_code)]
-                if is_signal_high(i.get(self.port)) {
+                if is_signal_high(i.get(self.cond_port)) {
                     let env = i.deconstruct();
                     branch = ControlInterpreter::new(
                         self.tbranch,
@@ -396,11 +458,12 @@ impl<'a> Interpreter for IfInterpreter<'a> {
 }
 pub struct WhileInterpreter<'a> {
     port: ConstPort,
-    cond: Ref<'a, ir::Group>,
+    cond: Option<Ref<'a, ir::CombGroup>>,
     body: &'a Control,
     continuous_assignments: &'a [ir::Assignment],
     cond_interp: Option<EnableInterpreter<'a>>,
     body_interp: Option<ControlInterpreter<'a>>,
+    terminal_env: Option<InterpreterState>,
 }
 
 impl<'a> WhileInterpreter<'a> {
@@ -410,20 +473,41 @@ impl<'a> WhileInterpreter<'a> {
         continuous_assignments: &'a [Assignment],
     ) -> Self {
         let port: ConstPort = ctrl_while.port.as_ptr();
-        let cond = ctrl_while.cond.borrow();
-        let cond_interp = EnableInterpreter::new(
-            Ref::clone(&cond),
-            Some(cond.name().clone()),
-            env,
-            continuous_assignments,
-        );
+        let cond_interp;
+        let body_interp;
+        let terminal_env;
+
+        if let Some(cond) = &ctrl_while.cond {
+            cond_interp = Some(EnableInterpreter::new(
+                cond.borrow(),
+                Some(cond.borrow().name().clone()),
+                env,
+                continuous_assignments,
+            ));
+            terminal_env = None;
+            body_interp = None;
+        } else if is_signal_high(env.get_from_port(port)) {
+            body_interp = Some(ControlInterpreter::new(
+                &ctrl_while.body,
+                env,
+                continuous_assignments,
+            ));
+            terminal_env = None;
+            cond_interp = None;
+        } else {
+            terminal_env = Some(env);
+            body_interp = None;
+            cond_interp = None;
+        }
+
         Self {
             port,
-            cond,
+            cond: ctrl_while.cond.as_ref().map(|x| x.borrow()),
             body: &ctrl_while.body,
             continuous_assignments,
-            cond_interp: Some(cond_interp),
-            body_interp: None,
+            cond_interp,
+            body_interp,
+            terminal_env,
         }
     }
 }
@@ -441,7 +525,7 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
                     );
                     self.body_interp = Some(body_interp)
                 } else {
-                    self.cond_interp = Some(ci)
+                    self.terminal_env = Some(ci.deconstruct())
                 }
             } else {
                 ci.step()?
@@ -451,14 +535,27 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
                 bi.step()?
             } else {
                 let bi = self.body_interp.take().unwrap();
-                let cond_interp = EnableInterpreter::new(
-                    Ref::clone(&self.cond),
-                    Some(self.cond.name().clone()),
-                    bi.deconstruct(),
-                    self.continuous_assignments,
-                );
-                self.cond_interp = Some(cond_interp)
+                let env = bi.deconstruct();
+
+                if let Some(cond) = &self.cond {
+                    let cond_interp = EnableInterpreter::new(
+                        Ref::clone(cond),
+                        Some(cond.name().clone()),
+                        env,
+                        self.continuous_assignments,
+                    );
+                    self.cond_interp = Some(cond_interp)
+                } else if is_signal_high(env.get_from_port(self.port)) {
+                    self.body_interp = Some(ControlInterpreter::new(
+                        self.body,
+                        env,
+                        self.continuous_assignments,
+                    ));
+                } else {
+                    self.terminal_env = Some(env);
+                }
             }
+        } else if self.terminal_env.is_some() {
         } else {
             panic!("While Interpreter is in an invalid state")
         }
@@ -466,16 +563,11 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
     }
 
     fn deconstruct(self) -> InterpreterState {
-        self.cond_interp.unwrap().deconstruct()
+        self.terminal_env.unwrap()
     }
 
     fn is_done(&self) -> bool {
-        self.body_interp.is_none()
-            && self.cond_interp.is_some()
-            && self.cond_interp.as_ref().unwrap().is_done()
-            && !is_signal_high(
-                self.cond_interp.as_ref().unwrap().get(self.port),
-            )
+        self.terminal_env.is_some()
     }
 
     fn get_env(&self) -> Vec<&InterpreterState> {
@@ -483,6 +575,8 @@ impl<'a> Interpreter for WhileInterpreter<'a> {
             cond.get_env()
         } else if let Some(body) = &self.body_interp {
             body.get_env()
+        } else if let Some(env) = &self.terminal_env {
+            vec![env]
         } else {
             unreachable!("Invalid internal state for WhileInterpreter")
         }
@@ -652,7 +746,7 @@ impl<'a> StructuralInterpreter<'a> {
 
         let interp = AssignmentInterpreter::new(
             env,
-            done_port,
+            Some(done_port),
             (std::iter::empty(), continuous_assignments.iter()),
         );
 
@@ -673,8 +767,12 @@ impl<'a> Interpreter for StructuralInterpreter<'a> {
     fn deconstruct(self) -> InterpreterState {
         let mut final_env = self.interp.deconstruct();
         final_env.insert(self.go_port, Value::bit_low());
-        finish_interpretation(final_env, self.done_port, self.continuous.iter())
-            .unwrap()
+        finish_interpretation(
+            final_env,
+            Some(self.done_port),
+            self.continuous.iter(),
+        )
+        .unwrap()
     }
 
     fn run(&mut self) -> InterpreterResult<()> {

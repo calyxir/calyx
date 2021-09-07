@@ -55,10 +55,9 @@ component main() -> () {
     // ANCHOR_END: incr
 
     // ANCHOR: cond
-    group cond {
+    comb group cond {
       lt.left = counter.out;
       lt.right = 32'd8;
-      cond[done] = 1'b1;
     }
     // ANCHOR_END: cond
   }

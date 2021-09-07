@@ -101,6 +101,10 @@ impl IRPrinter {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
+        for comb_group in comp.comb_groups.iter() {
+            Self::write_comb_group(&comb_group.borrow(), 4, f)?;
+            writeln!(f)?;
+        }
         // Write the continuous assignments
         for assign in &comp.continuous_assignments {
             Self::write_assignment(assign, 4, f)?;
@@ -180,6 +184,26 @@ impl IRPrinter {
             write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
         }
         write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
+    }
+
+    /// Format and write a combinational group.
+    pub fn write_comb_group<F: io::Write>(
+        group: &ir::CombGroup,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "comb group {}", group.name().id)?;
+        if !group.attributes.is_empty() {
+            write!(f, "{}", Self::format_attributes(&group.attributes))?;
+        }
+        writeln!(f, " {{")?;
+
+        for assign in &group.assignments {
+            Self::write_assignment(assign, indent_level + 2, f)?;
+            writeln!(f)?;
+        }
+        write!(f, "{}}}", " ".repeat(indent_level))
     }
 
     /// Format and write a group.
@@ -287,12 +311,11 @@ impl IRPrinter {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
-                writeln!(
-                    f,
-                    "if {} with {} {{",
-                    Self::get_port_access(&port.borrow()),
-                    cond.borrow().name().id
-                )?;
+                write!(f, "if {} ", Self::get_port_access(&port.borrow()),)?;
+                if let Some(c) = cond {
+                    write!(f, "with {} ", c.borrow().name.id)?;
+                }
+                writeln!(f, "{{")?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
                 if let ir::Control::Empty(_) = **fbranch {
@@ -312,12 +335,11 @@ impl IRPrinter {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
-                writeln!(
-                    f,
-                    "while {} with {} {{",
-                    Self::get_port_access(&port.borrow()),
-                    cond.borrow().name().id
-                )?;
+                write!(f, "while {} ", Self::get_port_access(&port.borrow()),)?;
+                if let Some(c) = cond {
+                    write!(f, "with {} ", c.borrow().name.id)?;
+                }
+                writeln!(f, "{{")?;
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }

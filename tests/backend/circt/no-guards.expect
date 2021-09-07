@@ -34,17 +34,21 @@ calyx.component @main(%go: i1, %clk: i1, %reset: i1, %go0: i1, %clk0: i1, %reset
       calyx.assign %r.write_en = %_1_1.out : i1
       calyx.group_done %r.done : i1
     }
+    calyx.group @CombGroup {
+      calyx.assign %add.left = %r.out : i8
+      calyx.assign %add.right = %_1_8.out : i8
+    }
     calyx.assign %c0.go = %_0_1.out : i1
   }
 
   calyx.control {
     calyx.seq {
-      calyx.enable @Group1
-      calyx.while %c1.out with @Group2 {
+      calyx.enable @Group2
+      calyx.while %c1.out with @CombGroup {
         calyx.seq {
           calyx.enable @Group1
           calyx.enable @Group1
-          calyx.if %c1.out with @Group2 {
+          calyx.if %c1.out with @CombGroup {
             calyx.enable @Group2
           }
         }

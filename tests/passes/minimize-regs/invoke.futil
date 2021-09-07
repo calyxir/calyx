@@ -1,4 +1,4 @@
-// -p minimize-regs -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
 
 component add(left: 32, right: 32) -> (out: 32) {
@@ -39,7 +39,7 @@ component main() -> () {
     group rd_x {
       add_x.left = x.out;
       add_x.right = x.out;
-      rd_x[done] = 1'd1;
+      rd_x[done] = x.done; // XXX: This is wrong functionally
     }
     group wr_y {
       y.in = 32'd10;

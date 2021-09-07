@@ -1,10 +1,10 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    ClkInsertion, CollapseControl, CompileControl, CompileEmpty, CompileInvoke,
-    ComponentInterface, DeadCellRemoval, Externalize, GoInsertion,
-    GuardCanonical, InferStaticTiming, Inliner, LowerGuards, MergeAssign,
-    MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
-    ResetInsertion, ResourceSharing, SimplifyGuards, StaticTiming,
+    ClkInsertion, CollapseControl, CompileEmpty, CompileInvoke,
+    ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
+    GoInsertion, GuardCanonical, InferStaticTiming, Inliner, LowerGuards,
+    MergeAssign, MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing,
+    RemoveCombGroups, ResetInsertion, ResourceSharing, SimplifyGuards,
     SynthesisPapercut, TopDownCompileControl, WellFormed,
 };
 use crate::{
@@ -19,8 +19,8 @@ impl PassManager {
 
         // Register passes.
         pm.register_pass::<WellFormed>()?;
-        pm.register_pass::<StaticTiming>()?;
-        pm.register_pass::<CompileControl>()?;
+        // pm.register_pass::<StaticTiming>()?;
+        // pm.register_pass::<CompileControl>()?;
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<GoInsertion>()?;
         pm.register_pass::<ComponentInterface>()?;
@@ -33,11 +33,13 @@ impl PassManager {
         pm.register_pass::<ResetInsertion>()?;
         pm.register_pass::<ResourceSharing>()?;
         pm.register_pass::<DeadCellRemoval>()?;
+        pm.register_pass::<DeadGroupRemoval>()?;
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<MergeAssign>()?;
         pm.register_pass::<TopDownCompileControl>()?;
+        // pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<SynthesisPapercut>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GuardCanonical>()?;
@@ -55,13 +57,17 @@ impl PassManager {
                 CollapseControl,
                 ResourceSharing,
                 MinimizeRegs,
-                CompileInvoke,
             ]
         );
         register_alias!(
             pm,
             "compile",
-            [CompileEmpty, StaticTiming, TopDownCompileControl]
+            [
+                CompileInvoke,
+                CompileEmpty,
+                // StaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(pm, "post-opt", [DeadCellRemoval]);
         register_alias!(
@@ -89,6 +95,7 @@ impl PassManager {
             "external",
             [
                 "validate",
+                SynthesisPapercut,
                 "pre-opt",
                 "compile",
                 "post-opt",

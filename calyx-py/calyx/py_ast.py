@@ -166,7 +166,7 @@ class Connect(Structure):
     def doc(self) -> str:
         source = (
             self.src.doc()
-            if self.guard == None
+            if self.guard is None
             else f"{self.guard.doc()} ? {self.src.doc()}"
         )
         return f"{self.dest.doc()} = {source};"
@@ -180,10 +180,22 @@ class Group(Structure):
 
     def doc(self) -> str:
         static_delay_attr = (
-            "" if self.static_delay == None else f'<"static"={self.static_delay}>'
+            "" if self.static_delay is None else f'<"static"={self.static_delay}>'
         )
         return block(
             f"group {self.id.doc()}{static_delay_attr}",
+            [c.doc() for c in self.connections],
+        )
+
+
+@dataclass
+class CombGroup(Structure):
+    id: CompVar
+    connections: list[Connect]
+
+    def doc(self) -> str:
+        return block(
+            f"comb group {self.id.doc()}",
             [c.doc() for c in self.connections],
         )
 

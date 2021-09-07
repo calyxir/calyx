@@ -3,7 +3,7 @@ use crate::ir::{
     traversal::{Action, Named, VisResult, Visitor},
     IRPrinter, LibrarySignatures,
 };
-use crate::{build_assignments, guard, structure};
+use crate::{build_assignments, structure};
 use itertools::Itertools;
 use std::collections::HashMap;
 

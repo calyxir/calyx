@@ -131,11 +131,10 @@ component main() -> () {
       shift_c[done] = c.done;
     }
 
-    group cond_while {
+    comb group cond_while {
       //lt compares i and 4
       lt.left = i.out;
       lt.right = 3'd4;
-      cond_while[done] = 1'b1;
     }
 
     group incr_while {
@@ -147,10 +146,9 @@ component main() -> () {
       incr_while[done] = i.done;
     }
 
-    group cond_if {
+    comb group cond_if {
       //get LSB of Q
       slicer.in = q.out;
-      cond_if[done] = 1'b1;
     }
 
   }
