@@ -1,8 +1,10 @@
+use crate::interpreter::ComponentInterpreter;
+use crate::interpreter::ComponentInterpreterMarker;
+use crate::interpreter::Interpreter;
 use crate::values::Value;
 use calyx::ir;
 use itertools::Itertools;
 use serde::Serialize;
-
 /// A primitive for the interpreter.
 /// Roughly corresponds to the cells defined in the primitives library for the Calyx compiler.
 /// Primitives can be either stateful or combinational.
@@ -39,6 +41,12 @@ pub trait Primitive {
     // more efficient to override this with true in stateful cases
     fn has_serializeable_state(&self) -> bool {
         self.serialize().has_state()
+    }
+
+    fn get_comp_interp(
+        &mut self,
+    ) -> Option<&mut dyn ComponentInterpreterMarker> {
+        None
     }
 }
 

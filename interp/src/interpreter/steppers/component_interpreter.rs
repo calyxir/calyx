@@ -311,8 +311,7 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         let interp = std::mem::take(&mut self.interp);
 
         let new = match interp {
-            StructuralOrControl::Structural(mut s) => {
-                s.converge().unwrap();
+            StructuralOrControl::Structural(s) => {
                 StructuralOrControl::Structural(s)
             }
             StructuralOrControl::Control(control) => {
@@ -333,5 +332,28 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         self.interp = new;
 
         self.look_up_outputs()
+    }
+
+    fn get_comp_interp(
+        &mut self,
+    ) -> Option<&mut dyn ComponentInterpreterMarker> {
+        Some(self)
+    }
+}
+
+pub trait ComponentInterpreterMarker {
+    fn set_go_low(&mut self);
+    fn set_go_high(&mut self);
+}
+
+impl<'a, 'outer> ComponentInterpreterMarker
+    for ComponentInterpreter<'a, 'outer>
+{
+    fn set_go_low(&mut self) {
+        self.set_done_low();
+    }
+
+    fn set_go_high(&mut self) {
+        self.set_go_high()
     }
 }

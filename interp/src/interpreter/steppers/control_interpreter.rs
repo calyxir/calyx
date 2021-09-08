@@ -134,11 +134,7 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
             continuous.iter().cloned().collect_vec(),
         );
         let done = get_done_port(&enable);
-        let interp = AssignmentInterpreter::new_owned(
-            env,
-            &done.borrow() as &ir::Port as *const ir::Port,
-            assigns,
-        );
+        let interp = AssignmentInterpreter::new_owned(env, done, assigns);
         Self {
             enable,
             group_name,
@@ -676,17 +672,18 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         todo!()
     }
 }
-pub struct InvokeInterpreter<'outer> {
-    phantom: PhantomData<InterpreterState<'outer>>, // placeholder to force lifetime annotations
+pub struct InvokeInterpreter<'a, 'outer> {
+    invoke: &'a ir::Invoke,
+    env: InterpreterState<'outer>,
 }
 
-impl<'outer> InvokeInterpreter<'outer> {
+impl<'a, 'outer> InvokeInterpreter<'a, 'outer> {
     pub fn new(_invoke: &ir::Invoke, _env: InterpreterState<'outer>) -> Self {
         todo!()
     }
 }
 
-impl<'outer> Interpreter<'outer> for InvokeInterpreter<'outer> {
+impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
         todo!()
     }
@@ -749,7 +746,7 @@ pub enum ControlInterpreter<'a, 'outer> {
     Par(Box<ParInterpreter<'a, 'outer>>),
     If(Box<IfInterpreter<'a, 'outer>>),
     While(Box<WhileInterpreter<'a, 'outer>>),
-    Invoke(Box<InvokeInterpreter<'outer>>),
+    Invoke(Box<InvokeInterpreter<'a, 'outer>>),
 }
 
 impl<'a, 'outer> ControlInterpreter<'a, 'outer> {
@@ -855,21 +852,21 @@ impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
         env: InterpreterState<'outer>,
     ) -> Self {
         let comp_sig = comp.signature.borrow();
-        let done_port: ConstPort = comp_sig.get("done").as_ptr();
-        let go_port: ConstPort = comp_sig.get("go").as_ptr();
+        let done_port = comp_sig.get_with_attr("done");
+        let go_port = comp_sig.get_with_attr("go");
         let continuous_assignments = &comp.continuous_assignments;
 
         let interp = AssignmentInterpreter::new(
             env,
-            done_port,
+            Rc::clone(&done_port),
             (std::iter::empty(), continuous_assignments.iter()),
         );
 
         Self {
             interp,
             continuous: continuous_assignments,
-            done_port,
-            go_port,
+            done_port: done_port.as_raw(),
+            go_port: go_port.as_raw(),
         }
     }
 }

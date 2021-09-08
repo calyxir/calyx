@@ -15,12 +15,25 @@ pub fn is_signal_high(done: &Value) -> bool {
     done.as_u64() == 1
 }
 
-pub fn get_dest_cells<'a, I>(iter: I) -> Vec<RRC<ir::Cell>>
+pub fn get_dest_cells<'a, I>(
+    iter: I,
+    done_sig: Option<RRC<ir::Port>>,
+) -> Vec<RRC<ir::Cell>>
 where
     I: Iterator<Item = &'a ir::Assignment>,
 {
     let mut assign_set: HashSet<*const ir::Cell> = HashSet::new();
-    iter.filter_map(|assign| {
+    let mut output_vec = vec![];
+
+    if let Some(done_prt) = done_sig {
+        if let ir::PortParent::Cell(c) = &done_prt.borrow().parent {
+            let parent = c.upgrade();
+            assign_set.insert(parent.as_ptr());
+            output_vec.push(parent)
+        }
+    };
+
+    let iterator = iter.filter_map(|assign| {
         match &assign.dst.borrow().parent {
             ir::PortParent::Cell(c) => {
                 match &c.upgrade().borrow().prototype {
@@ -43,8 +56,10 @@ where
             }
             ir::PortParent::Group(_) => None,
         }
-    })
-    .collect()
+    });
+    output_vec.extend(iterator);
+
+    output_vec
 }
 pub fn control_is_empty(control: &ir::Control) -> bool {
     match control {

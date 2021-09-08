@@ -1,7 +1,10 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use crate::{environment::InterpreterState, utils::AsRaw};
+use crate::{
+    environment::InterpreterState,
+    utils::{AsRaw, RcOrConst},
+};
 
 use super::utils::{get_dest_cells, get_done_port, ConstPort};
 use crate::values::Value;
@@ -58,7 +61,7 @@ pub fn interp_cont<'outer>(
 
     let mut assign_interp = AssignmentInterpreter::new(
         env,
-        done_prt_ref,
+        done_port.clone(),
         (std::iter::empty(), continuous_assignments.iter()),
     );
     assign_interp.run()?;
@@ -73,7 +76,7 @@ pub fn interp_cont<'outer>(
     // required because of lifetime shennanigans
     let final_env = finish_interpretation(
         res,
-        &done_port.borrow() as &ir::Port as ConstPort,
+        Rc::clone(&done_port),
         continuous_assignments.iter(),
     );
     final_env
@@ -91,7 +94,7 @@ pub fn interpret_group<'outer>(
 
     let interp = AssignmentInterpreter::new(
         env,
-        grp_done_ref,
+        grp_done.clone(),
         (group.assignments.iter(), continuous_assignments.iter()),
     );
 
@@ -104,11 +107,10 @@ pub fn finish_group_interpretation<'outer>(
     env: InterpreterState<'outer>,
 ) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
-    let grp_done_ref: &ir::Port = &grp_done.borrow();
 
     finish_interpretation(
         env,
-        grp_done_ref,
+        grp_done,
         group
             .assignments
             .iter()
@@ -195,12 +197,13 @@ fn get_inputs<'a>(
 pub(crate) fn finish_interpretation<
     'a,
     I: Iterator<Item = &'a ir::Assignment>,
-    P: AsRaw<ir::Port>,
+    P: Into<RcOrConst<ir::Port>>,
 >(
     mut env: InterpreterState,
     done_signal: P,
     assigns: I,
 ) -> InterpreterResult<InterpreterState> {
+    let done_signal: RcOrConst<ir::Port> = done_signal.into();
     // replace port values for all the assignments
     let assigns = assigns.collect::<Vec<_>>();
 
@@ -211,7 +214,7 @@ pub(crate) fn finish_interpretation<
         );
     }
 
-    let cells = get_dest_cells(assigns.iter().copied());
+    let cells = get_dest_cells(assigns.iter().copied(), done_signal.get_rrc());
 
     env.insert(done_signal.as_raw(), Value::bit_low());
     eval_prims(&mut env, cells.iter(), true);

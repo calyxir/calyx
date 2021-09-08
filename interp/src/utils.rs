@@ -8,6 +8,7 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
+use std::rc::Rc;
 
 /// A wrapper to enable hashing of assignments by their destination port.
 pub(super) struct PortAssignment<'a>(*const Port, &'a Assignment);
@@ -139,4 +140,45 @@ pub fn assignment_to_string(assignment: &ir::Assignment) -> String {
     ir::IRPrinter::write_assignment(assignment, 0, &mut str)
         .expect("Write Failed");
     String::from_utf8(str).expect("Found invalid UTF-8")
+}
+
+pub enum RcOrConst<T> {
+    Rc(RRC<T>),
+    Const(*const T),
+}
+
+impl<T> RcOrConst<T> {
+    pub fn get_rrc(&self) -> Option<RRC<T>> {
+        match self {
+            RcOrConst::Rc(c) => Some(Rc::clone(c)),
+            RcOrConst::Const(_) => None,
+        }
+    }
+}
+
+impl<T> From<RRC<T>> for RcOrConst<T> {
+    fn from(input: RRC<T>) -> Self {
+        Self::Rc(input)
+    }
+}
+
+impl<T> From<&RRC<T>> for RcOrConst<T> {
+    fn from(input: &RRC<T>) -> Self {
+        Self::Rc(Rc::clone(input))
+    }
+}
+
+impl<T> From<*const T> for RcOrConst<T> {
+    fn from(input: *const T) -> Self {
+        Self::Const(input)
+    }
+}
+
+impl<T> AsRaw<T> for RcOrConst<T> {
+    fn as_raw(&self) -> *const T {
+        match self {
+            RcOrConst::Rc(a) => a.as_raw(),
+            RcOrConst::Const(a) => *a,
+        }
+    }
 }

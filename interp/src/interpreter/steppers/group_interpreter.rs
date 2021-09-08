@@ -90,16 +90,17 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     /// assignments from an outside context
     pub fn new<I1, I2>(
         state: InterpreterState<'outer>,
-        done_signal: ConstPort,
+        done_signal: RRC<ir::Port>,
         assigns: (I1, I2),
     ) -> Self
     where
         I1: Iterator<Item = &'a Assignment>,
         I2: Iterator<Item = &'a Assignment>,
     {
-        let done_port = done_signal;
+        let done_port = done_signal.as_raw();
         let assigns: AssignmentOwner = assigns.into();
-        let cells = utils::get_dest_cells(assigns.iter_all());
+        let cells =
+            utils::get_dest_cells(assigns.iter_all(), Some(done_signal));
 
         Self {
             state,
@@ -114,12 +115,13 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     /// interpretes
     pub fn new_owned(
         state: InterpreterState<'outer>,
-        done_signal: ConstPort,
+        done_signal: RRC<ir::Port>,
         vecs: (Vec<Assignment>, Vec<Assignment>),
     ) -> Self {
-        let done_port = done_signal;
+        let done_port = done_signal.as_raw();
         let assigns: AssignmentOwner = AssignmentOwner::from_vecs(vecs);
-        let cells = utils::get_dest_cells(assigns.iter_all());
+        let cells =
+            utils::get_dest_cells(assigns.iter_all(), Some(done_signal));
 
         Self {
             state,
@@ -132,16 +134,17 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
 
     pub fn new_owned_grp<I1>(
         state: InterpreterState<'outer>,
-        done_signal: ConstPort,
+        done_signal: RRC<ir::Port>,
         vecs: (Vec<Assignment>, I1),
     ) -> Self
     where
         I1: Iterator<Item = &'a Assignment>,
     {
-        let done_port = done_signal;
+        let done_port = done_signal.as_raw();
         let assigns: AssignmentOwner =
             AssignmentOwner::OwnedGrp(vecs.0, vecs.1.collect());
-        let cells = utils::get_dest_cells(assigns.iter_all());
+        let cells =
+            utils::get_dest_cells(assigns.iter_all(), Some(done_signal));
 
         Self {
             state,
@@ -154,16 +157,17 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
 
     pub fn _new_owned_cont<I1>(
         state: InterpreterState<'outer>,
-        done_signal: ConstPort,
+        done_signal: RRC<ir::Port>,
         vecs: (I1, Vec<Assignment>),
     ) -> Self
     where
         I1: Iterator<Item = &'a Assignment>,
     {
-        let done_port = done_signal;
+        let done_port = done_signal.as_raw();
         let assigns: AssignmentOwner =
             AssignmentOwner::OwnedCont(vecs.0.collect(), vecs.1);
-        let cells = utils::get_dest_cells(assigns.iter_all());
+        let cells =
+            utils::get_dest_cells(assigns.iter_all(), Some(done_signal));
 
         Self {
             state,

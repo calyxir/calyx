@@ -1,5 +1,6 @@
 //! Inteprets a control in a component.
 
+use std::any::Any;
 use std::collections::HashSet;
 
 use super::interpret_group::{
@@ -7,6 +8,9 @@ use super::interpret_group::{
 };
 use crate::environment::InterpreterState;
 use crate::errors::InterpreterResult;
+use crate::interpreter::utils::is_signal_high;
+use crate::primitives::Primitive;
+use crate::utils::AsRaw;
 use calyx::ir;
 
 /// Helper function to evaluate control
