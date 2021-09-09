@@ -5,7 +5,7 @@ mod group_interpreter;
 pub use component_interpreter::{
     ComponentInterpreter, ComponentInterpreterMarker,
 };
-pub use control_interpreter::Interpreter;
+pub use control_interpreter::{Interpreter, InvokeInterpreter};
 pub use group_interpreter::{
     AssignmentInterpreter, AssignmentInterpreterMarker,
 };
