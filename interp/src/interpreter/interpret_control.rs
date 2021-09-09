@@ -4,7 +4,7 @@ use std::any::Any;
 use std::collections::HashSet;
 
 use super::interpret_group::{
-    finish_group_interpretation, interp_cont, interpret_group,
+    finish_group_interpretation, interp_cont, interpret_group, interpret_invoke,
 };
 use crate::environment::InterpreterState;
 use crate::errors::InterpreterResult;
@@ -156,11 +156,11 @@ fn eval_while<'outer>(
 /// TODO
 #[allow(clippy::unnecessary_wraps)]
 fn eval_invoke<'outer>(
-    _i: &ir::Invoke,
-    _continuous_assignments: &[ir::Assignment],
-    _env: InterpreterState<'outer>,
+    inv: &ir::Invoke,
+    continuous_assignments: &[ir::Assignment],
+    env: InterpreterState<'outer>,
 ) -> InterpreterResult<InterpreterState<'outer>> {
-    todo!("invoke control operator")
+    interpret_invoke(inv, continuous_assignments, env)
 }
 
 /// Interpret Enable

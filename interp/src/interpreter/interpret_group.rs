@@ -6,11 +6,14 @@ use crate::{
     utils::{AsRaw, RcOrConst},
 };
 
-use super::utils::{get_dest_cells, get_done_port, ConstPort};
+use super::{
+    utils::{get_dest_cells, get_done_port, ConstPort},
+    Interpreter,
+};
 use crate::values::Value;
 use calyx::ir::{self, RRC};
 
-use super::steppers::AssignmentInterpreter;
+use super::steppers::{AssignmentInterpreter, InvokeInterpreter};
 use crate::errors::InterpreterResult;
 
 // /// An internal method that does the main work of interpreting a set of
@@ -118,6 +121,15 @@ pub fn finish_group_interpretation<'outer>(
     )
 }
 
+pub fn interpret_invoke<'outer>(
+    inv: &ir::Invoke,
+    continuous_assignments: &[ir::Assignment],
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
+    let mut interp = InvokeInterpreter::new(inv, env, continuous_assignments);
+    interp.run()?;
+    Ok(interp.deconstruct())
+}
 /// Evaluates the primitives corresponding to the given iterator of cells, based
 /// on the current environment. Returns a set of assignments that may change
 /// based on the updates to primitive values.
