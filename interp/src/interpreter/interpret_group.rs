@@ -60,7 +60,6 @@ pub fn interp_cont<'outer>(
         &go_port.borrow() as &ir::Port as ConstPort,
         Value::bit_high(),
     );
-    let done_prt_ref = &done_port.borrow() as &ir::Port as *const ir::Port;
 
     let mut assign_interp = AssignmentInterpreter::new(
         env,
@@ -79,7 +78,7 @@ pub fn interp_cont<'outer>(
     // required because of lifetime shennanigans
     let final_env = finish_interpretation(
         res,
-        Rc::clone(&done_port),
+        Rc::clone(done_port),
         continuous_assignments.iter(),
     );
     final_env
@@ -93,11 +92,10 @@ pub fn interpret_group<'outer>(
     env: InterpreterState<'outer>,
 ) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
-    let grp_done_ref: &ir::Port = &grp_done.borrow();
 
     let interp = AssignmentInterpreter::new(
         env,
-        grp_done.clone(),
+        grp_done,
         (group.assignments.iter(), continuous_assignments.iter()),
     );
 

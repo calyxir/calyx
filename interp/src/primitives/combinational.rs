@@ -19,10 +19,10 @@ impl StdConst {
     }
 
     pub fn new(params: &ir::Binding) -> Self {
-        let width = get_param(&params, "WIDTH")
+        let width = get_param(params, "WIDTH")
             .expect("Missing width parameter from std_const binding");
 
-        let init_value = get_param(&params, "VALUE")
+        let init_value = get_param(params, "VALUE")
             .expect("Missing `vale` param from std_const binding");
 
         let value = Value::from(init_value, width).unwrap();

@@ -24,7 +24,7 @@ impl<'a, 'outer> Default for StructuralOrControl<'a, 'outer> {
 }
 
 impl<'a, 'outer> StructuralOrControl<'a, 'outer> {
-    fn is_structural(&self) -> bool {
+    fn _is_structural(&self) -> bool {
         matches!(self, Self::Structural(_))
     }
 

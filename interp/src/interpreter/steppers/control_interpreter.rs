@@ -1,7 +1,6 @@
 use super::super::utils::get_done_port;
 use super::{AssignmentInterpreter, AssignmentInterpreterMarker};
 use crate::interpreter::interpret_group::finish_interpretation;
-use crate::primitives::Primitive;
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -16,7 +15,6 @@ use calyx::ir::{self, Assignment, Component, Control, Guard};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
 use std::collections::HashSet;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 // this almost certainly doesn't need to exist but it can't be a trait fn with a
@@ -114,7 +112,7 @@ impl<'a> From<&'a ir::Enable> for ReferenceHolder<'a, ir::Group> {
 }
 
 pub struct EnableInterpreter<'a, 'outer> {
-    enable: EnableHolder<'a>,
+    _enable: EnableHolder<'a>,
     group_name: Option<ir::Id>,
     interp: AssignmentInterpreter<'a, 'outer>,
 }
@@ -137,7 +135,7 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
         let done = get_done_port(&enable);
         let interp = AssignmentInterpreter::new_owned(env, done, assigns);
         Self {
-            enable,
+            _enable: enable,
             group_name,
             interp,
         }
@@ -900,7 +898,6 @@ pub struct StructuralInterpreter<'a, 'outer> {
     interp: AssignmentInterpreter<'a, 'outer>,
     continuous: &'a [Assignment],
     done_port: ConstPort,
-    go_port: ConstPort,
 }
 
 impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
@@ -910,7 +907,6 @@ impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
     ) -> Self {
         let comp_sig = comp.signature.borrow();
         let done_port = comp_sig.get_with_attr("done");
-        let go_port = comp_sig.get_with_attr("go");
         let continuous_assignments = &comp.continuous_assignments;
 
         let interp = AssignmentInterpreter::new(
@@ -923,7 +919,6 @@ impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
             interp,
             continuous: continuous_assignments,
             done_port: done_port.as_raw(),
-            go_port: go_port.as_raw(),
         }
     }
 }

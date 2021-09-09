@@ -408,11 +408,11 @@ impl StdMemD1 {
     /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
     /// you will not be able to access the slots near the end of the memory.
     pub fn new(params: &ir::Binding) -> StdMemD1 {
-        let width = get_param(&params, "WIDTH")
+        let width = get_param(params, "WIDTH")
             .expect("Missing width param for std_mem_d1");
-        let size = get_param(&params, "SIZE")
+        let size = get_param(params, "SIZE")
             .expect("Missing size param for std_mem_d1");
-        let idx_size = get_param(&params, "IDX_SIZE")
+        let idx_size = get_param(params, "IDX_SIZE")
             .expect("Missing idx_size param for std_mem_d1");
 
         let data = vec![Value::zeroes(width as usize); size as usize];
@@ -608,15 +608,15 @@ impl StdMemD2 {
     /// [d0_idx_size] and [d1_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
     pub fn new(params: &ir::Binding) -> StdMemD2 {
-        let width = get_param(&params, "WIDTH")
+        let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d2");
-        let d0_size = get_param(&params, "D0_SIZE")
+        let d0_size = get_param(params, "D0_SIZE")
             .expect("Missing d0_size parameter for std_mem_d2");
-        let d1_size = get_param(&params, "D1_SIZE")
+        let d1_size = get_param(params, "D1_SIZE")
             .expect("Missing d1_size parameter for std_mem_d2");
-        let d0_idx_size = get_param(&params, "D0_IDX_SIZE")
+        let d0_idx_size = get_param(params, "D0_IDX_SIZE")
             .expect("Missing d0_idx_size parameter for std_mem_d2");
-        let d1_idx_size = get_param(&params, "D1_IDX_SIZE")
+        let d1_idx_size = get_param(params, "D1_IDX_SIZE")
             .expect("Missing d1_idx_size parameter for std_mem_d2");
 
         let data =
@@ -827,19 +827,19 @@ impl StdMemD3 {
     /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
     pub fn new(params: &ir::Binding) -> StdMemD3 {
-        let width = get_param(&params, "WIDTH")
+        let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d3");
-        let d0_size = get_param(&params, "D0_SIZE")
+        let d0_size = get_param(params, "D0_SIZE")
             .expect("Missing d0_size parameter for std_mem_d3");
-        let d1_size = get_param(&params, "D1_SIZE")
+        let d1_size = get_param(params, "D1_SIZE")
             .expect("Missing d1_size parameter for std_mem_d3");
-        let d2_size = get_param(&params, "D2_SIZE")
+        let d2_size = get_param(params, "D2_SIZE")
             .expect("Missing d2_size parameter for std_mem_d3");
-        let d0_idx_size = get_param(&params, "D0_IDX_SIZE")
+        let d0_idx_size = get_param(params, "D0_IDX_SIZE")
             .expect("Missing d0_idx_size parameter for std_mem_d3");
-        let d1_idx_size = get_param(&params, "D1_IDX_SIZE")
+        let d1_idx_size = get_param(params, "D1_IDX_SIZE")
             .expect("Missing d1_idx_size parameter for std_mem_d3");
-        let d2_idx_size = get_param(&params, "D2_IDX_SIZE")
+        let d2_idx_size = get_param(params, "D2_IDX_SIZE")
             .expect("Missing d2_idx_size parameter for std_mem_d3");
 
         let data = vec![
@@ -1089,23 +1089,23 @@ impl StdMemD4 {
     /// Initially the memory is filled with all 0s.
     pub fn new(params: &ir::Binding) -> StdMemD4 {
         // yes this was incredibly tedious to write. Why do you ask?
-        let width = get_param(&params, "WIDTH")
+        let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d4");
-        let d0_size = get_param(&params, "D0_SIZE")
+        let d0_size = get_param(params, "D0_SIZE")
             .expect("Missing d0_size parameter for std_mem_d4");
-        let d1_size = get_param(&params, "D1_SIZE")
+        let d1_size = get_param(params, "D1_SIZE")
             .expect("Missing d1_size parameter for std_mem_d4");
-        let d2_size = get_param(&params, "D2_SIZE")
+        let d2_size = get_param(params, "D2_SIZE")
             .expect("Missing d2_size parameter for std_mem_d4");
-        let d3_size = get_param(&params, "D3_SIZE")
+        let d3_size = get_param(params, "D3_SIZE")
             .expect("Missing d3_size parameter for std_mem_d4");
-        let d0_idx_size = get_param(&params, "D0_IDX_SIZE")
+        let d0_idx_size = get_param(params, "D0_IDX_SIZE")
             .expect("Missing d0_idx_size parameter for std_mem_d4");
-        let d1_idx_size = get_param(&params, "D1_IDX_SIZE")
+        let d1_idx_size = get_param(params, "D1_IDX_SIZE")
             .expect("Missing d1_idx_size parameter for std_mem_d4");
-        let d2_idx_size = get_param(&params, "D2_IDX_SIZE")
+        let d2_idx_size = get_param(params, "D2_IDX_SIZE")
             .expect("Missing d2_idx_size parameter for std_mem_d4");
-        let d3_idx_size = get_param(&params, "D3_IDX_SIZE")
+        let d3_idx_size = get_param(params, "D3_IDX_SIZE")
             .expect("Missing d3_idx_size parameter for std_mem_d4");
 
         let data = vec![
