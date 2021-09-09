@@ -1,6 +1,3 @@
-use crate::interpreter::ComponentInterpreter;
-use crate::interpreter::ComponentInterpreterMarker;
-use crate::interpreter::Interpreter;
 use crate::values::Value;
 use calyx::ir;
 use itertools::Itertools;
@@ -41,12 +38,6 @@ pub trait Primitive {
     // more efficient to override this with true in stateful cases
     fn has_serializeable_state(&self) -> bool {
         self.serialize().has_state()
-    }
-
-    fn get_comp_interp(
-        &mut self,
-    ) -> Option<&mut dyn ComponentInterpreterMarker> {
-        None
     }
 }
 

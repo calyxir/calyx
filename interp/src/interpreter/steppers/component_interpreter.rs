@@ -330,27 +330,21 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
 
         self.look_up_outputs()
     }
-
-    fn get_comp_interp(
-        &mut self,
-    ) -> Option<&mut dyn ComponentInterpreterMarker> {
-        Some(self)
-    }
 }
 
-pub trait ComponentInterpreterMarker {
-    fn set_go_low(&mut self);
-    fn set_go_high(&mut self);
-}
+// pub trait ComponentInterpreterMarker {
+//     fn set_go_low(&mut self);
+//     fn set_go_high(&mut self);
+// }
 
-impl<'a, 'outer> ComponentInterpreterMarker
-    for ComponentInterpreter<'a, 'outer>
-{
-    fn set_go_low(&mut self) {
-        self.set_done_low();
-    }
+// impl<'a, 'outer> ComponentInterpreterMarker
+//     for ComponentInterpreter<'a, 'outer>
+// {
+//     fn set_go_low(&mut self) {
+//         self.set_done_low();
+//     }
 
-    fn set_go_high(&mut self) {
-        self.set_go_high()
-    }
-}
+//     fn set_go_high(&mut self) {
+//         self.set_go_high()
+//     }
+// }

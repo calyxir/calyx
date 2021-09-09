@@ -5,6 +5,4 @@ mod steppers;
 mod utils;
 
 pub use interpret_component::interpret_component;
-pub use steppers::{
-    ComponentInterpreter, ComponentInterpreterMarker, Interpreter,
-};
+pub use steppers::{ComponentInterpreter, Interpreter};
