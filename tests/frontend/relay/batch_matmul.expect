@@ -71,38 +71,31 @@ component batch_matmul_4x7x7(a0_0_0_read_data: 32, a0_0_0_done: 1, b0_0_0_read_d
     red_read00 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __batch0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = __i0.out;
       le1.right = const3.out;
     }
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
+    comb group cond2 {
       le2.left = __j0.out;
       le2.right = const5.out;
     }
-    group cond3<"static"=0> {
-      cond3[done] = 1'd1;
+    comb group cond3 {
       le3.left = __batch1.out;
       le3.right = const10.out;
     }
-    group cond4<"static"=0> {
-      cond4[done] = 1'd1;
+    comb group cond4 {
       le4.left = __i1.out;
       le4.right = const12.out;
     }
-    group cond5<"static"=0> {
-      cond5[done] = 1'd1;
+    comb group cond5 {
       le5.left = __j1.out;
       le5.right = const14.out;
     }
-    group cond6<"static"=0> {
-      cond6[done] = 1'd1;
+    comb group cond6 {
       le6.left = __k0.out;
       le6.right = const16.out;
     }

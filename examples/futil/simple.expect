@@ -20,15 +20,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.reset = reset;
     fsm.write_en = fsm.out == 2'd0 & reg0.done & go | fsm.out == 2'd1 & reg1.done & go | fsm.out == 2'd2 ? 1'd1;
     mult.clk = clk;
-    mult.go = !mult.done & !reg1.done & fsm.out == 2'd1 & go ? 1'd1;
-    mult.left = !reg1.done & fsm.out == 2'd1 & go ? const0.out;
-    mult.right = !reg1.done & fsm.out == 2'd1 & go ? const1.out;
+    mult.go = !mult.done & (reg0.done & fsm.out == 2'd0 & go | !reg1.done & fsm.out == 2'd1 & go) ? 1'd1;
+    mult.left = reg0.done & fsm.out == 2'd0 & go | !reg1.done & fsm.out == 2'd1 & go ? const0.out;
+    mult.right = reg0.done & fsm.out == 2'd0 & go | !reg1.done & fsm.out == 2'd1 & go ? const1.out;
     reg0.clk = clk;
     reg0.in = !reg0.done & fsm.out == 2'd0 & go ? add.out;
     reg0.write_en = !reg0.done & fsm.out == 2'd0 & go ? 1'd1;
     reg1.clk = clk;
-    reg1.in = !reg1.done & fsm.out == 2'd1 & go ? mult.out;
-    reg1.write_en = !reg1.done & fsm.out == 2'd1 & go ? mult.done;
+    reg1.in = reg0.done & fsm.out == 2'd0 & go | !reg1.done & fsm.out == 2'd1 & go ? mult.out;
+    reg1.write_en = reg0.done & fsm.out == 2'd0 & go | !reg1.done & fsm.out == 2'd1 & go ? mult.done;
   }
 
   control {}

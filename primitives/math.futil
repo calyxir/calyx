@@ -57,10 +57,9 @@ component pow(base: 32, exp: 32) -> (out: 32) {
       count.write_en = 1'd1;
       incr_count[done] = count.done;
     }
-    group cond<"static"=0> {
+    comb group cond {
       lt.right = exp;
       lt.left = count.out;
-      cond[done] = 1'd1;
     }
     out = t.out;
   }

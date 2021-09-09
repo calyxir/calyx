@@ -15,7 +15,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group rd_x {
       add_x.left = x.out;
       add_x.right = x.out;
-      rd_x[done] = 1'd1;
+      rd_x[done] = x.done;
     }
     group wr_y {
       y.in = 32'd4;
@@ -25,7 +25,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group rd_y {
       add_y.left = y.out;
       add_y.right = y.out;
-      rd_y[done] = 1'd1;
+      rd_y[done] = y.done;
     }
   }
 

@@ -1,7 +1,8 @@
 use super::{
-    Assignment, Attributes, Builder, Cell, CellType, CloneName, Control,
-    Direction, GetName, Group, Id, RRC,
+    Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
+    Control, Direction, GetName, Group, Id, RRC,
 };
+use crate::ir::RESERVED_NAMES;
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
@@ -24,6 +25,8 @@ pub struct Component {
     pub cells: IdList<Cell>,
     /// Groups of assignment wires.
     pub groups: IdList<Group>,
+    /// Groups of assignment wires.
+    pub comb_groups: IdList<CombGroup>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
     pub continuous_assignments: Vec<Assignment>,
@@ -52,9 +55,10 @@ impl Component {
         S: AsRef<str>,
         N: AsRef<str>,
     {
-        let port_names: HashSet<_> = ports
+        let prev_names: HashSet<_> = ports
             .iter()
             .map(|(name, _, _, _)| name.as_ref().to_string())
+            .chain(RESERVED_NAMES.iter().map(|s| s.to_string()))
             .collect();
 
         let this_sig = Builder::cell_from_signature(
@@ -74,9 +78,10 @@ impl Component {
             signature: this_sig,
             cells: IdList::default(),
             groups: IdList::default(),
+            comb_groups: IdList::default(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
-            namegen: utils::NameGenerator::with_prev_defined_names(port_names),
+            namegen: utils::NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
         }
     }
@@ -87,6 +92,14 @@ impl Component {
         S: Clone + AsRef<str>,
     {
         self.groups.find(name)
+    }
+
+    /// Return a refernece to a combination group with `name` if present.
+    pub fn find_comb_group<S>(&self, name: &S) -> Option<RRC<CombGroup>>
+    where
+        S: Clone + AsRef<str>,
+    {
+        self.comb_groups.find(name)
     }
 
     /// Return a reference to the cell with `name` if present.
@@ -113,8 +126,12 @@ impl Component {
 #[derive(Debug)]
 pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
 
-impl<T: GetName> From<Vec<RRC<T>>> for IdList<T> {
-    fn from(list: Vec<RRC<T>>) -> Self {
+impl<T, F> From<F> for IdList<T>
+where
+    T: GetName,
+    F: IntoIterator<Item = RRC<T>>,
+{
+    fn from(list: F) -> Self {
         IdList(
             list.into_iter()
                 .map(|item| {
@@ -130,6 +147,11 @@ impl<T: GetName> IdList<T> {
     /// Removes all elements from the collection
     pub fn clear(&mut self) {
         self.0.clear();
+    }
+
+    /// Returns true if there are no elements in the list.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Keep only the elements in the collection which satisfy the given

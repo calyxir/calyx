@@ -1,9 +1,9 @@
-use argh::FromArgs;
-use calyx::backend::traits::Backend;
-use calyx::backend::{
-    verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
-    xilinx::XilinxXmlBackend,
+use crate::backend::traits::Backend;
+use crate::backend::{
+    circt::CirctBackend, verilog::VerilogBackend,
+    xilinx::XilinxInterfaceBackend, xilinx::XilinxXmlBackend,
 };
+use argh::FromArgs;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 use itertools::Itertools;
 use std::path::Path;
@@ -25,13 +25,13 @@ pub struct Opts {
     #[argh(option, short = 'l', default = "Path::new(\".\").into()")]
     pub lib_path: PathBuf,
 
-    /// enable debug mode output
-    #[argh(switch, long = "debug")]
-    pub enable_debug: bool,
-
     /// enable synthesis mode
     #[argh(switch, long = "synthesis")]
     pub enable_synthesis: bool,
+
+    /// disable verification checks emitted by backends
+    #[argh(switch)]
+    pub disable_verify: bool,
 
     /// select a backend
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
@@ -48,6 +48,10 @@ pub struct Opts {
     /// disable pass during execution
     #[argh(option, short = 'd', long = "disable-pass")]
     pub disable_pass: Vec<String>,
+
+    /// extra options passed to the context
+    #[argh(option, short = 'x', long = "extra-opt")]
+    pub extra_opts: Vec<String>,
 
     /// list all avaliable pass options
     #[argh(switch, long = "list-passes")]
@@ -67,6 +71,7 @@ pub enum BackendOpt {
     Xilinx,
     XilinxXml,
     Calyx,
+    Circt,
     None,
 }
 
@@ -77,6 +82,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("xilinx-xml", BackendOpt::XilinxXml),
         ("futil", BackendOpt::Calyx),
         ("calyx", BackendOpt::Calyx),
+        ("circt", BackendOpt::Circt),
         ("none", BackendOpt::None),
     ]
 }
@@ -118,6 +124,7 @@ impl FromStr for BackendOpt {
 impl ToString for BackendOpt {
     fn to_string(&self) -> String {
         match self {
+            Self::Circt => "circt",
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
@@ -132,6 +139,10 @@ impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
     pub fn run_backend(self, context: &ir::Context) -> CalyxResult<()> {
         match self.backend {
+            BackendOpt::Circt => {
+                let backend = CirctBackend::default();
+                backend.run(context, self.output)
+            }
             BackendOpt::Verilog => {
                 let backend = VerilogBackend::default();
                 backend.run(context, self.output)

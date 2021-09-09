@@ -1,11 +1,17 @@
-from calyx.py_ast import *
+from calyx.py_ast import (
+    Connect, CompVar, Cell, Group, ConstantPort, CompPort, Stdlib,
+    Component, ThisPort, And, HolePort, Atom, Not, PortDef, SeqComp,
+    Enable, While, ParComp, Structure, CompInst, Invoke, Program, Control,
+    If, Import, CombGroup
+)
 from calyx.utils import float_to_fixed_point
 from math import factorial, log2
 from typing import List
 from fud.stages.verilator import numeric_types
 
 
-def generate_fp_pow_component(width: int, int_width: int, is_signed: bool) -> Component:
+def generate_fp_pow_component(
+        width: int, int_width: int, is_signed: bool) -> Component:
     """Generates a fixed point `pow` component, which
     computes the value x**y, where y must be an integer.
     """
@@ -87,12 +93,12 @@ def generate_fp_pow_component(width: int, int_width: int, is_signed: bool) -> Co
                 ),
             ],
         ),
-        Group(
+        CombGroup(
             id=CompVar("cond"),
             connections=[
                 Connect(CompPort(count, "out"), CompPort(lt, "left")),
-                Connect(ThisPort(CompVar("integer_exp")), CompPort(lt, "right")),
-                Connect(ConstantPort(1, 1), HolePort(CompVar("cond"), "done")),
+                Connect(ThisPort(CompVar("integer_exp")),
+                        CompPort(lt, "right")),
             ],
         ),
         Connect(CompPort(CompVar("pow"), "out"), ThisPort(CompVar("out"))),
@@ -117,6 +123,7 @@ def generate_fp_pow_component(width: int, int_width: int, is_signed: bool) -> Co
         ),
     )
 
+
 def generate_cells(
     degree: int, width: int, int_width: int, is_signed: bool
 ) -> List[Cell]:
@@ -137,7 +144,10 @@ def generate_cells(
     )
 
     pow_registers = [
-        Cell(CompVar(f"p{i}"), stdlib.register(width)) for i in range(2, degree + 1)
+        Cell(
+            CompVar(f"p{i}"),
+            stdlib.register(width)
+        ) for i in range(2, degree + 1)
     ]
     product_registers = [
         Cell(CompVar(f"product{i}"), stdlib.register(width))
@@ -167,20 +177,26 @@ def generate_cells(
     ]
     # One extra `fp_pow` instance to compute e^{int_value}.
     pows = [
-        Cell(CompVar(f"pow{i}"), CompInst("fp_pow", [])) for i in range(1, degree + 1)
+        Cell(
+            CompVar(f"pow{i}"), CompInst("fp_pow", [])
+        ) for i in range(1, degree + 1)
     ]
     reciprocal_factorials = []
     for i in range(2, degree + 1):
-        fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
+        fixed_point_value = float_to_fixed_point(
+            1.0 / factorial(i), frac_width)
         value = numeric_types.FixedPoint(
             str(fixed_point_value), width, int_width, is_signed=is_signed
         ).unsigned_integer()
         reciprocal_factorials.append(
-            Cell(CompVar(f"reciprocal_factorial{i}"), stdlib.constant(width, value))
+            Cell(CompVar(f"reciprocal_factorial{i}"), stdlib.constant(
+                width, value))
         )
     # Constant values for the exponent to the fixed point `pow` function.
     constants = [
-        Cell(CompVar(f"c{i}"), stdlib.constant(width, i)) for i in range(2, degree + 1)
+        Cell(
+            CompVar(f"c{i}"), stdlib.constant(width, i)
+        ) for i in range(2, degree + 1)
     ] + [
         Cell(
             CompVar("one"),
@@ -218,7 +234,7 @@ def generate_cells(
         )
         pipes.append(
             Cell(
-                CompVar(f"div_pipe"),
+                CompVar("div_pipe"),
                 stdlib.fixed_point_op(
                     "div_pipe", width, int_width, frac_width, signed=is_signed
                 ),
@@ -277,7 +293,8 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
             reg_rhs = CompVar(f"{register_name}{rhs}")
             sum = CompVar(f"sum{i + 1}")
 
-            # In the first round and first group, we add the 1st degree, the value `x` itself.
+            # In the first round and first group, we add the 1st degree, the
+            # value `x` itself.
             lhs = (
                 CompPort(CompVar("frac_x"), "out")
                 if round == 1 and i == 0
@@ -296,7 +313,7 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
 
     # Sums the 0th degree value, 1, and the final
     # sum of the divide-and-conquer.
-    group_name = CompVar(f"add_degree_zero")
+    group_name = CompVar("add_degree_zero")
     adder = CompVar("add1")
     reg = CompVar("sum1")
     groups.append(
@@ -329,7 +346,8 @@ def generate_groups(
         connections=[
             Connect(ConstantPort(1, 1), CompPort(input, "write_en")),
             Connect(ThisPort(CompVar("x")), CompPort(input, "in")),
-            Connect(CompPort(input, "done"), HolePort(CompVar("init"), "done")),
+            Connect(CompPort(input, "done"),
+                    HolePort(CompVar("init"), "done")),
         ],
         static_delay=1,
     )
@@ -349,13 +367,16 @@ def generate_groups(
                     CompPort(mult_pipe, "go"),
                     Not(Atom(CompPort(mult_pipe, "done"))),
                 ),
-                Connect(CompPort(mult_pipe, "done"), CompPort(input, "write_en")),
+                Connect(CompPort(mult_pipe, "done"),
+                        CompPort(input, "write_en")),
                 Connect(CompPort(mult_pipe, "out"), CompPort(input, "in")),
-                Connect(CompPort(input, "done"), HolePort(CompVar("negate"), "done")),
+                Connect(CompPort(input, "done"), HolePort(
+                    CompVar("negate"), "done")),
             ],
         )
 
-    # Initialization: split up the value `x` into its integer and fractional values.
+    # Initialization: split up the value `x` into its integer and fractional
+    # values.
     split_bits = Group(
         id=CompVar("split_bits"),
         connections=[
@@ -440,7 +461,8 @@ def generate_groups(
                 CompPort(mult_pipe, "go"),
                 Not(Atom(CompPort(mult_pipe, "done"))),
             ),
-            Connect(CompPort(mult_pipe, "done"), CompPort(product, "write_en")),
+            Connect(CompPort(mult_pipe, "done"),
+                    CompPort(product, "write_en")),
             Connect(CompPort(mult_pipe, "out"), CompPort(product, "in")),
             Connect(CompPort(product, "done"), HolePort(group_name, "done")),
         ]
@@ -469,9 +491,11 @@ def generate_groups(
                         CompPort(mult_pipe, "go"),
                         Not(Atom(CompPort(mult_pipe, "done"))),
                     ),
-                    Connect(CompPort(mult_pipe, "done"), CompPort(reg, "write_en")),
+                    Connect(CompPort(mult_pipe, "done"),
+                            CompPort(reg, "write_en")),
                     Connect(CompPort(mult_pipe, "out"), CompPort(reg, "in")),
-                    Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
+                    Connect(CompPort(reg, "done"),
+                            HolePort(group_name, "done")),
                 ],
             )
         ]
@@ -483,28 +507,32 @@ def generate_groups(
         reciprocal = Group(
             id=CompVar("reciprocal"),
             connections=[
-                Connect(CompPort(CompVar("one"), "out"), CompPort(div_pipe, "left")),
+                Connect(CompPort(CompVar("one"), "out"),
+                        CompPort(div_pipe, "left")),
                 Connect(CompPort(input, "out"), CompPort(div_pipe, "right")),
                 Connect(
                     ConstantPort(1, 1),
                     CompPort(div_pipe, "go"),
                     Not(Atom(CompPort(div_pipe, "done"))),
                 ),
-                Connect(CompPort(div_pipe, "done"), CompPort(input, "write_en")),
-                Connect(CompPort(div_pipe, "out_quotient"), CompPort(input, "in")),
+                Connect(CompPort(div_pipe, "done"),
+                        CompPort(input, "write_en")),
+                Connect(CompPort(div_pipe, "out_quotient"),
+                        CompPort(input, "in")),
                 Connect(
-                    CompPort(input, "done"), HolePort(CompVar("reciprocal"), "done")
+                    CompPort(input, "done"), HolePort(
+                        CompVar("reciprocal"), "done")
                 ),
             ],
         )
-        is_negative = Group(
+        is_negative = CombGroup(
             id=CompVar("is_negative"),
             connections=[
-                Connect(ThisPort(CompVar("x")), CompPort(CompVar("lt"), "left")),
-                Connect(ConstantPort(width, 0), CompPort(CompVar("lt"), "right")),
-                Connect(ConstantPort(1, 1), HolePort(CompVar("is_negative"), "done")),
-            ],
-            static_delay=0,
+                Connect(ThisPort(CompVar("x")),
+                        CompPort(CompVar("lt"), "left")),
+                Connect(ConstantPort(width, 0),
+                        CompPort(CompVar("lt"), "right")),
+            ]
         )
 
     # Connect final value to the `out` signal of the component.
@@ -547,10 +575,12 @@ def generate_control(degree: int, is_signed: bool) -> Control:
             ]
         )
     ]
-    consume_pow = [ParComp([Enable(f"consume_pow{i}") for i in range(2, degree + 1)])]
+    consume_pow = [
+        ParComp([Enable(f"consume_pow{i}") for i in range(2, degree + 1)])]
     mult_by_reciprocal = [
         ParComp(
-            [Enable(f"mult_by_reciprocal_factorial{i}") for i in range(2, degree + 1)]
+            [Enable(f"mult_by_reciprocal_factorial{i}")
+             for i in range(2, degree + 1)]
         )
     ]
 
@@ -558,7 +588,8 @@ def generate_control(degree: int, is_signed: bool) -> Control:
     Enable_count = degree >> 1
     for r in range(1, int(log2(degree) + 1)):
         divide_and_conquer.append(
-            ParComp([Enable(f"sum_round{r}_{i}") for i in range(1, Enable_count + 1)])
+            ParComp([Enable(f"sum_round{r}_{i}")
+                    for i in range(1, Enable_count + 1)])
         )
         Enable_count >>= 1
 
@@ -631,7 +662,8 @@ def generate_exp_taylor_series_approximation(
 
 
 if __name__ == "__main__":
-    import argparse, json
+    import argparse
+    import json
 
     parser = argparse.ArgumentParser(
         description="`exp` using a Taylor Series approximation"
@@ -677,7 +709,8 @@ if __name__ == "__main__":
             outputs=[],
             structs=[
                 Cell(CompVar("t"), Stdlib().register(width)),
-                Cell(CompVar("x"), Stdlib().mem_d1(width, 1, 1), is_external=True),
+                Cell(CompVar("x"), Stdlib().mem_d1(
+                    width, 1, 1), is_external=True),
                 Cell(
                     CompVar("ret"),
                     Stdlib().mem_d1(width, 1, 1),

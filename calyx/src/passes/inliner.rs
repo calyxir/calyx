@@ -113,7 +113,8 @@ impl Visitor for Inliner {
             ir::Control::Empty(_) => return Ok(Action::Stop),
             ir::Control::Enable(en) => Rc::clone(&en.group),
             _ => return Err(Error::MalformedControl(format!(
-                    "The hole inliner requires control to be a single enable. Try running `{}` before inlining.",
+                    "{}: Control shoudl be a single enable. Try running `{}` before inlining.",
+                    Self::name(),
                     TopDownCompileControl::name()))
             )
         };

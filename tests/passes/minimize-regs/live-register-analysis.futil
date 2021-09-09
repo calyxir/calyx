@@ -1,4 +1,4 @@
-// -p minimize-regs -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
 import "primitives/std.lib";
 component kernel() -> () {
   cells {
@@ -16,13 +16,11 @@ component kernel() -> () {
     le1 = std_le(6);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = i0.out;
       le0.right = 6'd31;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = i1.out;
       le1.right = 6'd31;
     }

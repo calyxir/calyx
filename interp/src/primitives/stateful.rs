@@ -18,15 +18,14 @@ where
     })
 }
 
-///Pipelined Multiplication (3 cycles)
-///Still bounded by u64.
-///How to use:
-///[execute] with the desired bindings. To capture these bindings
-///into the internal (out) queue, [do_tick()].
-///The product associated with a given input will
-///be output on the third [do_tick()].
-///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
-///the last set of inputs prior to the [do_tick()] will be saved.
+/// Pipelined Multiplication (3 cycles)
+/// Still bounded by u64.
+/// How to use:
+/// [Primitive::execute] with the desired bindings.
+/// To capture these bindings into the internal (out) queue, [Primitive::do_tick].
+/// The product associated with a given input will be output on the third [do_tick()].
+/// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
+/// set of inputs prior to the [Primitve::do_tick] will be saved.
 #[derive(Default)]
 pub struct StdMultPipe {
     pub width: u64,

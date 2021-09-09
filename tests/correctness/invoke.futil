@@ -33,10 +33,9 @@ component exponent(base: 32, exp: 4) -> (out: 32) {
       count.write_en = 1'd1;
       incr_count[done] = count.done;
     }
-    group cond<"static"=0> {
+    comb group cond {
       lt.right = exp;
       lt.left = count.out;
-      cond[done] = 1'd1;
     }
 
     out = pow.out;
@@ -66,8 +65,7 @@ component main() -> () {
     tmp_0 = std_reg(32);
   }
   wires {
-    group cond0 {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = i0.out;
       le0.right = const1.out;
     }

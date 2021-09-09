@@ -70,33 +70,27 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
     x_read3_0 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __i0.out;
       le0.right = const3.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = __j0.out;
       le1.right = const5.out;
     }
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
+    comb group cond2 {
       gt0.left = x_read0_0.out;
       gt0.right = __max_0.out;
     }
-    group cond3<"static"=0> {
-      cond3[done] = 1'd1;
+    comb group cond3 {
       le2.left = __i1.out;
       le2.right = const9.out;
     }
-    group cond4<"static"=0> {
-      cond4[done] = 1'd1;
+    comb group cond4 {
       le3.left = __j1.out;
       le3.right = const11.out;
     }
-    group cond5<"static"=0> {
-      cond5[done] = 1'd1;
+    comb group cond5 {
       le4.left = __k0.out;
       le4.right = const14.out;
     }
@@ -405,10 +399,9 @@ component exp(x: 32) -> (out: 32) {
       exponent_value.in = mult_pipe1.out;
       negate[done] = exponent_value.done;
     }
-    group is_negative<"static"=0> {
+    comb group is_negative {
       lt.left = x;
       lt.right = 32'd0;
-      is_negative[done] = 1'd1;
     }
     group reciprocal {
       div_pipe.left = one.out;
@@ -662,10 +655,9 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
       count.write_en = 1'd1;
       incr_count[done] = count.done;
     }
-    group cond {
+    comb group cond {
       lt.left = count.out;
       lt.right = integer_exp;
-      cond[done] = 1'd1;
     }
     out = pow.out;
   }

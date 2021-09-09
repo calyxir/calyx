@@ -29,8 +29,7 @@ component multiply_1(x0_read_data: 32, x0_done: 1, x1: 32, x20_read_data: 32, x2
     x_read0_0 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __i0.out;
       le0.right = const1.out;
     }

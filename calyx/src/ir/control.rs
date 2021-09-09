@@ -1,4 +1,4 @@
-use super::{Attributes, Cell, GetAttributes, Group, Id, Port, RRC};
+use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]
@@ -24,8 +24,8 @@ pub struct If {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
 
-    /// Group that makes the signal on the conditional port valid.
-    pub cond: RRC<Group>,
+    /// Optional combinational group attached using `with`.
+    pub cond: Option<RRC<CombGroup>>,
 
     /// Control for the true branch.
     pub tbranch: Box<Control>,
@@ -44,7 +44,7 @@ pub struct While {
     pub port: RRC<Port>,
 
     /// Group that makes the signal on the conditional port valid.
-    pub cond: RRC<Group>,
+    pub cond: Option<RRC<CombGroup>>,
 
     /// Control for the loop body.
     pub body: Box<Control>,
@@ -169,7 +169,7 @@ impl Control {
     /// Convience constructor for if
     pub fn if_(
         port: RRC<Port>,
-        cond: RRC<Group>,
+        cond: Option<RRC<CombGroup>>,
         tbranch: Box<Control>,
         fbranch: Box<Control>,
     ) -> Self {
@@ -185,7 +185,7 @@ impl Control {
     /// Convience constructor for while
     pub fn while_(
         port: RRC<Port>,
-        cond: RRC<Group>,
+        cond: Option<RRC<CombGroup>>,
         body: Box<Control>,
     ) -> Self {
         Control::While(While {

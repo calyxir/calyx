@@ -73,7 +73,7 @@ component comparator_element(lenA: 5, lenB: 5, addrA: 5, addrB: 5, mlA: 1, mlB: 
     ml = std_reg(1);
   }
   wires {
-    group select<"static"=0> {
+    comb group select {
       gt0.left = lenA;
       gt0.right = lenB;
       not0.in = mlB;
@@ -81,7 +81,6 @@ component comparator_element(lenA: 5, lenB: 5, addrA: 5, addrB: 5, mlA: 1, mlB: 
       or0.right = gt0.out;
       and0.left = mlA;
       and0.right = or0.out;
-      select[done] = 1'd1;
     }
     group A<"static"=1> {
       len.write_en = 1'd1;
@@ -312,23 +311,46 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
     ce31 = comparator_element();
     ce40 = comparator_element();
 
+
+    comb_reg0 = std_reg(1);
+    comb_reg1 = std_reg(1);
+    comb_reg2 = std_reg(1);
+    comb_reg3 = std_reg(1);
+    comb_reg4 = std_reg(1);
+    comb_reg5 = std_reg(1);
+    comb_reg6 = std_reg(1);
+    comb_reg7 = std_reg(1);
+    comb_reg8 = std_reg(1);
+    comb_reg9 = std_reg(1);
+    comb_reg10 = std_reg(1);
+    comb_reg11 = std_reg(1);
+    comb_reg12 = std_reg(1);
+    comb_reg13 = std_reg(1);
+    comb_reg14 = std_reg(1);
+    comb_reg15 = std_reg(1);
+    comb_reg16 = std_reg(1);
+    comb_reg17 = std_reg(1);
+    comb_reg18 = std_reg(1);
+    comb_reg19 = std_reg(1);
+    comb_reg20 = std_reg(1);
+    comb_reg21 = std_reg(1);
+    comb_reg22 = std_reg(1);
+    comb_reg23 = std_reg(1);
+    comb_reg24 = std_reg(1);
+    comb_reg25 = std_reg(1);
+    comb_reg26 = std_reg(1);
+    comb_reg27 = std_reg(1);
+    comb_reg28 = std_reg(1);
+    comb_reg29 = std_reg(1);
+    comb_reg30 = std_reg(1);
+    comb_reg31 = std_reg(1);
+
     out = std_reg(5);
   }
   wires {
-    group is_write_enabled<"static"=0> {
-      w_eq.left = write_en;
-      w_eq.right = 1'd1;
-      is_write_enabled[done] = 1'd1;
-    }
-    group is_length_zero<"static"=0> {
+    comb group is_length_zero {
       z_eq.left = 6'd0;
       z_eq.right = prefix_len;
-      is_length_zero[done] = 1'd1;
-    }
-    group is_search_enabled<"static"=0> {
-      s_eq.left = search_en;
-      s_eq.right = 1'd1;
-      is_search_enabled[done] = 1'd1;
     }
     group write_zero<"static"=1> {
       zero_index.write_en = 1'd1;
@@ -655,7 +677,7 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
       p31.in = in;
       write31[done] = p31.done & l31.done ? 1'd1;
     }
-    group find_write_index<"static"=0> {
+    group find_write_index {
       is_index0.left = 5'd0;
       is_index1.left = 5'd1;
       is_index2.left = 5'd2;
@@ -722,12 +744,71 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
       is_index29.right = write_index;
       is_index30.right = write_index;
       is_index31.right = write_index;
-      find_write_index[done] = 1'd1;
-    }
-    group validity<"static"=0> {
-      is_invalid.left = ce40.mlX;
-      is_invalid.right = 1'd0;
-      validity[done] = 1'd1;
+      comb_reg0.in = is_index0.out;
+      comb_reg0.write_en = 1'd1;
+      comb_reg1.in = is_index1.out;
+      comb_reg1.write_en = 1'd1;
+      comb_reg2.in = is_index2.out;
+      comb_reg2.write_en = 1'd1;
+      comb_reg3.in = is_index3.out;
+      comb_reg3.write_en = 1'd1;
+      comb_reg4.in = is_index4.out;
+      comb_reg4.write_en = 1'd1;
+      comb_reg5.in = is_index5.out;
+      comb_reg5.write_en = 1'd1;
+      comb_reg6.in = is_index6.out;
+      comb_reg6.write_en = 1'd1;
+      comb_reg7.in = is_index7.out;
+      comb_reg7.write_en = 1'd1;
+      comb_reg8.in = is_index8.out;
+      comb_reg8.write_en = 1'd1;
+      comb_reg9.in = is_index9.out;
+      comb_reg9.write_en = 1'd1;
+      comb_reg10.in = is_index10.out;
+      comb_reg10.write_en = 1'd1;
+      comb_reg11.in = is_index11.out;
+      comb_reg11.write_en = 1'd1;
+      comb_reg12.in = is_index12.out;
+      comb_reg12.write_en = 1'd1;
+      comb_reg13.in = is_index13.out;
+      comb_reg13.write_en = 1'd1;
+      comb_reg14.in = is_index14.out;
+      comb_reg14.write_en = 1'd1;
+      comb_reg15.in = is_index15.out;
+      comb_reg15.write_en = 1'd1;
+      comb_reg16.in = is_index16.out;
+      comb_reg16.write_en = 1'd1;
+      comb_reg17.in = is_index17.out;
+      comb_reg17.write_en = 1'd1;
+      comb_reg18.in = is_index18.out;
+      comb_reg18.write_en = 1'd1;
+      comb_reg19.in = is_index19.out;
+      comb_reg19.write_en = 1'd1;
+      comb_reg20.in = is_index20.out;
+      comb_reg20.write_en = 1'd1;
+      comb_reg21.in = is_index21.out;
+      comb_reg21.write_en = 1'd1;
+      comb_reg22.in = is_index22.out;
+      comb_reg22.write_en = 1'd1;
+      comb_reg23.in = is_index23.out;
+      comb_reg23.write_en = 1'd1;
+      comb_reg24.in = is_index24.out;
+      comb_reg24.write_en = 1'd1;
+      comb_reg25.in = is_index25.out;
+      comb_reg25.write_en = 1'd1;
+      comb_reg26.in = is_index26.out;
+      comb_reg26.write_en = 1'd1;
+      comb_reg27.in = is_index27.out;
+      comb_reg27.write_en = 1'd1;
+      comb_reg28.in = is_index28.out;
+      comb_reg28.write_en = 1'd1;
+      comb_reg29.in = is_index29.out;
+      comb_reg29.write_en = 1'd1;
+      comb_reg30.in = is_index30.out;
+      comb_reg30.write_en = 1'd1;
+      comb_reg31.in = is_index31.out;
+      comb_reg31.write_en = 1'd1;
+      find_write_index[done] = comb_reg0.done;
     }
     group default_to_zero_length_index<"static"=1> {
       out.write_en = 1'd1;
@@ -745,47 +826,50 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
 
   control {
     par {
-      if w_eq.out with is_write_enabled {
+      if write_en {
         if z_eq.out with is_length_zero {
           write_zero;
         } else {
-          par {
-            if is_index0.out  with find_write_index { write0; }
-            if is_index1.out  with find_write_index { write1; }
-            if is_index2.out  with find_write_index { write2; }
-            if is_index3.out  with find_write_index { write3; }
-            if is_index4.out  with find_write_index { write4; }
-            if is_index5.out  with find_write_index { write5; }
-            if is_index6.out  with find_write_index { write6; }
-            if is_index7.out  with find_write_index { write7; }
-            if is_index8.out  with find_write_index { write8; }
-            if is_index9.out  with find_write_index { write9; }
-            if is_index10.out with find_write_index { write10; }
-            if is_index11.out with find_write_index { write11; }
-            if is_index12.out with find_write_index { write12; }
-            if is_index13.out with find_write_index { write13; }
-            if is_index14.out with find_write_index { write14; }
-            if is_index15.out with find_write_index { write15; }
-            if is_index16.out with find_write_index { write16; }
-            if is_index17.out with find_write_index { write17; }
-            if is_index18.out with find_write_index { write18; }
-            if is_index19.out with find_write_index { write19; }
-            if is_index20.out with find_write_index { write20; }
-            if is_index21.out with find_write_index { write21; }
-            if is_index22.out with find_write_index { write22; }
-            if is_index23.out with find_write_index { write23; }
-            if is_index24.out with find_write_index { write24; }
-            if is_index25.out with find_write_index { write25; }
-            if is_index26.out with find_write_index { write26; }
-            if is_index27.out with find_write_index { write27; }
-            if is_index28.out with find_write_index { write28; }
-            if is_index29.out with find_write_index { write29; }
-            if is_index30.out with find_write_index { write30; }
-            if is_index31.out with find_write_index { write31; }
+          seq {
+            find_write_index;
+            par {
+              if comb_reg0.out  { write0; }
+              if comb_reg1.out  { write1; }
+              if comb_reg2.out  { write2; }
+              if comb_reg3.out  { write3; }
+              if comb_reg4.out  { write4; }
+              if comb_reg5.out  { write5; }
+              if comb_reg6.out  { write6; }
+              if comb_reg7.out  { write7; }
+              if comb_reg8.out  { write8; }
+              if comb_reg9.out  { write9; }
+              if comb_reg10.out { write10; }
+              if comb_reg11.out { write11; }
+              if comb_reg12.out { write12; }
+              if comb_reg13.out { write13; }
+              if comb_reg14.out { write14; }
+              if comb_reg15.out { write15; }
+              if comb_reg16.out { write16; }
+              if comb_reg17.out { write17; }
+              if comb_reg18.out { write18; }
+              if comb_reg19.out { write19; }
+              if comb_reg20.out { write20; }
+              if comb_reg21.out { write21; }
+              if comb_reg22.out { write22; }
+              if comb_reg23.out { write23; }
+              if comb_reg24.out { write24; }
+              if comb_reg25.out { write25; }
+              if comb_reg26.out { write26; }
+              if comb_reg27.out { write27; }
+              if comb_reg28.out { write28; }
+              if comb_reg29.out { write29; }
+              if comb_reg30.out { write30; }
+              if comb_reg31.out { write31; }
+            }
           }
         }
       }
-      if s_eq.out with is_search_enabled {
+      if search_en {
         seq {
           par {
             invoke me0(in=in, prefix=p0.out, length=l0.out)();
@@ -860,7 +944,8 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
             invoke ce31(lenA=ce22.lenX, lenB=ce23.lenX, addrA=ce22.addrX, addrB=ce23.addrX, mlA=ce22.mlX, mlB=ce23.mlX)();
           }
           invoke ce40(lenA=ce30.lenX, lenB=ce31.lenX, addrA=ce30.addrX, addrB=ce31.addrX, mlA=ce30.mlX, mlB=ce31.mlX)();
-          if is_invalid.out with validity { default_to_zero_length_index; } else { save_index; }
+          // If the final comparator has a valid value then save it.
+          if ce40.mlX { save_index; } else { default_to_zero_length_index; }
         }
       }
     }

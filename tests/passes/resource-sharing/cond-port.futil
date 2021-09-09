@@ -1,4 +1,4 @@
-// -p resource-sharing
+// -p remove-comb-groups -p resource-sharing
 import "primitives/std.lib";
 component main() -> () {
   cells {
@@ -8,8 +8,7 @@ component main() -> () {
     y_0 = std_reg(1);
   }
   wires {
-    group cond0 {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       gt1.left = x_0.out;
       gt1.right = 32'd2;
     }

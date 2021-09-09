@@ -15,10 +15,12 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       empty_reg.in = 1'd1;
       _empty[done] = empty_reg.done;
     }
+    comb group cond {
+    }
   }
 
   control {
-    if r.out with do_incr {
+    if r.out with cond {
       do_incr;
     } else {
       _empty;

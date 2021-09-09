@@ -126,6 +126,8 @@ pub enum CellType {
         name: Id,
         /// Bindings for the parameters. Uses Vec to retain the input order.
         param_binding: Binding,
+        /// True iff this is a combinational primitive
+        is_comb: bool,
     },
     /// Cell constructed using a Calyx component
     Component {
@@ -153,7 +155,7 @@ pub struct Cell {
     /// Underlying type for this cell
     pub prototype: CellType,
     /// Attributes for this group.
-    pub(super) attributes: Attributes,
+    pub attributes: Attributes,
 }
 
 impl GetAttributes for Cell {
@@ -248,7 +250,7 @@ impl Cell {
 
     /// Return the canonical name for the cell generated to represent this
     /// (val, width) constant.
-    pub(super) fn constant_name(val: u64, width: u64) -> Id {
+    pub fn constant_name(val: u64, width: u64) -> Id {
         format!("_{}_{}", val, width).into()
     }
 
@@ -272,9 +274,14 @@ impl Cell {
     pub fn name(&self) -> &Id {
         &self.name
     }
+
+    /// Returns a reference to all [super::Port] attached to this cells.
+    pub fn ports(&self) -> &SmallVec<[RRC<Port>; 10]> {
+        &self.ports
+    }
 }
 
-/// Generic wrapper for iterators that return [RRC] of [ir::Cell].
+/// Generic wrapper for iterators that return [RRC] of [super::Cell].
 pub struct CellIterator<'a> {
     pub port_iter: Box<dyn Iterator<Item = RRC<Cell>> + 'a>,
 }
@@ -341,6 +348,29 @@ impl Group {
         })
     }
 
+    /// The name of this group.
+    #[inline]
+    pub fn name(&self) -> &Id {
+        &self.name
+    }
+}
+
+/// A combinational group.
+/// A combinational group does not have any holes and should only contain assignments that should
+/// will be combinationally active
+#[derive(Debug)]
+pub struct CombGroup {
+    /// Name of this group
+    pub(super) name: Id,
+
+    /// The assignments used in this group
+    pub assignments: Vec<Assignment>,
+
+    /// Attributes for this group.
+    pub attributes: Attributes,
+}
+impl CombGroup {
+    #[inline]
     pub fn name(&self) -> &Id {
         &self.name
     }
@@ -359,6 +389,12 @@ impl GetName for Cell {
 }
 
 impl GetName for Group {
+    fn name(&self) -> &Id {
+        self.name()
+    }
+}
+
+impl GetName for CombGroup {
     fn name(&self) -> &Id {
         self.name()
     }

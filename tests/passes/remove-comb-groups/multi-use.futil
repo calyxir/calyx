@@ -9,7 +9,7 @@ component main(in: 32) -> () {
     r = std_reg(32);
   }
   wires {
-    group find_index {
+    comb group find_index {
       e0.left = in;
       e0.right = 32'd1;
 
@@ -21,8 +21,6 @@ component main(in: 32) -> () {
 
       e3.left = in;
       e3.right = 32'd3;
-
-      find_index[done] = 1'd1;
     }
 
     group write {
@@ -37,6 +35,7 @@ component main(in: 32) -> () {
       if e1.out with find_index { write; }
       if e2.out with find_index { write; }
       if e3.out with find_index { write; }
+      while e0.out with find_index { write; }
     }
   }
 }

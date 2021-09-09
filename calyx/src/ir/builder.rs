@@ -86,6 +86,26 @@ impl<'a> Builder<'a> {
         group
     }
 
+    /// Construct a combinational group
+    pub fn add_comb_group<S>(&mut self, prefix: S) -> RRC<ir::CombGroup>
+    where
+        S: Into<ir::Id> + ToString + Clone,
+    {
+        let name = self.component.generate_name(prefix);
+
+        // Check if there is a group with the same name.
+        let group = Rc::new(RefCell::new(ir::CombGroup {
+            name,
+            attributes: ir::Attributes::default(),
+            assignments: vec![],
+        }));
+
+        // Add the group to the component.
+        self.component.comb_groups.add(Rc::clone(&group));
+
+        group
+    }
+
     /// Return reference for a constant cell associated with the (val, width)
     /// pair, building and adding it to the component if needed..
     /// If the constant does not exist, it is added to the Context.
@@ -152,6 +172,7 @@ impl<'a> Builder<'a> {
             ir::CellType::Primitive {
                 name: prim_id,
                 param_binding,
+                is_comb: prim.is_comb,
             },
             ports,
         );

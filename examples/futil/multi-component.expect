@@ -22,8 +22,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   wires {
     done = fsm.out == 2'd2 ? 1'd1;
     current_value.clk = clk;
-    current_value.in = !current_value.done & fsm.out == 2'd1 & go ? id.out;
-    current_value.write_en = !current_value.done & fsm.out == 2'd1 & go ? 1'd1;
+    current_value.in = id.done & fsm.out == 2'd0 & go | !current_value.done & fsm.out == 2'd1 & go ? id.out;
+    current_value.write_en = id.done & fsm.out == 2'd0 & go | !current_value.done & fsm.out == 2'd1 & go ? 1'd1;
     fsm.clk = clk;
     fsm.in = fsm.out == 2'd2 ? 2'd0;
     fsm.in = fsm.out == 2'd0 & id.done & go ? 2'd1;

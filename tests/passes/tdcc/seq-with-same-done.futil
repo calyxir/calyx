@@ -1,0 +1,27 @@
+// -x tdcc:dump-fsm -d post-opt -d lower -b none
+
+import "primitives/std.lib";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(1);
+  }
+  wires {
+    group one {
+      r.in = 1'd0;
+      r.write_en = 1'd1;
+      one[done] = r.done ? 1'd1;
+    }
+    group two {
+      r.in = 1'd1;
+      r.write_en = 1'd1;
+      two[done] = r.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      one;
+      two;
+    }
+  }
+}

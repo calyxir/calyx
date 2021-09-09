@@ -7,12 +7,11 @@ component main() -> () {
   }
 
   wires {
-    group cond<"static"=0> {
+    comb group cond<"static"=0> {
       //b/c lt is used in this distinctly not-last group,
       //by end of execution all its ports are 0/X/not asserted.
       lt.left = 32'd9;
       lt.right = 32'd16;
-      cond[done] = 1'd1;
     }
 
     group true<"static"=1> {

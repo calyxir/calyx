@@ -21,13 +21,11 @@ component main() -> () {
     @external(1) result0_00_0 = std_mem_d2(16,2,2,2,2);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = j0.out;
       le1.right = const3.out;
     }

@@ -65,10 +65,9 @@ component exp(x: 16) -> (out: 16) {
       exponent_value.in = mult_pipe1.out;
       negate[done] = exponent_value.done;
     }
-    group is_negative<"static"=0> {
+    comb group is_negative {
       lt.left = x;
       lt.right = 16'd0;
-      is_negative[done] = 1'd1;
     }
     group reciprocal {
       div_pipe.left = one.out;
@@ -224,10 +223,9 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
       count.write_en = 1'd1;
       incr_count[done] = count.done;
     }
-    group cond {
+    comb group cond {
       lt.left = count.out;
       lt.right = integer_exp;
-      cond[done] = 1'd1;
     }
     out = pow.out;
   }

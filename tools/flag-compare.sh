@@ -3,10 +3,10 @@
 # Usage:
 #   ./flag-compare.sh <calyx program> <data>
 
-set -euf -o pipefail
+set -uf -o pipefail
 
-flag1='-p all -d static-timing'
-flag2='-p all'
+flag1='-p dead-group-removal -p all'
+flag2='-p dead-group-removal -p all'
 file=$1
 data=$2
 

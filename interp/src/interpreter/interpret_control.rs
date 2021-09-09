@@ -3,7 +3,8 @@
 use std::collections::HashSet;
 
 use super::interpret_group::{
-    finish_group_interpretation, interp_cont, interpret_group, interpret_invoke,
+    finish_comb_group_interpretation, finish_group_interpretation, interp_cont,
+    interpret_comb_group, interpret_group, interpret_invoke,
 };
 use crate::environment::InterpreterState;
 use crate::errors::InterpreterResult;
@@ -100,13 +101,19 @@ fn eval_if<'outer>(
     mut env: InterpreterState<'outer>,
     comp: &ir::Component,
 ) -> InterpreterResult<InterpreterState<'outer>> {
-    env = interpret_group(&i.cond.borrow(), continuous_assignments, env)?;
+    if let Some(comb) = &i.cond {
+        env =
+            interpret_comb_group(&comb.borrow(), continuous_assignments, env)?;
+    }
+
     let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
-    env = finish_group_interpretation(
-        &i.cond.borrow(),
-        continuous_assignments,
-        env,
-    )?;
+    if let Some(comb) = &i.cond {
+        env = finish_comb_group_interpretation(
+            &comb.borrow(),
+            continuous_assignments,
+            env,
+        )?;
+    }
 
     let target = if cond_flag == 0 {
         &i.fbranch
@@ -129,14 +136,23 @@ fn eval_while<'outer>(
     comp: &ir::Component,
 ) -> InterpreterResult<InterpreterState<'outer>> {
     loop {
-        env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
+        if let Some(comb) = &w.cond {
+            env = interpret_comb_group(
+                &comb.borrow(),
+                continuous_assignments,
+                env,
+            )?;
+        }
 
         let cond_val = env.get_from_port(&w.port.borrow()).as_u64();
-        env = finish_group_interpretation(
-            &w.cond.borrow(),
-            continuous_assignments,
-            env,
-        )?;
+
+        if let Some(comb) = &w.cond {
+            env = finish_comb_group_interpretation(
+                &comb.borrow(),
+                continuous_assignments,
+                env,
+            )?;
+        }
 
         if cond_val == 0 {
             break;

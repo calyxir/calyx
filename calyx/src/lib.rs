@@ -27,7 +27,6 @@
 //! [bsv-rules]: http://wiki.bluespec.com/Home/Rules
 //! [lang-tut]: https://capra.cs.cornell.edu/docs/calyx/tutorial/language-tut.html
 pub mod analysis;
-pub mod backend;
 pub mod default_passes;
 pub mod errors;
 pub mod frontend;

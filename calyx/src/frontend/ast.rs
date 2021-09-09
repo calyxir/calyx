@@ -251,6 +251,7 @@ pub struct Group {
     pub name: ir::Id,
     pub wires: Vec<Wire>,
     pub attributes: ir::Attributes,
+    pub is_comb: bool,
 }
 
 /// Data for the `->` structure statement.
@@ -286,7 +287,7 @@ pub enum Control {
         port: Port,
 
         /// Modules that need to be enabled to send signal on `port`.
-        cond: ir::Id,
+        cond: Option<ir::Id>,
 
         /// Control for the true branch.
         tbranch: Box<Control>,
@@ -303,7 +304,7 @@ pub enum Control {
         port: Port,
 
         /// Modules that need to be enabled to send signal on `port`.
-        cond: ir::Id,
+        cond: Option<ir::Id>,
 
         /// Control for the loop body.
         body: Box<Control>,

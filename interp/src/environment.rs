@@ -170,6 +170,7 @@ impl<'outer> InterpreterState<'outer> {
                 ir::CellType::Primitive {
                     name,
                     param_binding,
+                    is_comb: _,
                 } => {
                     let cell_name = match name.as_ref() {
                         "std_mem_d1" | "std_mem_d2" | "std_mem_d3"
