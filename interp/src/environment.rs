@@ -46,6 +46,10 @@ pub struct InterpreterState<'outer> {
 
     /// A reference to the context.
     pub context: ir::RRC<ir::Context>,
+
+    /// The name of the component this environment is for. Used for printing the
+    /// environment state.
+    pub comp_name: ir::Id,
 }
 
 /// Helper functions for the environment.
@@ -63,6 +67,7 @@ impl<'outer> InterpreterState<'outer> {
             clk: 0,
             port_map: InterpreterState::construct_port_map(target),
             cell_map: Self::construct_cell_map(target, &ctx, ref_handler, mems),
+            comp_name: target.name.clone(),
         }
     }
 
@@ -289,6 +294,7 @@ impl<'outer> InterpreterState<'outer> {
             cell_map: self.cell_map.clone(),
             port_map: other_pv_map,
             context: Rc::clone(&self.context),
+            comp_name: self.comp_name.clone(),
         }
     }
 
@@ -439,7 +445,7 @@ impl<'a, 'outer> StateView<'a, 'outer> {
                             .collect::<Vec<_>>();
                     match new.len() {
                         0 => original,
-                        1 => new[1],
+                        1 => new[0],
                         _ => panic!("conflicting parallel values"),
                     }
                 }
@@ -458,6 +464,13 @@ impl<'a, 'outer> StateView<'a, 'outer> {
         match self {
             StateView::SingleView(sv) => &sv.cell_map,
             StateView::Composite(cv) => &cv.0.cell_map,
+        }
+    }
+
+    pub fn get_comp_name(&self) -> &ir::Id {
+        match self {
+            StateView::SingleView(c) => &c.comp_name,
+            StateView::Composite(c) => &c.0.comp_name,
         }
     }
 
@@ -486,6 +499,7 @@ impl<'a, 'outer> StateView<'a, 'outer> {
         let bmap: BTreeMap<_, _> = ctx
             .components
             .iter()
+            .filter(|x| x.name == self.get_comp_name()) // there should only be one such comp
             .map(|comp| {
                 let inner_map: BTreeMap<_, _> = comp
                     .cells
@@ -508,10 +522,10 @@ impl<'a, 'outer> StateView<'a, 'outer> {
                 (comp.name.clone(), inner_map)
             })
             .collect();
-
         let cell_map: BTreeMap<_, _> = ctx
             .components
             .iter()
+            .filter(|x| x.name == self.get_comp_name())
             .map(|comp| {
                 let inner_map: BTreeMap<_, _> = comp
                     .cells
