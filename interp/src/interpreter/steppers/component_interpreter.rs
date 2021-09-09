@@ -275,9 +275,6 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         &mut self,
         inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
-        if self.get_current_interp().is_none() {
-            return vec![];
-        }
         let input_vec = inputs
             .iter()
             .map(|(name, val)| {
@@ -296,6 +293,7 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
             env.insert(port, value);
         }
         self.converge().unwrap();
+
         self.look_up_outputs()
     }
 
@@ -327,9 +325,8 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Nothing => unreachable!(),
         };
 
-        self.set_done_low();
-
         self.interp = new;
+        self.set_done_low();
 
         self.look_up_outputs()
     }
