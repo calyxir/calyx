@@ -789,10 +789,13 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         other: Vec<Self>,
         overlap_keys: &HashSet<K>,
     ) -> Self {
+        if other.is_empty() {
+            return self;
+        }
         //initialize all needed variables
         let mut a = self;
         //needed to check for common fork point for all smooshers
-        let mut dp_first = 0;
+        let mut dp_first: Option<u64> = None;
         let mut smooshed = Vec::new();
 
         //iterate over all the smooshers and check for common fork point for all
@@ -801,10 +804,9 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             if let Some((depth_a, depth_b)) =
                 Smoosher::shared_fork_point(&a, &sm)
             {
-                if dp_first == 0 {
-                    dp_first = depth_a;
-                    smooshed.push(sm.smoosh(depth_b - 1));
-                } else if dp_first != depth_a {
+                let dp_first_ref = dp_first.get_or_insert(depth_a);
+
+                if *dp_first_ref != depth_a {
                     panic!("The common fork differs for one or more smooshers")
                 } else {
                     smooshed.push(sm.smoosh(depth_b - 1));
@@ -814,7 +816,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             }
         }
 
-        a = a.smoosh(dp_first - 1);
+        a = a.smoosh(dp_first.unwrap() - 1);
 
         let mut a_head = a.head;
 
@@ -829,9 +831,10 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                     } else {
                         panic!("arguments of merge are not disjoint");
                     }
+                } else {
+                    a_head.insert(k, v);
                 }
             }
-            std::mem::drop(sm.tail);
         }
 
         if let (Some(a_new_head), a_new_tail) = a.tail.split() {
