@@ -1,6 +1,7 @@
 use super::super::utils::get_done_port;
 use super::{AssignmentInterpreter, AssignmentInterpreterMarker};
 use crate::interpreter::interpret_group::finish_interpretation;
+use crate::primitives::Primitive;
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -11,7 +12,7 @@ use crate::{
     interpreter::utils::{is_signal_high, ConstPort, ReferenceHolder},
     values::Value,
 };
-use calyx::ir::{self, Assignment, Component, Control};
+use calyx::ir::{self, Assignment, Component, Control, Guard};
 use itertools::{peek_nth, Itertools, PeekNth};
 use std::cell::Ref;
 use std::collections::HashSet;
@@ -145,7 +146,7 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
 
 impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
     fn reset(self) -> InterpreterState<'outer> {
-        self.interp.reset(self.enable.assignments.iter())
+        self.interp.reset()
     }
     fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
         self.interp.get(port)
@@ -669,57 +670,113 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        todo!()
+        if let Some(cond) = &mut self.cond_interp {
+            cond.converge()
+        } else if let Some(body) = &mut self.body_interp {
+            body.converge()
+        } else {
+            unreachable!("Invalid internal state for WhileInterpreter")
+        }
     }
 }
 pub struct InvokeInterpreter<'a, 'outer> {
     invoke: &'a ir::Invoke,
-    env: InterpreterState<'outer>,
+    assign_interp: AssignmentInterpreter<'a, 'outer>,
 }
 
 impl<'a, 'outer> InvokeInterpreter<'a, 'outer> {
-    pub fn new(_invoke: &ir::Invoke, _env: InterpreterState<'outer>) -> Self {
-        todo!()
+    pub fn new(
+        invoke: &'a ir::Invoke,
+        mut env: InterpreterState<'outer>,
+        continuous_assignments: &'a [Assignment],
+    ) -> Self {
+        let mut assignment_vec: Vec<Assignment> = vec![];
+        let comp_cell = invoke.comp.borrow();
+
+        //first connect the inputs (from connection -> input)
+        for (input_port, connection) in &invoke.inputs {
+            let comp_input_port = comp_cell.get(input_port);
+            assignment_vec.push(Assignment {
+                dst: comp_input_port,
+                src: Rc::clone(connection),
+                guard: Guard::default().into(),
+            });
+        }
+
+        //second connect the output ports (from output -> connection)
+        for (output_port, connection) in &invoke.outputs {
+            let comp_output_port = comp_cell.get(output_port);
+            assignment_vec.push(Assignment {
+                dst: Rc::clone(connection),
+                src: comp_output_port,
+                guard: Guard::default().into(),
+            })
+        }
+
+        let go_port = comp_cell.get_with_attr("go");
+        // insert one into the go_port
+        // should probably replace with an actual assignment from a constant one
+        env.insert(go_port, Value::bit_high());
+
+        let comp_done_port = comp_cell.get_with_attr("done");
+        let interp = AssignmentInterpreter::new_owned_grp(
+            env,
+            comp_done_port,
+            (assignment_vec, continuous_assignments.iter()),
+        );
+
+        Self {
+            invoke,
+            assign_interp: interp,
+        }
     }
 }
 
 impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
     fn step(&mut self) -> InterpreterResult<()> {
-        todo!()
+        self.assign_interp.step()
     }
 
     fn run(&mut self) -> InterpreterResult<()> {
-        todo!()
+        self.assign_interp.run()
     }
 
     fn deconstruct(self) -> InterpreterState<'outer> {
-        todo!()
+        let mut env = self.assign_interp.reset();
+
+        // set go low
+        let go_port = self.invoke.comp.borrow().get_with_attr("go");
+        // insert one into the go_port
+        // should probably replace with an actual assignment from a constant one
+        env.insert(go_port, Value::bit_low());
+
+        env
     }
 
     fn is_done(&self) -> bool {
-        todo!()
+        self.assign_interp.is_deconstructable()
     }
 
     fn get_env(&self) -> StateView<'_, 'outer> {
-        todo!()
+        self.assign_interp.get_env().into()
     }
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
-        todo!()
+        vec![]
     }
 
     fn get_current_interp(
         &mut self,
     ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        todo!()
+        Some(&mut self.assign_interp)
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
-        todo!()
+        self.assign_interp.get_mut_env().into()
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        todo!()
+        self.assign_interp.step_convergence()
     }
 }
 
@@ -781,9 +838,9 @@ impl<'a, 'outer> ControlInterpreter<'a, 'outer> {
                 continuous_assignments,
                 input_ports,
             ))),
-            Control::Invoke(i) => {
-                Self::Invoke(Box::new(InvokeInterpreter::new(i, env)))
-            }
+            Control::Invoke(i) => Self::Invoke(Box::new(
+                InvokeInterpreter::new(i, env, continuous_assignments),
+            )),
             Control::Enable(e) => {
                 Self::Enable(Box::new(EnableInterpreter::new(
                     e,
