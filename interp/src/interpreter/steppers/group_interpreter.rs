@@ -14,8 +14,14 @@ enum AssignmentOwner<'a> {
     // first is always normal, second is always continuous
     Ref(Vec<&'a Assignment>, Vec<&'a Assignment>),
     Owned(Vec<Assignment>, Vec<Assignment>),
-    OwnedCont(Vec<&'a Assignment>, Vec<Assignment>),
+    _OwnedCont(Vec<&'a Assignment>, Vec<Assignment>),
     OwnedGrp(Vec<Assignment>, Vec<&'a Assignment>),
+}
+
+impl<'a> Default for AssignmentOwner<'a> {
+    fn default() -> Self {
+        Self::Owned(vec![], vec![])
+    }
 }
 
 impl<'a> AssignmentOwner<'a> {
@@ -28,7 +34,7 @@ impl<'a> AssignmentOwner<'a> {
             AssignmentOwner::Owned(assigns, cont) => {
                 Box::new((*assigns).iter().chain((*cont).iter()))
             }
-            AssignmentOwner::OwnedCont(a, c) => {
+            AssignmentOwner::_OwnedCont(a, c) => {
                 Box::new(a.iter().copied().chain(c.iter()))
             }
             AssignmentOwner::OwnedGrp(a, c) => {
@@ -42,7 +48,8 @@ impl<'a> AssignmentOwner<'a> {
         &self,
     ) -> Box<dyn Iterator<Item = &Assignment> + '_> {
         match self {
-            AssignmentOwner::Ref(v1, _) | AssignmentOwner::OwnedCont(v1, _) => {
+            AssignmentOwner::Ref(v1, _)
+            | AssignmentOwner::_OwnedCont(v1, _) => {
                 Box::new(v1.iter().copied())
             }
             AssignmentOwner::Owned(v1, _)
@@ -57,7 +64,7 @@ impl<'a> AssignmentOwner<'a> {
                 Box::new(v2.iter().copied())
             }
             AssignmentOwner::Owned(_, v2)
-            | AssignmentOwner::OwnedCont(_, v2) => Box::new(v2.iter()),
+            | AssignmentOwner::_OwnedCont(_, v2) => Box::new(v2.iter()),
         }
     }
 
@@ -165,7 +172,7 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     {
         let done_port = done_signal.as_raw();
         let assigns: AssignmentOwner =
-            AssignmentOwner::OwnedCont(vecs.0.collect(), vecs.1);
+            AssignmentOwner::_OwnedCont(vecs.0.collect(), vecs.1);
         let cells =
             utils::get_dest_cells(assigns.iter_all(), Some(done_signal));
 
@@ -352,14 +359,14 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     }
 
     /// The inerpreter must have finished executing first
-    pub fn reset<I: Iterator<Item = &'a ir::Assignment>>(
-        self,
-        assigns: I,
-    ) -> InterpreterState<'outer> {
+    pub fn reset(mut self) -> InterpreterState<'outer> {
+        let assigns = std::mem::take(&mut self.assigns);
         let done_signal = self.done_port;
         let env = self.deconstruct();
 
-        finish_interpretation(env, done_signal, assigns).unwrap()
+        // note there might be some trouble with mixed assignments
+        finish_interpretation(env, done_signal, assigns._iter_group_assigns())
+            .unwrap()
     }
 
     pub fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
