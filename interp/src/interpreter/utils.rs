@@ -38,7 +38,8 @@ where
             ir::PortParent::Cell(c) => {
                 match &c.upgrade().borrow().prototype {
                     ir::CellType::Primitive { .. }
-                    | ir::CellType::Constant { .. } => {
+                    | ir::CellType::Constant { .. }
+                    | ir::CellType::Component { .. } => {
                         let const_cell: *const ir::Cell = c.upgrade().as_ptr();
                         if assign_set.contains(&const_cell) {
                             None //b/c we don't want duplicates
@@ -47,10 +48,7 @@ where
                             Some(c.upgrade())
                         }
                     }
-                    ir::CellType::Component { .. } => {
-                        // TODO (griffin): We'll need to handle this case at some point
-                        todo!()
-                    }
+
                     ir::CellType::ThisComponent => None,
                 }
             }
