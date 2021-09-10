@@ -26,7 +26,7 @@ impl Backend for CirctBackend {
     ) -> calyx::errors::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
-            write!(f, "calyx.program {{")?;
+            writeln!(f, "calyx.program {{")?;
             ctx.components.iter().try_for_each(|comp| {
                 Self::write_component(comp, f)?;
                 writeln!(f)

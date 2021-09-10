@@ -1,4 +1,5 @@
-calyx.program {calyx.component @A(%in: i8, %go: i1, %clk: i1, %reset: i1) -> (%out: i8, %done: i1) {
+calyx.program {
+calyx.component @A(%in: i8, %go: i1, %clk: i1, %reset: i1) -> (%out: i8, %done: i1) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
     calyx.assign %done = %_1_1.out, %_1_1.out ? : i1
