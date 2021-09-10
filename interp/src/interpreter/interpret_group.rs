@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::{
-    utils::{get_dest_cells, get_done_port, ConstPort},
+    utils::{get_dest_cells, get_done_port, get_go_port, ConstPort},
     Interpreter,
 };
 use crate::values::Value;
@@ -89,9 +89,12 @@ pub fn interpret_group<'outer>(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
+    mut env: InterpreterState<'outer>,
 ) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
+
+    let go_port = get_go_port(group);
+    env.insert(go_port, Value::bit_high());
 
     let interp = AssignmentInterpreter::new(
         env,
@@ -121,9 +124,11 @@ pub fn interpret_comb_group<'outer>(
 pub fn finish_group_interpretation<'outer>(
     group: &ir::Group,
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
+    mut env: InterpreterState<'outer>,
 ) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
+    let go_port = get_go_port(group);
+    env.insert(go_port, Value::bit_low());
 
     finish_interpretation(
         env,

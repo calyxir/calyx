@@ -1,4 +1,4 @@
-use super::super::utils::get_done_port;
+use super::super::utils::{get_done_port, get_go_port};
 use super::AssignmentInterpreter;
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
@@ -148,10 +148,19 @@ impl<'a> EnableHolder<'a> {
             | EnableHolder::RefCombGroup(_) => None,
         }
     }
+
+    fn go_port(&self) -> Option<RRC<ir::Port>> {
+        match self {
+            EnableHolder::RefGroup(x) => Some(get_go_port(x)),
+            EnableHolder::BorrowGrp(x) => Some(get_go_port(x)),
+            EnableHolder::BorrowCombGroup(_)
+            | EnableHolder::RefCombGroup(_) => None,
+        }
+    }
 }
 
 pub struct EnableInterpreter<'a, 'outer> {
-    _enable: EnableHolder<'a>,
+    enable: EnableHolder<'a>,
     group_name: Option<ir::Id>,
     interp: AssignmentInterpreter<'a, 'outer>,
 }
@@ -160,13 +169,18 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
     pub fn new<E>(
         enable: E,
         group_name: Option<ir::Id>,
-        env: InterpreterState<'outer>,
+        mut env: InterpreterState<'outer>,
         continuous: &'a [Assignment],
     ) -> Self
     where
         E: Into<EnableHolder<'a>>,
     {
         let enable: EnableHolder = enable.into();
+
+        if let Some(go) = enable.go_port() {
+            env.insert(go, Value::bit_high())
+        }
+
         let assigns = (
             enable.assignments().iter().cloned().collect_vec(),
             continuous.iter().cloned().collect_vec(),
@@ -174,7 +188,7 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
         let done = enable.done_port();
         let interp = AssignmentInterpreter::new_owned(env, done, assigns);
         Self {
-            _enable: enable,
+            enable,
             group_name,
             interp,
         }
@@ -182,7 +196,11 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
 }
 
 impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
-    fn reset(self) -> InterpreterState<'outer> {
+    fn reset(mut self) -> InterpreterState<'outer> {
+        if let Some(go) = self.enable.go_port() {
+            self.interp.get_mut_env().insert(go, Value::bit_low())
+        }
+
         self.interp.reset()
     }
     fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {

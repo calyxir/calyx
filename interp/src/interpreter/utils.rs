@@ -7,10 +7,17 @@ use std::ops::Deref;
 pub type ConstPort = *const ir::Port;
 pub type ConstCell = *const ir::Cell;
 
+#[inline]
 pub fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
-    group.get(&"done")
+    group.get("done")
 }
 
+#[inline]
+pub fn get_go_port(group: &ir::Group) -> RRC<ir::Port> {
+    group.get("go")
+}
+
+#[inline]
 pub fn is_signal_high(done: &Value) -> bool {
     done.as_u64() == 1
 }
