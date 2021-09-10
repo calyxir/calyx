@@ -59,15 +59,21 @@ impl Attributes {
         self.attrs.contains_key(&key.as_ref().to_string())
     }
 
+    /// Returns true if there are no attributes
     pub fn is_empty(&self) -> bool {
         self.attrs.is_empty()
     }
 
+    /// Remove attribute with the name `key`
     pub fn remove<S>(&mut self, key: S) -> Option<u64>
     where
         S: ToString,
     {
         self.attrs.remove(&key.to_string())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &u64)> {
+        self.attrs.iter()
     }
 }
 

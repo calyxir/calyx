@@ -1,4 +1,5 @@
-calyx.program {calyx.component @A(%in: i8, %go: i1, %clk: i1, %reset: i1) -> (%out: i8, %done: i1) {
+calyx.program {
+calyx.component @A(%in: i8, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i8, %done: i1 {done=1}) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
     calyx.assign %done = %_1_1.out, %_1_1.out ? : i1
@@ -6,7 +7,7 @@ calyx.program {calyx.component @A(%in: i8, %go: i1, %clk: i1, %reset: i1) -> (%o
 
   calyx.control {}
 }
-calyx.component @B(%in: i1, %go: i1, %clk: i1, %reset: i1) -> (%out: i1, %done: i1) {
+calyx.component @B(%in: i1, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i1, %done: i1 {done=1}) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
     calyx.assign %done = %_1_1.out, %_1_1.out ? : i1
@@ -14,7 +15,7 @@ calyx.component @B(%in: i1, %go: i1, %clk: i1, %reset: i1) -> (%out: i1, %done: 
 
   calyx.control {}
 }
-calyx.component @main(%go: i1, %clk: i1, %reset: i1) -> (%done: i1) {
+calyx.component @main(%go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%done: i1 {done=1}) {
   %c0.in, %c0.go, %c0.clk, %c0.reset, %c0.out, %c0.done = calyx.instance "c0" @A : i8, i1, i1, i1, i8, i1
   %c1.in, %c1.go, %c1.clk, %c1.reset, %c1.out, %c1.done = calyx.instance "c1" @B : i1, i1, i1, i1, i1, i1
   %r.in, %r.write_en, %r.clk, %r.reset, %r.out, %r.done = calyx.register "r" : i8, i1, i1, i1, i8, i1
@@ -26,9 +27,9 @@ calyx.component @main(%go: i1, %clk: i1, %reset: i1) -> (%done: i1) {
   %_0_1.out = hw.constant 0 : i1
   %_1_1.out = hw.constant 1 : i1
   %_1_8.out = hw.constant 1 : i8
-  %or0.left, %or0.right, %or0.out = calyx.std_or "or0" : i1, i1, i1
-  %or1.left, %or1.right, %or1.out = calyx.std_or "or1" : i1, i1, i1
-  %and0.left, %and0.right, %and0.out = calyx.std_and "and0" : i1, i1, i1
+  %or0.left, %or0.right, %or0.out = calyx.std_or "or0" {generated=1} : i1, i1, i1
+  %or1.left, %or1.right, %or1.out = calyx.std_or "or1" {generated=1} : i1, i1, i1
+  %and0.left, %and0.right, %and0.out = calyx.std_and "and0" {generated=1} : i1, i1, i1
   calyx.wires {
     calyx.group @Group1 {
       calyx.assign %s0.in = %a0.out, %_1_1.out ? : i32
