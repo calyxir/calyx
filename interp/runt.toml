@@ -67,6 +67,42 @@ cmd = """
 timeout = 3
 
 [[tests]]
+name = "invoke"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to interpreter-out -s interpreter.data {}.data 2> /dev/null | jq .memories
+"""
+
+[[tests]]
+name = "invoke comp"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to interpreter-out -s interpreter.data {}.data -s futil.flags "-p compile-invoke" 2> /dev/null | jq .memories
+"""
+
+[[tests]]
+name = "invoke (CIDR)"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to debugger -s interpreter.data {}.data  -s interpreter.debugger.flags " --pass-through" 2> /dev/null | jq .memories
+"""
+
+[[tests]]
+name = "invoke comp (CIDR)"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to debugger -s interpreter.data {}.data -s futil.flags "-p compile-invoke" -s interpreter.debugger.flags " --pass-through" 2> /dev/null | jq .memories
+"""
+
+[[tests]]
 name = "fully structural"
 paths = [
     "tests/control/*.futil",

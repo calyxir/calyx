@@ -1,0 +1,54 @@
+import "primitives/std.lib";
+component copy(dest_done: 1, src_read_data: 32, length: 3) ->
+              (dest_write_data: 32, dest_write_en: 1, dest_addr0: 3, src_addr0: 3) {
+  cells {
+    lt = std_lt(3);
+    N = std_reg(3);
+    add = std_add(3);
+  }
+  wires {
+    comb group cond {
+      lt.left = N.out;
+      lt.right = length;
+    }
+    group upd_index<"static"=1> {
+      add.left = N.out;
+      add.right = 3'd1;
+      N.in = add.out;
+      N.write_en = 1'd1;
+      upd_index[done] = N.done;
+    }
+    group copy_index_N<"static"=1> {
+      src_addr0 = N.out;
+      dest_addr0 = N.out;
+      dest_write_en = 1'd1;
+      dest_write_data = src_read_data;
+      copy_index_N[done] = dest_done;
+    }
+  }
+  control {
+    while lt.out with cond {
+      seq {
+        copy_index_N;
+        upd_index;
+      }
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    @external(1) d = std_mem_d1(32,5,3);
+    @external(1) s = std_mem_d1(32,5,3);
+    length = std_const(3, 5);
+    copy0 = copy();
+  }
+  wires {
+  }
+  control {
+    seq {
+      invoke copy0(dest_done=d.done, src_read_data=s.read_data, length=length.out)
+                  (dest_write_data=d.write_data, dest_write_en=d.write_en, dest_addr0=d.addr0, src_addr0=s.addr0);
+    }
+  }
+}
