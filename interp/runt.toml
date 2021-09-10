@@ -72,7 +72,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to interpreter-out -s interpreter.data {}.data 2> /dev/null | jq .memories
+../target/debug/interp {} --data {}.data.json | jq .memories
 """
 
 [[tests]]
@@ -81,7 +81,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to interpreter-out -s interpreter.data {}.data -s futil.flags "-p compile-invoke" 2> /dev/null | jq .memories
+../target/debug/futil {} -p compile-invoke -l ../ | ../target/debug/interp --data {}.data.json | jq .memories
 """
 
 [[tests]]
@@ -90,7 +90,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to debugger -s interpreter.data {}.data  -s interpreter.debugger.flags " --pass-through" 2> /dev/null | jq .memories
+../target/debug/interp {} --data {}.data.json debug -p | jq .memories
 """
 
 [[tests]]
@@ -99,7 +99,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to debugger -s interpreter.data {}.data -s futil.flags "-p compile-invoke" -s interpreter.debugger.flags " --pass-through" 2> /dev/null | jq .memories
+../target/debug/futil {} -p compile-invoke -l ../ | ../target/debug/interp --data {}.data.json debug -p | jq .memories
 """
 
 [[tests]]
