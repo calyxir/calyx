@@ -55,6 +55,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           if c1.in with CombGroup {
             Group2;
           }
+          if c1.in {
+            Group2;
+          }
         }
       }
     }

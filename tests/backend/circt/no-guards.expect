@@ -34,7 +34,7 @@ calyx.component @main(%go: i1, %clk: i1, %reset: i1, %go0: i1, %clk0: i1, %reset
       calyx.assign %r.write_en = %_1_1.out : i1
       calyx.group_done %r.done : i1
     }
-    calyx.group @CombGroup {
+    calyx.comb_group @CombGroup {
       calyx.assign %add.left = %r.out : i8
       calyx.assign %add.right = %_1_8.out : i8
     }

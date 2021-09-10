@@ -313,7 +313,7 @@ impl CirctBackend {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "calyx.group @{}", group.name().id)?;
+        write!(f, "calyx.comb_group @{}", group.name().id)?;
         writeln!(f, " {{")?;
 
         for assign in &group.assignments {
@@ -358,16 +358,15 @@ impl CirctBackend {
                 fbranch,
                 ..
             }) => {
-                assert!(
-                    cond.is_some(),
-                    "`if` without `with` not support in CIRCT backend"
-                );
-                writeln!(
+                write!(
                     f,
-                    "calyx.if {} with @{} {{",
-                    Self::get_port_access(&port.borrow()),
-                    cond.as_ref().unwrap().borrow().name().id
+                    "calyx.if {}",
+                    Self::get_port_access(&port.borrow())
                 )?;
+                if let Some(cond) = cond {
+                    write!(f, " with @{}", cond.borrow().name().id)?;
+                }
+                writeln!(f, " {{")?;
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
                 if let ir::Control::Empty(_) = **fbranch {
@@ -381,16 +380,15 @@ impl CirctBackend {
             ir::Control::While(ir::While {
                 port, cond, body, ..
             }) => {
-                assert!(
-                    cond.is_some(),
-                    "`while` without `with` not support in CIRCT backend"
-                );
-                writeln!(
+                write!(
                     f,
-                    "calyx.while {} with @{} {{",
-                    Self::get_port_access(&port.borrow()),
-                    cond.as_ref().unwrap().borrow().name().id
+                    "calyx.while {}",
+                    Self::get_port_access(&port.borrow())
                 )?;
+                if let Some(cond) = cond {
+                    write!(f, " with @{}", cond.borrow().name().id)?;
+                }
+                writeln!(f, " {{")?;
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
@@ -408,7 +406,9 @@ impl CirctBackend {
                     ir::CellType::Constant { val, width } => {
                         format!("%{}.out", ir::Cell::constant_name(val, width))
                     }
-                    ir::CellType::ThisComponent => port.name.to_string(),
+                    ir::CellType::ThisComponent => {
+                        format!("%{}", port.name.to_string())
+                    }
                     _ => format!("%{}.{}", cell.name().id, port.name.id),
                 }
             }

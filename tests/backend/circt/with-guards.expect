@@ -1,7 +1,7 @@
 calyx.program {calyx.component @A(%in: i8, %go: i1, %clk: i1, %reset: i1) -> (%out: i8, %done: i1) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
-    calyx.assign done = %_1_1.out, %_1_1.out ? : i1
+    calyx.assign %done = %_1_1.out, %_1_1.out ? : i1
   }
 
   calyx.control {}
@@ -9,7 +9,7 @@ calyx.program {calyx.component @A(%in: i8, %go: i1, %clk: i1, %reset: i1) -> (%o
 calyx.component @B(%in: i1, %go: i1, %clk: i1, %reset: i1) -> (%out: i1, %done: i1) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
-    calyx.assign done = %_1_1.out, %_1_1.out ? : i1
+    calyx.assign %done = %_1_1.out, %_1_1.out ? : i1
   }
 
   calyx.control {}
@@ -47,9 +47,9 @@ calyx.component @main(%go: i1, %clk: i1, %reset: i1) -> (%done: i1) {
       calyx.assign %and0.right = %or1.out : i1
       calyx.group_done %c1.done, %and0.out ? : i1
     }
-    calyx.group @CombGroup {
-      calyx.assign %add.left = %r.out : i8
-      calyx.assign %add.right = %_1_8.out : i8
+    calyx.comb_group @CombGroup {
+      calyx.assign %add.left = %r.out, %_1_1.out ? : i8
+      calyx.assign %add.right = %_1_8.out, %_1_1.out ? : i8
     }
     calyx.assign %c0.go = %c1.out, %_1_1.out ? : i1
   }
@@ -62,6 +62,9 @@ calyx.component @main(%go: i1, %clk: i1, %reset: i1) -> (%done: i1) {
           calyx.enable @Group1
           calyx.enable @Group1
           calyx.if %c1.in with @CombGroup {
+            calyx.enable @Group2
+          }
+          calyx.if %c1.in {
             calyx.enable @Group2
           }
         }
