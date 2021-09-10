@@ -244,7 +244,19 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
     let proto_name = &cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
-        builder.add_primitive(cell.name, proto_name, &cell.prototype.params)
+        // Intern `std_const`
+        if proto_name == "std_const" {
+            let params = cell.prototype.params;
+            let width = *params
+                .get(0)
+                .unwrap_or_else(|| panic!("std_const missing WIDTH parameter"));
+            let value = *params
+                .get(1)
+                .unwrap_or_else(|| panic!("std_const missing VALUE parameter"));
+            builder.add_constant(value, width)
+        } else {
+            builder.add_primitive(cell.name, proto_name, &cell.prototype.params)
+        }
     } else {
         // Validator ensures that if the protoype is not a primitive, it
         // is a component.
