@@ -1,5 +1,5 @@
 use super::super::utils::get_done_port;
-use super::{AssignmentInterpreter, AssignmentInterpreterMarker};
+use super::AssignmentInterpreter;
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
 use crate::{
@@ -47,10 +47,6 @@ pub trait Interpreter<'outer> {
     fn currently_executing_group(&self) -> Vec<&ir::Id>;
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer>;
-
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker>;
 }
 
 pub struct EmptyInterpreter<'outer> {
@@ -86,12 +82,6 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
         vec![]
-    }
-
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        None
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
@@ -229,12 +219,6 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        Some(&mut self.interp)
-    }
-
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         (self.interp.get_mut_env()).into()
     }
@@ -329,15 +313,6 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        self.current_interpreter
-            .as_mut()
-            .map(|x| x.get_current_interp())
-            .flatten()
-    }
-
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         if let Some(cur) = &mut self.current_interpreter {
             cur.get_mut_env()
@@ -427,12 +402,6 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
             .iter()
             .flat_map(|x| x.currently_executing_group())
             .collect()
-    }
-
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        None
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
@@ -580,16 +549,6 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
             branch.currently_executing_group()
         } else {
             vec![]
-        }
-    }
-
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        match (&mut self.cond, &mut self.branch_interp) {
-            (None, Some(x)) => x.get_current_interp(),
-            (Some(x), None) => x.get_current_interp(),
-            _ => unreachable!("If interpreter in invalid state"),
         }
     }
 
@@ -752,15 +711,6 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
             vec![]
         }
     }
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        match (&mut self.cond_interp, &mut self.body_interp) {
-            (None, Some(x)) => x.get_current_interp(),
-            (Some(x), None) => x.get_current_interp(),
-            _ => unreachable!("If interpreter in invalid state"),
-        }
-    }
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         if let Some(cond) = &mut self.cond_interp {
@@ -870,12 +820,6 @@ impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
         vec![]
-    }
-
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        Some(&mut self.assign_interp)
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
@@ -988,12 +932,6 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
         control_match!(self, i, i.currently_executing_group())
     }
 
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        control_match!(self, i, i.get_current_interp())
-    }
-
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
         control_match!(self, i, i.get_mut_env())
     }
@@ -1062,12 +1000,6 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
 
     fn currently_executing_group(&self) -> Vec<&ir::Id> {
         vec![]
-    }
-
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn AssignmentInterpreterMarker> {
-        Some(&mut self.interp)
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {

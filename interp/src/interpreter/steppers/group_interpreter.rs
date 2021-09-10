@@ -387,20 +387,3 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
         &mut self.state
     }
 }
-
-impl<'a, 'outer> AssignmentInterpreterMarker
-    for AssignmentInterpreter<'a, 'outer>
-{
-    fn step_convergence(&mut self) -> InterpreterResult<()> {
-        AssignmentInterpreter::step_convergence(self)
-    }
-
-    fn insert(&mut self, port: *const ir::Port, val: Value) {
-        AssignmentInterpreter::_insert(self, port, val)
-    }
-}
-pub trait AssignmentInterpreterMarker {
-    fn step_convergence(&mut self) -> InterpreterResult<()>;
-
-    fn insert(&mut self, port: *const ir::Port, val: Value);
-}

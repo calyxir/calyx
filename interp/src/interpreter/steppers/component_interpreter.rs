@@ -209,16 +209,6 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_current_interp(
-        &mut self,
-    ) -> Option<&mut dyn super::AssignmentInterpreterMarker> {
-        match &mut self.interp {
-            StructuralOrControl::Structural(s) => s.get_current_interp(),
-            StructuralOrControl::Control(c) => c.get_current_interp(),
-            StructuralOrControl::Nothing => unreachable!(),
-        }
-    }
-
     fn get_mut_env(&mut self) -> crate::environment::MutStateView<'_, 'outer> {
         match &mut self.interp {
             StructuralOrControl::Structural(s) => s.get_mut_env(),
