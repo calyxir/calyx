@@ -1,5 +1,5 @@
 use calyx::errors::Error;
-use calyx::ir::IRPrinter;
+use calyx::ir::{GetAttributes, IRPrinter};
 
 use crate::ir::{self, RRC};
 use std::collections::HashMap;
@@ -51,42 +51,20 @@ impl Backend for CirctBackend {
 }
 
 impl CirctBackend {
-    // Format attributes of the form `@static(1)`.
-    // Returns the empty string if the `attrs` is empty.
-    // TODO: Attributes currently not supported in the CIRCT frontend.
-    /* fn format_at_attributes(attrs: &ir::Attributes) -> String {
-        attrs
-            .attrs
-            .iter()
-            .map(|(k, v)| {
-                if *v == 1 {
-                    format!("@{}", k)
-                } else {
-                    format!("@{}({})", k, v)
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(" ")
-    } */
-
-    // Format attributes of the form `<"static"=1>`.
-    // Returns the empty string if the `attrs` is empty.
-    // TODO: Attributes currently not supported in the CIRCT frontend.
-    /* fn format_attributes(attrs: &ir::Attributes) -> String {
+    fn format_attributes(attrs: &ir::Attributes) -> String {
         if attrs.is_empty() {
             "".to_string()
         } else {
             format!(
-                "<{}>",
+                " {{{}}}",
                 attrs
-                    .attrs
                     .iter()
-                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
+                    .map(|(k, v)| { format!("{}={}", k, v) })
                     .collect::<Vec<_>>()
                     .join(", ")
             )
         }
-    } */
+    }
 
     /// Formats port definitions in signatures
     fn format_port_def(ports: &[RRC<ir::Port>]) -> String {
@@ -94,9 +72,10 @@ impl CirctBackend {
             .iter()
             .map(|p| {
                 format!(
-                    "%{}: i{}",
+                    "%{}: i{}{}",
                     p.borrow().name.id.to_string(),
-                    p.borrow().width
+                    p.borrow().width,
+                    Self::format_attributes(&p.borrow().attributes)
                 )
             })
             .collect::<Vec<_>>()
@@ -174,11 +153,11 @@ impl CirctBackend {
                     .collect();
                 match name.as_ref() {
                     "std_reg" => {
-                        write!(f, "calyx.register \"{}\" : ", cell_name)
+                        write!(f, "calyx.register \"{}\"", cell_name)
                     }
                     "std_mem_d1" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}] x {}> [{}] : ",
+                        "calyx.memory \"{}\"<[{}] x {}> [{}]",
                         cell_name,
                         bind["SIZE"],
                         bind["WIDTH"],
@@ -186,7 +165,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d2" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}] x {}> [{}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}] x {}> [{}, {}]",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -196,7 +175,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d3" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}] x {}> [{}, {}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}, {}] x {}> [{}, {}, {}]",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -208,7 +187,7 @@ impl CirctBackend {
                     ),
                     "std_mem_d4" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}, {}] x {}> [{}, {}, {}, {}] : ",
+                        "calyx.memory \"{}\"<[{}, {}, {}, {}] x {}> [{}, {}, {}, {}]",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -220,14 +199,14 @@ impl CirctBackend {
                         bind["D2_IDX_SIZE"],
                         bind["D3_IDX_SIZE"]
                     ),
-                    prim => write!(f, "calyx.{} \"{}\" : ", prim, cell_name)
+                    prim => write!(f, "calyx.{} \"{}\"", prim, cell_name)
                 }
             }
             ir::CellType::Component { name } => {
-                write!(f, "calyx.instance \"{}\" @{} : ", cell_name, name)
+                write!(f, "calyx.instance \"{}\" @{}", cell_name, name)
             }
             ir::CellType::Constant { val, .. } => {
-                write!(f, "hw.constant {} : ", val)
+                write!(f, "hw.constant {}", val)
             }
             _ => Ok(()),
         }
@@ -249,6 +228,8 @@ impl CirctBackend {
             .join(", ");
         write!(f, "{} = ", all_ports)?;
         Self::write_prototype_sig(&cell.prototype, name, f)?;
+        write!(f, "{}", Self::format_attributes(&cell.attributes))?;
+        write!(f, " : ")?;
         let all_port_widths = cell
             .ports()
             .iter()
@@ -332,7 +313,7 @@ impl CirctBackend {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
             ir::Control::Enable(ir::Enable { group, .. }) => {
-                writeln!(f, "calyx.enable @{}", group.borrow().name().id)
+                write!(f, "calyx.enable @{}", group.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for CIRCT backend")
@@ -342,14 +323,14 @@ impl CirctBackend {
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
-                writeln!(f, "{}}}", " ".repeat(indent_level))
+                write!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {
                 writeln!(f, "calyx.par {{")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
-                writeln!(f, "{}}}", " ".repeat(indent_level))
+                write!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::If(ir::If {
                 port,
@@ -370,11 +351,11 @@ impl CirctBackend {
                 Self::write_control(tbranch, indent_level + 2, f)?;
                 write!(f, "{}}}", " ".repeat(indent_level))?;
                 if let ir::Control::Empty(_) = **fbranch {
-                    writeln!(f)
+                    Ok(())
                 } else {
                     writeln!(f, " else {{")?;
                     Self::write_control(fbranch, indent_level + 2, f)?;
-                    writeln!(f, "{}}}", " ".repeat(indent_level))
+                    write!(f, "{}}}", " ".repeat(indent_level))
                 }
             }
             ir::Control::While(ir::While {
@@ -390,10 +371,14 @@ impl CirctBackend {
                 }
                 writeln!(f, " {{")?;
                 Self::write_control(body, indent_level + 2, f)?;
-                writeln!(f, "{}}}", " ".repeat(indent_level))
+                write!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Empty(_) => writeln!(f),
+        }?;
+        if let Some(attr) = control.get_attributes() {
+            write!(f, "{}", Self::format_attributes(attr))?;
         }
+        writeln!(f)
     }
 
     /// Get the port access expression.
