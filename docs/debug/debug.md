@@ -50,12 +50,28 @@ The script is invoked as:
 tools/flag-compare.sh <calyx program> <data>
 ```
 
+By default, the script will try to run the programs by simulating them through
+Verilator by providing `fud` with the target `--to dat`.
+If you'd like to use the Calyx Interpreter instead, run the following command:
+```
+tools/flag-compare.sh <calyx program> <data> interpreter-out
+```
+
 ### Reducing Calyx Programs
 
 The best way to reduce Calyx program deleting group enables from the control
 program and seeing if the generated program still generates the wrong output.
 While doing this, make sure that you're not deleting an update to a loop
 variable which might cause infinite loops.
+
+By default, the compiler will complain if the program contains a `group` that
+is not used in the control program which can get in the way of minimizing
+programs.
+To get around this, run the [`dead-group-removal`][dgr] pass before the validation
+passes:
+```
+futil -p dead-group-removal -p validate ...
+```
 
 ### Reducing Dahlia Programs
 
@@ -140,3 +156,4 @@ the `fsm` register has the value 1 and check to see if the assignments in
 [gtkwave]: http://gtkwave.sourceforge.net/
 [wavetrace]: https://marketplace.visualstudio.com/items?itemName=wavetrace.wavetrace
 [flag-cmp]: https://github.com/cucapra/calyx/blob/master/tools/flag-compare.sh
+[dgr]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/passes/struct.DeadGroupRemoval.html
