@@ -4,7 +4,7 @@ use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
-use crate::environment::{InterpreterState, StateView};
+use crate::environment::{InterpreterState, State, StateView};
 use crate::errors::InterpreterResult;
 use crate::primitives::Primitive;
 use crate::utils::AsRaw;
@@ -320,21 +320,8 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
 
         self.look_up_outputs()
     }
+
+    fn get_state(&self) -> Option<Box<dyn State + '_>> {
+        Some(Box::new(self.get_env()))
+    }
 }
-
-// pub trait ComponentInterpreterMarker {
-//     fn set_go_low(&mut self);
-//     fn set_go_high(&mut self);
-// }
-
-// impl<'a, 'outer> ComponentInterpreterMarker
-//     for ComponentInterpreter<'a, 'outer>
-// {
-//     fn set_go_low(&mut self) {
-//         self.set_done_low();
-//     }
-
-//     fn set_go_high(&mut self) {
-//         self.set_go_high()
-//     }
-// }

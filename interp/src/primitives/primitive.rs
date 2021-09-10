@@ -1,4 +1,4 @@
-use crate::values::Value;
+use crate::{environment::State, values::Value};
 use calyx::ir;
 use itertools::Itertools;
 use serde::Serialize;
@@ -38,6 +38,10 @@ pub trait Primitive {
     // more efficient to override this with true in stateful cases
     fn has_serializeable_state(&self) -> bool {
         self.serialize().has_state()
+    }
+
+    fn get_state(&self) -> Option<Box<dyn State + '_>> {
+        None
     }
 }
 

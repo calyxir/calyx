@@ -609,3 +609,18 @@ impl<'a, 'outer> MutStateView<'a, 'outer> {
         }
     }
 }
+
+pub trait State {
+    fn lookup(&self, target: &*const ir::Port) -> &Value;
+    fn state_as_str(&self) -> String;
+}
+
+impl<'a, 'b> State for StateView<'a, 'b> {
+    fn lookup(&self, target: &*const ir::Port) -> &Value {
+        StateView::lookup(&self, *target)
+    }
+
+    fn state_as_str(&self) -> String {
+        StateView::state_as_str(&self)
+    }
+}
