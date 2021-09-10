@@ -154,7 +154,7 @@ jobs:
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec "$(pwd)/target/debug/futil"
-        fud config
+        fud config stages.interpreter.exec "$(pwd)/target/debug/interp"
 
     - name: Run benchmarks
       run: |
@@ -164,3 +164,5 @@ jobs:
         runt -i Correctness -d
         # Run the unrolled benchmarks
         runt -i Unrolled -d
+        # Run the interpreter benchmarks
+        runt -i Interpreter
