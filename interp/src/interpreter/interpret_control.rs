@@ -1,7 +1,7 @@
 //! Inteprets a control in a component.
 
 use super::interpret_group::{
-    finish_comb_group_interpretation, finish_group_interpretation, interp_cont,
+    finish_comb_group_interpretation, finish_group_interpretation,
     interpret_comb_group, interpret_group,
 };
 use crate::environment::InterpreterState;
@@ -186,10 +186,9 @@ fn eval_enable(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_empty(
     _e: &ir::Empty,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
-    comp: &ir::Component,
+    _continuous_assignments: &[ir::Assignment],
+    env: InterpreterState,
+    _comp: &ir::Component,
 ) -> InterpreterResult<InterpreterState> {
-    env = interp_cont(continuous_assignments, env, comp)?;
     Ok(env)
 }
