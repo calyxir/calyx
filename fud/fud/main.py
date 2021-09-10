@@ -313,11 +313,6 @@ def main():
         exit(-1)
 
 
-# this is very silly, but needed because argparse doesn't like arguments which are just flags
-def trim_space(in_str):
-    return in_str.strip()
-
-
 def config_run(parser):
     parser.add_argument("--from", dest="source", help="Name of the start stage")
     parser.add_argument("--to", dest="dest", help="Name of the final stage")
@@ -331,7 +326,6 @@ def config_run(parser):
         metavar=("key", "value"),
         dest="dynamic_config",
         action="append",
-        type=trim_space,
     )
     parser.add_argument(
         "-n",
