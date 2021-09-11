@@ -26,12 +26,12 @@ impl Backend for MLIRBackend {
     ) -> calyx::errors::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
-            writeln!(f, "calyx.program {{")?;
+            writeln!(f, "calyx.program {{\n")?;
             ctx.components.iter().try_for_each(|comp| {
                 Self::write_component(comp, f)?;
                 writeln!(f)
             })?;
-            write!(f, "}}")
+            write!(f, "\n}}\n")
         };
         res.map_err(|err| {
             let std::io::Error { .. } = err;
