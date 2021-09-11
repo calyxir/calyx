@@ -61,7 +61,7 @@ def register_stages(registry, cfg):
         futil.FutilStage(
             cfg,
             "mlir",
-            "-b mlir",
+            "-b mlir -p well-formed -p lower-guards",
             "Compile Calyx to MLIR",
         )
     )

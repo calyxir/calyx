@@ -1,4 +1,4 @@
-// -p well-formed -p lower-guards -b circt
+// -p well-formed -p lower-guards -b mlir
 import "primitives/core.futil";
 component A(in: 8, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 1) {
   cells {
@@ -16,7 +16,7 @@ component B(in: 1, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done do
   }
   control { }
 }
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 1) {
   cells {
     c0 = A();
     c1 = B();
