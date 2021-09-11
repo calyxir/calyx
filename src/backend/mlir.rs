@@ -9,11 +9,11 @@ use std::rc::Rc;
 use super::traits::Backend;
 
 #[derive(Default)]
-pub struct CirctBackend;
+pub struct MLIRBackend;
 
-impl Backend for CirctBackend {
+impl Backend for MLIRBackend {
     fn name(&self) -> &'static str {
-        "circt"
+        "mlir"
     }
 
     fn validate(_prog: &ir::Context) -> calyx::errors::CalyxResult<()> {
@@ -50,7 +50,7 @@ impl Backend for CirctBackend {
     }
 }
 
-impl CirctBackend {
+impl MLIRBackend {
     fn format_attributes(attrs: &ir::Attributes) -> String {
         if attrs.is_empty() {
             "".to_string()
@@ -316,7 +316,7 @@ impl CirctBackend {
                 write!(f, "calyx.enable @{}", group.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
-                todo!("invoke operator for CIRCT backend")
+                todo!("invoke operator for MLIR backend")
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 writeln!(f, "calyx.seq {{")?;

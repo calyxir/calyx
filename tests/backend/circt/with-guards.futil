@@ -30,14 +30,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   wires {
     group Group1 {
       s0.in = a0.out;
+      m0.addr0 = 1'd1;
       a0.left = m0.read_data;
-      Group1[go] = 1'd0;
+      a0.right = 32'd1;
       c0.in = c0.out;
       Group1[done] = c0.done;
     }
     group Group2 {
       c1.in = (c1.out | c0.done) ? c1.out;
-      Group2[done] = (c1.out & 1'd1 & (c1.out | c0.done)) ? c1.done;
+      Group2[done] = (c1.out & 1'd1 & (c1.out | 1'd1)) ? c1.done;
     }
     comb group CombGroup {
       add.left = r.out;
@@ -48,14 +49,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   control {
     seq {
       Group1;
-      while c1.in with CombGroup {
+      while c1.out with CombGroup {
         seq {
           Group1;
           Group1;
-          if c1.in with CombGroup {
+          if c1.out with CombGroup {
             Group2;
           }
-          if c1.in {
+          if c1.out {
             Group2;
           }
         }
