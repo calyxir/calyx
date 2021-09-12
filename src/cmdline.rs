@@ -1,7 +1,7 @@
 use crate::backend::traits::Backend;
 use crate::backend::{
-    mlir::MLIRBackend, verilog::VerilogBackend,
-    xilinx::XilinxInterfaceBackend, xilinx::XilinxXmlBackend,
+    mlir::MLIRBackend, verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
+    xilinx::XilinxXmlBackend,
 };
 use argh::FromArgs;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
