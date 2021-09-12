@@ -9,9 +9,9 @@ use std::rc::Rc;
 use super::traits::Backend;
 
 #[derive(Default)]
-pub struct MLIRBackend;
+pub struct MlirBackend;
 
-impl Backend for MLIRBackend {
+impl Backend for MlirBackend {
     fn name(&self) -> &'static str {
         "mlir"
     }
@@ -50,7 +50,7 @@ impl Backend for MLIRBackend {
     }
 }
 
-impl MLIRBackend {
+impl MlirBackend {
     fn format_attributes(attrs: &ir::Attributes) -> String {
         if attrs.is_empty() {
             "".to_string()
