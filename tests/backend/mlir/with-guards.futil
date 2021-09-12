@@ -1,6 +1,6 @@
-// -p well-formed -p lower-guards -b circt
+// -p well-formed -p lower-guards -b mlir
 import "primitives/core.futil";
-component A(in: 8, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 1) {
+component A(in: 8, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, flag: 1, @done done: 1) {
   cells {
   }
   wires {
@@ -16,13 +16,16 @@ component B(in: 1, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done do
   }
   control { }
 }
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 1) {
   cells {
     c0 = A();
     c1 = B();
-    r = std_reg(8);
+    r1 = std_reg(8);
+    r2 = std_reg(1);
+
     m0 = std_mem_d1(32, 1, 1);
     m1 = std_mem_d2(8, 64, 64, 6, 6);
+    m2 = std_mem_d3(1, 8, 8, 8, 3, 3, 3);
     a0 = std_add(32);
     s0 = std_slice(32, 8);
     add = std_add(8);
@@ -30,17 +33,21 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   wires {
     group Group1 {
       s0.in = a0.out;
+      m0.addr0 = 1'd0;
       a0.left = m0.read_data;
-      Group1[go] = 1'd0;
+      a0.right = 32'd1;
       c0.in = c0.out;
       Group1[done] = c0.done;
     }
     group Group2 {
       c1.in = (c1.out | c0.done) ? c1.out;
-      Group2[done] = (c1.out & 1'd1 & (c1.out | c0.done)) ? c1.done;
+      m2.addr0 = 3'd1;
+      m2.addr1 = 3'd2;
+      m2.addr2 = 3'd3;
+      Group2[done] = (c1.out & r2.out & (c0.flag | m2.read_data)) ? c1.done;
     }
     comb group CombGroup {
-      add.left = r.out;
+      add.left = r1.out;
       add.right = 8'd1;
     }
     c0.go = c1.out;
@@ -48,14 +55,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   control {
     seq {
       Group1;
-      while c1.in with CombGroup {
+      while c1.out with CombGroup {
         seq {
           Group1;
           Group1;
-          if c1.in with CombGroup {
+          if c1.out with CombGroup {
             Group2;
           }
-          if c1.in {
+          if c1.out {
             Group2;
           }
         }

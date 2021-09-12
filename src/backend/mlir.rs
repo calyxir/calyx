@@ -9,11 +9,11 @@ use std::rc::Rc;
 use super::traits::Backend;
 
 #[derive(Default)]
-pub struct CirctBackend;
+pub struct MlirBackend;
 
-impl Backend for CirctBackend {
+impl Backend for MlirBackend {
     fn name(&self) -> &'static str {
-        "circt"
+        "mlir"
     }
 
     fn validate(_prog: &ir::Context) -> calyx::errors::CalyxResult<()> {
@@ -26,12 +26,12 @@ impl Backend for CirctBackend {
     ) -> calyx::errors::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
-            writeln!(f, "calyx.program {{")?;
+            writeln!(f, "calyx.program {{\n")?;
             ctx.components.iter().try_for_each(|comp| {
                 Self::write_component(comp, f)?;
                 writeln!(f)
             })?;
-            write!(f, "}}")
+            write!(f, "\n}}\n")
         };
         res.map_err(|err| {
             let std::io::Error { .. } = err;
@@ -50,7 +50,7 @@ impl Backend for CirctBackend {
     }
 }
 
-impl CirctBackend {
+impl MlirBackend {
     fn format_attributes(attrs: &ir::Attributes) -> String {
         if attrs.is_empty() {
             "".to_string()
@@ -316,7 +316,7 @@ impl CirctBackend {
                 write!(f, "calyx.enable @{}", group.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
-                todo!("invoke operator for CIRCT backend")
+                todo!("invoke operator for MLIR backend")
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 writeln!(f, "calyx.seq {{")?;

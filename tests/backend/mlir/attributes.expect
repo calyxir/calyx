@@ -1,4 +1,5 @@
 calyx.program {
+
 calyx.component @main(%in: i32 {stable=32}, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i32 {stable=0}, %done: i1 {done=1}) {
   %r.in, %r.write_en, %r.clk, %r.reset, %r.out, %r.done = calyx.register "r" {precious=1} : i32, i1, i1, i1, i32, i1
   %le.left, %le.right, %le.out = calyx.std_le "le" {external=32} : i32, i32, i1
@@ -16,4 +17,5 @@ calyx.component @main(%in: i32 {stable=32}, %go: i1 {go=1}, %clk: i1 {clk=1}, %r
     } {bound=32}
   }
 }
+
 }

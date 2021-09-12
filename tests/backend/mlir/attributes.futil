@@ -1,4 +1,4 @@
-// -b circt -p well-formed
+// -p well-formed -b mlir
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main<"static"=1>(@stable(32) in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@stable(0) out: 32, @done done: 1) {
@@ -13,7 +13,6 @@ component main<"static"=1>(@stable(32) in: 32, @go go: 1, @clk clk: 1, @reset re
     comb group cond<"stable"=0> {
     }
   }
-
   control {
     @bound(32) while le.out with cond {
       @static(2) upd;
