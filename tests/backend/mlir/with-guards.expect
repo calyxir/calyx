@@ -1,6 +1,6 @@
 calyx.program {
 
-calyx.component @A(%in: i8, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i8, %done: i1 {done=1}) {
+calyx.component @A(%in: i8, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i8, %flag: i1, %done: i1 {done=1}) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
     calyx.assign %done = %_1_1.out, %_1_1.out ? : i1
@@ -17,22 +17,31 @@ calyx.component @B(%in: i1, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=
   calyx.control {}
 }
 calyx.component @main(%go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i1, %done: i1 {done=1}) {
-  %c0.in, %c0.go, %c0.clk, %c0.reset, %c0.out, %c0.done = calyx.instance "c0" @A : i8, i1, i1, i1, i8, i1
+  %c0.in, %c0.go, %c0.clk, %c0.reset, %c0.out, %c0.flag, %c0.done = calyx.instance "c0" @A : i8, i1, i1, i1, i8, i1, i1
   %c1.in, %c1.go, %c1.clk, %c1.reset, %c1.out, %c1.done = calyx.instance "c1" @B : i1, i1, i1, i1, i1, i1
-  %r.in, %r.write_en, %r.clk, %r.reset, %r.out, %r.done = calyx.register "r" : i8, i1, i1, i1, i8, i1
+  %r1.in, %r1.write_en, %r1.clk, %r1.reset, %r1.out, %r1.done = calyx.register "r1" : i8, i1, i1, i1, i8, i1
+  %r2.in, %r2.write_en, %r2.clk, %r2.reset, %r2.out, %r2.done = calyx.register "r2" : i1, i1, i1, i1, i1, i1
   %m0.addr0, %m0.write_data, %m0.write_en, %m0.clk, %m0.read_data, %m0.done = calyx.memory "m0"<[1] x 32> [1] : i1, i32, i1, i1, i32, i1
   %m1.addr0, %m1.addr1, %m1.write_data, %m1.write_en, %m1.clk, %m1.read_data, %m1.done = calyx.memory "m1"<[64, 64] x 8> [6, 6] : i6, i6, i8, i1, i1, i8, i1
+  %m2.addr0, %m2.addr1, %m2.addr2, %m2.write_data, %m2.write_en, %m2.clk, %m2.read_data, %m2.done = calyx.memory "m2"<[8, 8, 8] x 1> [3, 3, 3] : i3, i3, i3, i1, i1, i1, i1, i1
   %a0.left, %a0.right, %a0.out = calyx.std_add "a0" : i32, i32, i32
   %s0.in, %s0.out = calyx.std_slice "s0" : i32, i8
   %add.left, %add.right, %add.out = calyx.std_add "add" : i8, i8, i8
-  %_1_1.out = hw.constant 1 : i1
+  %_0_1.out = hw.constant 0 : i1
   %_1_32.out = hw.constant 1 : i32
+  %_1_3.out = hw.constant 1 : i3
+  %_2_3.out = hw.constant 2 : i3
+  %_3_3.out = hw.constant 3 : i3
   %_1_8.out = hw.constant 1 : i8
+  %_1_1.out = hw.constant 1 : i1
   %or0.left, %or0.right, %or0.out = calyx.std_or "or0" {generated=1} : i1, i1, i1
+  %and0.left, %and0.right, %and0.out = calyx.std_and "and0" {generated=1} : i1, i1, i1
+  %or1.left, %or1.right, %or1.out = calyx.std_or "or1" {generated=1} : i1, i1, i1
+  %and1.left, %and1.right, %and1.out = calyx.std_and "and1" {generated=1} : i1, i1, i1
   calyx.wires {
     calyx.group @Group1 {
       calyx.assign %s0.in = %a0.out, %_1_1.out ? : i32
-      calyx.assign %m0.addr0 = %_1_1.out, %_1_1.out ? : i1
+      calyx.assign %m0.addr0 = %_0_1.out, %_1_1.out ? : i1
       calyx.assign %a0.left = %m0.read_data, %_1_1.out ? : i32
       calyx.assign %a0.right = %_1_32.out, %_1_1.out ? : i32
       calyx.assign %c0.in = %c0.out, %_1_1.out ? : i8
@@ -42,10 +51,19 @@ calyx.component @main(%go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) ->
       calyx.assign %or0.left = %c1.out : i1
       calyx.assign %or0.right = %c0.done : i1
       calyx.assign %c1.in = %c1.out, %or0.out ? : i1
-      calyx.group_done %c1.done, %c1.out ? : i1
+      calyx.assign %m2.addr0 = %_1_3.out, %_1_1.out ? : i3
+      calyx.assign %m2.addr1 = %_2_3.out, %_1_1.out ? : i3
+      calyx.assign %m2.addr2 = %_3_3.out, %_1_1.out ? : i3
+      calyx.assign %and0.left = %c1.out : i1
+      calyx.assign %and0.right = %r2.out : i1
+      calyx.assign %or1.left = %c0.flag : i1
+      calyx.assign %or1.right = %m2.read_data : i1
+      calyx.assign %and1.left = %and0.out : i1
+      calyx.assign %and1.right = %or1.out : i1
+      calyx.group_done %c1.done, %and1.out ? : i1
     }
     calyx.comb_group @CombGroup {
-      calyx.assign %add.left = %r.out, %_1_1.out ? : i8
+      calyx.assign %add.left = %r1.out, %_1_1.out ? : i8
       calyx.assign %add.right = %_1_8.out, %_1_1.out ? : i8
     }
     calyx.assign %c0.go = %c1.out, %_1_1.out ? : i1
