@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use super::interpret_group::{
-    finish_comb_group_interpretation, finish_group_interpretation, interp_cont,
+    finish_comb_group_interpretation, finish_group_interpretation,
     interpret_comb_group, interpret_group, interpret_invoke,
 };
 use crate::environment::InterpreterState;
@@ -189,10 +189,9 @@ fn eval_enable<'outer>(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_empty<'outer>(
     _e: &ir::Empty,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-    comp: &ir::Component,
+    _continuous_assignments: &[ir::Assignment],
+    env: InterpreterState<'outer>,
+    _comp: &ir::Component,
 ) -> InterpreterResult<InterpreterState<'outer>> {
-    env = interp_cont(continuous_assignments, env, comp)?;
     Ok(env)
 }

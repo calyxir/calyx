@@ -1,4 +1,4 @@
-use crate::errors::Error;
+use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName, Component, LibrarySignatures};
 use std::collections::HashSet;
@@ -34,19 +34,27 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
     ) -> VisResult {
         // For each non-combinational group, check if there is at least one write to the done
-        // signal of that group.
-        // Names of the groups whose `done` hole has been written to.
+        // signal of that group and that the write is to the group's done signal.
         comp.groups.iter().try_for_each(|group_ref| {
             let group = group_ref.borrow();
             let gname = group.name();
             // Find an assignment writing to this group's done condition.
-            let done = group.assignments.iter().find(|assign| {
+            let done = group.assignments.iter().filter(|assign| {
                 let dst = assign.dst.borrow();
                 dst.is_hole()
                     && dst.name == "done"
-                    && dst.get_parent_name() == gname
-            });
-            if done.is_none() {
+            }).map(|assign| {
+                let dst = assign.dst.borrow();
+                if gname != &dst.get_parent_name() {
+                    Err(Error::MalformedStructure(
+                            format!("Group `{}` refers to the done condition of another group (`{}`).",
+                            group.name(),
+                            dst.get_parent_name())))
+                } else {
+                    Ok(())
+                }
+            }).collect::<CalyxResult<Vec<_>>>()?;
+            if done.is_empty() {
                 Err(Error::MalformedStructure(gname.fmt_err(&format!(
                     "No writes to the `done' hole for group `{}'",
                     gname.to_string()
@@ -55,24 +63,6 @@ impl Visitor for WellFormed {
                 Ok(())
             }
         })?;
-
-        // Check if any groups refer to another group's done signal.
-        for group_ref in comp.groups.iter() {
-            let group = group_ref.borrow();
-            for assign in &group.assignments {
-                let dst = assign.dst.borrow();
-                if dst.is_hole()
-                    && dst.name == "done"
-                    && *group.name() != dst.get_parent_name()
-                {
-                    return Err(
-                        Error::MalformedStructure(
-                            format!("Group `{}` refers to the done condition of another group (`{}`).",
-                                group.name(),
-                                dst.get_parent_name())));
-                }
-            }
-        }
 
         Ok(Action::Continue)
     }
@@ -97,8 +87,7 @@ impl Visitor for WellFormed {
                 asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1)
             });
 
-        // A group with a constant done condition are not allowed within
-        // normal control operators.
+        // A group with a constant done condition are not allowed.
         if group
             .attributes
             .get("static")

@@ -248,6 +248,8 @@ fn calculate_states_recur(
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
+    // True if early_transitions are allowed
+    early_transitions: bool,
 ) -> CalyxResult<(Vec<PredEdge>, u64)> {
     match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
@@ -277,11 +279,13 @@ fn calculate_states_recur(
             // NOTE: We explicilty do not add `not_done` to the guard.
             // See explanation in [ir::TopDownCompileControl] to understand
             // why.
+            if early_transitions {
             for (st, g) in &prev_states {
                 let mut early_go = build_assignments!(builder;
                     group["go"] = g ? signal_on["out"];
                 );
                 schedule.enables.entry(*st).or_default().append(&mut early_go);
+            }
             }
 
             let transitions = prev_states
@@ -303,6 +307,7 @@ fn calculate_states_recur(
                     prev,
                     schedule,
                     builder,
+                    early_transitions
                 )?;
                 prev = res.0;
                 cur = res.1;
@@ -329,6 +334,7 @@ fn calculate_states_recur(
                 tru_transitions,
                 schedule,
                 builder,
+                early_transitions
             )?;
             // Previous states transitioning into false branch need the conditional
             // to be false.
@@ -339,6 +345,7 @@ fn calculate_states_recur(
                 fal_transitions,
                 schedule,
                 builder,
+                early_transitions
             )?;
             let prevs =
                 tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
@@ -379,6 +386,7 @@ fn calculate_states_recur(
                 transitions,
                 schedule,
                 builder,
+                early_transitions
             )?;
 
             // Step 3: The final out edges from the while come from:
@@ -402,6 +410,7 @@ fn calculate_states_recur(
 fn calculate_states(
     con: &ir::Control,
     builder: &mut ir::Builder,
+    early_transitions: bool,
 ) -> CalyxResult<Schedule> {
     let mut schedule = Schedule::default();
     let first_state = (0, ir::Guard::True);
@@ -415,6 +424,7 @@ fn calculate_states(
         vec![first_state],
         &mut schedule,
         builder,
+        early_transitions,
     )?;
     let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
     schedule.transitions.extend(transitions);
@@ -513,7 +523,10 @@ fn calculate_states(
 /// At the end of this pass, the control program will have no more than one
 /// group enable in it.
 pub struct TopDownCompileControl {
+    /// Print out the FSM representation to STDOUT
     dump_fsm: bool,
+    /// Disable early transitions
+    no_early_transitions: bool,
 }
 
 impl ConstructVisitor for TopDownCompileControl {
@@ -521,11 +534,26 @@ impl ConstructVisitor for TopDownCompileControl {
     where
         Self: Sized + Named,
     {
-        let dump_fsm = ctx
-            .extra_opts
-            .iter()
-            .any(|opt| opt == &format!("{}:{}", Self::name(), "dump-fsm"));
-        Ok(TopDownCompileControl { dump_fsm })
+        let mut dump_fsm = false;
+        let mut no_early_transitions = false;
+        ctx.extra_opts.iter().for_each(|opt| {
+            let mut splits = opt.split(':');
+            if splits.next() == Some(Self::name()) {
+                match splits.next() {
+                    Some("dump-fsm") => {
+                        dump_fsm = true;
+                    }
+                    Some("no-early-transitions") => {
+                        no_early_transitions = true;
+                    }
+                    _ => (),
+                }
+            }
+        });
+        Ok(TopDownCompileControl {
+            dump_fsm,
+            no_early_transitions,
+        })
     }
 
     fn clear_data(&mut self) {
@@ -573,7 +601,11 @@ impl Visitor for TopDownCompileControl {
                 }
                 // Compile complex schedule and return the group.
                 _ => {
-                    let schedule = calculate_states(con, &mut builder)?;
+                    let schedule = calculate_states(
+                        con,
+                        &mut builder,
+                        !self.no_early_transitions,
+                    )?;
                     let group = builder.add_group("tdcc");
                     if self.dump_fsm {
                         schedule.display(format!(
@@ -652,7 +684,11 @@ impl Visitor for TopDownCompileControl {
         let control = Rc::clone(&comp.control);
         let mut builder = ir::Builder::new(comp, sigs);
         // Add assignments for the final states
-        let schedule = calculate_states(&control.borrow(), &mut builder)?;
+        let schedule = calculate_states(
+            &control.borrow(),
+            &mut builder,
+            !self.no_early_transitions,
+        )?;
         let group = builder.add_group("tdcc");
         if self.dump_fsm {
             schedule.display(format!(
