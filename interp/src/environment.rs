@@ -248,7 +248,10 @@ impl<'outer> InterpreterState<'outer> {
                 ir::CellType::Component { .. } => {
                     for port in &cll.ports {
                         let pt: &ir::Port = &port.borrow();
-                        map.insert(pt as ConstPort, Value::from(0, 0).unwrap());
+                        map.insert(
+                            pt as ConstPort,
+                            Value::zeroes(pt.width as usize),
+                        );
                     }
                 }
                 _ => unreachable!(),
