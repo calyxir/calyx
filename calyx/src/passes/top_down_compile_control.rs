@@ -48,38 +48,35 @@ const NODE_ID: &str = "NODE_ID";
 /// The exit set is `[true, false]`.
 fn control_exits(
     con: &ir::Control,
-    cur_state: u64,
     is_exit: bool,
     exits: &mut Vec<(u64, RRC<ir::Group>)>,
-) -> u64 {
+) {
     match con {
-        ir::Control::Enable(ir::Enable { group, .. }) => {
+        ir::Control::Enable(ir::Enable { group, attributes }) => {
             if is_exit {
-                exits.push((cur_state, Rc::clone(group)))
+                let cur_state = attributes.get(NODE_ID).unwrap();
+                exits.push((*cur_state, Rc::clone(group)))
             }
-            cur_state + 1
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let len = stmts.len();
-            let mut cur = cur_state;
             for (idx, stmt) in stmts.iter().enumerate() {
                 let exit = idx == len - 1 && is_exit;
-                cur = control_exits(stmt, cur, exit, exits);
+                control_exits(stmt, exit, exits);
             }
-            cur
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
-            let tru_nxt = control_exits(
-                tbranch, cur_state, is_exit, exits,
+            control_exits(
+                tbranch, is_exit, exits,
             );
             control_exits(
-                fbranch, tru_nxt, is_exit, exits,
+                fbranch, is_exit, exits,
             )
         }
         ir::Control::While(ir::While { body, .. }) => control_exits(
-            body, cur_state, is_exit, exits,
+            body, is_exit, exits,
         ),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
@@ -423,7 +420,6 @@ fn calculate_states_recur(
             let mut exits = vec![];
             control_exits(
                 body,
-                cur_state,
                 true,
                 &mut exits,
             );
