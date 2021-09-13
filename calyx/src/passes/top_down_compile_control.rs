@@ -59,11 +59,7 @@ fn control_exits(
             }
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            let len = stmts.len();
-            for (idx, stmt) in stmts.iter().enumerate() {
-                let exit = idx == len - 1 && is_exit;
-                control_exits(stmt, exit, exits);
-            }
+            if let Some(stmt) = stmts.last() { control_exits(stmt, true, exits) }
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
@@ -84,6 +80,28 @@ fn control_exits(
     }
 }
 
+/// Adds the @NODE_ID attribute to [ir::Enable] and [ir::Par].
+/// Each [ir::Enable] gets a unique label within the context of a child of
+/// a [ir::Par] node.
+///
+/// ## Example:
+/// ```
+/// seq { A; B; par { C; D; }; E }
+/// ```
+/// gets the labels:
+/// ```
+/// seq {
+///   @NODE_ID(1) A; @NODE_ID(2) B;
+///   @NODE_ID(3) par {
+///     @NODE_ID(0) C;
+///     @NODE_ID(0) D;
+///   }
+///   @NODE_ID(4) E;
+/// }
+/// ```
+///
+/// These identifiers are used by the compilation methods [calculate_states_recur]
+/// and [control_exits].
 fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
     match con {
         ir::Control::Enable(ir::Enable { attributes, .. }) => {
@@ -292,8 +310,6 @@ type PredEdge = (u64, ir::Guard);
 ///     4. Return [PredEdge] and the next state.
 fn calculate_states_recur(
     con: &ir::Control,
-    // The current state
-    cur_state: u64,
     // The set of previous states that want to transition into cur_state
     preds: Vec<(u64, ir::Guard)>,
     // Current schedule.
@@ -302,7 +318,7 @@ fn calculate_states_recur(
     builder: &mut ir::Builder,
     // True if early_transitions are allowed
     early_transitions: bool,
-) -> CalyxResult<(Vec<PredEdge>, u64)> {
+) -> CalyxResult<Vec<PredEdge>> {
     match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
@@ -349,25 +365,20 @@ fn calculate_states_recur(
             schedule.transitions.extend(transitions);
 
             let done_cond = guard!(group["done"]);
-            let nxt = cur_state + 1;
-            Ok((vec![(cur_state, done_cond)], nxt))
+            Ok(vec![(cur_state, done_cond)])
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let mut prev = preds;
-            let mut cur = cur_state;
             for stmt in stmts {
-                let res = calculate_states_recur(
+                prev = calculate_states_recur(
                     stmt,
-                    cur,
                     prev,
                     schedule,
                     builder,
                     early_transitions
                 )?;
-                prev = res.0;
-                cur = res.1;
             }
-            Ok((prev, cur))
+            Ok(prev)
         }
         ir::Control::If(ir::If {
             port,
@@ -383,9 +394,8 @@ fn calculate_states_recur(
             // Previous states transitioning into true branch need the conditional
             // to be true.
             let tru_transitions = preds.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
-            let (tru_prev, tru_nxt) = calculate_states_recur(
+            let tru_prev = calculate_states_recur(
                 tbranch,
-                cur_state,
                 tru_transitions,
                 schedule,
                 builder,
@@ -394,9 +404,8 @@ fn calculate_states_recur(
             // Previous states transitioning into false branch need the conditional
             // to be false.
             let fal_transitions = preds.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
-            let (fal_prev, fal_nxt) = calculate_states_recur(
+            let fal_prev = calculate_states_recur(
                 fbranch,
-                tru_nxt,
                 fal_transitions,
                 schedule,
                 builder,
@@ -404,7 +413,7 @@ fn calculate_states_recur(
             )?;
             let prevs =
                 tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
-            Ok((prevs, fal_nxt))
+            Ok(prevs)
         }
         ir::Control::While(ir::While {
             cond, port, body, ..
@@ -434,9 +443,8 @@ fn calculate_states_recur(
                 .chain(back_edge_prevs)
                 .map(|(s, g)| (s, g & port_guard.clone()))
                 .collect();
-            let (prevs, nxt) = calculate_states_recur(
+            let prevs = calculate_states_recur(
                 body,
-                cur_state,
                 transitions,
                 schedule,
                 builder,
@@ -453,7 +461,7 @@ fn calculate_states_recur(
                 .map(|(st, guard)| (st, guard & not_port_guard.clone()))
                 .collect();
 
-            Ok((all_prevs, nxt))
+            Ok(all_prevs)
         }
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
@@ -472,14 +480,19 @@ fn calculate_states(
     // a branch (if, while).
     // If the program doesn't branch, then the initial state is merged into
     // the first group.
-    let (prev, nxt) = calculate_states_recur(
+    let prev = calculate_states_recur(
         con,
-        1,
         vec![first_state],
         &mut schedule,
         builder,
         early_transitions,
     )?;
+    let nxt = prev
+        .iter()
+        .max_by(|(st1, _), (st2, _)| st1.cmp(st2))
+        .unwrap()
+        .0
+        + 1;
     let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
     schedule.transitions.extend(transitions);
     Ok(schedule)
