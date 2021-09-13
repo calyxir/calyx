@@ -2,8 +2,7 @@
     "scripts": {
         "start": "WASM_PACK_PROFILE=dev parcel index.html",
         "build": "cd rust; cargo build; cd ..; WASM_PACK_PROFILE=dev parcel build index.html --log-level 4",
-        "clean": "rm -rf dist rust/pkg; cd rust; cargo clean",
-        "examples": "make examples/data.json"
+        "clean": "rm -rf dist rust/pkg; cd rust; cargo clean"
     },
     "dependencies": {
         "codejar": "^3.2.3",
