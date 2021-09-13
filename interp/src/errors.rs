@@ -1,6 +1,7 @@
 use crate::utils::assignment_to_string;
+use crate::values::Value;
 use calyx::errors::Error;
-use calyx::ir::{Assignment, Id};
+use calyx::ir::{self, Assignment, Id};
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -49,6 +50,26 @@ pub enum InterpreterError {
 
     #[error("unable to find component named \"{0}\"")]
     UnknownComponent(String),
+
+    #[error(
+        "par assignments not disjoint: {parent_id}.{port_id}
+    1. {v1}
+    2. {v2}"
+    )]
+    ParOverlap {
+        port_id: Id,
+        parent_id: Id,
+        v1: Value,
+        v2: Value,
+    },
+    #[error("invalid internal seq state. This should never happen, please report it")]
+    InvalidSeqState,
+    #[error(
+        "invalid internal if state. This should never happen, please report it"
+    )]
+    InvalidIfState,
+    #[error("invalid internal while state. This should never happen, please report it")]
+    InvalidWhileState,
 }
 
 impl InterpreterError {
@@ -78,5 +99,28 @@ impl std::fmt::Debug for InterpreterError {
 impl From<Error> for InterpreterError {
     fn from(e: Error) -> Self {
         Self::CompilerError(Box::new(e))
+    }
+}
+
+impl From<crate::stk_env::CollisionError<*const ir::Port, Value>>
+    for InterpreterError
+{
+    fn from(
+        err: crate::stk_env::CollisionError<
+            *const calyx::ir::Port,
+            crate::values::Value,
+        >,
+    ) -> Self {
+        // when the error is first raised, the IR has not yet been deconstructed, so this
+        // dereference is safe
+        let port: &ir::Port = unsafe { &*err.0 };
+        let parent_name = port.get_parent_name();
+        let port_name = port.name.clone();
+        Self::ParOverlap {
+            port_id: port_name,
+            parent_id: parent_name,
+            v1: err.1,
+            v2: err.2,
+        }
     }
 }

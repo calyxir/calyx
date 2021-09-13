@@ -68,7 +68,7 @@ pub fn interp_cont<'outer>(
     );
     assign_interp.run()?;
 
-    let mut res = assign_interp.deconstruct();
+    let mut res = assign_interp.deconstruct()?;
 
     res.insert(
         &go_port.borrow() as &ir::Port as ConstPort,
@@ -162,7 +162,7 @@ pub fn interpret_invoke<'outer>(
 ) -> InterpreterResult<InterpreterState<'outer>> {
     let mut interp = InvokeInterpreter::new(inv, env, continuous_assignments);
     interp.run()?;
-    Ok(interp.deconstruct())
+    interp.deconstruct()
 }
 /// Evaluates the primitives corresponding to the given iterator of cells, based
 /// on the current environment. Returns a set of assignments that may change

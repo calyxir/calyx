@@ -788,9 +788,9 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         self,
         other: Vec<Self>,
         overlap_keys: &HashSet<K>,
-    ) -> Self {
+    ) -> Result<Self, CollisionError<K, V>> {
         if other.is_empty() {
-            return self;
+            return Ok(self);
         }
         //initialize all needed variables
         let mut a = self;
@@ -829,7 +829,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                     if overlap_keys.contains(&k) && prev == &v {
                         a_head.insert(k, v);
                     } else {
-                        panic!("arguments of merge are not disjoint");
+                        let prev = a_head.remove(&k).unwrap();
+                        return Err(CollisionError(k, prev, v));
                     }
                 } else {
                     a_head.insert(k, v);
@@ -847,7 +848,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
         //push_scope this new merged node onto A'
         a.push_scope(a_head);
-        a.smoosh_once()
+        Ok(a.smoosh_once())
     }
 
     /// ```text
@@ -1107,3 +1108,5 @@ mod priv_tests {
         }
     }
 }
+
+pub struct CollisionError<K: Eq + std::hash::Hash, V: Eq>(pub K, pub V, pub V);

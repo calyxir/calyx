@@ -1,5 +1,6 @@
 //! Environment for interpreter.
 
+use super::errors::{InterpreterError, InterpreterResult};
 use super::interpreter::ComponentInterpreter;
 use super::primitives::{combinational, stateful, Primitive, Serializeable};
 use super::stk_env::Smoosher;
@@ -304,7 +305,7 @@ impl<'outer> InterpreterState<'outer> {
         mut self,
         others: Vec<Self>,
         overlap: &HashSet<*const ir::Port>,
-    ) -> Self {
+    ) -> InterpreterResult<Self> {
         let clk = others
             .iter()
             .chain(once(&self))
@@ -312,13 +313,29 @@ impl<'outer> InterpreterState<'outer> {
             .max()
             .unwrap(); // safe because of once
 
-        self.port_map = self.port_map.merge_many(
+        let port_map = self.port_map;
+        let merged = port_map.merge_many(
             others.into_iter().map(|x| x.port_map).collect(),
             overlap,
         );
+
+        self.port_map = match merged {
+            Ok(ok) => Ok(ok),
+            Err(e) => {
+                let mut ie: InterpreterError = e.into();
+                if let InterpreterError::ParOverlap { parent_id, .. } = &mut ie
+                {
+                    if parent_id == "_this" {
+                        *parent_id = self.comp_name.clone()
+                    }
+                }
+                Err(ie)
+            }
+        }?;
+
         self.clk = clk;
 
-        self
+        Ok(self)
     }
 
     pub fn eval_guard(&self, guard: &ir::Guard) -> bool {

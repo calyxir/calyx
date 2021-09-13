@@ -80,8 +80,21 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             }
         }
 
-        let input_hash_set =
+        let go_port = inputs
+            .iter()
+            .find(|x| x.borrow().attributes.has("go"))
+            .unwrap()
+            .clone();
+
+        let done_port = outputs
+            .iter()
+            .find(|x| x.borrow().attributes.has("done"))
+            .unwrap()
+            .clone();
+
+        let mut input_hash_set =
             inputs.iter().map(|x| x.as_raw()).collect::<HashSet<_>>();
+        input_hash_set.insert(done_port.as_raw());
 
         let input_hash_set = Rc::new(input_hash_set);
         let interp;
@@ -97,17 +110,6 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             )
             .into()
         };
-
-        let go_port = inputs
-            .iter()
-            .find(|x| x.borrow().attributes.has("go"))
-            .unwrap()
-            .clone();
-        let done_port = outputs
-            .iter()
-            .find(|x| x.borrow().attributes.has("done"))
-            .unwrap()
-            .clone();
 
         Self {
             interp,
@@ -177,7 +179,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         }
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
         match self.interp {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
@@ -265,7 +267,8 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         &mut self,
         inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
-        let input_vec = inputs
+        let mut assigned = HashSet::new();
+        let mut input_vec = inputs
             .iter()
             .map(|(name, val)| {
                 let port = self
@@ -273,9 +276,20 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
                     .iter()
                     .find(|x| x.borrow().name == name)
                     .unwrap();
+                assigned.insert(port.as_raw());
                 (port.as_raw(), (*val).clone())
             })
             .collect::<Vec<_>>();
+
+        for port in &self.input_ports {
+            if !assigned.contains(&port.as_raw()) {
+                let pt_ref = port.borrow();
+                input_vec.push((
+                    port.as_raw(),
+                    Value::zeroes(pt_ref.width as usize),
+                ));
+            }
+        }
 
         let mut env = self.get_mut_env();
 
@@ -303,7 +317,8 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
                 StructuralOrControl::Structural(s)
             }
             StructuralOrControl::Control(control) => {
-                let env = control.deconstruct();
+                // actually do the right thing with the error here
+                let env = control.deconstruct().unwrap();
                 ControlInterpreter::new(
                     self.control_ref,
                     env,

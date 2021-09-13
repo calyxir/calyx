@@ -1,5 +1,6 @@
 use super::super::utils::{get_done_port, get_go_port};
 use super::AssignmentInterpreter;
+use crate::errors::InterpreterError;
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::utils::AsRaw;
 use crate::{
@@ -38,7 +39,7 @@ pub trait Interpreter<'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer>;
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>>;
 
     fn is_done(&self) -> bool;
 
@@ -68,8 +69,8 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
-        self.env
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+        Ok(self.env)
     }
 
     fn is_done(&self) -> bool {
@@ -196,7 +197,7 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
 }
 
 impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
-    fn reset(mut self) -> InterpreterState<'outer> {
+    fn reset(mut self) -> InterpreterResult<InterpreterState<'outer>> {
         if let Some(go) = self.enable.go_port() {
             self.interp.get_mut_env().insert(go, Value::bit_low())
         }
@@ -217,7 +218,7 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
         self.interp.run()
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
         self.reset()
     }
 
@@ -289,7 +290,7 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
         {
             if self.current_interpreter.as_ref().unwrap().is_done() {
                 let mut interp = self.current_interpreter.take().unwrap();
-                let res = run_and_deconstruct!(interp);
+                let res = run_and_deconstruct!(interp)?;
                 self.env = Some(res);
             } else {
                 self.current_interpreter.as_mut().unwrap().step()?
@@ -309,8 +310,8 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
         self.current_interpreter.is_none() && self.done_flag
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
-        self.env.unwrap()
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+        self.env.ok_or_else(|| InterpreterError::InvalidSeqState)
     }
 
     fn get_env(&self) -> StateView<'_, 'outer> {
@@ -392,13 +393,13 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
         assert!(self.interpreters.iter().all(|x| x.is_done()));
         let envs = self
             .interpreters
             .into_iter()
             .map(ControlInterpreter::deconstruct)
-            .collect_vec();
+            .collect::<InterpreterResult<Vec<InterpreterState<'outer>>>>()?;
 
         self.in_state.merge_many(envs, &self.input_ports)
     }
@@ -513,7 +514,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
                 let branch;
                 #[allow(clippy::branches_sharing_code)]
                 if is_signal_high(i.get(self.port)) {
-                    let env = i.deconstruct();
+                    let env = i.deconstruct()?;
                     branch = ControlInterpreter::new(
                         self.tbranch,
                         env,
@@ -521,7 +522,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
                         Rc::clone(&self.input_ports),
                     );
                 } else {
-                    let env = i.deconstruct();
+                    let env = i.deconstruct()?;
                     branch = ControlInterpreter::new(
                         self.fbranch,
                         env,
@@ -540,8 +541,10 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         }
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
-        self.branch_interp.unwrap().deconstruct()
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+        self.branch_interp
+            .ok_or_else(|| InterpreterError::InvalidIfState)?
+            .deconstruct()
     }
 
     fn is_done(&self) -> bool {
@@ -656,13 +659,13 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
                 if is_signal_high(ci.get(self.port)) {
                     let body_interp = ControlInterpreter::new(
                         self.body,
-                        ci.deconstruct(),
+                        ci.deconstruct()?,
                         self.continuous_assignments,
                         Rc::clone(&self.input_ports),
                     );
                     self.body_interp = Some(body_interp)
                 } else {
-                    self.terminal_env = Some(ci.deconstruct())
+                    self.terminal_env = Some(ci.deconstruct()?)
                 }
             } else {
                 ci.step()?
@@ -672,7 +675,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
                 bi.step()?
             } else {
                 let bi = self.body_interp.take().unwrap();
-                let env = bi.deconstruct();
+                let env = bi.deconstruct()?;
 
                 if let Some(cond) = &self.cond {
                     let cond_interp = EnableInterpreter::new(
@@ -700,8 +703,9 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
-        self.terminal_env.unwrap()
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+        self.terminal_env
+            .ok_or_else(|| InterpreterError::InvalidIfState)
     }
 
     fn is_done(&self) -> bool {
@@ -816,8 +820,8 @@ impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
         self.assign_interp.run()
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
-        let mut env = self.assign_interp.reset();
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+        let mut env = self.assign_interp.reset()?;
 
         // set go low
         let go_port = self.invoke.comp.borrow().get_with_attr("go");
@@ -825,7 +829,7 @@ impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_low());
 
-        env
+        Ok(env)
     }
 
     fn is_done(&self) -> bool {
@@ -934,7 +938,7 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
         control_match!(self, i, i.run())
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
         control_match!(self, i, i.deconstruct())
     }
 
@@ -994,14 +998,13 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
         self.interp.step()
     }
 
-    fn deconstruct(self) -> InterpreterState<'outer> {
-        let final_env = self.interp.deconstruct();
+    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+        let final_env = self.interp.deconstruct()?;
         finish_interpretation(
             final_env,
             Some(self.done_port),
             self.continuous.iter(),
         )
-        .unwrap()
     }
 
     fn run(&mut self) -> InterpreterResult<()> {

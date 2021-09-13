@@ -45,7 +45,7 @@ impl<'a> Debugger<'a> {
 
         if pass_through {
             component_interpreter.run()?;
-            return Ok(component_interpreter.deconstruct());
+            return component_interpreter.deconstruct();
         }
 
         let mut input_stream = Input::default();
@@ -240,7 +240,7 @@ impl<'a> Debugger<'a> {
 
             if component_interpreter.is_done() {
                 component_interpreter.set_go_low();
-                return Ok(component_interpreter.deconstruct());
+                return component_interpreter.deconstruct();
             }
         }
     }

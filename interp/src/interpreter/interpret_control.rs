@@ -76,8 +76,6 @@ fn eval_par<'outer>(
     //vector of smooshers from the states
     let mut smooshers = Vec::new();
 
-    let mut final_st = env;
-
     //i do this using loops for clock updates
     for is in states {
         if is.clk > tl {
@@ -87,11 +85,10 @@ fn eval_par<'outer>(
         smooshers.push(is.port_map);
     }
 
-    final_st.port_map =
-        final_st.port_map.merge_many(smooshers, &HashSet::new());
-    final_st.clk = tl;
+    env.port_map = env.port_map.merge_many(smooshers, &HashSet::new())?;
+    env.clk = tl;
 
-    Ok(final_st)
+    Ok(env)
 }
 
 /// Interpret If

@@ -319,7 +319,7 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
         mut self,
     ) -> InterpreterResult<InterpreterState<'outer>> {
         self.run()?;
-        Ok(self.deconstruct())
+        self.deconstruct()
     }
 
     /// Run the interpreter until it finishes executing
@@ -338,9 +338,9 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
             )
     }
 
-    pub fn deconstruct(self) -> InterpreterState<'outer> {
+    pub fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
         if self.is_deconstructable() {
-            self.deconstruct_no_check()
+            Ok(self.deconstruct_no_check())
         } else {
             panic!("Group simulation has not finished executing and cannot be deconstructed")
         }
@@ -358,14 +358,13 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     }
 
     /// The inerpreter must have finished executing first
-    pub fn reset(mut self) -> InterpreterState<'outer> {
+    pub fn reset(mut self) -> InterpreterResult<InterpreterState<'outer>> {
         let assigns = std::mem::take(&mut self.assigns);
         let done_signal = self.done_port;
-        let env = self.deconstruct();
+        let env = self.deconstruct()?;
 
         // note there might be some trouble with mixed assignments
         finish_interpretation(env, done_signal, assigns._iter_group_assigns())
-            .unwrap()
     }
 
     pub fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
