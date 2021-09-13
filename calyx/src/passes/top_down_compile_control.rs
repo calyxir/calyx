@@ -1,6 +1,7 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::CalyxResult;
 use crate::ir::traversal::ConstructVisitor;
+use crate::ir::GetAttributes;
 use crate::{build_assignments, guard, passes, structure};
 use crate::{
     errors::Error,
@@ -16,6 +17,127 @@ use petgraph::graph::DiGraph;
 use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
+
+const NODE_ID: &str = "NODE_ID";
+
+/// Computes the entry and exit points of a given [ir::Control] program.
+///
+/// ## Example
+/// In the following Calyx program:
+/// ```
+/// while comb_reg.out {
+///   seq {
+///     incr;
+///     cond0;
+///   }
+/// }
+/// ```
+/// The exit point is `cond0`.
+///
+/// Multiple exit points are created when conditions are used:
+/// ```
+/// while comb_reg.out {
+///   incr;
+///   if comb_reg2.out {
+///     true;
+///   } else {
+///     false;
+///   }
+/// }
+/// ```
+/// The exit set is `[true, false]`.
+fn control_exits(
+    con: &ir::Control,
+    cur_state: u64,
+    is_exit: bool,
+    exits: &mut Vec<(u64, RRC<ir::Group>)>,
+) -> u64 {
+    match con {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
+            if is_exit {
+                exits.push((cur_state, Rc::clone(group)))
+            }
+            cur_state + 1
+        }
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            let len = stmts.len();
+            let mut cur = cur_state;
+            for (idx, stmt) in stmts.iter().enumerate() {
+                let exit = idx == len - 1 && is_exit;
+                cur = control_exits(stmt, cur, exit, exits);
+            }
+            cur
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            let tru_nxt = control_exits(
+                tbranch, cur_state, is_exit, exits,
+            );
+            control_exits(
+                fbranch, tru_nxt, is_exit, exits,
+            )
+        }
+        ir::Control::While(ir::While { body, .. }) => control_exits(
+            body, cur_state, is_exit, exits,
+        ),
+        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Par(_) => unreachable!(),
+    }
+}
+
+fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
+    match con {
+        ir::Control::Enable(ir::Enable { attributes, .. }) => {
+            attributes.insert(NODE_ID, cur_state);
+            cur_state + 1
+        }
+        ir::Control::Par(ir::Par { stmts, attributes }) => {
+            attributes.insert(NODE_ID, cur_state);
+            stmts.iter_mut().for_each(|stmt| {
+                compute_unique_ids(stmt, 0);
+            });
+            cur_state + 1
+        }
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            let mut cur = cur_state;
+            stmts.iter_mut().for_each(|stmt| {
+                cur = compute_unique_ids(stmt, cur);
+            });
+            cur
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            // If the program starts with a branch then branches can't get
+            // the initial state.
+            let cur_state = if cur_state == 0 {
+                cur_state + 1
+            } else {
+                cur_state
+            };
+            let tru_nxt = compute_unique_ids(
+                tbranch, cur_state
+            );
+            compute_unique_ids(
+                fbranch, tru_nxt
+            )
+        }
+        ir::Control::While(ir::While { body, .. }) => {
+            // If the program starts with a branch then branches can't get
+            // the initial state.
+            let cur_state = if cur_state == 0 {
+                cur_state + 1
+            } else {
+                cur_state
+            };
+            compute_unique_ids(body, cur_state)
+        }
+        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+    }
+}
 
 /// Represents the dyanmic execution schedule of a control program.
 #[derive(Default)]
@@ -160,73 +282,6 @@ impl Schedule {
     }
 }
 
-/// Computes the entry and exit points of a given [ir::Control] program.
-///
-/// ## Example
-/// In the following Calyx program:
-/// ```
-/// while comb_reg.out {
-///   seq {
-///     incr;
-///     cond0;
-///   }
-/// }
-/// ```
-/// The exit point is `cond0`.
-///
-/// Multiple exit points are created when conditions are used:
-/// ```
-/// while comb_reg.out {
-///   incr;
-///   if comb_reg2.out {
-///     true;
-///   } else {
-///     false;
-///   }
-/// }
-/// ```
-/// The exit set is `[true, false]`.
-fn control_exits(
-    con: &ir::Control,
-    cur_state: u64,
-    is_exit: bool,
-    exits: &mut Vec<(u64, RRC<ir::Group>)>,
-) -> u64 {
-    match con {
-        ir::Control::Enable(ir::Enable { group, .. }) => {
-            if is_exit {
-                exits.push((cur_state, Rc::clone(group)))
-            }
-            cur_state + 1
-        }
-        ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            let len = stmts.len();
-            let mut cur = cur_state;
-            for (idx, stmt) in stmts.iter().enumerate() {
-                let exit = idx == len - 1 && is_exit;
-                cur = control_exits(stmt, cur, exit, exits);
-            }
-            cur
-        }
-        ir::Control::If(ir::If {
-            tbranch, fbranch, ..
-        }) => {
-            let tru_nxt = control_exits(
-                tbranch, cur_state, is_exit, exits,
-            );
-            control_exits(
-                fbranch, tru_nxt, is_exit, exits,
-            )
-        }
-        ir::Control::While(ir::While { body, .. }) => control_exits(
-            body, cur_state, is_exit, exits,
-        ),
-        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
-        ir::Control::Par(_) => unreachable!(),
-    }
-}
-
 /// Represents an edge from a predeccesor to the current control node.
 /// The `u64` represents the FSM state of the predeccesor and the guard needs
 /// to be true for the predeccesor to transition to the current state.
@@ -253,9 +308,12 @@ fn calculate_states_recur(
 ) -> CalyxResult<(Vec<PredEdge>, u64)> {
     match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
-        ir::Control::Enable(ir::Enable { group, .. }) => {
+        ir::Control::Enable(ir::Enable { group, attributes }) => {
+            let cur_state = *attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
+            // This happens when the first control statement is an enable not
+            // inside a branch.
             let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
                 (preds[0].0, vec![])
             } else {
@@ -572,6 +630,17 @@ impl Named for TopDownCompileControl {
 }
 
 impl Visitor for TopDownCompileControl {
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        let mut con = comp.control.borrow_mut();
+        compute_unique_ids(&mut con, 0);
+        // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
+        Ok(Action::Continue)
+    }
+
     /// Compile each child in `par` block separately so each child can make
     /// progress indepdendently.
     fn finish_par(
@@ -665,7 +734,12 @@ impl Visitor for TopDownCompileControl {
         );
         par_group.borrow_mut().assignments.push(done);
 
-        Ok(Action::Change(ir::Control::enable(par_group)))
+        // Add NODE_ID to compiled group.
+        let mut en = ir::Control::enable(par_group);
+        let node_id = s.attributes.get(NODE_ID).unwrap();
+        en.get_mut_attributes().unwrap().insert(NODE_ID, *node_id);
+
+        Ok(Action::Change(en))
     }
 
     fn finish(
@@ -682,6 +756,7 @@ impl Visitor for TopDownCompileControl {
         }
 
         let control = Rc::clone(&comp.control);
+        // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
         // Add assignments for the final states
         let schedule = calculate_states(
