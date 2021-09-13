@@ -1,0 +1,29 @@
+.token.diff-addition {
+    background: hsla(120,100%,75%,0.4);;
+}
+.token.diff-deletion {
+    background: hsla(0,100%,75%,0.4);;
+}
+
+
+span.line.diff-addition {
+    background: hsla(120,100%,75%,0.2);;
+}
+
+span.line.diff-deletion {
+    background: hsla(0,100%,75%,0.2);;
+}
+
+span.line.diff-empty {
+    background: var(--bg-color);
+    box-shadow: 0 0px 2px 1px rgba(0, 0, 0, 0.2);
+}
+
+span.line {
+    width: 100%;
+    display: block;
+}
+
+/* span.line:nth-child(2n+1) { */
+/*     background-color: hsl(44, 87%, 92%); */
+/* } */

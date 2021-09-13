@@ -1,0 +1,18 @@
+[package]
+name = "futil-site"
+version = "0.1.0"
+authors = ["Samuel Thomas <sgt43@cornell.edu>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+calyx = { git = "https://github.com/cucapra/futil.git" }
+wasm-bindgen = { version = "0.2.69", features = ["serde-serialize"] }
+serde_json = "1.0.59"
+serde_derive = "1.0"
+serde = "1.0"
+
+[build-dependencies]
+cargo-lock = "4.0.1"
