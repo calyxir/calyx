@@ -6,7 +6,7 @@ const HELP_LIST: [Command<&str>; 10] = [
     Command::Step,
     Command::Continue,
     Command::Display,
-    Command::PrintCell(""),
+    Command::Print(vec![]),
     Command::Break(""),
     Command::Help,
     Command::InfoBreak,
@@ -15,17 +15,15 @@ const HELP_LIST: [Command<&str>; 10] = [
     Command::DisableBreakpointByName(""),
 ];
 pub enum Command<S: AsRef<str>> {
-    Step,                         // Step execution
-    Continue,                     // Execute until breakpoint
-    Empty,                        // Empty command, does nothing
-    Display,                      // Display full environment contents
-    PrintCell(S),                 // Print a cell's ports
-    PrintCellOrPort(S, S),        // Print a specific port or specific cell
-    PrintFullySpecified(S, S, S), // Print a specific port (fully specified)
-    Break(S),                     // Create a breakpoint
-    Help,                         // Help message
-    Exit,                         // Exit the debugger
-    InfoBreak,                    // List breakpoints
+    Step,          // Step execution
+    Continue,      // Execute until breakpoint
+    Empty,         // Empty command, does nothing
+    Display,       // Display full environment contents
+    Print(Vec<S>), // single print command
+    Break(S),      // Create a breakpoint
+    Help,          // Help message
+    Exit,          // Exit the debugger
+    InfoBreak,     // List breakpoints
     DelBreakpointByNum(u64),
     DelBreakpointByName(S),
     EnableBreakpointByNum(u64),
@@ -51,7 +49,7 @@ impl<S: AsRef<str>> Command<S> {
             Command::Step => (vec!["Step", "S"], "Advance the execution by a step"),
             Command::Continue => ( vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
             Command::Display => (vec!["Display"], "Display the full state"),
-            Command::PrintCell(_) | Command::PrintCellOrPort(..) | Command::PrintFullySpecified(..) => (vec!["Print", "P"], "Print target value"),
+            Command::Print(_) => (vec!["Print", "P"], "Print target value"),
             Command::Help => (vec!["Help"], "Print this message"),
             Command::Empty | Command::Exit => unreachable!(), // This command needs no public facing help message
             Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"),
@@ -75,24 +73,9 @@ impl<S: AsRef<str>> Command<S> {
             ["continue"] | ["c"] => Ok(vec![Command::Continue]),
             ["display"] => Ok(vec![Command::Display]),
             ["print", _target] | ["p", _target] => {
-                let target: Vec<_> = saved_input[0].split('.').collect();
-                match target[..] {
-                    [t] => Ok(vec![Command::PrintCell(t.to_string())]),
-                    [first, second] => Ok(vec![Command::PrintCellOrPort(
-                        first.to_string(),
-                        second.to_string(),
-                    )]),
-                    [component, cell, port] => {
-                        Ok(vec![Command::PrintFullySpecified(
-                            component.to_string(),
-                            cell.to_string(),
-                            port.to_string(),
-                        )])
-                    }
-                    _ => Err(InterpreterError::InvalidCommand(
-                        "Print requires exactly one target".to_string(),
-                    )),
-                }
+                let target: Vec<_> =
+                    saved_input[0].split('.').map(|x| x.to_string()).collect();
+                Ok(vec![Command::Print(target)])
             }
             ["print", ..] | ["p", ..] => Err(InterpreterError::InvalidCommand(
                 "Print requires exactly one target".to_string(),
