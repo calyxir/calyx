@@ -18,7 +18,7 @@
                     "file": "tests/correctness/seq.futil",
                     "root": "/",
                     "passes": [
-                        "compile-control"
+                        "tdcc"
                     ]
                 },
                 {
@@ -26,7 +26,7 @@
                     "file": "tests/correctness/par.futil",
                     "root": "/",
                     "passes": [
-                        "compile-control"
+                        "tdcc"
                     ]
                 },
                 {
@@ -34,7 +34,7 @@
                     "file": "tests/correctness/if.futil",
                     "root": "/",
                     "passes": [
-                        "compile-control"
+                        "tdcc"
                     ]
                 },
                 {
@@ -42,7 +42,7 @@
                     "file": "tests/correctness/while.futil",
                     "root": "/",
                     "passes": [
-                        "compile-control"
+                        "tdcc"
                     ]
                 },
                 {

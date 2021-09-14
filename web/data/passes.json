@@ -51,6 +51,11 @@
             "description": "static-timing"
         },
         {
+            "name": "tdcc",
+            "title": "Top-Down Compile Control",
+            "description": "tdcc"
+        },
+        {
             "name": "dead-cell-removal",
             "title": "Dead Cell Removal",
             "description": "dead-cell-removal"
