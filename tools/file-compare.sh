@@ -9,11 +9,18 @@ set -euf -o pipefail
 
 file=$1
 # data=$2
+# passes=(
+#   "well-formed" "papercut" "guard-canonical" "infer-static-timing" "collapse-control" "resource-sharing"
+#   "minimize-regs" "compile-invoke" "compile-empty" "static-timing" "top-down-cc" "dead-cell-removal"
+#   "go-insertion" "component-interface-inserter" "hole-inliner" "clk-insertion" "reset-insertion"
+#   "merge-assign"
+# )
 passes=(
-  "well-formed" "papercut" "guard-canonical" "infer-static-timing" "collapse-control" "resource-sharing"
-  "minimize-regs" "compile-invoke" "compile-empty" "static-timing" "top-down-cc" "dead-cell-removal"
-  "go-insertion" "component-interface-inserter" "hole-inliner" "clk-insertion" "reset-insertion"
-  "merge-assign"
+    "well-formed" "papercut" "guard-canonical" "remove-comb-groups" "infer-static-timing" 
+    "collapse-control" "resource-sharing" "minimize-regs" "compile-invoke" "compile-empty" 
+    "tdcc" "dead-group-removal" "dead-cell-removal" "go-insertion" 
+    "component-interface-inserter" "hole-inliner" "clk-insertion" "reset-insertion" 
+    "merge-assign"
 )
 # Other passes:
 # "compile-control" "externalize" "simplify-guards" "synthesis-papercut" "register-unsharing" "par-to-seq"
@@ -36,13 +43,18 @@ for (( i = 0; i < len; i++ )); do
   pass="-p ${passes[i]}"
   flag+=" $pass"
   fud e "$file" -s futil.flags "$flag" --to futil-lowered > "pass_seq/$i-${passes[i]}.futil"
-  echo "$flag"
-  res=$( cargo run -- "pass_seq/$i-${passes[i]}.futil" | jq .memories )
-  diff=$( diff <(echo "$expect") <(echo "$res") )
-  if [[ $diff == "" ]]; then
-    echo "Same"
+  echo "${passes[i]}"
+  if [[ "${passes[i]}" == "tdcc" || "${passes[i]}" == "dead-cell-removal" || "${passes[i]}" == "go-insertion" || "${passes[i]}" == "component-interface-inserter" ]]; then
+    echo "Warning: Simulation failed."
   else
-    echo "Problem"
+    echo "$flag"
+    res=$( cargo run -- "pass_seq/$i-${passes[i]}.futil" | jq .memories )
+    diff=$( diff <(echo "$expect") <(echo "$res") )
+    if [[ $diff == "" ]]; then
+      echo "Same"
+    else
+      echo "Problem"
+    fi
   fi
 done
 
