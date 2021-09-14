@@ -16,7 +16,7 @@ enum StructuralOrControl<'a, 'outer> {
     Structural(StructuralInterpreter<'a, 'outer>),
     Control(ControlInterpreter<'a, 'outer>),
     Nothing, // a default variant which is only ever around transiently
-    Finished(InterpreterState<'outer>),
+    Env(InterpreterState<'outer>), // state deferring construction of control interpreter
 }
 impl<'a, 'outer> Default for StructuralOrControl<'a, 'outer> {
     fn default() -> Self {
@@ -103,7 +103,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
         if control_is_empty(control) {
             interp = StructuralInterpreter::from_component(comp, env).into();
         } else {
-            interp = StructuralOrControl::Finished(env);
+            interp = StructuralOrControl::Env(env);
         };
 
         Self {
@@ -170,9 +170,9 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
                     Ok(())
                 }
             }
-            StructuralOrControl::Finished(_) => {
+            StructuralOrControl::Env(_) => {
                 if go {
-                    let env = if let StructuralOrControl::Finished(env) =
+                    let env = if let StructuralOrControl::Env(env) =
                         std::mem::take(&mut self.interp)
                     {
                         env
@@ -201,7 +201,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match self.interp {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
-            StructuralOrControl::Finished(e) => Ok(e),
+            StructuralOrControl::Env(e) => Ok(e),
             _ => unreachable!(""),
         }
     }
@@ -210,7 +210,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.is_done(),
             StructuralOrControl::Control(c) => c.is_done(),
-            &StructuralOrControl::Finished(_) => false,
+            &StructuralOrControl::Env(_) => false,
             _ => unreachable!(""),
         }
     }
@@ -219,7 +219,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),
-            StructuralOrControl::Finished(e) => StateView::SingleView(e),
+            StructuralOrControl::Env(e) => StateView::SingleView(e),
 
             _ => unreachable!(""),
         }
@@ -229,7 +229,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.currently_executing_group(),
             StructuralOrControl::Control(c) => c.currently_executing_group(),
-            StructuralOrControl::Finished(_) => {
+            StructuralOrControl::Env(_) => {
                 vec![]
             }
             _ => unreachable!(""),
@@ -241,7 +241,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Structural(s) => s.get_mut_env(),
             StructuralOrControl::Control(c) => c.get_mut_env(),
             StructuralOrControl::Nothing => unreachable!(),
-            StructuralOrControl::Finished(e) => MutStateView::Single(e),
+            StructuralOrControl::Env(e) => MutStateView::Single(e),
         }
     }
 
@@ -250,7 +250,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Structural(s) => s.converge(),
             StructuralOrControl::Control(c) => c.converge(),
             StructuralOrControl::Nothing => unreachable!(),
-            StructuralOrControl::Finished(_) => Ok(()),
+            StructuralOrControl::Env(_) => Ok(()),
         }
     }
 }
@@ -346,7 +346,7 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Control(control) => {
                 // TODO: actually do the right thing with the error here
                 let env = control.deconstruct().unwrap();
-                StructuralOrControl::Finished(env)
+                StructuralOrControl::Env(env)
             }
             _ => unreachable!(),
         };
