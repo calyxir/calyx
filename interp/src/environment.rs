@@ -305,7 +305,7 @@ impl<'outer> InterpreterState<'outer> {
     /// Creates a fork of the source environment which has the same clock and
     /// underlying primitive map but whose stack environment has been forked
     /// from the source's stack environment allowing divergence from the fork
-    /// point
+    /// point. This forces the creation of a new layer, unlike fork
     pub fn force_fork(&mut self) -> Self {
         Self {
             clk: self.clk,
