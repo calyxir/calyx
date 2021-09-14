@@ -1,39 +1,30 @@
-# Futil Web Demo ![Deploy](https://github.com/cucapra/futil-site/workflows/Deploy/badge.svg)
-This uses `calyx` as a library to provide an interactive
-web demo for the Futil compiler. Futil is compiled to webassembly
-and wrapped in simple javascript that interfaces with the compiler.
+# Calyx Web Demo
 
-## Building
-For now, this repository uses a git checkout of the [Futil repository](https://github.com/cucapra/futil).
+This web demo uses `calyx` as a library, compiled to WebAssembly, to provide an
+interactive in-browser interface for the Calyx compiler.
 
-### Setup Build Environment
+## Requirements
 
-You need [Rust](https://www.rust-lang.org/install.html) and [Node.js and NPM](https://www.npmjs.com/get-npm) installed.
-To get [WebAssembly support](https://rustwasm.github.io/wasm-pack/book/quickstart.html), the easiest way is to install Rust with [rustup](https://rustup.rs) as opposed to a package manager.
+You will need [Rust][] and [Node.js][] and [NPM][] or [Yarn][].
+To get [WebAssembly support][wasm-qs] in Rust, the easiest way is to use [rustup][] rather than installing Rust with a package manager.
 
 Then install `wasm-pack` with:
 
-``` shell
+```shell
 cargo install wasm-pack wasm-bindgen-cli
 ```
 
-Now you are ready to build and run the web demo. First, install the `npm` dependencies with:
+## Build and Run
 
-``` shell
-npm i
-```
+First, install the dependencies by typing `yarn` or `npm i`.
 
-### Compiling and Testing
+Then, launch a local web server (which will also rebuild the site when source files change) by typing `yarn start` or `npm start`.
 
-Run a test web server with:
+To build standalone web files, use `yarn build` or `npm run build`.
 
-``` shell
-npm start
-```
-
-The server will automatically refresh if you change any of the JavaScript or Rust code.
-You can build standalone files with:
-
-``` shell
-npm run build
-```
+[rust]: https://www.rust-lang.org/install.html
+[Node.js]: https://nodejs.org/en/
+[npm]: https://nodejs.org/en/
+[yarn]: https://yarnpkg.com
+[wasm-qs]: https://rustwasm.github.io/docs/wasm-pack/quickstart.html
+[rustup]: https://rustup.rs
