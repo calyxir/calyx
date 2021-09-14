@@ -209,13 +209,13 @@ impl<'outer> InterpreterState<'outer> {
 
         for port in comp.signature.borrow().ports.iter() {
             let pt: &ir::Port = &port.borrow();
-            map.insert(pt as ConstPort, Value::bit_low());
+            map.insert(pt as ConstPort, Value::zeroes(pt.width as usize));
         }
         for group in comp.groups.iter() {
             let grp = group.borrow();
             for hole in &grp.holes {
                 let pt: &ir::Port = &hole.borrow();
-                map.insert(pt as ConstPort, Value::bit_low());
+                map.insert(pt as ConstPort, Value::zeroes(pt.width as usize));
             }
         }
         for cell in comp.cells.iter() {
@@ -298,6 +298,19 @@ impl<'outer> InterpreterState<'outer> {
             clk: self.clk,
             cell_map: self.cell_map.clone(),
             port_map: other_pv_map,
+            context: Rc::clone(&self.context),
+            comp_name: self.comp_name.clone(),
+        }
+    }
+    /// Creates a fork of the source environment which has the same clock and
+    /// underlying primitive map but whose stack environment has been forked
+    /// from the source's stack environment allowing divergence from the fork
+    /// point
+    pub fn force_fork(&mut self) -> Self {
+        Self {
+            clk: self.clk,
+            cell_map: self.cell_map.clone(),
+            port_map: self.port_map.fork(),
             context: Rc::clone(&self.context),
             comp_name: self.comp_name.clone(),
         }
@@ -397,7 +410,7 @@ impl<'outer> Serialize for InterpreterState<'outer> {
     }
 }
 #[allow(clippy::borrowed_box)]
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 /// Struct to fully serialize the internal state of the environment
 pub struct FullySerialize {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,

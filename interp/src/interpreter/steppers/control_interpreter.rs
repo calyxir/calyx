@@ -364,6 +364,7 @@ impl<'a, 'outer> ParInterpreter<'a, 'outer> {
         continuous_assigns: &'a [Assignment],
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
+        let mut env = env.force_fork();
         let interpreters = par
             .stmts
             .iter()

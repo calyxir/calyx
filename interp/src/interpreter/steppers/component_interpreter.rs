@@ -4,7 +4,7 @@ use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
-use crate::environment::{InterpreterState, State, StateView};
+use crate::environment::{InterpreterState, MutStateView, State, StateView};
 use crate::errors::InterpreterResult;
 use crate::primitives::Primitive;
 use crate::utils::AsRaw;
@@ -16,6 +16,7 @@ enum StructuralOrControl<'a, 'outer> {
     Structural(StructuralInterpreter<'a, 'outer>),
     Control(ControlInterpreter<'a, 'outer>),
     Nothing, // a default variant which is only ever around transiently
+    Finished(InterpreterState<'outer>),
 }
 impl<'a, 'outer> Default for StructuralOrControl<'a, 'outer> {
     fn default() -> Self {
@@ -102,13 +103,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
         if control_is_empty(control) {
             interp = StructuralInterpreter::from_component(comp, env).into();
         } else {
-            interp = ControlInterpreter::new(
-                control,
-                env,
-                &comp.continuous_assignments,
-                Rc::clone(&input_hash_set),
-            )
-            .into()
+            interp = StructuralOrControl::Finished(env);
         };
 
         Self {
@@ -175,6 +170,29 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
                     Ok(())
                 }
             }
+            StructuralOrControl::Finished(_) => {
+                if go {
+                    let env = if let StructuralOrControl::Finished(env) =
+                        std::mem::take(&mut self.interp)
+                    {
+                        env
+                    } else {
+                        unreachable!()
+                    };
+
+                    let mut control_interp = ControlInterpreter::new(
+                        self.control_ref,
+                        env,
+                        &self.comp_ref.continuous_assignments,
+                        self.input_hash_set.clone(),
+                    );
+                    let result = control_interp.step();
+                    self.interp = control_interp.into();
+                    result
+                } else {
+                    Ok(())
+                }
+            }
             _ => unreachable!(""),
         }
     }
@@ -183,6 +201,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match self.interp {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
+            StructuralOrControl::Finished(e) => Ok(e),
             _ => unreachable!(""),
         }
     }
@@ -191,6 +210,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.is_done(),
             StructuralOrControl::Control(c) => c.is_done(),
+            &StructuralOrControl::Finished(_) => false,
             _ => unreachable!(""),
         }
     }
@@ -199,6 +219,8 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),
+            StructuralOrControl::Finished(e) => StateView::SingleView(e),
+
             _ => unreachable!(""),
         }
     }
@@ -207,6 +229,9 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.currently_executing_group(),
             StructuralOrControl::Control(c) => c.currently_executing_group(),
+            StructuralOrControl::Finished(_) => {
+                vec![]
+            }
             _ => unreachable!(""),
         }
     }
@@ -216,6 +241,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Structural(s) => s.get_mut_env(),
             StructuralOrControl::Control(c) => c.get_mut_env(),
             StructuralOrControl::Nothing => unreachable!(),
+            StructuralOrControl::Finished(e) => MutStateView::Single(e),
         }
     }
 
@@ -224,6 +250,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Structural(s) => s.converge(),
             StructuralOrControl::Control(c) => c.converge(),
             StructuralOrControl::Nothing => unreachable!(),
+            StructuralOrControl::Finished(_) => Ok(()),
         }
     }
 }
@@ -317,17 +344,11 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
                 StructuralOrControl::Structural(s)
             }
             StructuralOrControl::Control(control) => {
-                // actually do the right thing with the error here
+                // TODO: actually do the right thing with the error here
                 let env = control.deconstruct().unwrap();
-                ControlInterpreter::new(
-                    self.control_ref,
-                    env,
-                    &self.comp_ref.continuous_assignments,
-                    self.input_hash_set.clone(),
-                )
-                .into()
+                StructuralOrControl::Finished(env)
             }
-            StructuralOrControl::Nothing => unreachable!(),
+            _ => unreachable!(),
         };
 
         self.interp = new;
@@ -338,5 +359,9 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
 
     fn get_state(&self) -> Option<Box<dyn State + '_>> {
         Some(Box::new(self.get_env()))
+    }
+
+    fn serialize(&self) -> crate::primitives::Serializeable {
+        crate::primitives::Serializeable::Full(self.get_env().gen_serialzer())
     }
 }

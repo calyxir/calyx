@@ -1,4 +1,7 @@
-use crate::{environment::State, values::Value};
+use crate::{
+    environment::{FullySerialize, State},
+    values::Value,
+};
 use calyx::ir;
 use itertools::Itertools;
 use serde::Serialize;
@@ -93,6 +96,7 @@ pub enum Serializeable {
     Empty,
     Val(u64),
     Array(Vec<u64>, Shape),
+    Full(FullySerialize),
 }
 
 impl Serializeable {
@@ -167,6 +171,7 @@ impl Serialize for Serializeable {
                     Shape::D1(_) => unreachable!(),
                 }
             }
+            Serializeable::Full(s) => s.serialize(serializer),
         }
     }
 }
