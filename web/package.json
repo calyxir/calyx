@@ -1,4 +1,7 @@
 {
+    "name": "calyx-web",
+    "version": "0.1.0",
+    "license": "MIT",
     "scripts": {
         "start": "WASM_PACK_PROFILE=dev parcel index.html",
         "build": "WASM_PACK_PROFILE=dev parcel build index.html --log-level 4",
