@@ -123,11 +123,16 @@ impl<T> List<T> {
     pub fn split(self) -> (Option<T>, Self) {
         if self.is_empty() {
             (None, self)
-        } else if let Ok(head) = Rc::try_unwrap(self.head.unwrap()) {
-            let tail_list = List { head: head.next }; //better: not cloning the tail
-            (Some(head.elem), tail_list)
         } else {
-            panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists!")
+            match Rc::try_unwrap(self.head.unwrap()) {
+                Ok(head) => {
+                    let tail_list = List { head: head.next }; //better: not cloning the tail
+                    (Some(head.elem), tail_list)
+                }
+                Err(e) => {
+                    panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists! Current strong count {}", Rc::strong_count(&e))
+                }
+            }
         }
     }
 
@@ -836,6 +841,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                     a_head.insert(k, v);
                 }
             }
+            std::mem::drop(sm.tail);
         }
 
         if let (Some(a_new_head), a_new_tail) = a.tail.split() {
