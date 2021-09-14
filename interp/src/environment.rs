@@ -2,12 +2,14 @@
 
 use super::primitives::{combinational, stateful, Primitive};
 use super::stk_env::Smoosher;
+use super::utils::AsRaw;
 use super::utils::MemoryMap;
 use super::values::Value;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
+use std::iter::once;
 use std::rc::Rc;
 
 /// A raw pointer reference to a cell. Can only be used as a key, but cannot be
@@ -57,8 +59,9 @@ impl InterpreterState {
         }
     }
 
-    pub fn insert(&mut self, port: ConstPort, value: Value) {
-        self.pv_map.set(port, value);
+    /// Insert a new value for the given constant port into the environment
+    pub fn insert<P: AsRaw<ir::Port>>(&mut self, port: P, value: Value) {
+        self.pv_map.set(port.as_raw(), value);
     }
 
     fn make_primitive(
@@ -153,6 +156,7 @@ impl InterpreterState {
                 if let ir::CellType::Primitive {
                     name,
                     param_binding,
+                    is_comb: _,
                 } = cl.prototype.clone()
                 {
                     let cell_name = match name.as_ref() {
@@ -235,25 +239,8 @@ impl InterpreterState {
     }
 
     /// Return the value associated with a component's port.
-    pub fn get_from_port(&self, port: &ir::Port) -> &Value {
-        self.pv_map.get(&(port as ConstPort)).unwrap()
-    }
-
-    pub fn get_from_const_port(&self, port: *const ir::Port) -> &Value {
-        self.pv_map.get(&port).unwrap()
-    }
-
-    /// Gets the cell in a component based on the name;
-    /// XXX: similar to find_cell in component.rs
-    // Does this function *need* to be in environment?
-    pub fn get_cell(
-        &self,
-        comp: &ir::Id,
-        cell: &ir::Id,
-    ) -> Option<ir::RRC<ir::Cell>> {
-        let a = self.context.borrow();
-        let temp = a.components.iter().find(|cm| cm.name == *comp)?;
-        temp.find_cell(&(cell.id))
+    pub fn get_from_port<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
+        self.pv_map.get(&port.as_raw()).unwrap()
     }
 
     /// Outputs the cell state;
@@ -264,14 +251,26 @@ impl InterpreterState {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
-    pub fn cell_is_comb(&self, cell: &ir::Cell) -> bool {
+    /// Returns a string representing the current state of the environment. This
+    /// just serializes the environment to a string and returns that string
+    pub fn state_as_str(&self) -> String {
+        serde_json::to_string_pretty(&self).unwrap()
+    }
+
+    /// A predicate that checks if the given cell points to a combinational
+    /// primitive (or component?)
+    pub fn cell_is_comb<C: AsRaw<ir::Cell>>(&self, cell: C) -> bool {
         self.cell_prim_map
             .borrow()
-            .get(&(cell as ConstCell))
+            .get(&cell.as_raw())
             .unwrap()
             .is_comb()
     }
 
+    /// Creates a fork of the source environment which has the same clock and
+    /// underlying primitive map but whose stack environment has been forked
+    /// from the source's stack environment allowing divergence from the fork
+    /// point
     pub fn fork(&mut self) -> Self {
         let other_pv_map = if self.pv_map.top().is_empty() {
             self.pv_map.fork_from_tail()
@@ -284,6 +283,80 @@ impl InterpreterState {
             pv_map: other_pv_map,
             context: Rc::clone(&self.context),
         }
+    }
+
+    /// Merge the given environments. Must be called from the root environment
+    pub fn merge_many(mut self, others: Vec<Self>) -> Self {
+        let clk = others
+            .iter()
+            .chain(once(&self))
+            .map(|x| x.clk)
+            .max()
+            .unwrap(); // safe because of once
+
+        self.pv_map = self
+            .pv_map
+            .merge_many(others.into_iter().map(|x| x.pv_map).collect());
+        self.clk = clk;
+
+        self
+    }
+
+    pub fn eval_guard(&self, guard: &ir::Guard) -> bool {
+        match guard {
+            ir::Guard::Or(g1, g2) => self.eval_guard(g1) || self.eval_guard(g2),
+            ir::Guard::And(g1, g2) => {
+                self.eval_guard(g1) && self.eval_guard(g2)
+            }
+            ir::Guard::Not(g) => !self.eval_guard(g),
+            ir::Guard::Eq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    == self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Neq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    != self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Gt(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    > self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Lt(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    < self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Geq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    >= self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Leq(g1, g2) => {
+                self.get_from_port(&g1.borrow())
+                    <= self.get_from_port(&g2.borrow())
+            }
+            ir::Guard::Port(p) => {
+                let val = self.get_from_port(&p.borrow());
+                if val.vec.len() != 1 {
+                    panic!(
+                        "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
+                    )
+                } else {
+                    val.as_u64() == 1
+                }
+            }
+            ir::Guard::True => true,
+        }
+    }
+
+    pub fn get_cell<S: AsRef<str> + Clone>(
+        &self,
+        name: &S,
+    ) -> Vec<RRC<ir::Cell>> {
+        let ctx_ref = self.context.borrow();
+        ctx_ref
+            .components
+            .iter()
+            .filter_map(|x| x.find_cell(name))
+            .collect()
     }
 }
 

@@ -117,13 +117,13 @@ fn smoosher_list_b_vars() {
     let hs1 = Smoosher::list_bound_vars(&smoosher, 1);
     assert!(hs0.contains(&"joseph"));
     assert!(hs0.contains(&"ari"));
-    assert_eq!(hs0.contains(&"jonathan"), false);
-    assert_eq!(hs0.contains(&"alma"), false);
+    assert!(!hs0.contains(&"jonathan"));
+    assert!(!hs0.contains(&"alma"));
     //now test from 1 level deep
     assert!(hs1.contains(&"joseph"));
     assert!(hs1.contains(&"ari"));
     assert!(hs1.contains(&"jonathan"));
-    assert_eq!(hs1.contains(&"alma"), false);
+    assert!(!hs1.contains(&"alma"));
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn smoosher_diff_2() {
     let diff_2 = smoosher.diff(2);
     assert!(diff_2.contains_key(&"alma"));
     assert!(diff_2.contains_key(&"jonathan"));
-    assert_eq!(diff_2.contains_key(&"joseph"), false);
+    assert!(!diff_2.contains_key(&"joseph"));
 }
 
 #[test]
@@ -205,7 +205,7 @@ fn smoosher_diff_other() {
     assert_eq!(**diff_2.get(&"alma").unwrap(), 18);
     assert!(diff_2.contains_key(&"jonathan"));
     assert_eq!(**diff_2.get(&"jonathan").unwrap(), 14);
-    assert_eq!(diff_2.contains_key(&"joseph"), false);
+    assert!(!diff_2.contains_key(&"joseph"));
 }
 
 mod values_stk_env_test {
@@ -340,13 +340,13 @@ mod values_stk_env_test {
         let hs1 = Smoosher::list_bound_vars(&smoosher, 1);
         assert!(hs0.contains(&"joseph"));
         assert!(hs0.contains(&"ari"));
-        assert_eq!(hs0.contains(&"jonathan"), false);
-        assert_eq!(hs0.contains(&"alma"), false);
+        assert!(!hs0.contains(&"jonathan"));
+        assert!(!hs0.contains(&"alma"));
         //now test from 1 level deep
         assert!(hs1.contains(&"joseph"));
         assert!(hs1.contains(&"ari"));
         assert!(hs1.contains(&"jonathan"));
-        assert_eq!(hs1.contains(&"alma"), false);
+        assert!(!hs1.contains(&"alma"));
     }
 
     #[test]
@@ -408,7 +408,7 @@ mod values_stk_env_test {
         let diff_2 = smoosher.diff(2);
         assert!(diff_2.contains_key(&"alma"));
         assert!(diff_2.contains_key(&"jonathan"));
-        assert_eq!(diff_2.contains_key(&"joseph"), false);
+        assert!(!diff_2.contains_key(&"joseph"));
     }
 
     #[test]
@@ -429,6 +429,6 @@ mod values_stk_env_test {
         assert_eq!(diff_2.get(&"alma").unwrap().as_u64(), 18);
         assert!(diff_2.contains_key(&"jonathan"));
         assert_eq!(diff_2.get(&"jonathan").unwrap().as_u64(), 14);
-        assert_eq!(diff_2.contains_key(&"joseph"), false);
+        assert!(!diff_2.contains_key(&"joseph"));
     }
 }

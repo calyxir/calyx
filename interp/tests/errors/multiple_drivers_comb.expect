@@ -1,9 +1,7 @@
 ---CODE---
-101
+1
 ---STDERR---
-thread 'main' panicked at '[interpret_group]: multiple assignments to one port: add0.left
-Between assignments:
-add0.left = const0.out;
-and
-add0.left = const1.out;', interp/src/interpreter/interpret_group.rs:75:21
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Error: multiple assignments to one port: add0.left
+    Conflict between:
+     1. add0.left = const0.out;
+     2. add0.left = const1.out;

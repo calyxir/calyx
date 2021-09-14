@@ -5,6 +5,7 @@ use crate::ir::{
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures,
 };
+use crate::passes::TopDownCompileControl;
 use crate::{build_assignments, guard, structure};
 use std::convert::TryInto;
 use std::rc::Rc;
@@ -73,12 +74,22 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx);
+        todo!("compile-control support for if-with")
+
+        /* let mut builder = ir::Builder::new(comp, ctx);
 
         // create a new group for if related structure
         let if_group = builder.add_group("if");
 
-        let cond_group = Rc::clone(&cif.cond);
+        if cif.cond.is_some() {
+            return Err(Error::MalformedStructure(format!(
+                "{}: if without `with` is not supported. Use `{}` instead",
+                Self::name(),
+                TopDownCompileControl::name()
+            )));
+        }
+
+        let cond_group = Rc::clone(cif.cond.as_ref().unwrap());
         let cond = Rc::clone(&cif.port);
 
         // extract group names from control statement
@@ -86,7 +97,8 @@ impl Visitor for CompileControl {
             (ir::Control::Enable(t), ir::Control::Enable(f)) => {
                 Ok((Rc::clone(&t.group), Rc::clone(&f.group)))
             }
-            _ => Err(Error::MalformedControl(
+            _ => Err(Error::PassAssumption(
+                Self::name().to_string(),
                 "Both branches of an if must be an enable.".to_string(),
             )),
         }?;
@@ -160,7 +172,7 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut cleanup_assigns);
 
-        Ok(Action::Change(ir::Control::enable(if_group)))
+        Ok(Action::Change(ir::Control::enable(if_group))) */
     }
 
     /// XXX(rachit): The explanation is not consistent with the code.
@@ -172,7 +184,8 @@ impl Visitor for CompileControl {
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx);
+        todo!()
+        /* let mut builder = ir::Builder::new(comp, ctx);
 
         // create group
         let while_group = builder.add_group("while");
@@ -183,11 +196,9 @@ impl Visitor for CompileControl {
 
         // extract group names from control statement
         let body_group = match &*wh.body {
-            ir::Control::Enable(data) => Ok(&data.group),
-            _ => Err(Error::MalformedControl(
-                "The body of a while must be an enable.".to_string(),
-            )),
-        }?;
+            ir::Control::Enable(data) => &data.group,
+            _ => unreachable!("The body of a while must be an enable."),
+        };
 
         // generate necessary hardware
         structure!(builder;
@@ -254,7 +265,7 @@ impl Visitor for CompileControl {
         );
         comp.continuous_assignments.append(&mut clean_assigns);
 
-        Ok(Action::Change(ir::Control::enable(while_group)))
+        Ok(Action::Change(ir::Control::enable(while_group))) */
     }
 
     fn finish_seq(
@@ -305,10 +316,7 @@ impl Visitor for CompileControl {
                     seq_group.borrow_mut().assignments.append(&mut assigns);
                 }
                 _ => {
-                    return Err(Error::MalformedControl(
-                        "Cannot compile non-group statement inside sequence"
-                            .to_string(),
-                    ))
+                    unreachable!("Children of `seq` statement should be groups")
                 }
             }
         }
@@ -386,12 +394,9 @@ impl Visitor for CompileControl {
                     par_group_done.push(guard!(par_done_reg["out"]));
                     par_done_regs.push(par_done_reg);
                 }
-                _ => {
-                    return Err(Error::MalformedControl(
-                        "Cannot compile non-group statement inside sequence"
-                            .to_string(),
-                    ))
-                }
+                _ => unreachable!(
+                    "Children of `par` statement should be enables"
+                ),
             }
         }
 

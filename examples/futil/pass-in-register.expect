@@ -32,14 +32,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.reset = reset;
     fsm.write_en = fsm.out == 2'd0 & r.done & go | fsm.out == 2'd1 & op.done & go | fsm.out == 2'd2 ? 1'd1;
     op.clk = clk;
-    op.go = !op.done & fsm.out == 2'd1 & go ? 1'd1;
-    op.reg_done = !op.done & fsm.out == 2'd1 & go ? r.done;
-    op.reg_out = !op.done & fsm.out == 2'd1 & go ? r.out;
+    op.go = r.done & fsm.out == 2'd0 & go | !op.done & fsm.out == 2'd1 & go ? 1'd1;
+    op.reg_done = r.done & fsm.out == 2'd0 & go | !op.done & fsm.out == 2'd1 & go ? r.done;
+    op.reg_out = r.done & fsm.out == 2'd0 & go | !op.done & fsm.out == 2'd1 & go ? r.out;
     r.clk = clk;
     r.in = !r.done & fsm.out == 2'd0 & go ? 32'd15;
-    r.in = !op.done & fsm.out == 2'd1 & go ? op.reg_in;
+    r.in = r.done & fsm.out == 2'd0 & go | !op.done & fsm.out == 2'd1 & go ? op.reg_in;
     r.write_en = !r.done & fsm.out == 2'd0 & go ? 1'd1;
-    r.write_en = !op.done & fsm.out == 2'd1 & go ? op.reg_write_en;
+    r.write_en = r.done & fsm.out == 2'd0 & go | !op.done & fsm.out == 2'd1 & go ? op.reg_write_en;
   }
 
   control {}

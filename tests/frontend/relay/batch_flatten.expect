@@ -42,18 +42,15 @@ component batch_flatten_1x4(x0_0_0_read_data: 32, x0_0_0_done: 1, x10_0_read_dat
     x_read0_0 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __i0.out;
       le0.right = const2.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = __j0.out;
       le1.right = const4.out;
     }
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
+    comb group cond2 {
       le2.left = __k0.out;
       le2.right = const6.out;
     }

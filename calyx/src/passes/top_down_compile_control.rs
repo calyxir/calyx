@@ -1,17 +1,23 @@
 use super::math_utilities::get_bit_width_from;
-use crate::ir::{
-    self,
-    traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures, RRC,
+use crate::errors::CalyxResult;
+use crate::ir::traversal::ConstructVisitor;
+use crate::{build_assignments, guard, passes, structure};
+use crate::{
+    errors::Error,
+    ir::{
+        self,
+        traversal::{Action, Named, VisResult, Visitor},
+        LibrarySignatures, RRC,
+    },
 };
-use crate::{build_assignments, guard, structure};
 use ir::IRPrinter;
 use itertools::Itertools;
-use petgraph::{algo::connected_components, graph::DiGraph};
+use petgraph::graph::DiGraph;
 use std::collections::HashMap;
+use std::io::Write;
 use std::rc::Rc;
 
-/// Represents the execution schedule of a control program.
+/// Represents the dyanmic execution schedule of a control program.
 #[derive(Default)]
 struct Schedule {
     /// Assigments that should be enabled in a given state.
@@ -32,7 +38,7 @@ impl Schedule {
         );
 
         debug_assert!(
-            connected_components(&graph) == 1,
+            petgraph::algo::connected_components(&graph) == 1,
             "State transition graph has unreachable states (graph has more than one connected component).");
     }
 
@@ -46,85 +52,268 @@ impl Schedule {
     }
 
     /// Print out the current schedule
-    #[allow(dead_code)]
-    fn display(&self) {
+    fn display(&self, group: String) {
+        let out = &mut std::io::stdout();
+        writeln!(out, "======== {} =========", group).unwrap();
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|(state, assigns)| {
-                eprintln!("======== {} =========", state);
+                writeln!(out, "{}:", state).unwrap();
                 assigns.iter().for_each(|assign| {
-                    IRPrinter::write_assignment(
-                        assign,
-                        0,
-                        &mut std::io::stderr(),
-                    )
-                    .expect("Printing failed!");
-                    eprintln!();
+                    IRPrinter::write_assignment(assign, 2, out).unwrap();
+                    writeln!(out).unwrap();
                 })
             });
-        eprintln!("------------");
+        writeln!(out, "{}:\n  <end>", self.last_state()).unwrap();
+        writeln!(out, "transitions:").unwrap();
         self.transitions
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(g));
-            })
+                writeln!(out, "  ({}, {}): {}", i, f, IRPrinter::guard_str(g))
+                    .unwrap();
+            });
+    }
+
+    /// Implement a given [Schedule] and return the name of the [ir::Group] that
+    /// implements it.
+    fn realize_schedule(
+        self,
+        group: RRC<ir::Group>,
+        builder: &mut ir::Builder,
+    ) -> RRC<ir::Group> {
+        self.validate();
+        let final_state = self.last_state();
+        let fsm_size = get_bit_width_from(
+            final_state + 1, /* represent 0..final_state */
+        );
+        structure!(builder;
+            let fsm = prim std_reg(fsm_size);
+            let signal_on = constant(1, 1);
+            let last_state = constant(final_state, fsm_size);
+            let first_state = constant(0, fsm_size);
+        );
+
+        // Enable assignments
+        group.borrow_mut().assignments.extend(
+            self.enables
+                .into_iter()
+                .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+                .flat_map(|(state, mut assigns)| {
+                    let state_const = builder.add_constant(state, fsm_size);
+                    let state_guard =
+                        guard!(fsm["out"]).eq(guard!(state_const["out"]));
+                    assigns.iter_mut().for_each(|asgn| {
+                        asgn.guard.update(|g| g.and(state_guard.clone()))
+                    });
+                    assigns
+                }),
+        );
+
+        // Transition assignments
+        group.borrow_mut().assignments.extend(
+            self.transitions.into_iter().flat_map(|(s, e, guard)| {
+                structure!(builder;
+                    let end_const = constant(e, fsm_size);
+                    let start_const = constant(s, fsm_size);
+                );
+                let ec_borrow = end_const.borrow();
+                let trans_guard =
+                    guard!(fsm["out"]).eq(guard!(start_const["out"])) & guard;
+
+                vec![
+                    builder.build_assignment(
+                        fsm.borrow().get("in"),
+                        ec_borrow.get("out"),
+                        trans_guard.clone(),
+                    ),
+                    builder.build_assignment(
+                        fsm.borrow().get("write_en"),
+                        signal_on.borrow().get("out"),
+                        trans_guard,
+                    ),
+                ]
+            }),
+        );
+
+        // Done condition for group
+        let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        let done_assign = builder.build_assignment(
+            group.borrow().get("done"),
+            signal_on.borrow().get("out"),
+            last_guard.clone(),
+        );
+        group.borrow_mut().assignments.push(done_assign);
+
+        // Cleanup: Add a transition from last state to the first state.
+        let mut reset_fsm = build_assignments!(builder;
+            fsm["in"] = last_guard ? first_state["out"];
+            fsm["write_en"] = last_guard ? signal_on["out"];
+        );
+        builder
+            .component
+            .continuous_assignments
+            .append(&mut reset_fsm);
+
+        group
     }
 }
 
-/// Recursively calcuate the states for each child in a control sub-program.
-fn calculate_states(
+/// Computes the entry and exit points of a given [ir::Control] program.
+///
+/// ## Example
+/// In the following Calyx program:
+/// ```
+/// while comb_reg.out {
+///   seq {
+///     incr;
+///     cond0;
+///   }
+/// }
+/// ```
+/// The exit point is `cond0`.
+///
+/// Multiple exit points are created when conditions are used:
+/// ```
+/// while comb_reg.out {
+///   incr;
+///   if comb_reg2.out {
+///     true;
+///   } else {
+///     false;
+///   }
+/// }
+/// ```
+/// The exit set is `[true, false]`.
+fn control_exits(
+    con: &ir::Control,
+    cur_state: u64,
+    is_exit: bool,
+    exits: &mut Vec<(u64, RRC<ir::Group>)>,
+) -> u64 {
+    match con {
+        ir::Control::Enable(ir::Enable { group, .. }) => {
+            if is_exit {
+                exits.push((cur_state, Rc::clone(group)))
+            }
+            cur_state + 1
+        }
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            let len = stmts.len();
+            let mut cur = cur_state;
+            for (idx, stmt) in stmts.iter().enumerate() {
+                let exit = idx == len - 1 && is_exit;
+                cur = control_exits(stmt, cur, exit, exits);
+            }
+            cur
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            let tru_nxt = control_exits(
+                tbranch, cur_state, is_exit, exits,
+            );
+            control_exits(
+                fbranch, tru_nxt, is_exit, exits,
+            )
+        }
+        ir::Control::While(ir::While { body, .. }) => control_exits(
+            body, cur_state, is_exit, exits,
+        ),
+        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Par(_) => unreachable!(),
+    }
+}
+
+/// Represents an edge from a predeccesor to the current control node.
+/// The `u64` represents the FSM state of the predeccesor and the guard needs
+/// to be true for the predeccesor to transition to the current state.
+type PredEdge = (u64, ir::Guard);
+
+/// Recursively build an dynamic finite state machine represented by a [Schedule].
+/// Does the following, given an [ir::Control]:
+///     1. If needed, add transitions from predeccesors to the current state.
+///     2. Enable the groups in the current state
+///     3. Calculate [PredEdge] implied by this state
+///     4. Return [PredEdge] and the next state.
+fn calculate_states_recur(
     con: &ir::Control,
     // The current state
     cur_state: u64,
-    // Additional guard for this condition.
-    pre_guard: &ir::Guard,
+    // The set of previous states that want to transition into cur_state
+    preds: Vec<(u64, ir::Guard)>,
     // Current schedule.
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> u64 {
+    // True if early_transitions are allowed
+    early_transitions: bool,
+) -> CalyxResult<(Vec<PredEdge>, u64)> {
     match con {
-        // Compiled to:
-        // ```
-        // group[go] = (fsm.out == cur_state) & !group[done] & pre_guard ? 1'd1;
-        // fsm.in = (fsm.out == cur_state) & group[done] & pre_guard ? nxt_state;
-        // ```
+        // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, .. }) => {
-            let done_cond = guard!(group["done"]) & pre_guard.clone();
-            let not_done = !guard!(group["done"]) & pre_guard.clone();
+            // If there is exactly one previous transition state with a `true`
+            // guard, then merge this state into previous state.
+            let (cur_state, prev_states) = if preds.len() == 1 && preds[0].1.is_true() {
+                (preds[0].0, vec![])
+            } else {
+                (cur_state, preds)
+            };
+
+            let not_done = !guard!(group["done"]);
             let signal_on = builder.add_constant(1, 1);
+
+            // Activate this group in the current state
             let mut en_go = build_assignments!(builder;
                 group["go"] = not_done ? signal_on["out"];
             );
-            let nxt_state = cur_state + 1;
             schedule
                 .enables
                 .entry(cur_state)
                 .or_default()
                 .append(&mut en_go);
 
-            schedule.transitions.push((cur_state, nxt_state, done_cond));
-            nxt_state
+            // Activate group in the cycle when previous state signals done.
+            // NOTE: We explicilty do not add `not_done` to the guard.
+            // See explanation in [ir::TopDownCompileControl] to understand
+            // why.
+            if early_transitions {
+            for (st, g) in &prev_states {
+                let mut early_go = build_assignments!(builder;
+                    group["go"] = g ? signal_on["out"];
+                );
+                schedule.enables.entry(*st).or_default().append(&mut early_go);
+            }
+            }
+
+            let transitions = prev_states
+                .into_iter()
+                .map(|(st, guard)| (st, cur_state, guard));
+            schedule.transitions.extend(transitions);
+
+            let done_cond = guard!(group["done"]);
+            let nxt = cur_state + 1;
+            Ok((vec![(cur_state, done_cond)], nxt))
         }
-        // Give children the states `cur`, `cur + 1`, `cur + 2`, ...
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            let mut prev = preds;
             let mut cur = cur_state;
             for stmt in stmts {
-                cur = calculate_states(stmt, cur, pre_guard, schedule, builder);
+                let res = calculate_states_recur(
+                    stmt,
+                    cur,
+                    prev,
+                    schedule,
+                    builder,
+                    early_transitions
+                )?;
+                prev = res.0;
+                cur = res.1;
             }
-            cur
+            Ok((prev, cur))
         }
-        // Generate the following transitions:
-        // 1. cur -> cur + 1: Compute the condition and store the generated value.
-        // 2. (cur + 1 -> cur + t): Compute the true branch when stored condition
-        //    is true.
-        // 3. (cur + 1 -> cur + f): Compute the true branch when stored condition
-        //    is false.
-        // 4. (cur + t -> cur + max(t, f) + 1)
-        //    (cur + f -> cur + max(t, f) + 1): Transition to a "join" stage
-        //    after running the branch.
         ir::Control::If(ir::If {
             port,
             cond,
@@ -132,299 +321,249 @@ fn calculate_states(
             fbranch,
             ..
         }) => {
-            structure!(builder;
-                let signal_on = constant(1, 1);
-                let signal_off = constant(0, 1);
-                let cs_if = prim std_reg(1);
-            );
-
-            // Compute the condition and save its value in cs_if
-            let mut cond_save_assigns = vec![
-                builder.build_assignment(
-                    cs_if.borrow().get("in"),
-                    Rc::clone(port),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cs_if.borrow().get("write_en"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cond.borrow().get("go"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-            ];
-
-            // Schedule the condition computation first and transition to next
-            // state.
-            let after_cond_compute = cur_state + 1;
-            schedule
-                .enables
-                .entry(cur_state)
-                .or_default()
-                .append(&mut cond_save_assigns);
-            schedule.transitions.push((
-                cur_state,
-                after_cond_compute,
-                guard!(cond["done"]),
-            ));
-
-            // Computation for true branch
-            let true_go = guard!(cs_if["out"]) & pre_guard.clone();
-            let after_true = calculate_states(
+            if cond.is_some() {
+                return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
+            }
+            let port_guard: ir::Guard = Rc::clone(port).into();
+            // Previous states transitioning into true branch need the conditional
+            // to be true.
+            let tru_transitions = preds.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
+            let (tru_prev, tru_nxt) = calculate_states_recur(
                 tbranch,
-                after_cond_compute,
-                &true_go,
+                cur_state,
+                tru_transitions,
                 schedule,
                 builder,
-            );
-            // Computation for false branch
-            let false_go = !guard!(cs_if["out"]) & pre_guard.clone();
-            let after_false = calculate_states(
+                early_transitions
+            )?;
+            // Previous states transitioning into false branch need the conditional
+            // to be false.
+            let fal_transitions = preds.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
+            let (fal_prev, fal_nxt) = calculate_states_recur(
                 fbranch,
-                after_cond_compute,
-                &false_go,
+                tru_nxt,
+                fal_transitions,
                 schedule,
                 builder,
-            );
-
-            // Transition to a join stage
-            let next = std::cmp::max(after_true, after_false) + 1;
-            schedule.transitions.push((after_true, next, true_go));
-            schedule.transitions.push((after_false, next, false_go));
-
-            // Cleanup: Reset cs_if in the join stage.
-            let mut cleanup = build_assignments!(builder;
-                cs_if["in"] = pre_guard ? signal_off["out"];
-                cs_if["write_en"] = pre_guard ? signal_on["out"];
-            );
-            schedule
-                .enables
-                .entry(next)
-                .or_default()
-                .append(&mut cleanup);
-
-            next
+                early_transitions
+            )?;
+            let prevs =
+                tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
+            Ok((prevs, fal_nxt))
         }
-        // Compile in three stage:
-        // 1. cur -> cur + 1: Compute the condition and store the generated value.
-        // 2. cur + 1 -> cur + b: Compute the body when the stored condition
-        //    is true.
-        // 3. cur + b -> cur: Jump to the start state when stored condition was true.
-        // 4. cur + 1 -> cur + b + 1: Exit stage
         ir::Control::While(ir::While {
             cond, port, body, ..
         }) => {
-            structure!(builder;
-                let signal_on = constant(1, 1);
-                let signal_off = constant(0, 1);
-                let cs_wh = prim std_reg(1);
-            );
+            if cond.is_some() {
+                return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
+            }
 
-            // Compute the condition first and save its value.
-            let mut cond_save_assigns = vec![
-                builder.build_assignment(
-                    cs_wh.borrow().get("in"),
-                    Rc::clone(port),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cs_wh.borrow().get("write_en"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-                builder.build_assignment(
-                    cond.borrow().get("go"),
-                    signal_on.borrow().get("out"),
-                    pre_guard.clone(),
-                ),
-            ];
+            let port_guard: ir::Guard = Rc::clone(port).into();
 
-            // Compute the condition first
-            let after_cond_compute = cur_state + 1;
-            schedule
-                .enables
-                .entry(cur_state)
-                .or_default()
-                .append(&mut cond_save_assigns);
-            schedule.transitions.push((
-                cur_state,
-                after_cond_compute,
-                guard!(cond["done"]),
-            ));
-
-            // Build the FSM for the body
-            let body_go = guard!(cs_wh["out"]) & pre_guard.clone();
-            let nxt = calculate_states(
+            // Step 1: Generate the backward edges
+            // First compute the entry and exit points.
+            let mut exits = vec![];
+            control_exits(
                 body,
-                after_cond_compute,
-                &body_go,
+                cur_state,
+                true,
+                &mut exits,
+            );
+            let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
+
+            // Step 2: Generate the forward edges normally.
+            // Previous transitions into the body require the condition to be
+            // true.
+            let transitions: Vec<(u64, ir::Guard)> = preds
+                .clone()
+                .into_iter()
+                .chain(back_edge_prevs)
+                .map(|(s, g)| (s, g & port_guard.clone()))
+                .collect();
+            let (prevs, nxt) = calculate_states_recur(
+                body,
+                cur_state,
+                transitions,
                 schedule,
                 builder,
-            );
+                early_transitions
+            )?;
 
-            // Back edge jump when condition was true
-            schedule.transitions.push((nxt, cur_state, body_go));
+            // Step 3: The final out edges from the while come from:
+            //   - Before the body when the condition is false
+            //   - Inside the body when the condition is false
+            let not_port_guard = !port_guard;
+            let all_prevs = preds
+                .into_iter()
+                .chain(prevs.into_iter())
+                .map(|(st, guard)| (st, guard & not_port_guard.clone()))
+                .collect();
 
-            // Exit state: Jump to this when the condition is false.
-            let wh_done = !guard!(cs_wh["out"]) & pre_guard.clone();
-            let exit = nxt + 1;
-            schedule
-                .transitions
-                .push((after_cond_compute, exit, wh_done));
-
-            // Cleanup state registers in exit stage
-            let mut cleanup = build_assignments!(builder;
-                cs_wh["in"] = pre_guard ? signal_off["out"];
-                cs_wh["write_en"] = pre_guard ? signal_on["out"];
-            );
-            schedule
-                .enables
-                .entry(exit)
-                .or_default()
-                .append(&mut cleanup);
-
-            exit
+            Ok((all_prevs, nxt))
         }
-        // `par` sub-programs should already be compiled
-        ir::Control::Par(..) => {
-            unreachable!("par should be compiled away!")
-        }
-        ir::Control::Empty(..) => {
-            unreachable!("empty control should have been compiled away!")
-        }
-        ir::Control::Invoke(..) => {
-            unreachable!("invoke should have been compiled away!")
-        }
+        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Par(_) => unreachable!(),
     }
 }
 
-/// Implement a given [Schedule] and return the name of the [`ir::Group`](crate::ir::Group) that
-/// implements it.
-fn realize_schedule(
-    schedule: Schedule,
+fn calculate_states(
+    con: &ir::Control,
     builder: &mut ir::Builder,
-) -> RRC<ir::Group> {
-    schedule.validate();
-    let final_state = schedule.last_state();
-    let fsm_size =
-        get_bit_width_from(final_state + 1 /* represent 0..final_state */);
-    structure!(builder;
-        let fsm = prim std_reg(fsm_size);
-        let signal_on = constant(1, 1);
-        let last_state = constant(final_state, fsm_size);
-        let first_state = constant(0, fsm_size);
-    );
-
-    // The compilation group
-    let group = builder.add_group("tdcc");
-
-    // Enable assignments
-    group.borrow_mut().assignments.extend(
-        schedule
-            .enables
-            .into_iter()
-            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .flat_map(|(state, mut assigns)| {
-                let state_const = builder.add_constant(state, fsm_size);
-                let state_guard =
-                    guard!(fsm["out"]).eq(guard!(state_const["out"]));
-                assigns.iter_mut().for_each(|asgn| {
-                    asgn.guard.update(|g| g.and(state_guard.clone()))
-                });
-                assigns
-            }),
-    );
-
-    // Transition assignments
-    group.borrow_mut().assignments.extend(
-        schedule.transitions.into_iter().flat_map(|(s, e, guard)| {
-            structure!(builder;
-                let end_const = constant(e, fsm_size);
-                let start_const = constant(s, fsm_size);
-            );
-            let ec_borrow = end_const.borrow();
-            let trans_guard =
-                guard!(fsm["out"]).eq(guard!(start_const["out"])) & guard;
-
-            vec![
-                builder.build_assignment(
-                    fsm.borrow().get("in"),
-                    ec_borrow.get("out"),
-                    trans_guard.clone(),
-                ),
-                builder.build_assignment(
-                    fsm.borrow().get("write_en"),
-                    signal_on.borrow().get("out"),
-                    trans_guard,
-                ),
-            ]
-        }),
-    );
-
-    // Done condition for group
-    let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
-    let done_assign = builder.build_assignment(
-        group.borrow().get("done"),
-        signal_on.borrow().get("out"),
-        last_guard.clone(),
-    );
-    group.borrow_mut().assignments.push(done_assign);
-
-    // Cleanup: Add a transition from last state to the first state.
-    let mut reset_fsm = build_assignments!(builder;
-        fsm["in"] = last_guard ? first_state["out"];
-        fsm["write_en"] = last_guard ? signal_on["out"];
-    );
-    builder
-        .component
-        .continuous_assignments
-        .append(&mut reset_fsm);
-
-    group
+    early_transitions: bool,
+) -> CalyxResult<Schedule> {
+    let mut schedule = Schedule::default();
+    let first_state = (0, ir::Guard::True);
+    // We create an empty first state in case the control program starts with
+    // a branch (if, while).
+    // If the program doesn't branch, then the initial state is merged into
+    // the first group.
+    let (prev, nxt) = calculate_states_recur(
+        con,
+        1,
+        vec![first_state],
+        &mut schedule,
+        builder,
+        early_transitions,
+    )?;
+    let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
+    schedule.transitions.extend(transitions);
+    Ok(schedule)
 }
 
 /// **Core lowering pass.**
-/// Compiles away the control programs in components into purely structural
-/// code using an finite-state machine (FSM).
+/// Compiles away the control programs in components into purely structural code using an
+/// finite-state machine (FSM).
 ///
 /// Lowering operates in two steps:
-/// 1. Compile all [`ir::Par`](crate::ir::Par) control sub-programs into a
-/// single [`ir::Enable`][enable] of a group that runs all children
-/// to completion.
-/// 2. Compile the top-level control program into a single [`ir::Enable`][enable].
+/// 1. Compile all [ir::Par] control sub-programs into a single [ir::Enable] of a group that runs
+///    all children to completion.
+/// 2. Compile the top-level control program into a single [ir::Enable].
 ///
 /// ## Compiling non-`par` programs
-/// Assuming all `par` statements have already been compiled in a control
-/// sub-program, we can build a schedule for executing it. We calculate a
-/// schedule by assigning an FSM state to each leaf node (an [`ir::Enable`][enable])
-/// as a guard condition. Each control program node also defines a transition
-/// function over the states calculated for its children.
+/// At very high-level, the pass assigns an FSM state to each [ir::Enable] in the program and
+/// generates transitions to the state to activate the groups contained within the [ir::Enable].
 ///
-/// At the end of schedule generation, each FSM state has a set of groups to
-/// enable as well as a transition function.
-/// This FSM is realized into an implementation using a new group that implements
-/// the group enables and the transitions.
+/// The compilation process calculates all predeccesors of the [ir::Enable] while walking over the
+/// control program. A predeccesor is any enable statement that can directly "jump" to the current
+/// [ir::Enable]. The compilation process computes all such predeccesors and the guards that need
+/// to be true for the predeccesor to jump into this enable statement.
+///
+/// ```
+/// cond0;
+/// while lt.out {
+///   if gt.out { true } else { false }
+/// }
+/// next;
+/// ```
+/// The predeccesor sets are:
+/// ```
+/// cond0 -> []
+/// true -> [(cond0, lt.out & gt.out); (true; lt.out & gt.out); (false, lt.out & !gt.out)]
+/// false -> [(cond0, lt.out & !gt.out); (true; lt.out & gt.out); (false, lt.out & !gt.out)]
+/// next -> [(cond0, !lt.out); (true, !lt.out); (false, !lt.out)]
+/// ```
+///
+/// ### Compiling [ir::Enable]
+/// The process first takes all edges from predeccesors and transitions to the state for this
+/// enable and enables the group in this state:
+/// ```text
+/// let cur_state; // state of this enable
+/// for (state, guard) in predeccesors:
+///   transitions.insert(state, cur_state, guard)
+/// enables.insert(cur_state, group)
+/// ```
+///
+/// While this process will generate a functioning FSM, the FSM takes unnecessary cycles for FSM
+/// transitions.
+///
+/// For example:
+/// ```
+/// seq { one; two; }
+/// ```
+/// The FSM generated will look like this (where `f` is the FSM register):
+/// ```
+/// f.in = one[done] ? 1;
+/// f.in = two[done] ? 2;
+/// one[go] = !one[done] & f.out == 0;
+/// two[go] = !two[done] & f.out == 1;
+/// ```
+///
+/// The cycle-level timing for this FSM will look like:
+///     - cycle 0: (f.out == 0), enable one
+///     - cycle t: (f.out == 0), (one[done] == 1), disable one
+///     - cycle t+1: (f.out == 1), enable two
+///     - cycle t+l: (f.out == 1), (two[done] == 1), disable two
+///     - cycle t+l+1: finish
+///
+/// The transition t -> t+1 represents one where group one is done but group two hasn't started
+/// executing.
+///
+/// To address this specific problem, there is an additional enable added to run all groups within
+/// an enable *while the FSM is transitioning*.
+/// The final transition will look like this:
+/// ```
+/// f.in = one[done] ? 1;
+/// f.in = two[done] ? 2;
+/// one[go] = !one[done] & f.out == 0;
+/// two[go] = (!two[done] & f.out == 1) || (one[done] & f.out == 0);
+/// ```
+///
+/// Note that `!two[done]` isn't present in the second disjunct because all groups are guaranteed
+/// to run for at least one cycle and the second disjunct will only be true for one cycle before
+/// the first disjunct becomes true.
 ///
 /// ## Compiling `par` programs
-/// We have to generate new FSM-based controller for each child of a `par` node
-/// so that each child can indepdendently make progress.
-/// If we tie the children to one top-level FSM, their transitions would become
-/// interdependent and reduce available concurrency.
+/// We have to generate new FSM-based controller for each child of a `par` node so that each child
+/// can indepdendently make progress.
+/// If we tie the children to one top-level FSM, their transitions would become interdependent and
+/// reduce available concurrency.
 ///
 /// ## Compilation guarantee
 /// At the end of this pass, the control program will have no more than one
 /// group enable in it.
-///
-/// [enable]: crate::ir::Enable
-#[derive(Default)]
-pub struct TopDownCompileControl;
+pub struct TopDownCompileControl {
+    /// Print out the FSM representation to STDOUT
+    dump_fsm: bool,
+    /// Disable early transitions
+    no_early_transitions: bool,
+}
+
+impl ConstructVisitor for TopDownCompileControl {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized + Named,
+    {
+        let mut dump_fsm = false;
+        let mut no_early_transitions = false;
+        ctx.extra_opts.iter().for_each(|opt| {
+            let mut splits = opt.split(':');
+            if splits.next() == Some(Self::name()) {
+                match splits.next() {
+                    Some("dump-fsm") => {
+                        dump_fsm = true;
+                    }
+                    Some("no-early-transitions") => {
+                        no_early_transitions = true;
+                    }
+                    _ => (),
+                }
+            }
+        });
+        Ok(TopDownCompileControl {
+            dump_fsm,
+            no_early_transitions,
+        })
+    }
+
+    fn clear_data(&mut self) {
+        /* All data can be transferred between components */
+    }
+}
 
 impl Named for TopDownCompileControl {
     fn name() -> &'static str {
-        "top-down-cc"
+        "tdcc"
     }
 
     fn description() -> &'static str {
@@ -462,15 +601,20 @@ impl Visitor for TopDownCompileControl {
                 }
                 // Compile complex schedule and return the group.
                 _ => {
-                    let mut schedule = Schedule::default();
-                    calculate_states(
+                    let schedule = calculate_states(
                         con,
-                        0,
-                        &ir::Guard::True,
-                        &mut schedule,
                         &mut builder,
-                    );
-                    realize_schedule(schedule, &mut builder)
+                        !self.no_early_transitions,
+                    )?;
+                    let group = builder.add_group("tdcc");
+                    if self.dump_fsm {
+                        schedule.display(format!(
+                            "{}:{}",
+                            builder.component.name,
+                            group.borrow().name()
+                        ));
+                    }
+                    schedule.realize_schedule(group, &mut builder)
                 }
             };
 
@@ -539,15 +683,21 @@ impl Visitor for TopDownCompileControl {
 
         let control = Rc::clone(&comp.control);
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::default();
-        calculate_states(
+        // Add assignments for the final states
+        let schedule = calculate_states(
             &control.borrow(),
-            0,
-            &ir::Guard::True,
-            &mut schedule,
             &mut builder,
-        );
-        let comp_group = realize_schedule(schedule, &mut builder);
+            !self.no_early_transitions,
+        )?;
+        let group = builder.add_group("tdcc");
+        if self.dump_fsm {
+            schedule.display(format!(
+                "{}:{}",
+                builder.component.name,
+                group.borrow().name()
+            ));
+        }
+        let comp_group = schedule.realize_schedule(group, &mut builder);
 
         Ok(Action::Change(ir::Control::enable(comp_group)))
     }

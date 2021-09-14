@@ -12,6 +12,7 @@ from .registry import Registry
 from .stages import (
     dahlia,
     futil,
+    interpreter,
     mrxl,
     relay,
     systolic,
@@ -19,7 +20,6 @@ from .stages import (
     verilator,
     vivado,
     xilinx,
-    interpreter,
 )
 
 
@@ -44,13 +44,10 @@ def register_stages(registry, cfg):
 
     # MrXL
     registry.register(mrxl.MrXLStage(cfg))
-
     # Relay
     registry.register(relay.RelayStage(cfg))
-
     # Systolic Array
     registry.register(systolic.SystolicStage(cfg))
-
     # Calyx
     registry.register(
         futil.FutilStage(
@@ -63,9 +60,17 @@ def register_stages(registry, cfg):
     registry.register(
         futil.FutilStage(
             cfg,
+            "mlir",
+            "-b mlir -p well-formed -p lower-guards",
+            "Compile Calyx to MLIR",
+        )
+    )
+    registry.register(
+        futil.FutilStage(
+            cfg,
             "synth-verilog",
             "-b verilog --synthesis -p external",
-            "Compile Calyx to synthesizable Verilog ",
+            "Compile Calyx to synthesizable Verilog",
         )
     )
     registry.register(
@@ -144,8 +149,10 @@ def register_stages(registry, cfg):
     registry.register(xilinx.HwExecutionStage(cfg))
 
     # Interpreter
-    registry.register(interpreter.InterpreterStage(cfg, "", "Run the interpreter"))
-
+    registry.register(interpreter.InterpreterStage(cfg, "", "", "Run the interpreter"))
+    registry.register(
+        interpreter.InterpreterStage.debugger(cfg, "", "", "Run the debugger")
+    )
     # register external stages
     register_external_stages(cfg, registry)
 

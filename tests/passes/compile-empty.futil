@@ -6,6 +6,7 @@ component main() -> () {
     r = std_reg(1);
   }
   wires {
+    comb group cond {}
     group do_incr {
       r.in = 1'd1;
       r.write_en = 1'd1;
@@ -13,7 +14,7 @@ component main() -> () {
     }
   }
   control {
-    if r.out with do_incr {
+    if r.out with cond {
       do_incr;
     }
   }

@@ -1,10 +1,12 @@
 //! Inteprets a control in a component.
 
 use super::interpret_group::{
-    finish_group_interpretation, interp_cont, interpret_group,
+    finish_comb_group_interpretation, finish_group_interpretation,
+    interpret_comb_group, interpret_group,
 };
 use crate::environment::InterpreterState;
-use calyx::{errors::CalyxResult, ir};
+use crate::errors::InterpreterResult;
+use calyx::ir;
 
 /// Helper function to evaluate control
 pub fn interpret_control(
@@ -12,7 +14,7 @@ pub fn interpret_control(
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState,
     comp: &ir::Component,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     match ctrl {
         ir::Control::Seq(s) => eval_seq(s, continuous_assignments, env, comp),
         ir::Control::Par(p) => eval_par(p, continuous_assignments, env, comp),
@@ -34,7 +36,7 @@ fn eval_seq(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     for stmt in &s.stmts {
         env = interpret_control(stmt, continuous_assignments, env, comp)?;
     }
@@ -48,7 +50,7 @@ fn eval_par(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     //vector to keep track of all updated states
     let mut states = Vec::new();
 
@@ -95,14 +97,20 @@ fn eval_if(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> CalyxResult<InterpreterState> {
-    env = interpret_group(&i.cond.borrow(), continuous_assignments, env)?;
+) -> InterpreterResult<InterpreterState> {
+    if let Some(comb) = &i.cond {
+        env =
+            interpret_comb_group(&comb.borrow(), continuous_assignments, env)?;
+    }
+
     let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
-    env = finish_group_interpretation(
-        &i.cond.borrow(),
-        continuous_assignments,
-        env,
-    )?;
+    if let Some(comb) = &i.cond {
+        env = finish_comb_group_interpretation(
+            &comb.borrow(),
+            continuous_assignments,
+            env,
+        )?;
+    }
 
     let target = if cond_flag == 0 {
         &i.fbranch
@@ -123,16 +131,25 @@ fn eval_while(
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
     comp: &ir::Component,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     loop {
-        env = interpret_group(&w.cond.borrow(), continuous_assignments, env)?;
+        if let Some(comb) = &w.cond {
+            env = interpret_comb_group(
+                &comb.borrow(),
+                continuous_assignments,
+                env,
+            )?;
+        }
 
         let cond_val = env.get_from_port(&w.port.borrow()).as_u64();
-        env = finish_group_interpretation(
-            &w.cond.borrow(),
-            continuous_assignments,
-            env,
-        )?;
+
+        if let Some(comb) = &w.cond {
+            env = finish_comb_group_interpretation(
+                &comb.borrow(),
+                continuous_assignments,
+                env,
+            )?;
+        }
 
         if cond_val == 0 {
             break;
@@ -151,7 +168,7 @@ fn eval_invoke(
     _i: &ir::Invoke,
     _continuous_assignments: &[ir::Assignment],
     _env: InterpreterState,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     todo!("invoke control operator")
 }
 
@@ -160,7 +177,7 @@ fn eval_enable(
     e: &ir::Enable,
     continuous_assignments: &[ir::Assignment],
     mut env: InterpreterState,
-) -> CalyxResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState> {
     env = interpret_group(&e.group.borrow(), continuous_assignments, env)?;
     finish_group_interpretation(&e.group.borrow(), continuous_assignments, env)
 }
@@ -169,10 +186,9 @@ fn eval_enable(
 #[allow(clippy::unnecessary_wraps)]
 fn eval_empty(
     _e: &ir::Empty,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
-    comp: &ir::Component,
-) -> CalyxResult<InterpreterState> {
-    env = interp_cont(continuous_assignments, env, comp)?;
+    _continuous_assignments: &[ir::Assignment],
+    env: InterpreterState,
+    _comp: &ir::Component,
+) -> InterpreterResult<InterpreterState> {
     Ok(env)
 }

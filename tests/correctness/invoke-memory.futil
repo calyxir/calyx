@@ -7,10 +7,9 @@ component copy(dest_done: 1, src_read_data: 32, length: 3) ->
     add = std_add(3);
   }
   wires {
-    group cond<"static"=0> {
+    comb group cond {
       lt.left = N.out;
       lt.right = length;
-      cond[done] = 1'd1;
     }
     group upd_index<"static"=1> {
       add.left = N.out;

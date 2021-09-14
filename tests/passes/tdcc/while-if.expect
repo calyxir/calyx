@@ -1,0 +1,31 @@
+======== main:tdcc =========
+0:
+  one[go] = !one[done] ? 1'd1;
+  two[go] = one[done] & is_not_zero.out & is_even.out ? 1'd1;
+  three[go] = one[done] & is_not_zero.out & !is_even.out ? 1'd1;
+  four[go] = one[done] & !is_not_zero.out ? 1'd1;
+1:
+  two[go] = !two[done] ? 1'd1;
+  two[go] = two[done] & is_not_zero.out & is_even.out ? 1'd1;
+  three[go] = two[done] & is_not_zero.out & !is_even.out ? 1'd1;
+  four[go] = two[done] & !is_not_zero.out ? 1'd1;
+2:
+  two[go] = three[done] & is_not_zero.out & is_even.out ? 1'd1;
+  three[go] = !three[done] ? 1'd1;
+  three[go] = three[done] & is_not_zero.out & !is_even.out ? 1'd1;
+  four[go] = three[done] & !is_not_zero.out ? 1'd1;
+3:
+  four[go] = !four[done] ? 1'd1;
+4:
+  <end>
+transitions:
+  (0, 1): one[done] & is_not_zero.out & is_even.out
+  (0, 2): one[done] & is_not_zero.out & !is_even.out
+  (0, 3): one[done] & !is_not_zero.out
+  (1, 1): two[done] & is_not_zero.out & is_even.out
+  (1, 2): two[done] & is_not_zero.out & !is_even.out
+  (1, 3): two[done] & !is_not_zero.out
+  (2, 1): three[done] & is_not_zero.out & is_even.out
+  (2, 2): three[done] & is_not_zero.out & !is_even.out
+  (2, 3): three[done] & !is_not_zero.out
+  (3, 4): four[done]

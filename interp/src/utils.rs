@@ -1,8 +1,8 @@
 use crate::values::Value;
 use calyx::errors::Error;
-use calyx::ir::Binding;
-use calyx::ir::{Assignment, Id, Port, RRC};
+use calyx::ir::{self, Assignment, Binding, Id, Port, RRC};
 use serde::Deserialize;
+use std::cell::Ref;
 use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -28,8 +28,8 @@ impl<'a> Eq for PortAssignment<'a> {}
 
 impl<'a, 'b> PortAssignment<'a> {
     /// Construct a new PortAssignment.
-    pub fn new(p_ref: &'b Port, a_ref: &'a Assignment) -> Self {
-        Self(p_ref as *const Port, a_ref)
+    pub fn new(a_ref: &'a Assignment) -> Self {
+        Self(a_ref.dst.as_raw(), a_ref)
     }
 
     /// Get the associated port.
@@ -39,13 +39,8 @@ impl<'a, 'b> PortAssignment<'a> {
 
     /// Get the associated assignment.
     pub fn get_assignment(&self) -> &Assignment {
-        &self.1
+        self.1
     }
-}
-
-/// Represent the RRC input as a raw pointer.
-pub fn get_const_from_rrc<T>(input: &RRC<T>) -> *const T {
-    input.as_ptr()
 }
 
 /// A map representing all the identifiers and its associated values in a
@@ -92,4 +87,51 @@ where
         vec.push((name.as_ref().into(), *val))
     }
     vec
+}
+
+pub trait AsRaw<Target> {
+    fn as_raw(&self) -> *const Target;
+}
+
+impl<T> AsRaw<T> for &T {
+    fn as_raw(&self) -> *const T {
+        *self as *const T
+    }
+}
+
+impl<T> AsRaw<T> for *const T {
+    fn as_raw(&self) -> *const T {
+        *self
+    }
+}
+
+impl<'a, T> AsRaw<T> for &Ref<'a, T> {
+    fn as_raw(&self) -> *const T {
+        self as &T as *const T
+    }
+}
+
+impl<T> AsRaw<T> for *mut T {
+    fn as_raw(&self) -> *const T {
+        *self as *const T
+    }
+}
+
+impl<T> AsRaw<T> for RRC<T> {
+    fn as_raw(&self) -> *const T {
+        self.as_ptr()
+    }
+}
+
+impl<T> AsRaw<T> for &RRC<T> {
+    fn as_raw(&self) -> *const T {
+        self.as_ptr()
+    }
+}
+
+pub fn assignment_to_string(assignment: &ir::Assignment) -> String {
+    let mut str = vec![];
+    ir::IRPrinter::write_assignment(assignment, 0, &mut str)
+        .expect("Write Failed");
+    String::from_utf8(str).expect("Found invalid UTF-8")
 }

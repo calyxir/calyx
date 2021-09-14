@@ -9,6 +9,7 @@ paths = [
 cmd = """
   ../target/debug/interp {} | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "errors"
@@ -19,6 +20,7 @@ paths = [
 cmd = """
 ../target/debug/interp {}
 """
+timeout = 3
 
 [[tests]]
 name = "complex"
@@ -29,17 +31,7 @@ paths = [
 cmd = """
 ../target/debug/interp {}
 """
-
-# [[tests]]
-# name = "Assorted tests"
-# paths = [
-#     "tests/assorted_tests/*.futil"
-# ]
-
-# cmd = """
-# ../target/debug/interp {} | jq .memories
-# """
-
+timeout = 3
 
 [[tests]]
 name = "primitives"
@@ -49,6 +41,7 @@ paths = [
 cmd = """
 ../target/debug/interp {} | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "par to seq"
@@ -59,6 +52,7 @@ paths = [
 cmd = """
 ../target/debug/futil {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "control"
@@ -70,6 +64,7 @@ paths = [
 cmd = """
 ../target/debug/interp {} | jq .memories
 """
+timeout = 3
 
 [[tests]]
 name = "fully structural"
@@ -79,9 +74,54 @@ paths = [
   #    "tests/control/iteration/*.futil"
 ]
 cmd = """
-../target/debug/futil {} -d static-timing -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
+../target/debug/futil {} -d pre-opt -d post-opt -p remove-comb-groups -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
+timeout = 3
+
+
+[[tests]]
+name = "unit (CIDR)"
+paths = [
+  "tests/unit/*.futil"
+]
+cmd = """
+  ../target/debug/interp {} debug -p | jq .memories
+"""
+timeout = 3
+
+[[tests]]
+name = "primitives (CIDR)"
+paths = [
+    "tests/primitives/*.futil"
+]
+cmd = """
+../target/debug/interp {} debug -p | jq .memories
+"""
+timeout = 3
+
+[[tests]]
+name = "control (CIDR)"
+paths = [
+    "tests/control/*.futil",
+    "tests/control/iteration/*.futil"
+]
+cmd = """
+../target/debug/interp {} debug -p | jq .memories
+"""
+timeout = 3
+
+[[tests]]
+name = "fully structural (CIDR)"
+paths = [
+    "tests/control/*.futil",
+  # Disabled iteration tests due to bug
+  #    "tests/control/iteration/*.futil"
+]
+cmd = """
+../target/debug/futil {} -d pre-opt -d post-opt -p remove-comb-groups -l ../ | ../target/debug/interp debug -p | jq .memories
+"""
+timeout = 3
 
 [[tests]]
 name = "fully structural static"
@@ -89,6 +129,7 @@ paths = [
   "tests/control/static*.futil"
 ]
 cmd = """
-../target/debug/futil {} -d pre-opt -d post-opt -l ../ | ../target/debug/interp | jq .memories
+../target/debug/futil {} -d pre-opt -d post-opt  -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
+timeout = 3

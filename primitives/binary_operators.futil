@@ -1,10 +1,10 @@
 extern "binary_operators.sv" {
   /// =================== Unsigned, Fixed Point =========================
-  primitive std_fp_add<"share"=1>[
+  comb primitive std_fp_add<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) ->(out: WIDTH);
 
-  primitive std_fp_sub<"share"=1>[
+  comb primitive std_fp_sub<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH)->(out: WIDTH);
 
@@ -33,11 +33,11 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_fp_gt<"share"=1>[
+  comb primitive std_fp_gt<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
-  primitive std_fp_add_dwidth<"share"=1>[
+  comb primitive std_fp_add_dwidth<"share"=1>[
     WIDTH1,
     WIDTH2,
     INT_WIDTH1,
@@ -48,11 +48,11 @@ extern "binary_operators.sv" {
   ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
 
   /// =================== Signed, Fixed Point =========================
-  primitive std_fp_sadd<"share"=1>[
+  comb primitive std_fp_sadd<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive std_fp_ssub<"share"=1>[
+  comb primitive std_fp_ssub<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
@@ -81,15 +81,15 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_fp_sgt<"share"=1>[
+  comb primitive std_fp_sgt<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
-  primitive std_fp_slt<"share"=1>[
+  comb primitive std_fp_slt<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
-  primitive std_fp_sadd_dwidth<"share"=1>[
+  comb primitive std_fp_sadd_dwidth<"share"=1>[
     WIDTH1,
     WIDTH2 ,
     INT_WIDTH1,
@@ -125,8 +125,8 @@ extern "binary_operators.sv" {
   );
 
   /// =================== Signed, Bitnum =========================
-  primitive std_sadd<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sadd<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  comb primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   primitive std_smult_pipe[WIDTH](
     @write_together(1) left: WIDTH,
@@ -148,13 +148,13 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_sgt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_slt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_seq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_sneq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_sge<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_sle<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
-  primitive std_slsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  primitive std_srsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sgt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  comb primitive std_slt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  comb primitive std_seq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  comb primitive std_sneq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  comb primitive std_sge<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  comb primitive std_sle<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
+  comb primitive std_slsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  comb primitive std_srsh<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
 }

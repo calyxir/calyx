@@ -133,6 +133,7 @@ class Stage:
             self.cmd = None
         self.description = description
         self.steps = []
+        self._no_spinner = False
 
     def setup(self):
         self.hollow_input_data = Source(None, self.input_type)

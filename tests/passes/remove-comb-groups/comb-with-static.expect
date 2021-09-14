@@ -1,0 +1,4 @@
+---CODE---
+1
+---STDERR---
+Error: Pass `remove-comb-groups` requires: Component main has both a top-level "static" annotations and combinational groups which is not supported

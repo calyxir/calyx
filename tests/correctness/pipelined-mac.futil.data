@@ -1,0 +1,26 @@
+{
+  "a": {
+    "data": [77, 15,  3, 22, 81, 80, 43, 70, 47, 69],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "b": {
+    "data": [75, 83, 33, 93, 30, 94, 43, 11, 60, 96],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "out": {
+    "data": [0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
+}

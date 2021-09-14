@@ -1,0 +1,10 @@
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    le = std_le(32);
+  }
+  wires { }
+  control {
+    if le.out { seq {} }
+  }
+}

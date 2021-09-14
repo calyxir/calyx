@@ -993,8 +993,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
 
     pub fn diff_other(&self, other: &Self) -> HashMap<&K, &V> {
-        let mut self_hm = Smoosher::to_hm(&self);
-        let other_hm = Smoosher::to_hm(&other);
+        let mut self_hm = Smoosher::to_hm(self);
+        let other_hm = Smoosher::to_hm(other);
         for (&k, &v) in other_hm.iter() {
             if let Some(&v_self) = self_hm.get(k) {
                 if v_self == v {

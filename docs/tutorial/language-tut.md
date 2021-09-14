@@ -247,8 +247,9 @@ Next, the `incr` group adds one to the value in `counter` using `add2`:
 {{#include ../../examples/tutorial/language-tutorial-iterate.futil:incr}}
 ```
 
-And finally, `cond` uses our comparator `lt` to compute the signal we need for our `while` loop:
-
+And finally, `cond` uses our comparator `lt` to compute the signal we need for
+our `while` loop. We use a `comb group` to denote that the assignments inside
+the condition can be run combinationally:
 ```
 {{#include ../../examples/tutorial/language-tutorial-iterate.futil:cond}}
 ```

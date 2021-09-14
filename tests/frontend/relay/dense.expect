@@ -59,28 +59,23 @@ component dense_1x10(x0_0_read_data: 32, x0_0_done: 1, y0_0_read_data: 32, y0_0_
     y_read0_0 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = __j0.out;
       le1.right = const3.out;
     }
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
+    comb group cond2 {
       le2.left = __i1.out;
       le2.right = const7.out;
     }
-    group cond3<"static"=0> {
-      cond3[done] = 1'd1;
+    comb group cond3 {
       le3.left = __j1.out;
       le3.right = const9.out;
     }
-    group cond4<"static"=0> {
-      cond4[done] = 1'd1;
+    comb group cond4 {
       le4.left = __k0.out;
       le4.right = const11.out;
     }

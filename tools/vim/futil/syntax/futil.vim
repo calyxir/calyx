@@ -3,7 +3,7 @@ if exists("b:current_syntax")
 endif
 
 " Numbers
-syn match futilConstant "\v<[0-9]+('d[0-9]+)?>"
+syn match futilConstant "\v<[0-9]+('(d|b|x|o)[0-9]+)?>"
 hi link futilConstant  Constant
 
 " String literals for attributes
@@ -44,6 +44,9 @@ hi link futilPortParam Type
 syn match futilArrow '->' nextgroup=futilPorts skipwhite skipnl
 hi link futilArrow futilOperator
 
+" Modifiers for components, groups, primitives
+syn keyword futilModifier comb
+hi link futilModifier Operator
 
 " Highlight holes
 syn keyword futilHole go done

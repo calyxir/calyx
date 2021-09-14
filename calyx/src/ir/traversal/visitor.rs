@@ -49,21 +49,31 @@ where
 }
 
 /// Trait defining method that can be used to construct a Visitor from an
-/// ir::Context.
+/// [ir::Context].
 /// This is useful when a pass needs to construct information using the context
 /// *before* visiting the components.
 ///
-/// For most passes that don't need to use, this is just going to use the
-/// default() method.
+/// For passes that don't need to use the context, this trait can be automatically
+/// be derived from [Default].
 pub trait ConstructVisitor {
+    /// Construct the visitor using information from the Context
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized;
+
+    /// Clear the data stored in the visitor. Called before traversing the
+    /// next component by [ir::traversal::Visitor].
+    fn clear_data(&mut self);
 }
 
+/// Derive ConstructVisitor when [Default] is provided for a visitor.
 impl<T: Default + Sized + Visitor> ConstructVisitor for T {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
         Ok(T::default())
+    }
+
+    fn clear_data(&mut self) {
+        *self = T::default();
     }
 }
 
@@ -120,11 +130,14 @@ pub trait Visitor {
     /// The function mutably borrows the [`control`](crate::ir::Component::control)
     /// program in each component and traverses it.
     ///
+    /// After visiting a component, it called [ConstructVisitor::clear_data] to
+    /// reset the struct.
+    ///
     /// # Panics
     /// Panics if the pass attempts to use the control program mutably.
     fn do_pass(&mut self, context: &mut Context) -> CalyxResult<()>
     where
-        Self: Sized,
+        Self: Sized + ConstructVisitor,
     {
         let signatures = &context.lib;
 
@@ -132,7 +145,11 @@ pub trait Visitor {
             // Temporarily take ownership of components from context.
             let comps = context.components.drain(..).collect();
             let mut po = PostOrder::new(comps);
-            po.apply_update(|comp| self.traverse_component(comp, signatures))?;
+            po.apply_update(|comp| {
+                self.traverse_component(comp, signatures)?;
+                self.clear_data();
+                Ok(())
+            })?;
             context.components = po.take();
         } else {
             context
@@ -140,14 +157,16 @@ pub trait Visitor {
                 // Mutably borrow the components in the context
                 .iter_mut()
                 .try_for_each(|comp| {
-                    self.traverse_component(comp, signatures)
+                    self.traverse_component(comp, signatures)?;
+                    self.clear_data();
+                    Ok(()) as CalyxResult<_>
                 })?;
         }
 
         Ok(())
     }
 
-    /// Build a [Default] implementation of this pass and call [`Visitor::do_pass`]
+    /// Build a [Default] implementation of this pass and call [Visitor::do_pass]
     /// using it.
     #[inline(always)]
     fn do_pass_default(context: &mut Context) -> CalyxResult<Self>
@@ -168,8 +187,8 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Exceuted after the traversal ends.
-    /// This method is always invoked regardless of the [`Action`] returned from
+    /// Executed after the traversal ends.
+    /// This method is always invoked regardless of the [Action] returned from
     /// the children.
     fn finish(
         &mut self,
@@ -179,7 +198,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a [`ir::Seq`](crate::ir::Seq) node.
+    /// Executed before visiting the children of a [ir::Seq] node.
     fn start_seq(
         &mut self,
         _s: &mut ir::Seq,
@@ -189,7 +208,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a [`ir::Seq`](crate::ir::Seq) node.
+    /// Executed after visiting the children of a [ir::Seq] node.
     fn finish_seq(
         &mut self,
         _s: &mut ir::Seq,
@@ -199,7 +218,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a [`ir::Par`](crate::ir::Par) node.
+    /// Executed before visiting the children of a [ir::Par] node.
     fn start_par(
         &mut self,
         _s: &mut ir::Par,
@@ -209,7 +228,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a [`ir::Par`](crate::ir::Par) node.
+    /// Executed after visiting the children of a [ir::Par] node.
     fn finish_par(
         &mut self,
         _s: &mut ir::Par,
@@ -219,7 +238,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a [`ir::If`](crate::ir::If) node.
+    /// Executed before visiting the children of a [ir::If] node.
     fn start_if(
         &mut self,
         _s: &mut ir::If,
@@ -229,7 +248,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a [`ir::If`](crate::ir::If) node.
+    /// Executed after visiting the children of a [ir::If] node.
     fn finish_if(
         &mut self,
         _s: &mut ir::If,
@@ -239,7 +258,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted before visiting the children of a [`ir::While`](crate::ir::While) node.
+    /// Executed before visiting the children of a [ir::While] node.
     fn start_while(
         &mut self,
         _s: &mut ir::While,
@@ -249,7 +268,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted after visiting the children of a [`ir::While`](crate::ir::While) node.
+    /// Executed after visiting the children of a [ir::While] node.
     fn finish_while(
         &mut self,
         _s: &mut ir::While,
@@ -259,7 +278,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted at an [`ir::Enable`](crate::ir::Enable) node.
+    /// Executed at an [ir::Enable] node.
     fn enable(
         &mut self,
         _s: &mut ir::Enable,
@@ -269,7 +288,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted at an [`ir::Invoke`](crate::ir::Invoke) node.
+    /// Executed at an [ir::Invoke] node.
     fn invoke(
         &mut self,
         _s: &mut ir::Invoke,
@@ -279,7 +298,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Excecuted at an [`ir::Empty`](crate::ir::Invoke) node.
+    /// Executed at an [ir::Empty] node.
     fn empty(
         &mut self,
         _s: &mut ir::Empty,
@@ -290,7 +309,7 @@ pub trait Visitor {
     }
 }
 
-/// Describes types that can be visited by things implementing [`Visitor`].
+/// Describes types that can be visited by things implementing [Visitor].
 /// This performs a recursive walk of the tree.
 ///
 /// It calls `Visitor::start_*` on the way down, and `Visitor::finish_*` on

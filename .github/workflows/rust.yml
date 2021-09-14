@@ -193,10 +193,10 @@ jobs:
     - name: Build Dahlia
       if: steps.dahlia-cache.outputs.cache-hit != 'true'
       run: |
-        cd ./dahlia && sbt assembly
+        cd ./dahlia && sbt "; getHeaders; assembly"
       shell: bash
 
-    - name: Cache Futil dependencies
+    - name: Cache Calyx dependencies
       uses: actions/cache@v2
       with:
         path: |
@@ -228,7 +228,6 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all
 
     - name: Test
       run: |
@@ -250,7 +249,7 @@ jobs:
     - name: Install stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: 1.52.1
+          toolchain: 1.54.0
           override: true
           components: rustfmt, clippy
     - name: Check formatting

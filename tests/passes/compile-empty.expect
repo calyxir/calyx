@@ -2,6 +2,7 @@ import "primitives/core.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(1);
+    @generated empty_reg = std_reg(1);
   }
   wires {
     group do_incr {
@@ -9,13 +10,17 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       r.write_en = 1'd1;
       do_incr[done] = r.done;
     }
-    group _empty<"static"=0> {
-      _empty[done] = 1'd1;
+    group _empty<"static"=1> {
+      empty_reg.write_en = 1'd1;
+      empty_reg.in = 1'd1;
+      _empty[done] = empty_reg.done;
+    }
+    comb group cond {
     }
   }
 
   control {
-    if r.out with do_incr {
+    if r.out with cond {
       do_incr;
     } else {
       _empty;

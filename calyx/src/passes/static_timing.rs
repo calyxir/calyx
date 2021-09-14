@@ -1,7 +1,9 @@
 use super::math_utilities::get_bit_width_from;
+use crate::errors::CalyxResult;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
-use crate::{build_assignments, guard, structure};
+use crate::passes::RemoveCombGroups;
+use crate::{build_assignments, errors::Error, guard, structure};
 use itertools::Itertools;
 use std::{cmp, rc::Rc};
 
@@ -42,45 +44,54 @@ where
         .fold_options(0, acc)
 }
 
+/// Attempts to get the value of the "static" attribute from the group if
+/// present. Also ensures that the group is not a combinational group.
+fn check_not_comb(group: &ir::RRC<ir::Group>) -> CalyxResult<Option<u64>> {
+    if let Some(&time) = group.borrow().attributes.get("static") {
+        if time < 1 {
+            return Err(Error::MalformedControl(format!("static-timing: Group `{}` is a combinational group (it takes less than one cycle to run). Run `{}` to remove all combinational groups before running static-timing.", group.borrow().name(), RemoveCombGroups::name())));
+        } else {
+            Ok(Some(time))
+        }
+    } else {
+        Ok(None)
+    }
+}
+
 impl Visitor for StaticTiming {
     fn finish_while(
         &mut self,
-        while_s: &mut ir::While,
+        wh: &mut ir::While,
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
     ) -> VisResult {
-        // let st = &mut comp.structure;
-
-        if let ir::Control::Enable(data) = &*while_s.body {
-            let cond = &while_s.cond;
-            let port = &while_s.port;
+        todo!()
+        /* if let ir::Control::Enable(data) = &*wh.body {
+            let cond = &wh.cond;
+            let port = &wh.port;
             let body = &data.group;
             let mut builder = ir::Builder::new(comp, ctx);
 
-            // FSM Encoding:
-            //   0:   init state. we haven't started loop iterations
-            //        and haven't checked the loop body
-            //   1-n: body compute states. cond was true. compute the body
-            //   n+1: loop exit. we've finished running the body and the condition is false.
-            // Transitions:
-            //   0 -> 1:   when cond == true
-            //   0 -> n+1: when cond == false
-            //   i -> i+1: when i != 0 & i != n
-            //   n -> 1:   when cond == true
-            //   n -> n+1: when cond == false
-
-            // The group is statically compilable with combinational condition.
-            if let (Some(&ctime), Some(&btime)) = (
-                cond.borrow().attributes.get("static"),
-                body.borrow().attributes.get("static"),
-            ) {
+            // The group is statically compilable
+            //
+            // Encoding: `b` latency of body, `c` is latency of cond
+            //  cond[go] = fsm.out < c ? 1;
+            //  cond_stored.in = fsm.out == c ? cond_port;
+            //  cond_stored.write_en = fsm.out == c ? 1'd1;
+            //  body[go] =
+            //      fsm.out >= c & fsm.out < (b+c+1) & cond_stored.out ? 1'd1;
+            //
+            //  fsm.in = fsm.out <= c ? (fsm.out + 1);
+            //  fsm.in =
+            //      fsm.out >= (c+1) & fsm.out < b & cond_stored ? (fsm.out + 1);
+            //  fsm.in = fsm.out == (b+c+1) ? 0;
+            //  static_while[done] = fsm.out == (c+1) & !cond_stored ? 1;
+            if let (Some(ctime), Some(btime)) =
+                (check_not_comb(cond)?, check_not_comb(body)?)
+            {
                 let while_group = builder.add_group("static_while");
 
-                // take at least one cycle for computing the body and condition
-                let ctime = cmp::max(ctime, 1);
-                let btime = cmp::max(btime, 1);
-
-                let body_end_time = ctime + btime;
+                let body_end_time = ctime + btime + 1;
                 // `0` state + (ctime + btime) states.
                 let fsm_size = get_bit_width_from(body_end_time + 1);
 
@@ -94,29 +105,34 @@ impl Visitor for StaticTiming {
                     let signal_on = constant(1, 1);
 
                     let cond_time_const = constant(ctime, fsm_size);
+                    let cond_next = constant(ctime + 1, fsm_size);
                     let body_end_const = constant(body_end_time, fsm_size);
                 );
 
-                // Cond is computed on this cycle.
-                let cond_computed =
-                    guard!(fsm["out"]).lt(guard!(cond_time_const["out"]));
-
+                // Cond group will signal done on this cycle.
+                let cond_done =
+                    guard!(fsm["out"]).eq(guard!(cond_time_const["out"]));
                 let body_done =
                     guard!(fsm["out"]).eq(guard!(body_end_const["out"]));
+
                 // Should we increment the FSM this cycle.
-                let fsm_incr = !body_done.clone()
-                    & (guard!(cond_stored["out"]) | cond_computed.clone());
+                let fsm_cond_incr =
+                    guard!(fsm["out"]).lt(guard!(cond_next["out"]));
+                let fsm_body_incr = guard!(fsm["out"])
+                    .ge(guard!(cond_next["out"]))
+                    & guard!(fsm["out"]).lt(guard!(body_end_const["out"]))
+                    & guard!(cond_stored["out"]);
+                let fsm_incr = fsm_cond_incr | fsm_body_incr;
 
                 // Compute the cond group
                 let cond_go =
                     guard!(fsm["out"]).lt(guard!(cond_time_const["out"]));
 
                 let body_go = guard!(cond_stored["out"])
-                    & !cond_go.clone()
+                    & guard!(fsm["out"]).ge(guard!(cond_next["out"]))
                     & guard!(fsm["out"]).lt(guard!(body_end_const["out"]));
 
-                let done = guard!(fsm["out"])
-                    .eq(guard!(cond_time_const["out"]))
+                let done = guard!(fsm["out"]).eq(guard!(cond_next["out"]))
                     & !guard!(cond_stored["out"]);
 
                 let mut assignments = build_assignments!(
@@ -129,7 +145,7 @@ impl Visitor for StaticTiming {
 
                     // Compute the cond group and save the result
                     cond["go"] = cond_go ? signal_on["out"];
-                    cond_stored["write_en"] = cond_computed ? signal_on["out"];
+                    cond_stored["write_en"] = cond_done ? signal_on["out"];
 
                     // Compute the body
                     body["go"] = body_go ? signal_on["out"];
@@ -141,10 +157,11 @@ impl Visitor for StaticTiming {
                     // This group is done when cond is false.
                     while_group["done"] = done ? signal_on["out"];
                 );
+
                 assignments.push(builder.build_assignment(
                     cond_stored.borrow().get("in"),
                     Rc::clone(port),
-                    cond_computed,
+                    cond_done,
                 ));
 
                 while_group
@@ -165,6 +182,7 @@ impl Visitor for StaticTiming {
         }
 
         Ok(Action::Continue)
+        */
     }
 
     fn finish_if(
@@ -176,25 +194,26 @@ impl Visitor for StaticTiming {
         if let (ir::Control::Enable(tdata), ir::Control::Enable(fdata)) =
             (&*s.tbranch, &*s.fbranch)
         {
-            let cond = &s.cond;
             let tru = &tdata.group;
             let fal = &fdata.group;
 
-            // combinational condition
-            if let (Some(&ctime), Some(&ttime), Some(&ftime)) = (
-                cond.borrow().attributes.get("static"),
-                tru.borrow().attributes.get("static"),
-                fal.borrow().attributes.get("static"),
-            ) {
-                let mut builder = ir::Builder::new(comp, ctx);
+            if s.cond.is_some() {
+                return Err(Error::MalformedStructure(format!("{}: condition group should be removed from if. Run `{}` before this pass.", Self::name(), RemoveCombGroups::name())));
+            }
+
+            if let (Some(ttime), Some(ftime)) =
+                (check_not_comb(tru)?, check_not_comb(fal)?)
+            {
+                todo!()
+                /* let mut builder = ir::Builder::new(comp, ctx);
                 let if_group = builder.add_group("static_if");
                 if_group
                     .borrow_mut()
                     .attributes
-                    .insert("static", ctime + 1 + cmp::max(ttime, ftime));
+                    .insert("static", 1 + cmp::max(ttime, ftime));
 
-                let end_true_time = ttime + ctime + 1;
-                let end_false_time = ftime + ctime + 1;
+                let end_true_time = ttime + 1;
+                let end_false_time = ftime + 1;
                 // `0` state + (ctime + max(ttime, ftime) + 1) states.
                 let fsm_size = get_bit_width_from(
                     1 + cmp::max(end_true_time, end_false_time),
@@ -205,9 +224,6 @@ impl Visitor for StaticTiming {
                     let signal_on = constant(1, 1);
                     let cond_stored = prim std_reg(1);
                     let reset_val = constant(0, fsm_size);
-
-                    let cond_time_const = constant(ctime, fsm_size);
-                    let cond_done_time_const = constant(ctime, fsm_size);
 
                     let true_end_const = constant(end_true_time, fsm_size);
                     let false_end_const = constant(end_false_time, fsm_size);
@@ -285,6 +301,7 @@ impl Visitor for StaticTiming {
                 comp.continuous_assignments.append(&mut clean_assigns);
 
                 return Ok(Action::Change(ir::Control::enable(if_group)));
+                */
             }
         }
 

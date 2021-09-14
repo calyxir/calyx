@@ -37,13 +37,11 @@ component negative_2x2_1(x10_0_read_data: 32, x10_0_done: 1, x20_0_read_data: 32
     x1_read0_0 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = __i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = __j0.out;
       le1.right = const3.out;
     }
@@ -126,13 +124,11 @@ component negative_2x2(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
     x_read0_0 = std_reg(32);
   }
   wires {
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
+    comb group cond2 {
       le2.left = __i1.out;
       le2.right = const8.out;
     }
-    group cond3<"static"=0> {
-      cond3[done] = 1'd1;
+    comb group cond3 {
       le3.left = __j1.out;
       le3.right = const10.out;
     }

@@ -100,6 +100,10 @@ impl ConstructVisitor for Papercut {
             read_together,
         })
     }
+
+    fn clear_data(&mut self) {
+        /* All data is shared between components. */
+    }
 }
 
 impl Named for Papercut {
@@ -242,6 +246,60 @@ impl Visitor for Papercut {
             }
         }
 
-        Ok(Action::Stop)
+        Ok(Action::Continue)
+    }
+
+    fn start_while(
+        &mut self,
+        s: &mut ir::While,
+        _comp: &mut ir::Component,
+        _ctx: &LibrarySignatures,
+    ) -> VisResult {
+        if s.cond.is_none() {
+            let port = s.port.borrow();
+            if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                let cell_ref = cell_wref.upgrade();
+                let cell = cell_ref.borrow();
+                if let ir::CellType::Primitive {
+                    is_comb,
+                    name: prim_name,
+                    ..
+                } = &cell.prototype
+                {
+                    if *is_comb {
+                        let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
+                        return Err(Error::Papercut(msg, cell.name().clone()));
+                    }
+                }
+            }
+        }
+        Ok(Action::Continue)
+    }
+
+    fn start_if(
+        &mut self,
+        s: &mut ir::If,
+        _comp: &mut ir::Component,
+        _ctx: &LibrarySignatures,
+    ) -> VisResult {
+        if s.cond.is_none() {
+            let port = s.port.borrow();
+            if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                let cell_ref = cell_wref.upgrade();
+                let cell = cell_ref.borrow();
+                if let ir::CellType::Primitive {
+                    is_comb,
+                    name: prim_name,
+                    ..
+                } = &cell.prototype
+                {
+                    if *is_comb {
+                        let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
+                        return Err(Error::Papercut(msg, cell.name().clone()));
+                    }
+                }
+            }
+        }
+        Ok(Action::Continue)
     }
 }

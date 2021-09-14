@@ -28,7 +28,12 @@ impl LibrarySignatures {
     where
         S: AsRef<str>,
     {
-        &self.sigs[&Id::from(name.as_ref())]
+        self.sigs.get(&name.as_ref().into()).unwrap_or_else(|| {
+            panic!(
+                "Primitive `{}` is not defined in the context.",
+                name.as_ref()
+            )
+        })
     }
 }
 
@@ -51,10 +56,13 @@ pub struct Context {
     pub components: Vec<Component>,
     /// Library definitions imported by the program.
     pub lib: LibrarySignatures,
-    /// Enable debug mode logging.
-    pub debug_mode: bool,
     /// Enables synthesis mode.
     pub synthesis_mode: bool,
+    /// Enables verification checks.
+    pub enable_verification: bool,
     /// Original import statements.
     pub imports: Vec<String>,
+    /// Extra options provided to the command line. Interperted by individual
+    /// passes
+    pub extra_opts: Vec<String>,
 }

@@ -5,22 +5,19 @@ component main() -> () {
     const0 = std_const(32, 13);
     const1 = std_const(32, 10);
     add0 = std_add(32);
-
   }
 
   wires {
-    group op {
+    comb group op {
       add0.left = const0.out;
       add0.left = const1.out;
       add0.right = const1.out;
-      op[done] = 1'b1;
     }
-    
   }
 
   control {
-    seq {
-      op;
+    if add0.out with op {
+      seq { }
     }
   }
 }

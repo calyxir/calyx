@@ -16,10 +16,9 @@ component main() -> () {
     add = std_add(32);
   }
   wires {
-    group cond {
+    comb group cond {
       eq.left = 1'd0;
       eq.right = 1'd1;
-      cond[done] = 1'd1;
     }
 
     group true {
