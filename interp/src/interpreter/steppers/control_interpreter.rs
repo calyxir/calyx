@@ -311,7 +311,7 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
     }
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
-        self.env.ok_or_else(|| InterpreterError::InvalidSeqState)
+        self.env.ok_or(InterpreterError::InvalidSeqState)
     }
 
     fn get_env(&self) -> StateView<'_, 'outer> {
@@ -543,7 +543,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
         self.branch_interp
-            .ok_or_else(|| InterpreterError::InvalidIfState)?
+            .ok_or(InterpreterError::InvalidIfState)?
             .deconstruct()
     }
 
@@ -704,8 +704,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
     }
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
-        self.terminal_env
-            .ok_or_else(|| InterpreterError::InvalidIfState)
+        self.terminal_env.ok_or(InterpreterError::InvalidIfState)
     }
 
     fn is_done(&self) -> bool {
