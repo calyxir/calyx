@@ -75,7 +75,7 @@ fn control_exits(
             body, is_exit, exits,
         ),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
         ir::Control::Par(_) => unreachable!(),
     }
 }
@@ -150,7 +150,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             compute_unique_ids(body, cur_state)
         }
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
     }
 }
 
@@ -351,12 +351,12 @@ fn calculate_states_recur(
             // See explanation in [ir::TopDownCompileControl] to understand
             // why.
             if early_transitions {
-            for (st, g) in &prev_states {
-                let mut early_go = build_assignments!(builder;
-                    group["go"] = g ? signal_on["out"];
-                );
-                schedule.enables.entry(*st).or_default().append(&mut early_go);
-            }
+                for (st, g) in &prev_states {
+                    let mut early_go = build_assignments!(builder;
+                        group["go"] = g ? signal_on["out"];
+                    );
+                    schedule.enables.entry(*st).or_default().append(&mut early_go);
+                }
             }
 
             let transitions = prev_states
@@ -463,9 +463,9 @@ fn calculate_states_recur(
 
             Ok(all_prevs)
         }
-        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
         ir::Control::Par(_) => unreachable!(),
+        ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
     }
 }
 
@@ -644,6 +644,14 @@ impl Visitor for TopDownCompileControl {
         comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
+        // Do not try to compile an enable
+        if matches!(
+            *comp.control.borrow(),
+            ir::Control::Enable(..) | ir::Control::Empty(..)
+        ) {
+            return Ok(Action::Stop);
+        }
+
         let mut con = comp.control.borrow_mut();
         compute_unique_ids(&mut con, 0);
         // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
@@ -756,14 +764,6 @@ impl Visitor for TopDownCompileControl {
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
     ) -> VisResult {
-        // Do not try to compile an enable
-        if matches!(
-            *comp.control.borrow(),
-            ir::Control::Enable(..) | ir::Control::Empty(..)
-        ) {
-            return Ok(Action::Stop);
-        }
-
         let control = Rc::clone(&comp.control);
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
