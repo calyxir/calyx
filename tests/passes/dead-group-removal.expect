@@ -10,7 +10,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       r.write_en = 1'd1;
       one[done] = r.done;
     }
+    group three {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      three[done] = r.done;
+    }
     group two {
+      three[go] = 1'd1;
       r.in = 32'd1;
       r.write_en = 1'd1;
       two[done] = r.done;
