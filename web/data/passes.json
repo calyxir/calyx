@@ -51,14 +51,14 @@
             "description": "static-timing"
         },
         {
-            "name": "compile-control",
-            "title": "Compile Control",
-            "description": "compile-control"
-        },
-        {
             "name": "dead-cell-removal",
             "title": "Dead Cell Removal",
             "description": "dead-cell-removal"
+        },
+        {
+            "name": "dead-group-removal",
+            "title": "Dead Group Removal",
+            "description": "dead-group-removal"
         },
         {
             "name": "go-insertion",
