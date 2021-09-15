@@ -811,11 +811,9 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             {
                 let dp_first_ref = dp_first.get_or_insert(depth_a);
 
-                if *dp_first_ref != depth_a {
-                    panic!("The common fork differs for one or more smooshers")
-                } else {
-                    smooshed.push(sm.smoosh(depth_b - 1));
-                }
+                assert!(*dp_first_ref == depth_a);
+
+                smooshed.push(sm.smoosh(depth_b - 1));
             } else {
                 panic!("No common fork for a pair of smooshers")
             }
