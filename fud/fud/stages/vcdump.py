@@ -1,5 +1,5 @@
 from fud.stages import Stage, SourceType
-from ..utils import shell
+from fud.utils import shell
 
 
 class VcdumpStage(Stage):
