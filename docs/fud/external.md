@@ -1,6 +1,6 @@
 # External Stages
 
-`fud` supports using stages that aren't defined in it's main source tree.
+`fud` supports using stages that aren't defined in its main source tree.
 These are known as 'external stages' and the provide a mechanism
 for projects using Calyx to take advantage of `fud`. You can register an
 external stage with:

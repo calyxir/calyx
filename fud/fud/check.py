@@ -5,8 +5,6 @@ import subprocess
 from packaging import version
 import sys
 
-from fud import external
-
 # Dictionary that defines how to check the version for different tools.
 VERSIONS = {
     "dahlia": {
