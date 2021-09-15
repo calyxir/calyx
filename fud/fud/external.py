@@ -23,9 +23,10 @@ def validate_external_stage(stage, cfg):
     # check to make sure that module has `__STAGES__` defined.
     if not hasattr(mod, "__STAGES__"):
         raise errors.InvalidExternalStage(
-            stage, "The module doesn't have attribute: '__STAGES__'." +
-            "In order to export the defined stages, define an array of" +
-            " stages called __STAGES__."
+            stage,
+            "The module doesn't have attribute: '__STAGES__'."
+            + "In order to export the defined stages, define an array of"
+            + " stages called __STAGES__.",
         )
 
     return mod

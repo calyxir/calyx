@@ -156,6 +156,7 @@ class Stage:
             def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
                 return shell(f"{self.cmd} {str(mrxl_prog)}")
         """
+
         def step_decorator(function):
             functools.wraps(function)
 

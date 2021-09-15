@@ -246,8 +246,10 @@ class Configuration:
                     del self["stages", args.name]
                     self.commit()
                 else:
-                    print(f"stages.{args.name} is not defined as an external" +
-                          " stage. Cannot delete it.")
+                    print(
+                        f"stages.{args.name} is not defined as an external"
+                        + " stage. Cannot delete it."
+                    )
 
     def __getitem__(self, keys):
         try:
