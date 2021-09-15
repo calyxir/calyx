@@ -129,29 +129,35 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             .collect()
     }
 
+    #[inline]
     fn go_is_high(&self) -> bool {
         self.get_env().lookup(self.go_port.as_raw()).as_u64() == 1
     }
 
+    #[inline]
     fn done_is_high(&self) -> bool {
         self.get_env().lookup(self.done_port.as_raw()).as_u64() == 1
     }
 
+    #[inline]
     pub fn set_go_high(&mut self) {
         let raw = self.go_port.as_raw();
         self.get_mut_env().insert(raw, Value::bit_high())
     }
 
+    #[inline]
     pub fn set_go_low(&mut self) {
         let raw = self.go_port.as_raw();
         self.get_mut_env().insert(raw, Value::bit_low())
     }
 
+    #[inline]
     fn set_done_high(&mut self) {
         let raw = self.done_port.as_raw();
         self.get_mut_env().insert(raw, Value::bit_high())
     }
 
+    #[inline]
     fn set_done_low(&mut self) {
         let raw = self.done_port.as_raw();
         self.get_mut_env().insert(raw, Value::bit_low())
@@ -193,7 +199,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
                     Ok(())
                 }
             }
-            _ => unreachable!(""),
+            _ => unreachable!(),
         }
     }
 
@@ -202,7 +208,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
             StructuralOrControl::Env(e) => Ok(e),
-            _ => unreachable!(""),
+            _ => unreachable!(),
         }
     }
 
@@ -211,7 +217,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Structural(s) => s.is_done(),
             StructuralOrControl::Control(c) => c.is_done(),
             &StructuralOrControl::Env(_) => false,
-            _ => unreachable!(""),
+            _ => unreachable!(),
         }
     }
 
@@ -221,7 +227,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Control(c) => c.get_env(),
             StructuralOrControl::Env(e) => StateView::SingleView(e),
 
-            _ => unreachable!(""),
+            _ => unreachable!(),
         }
     }
 
@@ -232,7 +238,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
             StructuralOrControl::Env(_) => {
                 vec![]
             }
-            _ => unreachable!(""),
+            _ => unreachable!(),
         }
     }
 
