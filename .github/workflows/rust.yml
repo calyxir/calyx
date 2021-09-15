@@ -222,8 +222,8 @@ jobs:
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
-        fud config stages.futil.exec './target/debug/futil'
-        fud register mrxl -p './frontends/mrxl/fud/mrxl.py'
+        fud config stages.futil.exec './home/runner/work/calyx/calyx/target/debug/futil'
+        fud register mrxl -p './home/runner/work/calyx/calyx/frontends/mrxl/fud/mrxl.py'
         fud config
     - name: Build
       uses: actions-rs/cargo@v1
