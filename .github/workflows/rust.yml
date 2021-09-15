@@ -220,8 +220,6 @@ jobs:
         cd fud
         flit install
         echo "============= Setting Fud configuration =============="
-        ls
-        tree ./frontends/mrxl
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec '/home/runner/work/calyx/calyx/target/debug/futil'
