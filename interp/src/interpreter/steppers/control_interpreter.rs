@@ -560,7 +560,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         } else if let Some(branch) = &self.branch_interp {
             branch.get_env()
         } else {
-            unreachable!("Invalid internal state for IfInterpreter")
+            unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition.")
         }
     }
 
@@ -580,7 +580,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         } else if let Some(branch) = &mut self.branch_interp {
             branch.get_mut_env()
         } else {
-            unreachable!("Invalid internal state for IfInterpreter")
+            unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition.")
         }
     }
 
@@ -588,7 +588,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         match (&mut self.cond, &mut self.branch_interp) {
             (None, Some(i)) => i.converge(),
             (Some(i), None) => i.converge(),
-            _ => unreachable!("if interpreter in invalid internal state"),
+            _ => unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition."),
         }
     }
 }
@@ -699,7 +699,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
             }
         } else if self.terminal_env.is_some() {
         } else {
-            panic!("While Interpreter is in an invalid state")
+            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
         }
         Ok(())
     }
@@ -720,7 +720,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         } else if let Some(env) = &self.terminal_env {
             env.into()
         } else {
-            unreachable!("Invalid internal state for WhileInterpreter")
+            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
         }
     }
 
@@ -742,7 +742,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         } else if let Some(term) = &mut self.terminal_env {
             term.into()
         } else {
-            unreachable!("Invalid internal state for WhileInterpreter")
+            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
         }
     }
 
@@ -754,7 +754,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         } else if let Some(_term) = &mut self.terminal_env {
             Ok(())
         } else {
-            unreachable!("Invalid internal state for WhileInterpreter")
+            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
         }
     }
 }
