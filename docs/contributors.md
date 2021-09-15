@@ -7,10 +7,9 @@ Here is a list of all the people who have worked on Calyx:
 - [Sam Thomas](https://sgtpeacock.com/)
 - [Rachit Nigam](https://rachitnigam.com)
 - [Griffin Berlstein](https://griffinberlste.in)
+- [Chris Gyurgyik](https://chrispg.dev)
 - [Adrian Sampson](https://adriansampson.net)
 - YoungSeok Na
-- Andrii Iermolaiev
-- Alma Thaler
 
 **Previous Contributors**
 
@@ -20,7 +19,8 @@ Here is a list of all the people who have worked on Calyx:
 - [Yuwei Ye](https://www.viviyye.com/)
 - Ted Bauer
 - YooNa Chang
-- [Chris Gyurgyik](https://chrispg.dev)
 - Karen Zhang
+- Andrii Iermolaiev
+- Alma Thaler
 
 If you're missing from this list, please [add yourself](https://github.com/cucapra/futil/edit/master/docs/contributors.md)!

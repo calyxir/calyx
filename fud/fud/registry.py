@@ -7,10 +7,16 @@ Edge = namedtuple("Edge", ["dest", "stage"])
 class Registry:
     def __init__(self, config):
         self.config = config
-
         self.nodes = {}
 
+    def get_nodes(self):
+        return self.nodes
+
     def register(self, stage, src=None, tar=None):
+        """
+        Defines a new stage named `stage` that converts programs from `src` to
+        `tar`
+        """
         if src is None:
             src = stage.name
         if tar is None:
