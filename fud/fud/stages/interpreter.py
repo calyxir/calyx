@@ -5,7 +5,7 @@ import numpy as np
 from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
-from ..utils import shell, TmpDir, unwrap_or, transparent_shell
+from fud.utils import shell, TmpDir, unwrap_or, transparent_shell
 
 # A local constant used only within this file largely for organizational
 # purposes and to avoid magic strings

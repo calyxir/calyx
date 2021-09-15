@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fud.stages import SourceType, Stage
-from ..utils import shell
+from fud.utils import shell
 
 
 class RelayStage(Stage):

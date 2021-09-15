@@ -5,7 +5,6 @@ import subprocess
 from packaging import version
 import sys
 
-
 # Dictionary that defines how to check the version for different tools.
 VERSIONS = {
     "dahlia": {
@@ -122,6 +121,7 @@ def check(cfg):
 
     uninstalled = []
     wrong_version = []
+
     # check executables in stages
     for name, stage in cfg["stages"].items():
         if "exec" in stage:
@@ -145,6 +145,7 @@ def check(cfg):
                 cprint(" ✖", "red", end=" ")
                 print(f"{exec_name} not installed.")
             print()
+
     if len(uninstalled) > 0:
         bad_stages = colored(", ".join(uninstalled), "red")
         verb = "were" if len(uninstalled) > 1 else "was"
