@@ -29,6 +29,7 @@ jobs:
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
+        fud config stages.interpreter.exec './target/debug/interp'
         fud config
 
     - name: Build
