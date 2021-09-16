@@ -1,6 +1,9 @@
+use std::rc::Rc;
+
 use itertools::Itertools;
 
 use crate::analysis::ReadWriteSet;
+use crate::ir::RRC;
 use crate::ir::{
     self,
     traversal::{Action, Loggable, Named, VisResult, Visitor},
@@ -28,6 +31,49 @@ impl Named for GroupToInvoke {
     }
 }
 
+/// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
+fn construct_invoke(
+    assigns: &[ir::Assignment],
+    comp: RRC<ir::Cell>,
+) -> ir::Invoke {
+    let mut inputs = Vec::new();
+    let mut outputs = Vec::new();
+
+    let cell_is_parent = |port: &ir::Port| -> bool {
+        if let ir::PortParent::Cell(cell_wref) = &port.parent {
+            Rc::ptr_eq(&cell_wref.upgrade(), &comp)
+        } else {
+            false
+        }
+    };
+
+    for assign in assigns {
+        // If the cell's port is being used as a source, add the dst to
+        // outputs
+        if cell_is_parent(&assign.src.borrow())
+            && assign.src != comp.borrow().get_with_attr("done")
+        {
+            let name = assign.src.borrow().name.clone();
+            outputs.push((name, Rc::clone(&assign.dst)));
+        }
+        // If the cell's port is being used as a dest, add the source to
+        // inputs
+        if cell_is_parent(&assign.dst.borrow())
+            && assign.dst != comp.borrow().get_with_attr("go")
+        {
+            let name = assign.dst.borrow().name.clone();
+            inputs.push((name, Rc::clone(&assign.src)));
+        }
+    }
+
+    ir::Invoke {
+        comp,
+        inputs,
+        outputs,
+        attributes: ir::Attributes::default(),
+    }
+}
+
 impl Visitor for GroupToInvoke {
     fn enable(
         &mut self,
@@ -39,15 +85,16 @@ impl Visitor for GroupToInvoke {
 
         // There should be exactly one component being written to in the
         // group.
-        let writes = ReadWriteSet::write_set(&group.assignments).collect_vec();
+        let mut writes =
+            ReadWriteSet::write_set(&group.assignments).collect_vec();
         if writes.len() != 1 {
             return Ok(Action::Continue);
         }
 
         // Component must define a @go/@done interface
-        let cell = writes[0].borrow();
-        let maybe_go_port = cell.find_with_attr("go");
-        let maybe_done_port = cell.find_with_attr("done");
+        let cell = writes.pop().unwrap();
+        let maybe_go_port = cell.borrow().find_with_attr("go");
+        let maybe_done_port = cell.borrow().find_with_attr("done");
         if maybe_go_port.is_none() || maybe_done_port.is_none() {
             return Ok(Action::Continue);
         }
@@ -84,6 +131,9 @@ impl Visitor for GroupToInvoke {
 
         self.elog("check", group.name());
 
-        Ok(Action::Continue)
+        Ok(Action::Change(ir::Control::Invoke(construct_invoke(
+            &group.assignments,
+            cell,
+        ))))
     }
 }
