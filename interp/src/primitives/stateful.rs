@@ -431,7 +431,6 @@ impl StdMemD1 {
         &mut self,
         vals: &[Value],
     ) -> InterpreterResult<()> {
-        assert_eq!(self.size as usize, vals.len());
         if self.size as usize != vals.len() {
             return Err(InterpreterError::IncorrectMemorySize {
                 mem_dim: "1D".into(),
