@@ -152,7 +152,7 @@ def check(cfg):
         print(f"{bad_stages} {verb} not installed correctly.")
         print(
             "Configuration instructions: "
-            + "https://capra.cs.cornell.edu/docs/calyx/tools/fud.html#configuration"
+            + "https://capra.cs.cornell.edu/docs/calyx/fud/#configuration"
         )
 
     if len(wrong_version) > 0:
