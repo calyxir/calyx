@@ -712,8 +712,6 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
       is_index31.left = 5'd31;
       is_index0.right = write_index;
       is_index1.right = write_index;
-      is_index0.right = write_index;
-      is_index1.right = write_index;
       is_index2.right = write_index;
       is_index3.right = write_index;
       is_index4.right = write_index;

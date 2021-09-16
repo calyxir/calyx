@@ -15,6 +15,24 @@ jobs:
         sudo apt-get update
         sudo apt-get install jq
 
+    - name: Setup Python
+      uses: actions/setup-python@v2
+
+    - name: Install common Python dependencies
+      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson
+
+    - name: Install fud
+      run: |
+        cd fud
+        flit install
+        cd ..
+        echo "============= Setting Fud configuration =============="
+        fud config global.futil_directory '/home/runner/work/calyx/calyx'
+        fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
+        fud config stages.futil.exec "$(pwd)/target/debug/futil"
+        fud config stages.interpreter.exec "$(pwd)/target/debug/interp"
+        fud config
+
     - name: Build
       uses: actions-rs/cargo@v1
       with:
