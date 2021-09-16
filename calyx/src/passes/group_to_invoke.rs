@@ -6,7 +6,7 @@ use crate::analysis::ReadWriteSet;
 use crate::ir::RRC;
 use crate::ir::{
     self,
-    traversal::{Action, Loggable, Named, VisResult, Visitor},
+    traversal::{Action, Named, VisResult, Visitor},
 };
 
 /// Transform groups that are structurally invoking components into equivalent
@@ -128,8 +128,6 @@ impl Visitor for GroupToInvoke {
                 }
             }
         }
-
-        self.elog("check", group.name());
 
         Ok(Action::Change(ir::Control::Invoke(construct_invoke(
             &group.assignments,
