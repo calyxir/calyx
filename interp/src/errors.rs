@@ -70,6 +70,15 @@ pub enum InterpreterError {
     InvalidIfState,
     #[error("invalid internal while state. This should never happen, please report it")]
     InvalidWhileState,
+
+    #[error("{mem_dim} Memory given initialization data with invalid dimension.
+    When flattened, expected {expected} entries, but the memory was supplied with {given} entries instead.
+    Please ensure that the dimensions of your input memories match their initalization data in the supplied data file")]
+    IncorrectMemorySize {
+        mem_dim: String,
+        expected: u64,
+        given: usize,
+    },
 }
 
 impl InterpreterError {

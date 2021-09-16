@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use super::{Primitive, Serializeable};
+use crate::errors::{InterpreterError, InterpreterResult};
 use crate::utils::construct_bindings;
 use crate::values::Value;
 use calyx::ir;
@@ -426,13 +427,24 @@ impl StdMemD1 {
         }
     }
 
-    pub fn initialize_memory(&mut self, vals: &[Value]) {
-        assert_eq!(self.size as usize, vals.len());
+    pub fn initialize_memory(
+        &mut self,
+        vals: &[Value],
+    ) -> InterpreterResult<()> {
+        if self.size as usize != vals.len() {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: "1D".into(),
+                expected: self.size,
+                given: vals.len(),
+            });
+        }
 
         for (idx, val) in vals.iter().enumerate() {
             assert_eq!(val.len(), self.width as usize);
             self.data[idx] = val.clone()
         }
+
+        Ok(())
     }
 }
 
@@ -633,13 +645,23 @@ impl StdMemD2 {
         }
     }
 
-    pub fn initialize_memory(&mut self, vals: &[Value]) {
-        assert_eq!((self.d0_size * self.d1_size) as usize, vals.len());
+    pub fn initialize_memory(
+        &mut self,
+        vals: &[Value],
+    ) -> InterpreterResult<()> {
+        if (self.d0_size * self.d1_size) as usize != vals.len() {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: "2D".into(),
+                expected: self.d0_size * self.d1_size,
+                given: vals.len(),
+            });
+        }
 
         for (idx, val) in vals.iter().enumerate() {
             assert_eq!(val.len(), self.width as usize);
             self.data[idx] = val.clone()
         }
+        Ok(())
     }
 
     #[inline]
@@ -860,16 +882,23 @@ impl StdMemD3 {
         }
     }
 
-    pub fn initialize_memory(&mut self, vals: &[Value]) {
-        assert_eq!(
-            (self.d0_size * self.d1_size * self.d2_size) as usize,
-            vals.len()
-        );
+    pub fn initialize_memory(
+        &mut self,
+        vals: &[Value],
+    ) -> InterpreterResult<()> {
+        if (self.d0_size * self.d1_size * self.d2_size) as usize != vals.len() {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: "3D".into(),
+                expected: self.d0_size * self.d1_size * self.d2_size,
+                given: vals.len(),
+            });
+        }
 
         for (idx, val) in vals.iter().enumerate() {
             assert_eq!(val.len(), self.width as usize);
             self.data[idx] = val.clone()
         }
+        Ok(())
     }
 
     #[inline]
@@ -1128,17 +1157,29 @@ impl StdMemD4 {
         }
     }
 
-    pub fn initialize_memory(&mut self, vals: &[Value]) {
-        assert_eq!(
-            (self.d0_size * self.d1_size * self.d2_size * self.d3_size)
-                as usize,
-            vals.len()
-        );
+    pub fn initialize_memory(
+        &mut self,
+        vals: &[Value],
+    ) -> InterpreterResult<()> {
+        if (self.d0_size * self.d1_size * self.d2_size * self.d3_size) as usize
+            != vals.len()
+        {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: "4D".into(),
+                expected: self.d0_size
+                    * self.d1_size
+                    * self.d2_size
+                    * self.d3_size,
+                given: vals.len(),
+            });
+        }
 
         for (idx, val) in vals.iter().enumerate() {
             assert_eq!(val.len(), self.width as usize);
             self.data[idx] = val.clone()
         }
+
+        Ok(())
     }
 
     #[inline]
