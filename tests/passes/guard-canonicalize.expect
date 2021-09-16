@@ -1,44 +1,22 @@
 import "primitives/std.lib";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 1) {
   cells {
-    r0 = std_reg(1);
-    r1 = std_reg(1);
+    r = std_reg(1);
     @external mem = std_mem_d1(32, 1, 1);
   }
   wires {
-    group a {
-      r0.in = 1'd1;
-      r0.write_en = 1'd1;
-      r1.in = 1'd1;
-      r1.write_en = r0.done;
-      a[done] = r1.done;
-    }
     group b {
-      r0.in = 1'd1;
-      r0.write_en = 1'd1;
-      r1.in = 1'd1;
-      r1.write_en = r0.done;
-      b[done] = r1.done;
+      r.in = r.out;
+      r.write_en = r.out;
+      b[done] = r.done;
     }
-    group c {
-      r0.in = 1'd1;
-      r0.write_en = 1'd1;
-      r1.in = 1'd1;
-      r1.write_en = r0.done;
-      c[done] = r1.done;
+    comb group c {
+      r.in = r.out;
+      r.write_en = r.out;
     }
-    mem.addr0 = 1'd0;
-    mem.write_data = 32'd42;
-    mem.write_en = 1'd1;
-    done = mem.done;
-    out = mem.done;
+    r.in = r.out;
+    r.write_en = r.out;
   }
 
-  control {
-    seq {
-      a;
-      b;
-      c;
-    }
-  }
+  control {}
 }
