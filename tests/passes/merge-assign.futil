@@ -1,4 +1,4 @@
-// -p merge-assign
+// -p merge-assigns
 
 import "primitives/std.lib";
 

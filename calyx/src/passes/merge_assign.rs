@@ -27,7 +27,7 @@ pub struct MergeAssign {}
 
 impl Named for MergeAssign {
     fn name() -> &'static str {
-        "merge-assign"
+        "merge-assigns"
     }
 
     fn description() -> &'static str {
@@ -69,6 +69,12 @@ impl Visitor for MergeAssign {
             let assigns = group.borrow_mut().assignments.drain(..).collect();
             let merged = merge_assigns(assigns);
             group.borrow_mut().assignments = merged;
+        }
+        for comb_group in comp.comb_groups.iter() {
+            let assigns =
+                comb_group.borrow_mut().assignments.drain(..).collect();
+            let merged = merge_assigns(assigns);
+            comb_group.borrow_mut().assignments = merged;
         }
 
         let cassigns = comp.continuous_assignments.drain(..).collect();
