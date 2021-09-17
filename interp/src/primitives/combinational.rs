@@ -14,7 +14,7 @@ pub struct StdConst {
 impl StdConst {
     pub fn from_constants(value: u64, width: u64) -> Self {
         StdConst {
-            value: Value::from(value, width).unwrap(),
+            value: Value::from(value, width),
         }
     }
 
@@ -25,7 +25,7 @@ impl StdConst {
         let init_value = get_param(params, "VALUE")
             .expect("Missing `vale` param from std_const binding");
 
-        let value = Value::from(init_value, width).unwrap();
+        let value = Value::from(init_value, width);
 
         Self { value }
     }
@@ -95,7 +95,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let new_right = adder
         .execute(
             &[("left".into(), &Value { vec: new_right }),
-            ("right".into(), &Value::from(1, WIDTH).unwrap())],
+            ("right".into(), &Value::from(1, WIDTH))],
         )
         .into_iter()
         .next()

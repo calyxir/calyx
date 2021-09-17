@@ -103,10 +103,8 @@ impl Primitive for StdMultPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            self.update = Some(
-                Value::from(left.as_u64() * right.as_u64(), self.width)
-                    .unwrap(),
-            );
+            self.update =
+                Some(Value::from(left.as_u64() * right.as_u64(), self.width));
         } else {
             self.update = None;
         }
@@ -225,10 +223,8 @@ impl Primitive for StdDivPipe {
         if go.as_u64() == 1 {
             let q = left.as_u64() / right.as_u64();
             let r = left.as_u64() % right.as_u64();
-            self.update = Some((
-                Value::from(q, self.width).unwrap(),
-                Value::from(r, self.width).unwrap(),
-            ));
+            self.update =
+                Some((Value::from(q, self.width), Value::from(r, self.width)));
         } else {
             self.update = None;
         }

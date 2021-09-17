@@ -1,13 +1,14 @@
 /// Define a primitive
 ///
-/// ```
-/// primitive!(StdAdd[width](left: width, right: width) {
+/// ```ignore
+/// comb_primitive!(StdAdd[width](left: width, right: width) -> (out: width) {
 ///   let left_64 = left.as_u64();
 ///   let right_64 = right.as_u64();
 ///   let init_val = left_64 + right_64;
 ///   let bitwidth: usize = left.vec.len();
-///   Value::from_init(init_val, bitwidth).into()
+///   Value::from(init_val, bitwidth).into()
 /// });
+/// # }
 /// ```
 /// The macro implementes the [[Primitive]] trait for the struct as well as
 /// `StdAdd::new(bindings: ir::Params)` and `StdAdd::from_constants(ports)`
@@ -132,15 +133,15 @@ macro_rules! in_fix {
 
 #[macro_export]
 /// Helper macro to generate port bindings.
-/// ```
+/// ```ignore
 /// port_bindings![
-///     "write_en" -> (1, 1),
-///     "in" -> (16, 32)
+///     write_en -> (1, 1),
+///     r#in -> (16, 32)
 /// ]
 /// ```
 macro_rules! port_bindings {
     ( $binds: ident; $( $port: ident -> ($val: literal, $width: literal) ),+ ) => {
-        $( let $port = crate::values::Value::from($val, $width).unwrap(); )+
+        $( let $port = crate::values::Value::from($val, $width); )+
         let $binds = vec![ $( (calyx::ir::Id::from(crate::in_fix!($port)), &$port) ),+ ];
     }
 }

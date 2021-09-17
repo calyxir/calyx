@@ -285,7 +285,7 @@ impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
 
                 let old_val = self.state.get_from_port(port);
                 let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
-                let new_val = Value::from(0, old_val_width).unwrap();
+                let new_val = Value::from(0, old_val_width);
 
                 if old_val.as_u64() != 0 {
                     self.val_changed = Some(true);

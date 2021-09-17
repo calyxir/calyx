@@ -226,10 +226,7 @@ impl<'outer> InterpreterState<'outer> {
                 ir::CellType::Constant { val, width } => {
                     for port in &cll.ports {
                         let pt: &ir::Port = &port.borrow();
-                        map.insert(
-                            pt as ConstPort,
-                            Value::from(*val, *width).unwrap(),
-                        );
+                        map.insert(pt as ConstPort, Value::from(*val, *width));
                     }
                 }
                 ir::CellType::Primitive { .. } => {
@@ -240,8 +237,7 @@ impl<'outer> InterpreterState<'outer> {
                             Value::from(
                                 cll.get_parameter("VALUE").unwrap_or_default(),
                                 pt.width,
-                            )
-                            .unwrap(),
+                            ),
                         );
                     }
                 }

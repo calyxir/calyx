@@ -761,7 +761,7 @@ fn test_std_sub_panic() {
 #[test]
 fn test_std_slice() {
     // 101 in binary is [1100101], take first 4 bits -> [0101] = 5
-    let to_slice = Value::from(101, 7).unwrap();
+    let to_slice = Value::from(101, 7);
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
@@ -771,7 +771,7 @@ fn test_std_slice() {
         .unwrap(); //note that once we implement execute_unary, have to change this
     assert_eq!(res_slice.as_u64(), 5);
     // Slice the entire bit
-    let to_slice = Value::from(548, 10).unwrap();
+    let to_slice = Value::from(548, 10);
     let mut std_slice = comb::StdSlice::from_constants(10, 10);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
@@ -784,14 +784,14 @@ fn test_std_slice() {
 #[test]
 #[should_panic]
 fn test_std_slice_panic() {
-    let to_slice = Value::from(3, 2).unwrap();
+    let to_slice = Value::from(3, 2);
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
     std_slice.validate_and_execute(&[("in".into(), &to_slice)]);
 }
 #[test]
 fn test_std_pad() {
     // Add 2 zeroes, should keep the same value
-    let to_pad = Value::from(101, 7).unwrap();
+    let to_pad = Value::from(101, 7);
     let mut std_pad = comb::StdPad::from_constants(7, 9);
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
@@ -801,7 +801,7 @@ fn test_std_pad() {
         .unwrap();
     assert_eq!(res_pad.as_u64(), 101);
     // hard to think of another test case but just to have 2:
-    let to_pad = Value::from(1, 7).unwrap();
+    let to_pad = Value::from(1, 7);
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
         .into_iter()
@@ -813,7 +813,7 @@ fn test_std_pad() {
 #[test]
 #[should_panic]
 fn test_std_pad_panic() {
-    let to_pad = Value::from(21, 5).unwrap();
+    let to_pad = Value::from(21, 5);
     let mut std_pad = comb::StdPad::from_constants(3, 9);
     std_pad.validate_and_execute(&[("in".into(), &to_pad)]);
 }
@@ -821,7 +821,7 @@ fn test_std_pad_panic() {
 #[test]
 fn test_std_not() {
     // ![1010] (!10) -> [0101] (5)
-    let not0 = Value::from(10, 4).unwrap();
+    let not0 = Value::from(10, 4);
     let mut std_not = comb::StdNot::from_constants(4);
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)])
@@ -831,7 +831,7 @@ fn test_std_not() {
         .unwrap();
     assert_eq!(res_not.as_u64(), 5);
     // ![0000] (!0) -> [1111] (15)
-    let not0 = Value::from(0, 4).unwrap();
+    let not0 = Value::from(0, 4);
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)])
         .into_iter()
@@ -845,7 +845,7 @@ fn test_std_not() {
 #[should_panic]
 fn test_std_not_panic() {
     //input too short
-    let not0 = Value::from(0, 4).unwrap();
+    let not0 = Value::from(0, 4);
     let mut std_not = comb::StdNot::from_constants(5);
     std_not
         .validate_and_execute(&[("in".into(), &not0)])
