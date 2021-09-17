@@ -283,8 +283,9 @@ impl Value {
     /// assert_eq!(signed_neg_1_4, -1);
     /// ```
     pub fn as_i64(&self) -> i64 {
+        let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
         self.vec.iter().enumerate().take(64).fold(
-            -1,
+            init,
             |acc, (idx, bit)| -> i64 {
                 (acc & (!(1 << idx))) | ((*bit as i64) << idx)
             },
@@ -298,10 +299,13 @@ impl Value {
     /// use interp::values::*;
     /// let signed_neg_1_4 = Value::from(-1_i128, 4).as_i128();
     /// assert_eq!(signed_neg_1_4, -1);
+    /// let signed_pos = Value::from(5_i128,10).as_i128();
+    /// assert_eq!(signed_pos, 5)
     /// ```
     pub fn as_i128(&self) -> i128 {
+        let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
         self.vec.iter().enumerate().take(128).fold(
-            -1,
+            init,
             |acc, (idx, bit)| -> i128 {
                 (acc & (!(1 << idx))) | ((*bit as i128) << idx)
             },
