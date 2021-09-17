@@ -347,25 +347,49 @@ comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
     Value::bit_low()
 });
-
+// TODO (griffin) : replace these comparsions with bit-aware variants
 // ===================== Signed Comparison Operations ======================
 comb_primitive!(StdSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() > right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSlt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() < right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSge[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() >= right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSle[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() <= right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() == right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSneq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() != right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 
 // ===================== Unsigned FP Comparison Operators ======================
