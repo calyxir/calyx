@@ -259,7 +259,10 @@ impl Value {
     /// # Example
     /// ```
     /// use interp::values::*;
-    /// let unsign_128_16 = Value::from(16, 16).as_u128();
+    /// let unsign_128 = Value::from(u128::MAX - 2, 128).as_u128();
+    /// assert_eq!(unsign_128, u128::MAX - 2);
+    /// let unsign_128_32 = Value::from(u128::MAX - 4, 32).as_u128();
+    /// assert_eq!(unsign_128_32, ((u128::MAX - 4) as u32) as u128);
     /// ```
     pub fn as_u128(&self) -> u128 {
         self.vec
