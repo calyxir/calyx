@@ -37,3 +37,59 @@ mod val_test {
         assert_eq!(v_15_4.as_u64(), v_15_4.ext(8).as_u64());
     }
 }
+
+#[cfg(test)]
+mod property_tests {
+    use crate::values::Value;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn u8_round_trip(input: u8) -> bool {
+        input as u64 == Value::from(input, 8).as_u64()
+    }
+
+    #[quickcheck]
+    fn u16_round_trip(input: u16) -> bool {
+        input as u64 == Value::from(input, 16).as_u64()
+    }
+
+    #[quickcheck]
+    fn u32_round_trip(input: u32) -> bool {
+        input as u64 == Value::from(input, 32).as_u64()
+    }
+
+    #[quickcheck]
+    fn u64_round_trip(input: u64) -> bool {
+        input == Value::from(input, 64).as_u64()
+    }
+
+    #[quickcheck]
+    fn u128_round_trip(input: u128) -> bool {
+        input == Value::from(input, 128).as_u128()
+    }
+
+    #[quickcheck]
+    fn i8_round_trip(input: i8) -> bool {
+        input as i64 == Value::from(input, 8).as_i64()
+    }
+
+    #[quickcheck]
+    fn i16_round_trip(input: i16) -> bool {
+        input as i64 == Value::from(input, 16).as_i64()
+    }
+
+    #[quickcheck]
+    fn i32_round_trip(input: i32) -> bool {
+        input as i64 == Value::from(input, 32).as_i64()
+    }
+
+    #[quickcheck]
+    fn i64_round_trip(input: i64) -> bool {
+        input == Value::from(input, 64).as_i64()
+    }
+
+    #[quickcheck]
+    fn i128_round_trip(input: i128) -> bool {
+        input == Value::from(input, 128).as_i128()
+    }
+}

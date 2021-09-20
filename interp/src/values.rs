@@ -128,16 +128,16 @@ pub struct Value {
 
 impl Value {
     pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
-        self.vec.len() < width // obviously fits then
+        self.vec.len() <= width // obviously fits then
             || self
                 .vec
                 .last_one() // returns an index
-                .map(|x| x < width - 1)
+                .map(|x| x < width)
                 .unwrap_or(true) // if there is no high bit then it can fit in the given width
     }
 
     pub fn signed_value_fits_in(&self, width: usize) -> bool {
-        self.vec.len() < width // obviously fits then
+        self.vec.len() <= width // obviously fits then
         || (self.vec.ends_with(bits![0]) && self.unsigned_value_fits_in(width - 1)) // positive value (technically wastes a check)
         || (self.vec.ends_with(bits![1]) && self.vec.len() - self.vec.trailing_ones() < width)
         // negative value greater than or equal to lowest in new width
