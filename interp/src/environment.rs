@@ -2,7 +2,9 @@
 
 use super::errors::{InterpreterError, InterpreterResult};
 use super::interpreter::ComponentInterpreter;
-use super::primitives::{combinational, stateful, Primitive, Serializeable};
+use super::primitives::{
+    combinational, stateful, Entry, Primitive, Serializeable,
+};
 use super::stk_env::Smoosher;
 use super::utils::AsRaw;
 use super::utils::MemoryMap;
@@ -427,7 +429,7 @@ impl<'outer> Serialize for InterpreterState<'outer> {
 #[derive(Serialize, Clone)]
 /// Struct to fully serialize the internal state of the environment
 pub struct FullySerialize {
-    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
+    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, Entry>>>,
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
 }
 
@@ -558,9 +560,19 @@ impl<'a, 'outer> StateView<'a, 'outer> {
                             .ports
                             .iter()
                             .map(|port| {
+                                let value = self.lookup(port.as_raw());
+
                                 (
                                     port.borrow().name.clone(),
-                                    self.lookup(port.as_raw()).as_u64(),
+                                    if port
+                                        .borrow()
+                                        .attributes
+                                        .has("interp_signed")
+                                    {
+                                        value.as_i64().into()
+                                    } else {
+                                        value.as_u64().into()
+                                    },
                                 )
                             })
                             .collect();
@@ -587,7 +599,11 @@ impl<'a, 'outer> StateView<'a, 'outer> {
                                 if !prim.is_comb() {
                                     return Some((
                                         cell.name().clone(),
-                                        Primitive::serialize(&**prim),
+                                        Primitive::serialize(
+                                            &**prim,
+                                            cell.get_attribute("interp_signed")
+                                                .is_some(),
+                                        ),
                                     ));
                                 }
                             }

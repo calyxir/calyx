@@ -125,11 +125,17 @@ impl Primitive for StdMultPipe {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
             vec![self.product.clone()]
                 .iter()
-                .map(Value::as_u64)
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
                 .collect(),
             1.into(),
         )
@@ -244,12 +250,18 @@ impl Primitive for StdDivPipe {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
             //vec![self.left.clone(), self.right.clone(), self.product.clone()]
             vec![self.quotient.clone(), self.remainder.clone()]
                 .iter()
-                .map(Value::as_u64)
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
                 .collect(),
             2.into(),
         )
@@ -357,8 +369,12 @@ impl Primitive for StdReg {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
-        Serializeable::Val(self.data[0].as_u64())
+    fn serialize(&self, signed: bool) -> Serializeable {
+        Serializeable::Val(if signed {
+            self.data[0].as_i64().into()
+        } else {
+            self.data[0].as_u64().into()
+        })
     }
 }
 
@@ -531,9 +547,18 @@ impl Primitive for StdMemD1 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (self.size as usize,).into(),
         )
     }
@@ -751,9 +776,18 @@ impl Primitive for StdMemD2 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (self.d0_size as usize, self.d1_size as usize).into(),
         )
     }
@@ -996,9 +1030,18 @@ impl Primitive for StdMemD3 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (
                 self.d0_size as usize,
                 self.d1_size as usize,
@@ -1267,9 +1310,18 @@ impl Primitive for StdMemD4 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (
                 self.d0_size as usize,
                 self.d1_size as usize,
