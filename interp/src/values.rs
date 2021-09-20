@@ -386,9 +386,23 @@ impl PartialEq for Value {
 impl Eq for Value {}
 
 impl PartialOrd for Value {
+    /// Unsigned ordering comparison
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         assert!(self.vec.len() == other.vec.len());
-        Some(self.as_u64().cmp(&other.as_u64()))
+        for (us_bit, them_bit) in self
+            .vec
+            .iter()
+            .by_ref()
+            .rev()
+            .zip(other.vec.iter().by_ref().rev())
+        {
+            match (us_bit, them_bit) {
+                (true, true) | (false, false) => {} // so far equal
+                (true, false) => return Some(std::cmp::Ordering::Greater),
+                (false, true) => return Some(std::cmp::Ordering::Less),
+            };
+        }
+        Some(std::cmp::Ordering::Equal)
     }
 }
 
