@@ -1,6 +1,5 @@
 use bitvec::prelude::*;
 use serde::de::{self, Deserialize, Visitor};
-use std::convert::TryInto;
 
 // Lsb0 means [10010] gives 0 at index 0, 1 at index 1, 0 at index 2, etc
 // from documentation, usize is the best data type to use in bitvec.
