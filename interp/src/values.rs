@@ -128,6 +128,22 @@ pub struct Value {
 }
 
 impl Value {
+    pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
+        self.vec.len() < width // obviously fits then
+            || self
+                .vec
+                .last_one() // returns an index
+                .map(|x| x < width - 1)
+                .unwrap_or(true) // if there is no high bit then it can fit in the given width
+    }
+
+    pub fn signed_value_fits_in(&self, width: usize) -> bool {
+        self.vec.len() < width // obviously fits then
+        || (self.vec.ends_with(bits![0]) && self.unsigned_value_fits_in(width - 1)) // positive value (technically wastes a check)
+        || (self.vec.ends_with(bits![1]) && self.vec.len() - self.vec.trailing_ones() < width)
+        // negative value greater than or equal to lowest in new width
+    }
+
     pub fn width(&self) -> u64 {
         self.vec.len() as u64
     }
@@ -244,6 +260,10 @@ impl Value {
     /// let unsign_64_16 = Value::from(16, 16).as_u64();
     /// ```
     pub fn as_u64(&self) -> u64 {
+        assert!(
+            self.unsigned_value_fits_in(64),
+            "Cannot fit value into an u64"
+        );
         self.vec
             .iter()
             .enumerate()
@@ -265,6 +285,10 @@ impl Value {
     /// assert_eq!(unsign_128_32, ((u128::MAX - 4) as u32) as u128);
     /// ```
     pub fn as_u128(&self) -> u128 {
+        assert!(
+            self.unsigned_value_fits_in(128),
+            "Cannot fit value into an u128"
+        );
         self.vec
             .iter()
             .enumerate()
@@ -283,6 +307,10 @@ impl Value {
     /// assert_eq!(signed_neg_1_4, -1);
     /// ```
     pub fn as_i64(&self) -> i64 {
+        assert!(
+            self.signed_value_fits_in(64),
+            "Cannot fit value into an i64"
+        );
         let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
         self.vec.iter().enumerate().take(64).fold(
             init,
@@ -303,6 +331,10 @@ impl Value {
     /// assert_eq!(signed_pos, 5)
     /// ```
     pub fn as_i128(&self) -> i128 {
+        assert!(
+            self.signed_value_fits_in(128),
+            "Cannot fit value into an i128"
+        );
         let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
         self.vec.iter().enumerate().take(128).fold(
             init,
