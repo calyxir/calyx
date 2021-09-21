@@ -1,6 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: 
-7 |component exp() -> () {
-  |          ^^^ Name already bound by component or primitive
+Error: Extern path `fake.sv` not found in parent directory (/Users/rachitnigam/git/calyx/tests/errors)
