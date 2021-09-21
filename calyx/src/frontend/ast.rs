@@ -4,105 +4,38 @@ use crate::errors::{CalyxResult, Error, Span};
 use crate::ir;
 use atty::Stream;
 use std::collections::HashSet;
+use std::fs;
 use std::io::stdin;
 use std::path::{Path, PathBuf};
 
-/// Represents the parsed AST of a complete program. Contains all the components
-/// and primitives that were encountered during the parsing the program.
+/// A Workspace represents all Calyx files transitively discovered while trying to compile a
+/// top-level file.
 ///
 /// # Example
 /// When parsing a file `foo.futil`:
-/// ```
+/// ```text
 /// import "core.futil";
 ///
 /// component main() -> () { ... }
 /// ```
-/// `main` is added to the current namespace and `core.futil` is added to
-/// the parsing queue. Next, `core.futil` is parsed:
+///
+/// The workspace gets the absolute path for `core.futil` and adds `main` to the set of defined
+/// components. `core.futil` is searched *both* relative to the current file and the library path.
+/// Next `core.futil` is parsed:
 /// ```
 /// extern "core.sv" {
 ///     primitive std_add[width](left: width, right: width) -> (out: width);
 /// }
 /// ```
-/// The primitive `std_add` is added to the namespace and `"core.sv"` is
-/// added to the set of paths that need to be "linked" in the backend
-/// generation.
+/// The workspace adds `std_add` to the currently defined primitives and looks for `core.sv` in a
+/// relative path to this file. It *does not* look for `core.sv` on the library path.
 ///
-/// Since `core.futil` does not `import` any file, the parsing process is
-/// completed.
-#[derive(Debug)]
-pub struct NamespaceDef {
-    /// Path to extern files.
-    pub imports: Vec<String>,
-    /// List of component definitions.
-    pub components: Vec<ComponentDef>,
-    /// Extern statements and any primitive declarations in them.
-    pub externs: Vec<(String, Vec<ir::Primitive>)>,
-}
-
-impl NamespaceDef {
-    /// Parse the program and all of its transitive dependencies to build
-    /// a whole program context.
-    pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> CalyxResult<Self> {
-        let mut namespace = match file {
-            Some(file) => parser::CalyxParser::parse_file(file),
-            None => {
-                if atty::isnt(Stream::Stdin) {
-                    parser::CalyxParser::parse(stdin())
-                } else {
-                    Err(Error::InvalidFile(
-                        "No file provided and terminal not a TTY".to_string(),
-                    ))
-                }
-            }
-        }?;
-
-        namespace.externs.iter_mut().for_each(|(path, _)| {
-            *path = lib_path.join(path.clone()).to_string_lossy().to_string();
-        });
-
-        // Parse all transitive dependencies
-        let mut deps: Vec<PathBuf> = namespace
-            .imports
-            .clone()
-            .into_iter()
-            .map(|f| lib_path.join(f))
-            .collect();
-
-        while let Some(path) = deps.pop() {
-            let mut ns = parser::CalyxParser::parse_file(&path)?;
-            namespace.components.append(&mut ns.components);
-
-            let parent = match path.parent() {
-                Some(a) => a,
-                None => Path::new("."),
-            };
-
-            namespace.externs.append(
-                &mut ns
-                    .externs
-                    .into_iter()
-                    .map(|(path, exts)| {
-                        (parent.join(path).to_string_lossy().to_string(), exts)
-                    })
-                    .collect(),
-            );
-
-            // All imports are relative to the file being currently parsed.
-            deps.append(
-                &mut ns.imports.into_iter().map(|f| parent.join(f)).collect(),
-            );
-        }
-
-        Ok(namespace)
-    }
-}
-
+/// Finally, since `core.futil` does not `import` any file, the parsing process is completed.
 #[derive(Default)]
 pub struct Workspace {
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
-    /// Extern statements and any primitive declarations in them.
+    /// Absolute path to extern definitions and primitives defined by them.
     pub externs: Vec<(PathBuf, Vec<ir::Primitive>)>,
 }
 
@@ -221,7 +154,8 @@ impl Workspace {
         };
 
         // Merge the initial namespace
-        let mut deps = merge_into_ws(namespace, parent_path)?;
+        let mut deps =
+            merge_into_ws(namespace, &fs::canonicalize(parent_path)?)?;
         dependencies.append(&mut deps);
 
         while let Some(p) = dependencies.pop() {
@@ -229,15 +163,27 @@ impl Workspace {
                 continue;
             }
             let ns = parser::CalyxParser::parse_file(&p)?;
-            let parent = p.parent().unwrap_or_else(|| Path::new("."));
+            let parent =
+                fs::canonicalize(p.parent().unwrap_or_else(|| Path::new(".")))?;
 
-            let mut deps = merge_into_ws(ns, parent)?;
+            let mut deps = merge_into_ws(ns, &parent)?;
             dependencies.append(&mut deps);
 
             already_imported.insert(p);
         }
         Ok(workspace)
     }
+}
+
+/// Corresponds to an individual Calyx file.
+#[derive(Debug)]
+pub struct NamespaceDef {
+    /// Path to extern files.
+    pub imports: Vec<String>,
+    /// List of component definitions.
+    pub components: Vec<ComponentDef>,
+    /// Extern statements and any primitive declarations in them.
+    pub externs: Vec<(String, Vec<ir::Primitive>)>,
 }
 
 /// AST statement for defining components.
