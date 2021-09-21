@@ -5,7 +5,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Direction {
     /// Input port.
     Input,
@@ -283,14 +283,14 @@ impl Cell {
 
 /// Generic wrapper for iterators that return [RRC] of [super::Cell].
 pub struct CellIterator<'a> {
-    pub port_iter: Box<dyn Iterator<Item = RRC<Cell>> + 'a>,
+    pub iter: Box<dyn Iterator<Item = RRC<Cell>> + 'a>,
 }
 
 impl Iterator for CellIterator<'_> {
     type Item = RRC<Cell>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.port_iter.next()
+        self.iter.next()
     }
 }
 

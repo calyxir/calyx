@@ -17,11 +17,11 @@ fn main() -> CalyxResult<()> {
     }
 
     // Construct the namespace.
-    let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
+    let ws = frontend::Workspace::new(&opts.file, &opts.lib_path)?;
 
     // Build the IR representation
     let mut ctx = ir::from_ast::ast_to_ir(
-        namespace,
+        ws,
         opts.enable_synthesis,
         !opts.disable_verify,
     )?;
@@ -30,6 +30,6 @@ fn main() -> CalyxResult<()> {
     // Run all passes specified by the command line
     pm.execute_plan(&mut ctx, &opts.pass, &opts.disable_pass)?;
 
-    opts.run_backend(&ctx)?;
+    opts.run_backend(ctx)?;
     Ok(())
 }

@@ -20,13 +20,11 @@ fn resource_sharing_bench(c: &mut Criterion) {
                         let bench = Path::new(&name);
                         let lib = Path::new(".");
 
-                        let namespace = frontend::NamespaceDef::new(
-                            &Some(bench.into()),
-                            lib,
-                        )
-                        .unwrap();
+                        let ws =
+                            frontend::Workspace::new(&Some(bench.into()), lib)
+                                .unwrap();
 
-                        ir::from_ast::ast_to_ir(namespace, false, true).unwrap()
+                        ir::from_ast::ast_to_ir(ws, false, true).unwrap()
                     },
                     |mut rep: ir::Context| {
                         passes::ResourceSharing::do_pass_default(&mut rep)

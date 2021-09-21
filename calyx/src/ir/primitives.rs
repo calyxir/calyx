@@ -108,6 +108,15 @@ pub enum Width {
     Param { value: Id },
 }
 
+impl std::fmt::Display for Width {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Width::Const { value } => write!(f, "{}", value),
+            Width::Param { value } => write!(f, "{}", value),
+        }
+    }
+}
+
 impl PortDef {
     /// Given a map from names of parameters to their values, attempt to
     /// resolve this definition.

@@ -137,7 +137,7 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend(self, context: &ir::Context) -> CalyxResult<()> {
+    pub fn run_backend(self, context: ir::Context) -> CalyxResult<()> {
         match self.backend {
             BackendOpt::Mlir => {
                 let backend = MlirBackend::default();
@@ -156,12 +156,14 @@ impl Opts {
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {
-                for import_path in &context.imports {
-                    writeln!(
+                for (path, prims) in context.lib.externs() {
+                    ir::IRPrinter::write_extern(
+                        (
+                            &path,
+                            &prims.into_iter().map(|(_, v)| v).collect_vec(),
+                        ),
                         &mut self.output.get_write(),
-                        "import \"{}\";",
-                        import_path
-                    )?
+                    )?;
                 }
                 for comp in &context.components {
                     ir::IRPrinter::write_component(
