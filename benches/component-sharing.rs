@@ -20,9 +20,11 @@ fn resource_sharing_bench(c: &mut Criterion) {
                         let bench = Path::new(&name);
                         let lib = Path::new(".");
 
-                        let ws =
-                            frontend::Workspace::new(&Some(bench.into()), lib)
-                                .unwrap();
+                        let ws = frontend::Workspace::construct(
+                            &Some(bench.into()),
+                            lib,
+                        )
+                        .unwrap();
 
                         ir::from_ast::ast_to_ir(ws, false, true).unwrap()
                     },

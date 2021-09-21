@@ -4,8 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use atty::Stream;
-
 use super::{
     ast::{ComponentDef, NamespaceDef},
     parser,
@@ -40,10 +38,16 @@ use crate::{
 /// Finally, since `core.futil` does not `import` any file, the parsing process is completed.
 #[derive(Default)]
 pub struct Workspace {
-    /// List of component definitions.
+    /// List of component definitions that need to be compiled.
     pub components: Vec<ComponentDef>,
+    /// List of component definitions that should be used as declarations and
+    /// not compiled. This is used when the compiler is invoked with File
+    /// compilation mode.
+    pub declarations: Vec<ComponentDef>,
     /// Absolute path to extern definitions and primitives defined by them.
     pub externs: Vec<(PathBuf, Vec<ir::Primitive>)>,
+    /// Original import statements present in the top-level file.
+    pub imports: Vec<String>,
 }
 
 impl Workspace {
@@ -68,11 +72,11 @@ impl Workspace {
         }
 
         Err(Error::InvalidFile(
-                format!("Import path `{}` found neither in the parent ({}) nor library path ({})",
-                import.as_ref().to_string_lossy(),
-                parent.to_string_lossy(),
-                lib_path.to_string_lossy()
-                )))
+            format!("Import path `{}` found neither in the parent ({}) nor library path ({})",
+            import.as_ref().to_string_lossy(),
+            parent.to_string_lossy(),
+            lib_path.to_string_lossy()
+        )))
     }
 
     // Get the absolute path to an extern. Extern can only exist on paths
@@ -97,31 +101,42 @@ impl Workspace {
 
     /// Construct a new workspace from an input stream representing a Calyx
     /// program.
-    pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> CalyxResult<Self> {
-        let ns = match file {
-            Some(file) => parser::CalyxParser::parse_file(file),
-            None => {
-                if atty::isnt(Stream::Stdin) {
-                    parser::CalyxParser::parse(std::io::stdin())
-                } else {
-                    Err(Error::InvalidFile(
-                        "No file provided and terminal not a TTY".to_string(),
-                    ))
-                }
-            }
-        }?;
+    pub fn construct(
+        file: &Option<PathBuf>,
+        lib_path: &Path,
+    ) -> CalyxResult<Self> {
+        let ns = NamespaceDef::construct(file)?;
         let parent = file
             .as_ref()
             .and_then(|f| f.parent())
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        Self::from_namespace(ns, &parent, lib_path)
+        Self::construct_with_all_deps(ns, &parent, lib_path, false)
     }
 
-    pub fn from_namespace(
+    /// Construct the Workspace using the given [NamespaceDef] and ignore all
+    /// imported dependencies.
+    pub fn construct_shallow(
+        file: &Option<PathBuf>,
+        lib_path: &Path,
+    ) -> CalyxResult<Self> {
+        let ns = NamespaceDef::construct(file)?;
+        let parent = file
+            .as_ref()
+            .and_then(|f| f.parent())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
+        Self::construct_with_all_deps(ns, &parent, lib_path, true)
+    }
+
+    /// Construct the Workspace by transitively parsing all `import`ed Calyx
+    /// files.
+    fn construct_with_all_deps(
         namespace: NamespaceDef,
         parent_path: &Path,
         lib_path: &Path,
+        // Parse imported components as declarations
+        shallow: bool,
     ) -> CalyxResult<Self> {
         // Set of current dependencies
         let mut dependencies: Vec<PathBuf> = Vec::new();
@@ -147,8 +162,15 @@ impl Workspace {
                     .collect::<CalyxResult<_>>()?,
             );
 
-            // Add components defined by this namespace
-            workspace.components.extend(&mut ns.components.into_iter());
+            // Add components defined by this namespace to either components or
+            // declarations
+            if shallow {
+                workspace.components.extend(&mut ns.components.into_iter());
+            } else {
+                workspace
+                    .declarations
+                    .extend(&mut ns.components.into_iter());
+            }
 
             // Return the canonical location of import paths
             let deps = ns

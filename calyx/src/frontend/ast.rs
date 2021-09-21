@@ -1,6 +1,12 @@
 //! Abstract Syntax Tree for Calyx
-use crate::errors::Span;
+use std::path::PathBuf;
+
+use atty::Stream;
+
+use crate::errors::{CalyxResult, Error, Span};
 use crate::ir;
+
+use super::parser;
 
 /// Corresponds to an individual Calyx file.
 #[derive(Debug)]
@@ -11,6 +17,23 @@ pub struct NamespaceDef {
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
     pub externs: Vec<(String, Vec<ir::Primitive>)>,
+}
+
+impl NamespaceDef {
+    pub fn construct(file: &Option<PathBuf>) -> CalyxResult<Self> {
+        match file {
+            Some(file) => parser::CalyxParser::parse_file(file),
+            None => {
+                if atty::isnt(Stream::Stdin) {
+                    parser::CalyxParser::parse(std::io::stdin())
+                } else {
+                    Err(Error::InvalidFile(
+                        "No file provided and terminal not a TTY".to_string(),
+                    ))
+                }
+            }
+        }
+    }
 }
 
 /// AST statement for defining components.

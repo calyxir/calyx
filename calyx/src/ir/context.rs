@@ -11,7 +11,7 @@ use std::{collections::HashMap, path::PathBuf};
 #[derive(Debug, Default)]
 pub struct LibrarySignatures {
     /// Direct mapping from name to primitives
-    sigs: Vec<(PathBuf, HashMap<Id, Primitive>)>,
+    primitive_definitions: Vec<(PathBuf, HashMap<Id, Primitive>)>,
 }
 
 /// Iterator over primitive signatures defined in [LibrarySignatures].
@@ -34,7 +34,7 @@ impl LibrarySignatures {
         S: AsRef<str>,
     {
         let key = Id::from(name.as_ref());
-        for (_, sig) in &self.sigs {
+        for (_, sig) in &self.primitive_definitions {
             if let Some(p) = sig.get(&key) {
                 return Some(p);
             }
@@ -58,18 +58,25 @@ impl LibrarySignatures {
     /// Return an iterator over the underlying
     pub fn signatures(&self) -> SigIter<'_> {
         SigIter {
-            iter: Box::new(self.sigs.iter().flat_map(|(_, sig)| sig.values())),
+            iter: Box::new(
+                self.primitive_definitions
+                    .iter()
+                    .flat_map(|(_, sig)| sig.values()),
+            ),
         }
     }
 
     /// Return the underlying externs
     pub fn externs(self) -> Vec<(PathBuf, HashMap<Id, Primitive>)> {
-        self.sigs
+        self.primitive_definitions
     }
 
     /// Return the paths for the extern defining files
     pub fn extern_paths(&self) -> Vec<&PathBuf> {
-        self.sigs.iter().map(|(p, _)| p).collect_vec()
+        self.primitive_definitions
+            .iter()
+            .map(|(p, _)| p)
+            .collect_vec()
     }
 }
 
@@ -79,7 +86,7 @@ impl From<Vec<(PathBuf, Vec<Primitive>)>> for LibrarySignatures {
         for (path, prims) in externs {
             let map: HashMap<_, _> =
                 prims.into_iter().map(|p| (p.name.clone(), p)).collect();
-            lib.sigs.push((path, map));
+            lib.primitive_definitions.push((path, map));
         }
         lib
     }
@@ -96,7 +103,7 @@ pub struct Context {
     pub synthesis_mode: bool,
     /// Enables verification checks.
     pub enable_verification: bool,
-    /// Extra options provided to the command line. Interperted by individual
-    /// passes
+    /// Extra options provided to the command line.
+    /// Interperted by individual passes
     pub extra_opts: Vec<String>,
 }

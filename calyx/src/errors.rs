@@ -13,13 +13,6 @@ pub enum Error {
     /// Using a reserved keyword as a program identifier.
     ReservedName(ir::Id),
 
-    /// The given string does not correspond to any known pass.
-    UnknownPass(String),
-    /// The input file is invalid (does not exist).
-    InvalidFile(String),
-    /// Failed to write the output
-    WriteError(String),
-
     /// The control program is malformed.
     MalformedControl(String),
     /// The connections are malformed.
@@ -53,11 +46,16 @@ pub enum Error {
 
     /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
-    NotSubcomponent,
 
-    /// A miscellaneous error. Should be replaced with a more precise error.
-    #[allow(unused)]
-    Misc(String),
+    // =========== Frontend Errors ===============
+    /// The given string does not correspond to any known pass.
+    UnknownPass(String),
+    /// The input file is invalid (does not exist).
+    InvalidFile(String),
+    /// Failed to write the output
+    WriteError(String),
+    /// Feature flags not supported
+    Unsupported(String),
 }
 
 /// Convience wrapper to represent success or meaningul compiler error.
@@ -164,8 +162,8 @@ impl std::fmt::Debug for Error {
                 )
             },
             InvalidFile(err) => write!(f, "{}", err),
-            ParseError(err) => write!(f, "Calyx Parser: {}", err),
             WriteError(msg) => write!(f, "{}", msg),
+            ParseError(err) => write!(f, "Calyx Parser: {}", err),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
                 let msg2 = format!("This port has width: {}", w2);
@@ -181,10 +179,9 @@ impl std::fmt::Debug for Error {
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             PassAssumption(pass, msg) => write!(f, "Pass `{}` requires: {}", pass, msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
-            NotSubcomponent => write!(f, "Not a subcomponent"),
-            Misc(msg) => write!(f, "{}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
-            MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string())
+            MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string()),
+            Unsupported(msg) => write!(f, "Unsupport: {}", msg),
         }
     }
 }
