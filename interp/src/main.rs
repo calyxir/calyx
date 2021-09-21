@@ -34,7 +34,7 @@ pub struct Opts {
     #[argh(option, long = "data", short = 'd', from_str_fn(read_path))]
     pub data_file: Option<PathBuf>,
 
-    #[argh(switch, short = 'n', long = "no-verification")]
+    #[argh(switch, long = "no-verify")]
     /// flag to bypass verification checks before running the program
     /// note: the interpreter will not behave correctly on malformed input
     skip_verification: bool,
