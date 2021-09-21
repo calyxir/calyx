@@ -69,6 +69,8 @@ pub type CalyxResult<T> = std::result::Result<T, Error>;
 pub struct Span {
     /// Reference to input program source.
     input: Rc<str>,
+    /// Name of the input file
+    file: Rc<str>,
     /// The start of the span.
     start: usize,
     /// The end of the span.
@@ -78,9 +80,10 @@ pub struct Span {
 impl Span {
     /// Create a new `Error::Span` from a `pest::Span` and
     /// the input string.
-    pub fn new(span: pest::Span, input: Rc<str>) -> Span {
+    pub fn new(span: pest::Span, file: Rc<str>, input: Rc<str>) -> Span {
         Span {
             input,
+            file,
             start: span.start(),
             end: span.end(),
         }
@@ -89,7 +92,7 @@ impl Span {
     /// Format this Span with a the error message `err_msg`
     pub fn format(&self, err_msg: &str) -> String {
         let lines = self.input.split('\n');
-        let mut buf: String = String::new();
+        let mut buf = self.file.to_string();
         let mut pos: usize = 0;
         let mut linum: usize = 1;
         for l in lines {
