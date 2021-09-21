@@ -6,5 +6,6 @@
 
 pub mod ast;
 pub mod parser;
+mod workspace;
 
-pub use ast::Workspace;
+pub use workspace::Workspace;

@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     errors::{CalyxResult, Error},
-    frontend::ast,
+    frontend::{self, ast},
     utils::NameGenerator,
 };
 use linked_hash_map::LinkedHashMap;
@@ -90,7 +90,7 @@ fn extend_signature(sig: &mut Vec<PortDef>) {
 
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
-    mut namespace: ast::Workspace,
+    mut namespace: frontend::Workspace,
     synthesis_mode: bool,
     enable_verification: bool,
 ) -> CalyxResult<Context> {
