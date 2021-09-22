@@ -1,10 +1,10 @@
-extern "<ROOT>/tests/import/verilog/c.sv" {
+extern "<ROOT>/calyx/tests/import/verilog/c.sv" {
   primitive std_min() -> ();
 }
-extern "<ROOT>/tests/import/verilog/b.sv" {
+extern "<ROOT>/calyx/tests/import/verilog/b.sv" {
   primitive std_max() -> ();
 }
-extern "/Users/rachitnigam/git/calyx/primitives/core.sv" {
+extern "<ROOT>/calyx/primitives/core.sv" {
   comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH);
   comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
   comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
