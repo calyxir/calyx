@@ -9,7 +9,7 @@ paths = [
 ]
 # gets the pass flags a comment on the first line of the test file
 cmd = """
-flags=$(head -n 1 {} | cut -c 3-)
+flags="$(head -n 1 {} | cut -c 3-) -m file"
 ./target/debug/futil {} $flags
 """
 

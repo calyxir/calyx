@@ -48,14 +48,12 @@ pub enum Error {
     Impossible(String), // Signal compiler errors that should never occur.
 
     // =========== Frontend Errors ===============
-    /// The given string does not correspond to any known pass.
-    UnknownPass(String),
+    /// Miscellaneous error message
+    Misc(String),
     /// The input file is invalid (does not exist).
     InvalidFile(String),
     /// Failed to write the output
     WriteError(String),
-    /// Feature flags not supported
-    Unsupported(String),
 }
 
 /// Convience wrapper to represent success or meaningul compiler error.
@@ -154,13 +152,6 @@ impl std::fmt::Debug for Error {
                     name.fmt_err(&msg)
                 )
             }
-            UnknownPass(pass) => {
-                write!(
-                    f,
-                    "Unknown pass: {}. Use the flag `--list-passes` to view known passes.",
-                    pass,
-                )
-            },
             InvalidFile(err) => write!(f, "{}", err),
             WriteError(msg) => write!(f, "{}", msg),
             ParseError(err) => write!(f, "Calyx Parser: {}", err),
@@ -181,7 +172,7 @@ impl std::fmt::Debug for Error {
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
             MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string()),
-            Unsupported(msg) => write!(f, "Unsupport: {}", msg),
+            Misc(msg) => write!(f, "{}", msg),
         }
     }
 }

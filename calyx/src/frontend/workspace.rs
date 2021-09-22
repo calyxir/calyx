@@ -47,7 +47,7 @@ pub struct Workspace {
     /// Absolute path to extern definitions and primitives defined by them.
     pub externs: Vec<(PathBuf, Vec<ir::Primitive>)>,
     /// Original import statements present in the top-level file.
-    pub imports: Vec<String>,
+    pub original_imports: Vec<String>,
 }
 
 impl Workspace {
@@ -105,13 +105,7 @@ impl Workspace {
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        let ns = NamespaceDef::construct(file)?;
-        let parent = file
-            .as_ref()
-            .and_then(|f| f.parent())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
-        Self::construct_with_all_deps(ns, &parent, lib_path, false)
+        Self::construct_with_all_deps(file, lib_path, false)
     }
 
     /// Construct the Workspace using the given [NamespaceDef] and ignore all
@@ -120,24 +114,25 @@ impl Workspace {
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        let ns = NamespaceDef::construct(file)?;
-        let parent = file
-            .as_ref()
-            .and_then(|f| f.parent())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
-        Self::construct_with_all_deps(ns, &parent, lib_path, true)
+        Self::construct_with_all_deps(file, lib_path, true)
     }
 
     /// Construct the Workspace by transitively parsing all `import`ed Calyx
     /// files.
     fn construct_with_all_deps(
-        namespace: NamespaceDef,
-        parent_path: &Path,
+        file: &Option<PathBuf>,
         lib_path: &Path,
         // Parse imported components as declarations
         shallow: bool,
     ) -> CalyxResult<Self> {
+        // Construct initial namespace.
+        let namespace = NamespaceDef::construct(file)?;
+        let parent_path = file
+            .as_ref()
+            .and_then(|f| f.parent())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
+
         // Set of current dependencies
         let mut dependencies: Vec<PathBuf> = Vec::new();
         // Set of imports that have already been parsed once.
@@ -146,10 +141,14 @@ impl Workspace {
         let mut workspace = Workspace::default();
         let abs_lib_path = lib_path.canonicalize()?;
 
+        // Add original imports to workspace
+        workspace.original_imports = namespace.imports.clone();
+
         // Function to merge contents of a namespace into the workspace and
         // return the dependencies that need to be parsed next.
         let mut merge_into_ws = |ns: NamespaceDef,
-                                 parent: &Path|
+                                 parent: &Path,
+                                 shallow: bool|
          -> CalyxResult<Vec<PathBuf>> {
             // Canonicalize the extern paths and add them
             workspace.externs.append(
@@ -165,11 +164,11 @@ impl Workspace {
             // Add components defined by this namespace to either components or
             // declarations
             if shallow {
-                workspace.components.extend(&mut ns.components.into_iter());
-            } else {
                 workspace
                     .declarations
                     .extend(&mut ns.components.into_iter());
+            } else {
+                workspace.components.extend(&mut ns.components.into_iter());
             }
 
             // Return the canonical location of import paths
@@ -184,7 +183,7 @@ impl Workspace {
 
         // Merge the initial namespace
         let mut deps =
-            merge_into_ws(namespace, &fs::canonicalize(parent_path)?)?;
+            merge_into_ws(namespace, &fs::canonicalize(parent_path)?, false)?;
         dependencies.append(&mut deps);
 
         while let Some(p) = dependencies.pop() {
@@ -195,7 +194,7 @@ impl Workspace {
             let parent =
                 fs::canonicalize(p.parent().unwrap_or_else(|| Path::new(".")))?;
 
-            let mut deps = merge_into_ws(ns, &parent)?;
+            let mut deps = merge_into_ws(ns, &parent, shallow)?;
             dependencies.append(&mut deps);
 
             already_imported.insert(p);

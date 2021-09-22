@@ -1,8 +1,13 @@
 mod backend;
 mod cmdline;
 
-use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
-use cmdline::Opts;
+use calyx::{
+    errors::{CalyxResult, Error},
+    frontend, ir,
+    pass_manager::PassManager,
+};
+use cmdline::{BackendOpt, CompileMode, Opts};
+use itertools::Itertools;
 
 fn main() -> CalyxResult<()> {
     let pm = PassManager::default_passes()?;
@@ -17,8 +22,9 @@ fn main() -> CalyxResult<()> {
     }
 
     // Construct the namespace.
-    let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
+    let mut ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
 
+    let imports = ws.original_imports.drain(..).collect_vec();
     // Build the IR representation
     let mut ctx = ir::from_ast::ast_to_ir(
         ws,
@@ -31,25 +37,33 @@ fn main() -> CalyxResult<()> {
     pm.execute_plan(&mut ctx, &opts.pass, &opts.disable_pass)?;
 
     if opts.compile_mode == CompileMode::File
-        && opts.backend != BackendOpt::Calyx
+        && !matches!(opts.backend, BackendOpt::Calyx | BackendOpt::None)
     {
-        return Err(Error::Unsupported(format!("--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project", self.backend)));
+        return Err(Error::Misc(format!(
+            "--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project",
+            opts.backend.to_string()
+        )));
     }
 
+    // Print out the Calyx program after transformation.
     if opts.backend == BackendOpt::Calyx {
+        let out = &mut opts.output.get_write();
         if opts.compile_mode == CompileMode::Project {
-            for (path, prims) in context.lib.externs() {
+            for (path, prims) in ctx.lib.externs() {
                 ir::IRPrinter::write_extern(
                     (&path, &prims.into_iter().map(|(_, v)| v).collect_vec()),
-                    &mut self.output.get_write(),
+                    out,
                 )?;
             }
         } else {
-            todo!()
+            // Print out the original imports for this file.
+            for import in imports {
+                writeln!(out, "import \"{}\";", import)?;
+            }
         }
-        for comp in &context.components {
-            ir::IRPrinter::write_component(comp, &mut self.output.get_write())?;
-            writeln!(&mut self.output.get_write())?
+        for comp in &ctx.components {
+            ir::IRPrinter::write_component(comp, out)?;
+            writeln!(out)?
         }
         Ok(())
     } else {
