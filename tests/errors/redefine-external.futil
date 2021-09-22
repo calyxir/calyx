@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 
-extern "fake.sv" {
+extern "../../primitives/core.sv" { // This extern is not defined that in that file.
   primitive exp() -> ();
 }
 

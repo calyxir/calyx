@@ -1,4 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: Extern path `fake.sv` not found in parent directory (/Users/rachitnigam/git/calyx/tests/errors)
+Error: tests/errors/redefine-external.futil
+7 |component exp() -> () {
+  |          ^^^ Name already bound by component or primitive
