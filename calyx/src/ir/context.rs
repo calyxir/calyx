@@ -2,16 +2,17 @@
 //! need to transform, lower, an emit a program.
 //! Passes usually have transform/analyze the components in the IR.
 use itertools::Itertools;
+use linked_hash_map::LinkedHashMap;
 
 use super::{Component, Id, Primitive};
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 /// A representation of all the primitive definitions found while parsing
 /// the root program.
 #[derive(Debug, Default)]
 pub struct LibrarySignatures {
     /// Direct mapping from name to primitives
-    primitive_definitions: Vec<(PathBuf, HashMap<Id, Primitive>)>,
+    primitive_definitions: Vec<(PathBuf, LinkedHashMap<Id, Primitive>)>,
 }
 
 /// Iterator over primitive signatures defined in [LibrarySignatures].
@@ -67,7 +68,7 @@ impl LibrarySignatures {
     }
 
     /// Return the underlying externs
-    pub fn externs(self) -> Vec<(PathBuf, HashMap<Id, Primitive>)> {
+    pub fn externs(self) -> Vec<(PathBuf, LinkedHashMap<Id, Primitive>)> {
         self.primitive_definitions
     }
 
@@ -84,7 +85,7 @@ impl From<Vec<(PathBuf, Vec<Primitive>)>> for LibrarySignatures {
     fn from(externs: Vec<(PathBuf, Vec<Primitive>)>) -> Self {
         let mut lib = LibrarySignatures::default();
         for (path, prims) in externs {
-            let map: HashMap<_, _> =
+            let map: LinkedHashMap<_, _> =
                 prims.into_iter().map(|p| (p.name.clone(), p)).collect();
             lib.primitive_definitions.push((path, map));
         }
