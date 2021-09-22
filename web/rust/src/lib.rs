@@ -1,9 +1,4 @@
-use calyx::{
-    errors,
-    frontend::parser,
-    ir,
-    pass_manager::PassManager,
-};
+use calyx::{errors, frontend::parser, ir, pass_manager::PassManager};
 use wasm_bindgen::prelude::*;
 
 fn compile(

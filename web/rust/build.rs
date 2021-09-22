@@ -4,7 +4,10 @@ use std::process::Command;
 
 // Based on: https://stackoverflow.com/a/44407625/39182
 fn main() {
-    let out_data = Command::new("git").args(&["rev-parse", "HEAD"]).output().unwrap();
+    let out_data = Command::new("git")
+        .args(&["rev-parse", "HEAD"])
+        .output()
+        .unwrap();
     let out_str = String::from_utf8(out_data.stdout).unwrap();
     let git_hash = out_str.trim();
 
