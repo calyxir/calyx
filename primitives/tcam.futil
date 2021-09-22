@@ -1,3 +1,4 @@
+import "core.futil";
 // An implementation of Comparator Network Longest Prefix Match (CN-LPM), as described in:
 // "TCAM-based high speed longest prefix matching with fast incremental table updates"
 // Rasmussen et al. (2013) [https://ieeexplore.ieee.org/document/6602288]
@@ -710,8 +711,6 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
       is_index29.left = 5'd29;
       is_index30.left = 5'd30;
       is_index31.left = 5'd31;
-      is_index0.right = write_index;
-      is_index1.right = write_index;
       is_index0.right = write_index;
       is_index1.right = write_index;
       is_index2.right = write_index;

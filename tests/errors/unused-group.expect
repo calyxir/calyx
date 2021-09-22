@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: 
+Error: tests/errors/unused-group.futil
 4 |    group cond {
   |          ^^^^ Group not used in control

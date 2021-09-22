@@ -65,6 +65,17 @@ impl Visitor for DeadGroupRemoval {
         comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
     ) -> VisResult {
+        // Groups that are driven by their `go` signals should not be
+        // removed.
+        for group in comp.groups.iter() {
+            for assign in &group.borrow().assignments {
+                let dst = assign.dst.borrow();
+                if dst.is_hole() && dst.name == "go" {
+                    self.used_groups.insert(dst.get_parent_name().clone());
+                }
+            }
+        }
+
         // Remove Groups that are not used
         comp.groups
             .retain(|g| self.used_groups.contains(g.borrow().name()));

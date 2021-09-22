@@ -5,7 +5,7 @@ import numpy as np
 from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
-from ..utils import shell, TmpDir, unwrap_or, transparent_shell
+from fud.utils import shell, TmpDir, unwrap_or, transparent_shell
 
 # A local constant used only within this file largely for organizational
 # purposes and to avoid magic strings
@@ -53,21 +53,23 @@ class InterpreterStage(Stage):
 
     def _define_steps(self, input_data):
 
-        cmd = [
-            self.cmd,
-            self.flags,
-            unwrap_or(self.config["stages", self.name, "flags"], ""),
-            "-l",
-            self.config["global", "futil_directory"],
-            "--data" if self.data_path else "",
-            "{data_file}" if self.data_path else "",
-            "{target}",
-            "debug" if self.target_stage == _DEBUGGER_TARGET else "",
-            self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
-            unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
-            if self.target_stage == _DEBUGGER_TARGET
-            else "",
-        ]
+        cmd = " ".join(
+            [
+                self.cmd,
+                self.flags,
+                unwrap_or(self.config["stages", self.name, "flags"], ""),
+                "-l",
+                self.config["global", "futil_directory"],
+                "--data" if self.data_path else "",
+                "{data_file}" if self.data_path else "",
+                "{target}",
+                "debug" if self.target_stage == _DEBUGGER_TARGET else "",
+                self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
+                unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
+                if self.target_stage == _DEBUGGER_TARGET
+                else "",
+            ]
+        )
 
         @self.step()
         def mktmp() -> SourceType.Directory:
@@ -100,11 +102,9 @@ class InterpreterStage(Stage):
             Invoke the interpreter
             """
 
-            command = [
-                x.format(data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target))
-                for x in cmd
-                if x
-            ]
+            command = cmd.format(
+                data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
+            )
 
             if self.target_stage == _DEBUGGER_TARGET:
                 return transparent_shell(command)

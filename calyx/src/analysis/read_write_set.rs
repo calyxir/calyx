@@ -48,7 +48,7 @@ impl ReadWriteSet {
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
-            port_iter: Box::new(iter),
+            iter: Box::new(iter),
         }
     }
 
@@ -67,7 +67,7 @@ impl ReadWriteSet {
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
-            port_iter: Box::new(iter),
+            iter: Box::new(iter),
         }
     }
 
@@ -107,7 +107,7 @@ impl ReadWriteSet {
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
-            port_iter: Box::new(iter),
+            iter: Box::new(iter),
         }
     }
 
@@ -129,7 +129,7 @@ impl ReadWriteSet {
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
-            port_iter: Box::new(iter),
+            iter: Box::new(iter),
         }
     }
 
@@ -142,7 +142,7 @@ impl ReadWriteSet {
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
-            port_iter: Box::new(iter),
+            iter: Box::new(iter),
         }
     }
 }

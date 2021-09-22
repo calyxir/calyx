@@ -4,6 +4,7 @@
 - [`fud`: The Calyx Driver](./fud/index.md)
   - [Examples](./fud/examples.md)
   - [Vivado Tools](./fud/synthesis.md)
+  - [External Stages](./fud/external.md)
 - [The Calyx Compiler](./compiler.md)
   - [Primitive Library](./libraries/core.md)
 - [The Calyx Interpreter](./interpreter.md)

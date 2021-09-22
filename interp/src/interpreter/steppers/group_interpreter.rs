@@ -14,6 +14,14 @@ enum AssignmentOwner<'a> {
     // first is always normal, second is always continuous
     Ref(Vec<&'a Assignment>, Vec<&'a Assignment>),
     Owned(Vec<Assignment>, Vec<Assignment>),
+    _OwnedCont(Vec<&'a Assignment>, Vec<Assignment>),
+    OwnedGrp(Vec<Assignment>, Vec<&'a Assignment>),
+}
+
+impl<'a> Default for AssignmentOwner<'a> {
+    fn default() -> Self {
+        Self::Owned(vec![], vec![])
+    }
 }
 
 impl<'a> AssignmentOwner<'a> {
@@ -26,6 +34,12 @@ impl<'a> AssignmentOwner<'a> {
             AssignmentOwner::Owned(assigns, cont) => {
                 Box::new((*assigns).iter().chain((*cont).iter()))
             }
+            AssignmentOwner::_OwnedCont(a, c) => {
+                Box::new(a.iter().copied().chain(c.iter()))
+            }
+            AssignmentOwner::OwnedGrp(a, c) => {
+                Box::new(a.iter().chain(c.iter().copied()))
+            }
         }
     }
 
@@ -34,16 +48,23 @@ impl<'a> AssignmentOwner<'a> {
         &self,
     ) -> Box<dyn Iterator<Item = &Assignment> + '_> {
         match self {
-            AssignmentOwner::Ref(v1, _) => Box::new(v1.iter().copied()),
-            AssignmentOwner::Owned(v1, _) => Box::new(v1.iter()),
+            AssignmentOwner::Ref(v1, _)
+            | AssignmentOwner::_OwnedCont(v1, _) => {
+                Box::new(v1.iter().copied())
+            }
+            AssignmentOwner::Owned(v1, _)
+            | AssignmentOwner::OwnedGrp(v1, _) => Box::new(v1.iter()),
         }
     }
 
     // this is not currently used but may be relevant for mixed interpretation
     fn _iter_cont(&self) -> Box<dyn Iterator<Item = &Assignment> + '_> {
         match self {
-            AssignmentOwner::Ref(_, v2) => Box::new(v2.iter().copied()),
-            AssignmentOwner::Owned(_, v2) => Box::new(v2.iter()),
+            AssignmentOwner::Ref(_, v2) | AssignmentOwner::OwnedGrp(_, v2) => {
+                Box::new(v2.iter().copied())
+            }
+            AssignmentOwner::Owned(_, v2)
+            | AssignmentOwner::_OwnedCont(_, v2) => Box::new(v2.iter()),
         }
     }
 
@@ -61,32 +82,31 @@ where
         Self::Ref(iter.0.collect(), iter.1.collect())
     }
 }
-
 /// An interpreter object which exposes a pausable interface to interpreting a
 /// group of assignments
-pub struct AssignmentInterpreter<'a> {
-    state: InterpreterState,
+pub struct AssignmentInterpreter<'a, 'outer> {
+    state: InterpreterState<'outer>,
     done_port: Option<ConstPort>,
     assigns: AssignmentOwner<'a>,
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
 }
 
-impl<'a> AssignmentInterpreter<'a> {
+impl<'a, 'outer> AssignmentInterpreter<'a, 'outer> {
     /// Creates a new AssignmentInterpreter which borrows the references to the
     /// assignments from an outside context
     pub fn new<I1, I2>(
-        state: InterpreterState,
-        done_signal: Option<ConstPort>,
+        state: InterpreterState<'outer>,
+        done_signal: Option<RRC<ir::Port>>,
         assigns: (I1, I2),
     ) -> Self
     where
         I1: Iterator<Item = &'a Assignment>,
         I2: Iterator<Item = &'a Assignment>,
     {
-        let done_port = done_signal;
+        let done_port = done_signal.as_ref().map(|x| x.as_raw());
         let assigns: AssignmentOwner = assigns.into();
-        let cells = utils::get_dest_cells(assigns.iter_all());
+        let cells = utils::get_dest_cells(assigns.iter_all(), done_signal);
 
         Self {
             state,
@@ -100,13 +120,57 @@ impl<'a> AssignmentInterpreter<'a> {
     /// Creates a new AssignmentInterpreter which owns the assignments that it
     /// interpretes
     pub fn new_owned(
-        state: InterpreterState,
-        done_signal: Option<ConstPort>,
+        state: InterpreterState<'outer>,
+        done_signal: Option<RRC<ir::Port>>,
         vecs: (Vec<Assignment>, Vec<Assignment>),
     ) -> Self {
-        let done_port = done_signal;
+        let done_port = done_signal.as_ref().map(|x| x.as_raw());
         let assigns: AssignmentOwner = AssignmentOwner::from_vecs(vecs);
-        let cells = utils::get_dest_cells(assigns.iter_all());
+        let cells = utils::get_dest_cells(assigns.iter_all(), done_signal);
+
+        Self {
+            state,
+            done_port,
+            assigns,
+            cells,
+            val_changed: None,
+        }
+    }
+
+    pub fn new_owned_grp<I1>(
+        state: InterpreterState<'outer>,
+        done_signal: Option<RRC<ir::Port>>,
+        vecs: (Vec<Assignment>, I1),
+    ) -> Self
+    where
+        I1: Iterator<Item = &'a Assignment>,
+    {
+        let done_port = done_signal.as_ref().map(|x| x.as_raw());
+        let assigns: AssignmentOwner =
+            AssignmentOwner::OwnedGrp(vecs.0, vecs.1.collect());
+        let cells = utils::get_dest_cells(assigns.iter_all(), done_signal);
+
+        Self {
+            state,
+            done_port,
+            assigns,
+            cells,
+            val_changed: None,
+        }
+    }
+
+    pub fn _new_owned_cont<I1>(
+        state: InterpreterState<'outer>,
+        done_signal: Option<RRC<ir::Port>>,
+        vecs: (I1, Vec<Assignment>),
+    ) -> Self
+    where
+        I1: Iterator<Item = &'a Assignment>,
+    {
+        let done_port = done_signal.as_ref().map(|x| x.as_raw());
+        let assigns: AssignmentOwner =
+            AssignmentOwner::_OwnedCont(vecs.0.collect(), vecs.1);
+        let cells = utils::get_dest_cells(assigns.iter_all(), done_signal);
 
         Self {
             state,
@@ -128,7 +192,7 @@ impl<'a> AssignmentInterpreter<'a> {
             for cell in self.cells.iter() {
                 if let Some(x) = self
                     .state
-                    .cell_prim_map
+                    .cell_map
                     .borrow_mut()
                     .get_mut(&(&cell.borrow() as &Cell as ConstCell))
                 {
@@ -253,9 +317,9 @@ impl<'a> AssignmentInterpreter<'a> {
     /// environment
     pub fn run_and_deconstruct(
         mut self,
-    ) -> InterpreterResult<InterpreterState> {
+    ) -> InterpreterResult<InterpreterState<'outer>> {
         self.run()?;
-        Ok(self.deconstruct())
+        self.deconstruct()
     }
 
     /// Run the interpreter until it finishes executing
@@ -274,16 +338,16 @@ impl<'a> AssignmentInterpreter<'a> {
             )
     }
 
-    pub fn deconstruct(self) -> InterpreterState {
+    pub fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
         if self.is_deconstructable() {
-            self.deconstruct_no_check()
+            Ok(self.deconstruct_no_check())
         } else {
             panic!("Group simulation has not finished executing and cannot be deconstructed")
         }
     }
 
     #[inline]
-    fn deconstruct_no_check(self) -> InterpreterState {
+    fn deconstruct_no_check(self) -> InterpreterState<'outer> {
         self.state
     }
 
@@ -294,14 +358,13 @@ impl<'a> AssignmentInterpreter<'a> {
     }
 
     /// The inerpreter must have finished executing first
-    pub fn reset<I: Iterator<Item = &'a ir::Assignment>>(
-        self,
-        assigns: I,
-    ) -> InterpreterState {
+    pub fn reset(mut self) -> InterpreterResult<InterpreterState<'outer>> {
+        let assigns = std::mem::take(&mut self.assigns);
         let done_signal = self.done_port;
-        let env = self.deconstruct();
+        let env = self.deconstruct()?;
 
-        finish_interpretation(env, done_signal, assigns).unwrap()
+        // note there might be some trouble with mixed assignments
+        finish_interpretation(env, done_signal, assigns._iter_group_assigns())
     }
 
     pub fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
@@ -315,7 +378,11 @@ impl<'a> AssignmentInterpreter<'a> {
         self.state.insert(port, val)
     }
 
-    pub fn get_env(&self) -> &InterpreterState {
+    pub fn get_env(&self) -> &InterpreterState<'outer> {
         &self.state
+    }
+
+    pub fn get_mut_env(&mut self) -> &mut InterpreterState<'outer> {
+        &mut self.state
     }
 }

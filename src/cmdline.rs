@@ -10,7 +10,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-#[derive(FromArgs, Debug)]
+#[derive(FromArgs)]
 /// The Calyx compiler
 pub struct Opts {
     /// input calyx program
@@ -24,6 +24,10 @@ pub struct Opts {
     /// path to the primitives library
     #[argh(option, short = 'l', default = "Path::new(\".\").into()")]
     pub lib_path: PathBuf,
+
+    /// compilation mode
+    #[argh(option, short = 'm', default = "CompileMode::default()")]
+    pub compile_mode: CompileMode,
 
     /// enable synthesis mode
     #[argh(switch, long = "synthesis")]
@@ -62,10 +66,37 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(Path::new(path).into())
 }
 
+// Compilation modes
+#[derive(PartialEq, Eq)]
+pub enum CompileMode {
+    /// Compile the input file and ignore the dependencies.
+    File,
+    /// Transitively compile all dependencies `import`ed by the input file.
+    Project,
+}
+
+impl Default for CompileMode {
+    fn default() -> Self {
+        CompileMode::Project
+    }
+}
+
+impl FromStr for CompileMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "file" => Ok(CompileMode::File),
+            "project" => Ok(CompileMode::Project),
+            s => Err(format!("Unknown compilation mode: {}. Valid options are `file` or `project`", s))
+        }
+    }
+}
+
 // ================== Backend Variant and Parsing ===================== //
 
 /// Enumeration of valid backends
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BackendOpt {
     Verilog,
     Xilinx,
@@ -75,6 +106,8 @@ pub enum BackendOpt {
     None,
 }
 
+/// Return a vector that maps strings to Backends.
+#[inline(always)]
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
         ("verilog", BackendOpt::Verilog),
@@ -105,7 +138,7 @@ impl FromStr for BackendOpt {
             .find(|(backend_name, _)| &input == backend_name);
         if let Some((_, opt)) = found_backend {
             // return the BackendOpt if we found one
-            Ok(*opt)
+            Ok(opt.clone())
         } else {
             // build list of backends for error message
             let backend_str = backends
@@ -137,7 +170,7 @@ impl ToString for BackendOpt {
 
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
-    pub fn run_backend(self, context: &ir::Context) -> CalyxResult<()> {
+    pub fn run_backend(self, context: ir::Context) -> CalyxResult<()> {
         match self.backend {
             BackendOpt::Mlir => {
                 let backend = MlirBackend::default();
@@ -156,12 +189,14 @@ impl Opts {
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {
-                for import_path in &context.imports {
-                    writeln!(
+                for (path, prims) in context.lib.externs() {
+                    ir::IRPrinter::write_extern(
+                        (
+                            &path,
+                            &prims.into_iter().map(|(_, v)| v).collect_vec(),
+                        ),
                         &mut self.output.get_write(),
-                        "import \"{}\";",
-                        import_path
-                    )?
+                    )?;
                 }
                 for comp in &context.components {
                     ir::IRPrinter::write_component(

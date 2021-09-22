@@ -6,7 +6,7 @@ from pathlib import Path
 from pprint import PrettyPrinter
 
 from .utils import eprint
-from . import errors
+from . import errors, external
 
 # Global registry. Initialized by main.py.
 REGISTRY = None
@@ -38,7 +38,6 @@ DEFAULT_CONFIGURATION = {
             "file_extensions": [".fuse", ".dahlia"],
             "flags": None,
         },
-        "mrxl": {"exec": "mrxl", "file_extensions": [".mrxl"]},
         "verilog": {
             "exec": "verilator",
             "file_extensions": [".v", ".sv"],
@@ -223,20 +222,34 @@ class Configuration:
 
     def setup_external_stage(self, args):
         """
-        Adds an `external-stages` entry for a stage passed
-        via the command line.
+        Adds an external stage to the configuration.
+        External stages must have a `location` field and `external` field.
         """
         if not args.delete and args.path is not None:
             path = Path(args.path)
             if not path.exists():
                 raise FileNotFoundError(path)
-            stage = {"location": str(path.absolute())}
-            self["external-stages", args.name] = stage
+            stage = {"location": str(path.absolute()), "external": True}
+            self["stages", args.name] = stage
+            mod = external.validate_external_stage(args.name, self)
+            for stage_class in mod.__STAGES__:
+                # Attach defaults for this stage if not present in the
+                # configuration.
+                for key, value in stage_class.defaults().items():
+                    self["stages", args.name, key] = value
             self.commit()
+
         elif args.delete:
-            if args.name in self[["external-stages"]]:
-                del self["external-stages", args.name]
-                self.commit()
+            if args.name in self[["stages"]]:
+                # Only delete the stage if it's marked as an external
+                if self["stages", args.name, "external"]:
+                    del self["stages", args.name]
+                    self.commit()
+                else:
+                    print(
+                        f"stages.{args.name} is not defined as an external"
+                        + " stage. Cannot delete it."
+                    )
 
     def __getitem__(self, keys):
         try:

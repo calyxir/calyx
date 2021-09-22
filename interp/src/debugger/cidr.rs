@@ -1,9 +1,10 @@
 use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
-use crate::environment::InterpreterState;
+use crate::environment::{InterpreterState, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
+use crate::utils::AsRaw;
 use calyx::ir::{self, RRC};
 
 pub(super) const SPACING: &str = "    ";
@@ -29,21 +30,22 @@ impl<'a> Debugger<'a> {
         }
     }
 
-    pub fn main_loop(
+    pub fn main_loop<'outer>(
         &mut self,
-        env: InterpreterState,
+        env: InterpreterState<'outer>,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
-    ) -> InterpreterResult<InterpreterState> {
+    ) -> InterpreterResult<InterpreterState<'outer>> {
         let control: &ir::Control = &self.main_component.control.borrow();
         let mut component_interpreter = ComponentInterpreter::from_component(
             self.main_component,
             control,
             env,
         );
+        component_interpreter.set_go_high();
 
         if pass_through {
             component_interpreter.run()?;
-            return Ok(component_interpreter.deconstruct());
+            return component_interpreter.deconstruct();
         }
 
         let mut input_stream = Input::default();
@@ -87,37 +89,32 @@ impl<'a> Debugger<'a> {
                 }
                 Command::Empty => {}
                 Command::Display => {
-                    let states = component_interpreter.get_env();
-                    println!(
-                        "{}",
-                        if states.len() == 1 {
-                            states[0].state_as_str()
-                        } else {
-                            "There are mutliple states".into()
-                        }
-                    );
+                    let state = component_interpreter.get_env();
+                    println!("{}", state.state_as_str());
                 }
                 Command::PrintCell(cell) => {
-                    let env: Vec<_> = component_interpreter
-                        .get_env()
-                        .into_iter()
-                        .map(|x| (x, x.get_cell(&cell)))
-                        .collect();
-                    if env.iter().any(|(_, x)| x.len() > 1) {
-                        println!(
-                            "{}Unable to print. '{}' is ambiguous",
-                            SPACING, &cell
-                        )
-                    } else if env.iter().all(|(_, x)| x.is_empty()) {
-                        println!(
-                            "{}Unable to print. No cell named '{}'",
-                            SPACING, &cell
-                        )
-                    } else {
-                        for (state, cells) in env {
-                            if let Some(cell_ref) = cells.first() {
-                                print_cell(cell_ref, state)
-                            }
+                    let cells: Vec<_> =
+                        component_interpreter.get_env().get_cells(&cell);
+
+                    match cells.len() {
+                        0 => {
+                            println!(
+                                "{}Unable to print. No cell named '{}'",
+                                SPACING, &cell
+                            )
+                        }
+                        1 => {
+                            let cell_ref = &cells[0];
+                            print_cell(
+                                cell_ref,
+                                &component_interpreter.get_env(),
+                            );
+                        }
+                        _ => {
+                            println!(
+                                "{}Unable to print. '{}' is ambiguous",
+                                SPACING, &cell
+                            )
                         }
                     }
                 }
@@ -127,48 +124,42 @@ impl<'a> Debugger<'a> {
                         self.context.components.iter().find(|x| x.name == first)
                     {
                         if let Some(cell) = comp.find_cell(&second) {
-                            for env in component_interpreter.get_env() {
-                                print_cell(&cell, env)
-                            }
+                            print_cell(&cell, &component_interpreter.get_env())
                         } else if let Some(port) =
                             comp.signature.borrow().find(&second)
                         {
-                            for env in component_interpreter.get_env() {
-                                println!(
-                                    "{}{}.{} = {}",
-                                    SPACING,
-                                    &first,
-                                    &second,
-                                    env.get_from_port(&port)
-                                )
-                            }
+                            let env = component_interpreter.get_env();
+                            println!(
+                                "{}{}.{} = {}",
+                                SPACING,
+                                &first,
+                                &second,
+                                env.lookup(port.as_raw())
+                            )
                         } else {
                             println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, &second, &first)
                         }
                     }
                     // cell & port
                     else {
-                        let envs: Vec<_> = component_interpreter
-                            .get_env()
-                            .into_iter()
-                            .map(|x| (x, x.get_cell(&first)))
-                            .collect();
+                        let cells =
+                            component_interpreter.get_env().get_cells(&first);
 
                         // multiple possible cells
-                        if envs.iter().any(|(_, x)| x.len() > 1) {
+                        if cells.len() > 1 {
                             println!(
                                 "{}Unable to print. '{}' is ambiguous",
                                 SPACING, &first
                             )
-                        } else if envs.iter().all(|(_, x)| x.is_empty()) {
+                        } else if cells.is_empty() {
                             println!(
                                 "{}Unable to print. There is no component/cell named '{}'",
                                 SPACING,
                                 &first,
                             )
-                        } else if envs
+                        // past this point the cell vec has one possible entry
+                        } else if cells
                             .iter()
-                            .flat_map(|(_, x)| x.iter())
                             .all(|x| x.borrow().find(&second).is_none())
                         {
                             println!(
@@ -177,14 +168,13 @@ impl<'a> Debugger<'a> {
                                 &first, &second
                             )
                         } else {
-                            for (state, cells) in envs {
-                                if let Some(cell_ref) = cells.first() {
-                                    if let Some(port) =
-                                        cell_ref.borrow().find(&second)
-                                    {
-                                        print_port(&port, state)
-                                    }
-                                }
+                            let entry = &cells[0];
+
+                            if let Some(port) = entry.borrow().find(&second) {
+                                print_port(
+                                    &port,
+                                    &component_interpreter.get_env(),
+                                )
                             }
                         }
                     }
@@ -196,9 +186,8 @@ impl<'a> Debugger<'a> {
                         if let Some(cell_rrc) = comp_ref.find_cell(&cell) {
                             let cell_ref = cell_rrc.borrow();
                             if let Some(port_ref) = cell_ref.find(&port) {
-                                for state in component_interpreter.get_env() {
-                                    print_port(&port_ref, state)
-                                }
+                                let state = component_interpreter.get_env();
+                                print_port(&port_ref, &state)
                             } else {
                                 println!("{}Unable to print. Cell '{}' has no port named '{}'", SPACING, cell, port)
                             }
@@ -250,13 +239,14 @@ impl<'a> Debugger<'a> {
             }
 
             if component_interpreter.is_done() {
-                return Ok(component_interpreter.deconstruct());
+                component_interpreter.set_go_low();
+                return component_interpreter.deconstruct();
             }
         }
     }
 }
 
-fn print_cell(target: &RRC<ir::Cell>, state: &InterpreterState) {
+fn print_cell(target: &RRC<ir::Cell>, state: &StateView) {
     let cell_ref = target.borrow();
     println!("{}{}", SPACING, cell_ref.name());
     for port in cell_ref.ports.iter() {
@@ -264,12 +254,12 @@ fn print_cell(target: &RRC<ir::Cell>, state: &InterpreterState) {
             "{}  {} = {}",
             SPACING,
             port.borrow().name,
-            state.get_from_port(port)
+            state.lookup(port.as_raw())
         )
     }
 }
 
-fn print_port(target: &RRC<ir::Port>, state: &InterpreterState) {
+fn print_port(target: &RRC<ir::Port>, state: &StateView) {
     let port_ref = target.borrow();
     let parent_name = port_ref.get_parent_name();
 
@@ -278,6 +268,6 @@ fn print_port(target: &RRC<ir::Port>, state: &InterpreterState) {
         SPACING,
         parent_name,
         port_ref.name,
-        state.get_from_port(&port_ref)
+        state.lookup(port_ref.as_raw())
     )
 }

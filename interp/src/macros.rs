@@ -27,11 +27,11 @@ macro_rules! comb_primitive {
         }
 
         impl $name {
-            pub fn new(params: calyx::ir::Binding) -> Self {
+            pub fn new(params: &calyx::ir::Binding) -> Self {
                 let mut base = Self::default();
                 for (param, value) in params {
                     match param.as_ref() {
-                        $( $crate::in_fix!($param) => base.$param = value ),+,
+                        $( $crate::in_fix!($param) => base.$param = *value ),+,
                         p => unreachable!(format!("Unknown parameter: {}", p)),
                     }
                 }

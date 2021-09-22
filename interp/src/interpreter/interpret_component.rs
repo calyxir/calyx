@@ -10,10 +10,10 @@ use calyx::ir;
 
 /// Interpret a component.
 
-pub fn interpret_component(
+pub fn interpret_component<'outer>(
     comp: &ir::Component,
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     let ctrl: &ir::Control = &comp.control.borrow();
     if super::utils::control_is_empty(ctrl) {
         interp_cont(&comp.continuous_assignments, env, comp)

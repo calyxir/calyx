@@ -1,34 +1,14 @@
 //! Abstract Syntax Tree for Calyx
-use super::parser;
+use std::path::PathBuf;
+
+use atty::Stream;
+
 use crate::errors::{CalyxResult, Error, Span};
 use crate::ir;
-use atty::Stream;
-use std::io::stdin;
-use std::path::{Path, PathBuf};
 
-/// Represents the parsed AST of a complete program. Contains all the components
-/// and primitives that were encountered during the parsing the program.
-///
-/// # Example
-/// When parsing a file `foo.futil`:
-/// ```
-/// import "core.futil";
-///
-/// component main() -> () { ... }
-/// ```
-/// `main` is added to the current namespace and `core.futil` is added to
-/// the parsing queue. Next, `core.futil` is parsed:
-/// ```
-/// extern "core.sv" {
-///     primitive std_add[width](left: width, right: width) -> (out: width);
-/// }
-/// ```
-/// The primitive `std_add` is added to the namespace and `"core.sv"` is
-/// added to the set of paths that need to be "linked" in the backend
-/// generation.
-///
-/// Since `core.futil` does not `import` any file, the parsing process is
-/// completed.
+use super::parser;
+
+/// Corresponds to an individual Calyx file.
 #[derive(Debug)]
 pub struct NamespaceDef {
     /// Path to extern files.
@@ -40,60 +20,19 @@ pub struct NamespaceDef {
 }
 
 impl NamespaceDef {
-    /// Parse the program and all of its transitive dependencies to build
-    /// a whole program context.
-    pub fn new(file: &Option<PathBuf>, lib_path: &Path) -> CalyxResult<Self> {
-        let mut namespace = match file {
+    pub fn construct(file: &Option<PathBuf>) -> CalyxResult<Self> {
+        match file {
             Some(file) => parser::CalyxParser::parse_file(file),
             None => {
                 if atty::isnt(Stream::Stdin) {
-                    parser::CalyxParser::parse(stdin())
+                    parser::CalyxParser::parse(std::io::stdin())
                 } else {
                     Err(Error::InvalidFile(
                         "No file provided and terminal not a TTY".to_string(),
                     ))
                 }
             }
-        }?;
-
-        namespace.externs.iter_mut().for_each(|(path, _)| {
-            *path = lib_path.join(path.clone()).to_string_lossy().to_string();
-        });
-
-        // Parse all transitive dependencies
-        let mut deps: Vec<PathBuf> = namespace
-            .imports
-            .clone()
-            .into_iter()
-            .map(|f| lib_path.join(f))
-            .collect();
-
-        while let Some(path) = deps.pop() {
-            let mut ns = parser::CalyxParser::parse_file(&path)?;
-            namespace.components.append(&mut ns.components);
-
-            let parent = match path.parent() {
-                Some(a) => a,
-                None => Path::new("."),
-            };
-
-            namespace.externs.append(
-                &mut ns
-                    .externs
-                    .into_iter()
-                    .map(|(path, exts)| {
-                        (parent.join(path).to_string_lossy().to_string(), exts)
-                    })
-                    .collect(),
-            );
-
-            // All imports are relative to the file being currently parsed.
-            deps.append(
-                &mut ns.imports.into_iter().map(|f| parent.join(f)).collect(),
-            );
         }
-
-        Ok(namespace)
     }
 }
 
@@ -266,6 +205,7 @@ pub struct Wire {
 
 /// Control AST nodes.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq {

@@ -5,7 +5,14 @@ use crate::ir::{
     LibrarySignatures,
 };
 
-/// Canonicalizes the guard expression.
+// For each group and continuous assignments, canonicalize guard
+// statements that has constant 1 as either a source or a guard.
+//
+// # Example
+// ```
+// a[done] = 1'd1 ? r1.done -> a[done] = r1.done
+// a[done] = r1.done ? 1'd1 -> a[done] = r1.done
+// ```
 #[derive(Default)]
 pub struct GuardCanonical;
 
@@ -15,7 +22,7 @@ impl Named for GuardCanonical {
     }
 
     fn description() -> &'static str {
-        "canonicalizes the guard expression"
+        "canonicalizes guard expressions"
     }
 }
 
@@ -41,17 +48,11 @@ impl Visitor for GuardCanonical {
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
     ) -> VisResult {
-        // For each group and continuous assignments, canonicalize guard
-        // statements that has constant 1 as either a source or a guard.
-        // # Example
-        // ```
-        // a[done] = 1'd1 ? r1.done
-        //   -> a[done] = r1.done
-        // a[done] = r1.done ? 1'd1
-        //   -> a[done] = r1.done
-        // ```
         for group in comp.groups.iter() {
             update_assigns(&mut group.borrow_mut().assignments[..]);
+        }
+        for comb_group in comp.comb_groups.iter() {
+            update_assigns(&mut comb_group.borrow_mut().assignments[..]);
         }
         update_assigns(&mut comp.continuous_assignments[..]);
 

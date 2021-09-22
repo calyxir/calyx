@@ -139,6 +139,13 @@ impl Visitor for SimplifyGuards {
                 .iter_mut()
                 .for_each(|assign| assign.guard.update(simplify_guard));
         }
+        for comb_group in comp.comb_groups.iter() {
+            comb_group
+                .borrow_mut()
+                .assignments
+                .iter_mut()
+                .for_each(|assign| assign.guard.update(simplify_guard));
+        }
 
         // Merge continuous_assignments
         comp.continuous_assignments

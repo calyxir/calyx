@@ -97,11 +97,9 @@ impl Backend for VerilogBackend {
         ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
-        for extern_path in &ctx.lib.paths {
-            let mut ext = File::open(extern_path).map_err(|err| {
-                let std::io::Error { .. } = err;
-                Error::WriteError(format!("File not found: {}", extern_path))
-            })?;
+        for extern_path in ctx.lib.extern_paths() {
+            // The extern file is guaranteed to exist by the frontend.
+            let mut ext = File::open(extern_path).unwrap();
             io::copy(&mut ext, &mut file.get_write()).map_err(|err| {
                 let std::io::Error { .. } = err;
                 Error::WriteError(format!(
