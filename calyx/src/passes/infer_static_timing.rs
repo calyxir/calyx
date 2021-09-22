@@ -33,7 +33,7 @@ impl ConstructVisitor for InferStaticTiming {
         let mut latency_data = HashMap::new();
         // XXX(rachit): This is unneccesarily rebuilt for every component
         // Build latency data by traversing primitive cells
-        for prim in ctx.lib.sigs.values() {
+        for prim in ctx.lib.signatures() {
             if let Some(time) = prim.attributes.get("static") {
                 let mut go_port = None;
                 let mut done_port = None;

@@ -1,8 +1,11 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
+use itertools::Itertools;
+
 use crate::ir::{self, RRC};
 use std::io;
+use std::path::Path;
 use std::rc::Rc;
 
 /// Printer for the IR.
@@ -45,7 +48,7 @@ impl IRPrinter {
     }
 
     /// Formats port definitions in signatures
-    fn format_port_def(ports: &[RRC<ir::Port>]) -> String {
+    fn format_ports(ports: &[RRC<ir::Port>]) -> String {
         ports
             .iter()
             .map(|p| {
@@ -67,6 +70,82 @@ impl IRPrinter {
             .join(", ")
     }
 
+    /// Formats and writes extern statements.
+    pub fn write_extern<F: io::Write>(
+        (path, prims): (&Path, &[ir::Primitive]),
+        f: &mut F,
+    ) -> io::Result<()> {
+        writeln!(f, "extern \"{}\" {{", path.to_string_lossy())?;
+        for prim in prims {
+            Self::write_primitive(prim, 2, f)?;
+        }
+        writeln!(f, "}}")
+    }
+
+    fn format_port_def(port_defs: &[&ir::PortDef]) -> String {
+        port_defs
+            .iter()
+            .map(|pd| {
+                format!(
+                    "{}{}: {}",
+                    if !pd.attributes.is_empty() {
+                        format!(
+                            "{} ",
+                            Self::format_at_attributes(&pd.attributes)
+                        )
+                    } else {
+                        "".to_string()
+                    },
+                    pd.name,
+                    pd.width
+                )
+            })
+            .collect_vec()
+            .join(", ")
+    }
+
+    pub fn write_primitive<F: io::Write>(
+        prim: &ir::Primitive,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        if prim.is_comb {
+            write!(f, "comb ")?;
+        }
+        write!(
+            f,
+            "primitive {}{}",
+            prim.name,
+            Self::format_attributes(&prim.attributes)
+        )?;
+        if !prim.params.is_empty() {
+            write!(
+                f,
+                "[{}]",
+                prim.params
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect_vec()
+                    .join(", ")
+            )?
+        }
+        let (mut inputs, mut outputs) = (vec![], vec![]);
+        for pd in &prim.signature {
+            if pd.direction == ir::Direction::Input {
+                inputs.push(pd)
+            } else {
+                outputs.push(pd)
+            }
+        }
+        writeln!(
+            f,
+            "({}) -> ({});",
+            Self::format_port_def(&inputs),
+            Self::format_port_def(&outputs)
+        )
+    }
+
     /// Formats and writes the Component to the formatter.
     pub fn write_component<F: io::Write>(
         comp: &ir::Component,
@@ -84,8 +163,8 @@ impl IRPrinter {
             "component {}{}({}) -> ({}) {{",
             comp.name.id,
             Self::format_attributes(&comp.attributes),
-            Self::format_port_def(&inputs),
-            Self::format_port_def(&outputs),
+            Self::format_ports(&inputs),
+            Self::format_ports(&outputs),
         )?;
 
         // Add the cells

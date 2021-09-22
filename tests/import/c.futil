@@ -1,0 +1,12 @@
+import "primitives/core.futil";
+import "b.futil";
+
+extern "verilog/c.sv" {
+  primitive std_min() -> ();
+}
+
+component min() -> () {
+  cells {}
+  wires {}
+  control {}
+}

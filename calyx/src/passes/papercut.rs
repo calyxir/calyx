@@ -93,8 +93,8 @@ fn read_together_specs<'a>(
 
 impl ConstructVisitor for Papercut {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
-        let write_together = write_together_specs(ctx.lib.sigs.values());
-        let read_together = read_together_specs(ctx.lib.sigs.values())?;
+        let write_together = write_together_specs(ctx.lib.signatures());
+        let read_together = read_together_specs(ctx.lib.signatures())?;
         Ok(Papercut {
             write_together,
             read_together,
