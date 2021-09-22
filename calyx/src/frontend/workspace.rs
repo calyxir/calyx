@@ -1,6 +1,5 @@
 use std::{
     collections::HashSet,
-    fs,
     path::{Path, PathBuf},
 };
 
@@ -117,6 +116,20 @@ impl Workspace {
         Self::construct_with_all_deps(file, lib_path, true)
     }
 
+    fn get_parent(p: &Path) -> PathBuf {
+        let maybe_parent = p.parent();
+        match maybe_parent {
+            None => PathBuf::from("."),
+            Some(path) => {
+                if path.to_string_lossy() == "" {
+                    PathBuf::from(".")
+                } else {
+                    PathBuf::from(path)
+                }
+            }
+        }
+    }
+
     /// Construct the Workspace by transitively parsing all `import`ed Calyx
     /// files.
     fn construct_with_all_deps(
@@ -129,8 +142,7 @@ impl Workspace {
         let namespace = NamespaceDef::construct(file)?;
         let parent_path = file
             .as_ref()
-            .and_then(|f| f.parent())
-            .map(PathBuf::from)
+            .map(|p| Self::get_parent(p))
             .unwrap_or_else(|| PathBuf::from("."));
 
         // Set of current dependencies
@@ -139,7 +151,13 @@ impl Workspace {
         let mut already_imported: HashSet<PathBuf> = HashSet::new();
 
         let mut workspace = Workspace::default();
-        let abs_lib_path = lib_path.canonicalize()?;
+        let abs_lib_path = lib_path.canonicalize().map_err(|err| {
+            Error::InvalidFile(format!(
+                "Failed to canonicalize library path `{}`: {}",
+                lib_path.to_string_lossy(),
+                err
+            ))
+        })?;
 
         // Add original imports to workspace
         workspace.original_imports = namespace.imports.clone();
@@ -182,8 +200,14 @@ impl Workspace {
         };
 
         // Merge the initial namespace
-        let mut deps =
-            merge_into_ws(namespace, &fs::canonicalize(parent_path)?, false)?;
+        let parent_canonical = parent_path.canonicalize().map_err(|err| {
+            Error::InvalidFile(format!(
+                "Failed to canonicalize parent path `{}`: {}",
+                parent_path.to_string_lossy(),
+                err
+            ))
+        })?;
+        let mut deps = merge_into_ws(namespace, &parent_canonical, false)?;
         dependencies.append(&mut deps);
 
         while let Some(p) = dependencies.pop() {
@@ -191,8 +215,7 @@ impl Workspace {
                 continue;
             }
             let ns = parser::CalyxParser::parse_file(&p)?;
-            let parent =
-                fs::canonicalize(p.parent().unwrap_or_else(|| Path::new(".")))?;
+            let parent = Self::get_parent(&p);
 
             let mut deps = merge_into_ws(ns, &parent, shallow)?;
             dependencies.append(&mut deps);

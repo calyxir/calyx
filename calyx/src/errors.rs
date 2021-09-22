@@ -193,8 +193,8 @@ impl From<pest_consume::Error<parser::Rule>> for Error {
 }
 
 impl From<std::io::Error> for Error {
-    fn from(_e: std::io::Error) -> Self {
-        Error::WriteError("IO Error".to_string())
+    fn from(e: std::io::Error) -> Self {
+        Error::WriteError(format!("IO Error: {}", e))
     }
 }
 

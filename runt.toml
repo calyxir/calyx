@@ -126,9 +126,7 @@ fud e --from systolic --to vcd_json \
 name = "[frontend] NTT pipeline correctness"
 paths = [ "tests/correctness/ntt-pipeline/*.txt" ]
 cmd = """
-python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {} > {}.futil; \
-fud e {}.futil --to dat -s verilog.data {}.data -q 2>/dev/null; \
-rm {}.futil;
+fud e --from ntt {} --to dat -s verilog.data {}.data -q
 """
 
 [[tests]]
@@ -185,7 +183,7 @@ cmd = """
 name = "[frontend] NTT pipeline generation"
 paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
 cmd = """
-python3 frontends/ntt-pipeline/gen-ntt-pipeline.py {}
+fud e --from ntt {} --to futil -q
 """
 
 
