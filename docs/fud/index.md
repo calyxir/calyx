@@ -113,7 +113,9 @@ cd calyx-py && flit install -s
 
 Frontend specific instructions:
  - [Systolic array](../frontends/systolic-array.md): Nothing else needed.
- - [NTT](../frontends/ntt.md): `pip3 install prettytable`
+ - [NTT](../frontends/ntt.md):
+   - Install dependencies: `pip3 install prettytable`
+   - Install external `fud` stage: `fud register ntt -p frontends/ntt-pipeline/fud/ntt.py`
  - [MrXL](../frontends/mrxl.md):
    - Install `mrxl` binary: `cd frontends/mrxl && flit install -s`
    - Install `mrxl` [external stage][] for `fud`: `fud register mrxl -p frontends/mrxl/fud/mrxl.py`
