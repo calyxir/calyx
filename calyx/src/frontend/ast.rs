@@ -205,6 +205,7 @@ pub struct Wire {
 
 /// Control AST nodes.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq {
