@@ -118,8 +118,9 @@ impl Backend for VerilogBackend {
             .map(|comp| {
                 emit_component(
                     comp,
-                    ctx.synthesis_mode,
-                    ctx.enable_verification,
+                    ctx.bc.synthesis_mode,
+                    ctx.bc.enable_verification,
+                    ctx.bc.initialize_inputs,
                 )
                 .to_string()
             })
@@ -140,6 +141,7 @@ fn emit_component(
     comp: &ir::Component,
     synthesis_mode: bool,
     enable_verification: bool,
+    initialize_inputs: bool,
 ) -> v::Module {
     let mut module = v::Module::new(comp.name.as_ref());
     let sig = comp.signature.borrow();
@@ -175,24 +177,21 @@ fn emit_component(
     wires.iter().for_each(|(name, width, _)| {
         module.add_decl(v::Decl::new_logic(name, *width));
     });
-    let mut initial = v::ParallelProcess::new_initial();
-    wires.iter().for_each(|(name, width, dir)| {
-        if *dir == ir::Direction::Input {
-            // HACK: this is not the right way to reset
-            // registers. we should have real reset ports.
-            let value = String::from("0");
-            // let value = if name.contains("write_en") {
-            //     String::from("0")
-            // } else {
-            //     String::from("0")
-            // };
-            initial.add_seq(v::Sequential::new_blk_assign(
-                v::Expr::new_ref(name),
-                v::Expr::new_ulit_dec(*width as u32, &value),
-            ));
-        }
-    });
-    module.add_process(initial);
+    if initialize_inputs {
+        let mut initial = v::ParallelProcess::new_initial();
+        wires.iter().for_each(|(name, width, dir)| {
+            if *dir == ir::Direction::Input {
+                // HACK: this is not the right way to reset
+                // registers. we should have real reset ports.
+                let value = String::from("0");
+                initial.add_seq(v::Sequential::new_blk_assign(
+                    v::Expr::new_ref(name),
+                    v::Expr::new_ulit_dec(*width as u32, &value),
+                ));
+            }
+        });
+        module.add_process(initial);
+    }
 
     // cell instances
     comp.cells
@@ -425,10 +424,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         // get the data
         .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$value$plusargs",
-            vec![
-              v::Expr::new_str("DATA=%s"),
-              v::Expr::new_ref("DATA"),
-            ],
+            vec![v::Expr::new_str("DATA=%s"), v::Expr::new_ref("DATA")],
         )))
         // log the path to the data
         .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(

@@ -88,7 +88,7 @@ fn main() -> InterpreterResult<()> {
 
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
-    let ir = ir::from_ast::ast_to_ir(ws, false, false)?;
+    let ir = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
     let ctx = ir::RRC::new(RefCell::new(ir));
     let pm = PassManager::default_passes()?;
 
