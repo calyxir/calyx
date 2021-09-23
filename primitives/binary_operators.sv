@@ -85,14 +85,15 @@ module std_fp_div_pipe #(
 
     assign start = go && !running;
     assign finished = running && (idx == ITERATIONS - 1);
-    assign acc_next_sel = acc_next[WIDTH-1:0];
 
     always_comb begin
       if (acc >= {1'b0, right}) begin
         acc_next = acc - right;
+        acc_next_sel = acc_next[WIDTH-1:0];
         {acc_next, quotient_next} = {acc_next_sel, quotient, 1'b1};
       end else begin
         {acc_next, quotient_next} = {acc, quotient} << 1;
+        acc_next_sel = 0;
       end
     end
 
