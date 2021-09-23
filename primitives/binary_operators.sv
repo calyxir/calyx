@@ -78,7 +78,7 @@ module std_fp_div_pipe #(
 );
     localparam ITERATIONS = WIDTH + FRAC_WIDTH;
 
-    logic [WIDTH-1:0] quotient, quotient_next, acc_next_sel;
+    logic [WIDTH-1:0] quotient, quotient_next;
     logic [WIDTH:0] acc, acc_next;
     logic [$clog2(ITERATIONS)-1:0] idx;
     logic start, running, finished;
@@ -89,11 +89,9 @@ module std_fp_div_pipe #(
     always_comb begin
       if (acc >= {1'b0, right}) begin
         acc_next = acc - right;
-        acc_next_sel = acc_next[WIDTH-1:0];
-        {acc_next, quotient_next} = {acc_next_sel, quotient, 1'b1};
+        {acc_next, quotient_next} = {acc_next[WIDTH-1:0], quotient, 1'b1};
       end else begin
         {acc_next, quotient_next} = {acc, quotient} << 1;
-        acc_next_sel = 0;
       end
     end
 
