@@ -361,11 +361,10 @@ module main (
     input logic reset,
     output logic done
 );
-    import "DPI-C" function string futil_getenv (input string env_var);
     string DATA;
     initial begin
-        DATA = futil_getenv("DATA");
-        $fdisplay(2, "DATA (path to meminit files): %s", DATA);
+        $value$plusargs("DATA=%s", DATA);
+        $display("DATA (path to meminit files): %s", DATA);
         $readmemh({DATA, "/m1.dat"}, m1.mem);
     end
     final begin

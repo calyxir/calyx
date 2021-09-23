@@ -406,11 +406,9 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 //==========================================
 /// Generates code of the form:
 /// ```
-/// import "DPI-C" function string futil_getenv (input string env_var);
-/// string DATA;
 /// initial begin
-///   DATA = futil_getenv("DATA");
-///   $fdisplay(2, "DATA: %s", DATA);
+///   $value$plusargs("DATA=%s", DATA);
+///   $display("DATA: %s", DATA);
 ///   $readmemh({DATA, "/<mem_name>.dat"}, <mem_name>.mem);
 ///   ...
 /// end
@@ -420,24 +418,22 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 /// ```
 fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     // Import futil helper library.
-    let import_stmt = v::Stmt::new_rawstr(
-        "import \"DPI-C\" function string futil_getenv (input string env_var);"
-            .to_string(),
-    );
     let data_decl = v::Stmt::new_rawstr("string DATA;".to_string());
 
     let mut initial_block = v::ParallelProcess::new_initial();
     initial_block
         // get the data
-        .add_seq(v::Sequential::new_blk_assign(
-            v::Expr::new_ref("DATA"),
-            v::Expr::new_call("futil_getenv", vec![v::Expr::new_str("DATA")]),
-        ))
+        .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
+            "$value$plusargs",
+            vec![
+              v::Expr::new_str("DATA=%s"),
+              v::Expr::new_ref("DATA"),
+            ],
+        )))
         // log the path to the data
         .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
-            "$fdisplay",
+            "$display",
             vec![
-                v::Expr::new_int(2),
                 v::Expr::new_str("DATA (path to meminit files): %s"),
                 v::Expr::new_ref("DATA"),
             ],
@@ -490,7 +486,6 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     });
 
     vec![
-        import_stmt,
         data_decl,
         v::Stmt::new_parallel(v::Parallel::new_process(initial_block)),
         v::Stmt::new_parallel(v::Parallel::new_process(final_block)),
