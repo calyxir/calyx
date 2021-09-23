@@ -78,18 +78,19 @@ module std_fp_div_pipe #(
 );
     localparam ITERATIONS = WIDTH + FRAC_WIDTH;
 
-    logic [WIDTH-1:0] quotient, quotient_next;
+    logic [WIDTH-1:0] quotient, quotient_next, acc_next_sel;
     logic [WIDTH:0] acc, acc_next;
     logic [$clog2(ITERATIONS)-1:0] idx;
     logic start, running, finished;
 
     assign start = go && !running;
     assign finished = running && (idx == ITERATIONS - 1);
+    assign acc_next_sel = acc_next[WIDTH-1:0];
 
     always_comb begin
       if (acc >= {1'b0, right}) begin
         acc_next = acc - right;
-        {acc_next, quotient_next} = {acc_next[WIDTH-1:0], quotient, 1'b1};
+        {acc_next, quotient_next} = {acc_next_sel, quotient, 1'b1};
       end else begin
         {acc_next, quotient_next} = {acc, quotient} << 1;
       end
@@ -158,8 +159,10 @@ module std_fp_add_dwidth #(
   localparam BIG_INT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
   localparam BIG_FRACT = (FRAC_WIDTH1 >= FRAC_WIDTH2) ? FRAC_WIDTH1 : FRAC_WIDTH2;
 
-  if (BIG_INT + BIG_FRACT != OUT_WIDTH)
-    $error("std_fp_add_dwidth: Given output width not equal to computed output width");
+  initial begin
+    if (BIG_INT + BIG_FRACT != OUT_WIDTH)
+      $error("std_fp_add_dwidth: Given output width not equal to computed output width");
+  end
 
   logic [INT_WIDTH1-1:0] left_int;
   logic [INT_WIDTH2-1:0] right_int;
