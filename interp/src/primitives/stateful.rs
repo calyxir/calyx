@@ -1,9 +1,9 @@
-use std::collections::VecDeque;
-
+use super::prim_utils::get_param;
 use super::{Primitive, Serializeable};
 use crate::utils::construct_bindings;
 use crate::values::Value;
 use calyx::ir;
+use std::collections::VecDeque;
 
 /// Pipelined Multiplication (3 cycles)
 /// Still bounded by u64.
