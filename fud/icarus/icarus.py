@@ -1,5 +1,4 @@
 import simplejson as sjson
-import re
 from pathlib import Path
 
 from fud.stages import Stage, SourceType, Source
@@ -26,7 +25,7 @@ class IcarusBaseStage(Stage):
         self.testbench = config["stages", self.name, "testbench"]
         self.runtime = config["stages", self.name, "runtime"]
         try:
-            self.data_path = config["stages", self.name, "data"]
+            self.data_path = config["stages", "verilog", "data"]
         except errors.UnsetConfiguration:
             self.data_path = None
         self.object_name = "main.vvp"
@@ -169,7 +168,11 @@ class IcarusToVCDStage(IcarusBaseStage):
     """
 
     def __init__(self, config):
-        super().__init__(True, "Runs Verilog programs with Icarus and generates VCD", config)
+        super().__init__(
+            True,
+            "Runs Verilog programs with Icarus and generates VCD",
+            config
+        )
 
 
 class IcarusToJsonStage(IcarusBaseStage):
@@ -178,7 +181,11 @@ class IcarusToJsonStage(IcarusBaseStage):
     """
 
     def __init__(self, config):
-        super().__init__(False, "Runs Verilog programs with Icarus and generates JSON memory file", config)
+        super().__init__(
+            False,
+            "Runs Verilog programs with Icarus and generates JSON memory file",
+            config
+        )
 
 
 # Export the defined stages to fud
