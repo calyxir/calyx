@@ -314,6 +314,7 @@ def config_run(parser):
         "--through",
         action="append",
         metavar="stage",
+        default=[],
         help="Names of intermediate stages (repeatable option)",
     )
     parser.add_argument(

@@ -75,6 +75,9 @@ class TmpDir(Directory):
     def remove(self):
         self.tmpdir_obj.cleanup()
 
+    def __str__(self):
+        return self.name
+
 
 class Conversions:
     @staticmethod

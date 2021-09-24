@@ -85,8 +85,6 @@ class IcarusBaseStage(Stage):
                 "{exec_path}",
                 self.testbench,
                 "{input_path}",
-                "-s",
-                "test_bench",
             ]
         )
 
