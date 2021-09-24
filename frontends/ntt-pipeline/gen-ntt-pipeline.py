@@ -30,7 +30,7 @@ def reduce_parallel_control_pass(component: Component, N: int, input_size: int):
     """
     assert (
         N is not None and 0 < N < input_size and (not (N & (N - 1)))
-    ), """N should be a power of two within bounds (0, n)."""
+    ), f"""N: {N} should be a power of two within bounds (0, {input_size})."""
 
     reduced_controls = []
     for control in component.controls.stmts:
