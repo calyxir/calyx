@@ -64,13 +64,41 @@ class MissingDynamicConfiguration(FudError):
 
 class NoPathFound(FudError):
     """
-    There is no way to convert file in input stage to the given output stage.
+    There is no way to convert file in input stage to the given output stage
+    that go through the given stages.
     """
 
-    def __init__(self, source, destination):
+    def __init__(self, source, destination, through):
         msg = (
             f"No way to convert input in stage `{source}' to "
-            + f"stage `{destination}'."
+            + f"stage `{destination}'"
+            + f"that go through stages {', '.join(through)}"
+            if len(through) > 0
+            else ""
+        )
+        super().__init__(msg)
+
+
+class UndefinedStage(FudError):
+    """
+    No stage with the defined name.
+    """
+
+    def __init__(self, stage):
+        msg = f"No stage named {stage}"
+        super().__init__(msg)
+
+
+class MultiplePaths(FudError):
+    """
+    Multiple paths found to transform `src` to `dst`.
+    """
+
+    def __init__(self, src, dst, paths):
+        msg = (
+            f"Multiple stage pipelines can transform {src} to {dst}:\n"
+            + paths
+            + "\nUse the --through flag to select an intermediate stage"
         )
         super().__init__(msg)
 

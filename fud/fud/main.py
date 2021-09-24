@@ -311,6 +311,12 @@ def config_run(parser):
     parser.add_argument("--from", dest="source", help="Name of the start stage")
     parser.add_argument("--to", dest="dest", help="Name of the final stage")
     parser.add_argument(
+        "--through",
+        action="append",
+        metavar="stage",
+        help="Names of intermediate stages (repeatable option)",
+    )
+    parser.add_argument(
         "-o", dest="output_file", help="Name of the outpfule file (default: STDOUT)"
     )
     parser.add_argument(

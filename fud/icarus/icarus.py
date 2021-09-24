@@ -86,7 +86,7 @@ class IcarusBaseStage(Stage):
                 self.testbench,
                 "{input_path}",
                 "-s",
-                "test_bench"
+                "test_bench",
             ]
         )
 
@@ -95,8 +95,10 @@ class IcarusBaseStage(Stage):
             input_path: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:
             return shell(
-                cmd.format(input_path=str(input_path),
-                           exec_path=f"{tmpdir.name}/{self.object_name}"),
+                cmd.format(
+                    input_path=str(input_path),
+                    exec_path=f"{tmpdir.name}/{self.object_name}",
+                ),
                 stdout_as_debug=True,
             )
 
@@ -169,9 +171,7 @@ class IcarusToVCDStage(IcarusBaseStage):
 
     def __init__(self, config):
         super().__init__(
-            True,
-            "Runs Verilog programs with Icarus and generates VCD",
-            config
+            True, "Runs Verilog programs with Icarus and generates VCD", config
         )
 
 
@@ -184,12 +184,9 @@ class IcarusToJsonStage(IcarusBaseStage):
         super().__init__(
             False,
             "Runs Verilog programs with Icarus and generates JSON memory file",
-            config
+            config,
         )
 
 
 # Export the defined stages to fud
-__STAGES__ = [
-    IcarusToVCDStage,
-    IcarusToJsonStage
-]
+__STAGES__ = [IcarusToVCDStage, IcarusToJsonStage]

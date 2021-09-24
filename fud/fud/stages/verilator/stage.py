@@ -101,7 +101,7 @@ class VerilatorStage(Stage):
                     str(self.config["stages", self.name, "cycle_limit"]),
                     # Don't trace if we're only looking at memory outputs
                     "--trace" if self.vcd else "",
-                    f"+DATA={tmpdir.name}"
+                    f"+DATA={tmpdir.name}",
                 ]
             )
 
