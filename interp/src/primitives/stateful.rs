@@ -5,19 +5,6 @@ use crate::utils::construct_bindings;
 use crate::values::Value;
 use calyx::ir;
 
-pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
-where
-    S: AsRef<str>,
-{
-    params.iter().find_map(|(id, x)| {
-        if id == target.as_ref() {
-            Some(*x)
-        } else {
-            None
-        }
-    })
-}
-
 /// Pipelined Multiplication (3 cycles)
 /// Still bounded by u64.
 /// How to use:

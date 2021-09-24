@@ -1,4 +1,7 @@
-use super::{stateful::get_param, Primitive};
+use super::{
+    prim_utils::{get_input_unwrap, get_param},
+    Primitive,
+};
 use crate::comb_primitive;
 use crate::values::Value;
 use bitvec::vec::BitVec;
@@ -55,10 +58,53 @@ impl Primitive for StdConst {
 }
 
 // ===================== New core ======================
-comb_primitive!(StdMux[WIDTH](cond: WIDTH, left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-    //cond isn't width wide, it's 1... but that gives compiler error, why?
-});
+
+pub struct StdMux {
+    width: u64,
+}
+
+impl StdMux {
+    pub fn new(params: &ir::Binding) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("Missing width parameter from std_const binding");
+
+        Self { width }
+    }
+}
+
+impl Primitive for StdMux {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        vec![]
+    }
+
+    fn is_comb(&self) -> bool {
+        true
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "tru" => assert_eq!(v.len() as u64, self.width),
+                "fal" => assert_eq!(v.len() as u64, self.width),
+                "cond" => assert_eq!(v.len() as u64, 1),
+                p => unreachable!("Unknown port: {}", p),
+            }
+        }
+    }
+
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        let cond = get_input_unwrap(inputs, "cond");
+        let tru = get_input_unwrap(inputs, "tru");
+        let fal = get_input_unwrap(inputs, "fal");
+
+        let out = if cond.as_bool() { tru } else { fal };
+        vec![("out".into(), out.clone())]
+    }
+
+    fn reset(&mut self, _inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        vec![("out".into(), Value::zeroes(self.width))]
+    }
+}
 
 // ===================== Unary operations ======================
 comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
@@ -226,10 +272,23 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
 // ===================== Signed Shift Operations ======================
 comb_primitive!(StdSlsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-todo!()
+    let shift_amount = right.as_usize();
+    let mut val = left.clone().vec;
+    val.shift_right(shift_amount);
+    Value {vec: val }
+
 });
 comb_primitive!(StdSrsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-todo!()
+    let shift_amount = right.as_usize();
+    let sign: bool = left.vec[left.vec.len()-1]; //msb
+    let mut val = left.vec.clone();
+    val.shift_left(shift_amount);
+    if sign {
+        for mut bit in val.iter_mut().rev().take(shift_amount) {
+            *bit = true;
+        }
+    }
+    Value { vec: val }
 });
 // ===================== Logial Operations ======================
 comb_primitive!(StdAnd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {

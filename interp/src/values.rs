@@ -164,9 +164,10 @@ impl Value {
     /// use interp::values::*;
     /// let zeroed_val = Value::zeroes(2 as usize);
     /// ```
-    pub fn zeroes(bitwidth: usize) -> Value {
+    pub fn zeroes<I: Into<InputNumber>>(bitwidth: I) -> Value {
+        let input_num: InputNumber = bitwidth.into();
         Value {
-            vec: bitvec![Lsb0, u64; 0; bitwidth],
+            vec: bitvec![Lsb0, u64; 0; input_num.as_usize()],
         }
     }
 
@@ -341,6 +342,26 @@ impl Value {
                 (acc & (!(1 << idx))) | ((*bit as i128) << idx)
             },
         )
+    }
+
+    pub fn as_usize(&self) -> usize {
+        assert!(
+            self.signed_value_fits_in(usize::BITS as usize),
+            "Cannot fit value into an i128"
+        );
+
+        self.vec
+            .iter()
+            .enumerate()
+            .take(usize::BITS as usize)
+            .fold(0_usize, |acc, (idx, bit)| -> usize {
+                acc | ((*bit as usize) << idx)
+            })
+    }
+
+    pub fn as_bool(&self) -> bool {
+        assert!(self.vec.len() == 1);
+        self.vec[0]
     }
 
     #[allow(clippy::len_without_is_empty)]
