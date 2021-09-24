@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import traceback
 
 from fud import errors
 
@@ -70,6 +71,7 @@ def futil_extract(directory):
         f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
         f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
 
+        # Insert info into resourceInfo
         resourceInfo.update({
             "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
             "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
@@ -85,8 +87,6 @@ def futil_extract(directory):
         })
 
     except Exception as e:
-        import traceback
-
         traceback.print_exc(e)
         print("Implementation files weren't found, skipping.", file=sys.stderr)
 
@@ -101,6 +101,7 @@ def futil_extract(directory):
         cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
         cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
 
+        # Insert info into resourceInfo
         resourceInfo.update({
             "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
             "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
@@ -111,8 +112,6 @@ def futil_extract(directory):
             "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
         })
     except Exception as e:
-        import traceback
-
         traceback.print_exc(e)
         print("Synthesis files weren't found, skipping.", file=sys.stderr)
 
