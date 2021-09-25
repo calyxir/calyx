@@ -259,14 +259,14 @@ impl MlirBackend {
                 )?;
             }
         }
-        write!(f, "{}", Self::get_port_access(&assign.src.borrow()),)?;
         if let ir::Guard::Port(p) = &*assign.guard {
-            write!(f, ", {} ?", Self::get_port_access(&p.borrow()))?;
+            write!(f, "{} ? ", Self::get_port_access(&p.borrow()))?;
         } else if matches!(&*assign.guard, ir::Guard::True) {
             /* Print nothing */
         } else {
             panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", IRPrinter::guard_str(&*assign.guard));
         }
+        write!(f, "{}", Self::get_port_access(&assign.src.borrow()),)?;
         write!(f, " : i{}", assign.src.borrow().width)
     }
 
@@ -333,12 +333,12 @@ impl MlirBackend {
                 write!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::If(ir::If {
-                port,
-                cond,
-                tbranch,
-                fbranch,
-                ..
-            }) => {
+                                port,
+                                cond,
+                                tbranch,
+                                fbranch,
+                                ..
+                            }) => {
                 write!(
                     f,
                     "calyx.if {}",
@@ -359,8 +359,8 @@ impl MlirBackend {
                 }
             }
             ir::Control::While(ir::While {
-                port, cond, body, ..
-            }) => {
+                                   port, cond, body, ..
+                               }) => {
                 write!(
                     f,
                     "calyx.while {}",
