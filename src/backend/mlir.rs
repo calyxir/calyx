@@ -333,12 +333,12 @@ impl MlirBackend {
                 write!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::If(ir::If {
-                                port,
-                                cond,
-                                tbranch,
-                                fbranch,
-                                ..
-                            }) => {
+                port,
+                cond,
+                tbranch,
+                fbranch,
+                ..
+            }) => {
                 write!(
                     f,
                     "calyx.if {}",
@@ -359,8 +359,8 @@ impl MlirBackend {
                 }
             }
             ir::Control::While(ir::While {
-                                   port, cond, body, ..
-                               }) => {
+                port, cond, body, ..
+            }) => {
                 write!(
                     f,
                     "calyx.while {}",
