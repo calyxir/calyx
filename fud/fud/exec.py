@@ -40,9 +40,7 @@ def construct_path(args, config, through):
     # find target
     target = args.dest
     if target is None:
-        target = discover_implied_stage(
-            args.output_file, config, possible_dests=config.REGISTRY.nodes[source]
-        )
+        target = discover_implied_stage(args.output_file, config)
 
     path = config.REGISTRY.make_path(source, target, through)
     if path is None:

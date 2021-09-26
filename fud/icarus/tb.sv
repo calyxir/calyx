@@ -20,9 +20,15 @@ end
 string OUT;
 // Disable VCD tracing
 int NOTRACE;
+// Maximum number of cycles to simulate
+int CYCLE_LIMIT;
 
 initial begin
   $value$plusargs("OUT=%s", OUT);
+  $value$plusargs("CYCLE_LIMIT=%d", CYCLE_LIMIT);
+  if (CYCLE_LIMIT != 0) begin
+    $display("cycle limit set to %d", CYCLE_LIMIT);
+  end
   $value$plusargs("NOTRACE=%d", NOTRACE);
   if (NOTRACE == 0) begin
     $display("VCD tracing enabled");
@@ -56,6 +62,10 @@ initial begin
   forever begin
     #10 clk = ~clk;
     if (done == 1) begin
+      $display("Simulated %d cycles", cycle_count - 5);
+      $finish;
+    end else if (cycle_count != 0 && cycle_count == CYCLE_LIMIT) begin
+      $display("Cycle limit reached");
       $display("Simulated %d cycles", cycle_count - 5);
       $finish;
     end

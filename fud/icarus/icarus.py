@@ -25,10 +25,7 @@ class IcarusBaseStage(Stage):
         self.is_vcd = is_vcd
         self.testbench = config["stages", self.name, "testbench"]
         self.runtime = config["stages", self.name, "runtime"]
-        try:
-            self.data_path = config["stages", "verilog", "data"]
-        except errors.UnsetConfiguration:
-            self.data_path = None
+        self.data_path = config.get(("stages", "verilog", "data"))
         self.object_name = "main.vvp"
         self.setup()
 
@@ -107,10 +104,12 @@ class IcarusBaseStage(Stage):
             """
             Simulates compiled icarus verilog program.
             """
+            cycle_limit = self.config["stages", "verilog", "cycle_limit"]
             return shell(
                 [
                     f"{tmpdir.name}/{self.object_name}",
                     f"+DATA={tmpdir.name}",
+                    f"+CYCLE_LIMIT={str(cycle_limit)}",
                     f"+OUT={tmpdir.name}/output.vcd",
                     f"+NOTRACE={0 if self.is_vcd else 1}",
                 ]
