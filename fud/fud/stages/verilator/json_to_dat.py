@@ -45,7 +45,8 @@ def parse_dat(path, args):
         for hex_value in f.readlines():
             if hex_value.startswith("//"):
                 log.warn(
-                    f"Ignorning line {repr(hex_value)} since it looks like a comment: {path}"
+                    f"Ignorning line {repr(hex_value)}"
+                    + " since it looks like a comment: {path}"
                 )
                 continue
             lines.append(parse(hex_value))
