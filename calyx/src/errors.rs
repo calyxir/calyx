@@ -13,13 +13,6 @@ pub enum Error {
     /// Using a reserved keyword as a program identifier.
     ReservedName(ir::Id),
 
-    /// The given string does not correspond to any known pass.
-    UnknownPass(String),
-    /// The input file is invalid (does not exist).
-    InvalidFile(String),
-    /// Failed to write the output
-    WriteError(String),
-
     /// The control program is malformed.
     MalformedControl(String),
     /// The connections are malformed.
@@ -53,11 +46,14 @@ pub enum Error {
 
     /// Internal compiler error that should never occur.
     Impossible(String), // Signal compiler errors that should never occur.
-    NotSubcomponent,
 
-    /// A miscellaneous error. Should be replaced with a more precise error.
-    #[allow(unused)]
+    // =========== Frontend Errors ===============
+    /// Miscellaneous error message
     Misc(String),
+    /// The input file is invalid (does not exist).
+    InvalidFile(String),
+    /// Failed to write the output
+    WriteError(String),
 }
 
 /// Convience wrapper to represent success or meaningul compiler error.
@@ -69,6 +65,8 @@ pub type CalyxResult<T> = std::result::Result<T, Error>;
 pub struct Span {
     /// Reference to input program source.
     input: Rc<str>,
+    /// Name of the input file
+    file: Rc<str>,
     /// The start of the span.
     start: usize,
     /// The end of the span.
@@ -78,9 +76,10 @@ pub struct Span {
 impl Span {
     /// Create a new `Error::Span` from a `pest::Span` and
     /// the input string.
-    pub fn new(span: pest::Span, input: Rc<str>) -> Span {
+    pub fn new(span: pest::Span, file: Rc<str>, input: Rc<str>) -> Span {
         Span {
             input,
+            file,
             start: span.start(),
             end: span.end(),
         }
@@ -89,7 +88,7 @@ impl Span {
     /// Format this Span with a the error message `err_msg`
     pub fn format(&self, err_msg: &str) -> String {
         let lines = self.input.split('\n');
-        let mut buf: String = String::new();
+        let mut buf = self.file.to_string();
         let mut pos: usize = 0;
         let mut linum: usize = 1;
         for l in lines {
@@ -153,16 +152,9 @@ impl std::fmt::Debug for Error {
                     name.fmt_err(&msg)
                 )
             }
-            UnknownPass(pass) => {
-                write!(
-                    f,
-                    "Unknown pass: {}. Use the flag `--list-passes` to view known passes.",
-                    pass,
-                )
-            },
             InvalidFile(err) => write!(f, "{}", err),
-            ParseError(err) => write!(f, "Calyx Parser: {}", err),
             WriteError(msg) => write!(f, "{}", msg),
+            ParseError(err) => write!(f, "Calyx Parser: {}", err),
             MismatchedPortWidths(port1, w1, port2, w2) => {
                 let msg1 = format!("This port has width: {}", w1);
                 let msg2 = format!("This port has width: {}", w2);
@@ -178,10 +170,9 @@ impl std::fmt::Debug for Error {
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             PassAssumption(pass, msg) => write!(f, "Pass `{}` requires: {}", pass, msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
-            NotSubcomponent => write!(f, "Not a subcomponent"),
-            Misc(msg) => write!(f, "{}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
-            MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string())
+            MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string()),
+            Misc(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -202,8 +193,8 @@ impl From<pest_consume::Error<parser::Rule>> for Error {
 }
 
 impl From<std::io::Error> for Error {
-    fn from(_e: std::io::Error) -> Self {
-        Error::WriteError("IO Error".to_string())
+    fn from(e: std::io::Error) -> Self {
+        Error::WriteError(format!("IO Error: {}", e))
     }
 }
 

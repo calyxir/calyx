@@ -1,6 +1,5 @@
 from fud.stages import SourceType, Stage
-
-from ..utils import shell, unwrap_or
+from fud.utils import shell, unwrap_or
 
 
 class DahliaStage(Stage):

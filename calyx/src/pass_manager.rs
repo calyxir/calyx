@@ -140,7 +140,9 @@ impl PassManager {
         // Validate that names of passes in incl and excl sets are known
         passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
-                Err(Error::UnknownPass(pass.to_string()))
+                Err(Error::Misc(format!(
+                    "Unknown pass: {}. Run compiler with --list-passes to view registered passes.", pass.to_string()
+                )))
             } else {
                 Ok(())
             }

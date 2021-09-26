@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Structure: 
+Error: Malformed Structure: tests/errors/papercut/no-done.futil
 8 |    group no_drive {
   |          ^^^^^^^^ No writes to the `done' hole for group `no_drive'

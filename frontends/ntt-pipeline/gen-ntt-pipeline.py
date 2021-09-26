@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from prettytable import PrettyTable
 import numpy as np
 from calyx.py_ast import (
@@ -28,7 +30,7 @@ def reduce_parallel_control_pass(component: Component, N: int, input_size: int):
     """
     assert (
         N is not None and 0 < N < input_size and (not (N & (N - 1)))
-    ), f"""N should be a power of two within bounds (0, n)."""
+    ), f"""N: {N} should be a power of two within bounds (0, {input_size})."""
 
     reduced_controls = []
     for control in component.controls.stmts:
@@ -78,11 +80,12 @@ def get_multiply_data(n, num_stages):
     """Returns a tuple value for each unique product that contains:
        (register index, input index, phi index)
 
-    Since each stage in the pipeline has at most N / 2 unique products calculated,
-    we want to only use N / 2 `mult_pipeline`s in each stage. This requires us to
-    map which products go with which calculation.
+    Since each stage in the pipeline has at most N / 2 unique products
+    calculated, we want to only use N / 2 `mult_pipeline`s in each stage. This
+    requires us to map which products go with which calculation.
 
-    This calculation is usually referred to as `V`, and would look something like:
+    This calculation is usually referred to as `V`, and would look something
+    like:
       `V = a[x] * phis[y]`
     and used to calculate:
       `a[k]   = U + V mod q`

@@ -2,10 +2,10 @@
 use crate::passes::{
     ClkInsertion, CollapseControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GuardCanonical, InferStaticTiming, Inliner, LowerGuards,
-    MergeAssign, MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveCombGroups, ResetInsertion, ResourceSharing, SimplifyGuards,
-    SynthesisPapercut, TopDownCompileControl, WellFormed,
+    GoInsertion, GroupToInvoke, GuardCanonical, InferStaticTiming, Inliner,
+    LowerGuards, MergeAssign, MinimizeRegs, Papercut, ParToSeq,
+    RegisterUnsharing, RemoveCombGroups, ResetInsertion, ResourceSharing,
+    SimplifyGuards, SynthesisPapercut, TopDownCompileControl, WellFormed,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -46,6 +46,7 @@ impl PassManager {
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<RemoveCombGroups>()?;
+        pm.register_pass::<GroupToInvoke>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, GuardCanonical]);
         register_alias!(

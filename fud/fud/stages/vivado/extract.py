@@ -86,8 +86,8 @@ def futil_extract(directory):
             "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
         })
 
-    except Exception as e:
-        traceback.print_exc(e)
+    except Exception:
+        traceback.print_exc()
         print("Implementation files weren't found, skipping.", file=sys.stderr)
 
     try:
@@ -111,8 +111,8 @@ def futil_extract(directory):
             "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
             "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
         })
-    except Exception as e:
-        traceback.print_exc(e)
+    except Exception:
+        traceback.print_exc()
         print("Synthesis files weren't found, skipping.", file=sys.stderr)
 
     return json.dumps(resourceInfo, indent=2)

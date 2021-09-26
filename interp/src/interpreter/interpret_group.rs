@@ -1,13 +1,19 @@
 //! Used for the command line interface.
 //! Only interprets a given group in a given component
 
-use crate::{environment::InterpreterState, utils::AsRaw};
+use crate::{
+    environment::InterpreterState,
+    utils::{AsRaw, RcOrConst},
+};
 
-use super::utils::{get_dest_cells, get_done_port, ConstPort};
+use super::{
+    utils::{get_dest_cells, get_done_port, get_go_port, ConstPort},
+    Interpreter,
+};
 use crate::values::Value;
 use calyx::ir::{self, RRC};
 
-use super::steppers::AssignmentInterpreter;
+use super::steppers::{AssignmentInterpreter, InvokeInterpreter};
 use crate::errors::InterpreterResult;
 
 // /// An internal method that does the main work of interpreting a set of
@@ -31,11 +37,11 @@ use std::rc::Rc;
 ///
 /// Prior to evaluation the interpreter sets the value of go to high and it
 /// returns it to low after execution concludes
-pub fn interp_cont(
+pub fn interp_cont<'outer>(
     continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState,
+    mut env: InterpreterState<'outer>,
     comp: &ir::Component,
-) -> InterpreterResult<InterpreterState> {
+) -> InterpreterResult<InterpreterState<'outer>> {
     let comp_sig = comp.signature.borrow();
 
     let go_port = comp_sig
@@ -54,16 +60,15 @@ pub fn interp_cont(
         &go_port.borrow() as &ir::Port as ConstPort,
         Value::bit_high(),
     );
-    let done_prt_ref = &done_port.borrow() as &ir::Port as *const ir::Port;
 
     let mut assign_interp = AssignmentInterpreter::new(
         env,
-        Some(done_prt_ref),
+        Some(done_port.clone()),
         (std::iter::empty(), continuous_assignments.iter()),
     );
     assign_interp.run()?;
 
-    let mut res = assign_interp.deconstruct();
+    let mut res = assign_interp.deconstruct()?;
 
     res.insert(
         &go_port.borrow() as &ir::Port as ConstPort,
@@ -73,25 +78,27 @@ pub fn interp_cont(
     // required because of lifetime shennanigans
     let final_env = finish_interpretation(
         res,
-        Some(&done_port.borrow() as &ir::Port as ConstPort),
+        Some(Rc::clone(done_port)),
         continuous_assignments.iter(),
     );
     final_env
 }
 
 /// Evaluates a group, given an environment.
-pub fn interpret_group(
+pub fn interpret_group<'outer>(
     group: &ir::Group,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    mut env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
-    let grp_done_ref: &ir::Port = &grp_done.borrow();
+
+    let go_port = get_go_port(group);
+    env.insert(go_port, Value::bit_high());
 
     let interp = AssignmentInterpreter::new(
         env,
-        Some(grp_done_ref),
+        Some(grp_done),
         (group.assignments.iter(), continuous_assignments.iter()),
     );
 
@@ -99,12 +106,12 @@ pub fn interpret_group(
 }
 
 /// Evaluates a group, given an environment.
-pub fn interpret_comb_group(
+pub fn interpret_comb_group<'outer>(
     group: &ir::CombGroup,
     // TODO (griffin): Use these during interpretation
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     let interp = AssignmentInterpreter::new(
         env,
         None,
@@ -114,17 +121,18 @@ pub fn interpret_comb_group(
     interp.run_and_deconstruct()
 }
 
-pub fn finish_group_interpretation(
+pub fn finish_group_interpretation<'outer>(
     group: &ir::Group,
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    mut env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     let grp_done = get_done_port(group);
-    let grp_done_ref: &ir::Port = &grp_done.borrow();
+    let go_port = get_go_port(group);
+    env.insert(go_port, Value::bit_low());
 
     finish_interpretation(
         env,
-        Some(grp_done_ref),
+        Some(grp_done),
         group
             .assignments
             .iter()
@@ -132,11 +140,11 @@ pub fn finish_group_interpretation(
     )
 }
 
-pub fn finish_comb_group_interpretation(
+pub fn finish_comb_group_interpretation<'outer>(
     group: &ir::CombGroup,
     continuous_assignments: &[ir::Assignment],
-    env: InterpreterState,
-) -> InterpreterResult<InterpreterState> {
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
     finish_interpretation::<_, ConstPort>(
         env,
         None,
@@ -147,6 +155,15 @@ pub fn finish_comb_group_interpretation(
     )
 }
 
+pub fn interpret_invoke<'outer>(
+    inv: &ir::Invoke,
+    continuous_assignments: &[ir::Assignment],
+    env: InterpreterState<'outer>,
+) -> InterpreterResult<InterpreterState<'outer>> {
+    let mut interp = InvokeInterpreter::new(inv, env, continuous_assignments);
+    interp.run()?;
+    interp.deconstruct()
+}
 /// Evaluates the primitives corresponding to the given iterator of cells, based
 /// on the current environment. Returns a set of assignments that may change
 /// based on the updates to primitive values.
@@ -164,7 +181,7 @@ pub(crate) fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
-    let ref_clone = env.cell_prim_map.clone(); // RC clone
+    let ref_clone = env.cell_map.clone(); // RC clone
     let mut prim_map = ref_clone.borrow_mut();
 
     let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];
@@ -226,12 +243,14 @@ fn get_inputs<'a>(
 pub(crate) fn finish_interpretation<
     'a,
     I: Iterator<Item = &'a ir::Assignment>,
-    P: AsRaw<ir::Port>,
+    P: Into<RcOrConst<ir::Port>>,
 >(
     mut env: InterpreterState,
     done_signal: Option<P>,
     assigns: I,
 ) -> InterpreterResult<InterpreterState> {
+    let done_signal: Option<RcOrConst<ir::Port>> =
+        done_signal.map(|x| x.into());
     // replace port values for all the assignments
     let assigns = assigns.collect::<Vec<_>>();
 
@@ -242,7 +261,10 @@ pub(crate) fn finish_interpretation<
         );
     }
 
-    let cells = get_dest_cells(assigns.iter().copied());
+    let cells = get_dest_cells(
+        assigns.iter().copied(),
+        done_signal.as_ref().map(|x| x.get_rrc()).flatten(),
+    );
 
     if let Some(done_signal) = done_signal {
         env.insert(done_signal.as_raw(), Value::bit_low());

@@ -1,8 +1,10 @@
-use crate::values::Value;
+use crate::{
+    environment::{FullySerialize, State},
+    values::Value,
+};
 use calyx::ir;
 use itertools::Itertools;
 use serde::Serialize;
-
 /// A primitive for the interpreter.
 /// Roughly corresponds to the cells defined in the primitives library for the Calyx compiler.
 /// Primitives can be either stateful or combinational.
@@ -39,6 +41,10 @@ pub trait Primitive {
     // more efficient to override this with true in stateful cases
     fn has_serializeable_state(&self) -> bool {
         self.serialize().has_state()
+    }
+
+    fn get_state(&self) -> Option<Box<dyn State + '_>> {
+        None
     }
 }
 
@@ -85,10 +91,12 @@ impl From<(usize, usize, usize, usize)> for Shape {
     }
 }
 
+#[derive(Clone)]
 pub enum Serializeable {
     Empty,
     Val(u64),
     Array(Vec<u64>, Shape),
+    Full(FullySerialize),
 }
 
 impl Serializeable {
@@ -163,6 +171,7 @@ impl Serialize for Serializeable {
                     Shape::D1(_) => unreachable!(),
                 }
             }
+            Serializeable::Full(s) => s.serialize(serializer),
         }
     }
 }

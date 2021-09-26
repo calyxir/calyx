@@ -123,11 +123,16 @@ impl<T> List<T> {
     pub fn split(self) -> (Option<T>, Self) {
         if self.is_empty() {
             (None, self)
-        } else if let Ok(head) = Rc::try_unwrap(self.head.unwrap()) {
-            let tail_list = List { head: head.next }; //better: not cloning the tail
-            (Some(head.elem), tail_list)
         } else {
-            panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists!")
+            match Rc::try_unwrap(self.head.unwrap()) {
+                Ok(head) => {
+                    let tail_list = List { head: head.next }; //better: not cloning the tail
+                    (Some(head.elem), tail_list)
+                }
+                Err(e) => {
+                    panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists! Current strong count {}", Rc::strong_count(&e))
+                }
+            }
         }
     }
 
@@ -784,11 +789,18 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// let d = Smoosher::merge_many(a, lst); //a and b has a different fork point
     //from a and c
     /// ```
-    pub fn merge_many(self, other: Vec<Self>) -> Self {
+    pub fn merge_many(
+        self,
+        other: Vec<Self>,
+        overlap_keys: &HashSet<K>,
+    ) -> Result<Self, CollisionError<K, V>> {
+        if other.is_empty() {
+            return Ok(self);
+        }
         //initialize all needed variables
         let mut a = self;
         //needed to check for common fork point for all smooshers
-        let mut dp_first = 0;
+        let mut dp_first: Option<u64> = None;
         let mut smooshed = Vec::new();
 
         //iterate over all the smooshers and check for common fork point for all
@@ -797,20 +809,17 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             if let Some((depth_a, depth_b)) =
                 Smoosher::shared_fork_point(&a, &sm)
             {
-                if dp_first == 0 {
-                    dp_first = depth_a;
-                    smooshed.push(sm.smoosh(depth_b - 1));
-                } else if dp_first != depth_a {
-                    panic!("The common fork differs for one or more smooshers")
-                } else {
-                    smooshed.push(sm.smoosh(depth_b - 1));
-                }
+                let dp_first_ref = dp_first.get_or_insert(depth_a);
+
+                assert!(*dp_first_ref == depth_a);
+
+                smooshed.push(sm.smoosh(depth_b - 1));
             } else {
                 panic!("No common fork for a pair of smooshers")
             }
         }
 
-        a = a.smoosh(dp_first - 1);
+        a = a.smoosh(dp_first.unwrap() - 1);
 
         let mut a_head = a.head;
 
@@ -818,8 +827,16 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         //the head of the first smoosher.
         for sm in smooshed {
             for (k, v) in sm.head {
-                if a_head.insert(k, v).is_some() {
-                    panic!("arguments of merge are not disjoint");
+                if let Some(prev) = a_head.get(&k) {
+                    // overlap accepable for defined keys as long as they agree
+                    if overlap_keys.contains(&k) && prev == &v {
+                        a_head.insert(k, v);
+                    } else {
+                        let prev = a_head.remove(&k).unwrap();
+                        return Err(CollisionError(k, prev, v));
+                    }
+                } else {
+                    a_head.insert(k, v);
                 }
             }
             std::mem::drop(sm.tail);
@@ -835,7 +852,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
         //push_scope this new merged node onto A'
         a.push_scope(a_head);
-        a.smoosh_once()
+        Ok(a.smoosh_once())
     }
 
     /// ```text
@@ -1095,3 +1112,5 @@ mod priv_tests {
         }
     }
 }
+
+pub struct CollisionError<K: Eq + std::hash::Hash, V: Eq>(pub K, pub V, pub V);

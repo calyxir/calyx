@@ -49,7 +49,9 @@ def logging_setup(args):
     elif args.verbose >= 2:
         level = log.DEBUG
 
-    log.basicConfig(format="%(levelname)s: %(message)s", stream=sys.stderr, level=level)
+    log.basicConfig(
+        format="[fud] %(levelname)s: %(message)s", stream=sys.stderr, level=level
+    )
 
     try:
         import paramiko
@@ -74,6 +76,9 @@ class TmpDir(Directory):
 
     def remove(self):
         self.tmpdir_obj.cleanup()
+
+    def __str__(self):
+        return self.name
 
 
 class Conversions:
@@ -199,13 +204,13 @@ def transparent_shell(cmd):
     Runs `cmd` in the shell. Does not capture output or input. Does nothing
     fancy and returns nothing
     """
-    if isinstance(cmd, str):
-        cmd = cmd.split()
+    if isinstance(cmd, list):
+        cmd = " ".join(cmd)
 
-    assert isinstance(cmd, list)
+    assert isinstance(cmd, str)
 
     log.debug(cmd)
 
-    proc = subprocess.Popen(cmd, env=os.environ)
+    proc = subprocess.Popen(cmd, env=os.environ, shell=True)
 
     proc.wait()

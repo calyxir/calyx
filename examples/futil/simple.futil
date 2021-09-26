@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 
 // *NOTE*: This was hand-written, and does not demonstrate the capabilities of Calyx.
 

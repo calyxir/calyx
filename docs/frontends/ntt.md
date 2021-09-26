@@ -29,6 +29,29 @@ during each stage of the pipeline. This requires installing PrettyTable:
 
     pip3 install prettytable numpy
 
+## Fud Stage
+
+The NTT pipeline defines an [external fud stage][../fud/external.md] to
+transform configuration files into Calyx programs.
+To install, run:
+
+```
+fud register ntt -p frontends/ntt-pipeline/fud/ntt.py && fud check
+```
+
+This should report the newly installed `ntt` stage in the configuration.
+
+## Configuration Files
+
+Configurations files simply specify command line parameters:
+```json
+{
+  "input_bitwidth": 32,
+  "input_size": 4,
+  "modulus": 97
+}
+```
+
 ## Command Line Options
 
 The command line options configure the bit width, size, and modulus value of the

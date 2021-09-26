@@ -1,0 +1,11 @@
+import "primitives/core.futil";
+
+extern "verilog/b.sv" {
+  primitive std_max() -> ();
+}
+
+component max() -> () {
+  cells {}
+  wires {}
+  control {}
+}

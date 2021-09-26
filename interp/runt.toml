@@ -67,6 +67,42 @@ cmd = """
 timeout = 3
 
 [[tests]]
+name = "invoke"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to interpreter-out -s verilog.data {}.data -q | jq .memories
+"""
+
+[[tests]]
+name = "invoke comp"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s verilog.data {}.data -q | jq .memories
+"""
+
+[[tests]]
+name = "invoke (CIDR)"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to debugger -s verilog.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
+"""
+
+[[tests]]
+name = "invoke comp (CIDR)"
+paths = [
+  "tests/control/invoke/*.futil"
+  ]
+cmd = """
+fud e {} --to debugger  -s futil.flags "-p compile-invoke" -s verilog.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
+"""
+
+[[tests]]
 name = "fully structural"
 paths = [
     "tests/control/*.futil",

@@ -32,7 +32,7 @@ impl ConstructVisitor for ResourceSharing {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut shareable_components = HashSet::new();
         // add share=1 primitives to the shareable_components set
-        for prim in ctx.lib.sigs.values() {
+        for prim in ctx.lib.signatures() {
             if let Some(&1) = prim.attributes.get("share") {
                 shareable_components.insert(prim.name.clone());
             }

@@ -1,19 +1,16 @@
 import argparse
 import logging as log
 from sys import exit
-import importlib.util
-from pathlib import Path
 
 import toml
 
-from . import check, errors, exec, utils
+from . import check, errors, exec, utils, external
 from .config import Configuration
 from .registry import Registry
 from .stages import (
     dahlia,
     futil,
     interpreter,
-    mrxl,
     relay,
     systolic,
     vcdump,
@@ -42,8 +39,6 @@ def register_stages(registry, cfg):
         )
     )
 
-    # MrXL
-    registry.register(mrxl.MrXLStage(cfg))
     # Relay
     registry.register(relay.RelayStage(cfg))
     # Systolic Array
@@ -54,6 +49,14 @@ def register_stages(registry, cfg):
             cfg,
             "verilog",
             "-b verilog",
+            "Compile Calyx to Verilog instrumented for simulation",
+        )
+    )
+    registry.register(
+        futil.FutilStage(
+            cfg,
+            "icarus-verilog",
+            "-b verilog --disable-verify --disable-init",
             "Compile Calyx to Verilog instrumented for simulation",
         )
     )
@@ -159,37 +162,23 @@ def register_stages(registry, cfg):
 
 def register_external_stages(cfg, registry):
     """
-    Find external stages by looking for tables in the `external-stages` key
-    and register them. An external stage must have a `location` key defined
-    that points to a python module containing the external fud stages.
+    Find external stages and register them.
+    An external stage at least has the fields `location` and `external`.
+    Key values are filled in this order:
+        1. Dynamic keys using -s <key> <value>
+        2. Keys defined in the configuration
     """
 
-    if ["external-stages"] in cfg:
-        # search through external stages
-        for stage in cfg[["external-stages"]]:
-            # get file location of stage and ensure that it exists
-            location = cfg["external-stages", stage, "location"]
-            if not Path(location).exists():
-                raise errors.InvalidExternalStage(
-                    stage, f"No such file or directory: '{location}'"
-                )
-
-            # import the module from `location`
-            spec = importlib.util.spec_from_file_location(stage, location)
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-
-            # check to make sure that module has `__STAGES__` defined.
-            if not hasattr(mod, "__STAGES__"):
-                raise errors.InvalidExternalStage(
-                    stage, "The module doesn't have attribute: '__STAGES__'"
-                )
+    for (stage, attrs) in cfg[["stages"]].items():
+        if attrs.get("external"):
+            mod = external.validate_external_stage(stage, cfg)
 
             # register the discovered stages
             for stage_class in mod.__STAGES__:
                 try:
                     registry.register(stage_class(cfg))
                 except Exception as e:
+                    location = cfg["stages", stage, "location"]
                     raise errors.InvalidExternalStage(
                         stage,
                         "\n".join(
@@ -276,8 +265,8 @@ def main():
     config_register(
         subparsers.add_parser(
             "register",
-            help="Register an external stage.",
-            description="Register an external stage.",
+            help="Register external stages.",
+            description="Register external stages.",
         )
     )
 
@@ -321,6 +310,13 @@ def main():
 def config_run(parser):
     parser.add_argument("--from", dest="source", help="Name of the start stage")
     parser.add_argument("--to", dest="dest", help="Name of the final stage")
+    parser.add_argument(
+        "--through",
+        action="append",
+        metavar="stage",
+        default=[],
+        help="Names of intermediate stages (repeatable option)",
+    )
     parser.add_argument(
         "-o", dest="output_file", help="Name of the outpfule file (default: STDOUT)"
     )
