@@ -52,6 +52,7 @@ paths = [
 cmd = """
 fud exec -s futil.exec './target/debug/futil' \
          -s verilog.cycle_limit 500 \
+         --through verilog \
          {} --to dat -q | \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
@@ -68,6 +69,7 @@ cmd = """
 fud exec -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
          -s verilog.cycle_limit 500 \
+         --through verilog \
          {} --to dat \
          -q \
          | jq .memories
@@ -82,6 +84,7 @@ paths = [
 ]
 cmd = """
 fud exec -s verilog.data {}.data \
+         --through verilog \
          {} --to dat -q | jq .memories
 """
 
@@ -92,6 +95,7 @@ paths = [
 ]
 cmd = """
 fud exec -s verilog.data {}.data \
+         --through verilog \
          {} --to dat -q | jq .memories
 """
 
@@ -113,7 +117,7 @@ fud exec -s verilog.data {}.data \
 name = "[frontend] systolic array correctness"
 paths = [ "tests/correctness/systolic/*.systolic" ]
 cmd = """
-fud e --from systolic --to vcd_json \
+fud e --from systolic --to vcd_json --through verilog \
       {} \
       -s verilog.data {}.data \
       -s futil.exec './target/debug/futil' \
@@ -126,7 +130,7 @@ fud e --from systolic --to vcd_json \
 name = "[frontend] NTT pipeline correctness"
 paths = [ "tests/correctness/ntt-pipeline/*.txt" ]
 cmd = """
-fud e --from ntt {} --to dat -s verilog.data {}.data -q
+fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
 """
 
 [[tests]]
@@ -134,7 +138,7 @@ name = "exp (taylor series approximation) correctness"
 paths = [ "tests/correctness/exp/*.txt" ]
 cmd = """
 python3 calyx-py/calyx/gen_exp.py {} > {}.futil; \
-fud e {}.futil --to dat -s verilog.data {}.data -q 2>/dev/null; \
+fud e {}.futil --to dat --through verilog -s verilog.data {}.data -q 2>/dev/null; \
 rm {}.futil;
 """
 
@@ -142,14 +146,14 @@ rm {}.futil;
 name = "[frontend] mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
-fud e -q {} --from mrxl --to dat -s verilog.data {}.data | jq .memories
+fud e -q {} --from mrxl --to dat --through verilog -s verilog.data {}.data | jq .memories
 """
 
 [[tests]]
 name = "[frontend] relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
 cmd = """
-fud e -q {} --from relay --to dat -s verilog.data {}.data | jq .memories
+fud e -q {} --from relay --to dat --through verilog -s verilog.data {}.data | jq .memories
 """
 
 ##### Backend Tests #####
@@ -211,6 +215,7 @@ name = "language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         --through verilog \
          -s verilog.data examples/tutorial/data.json \
          --to dat -q
 """
@@ -220,6 +225,7 @@ name = "memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         --through verilog \
          -s verilog.data {}.data \
          --to dat -q
 """
@@ -229,6 +235,7 @@ name = "dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         --through verilog \
          -s verilog.data {}.data \
          --to dat -q
 """

@@ -25,12 +25,13 @@ fn main() -> CalyxResult<()> {
     let mut ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
 
     let imports = ws.original_imports.drain(..).collect_vec();
+    let bc = ir::BackendConf {
+        synthesis_mode: opts.enable_synthesis,
+        enable_verification: !opts.disable_verify,
+        initialize_inputs: !opts.disable_init,
+    };
     // Build the IR representation
-    let mut ctx = ir::from_ast::ast_to_ir(
-        ws,
-        opts.enable_synthesis,
-        !opts.disable_verify,
-    )?;
+    let mut ctx = ir::from_ast::ast_to_ir(ws, bc)?;
     ctx.extra_opts = opts.extra_opts.drain(..).collect();
 
     // Run all passes specified by the command line

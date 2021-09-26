@@ -26,7 +26,8 @@ fn resource_sharing_bench(c: &mut Criterion) {
                         )
                         .unwrap();
 
-                        ir::from_ast::ast_to_ir(ws, false, true).unwrap()
+                        ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())
+                            .unwrap()
                     },
                     |mut rep: ir::Context| {
                         passes::ResourceSharing::do_pass_default(&mut rep)

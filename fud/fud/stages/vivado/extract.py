@@ -51,6 +51,7 @@ def rtl_component_extract(directory, name):
 
 def futil_extract(directory):
     directory = directory / "out" / "FutilBuild.runs"
+
     try:
         impl_parser = rpt.RPTParser(
             directory / "impl_1" / "main_utilization_placed.rpt"
@@ -102,10 +103,10 @@ def futil_extract(directory):
             },
             indent=2,
         )
-    except Exception as e:
+    except Exception:
         import traceback
 
-        traceback.print_exc(e)
+        traceback.print_exc()
         print("Synthesis files weren't found, skipping.", file=sys.stderr)
 
 

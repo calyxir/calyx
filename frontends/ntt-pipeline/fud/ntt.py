@@ -39,7 +39,3 @@ class NTTStage(Stage):
 __STAGES__ = [
     NTTStage
 ]
-
-if __name__ == "__main__":
-    location = pathlib.Path(__file__).parent.resolve()
-    print(location / "gen-ntt-pipeline.py")

@@ -72,7 +72,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to interpreter-out -s interpreter.data {}.data -q | jq .memories
+fud e {} --to interpreter-out -s verilog.data {}.data -q | jq .memories
 """
 
 [[tests]]
@@ -81,7 +81,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s interpreter.data {}.data -q | jq .memories
+fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s verilog.data {}.data -q | jq .memories
 """
 
 [[tests]]
@@ -90,7 +90,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to debugger -s interpreter.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
+fud e {} --to debugger -s verilog.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
 """
 
 [[tests]]
@@ -99,7 +99,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to debugger  -s futil.flags "-p compile-invoke" -s interpreter.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
+fud e {} --to debugger  -s futil.flags "-p compile-invoke" -s verilog.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
 """
 
 [[tests]]

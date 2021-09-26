@@ -37,6 +37,10 @@ pub struct Opts {
     #[argh(switch)]
     pub disable_verify: bool,
 
+    /// do not initialize input ports
+    #[argh(switch)]
+    pub disable_init: bool,
+
     /// select a backend
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,

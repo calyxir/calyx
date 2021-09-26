@@ -47,7 +47,7 @@ class InterpreterStage(Stage):
 
         self.flags = flags
         self.debugger_flags = debugger_flags
-        self.data_path = self.config["stages", self.name, "data"]
+        self.data_path = self.config["stages", "verilog", "data"]
 
         self.setup()
 

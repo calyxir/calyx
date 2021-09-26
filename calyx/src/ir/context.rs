@@ -93,17 +93,25 @@ impl From<Vec<(PathBuf, Vec<Primitive>)>> for LibrarySignatures {
     }
 }
 
+/// Configuration information for the backends.
+#[derive(Default)]
+pub struct BackendConf {
+    /// Enables synthesis mode.
+    pub synthesis_mode: bool,
+    /// Enables verification checks.
+    pub enable_verification: bool,
+    /// Generate initial assignments for input ports
+    pub initialize_inputs: bool,
+}
+
 /// The IR Context
-#[derive(Debug)]
 pub struct Context {
     /// The components for this program.
     pub components: Vec<Component>,
     /// Library definitions imported by the program.
     pub lib: LibrarySignatures,
-    /// Enables synthesis mode.
-    pub synthesis_mode: bool,
-    /// Enables verification checks.
-    pub enable_verification: bool,
+    /// Configuration flags for backends.
+    pub bc: BackendConf,
     /// Extra options provided to the command line.
     /// Interperted by individual passes
     pub extra_opts: Vec<String>,

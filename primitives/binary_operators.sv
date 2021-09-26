@@ -158,8 +158,10 @@ module std_fp_add_dwidth #(
   localparam BIG_INT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
   localparam BIG_FRACT = (FRAC_WIDTH1 >= FRAC_WIDTH2) ? FRAC_WIDTH1 : FRAC_WIDTH2;
 
-  if (BIG_INT + BIG_FRACT != OUT_WIDTH)
-    $error("std_fp_add_dwidth: Given output width not equal to computed output width");
+  initial begin
+    if (BIG_INT + BIG_FRACT != OUT_WIDTH)
+      $error("std_fp_add_dwidth: Given output width not equal to computed output width");
+  end
 
   logic [INT_WIDTH1-1:0] left_int;
   logic [INT_WIDTH2-1:0] right_int;
