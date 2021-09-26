@@ -1,5 +1,27 @@
-use calyx::{errors, frontend::parser, ir, pass_manager::PassManager};
+use calyx::{
+    errors::{self, CalyxResult},
+    frontend, ir,
+    pass_manager::PassManager,
+};
 use wasm_bindgen::prelude::*;
+
+// Contruct a workspace from a namspace
+fn ws_from_ns(ns: frontend::NamespaceDef) -> CalyxResult<frontend::Workspace> {
+    if !ns.imports.is_empty() {
+        return Err(errors::Error::Misc(
+            "import not supported in the web demo".to_string(),
+        ));
+    }
+    let mut ws = frontend::Workspace::default();
+    ws.externs
+        .extend(ns.externs.into_iter().map(|(p, es)| (p.into(), es)));
+
+    // Add components defined by this namespace to either components or
+    // declarations
+    ws.components.extend(&mut ns.components.into_iter());
+
+    Ok(ws)
+}
 
 fn compile(
     passes: &[String],
@@ -8,12 +30,13 @@ fn compile(
 ) -> Result<String, errors::Error> {
     let pm = PassManager::default_passes()?;
 
-    let namespace_ast = parser::CalyxParser::parse(
+    let ns = frontend::parser::CalyxParser::parse(
         (library.to_string() + "\n" + namespace).as_bytes(),
     )?;
+    let ws = ws_from_ns(ns)?;
 
     // Build the IR representation
-    let mut rep = ir::from_ast::ast_to_ir(namespace_ast, false, false)?;
+    let mut rep = ir::from_ast::ast_to_ir(ws, false, false)?;
 
     pm.execute_plan(&mut rep, passes, &[])?;
 
