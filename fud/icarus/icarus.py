@@ -1,3 +1,4 @@
+import re
 import simplejson as sjson
 from pathlib import Path
 
@@ -111,6 +112,7 @@ class IcarusBaseStage(Stage):
                     f"{tmpdir.name}/{self.object_name}",
                     f"+DATA={tmpdir.name}",
                     f"+OUT={tmpdir.name}/output.vcd",
+                    f"+NOTRACE={0 if self.is_vcd else 1}",
                 ]
             )
 
@@ -132,7 +134,9 @@ class IcarusBaseStage(Stage):
             """
             Convert .dat files back into a json file
             """
+            r = re.search(r"Simulated\s+(\d+) cycles", simulated_output)
             data = {
+                "cycles": int(r.group(1)) if r is not None else 0,
                 "memories": convert2json(tmpdir.name, "out"),
             }
             return sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True)

@@ -37,7 +37,13 @@ def parse_dat(path, args):
             return int(Bitnum(hex_value, **args).str_value())
 
     with path.open("r") as f:
-        return np.array([parse(hex_value) for hex_value in f.readlines() if not hex_value.startswith("//") ])
+        return np.array(
+            [
+                parse(hex_value)
+                for hex_value in f.readlines()
+                if not hex_value.startswith("//")
+            ]
+        )
 
 
 def parse_fp_widths(format):

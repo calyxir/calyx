@@ -9,17 +9,34 @@ main #() m (
   .done(done)
 );
 
+// Cycle counter
+logic [0:63] cycle_count;
+
+always_ff @(posedge clk) begin
+  cycle_count <= cycle_count + 1;
+end
+
+// Output location of the VCD file
 string OUT;
+// Disable VCD tracing
+int NOTRACE;
 
 initial begin
   $value$plusargs("OUT=%s", OUT);
-  $dumpfile(OUT);
-  $dumpvars(0,m);
+  $value$plusargs("NOTRACE=%d", NOTRACE);
+  if (NOTRACE == 0) begin
+    $display("VCD tracing enabled");
+    $dumpfile(OUT);
+    $dumpvars(0,m);
+  end else begin
+    $display("VCD tracing disabled");
+  end
 
   // Initial values
   go = 0;
   clk = 0;
   reset = 0;
+  cycle_count = 0;
 
   // Reset phase for 5 cycles
   #10;
@@ -39,6 +56,7 @@ initial begin
   forever begin
     #10 clk = ~clk;
     if (done == 1) begin
+      $display("Simulated %d cycles", cycle_count - 5);
       $finish;
     end
   end
