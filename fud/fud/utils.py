@@ -36,11 +36,9 @@ def unwrap_or(val, default):
 def logging_setup(args):
     # Color for warning and error mesages
     log.addLevelName(
-        log.WARNING, "\033[1;33m[fud] %s\033[1;0m" % log.getLevelName(log.WARNING)
+        log.WARNING, "\033[1;33m%s\033[1;0m" % log.getLevelName(log.WARNING)
     )
-    log.addLevelName(
-        log.ERROR, "\033[1;31m[fud] %s\033[1;0m" % log.getLevelName(log.ERROR)
-    )
+    log.addLevelName(log.ERROR, "\033[1;31m%s\033[1;0m" % log.getLevelName(log.ERROR))
 
     # set verbosity level
     level = None

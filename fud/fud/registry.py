@@ -44,16 +44,42 @@ class Registry:
             raise UndefinedStage(dest)
 
         all_paths = list(nx.all_simple_edge_paths(self.graph, start, dest))
+
+        # Compute all stage pipelines that can be run.
         stage_paths = []
+        # Minimum cost path
+        min_cost = None
         for path in all_paths:
             through_check = set(through)
             stage_path = []
+            # Cost of the Path
+            path_cost = None
             for (src, dst) in path:
                 if src in through_check:
                     through_check.remove(src)
-                stage_path.append(self.graph.get_edge_data(src, dst)["stage"])
+                stage = self.graph.get_edge_data(src, dst)["stage"]
+                stage_path.append(stage)
+                # Get the cost of the path if there is any
+                #  print(self.config.get(("stages", stage.name, "priority")))
+                cost = self.config.get(("stages", stage.name, "priority"))
+                if cost is not None:
+                    if path_cost is None:
+                        path_cost = cost
+                    else:
+                        path_cost += cost
+
+            # If there are no items left in the --through check then add it
             if len(through_check) == 0:
-                stage_paths.append(stage_path)
+                # If this path has a cost, then stage_paths can only have
+                # one path in it.
+                if path_cost is not None:
+                    if min_cost is None or path_cost < min_cost:
+                        stage_paths = [stage_path]
+                    elif min_cost == path_cost:
+                        stage_paths.append(stage_path)
+                    min_cost = path_cost
+                elif min_cost is None:
+                    stage_paths.append(stage_path)
 
         if len(stage_paths) > 1:
             p = []
@@ -64,8 +90,10 @@ class Registry:
                 path_str = path[0][0]
                 for (_, dst) in path:
                     path_str += f" → {dst}"
+                    cost = self.config.get(("stages", dst, "priority"))
+                    if cost is not None:
+                        path_str += f" (cost: {cost})"
                 p.append(path_str)
-
             raise MultiplePaths(start, dest, "\n".join(p))
         elif len(stage_paths) == 0:
             return None
