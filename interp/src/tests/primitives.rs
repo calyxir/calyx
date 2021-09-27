@@ -9,7 +9,7 @@ use calyx::ir;
 
 #[test]
 fn mult_flickering_go() {
-    let mut mult = stfl::StdMultPipe::from_constants(32);
+    let mut mult = stfl::StdMultPipe::from_constants(32, false);
     port_bindings![binds;
         go -> (0, 1),
         left -> (2, 32),
@@ -31,12 +31,12 @@ fn mult_flickering_go() {
     let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     output_vals = mult.do_tick().into_iter();
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
 }
 
 #[test]
 fn test_std_mult_pipe() {
-    let mut mult = stfl::StdMultPipe::from_constants(32);
+    let mut mult = stfl::StdMultPipe::from_constants(32, false);
     port_bindings![binds;
         go -> (1, 1),
         left -> (2, 32),
@@ -46,7 +46,7 @@ fn test_std_mult_pipe() {
     //captured
     mult.validate_and_execute(&binds);
     let output_vals = mult.do_tick(); //internal q: [14, N]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
     port_bindings![binds;
         go -> (1, 1),
         left -> (3, 32),
@@ -65,7 +65,7 @@ fn test_std_mult_pipe() {
     ];
     mult.validate_and_execute(&binds);
     let output_vals = mult.do_tick(); //internal q: [N, 14]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
     port_bindings![binds;
         go -> (1, 1),
         left -> (5, 32),
@@ -80,7 +80,7 @@ fn test_std_mult_pipe() {
     assert_eq!(done.as_u64(), 1);
     //now tick 3 more times; get empty vec, 35, empty vec
     output_vals = mult.do_tick().into_iter(); //should output empty vec
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
     output_vals = mult.do_tick().into_iter(); //should output done and 35
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1;
@@ -89,12 +89,12 @@ fn test_std_mult_pipe() {
     assert_eq!(done.as_u64(), 1);
     //none (empty output vec)
     output_vals = mult.do_tick().into_iter(); //should output empty vec
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
 }
 
 #[test]
 fn test_std_div_pipe() {
-    let mut div = stfl::StdDivPipe::from_constants(32);
+    let mut div = stfl::StdDivPipe::from_constants(32, false);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -104,7 +104,7 @@ fn test_std_div_pipe() {
     //captured
     div.validate_and_execute(&binds);
     let output_vals = div.do_tick(); //internal q: [(2, 6), N]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -123,7 +123,7 @@ fn test_std_div_pipe() {
     // to the queue!
     div.validate_and_execute(&binds);
     let output_vals = div.do_tick(); //internal q: [N, (2, 6)]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -143,7 +143,7 @@ fn test_std_div_pipe() {
     assert_eq!(done.as_u64(), 1);
     //internal q: [(4, 0), N]
     output_vals = div.do_tick().into_iter(); //give none
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
     //internal q: [N, (4, 0)]
     output_vals = div.do_tick().into_iter(); //out_q : 4, out_r: 0
     assert_eq!(output_vals.len(), 3);
@@ -156,7 +156,7 @@ fn test_std_div_pipe() {
     //let done = output_vals.next().unwrap().1;
     //none (empty output vec)
     output_vals = div.do_tick().into_iter(); //should output done and 14
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
 }
 
 #[test]
