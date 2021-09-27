@@ -1,6 +1,9 @@
 /// Define a primitive
 ///
-/// ```ignore
+/// ```
+///  # use interp::comb_primitive;
+///  # use interp::values::Value;
+///  # use interp::primitives::Primitive;
 /// comb_primitive!(StdAdd[width](left: width, right: width) -> (out: width) {
 ///   let left_64 = left.as_u64();
 ///   let right_64 = right.as_u64();
@@ -8,7 +11,7 @@
 ///   let bitwidth: usize = left.vec.len();
 ///   Value::from(init_val, bitwidth).into()
 /// });
-/// # }
+///
 /// ```
 /// The macro implementes the [[Primitive]] trait for the struct as well as
 /// `StdAdd::new(bindings: ir::Params)` and `StdAdd::from_constants(ports)`
@@ -51,7 +54,7 @@ macro_rules! comb_primitive {
         impl Primitive for $name {
 
             //null-op; comb don't use do_tick()
-            fn do_tick(&mut self) -> Vec<(calyx::ir::Id, crate::values::Value)>{
+            fn do_tick(&mut self) -> Vec<(calyx::ir::Id, $crate::values::Value)>{
                 vec![]
             }
 
@@ -59,7 +62,7 @@ macro_rules! comb_primitive {
 
             fn validate(
                 &self,
-                inputs: &[(calyx::ir::Id, &crate::values::Value)]
+                inputs: &[(calyx::ir::Id, &$crate::values::Value)]
             ) {
                 for (id, v) in inputs {
                     match id.as_ref() {
@@ -72,12 +75,12 @@ macro_rules! comb_primitive {
             #[allow(non_snake_case,unused)]
             fn execute(
                 &mut self,
-                inputs: &[(calyx::ir::Id, &crate::values::Value)],
+                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
             ) -> Vec<(calyx::ir::Id, Value)> {
 
                 #[derive(Default)]
                 struct Ports<'a> {
-                    $( $port: Option<&'a crate::values::Value> ),+
+                    $( $port: Option<&'a $crate::values::Value> ),+
                 }
 
                 let mut base = Ports::default();
@@ -110,7 +113,7 @@ macro_rules! comb_primitive {
             // Combinational components cannot be reset
             fn reset(
                 &mut self,
-                inputs: &[(calyx::ir::Id, &crate::values::Value)],
+                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
             ) -> Vec<(calyx::ir::Id, Value)> {
                 self.execute(inputs)
             }
