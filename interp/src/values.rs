@@ -139,7 +139,7 @@ impl Value {
     pub fn signed_value_fits_in(&self, width: usize) -> bool {
         self.vec.len() <= width // obviously fits then
         || (self.vec.ends_with(bits![0]) && self.unsigned_value_fits_in(width - 1)) // positive value (technically wastes a check)
-        || (self.vec.ends_with(bits![1]) && self.vec.len() - self.vec.trailing_ones() < width)
+        || (self.vec.ends_with(bits![1]) && ((self.vec.len() - self.vec.trailing_ones()) < width) || self.vec.trailing_ones() == 0)
         // negative value greater than or equal to lowest in new width
     }
 

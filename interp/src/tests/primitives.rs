@@ -1439,3 +1439,119 @@ fn test_std_le_panic() {
     ];
     std_le.validate_and_execute(&binds);
 }
+
+#[cfg(test)]
+mod property_tests {
+    use crate::port_bindings;
+    use crate::primitives::combinational;
+    use crate::primitives::stateful;
+    use crate::primitives::Primitive;
+
+    use proptest::prelude::*;
+
+    macro_rules! extract_output {
+        ($input:ident, $target:literal) => {
+            ($input)
+                .iter()
+                .find(|(x, _y)| x == $target)
+                .map(|(_x, y)| y)
+                .unwrap()
+        };
+    }
+
+    proptest! {
+        #[test]
+        fn std_add(in_left: u128, in_right: u128) {
+            let mut adder = combinational::StdAdd::from_constants(128);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128)
+            ];
+
+            let out_res = adder.execute(&binds);
+            let out = extract_output!(out_res, "out");
+            assert_eq!(out.as_u128(), u128::wrapping_add(in_left, in_right))
+        }
+
+        #[test]
+        fn std_sub(in_left: u128, in_right: u128) {
+            let mut sub = combinational::StdSub::from_constants(128);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128)
+            ];
+
+            let out_res = sub.execute(&binds);
+            let out = extract_output!(out_res, "out");
+            assert_eq!(out.as_u128(), u128::wrapping_sub(in_left, in_right))
+        }
+
+        #[test]
+        fn std_mult(in_left: u64, in_right: u64){
+            let mut mult = stateful::StdMultPipe::from_constants(64, false);
+            port_bindings![binds;
+            left -> (in_left, 64),
+            right -> (in_right, 64),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out");
+            assert_eq!(out.as_u64(),u64::wrapping_mul(in_left, in_right))
+        }
+
+        #[test]
+        fn std_smult(in_left: i64, in_right: i64){
+            let mut mult = stateful::StdMultPipe::from_constants(64, true);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out");
+            assert_eq!(out.as_i64(), i64::wrapping_mul(in_left, in_right))
+        }
+
+        #[test]
+        fn std_div(in_left: u64, in_right in (1..u64::MAX)) {
+            let mut mult = stateful::StdDivPipe::from_constants(64, false);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out_quotient");
+            let remainder = extract_output!(output, "out_remainder");
+            assert_eq!(out.as_u64(), in_left / in_right);
+            assert_eq!(remainder.as_u64(), in_left % in_right);
+        }
+
+        #[test]
+        fn std_sdiv(in_left: i64, in_right in (i64::MIN..i64::MAX).prop_filter("non-zero", |v| *v != 0_i64))  {
+            let mut mult = stateful::StdDivPipe::from_constants(64, true);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out_quotient");
+            let remainder = extract_output!(output, "out_remainder");
+            assert_eq!(out.as_i64(),i64::wrapping_div(in_left, in_right));
+            assert_eq!(remainder.as_i64(), in_left % in_right);
+        }
+    }
+}

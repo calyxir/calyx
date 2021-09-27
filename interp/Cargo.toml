@@ -21,8 +21,7 @@ rustyline = "8.2.0"
 thiserror = "1.0.26"
 
 [dev-dependencies]
-quickcheck = "1.0.3"
-quickcheck_macros = "1.0.0"
+proptest = "1.0.0"
 
 [dependencies.serde_with]
 version = "1.6.4"

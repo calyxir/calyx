@@ -132,6 +132,16 @@ macro_rules! in_fix {
 }
 
 #[macro_export]
+macro_rules! lit_or_id {
+    ($lit:literal) => {
+        $lit;
+    };
+    ($name:ident) => {
+        $name;
+    };
+}
+
+#[macro_export]
 /// Helper macro to generate port bindings.
 /// ```ignore
 /// port_bindings![
@@ -140,8 +150,8 @@ macro_rules! in_fix {
 /// ]
 /// ```
 macro_rules! port_bindings {
-    ( $binds: ident; $( $port: ident -> ($val: literal, $width: literal) ),+ ) => {
-        $( let $port = crate::values::Value::from($val, $width); )+
+    ( $binds: ident; $( $port: ident -> ($val: tt, $width: tt) ),+ ) => {
+        $( let $port = crate::values::Value::from($crate::lit_or_id!($val), $crate::lit_or_id!($width)); )+
         let $binds = vec![ $( (calyx::ir::Id::from(crate::in_fix!($port)), &$port) ),+ ];
     }
 }

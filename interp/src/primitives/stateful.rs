@@ -96,9 +96,15 @@ impl Primitive for StdMultPipe {
         //continue computation
         if go.as_u64() == 1 {
             let value = if self.signed {
-                Value::from(left.as_i64() * right.as_i64(), self.width)
+                Value::from(
+                    left.as_i64().wrapping_mul(right.as_i64()),
+                    self.width,
+                )
             } else {
-                Value::from(left.as_u64() * right.as_u64(), self.width)
+                Value::from(
+                    left.as_u64().wrapping_mul(right.as_u64()),
+                    self.width,
+                )
             };
             self.update = Some(value);
         } else {
