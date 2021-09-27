@@ -242,6 +242,7 @@ jobs:
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec './target/debug/futil'
         fud register mrxl -p '/home/runner/work/calyx/calyx/frontends/mrxl/fud/mrxl.py'
+        fud register ntt -p '/home/runner/work/calyx/calyx/frontends/ntt-pipeline/fud/ntt.py'
         fud config
     - name: Build
       uses: actions-rs/cargo@v1

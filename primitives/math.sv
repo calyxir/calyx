@@ -69,9 +69,11 @@ module fp_sqrt #(
     end
 
     // Latch for final value.
-    always_latch @(posedge clk) begin
+    always_ff @(posedge clk) begin
       if (idx == ITERATIONS-1) begin
         out <= quotient_next;
+      end else begin
+        out <= out;
       end
     end
 

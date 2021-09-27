@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: 
+Error: tests/errors/papercut/cell-and-group-conflict.futil
 9 |    group incr {
   |          ^^^^ Name already bound by cell

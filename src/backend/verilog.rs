@@ -97,11 +97,9 @@ impl Backend for VerilogBackend {
         ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
-        for extern_path in &ctx.lib.paths {
-            let mut ext = File::open(extern_path).map_err(|err| {
-                let std::io::Error { .. } = err;
-                Error::WriteError(format!("File not found: {}", extern_path))
-            })?;
+        for extern_path in ctx.lib.extern_paths() {
+            // The extern file is guaranteed to exist by the frontend.
+            let mut ext = File::open(extern_path).unwrap();
             io::copy(&mut ext, &mut file.get_write()).map_err(|err| {
                 let std::io::Error { .. } = err;
                 Error::WriteError(format!(
@@ -120,8 +118,9 @@ impl Backend for VerilogBackend {
             .map(|comp| {
                 emit_component(
                     comp,
-                    ctx.synthesis_mode,
-                    ctx.enable_verification,
+                    ctx.bc.synthesis_mode,
+                    ctx.bc.enable_verification,
+                    ctx.bc.initialize_inputs,
                 )
                 .to_string()
             })
@@ -142,6 +141,7 @@ fn emit_component(
     comp: &ir::Component,
     synthesis_mode: bool,
     enable_verification: bool,
+    initialize_inputs: bool,
 ) -> v::Module {
     let mut module = v::Module::new(comp.name.as_ref());
     let sig = comp.signature.borrow();
@@ -177,24 +177,21 @@ fn emit_component(
     wires.iter().for_each(|(name, width, _)| {
         module.add_decl(v::Decl::new_logic(name, *width));
     });
-    let mut initial = v::ParallelProcess::new_initial();
-    wires.iter().for_each(|(name, width, dir)| {
-        if *dir == ir::Direction::Input {
-            // HACK: this is not the right way to reset
-            // registers. we should have real reset ports.
-            let value = String::from("0");
-            // let value = if name.contains("write_en") {
-            //     String::from("0")
-            // } else {
-            //     String::from("0")
-            // };
-            initial.add_seq(v::Sequential::new_blk_assign(
-                v::Expr::new_ref(name),
-                v::Expr::new_ulit_dec(*width as u32, &value),
-            ));
-        }
-    });
-    module.add_process(initial);
+    if initialize_inputs {
+        let mut initial = v::ParallelProcess::new_initial();
+        wires.iter().for_each(|(name, width, dir)| {
+            if *dir == ir::Direction::Input {
+                // HACK: this is not the right way to reset
+                // registers. we should have real reset ports.
+                let value = String::from("0");
+                initial.add_seq(v::Sequential::new_blk_assign(
+                    v::Expr::new_ref(name),
+                    v::Expr::new_ulit_dec(*width as u32, &value),
+                ));
+            }
+        });
+        module.add_process(initial);
+    }
 
     // cell instances
     comp.cells
@@ -408,11 +405,9 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 //==========================================
 /// Generates code of the form:
 /// ```
-/// import "DPI-C" function string futil_getenv (input string env_var);
-/// string DATA;
 /// initial begin
-///   DATA = futil_getenv("DATA");
-///   $fdisplay(2, "DATA: %s", DATA);
+///   $value$plusargs("DATA=%s", DATA);
+///   $display("DATA: %s", DATA);
 ///   $readmemh({DATA, "/<mem_name>.dat"}, <mem_name>.mem);
 ///   ...
 /// end
@@ -422,24 +417,19 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 /// ```
 fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     // Import futil helper library.
-    let import_stmt = v::Stmt::new_rawstr(
-        "import \"DPI-C\" function string futil_getenv (input string env_var);"
-            .to_string(),
-    );
     let data_decl = v::Stmt::new_rawstr("string DATA;".to_string());
 
     let mut initial_block = v::ParallelProcess::new_initial();
     initial_block
         // get the data
-        .add_seq(v::Sequential::new_blk_assign(
-            v::Expr::new_ref("DATA"),
-            v::Expr::new_call("futil_getenv", vec![v::Expr::new_str("DATA")]),
-        ))
+        .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
+            "$value$plusargs",
+            vec![v::Expr::new_str("DATA=%s"), v::Expr::new_ref("DATA")],
+        )))
         // log the path to the data
         .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
-            "$fdisplay",
+            "$display",
             vec![
-                v::Expr::new_int(2),
                 v::Expr::new_str("DATA (path to meminit files): %s"),
                 v::Expr::new_ref("DATA"),
             ],
@@ -492,7 +482,6 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     });
 
     vec![
-        import_stmt,
         data_decl,
         v::Stmt::new_parallel(v::Parallel::new_process(initial_block)),
         v::Stmt::new_parallel(v::Parallel::new_process(final_block)),

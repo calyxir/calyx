@@ -17,7 +17,8 @@ requires = [
          "termcolor",
          "packaging",
          "numpy",
-         "simplejson"
+         "simplejson",
+         "networkx"
 ]
 
 [tool.flit.metadata.requires-extra]

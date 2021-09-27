@@ -144,7 +144,7 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals);
+                    prim.initialize_memory(vals).unwrap();
                 }
                 prim
             }
@@ -156,7 +156,7 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals);
+                    prim.initialize_memory(vals).unwrap();
                 }
                 prim
             }
@@ -168,7 +168,7 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals);
+                    prim.initialize_memory(vals).unwrap();
                 }
                 prim
             }
@@ -180,7 +180,7 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals);
+                    prim.initialize_memory(vals).unwrap();
                 }
                 prim
             }

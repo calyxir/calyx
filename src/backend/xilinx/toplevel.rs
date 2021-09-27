@@ -23,7 +23,7 @@ impl Backend for XilinxInterfaceBackend {
     }
 
     fn link_externs(
-        _prog: &ir::Context,
+        _lib: &ir::Context,
         _write: &mut calyx::utils::OutputFile,
     ) -> CalyxResult<()> {
         Ok(())

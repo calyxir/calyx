@@ -5,6 +5,7 @@
   - [Examples](./fud/examples.md)
   - [Vivado Tools](./fud/synthesis.md)
   - [External Stages](./fud/external.md)
+  - [Multiple Paths](./fud/multiple-paths.md)
 - [The Calyx Compiler](./compiler.md)
   - [Primitive Library](./libraries/core.md)
 - [The Calyx Interpreter](./interpreter.md)

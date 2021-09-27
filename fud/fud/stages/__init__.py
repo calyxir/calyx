@@ -175,22 +175,24 @@ class Stage:
             # the modified function that the decorator creates
             def wrapper(*args):
 
-                # check to make sure the num of args match the num of expected args
+                # check to make sure the num of args match the num of expected
+                # args
                 if len(args) != len(input_types):
                     raise Exception(
-                        "Expected {} input arguments, but only recieved {}".format(
-                            len(input_types), len(args)
-                        )
+                        f"Expected {len(input_types)} input arguments,"
+                        + " but only recieved {len(args)}"
                     )
 
-                # make sure that the args are convertible to expected input types
+                # make sure that the args are convertible to expected input
+                # types
                 for arg, inp in zip(args, input_types):
                     if arg.typ != inp and not arg.is_convertible_to(inp):
                         raise Exception(
                             f"Type mismatch: can't convert {arg.typ} to {inp}"
                         )
 
-                # create a source with no data so that we can return a handle to this
+                # create a source with no data so that we can return a handle
+                # to this
                 future_output = Source(None, output_types)
                 # convert the args to the right types and unwrap them
                 unwrapped_args = map(

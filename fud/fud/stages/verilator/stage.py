@@ -25,12 +25,6 @@ class VerilatorStage(Stage):
                 / "sim"
                 / "testbench.cpp"
             ),
-            str(
-                Path(self.config["global", "futil_directory"])
-                / "fud"
-                / "sim"
-                / "wrapper.cpp"
-            ),
         ]
         self.data_path = self.config["stages", self.name, "data"]
         self.setup()
@@ -102,12 +96,12 @@ class VerilatorStage(Stage):
             """
             return shell(
                 [
-                    f"DATA={tmpdir.name}",
                     f"{tmpdir.name}/Vmain",
                     f"{tmpdir.name}/output.vcd",
                     str(self.config["stages", self.name, "cycle_limit"]),
                     # Don't trace if we're only looking at memory outputs
                     "--trace" if self.vcd else "",
+                    f"+DATA={tmpdir.name}",
                 ]
             )
 

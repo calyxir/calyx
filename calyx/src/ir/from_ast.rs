@@ -1,11 +1,11 @@
 use super::{
-    Assignment, Attributes, Builder, CellType, Component, Context, Control,
-    Direction, GetAttributes, Guard, Id, LibrarySignatures, Port, PortDef,
-    Width, RRC,
+    Assignment, Attributes, BackendConf, Builder, CellType, Component, Context,
+    Control, Direction, GetAttributes, Guard, Id, LibrarySignatures, Port,
+    PortDef, Width, RRC,
 };
 use crate::{
     errors::{CalyxResult, Error},
-    frontend::ast,
+    frontend::{self, ast},
     utils::NameGenerator,
 };
 use linked_hash_map::LinkedHashMap;
@@ -90,19 +90,18 @@ fn extend_signature(sig: &mut Vec<PortDef>) {
 
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(
-    mut namespace: ast::NamespaceDef,
-    synthesis_mode: bool,
-    enable_verification: bool,
+    mut workspace: frontend::Workspace,
+    bc: BackendConf,
 ) -> CalyxResult<Context> {
     let mut all_names: HashSet<&Id> = HashSet::with_capacity(
-        namespace.components.len() + namespace.externs.len(),
+        workspace.components.len() + workspace.externs.len(),
     );
 
-    let prim_names = namespace
+    let prim_names = workspace
         .externs
         .iter()
         .flat_map(|(_, prims)| prims.iter().map(|prim| &prim.name));
-    let comp_names = namespace.components.iter().map(|comp| &comp.name);
+    let comp_names = workspace.components.iter().map(|comp| &comp.name);
 
     for bound in prim_names.chain(comp_names) {
         if all_names.contains(bound) {
@@ -116,12 +115,12 @@ pub fn ast_to_ir(
 
     // Build the signature context
     let mut sig_ctx = SigCtx {
-        lib: namespace.externs.into(),
+        lib: workspace.externs.into(),
         ..Default::default()
     };
 
-    // Add component signatures to context
-    for comp in &mut namespace.components {
+    // Add declarations to context
+    for comp in &mut workspace.declarations {
         check_signature(&comp.signature)?;
         // extend the signature
         extend_signature(&mut comp.signature);
@@ -130,7 +129,16 @@ pub fn ast_to_ir(
             .insert(comp.name.clone(), comp.signature.clone());
     }
 
-    let comps = namespace
+    // Add components to context
+    for comp in &mut workspace.components {
+        check_signature(&comp.signature)?;
+        // extend the signature
+        extend_signature(&mut comp.signature);
+        sig_ctx
+            .comp_sigs
+            .insert(comp.name.clone(), comp.signature.clone());
+    }
+    let comps = workspace
         .components
         .into_iter()
         .map(|comp| build_component(comp, &sig_ctx))
@@ -139,9 +147,7 @@ pub fn ast_to_ir(
     Ok(Context {
         components: comps,
         lib: sig_ctx.lib,
-        imports: namespace.imports,
-        enable_verification,
-        synthesis_mode,
+        bc,
         extra_opts: vec![],
     })
 }

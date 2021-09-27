@@ -17,9 +17,9 @@ pub trait Backend {
         write: &mut OutputFile,
     ) -> CalyxResult<()>;
     /// Convience function to validate and emit the program.
-    fn run(&self, prog: &ir::Context, mut file: OutputFile) -> CalyxResult<()> {
-        Self::validate(prog)?;
-        Self::link_externs(prog, &mut file)?;
-        Self::emit(prog, &mut file)
+    fn run(&self, prog: ir::Context, mut file: OutputFile) -> CalyxResult<()> {
+        Self::validate(&prog)?;
+        Self::link_externs(&prog, &mut file)?;
+        Self::emit(&prog, &mut file)
     }
 }

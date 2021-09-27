@@ -49,7 +49,9 @@ def logging_setup(args):
     elif args.verbose >= 2:
         level = log.DEBUG
 
-    log.basicConfig(format="%(levelname)s: %(message)s", stream=sys.stderr, level=level)
+    log.basicConfig(
+        format="[fud] %(levelname)s: %(message)s", stream=sys.stderr, level=level
+    )
 
     try:
         import paramiko
@@ -74,6 +76,9 @@ class TmpDir(Directory):
 
     def remove(self):
         self.tmpdir_obj.cleanup()
+
+    def __str__(self):
+        return self.name
 
 
 class Conversions:

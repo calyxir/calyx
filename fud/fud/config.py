@@ -102,6 +102,18 @@ class DynamicDict:
             data = data[k]
         return data
 
+    def get(self, keys):
+        if isinstance(keys, str):
+            keys = (keys,)
+
+        data = self.data
+        for k in keys:
+            data = data.get(k)
+            if data is None:
+                return None
+
+        return data
+
     def __setitem__(self, keys, val):
         if isinstance(keys, str):
             keys = (keys,)
@@ -256,6 +268,9 @@ class Configuration:
             return self.config[keys]
         except KeyError:
             raise errors.UnsetConfiguration(keys)
+
+    def get(self, keys):
+        return self.config.get(keys)
 
     def __setitem__(self, keys, val):
         self.config[keys] = val

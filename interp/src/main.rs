@@ -34,6 +34,11 @@ pub struct Opts {
     #[argh(option, long = "data", short = 'd', from_str_fn(read_path))]
     pub data_file: Option<PathBuf>,
 
+    #[argh(switch, long = "no-verify")]
+    /// flag to bypass verification checks before running the program
+    /// note: the interpreter will not behave correctly on malformed input
+    skip_verification: bool,
+
     #[argh(subcommand)]
     comm: Option<Command>,
 }
@@ -82,12 +87,14 @@ fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
     // Construct IR
-    let namespace = frontend::NamespaceDef::new(&opts.file, &opts.lib_path)?;
-    let ir = ir::from_ast::ast_to_ir(namespace, false, false)?;
+    let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
+    let ir = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
     let ctx = ir::RRC::new(RefCell::new(ir));
     let pm = PassManager::default_passes()?;
 
-    pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
+    if !opts.skip_verification {
+        pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
+    }
 
     let ctx_ref: &ir::Context = &ctx.borrow();
     let components = ctx_ref.components.iter();

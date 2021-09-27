@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: 
+Error: tests/errors/duplicate-cells.futil
 6 |    r = std_reg(32);
   |    ^ Name already bound by cell
