@@ -72,19 +72,21 @@ def futil_extract(directory):
         f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
 
         # Insert info into resourceInfo
-        resourceInfo.update({
-            "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
-            "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
-            "meet_timing": int(meet_timing),
-            "registers": rtl_component_extract(directory, "Registers"),
-            "muxes": rtl_component_extract(directory, "Muxes"),
-            "clb_registers": clb_reg,
-            "carry8": carry8,
-            "f7_muxes": f7_muxes,
-            "f8_muxes": f8_muxes,
-            "f9_muxes": f9_muxes,
-            "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
-        })
+        resourceInfo.update(
+            {
+                "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
+                "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
+                "meet_timing": int(meet_timing),
+                "registers": rtl_component_extract(directory, "Registers"),
+                "muxes": rtl_component_extract(directory, "Muxes"),
+                "clb_registers": clb_reg,
+                "carry8": carry8,
+                "f7_muxes": f7_muxes,
+                "f8_muxes": f8_muxes,
+                "f9_muxes": f9_muxes,
+                "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
+            }
+        )
 
     except Exception:
         traceback.print_exc()
@@ -102,15 +104,17 @@ def futil_extract(directory):
         cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
 
         # Insert info into resourceInfo
-        resourceInfo.update({
-            "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
-            "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
-            "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
-            "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
-            "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
-            "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
-            "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
-        })
+        resourceInfo.update(
+            {
+                "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
+                "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
+                "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
+                "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
+                "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
+                "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
+                "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
+            }
+        )
     except Exception:
         traceback.print_exc()
         print("Synthesis files weren't found, skipping.", file=sys.stderr)
