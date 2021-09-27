@@ -67,6 +67,12 @@ jobs:
         command: test
         args: --manifest-path interp/Cargo.toml
 
+    - name: Source code doc tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test --doc
+        args: --manifest-path interp/Cargo.toml
+
     - name: Runt tests
       run: |
         # Run the remaining tests
