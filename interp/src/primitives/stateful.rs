@@ -19,25 +19,27 @@ pub struct StdMultPipe {
     pub product: Value,
     update: Option<Value>,
     queue: VecDeque<Option<Value>>, //invariant: always length 2.
+    signed: bool,
 }
 
 impl StdMultPipe {
-    pub fn from_constants(width: u64) -> Self {
+    pub fn from_constants(width: u64, signed: bool) -> Self {
         StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
             update: None,
             queue: VecDeque::from(vec![None, None]),
+            signed,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, signed: bool) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width)
+        Self::from_constants(width, signed)
     }
 }
 
@@ -61,7 +63,10 @@ impl Primitive for StdMultPipe {
             ]
         } else {
             //return empty vec
-            vec![]
+            vec![
+                (ir::Id::from("out"), Value::zeroes(self.width)),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
         }
     }
     //
@@ -90,8 +95,12 @@ impl Primitive for StdMultPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            self.update =
-                Some(Value::from(left.as_u64() * right.as_u64(), self.width));
+            let value = if self.signed {
+                Value::from(left.as_i64() * right.as_i64(), self.width)
+            } else {
+                Value::from(left.as_u64() * right.as_u64(), self.width)
+            };
+            self.update = Some(value);
         } else {
             self.update = None;
         }
@@ -145,26 +154,28 @@ pub struct StdDivPipe {
     pub remainder: Value,
     update: Option<(Value, Value)>, //first is quotient, second is remainder
     queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
+    signed: bool,
 }
 
 impl StdDivPipe {
-    pub fn from_constants(width: u64) -> Self {
+    pub fn from_constants(width: u64, signed: bool) -> Self {
         StdDivPipe {
             width,
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
             update: None,
             queue: VecDeque::from(vec![None, None]),
+            signed,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, signed: bool) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width)
+        Self::from_constants(width, signed)
     }
 }
 
@@ -185,7 +196,11 @@ impl Primitive for StdDivPipe {
                 (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
-            vec![]
+            vec![
+                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
         }
     }
 
@@ -214,10 +229,18 @@ impl Primitive for StdDivPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            let q = left.as_u64() / right.as_u64();
-            let r = left.as_u64() % right.as_u64();
-            self.update =
-                Some((Value::from(q, self.width), Value::from(r, self.width)));
+            let q = if self.signed {
+                Value::from(left.as_i64() / right.as_i64(), self.width)
+            } else {
+                Value::from(left.as_u64() / right.as_u64(), self.width)
+            };
+            let r = if self.signed {
+                Value::from(left.as_i64() % right.as_i64(), self.width)
+            } else {
+                Value::from(left.as_u64() % right.as_u64(), self.width)
+            };
+
+            self.update = Some((q, r));
         } else {
             self.update = None;
         }

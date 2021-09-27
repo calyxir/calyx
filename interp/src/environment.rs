@@ -95,9 +95,21 @@ impl<'outer> InterpreterState<'outer> {
                 Box::new(combinational::StdSub::new(params))
             }
             // unsigned arith
-            "std_mult_pipe" => Box::new(stateful::StdMultPipe::new(params)),
-            "std_div_pipe" => Box::new(stateful::StdDivPipe::new(params)),
+            "std_mult_pipe" => {
+                Box::new(stateful::StdMultPipe::new(params, false))
+            }
+            "std_div_pipe" => {
+                Box::new(stateful::StdDivPipe::new(params, false))
+            }
             // signed arith
+            "std_smult_pipe" => {
+                Box::new(stateful::StdMultPipe::new(params, true))
+            }
+            "std_sdiv_pipe" => {
+                Box::new(stateful::StdMultPipe::new(params, true))
+            }
+
+            // unsigned shifts
             "std_lsh" => Box::new(combinational::StdLsh::new(params)),
             "std_rsh" => Box::new(combinational::StdRsh::new(params)),
             // Logical operators
