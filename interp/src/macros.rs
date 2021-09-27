@@ -146,15 +146,18 @@ macro_rules! lit_or_id {
 
 #[macro_export]
 /// Helper macro to generate port bindings.
-/// ```ignore
-/// port_bindings![
-///     write_en -> (1, 1),
-///     r#in -> (16, 32)
-/// ]
+/// ```
+/// # use interp::port_bindings;
+/// port_bindings![ binds;
+///   r#in -> (16, 32),
+///   write_en -> (1, 1)
+/// ];
+/// assert!(binds[1].0 == "write_en");
+/// assert!(binds[0].0 == "in");
 /// ```
 macro_rules! port_bindings {
     ( $binds: ident; $( $port: ident -> ($val: tt, $width: tt) ),+ ) => {
-        $( let $port = crate::values::Value::from($crate::lit_or_id!($val), $crate::lit_or_id!($width)); )+
-        let $binds = vec![ $( (calyx::ir::Id::from(crate::in_fix!($port)), &$port) ),+ ];
+        $( let $port = $crate::values::Value::from($crate::lit_or_id!($val), $crate::lit_or_id!($width)); )+
+        let $binds = vec![ $( (calyx::ir::Id::from($crate::in_fix!($port)), &$port) ),+ ];
     }
 }
