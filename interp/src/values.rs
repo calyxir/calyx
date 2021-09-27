@@ -346,8 +346,8 @@ impl Value {
 
     pub fn as_usize(&self) -> usize {
         assert!(
-            self.signed_value_fits_in(usize::BITS as usize),
-            "Cannot fit value into an i128"
+            self.unsigned_value_fits_in(usize::BITS as usize),
+            "Cannot fit value into an usize"
         );
 
         self.vec
