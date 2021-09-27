@@ -131,6 +131,9 @@ macro_rules! in_fix {
     };
 }
 
+/// Helper macro designed to work with port_bindings!. Exists only to break if something
+/// other than a literal or identifier is used and does not actually do anything other
+/// than return what it matches.
 #[macro_export]
 macro_rules! lit_or_id {
     ($lit:literal) => {
