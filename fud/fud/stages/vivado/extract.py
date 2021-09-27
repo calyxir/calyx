@@ -1,6 +1,7 @@
 import json
 import re
 import sys
+import traceback
 
 from fud import errors
 
@@ -51,7 +52,7 @@ def rtl_component_extract(directory, name):
 
 def futil_extract(directory):
     directory = directory / "out" / "FutilBuild.runs"
-
+    resourceInfo = {}
     try:
         impl_parser = rpt.RPTParser(
             directory / "impl_1" / "main_utilization_placed.rpt"
@@ -70,6 +71,26 @@ def futil_extract(directory):
         f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
         f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
 
+        # Insert info into resourceInfo
+        resourceInfo.update({
+            "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
+            "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
+            "meet_timing": int(meet_timing),
+            "registers": rtl_component_extract(directory, "Registers"),
+            "muxes": rtl_component_extract(directory, "Muxes"),
+            "clb_registers": clb_reg,
+            "carry8": carry8,
+            "f7_muxes": f7_muxes,
+            "f8_muxes": f8_muxes,
+            "f9_muxes": f9_muxes,
+            "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
+        })
+
+    except Exception:
+        traceback.print_exc()
+        print("Implementation files weren't found, skipping.", file=sys.stderr)
+
+    try:
         synth_parser = rpt.RPTParser(directory / "synth_1" / "runme.log")
         cell_usage_tbl = synth_parser.get_table(re.compile(r"Report Cell Usage:"), 0)
         cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
@@ -80,34 +101,21 @@ def futil_extract(directory):
         cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
         cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
 
-        return json.dumps(
-            {
-                "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
-                "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
-                "meet_timing": int(meet_timing),
-                "registers": rtl_component_extract(directory, "Registers"),
-                "muxes": rtl_component_extract(directory, "Muxes"),
-                "clb_registers": clb_reg,
-                "carry8": carry8,
-                "f7_muxes": f7_muxes,
-                "f8_muxes": f8_muxes,
-                "f9_muxes": f9_muxes,
-                "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
-                "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
-                "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
-                "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
-                "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
-                "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
-                "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
-                "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
-            },
-            indent=2,
-        )
+        # Insert info into resourceInfo
+        resourceInfo.update({
+            "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
+            "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
+            "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
+            "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
+            "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
+            "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
+            "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
+        })
     except Exception:
-        import traceback
-
         traceback.print_exc()
         print("Synthesis files weren't found, skipping.", file=sys.stderr)
+
+    return json.dumps(resourceInfo, indent=2)
 
 
 def hls_extract(directory):
