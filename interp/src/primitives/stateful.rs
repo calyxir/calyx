@@ -15,36 +15,34 @@ use std::collections::VecDeque;
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
 #[derive(Default)]
-pub struct StdMultPipe {
+pub struct StdMultPipe<const SIGNED: bool> {
     pub width: u64,
     pub product: Value,
     update: Option<Value>,
     queue: VecDeque<Option<Value>>, //invariant: always length 2.
-    signed: bool,
 }
 
-impl StdMultPipe {
-    pub fn from_constants(width: u64, signed: bool) -> Self {
+impl<const SIGNED: bool> StdMultPipe<SIGNED> {
+    pub fn from_constants(width: u64) -> Self {
         StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
             update: None,
             queue: VecDeque::from(vec![None, None]),
-            signed,
         }
     }
 
-    pub fn new(params: &ir::Binding, signed: bool) -> Self {
+    pub fn new(params: &ir::Binding) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width, signed)
+        Self::from_constants(width)
     }
 }
 
-impl Primitive for StdMultPipe {
+impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let out = self.queue.pop_back();
         //push update to the front
@@ -96,7 +94,7 @@ impl Primitive for StdMultPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            let value = if self.signed {
+            let value = if SIGNED {
                 Value::from(
                     left.as_i64().wrapping_mul(right.as_i64()),
                     self.width,
@@ -155,38 +153,36 @@ impl Primitive for StdMultPipe {
 ///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
 ///the last set of inputs prior to the [do_tick()] will be saved.
 #[derive(Default)]
-pub struct StdDivPipe {
+pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
     pub remainder: Value,
     update: Option<(Value, Value)>, //first is quotient, second is remainder
     queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
-    signed: bool,
 }
 
-impl StdDivPipe {
-    pub fn from_constants(width: u64, signed: bool) -> Self {
+impl<const SIGNED: bool> StdDivPipe<SIGNED> {
+    pub fn from_constants(width: u64) -> Self {
         StdDivPipe {
             width,
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
             update: None,
             queue: VecDeque::from(vec![None, None]),
-            signed,
         }
     }
 
-    pub fn new(params: &ir::Binding, signed: bool) -> Self {
+    pub fn new(params: &ir::Binding) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width, signed)
+        Self::from_constants(width)
     }
 }
 
-impl Primitive for StdDivPipe {
+impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let out = self.queue.pop_back();
         self.queue.push_front(self.update.take());
@@ -236,12 +232,12 @@ impl Primitive for StdDivPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            let q = if self.signed {
+            let q = if SIGNED {
                 Value::from(left.as_i64() / right.as_i64(), self.width)
             } else {
                 Value::from(left.as_u64() / right.as_u64(), self.width)
             };
-            let r = if self.signed {
+            let r = if SIGNED {
                 Value::from(left.as_i64() % right.as_i64(), self.width)
             } else {
                 Value::from(left.as_u64() % right.as_u64(), self.width)

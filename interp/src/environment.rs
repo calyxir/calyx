@@ -96,17 +96,17 @@ impl<'outer> InterpreterState<'outer> {
             }
             // unsigned arith
             "std_mult_pipe" => {
-                Box::new(stateful::StdMultPipe::new(params, false))
+                Box::new(stateful::StdMultPipe::<false>::new(params))
             }
             "std_div_pipe" => {
-                Box::new(stateful::StdDivPipe::new(params, false))
+                Box::new(stateful::StdDivPipe::<false>::new(params))
             }
             // signed arith
             "std_smult_pipe" => {
-                Box::new(stateful::StdMultPipe::new(params, true))
+                Box::new(stateful::StdMultPipe::<true>::new(params))
             }
             "std_sdiv_pipe" => {
-                Box::new(stateful::StdMultPipe::new(params, true))
+                Box::new(stateful::StdMultPipe::<true>::new(params))
             }
 
             // unsigned shifts
