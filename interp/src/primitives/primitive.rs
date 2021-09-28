@@ -91,6 +91,9 @@ impl From<(usize, usize, usize, usize)> for Shape {
     }
 }
 
+/// A wrapper enum used during serialization. It represents either an unsigned integer,
+/// or a signed integer and is serialized as the underlying integer. This also allows
+/// mixed serialization of signed and unsigned values
 #[derive(Serialize, Clone)]
 #[serde(untagged)]
 pub enum Entry {
