@@ -52,7 +52,7 @@ def rtl_component_extract(directory, name):
 
 def futil_extract(directory):
     directory = directory / "out" / "FutilBuild.runs"
-    # The resource information is extracted first for the implementation files, and 
+    # The resource information is extracted first for the implementation files, and
     # then for the synthesis files. This is dones separately in case users want to
     # solely use one or the other.
     resourceInfo = {}
