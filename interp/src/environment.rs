@@ -2,7 +2,9 @@
 
 use super::errors::{InterpreterError, InterpreterResult};
 use super::interpreter::ComponentInterpreter;
-use super::primitives::{combinational, stateful, Primitive, Serializeable};
+use super::primitives::{
+    combinational, stateful, Entry, Primitive, Serializeable,
+};
 use super::stk_env::Smoosher;
 use super::utils::AsRaw;
 use super::utils::MemoryMap;
@@ -84,26 +86,56 @@ impl<'outer> InterpreterState<'outer> {
         mems: &Option<MemoryMap>,
     ) -> Box<dyn Primitive> {
         match prim_name.as_ref() {
-            "std_add" => Box::new(combinational::StdAdd::new(params)),
-            "std_sub" => Box::new(combinational::StdSub::new(params)),
+            "std_const" => Box::new(combinational::StdConst::new(params)),
+            // unsigned and signed basic arith
+            "std_add" | "std_sadd" => {
+                Box::new(combinational::StdAdd::new(params))
+            }
+            "std_sub" | "std_ssub" => {
+                Box::new(combinational::StdSub::new(params))
+            }
+            // unsigned arith
+            "std_mult_pipe" => {
+                Box::new(stateful::StdMultPipe::<false>::new(params))
+            }
+            "std_div_pipe" => {
+                Box::new(stateful::StdDivPipe::<false>::new(params))
+            }
+            // signed arith
+            "std_smult_pipe" => {
+                Box::new(stateful::StdMultPipe::<true>::new(params))
+            }
+            "std_sdiv_pipe" => {
+                Box::new(stateful::StdMultPipe::<true>::new(params))
+            }
+
+            // unsigned shifts
             "std_lsh" => Box::new(combinational::StdLsh::new(params)),
             "std_rsh" => Box::new(combinational::StdRsh::new(params)),
+            // Logical operators
             "std_and" => Box::new(combinational::StdAnd::new(params)),
             "std_or" => Box::new(combinational::StdOr::new(params)),
             "std_xor" => Box::new(combinational::StdXor::new(params)),
+            "std_not" => Box::new(combinational::StdNot::new(params)),
+            // Unsigned Comparsion
             "std_ge" => Box::new(combinational::StdGe::new(params)),
             "std_le" => Box::new(combinational::StdLe::new(params)),
             "std_lt" => Box::new(combinational::StdLt::new(params)),
             "std_gt" => Box::new(combinational::StdGt::new(params)),
             "std_eq" => Box::new(combinational::StdEq::new(params)),
             "std_neq" => Box::new(combinational::StdNeq::new(params)),
-            "std_not" => Box::new(combinational::StdNot::new(params)),
+            // Signed Comparison
+            "std_sge" => Box::new(combinational::StdSge::new(params)),
+            "std_sle" => Box::new(combinational::StdSle::new(params)),
+            "std_slt" => Box::new(combinational::StdSlt::new(params)),
+            "std_sgt" => Box::new(combinational::StdSgt::new(params)),
+            "std_seq" => Box::new(combinational::StdSeq::new(params)),
+            "std_sneq" => Box::new(combinational::StdSneq::new(params)),
+            // Resizing ops
             "std_slice" => Box::new(combinational::StdSlice::new(params)),
             "std_pad" => Box::new(combinational::StdPad::new(params)),
+            // State components
             "std_reg" => Box::new(stateful::StdReg::new(params)),
-            "std_mult_pipe" => Box::new(stateful::StdMultPipe::new(params)),
-            "std_div_pipe" => Box::new(stateful::StdDivPipe::new(params)),
-            "std_const" => Box::new(combinational::StdConst::new(params)),
             "std_mem_d1" => {
                 let mut prim = Box::new(stateful::StdMemD1::new(params));
 
@@ -226,10 +258,7 @@ impl<'outer> InterpreterState<'outer> {
                 ir::CellType::Constant { val, width } => {
                     for port in &cll.ports {
                         let pt: &ir::Port = &port.borrow();
-                        map.insert(
-                            pt as ConstPort,
-                            Value::from(*val, *width).unwrap(),
-                        );
+                        map.insert(pt as ConstPort, Value::from(*val, *width));
                     }
                 }
                 ir::CellType::Primitive { .. } => {
@@ -240,8 +269,7 @@ impl<'outer> InterpreterState<'outer> {
                             Value::from(
                                 cll.get_parameter("VALUE").unwrap_or_default(),
                                 pt.width,
-                            )
-                            .unwrap(),
+                            ),
                         );
                     }
                 }
@@ -413,7 +441,7 @@ impl<'outer> Serialize for InterpreterState<'outer> {
 #[derive(Serialize, Clone)]
 /// Struct to fully serialize the internal state of the environment
 pub struct FullySerialize {
-    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, u64>>>,
+    ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, Entry>>>,
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
 }
 
@@ -544,9 +572,19 @@ impl<'a, 'outer> StateView<'a, 'outer> {
                             .ports
                             .iter()
                             .map(|port| {
+                                let value = self.lookup(port.as_raw());
+
                                 (
                                     port.borrow().name.clone(),
-                                    self.lookup(port.as_raw()).as_u64(),
+                                    if port
+                                        .borrow()
+                                        .attributes
+                                        .has("interp_signed")
+                                    {
+                                        value.as_i64().into()
+                                    } else {
+                                        value.as_u64().into()
+                                    },
                                 )
                             })
                             .collect();
@@ -573,7 +611,11 @@ impl<'a, 'outer> StateView<'a, 'outer> {
                                 if !prim.is_comb() {
                                     return Some((
                                         cell.name().clone(),
-                                        Primitive::serialize(&**prim),
+                                        Primitive::serialize(
+                                            &**prim,
+                                            cell.get_attribute("interp_signed")
+                                                .is_some(),
+                                        ),
                                     ));
                                 }
                             }

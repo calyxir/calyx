@@ -747,6 +747,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// good:
     /// ```
     /// use interp::stk_env::Smoosher;
+    /// use std::collections::HashSet;
     /// let mut a = Smoosher::new();
     /// a.set("hello", 15);
     /// a.set("hi!", 1);
@@ -763,7 +764,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// lst.push(b);
     /// lst.push(c);
     /// lst.push(e);
-    /// let d = Smoosher::merge_many(a, lst);
+    /// let d = Smoosher::merge_many(a, lst, &HashSet::new()).unwrap();
     /// assert_eq!(*d.get(&"privet").unwrap(), 11);
     /// assert_eq!(*d.get(&"hi!").unwrap(), 3);
     /// assert_eq!(*d.get(&"bye").unwrap(), 2);
@@ -772,6 +773,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     /// will panic:
     /// ```should_panic
+    /// use std::collections::HashSet;
     /// use interp::stk_env::Smoosher;
     /// let mut a = Smoosher::new();
     /// a.set("hello", 15);
@@ -786,7 +788,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// let mut lst = Vec::new();
     /// lst.push(b);
     /// lst.push(c);
-    /// let d = Smoosher::merge_many(a, lst); //a and b has a different fork point
+    /// let d = Smoosher::merge_many(a, lst, &HashSet::new()); //a and b has a different fork point
     //from a and c
     /// ```
     pub fn merge_many(
@@ -1082,8 +1084,8 @@ mod priv_tests {
     #[test]
     fn value_shared_fork_point() {
         let mut smoosher = Smoosher::new();
-        smoosher.set("a", Value::from(2, 32).unwrap()); //for type inference
-                                                        //the below fork adds a new scope to [smoosher]
+        smoosher.set("a", Value::from(2, 32)); //for type inference
+                                               //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
         if let Some((depth_a, depth_b)) =
@@ -1113,4 +1115,5 @@ mod priv_tests {
     }
 }
 
+#[derive(Debug)]
 pub struct CollisionError<K: Eq + std::hash::Hash, V: Eq>(pub K, pub V, pub V);

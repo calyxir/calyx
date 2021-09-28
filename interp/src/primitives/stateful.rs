@@ -1,23 +1,10 @@
-use std::collections::VecDeque;
-
+use super::prim_utils::get_param;
 use super::{Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::utils::construct_bindings;
 use crate::values::Value;
 use calyx::ir;
-
-pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
-where
-    S: AsRef<str>,
-{
-    params.iter().find_map(|(id, x)| {
-        if id == target.as_ref() {
-            Some(*x)
-        } else {
-            None
-        }
-    })
-}
+use std::collections::VecDeque;
 
 /// Pipelined Multiplication (3 cycles)
 /// Still bounded by u64.
@@ -28,14 +15,14 @@ where
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
 #[derive(Default)]
-pub struct StdMultPipe {
+pub struct StdMultPipe<const SIGNED: bool> {
     pub width: u64,
     pub product: Value,
     update: Option<Value>,
     queue: VecDeque<Option<Value>>, //invariant: always length 2.
 }
 
-impl StdMultPipe {
+impl<const SIGNED: bool> StdMultPipe<SIGNED> {
     pub fn from_constants(width: u64) -> Self {
         StdMultPipe {
             width,
@@ -55,7 +42,7 @@ impl StdMultPipe {
     }
 }
 
-impl Primitive for StdMultPipe {
+impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let out = self.queue.pop_back();
         //push update to the front
@@ -75,7 +62,10 @@ impl Primitive for StdMultPipe {
             ]
         } else {
             //return empty vec
-            vec![]
+            vec![
+                (ir::Id::from("out"), Value::zeroes(self.width)),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
         }
     }
     //
@@ -104,10 +94,18 @@ impl Primitive for StdMultPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            self.update = Some(
-                Value::from(left.as_u64() * right.as_u64(), self.width)
-                    .unwrap(),
-            );
+            let value = if SIGNED {
+                Value::from(
+                    left.as_i64().wrapping_mul(right.as_i64()),
+                    self.width,
+                )
+            } else {
+                Value::from(
+                    left.as_u64().wrapping_mul(right.as_u64()),
+                    self.width,
+                )
+            };
+            self.update = Some(value);
         } else {
             self.update = None;
         }
@@ -128,11 +126,17 @@ impl Primitive for StdMultPipe {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
             vec![self.product.clone()]
                 .iter()
-                .map(Value::as_u64)
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
                 .collect(),
             1.into(),
         )
@@ -149,7 +153,7 @@ impl Primitive for StdMultPipe {
 ///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
 ///the last set of inputs prior to the [do_tick()] will be saved.
 #[derive(Default)]
-pub struct StdDivPipe {
+pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
     pub remainder: Value,
@@ -157,7 +161,7 @@ pub struct StdDivPipe {
     queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
 }
 
-impl StdDivPipe {
+impl<const SIGNED: bool> StdDivPipe<SIGNED> {
     pub fn from_constants(width: u64) -> Self {
         StdDivPipe {
             width,
@@ -178,7 +182,7 @@ impl StdDivPipe {
     }
 }
 
-impl Primitive for StdDivPipe {
+impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let out = self.queue.pop_back();
         self.queue.push_front(self.update.take());
@@ -195,7 +199,11 @@ impl Primitive for StdDivPipe {
                 (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
-            vec![]
+            vec![
+                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
         }
     }
 
@@ -224,12 +232,18 @@ impl Primitive for StdDivPipe {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_u64() == 1 {
-            let q = left.as_u64() / right.as_u64();
-            let r = left.as_u64() % right.as_u64();
-            self.update = Some((
-                Value::from(q, self.width).unwrap(),
-                Value::from(r, self.width).unwrap(),
-            ));
+            let q = if SIGNED {
+                Value::from(left.as_i64() / right.as_i64(), self.width)
+            } else {
+                Value::from(left.as_u64() / right.as_u64(), self.width)
+            };
+            let r = if SIGNED {
+                Value::from(left.as_i64() % right.as_i64(), self.width)
+            } else {
+                Value::from(left.as_u64() % right.as_u64(), self.width)
+            };
+
+            self.update = Some((q, r));
         } else {
             self.update = None;
         }
@@ -249,12 +263,18 @@ impl Primitive for StdDivPipe {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
             //vec![self.left.clone(), self.right.clone(), self.product.clone()]
             vec![self.quotient.clone(), self.remainder.clone()]
                 .iter()
-                .map(Value::as_u64)
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
                 .collect(),
             2.into(),
         )
@@ -362,8 +382,12 @@ impl Primitive for StdReg {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
-        Serializeable::Val(self.data[0].as_u64())
+    fn serialize(&self, signed: bool) -> Serializeable {
+        Serializeable::Val(if signed {
+            self.data[0].as_i64().into()
+        } else {
+            self.data[0].as_u64().into()
+        })
     }
 }
 
@@ -547,9 +571,18 @@ impl Primitive for StdMemD1 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (self.size as usize,).into(),
         )
     }
@@ -777,9 +810,18 @@ impl Primitive for StdMemD2 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (self.d0_size as usize, self.d1_size as usize).into(),
         )
     }
@@ -1029,9 +1071,18 @@ impl Primitive for StdMemD3 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (
                 self.d0_size as usize,
                 self.d1_size as usize,
@@ -1312,9 +1363,18 @@ impl Primitive for StdMemD4 {
         ]
     }
 
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, signed: bool) -> Serializeable {
         Serializeable::Array(
-            self.data.iter().map(Value::as_u64).collect(),
+            self.data
+                .iter()
+                .map(|x| {
+                    if signed {
+                        x.as_i64().into()
+                    } else {
+                        x.as_u64().into()
+                    }
+                })
+                .collect(),
             (
                 self.d0_size as usize,
                 self.d1_size as usize,

@@ -1,4 +1,7 @@
-use super::{stateful::get_param, Primitive};
+use super::{
+    prim_utils::{get_input_unwrap, get_param},
+    Primitive,
+};
 use crate::comb_primitive;
 use crate::values::Value;
 use bitvec::vec::BitVec;
@@ -14,7 +17,7 @@ pub struct StdConst {
 impl StdConst {
     pub fn from_constants(value: u64, width: u64) -> Self {
         StdConst {
-            value: Value::from(value, width).unwrap(),
+            value: Value::from(value, width),
         }
     }
 
@@ -25,7 +28,7 @@ impl StdConst {
         let init_value = get_param(params, "VALUE")
             .expect("Missing `vale` param from std_const binding");
 
-        let value = Value::from(init_value, width).unwrap();
+        let value = Value::from(init_value, width);
 
         Self { value }
     }
@@ -55,10 +58,53 @@ impl Primitive for StdConst {
 }
 
 // ===================== New core ======================
-comb_primitive!(StdMux[WIDTH](cond: WIDTH, left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-    //cond isn't width wide, it's 1... but that gives compiler error, why?
-});
+
+pub struct StdMux {
+    width: u64,
+}
+
+impl StdMux {
+    pub fn new(params: &ir::Binding) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("Missing width parameter from std_const binding");
+
+        Self { width }
+    }
+}
+
+impl Primitive for StdMux {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        vec![]
+    }
+
+    fn is_comb(&self) -> bool {
+        true
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        for (id, v) in inputs {
+            match id.as_ref() {
+                "tru" => assert_eq!(v.len() as u64, self.width),
+                "fal" => assert_eq!(v.len() as u64, self.width),
+                "cond" => assert_eq!(v.len() as u64, 1),
+                p => unreachable!("Unknown port: {}", p),
+            }
+        }
+    }
+
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        let cond = get_input_unwrap(inputs, "cond");
+        let tru = get_input_unwrap(inputs, "tru");
+        let fal = get_input_unwrap(inputs, "fal");
+
+        let out = if cond.as_bool() { tru } else { fal };
+        vec![("out".into(), out.clone())]
+    }
+
+    fn reset(&mut self, _inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        vec![("out".into(), Value::zeroes(self.width))]
+    }
+}
 
 // ===================== Unary operations ======================
 comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
@@ -95,7 +141,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let new_right = adder
         .execute(
             &[("left".into(), &Value { vec: new_right }),
-            ("right".into(), &Value::from(1, WIDTH).unwrap())],
+            ("right".into(), &Value::from(1, WIDTH))],
         )
         .into_iter()
         .next()
@@ -226,10 +272,23 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
 // ===================== Signed Shift Operations ======================
 comb_primitive!(StdSlsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-todo!()
+    let shift_amount = right.as_usize();
+    let mut val = left.clone().vec;
+    val.shift_right(shift_amount);
+    Value {vec: val }
+
 });
 comb_primitive!(StdSrsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-todo!()
+    let shift_amount = right.as_usize();
+    let sign: bool = left.vec[left.vec.len()-1]; //msb
+    let mut val = left.vec.clone();
+    val.shift_left(shift_amount);
+    if sign {
+        for mut bit in val.iter_mut().rev().take(shift_amount) {
+            *bit = true;
+        }
+    }
+    Value { vec: val }
 });
 // ===================== Logial Operations ======================
 comb_primitive!(StdAnd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -347,25 +406,49 @@ comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
     Value::bit_low()
 });
-
+// TODO (griffin) : replace these comparsions with bit-aware variants
 // ===================== Signed Comparison Operations ======================
 comb_primitive!(StdSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() > right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSlt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() < right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSge[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() >= right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSle[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() <= right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() == right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 comb_primitive!(StdSneq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() != right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 
 // ===================== Unsigned FP Comparison Operators ======================

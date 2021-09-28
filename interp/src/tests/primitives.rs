@@ -9,7 +9,7 @@ use calyx::ir;
 
 #[test]
 fn mult_flickering_go() {
-    let mut mult = stfl::StdMultPipe::from_constants(32);
+    let mut mult = stfl::StdMultPipe::<false>::from_constants(32);
     port_bindings![binds;
         go -> (0, 1),
         left -> (2, 32),
@@ -31,12 +31,12 @@ fn mult_flickering_go() {
     let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     output_vals = mult.do_tick().into_iter();
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
 }
 
 #[test]
 fn test_std_mult_pipe() {
-    let mut mult = stfl::StdMultPipe::from_constants(32);
+    let mut mult = stfl::StdMultPipe::<false>::from_constants(32);
     port_bindings![binds;
         go -> (1, 1),
         left -> (2, 32),
@@ -46,7 +46,7 @@ fn test_std_mult_pipe() {
     //captured
     mult.validate_and_execute(&binds);
     let output_vals = mult.do_tick(); //internal q: [14, N]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
     port_bindings![binds;
         go -> (1, 1),
         left -> (3, 32),
@@ -65,7 +65,7 @@ fn test_std_mult_pipe() {
     ];
     mult.validate_and_execute(&binds);
     let output_vals = mult.do_tick(); //internal q: [N, 14]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
     port_bindings![binds;
         go -> (1, 1),
         left -> (5, 32),
@@ -80,7 +80,7 @@ fn test_std_mult_pipe() {
     assert_eq!(done.as_u64(), 1);
     //now tick 3 more times; get empty vec, 35, empty vec
     output_vals = mult.do_tick().into_iter(); //should output empty vec
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
     output_vals = mult.do_tick().into_iter(); //should output done and 35
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1;
@@ -89,12 +89,12 @@ fn test_std_mult_pipe() {
     assert_eq!(done.as_u64(), 1);
     //none (empty output vec)
     output_vals = mult.do_tick().into_iter(); //should output empty vec
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 2);
 }
 
 #[test]
 fn test_std_div_pipe() {
-    let mut div = stfl::StdDivPipe::from_constants(32);
+    let mut div = stfl::StdDivPipe::<false>::from_constants(32);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -104,7 +104,7 @@ fn test_std_div_pipe() {
     //captured
     div.validate_and_execute(&binds);
     let output_vals = div.do_tick(); //internal q: [(2, 6), N]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -123,7 +123,7 @@ fn test_std_div_pipe() {
     // to the queue!
     div.validate_and_execute(&binds);
     let output_vals = div.do_tick(); //internal q: [N, (2, 6)]
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -143,7 +143,7 @@ fn test_std_div_pipe() {
     assert_eq!(done.as_u64(), 1);
     //internal q: [(4, 0), N]
     output_vals = div.do_tick().into_iter(); //give none
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
     //internal q: [N, (4, 0)]
     output_vals = div.do_tick().into_iter(); //out_q : 4, out_r: 0
     assert_eq!(output_vals.len(), 3);
@@ -156,7 +156,7 @@ fn test_std_div_pipe() {
     //let done = output_vals.next().unwrap().1;
     //none (empty output vec)
     output_vals = div.do_tick().into_iter(); //should output done and 14
-    assert_eq!(output_vals.len(), 0);
+    assert_eq!(output_vals.len(), 3);
 }
 
 #[test]
@@ -761,7 +761,7 @@ fn test_std_sub_panic() {
 #[test]
 fn test_std_slice() {
     // 101 in binary is [1100101], take first 4 bits -> [0101] = 5
-    let to_slice = Value::from(101, 7).unwrap();
+    let to_slice = Value::from(101, 7);
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
@@ -771,7 +771,7 @@ fn test_std_slice() {
         .unwrap(); //note that once we implement execute_unary, have to change this
     assert_eq!(res_slice.as_u64(), 5);
     // Slice the entire bit
-    let to_slice = Value::from(548, 10).unwrap();
+    let to_slice = Value::from(548, 10);
     let mut std_slice = comb::StdSlice::from_constants(10, 10);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
@@ -784,14 +784,14 @@ fn test_std_slice() {
 #[test]
 #[should_panic]
 fn test_std_slice_panic() {
-    let to_slice = Value::from(3, 2).unwrap();
+    let to_slice = Value::from(3, 2);
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
     std_slice.validate_and_execute(&[("in".into(), &to_slice)]);
 }
 #[test]
 fn test_std_pad() {
     // Add 2 zeroes, should keep the same value
-    let to_pad = Value::from(101, 7).unwrap();
+    let to_pad = Value::from(101, 7);
     let mut std_pad = comb::StdPad::from_constants(7, 9);
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
@@ -801,7 +801,7 @@ fn test_std_pad() {
         .unwrap();
     assert_eq!(res_pad.as_u64(), 101);
     // hard to think of another test case but just to have 2:
-    let to_pad = Value::from(1, 7).unwrap();
+    let to_pad = Value::from(1, 7);
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
         .into_iter()
@@ -813,7 +813,7 @@ fn test_std_pad() {
 #[test]
 #[should_panic]
 fn test_std_pad_panic() {
-    let to_pad = Value::from(21, 5).unwrap();
+    let to_pad = Value::from(21, 5);
     let mut std_pad = comb::StdPad::from_constants(3, 9);
     std_pad.validate_and_execute(&[("in".into(), &to_pad)]);
 }
@@ -821,7 +821,7 @@ fn test_std_pad_panic() {
 #[test]
 fn test_std_not() {
     // ![1010] (!10) -> [0101] (5)
-    let not0 = Value::from(10, 4).unwrap();
+    let not0 = Value::from(10, 4);
     let mut std_not = comb::StdNot::from_constants(4);
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)])
@@ -831,7 +831,7 @@ fn test_std_not() {
         .unwrap();
     assert_eq!(res_not.as_u64(), 5);
     // ![0000] (!0) -> [1111] (15)
-    let not0 = Value::from(0, 4).unwrap();
+    let not0 = Value::from(0, 4);
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)])
         .into_iter()
@@ -845,7 +845,7 @@ fn test_std_not() {
 #[should_panic]
 fn test_std_not_panic() {
     //input too short
-    let not0 = Value::from(0, 4).unwrap();
+    let not0 = Value::from(0, 4);
     let mut std_not = comb::StdNot::from_constants(5);
     std_not
         .validate_and_execute(&[("in".into(), &not0)])
@@ -1438,4 +1438,120 @@ fn test_std_le_panic() {
         right -> (68, 7)
     ];
     std_le.validate_and_execute(&binds);
+}
+
+#[cfg(test)]
+mod property_tests {
+    use crate::port_bindings;
+    use crate::primitives::combinational;
+    use crate::primitives::stateful;
+    use crate::primitives::Primitive;
+
+    use proptest::prelude::*;
+
+    macro_rules! extract_output {
+        ($input:ident, $target:literal) => {
+            ($input)
+                .iter()
+                .find(|(x, _y)| x == $target)
+                .map(|(_x, y)| y)
+                .unwrap()
+        };
+    }
+
+    proptest! {
+        #[test]
+        fn std_add(in_left: u128, in_right: u128) {
+            let mut adder = combinational::StdAdd::from_constants(128);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128)
+            ];
+
+            let out_res = adder.execute(&binds);
+            let out = extract_output!(out_res, "out");
+            assert_eq!(out.as_u128(), u128::wrapping_add(in_left, in_right))
+        }
+
+        #[test]
+        fn std_sub(in_left: u128, in_right: u128) {
+            let mut sub = combinational::StdSub::from_constants(128);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128)
+            ];
+
+            let out_res = sub.execute(&binds);
+            let out = extract_output!(out_res, "out");
+            assert_eq!(out.as_u128(), u128::wrapping_sub(in_left, in_right))
+        }
+
+        #[test]
+        fn std_mult(in_left: u64, in_right: u64){
+            let mut mult = stateful::StdMultPipe::<false>::from_constants(64);
+            port_bindings![binds;
+            left -> (in_left, 64),
+            right -> (in_right, 64),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out");
+            assert_eq!(out.as_u64(),u64::wrapping_mul(in_left, in_right))
+        }
+
+        #[test]
+        fn std_smult(in_left: i64, in_right: i64){
+            let mut mult = stateful::StdMultPipe::<true>::from_constants(64);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out");
+            assert_eq!(out.as_i64(), i64::wrapping_mul(in_left, in_right))
+        }
+
+        #[test]
+        fn std_div(in_left: u64, in_right in (1..u64::MAX)) {
+            let mut mult = stateful::StdDivPipe::<false>::from_constants(64);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out_quotient");
+            let remainder = extract_output!(output, "out_remainder");
+            assert_eq!(out.as_u64(), in_left / in_right);
+            assert_eq!(remainder.as_u64(), in_left % in_right);
+        }
+
+        #[test]
+        fn std_sdiv(in_left: i64, in_right in (i64::MIN..i64::MAX).prop_filter("non-zero", |v| *v != 0_i64))  {
+            let mut mult = stateful::StdDivPipe::<true>::from_constants(64);
+            port_bindings![binds;
+            left -> (in_left, 128),
+            right -> (in_right, 128),
+            go -> (1,1)
+            ];
+            mult.execute(&binds);
+            mult.do_tick();
+            mult.do_tick();
+            let output = mult.do_tick();
+            let out = extract_output!(output, "out_quotient");
+            let remainder = extract_output!(output, "out_remainder");
+            assert_eq!(out.as_i64(),i64::wrapping_div(in_left, in_right));
+            assert_eq!(remainder.as_i64(), in_left % in_right);
+        }
+    }
 }

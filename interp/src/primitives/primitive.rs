@@ -34,13 +34,13 @@ pub trait Primitive {
     fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)>;
 
     /// Serialize the state of this primitive, if any.
-    fn serialize(&self) -> Serializeable {
+    fn serialize(&self, _signed: bool) -> Serializeable {
         Serializeable::Empty
     }
 
     // more efficient to override this with true in stateful cases
     fn has_serializeable_state(&self) -> bool {
-        self.serialize().has_state()
+        self.serialize(false).has_state()
     }
 
     fn get_state(&self) -> Option<Box<dyn State + '_>> {
@@ -91,11 +91,33 @@ impl From<(usize, usize, usize, usize)> for Shape {
     }
 }
 
+/// A wrapper enum used during serialization. It represents either an unsigned integer,
+/// or a signed integer and is serialized as the underlying integer. This also allows
+/// mixed serialization of signed and unsigned values
+#[derive(Serialize, Clone)]
+#[serde(untagged)]
+pub enum Entry {
+    U64(u64),
+    I64(i64),
+}
+
+impl From<u64> for Entry {
+    fn from(u64: u64) -> Self {
+        Self::U64(u64)
+    }
+}
+
+impl From<i64> for Entry {
+    fn from(i64: i64) -> Self {
+        Self::I64(i64)
+    }
+}
+
 #[derive(Clone)]
 pub enum Serializeable {
     Empty,
-    Val(u64),
-    Array(Vec<u64>, Shape),
+    Val(Entry),
+    Array(Vec<Entry>, Shape),
     Full(FullySerialize),
 }
 
@@ -114,7 +136,7 @@ impl Serialize for Serializeable {
             Serializeable::Empty => serializer.serialize_unit(),
             Serializeable::Val(u) => u.serialize(serializer),
             Serializeable::Array(arr, shape) => {
-                let arr: Vec<&u64> = arr.iter().collect();
+                let arr: Vec<&Entry> = arr.iter().collect();
                 if shape.is_1d() {
                     return arr.serialize(serializer);
                 }
@@ -181,6 +203,6 @@ impl Serialize for dyn Primitive {
     where
         S: serde::Serializer,
     {
-        self.serialize().serialize(serializer)
+        self.serialize(false).serialize(serializer)
     }
 }

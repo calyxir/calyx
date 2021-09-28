@@ -367,7 +367,7 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         Some(Box::new(self.get_env()))
     }
 
-    fn serialize(&self) -> crate::primitives::Serializeable {
+    fn serialize(&self, _signed: bool) -> crate::primitives::Serializeable {
         crate::primitives::Serializeable::Full(self.get_env().gen_serialzer())
     }
 }
