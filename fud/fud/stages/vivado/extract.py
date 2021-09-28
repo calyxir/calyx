@@ -52,7 +52,12 @@ def rtl_component_extract(directory, name):
 
 def futil_extract(directory):
     directory = directory / "out" / "FutilBuild.runs"
+    # The resource information is extracted first for the implementation files, and
+    # then for the synthesis files. This is dones separately in case users want to
+    # solely use one or the other.
     resourceInfo = {}
+
+    # Extraction for implementation files.
     try:
         impl_parser = rpt.RPTParser(
             directory / "impl_1" / "main_utilization_placed.rpt"
@@ -70,8 +75,6 @@ def futil_extract(directory):
         f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
         f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
         f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
-
-        # Insert info into resourceInfo
         resourceInfo.update(
             {
                 "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
@@ -92,6 +95,7 @@ def futil_extract(directory):
         traceback.print_exc()
         print("Implementation files weren't found, skipping.", file=sys.stderr)
 
+    # Extraction for synthesis files.
     try:
         synth_parser = rpt.RPTParser(directory / "synth_1" / "runme.log")
         cell_usage_tbl = synth_parser.get_table(re.compile(r"Report Cell Usage:"), 0)
@@ -103,7 +107,6 @@ def futil_extract(directory):
         cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
         cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
 
-        # Insert info into resourceInfo
         resourceInfo.update(
             {
                 "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
