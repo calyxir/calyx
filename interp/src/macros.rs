@@ -145,6 +145,9 @@ macro_rules! lit_or_id {
     ($name:ident) => {
         $name;
     };
+    ($name:ident . $field:ident) => {
+        $name.$field
+    };
 }
 
 #[macro_export]
@@ -162,5 +165,30 @@ macro_rules! port_bindings {
     ( $binds: ident; $( $port: ident -> ($val: tt, $width: tt) ),+ ) => {
         $( let $port = $crate::values::Value::from($crate::lit_or_id!($val), $crate::lit_or_id!($width)); )+
         let $binds = vec![ $( (calyx::ir::Id::from($crate::in_fix!($port)), &$port) ),+ ];
+    }
+}
+
+/// Helper macro to generate validation checks for the input passed to primitives
+/// ```
+///  # use interp::validate;
+///  # use interp::values::Value;
+///  # let input = [("left", [4,4,4,4])];
+///  # let inputs = &input;
+///  # let width = 4;
+///  validate![inputs;
+///       left: width,
+///       right: width,
+///       go: 1
+///  ];
+/// ```
+#[macro_export]
+macro_rules! validate {
+    ( $inputs:ident; $( $port:ident : $width:expr ),+ ) => {
+        for (id, v) in $inputs {
+            match id.as_ref() {
+                $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, $width) ),+,
+                p => unreachable!(format!("Unknown port: {}", p)),
+            }
+        }
     }
 }

@@ -159,12 +159,7 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 //     todo!()
 // });
 // ===================== Unsigned FP binary operations ======================
-comb_primitive!(StdFpAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
-comb_primitive!(StdFpSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
+
 // comb_primitive!(StdFpMultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 //     todo!()
 // });
@@ -173,12 +168,7 @@ comb_primitive!(StdFpSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 // });
 
 // ===================== Signed FP binary operations ======================
-comb_primitive!(StdFpSadd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
-comb_primitive!(StdFpSsub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
-});
+
 // comb_primitive!(StdFpSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 //     todo!()
 // });

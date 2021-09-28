@@ -2,6 +2,7 @@ use super::prim_utils::get_param;
 use super::{Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::utils::construct_bindings;
+use crate::validate;
 use crate::values::Value;
 use calyx::ir;
 use std::collections::VecDeque;
@@ -1383,5 +1384,66 @@ impl Primitive for StdMemD4 {
             )
                 .into(),
         )
+    }
+}
+
+#[derive(Default)]
+pub struct StdFpMultPipe<const SIGNED: bool> {
+    pub width: u64,
+    pub int_width: u64,
+    pub frac_width: u64,
+    pub product: Value,
+    update: Option<Value>,
+    queue: VecDeque<Option<Value>>, //invariant: always length 2.
+}
+
+impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
+    pub fn from_constants(width: u64, int_width: u64, frac_width: u64) -> Self {
+        assert_eq!(width, int_width + frac_width);
+        Self {
+            width,
+            int_width,
+            frac_width,
+            product: Value::zeroes(width),
+            update: None,
+            queue: VecDeque::from(vec![None, None]),
+        }
+    }
+
+    pub fn new(params: &ir::Binding) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("WIDTH parameter missing for fp mult");
+        let int_width = get_param(params, "INT_WIDTH")
+            .expect("INT_WIDTH parameter missing for fp mult");
+        let frac_width = get_param(params, "FRAC_WIDTH")
+            .expect("FRAC_WIDTH parameter missing for fp mult");
+
+        Self::from_constants(width, int_width, frac_width)
+    }
+}
+
+impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        todo!()
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            left: self.width,
+            right: self.width,
+            go: 1
+        ];
+    }
+
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        todo!()
+    }
+
+    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        todo!()
     }
 }
