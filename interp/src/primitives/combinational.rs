@@ -151,30 +151,6 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     adder.execute(&[("left".into(), left),
     ("right".into(), &new_right)]).into_iter().next().map(|(_, v)| v).unwrap()
 });
-// ===================== Signed binary operations ======================
-// comb_primitive!(StdSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-//     todo!()
-// });
-// comb_primitive!(StdSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-//     todo!()
-// });
-// ===================== Unsigned FP binary operations ======================
-
-// comb_primitive!(StdFpMultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-//     todo!()
-// });
-// comb_primitive!(StdFpDivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-//     todo!()
-// });
-
-// ===================== Signed FP binary operations ======================
-
-// comb_primitive!(StdFpSmultPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-//     todo!()
-// });
-// comb_primitive!(StdFpSdivPipe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-//     todo!()
-// });
 
 // ===================== Shift Operations ======================
 comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
@@ -443,12 +419,28 @@ comb_primitive!(StdSneq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
 // ===================== Unsigned FP Comparison Operators ======================
 comb_primitive!(StdFpGt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_u128() > right.as_u128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 
 // ===================== Signed FP Comparison Operators ======================
 comb_primitive!(StdFpSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    todo!()
+    if left.as_i128() > right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
+});
+
+comb_primitive!(StdFpSlt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    if left.as_i128() < right.as_i128() {
+        Value::bit_high()
+    } else {
+        Value::bit_low()
+    }
 });
 
 // ===================== Resizing Operations ======================

@@ -144,6 +144,11 @@ impl<'outer> InterpreterState<'outer> {
             "std_sgt" => Box::new(combinational::StdSgt::new(params)),
             "std_seq" => Box::new(combinational::StdSeq::new(params)),
             "std_sneq" => Box::new(combinational::StdSneq::new(params)),
+            // unsigned FP comparison
+            "std_fp_gt" => Box::new(combinational::StdFpGt::new(params)),
+            // signed FP comparison
+            "std_fp_sgt" => Box::new(combinational::StdFpSgt::new(params)),
+            "std_fp_slt" => Box::new(combinational::StdFpSlt::new(params)),
             // Resizing ops
             "std_slice" => Box::new(combinational::StdSlice::new(params)),
             "std_pad" => Box::new(combinational::StdPad::new(params)),
