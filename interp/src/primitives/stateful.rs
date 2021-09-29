@@ -1499,3 +1499,109 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         ]
     }
 }
+
+pub struct StdFpDivPipe<const SIGNED: bool> {
+    pub width: u64,
+    pub int_width: u64,
+    pub frac_width: u64,
+    pub quotient: Value,
+    pub remainder: Value,
+    update: Option<(Value, Value)>, //first is quotient, second is remainder
+    queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
+}
+impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
+    pub fn from_constants(width: u64, int_width: u64, frac_width: u64) -> Self {
+        assert_eq!(width, int_width + frac_width);
+        Self {
+            width,
+            int_width,
+            frac_width,
+            quotient: Value::zeroes(width),
+            remainder: Value::zeroes(width),
+            update: None,
+            queue: VecDeque::from(vec![None, None]),
+        }
+    }
+
+    pub fn new(params: &ir::Binding) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("WIDTH parameter missing for fp div");
+        let int_width = get_param(params, "INT_WIDTH")
+            .expect("INT_WIDTH parameter missing for fp div");
+        let frac_width = get_param(params, "FRAC_WIDTH")
+            .expect("FRAC_WIDTH parameter missing for fp div");
+
+        Self::from_constants(width, int_width, frac_width)
+    }
+}
+
+impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
+    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+        let out = self.queue.pop_back();
+        self.queue.push_front(self.update.take());
+        assert_eq!(
+            self.queue.len(),
+            2,
+            "std_div_pipe's internal queue has length {} != 2",
+            self.queue.len()
+        );
+        if let Some(Some((q, r))) = out {
+            vec![
+                (ir::Id::from("out_quotient"), q),
+                (ir::Id::from("out_remainder"), r),
+                (ir::Id::from("done"), Value::bit_high()),
+            ]
+        } else {
+            vec![
+                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
+        }
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            left: self.width,
+            right: self.width,
+            go: 1
+        ];
+    }
+
+    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        let left = get_input_unwrap(inputs, "left");
+        let right = get_input_unwrap(inputs, "right");
+        let go = get_input_unwrap(inputs, "go");
+
+        if go.as_bool() {
+            let (q, r) = if SIGNED {
+                (
+                    Value::from(left.as_i64() / right.as_i64(), self.width),
+                    Value::from(left.as_i64() % right.as_i64(), self.width),
+                )
+            } else {
+                (
+                    Value::from(left.as_u64() / right.as_u64(), self.width),
+                    Value::from(left.as_u64() % right.as_u64(), self.width),
+                )
+            };
+
+            self.update = Some((q, r));
+        } else {
+            self.update = None;
+        }
+        vec![]
+    }
+
+    fn reset(&mut self, _inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        vec![
+            (ir::Id::from("out_quotient"), self.quotient.clone()),
+            (ir::Id::from("out_remainder"), self.remainder.clone()),
+            (ir::Id::from("done"), Value::bit_low()),
+        ]
+    }
+}
