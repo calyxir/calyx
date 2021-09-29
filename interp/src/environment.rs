@@ -112,9 +112,15 @@ impl<'outer> InterpreterState<'outer> {
             "std_fp_mult_pipe" => {
                 Box::new(stateful::StdFpMultPipe::<false>::new(params))
             }
+            "std_fp_div_pipe" => {
+                Box::new(stateful::StdFpDivPipe::<false>::new(params))
+            }
             // fp signed arith
             "std_fp_smult_pipe" => {
                 Box::new(stateful::StdFpMultPipe::<true>::new(params))
+            }
+            "std_fp_sdiv_pipe" => {
+                Box::new(stateful::StdFpDivPipe::<true>::new(params))
             }
             // unsigned shifts
             "std_lsh" => Box::new(combinational::StdLsh::new(params)),
