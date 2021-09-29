@@ -1,4 +1,4 @@
-use super::prim_utils::get_param;
+use super::prim_utils::{get_input_unwrap, get_param};
 use super::{Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::utils::construct_bindings;
@@ -1424,7 +1424,27 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
-        todo!()
+        let out = self.queue.pop_back();
+        //push update to the front
+        self.queue.push_front(self.update.take());
+        //assert queue still has length 2
+        assert_eq!(
+            self.queue.len(),
+            2,
+            "std_mult_pipe's internal queue has length {} != 2",
+            self.queue.len()
+        );
+        if let Some(Some(out)) = out {
+            vec![
+                (ir::Id::from("out"), out),
+                (ir::Id::from("done"), Value::bit_high()),
+            ]
+        } else {
+            vec![
+                (ir::Id::from("out"), Value::zeroes(self.width)),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
+        }
     }
 
     fn is_comb(&self) -> bool {
@@ -1440,10 +1460,42 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
     }
 
     fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
-        todo!()
+        let left = get_input_unwrap(inputs, "left");
+        let right = get_input_unwrap(inputs, "right");
+        let go = get_input_unwrap(inputs, "go");
+
+        if go.as_bool() {
+            let backing_val = if SIGNED {
+                Value::from(
+                    left.as_i64().wrapping_mul(right.as_i64()),
+                    2 * self.width,
+                )
+            } else {
+                Value::from(
+                    left.as_u64().wrapping_mul(right.as_u64()),
+                    2 * self.width,
+                )
+            };
+
+            let upper_idx = (2 * self.width) - self.int_width - 1;
+            let lower_idx = self.width - self.int_width;
+
+            self.update = Some(
+                backing_val.slice_out(upper_idx as usize, lower_idx as usize),
+            )
+        } else {
+            self.update = None;
+        }
+
+        vec![]
     }
 
-    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
-        todo!()
+    fn reset(&mut self, _inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)> {
+        self.update = None;
+        self.queue = VecDeque::from(vec![None, None]);
+        vec![
+            (ir::Id::from("out"), self.product.clone()),
+            (ir::Id::from("done"), Value::bit_low()),
+        ]
     }
 }
