@@ -36,7 +36,8 @@ fn compile(
     let ws = ws_from_ns(ns)?;
 
     // Build the IR representation
-    let mut rep = ir::from_ast::ast_to_ir(ws, false, false)?;
+    let bc = ir::BackendConf::default();
+    let mut rep = ir::from_ast::ast_to_ir(ws, bc)?;
 
     pm.execute_plan(&mut rep, passes, &[])?;
 
