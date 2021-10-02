@@ -1,0 +1,43 @@
+:root {
+    --bg-color: white;
+    --dark-text-color: black;
+    --light-text-color: white;
+    --edit-code-bg: hsl(44, 87%, 94%);
+    --view-code-bg: hsl(44, 50%, 97%);
+    --border-color: rgba(0, 0, 0, 0.5);
+
+    --border-radius: 4px;
+}
+
+body {
+    color: var(--dark-text-color);
+    background: var(--bg-color);
+}
+
+#editor-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-color);
+    border: 0.8px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 0.3em;
+    scrollbar-width: thin;
+}
+
+#editor-header * {
+    margin: 0.2em;
+}
+
+#passes {
+    overflow: auto;
+    white-space: nowrap;
+    box-shadow: inset 0 2px 2px 0 rgba(0, 0, 0, 0.14);
+    border: 0.5px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 0.2em;
+}
+
+#compile {
+    margin-left: auto;
+}
