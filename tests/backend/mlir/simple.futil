@@ -1,0 +1,17 @@
+// -p well-formed -b mlir
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 1) {
+  cells {
+    r1 = std_reg(1);
+  }
+  wires {
+    group Group1 {
+      r1.in = 1'd1;
+      r1.write_en = 1'd1;
+      Group1[done] = r1.done;
+    }
+  }
+  control {
+    seq { Group1; }
+  }
+}
