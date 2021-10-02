@@ -134,28 +134,35 @@ module std_fp_div_pipe #(
       end
     end
 
+    // `done` signaling
+    always_ff @(posedge clk) begin
+      // Early return if divisor is 0.
+      if (start && left == 0)
+        done <= 1;
+      else if (finished)
+        done <= 1;
+      else
+        done <= 0;
+    end
+
     always_ff @(posedge clk) begin
       if (!go) begin
         running <= 0;
-        done <= 0;
         out_remainder <= 0;
         out_quotient <= 0;
       end else if (start && left == 0) begin
         out_remainder <= 0;
         out_quotient <= 0;
-        done <= 1;
       end
 
       if (start) begin
         running <= 1;
-        done <= 0;
         idx <= 0;
         {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
         out_quotient <= 0;
         out_remainder <= left;
       end else if (finished) begin
         running <= 0;
-        done <= 1;
         out_quotient <= quotient_next;
       end else begin
         idx <= idx + 1;
