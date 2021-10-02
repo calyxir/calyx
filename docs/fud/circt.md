@@ -14,7 +14,8 @@ already built the Rust compiler and installed `fud`. Here are the steps below to
 ## MLIR -> Rust compiler
 1. Set up the CIRCT project; instructions found [here][circt-setup].
 
-2. There should be a `circt-translate` binary in `<root-directory>/build/bin`. To emit the native compiler representation, use the command: 
+2. There should be a `circt-translate` binary in `<root-directory>/build/bin`. To emit the native compiler 
+   representation, use the command: 
 ```
 path/to/circt-translate --export-calyx /path/to/file
 ```
