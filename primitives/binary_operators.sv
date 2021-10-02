@@ -157,28 +157,32 @@ module std_fp_div_pipe #(
     end
 
     always_ff @(posedge clk) begin
-      if (!go) begin
+      if (!go | invalid_divisor) begin
         out_remainder <= 0;
         out_quotient <= 0;
-      end else if (start && left == 0) begin
-        out_remainder <= 0;
-        out_quotient <= 0;
-      end
-
-      if (start) begin
-        idx <= 0;
-        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+      end else if (start) begin
         out_quotient <= 0;
         out_remainder <= left;
       end else if (finished) begin
         out_quotient <= quotient_next;
+        out_remainder <= out_remainder;
+      end else begin
+        out_quotient <= out_quotient;
+        if (right <= out_remainder)
+          out_remainder <= out_remainder - right;
+        else
+          out_remainder <= out_remainder;
+      end
+    end
+
+    always_ff @(posedge clk) begin
+      if (start) begin
+        idx <= 0;
+        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
       end else begin
         idx <= idx + 1;
         acc <= acc_next;
         quotient <= quotient_next;
-        if (right <= out_remainder) begin
-          out_remainder <= out_remainder - right;
-        end
       end
     end
 endmodule
