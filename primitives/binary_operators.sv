@@ -120,10 +120,11 @@ module std_fp_div_pipe #(
     logic [WIDTH-1:0] quotient, quotient_next;
     logic [WIDTH:0] acc, acc_next;
     logic [$clog2(ITERATIONS)-1:0] idx;
-    logic start, running, finished;
+    logic start, running, finished, invalid_divisor;
 
     assign start = go && !running;
     assign finished = running && (idx == ITERATIONS - 1);
+    assign invalid_divisor = start && left == 0;
 
     always_comb begin
       if (acc >= {1'b0, right}) begin
@@ -137,7 +138,7 @@ module std_fp_div_pipe #(
     // `done` signaling
     always_ff @(posedge clk) begin
       // Early return if divisor is 0.
-      if (start && left == 0)
+      if (invalid_divisor)
         done <= 1;
       else if (finished)
         done <= 1;
@@ -145,9 +146,18 @@ module std_fp_div_pipe #(
         done <= 0;
     end
 
+    // `running` signal
+    always @(posedge clk) begin
+      if (!go | finished | invalid_divisor)
+        running <= 0;
+      else if (start)
+        running <= 1;
+      else
+        running <= running;
+    end
+
     always_ff @(posedge clk) begin
       if (!go) begin
-        running <= 0;
         out_remainder <= 0;
         out_quotient <= 0;
       end else if (start && left == 0) begin
@@ -156,13 +166,11 @@ module std_fp_div_pipe #(
       end
 
       if (start) begin
-        running <= 1;
         idx <= 0;
         {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
         out_quotient <= 0;
         out_remainder <= left;
       end else if (finished) begin
-        running <= 0;
         out_quotient <= quotient_next;
       end else begin
         idx <= idx + 1;
