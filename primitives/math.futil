@@ -3,7 +3,7 @@ import "core.futil";
 extern "math.sv" {
   // Fixed point square root operator, using a digit-by-digit algorithm.
   // en.wikipedia.org/wiki/Methods_of_computing_square_roots#Digit-by-digit_calculation
-  primitive fp_sqrt[
+  primitive fp_sqrt<"can_invoke"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
@@ -14,7 +14,7 @@ extern "math.sv" {
     @done done: 1
   );
 
-  primitive sqrt[
+  primitive sqrt<"can_invoke"=1>[
     WIDTH
   ](
     @clk clk: 1,

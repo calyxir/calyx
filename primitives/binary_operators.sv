@@ -1,3 +1,4 @@
+/* verilator lint_off MULTITOP */
 /// =================== Unsigned, Fixed Point =========================
 module std_fp_add #(
     parameter WIDTH = 32,
@@ -38,26 +39,54 @@ module std_fp_mult_pipe #(
   logic [WIDTH-1:0]          rtmp;
   logic [WIDTH-1:0]          ltmp;
   logic [(WIDTH << 1) - 1:0] out_tmp;
-  reg done_buf[1:0];
+  logic done_buf[2:0];
+
+  // Done signal connected to the final position of the done_buf
+  assign done = done_buf[2];
+
+  // If the done buffer is completely empty and go is high then execution
+  // just started.
+  logic is_started;
+  assign is_started = go == 1 & done_buf[0] == 0 & done_buf[1] == 0 & done_buf[0] == 0;
+
+  // Start sending the done signal.
+  always_ff @(posedge clk) begin
+    if (is_started)
+      done_buf[0] <= 1;
+    else
+      done_buf[0] <= 0;
+  end
+
+  // Push the done signal through the pipeline
+  always_ff @(posedge clk) begin
+    if (go) begin
+      done_buf[2] <= done_buf[1];
+      done_buf[1] <= done_buf[0];
+    end else begin
+      done_buf[2] <= 0;
+      done_buf[1] <= 0;
+    end
+  end
+
+  // Output is latched when go is low and otherwise either gets value from
+  // out_tmp;
+  always_ff @(posedge clk) begin
+    if (go)
+      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
+    else
+      out <= out;
+  end
+
+  // Move the multiplication computation through the pipeline.
   always_ff @(posedge clk) begin
     if (go) begin
       rtmp <= right;
       ltmp <= left;
       out_tmp <= ltmp * rtmp;
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
-
-      done <= done_buf[1];
-      done_buf[0] <= 1'b1;
-      done_buf[1] <= done_buf[0];
     end else begin
       rtmp <= 0;
       ltmp <= 0;
       out_tmp <= 0;
-      out <= 0;
-
-      done <= 0;
-      done_buf[0] <= 0;
-      done_buf[1] <= 0;
     end
   end
 endmodule
@@ -233,7 +262,43 @@ module std_fp_smult_pipe #(
   logic signed [WIDTH-1:0] ltmp;
   logic signed [WIDTH-1:0] rtmp;
   logic signed [(WIDTH << 1) - 1:0] out_tmp;
-  reg done_buf[1:0];
+  logic done_buf[2:0];
+
+  assign done = done_buf[2];
+
+  // If the done buffer is completely empty and go is high then execution
+  // just started.
+  logic is_started;
+  assign is_started = go == 1 & done_buf[0] == 0 & done_buf[1] == 0 & done_buf[0] == 0;
+
+  // Start sending the done signal.
+  always_ff @(posedge clk) begin
+    if (is_started)
+      done_buf[0] <= 1;
+    else
+      done_buf[0] <= 0;
+  end
+
+  // Push the done signal through the pipeline
+  always_ff @(posedge clk) begin
+    if (go) begin
+      done_buf[2] <= done_buf[1];
+      done_buf[1] <= done_buf[0];
+    end else begin
+      done_buf[2] <= 0;
+      done_buf[1] <= 0;
+    end
+  end
+
+  // Output is latched when go is low and otherwise either gets value from
+  // out_tmp;
+  always_ff @(posedge clk) begin
+    if (go)
+      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
+    else
+      out <= out;
+  end
+
   always_ff @(posedge clk) begin
     if (go) begin
       ltmp <= left;
@@ -243,20 +308,10 @@ module std_fp_smult_pipe #(
                    { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
                    { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
                  );
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1: WIDTH - INT_WIDTH];
-
-      done <= done_buf[1];
-      done_buf[0] <= 1'b1;
-      done_buf[1] <= done_buf[0];
     end else begin
       rtmp <= 0;
       ltmp <= 0;
       out_tmp <= 0;
-      out <= 0;
-
-      done <= 0;
-      done_buf[0] <= 0;
-      done_buf[1] <= 0;
     end
   end
 endmodule
