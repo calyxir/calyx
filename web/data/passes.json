@@ -1,0 +1,89 @@
+{
+    "passes": [
+        {
+            "name": "well-formed",
+            "title": "Well Formed",
+            "description": "well-formed"
+        },
+        {
+            "name": "papercut",
+            "title": "Papercut",
+            "description": "papercut"
+        },
+        {
+            "name": "externalize",
+            "title": "Externalize Memories",
+            "description": "externalize"
+        },
+        {
+            "name": "compile-invoke",
+            "title": "Compile Invoke",
+            "description": "compile-invoke"
+        },
+        {
+            "name": "collapse-control",
+            "title": "Collapse Control",
+            "description": "collapse-control"
+        },
+        {
+            "name": "infer-static-timing",
+            "title": "Infer Static Timing",
+            "description": "infer-static-timing"
+        },
+        {
+            "name": "resource-sharing",
+            "title": "Resource Sharing",
+            "description": "resource-sharing"
+        },
+        {
+            "name": "minimize-regs",
+            "title": "Minimize Regs",
+            "description": "minimize-regs"
+        },
+        {
+            "name": "compile-empty",
+            "title": "Compile Empty",
+            "description": "compile-empty"
+        },
+        {
+            "name": "static-timing",
+            "title": "Static Timing",
+            "description": "static-timing"
+        },
+        {
+            "name": "tdcc",
+            "title": "Top-Down Compile Control",
+            "description": "tdcc"
+        },
+        {
+            "name": "dead-cell-removal",
+            "title": "Dead Cell Removal",
+            "description": "dead-cell-removal"
+        },
+        {
+            "name": "dead-group-removal",
+            "title": "Dead Group Removal",
+            "description": "dead-group-removal"
+        },
+        {
+            "name": "go-insertion",
+            "title": "Go Insertion",
+            "description": "go-insertion"
+        },
+        {
+            "name": "component-interface-inserter",
+            "title": "Component Interface Inserter",
+            "description": "component-interface-inserter"
+        },
+        {
+            "name": "hole-inliner",
+            "title": "Hole Inliner",
+            "description": "hole-inliner"
+        },
+        {
+            "name": "clk-insertion",
+            "title": "Clk Insertion",
+            "description": "clk-insertion"
+        }
+    ]
+}

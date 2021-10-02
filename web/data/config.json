@@ -1,0 +1,102 @@
+{
+    "url_prefix": "https://raw.githubusercontent.com/cucapra/futil/",
+    "categories": [
+        {
+            "name": "library",
+            "items": [
+                {
+                    "name": "Core",
+                    "file": "primitives/core.futil"
+                }
+            ]
+        },
+        {
+            "name": "examples",
+            "items": [
+                {
+                    "name": "Seq",
+                    "file": "tests/correctness/seq.futil",
+                    "root": "/",
+                    "passes": [
+                        "tdcc"
+                    ]
+                },
+                {
+                    "name": "Par",
+                    "file": "tests/correctness/par.futil",
+                    "root": "/",
+                    "passes": [
+                        "tdcc"
+                    ]
+                },
+                {
+                    "name": "If",
+                    "file": "tests/correctness/if.futil",
+                    "root": "/",
+                    "passes": [
+                        "tdcc"
+                    ]
+                },
+                {
+                    "name": "While",
+                    "file": "tests/correctness/while.futil",
+                    "root": "/",
+                    "passes": [
+                        "tdcc"
+                    ]
+                },
+                {
+                    "name": "Invoke",
+                    "file": "tests/passes/compile-invoke.futil",
+                    "root": "/",
+                    "passes": [
+                        "compile-invoke"
+                    ]
+                },
+                {
+                    "name": "Externalize",
+                    "file": "tests/passes/externalize.futil",
+                    "root": "/",
+                    "passes": [
+                        "externalize"
+                    ]
+                },
+                {
+                    "name": "Infer Static Timing",
+                    "file": "tests/passes/infer-static/component.futil",
+                    "root": "/",
+                    "passes": [
+                        "infer-static-timing"
+                    ]
+                },
+                {
+                    "name": "Minimize Regs Simple",
+                    "file": "tests/passes/minimize-regs/simple-liveness.futil",
+                    "root": "/",
+                    "passes": [
+                        "minimize-regs",
+                        "dead-cell-removal"
+                    ]
+                },
+                {
+                    "name": "Minimize Regs (Nested Par)",
+                    "file": "tests/passes/minimize-regs/nested-par.futil",
+                    "root": "/",
+                    "passes": [
+                        "minimize-regs",
+                        "dead-cell-removal"
+                    ]
+                },
+                {
+                    "name": "Resource Sharing",
+                    "file": "tests/passes/resource-sharing/share.futil",
+                    "root": "/",
+                    "passes": [
+                        "resource-sharing",
+                        "dead-cell-removal"
+                    ]
+                }
+            ]
+        }
+    ]
+}
