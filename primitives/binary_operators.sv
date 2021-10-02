@@ -408,7 +408,7 @@ module std_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
     .FRAC_WIDTH(0),
-    .SIGNED(0),
+    .SIGNED(0)
   ) comp (
     .clk(clk),
     .done(done),
