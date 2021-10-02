@@ -138,9 +138,7 @@ module std_fp_div_pipe #(
     // `done` signaling
     always_ff @(posedge clk) begin
       // Early return if divisor is 0.
-      if (invalid_divisor)
-        done <= 1;
-      else if (finished)
+      if (invalid_divisor | finished)
         done <= 1;
       else
         done <= 0;
@@ -156,10 +154,25 @@ module std_fp_div_pipe #(
         running <= running;
     end
 
+    // Index increment
     always_ff @(posedge clk) begin
-      if (!go | invalid_divisor) begin
+      if (start)
+        idx <= 0;
+      else if (running)
+        idx <= idx + 1;
+      else
+        idx <= 0;
+    end
+
+    always_ff @(posedge clk) begin
+      if (invalid_divisor) begin
+        // Return zero if the divisor is zero.
         out_remainder <= 0;
         out_quotient <= 0;
+      end else if (!go) begin
+        // Latch outputs when not executing.
+        out_remainder <= out_remainder;
+        out_quotient <= out_quotient;
       end else if (start) begin
         out_quotient <= 0;
         out_remainder <= left;
@@ -177,10 +190,8 @@ module std_fp_div_pipe #(
 
     always_ff @(posedge clk) begin
       if (start) begin
-        idx <= 0;
         {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
       end else begin
-        idx <= idx + 1;
         acc <= acc_next;
         quotient <= quotient_next;
       end
@@ -450,66 +461,51 @@ module std_div_pipe #(
     output logic             done
 );
 
-  logic [WIDTH-1:0] dividend;
-  logic [(WIDTH-1)*2:0] divisor;
-  logic [WIDTH-1:0] quotient;
-  logic [WIDTH-1:0] quotient_msk;
-  logic start, running, finished;
-
-  assign start = go && !running;
-  assign finished = !quotient_msk && running;
-
-  always_ff @(posedge clk) begin
-    if (!go) begin
-      running <= 0;
-      done <= 0;
-      out_remainder <= 0;
-      out_quotient <= 0;
-    end else if (start && left == 0) begin
-      out_remainder <= 0;
-      out_quotient <= 0;
-      done <= 1;
-    end
-
-    if (start) begin
-      running <= 1;
-      dividend <= left;
-      divisor <= right << WIDTH - 1;
-      quotient <= 0;
-      quotient_msk <= 1 << WIDTH - 1;
-    end else if (finished) begin
-      running <= 0;
-      done <= 1;
-      out_remainder <= dividend;
-      out_quotient <= quotient;
-    end else begin
-      if (divisor <= dividend) begin
-        dividend <= dividend - divisor;
-        quotient <= quotient | quotient_msk;
-      end
-      divisor <= divisor >> 1;
-      quotient_msk <= quotient_msk >> 1;
-    end
-  end
+  std_fp_div_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(WIDTH),
+    .FRAC_WIDTH(0)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left),
+    .right(right),
+    .out_quotient(out_quotient),
+    .out_remainder(out_remainder)
+  );
 
   `ifdef VERILATOR
+    logic [WIDTH-1:0] prev_left;
+    logic [WIDTH-1:0] prev_right;
+
+    always_ff @(posedge clk) begin
+      if (go) begin
+        prev_left <= left;
+        prev_right <= right;
+      end else begin
+        prev_left <= prev_left;
+        prev_right <= prev_right;
+      end
+    end
+
     // Simulation self test against unsynthesizable implementation.
     always @(posedge clk) begin
-      if (finished && dividend != $unsigned(left % right))
+      if (done && out_remainder != $unsigned(prev_left % prev_right))
         $error(
           "\nstd_div_pipe (Remainder): Computed and golden outputs do not match!\n",
-          "left: %0d", $unsigned(left),
-          "  right: %0d\n", $unsigned(right),
-          "expected: %0d", $unsigned(left % right),
-          "  computed: %0d", $unsigned(dividend)
+          "left: %0d", $unsigned(prev_left),
+          "  right: %0d\n", $unsigned(prev_right),
+          "expected: %0d", $unsigned(prev_left % prev_right),
+          "  computed: %0d", $unsigned(out_remainder)
         );
-      if (finished && quotient != $unsigned(left / right))
+      if (done && out_quotient != $unsigned(prev_left / prev_right))
         $error(
           "\nstd_div_pipe (Quotient): Computed and golden outputs do not match!\n",
-          "left: %0d", $unsigned(left),
-          "  right: %0d\n", $unsigned(right),
-          "expected: %0d", $unsigned(left / right),
-          "  computed: %0d", $unsigned(quotient)
+          "left: %0d", $unsigned(prev_left),
+          "  right: %0d\n", $unsigned(prev_right),
+          "expected: %0d", $unsigned(prev_left / prev_right),
+          "  computed: %0d", $unsigned(out_quotient)
         );
     end
   `endif
