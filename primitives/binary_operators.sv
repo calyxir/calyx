@@ -27,7 +27,8 @@ endmodule
 module std_fp_mult_pipe #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 16,
-    parameter FRAC_WIDTH = 16
+    parameter FRAC_WIDTH = 16,
+    parameter SIGNED = 0
 ) (
     input  logic [WIDTH-1:0] left,
     input  logic [WIDTH-1:0] right,
@@ -80,9 +81,18 @@ module std_fp_mult_pipe #(
   // Move the multiplication computation through the pipeline.
   always_ff @(posedge clk) begin
     if (go) begin
-      rtmp <= right;
-      ltmp <= left;
-      out_tmp <= ltmp * rtmp;
+      if (SIGNED) begin
+        rtmp <= $signed(right);
+        ltmp <= $signed(left);
+        out_tmp <= $signed(
+          { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
+          { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
+        );
+      end else begin
+        rtmp <= right;
+        ltmp <= left;
+        out_tmp <= ltmp * rtmp;
+      end
     end else begin
       rtmp <= 0;
       ltmp <= 0;
@@ -252,68 +262,26 @@ module std_fp_smult_pipe #(
     parameter INT_WIDTH = 16,
     parameter FRAC_WIDTH = 16
 ) (
-    input  signed       [WIDTH-1:0] left,
-    input  signed       [WIDTH-1:0] right,
+    input  [WIDTH-1:0] left,
+    input  [WIDTH-1:0] right,
     input  logic                    go,
     input  logic                    clk,
-    output logic signed [WIDTH-1:0] out,
+    output logic [WIDTH-1:0] out,
     output logic                    done
 );
-  logic signed [WIDTH-1:0] ltmp;
-  logic signed [WIDTH-1:0] rtmp;
-  logic signed [(WIDTH << 1) - 1:0] out_tmp;
-  logic done_buf[2:0];
-
-  assign done = done_buf[2];
-
-  // If the done buffer is completely empty and go is high then execution
-  // just started.
-  logic is_started;
-  assign is_started = go == 1 & done_buf[0] == 0 & done_buf[1] == 0 & done_buf[0] == 0;
-
-  // Start sending the done signal.
-  always_ff @(posedge clk) begin
-    if (is_started)
-      done_buf[0] <= 1;
-    else
-      done_buf[0] <= 0;
-  end
-
-  // Push the done signal through the pipeline
-  always_ff @(posedge clk) begin
-    if (go) begin
-      done_buf[2] <= done_buf[1];
-      done_buf[1] <= done_buf[0];
-    end else begin
-      done_buf[2] <= 0;
-      done_buf[1] <= 0;
-    end
-  end
-
-  // Output is latched when go is low and otherwise either gets value from
-  // out_tmp;
-  always_ff @(posedge clk) begin
-    if (go)
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
-    else
-      out <= out;
-  end
-
-  always_ff @(posedge clk) begin
-    if (go) begin
-      ltmp <= left;
-      rtmp <= right;
-      // Sign extend by the first bit for the operands.
-      out_tmp <= $signed(
-                   { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
-                   { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
-                 );
-    end else begin
-      rtmp <= 0;
-      ltmp <= 0;
-      out_tmp <= 0;
-    end
-  end
+  std_fp_mult_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(INT_WIDTH),
+    .FRAC_WIDTH(FRAC_WIDTH),
+    .SIGNED(1)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left),
+    .right(right),
+    .out(out)
+  );
 endmodule
 
 module std_fp_sdiv_pipe #(
@@ -439,7 +407,8 @@ module std_mult_pipe #(
   std_fp_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
-    .FRAC_WIDTH(0)
+    .FRAC_WIDTH(0),
+    .SIGNED(0),
   ) comp (
     .clk(clk),
     .done(done),
@@ -558,10 +527,11 @@ module std_smult_pipe #(
     output logic signed [WIDTH-1:0] out,
     output logic                    done
 );
-  std_fp_smult_pipe #(
+  std_fp_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
-    .FRAC_WIDTH(0)
+    .FRAC_WIDTH(0),
+    .SIGNED(1)
   ) comp (
     .clk(clk),
     .done(done),
