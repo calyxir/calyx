@@ -375,6 +375,7 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           cache: yarn
+          cache-dependency-path: web/yarn.lock
       - name: Build
         uses: actions-rs/cargo@v1
         with:
