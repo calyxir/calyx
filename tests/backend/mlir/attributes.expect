@@ -6,9 +6,9 @@ calyx.component @main(%in: i32 {stable=32}, %go: i1 {go=1}, %clk: i1 {clk=1}, %r
   calyx.wires {
     calyx.group @upd {
       calyx.group_done %r.done : i1
-    }
+    } {stable=1}
     calyx.comb_group @cond {
-    }
+    } {stable=0}
   }
 
   calyx.control {
