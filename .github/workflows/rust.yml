@@ -365,3 +365,22 @@ jobs:
             rsync --compress --recursive --checksum --itemize-changes \
             --delete -e ssh \
             $DEPLOY_DEST/ $DEPLOY_2_HOST:$DEPLOY_2_DEST
+
+  web:
+    name: Web Demo
+    runs-on: ubuntu-latest
+    needs: compiler
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          cache: yarn
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: wasm-pack wasm-bindgen-cli
+      - run: yarn
+        working-directory: ./web
+      - run: yarn build
+        working-directory: ./web
