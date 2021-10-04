@@ -28,7 +28,7 @@ pub struct If {
     pub port: RRC<Port>,
 
     /// Optional combinational group attached using `with`.
-    pub cond: Option<Rc<CombGroup>>,
+    pub cond: Option<RRC<CombGroup>>,
 
     /// Control for the true branch.
     pub tbranch: Control,
@@ -47,7 +47,7 @@ pub struct While {
     pub port: RRC<Port>,
 
     /// Group that makes the signal on the conditional port valid.
-    pub cond: Option<Rc<CombGroup>>,
+    pub cond: Option<RRC<CombGroup>>,
 
     /// Control for the loop body.
     pub body: Control,
@@ -59,7 +59,7 @@ pub struct While {
 #[derive(Debug)]
 pub struct Enable {
     /// List of components to run.
-    pub group: Rc<Group>,
+    pub group: RRC<Group>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
 }
@@ -142,9 +142,7 @@ impl From<ir::If> for If {
     fn from(i: ir::If) -> Self {
         Self {
             port: i.port,
-            cond: i
-                .cond
-                .map(|x| Rc::new(Rc::try_unwrap(x).unwrap().into_inner())),
+            cond: i.cond,
             tbranch: (*i.tbranch).into(),
             fbranch: (*i.fbranch).into(),
             attributes: i.attributes,
@@ -156,9 +154,7 @@ impl From<ir::While> for While {
     fn from(wh: ir::While) -> Self {
         Self {
             port: wh.port,
-            cond: wh
-                .cond
-                .map(|x| Rc::new(Rc::try_unwrap(x).unwrap().into_inner())),
+            cond: wh.cond,
             body: (*wh.body).into(),
             attributes: wh.attributes,
         }
@@ -180,7 +176,7 @@ impl From<ir::Invoke> for Invoke {
 impl From<ir::Enable> for Enable {
     fn from(en: ir::Enable) -> Self {
         Self {
-            group: Rc::new(Rc::try_unwrap(en.group).unwrap().into_inner()),
+            group: en.group,
             attributes: en.attributes,
         }
     }
