@@ -24,7 +24,7 @@ mod structure;
 pub use attribute::{Attributes, GetAttributes};
 pub use builder::Builder;
 pub use common::{RRC, WRC};
-pub use component::Component;
+pub use component::{Component, IdList};
 pub use context::{BackendConf, Context, LibrarySignatures};
 pub use control::{Control, Empty, Enable, If, Invoke, Par, Seq, While};
 pub use guard::Guard;
