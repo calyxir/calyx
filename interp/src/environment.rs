@@ -94,6 +94,13 @@ impl<'outer> InterpreterState<'outer> {
             "std_sub" | "std_ssub" => {
                 Box::new(combinational::StdSub::new(params))
             }
+            // fp basic arith
+            "std_fp_sadd" | "std_fp_add" => {
+                Box::new(combinational::StdFpAdd::new(params))
+            }
+            "std_fp_ssub" | "std_fp_sub" => {
+                Box::new(combinational::StdFpSub::new(params))
+            }
             // unsigned arith
             "std_mult_pipe" => {
                 Box::new(stateful::StdMultPipe::<false>::new(params))
@@ -108,7 +115,20 @@ impl<'outer> InterpreterState<'outer> {
             "std_sdiv_pipe" => {
                 Box::new(stateful::StdMultPipe::<true>::new(params))
             }
-
+            // fp unsigned arith
+            "std_fp_mult_pipe" => {
+                Box::new(stateful::StdFpMultPipe::<false>::new(params))
+            }
+            "std_fp_div_pipe" => {
+                Box::new(stateful::StdFpDivPipe::<false>::new(params))
+            }
+            // fp signed arith
+            "std_fp_smult_pipe" => {
+                Box::new(stateful::StdFpMultPipe::<true>::new(params))
+            }
+            "std_fp_sdiv_pipe" => {
+                Box::new(stateful::StdFpDivPipe::<true>::new(params))
+            }
             // unsigned shifts
             "std_lsh" => Box::new(combinational::StdLsh::new(params)),
             "std_rsh" => Box::new(combinational::StdRsh::new(params)),
@@ -131,6 +151,11 @@ impl<'outer> InterpreterState<'outer> {
             "std_sgt" => Box::new(combinational::StdSgt::new(params)),
             "std_seq" => Box::new(combinational::StdSeq::new(params)),
             "std_sneq" => Box::new(combinational::StdSneq::new(params)),
+            // unsigned FP comparison
+            "std_fp_gt" => Box::new(combinational::StdFpGt::new(params)),
+            // signed FP comparison
+            "std_fp_sgt" => Box::new(combinational::StdFpSgt::new(params)),
+            "std_fp_slt" => Box::new(combinational::StdFpSlt::new(params)),
             // Resizing ops
             "std_slice" => Box::new(combinational::StdSlice::new(params)),
             "std_pad" => Box::new(combinational::StdPad::new(params)),
