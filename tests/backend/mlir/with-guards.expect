@@ -17,8 +17,8 @@ calyx.component @B(%in: i1, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=
   calyx.control {}
 }
 calyx.component @main(%go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i1, %done: i1 {done=1}) {
-  %c0.in, %c0.go, %c0.clk, %c0.reset, %c0.out, %c0.flag, %c0.done = calyx.instance @c0 @A : i8, i1, i1, i1, i8, i1, i1
-  %c1.in, %c1.go, %c1.clk, %c1.reset, %c1.out, %c1.done = calyx.instance @c1 @B : i1, i1, i1, i1, i1, i1
+  %c0.in, %c0.go, %c0.clk, %c0.reset, %c0.out, %c0.flag, %c0.done = calyx.instance @c0 of @A : i8, i1, i1, i1, i8, i1, i1
+  %c1.in, %c1.go, %c1.clk, %c1.reset, %c1.out, %c1.done = calyx.instance @c1 of @B : i1, i1, i1, i1, i1, i1
   %r1.in, %r1.write_en, %r1.clk, %r1.reset, %r1.out, %r1.done = calyx.register @r1 : i8, i1, i1, i1, i8, i1
   %r2.in, %r2.write_en, %r2.clk, %r2.reset, %r2.out, %r2.done = calyx.register @r2 : i1, i1, i1, i1, i1, i1
   %m0.addr0, %m0.write_data, %m0.write_en, %m0.clk, %m0.read_data, %m0.done = calyx.memory @m0 <[1] x 32> [1] : i1, i32, i1, i1, i32, i1

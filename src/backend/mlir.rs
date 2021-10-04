@@ -203,7 +203,7 @@ impl MlirBackend {
                 }
             }
             ir::CellType::Component { name } => {
-                write!(f, "calyx.instance @{} @{}", cell_name, name)
+                write!(f, "calyx.instance @{} of @{}", cell_name, name)
             }
             ir::CellType::Constant { val, .. } => {
                 write!(f, "hw.constant {}", val)
