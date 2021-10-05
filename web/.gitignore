@@ -1,4 +1,4 @@
 !*.json
 .cache/
 dist/
-rust/calyx_hash.json
+calyx_hash.json

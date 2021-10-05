@@ -1,7 +1,7 @@
 import * as calyx from "../rust/Cargo.toml";
 import config from "../data/config.json";
 import passes from "../data/passes.json";
-import calyx_info from "../rust/calyx_hash.json";
+import calyx_info from "../calyx_hash.json";
 import { updateDiffEditor } from './diffEditor.js';
 import 'regenerator-runtime/runtime';
 
