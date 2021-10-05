@@ -20,7 +20,7 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_fp_div_pipe[
+  primitive std_fp_div_pipe<"can_invoke"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
@@ -68,7 +68,7 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_fp_sdiv_pipe[
+  primitive std_fp_sdiv_pipe<"can_invoke"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
@@ -113,7 +113,7 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_div_pipe[WIDTH](
+  primitive std_div_pipe<"can_invoke"=1>[WIDTH](
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH,
     @write_together(1) @go go: 1,
@@ -137,7 +137,7 @@ extern "binary_operators.sv" {
     out: WIDTH, done: 1
   );
 
-  primitive std_sdiv_pipe[WIDTH](
+  primitive std_sdiv_pipe<"can_invoke"=1>[WIDTH](
     @clk clk: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
