@@ -359,6 +359,7 @@ impl Value {
             })
     }
 
+    /// Interprets a 1bit value as a bool, will not panic for non-1-bit values
     pub fn as_bool(&self) -> bool {
         assert!(self.vec.len() == 1);
         self.vec[0]
@@ -375,6 +376,24 @@ impl Value {
     /// ```
     pub fn len(&self) -> usize {
         self.vec.len()
+    }
+
+    /// Returns a value containing the sliced region [lower,upper], consumes the original
+    pub fn slice_out(self, upper_idx: usize, lower_idx: usize) -> Self {
+        assert!(upper_idx >= lower_idx);
+        assert!(upper_idx < self.vec.len());
+
+        let new_bv = (self.vec[lower_idx..=upper_idx]).into();
+        Value { vec: new_bv }
+    }
+
+    /// Returns a value containing the sliced region [lower,upper]
+    pub fn slice(self, upper_idx: usize, lower_idx: usize) -> Self {
+        assert!(upper_idx >= lower_idx);
+        assert!(upper_idx < self.vec.len());
+
+        let new_bv = BitVec::from_bitslice(&self.vec[lower_idx..=upper_idx]);
+        Value { vec: new_bv }
     }
 }
 

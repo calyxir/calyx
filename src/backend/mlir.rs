@@ -284,7 +284,11 @@ impl MlirBackend {
             Self::write_assignment(assign, indent_level + 2, f)?;
             writeln!(f)?;
         }
-        write!(f, "{}}}", " ".repeat(indent_level))
+        write!(f, "{}}}", " ".repeat(indent_level))?;
+        if let Some(attr) = group.get_attributes() {
+            write!(f, "{}", Self::format_attributes(attr))?;
+        }
+        Ok(())
     }
 
     /// Format and write combinational groups
@@ -301,7 +305,11 @@ impl MlirBackend {
             Self::write_assignment(assign, indent_level + 2, f)?;
             writeln!(f)?;
         }
-        write!(f, "{}}}", " ".repeat(indent_level))
+        write!(f, "{}}}", " ".repeat(indent_level))?;
+        if let Some(attr) = group.get_attributes() {
+            write!(f, "{}", Self::format_attributes(attr))?;
+        }
+        Ok(())
     }
 
     /// Format and write a control program
