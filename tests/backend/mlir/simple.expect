@@ -1,7 +1,7 @@
 calyx.program {
 
 calyx.component @main(%go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i1, %done: i1 {done=1}) {
-  %r1.in, %r1.write_en, %r1.clk, %r1.reset, %r1.out, %r1.done = calyx.register "r1" : i1, i1, i1, i1, i1, i1
+  %r1.in, %r1.write_en, %r1.clk, %r1.reset, %r1.out, %r1.done = calyx.register @r1 : i1, i1, i1, i1, i1, i1
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
     calyx.group @Group1 {
