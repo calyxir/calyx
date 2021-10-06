@@ -356,9 +356,14 @@ impl IRPrinter {
                     )?;
                 }
                 if outputs.is_empty() {
-                    writeln!(f, ");")
+                    write!(f, ")")?;
                 } else {
-                    writeln!(f, "\n{});", " ".repeat(indent_level))
+                    write!(f, "\n{})", " ".repeat(indent_level))?;
+                }
+                if let Some(group) = comb_group {
+                    writeln!(f, "with {}", group.borrow().name)
+                } else {
+                    writeln!(f)
                 }
             }
             ir::Control::Seq(ir::Seq { stmts, attributes }) => {

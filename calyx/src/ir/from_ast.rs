@@ -1,7 +1,7 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, CellType, Component, Context,
-    Control, Direction, GetAttributes, Guard, Id, LibrarySignatures, Port,
-    PortDef, Width, RRC,
+    Control, Direction, GetAttributes, Guard, Id, Invoke, LibrarySignatures,
+    Port, PortDef, Width, RRC,
 };
 use crate::{
     errors::{CalyxResult, Error},
@@ -425,17 +425,34 @@ fn build_control(
                     Error::Undefined(component.clone(), "cell".to_string())
                 })?,
             );
-            let inps = inputs
+            let inputs = inputs
                 .into_iter()
                 .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
                 .collect::<Result<_, _>>()?;
-            let outs = outputs
+            let outputs = outputs
                 .into_iter()
                 .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
                 .collect::<Result<_, _>>()?;
-            let mut inv = Control::invoke(cell, inps, outs);
-            *(inv.get_mut_attributes().unwrap()) = attributes;
-            inv
+            let mut inv = Invoke {
+                comp: cell,
+                inputs,
+                outputs,
+                attributes,
+                comb_group: None,
+            };
+            if let Some(cg) = comb_group {
+                let cg_ref = builder
+                    .component
+                    .find_comb_group(&cg)
+                    .ok_or_else(|| {
+                        Error::Undefined(
+                            cg.clone(),
+                            "combinational group".to_string(),
+                        )
+                    })?;
+                inv.comb_group = Some(cg_ref);
+            }
+            Control::Invoke(inv)
         }
         ast::Control::Seq { stmts, attributes } => {
             let mut s = Control::seq(
