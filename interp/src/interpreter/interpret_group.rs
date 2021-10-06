@@ -86,7 +86,6 @@ pub fn interp_cont(
 /// Evaluates a group, given an environment.
 pub fn interpret_group(
     group: RRC<ir::Group>,
-    // TODO (griffin): Use these during interpretation
     continuous_assignments: &iir::ContinuousAssignments,
     mut env: InterpreterState,
 ) -> InterpreterResult<InterpreterState> {
@@ -108,7 +107,6 @@ pub fn interpret_group(
 /// Evaluates a group, given an environment.
 pub fn interpret_comb_group(
     group: RRC<ir::CombGroup>,
-    // TODO (griffin): Use these during interpretation
     continuous_assignments: &iir::ContinuousAssignments,
     env: InterpreterState,
 ) -> InterpreterResult<InterpreterState> {
