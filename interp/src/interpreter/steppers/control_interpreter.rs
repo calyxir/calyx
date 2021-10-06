@@ -242,14 +242,41 @@ impl Interpreter for EnableInterpreter {
     }
 }
 
+struct SeqIter {
+    seq_ref: Rc<iir::Seq>,
+    index: usize,
+}
+
+impl SeqIter {
+    pub fn new(seq: &Rc<iir::Seq>) -> Self {
+        Self {
+            seq_ref: Rc::clone(seq),
+            index: 0,
+        }
+    }
+}
+
+impl Iterator for SeqIter {
+    type Item = iir::Control;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.seq_ref.stmts.len() {
+            let out = &self.seq_ref.stmts[self.index];
+            self.index += 1;
+            Some(out.clone()) // this clone is relatively cheap
+        } else {
+            None
+        }
+    }
+}
 pub struct SeqInterpreter {
-    sequence: PeekNth<std::vec::IntoIter<iir::Control>>,
+    sequence: PeekNth<SeqIter>,
     current_interpreter: Option<ControlInterpreter>,
     continuous_assignments: iir::ContinuousAssignments,
     env: Option<InterpreterState>,
     done_flag: bool,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    seq: Rc<iir::Seq>,
+    _seq: Rc<iir::Seq>,
 }
 impl SeqInterpreter {
     pub fn new(
@@ -258,20 +285,14 @@ impl SeqInterpreter {
         continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
-        // this is a bit silly but sidesteps the lifetime bounds on an iterator
-        // the main cost is the allocation of the cloned vec since cloning
-        // an iir::Control is just the Rc clone and enum metadata
-        // TODO (Griffin): Replace this with something less wasteful.
-        let copied = seq.stmts.clone();
-
         Self {
-            sequence: peek_nth(copied.into_iter()),
+            sequence: peek_nth(SeqIter::new(seq)),
             current_interpreter: None,
             continuous_assignments: Rc::clone(continuous_assigns),
             env: Some(env),
             done_flag: false,
             input_ports,
-            seq: Rc::clone(seq),
+            _seq: Rc::clone(seq),
         }
     }
 }
