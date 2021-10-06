@@ -324,7 +324,7 @@ def emit(prog):
     program = Program(
         imports=[
             Import("primitives/core.futil"),
-            Import("primitives/binary_opeartors.futil"),
+            Import("primitives/binary_operators.futil"),
         ],
         components=[
             Component(
