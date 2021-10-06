@@ -160,7 +160,7 @@ pub struct EnableInterpreter {
     enable: EnableHolder,
     group_name: Option<ir::Id>,
     interp: AssignmentInterpreter,
-    continuous_assignments: iir::ContinuousAssignments,
+    _continuous_assignments: iir::ContinuousAssignments,
 }
 
 impl EnableInterpreter {
@@ -186,7 +186,7 @@ impl EnableInterpreter {
             enable,
             group_name,
             interp,
-            continuous_assignments: Rc::clone(continuous),
+            _continuous_assignments: Rc::clone(continuous),
         }
     }
 }
@@ -242,41 +242,14 @@ impl Interpreter for EnableInterpreter {
     }
 }
 
-struct SeqIter {
-    seq_ref: Rc<iir::Seq>,
-    index: usize,
-}
-
-impl SeqIter {
-    pub fn new(seq: &Rc<iir::Seq>) -> Self {
-        Self {
-            seq_ref: Rc::clone(seq),
-            index: 0,
-        }
-    }
-}
-
-impl Iterator for SeqIter {
-    type Item = iir::Control;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.seq_ref.stmts.len() {
-            let out = &self.seq_ref.stmts[self.index];
-            self.index += 1;
-            Some(out.clone()) // this clone is relatively cheap
-        } else {
-            None
-        }
-    }
-}
 pub struct SeqInterpreter {
-    sequence: PeekNth<SeqIter>,
     current_interpreter: Option<ControlInterpreter>,
     continuous_assignments: iir::ContinuousAssignments,
     env: Option<InterpreterState>,
     done_flag: bool,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    _seq: Rc<iir::Seq>,
+    seq: Rc<iir::Seq>,
+    seq_index: usize,
 }
 impl SeqInterpreter {
     pub fn new(
@@ -286,29 +259,31 @@ impl SeqInterpreter {
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         Self {
-            sequence: peek_nth(SeqIter::new(seq)),
             current_interpreter: None,
             continuous_assignments: Rc::clone(continuous_assigns),
             env: Some(env),
             done_flag: false,
             input_ports,
-            _seq: Rc::clone(seq),
+            seq: Rc::clone(seq),
+            seq_index: 0,
         }
     }
 }
 
 impl Interpreter for SeqInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
-        if self.current_interpreter.is_none() && self.sequence.peek().is_some()
+        if self.current_interpreter.is_none()
+            && self.seq_index < self.seq.stmts.len()
         // There is more to execute, make new interpreter
         {
             self.current_interpreter = ControlInterpreter::new(
-                &self.sequence.next().unwrap(),
+                &self.seq.stmts[self.seq_index],
                 self.env.take().unwrap(),
                 &self.continuous_assignments,
                 Rc::clone(&self.input_ports),
             )
-            .into()
+            .into();
+            self.seq_index += 1;
         } else if self.current_interpreter.is_some()
         // current interpreter can be stepped/deconstructed
         {
@@ -319,7 +294,7 @@ impl Interpreter for SeqInterpreter {
             } else {
                 self.current_interpreter.as_mut().unwrap().step()?
             }
-        } else if self.sequence.peek().is_none()
+        } else if self.seq_index >= self.seq.stmts.len()
         // there is nothing left to do
         {
             self.done_flag = true
