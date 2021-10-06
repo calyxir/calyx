@@ -1,5 +1,4 @@
-import "primitives/core.futil";
-import "primitives/binary_operators.futil";
+import "primitives/std.lib";
 component main() -> () {
   cells {
     const0 = std_const(32,4);
