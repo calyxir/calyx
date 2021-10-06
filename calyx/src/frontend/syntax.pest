@@ -226,7 +226,7 @@ enable = { at_attributes ~ identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ (port | num_lit) }
 invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
-invoke = { at_attributes ~ "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
+invoke = { at_attributes ~ "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier) ~ ";" }
 
 seq = {
       at_attributes ~ "seq" ~ "{"

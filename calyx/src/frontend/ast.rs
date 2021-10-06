@@ -269,6 +269,8 @@ pub enum Control {
         outputs: Vec<(ir::Id, Atom)>,
         /// Attributes
         attributes: ir::Attributes,
+        /// Combinational group that may execute with this invoke.
+        comb_group: Option<ir::Id>,
     },
     /// Control statement that does nothing.
     Empty {},

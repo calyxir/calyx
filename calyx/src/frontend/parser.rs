@@ -581,7 +581,16 @@ impl CalyxParser {
                     comp,
                     inputs,
                     outputs,
-                    attributes: attrs
+                    attributes: attrs,
+                    comb_group: None
+                },
+            [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs), identifier(group)] =>
+                ast::Control::Invoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    attributes: attrs,
+                    comb_group: Some(group)
                 }
         ))
     }

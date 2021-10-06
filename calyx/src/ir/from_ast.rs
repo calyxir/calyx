@@ -418,6 +418,7 @@ fn build_control(
             inputs,
             outputs,
             attributes,
+            comb_group,
         } => {
             let cell = Rc::clone(
                 &builder.component.find_cell(&component).ok_or_else(|| {

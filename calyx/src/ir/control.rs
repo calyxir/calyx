@@ -74,6 +74,8 @@ pub struct Invoke {
     pub outputs: PortMap,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+    /// Optional combinational group that is active when the invoke is active.
+    pub comb_group: Option<RRC<CombGroup>>,
 }
 
 /// Data for the `empty` control statement.
@@ -163,6 +165,7 @@ impl Control {
             inputs,
             outputs,
             attributes: Attributes::default(),
+            comb_group: None,
         })
     }
 
