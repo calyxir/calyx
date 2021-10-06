@@ -335,10 +335,12 @@ impl Primitive for ComponentInterpreter {
         &mut self,
         _inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
-        assert!(
-            self.is_done(),
-            "Component interpreter reset before finishing"
-        );
+        if self.interp.is_control() {
+            assert!(
+                self.is_done(),
+                "Component interpreter reset before finishing"
+            );
+        }
 
         let interp = std::mem::take(&mut self.interp);
 
