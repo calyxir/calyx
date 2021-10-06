@@ -119,7 +119,7 @@ if __name__ == "__main__":
         "-d",
         "--dataset",
         required=True,
-        help="Dataset used, e.g. \"mnist\". Needed for image preprocessing.",
+        help='Dataset used, e.g. "mnist". Needed for image preprocessing.',
     )
     parser.add_argument("-i", "--image", required=True, help="Path to the input image.")
     parser.add_argument(

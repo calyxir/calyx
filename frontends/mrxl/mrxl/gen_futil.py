@@ -1,7 +1,22 @@
 from . import ast
 from calyx.py_ast import (
-    Connect, Group, CompVar, Stdlib, Cell, Program, Component, Import, SeqComp,
-    ConstantPort, HolePort, CompPort, Enable, While, ParComp, CombGroup)
+    Connect,
+    Group,
+    CompVar,
+    Stdlib,
+    Cell,
+    Program,
+    Component,
+    Import,
+    SeqComp,
+    ConstantPort,
+    HolePort,
+    CompPort,
+    Enable,
+    While,
+    ParComp,
+    CombGroup,
+)
 
 
 def emit_mem_decl(name, size, par):
@@ -104,14 +119,12 @@ def emit_eval_body_group(s_idx, stmt, b=None):
         src = CompVar(f"{bi.src}{bank_suffix}")
         dest = CompVar(f"idx{bank_suffix}_{s_idx}")
 
-        mem_offsets.append(
-            Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
+        mem_offsets.append(Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
 
     if isinstance(stmt.op, ast.Map):
         src = CompVar(f"{stmt.dest}{bank_suffix}")
         dest = CompVar(f"idx{bank_suffix}_{s_idx}")
-        mem_offsets.append(
-            Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
+        mem_offsets.append(Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
 
     compute_left_op = emit_compute_op(
         stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, s_idx, bank_suffix
@@ -162,8 +175,7 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
         Cell(CompVar(f"le{s_idx}"), stdlib.op("lt", 32, signed=False)),
         Cell(CompVar(f"idx{s_idx}"), stdlib.register(32)),
         Cell(CompVar(f"adder_idx{s_idx}"), stdlib.op("add", 32, signed=False)),
-        Cell(CompVar(f"adder_op{s_idx}"), stdlib.op(
-            f"{op_name}", 32, signed=False)),
+        Cell(CompVar(f"adder_op{s_idx}"), stdlib.op(f"{op_name}", 32, signed=False)),
     ]
     wires = [
         emit_cond_group(s_idx, arr_size),
@@ -173,8 +185,7 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
     control = While(
         port=CompPort(CompVar(f"le{s_idx}"), "out"),
         cond=CompVar(f"cond{s_idx}"),
-        body=SeqComp(
-            [Enable(f"eval_body{s_idx}"), Enable(f"incr_idx{s_idx}")]),
+        body=SeqComp([Enable(f"eval_body{s_idx}"), Enable(f"incr_idx{s_idx}")]),
     )
 
     return {"cells": cells, "wires": wires, "control": control}
@@ -198,8 +209,7 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
     for b in range(bank_factor):
         cells.extend(
             [
-                Cell(CompVar(f"le_b{b}_{s_idx}"),
-                     stdlib.op("lt", 32, signed=False)),
+                Cell(CompVar(f"le_b{b}_{s_idx}"), stdlib.op("lt", 32, signed=False)),
                 Cell(CompVar(f"idx_b{b}_{s_idx}"), stdlib.register(32)),
                 Cell(
                     CompVar(f"adder_idx_b{b}_{s_idx}"),
@@ -298,8 +308,7 @@ def emit(prog):
         used_names.append(decl.name)
         if decl.type.size:  # A memory
             arr_size = decl.type.size
-            cells.extend(emit_mem_decl(
-                decl.name, decl.type.size, name2par[decl.name]))
+            cells.extend(emit_mem_decl(decl.name, decl.type.size, name2par[decl.name]))
         else:  # A register
             cells.append(Cell(CompVar(decl.name), stdlib.register(32)))
 
@@ -307,8 +316,7 @@ def emit(prog):
     for stmt in prog.stmts:
         if stmt.dest not in used_names:
             if isinstance(stmt.op, ast.Map):
-                cells.extend(emit_mem_decl(
-                    stmt.dest, arr_size, name2par[stmt.dest]))
+                cells.extend(emit_mem_decl(stmt.dest, arr_size, name2par[stmt.dest]))
             else:
                 raise NotImplementedError("Generating register declarations")
                 #  cells.append(emit_reg_decl(stmt.dest, 32))
