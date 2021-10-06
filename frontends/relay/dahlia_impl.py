@@ -415,7 +415,8 @@ def reshape(fd: DahliaFuncDef) -> str:
 
     assert (
         # See the TVM Relay API for significance of `newshape` values.
-        newshape[0] == -1 and rdims == 2
+        newshape[0] == -1
+        and rdims == 2
     ), f"""Only supports a subset of `reshape` functionality (i.e. where the dimensions are inferred).
         E.g.
         let  %x: Tensor[(1, 2, 2, 2), float32] = ...;

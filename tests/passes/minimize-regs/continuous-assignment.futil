@@ -1,5 +1,5 @@
 // -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
-import "primitives/std.lib";
+import "primitives/core.futil";
 component main() -> (x_out: 32) {
   cells {
     x_0 = std_reg(32);

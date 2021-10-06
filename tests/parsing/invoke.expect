@@ -1,4 +1,4 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 component add(left: 32, right: 32, go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (out: 32, done: 1, @done done0: 1) {
   cells {
     adder = std_add(32);

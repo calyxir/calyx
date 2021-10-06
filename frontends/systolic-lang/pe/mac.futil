@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 
 // A MAC pipelined MAC that performs an add in the first cycle and multiply
 // in the next. It immediately (combinationally) forwards the left signal to
@@ -6,11 +7,11 @@ import "primitives/std.lib";
 component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
   cells {
     // Storage
-    acc = prim std_reg(32);
-    mul_reg = prim std_reg(32);
+    acc = std_reg(32);
+    mul_reg = std_reg(32);
     // Computation
-    add = prim std_add(32);
-    mul = prim std_mult(32);
+    add = std_add(32);
+    mul = std_mult(32);
   }
 
   wires {
