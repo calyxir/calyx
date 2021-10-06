@@ -5,10 +5,11 @@ use interp::debugger::Debugger;
 use interp::environment;
 use interp::errors::{InterpreterError, InterpreterResult};
 use interp::interpreter::interpret_component;
+use interp::interpreter_ir as iir;
 use interp::RefHandler;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::{cell::RefCell, path::Path};
-
 #[derive(FromArgs)]
 /// The Calyx Interpreter
 pub struct Opts {
@@ -88,43 +89,34 @@ fn main() -> InterpreterResult<()> {
 
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
-    let ir = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
-    let ctx = ir::RRC::new(RefCell::new(ir));
+    let mut ctx = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
     let pm = PassManager::default_passes()?;
 
     if !opts.skip_verification {
-        pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
+        pm.execute_plan(&mut ctx, &["validate".to_string()], &[])?;
     }
 
-    let ctx_ref: &ir::Context = &ctx.borrow();
-    let components = ctx_ref.components.iter();
-    let controls: Vec<_> = ctx_ref
-        .components
-        .iter()
-        .map(|x| x.control.borrow())
-        .collect();
-    let control_refs: Vec<&ir::Control> =
-        controls.iter().map(|x| x as &ir::Control).collect();
-    let ref_handler =
-        RefHandler::construct(components, control_refs.iter().copied());
-    let main_component = ctx_ref
-        .components
+    let components: iir::ComponentCtx = Rc::new(
+        ctx.components
+            .into_iter()
+            .map(|x| Rc::new(x.into()))
+            .collect(),
+    );
+
+    let main_component = components
         .iter()
         .find(|&cm| cm.name == "main")
         .ok_or(InterpreterError::MissingMainComponent)?;
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
-    let env = environment::InterpreterState::init(
-        ctx.clone(),
-        main_component,
-        &ref_handler,
-        &mems,
-    );
+
+    let env =
+        environment::InterpreterState::init(&components, main_component, &mems);
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
         Command::Interpret(_) => interpret_component(main_component, env),
         Command::Debug(CommandDebug { pass_through }) => {
-            let mut cidb = Debugger::new(ctx_ref, main_component);
+            let mut cidb = Debugger::new(&components, main_component);
             cidb.main_loop(env, pass_through)
         }
     };

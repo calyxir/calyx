@@ -1,6 +1,7 @@
 //! Inteprets a control in a component.
 
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use super::interpret_group::{
     finish_comb_group_interpretation, finish_group_interpretation,
@@ -10,35 +11,37 @@ use crate::environment::InterpreterState;
 use crate::errors::InterpreterResult;
 use calyx::ir;
 
+use crate::interpreter_ir as iir;
+
 /// Helper function to evaluate control
-pub fn interpret_control<'outer>(
-    ctrl: &ir::Control,
-    continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
-    comp: &ir::Component,
-) -> InterpreterResult<InterpreterState<'outer>> {
+pub fn interpret_control(
+    ctrl: &iir::Control,
+    continuous_assignments: &iir::ContinuousAssignments,
+    env: InterpreterState,
+    comp: &iir::Component,
+) -> InterpreterResult<InterpreterState> {
     match ctrl {
-        ir::Control::Seq(s) => eval_seq(s, continuous_assignments, env, comp),
-        ir::Control::Par(p) => eval_par(p, continuous_assignments, env, comp),
-        ir::Control::If(i) => eval_if(i, continuous_assignments, env, comp),
-        ir::Control::While(w) => {
+        iir::Control::Seq(s) => eval_seq(s, continuous_assignments, env, comp),
+        iir::Control::Par(p) => eval_par(p, continuous_assignments, env, comp),
+        iir::Control::If(i) => eval_if(i, continuous_assignments, env, comp),
+        iir::Control::While(w) => {
             eval_while(w, continuous_assignments, env, comp)
         }
-        ir::Control::Invoke(i) => eval_invoke(i, continuous_assignments, env),
-        ir::Control::Enable(e) => eval_enable(e, continuous_assignments, env),
-        ir::Control::Empty(e) => {
+        iir::Control::Invoke(i) => eval_invoke(i, continuous_assignments, env),
+        iir::Control::Enable(e) => eval_enable(e, continuous_assignments, env),
+        iir::Control::Empty(e) => {
             eval_empty(e, continuous_assignments, env, comp)
         }
     }
 }
 
 /// Interpret Seq
-fn eval_seq<'outer>(
-    s: &ir::Seq,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-    comp: &ir::Component,
-) -> InterpreterResult<InterpreterState<'outer>> {
+fn eval_seq(
+    s: &iir::Seq,
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+    comp: &iir::Component,
+) -> InterpreterResult<InterpreterState> {
     for stmt in &s.stmts {
         env = interpret_control(stmt, continuous_assignments, env, comp)?;
     }
@@ -47,12 +50,12 @@ fn eval_seq<'outer>(
 
 /// Interpret Par
 
-fn eval_par<'outer>(
-    p: &ir::Par,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-    comp: &ir::Component,
-) -> InterpreterResult<InterpreterState<'outer>> {
+fn eval_par(
+    p: &iir::Par,
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+    comp: &iir::Component,
+) -> InterpreterResult<InterpreterState> {
     //vector to keep track of all updated states
     let mut states = Vec::new();
 
@@ -92,15 +95,18 @@ fn eval_par<'outer>(
 }
 
 /// Interpret If
-fn eval_if<'outer>(
-    i: &ir::If,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-    comp: &ir::Component,
-) -> InterpreterResult<InterpreterState<'outer>> {
+fn eval_if(
+    i: &iir::If,
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+    comp: &iir::Component,
+) -> InterpreterResult<InterpreterState> {
     if let Some(comb) = &i.cond {
-        env =
-            interpret_comb_group(&comb.borrow(), continuous_assignments, env)?;
+        env = interpret_comb_group(
+            Rc::clone(&comb),
+            continuous_assignments,
+            env,
+        )?;
     }
 
     let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
@@ -126,16 +132,16 @@ fn eval_if<'outer>(
 // cond_group and uses port_name as the conditional value. When the
 // value is high, it executes body_stmt and recomputes the conditional
 // using cond_group.
-fn eval_while<'outer>(
-    w: &ir::While,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-    comp: &ir::Component,
-) -> InterpreterResult<InterpreterState<'outer>> {
+fn eval_while(
+    w: &iir::While,
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+    comp: &iir::Component,
+) -> InterpreterResult<InterpreterState> {
     loop {
         if let Some(comb) = &w.cond {
             env = interpret_comb_group(
-                &comb.borrow(),
+                Rc::clone(comb),
                 continuous_assignments,
                 env,
             )?;
@@ -164,31 +170,31 @@ fn eval_while<'outer>(
 /// Interpret Invoke
 /// TODO
 #[allow(clippy::unnecessary_wraps)]
-fn eval_invoke<'outer>(
-    inv: &ir::Invoke,
-    continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
-) -> InterpreterResult<InterpreterState<'outer>> {
+fn eval_invoke(
+    inv: &Rc<iir::Invoke>,
+    continuous_assignments: &iir::ContinuousAssignments,
+    env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
     interpret_invoke(inv, continuous_assignments, env)
 }
 
 /// Interpret Enable
-fn eval_enable<'outer>(
-    e: &ir::Enable,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-) -> InterpreterResult<InterpreterState<'outer>> {
-    env = interpret_group(&e.group.borrow(), continuous_assignments, env)?;
+fn eval_enable(
+    e: &iir::Enable,
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
+    env = interpret_group(Rc::clone(&e.group), continuous_assignments, env)?;
     finish_group_interpretation(&e.group.borrow(), continuous_assignments, env)
 }
 
 /// Interpret Empty
 #[allow(clippy::unnecessary_wraps)]
-fn eval_empty<'outer>(
-    _e: &ir::Empty,
-    _continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
-    _comp: &ir::Component,
-) -> InterpreterResult<InterpreterState<'outer>> {
+fn eval_empty(
+    _e: &iir::Empty,
+    _continuous_assignments: &iir::ContinuousAssignments,
+    env: InterpreterState,
+    _comp: &iir::Component,
+) -> InterpreterResult<InterpreterState> {
     Ok(env)
 }

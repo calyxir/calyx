@@ -9,12 +9,19 @@ use std::cell::Ref;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+use super::control_interpreter::EnableHolder;
 use crate::interpreter_ir as iir;
 
 pub enum AssignmentHolder {
     CombGroup(RRC<ir::CombGroup>),
     Group(RRC<ir::Group>),
-    Vec(Vec<Assignment>),
+    Vec(Rc<Vec<Assignment>>),
+}
+
+impl Default for AssignmentHolder {
+    fn default() -> Self {
+        Self::Vec(Rc::new(Vec::new()))
+    }
 }
 
 impl From<RRC<ir::CombGroup>> for AssignmentHolder {
@@ -31,7 +38,23 @@ impl From<RRC<ir::Group>> for AssignmentHolder {
 
 impl From<Vec<Assignment>> for AssignmentHolder {
     fn from(v: Vec<Assignment>) -> Self {
+        Self::Vec(Rc::new(v))
+    }
+}
+
+impl From<Rc<Vec<Assignment>>> for AssignmentHolder {
+    fn from(v: Rc<Vec<Assignment>>) -> Self {
         Self::Vec(v)
+    }
+}
+
+impl From<EnableHolder> for AssignmentHolder {
+    fn from(en: EnableHolder) -> Self {
+        match en {
+            EnableHolder::Group(grp) => AssignmentHolder::Group(grp),
+            EnableHolder::CombGroup(cgrp) => AssignmentHolder::CombGroup(cgrp),
+            EnableHolder::Vec(v) => AssignmentHolder::Vec(v),
+        }
     }
 }
 
@@ -48,7 +71,7 @@ impl AssignmentHolder {
 pub enum IterRef<'a> {
     CombGroup(Ref<'a, ir::CombGroup>),
     Group(Ref<'a, ir::Group>),
-    Vec(&'a Vec<Assignment>),
+    Vec(&'a Rc<Vec<Assignment>>),
 }
 
 impl<'a> IterRef<'a> {
@@ -79,13 +102,12 @@ impl AssignmentInterpreter {
         state: InterpreterState,
         done_signal: Option<RRC<ir::Port>>,
         assigns: A,
-        cont_assigns: Rc<Vec<ir::Assignment>>,
+        cont_assigns: &Rc<Vec<ir::Assignment>>,
     ) -> Self {
         let done_port = done_signal.as_ref().map(|x| x.as_raw());
         let assigns: AssignmentHolder = assigns.into();
-        let borrow = assigns.get_ref();
         let cells = utils::get_dest_cells(
-            assigns.iter().chain(cont_assigns.iter()),
+            assigns.get_ref().iter().chain(cont_assigns.iter()),
             done_signal,
         );
 
@@ -93,7 +115,7 @@ impl AssignmentInterpreter {
             state,
             done_port,
             assigns,
-            cont_assigns,
+            cont_assigns: Rc::clone(cont_assigns),
             cells,
             val_changed: None,
         }
@@ -139,8 +161,13 @@ impl AssignmentInterpreter {
         // retain old value
         self.val_changed.get_or_insert(true);
 
-        let possible_ports: HashSet<*const ir::Port> =
-            self.assigns.iter_all().map(|a| a.dst.as_raw()).collect();
+        let possible_ports: HashSet<*const ir::Port> = self
+            .assigns
+            .get_ref()
+            .iter()
+            .chain(self.cont_assigns.iter())
+            .map(|a| a.dst.as_raw())
+            .collect();
 
         // this unwrap is safe
         while self.val_changed.unwrap() {
@@ -286,8 +313,10 @@ impl AssignmentInterpreter {
         let done_signal = self.done_port;
         let env = self.deconstruct()?;
 
+        let assign_ref = assigns.get_ref();
+
         // note there might be some trouble with mixed assignments
-        finish_interpretation(env, done_signal, assigns._iter_group_assigns())
+        finish_interpretation(env, done_signal, assign_ref.iter())
     }
 
     pub fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
