@@ -1,3 +1,4 @@
+/* verilator lint_off MULTITOP */
 /// =================== Unsigned, Fixed Point =========================
 module std_fp_add #(
     parameter WIDTH = 32,
@@ -26,7 +27,8 @@ endmodule
 module std_fp_mult_pipe #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 16,
-    parameter FRAC_WIDTH = 16
+    parameter FRAC_WIDTH = 16,
+    parameter SIGNED = 0
 ) (
     input  logic [WIDTH-1:0] left,
     input  logic [WIDTH-1:0] right,
@@ -38,26 +40,63 @@ module std_fp_mult_pipe #(
   logic [WIDTH-1:0]          rtmp;
   logic [WIDTH-1:0]          ltmp;
   logic [(WIDTH << 1) - 1:0] out_tmp;
-  reg done_buf[1:0];
+  logic done_buf[2:0];
+
+  // Done signal connected to the final position of the done_buf
+  assign done = done_buf[2];
+
+  // If the done buffer is completely empty and go is high then execution
+  // just started.
+  logic is_started;
+  assign is_started = go == 1 & done_buf[0] == 0 & done_buf[1] == 0 & done_buf[0] == 0;
+
+  // Start sending the done signal.
+  always_ff @(posedge clk) begin
+    if (is_started)
+      done_buf[0] <= 1;
+    else
+      done_buf[0] <= 0;
+  end
+
+  // Push the done signal through the pipeline
   always_ff @(posedge clk) begin
     if (go) begin
-      rtmp <= right;
-      ltmp <= left;
-      out_tmp <= ltmp * rtmp;
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
-
-      done <= done_buf[1];
-      done_buf[0] <= 1'b1;
+      done_buf[2] <= done_buf[1];
       done_buf[1] <= done_buf[0];
+    end else begin
+      done_buf[2] <= 0;
+      done_buf[1] <= 0;
+    end
+  end
+
+  // Output is latched when go is low and otherwise either gets value from
+  // out_tmp;
+  always_ff @(posedge clk) begin
+    if (go)
+      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
+    else
+      out <= out;
+  end
+
+  // Move the multiplication computation through the pipeline.
+  always_ff @(posedge clk) begin
+    if (go) begin
+      if (SIGNED) begin
+        rtmp <= $signed(right);
+        ltmp <= $signed(left);
+        out_tmp <= $signed(
+          { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
+          { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
+        );
+      end else begin
+        rtmp <= right;
+        ltmp <= left;
+        out_tmp <= ltmp * rtmp;
+      end
     end else begin
       rtmp <= 0;
       ltmp <= 0;
       out_tmp <= 0;
-      out <= 0;
-
-      done <= 0;
-      done_buf[0] <= 0;
-      done_buf[1] <= 0;
     end
   end
 endmodule
@@ -81,10 +120,11 @@ module std_fp_div_pipe #(
     logic [WIDTH-1:0] quotient, quotient_next;
     logic [WIDTH:0] acc, acc_next;
     logic [$clog2(ITERATIONS)-1:0] idx;
-    logic start, running, finished;
+    logic start, running, finished, invalid_divisor;
 
     assign start = go && !running;
     assign finished = running && (idx == ITERATIONS - 1);
+    assign invalid_divisor = start && left == 0;
 
     always_comb begin
       if (acc >= {1'b0, right}) begin
@@ -95,36 +135,65 @@ module std_fp_div_pipe #(
       end
     end
 
+    // `done` signaling
     always_ff @(posedge clk) begin
-      if (!go) begin
-        running <= 0;
-        done <= 0;
-        out_remainder <= 0;
-        out_quotient <= 0;
-      end else if (start && left == 0) begin
-        out_remainder <= 0;
-        out_quotient <= 0;
+      // Early return if divisor is 0.
+      if (invalid_divisor | finished)
         done <= 1;
-      end
-
-      if (start) begin
-        running <= 1;
+      else
         done <= 0;
+    end
+
+    // `running` signal
+    always @(posedge clk) begin
+      if (!go | finished | invalid_divisor)
+        running <= 0;
+      else if (start)
+        running <= 1;
+      else
+        running <= running;
+    end
+
+    // Index increment
+    always_ff @(posedge clk) begin
+      if (start)
         idx <= 0;
-        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+      else if (running)
+        idx <= idx + 1;
+      else
+        idx <= 0;
+    end
+
+    always_ff @(posedge clk) begin
+      if (invalid_divisor) begin
+        // Return zero if the divisor is zero.
+        out_remainder <= 0;
+        out_quotient <= 0;
+      end else if (!go) begin
+        // Latch outputs when not executing.
+        out_remainder <= out_remainder;
+        out_quotient <= out_quotient;
+      end else if (start) begin
         out_quotient <= 0;
         out_remainder <= left;
       end else if (finished) begin
-        running <= 0;
-        done <= 1;
         out_quotient <= quotient_next;
+        out_remainder <= out_remainder;
       end else begin
-        idx <= idx + 1;
+        out_quotient <= out_quotient;
+        if (right <= out_remainder)
+          out_remainder <= out_remainder - right;
+        else
+          out_remainder <= out_remainder;
+      end
+    end
+
+    always_ff @(posedge clk) begin
+      if (start) begin
+        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+      end else begin
         acc <= acc_next;
         quotient <= quotient_next;
-        if (right <= out_remainder) begin
-          out_remainder <= out_remainder - right;
-        end
       end
     end
 endmodule
@@ -223,42 +292,26 @@ module std_fp_smult_pipe #(
     parameter INT_WIDTH = 16,
     parameter FRAC_WIDTH = 16
 ) (
-    input  signed       [WIDTH-1:0] left,
-    input  signed       [WIDTH-1:0] right,
+    input  [WIDTH-1:0] left,
+    input  [WIDTH-1:0] right,
     input  logic                    go,
     input  logic                    clk,
-    output logic signed [WIDTH-1:0] out,
+    output logic [WIDTH-1:0] out,
     output logic                    done
 );
-  logic signed [WIDTH-1:0] ltmp;
-  logic signed [WIDTH-1:0] rtmp;
-  logic signed [(WIDTH << 1) - 1:0] out_tmp;
-  reg done_buf[1:0];
-  always_ff @(posedge clk) begin
-    if (go) begin
-      ltmp <= left;
-      rtmp <= right;
-      // Sign extend by the first bit for the operands.
-      out_tmp <= $signed(
-                   { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
-                   { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
-                 );
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1: WIDTH - INT_WIDTH];
-
-      done <= done_buf[1];
-      done_buf[0] <= 1'b1;
-      done_buf[1] <= done_buf[0];
-    end else begin
-      rtmp <= 0;
-      ltmp <= 0;
-      out_tmp <= 0;
-      out <= 0;
-
-      done <= 0;
-      done_buf[0] <= 0;
-      done_buf[1] <= 0;
-    end
-  end
+  std_fp_mult_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(INT_WIDTH),
+    .FRAC_WIDTH(FRAC_WIDTH),
+    .SIGNED(1)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left),
+    .right(right),
+    .out(out)
+  );
 endmodule
 
 module std_fp_sdiv_pipe #(
@@ -384,7 +437,8 @@ module std_mult_pipe #(
   std_fp_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
-    .FRAC_WIDTH(0)
+    .FRAC_WIDTH(0),
+    .SIGNED(0)
   ) comp (
     .clk(clk),
     .done(done),
@@ -411,41 +465,89 @@ module std_div_pipe #(
   logic [(WIDTH-1)*2:0] divisor;
   logic [WIDTH-1:0] quotient;
   logic [WIDTH-1:0] quotient_msk;
-  logic start, running, finished;
+  logic start, running, finished, div_by_zero;
 
   assign start = go && !running;
   assign finished = !quotient_msk && running;
+  assign div_by_zero = start && left == 0;
 
   always_ff @(posedge clk) begin
-    if (!go) begin
-      running <= 0;
+    // Early return if the divisor is zero
+    if (finished | div_by_zero)
+      done <= 1;
+    else
       done <= 0;
-      out_remainder <= 0;
-      out_quotient <= 0;
-    end else if (start && left == 0) begin
-      out_remainder <= 0;
-      out_quotient <= 0;
-      done <= 1;
-    end
+  end
 
-    if (start) begin
-      running <= 1;
-      dividend <= left;
-      divisor <= right << WIDTH - 1;
-      quotient <= 0;
-      quotient_msk <= 1 << WIDTH - 1;
-    end else if (finished) begin
+  always_ff @(posedge clk) begin
+    if (finished | div_by_zero | !go)
       running <= 0;
-      done <= 1;
+    else if (start)
+      running <= 1;
+    else
+      running <= running;
+  end
+
+  // Outputs
+  always_ff @(posedge clk) begin
+    if (div_by_zero) begin
+      out_remainder <= 0;
+      out_quotient <= 0;
+    end else if (!go) begin
+      // Latch outputs when not executing to make the component
+      // invokable.
+      out_quotient <= out_quotient;
+      out_remainder <= out_remainder;
+    end else if (finished) begin
       out_remainder <= dividend;
       out_quotient <= quotient;
     end else begin
-      if (divisor <= dividend) begin
-        dividend <= dividend - divisor;
-        quotient <= quotient | quotient_msk;
-      end
-      divisor <= divisor >> 1;
+      out_remainder <= 0;
+      out_quotient <= 0;
+    end
+  end
+
+  // Calculating quotient mask
+  always_ff @(posedge clk) begin
+    if (start)
+      quotient_msk <= 1 << WIDTH - 1;
+    else if (finished)
+      quotient_msk <= 0;
+    else
       quotient_msk <= quotient_msk >> 1;
+  end
+
+  // Calculating quotient
+  always_ff @(posedge clk) begin
+    if (start)
+      quotient <= 0;
+    else if (finished)
+      quotient <= 0;
+    else if (divisor <= dividend)
+      quotient  <= quotient | quotient_msk;
+    else
+      quotient <= quotient;
+  end
+
+  // Calculate dividend
+  always_ff @(posedge clk) begin
+    if (start)
+      dividend <= left;
+    else if (finished)
+      dividend <= 0;
+    else if (divisor <= dividend)
+      dividend <= dividend - divisor;
+    else
+      dividend <= dividend;
+  end
+
+  always_ff @(posedge clk) begin
+    if (start) begin
+      divisor <= right << WIDTH - 1;
+    end else if (finished) begin
+      divisor <= 0;
+    end else begin
+      divisor <= divisor >> 1;
     end
   end
 
@@ -503,10 +605,11 @@ module std_smult_pipe #(
     output logic signed [WIDTH-1:0] out,
     output logic                    done
 );
-  std_fp_smult_pipe #(
+  std_fp_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
-    .FRAC_WIDTH(0)
+    .FRAC_WIDTH(0),
+    .SIGNED(1)
   ) comp (
     .clk(clk),
     .done(done),

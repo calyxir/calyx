@@ -24,7 +24,7 @@ extern "core.sv" {
   comb primitive std_mux<"share"=1>[WIDTH](cond: 1, tru: WIDTH, fal: WIDTH) -> (out: WIDTH);
 
   /// Memories
-  primitive std_reg<"static"=1>[WIDTH](
+  primitive std_reg<"static"=1,"can_invoke"=1>[WIDTH](
     @write_together(1) in: WIDTH,
     @write_together(1) @go write_en: 1,
     @clk clk: 1,

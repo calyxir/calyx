@@ -353,6 +353,12 @@ impl Group {
     pub fn name(&self) -> &Id {
         &self.name
     }
+
+    /// The attributes of this group.
+    #[inline]
+    pub fn get_attributes(&self) -> Option<&Attributes> {
+        Some(&self.attributes)
+    }
 }
 
 /// A combinational group.
@@ -370,9 +376,16 @@ pub struct CombGroup {
     pub attributes: Attributes,
 }
 impl CombGroup {
+    /// The name of this group.
     #[inline]
     pub fn name(&self) -> &Id {
         &self.name
+    }
+
+    /// The attributes of this group.
+    #[inline]
+    pub fn get_attributes(&self) -> Option<&Attributes> {
+        Some(&self.attributes)
     }
 }
 

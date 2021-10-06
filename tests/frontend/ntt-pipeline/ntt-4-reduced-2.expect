@@ -6,7 +6,8 @@
 // | 2 | a[0] - a[2] * phis[1] | a[2] + a[3] * phis[3] |
 // | 3 | a[1] - a[3] * phis[1] | a[2] - a[3] * phis[3] |
 // +---+-----------------------+-----------------------+
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     @external(1) a = std_mem_d1(32, 4, 3);

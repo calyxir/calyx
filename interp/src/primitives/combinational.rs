@@ -152,6 +152,44 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     ("right".into(), &new_right)]).into_iter().next().map(|(_, v)| v).unwrap()
 });
 
+// TODO (Griffin): Make these wrappers around the normal add
+comb_primitive!(StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    let a_iter = left.vec.iter().by_ref();
+    let b_iter = right.vec.iter().by_ref();
+    let mut c_in = false;
+    let mut sum = BitVec::new();
+    for (ai, bi) in a_iter.zip(b_iter) {
+        sum.push(
+            c_in & !ai & !bi
+                || bi & !c_in & !ai
+                || ai & !c_in & !bi
+                || ai & bi & c_in,
+        );
+        c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
+    }
+    let tr = Value { vec: sum };
+    //as a sanity check, check tr has same width as left
+    assert_eq!(tr.width(), left.width());
+    tr
+});
+comb_primitive!(StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    //first turn right into ~right + 1
+    let new_right = !right.vec.clone();
+    let mut adder = StdAdd::from_constants(WIDTH);
+    let new_right = adder
+        .execute(
+            &[("left".into(), &Value { vec: new_right }),
+            ("right".into(), &Value::from(1, WIDTH))],
+        )
+        .into_iter()
+        .next()
+        .map(|(_, v)| v)
+        .unwrap();
+    //then add left and new_right
+    adder.execute(&[("left".into(), left),
+    ("right".into(), &new_right)]).into_iter().next().map(|(_, v)| v).unwrap()
+});
+
 // ===================== Shift Operations ======================
 comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //to avoid the casting overflow,
@@ -418,7 +456,7 @@ comb_primitive!(StdSneq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 });
 
 // ===================== Unsigned FP Comparison Operators ======================
-comb_primitive!(StdFpGt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(StdFpGt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     if left.as_u128() > right.as_u128() {
         Value::bit_high()
     } else {
@@ -427,7 +465,7 @@ comb_primitive!(StdFpGt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 });
 
 // ===================== Signed FP Comparison Operators ======================
-comb_primitive!(StdFpSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(StdFpSgt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     if left.as_i128() > right.as_i128() {
         Value::bit_high()
     } else {
@@ -435,7 +473,7 @@ comb_primitive!(StdFpSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     }
 });
 
-comb_primitive!(StdFpSlt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(StdFpSlt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     if left.as_i128() < right.as_i128() {
         Value::bit_high()
     } else {

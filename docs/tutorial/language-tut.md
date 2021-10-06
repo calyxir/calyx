@@ -16,7 +16,7 @@ to hardware modules (or function definitions for the software-minded).
 Here is an empty component definition for `main` along with an `import`
 statement to import the standard library:
 
-    import "primitives/std.lib";
+    import "primitives/core.futil";
 
     component main(go: 1) -> (done: 1) {
       cells {
@@ -52,7 +52,7 @@ We'll start by adding a memory component to the cells:
 ```
 
 This new line declares a new cell called `mem` and the primitive component `std_mem_d1` represents a 1D memory.
-You can see the definition of `std_mem_d1`, and all the other standard components, in the `primitives/std.lib` library we imported.
+You can see the definition of `std_mem_d1`, and all the other standard components, in the `primitives/core.futil` library we imported.
 
 This one has three parameters:
 the data width (here, 32 bits),

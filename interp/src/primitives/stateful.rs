@@ -1249,7 +1249,7 @@ impl Primitive for StdMemD4 {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let (addr0, addr1, addr2, addr3) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2, addr3) >= self.max_idx() {
-            panic!("[std_mem_d4] Supplied an invalid index {:?}", self.last_idx)
+            panic!("[std_mem_d4] Supplied an invalid index {:?}. Memory has dimension ({},{},{},{}).", self.last_idx, self.d0_size, self.d1_size, self.d2_size, self.d3_size)
         }
 
         if self.write_en {

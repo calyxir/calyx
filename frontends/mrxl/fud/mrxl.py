@@ -20,9 +20,7 @@ class MrXLStage(Stage):
 
     @staticmethod
     def defaults():
-        return {
-            "exec": "mrxl"
-        }
+        return {"exec": "mrxl"}
 
     def _define_steps(self, input_path):
         @self.step(description=self.cmd)
@@ -33,6 +31,4 @@ class MrXLStage(Stage):
 
 
 # Export the defined stages to fud
-__STAGES__ = [
-    MrXLStage
-]
+__STAGES__ = [MrXLStage]

@@ -517,7 +517,11 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
     )
 
     return py_ast.Program(
-        imports=[py_ast.Import("primitives/std.lib")], components=[main]
+        imports=[
+            py_ast.Import("primitives/core.futil"),
+            py_ast.Import("primitives/binary_operators.futil"),
+        ],
+        components=[main],
     )
 
 

@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component foo(a: 32) -> (out: 32) {
   cells {
     temp = std_reg(32);

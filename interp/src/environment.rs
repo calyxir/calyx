@@ -93,6 +93,13 @@ impl InterpreterState {
             "std_sub" | "std_ssub" | "std_fp_ssub" | "std_fp_sub" => {
                 Box::new(combinational::StdSub::new(params))
             }
+            // fp basic arith
+            "std_fp_sadd" | "std_fp_add" => {
+                Box::new(combinational::StdFpAdd::new(params))
+            }
+            "std_fp_ssub" | "std_fp_sub" => {
+                Box::new(combinational::StdFpSub::new(params))
+            }
             // unsigned arith
             "std_mult_pipe" => {
                 Box::new(stateful::StdMultPipe::<false>::new(params))

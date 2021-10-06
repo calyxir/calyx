@@ -23,9 +23,7 @@ class NTTStage(Stage):
     def defaults():
         parent = pathlib.Path(__file__).parent.resolve()
         script_loc = parent / "../gen-ntt-pipeline.py"
-        return {
-            "exec": str(script_loc.resolve())
-        }
+        return {"exec": str(script_loc.resolve())}
 
     def _define_steps(self, input_path):
         @self.step(description=self.cmd)
@@ -36,6 +34,4 @@ class NTTStage(Stage):
 
 
 # Export the defined stages to fud
-__STAGES__ = [
-    NTTStage
-]
+__STAGES__ = [NTTStage]

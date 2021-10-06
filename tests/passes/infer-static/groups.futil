@@ -1,5 +1,5 @@
 // -p infer-static-timing
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component main(go: 1, clk: 1) -> (done: 1) {
   cells {

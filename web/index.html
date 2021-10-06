@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Futil Demo</title>
+        <link rel="stylesheet" type="text/css" href="node_modules/prismjs/themes/prism-solarizedlight.css">
+        <link rel="stylesheet" type="text/css" href="style/toggle.css">
+        <link rel="stylesheet" type="text/css" href="style/grid.css">
+        <link rel="stylesheet" type="text/css" href="style/scroll.css">
+        <link rel="stylesheet" type="text/css" href="style/diff.css">
+        <link rel="stylesheet" type="text/css" href="style/editor.css">
+        <link rel="stylesheet" type="text/css" href="style/main.css">
+        <!-- CSS -->
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+    </head>
+    <body>
+        <!-- <div class="row">
+             <div id="library-pane" class="column-1">
+             Select Library: <select id="library-select"></select>
+             </div>
+             </div> -->
+        <div class="row">
+        </div>
+        <div id="diffEditor" class="editor language-futil center">
+            <div id="editor-header" class="row center">
+                <select id="examples-select"></select>
+                <div id="passes" class="no-scrollbar"></div>
+                <button id="compile">Compile</button>
+            </div>
+            <div class="row center">
+                <pre id="input"
+                     class="left"
+                     contenteditable="true"
+                     spellcheck="false">
+                    <code></code>
+                </pre>
+                <pre id="output"
+                     class="right"
+                     contenteditable="false">
+                    <code></code>
+                </pre>
+            </div>
+        </div>
+        <div class="row">
+            <div id="output" class="column-1"></div>
+        </div>
+        <div class="row">
+            <div id="diff-pane" class="column-1"></div>
+        </div>
+        <hr/>
+        <div class="row">
+            <div id="calyx-version" class="column-1"></div>
+        </div>
+    </body>
+    <script src="js/index.js"></script>
+</html>
