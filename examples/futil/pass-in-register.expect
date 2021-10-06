@@ -1,4 +1,4 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 import "primitives/unsynthesizable.futil";
 component times_10_and_add_1(reg_done: 1, reg_out: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (reg_in: 32, reg_write_en: 1, @done done: 1) {
   cells {

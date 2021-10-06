@@ -1,6 +1,6 @@
 // -p remove-comb-groups -p compile-control
 
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component main() -> () {
   cells {

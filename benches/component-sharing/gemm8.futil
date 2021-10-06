@@ -1,5 +1,6 @@
 // git.status = clean, build.date = Mon Mar 22 14:26:22 EDT 2021, git.hash = 8dd37e4
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     A0_0 = std_mem_d2(32,1,8,1,4);

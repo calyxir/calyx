@@ -1,4 +1,4 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 component main() -> () {
   cells {
     @external(1) A0 = std_mem_d1(32,8,4);

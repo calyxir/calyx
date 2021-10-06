@@ -322,7 +322,10 @@ def emit(prog):
         control.append(stmt_impl["control"])
 
     program = Program(
-        imports=[Import("primitives/std.lib")],
+        imports=[
+            Import("primitives/core.futil"),
+            Import("primitives/binary_opeartors.futil"),
+        ],
         components=[
             Component(
                 name="main",

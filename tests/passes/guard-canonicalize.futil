@@ -1,6 +1,6 @@
 // -p guard-canonical
 
-import "primitives/std.lib";
+import "primitives/core.futil";
 component main() -> (out: 1) {
   cells {
     r = std_reg(1);

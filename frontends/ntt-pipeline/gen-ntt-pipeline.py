@@ -354,7 +354,10 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
     pp_table(operations, multiplies, n, num_stages)
     return Program(
-        imports=[Import("primitives/std.lib")],
+        imports=[
+            Import("primitives/core.futil"),
+            Import("primitives/binary_operators.futil")
+        ],
         components=[
             Component(
                 "main",
