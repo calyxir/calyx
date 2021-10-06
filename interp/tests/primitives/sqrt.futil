@@ -1,4 +1,4 @@
-import "primitives/binary_operations.futil";
+import "primitives/math.futil";
 
 component main() -> () {
   cells {

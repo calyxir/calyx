@@ -1,4 +1,5 @@
 import "core.futil";
+import "binary_operators.futil";
 
 extern "math.sv" {
   // Fixed point square root operator, using a digit-by-digit algorithm.
