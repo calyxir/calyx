@@ -66,6 +66,13 @@ impl AssignmentHolder {
             AssignmentHolder::Vec(v) => IterRef::Vec(v),
         }
     }
+    pub fn get_name(&self) -> Option<ir::Id> {
+        match self {
+            AssignmentHolder::CombGroup(cg) => Some(cg.borrow().name().clone()),
+            AssignmentHolder::Group(g) => Some(g.borrow().name().clone()),
+            AssignmentHolder::Vec(_) => None,
+        }
+    }
 }
 
 pub enum IterRef<'a> {
@@ -291,8 +298,10 @@ impl AssignmentInterpreter {
     pub fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         if self.is_deconstructable() {
             Ok(self.deconstruct_no_check())
+        } else if let Some(name) = self.assigns.get_name() {
+            Err(InterpreterError::InvalidGroupExitNamed(name))
         } else {
-            panic!("Group simulation has not finished executing and cannot be deconstructed")
+            Err(InterpreterError::InvalidGroupExitUnnamed)
         }
     }
 
