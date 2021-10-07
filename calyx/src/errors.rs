@@ -33,7 +33,9 @@ pub enum Error {
     UnusedGroup(ir::Id),
 
     /// No value provided for a primitive parameter.
-    SignatureResolutionFailed(ir::Id, ir::Id),
+    ParamBindingMissing(ir::Id, ir::Id),
+    /// Invalid parameter binding provided
+    InvalidParamBinding(ir::Id, usize, usize),
 
     /// An implementation is missing.
     MissingImplementation(&'static str, ir::Id),
@@ -163,9 +165,18 @@ impl std::fmt::Debug for Error {
                        port2.port_name().to_string(),
                        port2.port_name().fmt_err(&msg2))
             }
-            SignatureResolutionFailed(id, param_name) => {
+            ParamBindingMissing(id, param_name) => {
                 let msg = format!("Failed to resolve: {}", param_name.to_string());
                 write!(f, "{}\nwhich is used here:{}", id.fmt_err(&msg), param_name.fmt_err(""))
+            }
+            InvalidParamBinding(prim, param_len, bind_len) => {
+                let msg = format!(
+                    "Invalid parameter binding for primitive `{}`. Requires {} parameters but provided with {}.",
+                    prim,
+                    param_len,
+                    bind_len
+                );
+                write!(f, "{}", msg)
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
             PassAssumption(pass, msg) => write!(f, "Pass `{}` requires: {}", pass, msg),
