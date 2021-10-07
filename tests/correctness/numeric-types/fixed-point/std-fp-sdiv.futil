@@ -3,11 +3,11 @@ import "primitives/binary_operators.futil";
 
 component main() -> () {
   cells {
-    @external left = std_mem_d1(32, 1, 3);
-    @external right = std_mem_d1(32, 1, 3);
-    @external out_rem = std_mem_d1(32, 1, 3);
-    @external out_quot = std_mem_d1(32, 1, 3);
-    div = std_fp_div_pipe(32);
+    @external left = std_mem_d1(32, 4, 3);
+    @external right = std_mem_d1(32, 4, 3);
+    @external out_rem = std_mem_d1(32, 4, 3);
+    @external out_quot = std_mem_d1(32, 4, 3);
+    div = std_fp_sdiv_pipe(32, 24, 8);
 
     add = std_add(3);
     idx = std_reg(3);
@@ -40,7 +40,7 @@ component main() -> () {
     }
     comb group cond {
       lt.left = idx.out;
-      lt.right = 3'd1;
+      lt.right = 3'd4;
     }
     comb group read_mem_idx {
       left.addr0 = idx.out;

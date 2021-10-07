@@ -328,15 +328,37 @@ module std_fp_sdiv_pipe #(
     output logic              done
 );
 
-  logic signed [WIDTH-1:0] left_abs;
-  logic signed [WIDTH-1:0] right_abs;
-  logic signed [WIDTH-1:0] comp_out_q;
-  logic signed [WIDTH-1:0] comp_out_r;
+  logic signed [WIDTH-1:0] left_abs, right_abs, comp_out_q, comp_out_r, right_save, out_rem_intermediate;
+
+  // Registers to figure out how to transform outputs.
+  logic different_signs, left_sign, right_sign;
+
+  // Latch the value of control registers so that their available after
+  // go signal becomes low.
+  always_ff @(posedge clk) begin
+    if (go) begin
+      right_save <= right_abs;
+      left_sign <= left[WIDTH-1];
+      right_sign <= right[WIDTH-1];
+    end else begin
+      left_sign <= left_sign;
+      right_save <= right;
+      right_sign <= right_sign;
+    end
+  end
 
   assign right_abs = right[WIDTH-1] ? -right : right;
   assign left_abs = left[WIDTH-1] ? -left : left;
-  assign out_quotient = left[WIDTH-1] ^ right[WIDTH-1] ? -comp_out_q : comp_out_q;
-  assign out_remainder = (left[WIDTH-1] && comp_out_r) ? $signed(right - comp_out_r) : comp_out_r;
+
+  assign different_signs = left_sign ^ right_sign;
+  assign out_quotient = different_signs ? -comp_out_q : comp_out_q;
+
+  // Remainder is computed as:
+  //  t0 = |left| % |right|
+  //  t1 = if left * right < 0 and t0 != 0 then |right| - t0 else t0
+  //  rem = if right < 0 then -t1 else t1
+  assign out_rem_intermediate = different_signs & |comp_out_r ? $signed(right_save - comp_out_r) : comp_out_r;
+  assign out_remainder = right_sign ? -out_rem_intermediate : out_rem_intermediate;
 
   std_fp_div_pipe #(
     .WIDTH(WIDTH),
