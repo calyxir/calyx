@@ -13,7 +13,7 @@ Prism.languages.futil = {
         greedy: true
     },
     'namespace': {
-        pattern: /\b(?:extern|component)\b/,
+        pattern: /\b(?:extern|component|primitive)\b/,
         lookbehind: true,
     },
     'function': {
@@ -21,7 +21,7 @@ Prism.languages.futil = {
         lookbehind: true,
     },
     'keyword': {
-        pattern: /\b(?:prim|group|seq|par|if|while|with)\b/,
+        pattern: /\b(?:|group|seq|par|if|while|with|invoke|comb)\b/,
         lookbehind: true,
     },
     'number': [

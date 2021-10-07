@@ -3,15 +3,15 @@
     "version": "0.1.0",
     "license": "MIT",
     "scripts": {
-        "start": "WASM_PACK_PROFILE=dev parcel index.html",
-        "build": "WASM_PACK_PROFILE=dev parcel build index.html --log-level 4",
+        "start": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel index.html",
+        "build": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel build --public-url . index.html --log-level 4",
         "clean": "rm -rf dist rust/pkg; cd rust; cargo clean"
     },
     "dependencies": {
         "codejar": "^3.2.3",
         "diff": "^5.0.0",
         "diff2html": "^3.1.18",
-        "prismjs": "^1.22.0"
+        "prismjs": "^1.25.0"
     },
     "devDependencies": {
         "parcel-bundler": "^1.12.4",
