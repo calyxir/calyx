@@ -160,6 +160,10 @@ pub fn interpret_invoke<'outer>(
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState<'outer>,
 ) -> InterpreterResult<InterpreterState<'outer>> {
+    assert!(
+        inv.comb_group.is_none(),
+        "Interpreter does not support invoke-with"
+    );
     let mut interp = InvokeInterpreter::new(inv, env, continuous_assignments);
     interp.run()?;
     interp.deconstruct()

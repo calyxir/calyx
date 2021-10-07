@@ -324,6 +324,7 @@ impl IRPrinter {
                 inputs,
                 outputs,
                 attributes,
+                comb_group,
             }) => {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
@@ -355,9 +356,14 @@ impl IRPrinter {
                     )?;
                 }
                 if outputs.is_empty() {
-                    writeln!(f, ");")
+                    write!(f, ")")?;
                 } else {
-                    writeln!(f, "\n{});", " ".repeat(indent_level))
+                    write!(f, "\n{})", " ".repeat(indent_level))?;
+                }
+                if let Some(group) = comb_group {
+                    writeln!(f, "with {};", group.borrow().name)
+                } else {
+                    writeln!(f, ";")
                 }
             }
             ir::Control::Seq(ir::Seq { stmts, attributes }) => {

@@ -125,6 +125,10 @@ impl Visitor for WellFormed {
                     port.borrow().name)
             }
         }
+        // Add cond group as a used port.
+        if let Some(c) = &s.comb_group {
+            self.used_comb_groups.insert(c.clone_name());
+        }
         Ok(Action::Continue)
     }
 
