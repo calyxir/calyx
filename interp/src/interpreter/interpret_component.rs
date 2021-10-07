@@ -21,7 +21,7 @@ pub fn interpret_component(
             &comp.control,
             &comp.continuous_assignments,
             env,
-            &comp,
+            comp,
         )
     }
 }

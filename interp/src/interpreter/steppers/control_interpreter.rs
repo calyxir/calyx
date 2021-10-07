@@ -13,13 +13,9 @@ use crate::{
     interpreter::utils::{is_signal_high, ConstPort},
     values::Value,
 };
-use calyx::ir::{self, Assignment, Component, Guard, RRC};
-use itertools::{peek_nth, Itertools, PeekNth};
-use std::cell::Ref;
+use calyx::ir::{self, Assignment, Guard, RRC};
 use std::collections::HashSet;
-use std::iter::Cloned;
 use std::rc::Rc;
-use std::slice::Iter;
 
 // this almost certainly doesn't need to exist but it can't be a trait fn with a
 // default impl because it consumes self
@@ -351,7 +347,7 @@ impl Interpreter for SeqInterpreter {
 }
 
 pub struct ParInterpreter {
-    par: Rc<iir::Par>,
+    _par: Rc<iir::Par>,
     interpreters: Vec<ControlInterpreter>,
     in_state: InterpreterState,
     input_ports: Rc<HashSet<*const ir::Port>>,
@@ -370,7 +366,7 @@ impl ParInterpreter {
             .iter()
             .map(|x| {
                 ControlInterpreter::new(
-                    &x,
+                    x,
                     env.fork(),
                     continuous_assigns,
                     Rc::clone(&input_ports),
@@ -382,7 +378,7 @@ impl ParInterpreter {
             interpreters,
             in_state: env,
             input_ports,
-            par: Rc::clone(par),
+            _par: Rc::clone(par),
         }
     }
 }
@@ -979,7 +975,6 @@ impl StructuralInterpreter {
         let comp_sig = comp.signature.borrow();
         let done_port = comp_sig.get_with_attr("done");
         let done_raw = done_port.as_raw();
-        let continuous_assignments = &comp.continuous_assignments;
         let continuous = Rc::clone(&comp.continuous_assignments);
         let assigns: Vec<ir::Assignment> = vec![];
 

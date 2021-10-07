@@ -9,7 +9,6 @@ use super::interpret_group::{
 };
 use crate::environment::InterpreterState;
 use crate::errors::InterpreterResult;
-use calyx::ir;
 
 use crate::interpreter_ir as iir;
 
@@ -102,11 +101,8 @@ fn eval_if(
     comp: &iir::Component,
 ) -> InterpreterResult<InterpreterState> {
     if let Some(comb) = &i.cond {
-        env = interpret_comb_group(
-            Rc::clone(&comb),
-            continuous_assignments,
-            env,
-        )?;
+        env =
+            interpret_comb_group(Rc::clone(comb), continuous_assignments, env)?;
     }
 
     let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
