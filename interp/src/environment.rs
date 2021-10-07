@@ -87,10 +87,10 @@ impl InterpreterState {
         match prim_name.as_ref() {
             "std_const" => Box::new(combinational::StdConst::new(params)),
             // unsigned and signed basic arith
-            "std_add" | "std_sadd" | "std_fp_sadd" | "std_fp_add" => {
+            "std_add" | "std_sadd" => {
                 Box::new(combinational::StdAdd::new(params))
             }
-            "std_sub" | "std_ssub" | "std_fp_ssub" | "std_fp_sub" => {
+            "std_sub" | "std_ssub" => {
                 Box::new(combinational::StdSub::new(params))
             }
             // fp basic arith
