@@ -160,17 +160,11 @@ pub fn interpret_invoke<'outer>(
     continuous_assignments: &[ir::Assignment],
     env: InterpreterState<'outer>,
 ) -> InterpreterResult<InterpreterState<'outer>> {
-    let new_env = if let Some(c) = &inv.comb_group {
-        finish_comb_group_interpretation(
-            &c.borrow(),
-            continuous_assignments,
-            env,
-        )?
-    } else {
-        env
-    };
-    let mut interp =
-        InvokeInterpreter::new(inv, new_env, continuous_assignments);
+    assert!(
+        inv.comb_group.is_none(),
+        "Interpreter does not support invoke-with"
+    );
+    let mut interp = InvokeInterpreter::new(inv, env, continuous_assignments);
     interp.run()?;
     interp.deconstruct()
 }
