@@ -624,23 +624,46 @@ endmodule
 module std_sdiv_pipe #(
     parameter WIDTH = 32
 ) (
-    input                     clk,
-    input                     go,
-    input  signed [WIDTH-1:0] left,
-    input  signed [WIDTH-1:0] right,
-    output signed [WIDTH-1:0] out_quotient,
-    output signed [WIDTH-1:0] out_remainder,
-    output logic              done
+    input                           clk,
+    input                           go,
+    input  logic signed [WIDTH-1:0] left,
+    input  logic signed [WIDTH-1:0] right,
+    output logic signed [WIDTH-1:0] out_quotient,
+    output logic signed [WIDTH-1:0] out_remainder,
+    output logic                    done
 );
 
-  logic signed [WIDTH-1:0] left_abs, right_abs, comp_out_q, comp_out_r;
-  logic different_signs;
+  logic signed [WIDTH-1:0] left_abs, right_abs, comp_out_q, comp_out_r, right_save, out_rem_intermediate;
+
+  // Registers to figure out how to transform outputs.
+  logic different_signs, left_sign, right_sign;
+
+  // Latch the value of control registers so that their available after
+  // go signal becomes low.
+  always_ff @(posedge clk) begin
+    if (go) begin
+      right_save <= right_abs;
+      left_sign <= left[WIDTH-1];
+      right_sign <= right[WIDTH-1];
+    end else begin
+      left_sign <= left_sign;
+      right_save <= right;
+      right_sign <= right_sign;
+    end
+  end
 
   assign right_abs = right[WIDTH-1] ? -right : right;
   assign left_abs = left[WIDTH-1] ? -left : left;
-  assign different_signs = left[WIDTH-1] ^ right[WIDTH-1];
+
+  assign different_signs = left_sign ^ right_sign;
   assign out_quotient = different_signs ? -comp_out_q : comp_out_q;
-  assign out_remainder = (left[WIDTH-1] && comp_out_r) ? $signed(right - comp_out_r) : comp_out_r;
+
+  // Remainder is computed as:
+  //  t0 = |left| % |right|
+  //  t1 = if left * right < 0 then |right| - t0 else t0
+  //  rem = if right < 0 then -t1 else t1
+  assign out_rem_intermediate = different_signs ? $signed(right_save - comp_out_r) : comp_out_r;
+  assign out_remainder = right_sign ? -out_rem_intermediate : out_rem_intermediate;
 
   std_div_pipe #(
     .WIDTH(WIDTH)
@@ -655,23 +678,38 @@ module std_sdiv_pipe #(
   );
 
   `ifdef VERILATOR
+    // Save values of left and right during execution.
+    logic signed [WIDTH-1:0] l, r;
+    always_ff @(posedge clk) begin
+      if (go) begin
+        l <= left;
+        r <= right;
+      end else begin
+        l <= l;
+        r <= r;
+      end
+    end
+
     // Simulation self test against unsynthesizable implementation.
     always @(posedge clk) begin
-      if (done && out_quotient != $signed(left / right))
+      if (done && out_quotient != $signed(l / r))
         $error(
           "\nstd_sdiv_pipe (Quotient): Computed and golden outputs do not match!\n",
-          "left: %0d", left,
-          "  right: %0d\n", right,
-          "expected: %0d", $signed(left / right),
-          "  computed: %0d", $signed(out_quotient)
+          "left: %0d", l,
+          "  right: %0d\n", r,
+          "expected: %0d", $signed(l / r),
+          "  computed: %0d", $signed(out_quotient),
         );
-      if (done && out_remainder != $signed(((left % right) + right) % right))
+      if (done && out_remainder != $signed(((l % r) + r) % r))
         $error(
           "\nstd_sdiv_pipe (Remainder): Computed and golden outputs do not match!\n",
-          "left: %0d", left,
-          "  right: %0d\n", right,
-          "expected: %0d", $signed(((left % right) + right) % right),
-          "  computed: %0d", $signed(out_remainder)
+          "left: %0d", l,
+          "  right: %0d\n", r,
+          "expected: %0d", $signed(((l % r) + r) % r),
+          "  computed: %0d", $signed(out_remainder),
+          "  intermediate: %0d", $signed(comp_out_r),
+          "  right_sign: %0d", right_sign,
+          "  left_sign: %0d", left_sign,
         );
     end
   `endif
