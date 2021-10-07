@@ -235,7 +235,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
-        if go.as_u64() == 1 {
+        if go.as_bool() && right.as_u64() != 0 {
             let q = if SIGNED {
                 Value::from(left.as_i64() / right.as_i64(), self.width)
             } else {
@@ -1583,7 +1583,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         let right = get_input_unwrap(inputs, "right");
         let go = get_input_unwrap(inputs, "go");
 
-        if go.as_bool() {
+        if go.as_bool() && right.as_u64() != 0 {
             let (q, r) = if SIGNED {
                 (
                     Value::from(left.as_i64() / right.as_i64(), self.width),
