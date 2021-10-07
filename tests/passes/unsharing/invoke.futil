@@ -1,5 +1,5 @@
 // -p register-unsharing
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component add(left: 32, right: 32) -> (out: 32) {
   cells {

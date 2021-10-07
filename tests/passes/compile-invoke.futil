@@ -1,5 +1,5 @@
 // -p compile-invoke
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
   cells { pow = std_reg(32); }

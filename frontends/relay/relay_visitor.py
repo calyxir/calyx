@@ -235,7 +235,8 @@ def emit_calyx(relay_ir) -> str:
         (
             Program(
                 imports=[
-                    Import("primitives/std.lib"),
+                    Import("primitives/core.futil"),
+                    Import("primitives/binary_operators.futil"),
                     Import("primitives/math.futil"),
                 ],
                 components=[main],
