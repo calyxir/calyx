@@ -63,14 +63,14 @@ impl InterpreterState {
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
-    ) -> Self {
-        Self {
+    ) -> InterpreterResult<Self> {
+        Ok(Self {
             context: Rc::clone(ctx),
             clk: 0,
             port_map: InterpreterState::construct_port_map(&*target),
-            cell_map: Self::construct_cell_map(target, &ctx, mems),
+            cell_map: Self::construct_cell_map(target, &ctx, mems)?,
             component: target.clone(),
-        }
+        })
     }
 
     /// Insert a new value for the given constant port into the environment
@@ -83,8 +83,8 @@ impl InterpreterState {
         params: &ir::Binding,
         cell_name: Option<&ir::Id>,
         mems: &Option<MemoryMap>,
-    ) -> Box<dyn Primitive> {
-        match prim_name.as_ref() {
+    ) -> InterpreterResult<Box<dyn Primitive>> {
+        Ok(match prim_name.as_ref() {
             "std_const" => Box::new(combinational::StdConst::new(params)),
             // unsigned and signed basic arith
             "std_add" | "std_sadd" => {
@@ -168,7 +168,7 @@ impl InterpreterState {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
@@ -180,7 +180,7 @@ impl InterpreterState {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
@@ -192,7 +192,7 @@ impl InterpreterState {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
@@ -204,20 +204,20 @@ impl InterpreterState {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
 
-            p => panic!("Unknown primitive: {}", p),
-        }
+            p => return Err(InterpreterError::UnknownPrimitive(p.to_string())),
+        })
     }
 
     fn construct_cell_map(
         comp: &Rc<iir::Component>,
         ctx: &iir::ComponentCtx,
         mems: &Option<MemoryMap>,
-    ) -> PrimitiveMap {
+    ) -> InterpreterResult<PrimitiveMap> {
         let mut map = HashMap::new();
         for cell in comp.cells.iter() {
             let cl: &ir::Cell = &cell.borrow();
@@ -241,13 +241,13 @@ impl InterpreterState {
                             param_binding,
                             cell_name,
                             mems,
-                        ),
+                        )?,
                     );
                 }
                 ir::CellType::Component { name } => {
                     let inner_comp =
                         ctx.iter().find(|x| x.name == name).unwrap();
-                    let env = Self::init(ctx, inner_comp, mems);
+                    let env = Self::init(ctx, inner_comp, mems)?;
                     let comp_interp: Box<dyn Primitive> = Box::new(
                         ComponentInterpreter::from_component(inner_comp, env),
                     );
@@ -256,7 +256,7 @@ impl InterpreterState {
                 _ => {}
             }
         }
-        Rc::new(RefCell::new(map))
+        Ok(Rc::new(RefCell::new(map)))
     }
 
     fn construct_port_map(comp: &iir::Component) -> PortValMap {

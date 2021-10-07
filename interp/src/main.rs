@@ -6,10 +6,9 @@ use interp::environment;
 use interp::errors::{InterpreterError, InterpreterResult};
 use interp::interpreter::interpret_component;
 use interp::interpreter_ir as iir;
-use interp::RefHandler;
+use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::{cell::RefCell, path::Path};
 #[derive(FromArgs)]
 /// The Calyx Interpreter
 pub struct Opts {
@@ -114,10 +113,10 @@ fn main() -> InterpreterResult<()> {
         environment::InterpreterState::init(&components, main_component, &mems);
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
-        Command::Interpret(_) => interpret_component(main_component, env),
+        Command::Interpret(_) => interpret_component(main_component, env?),
         Command::Debug(CommandDebug { pass_through }) => {
             let mut cidb = Debugger::new(&components, main_component);
-            cidb.main_loop(env, pass_through)
+            cidb.main_loop(env?, pass_through)
         }
     };
 

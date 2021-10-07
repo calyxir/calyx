@@ -79,6 +79,9 @@ pub enum InterpreterError {
         expected: u64,
         given: usize,
     },
+
+    #[error("unknown primitive - \"{0}\"")]
+    UnknownPrimitive(String),
 }
 
 impl InterpreterError {
