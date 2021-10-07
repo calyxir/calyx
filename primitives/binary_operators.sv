@@ -662,7 +662,7 @@ module std_sdiv_pipe #(
   //  t0 = |left| % |right|
   //  t1 = if left * right < 0 and t0 != 0 then |right| - t0 else t0
   //  rem = if right < 0 then -t1 else t1
-  assign out_rem_intermediate = different_signs & |comp_out_q ? $signed(right_save - comp_out_r) : comp_out_r;
+  assign out_rem_intermediate = different_signs & |comp_out_r ? $signed(right_save - comp_out_r) : comp_out_r;
   assign out_remainder = right_sign ? -out_rem_intermediate : out_rem_intermediate;
 
   std_div_pipe #(
