@@ -787,6 +787,13 @@ impl InvokeInterpreter {
             })
         }
 
+        // insert with assignments, if present
+        if let Some(with) = &invoke.comb_group {
+            let w_ref = with.borrow();
+            // TODO (Griffin): probably should avoid duplicating these.
+            assignment_vec.extend(w_ref.assignments.iter().cloned());
+        }
+
         let go_port = comp_cell.get_with_attr("go");
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one

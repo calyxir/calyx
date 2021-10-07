@@ -56,9 +56,10 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some(out)) = out {
+            self.product = out;
             //return vec w/ out and done
             vec![
-                (ir::Id::from("out"), out),
+                (ir::Id::from("out"), self.product.clone()),
                 (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
@@ -194,6 +195,8 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some((q, r))) = out {
+            self.quotient = q.clone();
+            self.remainder = r.clone();
             vec![
                 (ir::Id::from("out_quotient"), q),
                 (ir::Id::from("out_remainder"), r),
@@ -1435,6 +1438,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some(out)) = out {
+            self.product = out.clone();
             vec![
                 (ir::Id::from("out"), out),
                 (ir::Id::from("done"), Value::bit_high()),
@@ -1546,6 +1550,8 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some((q, r))) = out {
+            self.quotient = q.clone();
+            self.remainder = r.clone();
             vec![
                 (ir::Id::from("out_quotient"), q),
                 (ir::Id::from("out_remainder"), r),
