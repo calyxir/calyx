@@ -1,8 +1,11 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use itertools::Itertools;
 
-use crate::ir::{self, RRC};
+use crate::ir::{self, CloneName, RRC};
 
 /// Contains a mapping from name of groups to the ports read by the control
 /// program.
@@ -29,9 +32,26 @@ fn construct(
     used_ports: &mut HashMap<ir::Id, Vec<RRC<ir::Port>>>,
 ) {
     match con {
-        ir::Control::Enable(_)
-        | ir::Control::Invoke(_)
-        | ir::Control::Empty(_) => {}
+        ir::Control::Enable(_) | ir::Control::Empty(_) => {}
+        ir::Control::Invoke(ir::Invoke {
+            comb_group, inputs, ..
+        }) => {
+            if let Some(c) = comb_group {
+                let cells = super::ReadWriteSet::uses(&c.borrow().assignments)
+                    .into_iter()
+                    .map(|cell| cell.clone_name())
+                    .collect::<HashSet<_>>();
+                // Only add ports that come from cells used in this comb group.
+                let ports =
+                    inputs.iter().map(|(_, port)| Rc::clone(port)).filter(
+                        |port| cells.contains(&port.borrow().get_parent_name()),
+                    );
+                used_ports
+                    .entry(c.borrow().name().clone())
+                    .or_default()
+                    .extend(ports);
+            }
+        }
         ir::Control::If(ir::If {
             cond,
             port,

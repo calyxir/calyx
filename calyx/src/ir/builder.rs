@@ -150,15 +150,15 @@ impl<'a> Builder<'a> {
     /// // Construct a std_reg.
     /// builder.add_primitive("fsm", "std_reg", vec![32]);
     /// ```
-    pub fn add_primitive<S, P>(
+    pub fn add_primitive<Pre, Prim>(
         &mut self,
-        prefix: S,
-        primitive: P,
+        prefix: Pre,
+        primitive: Prim,
         param_values: &[u64],
     ) -> RRC<ir::Cell>
     where
-        S: Into<ir::Id> + ToString + Clone,
-        P: AsRef<str>,
+        Pre: Into<ir::Id> + ToString + Clone,
+        Prim: AsRef<str>,
     {
         let prim_id = ir::Id::from(primitive.as_ref());
         let prim = &self.lib.get_primitive(&prim_id);

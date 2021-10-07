@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use itertools::Itertools;
+
 use crate::errors::{CalyxResult, Error};
-use crate::ir::GetAttributes;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures, RRC,
 };
+use crate::ir::{CloneName, GetAttributes};
 use crate::{analysis, guard, structure};
 
 #[derive(Default)]
@@ -116,7 +118,7 @@ impl Visitor for RemoveCombGroups {
                 // Register the ports read by the combinational group's usages.
                 let used_ports = used_ports.remove(&name).ok_or_else(|| {
                     Error::MalformedStructure(format!(
-                        "Values from combinational group {} never used",
+                        "values from combinational group `{}` never used",
                         name
                     ))
                 })?;
@@ -191,6 +193,55 @@ impl Visitor for RemoveCombGroups {
         }
 
         Ok(Action::Continue)
+    }
+
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+    ) -> VisResult {
+        if let Some(c) = &s.comb_group {
+            let mut new_group = None;
+            // Calculate the new input arguments for the invoke statement.
+            let new_inputs = s
+                .inputs
+                .drain(..)
+                .map(|(arg, port)| {
+                    let key = (c.clone_name(), port.borrow().canonical());
+                    if let Some((new_port, gr)) = self.port_rewrite.get(&key) {
+                        new_group = Some(gr);
+                        (arg, Rc::clone(new_port))
+                    } else {
+                        // Don't rewrite if the port is not defined by the combinational group.
+                        (arg, port)
+                    }
+                })
+                .collect_vec();
+            if new_group.is_none() {
+                return Err(Error::MalformedControl(format!(
+                    "Ports from combinational group `{}` attached to invoke-with clause are not used.",
+                    c.borrow().name()
+                )));
+            }
+            // New invoke statement with rewritten inputs.
+            let mut invoke = ir::Control::invoke(
+                Rc::clone(&s.comp),
+                new_inputs,
+                s.outputs.drain(..).collect(),
+            );
+            if let Some(attrs) = invoke.get_mut_attributes() {
+                *attrs = std::mem::take(&mut s.attributes);
+            }
+            // Seq to run the rewritten comb group first and then the invoke.
+            let seq = ir::Control::seq(vec![
+                ir::Control::enable(Rc::clone(new_group.unwrap())),
+                invoke,
+            ]);
+            Ok(Action::Change(seq))
+        } else {
+            Ok(Action::Continue)
+        }
     }
 
     fn finish_while(
