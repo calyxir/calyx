@@ -660,9 +660,9 @@ module std_sdiv_pipe #(
 
   // Remainder is computed as:
   //  t0 = |left| % |right|
-  //  t1 = if left * right < 0 then |right| - t0 else t0
+  //  t1 = if left * right < 0 and t0 != 0 then |right| - t0 else t0
   //  rem = if right < 0 then -t1 else t1
-  assign out_rem_intermediate = different_signs ? $signed(right_save - comp_out_r) : comp_out_r;
+  assign out_rem_intermediate = different_signs & &comp_out_q ? $signed(right_save - comp_out_r) : comp_out_r;
   assign out_remainder = right_sign ? -out_rem_intermediate : out_rem_intermediate;
 
   std_div_pipe #(
@@ -707,9 +707,6 @@ module std_sdiv_pipe #(
           "  right: %0d\n", r,
           "expected: %0d", $signed(((l % r) + r) % r),
           "  computed: %0d", $signed(out_remainder),
-          "  intermediate: %0d", $signed(comp_out_r),
-          "  right_sign: %0d", right_sign,
-          "  left_sign: %0d", left_sign,
         );
     end
   `endif
