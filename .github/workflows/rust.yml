@@ -396,7 +396,7 @@ jobs:
           DEPLOY_SRC: ./web/dist/
           DEPLOY_DEST: sync/calyx-demo
           DEPLOY_2_HOST: courses.cit.cornell.edu
-          DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/docs/calyx-demo
+          DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/calyx-demo
         run: |
           echo "$DEPLOY_KEY" > pk
           echo "$DEPLOY_KNOWN_HOSTS" > kh
