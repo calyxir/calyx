@@ -68,6 +68,30 @@ The `go` and `done` attributes are, in particular, used by the `infer-static-tim
 Along with the `static(n)` attribute, this allows the pass to calculate when
 a particular done signal of a primitive will be high.
 
+### `stable`
+Applied to port definitions of primitives and components. The intended semantics
+are that after invoking the component, the value on the port remains latched
+till the next invocation.
+
+For example
+```
+cells {
+  m = std_mult_pipe(32);
+}
+wires {
+  group use_m_out { // uses m.out }
+}
+control {
+  invoke m(left = 32'd10, right = 32'd4)();
+  use_m_out;
+}
+```
+
+The value of `m.out` in `use_m_out` will be `32'd40`.
+
+This annotation is currently used by the primitives library and the Dahlia
+frontend and is not checked by any pass.
+
 ### `share`
 Can be attached to a component and indicates that a component can be shared
 across groups. This is used by the `-p resource-sharing` to decide which components

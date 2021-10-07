@@ -251,9 +251,6 @@ impl Visitor for RemoveCombGroups {
                         key.0
                     )
                 });
-            let port = Rc::clone(port_ref);
-            // Add @stable annotation to port
-            port.borrow_mut().attributes.insert("stable", 1);
             let tbranch =
                 std::mem::replace(s.tbranch.as_mut(), ir::Control::empty());
             let fbranch =
