@@ -180,7 +180,7 @@ impl AssignmentInterpreter {
             // compute all updates from the assignments
             for assignment in assign_ref.iter().chain(self.cont_assigns.iter())
             {
-                if self.state.eval_guard(&assignment.guard) {
+                if self.state.eval_guard(&assignment.guard)? {
                     let pa = PortAssignment::new(assignment);
                     //first check nothing has been assigned to this destination yet
                     if let Some(prior_assign) = assigned_ports.get(&pa) {

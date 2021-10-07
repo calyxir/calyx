@@ -82,6 +82,8 @@ pub enum InterpreterError {
 
     #[error("unknown primitive - \"{0}\"")]
     UnknownPrimitive(String),
+    #[error("program evaluated the truth value of a wire \" {}.{}\" which is not one bit. Wire is {} bits wide.", 0.0, 0.1, 1)]
+    InvalidBoolCast((Id, Id), u64),
 }
 
 impl InterpreterError {

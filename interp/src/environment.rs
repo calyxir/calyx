@@ -407,13 +407,15 @@ impl InterpreterState {
         Ok(self)
     }
 
-    pub fn eval_guard(&self, guard: &ir::Guard) -> bool {
-        match guard {
-            ir::Guard::Or(g1, g2) => self.eval_guard(g1) || self.eval_guard(g2),
-            ir::Guard::And(g1, g2) => {
-                self.eval_guard(g1) && self.eval_guard(g2)
+    pub fn eval_guard(&self, guard: &ir::Guard) -> InterpreterResult<bool> {
+        Ok(match guard {
+            ir::Guard::Or(g1, g2) => {
+                self.eval_guard(g1)? || self.eval_guard(g2)?
             }
-            ir::Guard::Not(g) => !self.eval_guard(g),
+            ir::Guard::And(g1, g2) => {
+                self.eval_guard(g1)? && self.eval_guard(g2)?
+            }
+            ir::Guard::Not(g) => !self.eval_guard(g)?,
             ir::Guard::Eq(g1, g2) => {
                 self.get_from_port(&g1.borrow())
                     == self.get_from_port(&g2.borrow())
@@ -441,15 +443,16 @@ impl InterpreterState {
             ir::Guard::Port(p) => {
                 let val = self.get_from_port(&p.borrow());
                 if val.vec.len() != 1 {
-                    panic!(
-                        "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
-                    )
+                    return Err(InterpreterError::InvalidBoolCast(
+                        p.borrow().canonical(),
+                        p.borrow().width,
+                    ));
                 } else {
                     val.as_u64() == 1
                 }
             }
             ir::Guard::True => true,
-        }
+        })
     }
 }
 
