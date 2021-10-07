@@ -385,3 +385,27 @@ jobs:
         working-directory: ./web
       - run: yarn build
         working-directory: ./web
+      - name: rsync
+        if: ${{github.event_name=='push' && github.ref=='refs/heads/master'}}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SRC: ./web/dist/
+          DEPLOY_DEST: sync/calyx-demo
+          DEPLOY_2_HOST: courses.cit.cornell.edu
+          DEPLOY_2_DEST: coursewww/capra.cs.cornell.edu/htdocs/docs/calyx-demo
+        run: |
+          echo "$DEPLOY_KEY" > pk
+          echo "$DEPLOY_KNOWN_HOSTS" > kh
+          chmod 600 pk
+          rsync --compress --recursive --checksum --itemize-changes --delete \
+            -e "ssh -p \"$DEPLOY_PORT\" -i pk -o 'UserKnownHostsFile kh'" \
+            $DEPLOY_SRC $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DEST
+          ssh -p $DEPLOY_PORT -i pk -o 'UserKnownHostsFile kh' \
+            $DEPLOY_USER@$DEPLOY_HOST \
+            rsync --compress --recursive --checksum --itemize-changes \
+            --delete -e ssh \
+            $DEPLOY_DEST/ $DEPLOY_2_HOST:$DEPLOY_2_DEST
