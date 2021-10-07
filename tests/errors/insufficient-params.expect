@@ -1,0 +1,5 @@
+---CODE---
+101
+---STDERR---
+thread 'main' panicked at 'Failed to add primitive.: Invalid parameter binding for primitive `std_fp_div_pipe`. Requires 3 parameters but provided with 1.', calyx/src/ir/builder.rs:167:14
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
