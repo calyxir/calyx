@@ -1,0 +1,62 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+  cells {
+    @external left = std_mem_d1(32, 1, 3);
+    @external right = std_mem_d1(32, 1, 3);
+    @external out_rem = std_mem_d1(32, 1, 3);
+    @external out_quot = std_mem_d1(32, 1, 3);
+    div = std_fp_div_pipe(32);
+
+    add = std_add(3);
+    idx = std_reg(3);
+    lt = std_lt(3);
+  }
+  wires {
+    group init {
+      idx.in = 3'd0;
+      idx.write_en = 1'd1;
+      init[done] = idx.done;
+    }
+    group incr {
+      idx.in = add.out;
+      add.left = idx.out;
+      add.right = 3'd1;
+      idx.write_en = 1'd1;
+      incr[done] = idx.done;
+    }
+    group write_rem {
+      out_rem.addr0 = idx.out;
+      out_rem.write_data = div.out_remainder;
+      out_rem.write_en = 1'd1;
+      write_rem[done] = out_rem.done;
+    }
+    group write_quot {
+      out_quot.addr0 = idx.out;
+      out_quot.write_data = div.out_quotient;
+      out_quot.write_en = 1'd1;
+      write_quot[done] = out_quot.done;
+    }
+    comb group cond {
+      lt.left = idx.out;
+      lt.right = 3'd1;
+    }
+    comb group read_mem_idx {
+      left.addr0 = idx.out;
+      right.addr0 = idx.out;
+    }
+  }
+  control {
+    seq {
+      init;
+      while lt.out with cond {
+        seq {
+          invoke div(left = left.read_data, right = right.read_data)() with read_mem_idx;
+          par { write_rem; write_quot; }
+          incr;
+        }
+      }
+    }
+  }
+}
