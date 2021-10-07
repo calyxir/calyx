@@ -17,7 +17,8 @@ use crate::{analysis, guard, structure};
 /// into proper groups by registering the values read from the ports of cells
 /// used within the combinational group.
 ///
-/// It also transforms if-with and while-with into simple `if` and `while` operators that first
+/// It also transforms *-with into semantically equivalent control programs that first enable a
+/// group that calculates and registers the ports defined by the combinational group.
 /// execute the respective cond group and then execute the control operator.
 ///
 /// # Example
@@ -30,6 +31,7 @@ use crate::{analysis, guard, structure};
 ///     comb_cond[done] = 1'd1;
 /// }
 /// control {
+///     invoke comp(left = lt.out, ..)(..) with comb_cond;
 ///     if lt.out with comb_cond {
 ///         ...
 ///     }
@@ -52,6 +54,10 @@ use crate::{analysis, guard, structure};
 ///     comb_cond[done] = lt_reg.done & eq_reg.done ? 1'd1;
 /// }
 /// control {
+///     seq {
+///       comb_cond;
+///       invoke comp(left = lt_reg.out, ..)(..);
+///     }
 ///     seq {
 ///       comb_cond;
 ///       if lt_reg.out {
