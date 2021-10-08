@@ -15,8 +15,8 @@
         "done": 0,
         "go": 0,
         "left": 0,
-        "out_quotient": 0,
-        "out_remainder": 0,
+        "out_quotient": 11,
+        "out_remainder": 1,
         "right": 0
       },
       "reg_q": {
@@ -40,8 +40,8 @@
   "memories": {
     "main": {
       "div": [
-        0,
-        0
+        11,
+        1
       ],
       "reg_q": 11,
       "reg_r": 1

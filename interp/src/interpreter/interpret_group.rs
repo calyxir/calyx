@@ -16,6 +16,8 @@ use calyx::ir::{self, RRC};
 use super::steppers::{AssignmentInterpreter, InvokeInterpreter};
 use crate::errors::InterpreterResult;
 
+use crate::interpreter_ir as iir;
+
 // /// An internal method that does the main work of interpreting a set of
 // /// assignments. It takes the assigments as an interator as continguity of
 // /// memory is not a requirement and importantly, the function must also be
@@ -37,11 +39,11 @@ use std::rc::Rc;
 ///
 /// Prior to evaluation the interpreter sets the value of go to high and it
 /// returns it to low after execution concludes
-pub fn interp_cont<'outer>(
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-    comp: &ir::Component,
-) -> InterpreterResult<InterpreterState<'outer>> {
+pub fn interp_cont(
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+    comp: &Rc<iir::Component>,
+) -> InterpreterResult<InterpreterState> {
     let comp_sig = comp.signature.borrow();
 
     let go_port = comp_sig
@@ -56,24 +58,21 @@ pub fn interp_cont<'outer>(
         .find(|x| x.borrow().name == "done")
         .unwrap();
 
-    env.insert(
-        &go_port.borrow() as &ir::Port as ConstPort,
-        Value::bit_high(),
-    );
+    env.insert(go_port.as_raw(), Value::bit_high());
+
+    let vec: Vec<ir::Assignment> = vec![];
 
     let mut assign_interp = AssignmentInterpreter::new(
         env,
         Some(done_port.clone()),
-        (std::iter::empty(), continuous_assignments.iter()),
+        vec,
+        continuous_assignments,
     );
     assign_interp.run()?;
 
     let mut res = assign_interp.deconstruct()?;
 
-    res.insert(
-        &go_port.borrow() as &ir::Port as ConstPort,
-        Value::bit_low(),
-    );
+    res.insert(go_port.as_raw(), Value::bit_low());
 
     // required because of lifetime shennanigans
     let final_env = finish_interpretation(
@@ -85,47 +84,43 @@ pub fn interp_cont<'outer>(
 }
 
 /// Evaluates a group, given an environment.
-pub fn interpret_group<'outer>(
-    group: &ir::Group,
-    // TODO (griffin): Use these during interpretation
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-) -> InterpreterResult<InterpreterState<'outer>> {
-    let grp_done = get_done_port(group);
+pub fn interpret_group(
+    group: RRC<ir::Group>,
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
+    let grp_done = get_done_port(&group.borrow());
 
-    let go_port = get_go_port(group);
+    let go_port = get_go_port(&group.borrow());
     env.insert(go_port, Value::bit_high());
 
     let interp = AssignmentInterpreter::new(
         env,
         Some(grp_done),
-        (group.assignments.iter(), continuous_assignments.iter()),
+        group,
+        continuous_assignments,
     );
 
     interp.run_and_deconstruct()
 }
 
 /// Evaluates a group, given an environment.
-pub fn interpret_comb_group<'outer>(
-    group: &ir::CombGroup,
-    // TODO (griffin): Use these during interpretation
-    continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
-) -> InterpreterResult<InterpreterState<'outer>> {
-    let interp = AssignmentInterpreter::new(
-        env,
-        None,
-        (group.assignments.iter(), continuous_assignments.iter()),
-    );
+pub fn interpret_comb_group(
+    group: RRC<ir::CombGroup>,
+    continuous_assignments: &iir::ContinuousAssignments,
+    env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
+    let interp =
+        AssignmentInterpreter::new(env, None, group, continuous_assignments);
 
     interp.run_and_deconstruct()
 }
 
-pub fn finish_group_interpretation<'outer>(
+pub fn finish_group_interpretation(
     group: &ir::Group,
-    continuous_assignments: &[ir::Assignment],
-    mut env: InterpreterState<'outer>,
-) -> InterpreterResult<InterpreterState<'outer>> {
+    continuous_assignments: &iir::ContinuousAssignments,
+    mut env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
     let grp_done = get_done_port(group);
     let go_port = get_go_port(group);
     env.insert(go_port, Value::bit_low());
@@ -140,11 +135,11 @@ pub fn finish_group_interpretation<'outer>(
     )
 }
 
-pub fn finish_comb_group_interpretation<'outer>(
+pub fn finish_comb_group_interpretation(
     group: &ir::CombGroup,
-    continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
-) -> InterpreterResult<InterpreterState<'outer>> {
+    continuous_assignments: &iir::ContinuousAssignments,
+    env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
     finish_interpretation::<_, ConstPort>(
         env,
         None,
@@ -155,15 +150,11 @@ pub fn finish_comb_group_interpretation<'outer>(
     )
 }
 
-pub fn interpret_invoke<'outer>(
-    inv: &ir::Invoke,
-    continuous_assignments: &[ir::Assignment],
-    env: InterpreterState<'outer>,
-) -> InterpreterResult<InterpreterState<'outer>> {
-    assert!(
-        inv.comb_group.is_none(),
-        "Interpreter does not support invoke-with"
-    );
+pub fn interpret_invoke(
+    inv: &Rc<iir::Invoke>,
+    continuous_assignments: &iir::ContinuousAssignments,
+    env: InterpreterState,
+) -> InterpreterResult<InterpreterState> {
     let mut interp = InvokeInterpreter::new(inv, env, continuous_assignments);
     interp.run()?;
     interp.deconstruct()

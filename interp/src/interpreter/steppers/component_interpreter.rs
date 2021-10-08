@@ -6,25 +6,26 @@ use super::control_interpreter::{
 };
 use crate::environment::{InterpreterState, MutStateView, State, StateView};
 use crate::errors::InterpreterResult;
+use crate::interpreter_ir as iir;
 use crate::primitives::Primitive;
 use crate::utils::AsRaw;
 use crate::values::Value;
-use calyx::ir::{self, Component, Port, RRC};
+use calyx::ir::{self, Port, RRC};
 use std::rc::Rc;
 
-enum StructuralOrControl<'a, 'outer> {
-    Structural(StructuralInterpreter<'a, 'outer>),
-    Control(ControlInterpreter<'a, 'outer>),
+enum StructuralOrControl {
+    Structural(StructuralInterpreter),
+    Control(ControlInterpreter),
     Nothing, // a default variant which is only ever around transiently
-    Env(InterpreterState<'outer>), // state deferring construction of control interpreter
+    Env(InterpreterState), // state deferring construction of control interpreter
 }
-impl<'a, 'outer> Default for StructuralOrControl<'a, 'outer> {
+impl Default for StructuralOrControl {
     fn default() -> Self {
         Self::Nothing
     }
 }
 
-impl<'a, 'outer> StructuralOrControl<'a, 'outer> {
+impl StructuralOrControl {
     fn _is_structural(&self) -> bool {
         matches!(self, Self::Structural(_))
     }
@@ -34,38 +35,33 @@ impl<'a, 'outer> StructuralOrControl<'a, 'outer> {
     }
 }
 
-impl<'a, 'outer> From<StructuralInterpreter<'a, 'outer>>
-    for StructuralOrControl<'a, 'outer>
-{
-    fn from(input: StructuralInterpreter<'a, 'outer>) -> Self {
+impl From<StructuralInterpreter> for StructuralOrControl {
+    fn from(input: StructuralInterpreter) -> Self {
         Self::Structural(input)
     }
 }
 
-impl<'a, 'outer> From<ControlInterpreter<'a, 'outer>>
-    for StructuralOrControl<'a, 'outer>
-{
-    fn from(input: ControlInterpreter<'a, 'outer>) -> Self {
+impl From<ControlInterpreter> for StructuralOrControl {
+    fn from(input: ControlInterpreter) -> Self {
         Self::Control(input)
     }
 }
 
-pub struct ComponentInterpreter<'a, 'outer> {
-    interp: StructuralOrControl<'a, 'outer>,
+pub struct ComponentInterpreter {
+    interp: StructuralOrControl,
     input_ports: Vec<RRC<Port>>,
     output_ports: Vec<RRC<Port>>,
-    comp_ref: &'a Component,
-    control_ref: &'a ir::Control,
+    comp_ref: Rc<iir::Component>,
+    control_ref: iir::Control,
     done_port: RRC<Port>,
     go_port: RRC<Port>,
     input_hash_set: Rc<HashSet<*const ir::Port>>,
 }
 
-impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
+impl ComponentInterpreter {
     pub fn from_component(
-        comp: &'a Component,
-        control: &'a ir::Control,
-        env: InterpreterState<'outer>,
+        comp: &Rc<iir::Component>,
+        env: InterpreterState,
     ) -> Self {
         let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
 
@@ -80,6 +76,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
                 }
             }
         }
+        let control = comp.control.clone();
 
         let go_port = inputs
             .iter()
@@ -100,7 +97,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
         let input_hash_set = Rc::new(input_hash_set);
         let interp;
 
-        if control_is_empty(control) {
+        if control_is_empty(&control) {
             interp = StructuralInterpreter::from_component(comp, env).into();
         } else {
             interp = StructuralOrControl::Env(env);
@@ -110,7 +107,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
             interp,
             input_ports: inputs,
             output_ports: outputs,
-            comp_ref: comp,
+            comp_ref: Rc::clone(comp),
             control_ref: control,
             go_port,
             done_port,
@@ -164,7 +161,7 @@ impl<'a, 'outer> ComponentInterpreter<'a, 'outer> {
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
+impl Interpreter for ComponentInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         let go = self.go_is_high();
         match &mut self.interp {
@@ -187,7 +184,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
                     };
 
                     let mut control_interp = ControlInterpreter::new(
-                        self.control_ref,
+                        &self.control_ref,
                         env,
                         &self.comp_ref.continuous_assignments,
                         self.input_hash_set.clone(),
@@ -203,7 +200,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         }
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         match self.interp {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
@@ -221,7 +218,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),
@@ -242,7 +239,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_mut_env(&mut self) -> crate::environment::MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> crate::environment::MutStateView<'_> {
         match &mut self.interp {
             StructuralOrControl::Structural(s) => s.get_mut_env(),
             StructuralOrControl::Control(c) => c.get_mut_env(),
@@ -261,7 +258,7 @@ impl<'a, 'outer> Interpreter<'outer> for ComponentInterpreter<'a, 'outer> {
     }
 }
 
-impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
+impl Primitive for ComponentInterpreter {
     fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
         let currently_done = self.done_is_high();
 
@@ -338,10 +335,12 @@ impl<'a, 'outer> Primitive for ComponentInterpreter<'a, 'outer> {
         &mut self,
         _inputs: &[(ir::Id, &crate::values::Value)],
     ) -> Vec<(ir::Id, crate::values::Value)> {
-        assert!(
-            self.is_done(),
-            "Component interpreter reset before finishing"
-        );
+        if self.interp.is_control() {
+            assert!(
+                self.is_done(),
+                "Component interpreter reset before finishing"
+            );
+        }
 
         let interp = std::mem::take(&mut self.interp);
 

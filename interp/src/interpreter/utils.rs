@@ -7,6 +7,8 @@ use std::ops::Deref;
 pub type ConstPort = *const ir::Port;
 pub type ConstCell = *const ir::Cell;
 
+use crate::interpreter_ir as iir;
+
 #[inline]
 pub fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
     group.get("done")
@@ -66,15 +68,15 @@ where
 
     output_vec
 }
-pub fn control_is_empty(control: &ir::Control) -> bool {
+pub fn control_is_empty(control: &iir::Control) -> bool {
     match control {
-        ir::Control::Seq(s) => s.stmts.iter().all(control_is_empty),
-        ir::Control::Par(p) => p.stmts.iter().all(control_is_empty),
-        ir::Control::If(_) => false,
-        ir::Control::While(_) => false,
-        ir::Control::Invoke(_) => false,
-        ir::Control::Enable(_) => false,
-        ir::Control::Empty(_) => true,
+        iir::Control::Seq(s) => s.stmts.iter().all(control_is_empty),
+        iir::Control::Par(p) => p.stmts.iter().all(control_is_empty),
+        iir::Control::If(_) => false,
+        iir::Control::While(_) => false,
+        iir::Control::Invoke(_) => false,
+        iir::Control::Enable(_) => false,
+        iir::Control::Empty(_) => true,
     }
 }
 
