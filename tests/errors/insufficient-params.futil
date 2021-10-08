@@ -1,0 +1,9 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    d = std_fp_div_pipe(32);
+  }
+  wires {}
+  control {}
+}

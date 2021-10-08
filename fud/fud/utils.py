@@ -34,7 +34,8 @@ def unwrap_or(val, default):
 
 
 def logging_setup(args):
-    # Color for warning and error mesages
+    # Color for warning, error, and info mesages
+    log.addLevelName(log.INFO, "\033[1;34m%s\033[1;0m" % log.getLevelName(log.INFO))
     log.addLevelName(
         log.WARNING, "\033[1;33m%s\033[1;0m" % log.getLevelName(log.WARNING)
     )

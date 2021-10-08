@@ -6,7 +6,7 @@ component main() -> () {
     @external(1) radicand = std_mem_d1(32, 1, 1);
     @external(1) root = std_mem_d1(32, 1, 1);
     t = std_reg(32);
-    s = fp_sqrt(32);
+    s = fp_sqrt(32, 16, 16);
   }
   wires {
     group save_temporary<"static"=1> {

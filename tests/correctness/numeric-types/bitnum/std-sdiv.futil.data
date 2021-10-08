@@ -1,0 +1,42 @@
+{
+  "left": {
+    "data": [
+      127, 127, -127, -127
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "right": {
+    "data": [
+      7, -7, 7, -7
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "out_quot": {
+    "data": [
+      0, 0, 0, 0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "out_rem": {
+    "data": [
+      0, 0, 0, 0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  }
+}
