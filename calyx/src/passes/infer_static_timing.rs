@@ -31,8 +31,8 @@ pub struct InferStaticTiming {
 impl ConstructVisitor for InferStaticTiming {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut latency_data = HashMap::new();
-        // XXX(rachit): This is unneccesarily rebuilt for every component
-        // Build latency data by traversing primitive cells
+        let mut comp_latency = HashMap::new();
+        // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
             if let Some(time) = prim.attributes.get("static") {
                 let mut go_port = None;
@@ -47,12 +47,13 @@ impl ConstructVisitor for InferStaticTiming {
                 }
                 if let (Some(go), Some(done)) = (go_port, done_port) {
                     latency_data.insert(prim.name.clone(), (go, done, *time));
+                    comp_latency.insert(prim.name.clone(), *time);
                 }
             }
         }
         Ok(InferStaticTiming {
             latency_data,
-            comp_latency: HashMap::new(),
+            comp_latency,
         })
     }
 
