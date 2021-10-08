@@ -90,112 +90,116 @@ impl Debugger {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::PrintCell(cell) => {
-                    let cells: Vec<_> =
-                        component_interpreter.get_env().get_cells(&cell);
-
-                    match cells.len() {
-                        0 => {
-                            println!(
-                                "{}Unable to print. No cell named '{}'",
-                                SPACING, &cell
-                            )
-                        }
-                        1 => {
-                            let cell_ref = &cells[0];
-                            print_cell(
-                                cell_ref,
-                                &component_interpreter.get_env(),
-                            );
-                        }
-                        _ => {
-                            println!(
-                                "{}Unable to print. '{}' is ambiguous",
-                                SPACING, &cell
-                            )
-                        }
-                    }
+                Command::Print(print_list) => {
+                    todo!()
                 }
-                Command::PrintCellOrPort(first, second) => {
-                    // component & cell/port
-                    if let Some(comp) =
-                        self.context.iter().find(|x| x.name == first)
-                    {
-                        if let Some(cell) = comp.find_cell(&second) {
-                            print_cell(&cell, &component_interpreter.get_env())
-                        } else if let Some(port) =
-                            comp.signature.borrow().find(&second)
-                        {
-                            let env = component_interpreter.get_env();
-                            println!(
-                                "{}{}.{} = {}",
-                                SPACING,
-                                &first,
-                                &second,
-                                env.lookup(port.as_raw())
-                            )
-                        } else {
-                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, &second, &first)
-                        }
-                    }
-                    // cell & port
-                    else {
-                        let cells =
-                            component_interpreter.get_env().get_cells(&first);
 
-                        // multiple possible cells
-                        if cells.len() > 1 {
-                            println!(
-                                "{}Unable to print. '{}' is ambiguous",
-                                SPACING, &first
-                            )
-                        } else if cells.is_empty() {
-                            println!(
-                                "{}Unable to print. There is no component/cell named '{}'",
-                                SPACING,
-                                &first,
-                            )
-                        // past this point the cell vec has one possible entry
-                        } else if cells
-                            .iter()
-                            .all(|x| x.borrow().find(&second).is_none())
-                        {
-                            println!(
-                                "{}Unable to print. Component '{}' has no cell named '{}'",
-                                SPACING,
-                                &first, &second
-                            )
-                        } else {
-                            let entry = &cells[0];
+                // Command::PrintCell(cell) => {
+                //     let cells: Vec<_> =
+                //         component_interpreter.get_env().get_cells(&cell);
 
-                            if let Some(port) = entry.borrow().find(&second) {
-                                print_port(
-                                    &port,
-                                    &component_interpreter.get_env(),
-                                )
-                            }
-                        }
-                    }
-                }
-                Command::PrintFullySpecified(comp, cell, port) => {
-                    if let Some(comp_ref) =
-                        self.context.iter().find(|x| x.name == comp)
-                    {
-                        if let Some(cell_rrc) = comp_ref.find_cell(&cell) {
-                            let cell_ref = cell_rrc.borrow();
-                            if let Some(port_ref) = cell_ref.find(&port) {
-                                let state = component_interpreter.get_env();
-                                print_port(&port_ref, &state)
-                            } else {
-                                println!("{}Unable to print. Cell '{}' has no port named '{}'", SPACING, cell, port)
-                            }
-                        } else {
-                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, comp, cell)
-                        }
-                    } else {
-                        println!("{}Unable to print. There is no component named '{}'", SPACING, comp)
-                    }
-                }
+                //     match cells.len() {
+                //         0 => {
+                //             println!(
+                //                 "{}Unable to print. No cell named '{}'",
+                //                 SPACING, &cell
+                //             )
+                //         }
+                //         1 => {
+                //             let cell_ref = &cells[0];
+                //             print_cell(
+                //                 cell_ref,
+                //                 &component_interpreter.get_env(),
+                //             );
+                //         }
+                //         _ => {
+                //             println!(
+                //                 "{}Unable to print. '{}' is ambiguous",
+                //                 SPACING, &cell
+                //             )
+                //         }
+                //     }
+                // }
+                // Command::PrintCellOrPort(first, second) => {
+                //     // component & cell/port
+                //     if let Some(comp) =
+                //         self.context.iter().find(|x| x.name == first)
+                //     {
+                //         if let Some(cell) = comp.find_cell(&second) {
+                //             print_cell(&cell, &component_interpreter.get_env())
+                //         } else if let Some(port) =
+                //             comp.signature.borrow().find(&second)
+                //         {
+                //             let env = component_interpreter.get_env();
+                //             println!(
+                //                 "{}{}.{} = {}",
+                //                 SPACING,
+                //                 &first,
+                //                 &second,
+                //                 env.lookup(port.as_raw())
+                //             )
+                //         } else {
+                //             println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, &second, &first)
+                //         }
+                //     }
+                //     // cell & port
+                //     else {
+                //         let cells =
+                //             component_interpreter.get_env().get_cells(&first);
+
+                //         // multiple possible cells
+                //         if cells.len() > 1 {
+                //             println!(
+                //                 "{}Unable to print. '{}' is ambiguous",
+                //                 SPACING, &first
+                //             )
+                //         } else if cells.is_empty() {
+                //             println!(
+                //                 "{}Unable to print. There is no component/cell named '{}'",
+                //                 SPACING,
+                //                 &first,
+                //             )
+                //         // past this point the cell vec has one possible entry
+                //         } else if cells
+                //             .iter()
+                //             .all(|x| x.borrow().find(&second).is_none())
+                //         {
+                //             println!(
+                //                 "{}Unable to print. Component '{}' has no cell named '{}'",
+                //                 SPACING,
+                //                 &first, &second
+                //             )
+                //         } else {
+                //             let entry = &cells[0];
+
+                //             if let Some(port) = entry.borrow().find(&second) {
+                //                 print_port(
+                //                     &port,
+                //                     &component_interpreter.get_env(),
+                //                 )
+                //             }
+                //         }
+                //     }
+                // }
+                // Command::PrintFullySpecified(comp, cell, port) => {
+                //     if let Some(comp_ref) =
+                //         self.context.iter().find(|x| x.name == comp)
+                //     {
+                //         if let Some(cell_rrc) = comp_ref.find_cell(&cell) {
+                //             let cell_ref = cell_rrc.borrow();
+                //             if let Some(port_ref) = cell_ref.find(&port) {
+                //                 let state = component_interpreter.get_env();
+                //                 print_port(&port_ref, &state)
+                //             } else {
+                //                 println!("{}Unable to print. Cell '{}' has no port named '{}'", SPACING, cell, port)
+                //             }
+                //         } else {
+                //             println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, comp, cell)
+                //         }
+                //     } else {
+                //         println!("{}Unable to print. There is no component named '{}'", SPACING, comp)
+                //     }
+                // }
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
