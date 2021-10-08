@@ -43,7 +43,7 @@ impl Backend for XilinxInterfaceBackend {
         if memories.is_empty() {
             return Err(Error::Misc(
                     "Program has no memories marked with attribute @external.".to_owned() +
-                    " Please make sure that at least one memory is marked as @external."))
+                    " Please make sure that at least one memory is marked as @external."));
         }
 
         let mut modules = vec![
