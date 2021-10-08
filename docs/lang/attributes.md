@@ -45,6 +45,12 @@ control {
 ```
 
 ## Meaning of Attributes
+
+### `toplevel`
+The entrypoint for the Calyx program. If no component has this attribute, then
+the compiler looks for a component named `main`. If neither is found, the
+compiler errors out.
+
 ### `external`
 The `external` attribute has meaning when it is attached to a cell.
 It has two meanings:
