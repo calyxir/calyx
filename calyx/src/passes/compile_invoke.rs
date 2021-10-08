@@ -1,6 +1,7 @@
+use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Attributes, LibrarySignatures};
-use crate::{build_assignments, structure};
+use crate::structure;
 
 /// Compiles [`ir::Invoke`](crate::ir::Invoke) statements into an [`ir::Enable`](crate::ir::Enable)
 /// that runs the invoked component.
@@ -34,11 +35,23 @@ impl Visitor for CompileInvoke {
             let one = constant(1, 1);
         );
 
-        let cell = &s.comp;
-        let mut enable_assignments = build_assignments!(builder;
-            cell["go"] = ? one["out"];
-            invoke_group["done"] = ? cell["done"];
+        let cell = s.comp.borrow();
+        let go_port = cell
+            .find_with_attr("go")
+            .ok_or_else(|| Error::MalformedControl(format!("Invoked component `{}` does not have a port with attribute @go", cell.name())))?;
+        let done_port = cell.find_with_attr("done")
+            .ok_or_else(|| Error::MalformedControl(format!("Invoked component `{}` does not have a port with attribute @done", cell.name())))?;
+        let go_assign = builder.build_assignment(
+            go_port,
+            one.borrow().get("out"),
+            ir::Guard::True,
         );
+        let done_assign = builder.build_assignment(
+            invoke_group.borrow().get("done"),
+            done_port,
+            ir::Guard::True,
+        );
+        let mut enable_assignments = vec![go_assign, done_assign];
 
         // Generate argument assignments
         let cell = &*s.comp.borrow();
