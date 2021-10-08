@@ -79,6 +79,15 @@ pub enum InterpreterError {
         expected: u64,
         given: usize,
     },
+
+    #[error("unknown primitive - \"{0}\"")]
+    UnknownPrimitive(String),
+    #[error("program evaluated the truth value of a wire \"{}.{}\" which is not one bit. Wire is {} bits wide.", 0.0, 0.1, 1)]
+    InvalidBoolCast((Id, Id), u64),
+    #[error("the interpreter attempted to exit the group \"{0}\" before it finished. This should never happen, please report it.")]
+    InvalidGroupExitNamed(Id),
+    #[error("the interpreter attempted to exit a phantom group before it finished. This should never happen, please report it")]
+    InvalidGroupExitUnnamed,
 }
 
 impl InterpreterError {

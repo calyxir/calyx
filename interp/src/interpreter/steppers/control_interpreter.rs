@@ -2,6 +2,7 @@ use super::super::utils::{get_done_port, get_go_port};
 use super::AssignmentInterpreter;
 use crate::errors::InterpreterError;
 use crate::interpreter::interpret_group::finish_interpretation;
+use crate::interpreter_ir as iir;
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -12,9 +13,7 @@ use crate::{
     interpreter::utils::{is_signal_high, ConstPort},
     values::Value,
 };
-use calyx::ir::{self, Assignment, Component, Control, Guard, RRC};
-use itertools::{peek_nth, Itertools, PeekNth};
-use std::cell::Ref;
+use calyx::ir::{self, Assignment, Guard, RRC};
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -27,7 +26,7 @@ macro_rules! run_and_deconstruct {
     }};
 }
 
-pub trait Interpreter<'outer> {
+pub trait Interpreter {
     fn step(&mut self) -> InterpreterResult<()>;
 
     fn converge(&mut self) -> InterpreterResult<()>;
@@ -39,28 +38,28 @@ pub trait Interpreter<'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>>;
+    fn deconstruct(self) -> InterpreterResult<InterpreterState>;
 
     fn is_done(&self) -> bool;
 
-    fn get_env(&self) -> StateView<'_, 'outer>;
+    fn get_env(&self) -> StateView<'_>;
 
     fn currently_executing_group(&self) -> Vec<&ir::Id>;
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer>;
+    fn get_mut_env(&mut self) -> MutStateView<'_>;
 }
 
-pub struct EmptyInterpreter<'outer> {
-    pub(super) env: InterpreterState<'outer>,
+pub struct EmptyInterpreter {
+    pub(super) env: InterpreterState,
 }
 
-impl<'outer> EmptyInterpreter<'outer> {
-    pub fn new(env: InterpreterState<'outer>) -> Self {
+impl EmptyInterpreter {
+    pub fn new(env: InterpreterState) -> Self {
         Self { env }
     }
 }
 
-impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
+impl Interpreter for EmptyInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         Ok(())
     }
@@ -69,7 +68,7 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         Ok(self.env)
     }
 
@@ -77,7 +76,7 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
         true
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         (&self.env).into()
     }
 
@@ -85,7 +84,7 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
         vec![]
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         (&mut self.env).into()
     }
 
@@ -94,87 +93,81 @@ impl<'outer> Interpreter<'outer> for EmptyInterpreter<'outer> {
     }
 }
 
-pub enum EnableHolder<'a> {
-    RefGroup(Ref<'a, ir::Group>),
-    RefCombGroup(Ref<'a, ir::CombGroup>),
-    BorrowGrp(&'a ir::Group),
-    BorrowCombGroup(&'a ir::CombGroup),
+#[derive(Clone)]
+pub enum EnableHolder {
+    Group(RRC<ir::Group>),
+    CombGroup(RRC<ir::CombGroup>),
+    Vec(Rc<Vec<ir::Assignment>>),
 }
 
-impl<'a> From<&'a ir::Group> for EnableHolder<'a> {
-    fn from(grp: &'a ir::Group) -> Self {
-        Self::BorrowGrp(grp)
+impl From<RRC<ir::Group>> for EnableHolder {
+    fn from(gr: RRC<ir::Group>) -> Self {
+        Self::Group(gr)
     }
 }
 
-impl<'a> From<&'a ir::CombGroup> for EnableHolder<'a> {
-    fn from(comb_grp: &'a ir::CombGroup) -> Self {
-        Self::BorrowCombGroup(comb_grp)
+impl From<RRC<ir::CombGroup>> for EnableHolder {
+    fn from(cb: RRC<ir::CombGroup>) -> Self {
+        Self::CombGroup(cb)
     }
 }
 
-impl<'a> From<Ref<'a, ir::Group>> for EnableHolder<'a> {
-    fn from(grp: Ref<'a, ir::Group>) -> Self {
-        Self::RefGroup(grp)
+impl From<&RRC<ir::Group>> for EnableHolder {
+    fn from(gr: &RRC<ir::Group>) -> Self {
+        Self::Group(Rc::clone(gr))
     }
 }
 
-impl<'a> From<Ref<'a, ir::CombGroup>> for EnableHolder<'a> {
-    fn from(comb_grp: Ref<'a, ir::CombGroup>) -> Self {
-        Self::RefCombGroup(comb_grp)
+impl From<&RRC<ir::CombGroup>> for EnableHolder {
+    fn from(cb: &RRC<ir::CombGroup>) -> Self {
+        Self::CombGroup(Rc::clone(cb))
     }
 }
 
-impl<'a> From<&'a ir::Enable> for EnableHolder<'a> {
-    fn from(en: &'a ir::Enable) -> Self {
-        Self::RefGroup(en.group.borrow())
+impl From<Vec<ir::Assignment>> for EnableHolder {
+    fn from(v: Vec<ir::Assignment>) -> Self {
+        Self::Vec(Rc::new(v))
     }
 }
 
-impl<'a> EnableHolder<'a> {
-    fn assignments(&self) -> &[ir::Assignment] {
-        match self {
-            EnableHolder::RefGroup(x) => &x.assignments,
-            EnableHolder::RefCombGroup(x) => &x.assignments,
-            EnableHolder::BorrowGrp(x) => &x.assignments,
-            EnableHolder::BorrowCombGroup(x) => &x.assignments,
-        }
+impl From<&iir::Enable> for EnableHolder {
+    fn from(en: &iir::Enable) -> Self {
+        (&en.group).into()
     }
+}
 
+impl EnableHolder {
     fn done_port(&self) -> Option<RRC<ir::Port>> {
         match self {
-            EnableHolder::RefGroup(x) => Some(get_done_port(x)),
-            EnableHolder::BorrowGrp(x) => Some(get_done_port(x)),
-            EnableHolder::BorrowCombGroup(_)
-            | EnableHolder::RefCombGroup(_) => None,
+            EnableHolder::Group(g) => Some(get_done_port(&g.borrow())),
+            EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
         }
     }
 
     fn go_port(&self) -> Option<RRC<ir::Port>> {
         match self {
-            EnableHolder::RefGroup(x) => Some(get_go_port(x)),
-            EnableHolder::BorrowGrp(x) => Some(get_go_port(x)),
-            EnableHolder::BorrowCombGroup(_)
-            | EnableHolder::RefCombGroup(_) => None,
+            EnableHolder::Group(g) => Some(get_go_port(&g.borrow())),
+            EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
         }
     }
 }
 
-pub struct EnableInterpreter<'a, 'outer> {
-    enable: EnableHolder<'a>,
+pub struct EnableInterpreter {
+    enable: EnableHolder,
     group_name: Option<ir::Id>,
-    interp: AssignmentInterpreter<'a, 'outer>,
+    interp: AssignmentInterpreter,
+    _continuous_assignments: iir::ContinuousAssignments,
 }
 
-impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
+impl EnableInterpreter {
     pub fn new<E>(
         enable: E,
         group_name: Option<ir::Id>,
-        mut env: InterpreterState<'outer>,
-        continuous: &'a [Assignment],
+        mut env: InterpreterState,
+        continuous: &iir::ContinuousAssignments,
     ) -> Self
     where
-        E: Into<EnableHolder<'a>>,
+        E: Into<EnableHolder>,
     {
         let enable: EnableHolder = enable.into();
 
@@ -182,22 +175,20 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
             env.insert(go, Value::bit_high())
         }
 
-        let assigns = (
-            enable.assignments().iter().cloned().collect_vec(),
-            continuous.iter().cloned().collect_vec(),
-        );
+        let assigns = enable.clone();
         let done = enable.done_port();
-        let interp = AssignmentInterpreter::new_owned(env, done, assigns);
+        let interp = AssignmentInterpreter::new(env, done, assigns, continuous);
         Self {
             enable,
             group_name,
             interp,
+            _continuous_assignments: Rc::clone(continuous),
         }
     }
 }
 
-impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
-    fn reset(mut self) -> InterpreterResult<InterpreterState<'outer>> {
+impl EnableInterpreter {
+    fn reset(mut self) -> InterpreterResult<InterpreterState> {
         if let Some(go) = self.enable.go_port() {
             self.interp.get_mut_env().insert(go, Value::bit_low())
         }
@@ -209,7 +200,7 @@ impl<'a, 'outer> EnableInterpreter<'a, 'outer> {
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
+impl Interpreter for EnableInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         self.interp.step()
     }
@@ -218,7 +209,7 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
         self.interp.run()
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         self.reset()
     }
 
@@ -226,7 +217,7 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         (self.interp.get_env()).into()
     }
 
@@ -238,7 +229,7 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         (self.interp.get_mut_env()).into()
     }
 
@@ -247,44 +238,48 @@ impl<'a, 'outer> Interpreter<'outer> for EnableInterpreter<'a, 'outer> {
     }
 }
 
-pub struct SeqInterpreter<'a, 'outer> {
-    sequence: PeekNth<std::slice::Iter<'a, Control>>,
-    current_interpreter: Option<ControlInterpreter<'a, 'outer>>,
-    continuous_assignments: &'a [Assignment],
-    env: Option<InterpreterState<'outer>>,
+pub struct SeqInterpreter {
+    current_interpreter: Option<ControlInterpreter>,
+    continuous_assignments: iir::ContinuousAssignments,
+    env: Option<InterpreterState>,
     done_flag: bool,
     input_ports: Rc<HashSet<*const ir::Port>>,
+    seq: Rc<iir::Seq>,
+    seq_index: usize,
 }
-impl<'a, 'outer> SeqInterpreter<'a, 'outer> {
+impl SeqInterpreter {
     pub fn new(
-        seq: &'a ir::Seq,
-        env: InterpreterState<'outer>,
-        continuous_assigns: &'a [Assignment],
+        seq: &Rc<iir::Seq>,
+        env: InterpreterState,
+        continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         Self {
-            sequence: peek_nth(seq.stmts.iter()),
             current_interpreter: None,
-            continuous_assignments: continuous_assigns,
+            continuous_assignments: Rc::clone(continuous_assigns),
             env: Some(env),
             done_flag: false,
             input_ports,
+            seq: Rc::clone(seq),
+            seq_index: 0,
         }
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
+impl Interpreter for SeqInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
-        if self.current_interpreter.is_none() && self.sequence.peek().is_some()
+        if self.current_interpreter.is_none()
+            && self.seq_index < self.seq.stmts.len()
         // There is more to execute, make new interpreter
         {
             self.current_interpreter = ControlInterpreter::new(
-                self.sequence.next().unwrap(),
+                &self.seq.stmts[self.seq_index],
                 self.env.take().unwrap(),
-                self.continuous_assignments,
+                &self.continuous_assignments,
                 Rc::clone(&self.input_ports),
             )
-            .into()
+            .into();
+            self.seq_index += 1;
         } else if self.current_interpreter.is_some()
         // current interpreter can be stepped/deconstructed
         {
@@ -295,7 +290,7 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
             } else {
                 self.current_interpreter.as_mut().unwrap().step()?
             }
-        } else if self.sequence.peek().is_none()
+        } else if self.seq_index >= self.seq.stmts.len()
         // there is nothing left to do
         {
             self.done_flag = true
@@ -310,11 +305,11 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
         self.current_interpreter.is_none() && self.done_flag
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         self.env.ok_or(InterpreterError::InvalidSeqState)
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         if let Some(cur) = &self.current_interpreter {
             cur.get_env()
         } else if let Some(env) = &self.env {
@@ -332,7 +327,7 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         if let Some(cur) = &mut self.current_interpreter {
             cur.get_mut_env()
         } else if let Some(env) = &mut self.env {
@@ -351,17 +346,18 @@ impl<'a, 'outer> Interpreter<'outer> for SeqInterpreter<'a, 'outer> {
     }
 }
 
-pub struct ParInterpreter<'a, 'outer> {
-    interpreters: Vec<ControlInterpreter<'a, 'outer>>,
-    in_state: InterpreterState<'outer>,
+pub struct ParInterpreter {
+    _par: Rc<iir::Par>,
+    interpreters: Vec<ControlInterpreter>,
+    in_state: InterpreterState,
     input_ports: Rc<HashSet<*const ir::Port>>,
 }
 
-impl<'a, 'outer> ParInterpreter<'a, 'outer> {
+impl ParInterpreter {
     pub fn new(
-        par: &'a ir::Par,
-        mut env: InterpreterState<'outer>,
-        continuous_assigns: &'a [Assignment],
+        par: &Rc<iir::Par>,
+        mut env: InterpreterState,
+        continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         let mut env = env.force_fork();
@@ -382,11 +378,12 @@ impl<'a, 'outer> ParInterpreter<'a, 'outer> {
             interpreters,
             in_state: env,
             input_ports,
+            _par: Rc::clone(par),
         }
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
+impl Interpreter for ParInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         for i in &mut self.interpreters {
             i.step()?;
@@ -394,13 +391,13 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         assert!(self.interpreters.iter().all(|x| x.is_done()));
         let envs = self
             .interpreters
             .into_iter()
             .map(ControlInterpreter::deconstruct)
-            .collect::<InterpreterResult<Vec<InterpreterState<'outer>>>>()?;
+            .collect::<InterpreterResult<Vec<InterpreterState>>>()?;
 
         self.in_state.merge_many(envs, &self.input_ports)
     }
@@ -409,7 +406,7 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
         self.interpreters.iter().all(|x| x.is_done())
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         CompositeView::new(
             &self.in_state,
             self.interpreters.iter().map(|x| x.get_env()).collect(),
@@ -424,7 +421,7 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
             .collect()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         MutCompositeView::new(
             &mut self.in_state,
             self.interpreters
@@ -449,21 +446,21 @@ impl<'a, 'outer> Interpreter<'outer> for ParInterpreter<'a, 'outer> {
         Ok(())
     }
 }
-pub struct IfInterpreter<'a, 'outer> {
+pub struct IfInterpreter {
     port: ConstPort,
-    cond: Option<EnableInterpreter<'a, 'outer>>,
-    tbranch: &'a Control,
-    fbranch: &'a Control,
-    branch_interp: Option<ControlInterpreter<'a, 'outer>>,
-    continuous_assignments: &'a [Assignment],
+    cond: Option<EnableInterpreter>,
+    tbranch: iir::Control,
+    fbranch: iir::Control,
+    branch_interp: Option<ControlInterpreter>,
+    continuous_assignments: iir::ContinuousAssignments,
     input_ports: Rc<HashSet<*const ir::Port>>,
 }
 
-impl<'a, 'outer> IfInterpreter<'a, 'outer> {
+impl IfInterpreter {
     pub fn new(
-        ctrl_if: &'a ir::If,
-        env: InterpreterState<'outer>,
-        continuous_assigns: &'a [Assignment],
+        ctrl_if: &Rc<iir::If>,
+        env: InterpreterState,
+        continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         let cond_port: ConstPort = ctrl_if.port.as_ptr();
@@ -471,7 +468,7 @@ impl<'a, 'outer> IfInterpreter<'a, 'outer> {
         let (cond, branch_interp) = if let Some(cond) = &ctrl_if.cond {
             (
                 Some(EnableInterpreter::new(
-                    cond.borrow(),
+                    Rc::clone(cond),
                     Some(cond.borrow().name().clone()),
                     env,
                     continuous_assigns,
@@ -498,16 +495,16 @@ impl<'a, 'outer> IfInterpreter<'a, 'outer> {
         Self {
             port: cond_port,
             cond,
-            tbranch: &ctrl_if.tbranch,
-            fbranch: &ctrl_if.fbranch,
+            tbranch: ctrl_if.tbranch.clone(),
+            fbranch: ctrl_if.fbranch.clone(),
             branch_interp,
-            continuous_assignments: continuous_assigns,
+            continuous_assignments: Rc::clone(continuous_assigns),
             input_ports,
         }
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
+impl Interpreter for IfInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         if let Some(i) = &mut self.cond {
             if i.is_done() {
@@ -517,17 +514,17 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
                 if is_signal_high(i.get(self.port)) {
                     let env = i.deconstruct()?;
                     branch = ControlInterpreter::new(
-                        self.tbranch,
+                        &self.tbranch,
                         env,
-                        self.continuous_assignments,
+                        &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
                     );
                 } else {
                     let env = i.deconstruct()?;
                     branch = ControlInterpreter::new(
-                        self.fbranch,
+                        &self.fbranch,
                         env,
-                        self.continuous_assignments,
+                        &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
                     );
                 }
@@ -542,7 +539,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         }
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         self.branch_interp
             .ok_or(InterpreterError::InvalidIfState)?
             .deconstruct()
@@ -554,7 +551,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
             && self.branch_interp.as_ref().unwrap().is_done()
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         if let Some(cond) = &self.cond {
             cond.get_env()
         } else if let Some(branch) = &self.branch_interp {
@@ -574,7 +571,7 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         if let Some(cond) = &mut self.cond {
             cond.get_mut_env()
         } else if let Some(branch) = &mut self.branch_interp {
@@ -592,22 +589,21 @@ impl<'a, 'outer> Interpreter<'outer> for IfInterpreter<'a, 'outer> {
         }
     }
 }
-pub struct WhileInterpreter<'a, 'outer> {
+pub struct WhileInterpreter {
     port: ConstPort,
-    cond: Option<Ref<'a, ir::CombGroup>>,
-    body: &'a Control,
-    continuous_assignments: &'a [ir::Assignment],
-    cond_interp: Option<EnableInterpreter<'a, 'outer>>,
-    body_interp: Option<ControlInterpreter<'a, 'outer>>,
+    continuous_assignments: iir::ContinuousAssignments,
+    cond_interp: Option<EnableInterpreter>,
+    body_interp: Option<ControlInterpreter>,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    terminal_env: Option<InterpreterState<'outer>>,
+    terminal_env: Option<InterpreterState>,
+    wh: Rc<iir::While>,
 }
 
-impl<'a, 'outer> WhileInterpreter<'a, 'outer> {
+impl WhileInterpreter {
     pub fn new(
-        ctrl_while: &'a ir::While,
-        env: InterpreterState<'outer>,
-        continuous_assignments: &'a [Assignment],
+        ctrl_while: &Rc<iir::While>,
+        env: InterpreterState,
+        continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         let port: ConstPort = ctrl_while.port.as_ptr();
@@ -617,7 +613,7 @@ impl<'a, 'outer> WhileInterpreter<'a, 'outer> {
 
         if let Some(cond) = &ctrl_while.cond {
             cond_interp = Some(EnableInterpreter::new(
-                cond.borrow(),
+                cond,
                 Some(cond.borrow().name().clone()),
                 env,
                 continuous_assignments,
@@ -641,27 +637,26 @@ impl<'a, 'outer> WhileInterpreter<'a, 'outer> {
 
         Self {
             port,
-            cond: ctrl_while.cond.as_ref().map(|x| x.borrow()),
-            body: &ctrl_while.body,
-            continuous_assignments,
+            continuous_assignments: Rc::clone(continuous_assignments),
             input_ports,
             cond_interp,
             body_interp,
             terminal_env,
+            wh: Rc::clone(ctrl_while),
         }
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
+impl Interpreter for WhileInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         if let Some(ci) = &mut self.cond_interp {
             if ci.is_done() {
                 let ci = self.cond_interp.take().unwrap();
                 if is_signal_high(ci.get(self.port)) {
                     let body_interp = ControlInterpreter::new(
-                        self.body,
+                        &self.wh.body,
                         ci.deconstruct()?,
-                        self.continuous_assignments,
+                        &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
                     );
                     self.body_interp = Some(body_interp)
@@ -678,19 +673,19 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
                 let bi = self.body_interp.take().unwrap();
                 let env = bi.deconstruct()?;
 
-                if let Some(cond) = &self.cond {
+                if let Some(cond) = &self.wh.cond {
                     let cond_interp = EnableInterpreter::new(
-                        Ref::clone(cond),
-                        Some(cond.name().clone()),
+                        cond,
+                        Some(cond.borrow().name().clone()),
                         env,
-                        self.continuous_assignments,
+                        &self.continuous_assignments,
                     );
                     self.cond_interp = Some(cond_interp)
                 } else if is_signal_high(env.get_from_port(self.port)) {
                     self.body_interp = Some(ControlInterpreter::new(
-                        self.body,
+                        &self.wh.body,
                         env,
-                        self.continuous_assignments,
+                        &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
                     ));
                 } else {
@@ -704,7 +699,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         Ok(())
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         self.terminal_env.ok_or(InterpreterError::InvalidIfState)
     }
 
@@ -712,7 +707,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         self.terminal_env.is_some()
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         if let Some(cond) = &self.cond_interp {
             cond.get_env()
         } else if let Some(body) = &self.body_interp {
@@ -734,7 +729,7 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         if let Some(cond) = &mut self.cond_interp {
             cond.get_mut_env()
         } else if let Some(body) = &mut self.body_interp {
@@ -758,16 +753,16 @@ impl<'a, 'outer> Interpreter<'outer> for WhileInterpreter<'a, 'outer> {
         }
     }
 }
-pub struct InvokeInterpreter<'a, 'outer> {
-    invoke: &'a ir::Invoke,
-    assign_interp: AssignmentInterpreter<'a, 'outer>,
+pub struct InvokeInterpreter {
+    invoke: Rc<iir::Invoke>,
+    assign_interp: AssignmentInterpreter,
 }
 
-impl<'a, 'outer> InvokeInterpreter<'a, 'outer> {
+impl InvokeInterpreter {
     pub fn new(
-        invoke: &'a ir::Invoke,
-        mut env: InterpreterState<'outer>,
-        continuous_assignments: &'a [Assignment],
+        invoke: &Rc<iir::Invoke>,
+        mut env: InterpreterState,
+        continuous_assignments: &iir::ContinuousAssignments,
     ) -> Self {
         let mut assignment_vec: Vec<Assignment> = vec![];
         let comp_cell = invoke.comp.borrow();
@@ -792,26 +787,34 @@ impl<'a, 'outer> InvokeInterpreter<'a, 'outer> {
             })
         }
 
+        // insert with assignments, if present
+        if let Some(with) = &invoke.comb_group {
+            let w_ref = with.borrow();
+            // TODO (Griffin): probably should avoid duplicating these.
+            assignment_vec.extend(w_ref.assignments.iter().cloned());
+        }
+
         let go_port = comp_cell.get_with_attr("go");
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_high());
 
         let comp_done_port = comp_cell.get_with_attr("done");
-        let interp = AssignmentInterpreter::new_owned_grp(
+        let interp = AssignmentInterpreter::new(
             env,
             comp_done_port.into(),
-            (assignment_vec, continuous_assignments.iter()),
+            assignment_vec,
+            continuous_assignments,
         );
 
         Self {
-            invoke,
+            invoke: Rc::clone(invoke),
             assign_interp: interp,
         }
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
+impl Interpreter for InvokeInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         self.assign_interp.step()
     }
@@ -820,7 +823,7 @@ impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
         self.assign_interp.run()
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         let mut env = self.assign_interp.reset()?;
 
         // set go low
@@ -836,7 +839,7 @@ impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
         self.assign_interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         self.assign_interp.get_env().into()
     }
 
@@ -844,7 +847,7 @@ impl<'a, 'outer> Interpreter<'outer> for InvokeInterpreter<'a, 'outer> {
         vec![]
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         self.assign_interp.get_mut_env().into()
     }
 
@@ -869,67 +872,69 @@ macro_rules! control_match {
     }};
 }
 
-pub enum ControlInterpreter<'a, 'outer> {
-    Empty(Box<EmptyInterpreter<'outer>>),
-    Enable(Box<EnableInterpreter<'a, 'outer>>),
-    Seq(Box<SeqInterpreter<'a, 'outer>>),
-    Par(Box<ParInterpreter<'a, 'outer>>),
-    If(Box<IfInterpreter<'a, 'outer>>),
-    While(Box<WhileInterpreter<'a, 'outer>>),
-    Invoke(Box<InvokeInterpreter<'a, 'outer>>),
+pub enum ControlInterpreter {
+    Empty(Box<EmptyInterpreter>),
+    Enable(Box<EnableInterpreter>),
+    Seq(Box<SeqInterpreter>),
+    Par(Box<ParInterpreter>),
+    If(Box<IfInterpreter>),
+    While(Box<WhileInterpreter>),
+    Invoke(Box<InvokeInterpreter>),
 }
 
-impl<'a, 'outer> ControlInterpreter<'a, 'outer> {
+impl ControlInterpreter {
     pub fn new(
-        control: &'a Control,
-        env: InterpreterState<'outer>,
-        continuous_assignments: &'a [Assignment],
+        control: &iir::Control,
+        env: InterpreterState,
+        continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
     ) -> Self {
         match control {
-            Control::Seq(s) => Self::Seq(Box::new(SeqInterpreter::new(
+            iir::Control::Seq(s) => Self::Seq(Box::new(SeqInterpreter::new(
                 s,
                 env,
                 continuous_assignments,
                 input_ports,
             ))),
-            Control::Par(par) => Self::Par(Box::new(ParInterpreter::new(
+            iir::Control::Par(par) => Self::Par(Box::new(ParInterpreter::new(
                 par,
                 env,
                 continuous_assignments,
                 input_ports,
             ))),
-            Control::If(i) => Self::If(Box::new(IfInterpreter::new(
+            iir::Control::If(i) => Self::If(Box::new(IfInterpreter::new(
                 i,
                 env,
                 continuous_assignments,
                 input_ports,
             ))),
-            Control::While(w) => Self::While(Box::new(WhileInterpreter::new(
-                w,
-                env,
-                continuous_assignments,
-                input_ports,
-            ))),
-            Control::Invoke(i) => Self::Invoke(Box::new(
+            iir::Control::While(w) => {
+                Self::While(Box::new(WhileInterpreter::new(
+                    w,
+                    env,
+                    continuous_assignments,
+                    input_ports,
+                )))
+            }
+            iir::Control::Invoke(i) => Self::Invoke(Box::new(
                 InvokeInterpreter::new(i, env, continuous_assignments),
             )),
-            Control::Enable(e) => {
+            iir::Control::Enable(e) => {
                 Self::Enable(Box::new(EnableInterpreter::new(
-                    e,
+                    &**e,
                     Some(e.group.borrow().name().clone()),
                     env,
                     continuous_assignments,
                 )))
             }
-            Control::Empty(_) => {
+            iir::Control::Empty(_) => {
                 Self::Empty(Box::new(EmptyInterpreter::new(env)))
             }
         }
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
+impl Interpreter for ControlInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         control_match!(self, i, i.step())
     }
@@ -938,7 +943,7 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
         control_match!(self, i, i.run())
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         control_match!(self, i, i.deconstruct())
     }
 
@@ -946,7 +951,7 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
         control_match!(self, i, i.is_done())
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         control_match!(self, i, i.get_env())
     }
 
@@ -954,7 +959,7 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
         control_match!(self, i, i.currently_executing_group())
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         control_match!(self, i, i.get_mut_env())
     }
 
@@ -963,42 +968,44 @@ impl<'a, 'outer> Interpreter<'outer> for ControlInterpreter<'a, 'outer> {
     }
 }
 
-pub struct StructuralInterpreter<'a, 'outer> {
-    interp: AssignmentInterpreter<'a, 'outer>,
-    continuous: &'a [Assignment],
+pub struct StructuralInterpreter {
+    interp: AssignmentInterpreter,
+    continuous: iir::ContinuousAssignments,
     done_port: ConstPort,
 }
 
-impl<'a, 'outer> StructuralInterpreter<'a, 'outer> {
+impl StructuralInterpreter {
     pub fn from_component(
-        comp: &'a Component,
-        env: InterpreterState<'outer>,
+        comp: &Rc<iir::Component>,
+        env: InterpreterState,
     ) -> Self {
         let comp_sig = comp.signature.borrow();
         let done_port = comp_sig.get_with_attr("done");
         let done_raw = done_port.as_raw();
-        let continuous_assignments = &comp.continuous_assignments;
+        let continuous = Rc::clone(&comp.continuous_assignments);
+        let assigns: Vec<ir::Assignment> = vec![];
 
         let interp = AssignmentInterpreter::new(
             env,
             Some(done_port),
-            (std::iter::empty(), continuous_assignments.iter()),
+            assigns,
+            &continuous,
         );
 
         Self {
             interp,
-            continuous: continuous_assignments,
+            continuous,
             done_port: done_raw,
         }
     }
 }
 
-impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
+impl Interpreter for StructuralInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         self.interp.step()
     }
 
-    fn deconstruct(self) -> InterpreterResult<InterpreterState<'outer>> {
+    fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         let final_env = self.interp.deconstruct()?;
         finish_interpretation(
             final_env,
@@ -1015,7 +1022,7 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
         self.interp.is_deconstructable()
     }
 
-    fn get_env(&self) -> StateView<'_, 'outer> {
+    fn get_env(&self) -> StateView<'_> {
         self.interp.get_env().into()
     }
 
@@ -1023,7 +1030,7 @@ impl<'a, 'outer> Interpreter<'outer> for StructuralInterpreter<'a, 'outer> {
         vec![]
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_, 'outer> {
+    fn get_mut_env(&mut self) -> MutStateView<'_> {
         self.interp.get_mut_env().into()
     }
 

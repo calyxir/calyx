@@ -2,6 +2,7 @@
 
 use super::errors::{InterpreterError, InterpreterResult};
 use super::interpreter::ComponentInterpreter;
+use super::interpreter_ir as iir;
 use super::primitives::{
     combinational, stateful, Entry, Primitive, Serializeable,
 };
@@ -9,7 +10,6 @@ use super::stk_env::Smoosher;
 use super::utils::AsRaw;
 use super::utils::MemoryMap;
 use super::values::Value;
-use super::RefHandler;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -27,8 +27,8 @@ type ConstPort = *const ir::Port;
 
 /// A map defining primitive implementations for Cells. As it is keyed by
 /// ConstCell the lifetime of the keys is independent of the actual cells.
-type PrimitiveMap<'outer> =
-    RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive + 'outer>>>;
+type PrimitiveMap =
+    RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>;
 
 /// A map defining values for ports. As it is keyed by ConstPort, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
@@ -36,42 +36,41 @@ type PrimitiveMap<'outer> =
 type PortValMap = Smoosher<ConstPort, Value>;
 
 /// The environment to interpret a Calyx program.
-pub struct InterpreterState<'outer> {
+pub struct InterpreterState {
     /// Clock count
     pub clk: u64,
 
     /// Mapping from cells to prims.
-    pub cell_map: PrimitiveMap<'outer>,
+    pub cell_map: PrimitiveMap,
 
     /// Use raw pointers for hashmap: ports to values
     // This is a Smoosher (see stk_env.rs)
     pub port_map: PortValMap,
 
-    /// A reference to the context.
-    pub context: ir::RRC<ir::Context>,
+    /// An rc handle to a vec of components
+    pub context: iir::ComponentCtx,
 
     /// The name of the component this environment is for. Used for printing the
     /// environment state.
-    pub comp_name: ir::Id,
+    pub component: Rc<iir::Component>,
 }
 
 /// Helper functions for the environment.
-impl<'outer> InterpreterState<'outer> {
+impl InterpreterState {
     /// Construct an environment
     /// ctx : A context from the IR
     pub fn init(
-        ctx: ir::RRC<ir::Context>,
-        target: &ir::Component,
-        ref_handler: &'outer RefHandler<'outer>,
+        ctx: &iir::ComponentCtx,
+        target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
-    ) -> Self {
-        Self {
-            context: ctx.clone(),
+    ) -> InterpreterResult<Self> {
+        Ok(Self {
+            context: Rc::clone(ctx),
             clk: 0,
-            port_map: InterpreterState::construct_port_map(target),
-            cell_map: Self::construct_cell_map(target, &ctx, ref_handler, mems),
-            comp_name: target.name.clone(),
-        }
+            port_map: InterpreterState::construct_port_map(&*target),
+            cell_map: Self::construct_cell_map(target, ctx, mems)?,
+            component: target.clone(),
+        })
     }
 
     /// Insert a new value for the given constant port into the environment
@@ -84,8 +83,8 @@ impl<'outer> InterpreterState<'outer> {
         params: &ir::Binding,
         cell_name: Option<&ir::Id>,
         mems: &Option<MemoryMap>,
-    ) -> Box<dyn Primitive> {
-        match prim_name.as_ref() {
+    ) -> InterpreterResult<Box<dyn Primitive>> {
+        Ok(match prim_name.as_ref() {
             "std_const" => Box::new(combinational::StdConst::new(params)),
             // unsigned and signed basic arith
             "std_add" | "std_sadd" => {
@@ -169,7 +168,7 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
@@ -181,7 +180,7 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
@@ -193,7 +192,7 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
@@ -205,21 +204,20 @@ impl<'outer> InterpreterState<'outer> {
                     .and_then(|x| cell_name.and_then(|name| x.get(name)));
 
                 if let Some(vals) = init {
-                    prim.initialize_memory(vals).unwrap();
+                    prim.initialize_memory(vals)?;
                 }
                 prim
             }
 
-            p => panic!("Unknown primitive: {}", p),
-        }
+            p => return Err(InterpreterError::UnknownPrimitive(p.to_string())),
+        })
     }
 
     fn construct_cell_map(
-        comp: &ir::Component,
-        ctx: &ir::RRC<ir::Context>,
-        handler: &'outer RefHandler<'outer>,
+        comp: &Rc<iir::Component>,
+        ctx: &iir::ComponentCtx,
         mems: &Option<MemoryMap>,
-    ) -> PrimitiveMap<'outer> {
+    ) -> InterpreterResult<PrimitiveMap> {
         let mut map = HashMap::new();
         for cell in comp.cells.iter() {
             let cl: &ir::Cell = &cell.borrow();
@@ -243,25 +241,25 @@ impl<'outer> InterpreterState<'outer> {
                             param_binding,
                             cell_name,
                             mems,
-                        ),
+                        )?,
                     );
                 }
                 ir::CellType::Component { name } => {
-                    let (comp, control) = handler.get_by_name(name);
-                    let env = Self::init(ctx.clone(), comp, handler, mems);
-                    let comp_interp: Box<dyn Primitive> =
-                        Box::new(ComponentInterpreter::from_component(
-                            comp, control, env,
-                        ));
+                    let inner_comp =
+                        ctx.iter().find(|x| x.name == name).unwrap();
+                    let env = Self::init(ctx, inner_comp, mems)?;
+                    let comp_interp: Box<dyn Primitive> = Box::new(
+                        ComponentInterpreter::from_component(inner_comp, env),
+                    );
                     map.insert(cl as ConstCell, comp_interp);
                 }
                 _ => {}
             }
         }
-        Rc::new(RefCell::new(map))
+        Ok(Rc::new(RefCell::new(map)))
     }
 
-    fn construct_port_map(comp: &ir::Component) -> PortValMap {
+    fn construct_port_map(comp: &iir::Component) -> PortValMap {
         let mut map = HashMap::new();
 
         for port in comp.signature.borrow().ports.iter() {
@@ -352,7 +350,7 @@ impl<'outer> InterpreterState<'outer> {
             cell_map: self.cell_map.clone(),
             port_map: other_pv_map,
             context: Rc::clone(&self.context),
-            comp_name: self.comp_name.clone(),
+            component: self.component.clone(),
         }
     }
     /// Creates a fork of the source environment which has the same clock and
@@ -365,7 +363,7 @@ impl<'outer> InterpreterState<'outer> {
             cell_map: self.cell_map.clone(),
             port_map: self.port_map.fork(),
             context: Rc::clone(&self.context),
-            comp_name: self.comp_name.clone(),
+            component: self.component.clone(),
         }
     }
 
@@ -394,8 +392,10 @@ impl<'outer> InterpreterState<'outer> {
                 let mut ie: InterpreterError = e.into();
                 if let InterpreterError::ParOverlap { parent_id, .. } = &mut ie
                 {
+                    // this is just to make the error point toward the component, rather
+                    // than printing "_this"
                     if parent_id == "_this" {
-                        *parent_id = self.comp_name.clone()
+                        *parent_id = self.component.name.clone()
                     }
                 }
                 Err(ie)
@@ -407,13 +407,15 @@ impl<'outer> InterpreterState<'outer> {
         Ok(self)
     }
 
-    pub fn eval_guard(&self, guard: &ir::Guard) -> bool {
-        match guard {
-            ir::Guard::Or(g1, g2) => self.eval_guard(g1) || self.eval_guard(g2),
-            ir::Guard::And(g1, g2) => {
-                self.eval_guard(g1) && self.eval_guard(g2)
+    pub fn eval_guard(&self, guard: &ir::Guard) -> InterpreterResult<bool> {
+        Ok(match guard {
+            ir::Guard::Or(g1, g2) => {
+                self.eval_guard(g1)? || self.eval_guard(g2)?
             }
-            ir::Guard::Not(g) => !self.eval_guard(g),
+            ir::Guard::And(g1, g2) => {
+                self.eval_guard(g1)? && self.eval_guard(g2)?
+            }
+            ir::Guard::Not(g) => !self.eval_guard(g)?,
             ir::Guard::Eq(g1, g2) => {
                 self.get_from_port(&g1.borrow())
                     == self.get_from_port(&g2.borrow())
@@ -441,19 +443,20 @@ impl<'outer> InterpreterState<'outer> {
             ir::Guard::Port(p) => {
                 let val = self.get_from_port(&p.borrow());
                 if val.vec.len() != 1 {
-                    panic!(
-                        "Evaluating the truth value of a wire '{:?}' that is not one bit", p.borrow().canonical()
-                    )
+                    return Err(InterpreterError::InvalidBoolCast(
+                        p.borrow().canonical(),
+                        p.borrow().width,
+                    ));
                 } else {
                     val.as_u64() == 1
                 }
             }
             ir::Guard::True => true,
-        }
+        })
     }
 }
 
-impl<'outer> Serialize for InterpreterState<'outer> {
+impl Serialize for InterpreterState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -470,21 +473,15 @@ pub struct FullySerialize {
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
 }
 
-pub struct CompositeView<'a, 'outer>(
-    &'a InterpreterState<'outer>,
-    Vec<StateView<'a, 'outer>>,
-);
+pub struct CompositeView<'a>(&'a InterpreterState, Vec<StateView<'a>>);
 
-impl<'a, 'outer> CompositeView<'a, 'outer> {
-    pub fn new(
-        state: &'a InterpreterState<'outer>,
-        vec: Vec<StateView<'a, 'outer>>,
-    ) -> Self {
+impl<'a, 'outer> CompositeView<'a> {
+    pub fn new(state: &'a InterpreterState, vec: Vec<StateView<'a>>) -> Self {
         Self(state, vec)
     }
 }
 
-impl<'a, 'outer> Serialize for StateView<'a, 'outer> {
+impl<'a> Serialize for StateView<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -493,24 +490,24 @@ impl<'a, 'outer> Serialize for StateView<'a, 'outer> {
     }
 }
 
-pub enum StateView<'inner, 'outer> {
-    SingleView(&'inner InterpreterState<'outer>),
-    Composite(CompositeView<'inner, 'outer>),
+pub enum StateView<'inner> {
+    SingleView(&'inner InterpreterState),
+    Composite(CompositeView<'inner>),
 }
 
-impl<'a, 'outer> From<&'a InterpreterState<'outer>> for StateView<'a, 'outer> {
-    fn from(env: &'a InterpreterState<'outer>) -> Self {
+impl<'a, 'outer> From<&'a InterpreterState> for StateView<'a> {
+    fn from(env: &'a InterpreterState) -> Self {
         Self::SingleView(env)
     }
 }
 
-impl<'a, 'outer> From<CompositeView<'a, 'outer>> for StateView<'a, 'outer> {
-    fn from(cv: CompositeView<'a, 'outer>) -> Self {
+impl<'a> From<CompositeView<'a>> for StateView<'a> {
+    fn from(cv: CompositeView<'a>) -> Self {
         Self::Composite(cv)
     }
 }
 
-impl<'a, 'outer> StateView<'a, 'outer> {
+impl<'a> StateView<'a> {
     pub fn lookup<P: AsRaw<ir::Port>>(&self, target: P) -> &Value {
         match self {
             StateView::SingleView(sv) => sv.get_from_port(target),
@@ -540,14 +537,14 @@ impl<'a, 'outer> StateView<'a, 'outer> {
         }
     }
 
-    pub fn get_ctx(&self) -> &RRC<ir::Context> {
+    pub fn get_ctx(&self) -> &iir::ComponentCtx {
         match self {
             StateView::SingleView(sv) => &sv.context,
             StateView::Composite(cv) => &cv.0.context,
         }
     }
 
-    pub fn get_cell_map(&self) -> &PrimitiveMap<'outer> {
+    pub fn get_cell_map(&self) -> &PrimitiveMap {
         match self {
             StateView::SingleView(sv) => &sv.cell_map,
             StateView::Composite(cv) => &cv.0.cell_map,
@@ -556,8 +553,8 @@ impl<'a, 'outer> StateView<'a, 'outer> {
 
     pub fn get_comp_name(&self) -> &ir::Id {
         match self {
-            StateView::SingleView(c) => &c.comp_name,
-            StateView::Composite(c) => &c.0.comp_name,
+            StateView::SingleView(c) => &c.component.name,
+            StateView::Composite(c) => &c.0.component.name,
         }
     }
 
@@ -571,20 +568,15 @@ impl<'a, 'outer> StateView<'a, 'outer> {
         &self,
         name: &S,
     ) -> Vec<RRC<ir::Cell>> {
-        let ctx_ref = self.get_ctx().borrow();
-        ctx_ref
-            .components
-            .iter()
-            .filter_map(|x| x.find_cell(name))
-            .collect()
+        let ctx_ref = self.get_ctx();
+        ctx_ref.iter().filter_map(|x| x.find_cell(name)).collect()
     }
 
     pub fn gen_serialzer(&self) -> FullySerialize {
-        let ctx: &ir::Context = &self.get_ctx().borrow();
+        let ctx = self.get_ctx();
         let cell_prim_map = &self.get_cell_map().borrow();
 
         let bmap: BTreeMap<_, _> = ctx
-            .components
             .iter()
             .filter(|x| x.name == self.get_comp_name()) // there should only be one such comp
             .map(|comp| {
@@ -620,7 +612,6 @@ impl<'a, 'outer> StateView<'a, 'outer> {
             })
             .collect();
         let cell_map: BTreeMap<_, _> = ctx
-            .components
             .iter()
             .filter(|x| x.name == self.get_comp_name())
             .map(|comp| {
@@ -659,20 +650,20 @@ impl<'a, 'outer> StateView<'a, 'outer> {
     }
 }
 
-pub struct MutCompositeView<'a, 'outer>(
-    &'a mut InterpreterState<'outer>,
-    Vec<MutStateView<'a, 'outer>>,
+pub struct MutCompositeView<'a>(
+    &'a mut InterpreterState,
+    Vec<MutStateView<'a>>,
 );
 
-pub enum MutStateView<'inner, 'outer> {
-    Single(&'inner mut InterpreterState<'outer>),
-    Composite(MutCompositeView<'inner, 'outer>),
+pub enum MutStateView<'inner> {
+    Single(&'inner mut InterpreterState),
+    Composite(MutCompositeView<'inner>),
 }
 
-impl<'inner, 'outer> MutCompositeView<'inner, 'outer> {
+impl<'inner> MutCompositeView<'inner> {
     pub fn new(
-        state: &'inner mut InterpreterState<'outer>,
-        vec: Vec<MutStateView<'inner, 'outer>>,
+        state: &'inner mut InterpreterState,
+        vec: Vec<MutStateView<'inner>>,
     ) -> Self {
         Self(state, vec)
     }
@@ -685,23 +676,19 @@ impl<'inner, 'outer> MutCompositeView<'inner, 'outer> {
     }
 }
 
-impl<'a, 'outer> From<&'a mut InterpreterState<'outer>>
-    for MutStateView<'a, 'outer>
-{
-    fn from(env: &'a mut InterpreterState<'outer>) -> Self {
+impl<'a> From<&'a mut InterpreterState> for MutStateView<'a> {
+    fn from(env: &'a mut InterpreterState) -> Self {
         Self::Single(env)
     }
 }
 
-impl<'a, 'outer> From<MutCompositeView<'a, 'outer>>
-    for MutStateView<'a, 'outer>
-{
-    fn from(mv: MutCompositeView<'a, 'outer>) -> Self {
+impl<'a> From<MutCompositeView<'a>> for MutStateView<'a> {
+    fn from(mv: MutCompositeView<'a>) -> Self {
         Self::Composite(mv)
     }
 }
 
-impl<'a, 'outer> MutStateView<'a, 'outer> {
+impl<'a> MutStateView<'a> {
     pub fn insert<P: AsRaw<ir::Port>>(&mut self, port: P, value: Value) {
         match self {
             MutStateView::Single(s) => s.insert(port, value),
@@ -715,7 +702,7 @@ pub trait State {
     fn state_as_str(&self) -> String;
 }
 
-impl<'a, 'b> State for StateView<'a, 'b> {
+impl<'a> State for StateView<'a> {
     fn lookup(&self, target: &*const ir::Port) -> &Value {
         StateView::lookup(self, *target)
     }

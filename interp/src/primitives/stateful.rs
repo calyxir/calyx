@@ -56,9 +56,10 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some(out)) = out {
+            self.product = out;
             //return vec w/ out and done
             vec![
-                (ir::Id::from("out"), out),
+                (ir::Id::from("out"), self.product.clone()),
                 (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
@@ -194,6 +195,8 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some((q, r))) = out {
+            self.quotient = q.clone();
+            self.remainder = r.clone();
             vec![
                 (ir::Id::from("out_quotient"), q),
                 (ir::Id::from("out_remainder"), r),
@@ -232,7 +235,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
-        if go.as_u64() == 1 {
+        if go.as_bool() && right.as_u64() != 0 {
             let q = if SIGNED {
                 Value::from(left.as_i64() / right.as_i64(), self.width)
             } else {
@@ -1435,6 +1438,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some(out)) = out {
+            self.product = out.clone();
             vec![
                 (ir::Id::from("out"), out),
                 (ir::Id::from("done"), Value::bit_high()),
@@ -1546,6 +1550,8 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
             self.queue.len()
         );
         if let Some(Some((q, r))) = out {
+            self.quotient = q.clone();
+            self.remainder = r.clone();
             vec![
                 (ir::Id::from("out_quotient"), q),
                 (ir::Id::from("out_remainder"), r),
@@ -1577,7 +1583,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         let right = get_input_unwrap(inputs, "right");
         let go = get_input_unwrap(inputs, "go");
 
-        if go.as_bool() {
+        if go.as_bool() && right.as_u64() != 0 {
             let (q, r) = if SIGNED {
                 (
                     Value::from(left.as_i64() / right.as_i64(), self.width),

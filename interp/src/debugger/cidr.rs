@@ -1,46 +1,44 @@
+use std::rc::Rc;
+
 use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
 use crate::environment::{InterpreterState, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
+use crate::interpreter_ir as iir;
 use crate::utils::AsRaw;
 use calyx::ir::{self, RRC};
-
 pub(super) const SPACING: &str = "    ";
 
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [main_loop] function while this struct holds auxilliary information used to
 /// coordinate the debugging process.
-pub struct Debugger<'a> {
-    context: &'a ir::Context,
-    main_component: &'a ir::Component,
+pub struct Debugger {
+    context: iir::ComponentCtx,
+    main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
 }
 
-impl<'a> Debugger<'a> {
+impl Debugger {
     pub fn new(
-        context: &'a ir::Context,
-        main_component: &'a ir::Component,
+        context: &iir::ComponentCtx,
+        main_component: &Rc<iir::Component>,
     ) -> Self {
         Self {
-            context,
-            main_component,
+            context: Rc::clone(context),
+            main_component: Rc::clone(main_component),
             debugging_ctx: DebuggingContext::default(),
         }
     }
 
-    pub fn main_loop<'outer>(
+    pub fn main_loop(
         &mut self,
-        env: InterpreterState<'outer>,
+        env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
-    ) -> InterpreterResult<InterpreterState<'outer>> {
-        let control: &ir::Control = &self.main_component.control.borrow();
-        let mut component_interpreter = ComponentInterpreter::from_component(
-            self.main_component,
-            control,
-            env,
-        );
+    ) -> InterpreterResult<InterpreterState> {
+        let mut component_interpreter =
+            ComponentInterpreter::from_component(&self.main_component, env);
         component_interpreter.set_go_high();
 
         if pass_through {
@@ -121,7 +119,7 @@ impl<'a> Debugger<'a> {
                 Command::PrintCellOrPort(first, second) => {
                     // component & cell/port
                     if let Some(comp) =
-                        self.context.components.iter().find(|x| x.name == first)
+                        self.context.iter().find(|x| x.name == first)
                     {
                         if let Some(cell) = comp.find_cell(&second) {
                             print_cell(&cell, &component_interpreter.get_env())
@@ -181,7 +179,7 @@ impl<'a> Debugger<'a> {
                 }
                 Command::PrintFullySpecified(comp, cell, port) => {
                     if let Some(comp_ref) =
-                        self.context.components.iter().find(|x| x.name == comp)
+                        self.context.iter().find(|x| x.name == comp)
                     {
                         if let Some(cell_rrc) = comp_ref.find_cell(&cell) {
                             let cell_ref = cell_rrc.borrow();
@@ -204,7 +202,6 @@ impl<'a> Debugger<'a> {
                 Command::Break(target) => {
                     if self
                         .context
-                        .components
                         .iter()
                         .any(|x| x.groups.find(&target).is_some())
                     {
