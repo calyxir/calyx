@@ -37,8 +37,14 @@ impl Backend for XilinxInterfaceBackend {
             .components
             .iter()
             .find(|comp| comp.attributes.has("toplevel") || comp.name == "main")
-            .ok_or_else(|| Error::Misc("no toplevel".to_string()))?;
+            .ok_or_else(|| Error::Misc("No component marked with attribute \"toplevel\" and no main component".to_string()))?;
+
         let memories = external_memories(toplevel);
+        if memories.is_empty() {
+            return Err(Error::Misc(
+                    "Program has no memories marked with attribute @external.".to_owned() +
+                    " Please make sure that at least one memory is marked as @external."));
+        }
 
         let mut modules = vec![
             top_level(12, 32, &memories),

@@ -440,23 +440,14 @@ component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
     acc = std_reg(32);
-    mul_reg = std_reg(32);
     // Computation
     add = std_add(32);
     mul = std_mult_pipe(32);
   }
   wires {
-    group do_mul<"static"=4> {
-      mul.left = top;
-      mul.right = left;
-      mul.go = !mul.done ? 1'd1;
-      mul_reg.in = mul.done ? mul.out;
-      mul_reg.write_en = mul.done ? 1'd1;
-      do_mul[done] = mul_reg.done;
-    }
     group do_add {
       add.left = acc.out;
-      add.right = mul_reg.out;
+      add.right = mul.out;
       acc.in = add.out;
       acc.write_en = 1'd1;
       do_add[done] = acc.done;
@@ -464,6 +455,9 @@ component mac_pe(top: 32, left: 32) -> (out: 32) {
     out = acc.out;
   }
   control {
-    seq { do_mul; do_add; }
+    seq {
+        invoke mul(left = top, right = left)();
+        do_add;
+    }
   }
 }

@@ -1,0 +1,46 @@
+{
+  "left": {
+    "data": [
+      127.46, 127.46, -127.46, -127.46
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 8
+    }
+  },
+  "right": {
+    "data": [
+      7.2, -7.2, 7.2, -7.2
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 8
+    }
+  },
+  "out_quot": {
+    "data": [
+      0.0, 0.0, 0.0, 0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 8
+    }
+  },
+  "out_rem": {
+    "data": [
+      0.0, 0.0, 0.0, 0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "frac_width": 8
+    }
+  }
+}
