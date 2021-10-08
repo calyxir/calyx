@@ -26,7 +26,7 @@ impl Backend for MlirBackend {
     ) -> calyx::errors::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
-            writeln!(f, "calyx.program {{\n")?;
+            writeln!(f, "calyx.program \"{}\" {{\n", ctx.entrypoint)?;
             ctx.components.iter().try_for_each(|comp| {
                 Self::write_component(comp, f)?;
                 writeln!(f)

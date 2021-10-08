@@ -147,7 +147,7 @@ pub fn ast_to_ir(
     // Find the entrypoint for the program.
     let entrypoint = comps
         .iter()
-        .find(|c| c.attributes.get("toplevel").is_none())
+        .find(|c| c.attributes.get("toplevel").is_some())
         .or_else(|| comps.iter().find(|c| c.name == "main"))
         .map(|c| c.name.clone())
         .ok_or_else(|| Error::Misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
