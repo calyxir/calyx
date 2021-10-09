@@ -1,6 +1,6 @@
 // -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
 import "primitives/core.futil";
-component kernel() -> () {
+component main() -> () {
   cells {
     b0 = std_reg(32);
     before0 = std_reg(4);
