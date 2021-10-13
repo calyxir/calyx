@@ -73,16 +73,14 @@ impl<S: AsRef<str>> Command<S> {
             ["continue"] | ["c"] => Ok(vec![Command::Continue]),
             ["display"] => Ok(vec![Command::Display]),
             ["print", _target] | ["p", _target] => {
-                let mut target: Vec<_> =
+                let target: Vec<_> =
                     saved_input[0].split('.').map(str::to_string).collect();
-                if target.len() == 0 {
-                    return Ok(vec![Command::Empty]);
-                } else if target[0] == "main" {
-                    target.remove(0);
-                };
-
-                let command = Command::Print(target);
-                Ok(vec![command])
+                if target.is_empty() {
+                    Ok(vec![Command::Empty])
+                } else {
+                    let command = Command::Print(target);
+                    Ok(vec![command])
+                }
             }
             ["print", ..] | ["p", ..] => Err(InterpreterError::InvalidCommand(
                 "Print requires exactly one target".to_string(),

@@ -362,8 +362,8 @@ impl Primitive for ComponentInterpreter {
         self.look_up_outputs()
     }
 
-    fn get_state(&self) -> Option<Box<dyn State + '_>> {
-        Some(Box::new(self.get_env()))
+    fn get_state(&self) -> Option<StateView<'_>> {
+        Some(self.get_env())
     }
 
     fn serialize(&self, _signed: bool) -> crate::primitives::Serializeable {
