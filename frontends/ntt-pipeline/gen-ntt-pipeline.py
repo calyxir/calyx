@@ -187,20 +187,13 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
         group_name = CompVar(f"s{stage}_mul{mul_index}")
         mult_pipe = CompVar(f"mult_pipe{mul_index}")
-        mul = CompVar(f"mul{mul_index}")
         phi = CompVar(f"phi{phi_index}")
         reg = CompVar(f"r{k}")
         connections = [
             Connect(CompPort(phi, "out"), CompPort(mult_pipe, "left")),
             Connect(CompPort(reg, "out"), CompPort(mult_pipe, "right")),
-            Connect(
-                ConstantPort(1, 1),
-                CompPort(mult_pipe, "go"),
-                Not(Atom(CompPort(mult_pipe, "done"))),
-            ),
-            Connect(CompPort(mult_pipe, "done"), CompPort(mul, "write_en")),
-            Connect(CompPort(mult_pipe, "out"), CompPort(mul, "in")),
-            Connect(CompPort(mul, "done"), HolePort(group_name, "done")),
+            Connect(ConstantPort(1, 1), CompPort(mult_pipe, "go")),
+            Connect(CompPort(mult_pipe, "done"), HolePort(group_name, "done")),
         ]
         return Group(group_name, connections)
 
@@ -212,7 +205,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         group_name = CompVar(f"s{stage}_r{row}_op_mod")
         op = CompVar(f"{comp}{comp_index}")
         reg = CompVar(f"r{lhs}")
-        mul = CompVar(f"mul{mul_index}")
+        mul = CompVar(f"mult_pipe{mul_index}")
         mod_pipe = CompVar(f"mod_pipe{row}")
         A = CompVar(f"A{row}")
         connections = [
