@@ -37,16 +37,6 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
-  comb primitive std_fp_add_dwidth<"share"=1>[
-    WIDTH1,
-    WIDTH2,
-    INT_WIDTH1,
-    FRAC_WIDTH1,
-    INT_WIDTH2,
-    FRAC_WIDTH2,
-    OUT_WIDTH
-  ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
-
   /// =================== Signed, Fixed Point =========================
   comb primitive std_fp_sadd<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
@@ -88,16 +78,6 @@ extern "binary_operators.sv" {
   comb primitive std_fp_slt<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
-
-  comb primitive std_fp_sadd_dwidth<"share"=1>[
-    WIDTH1,
-    WIDTH2 ,
-    INT_WIDTH1,
-    FRAC_WIDTH1,
-    INT_WIDTH2,
-    FRAC_WIDTH2,
-    OUT_WIDTH
-  ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
 
   /// =================== Unsigned, Bitnum =========================
   /// Other unsigned bitnum primitives are found in the core library,
