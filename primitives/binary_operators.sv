@@ -210,57 +210,6 @@ module std_fp_gt #(
   assign out = left > right;
 endmodule
 
-module std_fp_add_dwidth #(
-    parameter WIDTH1 = 32,
-    parameter WIDTH2 = 32,
-    parameter INT_WIDTH1 = 16,
-    parameter FRAC_WIDTH1 = 16,
-    parameter INT_WIDTH2 = 12,
-    parameter FRAC_WIDTH2 = 20,
-    parameter OUT_WIDTH = 36
-) (
-    input  logic [   WIDTH1-1:0] left,
-    input  logic [   WIDTH2-1:0] right,
-    output logic [OUT_WIDTH-1:0] out
-);
-
-  localparam BIG_INT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
-  localparam BIG_FRACT = (FRAC_WIDTH1 >= FRAC_WIDTH2) ? FRAC_WIDTH1 : FRAC_WIDTH2;
-
-  initial begin
-    if (BIG_INT + BIG_FRACT != OUT_WIDTH)
-      $error("std_fp_add_dwidth: Given output width not equal to computed output width");
-  end
-
-  logic [INT_WIDTH1-1:0] left_int;
-  logic [INT_WIDTH2-1:0] right_int;
-  logic [FRAC_WIDTH1-1:0] left_fract;
-  logic [FRAC_WIDTH2-1:0] right_fract;
-
-  logic [BIG_INT-1:0] mod_right_int;
-  logic [BIG_FRACT-1:0] mod_left_fract;
-
-  logic [BIG_INT-1:0] whole_int;
-  logic [BIG_FRACT-1:0] whole_fract;
-
-  assign {left_int, left_fract} = left;
-  assign {right_int, right_fract} = right;
-
-  assign mod_left_fract = left_fract * (2 ** (FRAC_WIDTH2 - FRAC_WIDTH1));
-
-  always_comb begin
-    if ((mod_left_fract + right_fract) >= 2 ** FRAC_WIDTH2) begin
-      whole_int = left_int + right_int + 1;
-      whole_fract = mod_left_fract + right_fract - 2 ** FRAC_WIDTH2;
-    end else begin
-      whole_int = left_int + right_int;
-      whole_fract = mod_left_fract + right_fract;
-    end
-  end
-
-  assign out = {whole_int, whole_fract};
-endmodule
-
 /// =================== Signed, Fixed Point =========================
 module std_fp_sadd #(
     parameter WIDTH = 32,
