@@ -4,7 +4,7 @@ use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
-use crate::environment::{InterpreterState, MutStateView, State, StateView};
+use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
 use crate::primitives::Primitive;

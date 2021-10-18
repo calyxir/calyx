@@ -5,7 +5,7 @@ use std::rc::Rc;
 use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
-use crate::environment::{InterpreterState, PrimitiveMap, State, StateView};
+use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
@@ -94,6 +94,7 @@ impl Debugger {
                     println!("{}", state.state_as_str());
                 }
                 Command::Print(mut print_list) => {
+                    let orig_string = print_list.join(".");
                     if self.main_component.name == print_list[0] {
                         print_list.remove(0);
                     }
@@ -126,11 +127,17 @@ impl Debugger {
                                         print_port(port, &current_env)
                                     } else {
                                         // cannot find
-                                        // TODO: add an error message here
+                                        println!(
+                                            "{} Unable to locate '{}'",
+                                            SPACING, orig_string
+                                        )
                                     }
                                 } else {
                                     // cannot find
-                                    // TODO: add an error message here
+                                    println!(
+                                        "{} Unable to locate '{}'",
+                                        SPACING, orig_string
+                                    )
                                 }
                             }
                         }
@@ -156,7 +163,10 @@ impl Debugger {
                                 // otherwise leave the same
                             } else {
                                 // cannot find
-                                // TODO: add an error message here
+                                println!(
+                                    "{} Unable to locate '{}'",
+                                    SPACING, orig_string
+                                );
 
                                 break;
                             }
