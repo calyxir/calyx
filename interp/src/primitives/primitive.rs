@@ -169,11 +169,11 @@ impl Serialize for Serializeable {
                     Shape::D4(shape) => {
                         let mem = arr
                             .iter()
-                            .chunks(shape.2 * shape.1 * shape.0)
+                            .chunks(shape.2 * shape.1 * shape.3)
                             .into_iter()
                             .map(|x| {
                                 x.into_iter()
-                                    .chunks(shape.2 * shape.1)
+                                    .chunks(shape.2 * shape.3)
                                     .into_iter()
                                     .map(|y| {
                                         y.into_iter()
