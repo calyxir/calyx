@@ -1,5 +1,6 @@
 use crate::{
     environment::{FullySerialize, StateView},
+    errors::{InterpreterError, InterpreterResult},
     values::Value,
 };
 use calyx::ir;
@@ -10,7 +11,7 @@ use serde::Serialize;
 /// Primitives can be either stateful or combinational.
 pub trait Primitive {
     /// Does nothing for comb. prims; mutates internal state for stateful
-    fn do_tick(&mut self) -> Vec<(ir::Id, Value)>;
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>>;
 
     /// Returns true if this primitive is combinational
     fn is_comb(&self) -> bool;
@@ -19,19 +20,25 @@ pub trait Primitive {
     fn validate(&self, inputs: &[(ir::Id, &Value)]);
 
     /// Execute the component.
-    fn execute(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)>;
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>>;
 
     /// Execute the component.
     fn validate_and_execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
-    ) -> Vec<(ir::Id, Value)> {
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.validate(inputs);
         self.execute(inputs)
     }
 
     /// Reset the component.
-    fn reset(&mut self, inputs: &[(ir::Id, &Value)]) -> Vec<(ir::Id, Value)>;
+    fn reset(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>>;
 
     /// Serialize the state of this primitive, if any.
     fn serialize(&self, _signed: bool) -> Serializeable {
