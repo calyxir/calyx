@@ -138,16 +138,25 @@ pub fn ast_to_ir(
             .comp_sigs
             .insert(comp.name.clone(), comp.signature.clone());
     }
-    let comps = workspace
+    let comps: Vec<Component> = workspace
         .components
         .into_iter()
         .map(|comp| build_component(comp, &sig_ctx))
         .collect::<Result<_, _>>()?;
 
+    // Find the entrypoint for the program.
+    let entrypoint = comps
+        .iter()
+        .find(|c| c.attributes.get("toplevel").is_some())
+        .or_else(|| comps.iter().find(|c| c.name == "main"))
+        .map(|c| c.name.clone())
+        .ok_or_else(|| Error::Misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
+
     Ok(Context {
         components: comps,
         lib: sig_ctx.lib,
         bc,
+        entrypoint,
         extra_opts: vec![],
     })
 }

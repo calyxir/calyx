@@ -97,38 +97,30 @@ component main() -> () {
     group s0_mul0 {
       mult_pipe0.left = phi1.out;
       mult_pipe0.right = r2.out;
-      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
-      mul0.write_en = mult_pipe0.done;
-      mul0.in = mult_pipe0.out;
-      s0_mul0[done] = mul0.done;
+      mult_pipe0.go = 1'd1;
+      s0_mul0[done] = mult_pipe0.done;
     }
     group s0_mul1 {
       mult_pipe1.left = phi1.out;
       mult_pipe1.right = r3.out;
-      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
-      mul1.write_en = mult_pipe1.done;
-      mul1.in = mult_pipe1.out;
-      s0_mul1[done] = mul1.done;
+      mult_pipe1.go = 1'd1;
+      s0_mul1[done] = mult_pipe1.done;
     }
     group s1_mul0 {
       mult_pipe0.left = phi2.out;
       mult_pipe0.right = r1.out;
-      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
-      mul0.write_en = mult_pipe0.done;
-      mul0.in = mult_pipe0.out;
-      s1_mul0[done] = mul0.done;
+      mult_pipe0.go = 1'd1;
+      s1_mul0[done] = mult_pipe0.done;
     }
     group s1_mul1 {
       mult_pipe1.left = phi3.out;
       mult_pipe1.right = r3.out;
-      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
-      mul1.write_en = mult_pipe1.done;
-      mul1.in = mult_pipe1.out;
-      s1_mul1[done] = mul1.done;
+      mult_pipe1.go = 1'd1;
+      s1_mul1[done] = mult_pipe1.done;
     }
     group s0_r0_op_mod {
       add0.left = r0.out;
-      add0.right = mul0.out;
+      add0.right = mult_pipe0.out;
       mod_pipe0.left = add0.out;
       mod_pipe0.right = 32'd97;
       mod_pipe0.go = !mod_pipe0.done ? 1'd1;
@@ -138,7 +130,7 @@ component main() -> () {
     }
     group s0_r1_op_mod {
       add1.left = r1.out;
-      add1.right = mul1.out;
+      add1.right = mult_pipe1.out;
       mod_pipe1.left = add1.out;
       mod_pipe1.right = 32'd97;
       mod_pipe1.go = !mod_pipe1.done ? 1'd1;
@@ -148,7 +140,7 @@ component main() -> () {
     }
     group s0_r2_op_mod {
       sub0.left = r0.out;
-      sub0.right = mul0.out;
+      sub0.right = mult_pipe0.out;
       mod_pipe2.left = sub0.out;
       mod_pipe2.right = 32'd97;
       mod_pipe2.go = !mod_pipe2.done ? 1'd1;
@@ -158,7 +150,7 @@ component main() -> () {
     }
     group s0_r3_op_mod {
       sub1.left = r1.out;
-      sub1.right = mul1.out;
+      sub1.right = mult_pipe1.out;
       mod_pipe3.left = sub1.out;
       mod_pipe3.right = 32'd97;
       mod_pipe3.go = !mod_pipe3.done ? 1'd1;
@@ -168,7 +160,7 @@ component main() -> () {
     }
     group s1_r0_op_mod {
       add0.left = r0.out;
-      add0.right = mul0.out;
+      add0.right = mult_pipe0.out;
       mod_pipe0.left = add0.out;
       mod_pipe0.right = 32'd97;
       mod_pipe0.go = !mod_pipe0.done ? 1'd1;
@@ -178,7 +170,7 @@ component main() -> () {
     }
     group s1_r1_op_mod {
       sub0.left = r0.out;
-      sub0.right = mul0.out;
+      sub0.right = mult_pipe0.out;
       mod_pipe1.left = sub0.out;
       mod_pipe1.right = 32'd97;
       mod_pipe1.go = !mod_pipe1.done ? 1'd1;
@@ -188,7 +180,7 @@ component main() -> () {
     }
     group s1_r2_op_mod {
       add1.left = r2.out;
-      add1.right = mul1.out;
+      add1.right = mult_pipe1.out;
       mod_pipe2.left = add1.out;
       mod_pipe2.right = 32'd97;
       mod_pipe2.go = !mod_pipe2.done ? 1'd1;
@@ -198,7 +190,7 @@ component main() -> () {
     }
     group s1_r3_op_mod {
       sub1.left = r2.out;
-      sub1.right = mul1.out;
+      sub1.right = mult_pipe1.out;
       mod_pipe3.left = sub1.out;
       mod_pipe3.right = 32'd97;
       mod_pipe3.go = !mod_pipe3.done ? 1'd1;

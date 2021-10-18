@@ -1,8 +1,5 @@
 use crate::backend::traits::Backend;
-use calyx::{
-    errors::{CalyxResult, Error},
-    ir,
-};
+use calyx::{errors::CalyxResult, ir};
 use serde::Serialize;
 
 /// Backend that generates XML that Xilinx needs to define the address
@@ -104,8 +101,8 @@ impl Backend for XilinxXmlBackend {
         let toplevel = prog
             .components
             .iter()
-            .find(|comp| comp.attributes.has("toplevel"))
-            .ok_or_else(|| Error::Misc("no toplevel".to_string()))?;
+            .find(|comp| comp.name == prog.entrypoint)
+            .unwrap();
 
         let mut ports = vec![Port {
             name: "s_axi_control",

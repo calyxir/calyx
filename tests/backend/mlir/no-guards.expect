@@ -1,4 +1,4 @@
-calyx.program {
+calyx.program "main" {
 
 calyx.component @A(%in: i8, %go: i1, %clk: i1, %reset: i1, %go0: i1 {go=1}, %clk0: i1 {clk=1}, %reset0: i1 {reset=1}) -> (%out: i8, %done: i1, %done0: i1 {done=1}) {
   calyx.wires {

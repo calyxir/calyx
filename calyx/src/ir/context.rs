@@ -110,6 +110,8 @@ pub struct Context {
     pub components: Vec<Component>,
     /// Library definitions imported by the program.
     pub lib: LibrarySignatures,
+    // Entrypoint for the program
+    pub entrypoint: Id,
     /// Configuration flags for backends.
     pub bc: BackendConf,
     /// Extra options provided to the command line.

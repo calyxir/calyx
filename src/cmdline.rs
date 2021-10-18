@@ -45,10 +45,6 @@ pub struct Opts {
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,
 
-    /// toplevel component
-    #[argh(option, short = 't', default = "\"main\".to_string()")]
-    pub toplevel: String,
-
     /// run this pass during execution
     #[argh(option, short = 'p')]
     pub pass: Vec<String>,
