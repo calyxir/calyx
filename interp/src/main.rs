@@ -6,7 +6,6 @@ use interp::environment;
 use interp::errors::{InterpreterError, InterpreterResult};
 use interp::interpreter::interpret_component;
 use interp::interpreter_ir as iir;
-use log::*;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
