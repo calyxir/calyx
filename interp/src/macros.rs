@@ -54,8 +54,8 @@ macro_rules! comb_primitive {
         impl Primitive for $name {
 
             //null-op; comb don't use do_tick()
-            fn do_tick(&mut self) -> Vec<(calyx::ir::Id, $crate::values::Value)>{
-                vec![]
+            fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>>{
+                Ok(vec![])
             }
 
             fn is_comb(&self) -> bool { true }
@@ -76,7 +76,7 @@ macro_rules! comb_primitive {
             fn execute(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &$crate::values::Value)],
-            ) -> Vec<(calyx::ir::Id, Value)> {
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
 
                 #[derive(Default)]
                 struct Ports<'a> {
@@ -92,7 +92,7 @@ macro_rules! comb_primitive {
                     }
                 }
 
-                let exec_func = |$($param: u64),+, $( $port: &Value ),+| -> Value {
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+| -> $crate::errors::InterpreterResult<Value> {
                     $execute
                 };
 
@@ -102,11 +102,11 @@ macro_rules! comb_primitive {
                     $( base
                         .$port
                         .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+
-                );
+                )?;
 
-                return vec![
+                return Ok(vec![
                     $( ($crate::in_fix!($out).into(), $out) ),+
-                ]
+                ])
 
             }
 
@@ -114,7 +114,7 @@ macro_rules! comb_primitive {
             fn reset(
                 &mut self,
                 inputs: &[(calyx::ir::Id, &$crate::values::Value)],
-            ) -> Vec<(calyx::ir::Id, Value)> {
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
                 self.execute(inputs)
             }
 
