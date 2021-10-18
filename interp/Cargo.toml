@@ -19,6 +19,8 @@ itertools = "0.10.1"
 argh = "0.1.5"
 rustyline = "8.2.0"
 thiserror = "1.0.26"
+log = {version = "0.4.14", features = ["std"]}
+stderrlog = "0.5.1"
 
 [dev-dependencies]
 proptest = "1.0.0"

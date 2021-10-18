@@ -6,6 +6,7 @@ use interp::environment;
 use interp::errors::{InterpreterError, InterpreterResult};
 use interp::interpreter::interpret_component;
 use interp::interpreter_ir as iir;
+use log::*;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -85,6 +86,15 @@ fn print_res(
 /// Interpret a group from a Calyx program
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
+
+    // TODO (Griffin): add some of the config flags to CLI
+    stderrlog::new()
+        .module(module_path!())
+        .quiet(false)
+        .verbosity(1) // warnings
+        .timestamp(stderrlog::Timestamp::Off)
+        .init()
+        .unwrap();
 
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
