@@ -13,7 +13,7 @@ jobs:
     - name: Install jq
       run: |
         sudo apt-get update
-        sudo apt-get install jq
+        sudo apt-get install jq opencl-headers
 
     - name: Setup Python
       uses: actions/setup-python@v2
@@ -24,7 +24,7 @@ jobs:
     - name: Install fud
       run: |
         cd fud
-        flit install --deps production
+        flit install
         cd ..
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
@@ -242,7 +242,7 @@ jobs:
     - name: Install fud
       run: |
         cd fud
-        flit install --deps production
+        flit install
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
