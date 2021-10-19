@@ -14,10 +14,10 @@ span.line.diff-deletion {
     background: hsla(0,100%,75%,0.2);;
 }
 
-span.line.diff-empty {
-    background: var(--bg-color);
-    box-shadow: 0 0px 2px 1px rgba(0, 0, 0, 0.2);
-}
+/* span.line.diff-empty { */
+    /* background: var(--bg-color); */
+    /* box-shadow: 0 0px 2px 1px rgba(0, 0, 0, 0.2); */
+/* } */
 
 span.line {
     width: 100%;
