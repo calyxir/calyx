@@ -13,7 +13,7 @@ jobs:
     - name: Install jq
       run: |
         sudo apt-get update
-        sudo apt-get install jq
+        sudo apt-get install jq python-pybind11
 
     - name: Setup Python
       uses: actions/setup-python@v2
