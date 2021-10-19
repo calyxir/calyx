@@ -1,0 +1,27 @@
+name: Playground Deployment
+
+# on:
+  # push:
+    # branches:
+      # - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1  # v2 does not have submodules option now
+        with:
+          submodules: true
+
+      - name: Install and Run Zola
+        run: |
+          sudo snap install --edge zola
+          zola build
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_branch: playground
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+
