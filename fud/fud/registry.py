@@ -16,17 +16,13 @@ class Registry:
         self.config = config
         self.graph = nx.DiGraph()
 
-    def register(self, stage, src=None, tar=None):
+    def register(self, stage):
         """
         Defines a new stage named `stage` that converts programs from `src` to
         `tar`
         """
-        if src is None:
-            src = stage.name
-        if tar is None:
-            tar = stage.target_stage
 
-        self.graph.add_edge(src, tar, stage=stage)
+        self.graph.add_edge(stage.src_stage, stage.target_stage, stage=stage)
 
     def make_path(self, start, dest, through=[]):
         """
