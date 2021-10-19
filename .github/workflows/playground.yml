@@ -1,6 +1,6 @@
 name: Playground Deployment
 
-# on:
+on: [push]
   # push:
     # branches:
       # - main
