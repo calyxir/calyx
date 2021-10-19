@@ -6,3 +6,4 @@ mod utils;
 
 pub use interpret_component::interpret_component;
 pub use steppers::{ComponentInterpreter, Interpreter};
+pub use utils::{ConstCell, ConstPort};
