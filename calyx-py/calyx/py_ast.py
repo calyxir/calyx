@@ -427,28 +427,3 @@ class Stdlib:
             f'std_fp_{"s" if signed else ""}{op}', [
                 width, int_width, frac_width]
         )
-
-    def fixed_point_diff_width(
-        self,
-        op: str,
-        width1: int,
-        width2: int,
-        int_width1: int,
-        frac_width1: int,
-        int_width2: int,
-        frac_width2: int,
-        out_width: int,
-        signed: bool,
-    ):
-        return CompInst(
-            f'std_fp_{"s" if signed else ""}{op}_dwidth',
-            [
-                width1,
-                width2,
-                int_width1,
-                frac_width1,
-                int_width2,
-                frac_width2,
-                out_width,
-            ],
-        )
