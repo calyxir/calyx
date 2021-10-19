@@ -7,12 +7,7 @@ class FutilStage(Stage):
     def __init__(self, config, destination, flags, desc):
         self.flags = flags
         super().__init__(
-            "futil",
-            destination,
-            SourceType.Stream,
-            SourceType.Stream,
-            config,
-            desc
+            "futil", destination, SourceType.Stream, SourceType.Stream, config, desc
         )
         self.setup()
 
