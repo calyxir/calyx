@@ -1,0 +1,15 @@
+[package]
+name = "calyx-web"
+version = "0.1.0"
+authors = ["Samuel Thomas <sgt43@cornell.edu>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+calyx = { path = "../../calyx" }
+wasm-bindgen = { version = "0.2.77", features = ["serde-serialize"] }
+serde_json = "1.0.59"
+serde_derive = "1.0"
+serde = "1.0"
