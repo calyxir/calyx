@@ -4,7 +4,7 @@
     "license": "MIT",
     "scripts": {
         "start": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel index.html",
-        "build": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel build --public-url . index.html --log-level 4",
+        "build": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel build --public-url . index.html --log-level 4; cp -R static/ dist/",
         "clean": "rm -rf dist rust/pkg; cd rust; cargo clean"
     },
     "dependencies": {
