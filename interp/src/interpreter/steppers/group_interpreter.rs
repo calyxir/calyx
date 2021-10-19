@@ -165,8 +165,7 @@ impl AssignmentInterpreter {
     /// Continue interpreting the assignments until the combinational portions
     /// converge
     pub fn step_convergence(&mut self) -> InterpreterResult<()> {
-        // retain old value
-        self.val_changed.get_or_insert(true);
+        self.val_changed.insert(true); // always run convergence if called
 
         let possible_ports: HashSet<*const ir::Port> = self
             .assigns
@@ -281,7 +280,7 @@ impl AssignmentInterpreter {
 
     /// Run the interpreter until it finishes executing
     pub fn run(&mut self) -> InterpreterResult<()> {
-        while !self.is_done() {
+        while !self.is_deconstructable() {
             self.step()?;
         }
         self.step_convergence()

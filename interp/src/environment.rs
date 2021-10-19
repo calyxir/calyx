@@ -27,7 +27,7 @@ type ConstPort = *const ir::Port;
 
 /// A map defining primitive implementations for Cells. As it is keyed by
 /// ConstCell the lifetime of the keys is independent of the actual cells.
-type PrimitiveMap =
+pub(crate) type PrimitiveMap =
     RRC<HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>;
 
 /// A map defining values for ports. As it is keyed by ConstPort, the lifetime of
@@ -53,6 +53,8 @@ pub struct InterpreterState {
     /// The name of the component this environment is for. Used for printing the
     /// environment state.
     pub component: Rc<iir::Component>,
+
+    pub sub_comp_set: Rc<HashSet<ConstCell>>,
 }
 
 /// Helper functions for the environment.
@@ -64,12 +66,15 @@ impl InterpreterState {
         target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
     ) -> InterpreterResult<Self> {
+        let (map, set) = Self::construct_cell_map(target, ctx, mems)?;
+
         Ok(Self {
             context: Rc::clone(ctx),
             clk: 0,
             port_map: InterpreterState::construct_port_map(&*target),
-            cell_map: Self::construct_cell_map(target, ctx, mems)?,
+            cell_map: map,
             component: target.clone(),
+            sub_comp_set: Rc::new(set),
         })
     }
 
@@ -217,8 +222,9 @@ impl InterpreterState {
         comp: &Rc<iir::Component>,
         ctx: &iir::ComponentCtx,
         mems: &Option<MemoryMap>,
-    ) -> InterpreterResult<PrimitiveMap> {
+    ) -> InterpreterResult<(PrimitiveMap, HashSet<ConstCell>)> {
         let mut map = HashMap::new();
+        let mut set = HashSet::new();
         for cell in comp.cells.iter() {
             let cl: &ir::Cell = &cell.borrow();
 
@@ -251,12 +257,13 @@ impl InterpreterState {
                     let comp_interp: Box<dyn Primitive> = Box::new(
                         ComponentInterpreter::from_component(inner_comp, env),
                     );
+                    set.insert(cl.as_raw());
                     map.insert(cl as ConstCell, comp_interp);
                 }
                 _ => {}
             }
         }
-        Ok(Rc::new(RefCell::new(map)))
+        Ok((Rc::new(RefCell::new(map)), set))
     }
 
     fn construct_port_map(comp: &iir::Component) -> PortValMap {
@@ -351,6 +358,7 @@ impl InterpreterState {
             port_map: other_pv_map,
             context: Rc::clone(&self.context),
             component: self.component.clone(),
+            sub_comp_set: Rc::clone(&self.sub_comp_set),
         }
     }
     /// Creates a fork of the source environment which has the same clock and
@@ -364,6 +372,7 @@ impl InterpreterState {
             port_map: self.port_map.fork(),
             context: Rc::clone(&self.context),
             component: self.component.clone(),
+            sub_comp_set: Rc::clone(&self.sub_comp_set),
         }
     }
 
@@ -551,10 +560,10 @@ impl<'a> StateView<'a> {
         }
     }
 
-    pub fn get_comp_name(&self) -> &ir::Id {
+    pub fn get_comp(&self) -> &Rc<iir::Component> {
         match self {
-            StateView::SingleView(c) => &c.component.name,
-            StateView::Composite(c) => &c.0.component.name,
+            StateView::SingleView(c) => &c.component,
+            StateView::Composite(c) => &c.0.component,
         }
     }
 
@@ -572,13 +581,23 @@ impl<'a> StateView<'a> {
         ctx_ref.iter().filter_map(|x| x.find_cell(name)).collect()
     }
 
+    pub fn get_cell<S: AsRef<str> + Clone>(
+        &self,
+        name: S,
+    ) -> Option<RRC<ir::Cell>> {
+        match self {
+            StateView::SingleView(sv) => sv.component.find_cell(&name),
+            StateView::Composite(cv) => cv.0.component.find_cell(&name),
+        }
+    }
+
     pub fn gen_serialzer(&self) -> FullySerialize {
         let ctx = self.get_ctx();
         let cell_prim_map = &self.get_cell_map().borrow();
 
         let bmap: BTreeMap<_, _> = ctx
             .iter()
-            .filter(|x| x.name == self.get_comp_name()) // there should only be one such comp
+            .filter(|x| x.name == self.get_comp().name) // there should only be one such comp
             .map(|comp| {
                 let inner_map: BTreeMap<_, _> = comp
                     .cells
@@ -613,7 +632,7 @@ impl<'a> StateView<'a> {
             .collect();
         let cell_map: BTreeMap<_, _> = ctx
             .iter()
-            .filter(|x| x.name == self.get_comp_name())
+            .filter(|x| x.name == self.get_comp().name)
             .map(|comp| {
                 let inner_map: BTreeMap<_, _> = comp
                     .cells

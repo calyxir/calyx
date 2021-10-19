@@ -1,5 +1,5 @@
 use crate::{
-    environment::{FullySerialize, State},
+    environment::{FullySerialize, StateView},
     values::Value,
 };
 use calyx::ir;
@@ -43,7 +43,7 @@ pub trait Primitive {
         self.serialize(false).has_state()
     }
 
-    fn get_state(&self) -> Option<Box<dyn State + '_>> {
+    fn get_state(&self) -> Option<StateView<'_>> {
         None
     }
 }
@@ -154,11 +154,11 @@ impl Serialize for Serializeable {
                     Shape::D3(shape) => {
                         let mem = arr
                             .iter()
-                            .chunks(shape.2 * shape.1)
+                            .chunks(shape.1 * shape.0)
                             .into_iter()
                             .map(|x| {
                                 x.into_iter()
-                                    .chunks(shape.1)
+                                    .chunks(shape.2)
                                     .into_iter()
                                     .map(|y| y.into_iter().collect::<Vec<_>>())
                                     .collect::<Vec<_>>()
@@ -169,15 +169,15 @@ impl Serialize for Serializeable {
                     Shape::D4(shape) => {
                         let mem = arr
                             .iter()
-                            .chunks(shape.3 * shape.2 * shape.1)
+                            .chunks(shape.2 * shape.1 * shape.3)
                             .into_iter()
                             .map(|x| {
                                 x.into_iter()
-                                    .chunks(shape.2 * shape.1)
+                                    .chunks(shape.2 * shape.3)
                                     .into_iter()
                                     .map(|y| {
                                         y.into_iter()
-                                            .chunks(shape.1)
+                                            .chunks(shape.3)
                                             .into_iter()
                                             .map(|z| {
                                                 z.into_iter()

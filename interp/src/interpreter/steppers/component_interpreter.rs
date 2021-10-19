@@ -4,7 +4,7 @@ use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
-use crate::environment::{InterpreterState, MutStateView, State, StateView};
+use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
 use crate::primitives::Primitive;
@@ -362,8 +362,8 @@ impl Primitive for ComponentInterpreter {
         self.look_up_outputs()
     }
 
-    fn get_state(&self) -> Option<Box<dyn State + '_>> {
-        Some(Box::new(self.get_env()))
+    fn get_state(&self) -> Option<StateView<'_>> {
+        Some(self.get_env())
     }
 
     fn serialize(&self, _signed: bool) -> crate::primitives::Serializeable {
