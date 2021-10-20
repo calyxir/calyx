@@ -19,7 +19,7 @@ jobs:
       uses: actions/setup-python@v2
 
     - name: Install common Python dependencies
-      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson
+      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson pybind11
 
     - name: Install fud
       run: |
@@ -162,7 +162,7 @@ jobs:
       uses: actions/setup-python@v2
 
     - name: Install common Python dependencies
-      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson
+      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson pybind11
 
     - name: Cache Apache TVM
       id: tvm-cache
