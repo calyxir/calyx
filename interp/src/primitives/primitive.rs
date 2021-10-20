@@ -1,6 +1,6 @@
 use crate::{
     environment::{FullySerialize, StateView},
-    errors::{InterpreterError, InterpreterResult},
+    errors::InterpreterResult,
     values::Value,
 };
 use calyx::ir;

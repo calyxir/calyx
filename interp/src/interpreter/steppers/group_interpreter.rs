@@ -146,7 +146,7 @@ impl AssignmentInterpreter {
                     .get_mut(&(&cell.borrow() as &Cell as ConstCell))
                 {
                     let new_vals = x.do_tick();
-                    for (port, val) in new_vals {
+                    for (port, val) in new_vals? {
                         let port_ref = cell.borrow().find(port).unwrap();
 
                         update_list.push((Rc::clone(&port_ref), val));
@@ -256,7 +256,8 @@ impl AssignmentInterpreter {
                 self.state.insert(port, value);
             }
 
-            let changed = eval_prims(&mut self.state, self.cells.iter(), false);
+            let changed =
+                eval_prims(&mut self.state, self.cells.iter(), false)?;
             if changed {
                 self.val_changed = Some(true);
             }

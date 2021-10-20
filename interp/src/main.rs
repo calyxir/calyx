@@ -39,6 +39,15 @@ pub struct Opts {
     /// note: the interpreter will not behave correctly on malformed input
     skip_verification: bool,
 
+    #[argh(switch, long = "allow-invalid-memory-access")]
+    /// enables "sloppy" memory access which returns zero when passed an invalid index
+    /// rather than erroring
+    allow_invalid_memory_access: bool,
+
+    #[argh(switch, long = "error-on-overflow")]
+    /// upgrades [over | under]flow warnings to errors
+    error_on_overflow: bool,
+
     #[argh(subcommand)]
     comm: Option<Command>,
 }
@@ -94,6 +103,18 @@ fn main() -> InterpreterResult<()> {
         .timestamp(stderrlog::Timestamp::Off)
         .init()
         .unwrap();
+
+    {
+        // get read access to the settings
+        let mut write_lock = interp::SETTINGS.write().unwrap();
+        if opts.allow_invalid_memory_access {
+            write_lock.allow_invalid_memory_access = true;
+        }
+        if opts.error_on_overflow {
+            write_lock.error_on_overflow = true;
+        }
+        // release lock
+    }
 
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;

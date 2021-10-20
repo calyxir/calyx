@@ -21,6 +21,7 @@ rustyline = "8.2.0"
 thiserror = "1.0.26"
 log = {version = "0.4.14", features = ["std"]}
 stderrlog = "0.5.1"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 proptest = "1.0.0"

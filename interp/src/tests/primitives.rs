@@ -15,22 +15,22 @@ fn mult_flickering_go() {
         left -> (2, 32),
         right -> (7, 32)
     ];
-    mult.validate_and_execute(&binds);
+    mult.validate_and_execute(&binds).unwrap();
     port_bindings![binds;
         go -> (1, 1),
         left -> (3, 32),
         right -> (7, 32)
     ];
-    mult.validate_and_execute(&binds);
-    mult.do_tick();
-    mult.do_tick();
-    let mut output_vals = mult.do_tick().into_iter(); //should output done and 21, not 14
+    mult.validate_and_execute(&binds).unwrap();
+    mult.do_tick().unwrap();
+    mult.do_tick().unwrap();
+    let mut output_vals = mult.do_tick().unwrap().into_iter(); //should output done and 21, not 14
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1;
     assert_eq!(out.as_u64(), 21);
     let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
-    output_vals = mult.do_tick().into_iter();
+    output_vals = mult.do_tick().unwrap().into_iter();
     assert_eq!(output_vals.len(), 2);
 }
 
@@ -44,8 +44,8 @@ fn test_std_mult_pipe() {
     ];
     //each execute needs to be followed by a do_tick() for the input to be
     //captured
-    mult.validate_and_execute(&binds);
-    let output_vals = mult.do_tick(); //internal q: [14, N]
+    mult.validate_and_execute(&binds).unwrap();
+    let output_vals = mult.do_tick().unwrap(); //internal q: [14, N]
     assert_eq!(output_vals.len(), 2);
     port_bindings![binds;
         go -> (1, 1),
@@ -57,38 +57,38 @@ fn test_std_mult_pipe() {
     // the time do_tick is called) then the multiplier should not run.
     // based on the above comment, b/c go is now low, nothing should be written
     // to the queue!
-    mult.validate_and_execute(&binds);
+    mult.validate_and_execute(&binds).unwrap();
     port_bindings![binds;
         go -> (0, 1), //b/c go is low, this should not overwrite 3*7!
         left -> (4, 32),
         right -> (7, 32)
     ];
-    mult.validate_and_execute(&binds);
-    let output_vals = mult.do_tick(); //internal q: [N, 14]
+    mult.validate_and_execute(&binds).unwrap();
+    let output_vals = mult.do_tick().unwrap(); //internal q: [N, 14]
     assert_eq!(output_vals.len(), 2);
     port_bindings![binds;
         go -> (1, 1),
         left -> (5, 32),
         right -> (7, 32)
     ];
-    mult.validate_and_execute(&binds);
-    let mut output_vals = mult.do_tick().into_iter(); //should output done and 14, internal queue: [35, N]
+    mult.validate_and_execute(&binds).unwrap();
+    let mut output_vals = mult.do_tick().unwrap().into_iter(); //should output done and 14, internal queue: [35, N]
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1;
     assert_eq!(out.as_u64(), 14);
     let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     //now tick 3 more times; get empty vec, 35, empty vec
-    output_vals = mult.do_tick().into_iter(); //should output empty vec
+    output_vals = mult.do_tick().unwrap().into_iter(); //should output empty vec
     assert_eq!(output_vals.len(), 2);
-    output_vals = mult.do_tick().into_iter(); //should output done and 35
+    output_vals = mult.do_tick().unwrap().into_iter(); //should output done and 35
     assert_eq!(output_vals.len(), 2);
     let out = output_vals.next().unwrap().1;
     assert_eq!(out.as_u64(), 35);
     let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     //none (empty output vec)
-    output_vals = mult.do_tick().into_iter(); //should output empty vec
+    output_vals = mult.do_tick().unwrap().into_iter(); //should output empty vec
     assert_eq!(output_vals.len(), 2);
 }
 
@@ -102,15 +102,15 @@ fn test_std_div_pipe() {
     ];
     //each execute needs to be followed by a do_tick() for the input to be
     //captured
-    div.validate_and_execute(&binds);
-    let output_vals = div.do_tick(); //internal q: [(2, 6), N]
+    div.validate_and_execute(&binds).unwrap();
+    let output_vals = div.do_tick().unwrap(); //internal q: [(2, 6), N]
     assert_eq!(output_vals.len(), 3);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
         right -> (6, 32) //20/6 = 3 r. 2
     ];
-    div.validate_and_execute(&binds);
+    div.validate_and_execute(&binds).unwrap();
     port_bindings![binds;
         go -> (0, 1), //b/c go is low, this should not overwrite 20/6!
         left -> (4, 32),
@@ -121,17 +121,17 @@ fn test_std_div_pipe() {
     // the time do_tick is called) then the multiplier should not run.
     // based on the above comment, b/c go is now low, nothing should be written
     // to the queue!
-    div.validate_and_execute(&binds);
-    let output_vals = div.do_tick(); //internal q: [N, (2, 6)]
+    div.validate_and_execute(&binds).unwrap();
+    let output_vals = div.do_tick().unwrap(); //internal q: [N, (2, 6)]
     assert_eq!(output_vals.len(), 3);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
         right -> (5, 32) //20/5 = 4 r. 0
     ];
-    div.validate_and_execute(&binds);
-    let mut output_vals = div.do_tick().into_iter(); //should output done and out_quotient 2 and out_remainder 6
-                                                     //internal q: [(4, 0), N]
+    div.validate_and_execute(&binds).unwrap();
+    let mut output_vals = div.do_tick().unwrap().into_iter(); //should output done and out_quotient 2 and out_remainder 6
+                                                              //internal q: [(4, 0), N]
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
     assert_eq!(out_quotient.0, "out_quotient");
@@ -142,10 +142,10 @@ fn test_std_div_pipe() {
     let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     //internal q: [(4, 0), N]
-    output_vals = div.do_tick().into_iter(); //give none
+    output_vals = div.do_tick().unwrap().into_iter(); //give none
     assert_eq!(output_vals.len(), 3);
     //internal q: [N, (4, 0)]
-    output_vals = div.do_tick().into_iter(); //out_q : 4, out_r: 0
+    output_vals = div.do_tick().unwrap().into_iter(); //out_q : 4, out_r: 0
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
     assert_eq!(out_quotient.0, "out_quotient");
@@ -155,7 +155,7 @@ fn test_std_div_pipe() {
     assert_eq!(out_remainder.1.as_u64(), 0);
     //let done = output_vals.next().unwrap().1;
     //none (empty output vec)
-    output_vals = div.do_tick().into_iter(); //should output done and 14
+    output_vals = div.do_tick().unwrap().into_iter(); //should output done and 14
     assert_eq!(output_vals.len(), 3);
 }
 
@@ -168,9 +168,9 @@ fn test_std_reg_imval() {
         r#in -> (16, 6),
         write_en -> (0, 1)
     ];
-    let output_vals = reg1.validate_and_execute(&binds);
+    let output_vals = reg1.validate_and_execute(&binds).unwrap();
     assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
-    let output_vals = reg1.do_tick();
+    let output_vals = reg1.do_tick().unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(2, output_vals.len());
@@ -185,9 +185,9 @@ fn test_std_reg_imval() {
         r#in -> (16, 6),
         write_en -> (1, 1)
     ];
-    let output_vals = reg1.validate_and_execute(&binds);
+    let output_vals = reg1.validate_and_execute(&binds).unwrap();
     assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
-    let output_vals = reg1.do_tick();
+    let output_vals = reg1.do_tick().unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     //should be a 16 and a 1 ([out] and [done])
@@ -202,9 +202,9 @@ fn test_std_reg_imval() {
         r#in -> (16, 6),
         write_en -> (0, 1)
     ];
-    let output_vals = reg1.validate_and_execute(&binds);
+    let output_vals = reg1.validate_and_execute(&binds).unwrap();
     assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
-    let output_vals = reg1.do_tick();
+    let output_vals = reg1.do_tick().unwrap();
     ////should be a 16 and a 0 ([out] and [done])
     assert_eq!(2, output_vals.len());
     let mut output_vals = output_vals.into_iter();
@@ -225,7 +225,7 @@ fn test_std_mem_d1() {
         write_en -> (0, 1),
         addr0 -> (4, 4)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -233,7 +233,7 @@ fn test_std_mem_d1() {
     let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should have low done
+    let output_vals = mem.do_tick().unwrap(); //this should have low done
     assert_eq!(output_vals.len(), 1);
     let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
@@ -244,7 +244,7 @@ fn test_std_mem_d1() {
         write_en -> (1, 1),
         addr0 -> (4, 4)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -254,7 +254,7 @@ fn test_std_mem_d1() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
-    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    let output_vals = mem.do_tick().unwrap(); //this should have read_data and done, cuz write_en was hgih
     assert_eq!(output_vals.len(), 2);
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -268,7 +268,7 @@ fn test_std_mem_d1() {
         write_en -> (0, 1),
         addr0 -> (4, 4)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -277,7 +277,7 @@ fn test_std_mem_d1() {
     let out = output_vals.next().unwrap();
     let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
-    let mut output_vals = mem.do_tick().into_iter();
+    let mut output_vals = mem.do_tick().unwrap().into_iter();
     let d = output_vals.next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
 }
@@ -293,7 +293,7 @@ fn test_std_mem_d2() {
         addr0 -> (3, 2),
         addr1 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -302,7 +302,7 @@ fn test_std_mem_d2() {
     let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should have low done
+    let output_vals = mem.do_tick().unwrap(); //this should have low done
     assert_eq!(output_vals.len(), 1);
     let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
@@ -313,7 +313,7 @@ fn test_std_mem_d2() {
         addr0 -> (3, 2),
         addr1 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -323,7 +323,7 @@ fn test_std_mem_d2() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
-    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    let output_vals = mem.do_tick().unwrap(); //this should have read_data and done, cuz write_en was hgih
     assert_eq!(output_vals.len(), 2);
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -338,7 +338,7 @@ fn test_std_mem_d2() {
         addr0 -> (3, 2),
         addr1 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -359,7 +359,7 @@ fn test_std_mem_d3() {
         addr1 -> (3, 2),
         addr2 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -368,7 +368,7 @@ fn test_std_mem_d3() {
     let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should have done as 0
+    let output_vals = mem.do_tick().unwrap(); //this should have done as 0
     assert_eq!(output_vals.len(), 1);
     let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
@@ -381,7 +381,7 @@ fn test_std_mem_d3() {
         addr1 -> (3, 2),
         addr2 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -391,7 +391,7 @@ fn test_std_mem_d3() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
-    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    let output_vals = mem.do_tick().unwrap(); //this should have read_data and done, cuz write_en was hgih
     assert_eq!(output_vals.len(), 2);
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -407,7 +407,7 @@ fn test_std_mem_d3() {
         addr1 -> (3, 2),
         addr2 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -430,7 +430,7 @@ fn test_std_mem_d4() {
         addr2 -> (3, 2),
         addr3 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -439,7 +439,7 @@ fn test_std_mem_d4() {
     let rd = out.1;
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
-    let output_vals = mem.do_tick(); //this should have low done
+    let output_vals = mem.do_tick().unwrap(); //this should have low done
     assert_eq!(output_vals.len(), 1);
     let d = output_vals.into_iter().next().unwrap().1;
     assert_eq!(d.as_u64(), 0);
@@ -453,7 +453,7 @@ fn test_std_mem_d4() {
         addr2 -> (3, 2),
         addr3 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
     assert_eq!(1, output_vals.len()); //should just have data @ addr0, which is a 0
@@ -463,7 +463,7 @@ fn test_std_mem_d4() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     //now that we are ticking, update should be written (and returned)
-    let output_vals = mem.do_tick(); //this should have read_data and done, cuz write_en was hgih
+    let output_vals = mem.do_tick().unwrap(); //this should have read_data and done, cuz write_en was hgih
     assert_eq!(output_vals.len(), 2);
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -480,7 +480,7 @@ fn test_std_mem_d4() {
         addr2 -> (3, 2),
         addr3 -> (3, 2)
     ];
-    let output_vals = mem.validate_and_execute(&binds);
+    let output_vals = mem.validate_and_execute(&binds).unwrap();
     assert_eq!(1, output_vals.len()); //we should get read_data combinationally from [addr0]
     println!("output_vals: {:?}", output_vals);
     let mut output_vals = output_vals.into_iter();
@@ -514,6 +514,7 @@ fn test_std_lsh() {
     ];
     let out = lsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -530,6 +531,7 @@ fn test_std_lsh() {
     ];
     let out = lsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -547,6 +549,7 @@ fn test_std_lsh_above64() {
     ];
     let out = lsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -562,6 +565,7 @@ fn test_std_lsh_above64() {
     ];
     let out = lsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -580,6 +584,7 @@ fn test_std_rsh() {
     ];
     let out = rsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -593,6 +598,7 @@ fn test_std_rsh() {
     ];
     let out = rsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -609,6 +615,7 @@ fn test_std_rsh_above64() {
     ];
     let out = rsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -621,6 +628,7 @@ fn test_std_rsh_above64() {
     ];
     let out = rsh
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -639,6 +647,7 @@ fn test_std_add() {
     ];
     let res_add = add
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -652,6 +661,7 @@ fn test_std_add() {
     ];
     let res_add = add
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -669,6 +679,7 @@ fn test_std_add_above64() {
     ];
     let res_add = add
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -684,7 +695,7 @@ fn test_std_add_panic() {
         left -> (81, 7),
         right -> (10, 4)
     ];
-    add.validate_and_execute(&binds);
+    add.validate_and_execute(&binds).unwrap();
 }
 #[test]
 fn test_std_sub() {
@@ -697,6 +708,7 @@ fn test_std_sub() {
     ];
     let res_sub = sub
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -711,6 +723,7 @@ fn test_std_sub() {
     ];
     let res_sub = sub
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -724,6 +737,7 @@ fn test_std_sub() {
     ];
     let res_sub = sub
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -741,6 +755,7 @@ fn test_std_sub_above64() {
     ];
     let res_sub = sub
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -756,7 +771,7 @@ fn test_std_sub_panic() {
         left -> (52, 6),
         right -> (16, 5)
     ];
-    sub.validate_and_execute(&binds);
+    sub.validate_and_execute(&binds).unwrap();
 }
 #[test]
 fn test_std_slice() {
@@ -765,6 +780,7 @@ fn test_std_slice() {
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -775,6 +791,7 @@ fn test_std_slice() {
     let mut std_slice = comb::StdSlice::from_constants(10, 10);
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -786,7 +803,9 @@ fn test_std_slice() {
 fn test_std_slice_panic() {
     let to_slice = Value::from(3, 2);
     let mut std_slice = comb::StdSlice::from_constants(7, 4);
-    std_slice.validate_and_execute(&[("in".into(), &to_slice)]);
+    std_slice
+        .validate_and_execute(&[("in".into(), &to_slice)])
+        .unwrap();
 }
 #[test]
 fn test_std_pad() {
@@ -795,6 +814,7 @@ fn test_std_pad() {
     let mut std_pad = comb::StdPad::from_constants(7, 9);
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -804,6 +824,7 @@ fn test_std_pad() {
     let to_pad = Value::from(1, 7);
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -815,7 +836,9 @@ fn test_std_pad() {
 fn test_std_pad_panic() {
     let to_pad = Value::from(21, 5);
     let mut std_pad = comb::StdPad::from_constants(3, 9);
-    std_pad.validate_and_execute(&[("in".into(), &to_pad)]);
+    std_pad
+        .validate_and_execute(&[("in".into(), &to_pad)])
+        .unwrap();
 }
 /// Logical Operators
 #[test]
@@ -825,6 +848,7 @@ fn test_std_not() {
     let mut std_not = comb::StdNot::from_constants(4);
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)])
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -834,6 +858,7 @@ fn test_std_not() {
     let not0 = Value::from(0, 4);
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)])
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -849,6 +874,7 @@ fn test_std_not_panic() {
     let mut std_not = comb::StdNot::from_constants(5);
     std_not
         .validate_and_execute(&[("in".into(), &not0)])
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -865,6 +891,7 @@ fn test_std_and() {
     ];
     let res_and = std_and
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -879,6 +906,7 @@ fn test_std_and() {
     ];
     let res_and = std_and
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -896,6 +924,7 @@ fn test_std_and_panic() {
     ];
     std_and
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -912,6 +941,7 @@ fn test_std_or() {
     ];
     let res_or = std_or
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -925,6 +955,7 @@ fn test_std_or() {
     ];
     let res_or = std_or
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -942,6 +973,7 @@ fn test_std_or_panic() {
     ];
     std_or
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -957,6 +989,7 @@ fn test_std_xor() {
     ];
     let res_xor = std_xor
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -970,6 +1003,7 @@ fn test_std_xor() {
     assert_eq!(
         std_xor
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -988,6 +1022,7 @@ fn test_std_xor_panic() {
     ];
     std_xor
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1006,6 +1041,7 @@ fn test_std_gt() {
     ];
     let res_gt = std_gt
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1019,6 +1055,7 @@ fn test_std_gt() {
     assert_eq!(
         std_gt
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1037,6 +1074,7 @@ fn test_std_gt_above64() {
     ];
     let res_gt = std_gt
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1051,6 +1089,7 @@ fn test_std_gt_above64() {
     assert_eq!(
         std_gt
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1067,7 +1106,7 @@ fn test_std_gt_panic() {
         left -> (9, 4),
         right -> (3, 2)
     ];
-    std_gt.validate_and_execute(&binds);
+    std_gt.validate_and_execute(&binds).unwrap();
 }
 #[test]
 fn test_std_lt() {
@@ -1078,6 +1117,7 @@ fn test_std_lt() {
     ];
     let res_lt = std_lt
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1091,6 +1131,7 @@ fn test_std_lt() {
     assert_eq!(
         std_lt
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1110,6 +1151,7 @@ fn test_std_lt_above64() {
     ];
     let res_lt = std_lt
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1124,6 +1166,7 @@ fn test_std_lt_above64() {
     assert_eq!(
         std_lt
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1141,7 +1184,7 @@ fn test_std_lt_panic() {
         left -> (58, 6),
         right -> (12, 4)
     ];
-    std_lt.validate_and_execute(&binds);
+    std_lt.validate_and_execute(&binds).unwrap();
 }
 #[test]
 fn test_std_eq() {
@@ -1152,6 +1195,7 @@ fn test_std_eq() {
     ];
     let res_eq = std_eq
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1165,6 +1209,7 @@ fn test_std_eq() {
     assert_eq!(
         std_eq
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1183,6 +1228,7 @@ fn test_std_eq_above64() {
     ];
     let res_eq = std_eq
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1197,6 +1243,7 @@ fn test_std_eq_above64() {
     assert_eq!(
         std_eq
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1214,7 +1261,7 @@ fn test_std_eq_panic() {
         left -> (42, 6),
         right -> (42, 6)
     ];
-    std_eq.validate_and_execute(&binds);
+    std_eq.validate_and_execute(&binds).unwrap();
 }
 #[test]
 fn test_std_neq() {
@@ -1225,6 +1272,7 @@ fn test_std_neq() {
     ];
     let res_neq = std_neq
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1239,6 +1287,7 @@ fn test_std_neq() {
     assert_eq!(
         std_neq
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1257,6 +1306,7 @@ fn test_std_neq_above64() {
     ];
     let res_neq = std_neq
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1270,6 +1320,7 @@ fn test_std_neq_above64() {
     assert_eq!(
         std_neq
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1287,7 +1338,7 @@ fn test_std_neq_panic() {
         left -> (45, 6),
         right -> (4, 3)
     ];
-    std_neq.validate_and_execute(&binds);
+    std_neq.validate_and_execute(&binds).unwrap();
 }
 
 #[test]
@@ -1299,6 +1350,7 @@ fn test_std_ge() {
     ];
     let res_ge = std_ge
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1313,6 +1365,7 @@ fn test_std_ge() {
     assert_eq!(
         std_ge
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1331,6 +1384,7 @@ fn test_std_ge_above64() {
     ];
     let res_ge = std_ge
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1345,6 +1399,7 @@ fn test_std_ge_above64() {
     assert_eq!(
         std_ge
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1362,7 +1417,7 @@ fn test_std_ge_panic() {
         left -> (40, 6),
         right -> (75, 7)
     ];
-    std_ge.validate_and_execute(&binds);
+    std_ge.validate_and_execute(&binds).unwrap();
 }
 #[test]
 fn test_std_le() {
@@ -1373,6 +1428,7 @@ fn test_std_le() {
     ];
     let res_le = std_le
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1387,6 +1443,7 @@ fn test_std_le() {
     assert_eq!(
         std_le
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1406,6 +1463,7 @@ fn test_std_le_above64() {
     ];
     let res_le = std_le
         .validate_and_execute(&binds)
+        .unwrap()
         .into_iter()
         .next()
         .map(|(_, v)| v)
@@ -1420,6 +1478,7 @@ fn test_std_le_above64() {
     assert_eq!(
         std_le
             .validate_and_execute(&binds)
+            .unwrap()
             .into_iter()
             .next()
             .map(|(_, v)| v)
@@ -1437,7 +1496,7 @@ fn test_std_le_panic() {
         left -> (93, 7),
         right -> (68, 7)
     ];
-    std_le.validate_and_execute(&binds);
+    std_le.validate_and_execute(&binds).unwrap();
 }
 
 #[cfg(test)]
@@ -1468,7 +1527,7 @@ mod property_tests {
             right -> (in_right, 128)
             ];
 
-            let out_res = adder.execute(&binds);
+            let out_res = adder.execute(&binds).unwrap();
             let out = extract_output!(out_res, "out");
             assert_eq!(out.as_u128(), u128::wrapping_add(in_left, in_right))
         }
@@ -1481,7 +1540,7 @@ mod property_tests {
             right -> (in_right, 128)
             ];
 
-            let out_res = sub.execute(&binds);
+            let out_res = sub.execute(&binds).unwrap();
             let out = extract_output!(out_res, "out");
             assert_eq!(out.as_u128(), u128::wrapping_sub(in_left, in_right))
         }
@@ -1494,10 +1553,10 @@ mod property_tests {
             right -> (in_right, 64),
             go -> (1,1)
             ];
-            mult.execute(&binds);
-            mult.do_tick();
-            mult.do_tick();
-            let output = mult.do_tick();
+            mult.execute(&binds).unwrap();
+            mult.do_tick().unwrap();
+            mult.do_tick().unwrap();
+            let output = mult.do_tick().unwrap();
             let out = extract_output!(output, "out");
             assert_eq!(out.as_u64(),u64::wrapping_mul(in_left, in_right))
         }
@@ -1510,10 +1569,10 @@ mod property_tests {
             right -> (in_right, 128),
             go -> (1,1)
             ];
-            mult.execute(&binds);
-            mult.do_tick();
-            mult.do_tick();
-            let output = mult.do_tick();
+            mult.execute(&binds).unwrap();
+            mult.do_tick().unwrap();
+            mult.do_tick().unwrap();
+            let output = mult.do_tick().unwrap();
             let out = extract_output!(output, "out");
             assert_eq!(out.as_i64(), i64::wrapping_mul(in_left, in_right))
         }
@@ -1526,10 +1585,10 @@ mod property_tests {
             right -> (in_right, 128),
             go -> (1,1)
             ];
-            mult.execute(&binds);
-            mult.do_tick();
-            mult.do_tick();
-            let output = mult.do_tick();
+            mult.execute(&binds).unwrap();
+            mult.do_tick().unwrap();
+            mult.do_tick().unwrap();
+            let output = mult.do_tick().unwrap();
             let out = extract_output!(output, "out_quotient");
             let remainder = extract_output!(output, "out_remainder");
             assert_eq!(out.as_u64(), in_left / in_right);
@@ -1544,10 +1603,10 @@ mod property_tests {
             right -> (in_right, 128),
             go -> (1,1)
             ];
-            mult.execute(&binds);
-            mult.do_tick();
-            mult.do_tick();
-            let output = mult.do_tick();
+            mult.execute(&binds).unwrap();
+            mult.do_tick().unwrap();
+            mult.do_tick().unwrap();
+            let output = mult.do_tick().unwrap();
             let out = extract_output!(output, "out_quotient");
             let remainder = extract_output!(output, "out_remainder");
             assert_eq!(out.as_i64(),i64::wrapping_div(in_left, in_right));
