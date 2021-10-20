@@ -486,6 +486,20 @@ impl Primitive for StdMemD1 {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
         if self.last_index >= self.size {
+            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+                if self.write_en {
+                    return Ok(vec![
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]);
+                } else {
+                    return Ok(vec![
+                        (ir::Id::from("done"), Value::bit_low()),
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                    ]);
+                }
+            }
+
             return Err(InterpreterError::InvalidMemoryAccess {
                 access: vec![self.last_index],
                 dims: vec![self.size],
@@ -724,6 +738,19 @@ impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         if self.calc_addr(self.last_idx.0, self.last_idx.1) >= self.max_idx() {
+            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+                if self.write_en {
+                    return Ok(vec![
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]);
+                } else {
+                    return Ok(vec![
+                        (ir::Id::from("done"), Value::bit_low()),
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                    ]);
+                }
+            }
             return Err(InterpreterError::InvalidMemoryAccess {
                 access: vec![self.last_idx.0, self.last_idx.1],
                 dims: vec![self.d0_size, self.d1_size],
@@ -984,6 +1011,19 @@ impl Primitive for StdMemD3 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2) >= self.max_idx() {
+            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+                if self.write_en {
+                    return Ok(vec![
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]);
+                } else {
+                    return Ok(vec![
+                        (ir::Id::from("done"), Value::bit_low()),
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                    ]);
+                }
+            }
             return Err(InterpreterError::InvalidMemoryAccess {
                 access: vec![self.last_idx.0, self.last_idx.1, self.last_idx.2],
                 dims: vec![self.d0_size, self.d1_size, self.d2_size],
@@ -1281,6 +1321,20 @@ impl Primitive for StdMemD4 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2, addr3) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2, addr3) >= self.max_idx() {
+            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+                if self.write_en {
+                    return Ok(vec![
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]);
+                } else {
+                    return Ok(vec![
+                        (ir::Id::from("done"), Value::bit_low()),
+                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
+                    ]);
+                }
+            }
+
             return Err(InterpreterError::InvalidMemoryAccess {
                 access: vec![
                     self.last_idx.0,

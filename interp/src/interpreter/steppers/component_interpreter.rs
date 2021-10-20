@@ -266,7 +266,7 @@ impl Primitive for ComponentInterpreter {
         if currently_done {
             self.reset(&[])?;
         } else {
-            self.step().expect("Error when stepping");
+            self.step()?;
         }
 
         // just became done for an imperative component
