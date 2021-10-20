@@ -1,7 +1,5 @@
 import logging as log
 
-from paramiko import SSHClient
-from scp import SCPClient
 from pathlib import Path
 
 from fud.stages import Stage, SourceType
@@ -44,6 +42,8 @@ class HwEmulationStage(Stage):
         self.device = "xilinx_u50_gen3x16_xdma_201920_3"
 
         # remote execution
+        self.SSHClient = None
+        self.SCPClient = None
         self.ssh_host = self.config["stages", self.target_stage, "ssh_host"]
         self.ssh_user = self.config["stages", self.target_stage, "ssh_username"]
         self.temp_location = self.config["stages", "xclbin", "temp_location"]
@@ -51,6 +51,18 @@ class HwEmulationStage(Stage):
         self.setup()
 
     def _define_steps(self, input_data):
+        @self.step()
+        def import_libs():
+            """Import remote libs."""
+            try:
+                from paramiko import SSHClient
+                from scp import SCPClient
+
+                self.SSHClient = SSHClient
+                self.SCPClient = SCPClient
+            except ModuleNotFoundError:
+                raise errors.RemoteLibsNotInstalled
+
         @self.step()
         def check_host_cpp():
             """
@@ -64,7 +76,7 @@ class HwEmulationStage(Stage):
             """
             Establish SSH connection
             """
-            client = SSHClient()
+            client = self.SSHClient()
             client.load_system_host_keys()
             client.connect(self.ssh_host, username=self.ssh_user)
             return client
@@ -86,7 +98,7 @@ class HwEmulationStage(Stage):
             """
             Copy files over ssh channel
             """
-            with SCPClient(client.get_transport()) as scp:
+            with self.SCPClient(client.get_transport()) as scp:
                 scp.put(xclbin, remote_path=f"{tmpdir}/kernel.xclbin")
                 scp.put(self.host_cpp, remote_path=f"{tmpdir}/host.cpp")
                 scp.put(self.xrt, remote_path=f"{tmpdir}/xrt.ini")
@@ -178,7 +190,7 @@ class HwEmulationStage(Stage):
             """
             local_tmpdir = TmpDir()
             wdb_path = Path(local_tmpdir.name) / "kernel.wdb"
-            with SCPClient(client.get_transport()) as scp:
+            with self.SCPClient(client.get_transport()) as scp:
                 scp.get(
                     f"{tmpdir}/xilinx_u50_gen3x16_xdma_201920_3-0-kernel.wdb",
                     local_path=str(wdb_path),

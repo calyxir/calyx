@@ -17,14 +17,16 @@ jobs:
 
     - name: Setup Python
       uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
 
     - name: Install common Python dependencies
-      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson
+      run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
 
     - name: Install fud
       run: |
         cd fud
-        flit install
+        flit install --deps production
         cd ..
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
@@ -160,9 +162,11 @@ jobs:
 
     - name: Setup Python
       uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
 
     - name: Install common Python dependencies
-      run: pip3 install numpy flit prettytable wheel hypothesis pytest simplejson
+      run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
 
     - name: Cache Apache TVM
       id: tvm-cache
@@ -242,7 +246,7 @@ jobs:
     - name: Install fud
       run: |
         cd fud
-        flit install
+        flit install --deps production
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
