@@ -1,15 +1,18 @@
+use std::cell::Ref;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
-use crate::environment::{InterpreterState, StateView};
+use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
 use crate::utils::AsRaw;
 use calyx::ir::{self, RRC};
 pub(super) const SPACING: &str = "    ";
+use crate::interpreter::ConstCell;
 
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [main_loop] function while this struct holds auxilliary information used to
@@ -90,110 +93,84 @@ impl Debugger {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::PrintCell(cell) => {
-                    let cells: Vec<_> =
-                        component_interpreter.get_env().get_cells(&cell);
-
-                    match cells.len() {
-                        0 => {
-                            println!(
-                                "{}Unable to print. No cell named '{}'",
-                                SPACING, &cell
-                            )
-                        }
-                        1 => {
-                            let cell_ref = &cells[0];
-                            print_cell(
-                                cell_ref,
-                                &component_interpreter.get_env(),
-                            );
-                        }
-                        _ => {
-                            println!(
-                                "{}Unable to print. '{}' is ambiguous",
-                                SPACING, &cell
-                            )
-                        }
+                Command::Print(mut print_list) => {
+                    let orig_string = print_list.join(".");
+                    if self.main_component.name == print_list[0] {
+                        print_list.remove(0);
                     }
-                }
-                Command::PrintCellOrPort(first, second) => {
-                    // component & cell/port
-                    if let Some(comp) =
-                        self.context.iter().find(|x| x.name == first)
-                    {
-                        if let Some(cell) = comp.find_cell(&second) {
-                            print_cell(&cell, &component_interpreter.get_env())
-                        } else if let Some(port) =
-                            comp.signature.borrow().find(&second)
-                        {
-                            let env = component_interpreter.get_env();
-                            println!(
-                                "{}{}.{} = {}",
-                                SPACING,
-                                &first,
-                                &second,
-                                env.lookup(port.as_raw())
-                            )
-                        } else {
-                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, &second, &first)
-                        }
-                    }
-                    // cell & port
-                    else {
-                        let cells =
-                            component_interpreter.get_env().get_cells(&first);
 
-                        // multiple possible cells
-                        if cells.len() > 1 {
-                            println!(
-                                "{}Unable to print. '{}' is ambiguous",
-                                SPACING, &first
-                            )
-                        } else if cells.is_empty() {
-                            println!(
-                                "{}Unable to print. There is no component/cell named '{}'",
-                                SPACING,
-                                &first,
-                            )
-                        // past this point the cell vec has one possible entry
-                        } else if cells
-                            .iter()
-                            .all(|x| x.borrow().find(&second).is_none())
-                        {
-                            println!(
-                                "{}Unable to print. Component '{}' has no cell named '{}'",
-                                SPACING,
-                                &first, &second
-                            )
-                        } else {
-                            let entry = &cells[0];
+                    let mut current_target =
+                        CurrentTarget::Env(&component_interpreter);
 
-                            if let Some(port) = entry.borrow().find(&second) {
-                                print_port(
-                                    &port,
-                                    &component_interpreter.get_env(),
-                                )
-                            }
-                        }
-                    }
-                }
-                Command::PrintFullySpecified(comp, cell, port) => {
-                    if let Some(comp_ref) =
-                        self.context.iter().find(|x| x.name == comp)
-                    {
-                        if let Some(cell_rrc) = comp_ref.find_cell(&cell) {
-                            let cell_ref = cell_rrc.borrow();
-                            if let Some(port_ref) = cell_ref.find(&port) {
-                                let state = component_interpreter.get_env();
-                                print_port(&port_ref, &state)
+                    for (idx, target) in print_list.iter().enumerate() {
+                        let current_ref = current_target.borrow();
+                        let current_env = current_ref.get_env().unwrap();
+
+                        // lowest level
+                        if idx == print_list.len() - 1 {
+                            // first look for cell
+                            let cell = current_env.get_cell(target);
+                            if let Some(cell) = cell {
+                                print_cell(&cell, &current_env)
                             } else {
-                                println!("{}Unable to print. Cell '{}' has no port named '{}'", SPACING, cell, port)
+                                let prior = &print_list[idx - 1];
+
+                                if let Some(parent) =
+                                    current_env.get_cell(&prior)
+                                {
+                                    let parent_ref = parent.borrow();
+                                    let pt = parent_ref
+                                        .ports()
+                                        .iter()
+                                        .find(|x| x.borrow().name == target);
+                                    if let Some(port) = pt {
+                                        print_port(port, &current_env)
+                                    } else {
+                                        // cannot find
+                                        println!(
+                                            "{} Unable to locate '{}'",
+                                            SPACING, orig_string
+                                        )
+                                    }
+                                } else {
+                                    // cannot find
+                                    println!(
+                                        "{} Unable to locate '{}'",
+                                        SPACING, orig_string
+                                    )
+                                }
                             }
-                        } else {
-                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, comp, cell)
                         }
-                    } else {
-                        println!("{}Unable to print. There is no component named '{}'", SPACING, comp)
+                        // still walking
+                        else {
+                            let map = Rc::clone(current_env.get_cell_map());
+                            let cell = current_env.get_cell(target);
+                            if let Some(rrc_cell) = cell {
+                                // need to release these references to replace current
+                                // target
+                                if map.borrow()[&rrc_cell.as_raw()]
+                                    .get_state()
+                                    .is_some()
+                                {
+                                    drop(current_env);
+                                    drop(current_ref);
+
+                                    current_target = CurrentTarget::Target {
+                                        name: rrc_cell.as_raw(),
+                                        map,
+                                    }
+                                }
+                                // otherwise leave the same
+                            } else {
+                                // cannot find
+                                println!(
+                                    "{} Unable to locate '{}'",
+                                    SPACING, orig_string
+                                );
+
+                                break;
+                            }
+                        }
                     }
                 }
                 Command::Help => {
@@ -267,4 +244,37 @@ fn print_port(target: &RRC<ir::Port>, state: &StateView) {
         port_ref.name,
         state.lookup(port_ref.as_raw())
     )
+}
+
+enum CurrentTarget<'a> {
+    Env(&'a dyn crate::primitives::Primitive),
+    Target { name: ConstCell, map: PrimitiveMap },
+}
+
+impl<'a> CurrentTarget<'a> {
+    pub fn borrow(&self) -> TargetRef<'_, '_> {
+        match self {
+            CurrentTarget::Env(e) => TargetRef::Env(*e),
+            CurrentTarget::Target { name, map } => {
+                TargetRef::Target(*name, map.borrow())
+            }
+        }
+    }
+}
+
+enum TargetRef<'a, 'c> {
+    Env(&'a dyn crate::primitives::Primitive),
+    Target(
+        ConstCell,
+        Ref<'c, HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>,
+    ),
+}
+
+impl<'a, 'c> TargetRef<'a, 'c> {
+    pub fn get_env(&self) -> Option<StateView<'_>> {
+        match self {
+            TargetRef::Env(e) => e.get_state(),
+            TargetRef::Target(target, map) => map[target].get_state(),
+        }
+    }
 }

@@ -53,7 +53,6 @@ function selectPasses(item) {
     }
 }
 
-
 document.getElementById("compile").onclick = function() {
     compile();
 };
@@ -167,8 +166,8 @@ examples_select.onchange = function() {
 var futil_version_div = document.getElementById("calyx-version");
 var git_link = document.createElement('a');
 git_link.appendChild(document.createTextNode(calyx_info.version.slice(0, 8)));
-git_link.href = "https://github.com/cucapra/futil/tree/" + calyx_info.version;
-futil_version_div.appendChild(document.createTextNode("Built with calyx version "));
+git_link.href = "https://github.com/cucapra/calyx/tree/" + calyx_info.version;
+futil_version_div.appendChild(document.createTextNode("Built with Calyx version "));
 futil_version_div.appendChild(git_link);
 
 // text

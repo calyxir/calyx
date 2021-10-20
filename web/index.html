@@ -2,7 +2,11 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <title>Calyx | Demo</title>
+        <meta name="author" content="The Calyx Authors">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="icon" href="https://calyxir.org/img/logo.svg" type="image/svg+xml">
+        <title>Calyx Playground</title>
+
         <link rel="stylesheet" type="text/css" href="node_modules/prismjs/themes/prism-solarizedlight.css">
         <link rel="stylesheet" type="text/css" href="style/toggle.css">
         <link rel="stylesheet" type="text/css" href="style/grid.css">
@@ -14,42 +18,48 @@
         <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
     </head>
     <body>
-        <!-- <div class="row">
-             <div id="library-pane" class="column-1">
-             Select Library: <select id="library-select"></select>
-             </div>
-             </div> -->
-        <div class="row">
-        </div>
-        <div id="diffEditor" class="editor language-futil center">
-            <div id="editor-header" class="row center">
-                <select id="examples-select"></select>
-                <div id="passes" class="no-scrollbar"></div>
+    <header>
+    </header>
+        <div id="diffEditor" class="container editor language-futil center">
+            <div class="logo">
+            <a class="unstyled-link" href="https://calyxir.org">
+            <img class="main-logo" src="https://calyxir.org/img/logo-text.svg" alt="Calyx" />
+            </a>
+            <h3>
+            A Compiler Infrastructure for Accelerator Generators
+            </h3>
+            <hr/>
+            </div>
+            <div class="example">
+            <h2>Examples</h2>
+            <select id="examples-select"></select>
+            </div>
+            <div class="passes center">
+            <h2> Compiler Passes </h2>
+                <div id="passes"></div>
+                <div class="compile">
                 <button id="compile">Compile</button>
+                </div>
             </div>
-            <div class="row center">
-                <pre id="input"
-                     class="left"
-                     contenteditable="true"
-                     spellcheck="false">
-                    <code></code>
-                </pre>
-                <pre id="output"
-                     class="right"
-                     contenteditable="false">
-                    <code></code>
-                </pre>
+            <div class="input-editor">
+              <pre id="input"
+                   class="left"
+                   contenteditable="true"
+                   spellcheck="false">
+                  <code></code>
+              </pre>
             </div>
-        </div>
-        <div class="row">
-            <div id="output" class="column-1"></div>
-        </div>
-        <div class="row">
-            <div id="diff-pane" class="column-1"></div>
-        </div>
-        <hr/>
-        <div class="row">
-            <div id="calyx-version" class="column-1"></div>
+            <div class="output-editor">
+              <pre id="output"
+                   class="right"
+                   contenteditable="false">
+                  <code></code>
+              </pre>
+            </div>
+            <div class="footer">
+              <hr/>
+              <div id="calyx-version"></div>
+            </div>
         </div>
     </body>
     <script src="js/index.js"></script>
