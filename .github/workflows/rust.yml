@@ -17,6 +17,8 @@ jobs:
 
     - name: Setup Python
       uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
 
     - name: Install common Python dependencies
       run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
@@ -160,6 +162,8 @@ jobs:
 
     - name: Setup Python
       uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
 
     - name: Install common Python dependencies
       run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
