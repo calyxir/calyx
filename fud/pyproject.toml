@@ -6,7 +6,7 @@ build-backend = "flit_core.buildapi"
 module = "fud"
 author = "Samuel Thomas"
 author-email = "sgt43@cornell.edu"
-home-page = "https://github.com/cucapra/futil/tree/fud/fud"
+home-page = "https://github.com/cucapra/calyx/tree/fud/fud"
 classifiers = ["License :: OSI Approved :: MIT License"]
 description-file = "README.md"
 requires-python = ">=3.4"
