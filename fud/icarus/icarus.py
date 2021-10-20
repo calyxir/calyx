@@ -5,6 +5,7 @@ from pathlib import Path
 from fud.stages import Stage, SourceType, Source
 from fud.utils import shell, TmpDir
 from fud.stages.verilator.json_to_dat import convert2dat, convert2json
+from fud.stages import futil
 import fud.errors as errors
 
 
@@ -165,6 +166,20 @@ class IcarusBaseStage(Stage):
         return result
 
 
+class FutilToIcarus(futil.FutilStage):
+    """
+    Stage to transform Calyx into icarus-verilog simulatable Verilog
+    """
+
+    def __init__(self, config):
+        super().__init__(
+            config,
+            "icarus-verilog",
+            "-b verilog --disable-verify --disable-init",
+            "Compile Calyx to Verilog instrumented for simulation",
+        )
+
+
 class IcarusToVCDStage(IcarusBaseStage):
     """
     Stage to generate VCD files by simulating through Icarus
@@ -190,4 +205,4 @@ class IcarusToJsonStage(IcarusBaseStage):
 
 
 # Export the defined stages to fud
-__STAGES__ = [IcarusToVCDStage, IcarusToJsonStage]
+__STAGES__ = [FutilToIcarus, IcarusToVCDStage, IcarusToJsonStage]

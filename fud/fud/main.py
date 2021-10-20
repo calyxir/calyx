@@ -55,14 +55,6 @@ def register_stages(registry, cfg):
     registry.register(
         futil.FutilStage(
             cfg,
-            "icarus-verilog",
-            "-b verilog --disable-verify --disable-init",
-            "Compile Calyx to Verilog instrumented for simulation",
-        )
-    )
-    registry.register(
-        futil.FutilStage(
-            cfg,
             "mlir",
             "-b mlir -p well-formed -p lower-guards",
             "Compile Calyx to MLIR",
@@ -121,7 +113,7 @@ def register_stages(registry, cfg):
             cfg,
             "interpreter",
             "-p none",
-            "Compile Calyx to Calyx",
+            "Compile Calyx for interpretation with CIDR",
         )
     )
 
