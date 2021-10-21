@@ -17,11 +17,11 @@ Prism.languages.futil = {
         lookbehind: true,
     },
     'function': {
-        pattern: /\b(?:cells|wires|control)\b/,
+        pattern: /\b(?:cells|wires|control|group|comb)\b/,
         lookbehind: true,
     },
     'keyword': {
-        pattern: /\b(?:|group|seq|par|if|while|with|invoke|comb)\b/,
+        pattern: /\b(?:|seq|par|if|while|with|invoke)\b/,
         lookbehind: true,
     },
     'number': [
