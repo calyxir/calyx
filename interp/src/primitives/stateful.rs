@@ -5,6 +5,7 @@ use crate::utils::construct_bindings;
 use crate::validate;
 use crate::values::Value;
 use calyx::ir;
+use log::warn;
 use std::collections::VecDeque;
 
 /// Pipelined Multiplication (3 cycles)
@@ -1701,18 +1702,18 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
             let (q, r) = if SIGNED {
                 (
                     Value::from(
-                        (left.as_i64() << self.frac_width) / right.as_i64(),
+                        (left.as_i128() << self.frac_width) / right.as_i128(),
                         self.width,
                     ),
-                    Value::from(left.as_i64() % right.as_i64(), self.width),
+                    Value::from(left.as_i128() % right.as_i128(), self.width),
                 )
             } else {
                 (
                     Value::from(
-                        (left.as_u64() << self.frac_width) / right.as_u64(),
+                        (left.as_u128() << self.frac_width) / right.as_u128(),
                         self.width,
                     ),
-                    Value::from(left.as_u64() % right.as_u64(), self.width),
+                    Value::from(left.as_u128() % right.as_u128(), self.width),
                 )
             };
             self.update = Some((q, r));
