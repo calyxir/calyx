@@ -310,9 +310,8 @@ impl Value {
 
         // Calculate the fractional part of the value.
         let mut denominator: u64 = 2u64;
-        let fractional_part: Fraction = self.vec[integer_width..]
+        let fractional_part: Fraction = msb[integer_width..]
             .iter()
-            .rev()
             .take(fractional_width)
             .fold(Fraction::from(0u64), |acc, bit| -> Fraction {
                 denominator <<= 1;
