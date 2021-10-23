@@ -14,6 +14,29 @@ mod val_test {
         assert_eq!(v1.as_u64(), 33);
     }
     #[test]
+    fn basic_print_fp_test() {
+        use fraction::Fraction;
+        let v1 = Value::from(/*value=*/ 0b0110, /*width=*/ 4);
+        println!("3/2 with bit width 4 and fractional width 2: {}", v1);
+        assert_eq!(
+            v1.as_unsigned_fp(/*fractional_width=*/ 2),
+            Fraction::new(3u32, 2u32)
+        );
+    }
+    #[test]
+    fn basic_print_fp_test2() {
+        use fraction::Fraction;
+        let v1 = Value::from(
+            /*value=*/ 0b00000000000000000000000000000001,
+            /*width=*/ 32,
+        );
+        println!("1/2147483648 with bit width 32 and fractional width 31: {}", v1);
+        assert_eq!(
+            v1.as_unsigned_fp(/*fractional_width=*/ 31),
+            Fraction::new(1u32, 2147483648u32)
+        );
+    }
+    #[test]
     fn too_few_bits() {
         let v_16_4 = Value::from(16, 4);
         println!("16 with bit width 4: {}", v_16_4);
