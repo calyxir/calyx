@@ -289,28 +289,40 @@ impl Value {
     pub fn as_unsigned_fp(&self, fractional_width: usize) -> Fraction {
         let integer_width: usize = self.width() as usize - fractional_width;
 
-        // Calculate the integer part of the value.
-        let whole: (u64, u64) = self.vec.iter().rev().take(integer_width).fold(
-            (0u64, 2u64.pow(integer_width as u32 - 1u32)),
-            |(acc, e), bit| -> (u64, u64) {
-                (acc + if *bit { e } else { 0u64 }, e >> 1)
-            },
-        );
+        // Calculate the integer part of the value. For each set bit at index `i`, add `2^i`.
+        let whole: Fraction = self
+            .vec
+            .iter()
+            .rev()
+            .take(integer_width)
+            .fold(
+                (0u64, 2u64.pow(integer_width as u32 - 1u32)),
+                |(acc, e), bit| -> (u64, u64) {
+                    (acc + e * (*bit as u64), e >> 1)
+                },
+            )
+            .0
+            .into();
 
+        // XXX: gross
         let mut msb = self.vec.clone();
         msb.reverse();
-        let zero = Fraction::from(0u64);
-        // Calculate the fractional part of the value.
-        let fractional: (Fraction, u64) = msb[integer_width..]
+
+        // Calculate the fractional part of the value. For each set bit at index `i`, add `2^-i`.
+        let fraction: Fraction = msb[integer_width..]
             .iter()
             .take(fractional_width)
-            .fold((zero, 2u64), |(acc, d), bit| -> (Fraction, u64) {
-                (
-                    acc + if *bit { Fraction::new(1u64, d) } else { zero },
-                    d << 1,
-                )
-            });
-        Fraction::from(whole.0) + fractional.0
+            .fold(
+                (Fraction::from(0u64), 2u64),
+                |(acc, d), bit| -> (Fraction, u64) {
+                    (
+                        acc + Fraction::new(1u64, d) * (*bit as u64).into(),
+                        d << 1,
+                    )
+                },
+            )
+            .0;
+        whole + fraction
     }
 
     /// Converts value into u128 type. Vector within Value can be of any width. The
