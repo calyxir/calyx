@@ -290,39 +290,27 @@ impl Value {
         let integer_width: usize = self.width() as usize - fractional_width;
 
         // Calculate the integer part of the value.
-        let mut exponent: u64 = 2u64.pow(integer_width as u32 - 1u32);
-        let integer_part: Fraction = self.vec
-            .iter()
-            .rev()
-            .take(integer_width)
-            .fold(0_u64, |acc, bit| -> u64 {
-                exponent >>= 1;
-                if *bit {
-                    acc + 1u64.max(exponent << 1)
-                } else {
-                    acc
-                }
-            })
-            .into();
+        let whole: (u64, u64) = self.vec.iter().rev().take(integer_width).fold(
+            (0u64, 2u64.pow(integer_width as u32 - 1u32)),
+            |(acc, e), bit| -> (u64, u64) {
+                (acc + if *bit { e } else { 0u64 }, e >> 1)
+            },
+        );
 
         let mut msb = self.vec.clone();
         msb.reverse();
-
+        let zero = Fraction::from(0u64);
         // Calculate the fractional part of the value.
-        let mut denominator: u64 = 2u64;
-        let fractional_part: Fraction = msb[integer_width..]
+        let fractional: (Fraction, u64) = msb[integer_width..]
             .iter()
             .take(fractional_width)
-            .fold(Fraction::from(0u64), |acc, bit| -> Fraction {
-                denominator <<= 1;
-                if *bit {
-                    acc + Fraction::new(1u64, denominator >> 1)
-                } else {
-                    acc
-                }
+            .fold((zero, 2u64), |(acc, d), bit| -> (Fraction, u64) {
+                (
+                    acc + if *bit { Fraction::new(1u64, d) } else { zero },
+                    d << 1,
+                )
             });
-        print!("\nFraction part: {}\n\n", fractional_part);
-        integer_part + fractional_part
+        Fraction::from(whole.0) + fractional.0
     }
 
     /// Converts value into u128 type. Vector within Value can be of any width. The
