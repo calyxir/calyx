@@ -1,6 +1,7 @@
 import logging as log
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from halo import Halo
@@ -95,9 +96,14 @@ def run_fud(args, config):
         else:
             data = Source(Path(str(input_file)), SourceType.Path)
 
+        # tracks the approximate time elapsed to run each stage.
+        stage_durations = []
+
         # run all the stages
         for ed in path:
             sp.start_stage(f"{ed.name} → {ed.target_stage}")
+            begin = time.time()
+
             try:
                 if ed._no_spinner:
                     sp.stop()
@@ -110,8 +116,15 @@ def run_fud(args, config):
                 sp.fail()
                 print(e)
                 exit(-1)
+            stage_durations.append(time.time() - begin)
 
         sp.stop()
+
+        if utils.is_debug():
+            print("stage         elapsed time (s)")
+            for ed, elapsed_time in zip(path, stage_durations):
+                whitespace = max(16 - len(ed.name), 1) * " "
+                print(f"  {ed.name}{whitespace}{round(elapsed_time, 3)}")
 
         # output the data returned from the file step
         if args.output_file is not None:
