@@ -289,13 +289,11 @@ impl Value {
     pub fn as_unsigned_fp(&self, fractional_width: usize) -> Fraction {
         let integer_width: usize = self.width() as usize - fractional_width;
 
-        let mut msb = self.vec.clone();
-        msb.reverse();
-
         // Calculate the integer part of the value.
         let mut exponent: u64 = 2u64.pow(integer_width as u32 - 1u32);
-        let integer_part: Fraction = msb
+        let integer_part: Fraction = self.vec
             .iter()
+            .rev()
             .take(integer_width)
             .fold(0_u64, |acc, bit| -> u64 {
                 exponent >>= 1;
@@ -307,10 +305,14 @@ impl Value {
             })
             .into();
 
+        let mut msb = self.vec.clone();
+        msb.reverse();
+
         // Calculate the fractional part of the value.
         let mut denominator: u64 = 2u64;
-        let fractional_part: Fraction = msb[integer_width..]
+        let fractional_part: Fraction = self.vec[integer_width..]
             .iter()
+            .rev()
             .take(fractional_width)
             .fold(Fraction::from(0u64), |acc, bit| -> Fraction {
                 denominator <<= 1;
