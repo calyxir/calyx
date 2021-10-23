@@ -30,7 +30,10 @@ mod val_test {
             /*value=*/ 0b00000000000000000000000000000001,
             /*width=*/ 32,
         );
-        println!("1/2147483648 with bit width 32 and fractional width 31: {}", v1);
+        println!(
+            "1/2147483648 with bit width 32 and fractional width 31: {}",
+            v1
+        );
         assert_eq!(
             v1.as_unsigned_fp(/*fractional_width=*/ 31),
             Fraction::new(1u32, 2147483648u32)

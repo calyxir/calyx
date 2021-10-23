@@ -286,10 +286,7 @@ impl Value {
     }
 
     /// TODO(cgyurgyik): WiP
-    pub fn as_unsigned_fp(
-        &self,
-        fractional_width: usize,
-    ) -> fraction::Fraction {
+    pub fn as_unsigned_fp(&self, fractional_width: usize) -> Fraction {
         let integer_width: usize = self.width() as usize - fractional_width;
 
         let mut msb = self.vec.clone();
@@ -315,7 +312,7 @@ impl Value {
         let fractional_part: Fraction = msb[integer_width..]
             .iter()
             .take(fractional_width)
-            .fold(Fraction::new(0u64, 1u64), |acc, bit| -> Fraction {
+            .fold(Fraction::from(0u64), |acc, bit| -> Fraction {
                 denominator <<= 1;
                 if *bit {
                     acc + Fraction::new(1u64, denominator >> 1)
