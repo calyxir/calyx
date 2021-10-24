@@ -340,8 +340,8 @@ impl Value {
         match self.vec.last_one() {
             Some(end) if (end + 1) == self.vec.len() => {
                 let mut vec = self.vec.clone();
-                // Flip each bit until the "first". This is similar
-                // to flipping all bits and adding one.
+                // Flip each bit until the first "one". This is
+                // similar to flipping all bits and adding one.
                 let begin = vec.first_one().unwrap();
                 for mut bit in vec.iter_mut().rev().take(end - begin) {
                     *bit = !*bit
