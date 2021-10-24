@@ -44,6 +44,22 @@ mod unsigned_fixed_point_tests {
     use fraction::Fraction;
 
     #[test]
+    fn test_zero() {
+        assert_eq!(
+            Value::from(/*value=*/ 0, /*width=*/ 4)
+                .as_ufp(/*fractional_width=*/ 2),
+            Fraction::new(0u32, 1u32)
+        );
+    }
+    #[test]
+    fn test_zero_fractional_width() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b1110, /*width=*/ 4)
+                .as_ufp(/*fractional_width=*/ 0),
+            Fraction::new(14u32, 1u32)
+        );
+    }
+    #[test]
     fn test_high_bits_set() {
         assert_eq!(
             Value::from(/*value=*/ 0b1110, /*width=*/ 4)
@@ -114,6 +130,22 @@ mod signed_fixed_point_tests {
     use crate::values::Value;
     use fraction::Fraction;
 
+    #[test]
+    fn test_zero() {
+        assert_eq!(
+            Value::from(/*value=*/ 0, /*width=*/ 4)
+                .as_sfp(/*fractional_width=*/ 2),
+            Fraction::new(0u32, 1u32)
+        );
+    }
+    #[test]
+    fn test_zero_fractional_width() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b1110, /*width=*/ 4)
+                .as_sfp(/*fractional_width=*/ 0),
+            -Fraction::new(2u32, 1u32)
+        );
+    }
     #[test]
     fn test_high_bits_set() {
         assert_eq!(
