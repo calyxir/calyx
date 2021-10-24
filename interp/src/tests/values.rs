@@ -187,6 +187,14 @@ mod signed_fixed_point_tests {
         );
     }
     #[test]
+    fn test_mixed_bits_set3() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b11111101, /*width=*/ 8)
+                .as_sfp(/*fractional_width=*/ 4),
+            -Fraction::new(3u32, 16u32)
+        );
+    }
+    #[test]
     fn test_low_high_bits_set() {
         assert_eq!(
             Value::from(/*value=*/ 0b1001, /*width=*/ 4)
