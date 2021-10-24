@@ -2,7 +2,15 @@ use bitvec::prelude::*;
 use fraction::Fraction;
 use serde::de::{self, Deserialize, Visitor};
 
-/// XXX
+/// Retrieves the unsigned fixed point representation of `v`.
+///
+/// # Example:
+/// ```
+/// use interp::values::*;
+/// use fraction::Fraction;
+/// let v = Value::from(/*value=*/ 0, /*width=*/ 4);
+/// let fp = get_unsigned_fixed_point(v, /*fractional_width=*/ 2);
+/// ```
 fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
     let integer_width: usize = v.width() as usize - fractional_width;
 
@@ -18,7 +26,7 @@ fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
         })
         .into();
 
-    // XXX: gross.
+    // XXX: Gross. I just want a reversed view of a splice of this vector, not a copy.
     let mut msb = v.vec.clone();
     msb.reverse();
 
@@ -174,14 +182,7 @@ pub struct Value {
     // a 7-bit bitvector and 17-bit bitvector representing the number 6 have
     // ones in the same index.
     pub vec: BitVec<Lsb0, u64>,
-    // XXX
-    // #[serde(default = "fractional_width_default")]
-    // pub fractional_width: usize,
 }
-
-// fn fractional_width_default() -> usize {
-//     0
-// }
 
 impl Value {
     pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
@@ -330,7 +331,14 @@ impl Value {
             })
     }
 
-    /// TODO(cgyurgyik): WiP
+    /// Converts value into unsigned fixed point type.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// use fraction::Fraction;
+    /// let ufixed_point_Q4_2 = Value::from(0b0110, 4).as_ufp(2); // 3/2
+    /// ```
     pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
         assert!(
             self.unsigned_value_fits_in(64),
@@ -339,7 +347,14 @@ impl Value {
         get_unsigned_fixed_point(self, fractional_width)
     }
 
-    /// TODO(cgyurgyik): WiP
+    /// Converts value into signed fixed point type.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// use fraction::Fraction;
+    /// let sfixed_point_Q4_2 = Value::from(0b1110, 4).as_sfp(2); // -3/2
+    /// ```
     pub fn as_sfp(&self, fractional_width: usize) -> Fraction {
         assert!(
             self.signed_value_fits_in(64),
