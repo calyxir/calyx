@@ -13,6 +13,7 @@ mod val_test {
         println!("33 with bit width 6: {}", v1);
         assert_eq!(v1.as_u64(), 33);
     }
+    // TODO(cgyurgyik): Add more corner case tests / property tests.
     #[test]
     fn basic_print_fp_test() {
         use fraction::Fraction;
@@ -48,6 +49,13 @@ mod val_test {
             v1.as_ufp(/*fractional_width=*/ 2),
             Fraction::new(7u32, 2u32)
         );
+    }
+    #[test]
+    fn basic_print_fp_test4() {
+        use fraction::Fraction;
+        let v1 = Value::from(/*value=*/ 0b111, /*width=*/ 3);
+        println!("-1/2 with bit width 2 and fractional width 1: {}", v1);
+        assert_eq!(v1.as_sfp(/*fractional_width=*/ 1), Fraction::from(-0.5));
     }
     #[test]
     fn too_few_bits() {

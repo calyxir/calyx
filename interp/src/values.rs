@@ -2,6 +2,59 @@ use bitvec::prelude::*;
 use fraction::Fraction;
 use serde::de::{self, Deserialize, Visitor};
 
+/// XXX
+fn get_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
+    let integer_width: usize = v.width() as usize - fractional_width;
+
+    // Calculate the integer part of the value. For each set bit at index `i`, add `2^i`.
+    let whole: Fraction = v
+        .vec
+        .iter()
+        .rev() // ...since the integer bits are most significant.
+        .take(integer_width)
+        .zip((0..integer_width).rev()) // Reverse indices as well.
+        .fold(0u64, |acc, (bit, idx)| -> u64 {
+            acc | ((*bit as u64) << idx)
+        })
+        .into();
+
+    // XXX: gross.
+    let mut msb = v.vec.clone();
+    msb.reverse();
+
+    // Calculate the fractional part of the value. For each set bit at index `i`, add `2^-i`.
+    // This begins at `1`, since the first fractional index has value `2^-1` = `1/2`.
+    let fraction: Fraction = msb[integer_width..]
+        .iter()
+        .take(fractional_width)
+        .zip(0..fractional_width)
+        .fold(Fraction::from(0u64), |acc, (bit, idx)| -> Fraction {
+            let denom: u64 = (*bit as u64) << (idx + 1);
+            // Avoid adding Infinity.
+            if denom == 0u64 {
+                acc
+            } else {
+                acc + Fraction::new(1u64, denom)
+            }
+        });
+    whole + fraction
+}
+
+/// XXX
+pub fn negate_twos_complement(v: &Value) -> Value {
+    match v.vec.not_any() {
+        true => v.clone(), // The 2s complement of zero is itself.
+        false => {
+            let mut vec = v.vec.clone();
+            let end = vec.last_one().unwrap(); // Guaranteed to exist.
+            for mut bit in vec.iter_mut().rev().take(end) {
+                *bit = !*bit
+            }
+            Value { vec }
+        }
+    }
+}
+
 // Lsb0 means [10010] gives 0 at index 0, 1 at index 1, 0 at index 2, etc
 // from documentation, usize is the best data type to use in bitvec.
 #[derive(Debug)]
@@ -294,40 +347,18 @@ impl Value {
 
     /// TODO(cgyurgyik): WiP
     pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
-        let integer_width: usize = self.width() as usize - fractional_width;
+        get_fixed_point(self, fractional_width)
+    }
 
-        // Calculate the integer part of the value. For each set bit at index `i`, add `2^i`.
-        let whole: Fraction = self
-            .vec
-            .iter()
-            .rev() // ...since the integer bits are most significant.
-            .take(integer_width)
-            .zip((0..integer_width).rev()) // Reverse indices as well.
-            .fold(0u64, |acc, (bit, idx)| -> u64 {
-                acc | ((*bit as u64) << idx)
-            })
-            .into();
-
-        // XXX: gross
-        let mut msb = self.vec.clone();
-        msb.reverse();
-
-        // Calculate the fractional part of the value. For each set bit at index `i`, add `2^-i`.
-        // This begins at `1`, since the first fractional index has value `2^-1` = `1/2`.
-        let fraction: Fraction = msb[integer_width..]
-            .iter()
-            .take(fractional_width)
-            .zip(0..fractional_width)
-            .fold(Fraction::from(0u64), |acc, (bit, idx)| -> Fraction {
-                let denom: u64 = (*bit as u64) << (idx + 1);
-                // Avoid adding Infinity.
-                if denom == 0u64 {
-                    acc
-                } else {
-                    acc + Fraction::new(1u64, denom)
-                }
-            });
-        whole + fraction
+    /// TODO(cgyurgyik): WiP
+    pub fn as_sfp(&self, fractional_width: usize) -> Fraction {
+        match self.vec.last_one() {
+            Some(idx) if (idx + 1) == self.vec.len() => {
+                let negated = negate_twos_complement(self);
+                get_fixed_point(&negated, fractional_width) * Fraction::from(-1)
+            }
+            _ => get_fixed_point(self, fractional_width),
+        }
     }
 
     /// Converts value into u128 type. Vector within Value can be of any width. The
