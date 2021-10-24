@@ -365,6 +365,7 @@ impl Value {
                 }
                 -get_unsigned_fixed_point(&Value { vec }, fractional_width)
             }
+            // Either there are no set bits (zero) or this number is non-negative.
             _ => get_unsigned_fixed_point(self, fractional_width),
         }
     }
