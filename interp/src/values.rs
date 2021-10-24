@@ -47,6 +47,7 @@ pub fn negate_twos_complement(v: &Value) -> Value {
         false => {
             let mut vec = v.vec.clone();
             let end = vec.last_one().unwrap(); // Guaranteed to exist.
+            // TODO(cgyurgyik): explain why this works. Slightly tricky with LSB, MSB stuff.
             for mut bit in vec.iter_mut().rev().take(end) {
                 *bit = !*bit
             }
