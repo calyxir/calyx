@@ -3,7 +3,7 @@ use fraction::Fraction;
 use serde::de::{self, Deserialize, Visitor};
 
 /// XXX
-fn get_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
+fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
     let integer_width: usize = v.width() as usize - fractional_width;
 
     // Calculate the integer part of the value. For each set bit at index `i`, add `2^i`.
@@ -38,22 +38,6 @@ fn get_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
             }
         });
     whole + fraction
-}
-
-/// XXX
-pub fn negate_twos_complement(v: &Value) -> Value {
-    match v.vec.not_any() {
-        true => v.clone(), // The 2s complement of zero is itself.
-        false => {
-            let mut vec = v.vec.clone();
-            let end = vec.last_one().unwrap(); // Guaranteed to exist.
-            // TODO(cgyurgyik): explain why this works. Slightly tricky with LSB, MSB stuff.
-            for mut bit in vec.iter_mut().rev().take(end) {
-                *bit = !*bit
-            }
-            Value { vec }
-        }
-    }
 }
 
 // Lsb0 means [10010] gives 0 at index 0, 1 at index 1, 0 at index 2, etc
@@ -348,17 +332,23 @@ impl Value {
 
     /// TODO(cgyurgyik): WiP
     pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
-        get_fixed_point(self, fractional_width)
+        get_unsigned_fixed_point(self, fractional_width)
     }
 
     /// TODO(cgyurgyik): WiP
     pub fn as_sfp(&self, fractional_width: usize) -> Fraction {
         match self.vec.last_one() {
-            Some(idx) if (idx + 1) == self.vec.len() => {
-                let negated = negate_twos_complement(self);
-                get_fixed_point(&negated, fractional_width) * Fraction::from(-1)
+            Some(end) if (end + 1) == self.vec.len() => {
+                let mut vec = self.vec.clone();
+                // Flip each bit until the "first". This is similar
+                // to flipping all bits and adding one.
+                let begin = vec.first_one().unwrap();
+                for mut bit in vec.iter_mut().rev().take(end - begin) {
+                    *bit = !*bit
+                }
+                -get_unsigned_fixed_point(&Value { vec }, fractional_width)
             }
-            _ => get_fixed_point(self, fractional_width),
+            _ => get_unsigned_fixed_point(self, fractional_width),
         }
     }
 

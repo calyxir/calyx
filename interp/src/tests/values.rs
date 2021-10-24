@@ -13,50 +13,6 @@ mod val_test {
         println!("33 with bit width 6: {}", v1);
         assert_eq!(v1.as_u64(), 33);
     }
-    // TODO(cgyurgyik): Add more corner case tests / property tests.
-    #[test]
-    fn basic_print_fp_test() {
-        use fraction::Fraction;
-        let v1 = Value::from(/*value=*/ 0b0110, /*width=*/ 4);
-        println!("3/2 with bit width 4 and fractional width 2: {}", v1);
-        assert_eq!(
-            v1.as_ufp(/*fractional_width=*/ 2),
-            Fraction::new(3u32, 2u32)
-        );
-    }
-    #[test]
-    fn basic_print_fp_test2() {
-        use fraction::Fraction;
-        let v1 = Value::from(
-            /*value=*/ 0b00000000000000000000000000000001,
-            /*width=*/ 32,
-        );
-        println!(
-            "1/2147483648 with bit width 32 and fractional width 31: {}",
-            v1
-        );
-        assert_eq!(
-            v1.as_ufp(/*fractional_width=*/ 31),
-            Fraction::new(1u32, 2147483648u32)
-        );
-    }
-    #[test]
-    fn basic_print_fp_test3() {
-        use fraction::Fraction;
-        let v1 = Value::from(/*value=*/ 0b1110, /*width=*/ 4);
-        println!("3/2 with bit width 4 and fractional width 2: {}", v1);
-        assert_eq!(
-            v1.as_ufp(/*fractional_width=*/ 2),
-            Fraction::new(7u32, 2u32)
-        );
-    }
-    #[test]
-    fn basic_print_fp_test4() {
-        use fraction::Fraction;
-        let v1 = Value::from(/*value=*/ 0b111, /*width=*/ 3);
-        println!("-1/2 with bit width 2 and fractional width 1: {}", v1);
-        assert_eq!(v1.as_sfp(/*fractional_width=*/ 1), Fraction::from(-0.5));
-    }
     #[test]
     fn too_few_bits() {
         let v_16_4 = Value::from(16, 4);
@@ -79,6 +35,134 @@ mod val_test {
     fn ext() {
         let v_15_4 = Value::from(15, 4);
         assert_eq!(v_15_4.as_u64(), v_15_4.ext(8).as_u64());
+    }
+}
+
+#[cfg(test)]
+mod unsigned_fixed_point_tests {
+    use crate::values::Value;
+    use fraction::Fraction;
+
+    // TODO(cgyurgyik): Add more corner case tests / property tests.
+    #[test]
+    fn test_high_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b1110, /*width=*/ 4)
+                .as_ufp(/*fractional_width=*/ 2),
+            Fraction::new(7u32, 2u32)
+        );
+    }
+    #[test]
+    fn test_middle_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b0110, /*width=*/ 4)
+                .as_ufp(/*fractional_width=*/ 2),
+            Fraction::new(3u32, 2u32)
+        );
+    }
+    #[test]
+    fn test_low_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b0111, /*width=*/ 4)
+                .as_ufp(/*fractional_width=*/ 2),
+            Fraction::new(7u32, 4u32)
+        );
+    }
+    #[test]
+    fn test_low_high_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b1001, /*width=*/ 4)
+                .as_ufp(/*fractional_width=*/ 2),
+            Fraction::new(9u32, 4u32)
+        );
+    }
+    #[test]
+    fn test_small_fractional_value() {
+        assert_eq!(
+            Value::from(
+                /*value=*/ 0b00000000000000000000000000000001,
+                /*width=*/ 32,
+            )
+            .as_ufp(/*fractional_width=*/ 31),
+            Fraction::new(1u32, 2147483648u32)
+        );
+    }
+    #[test]
+    fn test_all_ones() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b111, /*width=*/ 3)
+                .as_ufp(/*fractional_width=*/ 1),
+            Fraction::new(7u32, 2u32)
+        );
+    }
+}
+
+#[cfg(test)]
+mod signed_fixed_point_tests {
+    use crate::values::Value;
+    use fraction::Fraction;
+
+    #[test]
+    fn test_high_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b1110, /*width=*/ 4)
+                .as_sfp(/*fractional_width=*/ 2),
+            -Fraction::new(1u32, 2u32)
+        );
+    }
+    #[test]
+    fn test_middle_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b0110, /*width=*/ 4)
+                .as_sfp(/*fractional_width=*/ 2),
+            Fraction::new(3u32, 2u32)
+        );
+    }
+    #[test]
+    fn test_low_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b0111, /*width=*/ 4)
+                .as_sfp(/*fractional_width=*/ 2),
+            Fraction::new(7u32, 4u32)
+        );
+    }
+    #[test]
+    fn test_low_high_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b1001, /*width=*/ 4)
+                .as_sfp(/*fractional_width=*/ 2),
+            -Fraction::new(7u32, 4u32)
+        );
+    }
+    #[test]
+    fn test_single_bit_set() {
+        assert_eq!(
+            Value::from(
+                /*value=*/ 0b10000000000000000000000000000000u32,
+                /*width=*/ 32,
+            )
+            .as_sfp(/*fractional_width=*/ 31),
+            -Fraction::new(1u32, 1u32)
+        );
+    }
+    #[test]
+    fn test_small_negative_value() {
+        assert_eq!(
+            Value::from(
+                /*value=*/ 0b10000000000000000000000000000001u32,
+                /*width=*/ 32,
+            )
+            .as_sfp(/*fractional_width=*/ 31),
+            -Fraction::new(2147483647u32, 2147483648u32)
+        );
+    }
+    #[test]
+    fn test_all_ones() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b111, /*width=*/ 3)
+                .as_sfp(/*fractional_width=*/ 1),
+            -Fraction::new(1u32, 2u32)
+        );
     }
 }
 
