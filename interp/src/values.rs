@@ -128,7 +128,7 @@ impl InputNumber {
     }
 }
 
-#[derive(/*serde::Deserialize,*/ Clone, Debug, Default)]
+#[derive(#[derive(/*serde::Deserialize,*/ Clone, Debug, Default)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
 pub struct Value {
@@ -136,13 +136,14 @@ pub struct Value {
     // a 7-bit bitvector and 17-bit bitvector representing the number 6 have
     // ones in the same index.
     pub vec: BitVec<Lsb0, u64>,
-
     // XXX
     // #[serde(default = "fractional_width_default")]
     // pub fractional_width: usize,
 }
 
-fn fractional_width_default() -> usize { 0 }
+fn fractional_width_default() -> usize {
+    0
+}
 
 impl Value {
     pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
