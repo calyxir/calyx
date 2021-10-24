@@ -251,7 +251,7 @@ impl Value {
         Value { vec }
     }
 
-    /// Converts value into u64 type. Vector within Value can be of any width.
+    /// Converts value into u64 type.
     ///
     /// # Example
     /// ```
@@ -272,7 +272,7 @@ impl Value {
             })
     }
 
-    /// Converts value into u128 type. Vector within Value can be of any width.
+    /// Converts value into u128 type.
     ///
     /// # Example
     /// ```
