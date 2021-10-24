@@ -293,15 +293,12 @@ impl Value {
         let whole: Fraction = self
             .vec
             .iter()
-            .rev()
+            .rev() // Iterate through integer bits.
             .take(integer_width)
-            .fold(
-                (0u64, 2u64.pow(integer_width as u32 - 1u32)),
-                |(acc, e), bit| -> (u64, u64) {
-                    (acc + e * (*bit as u64), e >> 1)
-                },
-            )
-            .0
+            .zip((0..integer_width).rev()) // Use indices in reverse order.
+            .fold(0u64, |acc, (bit, idx)| -> u64 {
+                acc | ((*bit as u64) << idx)
+            })
             .into();
 
         // XXX: gross
@@ -309,19 +306,19 @@ impl Value {
         msb.reverse();
 
         // Calculate the fractional part of the value. For each set bit at index `i`, add `2^-i`.
+        // This begins at `1`, since the first fractional index has value `2^-1` = `1/2`.
         let fraction: Fraction = msb[integer_width..]
             .iter()
             .take(fractional_width)
-            .fold(
-                (Fraction::from(0u64), 2u64),
-                |(acc, d), bit| -> (Fraction, u64) {
-                    (
-                        acc + Fraction::new(1u64, d) * (*bit as u64).into(),
-                        d << 1,
-                    )
-                },
-            )
-            .0;
+            .zip(0..fractional_width)
+            .fold(Fraction::from(0u64), |acc, (bit, idx)| -> Fraction {
+                let denom: u64 = (*bit as u64) << (idx + 1);
+                if denom == 0u64 {
+                    acc
+                } else {
+                    acc + Fraction::new(1u64, denom)
+                }
+            });
         whole + fraction
     }
 

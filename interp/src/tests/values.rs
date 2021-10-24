@@ -40,6 +40,16 @@ mod val_test {
         );
     }
     #[test]
+    fn basic_print_fp_test3() {
+        use fraction::Fraction;
+        let v1 = Value::from(/*value=*/ 0b1110, /*width=*/ 4);
+        println!("3/2 with bit width 4 and fractional width 2: {}", v1);
+        assert_eq!(
+            v1.as_unsigned_fp(/*fractional_width=*/ 2),
+            Fraction::new(7u32, 2u32)
+        );
+    }
+    #[test]
     fn too_few_bits() {
         let v_16_4 = Value::from(16, 4);
         println!("16 with bit width 4: {}", v_16_4);
