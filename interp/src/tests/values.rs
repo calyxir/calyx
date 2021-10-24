@@ -94,7 +94,7 @@ mod unsigned_fixed_point_tests {
     #[test]
     fn test_32bit_fractional_value() {
         assert_eq!(
-            Value::from(/*value=*/ 1u32, /*width=*/ 32,)
+            Value::from(/*value=*/ 1u32, /*width=*/ 32)
                 .as_ufp(/*fractional_width=*/ 31),
             Fraction::new(1u32, 2147483648u32)
         );
@@ -102,7 +102,7 @@ mod unsigned_fixed_point_tests {
     #[test]
     fn test_64bit_fractional_value() {
         assert_eq!(
-            Value::from(/*value=*/ 1u64, /*width=*/ 64,)
+            Value::from(/*value=*/ 1u64, /*width=*/ 64)
                 .as_ufp(/*fractional_width=*/ 63),
             Fraction::new(1u64, 9223372036854775808u64)
         );
@@ -168,6 +168,22 @@ mod signed_fixed_point_tests {
             Value::from(/*value=*/ 0b0111, /*width=*/ 4)
                 .as_sfp(/*fractional_width=*/ 2),
             Fraction::new(7u32, 4u32)
+        );
+    }
+    #[test]
+    fn test_mixed_bits_set() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b10110101, /*width=*/ 8)
+                .as_sfp(/*fractional_width=*/ 3),
+            -Fraction::new(75u32, 8u32)
+        );
+    }
+    #[test]
+    fn test_mixed_bits_set2() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b10100011, /*width=*/ 8)
+                .as_sfp(/*fractional_width=*/ 4),
+            -Fraction::new(93u32, 16u32)
         );
     }
     #[test]
