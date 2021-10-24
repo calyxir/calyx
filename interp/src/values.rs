@@ -128,7 +128,7 @@ impl InputNumber {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(/*serde::Deserialize,*/ Clone, Debug, Default)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
 pub struct Value {
@@ -136,7 +136,13 @@ pub struct Value {
     // a 7-bit bitvector and 17-bit bitvector representing the number 6 have
     // ones in the same index.
     pub vec: BitVec<Lsb0, u64>,
+
+    // XXX
+    // #[serde(default = "fractional_width_default")]
+    // pub fractional_width: usize,
 }
+
+fn fractional_width_default() -> usize { 0 }
 
 impl Value {
     pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
@@ -286,7 +292,7 @@ impl Value {
     }
 
     /// TODO(cgyurgyik): WiP
-    pub fn as_unsigned_fp(&self, fractional_width: usize) -> Fraction {
+    pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
         let integer_width: usize = self.width() as usize - fractional_width;
 
         // Calculate the integer part of the value. For each set bit at index `i`, add `2^i`.
@@ -313,6 +319,7 @@ impl Value {
             .zip(0..fractional_width)
             .fold(Fraction::from(0u64), |acc, (bit, idx)| -> Fraction {
                 let denom: u64 = (*bit as u64) << (idx + 1);
+                // Avoid adding Infinity.
                 if denom == 0u64 {
                     acc
                 } else {

@@ -19,7 +19,7 @@ mod val_test {
         let v1 = Value::from(/*value=*/ 0b0110, /*width=*/ 4);
         println!("3/2 with bit width 4 and fractional width 2: {}", v1);
         assert_eq!(
-            v1.as_unsigned_fp(/*fractional_width=*/ 2),
+            v1.as_ufp(/*fractional_width=*/ 2),
             Fraction::new(3u32, 2u32)
         );
     }
@@ -35,7 +35,7 @@ mod val_test {
             v1
         );
         assert_eq!(
-            v1.as_unsigned_fp(/*fractional_width=*/ 31),
+            v1.as_ufp(/*fractional_width=*/ 31),
             Fraction::new(1u32, 2147483648u32)
         );
     }
@@ -45,7 +45,7 @@ mod val_test {
         let v1 = Value::from(/*value=*/ 0b1110, /*width=*/ 4);
         println!("3/2 with bit width 4 and fractional width 2: {}", v1);
         assert_eq!(
-            v1.as_unsigned_fp(/*fractional_width=*/ 2),
+            v1.as_ufp(/*fractional_width=*/ 2),
             Fraction::new(7u32, 2u32)
         );
     }
