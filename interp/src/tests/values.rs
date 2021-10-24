@@ -92,6 +92,14 @@ mod unsigned_fixed_point_tests {
         );
     }
     #[test]
+    fn test_alternating_ones() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b10101, /*width=*/ 5)
+                .as_ufp(/*fractional_width=*/ 3),
+            Fraction::new(21u32, 8u32)
+        );
+    }
+    #[test]
     fn test_all_ones() {
         assert_eq!(
             Value::from(/*value=*/ 0b111, /*width=*/ 3)
@@ -158,6 +166,14 @@ mod signed_fixed_point_tests {
             )
             .as_sfp(/*fractional_width=*/ 31),
             -Fraction::new(2147483647u32, 2147483648u32)
+        );
+    }
+    #[test]
+    fn test_alternating_ones() {
+        assert_eq!(
+            Value::from(/*value=*/ 0b10101, /*width=*/ 5)
+                .as_sfp(/*fractional_width=*/ 3),
+            -Fraction::new(11u32, 8u32)
         );
     }
     #[test]
