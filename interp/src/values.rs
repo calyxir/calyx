@@ -6,7 +6,7 @@ use serde::de::{self, Deserialize, Visitor};
 fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
     let integer_width: usize = v.width() as usize - fractional_width;
 
-    // Calculate the integer part of the value. For each set bit at index `i`, add `2^i`.
+    // Calculate the integral part of the value. For each set bit at index `i`, add `2^i`.
     let whole: Fraction = v
         .vec
         .iter()
