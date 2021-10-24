@@ -2,15 +2,9 @@ use bitvec::prelude::*;
 use fraction::Fraction;
 use serde::de::{self, Deserialize, Visitor};
 
-/// Retrieves the unsigned fixed point representation of `v`.
-///
-/// # Example:
-/// ```
-/// use interp::values::*;
-/// use fraction::Fraction;
-/// let v = Value::from(/*value=*/ 0, /*width=*/ 4);
-/// let fp = get_unsigned_fixed_point(v, /*fractional_width=*/ 2);
-/// ```
+/// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
+///  integral and fractional bits. The width of the integral bits is described as:
+/// `total width - fractional_width`.
 fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
     let integer_width: usize = v.width() as usize - fractional_width;
 
