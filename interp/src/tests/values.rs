@@ -43,7 +43,6 @@ mod unsigned_fixed_point_tests {
     use crate::values::Value;
     use fraction::Fraction;
 
-    // TODO(cgyurgyik): Add more corner case tests / property tests.
     #[test]
     fn test_high_bits_set() {
         assert_eq!(
@@ -85,6 +84,17 @@ mod unsigned_fixed_point_tests {
             )
             .as_ufp(/*fractional_width=*/ 31),
             Fraction::new(1u32, 2147483648u32)
+        );
+    }
+    #[test]
+    fn test_smaller_fractional_value() {
+        assert_eq!(
+            Value::from(
+                /*value=*/ 0b0000000000000000000000000000000000000000000000000000000000000001u64,
+                /*width=*/ 64,
+            )
+                .as_ufp(/*fractional_width=*/ 63),
+            Fraction::new(1u64, 9223372036854775808u64)
         );
     }
     #[test]
