@@ -27,8 +27,8 @@ fn get_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
     let fraction: Fraction = msb[integer_width..]
         .iter()
         .take(fractional_width)
-        .zip(0..fractional_width)
-        .fold(Fraction::from(0u64), |acc, (bit, idx)| -> Fraction {
+        .enumerate()
+        .fold(Fraction::from(0u64), |acc, (idx, bit)| -> Fraction {
             let denom: u64 = (*bit as u64) << (idx + 1);
             // Avoid adding Infinity.
             if denom == 0u64 {
