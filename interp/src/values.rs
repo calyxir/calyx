@@ -66,61 +66,51 @@ impl From<u8> for InputNumber {
         Self::U8(i)
     }
 }
-
 impl From<u16> for InputNumber {
     fn from(i: u16) -> Self {
         Self::U16(i)
     }
 }
-
 impl From<u32> for InputNumber {
     fn from(i: u32) -> Self {
         Self::U32(i)
     }
 }
-
 impl From<u64> for InputNumber {
     fn from(i: u64) -> Self {
         Self::U64(i)
     }
 }
-
 impl From<u128> for InputNumber {
     fn from(i: u128) -> Self {
         Self::U128(i)
     }
 }
-
 impl From<i8> for InputNumber {
     fn from(i: i8) -> Self {
         Self::I8(i)
     }
 }
-
 impl From<i16> for InputNumber {
     fn from(i: i16) -> Self {
         Self::I16(i)
     }
 }
-
 impl From<i32> for InputNumber {
     fn from(i: i32) -> Self {
         Self::I32(i)
     }
 }
-
 impl From<i64> for InputNumber {
     fn from(i: i64) -> Self {
         Self::I64(i)
     }
 }
-
 impl From<i128> for InputNumber {
     fn from(i: i128) -> Self {
         Self::I128(i)
     }
 }
-
 impl From<usize> for InputNumber {
     fn from(i: usize) -> Self {
         Self::Usize(i)
@@ -167,7 +157,6 @@ impl InputNumber {
         }
     }
 }
-
 #[derive(Clone, Debug, Default)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
@@ -182,16 +171,16 @@ impl Value {
     pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
         self.vec.len() <= width // obviously fits then
             || self
-            .vec
-            .last_one() // returns an index
-            .map(|x| x < width)
-            .unwrap_or(true) // if there is no high bit then it can fit in the given width
+                .vec
+                .last_one() // returns an index
+                .map(|x| x < width)
+                .unwrap_or(true) // if there is no high bit then it can fit in the given width
     }
 
     pub fn signed_value_fits_in(&self, width: usize) -> bool {
         self.vec.len() <= width // obviously fits then
-            || (self.vec.ends_with(bits![0]) && self.unsigned_value_fits_in(width - 1)) // positive value (technically wastes a check)
-            || (self.vec.ends_with(bits![1]) && ((self.vec.len() - self.vec.trailing_ones()) < width) || self.vec.trailing_ones() == 0)
+        || (self.vec.ends_with(bits![0]) && self.unsigned_value_fits_in(width - 1)) // positive value (technically wastes a check)
+        || (self.vec.ends_with(bits![1]) && ((self.vec.len() - self.vec.trailing_ones()) < width) || self.vec.trailing_ones() == 0)
         // negative value greater than or equal to lowest in new width
     }
 
