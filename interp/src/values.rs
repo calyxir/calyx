@@ -128,7 +128,7 @@ impl InputNumber {
     }
 }
 
-#[derive(#[derive(/*serde::Deserialize,*/ Clone, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
 pub struct Value {
@@ -141,9 +141,9 @@ pub struct Value {
     // pub fractional_width: usize,
 }
 
-fn fractional_width_default() -> usize {
-    0
-}
+// fn fractional_width_default() -> usize {
+//     0
+// }
 
 impl Value {
     pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
@@ -300,9 +300,9 @@ impl Value {
         let whole: Fraction = self
             .vec
             .iter()
-            .rev() // Iterate through integer bits.
+            .rev() // ...since the integer bits are most significant.
             .take(integer_width)
-            .zip((0..integer_width).rev()) // Use indices in reverse order.
+            .zip((0..integer_width).rev()) // Reverse indices as well.
             .fold(0u64, |acc, (bit, idx)| -> u64 {
                 acc | ((*bit as u64) << idx)
             })
