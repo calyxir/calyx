@@ -125,6 +125,8 @@ fn main() -> InterpreterResult<()> {
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[])?;
     }
 
+    let entry_point = ctx.entrypoint;
+
     let components: iir::ComponentCtx = Rc::new(
         ctx.components
             .into_iter()
@@ -134,7 +136,7 @@ fn main() -> InterpreterResult<()> {
 
     let main_component = components
         .iter()
-        .find(|&cm| cm.name == "main")
+        .find(|&cm| cm.name == entry_point)
         .ok_or(InterpreterError::MissingMainComponent)?;
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
