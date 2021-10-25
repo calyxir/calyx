@@ -13,18 +13,21 @@ use serde::de::{self, Deserialize, Visitor};
 pub struct ValueError {}
 
 pub enum InputNumber {
+    // unsigned
     U8(u8),
     U16(u16),
     U32(u32),
     U64(u64),
     U128(u128),
     U(UBig),
+    // signed
     I8(i8),
     I16(i16),
     I32(i32),
     I64(i64),
     I128(i128),
     I(IBig),
+    // usize
     Usize(usize),
 }
 
@@ -663,7 +666,7 @@ impl std::fmt::Display for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        self.vec.len() == other.vec.len() && self.vec == other.vec
+        self.vec.len() == other.vec.len() && *self.vec == *other.vec
     }
 }
 
@@ -688,10 +691,6 @@ impl PartialOrd for Value {
         }
         Some(std::cmp::Ordering::Equal)
     }
-}
-
-pub trait ReadableValue {
-    fn get_val(&self) -> &Value;
 }
 
 impl<'de> Deserialize<'de> for Value {
