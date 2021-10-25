@@ -8,7 +8,7 @@
 ///   let left_64 = left.as_u64();
 ///   let right_64 = right.as_u64();
 ///   let init_val = left_64 + right_64;
-///   let bitwidth: usize = left.vec.len();
+///   let bitwidth = left.width();
 ///   Ok(Value::from(init_val, bitwidth))
 /// });
 ///
