@@ -358,7 +358,6 @@ impl Value {
         }
     }
 
-
     /// Converts value into u128 type.
     ///
     /// # Example
