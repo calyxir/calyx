@@ -288,8 +288,7 @@ impl Value {
         Value { vec }
     }
 
-    /// Converts value into u64 type. Vector within Value can be of any width. The value
-    /// will be truncated to fit the specified width if it exceeds it
+    /// Converts value into u64 type.
     ///
     /// # Example
     /// ```
@@ -355,8 +354,7 @@ impl Value {
         }
     }
 
-    /// Converts value into u128 type. Vector within Value can be of any width. The
-    /// value will be truncated if it exceeds 128 bits
+    /// Converts value into u128 type.
     ///
     /// # Example
     /// ```
@@ -380,8 +378,8 @@ impl Value {
             })
     }
 
-    /// Converts value into i64 type using 2C representation. Truncates to 64 bits if
-    /// the value exceeds 64 bits. Sign extends lower values
+    /// Converts value into i64 type using 2C representation. Sign extends lower values.
+    ///
     /// # Example
     /// ```
     /// use interp::values::*;
@@ -402,8 +400,8 @@ impl Value {
         )
     }
 
-    /// Converts value into i128 type using 2C representation. Truncates to 128 bits if
-    /// the value exceeds 128 bits. Sign extends lower values
+    /// Converts value into i128 type using 2C representation. Sign extends lower values.
+    ///
     /// # Example
     /// ```
     /// use interp::values::*;
