@@ -98,17 +98,23 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
         if go.as_bool() {
-            let value = if SIGNED {
-                Value::from(
-                    left.as_i64().wrapping_mul(right.as_i64()),
+            let (value, overflow) = if SIGNED {
+                Value::from_checked(
+                    left.as_signed() * right.as_signed(),
                     self.width,
                 )
             } else {
-                Value::from(
-                    left.as_u64().wrapping_mul(right.as_u64()),
+                Value::from_checked(
+                    left.as_unsigned() * right.as_unsigned(),
                     self.width,
                 )
             };
+
+            if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
+                return Err(InterpreterError::OverflowError());
+            } else if overflow {
+                warn!("Computation has under/overflowed");
+            }
             self.update = Some(value);
         } else {
             self.update = None;
@@ -239,14 +245,20 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         //continue computation
         if go.as_bool() && right.as_u64() != 0 {
             let q = if SIGNED {
-                Value::from(left.as_i64() / right.as_i64(), self.width)
+                Value::from(left.as_signed() / right.as_signed(), self.width)
             } else {
-                Value::from(left.as_u64() / right.as_u64(), self.width)
+                Value::from(
+                    left.as_unsigned() / right.as_unsigned(),
+                    self.width,
+                )
             };
             let r = if SIGNED {
-                Value::from(left.as_i64() % right.as_i64(), self.width)
+                Value::from(left.as_signed() % right.as_signed(), self.width)
             } else {
-                Value::from(left.as_u64() % right.as_u64(), self.width)
+                Value::from(
+                    left.as_unsigned() % right.as_unsigned(),
+                    self.width,
+                )
             };
 
             self.update = Some((q, r));
@@ -369,7 +381,7 @@ impl Primitive for StdReg {
         let (_, write_en) =
             inputs.iter().find(|(id, _)| id == "write_en").unwrap();
         //write the input to the register
-        if write_en.as_u64() == 1 {
+        if write_en.as_bool() {
             self.update = Some((*input).clone());
             //put cycle_count as 1! B/c do_tick() should return a high done
             self.write_en = true;
@@ -564,7 +576,7 @@ impl Primitive for StdMemD1 {
         let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
         let addr0 = addr0.as_u64();
         self.last_index = addr0;
-        if write_en.as_u64() == 1 {
+        if write_en.as_bool() {
             self.update = Some((addr0, (*input).clone()));
             self.write_en = true;
         } else {
@@ -822,7 +834,7 @@ impl Primitive for StdMemD2 {
         self.last_idx = (addr0, addr1);
         let real_addr = self.calc_addr(addr0, addr1);
 
-        if write_en.as_u64() == 1 {
+        if write_en.as_bool() {
             self.update = Some((real_addr, (*input).clone()));
             self.write_en = true;
         } else {
@@ -1102,7 +1114,7 @@ impl Primitive for StdMemD3 {
         self.last_idx = (addr0, addr1, addr2);
 
         let real_addr = self.calc_addr(addr0, addr1, addr2);
-        if write_en.as_u64() == 1 {
+        if write_en.as_bool() {
             self.update = Some((real_addr, (*input).clone()));
             self.write_en = true;
         } else {
@@ -1427,7 +1439,7 @@ impl Primitive for StdMemD4 {
         self.last_idx = (addr0, addr1, addr2, addr3);
 
         let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
-        if write_en.as_u64() == 1 {
+        if write_en.as_bool() {
             self.update = Some((real_addr, (*input).clone()));
             self.write_en = true;
         } else {
