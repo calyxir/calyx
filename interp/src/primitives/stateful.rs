@@ -243,11 +243,14 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
-        if go.as_bool() && right.as_u64() != 0 {
-            let q = if SIGNED {
-                Value::from(left.as_signed() / right.as_signed(), self.width)
+        if go.as_bool() && right.as_unsigned() != 0_u32.into() {
+            let (q, overflow) = if SIGNED {
+                Value::from_checked(
+                    left.as_signed() / right.as_signed(),
+                    self.width,
+                )
             } else {
-                Value::from(
+                Value::from_checked(
                     left.as_unsigned() / right.as_unsigned(),
                     self.width,
                 )
@@ -260,6 +263,15 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                     self.width,
                 )
             };
+
+            // the only way this is possible is if the division is signed and the
+            // min_val is divided by negative one as the resultant postitive value will
+            // not be representable in the desired bit width
+            if (overflow) & crate::SETTINGS.read().unwrap().error_on_overflow {
+                return Err(InterpreterError::OverflowError());
+            } else if overflow {
+                warn!("Overflowed in signed divison")
+            }
 
             self.update = Some((q, r));
         } else if go.as_bool() {
