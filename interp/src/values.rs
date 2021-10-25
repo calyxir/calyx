@@ -20,25 +20,21 @@ fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
         })
         .into();
 
-    // XXX: Gross. I just want a reversed view of a splice of this vector, not a copy.
-    let mut msb = v.vec.clone();
-    msb.reverse();
-
     // Calculate the fractional part of the value. For each set bit at index `i`, add `2^-i`.
     // This begins at `1`, since the first fractional index has value `2^-1` = `1/2`.
-    let fraction: Fraction = msb[integer_width..]
-        .iter()
-        .take(fractional_width)
-        .enumerate()
-        .fold(Fraction::from(0u64), |acc, (idx, bit)| -> Fraction {
-            let denom: u64 = (*bit as u64) << (idx + 1);
-            // Avoid adding Infinity.
-            if denom == 0u64 {
-                acc
-            } else {
-                acc + Fraction::new(1u64, denom)
-            }
-        });
+    let fraction: Fraction =
+        v.vec.iter().rev().skip(integer_width).enumerate().fold(
+            Fraction::from(0u64),
+            |acc, (idx, bit)| -> Fraction {
+                let denom: u64 = (*bit as u64) << (idx + 1);
+                // Avoid adding Infinity.
+                if denom == 0u64 {
+                    acc
+                } else {
+                    acc + Fraction::new(1u64, denom)
+                }
+            },
+        );
     whole + fraction
 }
 
