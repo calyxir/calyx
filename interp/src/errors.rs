@@ -91,6 +91,10 @@ pub enum InterpreterError {
 
     #[error("invalid memory access. Given index ({}) but memory has dimension ({})", access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), dims.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
     InvalidMemoryAccess { access: Vec<u64>, dims: Vec<u64> },
+
+    // TODO (Griffin): Make this error message better please
+    #[error("Computation has under/overflowed its bounds")]
+    OverflowError(),
 }
 
 impl InterpreterError {
