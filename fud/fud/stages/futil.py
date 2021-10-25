@@ -11,6 +11,10 @@ class FutilStage(Stage):
         )
         self.setup()
 
+    @staticmethod
+    def defaults():
+        return {}
+
     def _define_steps(self, input_data):
         cmd = " ".join(
             [
