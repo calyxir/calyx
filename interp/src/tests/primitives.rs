@@ -1565,8 +1565,8 @@ mod property_tests {
         fn std_smult(in_left: i64, in_right: i64){
             let mut mult = stateful::StdMultPipe::<true>::from_constants(64);
             port_bindings![binds;
-            left -> (in_left, 128),
-            right -> (in_right, 128),
+            left -> (in_left, 64),
+            right -> (in_right, 64),
             go -> (1,1)
             ];
             mult.execute(&binds).unwrap();
@@ -1581,8 +1581,8 @@ mod property_tests {
         fn std_div(in_left: u64, in_right in (1..u64::MAX)) {
             let mut mult = stateful::StdDivPipe::<false>::from_constants(64);
             port_bindings![binds;
-            left -> (in_left, 128),
-            right -> (in_right, 128),
+            left -> (in_left, 64),
+            right -> (in_right, 64),
             go -> (1,1)
             ];
             mult.execute(&binds).unwrap();
@@ -1599,8 +1599,8 @@ mod property_tests {
         fn std_sdiv(in_left: i64, in_right in (i64::MIN..i64::MAX).prop_filter("non-zero", |v| *v != 0_i64))  {
             let mut mult = stateful::StdDivPipe::<true>::from_constants(64);
             port_bindings![binds;
-            left -> (in_left, 128),
-            right -> (in_right, 128),
+            left -> (in_left, 64),
+            right -> (in_right, 64),
             go -> (1,1)
             ];
             mult.execute(&binds).unwrap();

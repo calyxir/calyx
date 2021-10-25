@@ -10,7 +10,7 @@ use calyx::ir;
 use std::ops::Not;
 
 /// A constant.
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct StdConst {
     value: Value,
 }
@@ -118,15 +118,13 @@ impl Primitive for StdMux {
 
 // ===================== Unary operations ======================
 comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
-    Ok(Value {
-        vec: r#in.vec.clone().not(),
-    })
+    Ok(r#in.clone_bit_vec().not().into())
 });
 
 // ===================== Unsigned binary operations ======================
 comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
     let mut c_in = false;
     let mut sum = BitVec::new();
     for (ai, bi) in a_iter.zip(b_iter) {
@@ -138,18 +136,18 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         );
         c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
     }
-    let tr = Value { vec: sum };
+    let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left
     assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
 comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
-    let new_right = !right.vec.clone();
+    let new_right = !right.clone_bit_vec();
     let mut adder = StdAdd::from_constants(WIDTH);
     let (_,new_right) = adder
         .execute(
-            &[("left".into(), &Value { vec: new_right }),
+            &[("left".into(), &Value::from_bv(new_right)),
             ("right".into(), &Value::from(1, WIDTH))],
         )?
         .into_iter()
@@ -162,8 +160,8 @@ comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
 // TODO (Griffin): Make these wrappers around the normal add
 comb_primitive!(StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
     let mut c_in = false;
     let mut sum = BitVec::new();
     for (ai, bi) in a_iter.zip(b_iter) {
@@ -175,18 +173,18 @@ comb_primitive!(StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH
         );
         c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
     }
-    let tr = Value { vec: sum };
+    let tr = Value::from_bv(sum);
     //as a sanity check, check tr has same width as left
     assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
 comb_primitive!(StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
-    let new_right = !right.vec.clone();
+    let new_right = !right.clone_bit_vec();
     let mut adder = StdAdd::from_constants(WIDTH);
     let new_right = adder
         .execute(
-            &[("left".into(), &Value { vec: new_right }),
+            &[("left".into(), &Value::from_bv(new_right)),
             ("right".into(), &Value::from(1, WIDTH))],
         )?
         .into_iter()
@@ -211,9 +209,9 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
         if WIDTH > 64 {
             //check if right is greater than or equal to  2 ^ 64
-            let r_vec = &right.vec;
-            for bit in r_vec.iter().by_ref().skip(64) {
-                if *bit {
+
+            for bit in right.iter().by_ref().skip(64) {
+                if bit {
                     return Ok(Value::zeroes(WIDTH as usize));
                 }
             }
@@ -228,8 +226,8 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
         let mut tr = BitVec::new();
         //first push the requisite # of zeroes
-        for (index, bit) in right.vec.iter().by_ref().enumerate() {
-            if *bit {
+        for (index, bit) in right.iter().enumerate() {
+            if bit {
                 //not possible for bit to be 1 after the 64th bit
                 for _ in 0..u64::pow(2, index as u32) {
                     if tr.len() < WIDTH as usize {
@@ -242,11 +240,11 @@ comb_primitive!(StdLsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         //then copy over the bits from [left] onto the back (higher-place bits) of
         //[tr]. Then truncate, aka slicing off the bits that exceed the width of this
         //component
-        let mut to_append = left.clone().vec;
+        let mut to_append = left.clone_bit_vec();
         tr.append(&mut to_append);
         tr.truncate(WIDTH as usize);
-        let tr = Value { vec: tr };
-        assert_eq!(tr.width(), WIDTH);
+        let tr = Value::from_bv(tr);
+        debug_assert_eq!(tr.width(), WIDTH);
         //sanity check the widths
         Ok(tr)
 });
@@ -257,18 +255,17 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         //same check as in LSH
         if WIDTH > 64 {
             //check if right is greater than or equal to  2 ^ 64
-            let r_vec = &right.vec;
-            for bit in r_vec.iter().by_ref().skip(64) {
-                if *bit {
+            for bit in right.iter().skip(64) {
+                if bit {
                     return Ok(Value::zeroes(WIDTH as usize));
                 }
             }
         }
 
-        let mut tr = left.vec.clone();
+        let mut tr = left.clone_bit_vec();
         //first remove [right] bits
-        for (index, bit) in right.vec.iter().by_ref().enumerate() {
-            if *bit {
+        for (index, bit) in right.iter().enumerate() {
+            if bit {
                 for _ in 0..u64::pow(2, index as u32) {
                     if !tr.is_empty() {
                         tr.remove(0);
@@ -278,8 +275,8 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         }
         //now resize to proper size, putting 0s at the end (0 is false)
         tr.resize(WIDTH as usize, false);
-        let tr = Value { vec: tr };
-        assert_eq!(tr.width(), WIDTH);
+        let tr = Value::from_bv(tr);
+        debug_assert_eq!(tr.width(), WIDTH);
         //sanity check the widths
         Ok(tr)
 });
@@ -287,44 +284,38 @@ comb_primitive!(StdRsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 // ===================== Signed Shift Operations ======================
 comb_primitive!(StdSlsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let shift_amount = right.as_usize();
-    let mut val = left.clone().vec;
+    let mut val = left.clone_bit_vec();
     val.shift_right(shift_amount);
-    Ok(Value {vec: val })
+    Ok(val.into())
 
 });
 comb_primitive!(StdSrsh[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let shift_amount = right.as_usize();
-    let sign: bool = left.vec[left.vec.len()-1]; //msb
-    let mut val = left.vec.clone();
+    let sign: bool = left[left.len()-1]; //msb
+    let mut val = left.clone_bit_vec();
     val.shift_left(shift_amount);
     if sign {
         for mut bit in val.iter_mut().rev().take(shift_amount) {
             *bit = true;
         }
     }
-    Ok(Value { vec: val })
+    Ok(val.into())
 });
 // ===================== Logial Operations ======================
 comb_primitive!(StdAnd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(Value {
-        vec: left.vec.clone() & right.vec.clone(),
-    })
+    Ok((left.clone_bit_vec() & right.clone_bit_vec()).into())
 });
 comb_primitive!(StdOr[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(Value {
-        vec: left.vec.clone() | right.vec.clone(),
-    })
+    Ok((left.clone_bit_vec() | right.clone_bit_vec()).into())
 });
 comb_primitive!(StdXor[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(Value {
-        vec: left.vec.clone() ^ right.vec.clone(),
-    })
+    Ok((left.clone_bit_vec() ^ right.clone_bit_vec()).into())
 });
 
 // ===================== Comparison Operations ======================
 comb_primitive!(StdGt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
     let mut tr = false;
 
     //as we proceed up in magnitude, it doesn't matter which port was less
@@ -341,8 +332,8 @@ comb_primitive!(StdGt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     })
 });
 comb_primitive!(StdLt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
     let mut tr = false;
 
     //tr represents a < b
@@ -359,8 +350,8 @@ comb_primitive!(StdLt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     })
 });
 comb_primitive!(StdGe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
     let mut tr = true; //diff between gt and ge is just assume they r equal
 
     //as we proceed up in magnitude, it doesn't matter which port was less
@@ -377,8 +368,8 @@ comb_primitive!(StdGe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     })
 });
 comb_primitive!(StdLe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
     let mut tr = true; //diff between le and lt is just assume they are equal
 
     //tr represents a <= b
@@ -395,8 +386,8 @@ comb_primitive!(StdLe[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     })
 });
 comb_primitive!(StdEq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
 
     //tr represents a = b
     for (ai, bi) in a_iter.zip(b_iter) {
@@ -408,8 +399,8 @@ comb_primitive!(StdEq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     Ok(Value::bit_high())
 });
 comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    let a_iter = left.vec.iter().by_ref();
-    let b_iter = right.vec.iter().by_ref();
+    let a_iter = left.iter();
+    let b_iter = right.iter();
 
     //tr represents a = b
     for (ai, bi) in a_iter.zip(b_iter) {
@@ -423,42 +414,42 @@ comb_primitive!(StdNeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 // TODO (griffin) : replace these comparsions with bit-aware variants
 // ===================== Signed Comparison Operations ======================
 comb_primitive!(StdSgt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() > right.as_i128() {
+    Ok(if left.as_signed() > right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()
     })
 });
 comb_primitive!(StdSlt[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() < right.as_i128() {
+    Ok(if left.as_signed() < right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()
     })
 });
 comb_primitive!(StdSge[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() >= right.as_i128() {
+    Ok(if left.as_signed() >= right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()
     })
 });
 comb_primitive!(StdSle[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() <= right.as_i128() {
+    Ok(if left.as_signed() <= right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()
     })
 });
 comb_primitive!(StdSeq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() == right.as_i128() {
+    Ok(if left.as_signed() == right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()
     })
 });
 comb_primitive!(StdSneq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() != right.as_i128() {
+    Ok(if left.as_signed() != right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()
@@ -467,7 +458,7 @@ comb_primitive!(StdSneq[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
 
 // ===================== Unsigned FP Comparison Operators ======================
 comb_primitive!(StdFpGt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_u128() > right.as_u128() {
+    Ok(if left.as_unsigned() > right.as_unsigned() {
         Value::bit_high()
     } else {
         Value::bit_low()
@@ -476,7 +467,7 @@ comb_primitive!(StdFpGt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH)
 
 // ===================== Signed FP Comparison Operators ======================
 comb_primitive!(StdFpSgt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() > right.as_i128() {
+    Ok(if left.as_signed() > right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()
@@ -484,7 +475,7 @@ comb_primitive!(StdFpSgt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH
 });
 
 comb_primitive!(StdFpSlt[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
-    Ok(if left.as_i128() < right.as_i128() {
+    Ok(if left.as_signed() < right.as_signed() {
         Value::bit_high()
     } else {
         Value::bit_low()

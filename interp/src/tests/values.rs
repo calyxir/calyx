@@ -41,6 +41,7 @@ mod val_test {
 #[cfg(test)]
 mod property_tests {
     use crate::values::Value;
+    use ibig::{ops::UnsignedAbs, IBig, UBig};
     use proptest::prelude::*;
 
     proptest! {
@@ -92,6 +93,37 @@ mod property_tests {
         #[test]
         fn i128_round_trip(input: i128) {
             assert_eq!(input, Value::from(input, 128).as_i128())
+        }
+
+        #[test]
+        fn i128_to_ibig(input: i128) {
+            let val = Value::from(input, 128);
+            assert_eq!(val.as_signed(), input.into())
+        }
+
+        #[test]
+        fn u128_to_ubig(input: u128) {
+            let val = Value::from(input, 128);
+            assert_eq!(val.as_unsigned(), input.into())
+        }
+
+        #[test]
+        fn ubig_roundtrip(input: u128, mul: u128) {
+            let in_big: UBig = input.into();
+            let mul_big: UBig = mul.into();
+            let target: UBig = in_big * mul_big;
+            let val = Value::from(target.clone(), target.bit_len());
+            assert_eq!(val.as_unsigned(), target)
+        }
+
+        #[test]
+        fn ibig_roundtrip(input: i128, mul: i128) {
+            let in_big: IBig = input.into();
+            let mul_big: IBig = mul.into();
+            let target: IBig = in_big * mul_big;
+            let val = Value::from(target.clone(), (&target).unsigned_abs().bit_len()+1);
+            println!("{}", val);
+            assert_eq!(val.as_signed(), target)
         }
     }
 }

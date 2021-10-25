@@ -16,7 +16,6 @@ use std::collections::VecDeque;
 /// The product associated with a given input will be output on the third [do_tick()].
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
-#[derive(Default)]
 pub struct StdMultPipe<const SIGNED: bool> {
     pub width: u64,
     pub product: Value,
@@ -98,7 +97,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
-        if go.as_u64() == 1 {
+        if go.as_bool() {
             let value = if SIGNED {
                 Value::from(
                     left.as_i64().wrapping_mul(right.as_i64()),
@@ -156,7 +155,6 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
 ///be output on the third [do_tick()].
 ///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
 ///the last set of inputs prior to the [do_tick()] will be saved.
-#[derive(Default)]
 pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
@@ -293,7 +291,6 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
 }
 
 /// A register.
-#[derive(Default)]
 pub struct StdReg {
     pub width: u64,
     pub data: [Value; 1],
@@ -1496,7 +1493,6 @@ impl Primitive for StdMemD4 {
     }
 }
 
-#[derive(Default)]
 pub struct StdFpMultPipe<const SIGNED: bool> {
     pub width: u64,
     pub int_width: u64,
@@ -1702,18 +1698,26 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
             let (q, r) = if SIGNED {
                 (
                     Value::from(
-                        (left.as_i128() << self.frac_width) / right.as_i128(),
+                        (left.as_signed() << self.frac_width as usize)
+                            / right.as_signed(),
                         self.width,
                     ),
-                    Value::from(left.as_i128() % right.as_i128(), self.width),
+                    Value::from(
+                        left.as_signed() % right.as_signed(),
+                        self.width,
+                    ),
                 )
             } else {
                 (
                     Value::from(
-                        (left.as_u128() << self.frac_width) / right.as_u128(),
+                        (left.as_unsigned() << self.frac_width as usize)
+                            / right.as_unsigned(),
                         self.width,
                     ),
-                    Value::from(left.as_u128() % right.as_u128(), self.width),
+                    Value::from(
+                        left.as_unsigned() % right.as_unsigned(),
+                        self.width,
+                    ),
                 )
             };
             self.update = Some((q, r));

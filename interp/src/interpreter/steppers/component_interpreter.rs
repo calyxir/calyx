@@ -128,12 +128,12 @@ impl ComponentInterpreter {
 
     #[inline]
     fn go_is_high(&self) -> bool {
-        self.get_env().lookup(self.go_port.as_raw()).as_u64() == 1
+        self.get_env().lookup(self.go_port.as_raw()).as_bool()
     }
 
     #[inline]
     fn done_is_high(&self) -> bool {
-        self.get_env().lookup(self.done_port.as_raw()).as_u64() == 1
+        self.get_env().lookup(self.done_port.as_raw()).as_bool()
     }
 
     #[inline]

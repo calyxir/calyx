@@ -243,7 +243,7 @@ impl AssignmentInterpreter {
                 let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
                 let new_val = Value::from(0, old_val_width);
 
-                if old_val.as_u64() != 0 {
+                if old_val.as_unsigned() != 0_u32.into() {
                     self.val_changed = Some(true);
                 }
 
