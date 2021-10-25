@@ -113,7 +113,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
             if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
-                warn!("Computation has under/overflowed");
+                warn!("Computation has under/overflowed in multiplier");
             }
             self.update = Some(value);
         } else {
@@ -1600,12 +1600,12 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         if go.as_bool() {
             let backing_val = if SIGNED {
                 Value::from(
-                    left.as_i64().wrapping_mul(right.as_i64()),
+                    left.as_signed() * right.as_signed(),
                     2 * self.width,
                 )
             } else {
                 Value::from(
-                    left.as_u64().wrapping_mul(right.as_u64()),
+                    left.as_unsigned() * right.as_unsigned(),
                     2 * self.width,
                 )
             };
