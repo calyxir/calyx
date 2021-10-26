@@ -161,6 +161,10 @@ def register_external_stages(cfg, registry):
         2. Keys defined in the configuration
     """
 
+    # No externals to load.
+    if not ["externals"] in cfg:
+        return
+
     for (ext, location) in cfg[["externals"]].items():
         mod = external.validate_external_stage(ext, cfg)
 
