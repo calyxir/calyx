@@ -8,9 +8,11 @@ class NTTStage(Stage):
     Stage to transform NTT configurations into Calyx programs.
     """
 
+    name = "ntt"
+
     def __init__(self, config):
         super().__init__(
-            name="ntt",
+            src_stage="ntt",
             target_stage="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,

@@ -11,17 +11,19 @@ from fud.utils import TmpDir
 
 
 class HwExecutionStage(Stage):
+    name = "fpga"
+
     def __init__(self, config):
         super().__init__(
-            "xclbin",
-            "fpga",
-            SourceType.Path,
-            SourceType.String,
-            config,
-            "Run an xclbin on an fpga",
+            src_state="xclbin",
+            target_state="fpga",
+            input_type=SourceType.Path,
+            output_type=SourceType.String,
+            config=config,
+            description="Run an xclbin on an fpga",
         )
 
-        self.data_path = self.config["stages", self.target_stage, "data"]
+        self.data_path = self.config["stages", self.name, "data"]
 
         self.setup()
 

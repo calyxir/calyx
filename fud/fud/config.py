@@ -176,6 +176,18 @@ class Configuration:
     Wraps the configuration file and provides methods for committing
     data, displaying configuration data, accessing data, and prompting
     the user for unset keys.
+
+    Schema:
+        The configuration file is serialized as a TOML file and contains the
+        following data fields:
+
+        1. global.futil_directory [required]. Location of the root folder of
+           the Calyx repository.
+        2. stages: A table containing information for each stage. For example,
+           stage.verilog contains key-value pairs which encode the information
+           for the verilog stage.
+        3. externals: A table with (name, path) pairs for scripts that define
+           external stages.
     """
 
     def __init__(self):
@@ -234,34 +246,42 @@ class Configuration:
 
     def setup_external_stage(self, args):
         """
-        Adds an external stage to the configuration.
-        External stages must have a `location` field and `external` field.
+        Adds an external script that may define several stages.
+        The path to the external script is stored in the [external] table of
+        the configuration.
         """
         if not args.delete and args.path is not None:
             path = Path(args.path)
-            if not path.exists():
-                raise FileNotFoundError(path)
-            stage = {"location": str(path.absolute()), "external": True}
-            self["stages", args.name] = stage
+            if not path.exists() or not path.is_file():
+                raise errors.FudRegisterError(args.name, f"`{path}' is not a file.")
+
+            if self.config.get(["external", args.name]) is not None:
+                raise errors.FudRegisterError(
+                    args.name, f"External with name {args.name} already registered."
+                )
+
+            # Add the location of this script to externals in the
+            # configuration.
+            self[["externals", args.name]] = str(path.absolute())
             mod = external.validate_external_stage(args.name, self)
+
+            print(f"Registering external script: {args.name}")
             for stage_class in mod.__STAGES__:
+                print(f"  - Registering stage `{stage_class.name}'.")
                 # Attach defaults for this stage if not present in the
                 # configuration.
                 for key, value in stage_class.defaults().items():
                     self["stages", args.name, key] = value
+
             self.commit()
 
         elif args.delete:
-            if args.name in self[["stages"]]:
+            if args.name in self[["externals"]]:
+                print(f"Removing external script: {args.name}")
                 # Only delete the stage if it's marked as an external
-                if self["stages", args.name, "external"]:
-                    del self["stages", args.name]
-                    self.commit()
-                else:
-                    print(
-                        f"stages.{args.name} is not defined as an external"
-                        + " stage. Cannot delete it."
-                    )
+                del self[["externals", args.name]]
+            else:
+                log.error(f"No external script named `{args.name}'.")
 
     def __getitem__(self, keys):
         try:

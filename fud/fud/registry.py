@@ -101,7 +101,7 @@ class Registry:
         transforms = []
 
         for (src, dst, attr) in sorted(self.graph.edges(data=True)):
-            transforms.append((src, dst, attr["stage"].description))
+            transforms.append((src, dst, attr["stage"].name, attr["stage"].description))
             if src not in stages:
                 stages[src] = []
             stages[src].append(dst)
@@ -111,7 +111,9 @@ class Registry:
             d = ", ".join(dsts)
             all_stages += f"\n{src} → {d}"
 
-        all_transforms = "\n".join([f"{s} → {e}: {d}" for (s, e, d) in transforms])
+        all_transforms = "\n".join(
+            [f"{s} → {e} ({n}): {d}" for (s, e, n, d) in transforms]
+        )
 
         return f"""List of possible stage transformations: {all_stages}
 

@@ -225,3 +225,14 @@ class InvalidExternalStage(FudError):
         msg = f"""Unable to load external stage: {stage_name}
 {msg}"""
         super().__init__(msg)
+
+
+class FudRegisterError(FudError):
+    """
+    An error raised when an external stage is not valid.
+    """
+
+    def __init__(self, msg, stage_name=None):
+        name = f" `{stage_name}'" if stage_name is not None else ""
+        msg = f"""Failed to register`{name}': {msg}"""
+        super().__init__(msg)
