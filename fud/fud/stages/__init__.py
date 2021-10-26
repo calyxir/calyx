@@ -125,7 +125,13 @@ class Stage:
     """
 
     def __init__(
-        self, name, target_stage, input_type, output_type, config, description,
+        self,
+        name,
+        target_stage,
+        input_type,
+        output_type,
+        config,
+        description,
         src_stage=None,
     ):
         self.name = name
