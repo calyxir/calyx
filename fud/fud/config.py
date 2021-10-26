@@ -271,7 +271,7 @@ class Configuration:
                 # Attach defaults for this stage if not present in the
                 # configuration.
                 for key, value in stage_class.defaults().items():
-                    self["stages", args.name, key] = value
+                    self["stages", stage_class.name, key] = value
 
             self.commit()
 
