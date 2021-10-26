@@ -18,7 +18,8 @@ class SystolicStage(Stage):
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             config=config,
-            description="Generates a matrix multiply using a systolic array architecture",
+            description=("Generates a matrix multiply using"
+                         " a systolic array architecture"),
         )
         self.script = (
             Path(self.config["global", "futil_directory"])
