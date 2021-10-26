@@ -1,5 +1,42 @@
 use bitvec::prelude::*;
+use fraction::Fraction;
 use serde::de::{self, Deserialize, Visitor};
+
+/// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
+///  integral and fractional bits. The width of the integral bits is described as:
+/// `total width - fractional_width`.
+fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
+    let integer_width: usize = v.width() as usize - fractional_width;
+
+    // Calculate the integral part of the value. For each set bit at index `i`, add `2^i`.
+    let whole: Fraction = v
+        .vec
+        .iter()
+        .rev() // ...since the integer bits are most significant.
+        .take(integer_width)
+        .zip((0..integer_width).rev()) // Reverse indices as well.
+        .fold(0u64, |acc, (bit, idx)| -> u64 {
+            acc | ((*bit as u64) << idx)
+        })
+        .into();
+
+    // Calculate the fractional part of the value. For each set bit at index `i`, add `2^-i`.
+    // This begins at `1`, since the first fractional index has value `2^-1` = `1/2`.
+    let fraction: Fraction =
+        v.vec.iter().rev().skip(integer_width).enumerate().fold(
+            Fraction::from(0u64),
+            |acc, (idx, bit)| -> Fraction {
+                let denom: u64 = (*bit as u64) << (idx + 1);
+                // Avoid adding Infinity.
+                if denom == 0u64 {
+                    acc
+                } else {
+                    acc + Fraction::new(1u64, denom)
+                }
+            },
+        );
+    whole + fraction
+}
 
 // Lsb0 means [10010] gives 0 at index 0, 1 at index 1, 0 at index 2, etc
 // from documentation, usize is the best data type to use in bitvec.
@@ -270,6 +307,51 @@ impl Value {
             .fold(0_u64, |acc, (idx, bit)| -> u64 {
                 acc | ((*bit as u64) << idx)
             })
+    }
+
+    /// Converts value into unsigned fixed point type.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// use fraction::Fraction;
+    /// let ufixed_point_Q4_2 = Value::from(0b0110, 4).as_ufp(2); // 3/2
+    /// ```
+    pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
+        assert!(
+            self.unsigned_value_fits_in(64),
+            "unsigned fixed point is supported up to 64 bits. Open an issue if you require more."
+        );
+        get_unsigned_fixed_point(self, fractional_width)
+    }
+
+    /// Converts value into signed fixed point type.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// use fraction::Fraction;
+    /// let sfixed_point_Q4_2 = Value::from(0b1110, 4).as_sfp(2); // -3/2
+    /// ```
+    pub fn as_sfp(&self, fractional_width: usize) -> Fraction {
+        assert!(
+            self.signed_value_fits_in(64),
+            "signed fixed point is supported up to 64 bits. Open an issue if you require more."
+        );
+        match self.vec.last_one() {
+            Some(end) if (end + 1) == self.vec.len() => {
+                let mut vec = self.vec.clone();
+                // Flip each bit until the first "one". This is
+                // similar to flipping all bits and adding one.
+                let begin = vec.first_one().unwrap();
+                for mut bit in vec.iter_mut().rev().take(end - begin) {
+                    *bit = !*bit
+                }
+                -get_unsigned_fixed_point(&Value { vec }, fractional_width)
+            }
+            // Either there are no set bits (zero) or this number is non-negative.
+            _ => get_unsigned_fixed_point(self, fractional_width),
+        }
     }
 
     /// Converts value into u128 type.
