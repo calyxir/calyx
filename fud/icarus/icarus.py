@@ -14,10 +14,12 @@ class IcarusBaseStage(Stage):
     Stage to run Verilog programs with Icarus Verilog
     """
 
+    name = "icarus-verilog"
+
     def __init__(self, is_vcd, desc, config):
         super().__init__(
-            name="icarus-verilog",
-            target_stage="vcd" if is_vcd else "dat",
+            src_state="icarus-verilog",
+            target_state="vcd" if is_vcd else "dat",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             config=config,
@@ -170,6 +172,8 @@ class FutilToIcarus(futil.FutilStage):
     """
     Stage to transform Calyx into icarus-verilog simulatable Verilog
     """
+
+    # No name since FutilStage already defines names
 
     def __init__(self, config):
         super().__init__(

@@ -22,7 +22,8 @@ programs.
 ```
 
 External stages *must* define default values for configuration keys using the
-`Stage.defaults()` static method.
+`Stage.defaults()` static method and the name of the stage using the static
+`name` field.
 
 ## Stage Configuration
 

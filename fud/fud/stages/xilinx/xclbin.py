@@ -8,14 +8,16 @@ from fud.utils import TmpDir
 
 
 class XilinxStage(Stage):
+    name = "xclbin"
+
     def __init__(self, config):
         super().__init__(
-            "futil",
-            "xclbin",
-            SourceType.Path,
-            SourceType.Stream,
-            config,
-            "compiles Calyx programs to Xilinx bitstreams",
+            src_state="futil",
+            target_state="xclbin",
+            input_type=SourceType.Path,
+            output_type=SourceType.Stream,
+            config=config,
+            description="compiles Calyx programs to Xilinx bitstreams",
         )
 
         # tcl files
@@ -34,12 +36,12 @@ class XilinxStage(Stage):
         )
 
         # remote execution
-        self.ssh_host = self.config["stages", self.target_stage, "ssh_host"]
-        self.ssh_user = self.config["stages", self.target_stage, "ssh_username"]
-        self.temp_location = self.config["stages", self.target_stage, "temp_location"]
+        self.ssh_host = self.config["stages", self.name, "ssh_host"]
+        self.ssh_user = self.config["stages", self.name, "ssh_username"]
+        self.temp_location = self.config["stages", self.name, "temp_location"]
 
-        self.mode = self.config["stages", self.target_stage, "mode"]
-        self.device = self.config["stages", self.target_stage, "device"]
+        self.mode = self.config["stages", self.name, "mode"]
+        self.device = self.config["stages", self.name, "device"]
 
         self.setup()
 
@@ -67,7 +69,7 @@ class XilinxStage(Stage):
         @self.step()
         def compile_xilinx(inp: SourceType.Stream) -> SourceType.Path:
             """
-            TODO: write
+            Generate AXI controller to interface with the Calyx kernel.
             """
             return (
                 self.xilinx_futil.run(Source(inp, SourceType.Stream))
@@ -79,7 +81,7 @@ class XilinxStage(Stage):
         @self.step()
         def compile_xml(inp: SourceType.Stream) -> SourceType.Path:
             """
-            TODO: write
+            Generate XML configuration from Calyx input.
             """
             return (
                 self.xml_futil.run(Source(inp, SourceType.Stream))
@@ -91,7 +93,7 @@ class XilinxStage(Stage):
         @self.step()
         def compile_kernel(inp: SourceType.Stream) -> SourceType.Path:
             """
-            TODO: write
+            Compile Calyx program to synthesizable Verilog for Xilinx tools.
             """
             return (
                 self.kernel_futil.run(Source(inp, SourceType.Stream))
@@ -201,7 +203,7 @@ class XilinxStage(Stage):
             """
             Close SSH Connection and cleanup temporaries.
             """
-            if self.config["stages", self.target_stage, "save_temps"] is None:
+            if self.config["stages", self.name, "save_temps"] is None:
                 client.exec_command("rm -r {tmpdir}")
             else:
                 print(tmpdir)

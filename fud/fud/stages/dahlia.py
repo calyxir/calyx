@@ -3,14 +3,16 @@ from fud.utils import shell, unwrap_or
 
 
 class DahliaStage(Stage):
+    name = "dahlia"
+
     def __init__(self, config, dest, flags, descr):
         super().__init__(
-            "dahlia",
-            dest,
-            SourceType.Path,
-            SourceType.Stream,
-            config,
-            descr,
+            src_state="dahlia",
+            target_state=dest,
+            input_type=SourceType.Path,
+            output_type=SourceType.Stream,
+            config=config,
+            description=descr,
         )
         self.flags = flags
         self.setup()
