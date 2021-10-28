@@ -524,14 +524,17 @@ impl Value {
         );
         match self.vec.last_one() {
             Some(end) if (end + 1) == self.vec.len() => {
-                let mut vec = self.vec.clone();
+                let mut vec = self.clone_bit_vec();
                 // Flip each bit until the first "one". This is
                 // similar to flipping all bits and adding one.
                 let begin = vec.first_one().unwrap();
                 for mut bit in vec.iter_mut().rev().take(end - begin) {
                     *bit = !*bit
                 }
-                -get_unsigned_fixed_point(&Value { vec }, fractional_width)
+                -get_unsigned_fixed_point(
+                    &Value::from_bv(vec),
+                    fractional_width,
+                )
             }
             // Either there are no set bits (zero) or this number is non-negative.
             _ => get_unsigned_fixed_point(self, fractional_width),
