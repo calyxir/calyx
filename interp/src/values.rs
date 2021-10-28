@@ -503,7 +503,7 @@ impl Value {
     /// ```
     pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
         assert!(
-            self.unsigned_value_fits_in(64),
+            Value::unsigned_value_fits_in(&self.vec, 64),
             "unsigned fixed point is supported up to 64 bits. Open an issue if you require more."
         );
         get_unsigned_fixed_point(self, fractional_width)
@@ -519,7 +519,7 @@ impl Value {
     /// ```
     pub fn as_sfp(&self, fractional_width: usize) -> Fraction {
         assert!(
-            self.signed_value_fits_in(64),
+            Value::signed_value_fits_in(&self.vec, 64),
             "signed fixed point is supported up to 64 bits. Open an issue if you require more."
         );
         match self.vec.last_one() {
