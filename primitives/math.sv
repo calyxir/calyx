@@ -16,9 +16,11 @@ module fp_sqrt #(
     logic [WIDTH-1:0] quotient, quotient_next;
     logic [WIDTH+1:0] acc, acc_next;
     logic [WIDTH+1:0] tmp;
-    logic start, finished;
+    logic start, running, finished;
     
-    reg running = 1'b0;
+    initial begin
+      running = 0;
+    end
 
     assign start = go && !running;
     /* verilator lint_off WIDTH */
