@@ -161,27 +161,29 @@ def register_external_stages(cfg, registry):
         2. Keys defined in the configuration
     """
 
-    for (stage, attrs) in cfg[["stages"]].items():
-        if attrs.get("external"):
-            mod = external.validate_external_stage(stage, cfg)
+    # No externals to load.
+    if not ["externals"] in cfg:
+        return
 
-            # register the discovered stages
-            for stage_class in mod.__STAGES__:
-                try:
-                    registry.register(stage_class(cfg))
-                except Exception as e:
-                    location = cfg["stages", stage, "location"]
-                    raise errors.InvalidExternalStage(
-                        stage,
-                        "\n".join(
-                            [
-                                f"In {stage_class.__name__} from '{location}':",
-                                "```",
-                                str(e),
-                                "```",
-                            ]
-                        ),
-                    )
+    for (ext, location) in cfg[["externals"]].items():
+        mod = external.validate_external_stage(ext, cfg)
+
+        # register the discovered stages
+        for stage_class in mod.__STAGES__:
+            try:
+                registry.register(stage_class(cfg))
+            except Exception as e:
+                raise errors.InvalidExternalStage(
+                    ext,
+                    "\n".join(
+                        [
+                            f"In {stage_class.name} from '{location}':",
+                            "```",
+                            str(e),
+                            "```",
+                        ]
+                    ),
+                )
 
 
 def display_config(args, cfg):

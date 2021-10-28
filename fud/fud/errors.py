@@ -71,8 +71,8 @@ class NoPathFound(FudError):
     def __init__(self, source, destination, through):
         msg = (
             f"No way to convert input in stage `{source}' to "
-            + f"stage `{destination}'"
-            + f"that go through stages {', '.join(through)}"
+            + f"stage `{destination}' "
+            + f"that go through stage(s) {', '.join(through)}"
             if len(through) > 0
             else ""
         )
@@ -224,4 +224,15 @@ class InvalidExternalStage(FudError):
     def __init__(self, stage_name, msg):
         msg = f"""Unable to load external stage: {stage_name}
 {msg}"""
+        super().__init__(msg)
+
+
+class FudRegisterError(FudError):
+    """
+    An error raised when an external stage is not valid.
+    """
+
+    def __init__(self, msg, stage_name=None):
+        name = f" `{stage_name}'" if stage_name is not None else ""
+        msg = f"""Failed to register`{name}': {msg}"""
         super().__init__(msg)

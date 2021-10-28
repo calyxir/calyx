@@ -7,10 +7,12 @@ class MrXLStage(Stage):
     Stage that invokes the MrXL frontend.
     """
 
+    name = "mrxl"
+
     def __init__(self, config):
         super().__init__(
-            name="mrxl",
-            target_stage="futil",
+            src_state="mrxl",
+            target_state="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             config=config,
