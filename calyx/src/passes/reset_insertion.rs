@@ -30,20 +30,18 @@ impl Visitor for ResetInsertion {
 
         for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
-            if cell.get_attribute("generated").is_some() {
-                if let Some(port) = cell.find_with_attr("reset") {
-                    builder.component.continuous_assignments.push(
-                        builder.build_assignment(
-                            port,
-                            builder
-                                .component
-                                .signature
-                                .borrow()
-                                .get_with_attr("reset"),
-                            ir::Guard::True,
-                        ),
-                    )
-                }
+            if let Some(port) = cell.find_with_attr("reset") {
+                builder.component.continuous_assignments.push(
+                    builder.build_assignment(
+                        port,
+                        builder
+                            .component
+                            .signature
+                            .borrow()
+                            .get_with_attr("reset"),
+                        ir::Guard::True,
+                    ),
+                )
             }
         }
 
