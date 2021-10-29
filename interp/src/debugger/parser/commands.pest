@@ -4,6 +4,7 @@ ident_syms = _{ "_" | "-" | "'" }
 num = {ASCII_DIGIT+}
 
 
+
 identifier = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
 group = {(identifier | identifier ~ "::" ~ identifier)}
@@ -21,27 +22,28 @@ help = {
 display = { ^"display" | ^"d" }
 info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
 
-brk = { (^"break" | ^"br") ~ group+ }
+brk = { (^"break" | ^"br") ~ group* }
 brk_id = { (group | num) }
 
-delete = { (^"delete" | ^"del") ~ brk_id+ }
+delete = { (^"delete" | ^"del") ~ brk_id* }
 
-enable = { ^"enable" ~ brk_id+ }
-disable = { ^"disable" ~ brk_id+ }
+enable = { (^"enable") ~ brk_id* }
+disable = { (^"disable") ~ brk_id* }
 
 command = {
     SOI ~
     (
      print
-     | step
-     | cont
-     | help
-     | display
-     | brk
-     | info_break
      | delete
+     | brk
      | enable
      | disable
+     | step
+     // commands without input
+     | cont
+     | help
+     | info_break
+     | display
     )
     ~ EOI
 }

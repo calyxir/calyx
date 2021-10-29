@@ -100,12 +100,12 @@ impl CommandParser {
             [step(s), EOI] => s,
             [cont(c), EOI] => c,
             [help(h), EOI] => h,
-            [display(d), EOI] => d,
+            [display(disp), EOI] => disp,
             [brk(b), EOI] => b,
             [info_break(ib), EOI] => ib,
-            [delete(d), EOI] => d,
+            [delete(del), EOI] => del,
             [enable(e), EOI] => e,
-            [disable(d), EOI] => d
+            [disable(dis), EOI] => dis
         ))
     }
 }
