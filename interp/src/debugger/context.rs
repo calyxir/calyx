@@ -1,6 +1,6 @@
 use super::cidr::SPACING;
+use super::parser::{BreakPointId, GroupName};
 use calyx::ir;
-
 struct BreakPoint {
     id: u64,
     name: String, // Name of the group
@@ -54,24 +54,47 @@ impl DebuggingContext {
         }
     }
 
-    pub fn remove_breakpoint(&mut self, target: String) {
-        self.breakpoints.retain(|x| x.name != target)
+    pub fn remove_breakpoint(&mut self, target: &BreakPointId) {
+        match target {
+            BreakPointId::Name(name) => self.remove_breakpoint_by_name(name),
+            BreakPointId::Number(num) => self.remove_breakpoint_by_number(*num),
+        }
     }
 
-    pub fn remove_breakpoint_by_number(&mut self, target: u64) {
+    pub fn enable_breakpoint(&mut self, target: &BreakPointId) {
+        match target {
+            BreakPointId::Name(name) => self.remove_breakpoint_by_name(name),
+            BreakPointId::Number(num) => self.remove_breakpoint_by_number(*num),
+        }
+    }
+
+    pub fn disable_breakpoint(&mut self, target: &BreakPointId) {
+        match target {
+            BreakPointId::Name(name) => self.disable_breakpoint_by_name(name),
+            BreakPointId::Number(num) => self.disable_breakpoint_by_num(*num),
+        }
+    }
+
+    fn remove_breakpoint_by_name(&mut self, target: &GroupName) {
+        // TODO (Griffin): Fix this
+        self.breakpoints.retain(|x| target[0] != x.name)
+    }
+
+    fn remove_breakpoint_by_number(&mut self, target: u64) {
         self.breakpoints.retain(|x| x.id != target)
     }
 
-    pub fn enable_breakpoint(&mut self, target: &str) {
+    fn enable_breakpoint_by_name(&mut self, target: &GroupName) {
         for x in self.breakpoints.iter_mut() {
-            if x.name == target {
+            // TODO (Griffin): Fix this
+            if target[0] == x.name {
                 x.enable();
                 break;
             }
         }
     }
 
-    pub fn enable_breakpoint_by_num(&mut self, target: u64) {
+    fn enable_breakpoint_by_num(&mut self, target: u64) {
         for x in self.breakpoints.iter_mut() {
             if x.id == target {
                 x.enable();
@@ -80,16 +103,17 @@ impl DebuggingContext {
         }
     }
 
-    pub fn disable_breakpoint(&mut self, target: &str) {
+    fn disable_breakpoint_by_name(&mut self, target: &GroupName) {
         for x in self.breakpoints.iter_mut() {
-            if x.name == target {
+            // TODO (Griffin): Fix this
+            if target[0] == x.name {
                 x.disable();
                 break;
             }
         }
     }
 
-    pub fn disable_breakpoint_by_num(&mut self, target: u64) {
+    fn disable_breakpoint_by_num(&mut self, target: u64) {
         for x in self.breakpoints.iter_mut() {
             if x.id == target {
                 x.disable();

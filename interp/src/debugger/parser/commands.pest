@@ -1,0 +1,47 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+dot = _{"."}
+ident_syms = _{ "_" | "-" | "'" }
+num = {ASCII_DIGIT+}
+
+
+identifier = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
+
+group = {(identifier | identifier ~ "::" ~ identifier)}
+
+print = {
+    (^"print" | ^"p") ~ identifier ~ (dot ~ identifier)*
+}
+step = { (^"step" | ^"s") }
+cont = {
+    (^"continue" | ^"c")
+}
+help = {
+    (^"help" | ^"h")
+}
+display = { ^"display" | ^"d" }
+info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
+
+brk = { (^"break" | ^"br") ~ group+ }
+brk_id = { (group | num) }
+
+delete = { (^"delete" | ^"del") ~ brk_id+ }
+
+enable = { ^"enable" ~ brk_id+ }
+disable = { ^"disable" ~ brk_id+ }
+
+command = {
+    SOI ~
+    (
+     print
+     | step
+     | cont
+     | help
+     | display
+     | brk
+     | info_break
+     | delete
+     | enable
+     | disable
+    )
+    ~ EOI
+}

@@ -2,9 +2,9 @@ use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
+use super::parser::Command;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
@@ -94,10 +94,16 @@ impl Debugger {
                     println!("{}", state.state_as_str());
                 }
                 Command::Print(mut print_list) => {
-                    let orig_string = print_list.join(".");
+                    let orig_string = print_list
+                        .iter()
+                        .map(|s| s.id.clone())
+                        .collect::<Vec<_>>()
+                        .join(".");
                     if self.main_component.name == print_list[0] {
                         print_list.remove(0);
                     }
+
+                    println!("{:?}", print_list);
 
                     let mut current_target =
                         CurrentTarget::Env(&component_interpreter);
@@ -141,11 +147,7 @@ impl Debugger {
                                     print_port(
                                         &port,
                                         &current_env,
-                                        Some(
-                                            (&print_list[idx - 1])
-                                                .as_str()
-                                                .into(),
-                                        ),
+                                        Some(print_list[idx - 1].clone()),
                                     );
                                 } else {
                                     // cannot find
@@ -191,39 +193,40 @@ impl Debugger {
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
-                Command::Break(target) => {
-                    if self
-                        .context
-                        .iter()
-                        .any(|x| x.groups.find(&target).is_some())
-                    {
-                        self.debugging_ctx.add_breakpoint(target)
-                    } else {
-                        println!(
-                            "{}There is no group named: {}",
-                            SPACING, target
-                        )
+                Command::Break(targets) => {
+                    for target in targets {
+                        if self
+                            .context
+                            .iter()
+                            .any(|x| x.groups.find(&target[0]).is_some())
+                        {
+                            self.debugging_ctx
+                                .add_breakpoint(target[0].to_string())
+                        } else {
+                            println!(
+                                "{}There is no group named: {}",
+                                SPACING, target[0]
+                            )
+                        }
                     }
                 }
                 Command::Exit => return Err(InterpreterError::Exit),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
-                Command::DelBreakpointByNum(target) => {
-                    self.debugging_ctx.remove_breakpoint_by_number(target)
+                Command::Delete(target) => {
+                    for t in target {
+                        self.debugging_ctx.remove_breakpoint(&t)
+                    }
                 }
-                Command::DelBreakpointByName(target) => {
-                    self.debugging_ctx.remove_breakpoint(target)
+
+                Command::Disable(targets) => {
+                    for t in targets {
+                        self.debugging_ctx.disable_breakpoint(&t)
+                    }
                 }
-                Command::EnableBreakpointByNum(target) => {
-                    self.debugging_ctx.enable_breakpoint_by_num(target)
-                }
-                Command::EnableBreakpointByName(target) => {
-                    self.debugging_ctx.enable_breakpoint(&target)
-                }
-                Command::DisableBreakpointByNum(target) => {
-                    self.debugging_ctx.disable_breakpoint_by_num(target)
-                }
-                Command::DisableBreakpointByName(target) => {
-                    self.debugging_ctx.disable_breakpoint(&target)
+                Command::Enable(targets) => {
+                    for t in targets {
+                        self.debugging_ctx.enable_breakpoint(&t)
+                    }
                 }
             }
 
