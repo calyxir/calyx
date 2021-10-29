@@ -8,6 +8,7 @@ extern "math.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) in: WIDTH
   ) -> (
@@ -19,6 +20,7 @@ extern "math.sv" {
     WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) in: WIDTH
   ) -> (

@@ -25,7 +25,7 @@ component main() -> () {
   control {
     seq {
       save_temporary;
-      invoke s(in=t.out)();
+      invoke s(in=t.out, reset=1'd1)();
       save_sqrt;
     }
   }
