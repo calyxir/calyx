@@ -95,7 +95,7 @@ impl Debugger {
                 }
                 Command::Print(print_list) => {
                     if print_list.is_none() {
-                        println!("Error: Print command requires a target");
+                        println!("Error: command requires a target");
                         continue;
                     }
 
@@ -204,6 +204,11 @@ impl Debugger {
                     print!("{}", Command::get_help_string())
                 }
                 Command::Break(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+
                     for target in targets {
                         if self
                             .context
@@ -222,18 +227,30 @@ impl Debugger {
                 }
                 Command::Exit => return Err(InterpreterError::Exit),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
-                Command::Delete(target) => {
-                    for t in target {
+                Command::Delete(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for t in targets {
                         self.debugging_ctx.remove_breakpoint(&t)
                     }
                 }
 
                 Command::Disable(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
                     for t in targets {
                         self.debugging_ctx.disable_breakpoint(&t)
                     }
                 }
                 Command::Enable(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
                     for t in targets {
                         self.debugging_ctx.enable_breakpoint(&t)
                     }
