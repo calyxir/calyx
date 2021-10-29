@@ -77,9 +77,9 @@ impl Command {
             Command::Empty | Command::Exit => unreachable!(), // This command needs no public facing help message
             Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"),
             Command::InfoBreak => (vec!["Info break"], "List all breakpoints"),
-            Command::Delete(_)=> (vec!["del"], "Delete target breakpoint"),
-            Command::Enable(_) => (vec!["enable"], "Enable target breakpoint"),
-            Command::Disable(_) => (vec!["disable"], "Disable target breakpoint"),
+            Command::Delete(_)=> (vec!["Delete","Del"], "Delete target breakpoint"),
+            Command::Enable(_) => (vec!["Enable"], "Enable target breakpoint"),
+            Command::Disable(_) => (vec!["Disable"], "Disable target breakpoint"),
         }
     }
 }
