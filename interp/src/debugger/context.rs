@@ -63,8 +63,8 @@ impl DebuggingContext {
 
     pub fn enable_breakpoint(&mut self, target: &BreakPointId) {
         match target {
-            BreakPointId::Name(name) => self.remove_breakpoint_by_name(name),
-            BreakPointId::Number(num) => self.remove_breakpoint_by_number(*num),
+            BreakPointId::Name(name) => self.enable_breakpoint_by_name(name),
+            BreakPointId::Number(num) => self.enable_breakpoint_by_num(*num),
         }
     }
 

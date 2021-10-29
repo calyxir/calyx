@@ -58,7 +58,7 @@ impl Debugger {
                 Err(e) => match &e {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_) => {
-                        println!("{:?}", e);
+                        println!("Error: {}", e);
                         continue;
                     }
                     _ => return Err(e),
@@ -93,7 +93,14 @@ impl Debugger {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::Print(mut print_list) => {
+                Command::Print(print_list) => {
+                    if print_list.is_none() {
+                        println!("Error: Print command requires a target");
+                        continue;
+                    }
+
+                    let mut print_list = print_list.unwrap();
+
                     let orig_string = print_list
                         .iter()
                         .map(|s| s.id.clone())
@@ -102,8 +109,6 @@ impl Debugger {
                     if self.main_component.name == print_list[0] {
                         print_list.remove(0);
                     }
-
-                    println!("{:?}", print_list);
 
                     let mut current_target =
                         CurrentTarget::Env(&component_interpreter);
@@ -118,7 +123,7 @@ impl Debugger {
                             let cell = current_env.get_cell(target);
                             if let Some(cell) = cell {
                                 print_cell(&cell, &current_env)
-                            } else {
+                            } else if idx != 0 {
                                 let prior = &print_list[idx - 1];
 
                                 if let Some(parent) =
@@ -156,6 +161,11 @@ impl Debugger {
                                         SPACING, orig_string
                                     )
                                 }
+                            } else {
+                                println!(
+                                    "{} Unable to locate '{}'",
+                                    SPACING, orig_string
+                                )
                             }
                         }
                         // still walking

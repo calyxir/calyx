@@ -27,8 +27,6 @@ impl Input {
 
         let result = self.buffer.readline(SHELL_PROMPT)?;
         self.buffer.add_history_entry(result.clone());
-        let mut comm = parse_command(&result).unwrap();
-
-        Ok(comm)
+        parse_command(&result)
     }
 }

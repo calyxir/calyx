@@ -1,4 +1,3 @@
-use crate::errors::{InterpreterError, InterpreterResult};
 use std::fmt::Write;
 use std::ops::Deref;
 
@@ -33,7 +32,7 @@ const HELP_LIST: [Command; 10] = [
     Command::Step,
     Command::Continue,
     Command::Display,
-    Command::Print(Vec::new()),
+    Command::Print(None),
     Command::Break(Vec::new()),
     Command::Help,
     Command::InfoBreak,
@@ -42,15 +41,15 @@ const HELP_LIST: [Command; 10] = [
     Command::Delete(Vec::new()),
 ];
 pub enum Command {
-    Step,                      // Step execution
-    Continue,                  // Execute until breakpoint
-    Empty,                     // Empty command, does nothing
-    Display,                   // Display full environment contents
-    Print(Vec<calyx::ir::Id>), // Print something
-    Break(Vec<GroupName>),     // Create a breakpoint
-    Help,                      // Help message
-    Exit,                      // Exit the debugger
-    InfoBreak,                 // List breakpoints
+    Step,                              // Step execution
+    Continue,                          // Execute until breakpoint
+    Empty,                             // Empty command, does nothing
+    Display,                           // Display full environment contents
+    Print(Option<Vec<calyx::ir::Id>>), // Print something
+    Break(Vec<GroupName>),             // Create a breakpoint
+    Help,                              // Help message
+    Exit,                              // Exit the debugger
+    InfoBreak,                         // List breakpoints
     Disable(Vec<BreakPointId>),
     Enable(Vec<BreakPointId>),
     Delete(Vec<BreakPointId>),

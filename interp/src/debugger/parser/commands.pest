@@ -12,6 +12,11 @@ group = {(identifier | identifier ~ "::" ~ identifier)}
 print = {
     (^"print" | ^"p") ~ identifier ~ (dot ~ identifier)*
 }
+
+print_fail = {
+    (^"print" | ^"p")
+}
+
 step = { (^"step" | ^"s") }
 cont = {
     (^"continue" | ^"c")
@@ -30,10 +35,13 @@ delete = { (^"delete" | ^"del") ~ brk_id* }
 enable = { (^"enable") ~ brk_id* }
 disable = { (^"disable") ~ brk_id* }
 
+exit = { ^"exit" }
+
 command = {
     SOI ~
     (
      print
+     | print_fail
      | delete
      | brk
      | enable
@@ -44,6 +52,7 @@ command = {
      | help
      | info_break
      | display
-    )
+     | exit
+    )?
     ~ EOI
 }
