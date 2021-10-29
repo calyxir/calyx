@@ -9,8 +9,10 @@ identifier = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)*
 
 group = {(identifier | identifier ~ "::" ~ identifier)}
 
+name = { identifier ~ (dot ~ identifier)* }
+
 print = {
-    (^"print" | ^"p") ~ identifier ~ (dot ~ identifier)*
+    (^"print" | ^"p") ~ name+
 }
 
 print_fail = {

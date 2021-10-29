@@ -76,9 +76,15 @@ impl CommandParser {
         ))
     }
 
+    fn name(input: Node) -> Result<Vec<Id>> {
+        Ok(match_nodes!(input.into_children();
+                [identifier(ident)..] => ident.collect()
+        ))
+    }
+
     fn print(input: Node) -> Result<Command> {
         Ok(match_nodes!(input.into_children();
-                [identifier(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()))
+                [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()))
         ))
     }
 
