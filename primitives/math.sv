@@ -17,25 +17,18 @@ module fp_sqrt #(
     logic [WIDTH-1:0] quotient, quotient_next;
     logic [WIDTH+1:0] acc, acc_next;
     logic [WIDTH+1:0] tmp;
-    logic start, finished;
+    logic start, running, finished;
 
     assign start = go && !running;
     /* verilator lint_off WIDTH */
     assign finished = (idx == (ITERATIONS - 1));
 
-    /* verilator lint_off MULTIDRIVEN */
-    logic running;
-    always_ff @(posedge reset) begin
-      if (reset) running <= 0;
-      else running <= running;
-    end
-
     always_ff @(posedge clk) begin
-      if (start) running <= 1;
+      if (reset) running <= 0;
+      else if (start) running <= 1;
       else if (finished) running <= 0;
       else running <= running;
     end
-    /* verilator lint_on MULTIDRIVEN */
 
     always_comb begin
       tmp = acc - {quotient, 2'b01};
