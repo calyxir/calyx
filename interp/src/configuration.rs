@@ -2,6 +2,9 @@ use lazy_static::*;
 use std::sync::RwLock;
 
 lazy_static! {
+    /// Global configuration object which stores the current configuration options for
+    /// simulation and debugging. It is behind a RW lock but is largely meant to be
+    /// read-only after simulation has begun.
     pub static ref SETTINGS: RwLock<Config> = RwLock::new(Config::default());
 }
 pub struct Config {
