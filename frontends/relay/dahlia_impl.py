@@ -376,7 +376,8 @@ def conv2d(fd: DahliaFuncDef) -> str:
     kernel_size = fd.attributes.get_int_tuple("kernel_size")
     size0, size1, size2, size3 = res.comp.args[1:5]
 
-    channels = fd.attributes.get_int("channels") or size1
+    # If no channels provided, inferred from second dimension of the data.
+    channels = fd.attributes.get_int("channels") or weight.comp.args[3]
 
     return emit_dahlia_definition(
         fd,

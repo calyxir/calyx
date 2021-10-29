@@ -1,0 +1,5 @@
+v0.0.4
+fn (%data: Tensor[(1, 2, 2, 2), int32], %weight: Tensor[(2, 2, 2, 6), int32]) {
+  let %x = nn.conv2d(%data, %weight, kernel_size=[2,2]);
+  %x
+}
