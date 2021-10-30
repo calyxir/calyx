@@ -66,12 +66,13 @@ module fp_sqrt #(
     end
 
     always_ff @(posedge clk) begin
-      if (finished)
+      if (finished) begin
         done <= 1;
         out <= quotient_next;
-      else
+      end else begin
         done <= 0;
         out <= out;
+      end
     end
 
 endmodule
