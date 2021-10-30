@@ -88,6 +88,13 @@ pub enum InterpreterError {
     InvalidGroupExitNamed(Id),
     #[error("the interpreter attempted to exit a phantom group before it finished. This should never happen, please report it")]
     InvalidGroupExitUnnamed,
+
+    #[error("invalid memory access. Given index ({}) but memory has dimension ({})", access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), dims.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
+    InvalidMemoryAccess { access: Vec<u64>, dims: Vec<u64> },
+
+    // TODO (Griffin): Make this error message better please
+    #[error("Computation has under/overflowed its bounds")]
+    OverflowError(),
 }
 
 impl InterpreterError {

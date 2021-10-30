@@ -451,13 +451,13 @@ impl InterpreterState {
             }
             ir::Guard::Port(p) => {
                 let val = self.get_from_port(&p.borrow());
-                if val.vec.len() != 1 {
+                if val.len() != 1 {
                     return Err(InterpreterError::InvalidBoolCast(
                         p.borrow().canonical(),
                         p.borrow().width,
                     ));
                 } else {
-                    val.as_u64() == 1
+                    val.as_bool()
                 }
             }
             ir::Guard::True => true,
