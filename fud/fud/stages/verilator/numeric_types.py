@@ -36,12 +36,13 @@ class NumericType:
             )
         # Some backends may use `x` to represent an uninitialized digit, e.g. `0bxxxx`.
         # Since this cannot be properly translated into a number, returns error.
+        value = value.strip()
         stripped_prefix = value[2:] if value.startswith("0x") else value
         if any(digit == "x" for digit in stripped_prefix):
             raise InvalidNumericType(
-                f"Tried to parse value: {value} with width: {width}, which is uninitialized."
+                f"Tried to parse value: {value} "
+                f"with width: {width}, which is uninitialized."
             )
-        value = value.strip()
         self.width = width
         self.is_signed = is_signed
 
