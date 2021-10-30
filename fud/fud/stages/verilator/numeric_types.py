@@ -30,9 +30,16 @@ class NumericType:
                 f"The value: {value} of type: "
                 f"{type(value)} should be a non-empty string."
             )
-        if value.startswith("-") and not is_signed:
+        elif value.startswith("-") and not is_signed:
             raise InvalidNumericType(
-                f"A negative value was provided: {value}, " f"and `is_signed` is False."
+                f"A negative value was provided: {value}, and `is_signed` is False."
+            )
+        # Some backends may values uninitialized numbers with `x`, e.g. `0bxxxx`.
+        # Since this cannot be properly translated into a number, returns error.
+        stripped_prefix = value[2:] if value.startswith("0x") else value
+        if any(digit == "x" for digit in stripped_prefix):
+            raise InvalidNumericType(
+                f"Tried to parse value: {value} with width: {width}, which is uninitialized."
             )
         value = value.strip()
         self.width = width
