@@ -23,11 +23,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     A0.clk = clk;
     A_read0_0.clk = clk;
     A_read0_0.in = !(pd.out | A_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? A0.read_data;
+    A_read0_0.reset = reset;
     A_read0_0.write_en = !(pd.out | A_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? 1'd1;
     B0.addr0 = !(pd0.out | B_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? i0.out;
     B0.clk = clk;
     B_read0_0.clk = clk;
     B_read0_0.in = !(pd0.out | B_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? B0.read_data;
+    B_read0_0.reset = reset;
     B_read0_0.write_en = !(pd0.out | B_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? 1'd1;
     Sum0.addr0 = pd.out & pd0.out & fsm.out == 3'd2 & go | !Sum0.done & fsm.out == 3'd3 & go ? i0.out;
     Sum0.clk = clk;
@@ -55,6 +57,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     i0.clk = clk;
     i0.in = Sum0.done & fsm.out == 3'd3 & go | !i0.done & fsm.out == 3'd4 & go ? add1.out;
     i0.in = !i0.done & fsm.out == 3'd0 & go ? const0.out;
+    i0.reset = reset;
     i0.write_en = !i0.done & fsm.out == 3'd0 & go | Sum0.done & fsm.out == 3'd3 & go | !i0.done & fsm.out == 3'd4 & go ? 1'd1;
     le0.left = i0.done & fsm.out == 3'd0 & go | !comb_reg.done & fsm.out == 3'd1 & go | i0.done & fsm.out == 3'd4 & go | !comb_reg.done & fsm.out == 3'd5 & go ? i0.out;
     le0.right = i0.done & fsm.out == 3'd0 & go | !comb_reg.done & fsm.out == 3'd1 & go | i0.done & fsm.out == 3'd4 & go | !comb_reg.done & fsm.out == 3'd5 & go ? const1.out;
