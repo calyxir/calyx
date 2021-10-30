@@ -105,7 +105,7 @@ fn eval_if(
             interpret_comb_group(Rc::clone(comb), continuous_assignments, env)?;
     }
 
-    let cond_flag = env.get_from_port(&i.port.borrow()).as_u64();
+    let cond_flag = env.get_from_port(&i.port.borrow()).as_bool();
     if let Some(comb) = &i.cond {
         env = finish_comb_group_interpretation(
             &comb.borrow(),
@@ -114,11 +114,7 @@ fn eval_if(
         )?;
     }
 
-    let target = if cond_flag == 0 {
-        &i.fbranch
-    } else {
-        &i.tbranch
-    };
+    let target = if !cond_flag { &i.fbranch } else { &i.tbranch };
 
     interpret_control(target, continuous_assignments, env, comp)
 }
@@ -143,7 +139,7 @@ fn eval_while(
             )?;
         }
 
-        let cond_val = env.get_from_port(&w.port.borrow()).as_u64();
+        let cond_val = env.get_from_port(&w.port.borrow()).as_bool();
 
         if let Some(comb) = &w.cond {
             env = finish_comb_group_interpretation(
@@ -153,7 +149,7 @@ fn eval_while(
             )?;
         }
 
-        if cond_val == 0 {
+        if !cond_val {
             break;
         }
 

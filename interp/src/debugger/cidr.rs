@@ -124,7 +124,7 @@ impl Debugger {
                                         .iter()
                                         .find(|x| x.borrow().name == target);
                                     if let Some(port) = pt {
-                                        print_port(port, &current_env)
+                                        print_port(port, &current_env, None)
                                     } else {
                                         // cannot find
                                         println!(
@@ -132,6 +132,21 @@ impl Debugger {
                                             SPACING, orig_string
                                         )
                                     }
+                                } else if let Some(port) = current_env
+                                    .get_comp()
+                                    .signature
+                                    .borrow()
+                                    .find(target)
+                                {
+                                    print_port(
+                                        &port,
+                                        &current_env,
+                                        Some(
+                                            (&print_list[idx - 1])
+                                                .as_str()
+                                                .into(),
+                                        ),
+                                    );
                                 } else {
                                     // cannot find
                                     println!(
@@ -233,9 +248,17 @@ fn print_cell(target: &RRC<ir::Cell>, state: &StateView) {
     }
 }
 
-fn print_port(target: &RRC<ir::Port>, state: &StateView) {
+fn print_port(
+    target: &RRC<ir::Port>,
+    state: &StateView,
+    prior_name: Option<ir::Id>,
+) {
     let port_ref = target.borrow();
-    let parent_name = port_ref.get_parent_name();
+    let parent_name = if let Some(prior) = prior_name {
+        prior
+    } else {
+        port_ref.get_parent_name()
+    };
 
     println!(
         "{}{}.{} = {}",

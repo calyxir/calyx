@@ -146,7 +146,7 @@ impl AssignmentInterpreter {
                     .get_mut(&(&cell.borrow() as &Cell as ConstCell))
                 {
                     let new_vals = x.do_tick();
-                    for (port, val) in new_vals {
+                    for (port, val) in new_vals? {
                         let port_ref = cell.borrow().find(port).unwrap();
 
                         update_list.push((Rc::clone(&port_ref), val));
@@ -243,7 +243,7 @@ impl AssignmentInterpreter {
                 let old_val_width = old_val.width(); //&assignment.dst.borrow().width()
                 let new_val = Value::from(0, old_val_width);
 
-                if old_val.as_u64() != 0 {
+                if old_val.as_unsigned() != 0_u32.into() {
                     self.val_changed = Some(true);
                 }
 
@@ -256,7 +256,8 @@ impl AssignmentInterpreter {
                 self.state.insert(port, value);
             }
 
-            let changed = eval_prims(&mut self.state, self.cells.iter(), false);
+            let changed =
+                eval_prims(&mut self.state, self.cells.iter(), false)?;
             if changed {
                 self.val_changed = Some(true);
             }
