@@ -21,7 +21,7 @@ module fp_sqrt #(
 
     assign start = go && !running;
     /* verilator lint_off WIDTH */
-    assign finished = (ITERATIONS - 1) == idx;
+    assign finished = (ITERATIONS - 1) == idx && running;
 
     always_ff @(posedge clk) begin
       if (reset || finished)
