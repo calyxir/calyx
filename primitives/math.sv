@@ -31,8 +31,7 @@ module fp_sqrt #(
       else
         running <= running;
     end
-
-    // Current index value.
+.
     always_ff @(posedge clk) begin
       if (start)
         idx <= 0;
@@ -66,7 +65,6 @@ module fp_sqrt #(
       end
     end
 
-    // Done condition.
     always_ff @(posedge clk) begin
       if (finished)
         done <= 1;
@@ -74,7 +72,6 @@ module fp_sqrt #(
         done <= 0;
     end
 
-    // Latch for final value.
     always_ff @(posedge clk) begin
       if (finished)
         out <= quotient_next;
