@@ -30,6 +30,11 @@ impl Visitor for ResetInsertion {
 
         for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
+            if cell.get_attribute("external").is_some() {
+                // External cells should not have their state reset,
+                // since we assume they may be initialized.
+                continue;
+            }
             if let Some(port) = cell.find_with_attr("reset") {
                 builder.component.continuous_assignments.push(
                     builder.build_assignment(
