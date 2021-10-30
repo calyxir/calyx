@@ -21,7 +21,7 @@ pub fn get_go_port(group: &ir::Group) -> RRC<ir::Port> {
 
 #[inline]
 pub fn is_signal_high(done: &Value) -> bool {
-    done.as_u64() == 1
+    done.as_bool()
 }
 
 pub fn get_dest_cells<'a, I>(

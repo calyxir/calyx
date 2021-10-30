@@ -172,7 +172,7 @@ pub(crate) fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
     env: &mut InterpreterState,
     exec_list: I,
     reset_flag: bool, // reset vals or execute normally
-) -> bool {
+) -> InterpreterResult<bool> {
     let mut val_changed = false;
     // split mutability
     // TODO: change approach based on new env, once ready
@@ -193,7 +193,7 @@ pub(crate) fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
                 prim.execute(&inputs)
             };
 
-            for (port, val) in new_vals {
+            for (port, val) in new_vals? {
                 let port_ref = cell.borrow().find(port).unwrap();
 
                 let current_val = env.get_from_port(&port_ref.borrow());
@@ -211,7 +211,7 @@ pub(crate) fn eval_prims<'a, 'b, I: Iterator<Item = &'b RRC<ir::Cell>>>(
         env.insert(port, val);
     }
 
-    val_changed
+    Ok(val_changed)
 }
 
 fn get_inputs<'a>(
@@ -265,7 +265,7 @@ pub(crate) fn finish_interpretation<
         env.insert(done_signal.as_raw(), Value::bit_low());
     }
 
-    eval_prims(&mut env, cells.iter(), true);
+    eval_prims(&mut env, cells.iter(), true)?;
 
     Ok(env)
 }

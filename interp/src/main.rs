@@ -39,6 +39,15 @@ pub struct Opts {
     /// note: the interpreter will not behave correctly on malformed input
     skip_verification: bool,
 
+    #[argh(switch, long = "allow-invalid-memory-access")]
+    /// enables "sloppy" memory access which returns zero when passed an invalid index
+    /// rather than erroring
+    allow_invalid_memory_access: bool,
+
+    #[argh(switch, long = "error-on-overflow")]
+    /// upgrades [over | under]flow warnings to errors
+    error_on_overflow: bool,
+
     #[argh(subcommand)]
     comm: Option<Command>,
 }
@@ -86,6 +95,27 @@ fn print_res(
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
+    // TODO (Griffin): add some of the config flags to CLI
+    stderrlog::new()
+        .module(module_path!())
+        .quiet(false)
+        .verbosity(1) // warnings
+        .timestamp(stderrlog::Timestamp::Off)
+        .init()
+        .unwrap();
+
+    {
+        // get read access to the settings
+        let mut write_lock = interp::SETTINGS.write().unwrap();
+        if opts.allow_invalid_memory_access {
+            write_lock.allow_invalid_memory_access = true;
+        }
+        if opts.error_on_overflow {
+            write_lock.error_on_overflow = true;
+        }
+        // release lock
+    }
+
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
     let mut ctx = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
@@ -94,6 +124,8 @@ fn main() -> InterpreterResult<()> {
     if !opts.skip_verification {
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[])?;
     }
+
+    let entry_point = ctx.entrypoint;
 
     let components: iir::ComponentCtx = Rc::new(
         ctx.components
@@ -104,7 +136,7 @@ fn main() -> InterpreterResult<()> {
 
     let main_component = components
         .iter()
-        .find(|&cm| cm.name == "main")
+        .find(|&cm| cm.name == entry_point)
         .ok_or(InterpreterError::MissingMainComponent)?;
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
