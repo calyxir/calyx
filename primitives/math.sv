@@ -21,13 +21,23 @@ module fp_sqrt #(
 
     assign start = go && !running;
     /* verilator lint_off WIDTH */
-    assign finished = (idx == (ITERATIONS - 1));
+    assign finished = (ITERATIONS - 1) == idx;
 
     always_ff @(posedge clk) begin
-      if (reset) running <= 0;
-      else if (start) running <= 1;
-      else if (finished) running <= 0;
-      else running <= running;
+      if (reset || finished)
+        running <= 0;
+      else if (start)
+        running <= 1;
+      else
+        running <= running;
+    end
+
+    // Current index value.
+    always_ff @(posedge clk) begin
+      if (start)
+        idx <= 0;
+      else
+        idx <= idx + 1;
     end
 
     always_comb begin
@@ -45,14 +55,6 @@ module fp_sqrt #(
       end
     end
 
-    // Current idx value
-    always_ff @(posedge clk) begin
-      if (start)
-        idx <= 0;
-      else
-        idx <= idx + 1;
-    end
-
     always_ff @(posedge clk) begin
       if (start) begin
         quotient <= 0;
@@ -66,20 +68,18 @@ module fp_sqrt #(
 
     // Done condition.
     always_ff @(posedge clk) begin
-      if (idx == ITERATIONS - 1) begin
+      if (finished)
         done <= 1;
-      end else begin
+      else
         done <= 0;
-      end
     end
 
     // Latch for final value.
     always_ff @(posedge clk) begin
-      if (idx == ITERATIONS-1) begin
+      if (finished)
         out <= quotient_next;
-      end else begin
+      else
         out <= out;
-      end
     end
 
 endmodule
