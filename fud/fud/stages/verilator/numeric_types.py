@@ -34,7 +34,7 @@ class NumericType:
             raise InvalidNumericType(
                 f"A negative value was provided: {value}, and `is_signed` is False."
             )
-        # Some backends may values uninitialized numbers with `x`, e.g. `0bxxxx`.
+        # Some backends may use `x` to represent an uninitialized digit, e.g. `0bxxxx`.
         # Since this cannot be properly translated into a number, returns error.
         stripped_prefix = value[2:] if value.startswith("0x") else value
         if any(digit == "x" for digit in stripped_prefix):
