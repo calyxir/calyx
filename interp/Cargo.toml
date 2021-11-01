@@ -24,6 +24,9 @@ log = {version = "0.4.14", features = ["std"]}
 stderrlog = "0.5.1"
 lazy_static = "1.4.0"
 ibig = "0.3.2"
+pest = "2.1.3"
+pest_derive = "2.1.0"
+pest_consume = "1.1.1"
 
 [dev-dependencies]
 proptest = "1.0.0"
