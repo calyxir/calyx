@@ -1,15 +1,15 @@
 //! Environment for interpreter.
 
-use super::errors::{InterpreterError, InterpreterResult};
-use super::interpreter::ComponentInterpreter;
-use super::interpreter_ir as iir;
-use super::primitives::{
+use super::stk_env::Smoosher;
+use crate::errors::{InterpreterError, InterpreterResult};
+use crate::interpreter::ComponentInterpreter;
+use crate::interpreter_ir as iir;
+use crate::primitives::{
     combinational, stateful, Entry, Primitive, Serializeable,
 };
-use super::stk_env::Smoosher;
-use super::utils::AsRaw;
-use super::utils::MemoryMap;
-use super::values::Value;
+use crate::utils::AsRaw;
+use crate::utils::MemoryMap;
+use crate::values::Value;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;

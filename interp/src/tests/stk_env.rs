@@ -1,5 +1,5 @@
 #[cfg(test)]
-use crate::stk_env::Smoosher;
+use crate::structures::stk_env::Smoosher;
 #[allow(unused)]
 use std::collections::HashMap;
 
@@ -210,7 +210,7 @@ fn smoosher_diff_other() {
 
 mod values_stk_env_test {
     #[allow(unused)]
-    use crate::stk_env::Smoosher;
+    use crate::structures::stk_env::Smoosher;
     #[allow(unused)]
     use crate::values::Value;
 
