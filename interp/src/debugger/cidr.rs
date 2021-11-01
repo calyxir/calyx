@@ -9,6 +9,7 @@ use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
+use crate::structures::names::ComponentQIN;
 use crate::utils::AsRaw;
 use calyx::ir::{self, RRC};
 pub(super) const SPACING: &str = "    ";
@@ -40,8 +41,15 @@ impl Debugger {
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterResult<InterpreterState> {
-        let mut component_interpreter =
-            ComponentInterpreter::from_component(&self.main_component, env);
+        let qin = ComponentQIN::new_single(
+            &self.main_component,
+            &self.main_component.name,
+        );
+        let mut component_interpreter = ComponentInterpreter::from_component(
+            &self.main_component,
+            env,
+            qin,
+        );
         component_interpreter.set_go_high();
 
         if pass_through {

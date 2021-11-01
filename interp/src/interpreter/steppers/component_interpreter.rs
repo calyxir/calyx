@@ -8,6 +8,7 @@ use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
 use crate::primitives::Primitive;
+use crate::structures::names::ComponentQIN;
 use crate::utils::AsRaw;
 use crate::values::Value;
 use calyx::ir::{self, Port, RRC};
@@ -56,12 +57,14 @@ pub struct ComponentInterpreter {
     done_port: RRC<Port>,
     go_port: RRC<Port>,
     input_hash_set: Rc<HashSet<*const ir::Port>>,
+    qual_name: ComponentQIN,
 }
 
 impl ComponentInterpreter {
     pub fn from_component(
         comp: &Rc<iir::Component>,
         env: InterpreterState,
+        qin: ComponentQIN,
     ) -> Self {
         let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
 
@@ -112,6 +115,7 @@ impl ComponentInterpreter {
             go_port,
             done_port,
             input_hash_set,
+            qual_name: qin,
         }
     }
 
