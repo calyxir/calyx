@@ -179,6 +179,7 @@ impl Interpreter for ComponentInterpreter {
             }
             StructuralOrControl::Env(_) => {
                 if go {
+                    // this is needed to take direct ownership of the env
                     let env = if let StructuralOrControl::Env(env) =
                         std::mem::take(&mut self.interp)
                     {
