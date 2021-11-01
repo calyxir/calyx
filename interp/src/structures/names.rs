@@ -21,7 +21,8 @@ impl InstanceName {
     }
 }
 
-pub struct ComponentQIN(Vec<InstanceName>);
+#[derive(Debug, Clone)]
+pub struct ComponentQIN(Rc<Vec<InstanceName>>);
 
 impl Deref for ComponentQIN {
     type Target = Vec<InstanceName>;
@@ -33,9 +34,9 @@ impl Deref for ComponentQIN {
 
 impl ComponentQIN {
     pub fn new_extend(&self, inst: InstanceName) -> Self {
-        let mut inner = self.0.clone();
+        let mut inner = (*self.0).clone();
         inner.push(inst);
-        Self(inner)
+        Self(Rc::new(inner))
     }
 
     pub fn new_single(
@@ -50,7 +51,7 @@ impl ComponentQIN {
 impl<T: Into<InstanceName>> From<T> for ComponentQIN {
     fn from(input: T) -> Self {
         let inst: InstanceName = input.into();
-        Self(vec![inst])
+        Self(Rc::new(vec![inst]))
     }
 }
 /// The fully-qualified instance name of some calyx entity
@@ -59,6 +60,15 @@ pub struct QualifiedInstanceName {
     prefix: ComponentQIN,
     /// Cell name
     name: Id,
+}
+
+impl QualifiedInstanceName {
+    pub fn new(prefix: &ComponentQIN, name: &Id) -> Self {
+        Self {
+            prefix: prefix.clone(),
+            name: name.clone(),
+        }
+    }
 }
 
 /// A qualified name which does not contain instance information

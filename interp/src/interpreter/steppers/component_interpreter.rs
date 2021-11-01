@@ -193,6 +193,7 @@ impl Interpreter for ComponentInterpreter {
                         env,
                         &self.comp_ref.continuous_assignments,
                         self.input_hash_set.clone(),
+                        &self.qual_name,
                     );
                     let result = control_interp.step();
                     self.interp = control_interp.into();

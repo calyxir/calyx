@@ -3,6 +3,7 @@ use super::AssignmentInterpreter;
 use crate::errors::InterpreterError;
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::interpreter_ir as iir;
+use crate::structures::names::ComponentQIN;
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -156,7 +157,7 @@ pub struct EnableInterpreter {
     enable: EnableHolder,
     group_name: Option<ir::Id>,
     interp: AssignmentInterpreter,
-    _continuous_assignments: iir::ContinuousAssignments,
+    qin: ComponentQIN,
 }
 
 impl EnableInterpreter {
@@ -165,6 +166,7 @@ impl EnableInterpreter {
         group_name: Option<ir::Id>,
         mut env: InterpreterState,
         continuous: &iir::ContinuousAssignments,
+        qin: &ComponentQIN,
     ) -> Self
     where
         E: Into<EnableHolder>,
@@ -182,7 +184,7 @@ impl EnableInterpreter {
             enable,
             group_name,
             interp,
-            _continuous_assignments: Rc::clone(continuous),
+            qin: qin.clone(),
         }
     }
 }
@@ -246,22 +248,25 @@ pub struct SeqInterpreter {
     input_ports: Rc<HashSet<*const ir::Port>>,
     seq: Rc<iir::Seq>,
     seq_index: usize,
+    qin: ComponentQIN,
 }
 impl SeqInterpreter {
     pub fn new(
         seq: &Rc<iir::Seq>,
         env: InterpreterState,
-        continuous_assigns: &iir::ContinuousAssignments,
+        continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
+        qin: &ComponentQIN,
     ) -> Self {
         Self {
             current_interpreter: None,
-            continuous_assignments: Rc::clone(continuous_assigns),
+            continuous_assignments: Rc::clone(continuous_assignments),
             env: Some(env),
             done_flag: false,
             input_ports,
             seq: Rc::clone(seq),
             seq_index: 0,
+            qin: qin.clone(),
         }
     }
 }
@@ -277,6 +282,7 @@ impl Interpreter for SeqInterpreter {
                 self.env.take().unwrap(),
                 &self.continuous_assignments,
                 Rc::clone(&self.input_ports),
+                &self.qin,
             )
             .into();
             self.seq_index += 1;
@@ -351,6 +357,7 @@ pub struct ParInterpreter {
     interpreters: Vec<ControlInterpreter>,
     in_state: InterpreterState,
     input_ports: Rc<HashSet<*const ir::Port>>,
+    qin: ComponentQIN,
 }
 
 impl ParInterpreter {
@@ -359,6 +366,7 @@ impl ParInterpreter {
         mut env: InterpreterState,
         continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
+        qin: &ComponentQIN,
     ) -> Self {
         let mut env = env.force_fork();
         let interpreters = par
@@ -370,6 +378,7 @@ impl ParInterpreter {
                     env.fork(),
                     continuous_assigns,
                     Rc::clone(&input_ports),
+                    qin,
                 )
             })
             .collect();
@@ -379,6 +388,7 @@ impl ParInterpreter {
             in_state: env,
             input_ports,
             _par: Rc::clone(par),
+            qin: qin.clone(),
         }
     }
 }
@@ -454,6 +464,7 @@ pub struct IfInterpreter {
     branch_interp: Option<ControlInterpreter>,
     continuous_assignments: iir::ContinuousAssignments,
     input_ports: Rc<HashSet<*const ir::Port>>,
+    qin: ComponentQIN,
 }
 
 impl IfInterpreter {
@@ -462,6 +473,7 @@ impl IfInterpreter {
         env: InterpreterState,
         continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
+        qin: &ComponentQIN,
     ) -> Self {
         let cond_port: ConstPort = ctrl_if.port.as_ptr();
 
@@ -472,6 +484,7 @@ impl IfInterpreter {
                     Some(cond.borrow().name().clone()),
                     env,
                     continuous_assigns,
+                    qin,
                 )),
                 None,
             )
@@ -488,6 +501,7 @@ impl IfInterpreter {
                     env,
                     continuous_assigns,
                     input_ports.clone(),
+                    qin,
                 )),
             )
         };
@@ -500,6 +514,7 @@ impl IfInterpreter {
             branch_interp,
             continuous_assignments: Rc::clone(continuous_assigns),
             input_ports,
+            qin: qin.clone(),
         }
     }
 }
@@ -518,6 +533,7 @@ impl Interpreter for IfInterpreter {
                         env,
                         &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
+                        &self.qin,
                     );
                 } else {
                     let env = i.deconstruct()?;
@@ -526,6 +542,7 @@ impl Interpreter for IfInterpreter {
                         env,
                         &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
+                        &self.qin,
                     );
                 }
 
@@ -597,6 +614,7 @@ pub struct WhileInterpreter {
     input_ports: Rc<HashSet<*const ir::Port>>,
     terminal_env: Option<InterpreterState>,
     wh: Rc<iir::While>,
+    qin: ComponentQIN,
 }
 
 impl WhileInterpreter {
@@ -605,6 +623,7 @@ impl WhileInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
+        qin: &ComponentQIN,
     ) -> Self {
         let port: ConstPort = ctrl_while.port.as_ptr();
         let cond_interp;
@@ -617,6 +636,7 @@ impl WhileInterpreter {
                 Some(cond.borrow().name().clone()),
                 env,
                 continuous_assignments,
+                qin,
             ));
             terminal_env = None;
             body_interp = None;
@@ -626,6 +646,7 @@ impl WhileInterpreter {
                 env,
                 continuous_assignments,
                 input_ports.clone(),
+                qin,
             ));
             terminal_env = None;
             cond_interp = None;
@@ -643,6 +664,7 @@ impl WhileInterpreter {
             body_interp,
             terminal_env,
             wh: Rc::clone(ctrl_while),
+            qin: qin.clone(),
         }
     }
 }
@@ -658,6 +680,7 @@ impl Interpreter for WhileInterpreter {
                         ci.deconstruct()?,
                         &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
+                        &self.qin,
                     );
                     self.body_interp = Some(body_interp)
                 } else {
@@ -679,6 +702,7 @@ impl Interpreter for WhileInterpreter {
                         Some(cond.borrow().name().clone()),
                         env,
                         &self.continuous_assignments,
+                        &self.qin,
                     );
                     self.cond_interp = Some(cond_interp)
                 } else if is_signal_high(env.get_from_port(self.port)) {
@@ -687,6 +711,7 @@ impl Interpreter for WhileInterpreter {
                         env,
                         &self.continuous_assignments,
                         Rc::clone(&self.input_ports),
+                        &self.qin,
                     ));
                 } else {
                     self.terminal_env = Some(env);
@@ -888,6 +913,7 @@ impl ControlInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
+        qin: &ComponentQIN,
     ) -> Self {
         match control {
             iir::Control::Seq(s) => Self::Seq(Box::new(SeqInterpreter::new(
@@ -895,18 +921,21 @@ impl ControlInterpreter {
                 env,
                 continuous_assignments,
                 input_ports,
+                qin,
             ))),
             iir::Control::Par(par) => Self::Par(Box::new(ParInterpreter::new(
                 par,
                 env,
                 continuous_assignments,
                 input_ports,
+                qin,
             ))),
             iir::Control::If(i) => Self::If(Box::new(IfInterpreter::new(
                 i,
                 env,
                 continuous_assignments,
                 input_ports,
+                qin,
             ))),
             iir::Control::While(w) => {
                 Self::While(Box::new(WhileInterpreter::new(
@@ -914,6 +943,7 @@ impl ControlInterpreter {
                     env,
                     continuous_assignments,
                     input_ports,
+                    qin,
                 )))
             }
             iir::Control::Invoke(i) => Self::Invoke(Box::new(
@@ -925,6 +955,7 @@ impl ControlInterpreter {
                     Some(e.group.borrow().name().clone()),
                     env,
                     continuous_assignments,
+                    qin,
                 )))
             }
             iir::Control::Empty(_) => {
