@@ -10,8 +10,6 @@ pub mod debugger;
 pub mod errors;
 pub mod interpreter_ir;
 mod macros;
-mod ref_handler;
-pub use ref_handler::RefHandler;
 mod tests;
 mod utils;
 
