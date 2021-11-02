@@ -38,7 +38,7 @@ This repository contains the source code for the following:
 3. Calyx debugger (`interp/`): An interpreter and debugger for Calyx.
 4. `fud`, The Calyx driver: Utility tool that wraps various hardware toolchains.
 
-[site]: https://capra.cs.cornell.edu/calyx
+[site]: https://calyxir.org
 [docs]: https://capra.cs.cornell.edu/docs/calyx/
 [source-docs]: https://capra.cs.cornell.edu/docs/calyx/source/calyx
 [paper]: https://rachitnigam.com/files/pubs/calyx.pdfinterpreter
