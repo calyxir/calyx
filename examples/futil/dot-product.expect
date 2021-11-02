@@ -72,6 +72,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     mult_pipe0.clk = clk;
     mult_pipe0.go = !mult_pipe0.done & (pd.out & pd0.out & fsm.out == 4'd2 & go | !bin_read0_0.done & fsm.out == 4'd3 & go) ? 1'd1;
     mult_pipe0.left = pd.out & pd0.out & fsm.out == 4'd2 & go | !bin_read0_0.done & fsm.out == 4'd3 & go ? A_read0_0.out;
+    mult_pipe0.reset = reset;
     mult_pipe0.right = pd.out & pd0.out & fsm.out == 4'd2 & go | !bin_read0_0.done & fsm.out == 4'd3 & go ? B_read0_0.out;
     pd.clk = clk;
     pd.in = pd.out & pd0.out ? 1'd0;
