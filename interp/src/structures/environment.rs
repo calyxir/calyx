@@ -1,6 +1,6 @@
 //! Environment for interpreter.
 
-use super::names::{ComponentQIN, InstanceName};
+use super::names::{ComponentQIN, GroupQIN, InstanceName};
 use super::stk_env::Smoosher;
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::ComponentInterpreter;
@@ -488,6 +488,20 @@ impl InterpreterState {
             ir::Guard::True => true,
         })
     }
+
+    pub fn sub_component_currently_executing(&self) -> HashSet<GroupQIN> {
+        let lookup = self.cell_map.borrow();
+
+        self.sub_comp_set
+            .iter()
+            .map(|x| {
+                crate::interpreter::Interpreter::currently_executing_group(
+                    lookup[x].get_comp_interpreter().unwrap(),
+                )
+            })
+            .flatten()
+            .collect()
+    }
 }
 
 impl Serialize for InterpreterState {
@@ -568,6 +582,13 @@ impl<'a> StateView<'a> {
                     }
                 }
             },
+        }
+    }
+
+    pub fn sub_component_currently_executing(&self) -> HashSet<GroupQIN> {
+        match self {
+            StateView::SingleView(sv) => sv.sub_component_currently_executing(),
+            StateView::Composite(c) => c.0.sub_component_currently_executing(),
         }
     }
 

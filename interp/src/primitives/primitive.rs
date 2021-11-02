@@ -1,6 +1,7 @@
 use crate::{
     environment::{FullySerialize, StateView},
     errors::InterpreterResult,
+    interpreter::ComponentInterpreter,
     values::Value,
 };
 use calyx::ir;
@@ -51,6 +52,10 @@ pub trait Primitive {
     }
 
     fn get_state(&self) -> Option<StateView<'_>> {
+        None
+    }
+
+    fn get_comp_interpreter(&self) -> Option<&ComponentInterpreter> {
         None
     }
 }
