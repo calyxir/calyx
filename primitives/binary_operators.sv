@@ -393,12 +393,19 @@ module std_div_pipe #(
   logic start, running, finished, dividend_is_zero;
 
   assign start = go && !running;
-  assign dividend_is_zero = left == 0;
-  assign finished = (!quotient_msk || dividend_is_zero) && running;
-  assign done = finished;
+  assign finished = !quotient_msk && running;
+  assign dividend_is_zero = start && left == 0;
 
   always_ff @(posedge clk) begin
-    if (finished || reset)
+    // Early return if the divisor is zero
+    if (finished || dividend_is_zero)
+      done <= 1;
+    else
+      done <= 0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (reset || finished || dividend_is_zero)
       running <= 0;
     else if (start)
       running <= 1;
@@ -411,17 +418,12 @@ module std_div_pipe #(
     if (dividend_is_zero) begin
       out_remainder <= 0;
       out_quotient <= 0;
-    end else if (running) begin
-      // Latch outputs when not executing to make the component
-      // invokable.
-      out_quotient <= out_quotient;
-      out_remainder <= out_remainder;
     end else if (finished) begin
       out_remainder <= dividend;
       out_quotient <= quotient;
     end else begin
-      out_remainder <= 0;
-      out_quotient <= 0;
+      out_remainder <= out_remainder;
+      out_quotient <= out_quotient;
     end
   end
 
@@ -437,10 +439,10 @@ module std_div_pipe #(
 
   // Calculating quotient
   always_ff @(posedge clk) begin
-    if (start)
+    if (start || finished)
       quotient <= 0;
     else if (divisor <= dividend)
-      quotient  <= quotient | quotient_msk;
+      quotient <= quotient | quotient_msk;
     else
       quotient <= quotient;
   end
