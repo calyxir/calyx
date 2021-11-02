@@ -19,7 +19,7 @@ use crate::interpreter::ConstCell;
 /// [main_loop] function while this struct holds auxilliary information used to
 /// coordinate the debugging process.
 pub struct Debugger {
-    context: iir::ComponentCtx,
+    _context: iir::ComponentCtx,
     main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
 }
@@ -30,7 +30,7 @@ impl Debugger {
         main_component: &Rc<iir::Component>,
     ) -> Self {
         Self {
-            context: Rc::clone(context),
+            _context: Rc::clone(context),
             main_component: Rc::clone(main_component),
             debugging_ctx: DebuggingContext::new(context, &main_component.name),
         }
