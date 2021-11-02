@@ -115,8 +115,8 @@ extern "binary_operators.sv" {
   comb primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   primitive std_smult_pipe<"static"=3>[WIDTH](
-    @reset reset: 1,
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
@@ -126,8 +126,8 @@ extern "binary_operators.sv" {
   );
 
   primitive std_sdiv_pipe[WIDTH](
-    @reset reset: 1,
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH

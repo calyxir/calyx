@@ -70,7 +70,6 @@ module std_fp_mult_pipe #(
     end
   end
 
-  // Output is latched when go is low and otherwise from out_tmp.
   always_ff @(posedge clk) begin
     if (go)
       out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
