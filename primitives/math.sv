@@ -4,6 +4,7 @@ module fp_sqrt #(
     parameter FRAC_WIDTH = 16
 ) (
     input  logic             clk,
+    input  logic             reset,
     input  logic             go,
     input  logic [WIDTH-1:0] in,
     output logic [WIDTH-1:0] out,
@@ -20,7 +21,23 @@ module fp_sqrt #(
 
     assign start = go && !running;
     /* verilator lint_off WIDTH */
-    assign finished = running && (idx == (ITERATIONS - 1));
+    assign finished = (ITERATIONS - 1) == idx && running;
+
+    always_ff @(posedge clk) begin
+      if (reset || finished)
+        running <= 0;
+      else if (start)
+        running <= 1;
+      else
+        running <= running;
+    end
+
+    always_ff @(posedge clk) begin
+      if (start)
+        idx <= 0;
+      else
+        idx <= idx + 1;
+    end
 
     always_comb begin
       tmp = acc - {quotient, 2'b01};
@@ -37,21 +54,10 @@ module fp_sqrt #(
       end
     end
 
-    // Current idx value
-    always_ff @(posedge clk) begin
-      if (start || !running)
-        idx <= 0;
-      else
-        idx <= idx + 1;
-    end
-
     always_ff @(posedge clk) begin
       if (start) begin
-        running <= 1;
         quotient <= 0;
         {acc, x} <= {{WIDTH{1'b0}}, in, 2'b0};
-      end else if (finished) begin
-        running <= 0;
       end else begin
         x <= x_next;
         acc <= acc_next;
@@ -59,20 +65,12 @@ module fp_sqrt #(
       end
     end
 
-    // Done condition.
     always_ff @(posedge clk) begin
-      if (idx == ITERATIONS - 1) begin
+      if (finished) begin
         done <= 1;
-      end else begin
-        done <= 0;
-      end
-    end
-
-    // Latch for final value.
-    always_ff @(posedge clk) begin
-      if (idx == ITERATIONS-1) begin
         out <= quotient_next;
       end else begin
+        done <= 0;
         out <= out;
       end
     end
@@ -84,6 +82,7 @@ module sqrt #(
 ) (
     input  logic             clk,
     input  logic             go,
+    input  logic             reset,
     input  logic [WIDTH-1:0] in,
     output logic [WIDTH-1:0] out,
     output logic             done
@@ -95,6 +94,7 @@ module sqrt #(
   ) comp (
     .clk(clk),
     .done(done),
+    .reset(reset),
     .go(go),
     .in(in),
     .out(out)

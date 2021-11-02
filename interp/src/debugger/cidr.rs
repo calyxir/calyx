@@ -2,9 +2,9 @@ use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
+use super::parser::Command;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
@@ -58,7 +58,7 @@ impl Debugger {
                 Err(e) => match &e {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_) => {
-                        println!("{:?}", e);
+                        println!("Error: {}", e);
                         continue;
                     }
                     _ => return Err(e),
@@ -93,38 +93,66 @@ impl Debugger {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::Print(mut print_list) => {
-                    let orig_string = print_list.join(".");
-                    if self.main_component.name == print_list[0] {
-                        print_list.remove(0);
+                Command::Print(print_lists) => {
+                    if print_lists.is_none() {
+                        println!("Error: command requires a target");
+                        continue;
                     }
 
-                    let mut current_target =
-                        CurrentTarget::Env(&component_interpreter);
+                    for mut print_list in print_lists.unwrap() {
+                        let orig_string = print_list
+                            .iter()
+                            .map(|s| s.id.clone())
+                            .collect::<Vec<_>>()
+                            .join(".");
+                        if self.main_component.name == print_list[0] {
+                            print_list.remove(0);
+                        }
 
-                    for (idx, target) in print_list.iter().enumerate() {
-                        let current_ref = current_target.borrow();
-                        let current_env = current_ref.get_env().unwrap();
+                        let mut current_target =
+                            CurrentTarget::Env(&component_interpreter);
 
-                        // lowest level
-                        if idx == print_list.len() - 1 {
-                            // first look for cell
-                            let cell = current_env.get_cell(target);
-                            if let Some(cell) = cell {
-                                print_cell(&cell, &current_env)
-                            } else {
-                                let prior = &print_list[idx - 1];
+                        for (idx, target) in print_list.iter().enumerate() {
+                            let current_ref = current_target.borrow();
+                            let current_env = current_ref.get_env().unwrap();
 
-                                if let Some(parent) =
-                                    current_env.get_cell(&prior)
-                                {
-                                    let parent_ref = parent.borrow();
-                                    let pt = parent_ref
-                                        .ports()
-                                        .iter()
-                                        .find(|x| x.borrow().name == target);
-                                    if let Some(port) = pt {
-                                        print_port(port, &current_env, None)
+                            // lowest level
+                            if idx == print_list.len() - 1 {
+                                // first look for cell
+                                let cell = current_env.get_cell(target);
+                                if let Some(cell) = cell {
+                                    print_cell(&cell, &current_env)
+                                } else if idx != 0 {
+                                    let prior = &print_list[idx - 1];
+
+                                    if let Some(parent) =
+                                        current_env.get_cell(&prior)
+                                    {
+                                        let parent_ref = parent.borrow();
+                                        let pt =
+                                            parent_ref.ports().iter().find(
+                                                |x| x.borrow().name == target,
+                                            );
+                                        if let Some(port) = pt {
+                                            print_port(port, &current_env, None)
+                                        } else {
+                                            // cannot find
+                                            println!(
+                                                "{} Unable to locate '{}'",
+                                                SPACING, orig_string
+                                            )
+                                        }
+                                    } else if let Some(port) = current_env
+                                        .get_comp()
+                                        .signature
+                                        .borrow()
+                                        .find(target)
+                                    {
+                                        print_port(
+                                            &port,
+                                            &current_env,
+                                            Some(print_list[idx - 1].clone()),
+                                        );
                                     } else {
                                         // cannot find
                                         println!(
@@ -132,58 +160,42 @@ impl Debugger {
                                             SPACING, orig_string
                                         )
                                     }
-                                } else if let Some(port) = current_env
-                                    .get_comp()
-                                    .signature
-                                    .borrow()
-                                    .find(target)
-                                {
-                                    print_port(
-                                        &port,
-                                        &current_env,
-                                        Some(
-                                            (&print_list[idx - 1])
-                                                .as_str()
-                                                .into(),
-                                        ),
-                                    );
                                 } else {
-                                    // cannot find
                                     println!(
                                         "{} Unable to locate '{}'",
                                         SPACING, orig_string
                                     )
                                 }
                             }
-                        }
-                        // still walking
-                        else {
-                            let map = Rc::clone(current_env.get_cell_map());
-                            let cell = current_env.get_cell(target);
-                            if let Some(rrc_cell) = cell {
-                                // need to release these references to replace current
-                                // target
-                                if map.borrow()[&rrc_cell.as_raw()]
-                                    .get_state()
-                                    .is_some()
-                                {
-                                    drop(current_env);
-                                    drop(current_ref);
+                            // still walking
+                            else {
+                                let map = Rc::clone(current_env.get_cell_map());
+                                let cell = current_env.get_cell(target);
+                                if let Some(rrc_cell) = cell {
+                                    // need to release these references to replace current
+                                    // target
+                                    if map.borrow()[&rrc_cell.as_raw()]
+                                        .get_state()
+                                        .is_some()
+                                    {
+                                        drop(current_env);
+                                        drop(current_ref);
 
-                                    current_target = CurrentTarget::Target {
-                                        name: rrc_cell.as_raw(),
-                                        map,
+                                        current_target = CurrentTarget::Target {
+                                            name: rrc_cell.as_raw(),
+                                            map,
+                                        }
                                     }
-                                }
-                                // otherwise leave the same
-                            } else {
-                                // cannot find
-                                println!(
-                                    "{} Unable to locate '{}'",
-                                    SPACING, orig_string
-                                );
+                                    // otherwise leave the same
+                                } else {
+                                    // cannot find
+                                    println!(
+                                        "{} Unable to locate '{}'",
+                                        SPACING, orig_string
+                                    );
 
-                                break;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -191,39 +203,57 @@ impl Debugger {
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
-                Command::Break(target) => {
-                    if self
-                        .context
-                        .iter()
-                        .any(|x| x.groups.find(&target).is_some())
-                    {
-                        self.debugging_ctx.add_breakpoint(target)
-                    } else {
-                        println!(
-                            "{}There is no group named: {}",
-                            SPACING, target
-                        )
+                Command::Break(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+
+                    for target in targets {
+                        if self
+                            .context
+                            .iter()
+                            .any(|x| x.groups.find(&target[0]).is_some())
+                        {
+                            self.debugging_ctx
+                                .add_breakpoint(target[0].to_string())
+                        } else {
+                            println!(
+                                "{}There is no group named: {}",
+                                SPACING, target[0]
+                            )
+                        }
                     }
                 }
                 Command::Exit => return Err(InterpreterError::Exit),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
-                Command::DelBreakpointByNum(target) => {
-                    self.debugging_ctx.remove_breakpoint_by_number(target)
+                Command::Delete(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for t in targets {
+                        self.debugging_ctx.remove_breakpoint(&t)
+                    }
                 }
-                Command::DelBreakpointByName(target) => {
-                    self.debugging_ctx.remove_breakpoint(target)
+
+                Command::Disable(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for t in targets {
+                        self.debugging_ctx.disable_breakpoint(&t)
+                    }
                 }
-                Command::EnableBreakpointByNum(target) => {
-                    self.debugging_ctx.enable_breakpoint_by_num(target)
-                }
-                Command::EnableBreakpointByName(target) => {
-                    self.debugging_ctx.enable_breakpoint(&target)
-                }
-                Command::DisableBreakpointByNum(target) => {
-                    self.debugging_ctx.disable_breakpoint_by_num(target)
-                }
-                Command::DisableBreakpointByName(target) => {
-                    self.debugging_ctx.disable_breakpoint(&target)
+                Command::Enable(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for t in targets {
+                        self.debugging_ctx.enable_breakpoint(&t)
+                    }
                 }
             }
 
