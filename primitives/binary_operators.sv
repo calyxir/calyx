@@ -46,6 +46,18 @@ module std_fp_mult_pipe #(
 
   assign done = done_buf[2];
 
+  always_ff @(posedge clk) begin
+    if (reset) begin
+      done_buf[0] <= 0;
+      done_buf[1] <= 0;
+      done_buf[2] <= 0;
+    end else begin
+      done_buf[0] <= done_buf[0];
+      done_buf[1] <= done_buf[1];
+      done_buf[2] <= done_buf[2];
+    end
+  end
+
   // If the done buffer is completely empty and go is high then execution
   // just started.
   logic start;
