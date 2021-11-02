@@ -1,5 +1,6 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
+use std::hash::Hash;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -21,7 +22,23 @@ impl InstanceName {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Hash for InstanceName {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (&*self.component_id as *const iir::Component).hash(state);
+        self.instance.hash(state);
+    }
+}
+
+impl PartialEq for InstanceName {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.component_id, &other.component_id)
+            && self.instance == other.instance
+    }
+}
+
+impl Eq for InstanceName {}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ComponentQIN(Rc<Vec<InstanceName>>);
 
 impl Deref for ComponentQIN {
@@ -54,6 +71,8 @@ impl<T: Into<InstanceName>> From<T> for ComponentQIN {
         Self(Rc::new(vec![inst]))
     }
 }
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 /// The fully-qualified instance name of some calyx entity
 pub struct QualifiedInstanceName {
     /// The instance names of the ancestors in the state tree
@@ -71,15 +90,24 @@ impl QualifiedInstanceName {
     }
 }
 
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 /// A qualified name which does not contain instance information
 pub struct QualifiedName {
     prefix: Vec<Id>,
     name: Id,
 }
 
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 /// A qualified instance group name
 pub struct GroupQIN(QualifiedInstanceName);
 
+impl GroupQIN {
+    pub fn new(prefix: &ComponentQIN, name: &Id) -> Self {
+        Self(QualifiedInstanceName::new(prefix, name))
+    }
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 /// A qualified group name
 pub struct GroupQN(QualifiedName);
 
