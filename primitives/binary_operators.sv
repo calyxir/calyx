@@ -390,15 +390,15 @@ module std_div_pipe #(
   logic [(WIDTH-1)*2:0] divisor;
   logic [WIDTH-1:0] quotient;
   logic [WIDTH-1:0] quotient_msk;
-  logic start, running, finished, div_by_zero;
+  logic start, running, finished, dividend_is_zero;
 
   assign start = go && !running;
-  assign finished = !quotient_msk && running;
-  assign div_by_zero = start && left == 0;
-  assign done = finished || div_by_zero;
+  assign dividend_is_zero = left == 0;
+  assign finished = (!quotient_msk || dividend_is_zero) && running;
+  assign done = finished;
 
   always_ff @(posedge clk) begin
-    if (finished | div_by_zero | !go)
+    if (finished || reset)
       running <= 0;
     else if (start)
       running <= 1;
@@ -408,10 +408,10 @@ module std_div_pipe #(
 
   // Outputs
   always_ff @(posedge clk) begin
-    if (div_by_zero) begin
+    if (dividend_is_zero) begin
       out_remainder <= 0;
       out_quotient <= 0;
-    end else if (!go) begin
+    end else if (running) begin
       // Latch outputs when not executing to make the component
       // invokable.
       out_quotient <= out_quotient;
@@ -437,7 +437,7 @@ module std_div_pipe #(
 
   // Calculating quotient
   always_ff @(posedge clk) begin
-    if (start || finished)
+    if (start)
       quotient <= 0;
     else if (divisor <= dividend)
       quotient  <= quotient | quotient_msk;
