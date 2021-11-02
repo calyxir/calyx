@@ -3,7 +3,7 @@ use super::AssignmentInterpreter;
 use crate::errors::InterpreterError;
 use crate::interpreter::interpret_group::finish_interpretation;
 use crate::interpreter_ir as iir;
-use crate::structures::names::ComponentQIN;
+use crate::structures::names::{ComponentQIN, GroupQIN};
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -45,7 +45,7 @@ pub trait Interpreter {
 
     fn get_env(&self) -> StateView<'_>;
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id>;
+    fn currently_executing_group(&self) -> HashSet<GroupQIN>;
 
     fn get_mut_env(&mut self) -> MutStateView<'_>;
 }
@@ -81,8 +81,8 @@ impl Interpreter for EmptyInterpreter {
         (&self.env).into()
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
-        vec![]
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
+        HashSet::new()
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_> {
@@ -223,12 +223,12 @@ impl Interpreter for EnableInterpreter {
         (self.interp.get_env()).into()
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
+        let mut set = HashSet::new();
         if let Some(name) = &self.group_name {
-            vec![name]
-        } else {
-            vec![]
+            set.insert(GroupQIN::new(&self.qin, name));
         }
+        set
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_> {
@@ -325,11 +325,11 @@ impl Interpreter for SeqInterpreter {
         }
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         if let Some(grp) = &self.current_interpreter {
             grp.currently_executing_group()
         } else {
-            vec![]
+            HashSet::new()
         }
     }
 
@@ -424,7 +424,7 @@ impl Interpreter for ParInterpreter {
         .into()
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         self.interpreters
             .iter()
             .flat_map(|x| x.currently_executing_group())
@@ -578,13 +578,13 @@ impl Interpreter for IfInterpreter {
         }
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         if let Some(grp) = &self.cond {
             grp.currently_executing_group()
         } else if let Some(branch) = &self.branch_interp {
             branch.currently_executing_group()
         } else {
-            vec![]
+            HashSet::new()
         }
     }
 
@@ -744,13 +744,13 @@ impl Interpreter for WhileInterpreter {
         }
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         if let Some(cond) = &self.cond_interp {
             cond.currently_executing_group()
         } else if let Some(body) = &self.body_interp {
             body.currently_executing_group()
         } else {
-            vec![]
+            HashSet::new()
         }
     }
 
@@ -868,8 +868,8 @@ impl Interpreter for InvokeInterpreter {
         self.assign_interp.get_env().into()
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
-        vec![]
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
+        HashSet::new()
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_> {
@@ -986,7 +986,7 @@ impl Interpreter for ControlInterpreter {
         control_match!(self, i, i.get_env())
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         control_match!(self, i, i.currently_executing_group())
     }
 
@@ -1057,8 +1057,8 @@ impl Interpreter for StructuralInterpreter {
         self.interp.get_env().into()
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
-        vec![]
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
+        HashSet::new()
     }
 
     fn get_mut_env(&mut self) -> MutStateView<'_> {
