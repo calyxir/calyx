@@ -357,7 +357,7 @@ pub struct ParInterpreter {
     interpreters: Vec<ControlInterpreter>,
     in_state: InterpreterState,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    qin: ComponentQIN,
+    _qin: ComponentQIN,
 }
 
 impl ParInterpreter {
@@ -388,7 +388,7 @@ impl ParInterpreter {
             in_state: env,
             input_ports,
             _par: Rc::clone(par),
-            qin: qin.clone(),
+            _qin: qin.clone(),
         }
     }
 }

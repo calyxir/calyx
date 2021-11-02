@@ -32,7 +32,7 @@ impl Debugger {
         Self {
             context: Rc::clone(context),
             main_component: Rc::clone(main_component),
-            debugging_ctx: DebuggingContext::default(),
+            debugging_ctx: DebuggingContext::new(context, &main_component.name),
         }
     }
 
@@ -79,7 +79,7 @@ impl Debugger {
                 }
                 Command::Continue => {
                     let mut breakpoints = self.debugging_ctx.hit_breakpoints(
-                        &component_interpreter.currently_executing_group(),
+                        component_interpreter.currently_executing_group(),
                     );
 
                     while breakpoints.is_empty()
@@ -87,7 +87,7 @@ impl Debugger {
                     {
                         component_interpreter.step()?;
                         breakpoints = self.debugging_ctx.hit_breakpoints(
-                            &component_interpreter.currently_executing_group(),
+                            component_interpreter.currently_executing_group(),
                         );
                     }
                     if !component_interpreter.is_done() {
@@ -218,19 +218,7 @@ impl Debugger {
                     }
 
                     for target in targets {
-                        if self
-                            .context
-                            .iter()
-                            .any(|x| x.groups.find(&target[0]).is_some())
-                        {
-                            self.debugging_ctx
-                                .add_breakpoint(target[0].to_string())
-                        } else {
-                            println!(
-                                "{}There is no group named: {}",
-                                SPACING, target[0]
-                            )
-                        }
+                        self.debugging_ctx.add_breakpoint(target)
                     }
                 }
                 Command::Exit => return Err(InterpreterError::Exit),

@@ -1,5 +1,6 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -133,5 +134,36 @@ impl From<QualifiedInstanceName> for GroupQIN {
 impl From<QualifiedName> for GroupQN {
     fn from(qn: QualifiedName) -> Self {
         Self(qn)
+    }
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct CompGroupName {
+    pub group_name: Id,
+    pub component_name: Id,
+}
+
+impl From<GroupQIN> for CompGroupName {
+    fn from(qin: GroupQIN) -> Self {
+        let last = qin.0.prefix.last().unwrap();
+        Self {
+            group_name: qin.0.name,
+            component_name: last.component_id.name.clone(),
+        }
+    }
+}
+
+impl CompGroupName {
+    pub fn new(group_name: Id, component_name: Id) -> Self {
+        Self {
+            group_name,
+            component_name,
+        }
+    }
+}
+
+impl Display for CompGroupName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}::{}", self.component_name, self.group_name)
     }
 }
