@@ -40,8 +40,10 @@ class NumericType:
         stripped_prefix = value[2:] if value.startswith("0x") else value
         if any(digit == "x" for digit in stripped_prefix):
             raise InvalidNumericType(
-                f"Tried to parse value: {value} "
-                f"with width: {width}, which is uninitialized."
+                f"Tried to parse value: {value} with width: {width}, "
+                "which is uninitialized. This should probably not happen. "
+                "Please open an issue in the Calyx repository with a minimal "
+                "reproduction."
             )
         self.width = width
         self.is_signed = is_signed
