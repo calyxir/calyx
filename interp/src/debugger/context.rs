@@ -168,6 +168,7 @@ impl DebuggingContext {
         let key = self.parse_group_name(target);
 
         if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
+            self.sleeping_breakpoints.remove(&key);
             // add some feedback
             breakpoint.disable()
         }
@@ -176,6 +177,7 @@ impl DebuggingContext {
     fn disable_breakpoint_by_num(&mut self, target: u64) {
         for x in self.breakpoints.values_mut() {
             if x.id == target {
+                self.sleeping_breakpoints.remove(&x.name);
                 x.disable();
                 break;
             }
