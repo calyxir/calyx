@@ -391,7 +391,7 @@ module std_div_pipe #(
   logic start, running, finished, dividend_is_zero;
 
   assign start = go && !running;
-  assign finished = !quotient_msk && running;
+  assign finished = quotient_msk == 0 && running;
   assign dividend_is_zero = start && left == 0;
 
   always_ff @(posedge clk) begin
@@ -429,15 +429,13 @@ module std_div_pipe #(
   always_ff @(posedge clk) begin
     if (start)
       quotient_msk <= 1 << WIDTH - 1;
-    else if (finished)
-      quotient_msk <= 0;
     else
       quotient_msk <= quotient_msk >> 1;
   end
 
   // Calculating quotient
   always_ff @(posedge clk) begin
-    if (start || finished)
+    if (start)
       quotient <= 0;
     else if (divisor <= dividend)
       quotient <= quotient | quotient_msk;
@@ -449,8 +447,6 @@ module std_div_pipe #(
   always_ff @(posedge clk) begin
     if (start)
       dividend <= left;
-    else if (finished)
-      dividend <= 0;
     else if (divisor <= dividend)
       dividend <= dividend - divisor;
     else
@@ -467,24 +463,33 @@ module std_div_pipe #(
     end
   end
 
+  // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
-    // Simulation self test against unsynthesizable implementation.
+    logic [WIDTH-1:0] l, r;
+    always_latch @(posedge clk) begin
+      if (go) begin
+        l <= left;
+        r <= right;
+      end
+    end
+
     always @(posedge clk) begin
-      if (finished && dividend != $unsigned(left % right))
+      if (done && $unsigned(out_remainder) != $unsigned(l % r))
         $error(
           "\nstd_div_pipe (Remainder): Computed and golden outputs do not match!\n",
-          "left: %0d", $unsigned(left),
-          "  right: %0d\n", $unsigned(right),
-          "expected: %0d", $unsigned(left % right),
-          "  computed: %0d", $unsigned(dividend)
+          "left: %0d", $unsigned(l),
+          "  right: %0d\n", $unsigned(r),
+          "expected: %0d", $unsigned(l % r),
+          "  computed: %0d", $unsigned(out_remainder)
         );
-      if (finished && quotient != $unsigned(left / right))
+
+      if (done && $unsigned(out_quotient) != $unsigned(l / r))
         $error(
           "\nstd_div_pipe (Quotient): Computed and golden outputs do not match!\n",
-          "left: %0d", $unsigned(left),
-          "  right: %0d\n", $unsigned(right),
-          "expected: %0d", $unsigned(left / right),
-          "  computed: %0d", $unsigned(quotient)
+          "left: %0d", $unsigned(l),
+          "  right: %0d\n", $unsigned(r),
+          "expected: %0d", $unsigned(l / r),
+          "  computed: %0d", $unsigned(out_quotient)
         );
     end
   `endif
@@ -597,20 +602,16 @@ module std_sdiv_pipe #(
     .out_remainder(comp_out_r)
   );
 
+  // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
-    // Save values of left and right during execution.
     logic signed [WIDTH-1:0] l, r;
-    always_ff @(posedge clk) begin
+    always_latch @(posedge clk) begin
       if (go) begin
         l <= left;
         r <= right;
-      end else begin
-        l <= l;
-        r <= r;
       end
     end
 
-    // Simulation self test against unsynthesizable implementation.
     always @(posedge clk) begin
       if (done && out_quotient != $signed(l / r))
         $error(

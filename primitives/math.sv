@@ -102,20 +102,20 @@ module sqrt #(
 
   // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
-    logic [WIDTH-1:0] inp_save;
+    logic [WIDTH-1:0] radicand;
 
     always_latch @(posedge clk) begin
       if (go)
-        inp_save <= in;
+        radicand <= in;
     end
 
     always @(posedge clk) begin
-      if (done && out != $floor($sqrt(inp_save)))
+      if (done && out != $floor($sqrt(radicand)))
         $error(
           "\nsqrt: Computed and golden outputs do not match!\n",
-          "input: %0d\n", inp_save,
+          "input: %0d\n", radicand,
           /* verilator lint_off REALCVT */
-          "expected: %0d\n", $floor($sqrt(inp_save)),
+          "expected: %0d\n", $floor($sqrt(radicand)),
           "computed: %0d", out
         );
     end
