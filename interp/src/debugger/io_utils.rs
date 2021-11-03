@@ -1,4 +1,5 @@
-use super::parser::{parse_command, Command};
+use super::commands::Command;
+use super::parser::parse_command;
 use crate::errors::InterpreterResult;
 use rustyline::Editor;
 use std::collections::VecDeque;

@@ -2,9 +2,9 @@ use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
-use super::parser::Command;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};

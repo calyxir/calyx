@@ -1,5 +1,5 @@
 use super::cidr::SPACING;
-use super::parser::{BreakPointId, GroupName};
+use super::commands::{BreakPointId, GroupName};
 
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
