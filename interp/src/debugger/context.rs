@@ -21,7 +21,7 @@ impl BreakPointState {
 }
 struct BreakPoint {
     id: u64,
-    name: CompGroupName, // Name of the group
+    name: CompGroupName, // Name of the group (may not strictly be needed)
     state: BreakPointState,
 }
 
@@ -41,12 +41,12 @@ impl std::fmt::Debug for BreakPoint {
             f,
             "{}.  {}  {}",
             &self.id,
+            &self.name,
             match &self.state {
                 BreakPointState::Resting | BreakPointState::Enabled =>
                     "enabled",
                 BreakPointState::Disabled => "disabled",
-            },
-            &self.name
+            }
         )
     }
 }
@@ -54,8 +54,10 @@ impl std::fmt::Debug for BreakPoint {
 pub(super) struct DebuggingContext {
     breakpoints: HashMap<CompGroupName, BreakPoint>,
     count: u64,
+    // used primarially for checking if a given group exists
     comp_ctx: HashMap<Id, Rc<iir::Component>>,
     main_comp_name: Id,
+    /// tracks the breakpoints which are temporarially disabled
     sleeping_breakpoints: HashSet<CompGroupName>,
 }
 
