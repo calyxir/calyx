@@ -1,5 +1,48 @@
+use std::ops::Not;
+use std::rc::Rc;
+use std::{cell::RefCell, ops::Index};
+
 use bitvec::prelude::*;
+use fraction::Fraction;
+use ibig::{ibig, ops::UnsignedAbs, IBig, UBig};
+use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
+
+/// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
+///  integral and fractional bits. The width of the integral bits is described as:
+/// `total width - fractional_width`.
+fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
+    let integer_width: usize = v.width() as usize - fractional_width;
+
+    // Calculate the integral part of the value. For each set bit at index `i`, add `2^i`.
+    let whole: Fraction = v
+        .vec
+        .iter()
+        .rev() // ...since the integer bits are most significant.
+        .take(integer_width)
+        .zip((0..integer_width).rev()) // Reverse indices as well.
+        .fold(0u64, |acc, (bit, idx)| -> u64 {
+            acc | ((*bit as u64) << idx)
+        })
+        .into();
+
+    // Calculate the fractional part of the value. For each set bit at index `i`, add `2^-i`.
+    // This begins at `1`, since the first fractional index has value `2^-1` = `1/2`.
+    let fraction: Fraction =
+        v.vec.iter().rev().skip(integer_width).enumerate().fold(
+            Fraction::from(0u64),
+            |acc, (idx, bit)| -> Fraction {
+                let denom: u64 = (*bit as u64) << (idx + 1);
+                // Avoid adding Infinity.
+                if denom == 0u64 {
+                    acc
+                } else {
+                    acc + Fraction::new(1u64, denom)
+                }
+            },
+        );
+    whole + fraction
+}
 
 // Lsb0 means [10010] gives 0 at index 0, 1 at index 1, 0 at index 2, etc
 // from documentation, usize is the best data type to use in bitvec.
@@ -7,16 +50,21 @@ use serde::de::{self, Deserialize, Visitor};
 pub struct ValueError {}
 
 pub enum InputNumber {
+    // unsigned
     U8(u8),
     U16(u16),
     U32(u32),
     U64(u64),
     U128(u128),
+    U(UBig),
+    // signed
     I8(i8),
     I16(i16),
     I32(i32),
     I64(i64),
     I128(i128),
+    I(IBig),
+    // usize
     Usize(usize),
 }
 
@@ -76,7 +124,31 @@ impl From<usize> for InputNumber {
     }
 }
 
+impl From<UBig> for InputNumber {
+    fn from(u: UBig) -> Self {
+        Self::U(u)
+    }
+}
+
+impl From<IBig> for InputNumber {
+    fn from(i: IBig) -> Self {
+        Self::I(i)
+    }
+}
+
 impl InputNumber {
+    fn is_negative(&self) -> bool {
+        match self {
+            InputNumber::I8(i) => *i < 0,
+            InputNumber::I16(i) => *i < 0,
+            InputNumber::I32(i) => *i < 0,
+            InputNumber::I64(i) => *i < 0,
+            InputNumber::I128(i) => *i < 0,
+            InputNumber::I(i) => *i < 0.into(),
+            _ => false,
+        }
+    }
+
     fn as_usize(&self) -> usize {
         match self {
             InputNumber::U8(i) => *i as usize,
@@ -90,8 +162,11 @@ impl InputNumber {
             InputNumber::I64(i) => *i as usize,
             InputNumber::I128(i) => *i as usize,
             InputNumber::Usize(i) => *i,
+            InputNumber::U(_) => unimplemented!(),
+            InputNumber::I(_) => unimplemented!(),
         }
     }
+
     fn as_bit_vec(&self) -> BitVec<Lsb0, u64> {
         match self {
             InputNumber::U8(i) => BitVec::from_element(*i as u64),
@@ -113,38 +188,127 @@ impl InputNumber {
                 BitVec::from_slice(&[lower, upper]).unwrap()
             }
             InputNumber::Usize(i) => BitVec::from_element(*i as u64),
+            InputNumber::U(u) => {
+                let bytes_64: Vec<u64> = u
+                    .to_le_bytes()
+                    .into_iter()
+                    .chunks(8)
+                    .into_iter()
+                    .map(|x| {
+                        let mut acc: u64 = 0;
+                        for (byte_number, u) in x.enumerate() {
+                            acc |= (u as u64) << (byte_number * 8)
+                        }
+                        acc
+                    })
+                    .collect();
+
+                BitVec::<Lsb0, u64>::from_slice(&bytes_64).unwrap()
+            }
+            InputNumber::I(i) => {
+                if i.signum() == ibig!(-1) {
+                    let mut carry = true;
+                    // manually do the twos complement conversion
+                    let fun: Vec<_> = i
+                        .unsigned_abs()
+                        .to_le_bytes()
+                        .into_iter()
+                        .chunks(8)
+                        .into_iter()
+                        .map(|x| {
+                            let mut acc: u64 = 0;
+                            for (byte_number, u) in x.enumerate() {
+                                acc |= (u as u64) << (byte_number * 8)
+                            }
+                            acc = acc.not();
+
+                            if carry {
+                                let (new_acc, new_carry) =
+                                    acc.overflowing_add(1);
+                                carry = new_carry;
+                                acc = new_acc;
+                            }
+                            acc
+                        })
+                        .collect();
+
+                    let mut bv = BitVec::from_slice(&fun).unwrap();
+
+                    if carry {
+                        bv.push(true)
+                    }
+
+                    bv.truncate(bv.last_one().unwrap() + 1);
+
+                    bv
+                } else {
+                    let unsigned: InputNumber = i.unsigned_abs().into();
+                    unsigned.as_bit_vec()
+                }
+            }
         }
     }
 }
-#[derive(Clone, Debug, Default)]
+
+type Signed = Rc<RefCell<Option<IBig>>>;
+type Unsigned = Rc<RefCell<Option<UBig>>>;
+#[derive(Clone, Debug)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
 pub struct Value {
     // Lsb0 means the 0th index contains the LSB. This is useful because
     // a 7-bit bitvector and 17-bit bitvector representing the number 6 have
     // ones in the same index.
-    pub vec: BitVec<Lsb0, u64>,
+    vec: Rc<BitVec<Lsb0, u64>>,
+
+    unsigned: Unsigned,
+
+    signed: Signed,
+}
+
+impl From<BitVec<Lsb0, u64>> for Value {
+    fn from(bv: BitVec<Lsb0, u64>) -> Self {
+        Self {
+            vec: Rc::new(bv),
+            unsigned: Unsigned::default(),
+            signed: Signed::default(),
+        }
+    }
 }
 
 impl Value {
-    pub fn unsigned_value_fits_in(&self, width: usize) -> bool {
-        self.vec.len() <= width // obviously fits then
-            || self
-                .vec
+    pub fn unsigned_value_fits_in(
+        vec: &BitVec<Lsb0, u64>,
+        width: usize,
+    ) -> bool {
+        vec.len() <= width // obviously fits then
+            || vec
                 .last_one() // returns an index
                 .map(|x| x < width)
                 .unwrap_or(true) // if there is no high bit then it can fit in the given width
     }
 
-    pub fn signed_value_fits_in(&self, width: usize) -> bool {
-        self.vec.len() <= width // obviously fits then
-        || (self.vec.ends_with(bits![0]) && self.unsigned_value_fits_in(width - 1)) // positive value (technically wastes a check)
-        || (self.vec.ends_with(bits![1]) && ((self.vec.len() - self.vec.trailing_ones()) < width) || self.vec.trailing_ones() == 0)
+    pub fn signed_value_fits_in(vec: &BitVec<Lsb0, u64>, width: usize) -> bool {
+        vec.len() <= width // obviously fits then
+        || (vec.ends_with(bits![0]) && Value::unsigned_value_fits_in(vec, width - 1)) // positive value (technically wastes a check)
+        || (vec.ends_with(bits![1]) && ((vec.len() - vec.trailing_ones()) < width) || vec.trailing_ones() == 0)
         // negative value greater than or equal to lowest in new width
     }
 
     pub fn width(&self) -> u64 {
         self.vec.len() as u64
+    }
+
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = bool> + '_ {
+        self.vec.iter().by_val()
+    }
+
+    pub fn clone_bit_vec(&self) -> BitVec<Lsb0, u64> {
+        (*self.vec).clone()
+    }
+
+    pub fn bv_ref(&self) -> &BitVec<Lsb0, u64> {
+        &self.vec
     }
     /// Creates a Value with the specified bandwidth.
     ///
@@ -167,7 +331,9 @@ impl Value {
     pub fn zeroes<I: Into<InputNumber>>(bitwidth: I) -> Value {
         let input_num: InputNumber = bitwidth.into();
         Value {
-            vec: bitvec![Lsb0, u64; 0; input_num.as_usize()],
+            vec: Rc::new(bitvec![Lsb0, u64; 0; input_num.as_usize()]),
+            unsigned: Rc::new(RefCell::new(Some(0_u8.into()))),
+            signed: Rc::new(RefCell::new(Some(0.into()))),
         }
     }
 
@@ -194,16 +360,59 @@ impl Value {
         let init: InputNumber = initial_val.into();
         let mut bv_init = init.as_bit_vec();
         let width: InputNumber = bitwidth.into();
-        bv_init.resize(width.as_usize(), false);
-        Value { vec: bv_init }
+        // truncate or extend to appropriate size
+        bv_init.resize(width.as_usize(), init.is_negative());
+        Value {
+            vec: Rc::new(bv_init),
+            signed: Rc::new(RefCell::new(None)),
+            unsigned: Rc::new(RefCell::new(None)),
+        }
+    }
+
+    /// Returns a bit vector for the given input value of the desired width and a bool
+    /// representing whether the given value could fit in the required width. The result
+    /// is truncated if it cannot fit.
+    pub fn from_checked<T1: Into<InputNumber>, T2: Into<InputNumber>>(
+        initial_val: T1,
+        bitwidth: T2,
+    ) -> (Self, bool) {
+        let init: InputNumber = initial_val.into();
+        let width: InputNumber = bitwidth.into();
+        let width = width.as_usize();
+        let mut bv = init.as_bit_vec();
+
+        let flag = init.is_negative()
+            && !Value::signed_value_fits_in(&bv, width)
+            || !init.is_negative()
+                && !Value::unsigned_value_fits_in(&bv, width);
+
+        bv.resize(width, init.is_negative());
+        (
+            Value {
+                vec: Rc::new(bv),
+                signed: Rc::new(RefCell::new(None)),
+                unsigned: Rc::new(RefCell::new(None)),
+            },
+            flag,
+        )
+    }
+
+    #[inline]
+    pub fn from_bv(bv: BitVec<Lsb0, u64>) -> Self {
+        bv.into()
     }
 
     /// Returns a Value containing a vector of length 0, effectively returning
     /// a cleared vector.
+    // TODO (Griffin): Depricate this.
     pub fn clear(&self) -> Self {
-        let mut vec = self.vec.clone();
+        let mut vec = (*self.vec).clone();
         vec.truncate(0);
-        Value { vec }
+        Value {
+            vec: Rc::new(vec),
+            signed: Signed::default(),
+            unsigned: Unsigned::default(),
+        }
     }
 
     /// Returns a Value truncated to length [new_size].
@@ -214,9 +423,13 @@ impl Value {
     /// let val_4_4 = Value::from(4, 16).truncate(4);
     /// ```
     pub fn truncate(&self, new_size: usize) -> Value {
-        let mut vec = self.vec.clone();
+        let mut vec = (*self.vec).clone();
         vec.truncate(new_size);
-        Value { vec }
+        Value {
+            vec: Rc::new(vec),
+            signed: Signed::default(),
+            unsigned: Unsigned::default(),
+        }
     }
 
     /// Zero-extend the vector to length [ext].
@@ -227,11 +440,15 @@ impl Value {
     /// let val_4_16 = Value::from(4, 4).ext(16);
     /// ```
     pub fn ext(&self, ext: usize) -> Value {
-        let mut vec = self.vec.clone();
+        let mut vec = (*self.vec).clone();
         for _x in 0..(ext - vec.len()) {
             vec.push(false);
         }
-        Value { vec }
+        Value {
+            vec: Rc::new(vec),
+            signed: self.signed.clone(),
+            unsigned: self.unsigned.clone(),
+        }
     }
 
     /// Sign-extend the vector to length [ext].
@@ -243,16 +460,19 @@ impl Value {
     /// let val_31_5 = Value::from(15, 4).sext(5);
     /// ```
     pub fn sext(&self, ext: usize) -> Value {
-        let mut vec = self.vec.clone();
+        let mut vec = (*self.vec).clone();
         let sign = vec[vec.len() - 1];
         for _x in 0..(ext - vec.len()) {
             vec.push(sign);
         }
-        Value { vec }
+        Value {
+            vec: Rc::new(vec),
+            signed: Signed::default(),
+            unsigned: Unsigned::default(),
+        }
     }
 
-    /// Converts value into u64 type. Vector within Value can be of any width. The value
-    /// will be truncated to fit the specified width if it exceeds it
+    /// Converts value into u64 type.
     ///
     /// # Example
     /// ```
@@ -261,7 +481,7 @@ impl Value {
     /// ```
     pub fn as_u64(&self) -> u64 {
         assert!(
-            self.unsigned_value_fits_in(64),
+            Value::unsigned_value_fits_in(&self.vec, 64),
             "Cannot fit value into an u64"
         );
         self.vec
@@ -273,8 +493,55 @@ impl Value {
             })
     }
 
-    /// Converts value into u128 type. Vector within Value can be of any width. The
-    /// value will be truncated if it exceeds 128 bits
+    /// Converts value into unsigned fixed point type.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// use fraction::Fraction;
+    /// let ufixed_point_Q4_2 = Value::from(0b0110, 4).as_ufp(2); // 3/2
+    /// ```
+    pub fn as_ufp(&self, fractional_width: usize) -> Fraction {
+        assert!(
+            Value::unsigned_value_fits_in(&self.vec, 64),
+            "unsigned fixed point is supported up to 64 bits. Open an issue if you require more."
+        );
+        get_unsigned_fixed_point(self, fractional_width)
+    }
+
+    /// Converts value into signed fixed point type.
+    ///
+    /// # Example
+    /// ```
+    /// use interp::values::*;
+    /// use fraction::Fraction;
+    /// let sfixed_point_Q4_2 = Value::from(0b1110, 4).as_sfp(2); // -3/2
+    /// ```
+    pub fn as_sfp(&self, fractional_width: usize) -> Fraction {
+        assert!(
+            Value::signed_value_fits_in(&self.vec, 64),
+            "signed fixed point is supported up to 64 bits. Open an issue if you require more."
+        );
+        match self.vec.last_one() {
+            Some(end) if (end + 1) == self.vec.len() => {
+                let mut vec = self.clone_bit_vec();
+                // Flip each bit until the first "one". This is
+                // similar to flipping all bits and adding one.
+                let begin = vec.first_one().unwrap();
+                for mut bit in vec.iter_mut().rev().take(end - begin) {
+                    *bit = !*bit
+                }
+                -get_unsigned_fixed_point(
+                    &Value::from_bv(vec),
+                    fractional_width,
+                )
+            }
+            // Either there are no set bits (zero) or this number is non-negative.
+            _ => get_unsigned_fixed_point(self, fractional_width),
+        }
+    }
+
+    /// Converts value into u128 type.
     ///
     /// # Example
     /// ```
@@ -286,7 +553,7 @@ impl Value {
     /// ```
     pub fn as_u128(&self) -> u128 {
         assert!(
-            self.unsigned_value_fits_in(128),
+            Value::unsigned_value_fits_in(&self.vec, 128),
             "Cannot fit value into an u128"
         );
         self.vec
@@ -298,8 +565,8 @@ impl Value {
             })
     }
 
-    /// Converts value into i64 type using 2C representation. Truncates to 64 bits if
-    /// the value exceeds 64 bits. Sign extends lower values
+    /// Converts value into i64 type using 2C representation. Sign extends lower values.
+    ///
     /// # Example
     /// ```
     /// use interp::values::*;
@@ -308,7 +575,7 @@ impl Value {
     /// ```
     pub fn as_i64(&self) -> i64 {
         assert!(
-            self.signed_value_fits_in(64),
+            Value::signed_value_fits_in(&self.vec, 64),
             "Cannot fit value into an i64"
         );
         let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
@@ -320,8 +587,8 @@ impl Value {
         )
     }
 
-    /// Converts value into i128 type using 2C representation. Truncates to 128 bits if
-    /// the value exceeds 128 bits. Sign extends lower values
+    /// Converts value into i128 type using 2C representation. Sign extends lower values.
+    ///
     /// # Example
     /// ```
     /// use interp::values::*;
@@ -332,7 +599,7 @@ impl Value {
     /// ```
     pub fn as_i128(&self) -> i128 {
         assert!(
-            self.signed_value_fits_in(128),
+            Value::signed_value_fits_in(&self.vec, 128),
             "Cannot fit value into an i128"
         );
         let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
@@ -346,7 +613,7 @@ impl Value {
 
     pub fn as_usize(&self) -> usize {
         assert!(
-            self.unsigned_value_fits_in(usize::BITS as usize),
+            Value::unsigned_value_fits_in(&self.vec, usize::BITS as usize),
             "Cannot fit value into an usize"
         );
 
@@ -357,6 +624,54 @@ impl Value {
             .fold(0_usize, |acc, (idx, bit)| -> usize {
                 acc | ((*bit as usize) << idx)
             })
+    }
+
+    pub fn as_signed(&self) -> IBig {
+        let memo_ref = self.signed.borrow();
+        if let Some(v) = &*memo_ref {
+            v.clone()
+        } else {
+            drop(memo_ref);
+            let mut acc: IBig = 0.into();
+
+            // skip the msb for the moment
+            for bit in self.vec.iter().take(self.vec.len() - 1).rev() {
+                acc <<= 1;
+                let bit: IBig = (*bit).into();
+                acc |= bit
+            }
+
+            if let Some(bit) = self.vec.last() {
+                if *bit {
+                    let neg: IBig = (-1).into();
+                    let two: IBig = (2).into();
+
+                    acc += neg * two.pow(self.vec.len() - 1)
+                }
+            }
+            let mut memo_ref = self.signed.borrow_mut();
+            *memo_ref = Some(acc.clone());
+            acc
+        }
+    }
+
+    pub fn as_unsigned(&self) -> UBig {
+        let memo_ref = self.unsigned.borrow();
+
+        if let Some(v) = &*memo_ref {
+            v.clone()
+        } else {
+            drop(memo_ref);
+            let mut acc: UBig = 0_u32.into();
+            for bit in self.vec.iter().rev() {
+                acc <<= 1;
+                let bit: UBig = (*bit).into();
+                acc |= bit;
+            }
+            let mut memo_ref = self.unsigned.borrow_mut();
+            *memo_ref = Some(acc.clone());
+            acc
+        }
     }
 
     /// Interprets a 1bit value as a bool, will not panic for non-1-bit values
@@ -384,7 +699,11 @@ impl Value {
         assert!(upper_idx < self.vec.len());
 
         let new_bv = (self.vec[lower_idx..=upper_idx]).into();
-        Value { vec: new_bv }
+        Value {
+            vec: Rc::new(new_bv),
+            signed: Signed::default(),
+            unsigned: Unsigned::default(),
+        }
     }
 
     /// Returns a value containing the sliced region [lower,upper]
@@ -393,7 +712,11 @@ impl Value {
         assert!(upper_idx < self.vec.len());
 
         let new_bv = BitVec::from_bitslice(&self.vec[lower_idx..=upper_idx]);
-        Value { vec: new_bv }
+        Value {
+            vec: Rc::new(new_bv),
+            signed: Signed::default(),
+            unsigned: Unsigned::default(),
+        }
     }
 }
 
@@ -405,12 +728,20 @@ impl Into<u64> for Value {
     }
 }
 
+impl Index<usize> for Value {
+    type Output = bool;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.vec[index]
+    }
+}
+
 impl std::fmt::Display for Value {
     fn fmt(
         &self,
         f: &mut std::fmt::Formatter<'_>,
     ) -> Result<(), std::fmt::Error> {
-        let mut vec_rev = self.vec.clone();
+        let mut vec_rev = (*self.vec).clone();
         vec_rev.reverse();
         write!(f, "{}", vec_rev)
     }
@@ -418,7 +749,7 @@ impl std::fmt::Display for Value {
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        self.vec.len() == other.vec.len() && self.vec == other.vec
+        self.vec.len() == other.vec.len() && *self.vec == *other.vec
     }
 }
 
@@ -443,10 +774,6 @@ impl PartialOrd for Value {
         }
         Some(std::cmp::Ordering::Equal)
     }
-}
-
-pub trait ReadableValue {
-    fn get_val(&self) -> &Value;
 }
 
 impl<'de> Deserialize<'de> for Value {
@@ -481,6 +808,10 @@ impl<'de> Deserialize<'de> for Value {
         }
 
         let val = deserializer.deserialize_str(BitVecVisitor)?;
-        Ok(crate::values::Value { vec: val })
+        Ok(crate::values::Value {
+            vec: Rc::new(val),
+            signed: Signed::default(),
+            unsigned: Unsigned::default(),
+        })
     }
 }

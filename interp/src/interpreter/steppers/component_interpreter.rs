@@ -128,12 +128,12 @@ impl ComponentInterpreter {
 
     #[inline]
     fn go_is_high(&self) -> bool {
-        self.get_env().lookup(self.go_port.as_raw()).as_u64() == 1
+        self.get_env().lookup(self.go_port.as_raw()).as_bool()
     }
 
     #[inline]
     fn done_is_high(&self) -> bool {
-        self.get_env().lookup(self.done_port.as_raw()).as_u64() == 1
+        self.get_env().lookup(self.done_port.as_raw()).as_bool()
     }
 
     #[inline]
@@ -259,14 +259,14 @@ impl Interpreter for ComponentInterpreter {
 }
 
 impl Primitive for ComponentInterpreter {
-    fn do_tick(&mut self) -> Vec<(ir::Id, Value)> {
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let currently_done = self.done_is_high();
 
         // this component has been done for a cycle
         if currently_done {
-            self.reset(&[]);
+            self.reset(&[])?;
         } else {
-            self.step().expect("Error when stepping");
+            self.step()?;
         }
 
         // just became done for an imperative component
@@ -275,7 +275,7 @@ impl Primitive for ComponentInterpreter {
             self.set_done_high()
         }
 
-        self.look_up_outputs()
+        Ok(self.look_up_outputs())
     }
 
     fn is_comb(&self) -> bool {
@@ -296,7 +296,7 @@ impl Primitive for ComponentInterpreter {
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &crate::values::Value)],
-    ) -> Vec<(ir::Id, crate::values::Value)> {
+    ) -> InterpreterResult<Vec<(ir::Id, crate::values::Value)>> {
         let mut assigned = HashSet::new();
         let mut input_vec = inputs
             .iter()
@@ -328,13 +328,13 @@ impl Primitive for ComponentInterpreter {
         }
         self.converge().unwrap();
 
-        self.look_up_outputs()
+        Ok(self.look_up_outputs())
     }
 
     fn reset(
         &mut self,
         _inputs: &[(ir::Id, &crate::values::Value)],
-    ) -> Vec<(ir::Id, crate::values::Value)> {
+    ) -> InterpreterResult<Vec<(ir::Id, crate::values::Value)>> {
         if self.interp.is_control() {
             assert!(
                 self.is_done(),
@@ -359,7 +359,7 @@ impl Primitive for ComponentInterpreter {
         self.interp = new;
         self.set_done_low();
 
-        self.look_up_outputs()
+        Ok(self.look_up_outputs())
     }
 
     fn get_state(&self) -> Option<StateView<'_>> {

@@ -9,14 +9,18 @@ class SystolicStage(Stage):
     Stage that invokes the Systolic Array frontend.
     """
 
+    name = "systolic"
+
     def __init__(self, config):
         super().__init__(
-            "systolic",
-            "futil",
-            SourceType.Path,
-            SourceType.Stream,
-            config,
-            "Generates a matrix multiply using a systolic array architecture",
+            src_state="systolic",
+            target_state="futil",
+            input_type=SourceType.Path,
+            output_type=SourceType.Stream,
+            config=config,
+            description=(
+                "Generates a matrix multiply using a systolic array architecture"
+            ),
         )
         self.script = (
             Path(self.config["global", "futil_directory"])

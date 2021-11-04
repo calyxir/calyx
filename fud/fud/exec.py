@@ -113,9 +113,10 @@ def run_fud(args, config):
 
         # run all the stages
         for ed in path:
-            sp.start_stage(f"{ed.name} → {ed.target_stage}")
-            begin = time.time()
-
+            txt = f"{ed.src_stage} → {ed.target_stage}" + (
+                f" ({ed.name})" if ed.name != ed.src_stage else ""
+            )
+            sp.start_stage(txt)
             try:
                 if ed._no_spinner:
                     sp.stop()

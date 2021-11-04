@@ -16,7 +16,7 @@ class VivadoBaseStage(Stage):
 
     def __init__(
         self,
-        name,
+        source,
         destination,
         config,
         description,
@@ -27,12 +27,12 @@ class VivadoBaseStage(Stage):
         flags="",
     ):
         super().__init__(
-            name,
-            destination,
-            SourceType.Path,
-            SourceType.Directory,
-            config,
-            description,
+            src_state=source,
+            target_state=destination,
+            input_type=SourceType.Path,
+            output_type=SourceType.Directory,
+            config=config,
+            description=description,
         )
         self.device_files = device_files
         self.target_name = target_name
@@ -88,10 +88,11 @@ class VivadoBaseStage(Stage):
 
 
 class VivadoStage(VivadoBaseStage):
+    name = "synth-verilog"
+
     def __init__(self, config):
-        name = "synth-verilog"
         super().__init__(
-            name,
+            "synth-verilog",
             "synth-files",
             config,
             "Produces synthesis files from a Verilog program",
@@ -110,17 +111,18 @@ class VivadoStage(VivadoBaseStage):
                 ),
             ],
             target_name="main.sv",
-            local_exec=config["stages", name, "exec"],
+            local_exec=config["stages", self.name, "exec"],
             remote_exec="vivado",
             flags="-mode batch -source synth.tcl",
         )
 
 
 class VivadoHLSStage(VivadoBaseStage):
+    name = "vivado-hls"
+
     def __init__(self, config):
-        name = "vivado-hls"
         super().__init__(
-            name,
+            "vivado-hls",
             "hls-files",
             config,
             "Produces synthesis files from a Vivado C++ program",
@@ -139,21 +141,23 @@ class VivadoHLSStage(VivadoBaseStage):
                 ),
             ],
             target_name="kernel.cpp",
-            local_exec=config["stages", name, "exec"],
+            local_exec=config["stages", self.name, "exec"],
             remote_exec="vivado_hls",
             flags="-f hls.tcl",
         )
 
 
 class VivadoExtractStage(Stage):
+    name = "synth-files"
+
     def __init__(self, config):
         super().__init__(
-            "synth-files",
-            "resource-estimate",
-            SourceType.Directory,
-            SourceType.String,
-            config,
-            "Extracts information from Vivado synthesis files",
+            src_state="synth-files",
+            target_state="resource-estimate",
+            input_type=SourceType.Directory,
+            output_type=SourceType.String,
+            config=config,
+            description="Extracts information from Vivado synthesis files",
         )
         self.setup()
 
@@ -169,14 +173,16 @@ class VivadoExtractStage(Stage):
 
 
 class VivadoHLSExtractStage(Stage):
+    name = "hls-files"
+
     def __init__(self, config):
         super().__init__(
-            "hls-files",
-            "hls-estimate",
-            SourceType.Directory,
-            SourceType.String,
-            config,
-            "Extracts information from Vivado HLS synthesis files",
+            src_state="hls-files",
+            target_state="hls-estimate",
+            input_type=SourceType.Directory,
+            output_type=SourceType.String,
+            config=config,
+            description="Extracts information from Vivado HLS synthesis files",
         )
         self.setup()
 

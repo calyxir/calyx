@@ -9,14 +9,16 @@ class RelayStage(Stage):
     Stage that invokes the Relay frontend.
     """
 
+    name = "relay"
+
     def __init__(self, config):
         super().__init__(
-            "relay",
-            "futil",
-            SourceType.Path,
-            SourceType.Stream,
-            config,
-            "Generates the Calyx program from the TVM Relay IR.",
+            src_state="relay",
+            target_state="futil",
+            input_type=SourceType.Path,
+            output_type=SourceType.Stream,
+            config=config,
+            description="Generates the Calyx program from the TVM Relay IR.",
         )
         self.script = (
             Path(self.config["global", "futil_directory"])

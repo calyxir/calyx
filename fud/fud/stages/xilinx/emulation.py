@@ -8,23 +8,25 @@ from fud import errors
 
 
 class HwEmulationStage(Stage):
+    name = "wdb"
+
     def __init__(self, config):
         super().__init__(
-            "xclbin",
-            "wdb",
-            SourceType.Path,
-            SourceType.Path,
-            config,
-            "Runs Vivado hw emulation",
+            src_state="xclbin",
+            target_state="wdb",
+            input_type=SourceType.Path,
+            output_type=SourceType.Path,
+            config=config,
+            description="Runs Vivado hw emulation",
         )
 
-        xilinx_location = self.config["stages", self.target_stage, "xilinx_location"]
-        xrt_location = self.config["stages", self.target_stage, "xrt_location"]
+        xilinx_location = self.config["stages", self.name, "xilinx_location"]
+        xrt_location = self.config["stages", self.name, "xrt_location"]
         self.setup_commands = (
             f"source {xilinx_location}/settings64.sh && source {xrt_location}/setup.sh"
         )
 
-        self.host_cpp = self.config["stages", self.target_stage, "host"]
+        self.host_cpp = self.config["stages", self.name, "host"]
 
         self.xrt = (
             Path(self.config["global", "futil_directory"])
@@ -38,14 +40,14 @@ class HwEmulationStage(Stage):
             / "bitstream"
             / "sim_script.tcl"
         )
-        self.mode = self.config["stages", self.target_stage, "mode"]
+        self.mode = self.config["stages", self.name, "mode"]
         self.device = "xilinx_u50_gen3x16_xdma_201920_3"
 
         # remote execution
         self.SSHClient = None
         self.SCPClient = None
-        self.ssh_host = self.config["stages", self.target_stage, "ssh_host"]
-        self.ssh_user = self.config["stages", self.target_stage, "ssh_username"]
+        self.ssh_host = self.config["stages", self.name, "ssh_host"]
+        self.ssh_user = self.config["stages", self.name, "ssh_username"]
         self.temp_location = self.config["stages", "xclbin", "temp_location"]
 
         self.setup()
@@ -202,7 +204,7 @@ class HwEmulationStage(Stage):
             """
             Close SSH Connection and cleanup temporaries.
             """
-            if self.config["stages", self.target_stage, "save_temps"] is None:
+            if self.config["stages", self.name, "save_temps"] is None:
                 client.exec_command("rm -r {tmpdir}")
             else:
                 print(tmpdir)

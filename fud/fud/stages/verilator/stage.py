@@ -10,9 +10,17 @@ from .json_to_dat import convert2dat, convert2json
 
 
 class VerilatorStage(Stage):
+
+    name = "verilog"
+
     def __init__(self, config, mem, desc):
         super().__init__(
-            "verilog", mem, SourceType.Path, SourceType.Stream, config, desc
+            src_state="verilog",
+            target_state=mem,
+            input_type=SourceType.Path,
+            output_type=SourceType.Stream,
+            config=config,
+            description=desc,
         )
 
         if mem not in ["vcd", "dat"]:

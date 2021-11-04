@@ -16,17 +16,13 @@ class Registry:
         self.config = config
         self.graph = nx.DiGraph()
 
-    def register(self, stage, src=None, tar=None):
+    def register(self, stage):
         """
         Defines a new stage named `stage` that converts programs from `src` to
         `tar`
         """
-        if src is None:
-            src = stage.name
-        if tar is None:
-            tar = stage.target_stage
 
-        self.graph.add_edge(src, tar, stage=stage)
+        self.graph.add_edge(stage.src_stage, stage.target_stage, stage=stage)
 
     def make_path(self, start, dest, through=[]):
         """
@@ -105,7 +101,7 @@ class Registry:
         transforms = []
 
         for (src, dst, attr) in sorted(self.graph.edges(data=True)):
-            transforms.append((src, dst, attr["stage"].description))
+            transforms.append((src, dst, attr["stage"].name, attr["stage"].description))
             if src not in stages:
                 stages[src] = []
             stages[src].append(dst)
@@ -115,7 +111,9 @@ class Registry:
             d = ", ".join(dsts)
             all_stages += f"\n{src} → {d}"
 
-        all_transforms = "\n".join([f"{s} → {e}: {d}" for (s, e, d) in transforms])
+        all_transforms = "\n".join(
+            [f"{s} → {e} ({n}): {d}" for (s, e, n, d) in transforms]
+        )
 
         return f"""List of possible stage transformations: {all_stages}
 

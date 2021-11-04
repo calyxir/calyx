@@ -4,12 +4,23 @@ from ..utils import shell, unwrap_or
 
 
 class FutilStage(Stage):
+    name = "futil"
+
     def __init__(self, config, destination, flags, desc):
         self.flags = flags
         super().__init__(
-            "futil", destination, SourceType.Stream, SourceType.Stream, config, desc
+            src_state="futil",
+            target_state=destination,
+            input_type=SourceType.Stream,
+            output_type=SourceType.Stream,
+            config=config,
+            description=desc,
         )
         self.setup()
+
+    @staticmethod
+    def defaults():
+        return {}
 
     def _define_steps(self, input_data):
         cmd = " ".join(

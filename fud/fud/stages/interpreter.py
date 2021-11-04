@@ -14,6 +14,9 @@ _DEBUGGER_TARGET = "debugger"
 
 
 class InterpreterStage(Stage):
+
+    name = "interpreter"
+
     @classmethod
     def debugger(cls, config, interp_flags, debug_flags, desc):
         self = cls(
@@ -37,12 +40,12 @@ class InterpreterStage(Stage):
         output_name="interpreter-out",
     ):
         super().__init__(
-            "interpreter",
-            output_name,
-            SourceType.Stream,
-            output_type,
-            config,
-            desc,
+            src_state="interpreter",
+            target_state=output_name,
+            input_type=SourceType.Stream,
+            output_type=output_type,
+            config=config,
+            description=desc,
         )
 
         self.flags = flags
