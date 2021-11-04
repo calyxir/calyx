@@ -135,7 +135,11 @@ impl Guard {
 
     /// Returns true if this is a `Guard::True`.
     pub fn is_true(&self) -> bool {
-        matches!(self, Guard::True)
+        match self {
+            Guard::True => true,
+            Guard::Port(p) => p.borrow().is_constant(1, 1),
+            _ => false,
+        }
     }
 
     /// Update the guard in place. Replaces this guard with `upd(self)`.
