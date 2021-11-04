@@ -127,11 +127,11 @@ impl From<Error> for InterpreterError {
     }
 }
 
-impl From<crate::stk_env::CollisionError<*const ir::Port, Value>>
+impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
     for InterpreterError
 {
     fn from(
-        err: crate::stk_env::CollisionError<
+        err: crate::structures::stk_env::CollisionError<
             *const calyx::ir::Port,
             crate::values::Value,
         >,

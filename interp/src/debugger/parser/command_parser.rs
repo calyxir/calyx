@@ -1,4 +1,4 @@
-use super::commands::{BreakPointId, Command, GroupName};
+use super::super::commands::{BreakPointId, Command, GroupName};
 use calyx::ir::Id;
 use pest_consume::{match_nodes, Error, Parser};
 

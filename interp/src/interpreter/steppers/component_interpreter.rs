@@ -8,6 +8,7 @@ use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
 use crate::primitives::Primitive;
+use crate::structures::names::{ComponentQIN, GroupQIN};
 use crate::utils::AsRaw;
 use crate::values::Value;
 use calyx::ir::{self, Port, RRC};
@@ -56,12 +57,14 @@ pub struct ComponentInterpreter {
     done_port: RRC<Port>,
     go_port: RRC<Port>,
     input_hash_set: Rc<HashSet<*const ir::Port>>,
+    qual_name: ComponentQIN,
 }
 
 impl ComponentInterpreter {
     pub fn from_component(
         comp: &Rc<iir::Component>,
         env: InterpreterState,
+        qin: ComponentQIN,
     ) -> Self {
         let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
 
@@ -112,6 +115,7 @@ impl ComponentInterpreter {
             go_port,
             done_port,
             input_hash_set,
+            qual_name: qin,
         }
     }
 
@@ -175,6 +179,7 @@ impl Interpreter for ComponentInterpreter {
             }
             StructuralOrControl::Env(_) => {
                 if go {
+                    // this is needed to take direct ownership of the env
                     let env = if let StructuralOrControl::Env(env) =
                         std::mem::take(&mut self.interp)
                     {
@@ -188,6 +193,7 @@ impl Interpreter for ComponentInterpreter {
                         env,
                         &self.comp_ref.continuous_assignments,
                         self.input_hash_set.clone(),
+                        &self.qual_name,
                     );
                     let result = control_interp.step();
                     self.interp = control_interp.into();
@@ -228,15 +234,21 @@ impl Interpreter for ComponentInterpreter {
         }
     }
 
-    fn currently_executing_group(&self) -> Vec<&ir::Id> {
-        match &self.interp {
-            StructuralOrControl::Structural(s) => s.currently_executing_group(),
-            StructuralOrControl::Control(c) => c.currently_executing_group(),
-            StructuralOrControl::Env(_) => {
-                vec![]
-            }
-            _ => unreachable!(),
-        }
+    fn currently_executing_group(&self) -> HashSet<GroupQIN> {
+        let sub_comps = self.get_env().sub_component_currently_executing();
+
+        // merge the sets
+        &sub_comps
+            | &(match &self.interp {
+                StructuralOrControl::Control(c) => {
+                    c.currently_executing_group()
+                }
+
+                StructuralOrControl::Env(_)
+                | StructuralOrControl::Structural(_) => HashSet::new(),
+
+                _ => unreachable!(),
+            })
     }
 
     fn get_mut_env(&mut self) -> crate::environment::MutStateView<'_> {
@@ -368,5 +380,9 @@ impl Primitive for ComponentInterpreter {
 
     fn serialize(&self, _signed: bool) -> crate::primitives::Serializeable {
         crate::primitives::Serializeable::Full(self.get_env().gen_serialzer())
+    }
+
+    fn get_comp_interpreter(&self) -> Option<&ComponentInterpreter> {
+        Some(self)
     }
 }

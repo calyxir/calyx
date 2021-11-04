@@ -1,23 +1,37 @@
 use super::cidr::SPACING;
-use super::parser::{BreakPointId, GroupName};
-use calyx::ir;
+use super::commands::{BreakPointId, GroupName};
+
+use crate::interpreter_ir as iir;
+use crate::structures::names::{CompGroupName, GroupQIN};
+use calyx::ir::Id;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::rc::Rc;
+
+enum BreakPointState {
+    Enabled,  // this breakpoint is active
+    Disabled, // this breakpoint is inactive
+    Resting,  // this breakpoint has been temporarily disabled
+}
+
+impl BreakPointState {
+    pub fn enabled(&self) -> bool {
+        matches!(self, BreakPointState::Enabled)
+    }
+}
 struct BreakPoint {
     id: u64,
-    name: String, // Name of the group
-    enabled: bool,
+    name: CompGroupName, // Name of the group (may not strictly be needed)
+    state: BreakPointState,
 }
 
 impl BreakPoint {
     pub fn enable(&mut self) {
-        self.enabled = true;
+        self.state = BreakPointState::Enabled;
     }
 
     pub fn disable(&mut self) {
-        self.enabled = false
-    }
-
-    pub fn matches(&self, grp: &ir::Id) -> bool {
-        self.enabled && grp == &self.name
+        self.state = BreakPointState::Disabled;
     }
 }
 
@@ -27,30 +41,69 @@ impl std::fmt::Debug for BreakPoint {
             f,
             "{}.  {}  {}",
             &self.id,
-            if self.enabled { "enabled" } else { "disabled" },
-            &self.name
+            &self.name,
+            match &self.state {
+                BreakPointState::Resting | BreakPointState::Enabled =>
+                    "enabled",
+                BreakPointState::Disabled => "disabled",
+            }
         )
     }
 }
 
-#[derive(Default)]
 pub(super) struct DebuggingContext {
-    breakpoints: Vec<BreakPoint>,
+    breakpoints: HashMap<CompGroupName, BreakPoint>,
     count: u64,
+    // used primarially for checking if a given group exists
+    comp_ctx: HashMap<Id, Rc<iir::Component>>,
+    main_comp_name: Id,
+    /// tracks the breakpoints which are temporarially disabled
+    sleeping_breakpoints: HashSet<CompGroupName>,
 }
 
 impl DebuggingContext {
-    pub fn add_breakpoint(&mut self, target: String) {
-        if !self.breakpoints.iter().any(|x| x.name == target) {
+    pub fn new(ctx: &iir::ComponentCtx, main_component: &Id) -> Self {
+        Self {
+            count: 0,
+            breakpoints: HashMap::new(),
+            main_comp_name: main_component.clone(),
+            sleeping_breakpoints: HashSet::new(),
+            comp_ctx: ctx
+                .iter()
+                .map(|x| (x.name.clone(), Rc::clone(x)))
+                .collect(),
+        }
+    }
+
+    pub fn add_breakpoint(&mut self, target: GroupName) {
+        let target_name = self.parse_group_name(&target);
+
+        if self
+            .comp_ctx
+            .get(&target_name.component_name)
+            .map(|x| x.groups.find(&target_name.group_name))
+            .flatten()
+            .is_none()
+        {
+            println!(
+                "{} Error: the group {} does not exit",
+                SPACING, target_name
+            );
+            return;
+        }
+
+        if let std::collections::hash_map::Entry::Vacant(e) =
+            self.breakpoints.entry(target_name.clone())
+        {
             self.count += 1;
             let br = BreakPoint {
                 id: self.count,
-                name: target,
-                enabled: true,
+                name: target_name,
+                state: BreakPointState::Enabled,
             };
-            self.breakpoints.push(br);
+            e.insert(br);
         } else {
-            println!("A breakpoint already exists for \"{}\"", target)
+            println!("A breakpoint already exists for \"{}\"", &target_name)
         }
     }
 
@@ -76,26 +129,36 @@ impl DebuggingContext {
     }
 
     fn remove_breakpoint_by_name(&mut self, target: &GroupName) {
-        // TODO (Griffin): Fix this
-        self.breakpoints.retain(|x| target[0] != x.name)
+        let key = self.parse_group_name(target);
+
+        self.breakpoints.remove(&key);
+        self.sleeping_breakpoints.remove(&key);
     }
 
     fn remove_breakpoint_by_number(&mut self, target: u64) {
-        self.breakpoints.retain(|x| x.id != target)
+        let mut sleeping = std::mem::take(&mut self.sleeping_breakpoints);
+        self.breakpoints.retain(|k, x| {
+            if x.id != target {
+                true
+            } else {
+                sleeping.remove(k);
+                false
+            }
+        });
+        self.sleeping_breakpoints = sleeping;
     }
 
     fn enable_breakpoint_by_name(&mut self, target: &GroupName) {
-        for x in self.breakpoints.iter_mut() {
-            // TODO (Griffin): Fix this
-            if target[0] == x.name {
-                x.enable();
-                break;
-            }
+        let key = self.parse_group_name(target);
+
+        if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
+            // add some feedback
+            breakpoint.enable()
         }
     }
 
     fn enable_breakpoint_by_num(&mut self, target: u64) {
-        for x in self.breakpoints.iter_mut() {
+        for (_, x) in self.breakpoints.iter_mut() {
             if x.id == target {
                 x.enable();
                 break;
@@ -104,38 +167,76 @@ impl DebuggingContext {
     }
 
     fn disable_breakpoint_by_name(&mut self, target: &GroupName) {
-        for x in self.breakpoints.iter_mut() {
-            // TODO (Griffin): Fix this
-            if target[0] == x.name {
-                x.disable();
-                break;
-            }
+        let key = self.parse_group_name(target);
+
+        if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
+            self.sleeping_breakpoints.remove(&key);
+            // add some feedback
+            breakpoint.disable()
         }
     }
 
     fn disable_breakpoint_by_num(&mut self, target: u64) {
-        for x in self.breakpoints.iter_mut() {
+        for x in self.breakpoints.values_mut() {
             if x.id == target {
+                self.sleeping_breakpoints.remove(&x.name);
                 x.disable();
                 break;
             }
         }
     }
 
+    fn parse_group_name(&self, target: &GroupName) -> CompGroupName {
+        match target.len() {
+            1 => CompGroupName::new(
+                target[0].clone(),
+                self.main_comp_name.clone(),
+            ),
+            2 => CompGroupName::new(target[1].clone(), target[0].clone()),
+            _ => unreachable!("Something went weird in the parser"),
+        }
+    }
+
     pub fn hit_breakpoints(
-        &self,
-        current_executing: &[&ir::Id],
-    ) -> Vec<&String> {
-        self.breakpoints
-            .iter()
-            .filter(|x| current_executing.iter().any(|y| x.matches(y)))
-            .map(|x| &x.name)
+        &mut self,
+        current_executing: HashSet<GroupQIN>,
+    ) -> Vec<CompGroupName> {
+        let current: HashSet<CompGroupName> =
+            current_executing.into_iter().map(|x| x.into()).collect();
+
+        let sleeping = std::mem::take(&mut self.sleeping_breakpoints);
+
+        // wake up sleeping breakpoints
+        self.sleeping_breakpoints = sleeping
+            .into_iter()
+            .filter(|x| {
+                if !current.contains(x) {
+                    self.breakpoints.get_mut(x).unwrap().enable();
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect();
+
+        current
+            .into_iter()
+            .filter(|x| {
+                if let Some(brk) = self.breakpoints.get_mut(x) {
+                    if brk.state.enabled() {
+                        self.sleeping_breakpoints.insert(x.clone());
+                        brk.state = BreakPointState::Resting;
+                        return true;
+                    }
+                }
+                false
+            })
             .collect()
     }
 
     pub fn print_breakpoints(&self) {
         println!("{}Current breakpoints:", SPACING);
-        for breakpoint in self.breakpoints.iter() {
+        for breakpoint in self.breakpoints.values() {
             println!("{}{:?}", SPACING, breakpoint)
         }
     }

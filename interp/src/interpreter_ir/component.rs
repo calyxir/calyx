@@ -4,6 +4,8 @@ use calyx::ir::{
     Assignment, Attributes, Cell, CombGroup, Group, Id, IdList, RRC,
 };
 use std::rc::Rc;
+
+#[derive(Debug)]
 pub struct Component {
     /// Name of the component.
     pub name: Id,

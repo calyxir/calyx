@@ -141,8 +141,11 @@ fn main() -> InterpreterResult<()> {
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
-    let env =
-        environment::InterpreterState::init(&components, main_component, &mems);
+    let env = environment::InterpreterState::init_top_level(
+        &components,
+        main_component,
+        &mems,
+    );
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
         Command::Interpret(_) => interpret_component(main_component, env?),
