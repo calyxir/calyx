@@ -14,7 +14,7 @@ def eprint(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
-def is_warming():
+def is_warning():
     return log.getLogger().level <= log.WARNING
 
 
@@ -34,14 +34,14 @@ def unwrap_or(val, default):
 
 
 def logging_setup(args):
-    # Color for warning, error, and info mesages
+    # Color for warning, error, and info messages.
     log.addLevelName(log.INFO, "\033[1;34m%s\033[1;0m" % log.getLevelName(log.INFO))
     log.addLevelName(
         log.WARNING, "\033[1;33m%s\033[1;0m" % log.getLevelName(log.WARNING)
     )
     log.addLevelName(log.ERROR, "\033[1;31m%s\033[1;0m" % log.getLevelName(log.ERROR))
 
-    # set verbosity level
+    # Set verbosity level.
     level = None
     if "verbose" not in args or args.verbose == 0:
         level = log.WARNING

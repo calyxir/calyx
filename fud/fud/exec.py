@@ -10,6 +10,18 @@ from . import errors, utils
 from .stages import Source, SourceType
 
 
+def print_profiling_information(stages, durations):
+    """
+    Prints time elapsed during each stage of the fud execution.
+    """
+    print("stage     |    elapsed time (s)")
+    print("-------------------------------")
+    for ed, elapsed_time in zip(stages, durations):
+        whitespace = max(16 - len(ed.name), 1) * " "
+        print(f"{ed.name}{whitespace}{round(elapsed_time, 3)}")
+    print("-------------------------------")
+
+
 def discover_implied_stage(filename, config, possible_dests=None):
     """
     Use the mapping from filename extensions to stages to figure out which
@@ -121,10 +133,7 @@ def run_fud(args, config):
         sp.stop()
 
         if utils.is_debug():
-            print("stage         elapsed time (s)")
-            for ed, elapsed_time in zip(path, stage_durations):
-                whitespace = max(16 - len(ed.name), 1) * " "
-                print(f"  {ed.name}{whitespace}{round(elapsed_time, 3)}")
+            print_profiling_information(path, stage_durations)
 
         # output the data returned from the file step
         if args.output_file is not None:
