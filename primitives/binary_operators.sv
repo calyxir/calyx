@@ -432,8 +432,10 @@ module std_div_pipe #(
   always_ff @(posedge clk) begin
     if (start)
       quotient_msk <= 1 << WIDTH - 1;
-    else
+    else if (running)
       quotient_msk <= quotient_msk >> 1;
+    else
+      quotient_msk <= quotient_msk;
   end
 
   // Calculate the quotient.
