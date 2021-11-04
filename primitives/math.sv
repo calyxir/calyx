@@ -33,10 +33,10 @@ module fp_sqrt #(
     end
 
     always_ff @(posedge clk) begin
-      if (start)
-        idx <= 0;
-      else
+      if (running)
         idx <= idx + 1;
+      else
+        idx <= 0;
     end
 
     always_comb begin
@@ -103,10 +103,11 @@ module sqrt #(
   // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
     logic [WIDTH-1:0] radicand;
-
-    always_latch @(posedge clk) begin
+    always_ff @(posedge clk) begin
       if (go)
         radicand <= in;
+      else
+        radicand <= radicand;
     end
 
     always @(posedge clk) begin

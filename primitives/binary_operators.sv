@@ -152,21 +152,23 @@ module std_fp_div_pipe #(
         done <= 0;
     end
 
-    // Index increment
     always_ff @(posedge clk) begin
-      if (start)
-        idx <= 0;
-      else
+      if (running)
         idx <= idx + 1;
+      else
+        idx <= 0;
     end
 
     always_ff @(posedge clk) begin
-      if (dividend_is_zero) begin
-        out_remainder <= 0;
-        out_quotient <= 0;
-      end else if (start) begin
+      if (start) begin
         out_quotient <= 0;
         out_remainder <= left;
+      end else if (go == 0) begin
+        out_quotient <= out_quotient;
+        out_remainder <= out_remainder;
+      end else if (dividend_is_zero) begin
+        out_quotient <= 0;
+        out_remainder <= 0;
       end else if (finished) begin
         out_quotient <= quotient_next;
         out_remainder <= out_remainder;
@@ -395,7 +397,7 @@ module std_div_pipe #(
   assign dividend_is_zero = start && left == 0;
 
   always_ff @(posedge clk) begin
-    // Early return if the divisor is zero
+    // Early return if the divisor is zero.
     if (finished || dividend_is_zero)
       done <= 1;
     else
@@ -414,18 +416,19 @@ module std_div_pipe #(
   // Outputs
   always_ff @(posedge clk) begin
     if (dividend_is_zero) begin
-      out_remainder <= 0;
       out_quotient <= 0;
+      out_remainder <= 0;
     end else if (finished) begin
-      out_remainder <= dividend;
       out_quotient <= quotient;
+      out_remainder <= dividend;
     end else begin
-      out_remainder <= out_remainder;
+      // Otherwise, explicitly latch the values.
       out_quotient <= out_quotient;
+      out_remainder <= out_remainder;
     end
   end
 
-  // Calculating quotient mask
+  // Calculate the quotient mask.
   always_ff @(posedge clk) begin
     if (start)
       quotient_msk <= 1 << WIDTH - 1;
@@ -433,7 +436,7 @@ module std_div_pipe #(
       quotient_msk <= quotient_msk >> 1;
   end
 
-  // Calculating quotient
+  // Calculate the quotient.
   always_ff @(posedge clk) begin
     if (start)
       quotient <= 0;
@@ -443,7 +446,7 @@ module std_div_pipe #(
       quotient <= quotient;
   end
 
-  // Calculate dividend
+  // Calculate the dividend.
   always_ff @(posedge clk) begin
     if (start)
       dividend <= left;
@@ -466,10 +469,13 @@ module std_div_pipe #(
   // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
     logic [WIDTH-1:0] l, r;
-    always_latch @(posedge clk) begin
+    always_ff @(posedge clk) begin
       if (go) begin
         l <= left;
         r <= right;
+      end else begin
+        l <= l;
+        r <= r;
       end
     end
 
@@ -605,10 +611,13 @@ module std_sdiv_pipe #(
   // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
     logic signed [WIDTH-1:0] l, r;
-    always_latch @(posedge clk) begin
+    always_ff @(posedge clk) begin
       if (go) begin
         l <= left;
         r <= right;
+      end else begin
+        l <= l;
+        r <= r;
       end
     end
 
