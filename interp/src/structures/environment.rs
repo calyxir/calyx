@@ -1,15 +1,16 @@
 //! Environment for interpreter.
 
-use super::errors::{InterpreterError, InterpreterResult};
-use super::interpreter::ComponentInterpreter;
-use super::interpreter_ir as iir;
-use super::primitives::{
+use super::names::{ComponentQIN, GroupQIN, InstanceName};
+use super::stk_env::Smoosher;
+use crate::errors::{InterpreterError, InterpreterResult};
+use crate::interpreter::ComponentInterpreter;
+use crate::interpreter_ir as iir;
+use crate::primitives::{
     combinational, stateful, Entry, Primitive, Serializeable,
 };
-use super::stk_env::Smoosher;
-use super::utils::AsRaw;
-use super::utils::MemoryMap;
-use super::values::Value;
+use crate::utils::AsRaw;
+use crate::utils::MemoryMap;
+use crate::values::Value;
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -61,12 +62,32 @@ pub struct InterpreterState {
 impl InterpreterState {
     /// Construct an environment
     /// ctx : A context from the IR
-    pub fn init(
+    pub fn init_top_level(
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
     ) -> InterpreterResult<Self> {
-        let (map, set) = Self::construct_cell_map(target, ctx, mems)?;
+        // only for the main component
+        let qin = ComponentQIN::new_single(target, &target.name);
+        let (map, set) = Self::construct_cell_map(target, ctx, mems, &qin)?;
+
+        Ok(Self {
+            context: Rc::clone(ctx),
+            clk: 0,
+            port_map: InterpreterState::construct_port_map(&*target),
+            cell_map: map,
+            component: target.clone(),
+            sub_comp_set: Rc::new(set),
+        })
+    }
+
+    pub fn init(
+        ctx: &iir::ComponentCtx,
+        target: &Rc<iir::Component>,
+        mems: &Option<MemoryMap>,
+        qin: &ComponentQIN,
+    ) -> InterpreterResult<Self> {
+        let (map, set) = Self::construct_cell_map(target, ctx, mems, qin)?;
 
         Ok(Self {
             context: Rc::clone(ctx),
@@ -222,6 +243,7 @@ impl InterpreterState {
         comp: &Rc<iir::Component>,
         ctx: &iir::ComponentCtx,
         mems: &Option<MemoryMap>,
+        qin_name: &ComponentQIN,
     ) -> InterpreterResult<(PrimitiveMap, HashSet<ConstCell>)> {
         let mut map = HashMap::new();
         let mut set = HashSet::new();
@@ -253,10 +275,13 @@ impl InterpreterState {
                 ir::CellType::Component { name } => {
                     let inner_comp =
                         ctx.iter().find(|x| x.name == name).unwrap();
-                    let env = Self::init(ctx, inner_comp, mems)?;
-                    let comp_interp: Box<dyn Primitive> = Box::new(
-                        ComponentInterpreter::from_component(inner_comp, env),
-                    );
+                    let qin = qin_name
+                        .new_extend(InstanceName::new(inner_comp, cl.name()));
+                    let env = Self::init(ctx, inner_comp, mems, &qin)?;
+                    let comp_interp: Box<dyn Primitive> =
+                        Box::new(ComponentInterpreter::from_component(
+                            inner_comp, env, qin,
+                        ));
                     set.insert(cl.as_raw());
                     map.insert(cl as ConstCell, comp_interp);
                 }
@@ -463,6 +488,20 @@ impl InterpreterState {
             ir::Guard::True => true,
         })
     }
+
+    pub fn sub_component_currently_executing(&self) -> HashSet<GroupQIN> {
+        let lookup = self.cell_map.borrow();
+
+        self.sub_comp_set
+            .iter()
+            .map(|x| {
+                crate::interpreter::Interpreter::currently_executing_group(
+                    lookup[x].get_comp_interpreter().unwrap(),
+                )
+            })
+            .flatten()
+            .collect()
+    }
 }
 
 impl Serialize for InterpreterState {
@@ -543,6 +582,13 @@ impl<'a> StateView<'a> {
                     }
                 }
             },
+        }
+    }
+
+    pub fn sub_component_currently_executing(&self) -> HashSet<GroupQIN> {
+        match self {
+            StateView::SingleView(sv) => sv.sub_component_currently_executing(),
+            StateView::Composite(c) => c.0.sub_component_currently_executing(),
         }
     }
 

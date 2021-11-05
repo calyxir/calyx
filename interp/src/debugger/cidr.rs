@@ -2,13 +2,14 @@ use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use super::commands::Command;
 use super::context::DebuggingContext;
 use super::io_utils::Input;
-use super::parser::Command;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
+use crate::structures::names::ComponentQIN;
 use crate::utils::AsRaw;
 use calyx::ir::{self, RRC};
 pub(super) const SPACING: &str = "    ";
@@ -18,7 +19,7 @@ use crate::interpreter::ConstCell;
 /// [main_loop] function while this struct holds auxilliary information used to
 /// coordinate the debugging process.
 pub struct Debugger {
-    context: iir::ComponentCtx,
+    _context: iir::ComponentCtx,
     main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
 }
@@ -29,9 +30,9 @@ impl Debugger {
         main_component: &Rc<iir::Component>,
     ) -> Self {
         Self {
-            context: Rc::clone(context),
+            _context: Rc::clone(context),
             main_component: Rc::clone(main_component),
-            debugging_ctx: DebuggingContext::default(),
+            debugging_ctx: DebuggingContext::new(context, &main_component.name),
         }
     }
 
@@ -40,8 +41,15 @@ impl Debugger {
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterResult<InterpreterState> {
-        let mut component_interpreter =
-            ComponentInterpreter::from_component(&self.main_component, env);
+        let qin = ComponentQIN::new_single(
+            &self.main_component,
+            &self.main_component.name,
+        );
+        let mut component_interpreter = ComponentInterpreter::from_component(
+            &self.main_component,
+            env,
+            qin,
+        );
         component_interpreter.set_go_high();
 
         if pass_through {
@@ -71,7 +79,7 @@ impl Debugger {
                 }
                 Command::Continue => {
                     let mut breakpoints = self.debugging_ctx.hit_breakpoints(
-                        &component_interpreter.currently_executing_group(),
+                        component_interpreter.currently_executing_group(),
                     );
 
                     while breakpoints.is_empty()
@@ -79,7 +87,7 @@ impl Debugger {
                     {
                         component_interpreter.step()?;
                         breakpoints = self.debugging_ctx.hit_breakpoints(
-                            &component_interpreter.currently_executing_group(),
+                            component_interpreter.currently_executing_group(),
                         );
                     }
                     if !component_interpreter.is_done() {
@@ -210,19 +218,7 @@ impl Debugger {
                     }
 
                     for target in targets {
-                        if self
-                            .context
-                            .iter()
-                            .any(|x| x.groups.find(&target[0]).is_some())
-                        {
-                            self.debugging_ctx
-                                .add_breakpoint(target[0].to_string())
-                        } else {
-                            println!(
-                                "{}There is no group named: {}",
-                                SPACING, target[0]
-                            )
-                        }
+                        self.debugging_ctx.add_breakpoint(target)
                     }
                 }
                 Command::Exit => return Err(InterpreterError::Exit),

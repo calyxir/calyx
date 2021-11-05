@@ -7,7 +7,7 @@ num = {ASCII_DIGIT+}
 
 identifier = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
 
-group = {(identifier | identifier ~ "::" ~ identifier)}
+group = {(identifier ~ "::" ~ identifier | identifier)}
 
 name = { identifier ~ (dot ~ identifier)* }
 
