@@ -12,6 +12,7 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
@@ -24,6 +25,7 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
@@ -50,6 +52,7 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
@@ -62,6 +65,7 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
@@ -85,6 +89,7 @@ extern "binary_operators.sv" {
 
   primitive std_mult_pipe<"static"=3>[WIDTH](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
@@ -94,10 +99,11 @@ extern "binary_operators.sv" {
   );
 
   primitive std_div_pipe[WIDTH](
-    @write_together(1) left: WIDTH,
-    @write_together(1) right: WIDTH,
+    @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
-    @clk clk: 1
+    @write_together(1) left: WIDTH,
+    @write_together(1) right: WIDTH
   ) -> (
     @stable out_quotient: WIDTH,
     @stable out_remainder: WIDTH,
@@ -109,10 +115,11 @@ extern "binary_operators.sv" {
   comb primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   primitive std_smult_pipe<"static"=3>[WIDTH](
-    @write_together(1) left: WIDTH,
-    @write_together(1) right: WIDTH,
+    @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
-    @clk clk: 1
+    @write_together(1) left: WIDTH,
+    @write_together(1) right: WIDTH
   ) -> (
     @stable out: WIDTH,
     @done done: 1
@@ -120,6 +127,7 @@ extern "binary_operators.sv" {
 
   primitive std_sdiv_pipe[WIDTH](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
