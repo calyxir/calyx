@@ -1,7 +1,7 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 dot = _{"."}
 ident_syms = _{ "_" | "-" | "'" }
-num = {ASCII_DIGIT+}
+num = @{ASCII_DIGIT+}
 
 
 
