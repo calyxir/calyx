@@ -2,7 +2,7 @@
 use crate::passes::{
     ClkInsertion, CollapseControl, CompileEmpty, CompileInvoke,
     ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GroupToInvoke, GuardCanonical, InferStaticTiming, Inliner,
+    GoInsertion, GroupToInvoke, GuardCanonical, HoleInliner, InferStaticTiming,
     LowerGuards, MergeAssign, MinimizeRegs, Papercut, ParToSeq,
     RegisterUnsharing, RemoveCombGroups, ResetInsertion, ResourceSharing,
     SimplifyGuards, SynthesisPapercut, TopDownCompileControl, WellFormed,
@@ -25,8 +25,8 @@ impl PassManager {
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<GoInsertion>()?;
         pm.register_pass::<ComponentInterface>()?;
-        pm.register_pass::<Inliner>()?;
         pm.register_pass::<WireInliner>()?;
+        pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<Externalize>()?;
         pm.register_pass::<CollapseControl>()?;
         pm.register_pass::<CompileEmpty>()?;
@@ -79,7 +79,7 @@ impl PassManager {
             [
                 GoInsertion,
                 ComponentInterface,
-                Inliner,
+                HoleInliner,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
