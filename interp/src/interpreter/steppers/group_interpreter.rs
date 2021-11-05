@@ -130,35 +130,41 @@ impl AssignmentInterpreter {
 
     /// Advance the stepper by a clock cycle
     pub fn step_cycle(&mut self) -> InterpreterResult<()> {
-        //TODO (Griffin): Make sure this does the convergence step first if needed, rather
-        // than just skipping
-        if !self.is_done()
-            && self.val_changed.is_some()
-            && !self.val_changed.unwrap()
-        {
-            let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];
+        if !self.is_done() {
+            self.force_step_cycle()?;
+        }
 
-            for cell in self.cells.iter() {
-                if let Some(x) = self
-                    .state
-                    .cell_map
-                    .borrow_mut()
-                    .get_mut(&(&cell.borrow() as &Cell as ConstCell))
-                {
-                    let new_vals = x.do_tick();
-                    for (port, val) in new_vals? {
-                        let port_ref = cell.borrow().find(port).unwrap();
+        Ok(())
+    }
 
-                        update_list.push((Rc::clone(&port_ref), val));
-                    }
+    pub fn force_step_cycle(&mut self) -> InterpreterResult<()> {
+        if self.val_changed.unwrap_or(true) {
+            self.step_convergence()?;
+        }
+
+        let mut update_list: Vec<(RRC<ir::Port>, Value)> = vec![];
+
+        for cell in self.cells.iter() {
+            if let Some(x) = self
+                .state
+                .cell_map
+                .borrow_mut()
+                .get_mut(&(&cell.borrow() as &Cell as ConstCell))
+            {
+                let new_vals = x.do_tick();
+                for (port, val) in new_vals? {
+                    let port_ref = cell.borrow().find(port).unwrap();
+
+                    update_list.push((Rc::clone(&port_ref), val));
                 }
             }
-
-            for (port, val) in update_list {
-                self.state.insert(port, val);
-            }
-            self.val_changed = None;
         }
+
+        for (port, val) in update_list {
+            self.state.insert(port, val);
+        }
+        self.val_changed = None;
+
         Ok(())
     }
 
