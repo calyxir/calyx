@@ -357,19 +357,23 @@ impl Primitive for ComponentInterpreter {
         let interp = std::mem::take(&mut self.interp);
 
         let new = match interp {
-            StructuralOrControl::Structural(s) => {
+            StructuralOrControl::Structural(mut s) => {
+                s.step()?;
                 StructuralOrControl::Structural(s)
             }
             StructuralOrControl::Control(control) => {
-                // TODO: actually do the right thing with the error here
-                let env = control.deconstruct().unwrap();
+                let env = control.deconstruct()?;
                 StructuralOrControl::Env(env)
             }
             _ => unreachable!(),
         };
 
         self.interp = new;
-        self.set_done_low();
+
+        if !self.interp._is_structural() {
+            // only relevant for non-structural
+            self.set_done_low();
+        }
 
         Ok(self.look_up_outputs())
     }

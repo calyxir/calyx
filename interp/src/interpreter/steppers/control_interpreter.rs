@@ -1033,7 +1033,7 @@ impl StructuralInterpreter {
 
 impl Interpreter for StructuralInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
-        self.interp.step()
+        self.interp.force_step_cycle()
     }
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState> {
