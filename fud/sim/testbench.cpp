@@ -1,6 +1,8 @@
 #include "Vmain.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -17,12 +19,13 @@ void cycle_tracker(const uint64_t current_cycle, const uint64_t n_cycles) {
   auto print_simulation_at = [&](int64_t cycle) {
     std::cout << "[Verilator] In-progress: Simulated " << cycle << " cycles\n";
   };
-  if (current_cycle == n_cycles * 1 / 4)
+
+  const std::array<uint64_t, 3> intervals = {n_cycles * 1 / 4, n_cycles * 2 / 4,
+                                             n_cycles * 3 / 4};
+  if (std::any_of(intervals.begin(), intervals.end(),
+                  [&](uint64_t i) { return current_cycle == i; })) {
     print_simulation_at(current_cycle);
-  else if (current_cycle == n_cycles * 2 / 4)
-    print_simulation_at(current_cycle);
-  else if (current_cycle == n_cycles * 3 / 4)
-    print_simulation_at(current_cycle);
+  }
 }
 
 // Expected program arguments:
