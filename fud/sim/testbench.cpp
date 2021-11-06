@@ -1,83 +1,81 @@
 #include "Vmain.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
-#include <stdio.h>
+#include <cstdint>
+#include <iostream>
+#include <memory>
 
-// Keep track of time: https://www.veripool.org/wiki/verilator/Manual-verilator#CONNECTING-TO-C
-vluint64_t main_time = 0;
-double sc_time_stamp() { return main_time; }
+// Keep track of time:
+// https://www.veripool.org/wiki/verilator/Manual-verilator#CONNECTING-TO-C
+vluint64_t MainTime = 0;
+// Accessed by the underlying test bench.
+double sc_time_stamp() { return MainTime; }
 
+// Expected program arguments:
+// argv[1]: Input file path for the trace file.
+// argv[2]: Number of cycles.
+// argv[3]: `--trace` if the trace is requested for VCD dump.
 int main(int argc, char **argv, char **env) {
-  int i = 0;
-  int clk;
+
   Verilated::commandArgs(argc, argv);
+  std::cout << argv[0] << "\n\n\n";
+  // Initialize top Verilog instance.
+  auto top = std::make_unique<Vmain>();
 
-  // init top verilog instance
-  Vmain *top = new Vmain;
+  // Number of cycles for simulation. Defaulted to 5e8 if none provided.
+  const int64_t n_cycles = argc >= 3 ? std::stoi(argv[2]) : 5e8;
 
-  // get cycles to simulate
-  int n_cycles = 5e8;
-  if (argc >= 3) {
-    n_cycles = std::stoi(argv[2]);
-  }
-
-  // init trace dump
-  bool trace = false;
-  if (argc >= 4) {
-    trace = std::strcmp(argv[3], "--trace") == 0;
-  }
-
-  VerilatedVcdC *tfp;
-  if (trace) {
+  // Initialize trace dump, used for VCD output.
+  const bool trace_requested =
+      argc >= 4 && std::strcmp(argv[3], "--trace") == 0;
+  std::unique_ptr<VerilatedVcdC> tfp;
+  if (trace_requested) {
+    std::cout << "[VCD] trace turned on.\n";
     Verilated::traceEverOn(true);
-    tfp = new VerilatedVcdC;
-    top->trace(tfp, 99);
+    tfp = std::make_unique<VerilatedVcdC>();
+    top->trace(tfp.get(), 99);
     tfp->open(argv[1]);
   }
 
-  // initialize simulation inputs and eval once to avoid zero-time reset bug
-  // (https://github.com/verilator/verilator/issues/2661)
+  // Initialize simulation.
+  std::cout << "[Verilator] Simulation begin\n";
   top->go = 0;
   top->clk = 0;
   top->reset = 1;
   top->eval();
 
-  int done = 0;
-  int ignore_cycles = 5;
-  //printf("Starting simulation\n");
-  while (done == 0 && i < n_cycles) {
-    done = top->done;
-    // Do nothing for a few cycles to avoid zero-time reset bug
-    if (ignore_cycles == 0) {
-      top->go = 1;
-      top->reset = 0;
-    } else {
-      top->reset = 1;
-      ignore_cycles--;
-    }
-    // dump variables into VCD file and toggle clock
-    for (clk = 0; clk < 2; clk++) {
-      if (trace && ignore_cycles == 0) {
-        tfp->dump(2 * i + clk);
-      }
-      top->clk = !top->clk;
-      top->eval();
-    }
+  // Do nothing for 5 cycles to avoid zero-time reset bug:
+  // (https://github.com/verilator/verilator/issues/2661)
+  constexpr int8_t IgnoreCycles = 5;
+  for (int8_t i = 0; i < IgnoreCycles; ++i)
+    top->reset = 1;
 
-    // Time passes
-    main_time++;
+  // Start the top-level module.
+  top->reset = 0;
+  top->go = 1;
 
-    if (Verilated::gotFinish())
-      exit(0);
+  int64_t cycles = 0;
+  // Check for 3 conditions:
+  //   1. Number of cycles less than the upper limit.
+  //   2. The top component is not marked done.
+  //   3. Verilator simulator has not received a $finish.
+  for (; cycles < n_cycles && top->done == 0 && !Verilated::gotFinish();
+       ++cycles, ++MainTime) {
+    // Toggle the clock and evaluate twice per cycle, and if tracing, dump
+    // variables into VCD file.
+    if (trace_requested)
+      tfp->dump(static_cast<vluint64_t>(2 * cycles + 0));
+    top->clk = !top->clk;
+    top->eval();
 
-    i++;
+    if (trace_requested)
+      tfp->dump(static_cast<vluint64_t>(2 * cycles + 1));
+    top->clk = !top->clk;
+    top->eval();
   }
 
-  printf("Simulated %i cycles\n", i - ignore_cycles);
+  std::cout << "[Verilator] Simulated " << cycles << " cycles\n";
   top->final();
-  if (trace) {
+  if (trace_requested)
     tfp->close();
-  }
-
-  exit(0);
 }
