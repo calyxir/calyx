@@ -2,13 +2,14 @@
 
 import functools
 import inspect
+import time
 import logging as log
 from enum import Enum, auto
 from io import IOBase
 from pathlib import Path
 
 from ..utils import Conversions as conv
-from ..utils import Directory, is_debug
+from ..utils import Directory, is_debug, print_profiling_information
 
 
 class SourceType(Enum):
@@ -230,17 +231,24 @@ class Stage:
 
     def run(self, input_data, sp=None):
         assert isinstance(input_data, Source)
+        # tracks the approximate time elapsed to run each step in this stage.
+        durations = []
 
         # fill in input_data
         self.hollow_input_data.data = input_data.convert_to(self.input_type).data
 
         # run all the steps
         for step in self.steps:
+            begin = time.time()
             if sp is not None:
                 sp.start_step(step.name)
             step()
             if sp is not None:
                 sp.end_step()
+            durations.append(time.time() - begin)
+
+        if is_debug():
+            print_profiling_information(self.name, self.steps, durations)
 
         return self.final_output
 

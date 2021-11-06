@@ -215,3 +215,17 @@ def transparent_shell(cmd):
     proc = subprocess.Popen(cmd, env=os.environ, shell=True)
 
     proc.wait()
+
+
+def print_profiling_information(title, phases, durations):
+    """
+    Prints time elapsed during each stage or step of the fud execution.
+    """
+    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
+
+    print(f"{title}              |          elapsed time (s)")
+    print("-------------------------------------------------")
+    for phase, elapsed_time in zip(phases, durations):
+        whitespace = max(32 - len(phase.name), 1) * " "
+        print(f"{phase.name}{whitespace}{round(elapsed_time, 3)}")
+    print("-------------------------------------------------")

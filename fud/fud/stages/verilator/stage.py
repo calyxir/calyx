@@ -123,7 +123,7 @@ class VerilatorStage(Stage):
             # before the next stage runs
             return (Path(tmpdir.name) / "output.vcd").open("rb")
 
-        # Step 5(self.vc == False): extract cycles + data
+        # Step 5(self.vcd == False): extract cycles + data
         @self.step()
         def output_json(
             simulated_output: SourceType.String, tmpdir: SourceType.Directory
@@ -131,7 +131,7 @@ class VerilatorStage(Stage):
             """
             Convert .dat files back into a json and extract simulated cycles from log.
             """
-            # Look for ouput like: "Simulated 91 cycles"
+            # Look for output like: "Simulated 91 cycles"
             r = re.search(r"Simulated (\d+) cycles", simulated_output)
             data = {
                 "cycles": int(r.group(1)) if r is not None else 0,
