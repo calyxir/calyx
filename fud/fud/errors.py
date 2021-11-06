@@ -7,6 +7,19 @@ class FudError(Exception):
     """
 
 
+class CycleLimitedReached(FudError):
+    """
+    The cycle limit has been reached for Verilator simulation.
+    """
+
+    def __init__(self, cycle_limit):
+        super().__init__(
+            f"The cycle limit for simulation: {cycle_limit} "
+            "has been reached. Either your program is not making progress, "
+            "or you need to increase the cycle limit."
+        )
+
+
 class NoInputFile(FudError):
     def __init__(self, possible_dests=None):
         msg = "No filename or type provided for exec."

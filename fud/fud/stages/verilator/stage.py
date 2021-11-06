@@ -131,6 +131,11 @@ class VerilatorStage(Stage):
             """
             Convert .dat files back into a json and extract simulated cycles from log.
             """
+            # Verify we haven't hit the cycle limit.
+            found = re.search(r"reached limit of (\d+) cycles", simulated_output)
+            if found is not None:
+                raise errors.CycleLimitedReached(found.group(1))
+
             # Look for output like: "Simulated 91 cycles"
             r = re.search(r"Simulated (\d+) cycles", simulated_output)
             data = {
