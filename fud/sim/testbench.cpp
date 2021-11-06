@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     top->eval();
   }
 
-  std::cout << "[Verilator] Simulated " << cycles + ResetCycles << " cycles\n";
+  std::cout << "[Verilator] Simulated " << cycles << " cycles\n";
   top->final();
   if (trace_requested)
     tfp->close();
