@@ -18,7 +18,6 @@ double sc_time_stamp() { return MainTime; }
 int main(int argc, char **argv, char **env) {
 
   Verilated::commandArgs(argc, argv);
-  std::cout << argv[0] << "\n\n\n";
   // Initialize top Verilog instance.
   auto top = std::make_unique<Vmain>();
 
@@ -61,9 +60,9 @@ int main(int argc, char **argv, char **env) {
   //   3. Verilator simulator has not received a $finish.
   for (; cycles < n_cycles && top->done == 0 && !Verilated::gotFinish();
        ++cycles, ++MainTime) {
-    // Toggle the clock and evaluate twice per cycle, and if tracing, dump
-    // variables into VCD file.
+    // Toggle the clock and evaluate twice per cycle.
     if (trace_requested)
+      // Dump variables into VCD file.
       tfp->dump(static_cast<vluint64_t>(2 * cycles + 0));
     top->clk = !top->clk;
     top->eval();

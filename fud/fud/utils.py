@@ -216,11 +216,12 @@ def transparent_shell(cmd):
 
     proc.wait()
 
+
 def print_profiling_information(title, phases, durations):
     """
     Prints time elapsed during each stage or step of the fud execution.
     """
-    assert all(hasattr(p, 'name') for p in phases), "expected to have name attribute."
+    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
 
     print(f"{title}              |          elapsed time (s)")
     print("-------------------------------------------------")

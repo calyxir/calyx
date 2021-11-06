@@ -250,7 +250,6 @@ class Stage:
         if is_debug():
             print_profiling_information(self.name, self.steps, durations)
 
-
         return self.final_output
 
     def dry_run(self):
