@@ -231,7 +231,7 @@ class Stage:
 
     def run(self, input_data, sp=None):
         assert isinstance(input_data, Source)
-        # durations for each step in a stage run.
+        # tracks the approximate time elapsed to run each step in this stage.
         durations = []
 
         # fill in input_data
