@@ -87,9 +87,10 @@ int main(int argc, char **argv) {
     top->eval();
   }
 
+  const bool is_unfinished = cycles == n_cycles && top->done == 0;
   std::cout << "[Verilator]"
-            << (cycles == n_cycles ? " ERROR: Program reached limit of "
-                                   : " Simulated ")
+            << (is_unfinished ? " ERROR: Program reached limit of "
+                              : " Simulated ")
             << cycles << " cycles\n";
   top->final();
   if (trace_requested)
