@@ -15,14 +15,14 @@ double sc_time_stamp() { return MainTime; }
 // argv[1]: Input file path for the trace file.
 // argv[2]: Number of cycles.
 // argv[3]: `--trace` if the trace is requested for VCD dump.
-int main(int argc, char **argv, char **env) {
+int main(int argc, char **argv) {
 
   Verilated::commandArgs(argc, argv);
   // Initialize top Verilog instance.
   auto top = std::make_unique<Vmain>();
 
   // Number of cycles for simulation. Defaulted to 5e8 if none provided.
-  const int64_t n_cycles = argc >= 3 ? std::stoi(argv[2]) : 5e8;
+  const uint64_t n_cycles = argc >= 3 ? std::stoi(argv[2]) : 5e8;
 
   // Initialize trace dump, used for VCD output.
   const bool trace_requested =
@@ -46,14 +46,14 @@ int main(int argc, char **argv, char **env) {
   // Do nothing for 5 cycles to avoid zero-time reset bug:
   // (https://github.com/verilator/verilator/issues/2661)
   constexpr int8_t IgnoreCycles = 5;
-  for (int8_t i = 0; i < IgnoreCycles; ++i)
+  for (uint8_t i = 0; i < IgnoreCycles; ++i)
     top->reset = 1;
 
   // Start the top-level module.
   top->reset = 0;
   top->go = 1;
 
-  int64_t cycles = 0;
+  uint64_t cycles = 0;
   // Check for 3 conditions:
   //   1. Number of cycles less than the upper limit.
   //   2. The top component is not marked done.
