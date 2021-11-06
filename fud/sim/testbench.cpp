@@ -2,6 +2,7 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include <stdio.h>
+#include <memory>
 
 // Keep track of time: https://www.veripool.org/wiki/verilator/Manual-verilator#CONNECTING-TO-C
 vluint64_t main_time = 0;
@@ -13,7 +14,7 @@ int main(int argc, char **argv, char **env) {
   Verilated::commandArgs(argc, argv);
 
   // init top verilog instance
-  Vmain *top = new Vmain;
+  std::unique_ptr<Vmain> top = std::make_unique<Vmain>();
 
   // get cycles to simulate
   int n_cycles = 5e8;
@@ -27,11 +28,11 @@ int main(int argc, char **argv, char **env) {
     trace = std::strcmp(argv[3], "--trace") == 0;
   }
 
-  VerilatedVcdC *tfp;
+  std::unique_ptr<VerilatedVcdC> tfp;
   if (trace) {
     Verilated::traceEverOn(true);
-    tfp = new VerilatedVcdC;
-    top->trace(tfp, 99);
+    tfp = std::make_unique<VerilatedVcdC>();
+    top->trace(tfp.get(), 99);
     tfp->open(argv[1]);
   }
 
