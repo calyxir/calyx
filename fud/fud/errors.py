@@ -16,7 +16,8 @@ class CycleLimitedReached(FudError):
         super().__init__(
             f"The cycle limit for simulation: {cycle_limit} "
             "has been reached. Either your program is not making progress, "
-            "or you need to increase the cycle limit."
+            "or you need to increase the cycle limit with the command: "
+            "\n    -s verilog.cycle_limit <cycle-limit>"
         )
 
 
