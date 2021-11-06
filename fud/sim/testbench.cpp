@@ -43,13 +43,13 @@ int main(int argc, char **argv) {
   top->reset = 1;
   top->eval();
 
-  // Do nothing for 5 cycles to avoid zero-time reset bug:
+  // Do nothing for 6 cycles to avoid zero-time reset bug:
   // (https://github.com/verilator/verilator/issues/2661)
-  constexpr int8_t IgnoreCycles = 5;
-  for (uint8_t i = 0; i < IgnoreCycles; ++i)
+  constexpr int8_t ResetCycles = 5;
+  for (uint8_t i = 0; i < ResetCycles; ++i)
     top->reset = 1;
 
-  // Start the top-level module.
+  // Drive the top-level module.
   top->reset = 0;
   top->go = 1;
 
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     top->eval();
   }
 
-  std::cout << "[Verilator] Simulated " << cycles << " cycles\n";
+  std::cout << "[Verilator] Simulated " << cycles + ResetCycles << " cycles\n";
   top->final();
   if (trace_requested)
     tfp->close();
