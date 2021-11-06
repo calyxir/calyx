@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
 /// Data for the `seq` control statement.
@@ -197,5 +199,74 @@ impl Control {
             body,
             attributes: Attributes::default(),
         })
+    }
+}
+
+impl Control {
+    /// Associated clone method the control program. We don't define this using the
+    /// [Clone] trait because cloning control is not very common and clones
+    /// should be explicit.
+    #[allow(clippy::should_implement_trait)]
+    pub fn clone(con: &Control) -> Control {
+        match con {
+            Control::Seq(Seq { stmts, attributes }) => Control::Seq(Seq {
+                stmts: stmts.iter().map(|stmt| Control::clone(stmt)).collect(),
+                attributes: attributes.clone(),
+            }),
+            Control::Par(Par { stmts, attributes }) => Control::Par(Par {
+                stmts: stmts.iter().map(|stmt| Control::clone(stmt)).collect(),
+                attributes: attributes.clone(),
+            }),
+            Control::If(If {
+                port,
+                cond,
+                tbranch,
+                fbranch,
+                attributes,
+            }) => Control::If(If {
+                port: Rc::clone(port),
+                cond: cond.clone().map(|cg| Rc::clone(&cg)),
+                tbranch: Box::new(Control::clone(tbranch)),
+                fbranch: Box::new(Control::clone(fbranch)),
+                attributes: attributes.clone(),
+            }),
+            Control::While(While {
+                port,
+                cond,
+                body,
+                attributes,
+            }) => Control::While(While {
+                port: Rc::clone(port),
+                cond: cond.clone().map(|cg| Rc::clone(&cg)),
+                body: Box::new(Control::clone(body)),
+                attributes: attributes.clone(),
+            }),
+            Control::Invoke(Invoke {
+                comp,
+                inputs,
+                outputs,
+                attributes,
+                comb_group,
+            }) => Control::Invoke(Invoke {
+                comp: Rc::clone(comp),
+                inputs: inputs
+                    .iter()
+                    .map(|(name, port)| (name.clone(), Rc::clone(port)))
+                    .collect(),
+                outputs: outputs
+                    .iter()
+                    .map(|(name, port)| (name.clone(), Rc::clone(port)))
+                    .collect(),
+                comb_group: comb_group.clone().map(|cg| Rc::clone(&cg)),
+                attributes: attributes.clone(),
+            }),
+            Control::Enable(Enable { group, attributes }) => {
+                Control::Enable(Enable {
+                    group: Rc::clone(group),
+                    attributes: attributes.clone(),
+                })
+            }
+            Control::Empty(_) => Control::empty(),
+        }
     }
 }
