@@ -307,7 +307,9 @@ def config_run(parser):
         "--dump_prof",
         nargs="+",
         default=[],
-        help="Dumps profile information for <stage>. If you want overall stage times, use `all`. If you want CSV format, use `csv` as an additional argument",
+        help="Dumps profile information for <stage>. "
+        + "If you want overall stage times, use `all`. "
+        + "If you want CSV format, use `csv` as an additional argument",
         dest="profile",
     )
     parser.add_argument("--from", dest="source", help="Name of the start stage")
