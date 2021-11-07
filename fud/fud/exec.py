@@ -135,7 +135,7 @@ def run_fud(args, config):
             )
 
         if args.output_file is not None:
-            if args.profile is not None:
+            if args.profile:
                 with Path(args.output_file).open("wb") as f:
                     f.write(str.encode(data))
             elif data.typ == SourceType.Directory:
