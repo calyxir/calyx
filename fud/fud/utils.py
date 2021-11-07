@@ -222,8 +222,9 @@ def profiling_information(stage, phases, durations):
     Returns time elapsed during each stage or step of the fud execution.
     """
     assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
-    # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
+
     def name_and_space(s: str) -> str:
+        # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
         return "".join((s, max(32 - len(s), 1) * " "))
 
     msg = f"{name_and_space(stage)}elapsed time (s)\n"
