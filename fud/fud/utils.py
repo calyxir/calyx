@@ -239,9 +239,8 @@ def dump_profiling_csv(filename, phases, durations):
         durations: [1.42, 2.0, 3.4445]
     The output will be:
     ```
-    a,1.42
-    b,2.0
-    c,3.444
+    a,b,c
+    1.42,2.0,3.444
     ```
     """
     import csv
