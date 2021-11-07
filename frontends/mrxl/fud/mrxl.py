@@ -18,12 +18,14 @@ class MrXLStage(Stage):
             config=config,
             description="Compiles MrXL to Calyx.",
         )
-        self.config["stages", self.name, "flags"] = None
         self.setup()
 
     @staticmethod
     def defaults():
-        return {"exec": "mrxl"}
+        return {
+            "exec": "mrxl",
+            "flags": None,
+        }
 
     def _define_steps(self, input_path):
         @self.step(description=self.cmd)

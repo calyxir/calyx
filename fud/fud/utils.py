@@ -250,4 +250,6 @@ def dump_profiling_csv(filename, stage, steps, durations):
         fieldnames = [f"{stage}.{s.name}" for s in steps]
         writer = csv.DictWriter(f, fieldnames, delimiter=",")
         writer.writeheader()
-        writer.writerow({f"{stage}.{s.name}" : round(t, 3) for (s, t) in zip(steps, durations)})
+        writer.writerow(
+            {f"{stage}.{s.name}": round(t, 3) for (s, t) in zip(steps, durations)}
+        )
