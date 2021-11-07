@@ -305,14 +305,9 @@ def config_run(parser):
     parser.add_argument(
         "-pr",
         "--dump_prof",
-        help="Dumps profile information for <stage>. If you want overall stage times, use `all`",
-        dest="profiling",
-    )
-    parser.add_argument(
-        "-pr-csv",
-        "--dump_prof_csv",
-        help="Dumps profile information in CSV format for <stage>",
-        dest="profiling_csv",
+        nargs="+",
+        help="Dumps profile information for <stage>. If you want overall stage times, use `all`. If you want CSV format, use `csv` as an additional argument",
+        dest="profile",
     )
     parser.add_argument("--from", dest="source", help="Name of the start stage")
     parser.add_argument("--to", dest="dest", help="Name of the final stage")

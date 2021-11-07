@@ -247,10 +247,13 @@ class Stage:
                 sp.end_step()
             durations.append(time.time() - begin)
 
-        if self.name == args.profiling:
-            return profiling_information(self.name, self.steps, durations)
-        if self.name == args.profiling_csv:
-            return profiling_csv(self.name, self.steps, durations)
+        if any(a == self.name for a in args.profile):
+            kwargs = {"stage": self.name, "phases": self.steps, "durations": durations}
+            return (
+                profiling_csv(**kwargs)
+                if any(a == "csv" for a in args.profile)
+                else profiling_information(**kwargs)
+            )
 
         return self.final_output
 

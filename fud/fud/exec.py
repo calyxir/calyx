@@ -122,16 +122,20 @@ def run_fud(args, config):
         sp.stop()
 
         # The case where overall stage times want to be printed.
-        if args.profiling == "all":
-            data = utils.profiling_information(
-                "overall", [ed for ed in path], durations
+        if any(a == "all" for a in args.profile):
+            kwargs = {
+                "stage": "overall",
+                "phases": [ed for ed in path],
+                "durations": durations,
+            }
+            data = (
+                utils.profiling_csv(**kwargs)
+                if any(a == "csv" for a in args.profile)
+                else utils.profiling_information(**kwargs)
             )
-        if args.profiling_csv == "all":
-            data = utils.profiling_csv("overall", [ed for ed in path], durations)
 
-        is_profiling = any(a is not None for a in (args.profiling, args.profiling_csv))
         if args.output_file is not None:
-            if is_profiling:
+            if args.profile is not None:
                 with Path(args.output_file).open("wb") as f:
                     f.write(str.encode(data))
             elif data.typ == SourceType.Directory:
@@ -139,7 +143,5 @@ def run_fud(args, config):
             else:
                 with Path(args.output_file).open("wb") as f:
                     f.write(data.convert_to(SourceType.Bytes).data)
-        elif is_profiling:
-            print(data)
         elif data:
-            print(data.convert_to(SourceType.String).data)
+            print(data if args.profile else data.convert_to(SourceType.String).data)
