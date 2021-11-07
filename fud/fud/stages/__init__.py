@@ -257,9 +257,9 @@ class Stage:
             print_profiling_information(self.name, self.steps, durations)
 
         flags = unwrap_or(self.config["stages", self.name, "flags"], None)
-        if flags and "dump_prof" in flags:
-            # The `dump_prof` flag contains the filename.
-            dump_profiling_csv(flags["dump_prof"], self.steps, durations)
+        if flags and "dump_prof_to" in flags:
+            # The `dump_prof_to` flag contains the filename.
+            dump_profiling_csv(flags["dump_prof_to"], self.steps, durations)
 
         return self.final_output
 

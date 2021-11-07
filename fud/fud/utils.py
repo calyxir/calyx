@@ -246,8 +246,8 @@ def dump_profiling_csv(filename, phases, durations):
     """
     import csv
 
-    with open(filename, "w", newline="") as f:
-        fields = ["phase", "time"]
-        writer = csv.writer(f, delimiter=",")
-        for (p, t) in zip(phases, durations):
-            writer.writerow([p.name, round(t, 3)])
+    with open(filename, "a", newline="") as f:
+        fieldnames = [p.name for p in phases]
+        writer = csv.DictWriter(f, fieldnames, delimiter=",")
+        writer.writeheader()
+        writer.writerow({p.name : round(t, 3) for (p, t) in zip(phases, durations)})
