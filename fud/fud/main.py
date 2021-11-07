@@ -303,13 +303,13 @@ def main():
 
 def config_run(parser):
     parser.add_argument(
-        "-p",
+        "-pr",
         "--dump_prof",
         help="Dumps profile information for <stage>. If you want overall stage times, use `all`",
         dest="profiling",
     )
     parser.add_argument(
-        "-p-csv",
+        "-pr-csv",
         "--dump_prof_csv",
         help="Dumps profile information in CSV format for <stage>",
         dest="profiling_csv",
