@@ -229,3 +229,25 @@ def print_profiling_information(title, phases, durations):
         whitespace = max(32 - len(phase.name), 1) * " "
         print(f"{phase.name}{whitespace}{round(elapsed_time, 3)}")
     print("-------------------------------------------------")
+
+
+def dump_profiling_csv(filename, phases, durations):
+    """
+    Dumps the profiling information into a CSV.
+    For example, with
+        phases:    ['a', 'b', 'c']
+        durations: [1.42, 2.0, 3.4445]
+    The output will be:
+    ```
+    a,1.42
+    b,2.0
+    c,3.444
+    ```
+    """
+    import csv
+
+    with open(filename, "w", newline="") as f:
+        fields = ["phase", "time"]
+        writer = csv.writer(f, delimiter=",")
+        for (p, t) in zip(phases, durations):
+            writer.writerow([p.name, round(t, 3)])

@@ -9,7 +9,13 @@ from io import IOBase
 from pathlib import Path
 
 from ..utils import Conversions as conv
-from ..utils import Directory, is_debug, print_profiling_information
+from ..utils import (
+    Directory,
+    is_debug,
+    print_profiling_information,
+    dump_profiling_csv,
+    unwrap_or,
+)
 
 
 class SourceType(Enum):
@@ -249,6 +255,11 @@ class Stage:
 
         if is_debug():
             print_profiling_information(self.name, self.steps, durations)
+
+        flags = unwrap_or(self.config["stages", self.name, "flags"], None)
+        if flags and "dump_prof" in flags:
+            # The `dump_prof` flag contains the filename.
+            dump_profiling_csv(flags["dump_prof"], self.steps, durations)
 
         return self.final_output
 
