@@ -19,13 +19,13 @@ class NTTStage(Stage):
             config=config,
             description="Compiles NTT configuration to Calyx.",
         )
+        self.config["stages", self.name, "flags"] = None
         self.setup()
 
     @staticmethod
     def defaults():
         parent = pathlib.Path(__file__).parent.resolve()
         script_loc = parent / "../gen-ntt-pipeline.py"
-        self.config["stages", self.name, "flags"] = None
         return {"exec": str(script_loc.resolve())}
 
     def _define_steps(self, input_path):
