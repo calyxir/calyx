@@ -231,22 +231,23 @@ def print_profiling_information(title, phases, durations):
     print("-------------------------------------------------")
 
 
-def dump_profiling_csv(filename, phases, durations):
+def dump_profiling_csv(filename, stage, steps, durations):
     """
     Dumps the profiling information into a CSV.
     For example, with
-        phases:    ['a', 'b', 'c']
+        stage:     `x`
+        steps:     ['a', 'b', 'c']
         durations: [1.42, 2.0, 3.4445]
     The output will be:
     ```
-    a,b,c
+    x.a,x.b,x.c
     1.42,2.0,3.444
     ```
     """
     import csv
 
     with open(filename, "a", newline="") as f:
-        fieldnames = [p.name for p in phases]
+        fieldnames = [f"{stage}.{s.name}" for s in steps]
         writer = csv.DictWriter(f, fieldnames, delimiter=",")
         writer.writeheader()
-        writer.writerow({p.name : round(t, 3) for (p, t) in zip(phases, durations)})
+        writer.writerow({f"{stage}.{s.name}" : round(t, 3) for (s, t) in zip(steps, durations)})
