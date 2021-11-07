@@ -19,6 +19,7 @@ class NTTStage(Stage):
             config=config,
             description="Compiles NTT configuration to Calyx.",
         )
+        self.config["stages", self.name, "flags"] = None
         self.setup()
 
     @staticmethod

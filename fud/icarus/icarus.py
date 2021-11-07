@@ -41,7 +41,6 @@ class IcarusBaseStage(Stage):
             "runtime": "vvp",
             "testbench": str(test_bench.resolve()),
             "round_float_to_fixed": True,
-            "flags": None,
         }
 
     def _define_steps(self, input_data):
