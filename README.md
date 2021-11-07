@@ -1,9 +1,9 @@
 <h1>
 <p align="center">
-<img src="https://capra.cs.cornell.edu/calyx/img/logo-text.svg" width="300">
+<img src="https://calyxir.org/img/logo-text.svg" width="300">
 </p>
 <p align="center">
-<a href="https://capra.cs.cornell.edu/calyx">A Compiler Infrastructure for Accelerator Generators</a>
+<a href="https://calyxir.org">A Compiler Infrastructure for Accelerator Generators</a>
 </p>
 </h1>
 
