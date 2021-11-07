@@ -119,6 +119,7 @@ def run_fud(args, config):
                 print(e)
                 exit(-1)
             durations.append(time.time() - begin)
+        sp.stop()
 
         is_profiling = any(a is not None for a in (args.profiling, args.profiling_csv))
         # The case where overall stage times want to be printed.
@@ -129,7 +130,6 @@ def run_fud(args, config):
         if args.profiling_csv == "all":
             data = utils.profiling_csv("overall", [ed for ed in path], durations)
 
-        sp.stop()
         if args.output_file is not None:
             if is_profiling:
                 with Path(args.output_file).open("wb") as f:
