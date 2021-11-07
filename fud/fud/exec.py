@@ -137,6 +137,7 @@ def run_fud(args, config):
                 SourceType.String,
             )
 
+        # output the data or profiling information from the file step.
         if args.output_file is not None:
             if data.typ == SourceType.Directory:
                 shutil.move(data.data.name, args.output_file)
