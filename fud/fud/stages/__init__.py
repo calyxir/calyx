@@ -9,7 +9,7 @@ from io import IOBase
 from pathlib import Path
 
 from ..utils import Conversions as conv
-from ..utils import Directory, is_debug, print_profiling_information
+from ..utils import Directory, is_debug, profiling_information, profiling_csv
 
 
 class SourceType(Enum):
@@ -229,7 +229,7 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
-    def run(self, input_data, sp=None):
+    def run(self, input_data, args, sp=None):
         assert isinstance(input_data, Source)
         # tracks the approximate time elapsed to run each step in this stage.
         durations = []
@@ -247,8 +247,10 @@ class Stage:
                 sp.end_step()
             durations.append(time.time() - begin)
 
-        if is_debug():
-            print_profiling_information(self.name, self.steps, durations)
+        if self.name == args.profiling:
+            return profiling_information(self.name, self.steps, durations)
+        if self.name == args.profiling_csv:
+            return profiling_csv(self.name, self.steps, durations)
 
         return self.final_output
 

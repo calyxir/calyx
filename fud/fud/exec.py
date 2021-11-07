@@ -109,9 +109,9 @@ def run_fud(args, config):
             try:
                 if ed._no_spinner:
                     sp.stop()
-                    result = ed.run(data, None)
+                    result = ed.run(data, args, sp=None)
                 else:
-                    result = ed.run(data, sp)
+                    result = ed.run(data, args, sp)
                 data = result
                 sp.end_stage()
             except errors.StepFailure as e:
@@ -120,17 +120,26 @@ def run_fud(args, config):
                 exit(-1)
             durations.append(time.time() - begin)
 
+        is_profiling = any(a is not None for a in (args.profiling, args.profiling_csv))
+        # The case where overall stage times want to be printed.
+        if args.profiling == "all":
+            data = utils.profiling_information(
+                "overall", [ed for ed in path], durations
+            )
+        if args.profiling_csv == "all":
+            data = utils.profiling_csv("overall", [ed for ed in path], durations)
+
         sp.stop()
-
-        if utils.is_debug():
-            utils.print_profiling_information("stages", path, durations)
-
-        # output the data returned from the file step
         if args.output_file is not None:
-            if data.typ == SourceType.Directory:
+            if is_profiling:
+                with Path(args.output_file).open("wb") as f:
+                    f.write(str.encode(data))
+            elif data.typ == SourceType.Directory:
                 shutil.move(data.data.name, args.output_file)
             else:
                 with Path(args.output_file).open("wb") as f:
                     f.write(data.convert_to(SourceType.Bytes).data)
+        elif is_profiling:
+            print(data)
         elif data:
             print(data.convert_to(SourceType.String).data)

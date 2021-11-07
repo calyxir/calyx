@@ -302,6 +302,18 @@ def main():
 
 
 def config_run(parser):
+    parser.add_argument(
+        "-p",
+        "--dump_prof",
+        help="Dumps profile information for <stage>. If you want overall stage times, use `all`",
+        dest="profiling",
+    )
+    parser.add_argument(
+        "-p-csv",
+        "--dump_prof_csv",
+        help="Dumps profile information in CSV format for <stage>",
+        dest="profiling_csv",
+    )
     parser.add_argument("--from", dest="source", help="Name of the start stage")
     parser.add_argument("--to", dest="dest", help="Name of the final stage")
     parser.add_argument(
@@ -312,7 +324,7 @@ def config_run(parser):
         help="Names of intermediate stages (repeatable option)",
     )
     parser.add_argument(
-        "-o", dest="output_file", help="Name of the outpfule file (default: STDOUT)"
+        "-o", dest="output_file", help="Name of the output file (default: STDOUT)"
     )
     parser.add_argument(
         "-s",
