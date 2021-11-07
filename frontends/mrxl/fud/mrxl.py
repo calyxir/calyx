@@ -18,6 +18,7 @@ class MrXLStage(Stage):
             config=config,
             description="Compiles MrXL to Calyx.",
         )
+        self.config["stages", self.name, "flags"] = None
         self.setup()
 
     @staticmethod
