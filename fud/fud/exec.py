@@ -128,20 +128,20 @@ def run_fud(args, config):
                 "phases": [ed for ed in path],
                 "durations": durations,
             }
-            data = (
-                utils.profiling_csv(**kwargs)
-                if any(a == "csv" for a in args.profile)
-                else utils.profiling_information(**kwargs)
+            data = Source(
+                (
+                    utils.profiling_csv(**kwargs)
+                    if any(a == "csv" for a in args.profile)
+                    else utils.profiling_information(**kwargs)
+                ),
+                SourceType.String,
             )
 
         if args.output_file is not None:
-            if args.profile:
-                with Path(args.output_file).open("wb") as f:
-                    f.write(str.encode(data))
-            elif data.typ == SourceType.Directory:
+            if data.typ == SourceType.Directory:
                 shutil.move(data.data.name, args.output_file)
             else:
                 with Path(args.output_file).open("wb") as f:
                     f.write(data.convert_to(SourceType.Bytes).data)
         elif data:
-            print(data if args.profile else data.convert_to(SourceType.String).data)
+            print(data.convert_to(SourceType.String).data)

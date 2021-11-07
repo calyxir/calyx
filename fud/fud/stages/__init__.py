@@ -249,10 +249,13 @@ class Stage:
 
         if any(a == self.name for a in args.profile):
             kwargs = {"stage": self.name, "phases": self.steps, "durations": durations}
-            return (
-                profiling_csv(**kwargs)
-                if any(a == "csv" for a in args.profile)
-                else profiling_information(**kwargs)
+            return Source(
+                (
+                    profiling_csv(**kwargs)
+                    if any(a == "csv" for a in args.profile)
+                    else profiling_information(**kwargs)
+                ),
+                SourceType.String,
             )
 
         return self.final_output
