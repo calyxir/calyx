@@ -45,10 +45,21 @@ DEFAULT_CONFIGURATION = {
             "top_module": "main",
             "round_float_to_fixed": True,
             "data": None,
+            "flags": None,
         },
-        "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
-        "vcd_json": {"file_extensions": [".json"]},
-        "dat": {"file_extensions": [".dat"]},
+        "vcd": {
+            "exec": "vcdump",
+            "file_extensions": [".vcd"],
+            "flags": None,
+        },
+        "vcd_json": {
+            "file_extensions": [".json"],
+            "flags": None,
+        },
+        "dat": {
+            "file_extensions": [".dat"],
+            "flags": None,
+        },
         "relay": {"file_extensions": [".relay"], "flags": None},
         "systolic": {"file_extensions": [".systolic"], "flags": None},
         "synth-verilog": {
@@ -56,12 +67,14 @@ DEFAULT_CONFIGURATION = {
             "ssh_host": "",
             "ssh_username": "",
             "remote": None,
+            "flags": None,
         },
         "vivado-hls": {
             "exec": "vivado_hls",
             "ssh_host": "",
             "ssh_username": "",
             "remote": None,
+            "flags": None,
         },
         "xclbin": {
             "file_extensions": [".xclbin"],
@@ -71,6 +84,7 @@ DEFAULT_CONFIGURATION = {
             "ssh_host": "",
             "ssh_username": "",
             "save_temps": None,
+            "flags": None,
         },
         "wdb": {
             "file_extensions": [".wdb"],
@@ -81,8 +95,12 @@ DEFAULT_CONFIGURATION = {
             "save_temps": None,
             "xilinx_location": "/scratch/opt/Xilinx/Vitis/2020.2",
             "xrt_location": "/opt/xilinx/xrt",
+            "flags": None,
         },
-        "fpga": {"data": None},
+        "fpga": {
+            "data": None,
+            "flags": None,
+        },
     },
 }
 
