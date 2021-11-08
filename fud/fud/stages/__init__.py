@@ -230,7 +230,7 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
-    def run(self, input_data, args, sp=None):
+    def run(self, input_data, sp=None):
         assert isinstance(input_data, Source)
 
         # fill in input_data
