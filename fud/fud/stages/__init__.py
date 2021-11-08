@@ -232,8 +232,6 @@ class Stage:
 
     def run(self, input_data, args, sp=None):
         assert isinstance(input_data, Source)
-        # tracks the approximate time elapsed to run each step in this stage.
-        durations = []
 
         # fill in input_data
         self.hollow_input_data.data = input_data.convert_to(self.input_type).data
