@@ -306,7 +306,6 @@ def config_run(parser):
         "-pr",
         "--dump_prof",
         nargs="*",
-        default=[],
         help="Dumps profile information for <stage>. "
         + "If no stages provided, dumps the overall profiling information for this run."
         + "If you want CSV format, include `csv` as an argument",

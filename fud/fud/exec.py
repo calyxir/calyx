@@ -102,8 +102,7 @@ def run_fud(args, config):
         overall_durations = []
 
         # tracks profiling information requested by the flag.
-        steps = {}
-        step_durations = {}
+        collected_profiling_stages = {}
 
         # run all the stages
         for ed in path:
@@ -120,8 +119,7 @@ def run_fud(args, config):
                 sp.end_stage()
                 # Collect profiling information.
                 if is_profiling_run and ed.name in profiled_stages:
-                    steps[ed.name] = [s for s in ed.steps]
-                    step_durations[ed.name] = ed.durations
+                    collected_profiling_stages[ed.name] = ed
 
             except errors.StepFailure as e:
                 sp.fail()
@@ -152,12 +150,12 @@ def run_fud(args, config):
                 def gather_profiling_data(stage):
                     if stage == "csv":
                         return ""
-                    if stage not in steps:
+                    if stage not in collected_profiling_stages:
                         raise errors.UndefinedStage(stage)
                     kwargs = {
                         "stage": stage,
-                        "phases": steps[stage],
-                        "durations": step_durations[stage],
+                        "phases": [s for s in collected_profiling_stages[stage].steps],
+                        "durations": collected_profiling_stages[stage].durations,
                     }
                     return (
                         utils.profiling_csv(**kwargs)
