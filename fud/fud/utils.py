@@ -227,10 +227,9 @@ def profiling_information(stage, phases, durations):
         # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
         return "".join((s, max(32 - len(s), 1) * " "))
 
-    msg = f"{name_and_space(stage)}elapsed time (s)\n"
-    for p, t in zip(phases, durations):
-        msg += f"{name_and_space(p.name)}{round(t, 3)}\n"
-    return msg
+    return f"{name_and_space(stage)}elapsed time (s)\n" + "\n".join(
+        f"{name_and_space(p.name)}{round(t, 3)}" for p, t in zip(phases, durations)
+    )
 
 
 def profiling_csv(stage, phases, durations):

@@ -149,6 +149,7 @@ class Stage:
 
         self.description = description
         self.steps = []
+        self.durations = []
         self._no_spinner = False
 
     def setup(self):
@@ -239,24 +240,14 @@ class Stage:
 
         # run all the steps
         for step in self.steps:
-            begin = time.time()
+
             if sp is not None:
                 sp.start_step(step.name)
+            begin = time.time()
             step()
+            self.durations.append(time.time() - begin)
             if sp is not None:
                 sp.end_step()
-            durations.append(time.time() - begin)
-
-        if any(a == self.name for a in args.profile):
-            kwargs = {"stage": self.name, "phases": self.steps, "durations": durations}
-            return Source(
-                (
-                    profiling_csv(**kwargs)
-                    if any(a == "csv" for a in args.profile)
-                    else profiling_information(**kwargs)
-                ),
-                SourceType.String,
-            )
 
         return self.final_output
 
