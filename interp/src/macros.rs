@@ -140,7 +140,7 @@ macro_rules! in_fix {
 #[macro_export]
 macro_rules! lit_or_id {
     ($lit:literal) => {
-        $lit;
+        $lit
     };
     ($name:ident) => {
         $name;
