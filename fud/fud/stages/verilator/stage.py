@@ -160,10 +160,6 @@ class VerilatorStage(Stage):
             json_to_dat(tmpdir, Source(Path(self.data_path), SourceType.Path))
         compile_with_verilator(input_data, tmpdir)
         stdout = simulate(tmpdir)
-        result = None
-        if self.vcd:
-            result = output_vcd(tmpdir)
-        else:
-            result = output_json(stdout, tmpdir)
+        result = output_vcd(tmpdir) if self.vcd else output_json(stdout, tmpdir)
         cleanup(tmpdir)
         return result

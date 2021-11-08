@@ -96,36 +96,75 @@ def run_fud(args, config):
         else:
             data = Source(Path(str(input_file)), SourceType.Path)
 
+        profiled_stages = args.profiled_stages
+        is_profiling_run = profiled_stages is not None
         # tracks the approximate time elapsed to run each stage.
-        durations = []
+        overall_durations = []
+
+        # tracks profiling information requested by the flag.
+        collected_profiling_stages = {}
 
         # run all the stages
         for ed in path:
             txt = f"{ed.src_stage} → {ed.target_stage}" + (
                 f" ({ed.name})" if ed.name != ed.src_stage else ""
             )
-            begin = time.time()
             sp.start_stage(txt)
             try:
                 if ed._no_spinner:
                     sp.stop()
-                    result = ed.run(data, None)
-                else:
-                    result = ed.run(data, sp)
-                data = result
+                begin = time.time()
+                data = ed.run(data, args, sp=sp if ed._no_spinner else None)
+                overall_durations.append(time.time() - begin)
                 sp.end_stage()
+                # Collect profiling information.
+                if is_profiling_run and ed.name in profiled_stages:
+                    collected_profiling_stages[ed.name] = ed
+
             except errors.StepFailure as e:
                 sp.fail()
                 print(e)
                 exit(-1)
-            durations.append(time.time() - begin)
-
         sp.stop()
 
-        if utils.is_debug():
-            utils.print_profiling_information("stages", path, durations)
+        if is_profiling_run:
+            # Whether this should output data in CSV format.
+            is_csv = any(a == "csv" for a in profiled_stages)
+            # If no stages provided, print overall profiling information for the stages.
+            if not profiled_stages or (len(profiled_stages) == 1 and is_csv):
+                kwargs = {
+                    "stage": "stage",
+                    "phases": [ed for ed in path],
+                    "durations": overall_durations,
+                }
+                data.data = (
+                    utils.profiling_csv(**kwargs)
+                    if is_csv
+                    else utils.profiling_dump(**kwargs)
+                )
+            else:
+                # Otherwise, gather profiling data for each stage provided.
+                def gather_profiling_data(stage):
+                    if stage == "csv":
+                        return ""
+                    if stage not in collected_profiling_stages:
+                        raise errors.UndefinedStage(stage)
+                    kwargs = {
+                        "stage": stage,
+                        "phases": [s for s in collected_profiling_stages[stage].steps],
+                        "durations": collected_profiling_stages[stage].durations,
+                    }
+                    return (
+                        utils.profiling_csv(**kwargs)
+                        if is_csv
+                        else utils.profiling_dump(**kwargs)
+                    )
 
-        # output the data returned from the file step
+                data.data = "\n".join(
+                    gather_profiling_data(stage) for stage in profiled_stages
+                )
+
+        # output the data or profiling information.
         if args.output_file is not None:
             if data.typ == SourceType.Directory:
                 shutil.move(data.data.name, args.output_file)
