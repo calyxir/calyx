@@ -140,7 +140,7 @@ def run_fud(args, config):
                 data.data = (
                     utils.profiling_csv(**kwargs)
                     if is_csv
-                    else utils.profiling_information(**kwargs)
+                    else utils.profiling_dump(**kwargs)
                 )
             else:
                 # Otherwise, gather profiling data for each stage provided.
@@ -157,7 +157,7 @@ def run_fud(args, config):
                     return (
                         utils.profiling_csv(**kwargs)
                         if is_csv
-                        else utils.profiling_information(**kwargs)
+                        else utils.profiling_dump(**kwargs)
                     )
 
                 data.data = "\n".join(

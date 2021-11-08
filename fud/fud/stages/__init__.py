@@ -9,7 +9,7 @@ from io import IOBase
 from pathlib import Path
 
 from ..utils import Conversions as conv
-from ..utils import Directory, is_debug, profiling_information, profiling_csv
+from ..utils import Directory, is_debug
 
 
 class SourceType(Enum):

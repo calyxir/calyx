@@ -217,7 +217,7 @@ def transparent_shell(cmd):
     proc.wait()
 
 
-def profiling_information(stage, phases, durations):
+def profiling_dump(stage, phases, durations):
     """
     Returns time elapsed during each stage or step of the fud execution.
     """
@@ -234,7 +234,7 @@ def profiling_information(stage, phases, durations):
 
 def profiling_csv(stage, phases, durations):
     """
-    Dumps the profiling information into a CSV.
+    Dumps the profiling information into a CSV format.
     For example, with
         stage:     `x`
         phases:    ['a', 'b', 'c']
