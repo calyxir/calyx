@@ -246,6 +246,7 @@ def profiling_csv(stage, phases, durations):
     x,c,3.444
     ```
     """
+    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
     return "\n".join(
         [f"{stage},{p.name},{round(t, 3)}" for (p, t) in zip(phases, durations)]
     )
