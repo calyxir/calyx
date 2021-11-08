@@ -250,3 +250,16 @@ def profiling_csv(stage, phases, durations):
     return "\n".join(
         [f"{stage},{p.name},{round(t, 3)}" for (p, t) in zip(phases, durations)]
     )
+
+
+def profile_stages(stage, phases, durations, is_csv):
+    """
+    Returns either a human-readable or CSV format profiling information,
+    depending on `is_csv`.
+    """
+    kwargs = {
+        "stage": stage,
+        "phases": phases,
+        "durations": durations,
+    }
+    return profiling_csv(**kwargs) if is_csv else profiling_dump(**kwargs)
