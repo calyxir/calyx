@@ -127,16 +127,13 @@ def run_fud(args, config):
                 exit(-1)
         sp.stop()
 
-        # DO NOT SUBMIT: Throw error if the stage for profiling is not found in this set of paths.
-
-        # Profiling information.
         if is_profiling_run:
             # Whether this should output data in CSV format.
             is_csv = any(a == "csv" for a in profiled_stages)
             # If no stages provided, print overall profiling information for the stages.
             if not profiled_stages or (len(profiled_stages) == 1 and is_csv):
                 kwargs = {
-                    "stage": "Stage",
+                    "stage": "stage",
                     "phases": [ed for ed in path],
                     "durations": overall_durations,
                 }
@@ -164,7 +161,7 @@ def run_fud(args, config):
                     )
 
                 data.data = "\n".join(
-                    (gather_profiling_data(stage) for stage in profiled_stages)
+                    gather_profiling_data(stage) for stage in profiled_stages
                 )
 
         # output the data or profiling information.
