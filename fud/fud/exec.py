@@ -96,13 +96,11 @@ def run_fud(args, config):
         else:
             data = Source(Path(str(input_file)), SourceType.Path)
 
-        profiled_stages = args.profiled_stages
-        is_profiling_run = profiled_stages is not None
+        is_profiling_run = args.profiled_stages is not None
+        # tracks profiling information requested by the flag (if set).
+        collected_for_profiling = {}
         # tracks the approximate time elapsed to run each stage.
         overall_durations = []
-
-        # tracks profiling information requested by the flag.
-        collected_for_profiling = {}
 
         # run all the stages
         for ed in path:
@@ -117,23 +115,20 @@ def run_fud(args, config):
                 data = ed.run(data, sp=sp if ed._no_spinner else None)
                 overall_durations.append(time.time() - begin)
                 sp.end_stage()
-                # Collect profiling information.
-                if is_profiling_run and ed.name in profiled_stages:
-                    collected_for_profiling[ed.name] = ed
-
             except errors.StepFailure as e:
                 sp.fail()
                 print(e)
                 exit(-1)
+            # Collect profiling information for this stage.
+            if is_profiling_run and ed.name in args.profiled_stages:
+                collected_for_profiling[ed.name] = ed
         sp.stop()
 
         if is_profiling_run:
-            # Whether this should output data in CSV format.
-            is_csv = any(a == "csv" for a in profiled_stages)
-            # If no stages provided, print overall profiling information for the stages.
-            if profiled_stages in [[], ["csv"]]:
+            if args.profiled_stages == []:
+                # No stages provided; collect overall stage durations.
                 data.data = utils.profile_stages(
-                    "stage", [ed for ed in path], overall_durations, is_csv
+                    "stage", [ed for ed in path], overall_durations, args.csv
                 )
             else:
                 # Otherwise, gather profiling data for each stage provided.
@@ -144,11 +139,11 @@ def run_fud(args, config):
                         stage,
                         [s for s in collected_for_profiling[stage].steps],
                         collected_for_profiling[stage].durations,
-                        is_csv,
+                        args.csv,
                     )
 
                 data.data = "\n".join(
-                    gather_profiling_data(s) for s in profiled_stages if s != "csv"
+                    gather_profiling_data(s) for s in args.profiled_stages
                 )
 
         # output the data or profiling information.
