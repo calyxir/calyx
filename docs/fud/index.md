@@ -171,6 +171,50 @@ input file and output file (if specified using the `-o` flag).
 If it fails to guess correctly or doesn't know about the extension, you can
 manually set the stages using `--to` and `--from`.
 
+## Profiling
+
+Fud provides some very basic profiling tools through the use of the `--dump_prof` (or `-pr`) flag.
+You can get overall stage durations for a `fud` run by simply using `-pr`.
+For example, 
+
+```bash
+  fud e examples/dahlia/dot-product.fuse --to dat \
+  -s verilog.data examples/dahlia/dot-product.fuse.data \
+  -pr
+```
+
+will output:
+
+```
+stage                           elapsed time (s)
+dahlia                          1.231
+futil                           0.029
+verilog                         4.915
+```
+
+If you want time elapsed for each step in a stage, you can also provide one or more stages after the flag.
+For example,
+
+```bash
+  fud e examples/dahlia/dot-product.fuse --to dat \
+  -s verilog.data examples/dahlia/dot-product.fuse.data \
+  -pr verilog
+```
+
+will output:
+
+```
+verilog                         elapsed time (s)
+mktmp                           0.0
+json_to_dat                     0.004
+compile_with_verilator          5.584
+simulate                        0.161
+output_json                     0.003
+cleanup                         0.003
+```
+
+Lastly, the `-csv` flag will provide the profiling information in CSV format.
+
 [frontends]: ./frontends/index.md
 [calyx-py]: ./calyx-py.md
 [flit]: https://flit.readthedocs.io/en/latest/
