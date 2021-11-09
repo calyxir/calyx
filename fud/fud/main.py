@@ -312,6 +312,7 @@ def config_run(parser):
     )
     parser.add_argument(
         "-csv",
+        "--csv_format",
         dest="csv",
         action="store_true",
         help="Whether data should be printed in CSV format. "
