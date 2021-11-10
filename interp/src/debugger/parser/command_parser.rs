@@ -2,10 +2,13 @@ use super::super::commands::{BreakPointId, Command, GroupName};
 use calyx::ir::Id;
 use pest_consume::{match_nodes, Error, Parser};
 
-type Result<T> = std::result::Result<T, Error<Rule>>;
+type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use crate::errors::{InterpreterError, InterpreterResult};
+use crate::{
+    debugger::commands::PrintCode,
+    errors::{InterpreterError, InterpreterResult},
+};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("commands.pest");
@@ -16,104 +19,142 @@ pub struct CommandParser;
 
 #[pest_consume::parser]
 impl CommandParser {
-    fn EOI(_input: Node) -> Result<()> {
+    fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
     // ----------------------
 
-    fn help(_input: Node) -> Result<Command> {
+    fn help(_input: Node) -> ParseResult<Command> {
         Ok(Command::Help)
     }
 
-    fn cont(_input: Node) -> Result<Command> {
+    fn cont(_input: Node) -> ParseResult<Command> {
         Ok(Command::Continue)
     }
 
-    fn step(_input: Node) -> Result<Command> {
+    fn step(_input: Node) -> ParseResult<Command> {
         Ok(Command::Step)
     }
 
-    fn display(_input: Node) -> Result<Command> {
+    fn display(_input: Node) -> ParseResult<Command> {
         Ok(Command::Display)
     }
 
-    fn info_break(_input: Node) -> Result<Command> {
+    fn info_break(_input: Node) -> ParseResult<Command> {
         Ok(Command::InfoBreak)
     }
 
-    fn exit(_input: Node) -> Result<Command> {
+    fn exit(_input: Node) -> ParseResult<Command> {
         Ok(Command::Exit)
+    }
+
+    fn pc_un(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn pc_s(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn pc_ufx(input: Node) -> ParseResult<usize> {
+        Ok(match_nodes!(input.into_children();
+            [num(n)] => n as usize
+        ))
+    }
+
+    fn pc_sfx(input: Node) -> ParseResult<usize> {
+        Ok(match_nodes!(input.into_children();
+            [num(n)] => n as usize
+        ))
+    }
+
+    fn pc_fail(input: Node) -> ParseResult<Node> {
+        Ok(input)
+    }
+
+    fn print_code(input: Node) -> ParseResult<PrintCode> {
+        match_nodes!(input.into_children();
+            [pc_s(_)] => Ok(PrintCode::Signed),
+            [pc_un(_)] => Ok(PrintCode::Unsigned),
+            [pc_ufx(n)] => Ok(PrintCode::UFixed(n)),
+            [pc_sfx(n)] => Ok(PrintCode::SFixed(n)),
+        )
     }
 
     // ----------------------
 
-    fn identifier(input: Node) -> Result<Id> {
+    fn identifier(input: Node) -> ParseResult<Id> {
         Ok(Id::new(input.as_str(), None))
     }
 
-    fn group(input: Node) -> Result<GroupName> {
+    fn group(input: Node) -> ParseResult<GroupName> {
         Ok(match_nodes!(input.into_children();
             [identifier(ident)..] => GroupName(ident.collect::<Vec<_>>())
         ))
     }
 
-    fn num(input: Node) -> Result<u64> {
-        // TODO (Griffin): Make this a proper error so the whole thing doesn't explode
-        Ok(input.as_str().parse::<u64>().unwrap())
+    fn num(input: Node) -> ParseResult<u64> {
+        input
+            .as_str()
+            .parse::<u64>()
+            .map_err(|_| input.error("Expected non-negative number"))
     }
 
-    fn brk_id(input: Node) -> Result<BreakPointId> {
+    fn brk_id(input: Node) -> ParseResult<BreakPointId> {
         Ok(match_nodes!(input.into_children();
                 [num(n)] => n.into(),
                 [group(g)] => g.into()
         ))
     }
 
-    fn brk(input: Node) -> Result<Command> {
+    fn brk(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
             [group(g)..] => Command::Break(g.collect()),
         ))
     }
 
-    fn name(input: Node) -> Result<Vec<Id>> {
+    fn name(input: Node) -> ParseResult<Vec<Id>> {
         Ok(match_nodes!(input.into_children();
                 [identifier(ident)..] => ident.collect()
         ))
     }
 
-    fn print(input: Node) -> Result<Command> {
+    fn print(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()))
+                [print_code(pc), name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), Some(pc)),
+                [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), None),
+                [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
+                [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
         ))
     }
 
-    fn print_fail(_input: Node) -> Result<()> {
+    fn print_fail(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
-    fn delete(input: Node) -> Result<Command> {
+    fn delete(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
                 [brk_id(br)..] => Command::Delete(br.collect())
         ))
     }
 
-    fn enable(input: Node) -> Result<Command> {
+    fn enable(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
                 [brk_id(br)..] => Command::Enable(br.collect())
         ))
     }
 
-    fn disable(input: Node) -> Result<Command> {
+    fn disable(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
                 [brk_id(br)..] => Command::Disable(br.collect())
         ))
     }
 
-    fn command(input: Node) -> Result<Command> {
+    fn command(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
             [print(p), EOI(_)] => p,
-            [print_fail(_), EOI(_)] => Command::Print(None),
+            [print_fail(_), EOI(_)] => Command::Print(None, None),
             [step(s), EOI(_)] => s,
             [cont(c), EOI(_)] => c,
             [help(h), EOI(_)] => h,
@@ -130,13 +171,7 @@ impl CommandParser {
 }
 
 pub fn parse_command(input_str: &str) -> InterpreterResult<Command> {
-    let inputs = CommandParser::parse(Rule::command, input_str);
-    let input = inputs.map(|x| x.single());
-    if let Ok(Ok(input)) = input {
-        let result = CommandParser::command(input);
-        if let Ok(comm) = result {
-            return Ok(comm);
-        }
-    }
-    Err(InterpreterError::UnknownCommand(input_str.to_string()))
+    let inputs = CommandParser::parse(Rule::command, input_str)?;
+    let input = inputs.single()?;
+    Ok(CommandParser::command(input)?)
 }

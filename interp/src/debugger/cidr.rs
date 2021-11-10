@@ -65,7 +65,8 @@ impl Debugger {
                 Ok(c) => c,
                 Err(e) => match &e {
                     InterpreterError::InvalidCommand(_)
-                    | InterpreterError::UnknownCommand(_) => {
+                    | InterpreterError::UnknownCommand(_)
+                    | InterpreterError::ParseError(_) => {
                         println!("Error: {}", e);
                         continue;
                     }
@@ -101,7 +102,7 @@ impl Debugger {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::Print(print_lists) => {
+                Command::Print(print_lists, code) => {
                     if print_lists.is_none() {
                         println!("Error: command requires a target");
                         continue;
