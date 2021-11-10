@@ -2,7 +2,7 @@ use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::commands::Command;
+use super::commands::{Command, PrintCode};
 use super::context::DebuggingContext;
 use super::io_utils::Input;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
@@ -130,7 +130,7 @@ impl Debugger {
                                 // first look for cell
                                 let cell = current_env.get_cell(target);
                                 if let Some(cell) = cell {
-                                    print_cell(&cell, &current_env)
+                                    print_cell(&cell, &current_env, &code)
                                 } else if idx != 0 {
                                     let prior = &print_list[idx - 1];
 
@@ -143,7 +143,12 @@ impl Debugger {
                                                 |x| x.borrow().name == target,
                                             );
                                         if let Some(port) = pt {
-                                            print_port(port, &current_env, None)
+                                            print_port(
+                                                port,
+                                                &current_env,
+                                                None,
+                                                &code,
+                                            )
                                         } else {
                                             // cannot find
                                             println!(
@@ -161,6 +166,7 @@ impl Debugger {
                                             &port,
                                             &current_env,
                                             Some(print_list[idx - 1].clone()),
+                                            &code,
                                         );
                                     } else {
                                         // cannot find
@@ -262,15 +268,29 @@ impl Debugger {
     }
 }
 
-fn print_cell(target: &RRC<ir::Cell>, state: &StateView) {
+fn print_cell(
+    target: &RRC<ir::Cell>,
+    state: &StateView,
+    code: &Option<PrintCode>,
+) {
     let cell_ref = target.borrow();
     println!("{}{}", SPACING, cell_ref.name());
     for port in cell_ref.ports.iter() {
+        let v = state.lookup(port.as_raw());
         println!(
             "{}  {} = {}",
             SPACING,
             port.borrow().name,
-            state.lookup(port.as_raw())
+            if let Some(code) = code {
+                match code {
+                    PrintCode::Unsigned => format!("{}", v.as_unsigned()),
+                    PrintCode::Signed => format!("{}", v.as_signed()),
+                    PrintCode::UFixed(num) => format!("{}", v.as_ufp(*num)),
+                    PrintCode::SFixed(num) => format!("{}", v.as_sfp(*num)),
+                }
+            } else {
+                format!("{}", &v)
+            }
         )
     }
 }
@@ -279,6 +299,7 @@ fn print_port(
     target: &RRC<ir::Port>,
     state: &StateView,
     prior_name: Option<ir::Id>,
+    code: &Option<PrintCode>,
 ) {
     let port_ref = target.borrow();
     let parent_name = if let Some(prior) = prior_name {
@@ -287,12 +308,23 @@ fn print_port(
         port_ref.get_parent_name()
     };
 
+    let v = state.lookup(port_ref.as_raw());
+
     println!(
         "{}{}.{} = {}",
         SPACING,
         parent_name,
         port_ref.name,
-        state.lookup(port_ref.as_raw())
+        if let Some(code) = code {
+            match code {
+                PrintCode::Unsigned => format!("{}", v.as_unsigned()),
+                PrintCode::Signed => format!("{}", v.as_signed()),
+                PrintCode::UFixed(num) => format!("{}", v.as_ufp(*num)),
+                PrintCode::SFixed(num) => format!("{}", v.as_sfp(*num)),
+            }
+        } else {
+            format!("{}", &v)
+        }
     )
 }
 

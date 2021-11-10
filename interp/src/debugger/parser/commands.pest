@@ -13,8 +13,8 @@ name = { identifier ~ (dot ~ identifier)* }
 
 pc_un = { ^"u" }
 pc_s = { ^"s" }
-pc_ufx = @{ ^"u." ~ num }
-pc_sfx = @{ ^"s." ~ num }
+pc_ufx = { ^"u." ~ num }
+pc_sfx = { ^"s." ~ num }
 
 print_code = { "\\" ~
     (
