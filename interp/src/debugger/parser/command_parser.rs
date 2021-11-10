@@ -5,10 +5,7 @@ use pest_consume::{match_nodes, Error, Parser};
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use crate::{
-    debugger::commands::PrintCode,
-    errors::{InterpreterError, InterpreterResult},
-};
+use crate::{debugger::commands::PrintCode, errors::InterpreterResult};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
 const _GRAMMAR: &str = include_str!("commands.pest");
