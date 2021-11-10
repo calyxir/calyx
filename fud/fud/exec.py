@@ -10,18 +10,6 @@ from . import errors, utils
 from .stages import Source, SourceType
 
 
-def print_profiling_information(stages, durations):
-    """
-    Prints time elapsed during each stage of the fud execution.
-    """
-    print("stage     |    elapsed time (s)")
-    print("-------------------------------")
-    for ed, elapsed_time in zip(stages, durations):
-        whitespace = max(16 - len(ed.name), 1) * " "
-        print(f"{ed.name}{whitespace}{round(elapsed_time, 3)}")
-    print("-------------------------------")
-
-
 def discover_implied_stage(filename, config, possible_dests=None):
     """
     Use the mapping from filename extensions to stages to figure out which
@@ -108,36 +96,57 @@ def run_fud(args, config):
         else:
             data = Source(Path(str(input_file)), SourceType.Path)
 
+        is_profiling_run = args.profiled_stages is not None
+        # tracks profiling information requested by the flag (if set).
+        collected_for_profiling = {}
         # tracks the approximate time elapsed to run each stage.
-        stage_durations = []
+        overall_durations = []
 
         # run all the stages
         for ed in path:
             txt = f"{ed.src_stage} → {ed.target_stage}" + (
                 f" ({ed.name})" if ed.name != ed.src_stage else ""
             )
-            begin = time.time()
             sp.start_stage(txt)
             try:
                 if ed._no_spinner:
                     sp.stop()
-                    result = ed.run(data, None)
-                else:
-                    result = ed.run(data, sp)
-                data = result
+                begin = time.time()
+                data = ed.run(data, sp=sp if ed._no_spinner else None)
+                overall_durations.append(time.time() - begin)
                 sp.end_stage()
             except errors.StepFailure as e:
                 sp.fail()
                 print(e)
                 exit(-1)
-            stage_durations.append(time.time() - begin)
-
+            # Collect profiling information for this stage.
+            if is_profiling_run and ed.name in args.profiled_stages:
+                collected_for_profiling[ed.name] = ed
         sp.stop()
 
-        if utils.is_debug():
-            print_profiling_information(path, stage_durations)
+        if is_profiling_run:
+            if args.profiled_stages == []:
+                # No stages provided; collect overall stage durations.
+                data.data = utils.profile_stages(
+                    "stage", [ed for ed in path], overall_durations, args.csv
+                )
+            else:
+                # Otherwise, gather profiling data for each stage provided.
+                def gather_profiling_data(stage):
+                    if stage not in collected_for_profiling:
+                        raise errors.UndefinedStage(stage)
+                    return utils.profile_stages(
+                        stage,
+                        [s for s in collected_for_profiling[stage].steps],
+                        collected_for_profiling[stage].durations,
+                        args.csv,
+                    )
 
-        # output the data returned from the file step
+                data.data = "\n".join(
+                    gather_profiling_data(s) for s in args.profiled_stages
+                )
+
+        # output the data or profiling information.
         if args.output_file is not None:
             if data.typ == SourceType.Directory:
                 shutil.move(data.data.name, args.output_file)

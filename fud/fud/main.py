@@ -302,6 +302,22 @@ def main():
 
 
 def config_run(parser):
+    parser.add_argument(
+        "-pr",
+        "--dump_prof",
+        nargs="*",
+        help="Dumps profile information for <stage>. If no stages are "
+        + "provided, dumps the overall profiling information for this run.",
+        dest="profiled_stages",
+    )
+    parser.add_argument(
+        "-csv",
+        "--csv_format",
+        dest="csv",
+        action="store_true",
+        help="Whether data should be printed in CSV format. "
+        + "This is currently only supported for profiling.",
+    )
     parser.add_argument("--from", dest="source", help="Name of the start stage")
     parser.add_argument("--to", dest="dest", help="Name of the final stage")
     parser.add_argument(
@@ -312,7 +328,7 @@ def config_run(parser):
         help="Names of intermediate stages (repeatable option)",
     )
     parser.add_argument(
-        "-o", dest="output_file", help="Name of the outpfule file (default: STDOUT)"
+        "-o", dest="output_file", help="Name of the output file (default: STDOUT)"
     )
     parser.add_argument(
         "-s",

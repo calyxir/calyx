@@ -2,6 +2,7 @@
 
 import functools
 import inspect
+import time
 import logging as log
 from enum import Enum, auto
 from io import IOBase
@@ -148,6 +149,7 @@ class Stage:
 
         self.description = description
         self.steps = []
+        self.durations = []
         self._no_spinner = False
 
     def setup(self):
@@ -236,9 +238,12 @@ class Stage:
 
         # run all the steps
         for step in self.steps:
+
             if sp is not None:
                 sp.start_step(step.name)
+            begin = time.time()
             step()
+            self.durations.append(time.time() - begin)
             if sp is not None:
                 sp.end_step()
 

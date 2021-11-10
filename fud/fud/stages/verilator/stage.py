@@ -123,7 +123,7 @@ class VerilatorStage(Stage):
             # before the next stage runs
             return (Path(tmpdir.name) / "output.vcd").open("rb")
 
-        # Step 5(self.vc == False): extract cycles + data
+        # Step 5(self.vcd == False): extract cycles + data
         @self.step()
         def output_json(
             simulated_output: SourceType.String, tmpdir: SourceType.Directory
@@ -131,7 +131,12 @@ class VerilatorStage(Stage):
             """
             Convert .dat files back into a json and extract simulated cycles from log.
             """
-            # Look for ouput like: "Simulated 91 cycles"
+            # Verify we haven't hit the cycle limit.
+            found = re.search(r"reached limit of (\d+) cycles", simulated_output)
+            if found is not None:
+                raise errors.CycleLimitedReached(self.name, found.group(1))
+
+            # Look for output like: "Simulated 91 cycles"
             r = re.search(r"Simulated (\d+) cycles", simulated_output)
             data = {
                 "cycles": int(r.group(1)) if r is not None else 0,
@@ -155,10 +160,6 @@ class VerilatorStage(Stage):
             json_to_dat(tmpdir, Source(Path(self.data_path), SourceType.Path))
         compile_with_verilator(input_data, tmpdir)
         stdout = simulate(tmpdir)
-        result = None
-        if self.vcd:
-            result = output_vcd(tmpdir)
-        else:
-            result = output_json(stdout, tmpdir)
+        result = output_vcd(tmpdir) if self.vcd else output_json(stdout, tmpdir)
         cleanup(tmpdir)
         return result

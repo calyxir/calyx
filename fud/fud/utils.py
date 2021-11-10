@@ -215,3 +215,51 @@ def transparent_shell(cmd):
     proc = subprocess.Popen(cmd, env=os.environ, shell=True)
 
     proc.wait()
+
+
+def profiling_dump(stage, phases, durations):
+    """
+    Returns time elapsed during each stage or step of the fud execution.
+    """
+    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
+
+    def name_and_space(s: str) -> str:
+        # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
+        return "".join((s, max(32 - len(s), 1) * " "))
+
+    return f"{name_and_space(stage)}elapsed time (s)\n" + "\n".join(
+        f"{name_and_space(p.name)}{round(t, 3)}" for p, t in zip(phases, durations)
+    )
+
+
+def profiling_csv(stage, phases, durations):
+    """
+    Dumps the profiling information into a CSV format.
+    For example, with
+        stage:     `x`
+        phases:    ['a', 'b', 'c']
+        durations: [1.42, 2.0, 3.4445]
+    The output will be:
+    ```
+    x,a,1.42
+    x,b,2.0
+    x,c,3.444
+    ```
+    """
+    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
+    return "\n".join(
+        [f"{stage},{p.name},{round(t, 3)}" for (p, t) in zip(phases, durations)]
+    )
+
+
+def profile_stages(stage, phases, durations, is_csv):
+    """
+    Returns either a human-readable or CSV format profiling information,
+    depending on `is_csv`.
+    """
+    kwargs = {
+        "stage": stage,
+        "phases": phases,
+        "durations": durations,
+    }
+    return profiling_csv(**kwargs) if is_csv else profiling_dump(**kwargs)
