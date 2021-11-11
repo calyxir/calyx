@@ -6,6 +6,7 @@ use interp::environment;
 use interp::errors::{InterpreterError, InterpreterResult};
 use interp::interpreter::interpret_component;
 use interp::interpreter_ir as iir;
+use log::warn;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -44,6 +45,9 @@ pub struct Opts {
     /// rather than erroring
     allow_invalid_memory_access: bool,
 
+    #[argh(switch, long = "allow-par-conflicts")]
+    /// enables "sloppy" par simulation which allows parallel overlap when values agree
+    allow_par_conflicts: bool,
     #[argh(switch, long = "error-on-overflow")]
     /// upgrades [over | under]flow warnings to errors
     error_on_overflow: bool,
@@ -112,6 +116,10 @@ fn main() -> InterpreterResult<()> {
         }
         if opts.error_on_overflow {
             write_lock.error_on_overflow = true;
+        }
+        if opts.allow_par_conflicts {
+            write_lock.allow_par_conflicts = true;
+            warn!("You have enabled Par conflicts. This is not recommended and is usually a bad idea")
         }
         // release lock
     }

@@ -835,7 +835,13 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                         a_head.insert(k, v);
                     } else {
                         let prev = a_head.remove(&k).unwrap();
-                        return Err(CollisionError(k, prev, v));
+                        if crate::SETTINGS.read().unwrap().allow_par_conflicts
+                            && prev == v
+                        {
+                            log::warn!("Allowing parallel conflict")
+                        } else {
+                            return Err(CollisionError(k, prev, v));
+                        }
                     }
                 } else {
                     a_head.insert(k, v);
