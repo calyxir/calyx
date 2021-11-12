@@ -308,43 +308,39 @@ component conv2d_5x512x14x14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, wei
                   let3;
                   @bound(14) while le3.out with cond3 {
                     seq {
-                      par {
-                        let4;
+                      let4;
+                      let5;
+                      @bound(512) while le4.out with cond4 {
                         seq {
-                          let5;
-                          @bound(512) while le4.out with cond4 {
+                          let6;
+                          @bound(3) while le5.out with cond5 {
                             seq {
-                              let6;
-                              @bound(3) while le5.out with cond5 {
+                              let7;
+                              @bound(3) while le6.out with cond6 {
                                 seq {
-                                  let7;
-                                  @bound(3) while le6.out with cond6 {
+                                  par {
                                     seq {
-                                      par {
-                                        seq {
-                                          let8;
-                                          let9;
-                                        }
-                                        seq {
-                                          let10;
-                                          let11;
-                                        }
-                                      }
-                                      par {
-                                        upd0;
-                                        upd1;
-                                      }
-                                      let12;
-                                      upd2;
-                                      upd3;
+                                      let8;
+                                      let9;
+                                    }
+                                    seq {
+                                      let10;
+                                      let11;
                                     }
                                   }
-                                  upd4;
+                                  par {
+                                    upd0;
+                                    upd1;
+                                  }
+                                  let12;
+                                  upd2;
+                                  upd3;
                                 }
                               }
-                              upd5;
+                              upd4;
                             }
                           }
+                          upd5;
                         }
                       }
                       upd6;
