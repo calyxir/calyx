@@ -86,22 +86,18 @@ component main() -> () {
   }
   control {
     seq {
-      par {
-        let0;
+      let0;
+      let1;
+      @bound(4) while le0.out with cond0 {
         seq {
-          let1;
-          @bound(4) while le0.out with cond0 {
-            seq {
-              par {
-                upd0;
-                upd1;
-              }
-              let2;
-              let3;
-              upd2;
-              upd3;
-            }
+          par {
+            upd0;
+            upd1;
           }
+          let2;
+          let3;
+          upd2;
+          upd3;
         }
       }
       upd4;

@@ -143,7 +143,7 @@ macro_rules! lit_or_id {
         $lit
     };
     ($name:ident) => {
-        $name;
+        $name
     };
     ($name:ident . $field:ident) => {
         $name.$field
