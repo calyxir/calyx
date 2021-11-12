@@ -149,8 +149,9 @@ class Stage:
 
         self.description = description
         self.steps = []
-        self.durations = []
         self._no_spinner = False
+        # Mapping from step name to its elapsed run time.
+        self.durations = {}
 
     def setup(self):
         """
@@ -243,7 +244,7 @@ class Stage:
                 sp.start_step(step.name)
             begin = time.time()
             step()
-            self.durations.append(time.time() - begin)
+            self.durations[step.name] = time.time() - begin
             if sp is not None:
                 sp.end_step()
 
