@@ -13,12 +13,15 @@ pub struct Config {
     pub allow_invalid_memory_access: bool,
     /// upgrades overflow/underflow warnings into errors
     pub error_on_overflow: bool,
+    /// permits "sloppy" interpretation with parallel blocks
+    pub allow_par_conflicts: bool,
 }
 impl Default for Config {
     fn default() -> Self {
         Self {
             allow_invalid_memory_access: false,
             error_on_overflow: false,
+            allow_par_conflicts: false,
         }
     }
 }

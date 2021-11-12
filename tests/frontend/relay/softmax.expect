@@ -272,20 +272,16 @@ component softmax_1x10(x0_0_read_data: 32, x0_0_done: 1, x10_0_read_data: 32, x1
       let2;
       @bound(1) while le2.out with cond3 {
         seq {
-          par {
-            let3;
+          let3;
+          let4;
+          @bound(10) while le3.out with cond4 {
             seq {
-              let4;
-              @bound(10) while le3.out with cond4 {
-                seq {
-                  upd6;
-                  let5;
-                  invoke exp0(x=__t0_0.out)();
-                  let6;
-                  upd7;
-                  upd8;
-                }
-              }
+              upd6;
+              let5;
+              invoke exp0(x=__t0_0.out)();
+              let6;
+              upd7;
+              upd8;
             }
           }
           let7;

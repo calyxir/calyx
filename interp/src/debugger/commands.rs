@@ -27,12 +27,19 @@ impl From<u64> for BreakPointId {
         Self::Number(n)
     }
 }
+
+pub enum PrintCode {
+    Unsigned,
+    Signed,
+    UFixed(usize),
+    SFixed(usize),
+}
 // This is used internally to print out the help message but otherwise is not used for anything
 const HELP_LIST: [Command; 10] = [
     Command::Step,
     Command::Continue,
     Command::Display,
-    Command::Print(None),
+    Command::Print(None, None),
     Command::Break(Vec::new()),
     Command::Help,
     Command::InfoBreak,
@@ -41,15 +48,15 @@ const HELP_LIST: [Command; 10] = [
     Command::Delete(Vec::new()),
 ];
 pub enum Command {
-    Step,                                   // Step execution
-    Continue,                               // Execute until breakpoint
-    Empty,                                  // Empty command, does nothing
-    Display,                                // Display full environment contents
-    Print(Option<Vec<Vec<calyx::ir::Id>>>), // Print something
-    Break(Vec<GroupName>),                  // Create a breakpoint
-    Help,                                   // Help message
-    Exit,                                   // Exit the debugger
-    InfoBreak,                              // List breakpoints
+    Step,                                                      // Step execution
+    Continue, // Execute until breakpoint
+    Empty,    // Empty command, does nothing
+    Display,  // Display full environment contents
+    Print(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>), // Print something
+    Break(Vec<GroupName>), // Create a breakpoint
+    Help,                  // Help message
+    Exit,                  // Exit the debugger
+    InfoBreak,             // List breakpoints
     Disable(Vec<BreakPointId>),
     Enable(Vec<BreakPointId>),
     Delete(Vec<BreakPointId>),
@@ -72,7 +79,7 @@ impl Command {
             Command::Step => (vec!["Step", "S"], "Advance the execution by a step"),
             Command::Continue => ( vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
             Command::Display => (vec!["Display"], "Display the full state"),
-            Command::Print(_) => (vec!["Print", "P"], "Print target value"),
+            Command::Print(_, _) => (vec!["Print", "P"], "Print target value"),
             Command::Help => (vec!["Help"], "Print this message"),
             Command::Empty | Command::Exit => unreachable!(), // This command needs no public facing help message
             Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"),

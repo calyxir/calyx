@@ -2,6 +2,7 @@ use crate::utils::assignment_to_string;
 use crate::values::Value;
 use calyx::errors::Error;
 use calyx::ir::{self, Assignment, Id};
+
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -17,6 +18,13 @@ pub enum InterpreterError {
     /// The given debugger command does not exist
     #[error("unknown command - {0}")]
     UnknownCommand(String),
+
+    /// Unable to parse the debugger command
+    #[error(transparent)]
+    ParseError(
+        #[from]
+        pest_consume::Error<crate::debugger::parser::command_parser::Rule>,
+    ),
 
     /// Wrapper for errors coming from the interactive CLI
     #[error(transparent)]
