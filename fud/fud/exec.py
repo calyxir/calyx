@@ -146,7 +146,9 @@ def run_fud(args, config):
                     profiled_steps = [
                         s for s in data.steps if steps == [] or s.name in steps
                     ]
-                    profiled_durations = [data.durations[s] for s in steps]
+                    # Gather all the step names that are being profiled.
+                    profiled_names = [s.name for s in profiled_steps]
+                    profiled_durations = [data.durations[s] for s in profiled_names]
                     return utils.profile_stages(
                         stage,
                         profiled_steps,

@@ -224,6 +224,8 @@ def parse_profiling_input(args):
     {"a" : ["a1", "a2"], "b" : ["b1"], "c" : [] }
     """
     stages = {}
+    if args.profiled_stages is None:
+        return stages
     # Retrieve all stages.
     for stage in args.profiled_stages:
         if "." not in stage:
