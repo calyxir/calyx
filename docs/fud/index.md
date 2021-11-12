@@ -213,6 +213,21 @@ output_json                     0.003
 cleanup                         0.003
 ```
 
+If you want time elapsed for a single step, you can specify the given step, e.g.
+
+```bash
+  fud e examples/dahlia/dot-product.fuse --to dat \
+  -s verilog.data examples/dahlia/dot-product.fuse.data \
+  -pr verilog.simulate
+```
+
+will output:
+
+```
+verilog                         elapsed time (s)
+simulate                        0.161
+```
+
 Lastly, the `-csv` flag will provide the profiling information in CSV format.
 
 [frontends]: ./frontends/index.md
