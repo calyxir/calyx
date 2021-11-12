@@ -217,6 +217,29 @@ def transparent_shell(cmd):
     proc.wait()
 
 
+def parse_profiling_input(args):
+    """
+    Returns a mapping from stage to steps from the `profiled_stages` argument.
+    For example, if the user passes in `-pr a.a1 a.a2 b.b1 c`, this will return:
+    {"a" : ["a1", "a2"], "b" : ["b1"], "c" : [] }
+    """
+    stages = {}
+    # Retrieve all stages.
+    for stage in args.profiled_stages:
+        if "." not in stage:
+            stages[stage] = []
+        else:
+            s, _ = stage.split(".")
+            stages[s] = []
+    # Append all steps.
+    for stage in args.profiled_stages:
+        if "." not in stage:
+            continue
+        _, step = stage.split(".")
+        stages[s].append(step)
+    return stages
+
+
 def profiling_dump(stage, phases, durations):
     """
     Returns time elapsed during each stage or step of the fud execution.

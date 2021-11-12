@@ -103,6 +103,16 @@ class UndefinedStage(FudError):
         super().__init__(msg)
 
 
+class UndefinedSteps(FudError):
+    """
+    No steps with the defined name for the given stage.
+    """
+
+    def __init__(self, stage, steps):
+        msg = f"No step(s): {', '.join(steps)} defined for stage: {stage}"
+        super().__init__(msg)
+
+
 class MultiplePaths(FudError):
     """
     Multiple paths found to transform `src` to `dst`.
