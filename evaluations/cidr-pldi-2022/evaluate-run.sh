@@ -13,7 +13,7 @@ INTERVALS=10
 # Gather Calyx interpreter simulation times.
 for (( i = 0; i < $INTERVALS; ++i ))
 do
-    fud e $PROGRAM --to interpreter-out -s interpreter.data $DATA -pr interpreter.interpret -csv \
+    fud e $PROGRAM --to interpreter-out -s verilog.data $DATA -pr interpreter.interpret -csv \
     >> $FILE
 done
 

@@ -6,6 +6,22 @@ from tabulate import tabulate
 
 # Paths assumes you're running this script from the `futil` directory, i.e.
 #   python3 evaluations/cidr-pldi-2022/process-data.py
+#
+# NOTE: Verify the interpreter is pointed to the release binary, i.e.
+# Running the command: `fud config stages.interpreter.exec` should return
+# `.<PATH-TO-CALYX>/target/release/interp`
+
+
+def verify_interpreter_is_release_mode():
+    """
+    Verifies the interpreter is in release mode.
+    """
+    configuration = subprocess.run(
+        ["fud", "config", "stages.interpreter.exec"], capture_output=True
+    )
+    assert "release" in str(
+        configuration.stdout
+    ), "The interpreter should be in release mode. To fix this, run `fud config stages.interpreter.exec .<PATH-TO-CALYX>/target/release/interp`"
 
 
 def process_data(dataset):
@@ -71,6 +87,8 @@ def write_to_file(data, filename):
 
 
 if __name__ == "__main__":
+    verify_interpreter_is_release_mode()
+
     # A list of datasets to evaluate simulation performance, in the form:
     # (<table-name>, <program-path>, <data-path>, <output-file-name>)
     datasets = [
@@ -82,7 +100,7 @@ if __name__ == "__main__":
         ),
     ]
     # Run the bash script for each dataset.
-    process_data(datasets)
+    # process_data(datasets)
     # Process the CSV.
     result = gather_data(datasets)
 
