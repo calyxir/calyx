@@ -7,12 +7,16 @@ from tabulate import tabulate
 # Paths assumes you're running this script from the `futil` directory, i.e.
 #   python3 evaluations/cidr-pldi-2022/process-data.py
 
+
 def process_data(dataset):
     """
     Runs the `evaluate-run.sh` script for each iteration of dataset.
     """
     for _, program, data, output in dataset:
-        subprocess.run(['evaluations/cidr-pldi-2022/evaluate-run.sh', program, data, output])
+        subprocess.run(
+            ["evaluations/cidr-pldi-2022/evaluate-run.sh", program, data, output]
+        )
+
 
 def gather_data(dataset):
     """
@@ -26,7 +30,7 @@ def gather_data(dataset):
         with open(output) as file:
             # Mapping from stage to a list of durations.
             durations = defaultdict(list)
-            for row in csv.reader(file, delimiter=','):
+            for row in csv.reader(file, delimiter=","):
                 # e.g. icarus-verilog,simulate,0.126
                 assert len(row) == 3, "expected CSV row: <stage-name>,<step>,<time>"
                 stage, _, time = row
@@ -34,6 +38,7 @@ def gather_data(dataset):
                 durations[stage].append(time)
             result[name] = durations
     return result
+
 
 def table(name, data, tablefmt):
     """
@@ -54,21 +59,27 @@ def table(name, data, tablefmt):
         stddev.append(st.stdev(times))
     return tabulate([median, mean, stddev], headers, tablefmt)
 
+
 def write_to_file(data, filename):
     """
     Appends `data` to `filename`. Assumes that
     data is a list.
     """
     assert isinstance(data, list)
-    with open(filename, 'a') as file:
-        file.writelines('\n'.join(data))
+    with open(filename, "a") as file:
+        file.writelines("\n".join(data))
 
 
 if __name__ == "__main__":
     # A list of datasets to evaluate simulation performance, in the form:
     # (<table-name>, <program-path>, <data-path>, <output-file-name>)
     datasets = [
-        ('Dot Product', 'examples/futil/dot-product.futil', 'examples/dahlia/dot-product.fuse.data', 'dot-product.csv'),
+        (
+            "Dot Product",
+            "examples/futil/dot-product.futil",
+            "examples/dahlia/dot-product.fuse.data",
+            "dot-product.csv",
+        ),
     ]
     # Run the bash script for each dataset.
     process_data(datasets)
@@ -80,10 +91,3 @@ if __name__ == "__main__":
     # Provide meaning to the data.
     tables = [table(name, data, tablefmt) for name, data in sorted(result.items())]
     write_to_file(tables, "results.txt")
-
-
-
-
-
-
-
