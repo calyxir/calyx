@@ -13,30 +13,50 @@ def verify_interpreter_configuration():
     Verifies the interpreter is in release mode and using
     the --no-verify flag.
     """
-    configuration = subprocess.run(
-        ["fud", "config", "stages.interpreter.exec"], capture_output=True
-    )
-    assert "release" in str(configuration.stdout), (
+
+    def command_has_value(command, value, error):
+        """
+        Verifies that the stdout of this `command` has `value` in it.
+        """
+        process = subprocess.run(command, capture_output=True)
+        assert value in str(process.stdout), error
+
+    command_has_value(
+        ["fud", "config", "stages.interpreter.exec"],
+        "release",
         "The interpreter should be in release mode. "
-        + "To fix this, run `fud config stages.interpreter.exec .<PATH-TO-CALYX>/target/release/interp`."
+        + "To fix this, run `fud config stages.interpreter.exec .<PATH-TO-CALYX>/target/release/interp`.",
     )
 
-    configuration = subprocess.run(
-        ["fud", "config", "stages.interpreter.flags"], capture_output=True
-    )
-    assert "--no-verify" in str(configuration.stdout), (
+    command_has_value(
+        ["fud", "config", "stages.interpreter.flags"],
+        "--no-verify",
         "The interpreter should use the --no-verify flag. "
-        + 'To fix this, run `fud config stages.interpreter.flags " --no-verify "`.'
+        + 'To fix this, run `fud config stages.interpreter.flags " --no-verify "`.',
     )
 
 
-def process_data(dataset):
+def get_csv_filename(name):
+    """
+    Uses the simulation name to produce the CSV file name, e.g. `Dot Product`
+     -> "evaluations/cidr-pldi-2022/benchmarks/results/Dot_Product.csv
+    """
+    return "evaluations/cidr-pldi-2022/results/" + name.replace(" ", "_") + ".csv"
+
+
+def process_data(dataset, path):
     """
     Runs the `evaluate-run.sh` script for each iteration of dataset.
     """
-    for _, program, data, output in dataset:
+    for name, program in dataset:
         subprocess.run(
-            ["evaluations/cidr-pldi-2022/evaluate-run.sh", program, data, output]
+            [
+                "evaluations/cidr-pldi-2022/evaluate-run.sh",
+                path + program,
+                # Assumes that the data is the same path with `.data` appended.
+                path + program + ".data",
+                get_csv_filename(name),
+            ]
         )
 
 
@@ -48,8 +68,9 @@ def gather_data(dataset):
     }
     """
     result = {}
-    for name, _, _, output in dataset:
-        with open(output) as file:
+    for name, _ in dataset:
+        # Just use the simulation name, e.g. Dot Product -> Dot_Product.csv
+        with open(get_csv_filename(name)) as file:
             # Mapping from stage to a list of durations.
             durations = defaultdict(list)
             for row in csv.reader(file, delimiter=","):
@@ -96,17 +117,99 @@ if __name__ == "__main__":
     verify_interpreter_configuration()
 
     # A list of datasets to evaluate simulation performance, in the form:
-    # (<table-name>, <program-path>, <data-path>, <output-file-name>)
+    # (<table-name>, <program-path>). We just assume the data is at the same
+    # path with `.data` appended. The path is relative to:
+    #     futil/evaluations/cidr-pldi-2022/benchmarks
     datasets = [
         (
-            "Dot Product",
-            "examples/futil/dot-product.futil",
-            "examples/dahlia/dot-product.fuse.data",
-            "dot-product.csv",
+            "NTT 32",
+            "ntt-32.futil",
+        ),
+        (
+            "TCAM",
+            "tcam.futil",
+        ),
+        # Polybench
+        (
+            "Linear Algebra 2MM",
+            "polybench/linear-algebra-2mm.fuse",
+        ),
+        (
+            "Linear Algebra 3MM",
+            "polybench/linear-algebra-3mm.fuse",
+        ),
+        (
+            "Linear Algebra ATAX",
+            "polybench/linear-algebra-atax.fuse",
+        ),
+        (
+            "Linear Algebra BICG",
+            "polybench/linear-algebra-bicg.fuse",
+        ),
+        (
+            "Linear Algebra DOITGEN",
+            "polybench/linear-algebra-doitgen.fuse",
+        ),
+        (
+            "Linear Algebra DURBIN",
+            "polybench/linear-algebra-durbin.fuse",
+        ),
+        (
+            "Linear Algebra GEMM",
+            "polybench/linear-algebra-gemm.fuse",
+        ),
+        (
+            "Linear Algebra GEMVER",
+            "polybench/linear-algebra-gemver.fuse",
+        ),
+        (
+            "Linear Algebra GESUMMV",
+            "polybench/linear-algebra-gesummv.fuse",
+        ),
+        (
+            "Linear Algebra LU",
+            "polybench/linear-algebra-lu.fuse",
+        ),
+        (
+            "Linear Algebra LUDCMP",
+            "polybench/linear-algebra-ludcmp.fuse",
+        ),
+        (
+            "Linear Algebra MVT",
+            "polybench/linear-algebra-mvt.fuse",
+        ),
+        (
+            "Linear Algebra SYMM",
+            "polybench/linear-algebra-symm.fuse",
+        ),
+        (
+            "Linear Algebra SYR2K",
+            "polybench/linear-algebra-syr2k.fuse",
+        ),
+        (
+            "Linear Algebra SYRK",
+            "polybench/linear-algebra-syrk.fuse",
+        ),
+        (
+            "Linear Algebra TRISOLV",
+            "polybench/linear-algebra-trisolv.fuse",
+        ),
+        (
+            "Linear Algebra TRMM",
+            "polybench/linear-algebra-trmm.fuse",
+        ),
+        # Sqrt Polybench
+        (
+            "Linear Algebra CHOLESKY",
+            "polybench/linear-algebra-cholesky.fuse",
+        ),
+        (
+            "Linear Algebra GRAMSCHMIDT",
+            "polybench/linear-algebra-gramschmidt.fuse",
         ),
     ]
     # Run the bash script for each dataset.
-    # process_data(datasets)
+    process_data(datasets, path="evaluations/cidr-pldi-2022/benchmarks/")
     # Process the CSV.
     result = gather_data(datasets)
 

@@ -1,0 +1,3427 @@
+// +----+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+
+// | a  |         Stage 0         |         Stage 1         |         Stage 2         |         Stage 3          |         Stage 4          |
+// +----+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+
+// | 0  |  a[0] + a[16] * phis[1] |  a[0] + a[8] * phis[2]  |  a[0] + a[4] * phis[4]  |  a[0] + a[2] * phis[8]   |  a[0] + a[1] * phis[16]  |
+// | 1  |  a[1] + a[17] * phis[1] |  a[1] + a[9] * phis[2]  |  a[1] + a[5] * phis[4]  |  a[1] + a[3] * phis[8]   |  a[0] - a[1] * phis[16]  |
+// | 2  |  a[2] + a[18] * phis[1] |  a[2] + a[10] * phis[2] |  a[2] + a[6] * phis[4]  |  a[0] - a[2] * phis[8]   |  a[2] + a[3] * phis[17]  |
+// | 3  |  a[3] + a[19] * phis[1] |  a[3] + a[11] * phis[2] |  a[3] + a[7] * phis[4]  |  a[1] - a[3] * phis[8]   |  a[2] - a[3] * phis[17]  |
+// | 4  |  a[4] + a[20] * phis[1] |  a[4] + a[12] * phis[2] |  a[0] - a[4] * phis[4]  |  a[4] + a[6] * phis[9]   |  a[4] + a[5] * phis[18]  |
+// | 5  |  a[5] + a[21] * phis[1] |  a[5] + a[13] * phis[2] |  a[1] - a[5] * phis[4]  |  a[5] + a[7] * phis[9]   |  a[4] - a[5] * phis[18]  |
+// | 6  |  a[6] + a[22] * phis[1] |  a[6] + a[14] * phis[2] |  a[2] - a[6] * phis[4]  |  a[4] - a[6] * phis[9]   |  a[6] + a[7] * phis[19]  |
+// | 7  |  a[7] + a[23] * phis[1] |  a[7] + a[15] * phis[2] |  a[3] - a[7] * phis[4]  |  a[5] - a[7] * phis[9]   |  a[6] - a[7] * phis[19]  |
+// | 8  |  a[8] + a[24] * phis[1] |  a[0] - a[8] * phis[2]  |  a[8] + a[12] * phis[5] | a[8] + a[10] * phis[10]  |  a[8] + a[9] * phis[20]  |
+// | 9  |  a[9] + a[25] * phis[1] |  a[1] - a[9] * phis[2]  |  a[9] + a[13] * phis[5] | a[9] + a[11] * phis[10]  |  a[8] - a[9] * phis[20]  |
+// | 10 | a[10] + a[26] * phis[1] |  a[2] - a[10] * phis[2] | a[10] + a[14] * phis[5] | a[8] - a[10] * phis[10]  | a[10] + a[11] * phis[21] |
+// | 11 | a[11] + a[27] * phis[1] |  a[3] - a[11] * phis[2] | a[11] + a[15] * phis[5] | a[9] - a[11] * phis[10]  | a[10] - a[11] * phis[21] |
+// | 12 | a[12] + a[28] * phis[1] |  a[4] - a[12] * phis[2] |  a[8] - a[12] * phis[5] | a[12] + a[14] * phis[11] | a[12] + a[13] * phis[22] |
+// | 13 | a[13] + a[29] * phis[1] |  a[5] - a[13] * phis[2] |  a[9] - a[13] * phis[5] | a[13] + a[15] * phis[11] | a[12] - a[13] * phis[22] |
+// | 14 | a[14] + a[30] * phis[1] |  a[6] - a[14] * phis[2] | a[10] - a[14] * phis[5] | a[12] - a[14] * phis[11] | a[14] + a[15] * phis[23] |
+// | 15 | a[15] + a[31] * phis[1] |  a[7] - a[15] * phis[2] | a[11] - a[15] * phis[5] | a[13] - a[15] * phis[11] | a[14] - a[15] * phis[23] |
+// | 16 |  a[0] - a[16] * phis[1] | a[16] + a[24] * phis[3] | a[16] + a[20] * phis[6] | a[16] + a[18] * phis[12] | a[16] + a[17] * phis[24] |
+// | 17 |  a[1] - a[17] * phis[1] | a[17] + a[25] * phis[3] | a[17] + a[21] * phis[6] | a[17] + a[19] * phis[12] | a[16] - a[17] * phis[24] |
+// | 18 |  a[2] - a[18] * phis[1] | a[18] + a[26] * phis[3] | a[18] + a[22] * phis[6] | a[16] - a[18] * phis[12] | a[18] + a[19] * phis[25] |
+// | 19 |  a[3] - a[19] * phis[1] | a[19] + a[27] * phis[3] | a[19] + a[23] * phis[6] | a[17] - a[19] * phis[12] | a[18] - a[19] * phis[25] |
+// | 20 |  a[4] - a[20] * phis[1] | a[20] + a[28] * phis[3] | a[16] - a[20] * phis[6] | a[20] + a[22] * phis[13] | a[20] + a[21] * phis[26] |
+// | 21 |  a[5] - a[21] * phis[1] | a[21] + a[29] * phis[3] | a[17] - a[21] * phis[6] | a[21] + a[23] * phis[13] | a[20] - a[21] * phis[26] |
+// | 22 |  a[6] - a[22] * phis[1] | a[22] + a[30] * phis[3] | a[18] - a[22] * phis[6] | a[20] - a[22] * phis[13] | a[22] + a[23] * phis[27] |
+// | 23 |  a[7] - a[23] * phis[1] | a[23] + a[31] * phis[3] | a[19] - a[23] * phis[6] | a[21] - a[23] * phis[13] | a[22] - a[23] * phis[27] |
+// | 24 |  a[8] - a[24] * phis[1] | a[16] - a[24] * phis[3] | a[24] + a[28] * phis[7] | a[24] + a[26] * phis[14] | a[24] + a[25] * phis[28] |
+// | 25 |  a[9] - a[25] * phis[1] | a[17] - a[25] * phis[3] | a[25] + a[29] * phis[7] | a[25] + a[27] * phis[14] | a[24] - a[25] * phis[28] |
+// | 26 | a[10] - a[26] * phis[1] | a[18] - a[26] * phis[3] | a[26] + a[30] * phis[7] | a[24] - a[26] * phis[14] | a[26] + a[27] * phis[29] |
+// | 27 | a[11] - a[27] * phis[1] | a[19] - a[27] * phis[3] | a[27] + a[31] * phis[7] | a[25] - a[27] * phis[14] | a[26] - a[27] * phis[29] |
+// | 28 | a[12] - a[28] * phis[1] | a[20] - a[28] * phis[3] | a[24] - a[28] * phis[7] | a[28] + a[30] * phis[15] | a[28] + a[29] * phis[30] |
+// | 29 | a[13] - a[29] * phis[1] | a[21] - a[29] * phis[3] | a[25] - a[29] * phis[7] | a[29] + a[31] * phis[15] | a[28] - a[29] * phis[30] |
+// | 30 | a[14] - a[30] * phis[1] | a[22] - a[30] * phis[3] | a[26] - a[30] * phis[7] | a[28] - a[30] * phis[15] | a[30] + a[31] * phis[31] |
+// | 31 | a[15] - a[31] * phis[1] | a[23] - a[31] * phis[3] | a[27] - a[31] * phis[7] | a[29] - a[31] * phis[15] | a[30] - a[31] * phis[31] |
+// +----+-------------------------+-------------------------+-------------------------+--------------------------+--------------------------+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external(1) a = std_mem_d1(32, 32, 6);
+    @external(1) phis = std_mem_d1(32, 32, 6);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    r3 = std_reg(32);
+    r4 = std_reg(32);
+    r5 = std_reg(32);
+    r6 = std_reg(32);
+    r7 = std_reg(32);
+    r8 = std_reg(32);
+    r9 = std_reg(32);
+    r10 = std_reg(32);
+    r11 = std_reg(32);
+    r12 = std_reg(32);
+    r13 = std_reg(32);
+    r14 = std_reg(32);
+    r15 = std_reg(32);
+    r16 = std_reg(32);
+    r17 = std_reg(32);
+    r18 = std_reg(32);
+    r19 = std_reg(32);
+    r20 = std_reg(32);
+    r21 = std_reg(32);
+    r22 = std_reg(32);
+    r23 = std_reg(32);
+    r24 = std_reg(32);
+    r25 = std_reg(32);
+    r26 = std_reg(32);
+    r27 = std_reg(32);
+    r28 = std_reg(32);
+    r29 = std_reg(32);
+    r30 = std_reg(32);
+    r31 = std_reg(32);
+    A0 = std_reg(32);
+    A1 = std_reg(32);
+    A2 = std_reg(32);
+    A3 = std_reg(32);
+    A4 = std_reg(32);
+    A5 = std_reg(32);
+    A6 = std_reg(32);
+    A7 = std_reg(32);
+    A8 = std_reg(32);
+    A9 = std_reg(32);
+    A10 = std_reg(32);
+    A11 = std_reg(32);
+    A12 = std_reg(32);
+    A13 = std_reg(32);
+    A14 = std_reg(32);
+    A15 = std_reg(32);
+    A16 = std_reg(32);
+    A17 = std_reg(32);
+    A18 = std_reg(32);
+    A19 = std_reg(32);
+    A20 = std_reg(32);
+    A21 = std_reg(32);
+    A22 = std_reg(32);
+    A23 = std_reg(32);
+    A24 = std_reg(32);
+    A25 = std_reg(32);
+    A26 = std_reg(32);
+    A27 = std_reg(32);
+    A28 = std_reg(32);
+    A29 = std_reg(32);
+    A30 = std_reg(32);
+    A31 = std_reg(32);
+    mul0 = std_reg(32);
+    mul1 = std_reg(32);
+    mul2 = std_reg(32);
+    mul3 = std_reg(32);
+    mul4 = std_reg(32);
+    mul5 = std_reg(32);
+    mul6 = std_reg(32);
+    mul7 = std_reg(32);
+    mul8 = std_reg(32);
+    mul9 = std_reg(32);
+    mul10 = std_reg(32);
+    mul11 = std_reg(32);
+    mul12 = std_reg(32);
+    mul13 = std_reg(32);
+    mul14 = std_reg(32);
+    mul15 = std_reg(32);
+    phi0 = std_reg(32);
+    phi1 = std_reg(32);
+    phi2 = std_reg(32);
+    phi3 = std_reg(32);
+    phi4 = std_reg(32);
+    phi5 = std_reg(32);
+    phi6 = std_reg(32);
+    phi7 = std_reg(32);
+    phi8 = std_reg(32);
+    phi9 = std_reg(32);
+    phi10 = std_reg(32);
+    phi11 = std_reg(32);
+    phi12 = std_reg(32);
+    phi13 = std_reg(32);
+    phi14 = std_reg(32);
+    phi15 = std_reg(32);
+    phi16 = std_reg(32);
+    phi17 = std_reg(32);
+    phi18 = std_reg(32);
+    phi19 = std_reg(32);
+    phi20 = std_reg(32);
+    phi21 = std_reg(32);
+    phi22 = std_reg(32);
+    phi23 = std_reg(32);
+    phi24 = std_reg(32);
+    phi25 = std_reg(32);
+    phi26 = std_reg(32);
+    phi27 = std_reg(32);
+    phi28 = std_reg(32);
+    phi29 = std_reg(32);
+    phi30 = std_reg(32);
+    phi31 = std_reg(32);
+    mod_pipe0 = std_sdiv_pipe(32);
+    mod_pipe1 = std_sdiv_pipe(32);
+    mod_pipe2 = std_sdiv_pipe(32);
+    mod_pipe3 = std_sdiv_pipe(32);
+    mod_pipe4 = std_sdiv_pipe(32);
+    mod_pipe5 = std_sdiv_pipe(32);
+    mod_pipe6 = std_sdiv_pipe(32);
+    mod_pipe7 = std_sdiv_pipe(32);
+    mod_pipe8 = std_sdiv_pipe(32);
+    mod_pipe9 = std_sdiv_pipe(32);
+    mod_pipe10 = std_sdiv_pipe(32);
+    mod_pipe11 = std_sdiv_pipe(32);
+    mod_pipe12 = std_sdiv_pipe(32);
+    mod_pipe13 = std_sdiv_pipe(32);
+    mod_pipe14 = std_sdiv_pipe(32);
+    mod_pipe15 = std_sdiv_pipe(32);
+    mod_pipe16 = std_sdiv_pipe(32);
+    mod_pipe17 = std_sdiv_pipe(32);
+    mod_pipe18 = std_sdiv_pipe(32);
+    mod_pipe19 = std_sdiv_pipe(32);
+    mod_pipe20 = std_sdiv_pipe(32);
+    mod_pipe21 = std_sdiv_pipe(32);
+    mod_pipe22 = std_sdiv_pipe(32);
+    mod_pipe23 = std_sdiv_pipe(32);
+    mod_pipe24 = std_sdiv_pipe(32);
+    mod_pipe25 = std_sdiv_pipe(32);
+    mod_pipe26 = std_sdiv_pipe(32);
+    mod_pipe27 = std_sdiv_pipe(32);
+    mod_pipe28 = std_sdiv_pipe(32);
+    mod_pipe29 = std_sdiv_pipe(32);
+    mod_pipe30 = std_sdiv_pipe(32);
+    mod_pipe31 = std_sdiv_pipe(32);
+    mult_pipe0 = std_smult_pipe(32);
+    mult_pipe1 = std_smult_pipe(32);
+    mult_pipe2 = std_smult_pipe(32);
+    mult_pipe3 = std_smult_pipe(32);
+    mult_pipe4 = std_smult_pipe(32);
+    mult_pipe5 = std_smult_pipe(32);
+    mult_pipe6 = std_smult_pipe(32);
+    mult_pipe7 = std_smult_pipe(32);
+    mult_pipe8 = std_smult_pipe(32);
+    mult_pipe9 = std_smult_pipe(32);
+    mult_pipe10 = std_smult_pipe(32);
+    mult_pipe11 = std_smult_pipe(32);
+    mult_pipe12 = std_smult_pipe(32);
+    mult_pipe13 = std_smult_pipe(32);
+    mult_pipe14 = std_smult_pipe(32);
+    mult_pipe15 = std_smult_pipe(32);
+    add0 = std_sadd(32);
+    add1 = std_sadd(32);
+    add2 = std_sadd(32);
+    add3 = std_sadd(32);
+    add4 = std_sadd(32);
+    add5 = std_sadd(32);
+    add6 = std_sadd(32);
+    add7 = std_sadd(32);
+    add8 = std_sadd(32);
+    add9 = std_sadd(32);
+    add10 = std_sadd(32);
+    add11 = std_sadd(32);
+    add12 = std_sadd(32);
+    add13 = std_sadd(32);
+    add14 = std_sadd(32);
+    add15 = std_sadd(32);
+    sub0 = std_ssub(32);
+    sub1 = std_ssub(32);
+    sub2 = std_ssub(32);
+    sub3 = std_ssub(32);
+    sub4 = std_ssub(32);
+    sub5 = std_ssub(32);
+    sub6 = std_ssub(32);
+    sub7 = std_ssub(32);
+    sub8 = std_ssub(32);
+    sub9 = std_ssub(32);
+    sub10 = std_ssub(32);
+    sub11 = std_ssub(32);
+    sub12 = std_ssub(32);
+    sub13 = std_ssub(32);
+    sub14 = std_ssub(32);
+    sub15 = std_ssub(32);
+  }
+  wires {
+    group preamble_0 {
+      a.addr0 = 6'd0;
+      phis.addr0 = 6'd0;
+      r0.write_en = 1'd1;
+      r0.in = a.read_data;
+      phi0.write_en = 1'd1;
+      phi0.in = phis.read_data;
+      preamble_0[done] = r0.done & phi0.done ? 1'd1;
+    }
+    group preamble_1 {
+      a.addr0 = 6'd1;
+      phis.addr0 = 6'd1;
+      r1.write_en = 1'd1;
+      r1.in = a.read_data;
+      phi1.write_en = 1'd1;
+      phi1.in = phis.read_data;
+      preamble_1[done] = r1.done & phi1.done ? 1'd1;
+    }
+    group preamble_2 {
+      a.addr0 = 6'd2;
+      phis.addr0 = 6'd2;
+      r2.write_en = 1'd1;
+      r2.in = a.read_data;
+      phi2.write_en = 1'd1;
+      phi2.in = phis.read_data;
+      preamble_2[done] = r2.done & phi2.done ? 1'd1;
+    }
+    group preamble_3 {
+      a.addr0 = 6'd3;
+      phis.addr0 = 6'd3;
+      r3.write_en = 1'd1;
+      r3.in = a.read_data;
+      phi3.write_en = 1'd1;
+      phi3.in = phis.read_data;
+      preamble_3[done] = r3.done & phi3.done ? 1'd1;
+    }
+    group preamble_4 {
+      a.addr0 = 6'd4;
+      phis.addr0 = 6'd4;
+      r4.write_en = 1'd1;
+      r4.in = a.read_data;
+      phi4.write_en = 1'd1;
+      phi4.in = phis.read_data;
+      preamble_4[done] = r4.done & phi4.done ? 1'd1;
+    }
+    group preamble_5 {
+      a.addr0 = 6'd5;
+      phis.addr0 = 6'd5;
+      r5.write_en = 1'd1;
+      r5.in = a.read_data;
+      phi5.write_en = 1'd1;
+      phi5.in = phis.read_data;
+      preamble_5[done] = r5.done & phi5.done ? 1'd1;
+    }
+    group preamble_6 {
+      a.addr0 = 6'd6;
+      phis.addr0 = 6'd6;
+      r6.write_en = 1'd1;
+      r6.in = a.read_data;
+      phi6.write_en = 1'd1;
+      phi6.in = phis.read_data;
+      preamble_6[done] = r6.done & phi6.done ? 1'd1;
+    }
+    group preamble_7 {
+      a.addr0 = 6'd7;
+      phis.addr0 = 6'd7;
+      r7.write_en = 1'd1;
+      r7.in = a.read_data;
+      phi7.write_en = 1'd1;
+      phi7.in = phis.read_data;
+      preamble_7[done] = r7.done & phi7.done ? 1'd1;
+    }
+    group preamble_8 {
+      a.addr0 = 6'd8;
+      phis.addr0 = 6'd8;
+      r8.write_en = 1'd1;
+      r8.in = a.read_data;
+      phi8.write_en = 1'd1;
+      phi8.in = phis.read_data;
+      preamble_8[done] = r8.done & phi8.done ? 1'd1;
+    }
+    group preamble_9 {
+      a.addr0 = 6'd9;
+      phis.addr0 = 6'd9;
+      r9.write_en = 1'd1;
+      r9.in = a.read_data;
+      phi9.write_en = 1'd1;
+      phi9.in = phis.read_data;
+      preamble_9[done] = r9.done & phi9.done ? 1'd1;
+    }
+    group preamble_10 {
+      a.addr0 = 6'd10;
+      phis.addr0 = 6'd10;
+      r10.write_en = 1'd1;
+      r10.in = a.read_data;
+      phi10.write_en = 1'd1;
+      phi10.in = phis.read_data;
+      preamble_10[done] = r10.done & phi10.done ? 1'd1;
+    }
+    group preamble_11 {
+      a.addr0 = 6'd11;
+      phis.addr0 = 6'd11;
+      r11.write_en = 1'd1;
+      r11.in = a.read_data;
+      phi11.write_en = 1'd1;
+      phi11.in = phis.read_data;
+      preamble_11[done] = r11.done & phi11.done ? 1'd1;
+    }
+    group preamble_12 {
+      a.addr0 = 6'd12;
+      phis.addr0 = 6'd12;
+      r12.write_en = 1'd1;
+      r12.in = a.read_data;
+      phi12.write_en = 1'd1;
+      phi12.in = phis.read_data;
+      preamble_12[done] = r12.done & phi12.done ? 1'd1;
+    }
+    group preamble_13 {
+      a.addr0 = 6'd13;
+      phis.addr0 = 6'd13;
+      r13.write_en = 1'd1;
+      r13.in = a.read_data;
+      phi13.write_en = 1'd1;
+      phi13.in = phis.read_data;
+      preamble_13[done] = r13.done & phi13.done ? 1'd1;
+    }
+    group preamble_14 {
+      a.addr0 = 6'd14;
+      phis.addr0 = 6'd14;
+      r14.write_en = 1'd1;
+      r14.in = a.read_data;
+      phi14.write_en = 1'd1;
+      phi14.in = phis.read_data;
+      preamble_14[done] = r14.done & phi14.done ? 1'd1;
+    }
+    group preamble_15 {
+      a.addr0 = 6'd15;
+      phis.addr0 = 6'd15;
+      r15.write_en = 1'd1;
+      r15.in = a.read_data;
+      phi15.write_en = 1'd1;
+      phi15.in = phis.read_data;
+      preamble_15[done] = r15.done & phi15.done ? 1'd1;
+    }
+    group preamble_16 {
+      a.addr0 = 6'd16;
+      phis.addr0 = 6'd16;
+      r16.write_en = 1'd1;
+      r16.in = a.read_data;
+      phi16.write_en = 1'd1;
+      phi16.in = phis.read_data;
+      preamble_16[done] = r16.done & phi16.done ? 1'd1;
+    }
+    group preamble_17 {
+      a.addr0 = 6'd17;
+      phis.addr0 = 6'd17;
+      r17.write_en = 1'd1;
+      r17.in = a.read_data;
+      phi17.write_en = 1'd1;
+      phi17.in = phis.read_data;
+      preamble_17[done] = r17.done & phi17.done ? 1'd1;
+    }
+    group preamble_18 {
+      a.addr0 = 6'd18;
+      phis.addr0 = 6'd18;
+      r18.write_en = 1'd1;
+      r18.in = a.read_data;
+      phi18.write_en = 1'd1;
+      phi18.in = phis.read_data;
+      preamble_18[done] = r18.done & phi18.done ? 1'd1;
+    }
+    group preamble_19 {
+      a.addr0 = 6'd19;
+      phis.addr0 = 6'd19;
+      r19.write_en = 1'd1;
+      r19.in = a.read_data;
+      phi19.write_en = 1'd1;
+      phi19.in = phis.read_data;
+      preamble_19[done] = r19.done & phi19.done ? 1'd1;
+    }
+    group preamble_20 {
+      a.addr0 = 6'd20;
+      phis.addr0 = 6'd20;
+      r20.write_en = 1'd1;
+      r20.in = a.read_data;
+      phi20.write_en = 1'd1;
+      phi20.in = phis.read_data;
+      preamble_20[done] = r20.done & phi20.done ? 1'd1;
+    }
+    group preamble_21 {
+      a.addr0 = 6'd21;
+      phis.addr0 = 6'd21;
+      r21.write_en = 1'd1;
+      r21.in = a.read_data;
+      phi21.write_en = 1'd1;
+      phi21.in = phis.read_data;
+      preamble_21[done] = r21.done & phi21.done ? 1'd1;
+    }
+    group preamble_22 {
+      a.addr0 = 6'd22;
+      phis.addr0 = 6'd22;
+      r22.write_en = 1'd1;
+      r22.in = a.read_data;
+      phi22.write_en = 1'd1;
+      phi22.in = phis.read_data;
+      preamble_22[done] = r22.done & phi22.done ? 1'd1;
+    }
+    group preamble_23 {
+      a.addr0 = 6'd23;
+      phis.addr0 = 6'd23;
+      r23.write_en = 1'd1;
+      r23.in = a.read_data;
+      phi23.write_en = 1'd1;
+      phi23.in = phis.read_data;
+      preamble_23[done] = r23.done & phi23.done ? 1'd1;
+    }
+    group preamble_24 {
+      a.addr0 = 6'd24;
+      phis.addr0 = 6'd24;
+      r24.write_en = 1'd1;
+      r24.in = a.read_data;
+      phi24.write_en = 1'd1;
+      phi24.in = phis.read_data;
+      preamble_24[done] = r24.done & phi24.done ? 1'd1;
+    }
+    group preamble_25 {
+      a.addr0 = 6'd25;
+      phis.addr0 = 6'd25;
+      r25.write_en = 1'd1;
+      r25.in = a.read_data;
+      phi25.write_en = 1'd1;
+      phi25.in = phis.read_data;
+      preamble_25[done] = r25.done & phi25.done ? 1'd1;
+    }
+    group preamble_26 {
+      a.addr0 = 6'd26;
+      phis.addr0 = 6'd26;
+      r26.write_en = 1'd1;
+      r26.in = a.read_data;
+      phi26.write_en = 1'd1;
+      phi26.in = phis.read_data;
+      preamble_26[done] = r26.done & phi26.done ? 1'd1;
+    }
+    group preamble_27 {
+      a.addr0 = 6'd27;
+      phis.addr0 = 6'd27;
+      r27.write_en = 1'd1;
+      r27.in = a.read_data;
+      phi27.write_en = 1'd1;
+      phi27.in = phis.read_data;
+      preamble_27[done] = r27.done & phi27.done ? 1'd1;
+    }
+    group preamble_28 {
+      a.addr0 = 6'd28;
+      phis.addr0 = 6'd28;
+      r28.write_en = 1'd1;
+      r28.in = a.read_data;
+      phi28.write_en = 1'd1;
+      phi28.in = phis.read_data;
+      preamble_28[done] = r28.done & phi28.done ? 1'd1;
+    }
+    group preamble_29 {
+      a.addr0 = 6'd29;
+      phis.addr0 = 6'd29;
+      r29.write_en = 1'd1;
+      r29.in = a.read_data;
+      phi29.write_en = 1'd1;
+      phi29.in = phis.read_data;
+      preamble_29[done] = r29.done & phi29.done ? 1'd1;
+    }
+    group preamble_30 {
+      a.addr0 = 6'd30;
+      phis.addr0 = 6'd30;
+      r30.write_en = 1'd1;
+      r30.in = a.read_data;
+      phi30.write_en = 1'd1;
+      phi30.in = phis.read_data;
+      preamble_30[done] = r30.done & phi30.done ? 1'd1;
+    }
+    group preamble_31 {
+      a.addr0 = 6'd31;
+      phis.addr0 = 6'd31;
+      r31.write_en = 1'd1;
+      r31.in = a.read_data;
+      phi31.write_en = 1'd1;
+      phi31.in = phis.read_data;
+      preamble_31[done] = r31.done & phi31.done ? 1'd1;
+    }
+    group precursor_0 {
+      r0.in = A0.out;
+      r0.write_en = 1'd1;
+      precursor_0[done] = r0.done;
+    }
+    group precursor_1 {
+      r1.in = A1.out;
+      r1.write_en = 1'd1;
+      precursor_1[done] = r1.done;
+    }
+    group precursor_2 {
+      r2.in = A2.out;
+      r2.write_en = 1'd1;
+      precursor_2[done] = r2.done;
+    }
+    group precursor_3 {
+      r3.in = A3.out;
+      r3.write_en = 1'd1;
+      precursor_3[done] = r3.done;
+    }
+    group precursor_4 {
+      r4.in = A4.out;
+      r4.write_en = 1'd1;
+      precursor_4[done] = r4.done;
+    }
+    group precursor_5 {
+      r5.in = A5.out;
+      r5.write_en = 1'd1;
+      precursor_5[done] = r5.done;
+    }
+    group precursor_6 {
+      r6.in = A6.out;
+      r6.write_en = 1'd1;
+      precursor_6[done] = r6.done;
+    }
+    group precursor_7 {
+      r7.in = A7.out;
+      r7.write_en = 1'd1;
+      precursor_7[done] = r7.done;
+    }
+    group precursor_8 {
+      r8.in = A8.out;
+      r8.write_en = 1'd1;
+      precursor_8[done] = r8.done;
+    }
+    group precursor_9 {
+      r9.in = A9.out;
+      r9.write_en = 1'd1;
+      precursor_9[done] = r9.done;
+    }
+    group precursor_10 {
+      r10.in = A10.out;
+      r10.write_en = 1'd1;
+      precursor_10[done] = r10.done;
+    }
+    group precursor_11 {
+      r11.in = A11.out;
+      r11.write_en = 1'd1;
+      precursor_11[done] = r11.done;
+    }
+    group precursor_12 {
+      r12.in = A12.out;
+      r12.write_en = 1'd1;
+      precursor_12[done] = r12.done;
+    }
+    group precursor_13 {
+      r13.in = A13.out;
+      r13.write_en = 1'd1;
+      precursor_13[done] = r13.done;
+    }
+    group precursor_14 {
+      r14.in = A14.out;
+      r14.write_en = 1'd1;
+      precursor_14[done] = r14.done;
+    }
+    group precursor_15 {
+      r15.in = A15.out;
+      r15.write_en = 1'd1;
+      precursor_15[done] = r15.done;
+    }
+    group precursor_16 {
+      r16.in = A16.out;
+      r16.write_en = 1'd1;
+      precursor_16[done] = r16.done;
+    }
+    group precursor_17 {
+      r17.in = A17.out;
+      r17.write_en = 1'd1;
+      precursor_17[done] = r17.done;
+    }
+    group precursor_18 {
+      r18.in = A18.out;
+      r18.write_en = 1'd1;
+      precursor_18[done] = r18.done;
+    }
+    group precursor_19 {
+      r19.in = A19.out;
+      r19.write_en = 1'd1;
+      precursor_19[done] = r19.done;
+    }
+    group precursor_20 {
+      r20.in = A20.out;
+      r20.write_en = 1'd1;
+      precursor_20[done] = r20.done;
+    }
+    group precursor_21 {
+      r21.in = A21.out;
+      r21.write_en = 1'd1;
+      precursor_21[done] = r21.done;
+    }
+    group precursor_22 {
+      r22.in = A22.out;
+      r22.write_en = 1'd1;
+      precursor_22[done] = r22.done;
+    }
+    group precursor_23 {
+      r23.in = A23.out;
+      r23.write_en = 1'd1;
+      precursor_23[done] = r23.done;
+    }
+    group precursor_24 {
+      r24.in = A24.out;
+      r24.write_en = 1'd1;
+      precursor_24[done] = r24.done;
+    }
+    group precursor_25 {
+      r25.in = A25.out;
+      r25.write_en = 1'd1;
+      precursor_25[done] = r25.done;
+    }
+    group precursor_26 {
+      r26.in = A26.out;
+      r26.write_en = 1'd1;
+      precursor_26[done] = r26.done;
+    }
+    group precursor_27 {
+      r27.in = A27.out;
+      r27.write_en = 1'd1;
+      precursor_27[done] = r27.done;
+    }
+    group precursor_28 {
+      r28.in = A28.out;
+      r28.write_en = 1'd1;
+      precursor_28[done] = r28.done;
+    }
+    group precursor_29 {
+      r29.in = A29.out;
+      r29.write_en = 1'd1;
+      precursor_29[done] = r29.done;
+    }
+    group precursor_30 {
+      r30.in = A30.out;
+      r30.write_en = 1'd1;
+      precursor_30[done] = r30.done;
+    }
+    group precursor_31 {
+      r31.in = A31.out;
+      r31.write_en = 1'd1;
+      precursor_31[done] = r31.done;
+    }
+    group s0_mul0 {
+      mult_pipe0.left = phi1.out;
+      mult_pipe0.right = r16.out;
+      mult_pipe0.go = 1'd1;
+      s0_mul0[done] = mult_pipe0.done;
+    }
+    group s0_mul1 {
+      mult_pipe1.left = phi1.out;
+      mult_pipe1.right = r17.out;
+      mult_pipe1.go = 1'd1;
+      s0_mul1[done] = mult_pipe1.done;
+    }
+    group s0_mul2 {
+      mult_pipe2.left = phi1.out;
+      mult_pipe2.right = r18.out;
+      mult_pipe2.go = 1'd1;
+      s0_mul2[done] = mult_pipe2.done;
+    }
+    group s0_mul3 {
+      mult_pipe3.left = phi1.out;
+      mult_pipe3.right = r19.out;
+      mult_pipe3.go = 1'd1;
+      s0_mul3[done] = mult_pipe3.done;
+    }
+    group s0_mul4 {
+      mult_pipe4.left = phi1.out;
+      mult_pipe4.right = r20.out;
+      mult_pipe4.go = 1'd1;
+      s0_mul4[done] = mult_pipe4.done;
+    }
+    group s0_mul5 {
+      mult_pipe5.left = phi1.out;
+      mult_pipe5.right = r21.out;
+      mult_pipe5.go = 1'd1;
+      s0_mul5[done] = mult_pipe5.done;
+    }
+    group s0_mul6 {
+      mult_pipe6.left = phi1.out;
+      mult_pipe6.right = r22.out;
+      mult_pipe6.go = 1'd1;
+      s0_mul6[done] = mult_pipe6.done;
+    }
+    group s0_mul7 {
+      mult_pipe7.left = phi1.out;
+      mult_pipe7.right = r23.out;
+      mult_pipe7.go = 1'd1;
+      s0_mul7[done] = mult_pipe7.done;
+    }
+    group s0_mul8 {
+      mult_pipe8.left = phi1.out;
+      mult_pipe8.right = r24.out;
+      mult_pipe8.go = 1'd1;
+      s0_mul8[done] = mult_pipe8.done;
+    }
+    group s0_mul9 {
+      mult_pipe9.left = phi1.out;
+      mult_pipe9.right = r25.out;
+      mult_pipe9.go = 1'd1;
+      s0_mul9[done] = mult_pipe9.done;
+    }
+    group s0_mul10 {
+      mult_pipe10.left = phi1.out;
+      mult_pipe10.right = r26.out;
+      mult_pipe10.go = 1'd1;
+      s0_mul10[done] = mult_pipe10.done;
+    }
+    group s0_mul11 {
+      mult_pipe11.left = phi1.out;
+      mult_pipe11.right = r27.out;
+      mult_pipe11.go = 1'd1;
+      s0_mul11[done] = mult_pipe11.done;
+    }
+    group s0_mul12 {
+      mult_pipe12.left = phi1.out;
+      mult_pipe12.right = r28.out;
+      mult_pipe12.go = 1'd1;
+      s0_mul12[done] = mult_pipe12.done;
+    }
+    group s0_mul13 {
+      mult_pipe13.left = phi1.out;
+      mult_pipe13.right = r29.out;
+      mult_pipe13.go = 1'd1;
+      s0_mul13[done] = mult_pipe13.done;
+    }
+    group s0_mul14 {
+      mult_pipe14.left = phi1.out;
+      mult_pipe14.right = r30.out;
+      mult_pipe14.go = 1'd1;
+      s0_mul14[done] = mult_pipe14.done;
+    }
+    group s0_mul15 {
+      mult_pipe15.left = phi1.out;
+      mult_pipe15.right = r31.out;
+      mult_pipe15.go = 1'd1;
+      s0_mul15[done] = mult_pipe15.done;
+    }
+    group s1_mul0 {
+      mult_pipe0.left = phi2.out;
+      mult_pipe0.right = r8.out;
+      mult_pipe0.go = 1'd1;
+      s1_mul0[done] = mult_pipe0.done;
+    }
+    group s1_mul1 {
+      mult_pipe1.left = phi2.out;
+      mult_pipe1.right = r9.out;
+      mult_pipe1.go = 1'd1;
+      s1_mul1[done] = mult_pipe1.done;
+    }
+    group s1_mul2 {
+      mult_pipe2.left = phi2.out;
+      mult_pipe2.right = r10.out;
+      mult_pipe2.go = 1'd1;
+      s1_mul2[done] = mult_pipe2.done;
+    }
+    group s1_mul3 {
+      mult_pipe3.left = phi2.out;
+      mult_pipe3.right = r11.out;
+      mult_pipe3.go = 1'd1;
+      s1_mul3[done] = mult_pipe3.done;
+    }
+    group s1_mul4 {
+      mult_pipe4.left = phi2.out;
+      mult_pipe4.right = r12.out;
+      mult_pipe4.go = 1'd1;
+      s1_mul4[done] = mult_pipe4.done;
+    }
+    group s1_mul5 {
+      mult_pipe5.left = phi2.out;
+      mult_pipe5.right = r13.out;
+      mult_pipe5.go = 1'd1;
+      s1_mul5[done] = mult_pipe5.done;
+    }
+    group s1_mul6 {
+      mult_pipe6.left = phi2.out;
+      mult_pipe6.right = r14.out;
+      mult_pipe6.go = 1'd1;
+      s1_mul6[done] = mult_pipe6.done;
+    }
+    group s1_mul7 {
+      mult_pipe7.left = phi2.out;
+      mult_pipe7.right = r15.out;
+      mult_pipe7.go = 1'd1;
+      s1_mul7[done] = mult_pipe7.done;
+    }
+    group s1_mul8 {
+      mult_pipe8.left = phi3.out;
+      mult_pipe8.right = r24.out;
+      mult_pipe8.go = 1'd1;
+      s1_mul8[done] = mult_pipe8.done;
+    }
+    group s1_mul9 {
+      mult_pipe9.left = phi3.out;
+      mult_pipe9.right = r25.out;
+      mult_pipe9.go = 1'd1;
+      s1_mul9[done] = mult_pipe9.done;
+    }
+    group s1_mul10 {
+      mult_pipe10.left = phi3.out;
+      mult_pipe10.right = r26.out;
+      mult_pipe10.go = 1'd1;
+      s1_mul10[done] = mult_pipe10.done;
+    }
+    group s1_mul11 {
+      mult_pipe11.left = phi3.out;
+      mult_pipe11.right = r27.out;
+      mult_pipe11.go = 1'd1;
+      s1_mul11[done] = mult_pipe11.done;
+    }
+    group s1_mul12 {
+      mult_pipe12.left = phi3.out;
+      mult_pipe12.right = r28.out;
+      mult_pipe12.go = 1'd1;
+      s1_mul12[done] = mult_pipe12.done;
+    }
+    group s1_mul13 {
+      mult_pipe13.left = phi3.out;
+      mult_pipe13.right = r29.out;
+      mult_pipe13.go = 1'd1;
+      s1_mul13[done] = mult_pipe13.done;
+    }
+    group s1_mul14 {
+      mult_pipe14.left = phi3.out;
+      mult_pipe14.right = r30.out;
+      mult_pipe14.go = 1'd1;
+      s1_mul14[done] = mult_pipe14.done;
+    }
+    group s1_mul15 {
+      mult_pipe15.left = phi3.out;
+      mult_pipe15.right = r31.out;
+      mult_pipe15.go = 1'd1;
+      s1_mul15[done] = mult_pipe15.done;
+    }
+    group s2_mul0 {
+      mult_pipe0.left = phi4.out;
+      mult_pipe0.right = r4.out;
+      mult_pipe0.go = 1'd1;
+      s2_mul0[done] = mult_pipe0.done;
+    }
+    group s2_mul1 {
+      mult_pipe1.left = phi4.out;
+      mult_pipe1.right = r5.out;
+      mult_pipe1.go = 1'd1;
+      s2_mul1[done] = mult_pipe1.done;
+    }
+    group s2_mul2 {
+      mult_pipe2.left = phi4.out;
+      mult_pipe2.right = r6.out;
+      mult_pipe2.go = 1'd1;
+      s2_mul2[done] = mult_pipe2.done;
+    }
+    group s2_mul3 {
+      mult_pipe3.left = phi4.out;
+      mult_pipe3.right = r7.out;
+      mult_pipe3.go = 1'd1;
+      s2_mul3[done] = mult_pipe3.done;
+    }
+    group s2_mul4 {
+      mult_pipe4.left = phi5.out;
+      mult_pipe4.right = r12.out;
+      mult_pipe4.go = 1'd1;
+      s2_mul4[done] = mult_pipe4.done;
+    }
+    group s2_mul5 {
+      mult_pipe5.left = phi5.out;
+      mult_pipe5.right = r13.out;
+      mult_pipe5.go = 1'd1;
+      s2_mul5[done] = mult_pipe5.done;
+    }
+    group s2_mul6 {
+      mult_pipe6.left = phi5.out;
+      mult_pipe6.right = r14.out;
+      mult_pipe6.go = 1'd1;
+      s2_mul6[done] = mult_pipe6.done;
+    }
+    group s2_mul7 {
+      mult_pipe7.left = phi5.out;
+      mult_pipe7.right = r15.out;
+      mult_pipe7.go = 1'd1;
+      s2_mul7[done] = mult_pipe7.done;
+    }
+    group s2_mul8 {
+      mult_pipe8.left = phi6.out;
+      mult_pipe8.right = r20.out;
+      mult_pipe8.go = 1'd1;
+      s2_mul8[done] = mult_pipe8.done;
+    }
+    group s2_mul9 {
+      mult_pipe9.left = phi6.out;
+      mult_pipe9.right = r21.out;
+      mult_pipe9.go = 1'd1;
+      s2_mul9[done] = mult_pipe9.done;
+    }
+    group s2_mul10 {
+      mult_pipe10.left = phi6.out;
+      mult_pipe10.right = r22.out;
+      mult_pipe10.go = 1'd1;
+      s2_mul10[done] = mult_pipe10.done;
+    }
+    group s2_mul11 {
+      mult_pipe11.left = phi6.out;
+      mult_pipe11.right = r23.out;
+      mult_pipe11.go = 1'd1;
+      s2_mul11[done] = mult_pipe11.done;
+    }
+    group s2_mul12 {
+      mult_pipe12.left = phi7.out;
+      mult_pipe12.right = r28.out;
+      mult_pipe12.go = 1'd1;
+      s2_mul12[done] = mult_pipe12.done;
+    }
+    group s2_mul13 {
+      mult_pipe13.left = phi7.out;
+      mult_pipe13.right = r29.out;
+      mult_pipe13.go = 1'd1;
+      s2_mul13[done] = mult_pipe13.done;
+    }
+    group s2_mul14 {
+      mult_pipe14.left = phi7.out;
+      mult_pipe14.right = r30.out;
+      mult_pipe14.go = 1'd1;
+      s2_mul14[done] = mult_pipe14.done;
+    }
+    group s2_mul15 {
+      mult_pipe15.left = phi7.out;
+      mult_pipe15.right = r31.out;
+      mult_pipe15.go = 1'd1;
+      s2_mul15[done] = mult_pipe15.done;
+    }
+    group s3_mul0 {
+      mult_pipe0.left = phi8.out;
+      mult_pipe0.right = r2.out;
+      mult_pipe0.go = 1'd1;
+      s3_mul0[done] = mult_pipe0.done;
+    }
+    group s3_mul1 {
+      mult_pipe1.left = phi8.out;
+      mult_pipe1.right = r3.out;
+      mult_pipe1.go = 1'd1;
+      s3_mul1[done] = mult_pipe1.done;
+    }
+    group s3_mul2 {
+      mult_pipe2.left = phi9.out;
+      mult_pipe2.right = r6.out;
+      mult_pipe2.go = 1'd1;
+      s3_mul2[done] = mult_pipe2.done;
+    }
+    group s3_mul3 {
+      mult_pipe3.left = phi9.out;
+      mult_pipe3.right = r7.out;
+      mult_pipe3.go = 1'd1;
+      s3_mul3[done] = mult_pipe3.done;
+    }
+    group s3_mul4 {
+      mult_pipe4.left = phi10.out;
+      mult_pipe4.right = r10.out;
+      mult_pipe4.go = 1'd1;
+      s3_mul4[done] = mult_pipe4.done;
+    }
+    group s3_mul5 {
+      mult_pipe5.left = phi10.out;
+      mult_pipe5.right = r11.out;
+      mult_pipe5.go = 1'd1;
+      s3_mul5[done] = mult_pipe5.done;
+    }
+    group s3_mul6 {
+      mult_pipe6.left = phi11.out;
+      mult_pipe6.right = r14.out;
+      mult_pipe6.go = 1'd1;
+      s3_mul6[done] = mult_pipe6.done;
+    }
+    group s3_mul7 {
+      mult_pipe7.left = phi11.out;
+      mult_pipe7.right = r15.out;
+      mult_pipe7.go = 1'd1;
+      s3_mul7[done] = mult_pipe7.done;
+    }
+    group s3_mul8 {
+      mult_pipe8.left = phi12.out;
+      mult_pipe8.right = r18.out;
+      mult_pipe8.go = 1'd1;
+      s3_mul8[done] = mult_pipe8.done;
+    }
+    group s3_mul9 {
+      mult_pipe9.left = phi12.out;
+      mult_pipe9.right = r19.out;
+      mult_pipe9.go = 1'd1;
+      s3_mul9[done] = mult_pipe9.done;
+    }
+    group s3_mul10 {
+      mult_pipe10.left = phi13.out;
+      mult_pipe10.right = r22.out;
+      mult_pipe10.go = 1'd1;
+      s3_mul10[done] = mult_pipe10.done;
+    }
+    group s3_mul11 {
+      mult_pipe11.left = phi13.out;
+      mult_pipe11.right = r23.out;
+      mult_pipe11.go = 1'd1;
+      s3_mul11[done] = mult_pipe11.done;
+    }
+    group s3_mul12 {
+      mult_pipe12.left = phi14.out;
+      mult_pipe12.right = r26.out;
+      mult_pipe12.go = 1'd1;
+      s3_mul12[done] = mult_pipe12.done;
+    }
+    group s3_mul13 {
+      mult_pipe13.left = phi14.out;
+      mult_pipe13.right = r27.out;
+      mult_pipe13.go = 1'd1;
+      s3_mul13[done] = mult_pipe13.done;
+    }
+    group s3_mul14 {
+      mult_pipe14.left = phi15.out;
+      mult_pipe14.right = r30.out;
+      mult_pipe14.go = 1'd1;
+      s3_mul14[done] = mult_pipe14.done;
+    }
+    group s3_mul15 {
+      mult_pipe15.left = phi15.out;
+      mult_pipe15.right = r31.out;
+      mult_pipe15.go = 1'd1;
+      s3_mul15[done] = mult_pipe15.done;
+    }
+    group s4_mul0 {
+      mult_pipe0.left = phi16.out;
+      mult_pipe0.right = r1.out;
+      mult_pipe0.go = 1'd1;
+      s4_mul0[done] = mult_pipe0.done;
+    }
+    group s4_mul1 {
+      mult_pipe1.left = phi17.out;
+      mult_pipe1.right = r3.out;
+      mult_pipe1.go = 1'd1;
+      s4_mul1[done] = mult_pipe1.done;
+    }
+    group s4_mul2 {
+      mult_pipe2.left = phi18.out;
+      mult_pipe2.right = r5.out;
+      mult_pipe2.go = 1'd1;
+      s4_mul2[done] = mult_pipe2.done;
+    }
+    group s4_mul3 {
+      mult_pipe3.left = phi19.out;
+      mult_pipe3.right = r7.out;
+      mult_pipe3.go = 1'd1;
+      s4_mul3[done] = mult_pipe3.done;
+    }
+    group s4_mul4 {
+      mult_pipe4.left = phi20.out;
+      mult_pipe4.right = r9.out;
+      mult_pipe4.go = 1'd1;
+      s4_mul4[done] = mult_pipe4.done;
+    }
+    group s4_mul5 {
+      mult_pipe5.left = phi21.out;
+      mult_pipe5.right = r11.out;
+      mult_pipe5.go = 1'd1;
+      s4_mul5[done] = mult_pipe5.done;
+    }
+    group s4_mul6 {
+      mult_pipe6.left = phi22.out;
+      mult_pipe6.right = r13.out;
+      mult_pipe6.go = 1'd1;
+      s4_mul6[done] = mult_pipe6.done;
+    }
+    group s4_mul7 {
+      mult_pipe7.left = phi23.out;
+      mult_pipe7.right = r15.out;
+      mult_pipe7.go = 1'd1;
+      s4_mul7[done] = mult_pipe7.done;
+    }
+    group s4_mul8 {
+      mult_pipe8.left = phi24.out;
+      mult_pipe8.right = r17.out;
+      mult_pipe8.go = 1'd1;
+      s4_mul8[done] = mult_pipe8.done;
+    }
+    group s4_mul9 {
+      mult_pipe9.left = phi25.out;
+      mult_pipe9.right = r19.out;
+      mult_pipe9.go = 1'd1;
+      s4_mul9[done] = mult_pipe9.done;
+    }
+    group s4_mul10 {
+      mult_pipe10.left = phi26.out;
+      mult_pipe10.right = r21.out;
+      mult_pipe10.go = 1'd1;
+      s4_mul10[done] = mult_pipe10.done;
+    }
+    group s4_mul11 {
+      mult_pipe11.left = phi27.out;
+      mult_pipe11.right = r23.out;
+      mult_pipe11.go = 1'd1;
+      s4_mul11[done] = mult_pipe11.done;
+    }
+    group s4_mul12 {
+      mult_pipe12.left = phi28.out;
+      mult_pipe12.right = r25.out;
+      mult_pipe12.go = 1'd1;
+      s4_mul12[done] = mult_pipe12.done;
+    }
+    group s4_mul13 {
+      mult_pipe13.left = phi29.out;
+      mult_pipe13.right = r27.out;
+      mult_pipe13.go = 1'd1;
+      s4_mul13[done] = mult_pipe13.done;
+    }
+    group s4_mul14 {
+      mult_pipe14.left = phi30.out;
+      mult_pipe14.right = r29.out;
+      mult_pipe14.go = 1'd1;
+      s4_mul14[done] = mult_pipe14.done;
+    }
+    group s4_mul15 {
+      mult_pipe15.left = phi31.out;
+      mult_pipe15.right = r31.out;
+      mult_pipe15.go = 1'd1;
+      s4_mul15[done] = mult_pipe15.done;
+    }
+    group s0_r0_op_mod {
+      add0.left = r0.out;
+      add0.right = mult_pipe0.out;
+      mod_pipe0.left = add0.out;
+      mod_pipe0.right = 32'd97;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      A0.write_en = mod_pipe0.done;
+      A0.in = mod_pipe0.out_remainder;
+      s0_r0_op_mod[done] = A0.done;
+    }
+    group s0_r1_op_mod {
+      add1.left = r1.out;
+      add1.right = mult_pipe1.out;
+      mod_pipe1.left = add1.out;
+      mod_pipe1.right = 32'd97;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      A1.write_en = mod_pipe1.done;
+      A1.in = mod_pipe1.out_remainder;
+      s0_r1_op_mod[done] = A1.done;
+    }
+    group s0_r2_op_mod {
+      add2.left = r2.out;
+      add2.right = mult_pipe2.out;
+      mod_pipe2.left = add2.out;
+      mod_pipe2.right = 32'd97;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      A2.write_en = mod_pipe2.done;
+      A2.in = mod_pipe2.out_remainder;
+      s0_r2_op_mod[done] = A2.done;
+    }
+    group s0_r3_op_mod {
+      add3.left = r3.out;
+      add3.right = mult_pipe3.out;
+      mod_pipe3.left = add3.out;
+      mod_pipe3.right = 32'd97;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      A3.write_en = mod_pipe3.done;
+      A3.in = mod_pipe3.out_remainder;
+      s0_r3_op_mod[done] = A3.done;
+    }
+    group s0_r4_op_mod {
+      add4.left = r4.out;
+      add4.right = mult_pipe4.out;
+      mod_pipe4.left = add4.out;
+      mod_pipe4.right = 32'd97;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      A4.write_en = mod_pipe4.done;
+      A4.in = mod_pipe4.out_remainder;
+      s0_r4_op_mod[done] = A4.done;
+    }
+    group s0_r5_op_mod {
+      add5.left = r5.out;
+      add5.right = mult_pipe5.out;
+      mod_pipe5.left = add5.out;
+      mod_pipe5.right = 32'd97;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      A5.write_en = mod_pipe5.done;
+      A5.in = mod_pipe5.out_remainder;
+      s0_r5_op_mod[done] = A5.done;
+    }
+    group s0_r6_op_mod {
+      add6.left = r6.out;
+      add6.right = mult_pipe6.out;
+      mod_pipe6.left = add6.out;
+      mod_pipe6.right = 32'd97;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      A6.write_en = mod_pipe6.done;
+      A6.in = mod_pipe6.out_remainder;
+      s0_r6_op_mod[done] = A6.done;
+    }
+    group s0_r7_op_mod {
+      add7.left = r7.out;
+      add7.right = mult_pipe7.out;
+      mod_pipe7.left = add7.out;
+      mod_pipe7.right = 32'd97;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      A7.write_en = mod_pipe7.done;
+      A7.in = mod_pipe7.out_remainder;
+      s0_r7_op_mod[done] = A7.done;
+    }
+    group s0_r8_op_mod {
+      add8.left = r8.out;
+      add8.right = mult_pipe8.out;
+      mod_pipe8.left = add8.out;
+      mod_pipe8.right = 32'd97;
+      mod_pipe8.go = !mod_pipe8.done ? 1'd1;
+      A8.write_en = mod_pipe8.done;
+      A8.in = mod_pipe8.out_remainder;
+      s0_r8_op_mod[done] = A8.done;
+    }
+    group s0_r9_op_mod {
+      add9.left = r9.out;
+      add9.right = mult_pipe9.out;
+      mod_pipe9.left = add9.out;
+      mod_pipe9.right = 32'd97;
+      mod_pipe9.go = !mod_pipe9.done ? 1'd1;
+      A9.write_en = mod_pipe9.done;
+      A9.in = mod_pipe9.out_remainder;
+      s0_r9_op_mod[done] = A9.done;
+    }
+    group s0_r10_op_mod {
+      add10.left = r10.out;
+      add10.right = mult_pipe10.out;
+      mod_pipe10.left = add10.out;
+      mod_pipe10.right = 32'd97;
+      mod_pipe10.go = !mod_pipe10.done ? 1'd1;
+      A10.write_en = mod_pipe10.done;
+      A10.in = mod_pipe10.out_remainder;
+      s0_r10_op_mod[done] = A10.done;
+    }
+    group s0_r11_op_mod {
+      add11.left = r11.out;
+      add11.right = mult_pipe11.out;
+      mod_pipe11.left = add11.out;
+      mod_pipe11.right = 32'd97;
+      mod_pipe11.go = !mod_pipe11.done ? 1'd1;
+      A11.write_en = mod_pipe11.done;
+      A11.in = mod_pipe11.out_remainder;
+      s0_r11_op_mod[done] = A11.done;
+    }
+    group s0_r12_op_mod {
+      add12.left = r12.out;
+      add12.right = mult_pipe12.out;
+      mod_pipe12.left = add12.out;
+      mod_pipe12.right = 32'd97;
+      mod_pipe12.go = !mod_pipe12.done ? 1'd1;
+      A12.write_en = mod_pipe12.done;
+      A12.in = mod_pipe12.out_remainder;
+      s0_r12_op_mod[done] = A12.done;
+    }
+    group s0_r13_op_mod {
+      add13.left = r13.out;
+      add13.right = mult_pipe13.out;
+      mod_pipe13.left = add13.out;
+      mod_pipe13.right = 32'd97;
+      mod_pipe13.go = !mod_pipe13.done ? 1'd1;
+      A13.write_en = mod_pipe13.done;
+      A13.in = mod_pipe13.out_remainder;
+      s0_r13_op_mod[done] = A13.done;
+    }
+    group s0_r14_op_mod {
+      add14.left = r14.out;
+      add14.right = mult_pipe14.out;
+      mod_pipe14.left = add14.out;
+      mod_pipe14.right = 32'd97;
+      mod_pipe14.go = !mod_pipe14.done ? 1'd1;
+      A14.write_en = mod_pipe14.done;
+      A14.in = mod_pipe14.out_remainder;
+      s0_r14_op_mod[done] = A14.done;
+    }
+    group s0_r15_op_mod {
+      add15.left = r15.out;
+      add15.right = mult_pipe15.out;
+      mod_pipe15.left = add15.out;
+      mod_pipe15.right = 32'd97;
+      mod_pipe15.go = !mod_pipe15.done ? 1'd1;
+      A15.write_en = mod_pipe15.done;
+      A15.in = mod_pipe15.out_remainder;
+      s0_r15_op_mod[done] = A15.done;
+    }
+    group s0_r16_op_mod {
+      sub0.left = r0.out;
+      sub0.right = mult_pipe0.out;
+      mod_pipe16.left = sub0.out;
+      mod_pipe16.right = 32'd97;
+      mod_pipe16.go = !mod_pipe16.done ? 1'd1;
+      A16.write_en = mod_pipe16.done;
+      A16.in = mod_pipe16.out_remainder;
+      s0_r16_op_mod[done] = A16.done;
+    }
+    group s0_r17_op_mod {
+      sub1.left = r1.out;
+      sub1.right = mult_pipe1.out;
+      mod_pipe17.left = sub1.out;
+      mod_pipe17.right = 32'd97;
+      mod_pipe17.go = !mod_pipe17.done ? 1'd1;
+      A17.write_en = mod_pipe17.done;
+      A17.in = mod_pipe17.out_remainder;
+      s0_r17_op_mod[done] = A17.done;
+    }
+    group s0_r18_op_mod {
+      sub2.left = r2.out;
+      sub2.right = mult_pipe2.out;
+      mod_pipe18.left = sub2.out;
+      mod_pipe18.right = 32'd97;
+      mod_pipe18.go = !mod_pipe18.done ? 1'd1;
+      A18.write_en = mod_pipe18.done;
+      A18.in = mod_pipe18.out_remainder;
+      s0_r18_op_mod[done] = A18.done;
+    }
+    group s0_r19_op_mod {
+      sub3.left = r3.out;
+      sub3.right = mult_pipe3.out;
+      mod_pipe19.left = sub3.out;
+      mod_pipe19.right = 32'd97;
+      mod_pipe19.go = !mod_pipe19.done ? 1'd1;
+      A19.write_en = mod_pipe19.done;
+      A19.in = mod_pipe19.out_remainder;
+      s0_r19_op_mod[done] = A19.done;
+    }
+    group s0_r20_op_mod {
+      sub4.left = r4.out;
+      sub4.right = mult_pipe4.out;
+      mod_pipe20.left = sub4.out;
+      mod_pipe20.right = 32'd97;
+      mod_pipe20.go = !mod_pipe20.done ? 1'd1;
+      A20.write_en = mod_pipe20.done;
+      A20.in = mod_pipe20.out_remainder;
+      s0_r20_op_mod[done] = A20.done;
+    }
+    group s0_r21_op_mod {
+      sub5.left = r5.out;
+      sub5.right = mult_pipe5.out;
+      mod_pipe21.left = sub5.out;
+      mod_pipe21.right = 32'd97;
+      mod_pipe21.go = !mod_pipe21.done ? 1'd1;
+      A21.write_en = mod_pipe21.done;
+      A21.in = mod_pipe21.out_remainder;
+      s0_r21_op_mod[done] = A21.done;
+    }
+    group s0_r22_op_mod {
+      sub6.left = r6.out;
+      sub6.right = mult_pipe6.out;
+      mod_pipe22.left = sub6.out;
+      mod_pipe22.right = 32'd97;
+      mod_pipe22.go = !mod_pipe22.done ? 1'd1;
+      A22.write_en = mod_pipe22.done;
+      A22.in = mod_pipe22.out_remainder;
+      s0_r22_op_mod[done] = A22.done;
+    }
+    group s0_r23_op_mod {
+      sub7.left = r7.out;
+      sub7.right = mult_pipe7.out;
+      mod_pipe23.left = sub7.out;
+      mod_pipe23.right = 32'd97;
+      mod_pipe23.go = !mod_pipe23.done ? 1'd1;
+      A23.write_en = mod_pipe23.done;
+      A23.in = mod_pipe23.out_remainder;
+      s0_r23_op_mod[done] = A23.done;
+    }
+    group s0_r24_op_mod {
+      sub8.left = r8.out;
+      sub8.right = mult_pipe8.out;
+      mod_pipe24.left = sub8.out;
+      mod_pipe24.right = 32'd97;
+      mod_pipe24.go = !mod_pipe24.done ? 1'd1;
+      A24.write_en = mod_pipe24.done;
+      A24.in = mod_pipe24.out_remainder;
+      s0_r24_op_mod[done] = A24.done;
+    }
+    group s0_r25_op_mod {
+      sub9.left = r9.out;
+      sub9.right = mult_pipe9.out;
+      mod_pipe25.left = sub9.out;
+      mod_pipe25.right = 32'd97;
+      mod_pipe25.go = !mod_pipe25.done ? 1'd1;
+      A25.write_en = mod_pipe25.done;
+      A25.in = mod_pipe25.out_remainder;
+      s0_r25_op_mod[done] = A25.done;
+    }
+    group s0_r26_op_mod {
+      sub10.left = r10.out;
+      sub10.right = mult_pipe10.out;
+      mod_pipe26.left = sub10.out;
+      mod_pipe26.right = 32'd97;
+      mod_pipe26.go = !mod_pipe26.done ? 1'd1;
+      A26.write_en = mod_pipe26.done;
+      A26.in = mod_pipe26.out_remainder;
+      s0_r26_op_mod[done] = A26.done;
+    }
+    group s0_r27_op_mod {
+      sub11.left = r11.out;
+      sub11.right = mult_pipe11.out;
+      mod_pipe27.left = sub11.out;
+      mod_pipe27.right = 32'd97;
+      mod_pipe27.go = !mod_pipe27.done ? 1'd1;
+      A27.write_en = mod_pipe27.done;
+      A27.in = mod_pipe27.out_remainder;
+      s0_r27_op_mod[done] = A27.done;
+    }
+    group s0_r28_op_mod {
+      sub12.left = r12.out;
+      sub12.right = mult_pipe12.out;
+      mod_pipe28.left = sub12.out;
+      mod_pipe28.right = 32'd97;
+      mod_pipe28.go = !mod_pipe28.done ? 1'd1;
+      A28.write_en = mod_pipe28.done;
+      A28.in = mod_pipe28.out_remainder;
+      s0_r28_op_mod[done] = A28.done;
+    }
+    group s0_r29_op_mod {
+      sub13.left = r13.out;
+      sub13.right = mult_pipe13.out;
+      mod_pipe29.left = sub13.out;
+      mod_pipe29.right = 32'd97;
+      mod_pipe29.go = !mod_pipe29.done ? 1'd1;
+      A29.write_en = mod_pipe29.done;
+      A29.in = mod_pipe29.out_remainder;
+      s0_r29_op_mod[done] = A29.done;
+    }
+    group s0_r30_op_mod {
+      sub14.left = r14.out;
+      sub14.right = mult_pipe14.out;
+      mod_pipe30.left = sub14.out;
+      mod_pipe30.right = 32'd97;
+      mod_pipe30.go = !mod_pipe30.done ? 1'd1;
+      A30.write_en = mod_pipe30.done;
+      A30.in = mod_pipe30.out_remainder;
+      s0_r30_op_mod[done] = A30.done;
+    }
+    group s0_r31_op_mod {
+      sub15.left = r15.out;
+      sub15.right = mult_pipe15.out;
+      mod_pipe31.left = sub15.out;
+      mod_pipe31.right = 32'd97;
+      mod_pipe31.go = !mod_pipe31.done ? 1'd1;
+      A31.write_en = mod_pipe31.done;
+      A31.in = mod_pipe31.out_remainder;
+      s0_r31_op_mod[done] = A31.done;
+    }
+    group s1_r0_op_mod {
+      add0.left = r0.out;
+      add0.right = mult_pipe0.out;
+      mod_pipe0.left = add0.out;
+      mod_pipe0.right = 32'd97;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      A0.write_en = mod_pipe0.done;
+      A0.in = mod_pipe0.out_remainder;
+      s1_r0_op_mod[done] = A0.done;
+    }
+    group s1_r1_op_mod {
+      add1.left = r1.out;
+      add1.right = mult_pipe1.out;
+      mod_pipe1.left = add1.out;
+      mod_pipe1.right = 32'd97;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      A1.write_en = mod_pipe1.done;
+      A1.in = mod_pipe1.out_remainder;
+      s1_r1_op_mod[done] = A1.done;
+    }
+    group s1_r2_op_mod {
+      add2.left = r2.out;
+      add2.right = mult_pipe2.out;
+      mod_pipe2.left = add2.out;
+      mod_pipe2.right = 32'd97;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      A2.write_en = mod_pipe2.done;
+      A2.in = mod_pipe2.out_remainder;
+      s1_r2_op_mod[done] = A2.done;
+    }
+    group s1_r3_op_mod {
+      add3.left = r3.out;
+      add3.right = mult_pipe3.out;
+      mod_pipe3.left = add3.out;
+      mod_pipe3.right = 32'd97;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      A3.write_en = mod_pipe3.done;
+      A3.in = mod_pipe3.out_remainder;
+      s1_r3_op_mod[done] = A3.done;
+    }
+    group s1_r4_op_mod {
+      add4.left = r4.out;
+      add4.right = mult_pipe4.out;
+      mod_pipe4.left = add4.out;
+      mod_pipe4.right = 32'd97;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      A4.write_en = mod_pipe4.done;
+      A4.in = mod_pipe4.out_remainder;
+      s1_r4_op_mod[done] = A4.done;
+    }
+    group s1_r5_op_mod {
+      add5.left = r5.out;
+      add5.right = mult_pipe5.out;
+      mod_pipe5.left = add5.out;
+      mod_pipe5.right = 32'd97;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      A5.write_en = mod_pipe5.done;
+      A5.in = mod_pipe5.out_remainder;
+      s1_r5_op_mod[done] = A5.done;
+    }
+    group s1_r6_op_mod {
+      add6.left = r6.out;
+      add6.right = mult_pipe6.out;
+      mod_pipe6.left = add6.out;
+      mod_pipe6.right = 32'd97;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      A6.write_en = mod_pipe6.done;
+      A6.in = mod_pipe6.out_remainder;
+      s1_r6_op_mod[done] = A6.done;
+    }
+    group s1_r7_op_mod {
+      add7.left = r7.out;
+      add7.right = mult_pipe7.out;
+      mod_pipe7.left = add7.out;
+      mod_pipe7.right = 32'd97;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      A7.write_en = mod_pipe7.done;
+      A7.in = mod_pipe7.out_remainder;
+      s1_r7_op_mod[done] = A7.done;
+    }
+    group s1_r8_op_mod {
+      sub0.left = r0.out;
+      sub0.right = mult_pipe0.out;
+      mod_pipe8.left = sub0.out;
+      mod_pipe8.right = 32'd97;
+      mod_pipe8.go = !mod_pipe8.done ? 1'd1;
+      A8.write_en = mod_pipe8.done;
+      A8.in = mod_pipe8.out_remainder;
+      s1_r8_op_mod[done] = A8.done;
+    }
+    group s1_r9_op_mod {
+      sub1.left = r1.out;
+      sub1.right = mult_pipe1.out;
+      mod_pipe9.left = sub1.out;
+      mod_pipe9.right = 32'd97;
+      mod_pipe9.go = !mod_pipe9.done ? 1'd1;
+      A9.write_en = mod_pipe9.done;
+      A9.in = mod_pipe9.out_remainder;
+      s1_r9_op_mod[done] = A9.done;
+    }
+    group s1_r10_op_mod {
+      sub2.left = r2.out;
+      sub2.right = mult_pipe2.out;
+      mod_pipe10.left = sub2.out;
+      mod_pipe10.right = 32'd97;
+      mod_pipe10.go = !mod_pipe10.done ? 1'd1;
+      A10.write_en = mod_pipe10.done;
+      A10.in = mod_pipe10.out_remainder;
+      s1_r10_op_mod[done] = A10.done;
+    }
+    group s1_r11_op_mod {
+      sub3.left = r3.out;
+      sub3.right = mult_pipe3.out;
+      mod_pipe11.left = sub3.out;
+      mod_pipe11.right = 32'd97;
+      mod_pipe11.go = !mod_pipe11.done ? 1'd1;
+      A11.write_en = mod_pipe11.done;
+      A11.in = mod_pipe11.out_remainder;
+      s1_r11_op_mod[done] = A11.done;
+    }
+    group s1_r12_op_mod {
+      sub4.left = r4.out;
+      sub4.right = mult_pipe4.out;
+      mod_pipe12.left = sub4.out;
+      mod_pipe12.right = 32'd97;
+      mod_pipe12.go = !mod_pipe12.done ? 1'd1;
+      A12.write_en = mod_pipe12.done;
+      A12.in = mod_pipe12.out_remainder;
+      s1_r12_op_mod[done] = A12.done;
+    }
+    group s1_r13_op_mod {
+      sub5.left = r5.out;
+      sub5.right = mult_pipe5.out;
+      mod_pipe13.left = sub5.out;
+      mod_pipe13.right = 32'd97;
+      mod_pipe13.go = !mod_pipe13.done ? 1'd1;
+      A13.write_en = mod_pipe13.done;
+      A13.in = mod_pipe13.out_remainder;
+      s1_r13_op_mod[done] = A13.done;
+    }
+    group s1_r14_op_mod {
+      sub6.left = r6.out;
+      sub6.right = mult_pipe6.out;
+      mod_pipe14.left = sub6.out;
+      mod_pipe14.right = 32'd97;
+      mod_pipe14.go = !mod_pipe14.done ? 1'd1;
+      A14.write_en = mod_pipe14.done;
+      A14.in = mod_pipe14.out_remainder;
+      s1_r14_op_mod[done] = A14.done;
+    }
+    group s1_r15_op_mod {
+      sub7.left = r7.out;
+      sub7.right = mult_pipe7.out;
+      mod_pipe15.left = sub7.out;
+      mod_pipe15.right = 32'd97;
+      mod_pipe15.go = !mod_pipe15.done ? 1'd1;
+      A15.write_en = mod_pipe15.done;
+      A15.in = mod_pipe15.out_remainder;
+      s1_r15_op_mod[done] = A15.done;
+    }
+    group s1_r16_op_mod {
+      add8.left = r16.out;
+      add8.right = mult_pipe8.out;
+      mod_pipe16.left = add8.out;
+      mod_pipe16.right = 32'd97;
+      mod_pipe16.go = !mod_pipe16.done ? 1'd1;
+      A16.write_en = mod_pipe16.done;
+      A16.in = mod_pipe16.out_remainder;
+      s1_r16_op_mod[done] = A16.done;
+    }
+    group s1_r17_op_mod {
+      add9.left = r17.out;
+      add9.right = mult_pipe9.out;
+      mod_pipe17.left = add9.out;
+      mod_pipe17.right = 32'd97;
+      mod_pipe17.go = !mod_pipe17.done ? 1'd1;
+      A17.write_en = mod_pipe17.done;
+      A17.in = mod_pipe17.out_remainder;
+      s1_r17_op_mod[done] = A17.done;
+    }
+    group s1_r18_op_mod {
+      add10.left = r18.out;
+      add10.right = mult_pipe10.out;
+      mod_pipe18.left = add10.out;
+      mod_pipe18.right = 32'd97;
+      mod_pipe18.go = !mod_pipe18.done ? 1'd1;
+      A18.write_en = mod_pipe18.done;
+      A18.in = mod_pipe18.out_remainder;
+      s1_r18_op_mod[done] = A18.done;
+    }
+    group s1_r19_op_mod {
+      add11.left = r19.out;
+      add11.right = mult_pipe11.out;
+      mod_pipe19.left = add11.out;
+      mod_pipe19.right = 32'd97;
+      mod_pipe19.go = !mod_pipe19.done ? 1'd1;
+      A19.write_en = mod_pipe19.done;
+      A19.in = mod_pipe19.out_remainder;
+      s1_r19_op_mod[done] = A19.done;
+    }
+    group s1_r20_op_mod {
+      add12.left = r20.out;
+      add12.right = mult_pipe12.out;
+      mod_pipe20.left = add12.out;
+      mod_pipe20.right = 32'd97;
+      mod_pipe20.go = !mod_pipe20.done ? 1'd1;
+      A20.write_en = mod_pipe20.done;
+      A20.in = mod_pipe20.out_remainder;
+      s1_r20_op_mod[done] = A20.done;
+    }
+    group s1_r21_op_mod {
+      add13.left = r21.out;
+      add13.right = mult_pipe13.out;
+      mod_pipe21.left = add13.out;
+      mod_pipe21.right = 32'd97;
+      mod_pipe21.go = !mod_pipe21.done ? 1'd1;
+      A21.write_en = mod_pipe21.done;
+      A21.in = mod_pipe21.out_remainder;
+      s1_r21_op_mod[done] = A21.done;
+    }
+    group s1_r22_op_mod {
+      add14.left = r22.out;
+      add14.right = mult_pipe14.out;
+      mod_pipe22.left = add14.out;
+      mod_pipe22.right = 32'd97;
+      mod_pipe22.go = !mod_pipe22.done ? 1'd1;
+      A22.write_en = mod_pipe22.done;
+      A22.in = mod_pipe22.out_remainder;
+      s1_r22_op_mod[done] = A22.done;
+    }
+    group s1_r23_op_mod {
+      add15.left = r23.out;
+      add15.right = mult_pipe15.out;
+      mod_pipe23.left = add15.out;
+      mod_pipe23.right = 32'd97;
+      mod_pipe23.go = !mod_pipe23.done ? 1'd1;
+      A23.write_en = mod_pipe23.done;
+      A23.in = mod_pipe23.out_remainder;
+      s1_r23_op_mod[done] = A23.done;
+    }
+    group s1_r24_op_mod {
+      sub8.left = r16.out;
+      sub8.right = mult_pipe8.out;
+      mod_pipe24.left = sub8.out;
+      mod_pipe24.right = 32'd97;
+      mod_pipe24.go = !mod_pipe24.done ? 1'd1;
+      A24.write_en = mod_pipe24.done;
+      A24.in = mod_pipe24.out_remainder;
+      s1_r24_op_mod[done] = A24.done;
+    }
+    group s1_r25_op_mod {
+      sub9.left = r17.out;
+      sub9.right = mult_pipe9.out;
+      mod_pipe25.left = sub9.out;
+      mod_pipe25.right = 32'd97;
+      mod_pipe25.go = !mod_pipe25.done ? 1'd1;
+      A25.write_en = mod_pipe25.done;
+      A25.in = mod_pipe25.out_remainder;
+      s1_r25_op_mod[done] = A25.done;
+    }
+    group s1_r26_op_mod {
+      sub10.left = r18.out;
+      sub10.right = mult_pipe10.out;
+      mod_pipe26.left = sub10.out;
+      mod_pipe26.right = 32'd97;
+      mod_pipe26.go = !mod_pipe26.done ? 1'd1;
+      A26.write_en = mod_pipe26.done;
+      A26.in = mod_pipe26.out_remainder;
+      s1_r26_op_mod[done] = A26.done;
+    }
+    group s1_r27_op_mod {
+      sub11.left = r19.out;
+      sub11.right = mult_pipe11.out;
+      mod_pipe27.left = sub11.out;
+      mod_pipe27.right = 32'd97;
+      mod_pipe27.go = !mod_pipe27.done ? 1'd1;
+      A27.write_en = mod_pipe27.done;
+      A27.in = mod_pipe27.out_remainder;
+      s1_r27_op_mod[done] = A27.done;
+    }
+    group s1_r28_op_mod {
+      sub12.left = r20.out;
+      sub12.right = mult_pipe12.out;
+      mod_pipe28.left = sub12.out;
+      mod_pipe28.right = 32'd97;
+      mod_pipe28.go = !mod_pipe28.done ? 1'd1;
+      A28.write_en = mod_pipe28.done;
+      A28.in = mod_pipe28.out_remainder;
+      s1_r28_op_mod[done] = A28.done;
+    }
+    group s1_r29_op_mod {
+      sub13.left = r21.out;
+      sub13.right = mult_pipe13.out;
+      mod_pipe29.left = sub13.out;
+      mod_pipe29.right = 32'd97;
+      mod_pipe29.go = !mod_pipe29.done ? 1'd1;
+      A29.write_en = mod_pipe29.done;
+      A29.in = mod_pipe29.out_remainder;
+      s1_r29_op_mod[done] = A29.done;
+    }
+    group s1_r30_op_mod {
+      sub14.left = r22.out;
+      sub14.right = mult_pipe14.out;
+      mod_pipe30.left = sub14.out;
+      mod_pipe30.right = 32'd97;
+      mod_pipe30.go = !mod_pipe30.done ? 1'd1;
+      A30.write_en = mod_pipe30.done;
+      A30.in = mod_pipe30.out_remainder;
+      s1_r30_op_mod[done] = A30.done;
+    }
+    group s1_r31_op_mod {
+      sub15.left = r23.out;
+      sub15.right = mult_pipe15.out;
+      mod_pipe31.left = sub15.out;
+      mod_pipe31.right = 32'd97;
+      mod_pipe31.go = !mod_pipe31.done ? 1'd1;
+      A31.write_en = mod_pipe31.done;
+      A31.in = mod_pipe31.out_remainder;
+      s1_r31_op_mod[done] = A31.done;
+    }
+    group s2_r0_op_mod {
+      add0.left = r0.out;
+      add0.right = mult_pipe0.out;
+      mod_pipe0.left = add0.out;
+      mod_pipe0.right = 32'd97;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      A0.write_en = mod_pipe0.done;
+      A0.in = mod_pipe0.out_remainder;
+      s2_r0_op_mod[done] = A0.done;
+    }
+    group s2_r1_op_mod {
+      add1.left = r1.out;
+      add1.right = mult_pipe1.out;
+      mod_pipe1.left = add1.out;
+      mod_pipe1.right = 32'd97;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      A1.write_en = mod_pipe1.done;
+      A1.in = mod_pipe1.out_remainder;
+      s2_r1_op_mod[done] = A1.done;
+    }
+    group s2_r2_op_mod {
+      add2.left = r2.out;
+      add2.right = mult_pipe2.out;
+      mod_pipe2.left = add2.out;
+      mod_pipe2.right = 32'd97;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      A2.write_en = mod_pipe2.done;
+      A2.in = mod_pipe2.out_remainder;
+      s2_r2_op_mod[done] = A2.done;
+    }
+    group s2_r3_op_mod {
+      add3.left = r3.out;
+      add3.right = mult_pipe3.out;
+      mod_pipe3.left = add3.out;
+      mod_pipe3.right = 32'd97;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      A3.write_en = mod_pipe3.done;
+      A3.in = mod_pipe3.out_remainder;
+      s2_r3_op_mod[done] = A3.done;
+    }
+    group s2_r4_op_mod {
+      sub0.left = r0.out;
+      sub0.right = mult_pipe0.out;
+      mod_pipe4.left = sub0.out;
+      mod_pipe4.right = 32'd97;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      A4.write_en = mod_pipe4.done;
+      A4.in = mod_pipe4.out_remainder;
+      s2_r4_op_mod[done] = A4.done;
+    }
+    group s2_r5_op_mod {
+      sub1.left = r1.out;
+      sub1.right = mult_pipe1.out;
+      mod_pipe5.left = sub1.out;
+      mod_pipe5.right = 32'd97;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      A5.write_en = mod_pipe5.done;
+      A5.in = mod_pipe5.out_remainder;
+      s2_r5_op_mod[done] = A5.done;
+    }
+    group s2_r6_op_mod {
+      sub2.left = r2.out;
+      sub2.right = mult_pipe2.out;
+      mod_pipe6.left = sub2.out;
+      mod_pipe6.right = 32'd97;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      A6.write_en = mod_pipe6.done;
+      A6.in = mod_pipe6.out_remainder;
+      s2_r6_op_mod[done] = A6.done;
+    }
+    group s2_r7_op_mod {
+      sub3.left = r3.out;
+      sub3.right = mult_pipe3.out;
+      mod_pipe7.left = sub3.out;
+      mod_pipe7.right = 32'd97;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      A7.write_en = mod_pipe7.done;
+      A7.in = mod_pipe7.out_remainder;
+      s2_r7_op_mod[done] = A7.done;
+    }
+    group s2_r8_op_mod {
+      add4.left = r8.out;
+      add4.right = mult_pipe4.out;
+      mod_pipe8.left = add4.out;
+      mod_pipe8.right = 32'd97;
+      mod_pipe8.go = !mod_pipe8.done ? 1'd1;
+      A8.write_en = mod_pipe8.done;
+      A8.in = mod_pipe8.out_remainder;
+      s2_r8_op_mod[done] = A8.done;
+    }
+    group s2_r9_op_mod {
+      add5.left = r9.out;
+      add5.right = mult_pipe5.out;
+      mod_pipe9.left = add5.out;
+      mod_pipe9.right = 32'd97;
+      mod_pipe9.go = !mod_pipe9.done ? 1'd1;
+      A9.write_en = mod_pipe9.done;
+      A9.in = mod_pipe9.out_remainder;
+      s2_r9_op_mod[done] = A9.done;
+    }
+    group s2_r10_op_mod {
+      add6.left = r10.out;
+      add6.right = mult_pipe6.out;
+      mod_pipe10.left = add6.out;
+      mod_pipe10.right = 32'd97;
+      mod_pipe10.go = !mod_pipe10.done ? 1'd1;
+      A10.write_en = mod_pipe10.done;
+      A10.in = mod_pipe10.out_remainder;
+      s2_r10_op_mod[done] = A10.done;
+    }
+    group s2_r11_op_mod {
+      add7.left = r11.out;
+      add7.right = mult_pipe7.out;
+      mod_pipe11.left = add7.out;
+      mod_pipe11.right = 32'd97;
+      mod_pipe11.go = !mod_pipe11.done ? 1'd1;
+      A11.write_en = mod_pipe11.done;
+      A11.in = mod_pipe11.out_remainder;
+      s2_r11_op_mod[done] = A11.done;
+    }
+    group s2_r12_op_mod {
+      sub4.left = r8.out;
+      sub4.right = mult_pipe4.out;
+      mod_pipe12.left = sub4.out;
+      mod_pipe12.right = 32'd97;
+      mod_pipe12.go = !mod_pipe12.done ? 1'd1;
+      A12.write_en = mod_pipe12.done;
+      A12.in = mod_pipe12.out_remainder;
+      s2_r12_op_mod[done] = A12.done;
+    }
+    group s2_r13_op_mod {
+      sub5.left = r9.out;
+      sub5.right = mult_pipe5.out;
+      mod_pipe13.left = sub5.out;
+      mod_pipe13.right = 32'd97;
+      mod_pipe13.go = !mod_pipe13.done ? 1'd1;
+      A13.write_en = mod_pipe13.done;
+      A13.in = mod_pipe13.out_remainder;
+      s2_r13_op_mod[done] = A13.done;
+    }
+    group s2_r14_op_mod {
+      sub6.left = r10.out;
+      sub6.right = mult_pipe6.out;
+      mod_pipe14.left = sub6.out;
+      mod_pipe14.right = 32'd97;
+      mod_pipe14.go = !mod_pipe14.done ? 1'd1;
+      A14.write_en = mod_pipe14.done;
+      A14.in = mod_pipe14.out_remainder;
+      s2_r14_op_mod[done] = A14.done;
+    }
+    group s2_r15_op_mod {
+      sub7.left = r11.out;
+      sub7.right = mult_pipe7.out;
+      mod_pipe15.left = sub7.out;
+      mod_pipe15.right = 32'd97;
+      mod_pipe15.go = !mod_pipe15.done ? 1'd1;
+      A15.write_en = mod_pipe15.done;
+      A15.in = mod_pipe15.out_remainder;
+      s2_r15_op_mod[done] = A15.done;
+    }
+    group s2_r16_op_mod {
+      add8.left = r16.out;
+      add8.right = mult_pipe8.out;
+      mod_pipe16.left = add8.out;
+      mod_pipe16.right = 32'd97;
+      mod_pipe16.go = !mod_pipe16.done ? 1'd1;
+      A16.write_en = mod_pipe16.done;
+      A16.in = mod_pipe16.out_remainder;
+      s2_r16_op_mod[done] = A16.done;
+    }
+    group s2_r17_op_mod {
+      add9.left = r17.out;
+      add9.right = mult_pipe9.out;
+      mod_pipe17.left = add9.out;
+      mod_pipe17.right = 32'd97;
+      mod_pipe17.go = !mod_pipe17.done ? 1'd1;
+      A17.write_en = mod_pipe17.done;
+      A17.in = mod_pipe17.out_remainder;
+      s2_r17_op_mod[done] = A17.done;
+    }
+    group s2_r18_op_mod {
+      add10.left = r18.out;
+      add10.right = mult_pipe10.out;
+      mod_pipe18.left = add10.out;
+      mod_pipe18.right = 32'd97;
+      mod_pipe18.go = !mod_pipe18.done ? 1'd1;
+      A18.write_en = mod_pipe18.done;
+      A18.in = mod_pipe18.out_remainder;
+      s2_r18_op_mod[done] = A18.done;
+    }
+    group s2_r19_op_mod {
+      add11.left = r19.out;
+      add11.right = mult_pipe11.out;
+      mod_pipe19.left = add11.out;
+      mod_pipe19.right = 32'd97;
+      mod_pipe19.go = !mod_pipe19.done ? 1'd1;
+      A19.write_en = mod_pipe19.done;
+      A19.in = mod_pipe19.out_remainder;
+      s2_r19_op_mod[done] = A19.done;
+    }
+    group s2_r20_op_mod {
+      sub8.left = r16.out;
+      sub8.right = mult_pipe8.out;
+      mod_pipe20.left = sub8.out;
+      mod_pipe20.right = 32'd97;
+      mod_pipe20.go = !mod_pipe20.done ? 1'd1;
+      A20.write_en = mod_pipe20.done;
+      A20.in = mod_pipe20.out_remainder;
+      s2_r20_op_mod[done] = A20.done;
+    }
+    group s2_r21_op_mod {
+      sub9.left = r17.out;
+      sub9.right = mult_pipe9.out;
+      mod_pipe21.left = sub9.out;
+      mod_pipe21.right = 32'd97;
+      mod_pipe21.go = !mod_pipe21.done ? 1'd1;
+      A21.write_en = mod_pipe21.done;
+      A21.in = mod_pipe21.out_remainder;
+      s2_r21_op_mod[done] = A21.done;
+    }
+    group s2_r22_op_mod {
+      sub10.left = r18.out;
+      sub10.right = mult_pipe10.out;
+      mod_pipe22.left = sub10.out;
+      mod_pipe22.right = 32'd97;
+      mod_pipe22.go = !mod_pipe22.done ? 1'd1;
+      A22.write_en = mod_pipe22.done;
+      A22.in = mod_pipe22.out_remainder;
+      s2_r22_op_mod[done] = A22.done;
+    }
+    group s2_r23_op_mod {
+      sub11.left = r19.out;
+      sub11.right = mult_pipe11.out;
+      mod_pipe23.left = sub11.out;
+      mod_pipe23.right = 32'd97;
+      mod_pipe23.go = !mod_pipe23.done ? 1'd1;
+      A23.write_en = mod_pipe23.done;
+      A23.in = mod_pipe23.out_remainder;
+      s2_r23_op_mod[done] = A23.done;
+    }
+    group s2_r24_op_mod {
+      add12.left = r24.out;
+      add12.right = mult_pipe12.out;
+      mod_pipe24.left = add12.out;
+      mod_pipe24.right = 32'd97;
+      mod_pipe24.go = !mod_pipe24.done ? 1'd1;
+      A24.write_en = mod_pipe24.done;
+      A24.in = mod_pipe24.out_remainder;
+      s2_r24_op_mod[done] = A24.done;
+    }
+    group s2_r25_op_mod {
+      add13.left = r25.out;
+      add13.right = mult_pipe13.out;
+      mod_pipe25.left = add13.out;
+      mod_pipe25.right = 32'd97;
+      mod_pipe25.go = !mod_pipe25.done ? 1'd1;
+      A25.write_en = mod_pipe25.done;
+      A25.in = mod_pipe25.out_remainder;
+      s2_r25_op_mod[done] = A25.done;
+    }
+    group s2_r26_op_mod {
+      add14.left = r26.out;
+      add14.right = mult_pipe14.out;
+      mod_pipe26.left = add14.out;
+      mod_pipe26.right = 32'd97;
+      mod_pipe26.go = !mod_pipe26.done ? 1'd1;
+      A26.write_en = mod_pipe26.done;
+      A26.in = mod_pipe26.out_remainder;
+      s2_r26_op_mod[done] = A26.done;
+    }
+    group s2_r27_op_mod {
+      add15.left = r27.out;
+      add15.right = mult_pipe15.out;
+      mod_pipe27.left = add15.out;
+      mod_pipe27.right = 32'd97;
+      mod_pipe27.go = !mod_pipe27.done ? 1'd1;
+      A27.write_en = mod_pipe27.done;
+      A27.in = mod_pipe27.out_remainder;
+      s2_r27_op_mod[done] = A27.done;
+    }
+    group s2_r28_op_mod {
+      sub12.left = r24.out;
+      sub12.right = mult_pipe12.out;
+      mod_pipe28.left = sub12.out;
+      mod_pipe28.right = 32'd97;
+      mod_pipe28.go = !mod_pipe28.done ? 1'd1;
+      A28.write_en = mod_pipe28.done;
+      A28.in = mod_pipe28.out_remainder;
+      s2_r28_op_mod[done] = A28.done;
+    }
+    group s2_r29_op_mod {
+      sub13.left = r25.out;
+      sub13.right = mult_pipe13.out;
+      mod_pipe29.left = sub13.out;
+      mod_pipe29.right = 32'd97;
+      mod_pipe29.go = !mod_pipe29.done ? 1'd1;
+      A29.write_en = mod_pipe29.done;
+      A29.in = mod_pipe29.out_remainder;
+      s2_r29_op_mod[done] = A29.done;
+    }
+    group s2_r30_op_mod {
+      sub14.left = r26.out;
+      sub14.right = mult_pipe14.out;
+      mod_pipe30.left = sub14.out;
+      mod_pipe30.right = 32'd97;
+      mod_pipe30.go = !mod_pipe30.done ? 1'd1;
+      A30.write_en = mod_pipe30.done;
+      A30.in = mod_pipe30.out_remainder;
+      s2_r30_op_mod[done] = A30.done;
+    }
+    group s2_r31_op_mod {
+      sub15.left = r27.out;
+      sub15.right = mult_pipe15.out;
+      mod_pipe31.left = sub15.out;
+      mod_pipe31.right = 32'd97;
+      mod_pipe31.go = !mod_pipe31.done ? 1'd1;
+      A31.write_en = mod_pipe31.done;
+      A31.in = mod_pipe31.out_remainder;
+      s2_r31_op_mod[done] = A31.done;
+    }
+    group s3_r0_op_mod {
+      add0.left = r0.out;
+      add0.right = mult_pipe0.out;
+      mod_pipe0.left = add0.out;
+      mod_pipe0.right = 32'd97;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      A0.write_en = mod_pipe0.done;
+      A0.in = mod_pipe0.out_remainder;
+      s3_r0_op_mod[done] = A0.done;
+    }
+    group s3_r1_op_mod {
+      add1.left = r1.out;
+      add1.right = mult_pipe1.out;
+      mod_pipe1.left = add1.out;
+      mod_pipe1.right = 32'd97;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      A1.write_en = mod_pipe1.done;
+      A1.in = mod_pipe1.out_remainder;
+      s3_r1_op_mod[done] = A1.done;
+    }
+    group s3_r2_op_mod {
+      sub0.left = r0.out;
+      sub0.right = mult_pipe0.out;
+      mod_pipe2.left = sub0.out;
+      mod_pipe2.right = 32'd97;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      A2.write_en = mod_pipe2.done;
+      A2.in = mod_pipe2.out_remainder;
+      s3_r2_op_mod[done] = A2.done;
+    }
+    group s3_r3_op_mod {
+      sub1.left = r1.out;
+      sub1.right = mult_pipe1.out;
+      mod_pipe3.left = sub1.out;
+      mod_pipe3.right = 32'd97;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      A3.write_en = mod_pipe3.done;
+      A3.in = mod_pipe3.out_remainder;
+      s3_r3_op_mod[done] = A3.done;
+    }
+    group s3_r4_op_mod {
+      add2.left = r4.out;
+      add2.right = mult_pipe2.out;
+      mod_pipe4.left = add2.out;
+      mod_pipe4.right = 32'd97;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      A4.write_en = mod_pipe4.done;
+      A4.in = mod_pipe4.out_remainder;
+      s3_r4_op_mod[done] = A4.done;
+    }
+    group s3_r5_op_mod {
+      add3.left = r5.out;
+      add3.right = mult_pipe3.out;
+      mod_pipe5.left = add3.out;
+      mod_pipe5.right = 32'd97;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      A5.write_en = mod_pipe5.done;
+      A5.in = mod_pipe5.out_remainder;
+      s3_r5_op_mod[done] = A5.done;
+    }
+    group s3_r6_op_mod {
+      sub2.left = r4.out;
+      sub2.right = mult_pipe2.out;
+      mod_pipe6.left = sub2.out;
+      mod_pipe6.right = 32'd97;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      A6.write_en = mod_pipe6.done;
+      A6.in = mod_pipe6.out_remainder;
+      s3_r6_op_mod[done] = A6.done;
+    }
+    group s3_r7_op_mod {
+      sub3.left = r5.out;
+      sub3.right = mult_pipe3.out;
+      mod_pipe7.left = sub3.out;
+      mod_pipe7.right = 32'd97;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      A7.write_en = mod_pipe7.done;
+      A7.in = mod_pipe7.out_remainder;
+      s3_r7_op_mod[done] = A7.done;
+    }
+    group s3_r8_op_mod {
+      add4.left = r8.out;
+      add4.right = mult_pipe4.out;
+      mod_pipe8.left = add4.out;
+      mod_pipe8.right = 32'd97;
+      mod_pipe8.go = !mod_pipe8.done ? 1'd1;
+      A8.write_en = mod_pipe8.done;
+      A8.in = mod_pipe8.out_remainder;
+      s3_r8_op_mod[done] = A8.done;
+    }
+    group s3_r9_op_mod {
+      add5.left = r9.out;
+      add5.right = mult_pipe5.out;
+      mod_pipe9.left = add5.out;
+      mod_pipe9.right = 32'd97;
+      mod_pipe9.go = !mod_pipe9.done ? 1'd1;
+      A9.write_en = mod_pipe9.done;
+      A9.in = mod_pipe9.out_remainder;
+      s3_r9_op_mod[done] = A9.done;
+    }
+    group s3_r10_op_mod {
+      sub4.left = r8.out;
+      sub4.right = mult_pipe4.out;
+      mod_pipe10.left = sub4.out;
+      mod_pipe10.right = 32'd97;
+      mod_pipe10.go = !mod_pipe10.done ? 1'd1;
+      A10.write_en = mod_pipe10.done;
+      A10.in = mod_pipe10.out_remainder;
+      s3_r10_op_mod[done] = A10.done;
+    }
+    group s3_r11_op_mod {
+      sub5.left = r9.out;
+      sub5.right = mult_pipe5.out;
+      mod_pipe11.left = sub5.out;
+      mod_pipe11.right = 32'd97;
+      mod_pipe11.go = !mod_pipe11.done ? 1'd1;
+      A11.write_en = mod_pipe11.done;
+      A11.in = mod_pipe11.out_remainder;
+      s3_r11_op_mod[done] = A11.done;
+    }
+    group s3_r12_op_mod {
+      add6.left = r12.out;
+      add6.right = mult_pipe6.out;
+      mod_pipe12.left = add6.out;
+      mod_pipe12.right = 32'd97;
+      mod_pipe12.go = !mod_pipe12.done ? 1'd1;
+      A12.write_en = mod_pipe12.done;
+      A12.in = mod_pipe12.out_remainder;
+      s3_r12_op_mod[done] = A12.done;
+    }
+    group s3_r13_op_mod {
+      add7.left = r13.out;
+      add7.right = mult_pipe7.out;
+      mod_pipe13.left = add7.out;
+      mod_pipe13.right = 32'd97;
+      mod_pipe13.go = !mod_pipe13.done ? 1'd1;
+      A13.write_en = mod_pipe13.done;
+      A13.in = mod_pipe13.out_remainder;
+      s3_r13_op_mod[done] = A13.done;
+    }
+    group s3_r14_op_mod {
+      sub6.left = r12.out;
+      sub6.right = mult_pipe6.out;
+      mod_pipe14.left = sub6.out;
+      mod_pipe14.right = 32'd97;
+      mod_pipe14.go = !mod_pipe14.done ? 1'd1;
+      A14.write_en = mod_pipe14.done;
+      A14.in = mod_pipe14.out_remainder;
+      s3_r14_op_mod[done] = A14.done;
+    }
+    group s3_r15_op_mod {
+      sub7.left = r13.out;
+      sub7.right = mult_pipe7.out;
+      mod_pipe15.left = sub7.out;
+      mod_pipe15.right = 32'd97;
+      mod_pipe15.go = !mod_pipe15.done ? 1'd1;
+      A15.write_en = mod_pipe15.done;
+      A15.in = mod_pipe15.out_remainder;
+      s3_r15_op_mod[done] = A15.done;
+    }
+    group s3_r16_op_mod {
+      add8.left = r16.out;
+      add8.right = mult_pipe8.out;
+      mod_pipe16.left = add8.out;
+      mod_pipe16.right = 32'd97;
+      mod_pipe16.go = !mod_pipe16.done ? 1'd1;
+      A16.write_en = mod_pipe16.done;
+      A16.in = mod_pipe16.out_remainder;
+      s3_r16_op_mod[done] = A16.done;
+    }
+    group s3_r17_op_mod {
+      add9.left = r17.out;
+      add9.right = mult_pipe9.out;
+      mod_pipe17.left = add9.out;
+      mod_pipe17.right = 32'd97;
+      mod_pipe17.go = !mod_pipe17.done ? 1'd1;
+      A17.write_en = mod_pipe17.done;
+      A17.in = mod_pipe17.out_remainder;
+      s3_r17_op_mod[done] = A17.done;
+    }
+    group s3_r18_op_mod {
+      sub8.left = r16.out;
+      sub8.right = mult_pipe8.out;
+      mod_pipe18.left = sub8.out;
+      mod_pipe18.right = 32'd97;
+      mod_pipe18.go = !mod_pipe18.done ? 1'd1;
+      A18.write_en = mod_pipe18.done;
+      A18.in = mod_pipe18.out_remainder;
+      s3_r18_op_mod[done] = A18.done;
+    }
+    group s3_r19_op_mod {
+      sub9.left = r17.out;
+      sub9.right = mult_pipe9.out;
+      mod_pipe19.left = sub9.out;
+      mod_pipe19.right = 32'd97;
+      mod_pipe19.go = !mod_pipe19.done ? 1'd1;
+      A19.write_en = mod_pipe19.done;
+      A19.in = mod_pipe19.out_remainder;
+      s3_r19_op_mod[done] = A19.done;
+    }
+    group s3_r20_op_mod {
+      add10.left = r20.out;
+      add10.right = mult_pipe10.out;
+      mod_pipe20.left = add10.out;
+      mod_pipe20.right = 32'd97;
+      mod_pipe20.go = !mod_pipe20.done ? 1'd1;
+      A20.write_en = mod_pipe20.done;
+      A20.in = mod_pipe20.out_remainder;
+      s3_r20_op_mod[done] = A20.done;
+    }
+    group s3_r21_op_mod {
+      add11.left = r21.out;
+      add11.right = mult_pipe11.out;
+      mod_pipe21.left = add11.out;
+      mod_pipe21.right = 32'd97;
+      mod_pipe21.go = !mod_pipe21.done ? 1'd1;
+      A21.write_en = mod_pipe21.done;
+      A21.in = mod_pipe21.out_remainder;
+      s3_r21_op_mod[done] = A21.done;
+    }
+    group s3_r22_op_mod {
+      sub10.left = r20.out;
+      sub10.right = mult_pipe10.out;
+      mod_pipe22.left = sub10.out;
+      mod_pipe22.right = 32'd97;
+      mod_pipe22.go = !mod_pipe22.done ? 1'd1;
+      A22.write_en = mod_pipe22.done;
+      A22.in = mod_pipe22.out_remainder;
+      s3_r22_op_mod[done] = A22.done;
+    }
+    group s3_r23_op_mod {
+      sub11.left = r21.out;
+      sub11.right = mult_pipe11.out;
+      mod_pipe23.left = sub11.out;
+      mod_pipe23.right = 32'd97;
+      mod_pipe23.go = !mod_pipe23.done ? 1'd1;
+      A23.write_en = mod_pipe23.done;
+      A23.in = mod_pipe23.out_remainder;
+      s3_r23_op_mod[done] = A23.done;
+    }
+    group s3_r24_op_mod {
+      add12.left = r24.out;
+      add12.right = mult_pipe12.out;
+      mod_pipe24.left = add12.out;
+      mod_pipe24.right = 32'd97;
+      mod_pipe24.go = !mod_pipe24.done ? 1'd1;
+      A24.write_en = mod_pipe24.done;
+      A24.in = mod_pipe24.out_remainder;
+      s3_r24_op_mod[done] = A24.done;
+    }
+    group s3_r25_op_mod {
+      add13.left = r25.out;
+      add13.right = mult_pipe13.out;
+      mod_pipe25.left = add13.out;
+      mod_pipe25.right = 32'd97;
+      mod_pipe25.go = !mod_pipe25.done ? 1'd1;
+      A25.write_en = mod_pipe25.done;
+      A25.in = mod_pipe25.out_remainder;
+      s3_r25_op_mod[done] = A25.done;
+    }
+    group s3_r26_op_mod {
+      sub12.left = r24.out;
+      sub12.right = mult_pipe12.out;
+      mod_pipe26.left = sub12.out;
+      mod_pipe26.right = 32'd97;
+      mod_pipe26.go = !mod_pipe26.done ? 1'd1;
+      A26.write_en = mod_pipe26.done;
+      A26.in = mod_pipe26.out_remainder;
+      s3_r26_op_mod[done] = A26.done;
+    }
+    group s3_r27_op_mod {
+      sub13.left = r25.out;
+      sub13.right = mult_pipe13.out;
+      mod_pipe27.left = sub13.out;
+      mod_pipe27.right = 32'd97;
+      mod_pipe27.go = !mod_pipe27.done ? 1'd1;
+      A27.write_en = mod_pipe27.done;
+      A27.in = mod_pipe27.out_remainder;
+      s3_r27_op_mod[done] = A27.done;
+    }
+    group s3_r28_op_mod {
+      add14.left = r28.out;
+      add14.right = mult_pipe14.out;
+      mod_pipe28.left = add14.out;
+      mod_pipe28.right = 32'd97;
+      mod_pipe28.go = !mod_pipe28.done ? 1'd1;
+      A28.write_en = mod_pipe28.done;
+      A28.in = mod_pipe28.out_remainder;
+      s3_r28_op_mod[done] = A28.done;
+    }
+    group s3_r29_op_mod {
+      add15.left = r29.out;
+      add15.right = mult_pipe15.out;
+      mod_pipe29.left = add15.out;
+      mod_pipe29.right = 32'd97;
+      mod_pipe29.go = !mod_pipe29.done ? 1'd1;
+      A29.write_en = mod_pipe29.done;
+      A29.in = mod_pipe29.out_remainder;
+      s3_r29_op_mod[done] = A29.done;
+    }
+    group s3_r30_op_mod {
+      sub14.left = r28.out;
+      sub14.right = mult_pipe14.out;
+      mod_pipe30.left = sub14.out;
+      mod_pipe30.right = 32'd97;
+      mod_pipe30.go = !mod_pipe30.done ? 1'd1;
+      A30.write_en = mod_pipe30.done;
+      A30.in = mod_pipe30.out_remainder;
+      s3_r30_op_mod[done] = A30.done;
+    }
+    group s3_r31_op_mod {
+      sub15.left = r29.out;
+      sub15.right = mult_pipe15.out;
+      mod_pipe31.left = sub15.out;
+      mod_pipe31.right = 32'd97;
+      mod_pipe31.go = !mod_pipe31.done ? 1'd1;
+      A31.write_en = mod_pipe31.done;
+      A31.in = mod_pipe31.out_remainder;
+      s3_r31_op_mod[done] = A31.done;
+    }
+    group s4_r0_op_mod {
+      add0.left = r0.out;
+      add0.right = mult_pipe0.out;
+      mod_pipe0.left = add0.out;
+      mod_pipe0.right = 32'd97;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      A0.write_en = mod_pipe0.done;
+      A0.in = mod_pipe0.out_remainder;
+      s4_r0_op_mod[done] = A0.done;
+    }
+    group s4_r1_op_mod {
+      sub0.left = r0.out;
+      sub0.right = mult_pipe0.out;
+      mod_pipe1.left = sub0.out;
+      mod_pipe1.right = 32'd97;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      A1.write_en = mod_pipe1.done;
+      A1.in = mod_pipe1.out_remainder;
+      s4_r1_op_mod[done] = A1.done;
+    }
+    group s4_r2_op_mod {
+      add1.left = r2.out;
+      add1.right = mult_pipe1.out;
+      mod_pipe2.left = add1.out;
+      mod_pipe2.right = 32'd97;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      A2.write_en = mod_pipe2.done;
+      A2.in = mod_pipe2.out_remainder;
+      s4_r2_op_mod[done] = A2.done;
+    }
+    group s4_r3_op_mod {
+      sub1.left = r2.out;
+      sub1.right = mult_pipe1.out;
+      mod_pipe3.left = sub1.out;
+      mod_pipe3.right = 32'd97;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      A3.write_en = mod_pipe3.done;
+      A3.in = mod_pipe3.out_remainder;
+      s4_r3_op_mod[done] = A3.done;
+    }
+    group s4_r4_op_mod {
+      add2.left = r4.out;
+      add2.right = mult_pipe2.out;
+      mod_pipe4.left = add2.out;
+      mod_pipe4.right = 32'd97;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      A4.write_en = mod_pipe4.done;
+      A4.in = mod_pipe4.out_remainder;
+      s4_r4_op_mod[done] = A4.done;
+    }
+    group s4_r5_op_mod {
+      sub2.left = r4.out;
+      sub2.right = mult_pipe2.out;
+      mod_pipe5.left = sub2.out;
+      mod_pipe5.right = 32'd97;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      A5.write_en = mod_pipe5.done;
+      A5.in = mod_pipe5.out_remainder;
+      s4_r5_op_mod[done] = A5.done;
+    }
+    group s4_r6_op_mod {
+      add3.left = r6.out;
+      add3.right = mult_pipe3.out;
+      mod_pipe6.left = add3.out;
+      mod_pipe6.right = 32'd97;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      A6.write_en = mod_pipe6.done;
+      A6.in = mod_pipe6.out_remainder;
+      s4_r6_op_mod[done] = A6.done;
+    }
+    group s4_r7_op_mod {
+      sub3.left = r6.out;
+      sub3.right = mult_pipe3.out;
+      mod_pipe7.left = sub3.out;
+      mod_pipe7.right = 32'd97;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      A7.write_en = mod_pipe7.done;
+      A7.in = mod_pipe7.out_remainder;
+      s4_r7_op_mod[done] = A7.done;
+    }
+    group s4_r8_op_mod {
+      add4.left = r8.out;
+      add4.right = mult_pipe4.out;
+      mod_pipe8.left = add4.out;
+      mod_pipe8.right = 32'd97;
+      mod_pipe8.go = !mod_pipe8.done ? 1'd1;
+      A8.write_en = mod_pipe8.done;
+      A8.in = mod_pipe8.out_remainder;
+      s4_r8_op_mod[done] = A8.done;
+    }
+    group s4_r9_op_mod {
+      sub4.left = r8.out;
+      sub4.right = mult_pipe4.out;
+      mod_pipe9.left = sub4.out;
+      mod_pipe9.right = 32'd97;
+      mod_pipe9.go = !mod_pipe9.done ? 1'd1;
+      A9.write_en = mod_pipe9.done;
+      A9.in = mod_pipe9.out_remainder;
+      s4_r9_op_mod[done] = A9.done;
+    }
+    group s4_r10_op_mod {
+      add5.left = r10.out;
+      add5.right = mult_pipe5.out;
+      mod_pipe10.left = add5.out;
+      mod_pipe10.right = 32'd97;
+      mod_pipe10.go = !mod_pipe10.done ? 1'd1;
+      A10.write_en = mod_pipe10.done;
+      A10.in = mod_pipe10.out_remainder;
+      s4_r10_op_mod[done] = A10.done;
+    }
+    group s4_r11_op_mod {
+      sub5.left = r10.out;
+      sub5.right = mult_pipe5.out;
+      mod_pipe11.left = sub5.out;
+      mod_pipe11.right = 32'd97;
+      mod_pipe11.go = !mod_pipe11.done ? 1'd1;
+      A11.write_en = mod_pipe11.done;
+      A11.in = mod_pipe11.out_remainder;
+      s4_r11_op_mod[done] = A11.done;
+    }
+    group s4_r12_op_mod {
+      add6.left = r12.out;
+      add6.right = mult_pipe6.out;
+      mod_pipe12.left = add6.out;
+      mod_pipe12.right = 32'd97;
+      mod_pipe12.go = !mod_pipe12.done ? 1'd1;
+      A12.write_en = mod_pipe12.done;
+      A12.in = mod_pipe12.out_remainder;
+      s4_r12_op_mod[done] = A12.done;
+    }
+    group s4_r13_op_mod {
+      sub6.left = r12.out;
+      sub6.right = mult_pipe6.out;
+      mod_pipe13.left = sub6.out;
+      mod_pipe13.right = 32'd97;
+      mod_pipe13.go = !mod_pipe13.done ? 1'd1;
+      A13.write_en = mod_pipe13.done;
+      A13.in = mod_pipe13.out_remainder;
+      s4_r13_op_mod[done] = A13.done;
+    }
+    group s4_r14_op_mod {
+      add7.left = r14.out;
+      add7.right = mult_pipe7.out;
+      mod_pipe14.left = add7.out;
+      mod_pipe14.right = 32'd97;
+      mod_pipe14.go = !mod_pipe14.done ? 1'd1;
+      A14.write_en = mod_pipe14.done;
+      A14.in = mod_pipe14.out_remainder;
+      s4_r14_op_mod[done] = A14.done;
+    }
+    group s4_r15_op_mod {
+      sub7.left = r14.out;
+      sub7.right = mult_pipe7.out;
+      mod_pipe15.left = sub7.out;
+      mod_pipe15.right = 32'd97;
+      mod_pipe15.go = !mod_pipe15.done ? 1'd1;
+      A15.write_en = mod_pipe15.done;
+      A15.in = mod_pipe15.out_remainder;
+      s4_r15_op_mod[done] = A15.done;
+    }
+    group s4_r16_op_mod {
+      add8.left = r16.out;
+      add8.right = mult_pipe8.out;
+      mod_pipe16.left = add8.out;
+      mod_pipe16.right = 32'd97;
+      mod_pipe16.go = !mod_pipe16.done ? 1'd1;
+      A16.write_en = mod_pipe16.done;
+      A16.in = mod_pipe16.out_remainder;
+      s4_r16_op_mod[done] = A16.done;
+    }
+    group s4_r17_op_mod {
+      sub8.left = r16.out;
+      sub8.right = mult_pipe8.out;
+      mod_pipe17.left = sub8.out;
+      mod_pipe17.right = 32'd97;
+      mod_pipe17.go = !mod_pipe17.done ? 1'd1;
+      A17.write_en = mod_pipe17.done;
+      A17.in = mod_pipe17.out_remainder;
+      s4_r17_op_mod[done] = A17.done;
+    }
+    group s4_r18_op_mod {
+      add9.left = r18.out;
+      add9.right = mult_pipe9.out;
+      mod_pipe18.left = add9.out;
+      mod_pipe18.right = 32'd97;
+      mod_pipe18.go = !mod_pipe18.done ? 1'd1;
+      A18.write_en = mod_pipe18.done;
+      A18.in = mod_pipe18.out_remainder;
+      s4_r18_op_mod[done] = A18.done;
+    }
+    group s4_r19_op_mod {
+      sub9.left = r18.out;
+      sub9.right = mult_pipe9.out;
+      mod_pipe19.left = sub9.out;
+      mod_pipe19.right = 32'd97;
+      mod_pipe19.go = !mod_pipe19.done ? 1'd1;
+      A19.write_en = mod_pipe19.done;
+      A19.in = mod_pipe19.out_remainder;
+      s4_r19_op_mod[done] = A19.done;
+    }
+    group s4_r20_op_mod {
+      add10.left = r20.out;
+      add10.right = mult_pipe10.out;
+      mod_pipe20.left = add10.out;
+      mod_pipe20.right = 32'd97;
+      mod_pipe20.go = !mod_pipe20.done ? 1'd1;
+      A20.write_en = mod_pipe20.done;
+      A20.in = mod_pipe20.out_remainder;
+      s4_r20_op_mod[done] = A20.done;
+    }
+    group s4_r21_op_mod {
+      sub10.left = r20.out;
+      sub10.right = mult_pipe10.out;
+      mod_pipe21.left = sub10.out;
+      mod_pipe21.right = 32'd97;
+      mod_pipe21.go = !mod_pipe21.done ? 1'd1;
+      A21.write_en = mod_pipe21.done;
+      A21.in = mod_pipe21.out_remainder;
+      s4_r21_op_mod[done] = A21.done;
+    }
+    group s4_r22_op_mod {
+      add11.left = r22.out;
+      add11.right = mult_pipe11.out;
+      mod_pipe22.left = add11.out;
+      mod_pipe22.right = 32'd97;
+      mod_pipe22.go = !mod_pipe22.done ? 1'd1;
+      A22.write_en = mod_pipe22.done;
+      A22.in = mod_pipe22.out_remainder;
+      s4_r22_op_mod[done] = A22.done;
+    }
+    group s4_r23_op_mod {
+      sub11.left = r22.out;
+      sub11.right = mult_pipe11.out;
+      mod_pipe23.left = sub11.out;
+      mod_pipe23.right = 32'd97;
+      mod_pipe23.go = !mod_pipe23.done ? 1'd1;
+      A23.write_en = mod_pipe23.done;
+      A23.in = mod_pipe23.out_remainder;
+      s4_r23_op_mod[done] = A23.done;
+    }
+    group s4_r24_op_mod {
+      add12.left = r24.out;
+      add12.right = mult_pipe12.out;
+      mod_pipe24.left = add12.out;
+      mod_pipe24.right = 32'd97;
+      mod_pipe24.go = !mod_pipe24.done ? 1'd1;
+      A24.write_en = mod_pipe24.done;
+      A24.in = mod_pipe24.out_remainder;
+      s4_r24_op_mod[done] = A24.done;
+    }
+    group s4_r25_op_mod {
+      sub12.left = r24.out;
+      sub12.right = mult_pipe12.out;
+      mod_pipe25.left = sub12.out;
+      mod_pipe25.right = 32'd97;
+      mod_pipe25.go = !mod_pipe25.done ? 1'd1;
+      A25.write_en = mod_pipe25.done;
+      A25.in = mod_pipe25.out_remainder;
+      s4_r25_op_mod[done] = A25.done;
+    }
+    group s4_r26_op_mod {
+      add13.left = r26.out;
+      add13.right = mult_pipe13.out;
+      mod_pipe26.left = add13.out;
+      mod_pipe26.right = 32'd97;
+      mod_pipe26.go = !mod_pipe26.done ? 1'd1;
+      A26.write_en = mod_pipe26.done;
+      A26.in = mod_pipe26.out_remainder;
+      s4_r26_op_mod[done] = A26.done;
+    }
+    group s4_r27_op_mod {
+      sub13.left = r26.out;
+      sub13.right = mult_pipe13.out;
+      mod_pipe27.left = sub13.out;
+      mod_pipe27.right = 32'd97;
+      mod_pipe27.go = !mod_pipe27.done ? 1'd1;
+      A27.write_en = mod_pipe27.done;
+      A27.in = mod_pipe27.out_remainder;
+      s4_r27_op_mod[done] = A27.done;
+    }
+    group s4_r28_op_mod {
+      add14.left = r28.out;
+      add14.right = mult_pipe14.out;
+      mod_pipe28.left = add14.out;
+      mod_pipe28.right = 32'd97;
+      mod_pipe28.go = !mod_pipe28.done ? 1'd1;
+      A28.write_en = mod_pipe28.done;
+      A28.in = mod_pipe28.out_remainder;
+      s4_r28_op_mod[done] = A28.done;
+    }
+    group s4_r29_op_mod {
+      sub14.left = r28.out;
+      sub14.right = mult_pipe14.out;
+      mod_pipe29.left = sub14.out;
+      mod_pipe29.right = 32'd97;
+      mod_pipe29.go = !mod_pipe29.done ? 1'd1;
+      A29.write_en = mod_pipe29.done;
+      A29.in = mod_pipe29.out_remainder;
+      s4_r29_op_mod[done] = A29.done;
+    }
+    group s4_r30_op_mod {
+      add15.left = r30.out;
+      add15.right = mult_pipe15.out;
+      mod_pipe30.left = add15.out;
+      mod_pipe30.right = 32'd97;
+      mod_pipe30.go = !mod_pipe30.done ? 1'd1;
+      A30.write_en = mod_pipe30.done;
+      A30.in = mod_pipe30.out_remainder;
+      s4_r30_op_mod[done] = A30.done;
+    }
+    group s4_r31_op_mod {
+      sub15.left = r30.out;
+      sub15.right = mult_pipe15.out;
+      mod_pipe31.left = sub15.out;
+      mod_pipe31.right = 32'd97;
+      mod_pipe31.go = !mod_pipe31.done ? 1'd1;
+      A31.write_en = mod_pipe31.done;
+      A31.in = mod_pipe31.out_remainder;
+      s4_r31_op_mod[done] = A31.done;
+    }
+    group epilogue_0 {
+      a.addr0 = 6'd0;
+      a.write_en = 1'd1;
+      a.write_data = A0.out;
+      epilogue_0[done] = a.done;
+    }
+    group epilogue_1 {
+      a.addr0 = 6'd1;
+      a.write_en = 1'd1;
+      a.write_data = A1.out;
+      epilogue_1[done] = a.done;
+    }
+    group epilogue_2 {
+      a.addr0 = 6'd2;
+      a.write_en = 1'd1;
+      a.write_data = A2.out;
+      epilogue_2[done] = a.done;
+    }
+    group epilogue_3 {
+      a.addr0 = 6'd3;
+      a.write_en = 1'd1;
+      a.write_data = A3.out;
+      epilogue_3[done] = a.done;
+    }
+    group epilogue_4 {
+      a.addr0 = 6'd4;
+      a.write_en = 1'd1;
+      a.write_data = A4.out;
+      epilogue_4[done] = a.done;
+    }
+    group epilogue_5 {
+      a.addr0 = 6'd5;
+      a.write_en = 1'd1;
+      a.write_data = A5.out;
+      epilogue_5[done] = a.done;
+    }
+    group epilogue_6 {
+      a.addr0 = 6'd6;
+      a.write_en = 1'd1;
+      a.write_data = A6.out;
+      epilogue_6[done] = a.done;
+    }
+    group epilogue_7 {
+      a.addr0 = 6'd7;
+      a.write_en = 1'd1;
+      a.write_data = A7.out;
+      epilogue_7[done] = a.done;
+    }
+    group epilogue_8 {
+      a.addr0 = 6'd8;
+      a.write_en = 1'd1;
+      a.write_data = A8.out;
+      epilogue_8[done] = a.done;
+    }
+    group epilogue_9 {
+      a.addr0 = 6'd9;
+      a.write_en = 1'd1;
+      a.write_data = A9.out;
+      epilogue_9[done] = a.done;
+    }
+    group epilogue_10 {
+      a.addr0 = 6'd10;
+      a.write_en = 1'd1;
+      a.write_data = A10.out;
+      epilogue_10[done] = a.done;
+    }
+    group epilogue_11 {
+      a.addr0 = 6'd11;
+      a.write_en = 1'd1;
+      a.write_data = A11.out;
+      epilogue_11[done] = a.done;
+    }
+    group epilogue_12 {
+      a.addr0 = 6'd12;
+      a.write_en = 1'd1;
+      a.write_data = A12.out;
+      epilogue_12[done] = a.done;
+    }
+    group epilogue_13 {
+      a.addr0 = 6'd13;
+      a.write_en = 1'd1;
+      a.write_data = A13.out;
+      epilogue_13[done] = a.done;
+    }
+    group epilogue_14 {
+      a.addr0 = 6'd14;
+      a.write_en = 1'd1;
+      a.write_data = A14.out;
+      epilogue_14[done] = a.done;
+    }
+    group epilogue_15 {
+      a.addr0 = 6'd15;
+      a.write_en = 1'd1;
+      a.write_data = A15.out;
+      epilogue_15[done] = a.done;
+    }
+    group epilogue_16 {
+      a.addr0 = 6'd16;
+      a.write_en = 1'd1;
+      a.write_data = A16.out;
+      epilogue_16[done] = a.done;
+    }
+    group epilogue_17 {
+      a.addr0 = 6'd17;
+      a.write_en = 1'd1;
+      a.write_data = A17.out;
+      epilogue_17[done] = a.done;
+    }
+    group epilogue_18 {
+      a.addr0 = 6'd18;
+      a.write_en = 1'd1;
+      a.write_data = A18.out;
+      epilogue_18[done] = a.done;
+    }
+    group epilogue_19 {
+      a.addr0 = 6'd19;
+      a.write_en = 1'd1;
+      a.write_data = A19.out;
+      epilogue_19[done] = a.done;
+    }
+    group epilogue_20 {
+      a.addr0 = 6'd20;
+      a.write_en = 1'd1;
+      a.write_data = A20.out;
+      epilogue_20[done] = a.done;
+    }
+    group epilogue_21 {
+      a.addr0 = 6'd21;
+      a.write_en = 1'd1;
+      a.write_data = A21.out;
+      epilogue_21[done] = a.done;
+    }
+    group epilogue_22 {
+      a.addr0 = 6'd22;
+      a.write_en = 1'd1;
+      a.write_data = A22.out;
+      epilogue_22[done] = a.done;
+    }
+    group epilogue_23 {
+      a.addr0 = 6'd23;
+      a.write_en = 1'd1;
+      a.write_data = A23.out;
+      epilogue_23[done] = a.done;
+    }
+    group epilogue_24 {
+      a.addr0 = 6'd24;
+      a.write_en = 1'd1;
+      a.write_data = A24.out;
+      epilogue_24[done] = a.done;
+    }
+    group epilogue_25 {
+      a.addr0 = 6'd25;
+      a.write_en = 1'd1;
+      a.write_data = A25.out;
+      epilogue_25[done] = a.done;
+    }
+    group epilogue_26 {
+      a.addr0 = 6'd26;
+      a.write_en = 1'd1;
+      a.write_data = A26.out;
+      epilogue_26[done] = a.done;
+    }
+    group epilogue_27 {
+      a.addr0 = 6'd27;
+      a.write_en = 1'd1;
+      a.write_data = A27.out;
+      epilogue_27[done] = a.done;
+    }
+    group epilogue_28 {
+      a.addr0 = 6'd28;
+      a.write_en = 1'd1;
+      a.write_data = A28.out;
+      epilogue_28[done] = a.done;
+    }
+    group epilogue_29 {
+      a.addr0 = 6'd29;
+      a.write_en = 1'd1;
+      a.write_data = A29.out;
+      epilogue_29[done] = a.done;
+    }
+    group epilogue_30 {
+      a.addr0 = 6'd30;
+      a.write_en = 1'd1;
+      a.write_data = A30.out;
+      epilogue_30[done] = a.done;
+    }
+    group epilogue_31 {
+      a.addr0 = 6'd31;
+      a.write_en = 1'd1;
+      a.write_data = A31.out;
+      epilogue_31[done] = a.done;
+    }
+  }
+  control {
+    seq {
+      seq {
+        preamble_0;
+        preamble_1;
+        preamble_2;
+        preamble_3;
+        preamble_4;
+        preamble_5;
+        preamble_6;
+        preamble_7;
+        preamble_8;
+        preamble_9;
+        preamble_10;
+        preamble_11;
+        preamble_12;
+        preamble_13;
+        preamble_14;
+        preamble_15;
+        preamble_16;
+        preamble_17;
+        preamble_18;
+        preamble_19;
+        preamble_20;
+        preamble_21;
+        preamble_22;
+        preamble_23;
+        preamble_24;
+        preamble_25;
+        preamble_26;
+        preamble_27;
+        preamble_28;
+        preamble_29;
+        preamble_30;
+        preamble_31;
+      }
+      par {
+        s0_mul0;
+        s0_mul1;
+        s0_mul2;
+        s0_mul3;
+        s0_mul4;
+        s0_mul5;
+        s0_mul6;
+        s0_mul7;
+        s0_mul8;
+        s0_mul9;
+        s0_mul10;
+        s0_mul11;
+        s0_mul12;
+        s0_mul13;
+        s0_mul14;
+        s0_mul15;
+      }
+      par {
+        s0_r0_op_mod;
+        s0_r1_op_mod;
+        s0_r2_op_mod;
+        s0_r3_op_mod;
+        s0_r4_op_mod;
+        s0_r5_op_mod;
+        s0_r6_op_mod;
+        s0_r7_op_mod;
+        s0_r8_op_mod;
+        s0_r9_op_mod;
+        s0_r10_op_mod;
+        s0_r11_op_mod;
+        s0_r12_op_mod;
+        s0_r13_op_mod;
+        s0_r14_op_mod;
+        s0_r15_op_mod;
+        s0_r16_op_mod;
+        s0_r17_op_mod;
+        s0_r18_op_mod;
+        s0_r19_op_mod;
+        s0_r20_op_mod;
+        s0_r21_op_mod;
+        s0_r22_op_mod;
+        s0_r23_op_mod;
+        s0_r24_op_mod;
+        s0_r25_op_mod;
+        s0_r26_op_mod;
+        s0_r27_op_mod;
+        s0_r28_op_mod;
+        s0_r29_op_mod;
+        s0_r30_op_mod;
+        s0_r31_op_mod;
+      }
+      par {
+        precursor_0;
+        precursor_1;
+        precursor_2;
+        precursor_3;
+        precursor_4;
+        precursor_5;
+        precursor_6;
+        precursor_7;
+        precursor_8;
+        precursor_9;
+        precursor_10;
+        precursor_11;
+        precursor_12;
+        precursor_13;
+        precursor_14;
+        precursor_15;
+        precursor_16;
+        precursor_17;
+        precursor_18;
+        precursor_19;
+        precursor_20;
+        precursor_21;
+        precursor_22;
+        precursor_23;
+        precursor_24;
+        precursor_25;
+        precursor_26;
+        precursor_27;
+        precursor_28;
+        precursor_29;
+        precursor_30;
+        precursor_31;
+      }
+      par {
+        s1_mul0;
+        s1_mul1;
+        s1_mul2;
+        s1_mul3;
+        s1_mul4;
+        s1_mul5;
+        s1_mul6;
+        s1_mul7;
+        s1_mul8;
+        s1_mul9;
+        s1_mul10;
+        s1_mul11;
+        s1_mul12;
+        s1_mul13;
+        s1_mul14;
+        s1_mul15;
+      }
+      par {
+        s1_r0_op_mod;
+        s1_r1_op_mod;
+        s1_r2_op_mod;
+        s1_r3_op_mod;
+        s1_r4_op_mod;
+        s1_r5_op_mod;
+        s1_r6_op_mod;
+        s1_r7_op_mod;
+        s1_r8_op_mod;
+        s1_r9_op_mod;
+        s1_r10_op_mod;
+        s1_r11_op_mod;
+        s1_r12_op_mod;
+        s1_r13_op_mod;
+        s1_r14_op_mod;
+        s1_r15_op_mod;
+        s1_r16_op_mod;
+        s1_r17_op_mod;
+        s1_r18_op_mod;
+        s1_r19_op_mod;
+        s1_r20_op_mod;
+        s1_r21_op_mod;
+        s1_r22_op_mod;
+        s1_r23_op_mod;
+        s1_r24_op_mod;
+        s1_r25_op_mod;
+        s1_r26_op_mod;
+        s1_r27_op_mod;
+        s1_r28_op_mod;
+        s1_r29_op_mod;
+        s1_r30_op_mod;
+        s1_r31_op_mod;
+      }
+      par {
+        precursor_0;
+        precursor_1;
+        precursor_2;
+        precursor_3;
+        precursor_4;
+        precursor_5;
+        precursor_6;
+        precursor_7;
+        precursor_8;
+        precursor_9;
+        precursor_10;
+        precursor_11;
+        precursor_12;
+        precursor_13;
+        precursor_14;
+        precursor_15;
+        precursor_16;
+        precursor_17;
+        precursor_18;
+        precursor_19;
+        precursor_20;
+        precursor_21;
+        precursor_22;
+        precursor_23;
+        precursor_24;
+        precursor_25;
+        precursor_26;
+        precursor_27;
+        precursor_28;
+        precursor_29;
+        precursor_30;
+        precursor_31;
+      }
+      par {
+        s2_mul0;
+        s2_mul1;
+        s2_mul2;
+        s2_mul3;
+        s2_mul4;
+        s2_mul5;
+        s2_mul6;
+        s2_mul7;
+        s2_mul8;
+        s2_mul9;
+        s2_mul10;
+        s2_mul11;
+        s2_mul12;
+        s2_mul13;
+        s2_mul14;
+        s2_mul15;
+      }
+      par {
+        s2_r0_op_mod;
+        s2_r1_op_mod;
+        s2_r2_op_mod;
+        s2_r3_op_mod;
+        s2_r4_op_mod;
+        s2_r5_op_mod;
+        s2_r6_op_mod;
+        s2_r7_op_mod;
+        s2_r8_op_mod;
+        s2_r9_op_mod;
+        s2_r10_op_mod;
+        s2_r11_op_mod;
+        s2_r12_op_mod;
+        s2_r13_op_mod;
+        s2_r14_op_mod;
+        s2_r15_op_mod;
+        s2_r16_op_mod;
+        s2_r17_op_mod;
+        s2_r18_op_mod;
+        s2_r19_op_mod;
+        s2_r20_op_mod;
+        s2_r21_op_mod;
+        s2_r22_op_mod;
+        s2_r23_op_mod;
+        s2_r24_op_mod;
+        s2_r25_op_mod;
+        s2_r26_op_mod;
+        s2_r27_op_mod;
+        s2_r28_op_mod;
+        s2_r29_op_mod;
+        s2_r30_op_mod;
+        s2_r31_op_mod;
+      }
+      par {
+        precursor_0;
+        precursor_1;
+        precursor_2;
+        precursor_3;
+        precursor_4;
+        precursor_5;
+        precursor_6;
+        precursor_7;
+        precursor_8;
+        precursor_9;
+        precursor_10;
+        precursor_11;
+        precursor_12;
+        precursor_13;
+        precursor_14;
+        precursor_15;
+        precursor_16;
+        precursor_17;
+        precursor_18;
+        precursor_19;
+        precursor_20;
+        precursor_21;
+        precursor_22;
+        precursor_23;
+        precursor_24;
+        precursor_25;
+        precursor_26;
+        precursor_27;
+        precursor_28;
+        precursor_29;
+        precursor_30;
+        precursor_31;
+      }
+      par {
+        s3_mul0;
+        s3_mul1;
+        s3_mul2;
+        s3_mul3;
+        s3_mul4;
+        s3_mul5;
+        s3_mul6;
+        s3_mul7;
+        s3_mul8;
+        s3_mul9;
+        s3_mul10;
+        s3_mul11;
+        s3_mul12;
+        s3_mul13;
+        s3_mul14;
+        s3_mul15;
+      }
+      par {
+        s3_r0_op_mod;
+        s3_r1_op_mod;
+        s3_r2_op_mod;
+        s3_r3_op_mod;
+        s3_r4_op_mod;
+        s3_r5_op_mod;
+        s3_r6_op_mod;
+        s3_r7_op_mod;
+        s3_r8_op_mod;
+        s3_r9_op_mod;
+        s3_r10_op_mod;
+        s3_r11_op_mod;
+        s3_r12_op_mod;
+        s3_r13_op_mod;
+        s3_r14_op_mod;
+        s3_r15_op_mod;
+        s3_r16_op_mod;
+        s3_r17_op_mod;
+        s3_r18_op_mod;
+        s3_r19_op_mod;
+        s3_r20_op_mod;
+        s3_r21_op_mod;
+        s3_r22_op_mod;
+        s3_r23_op_mod;
+        s3_r24_op_mod;
+        s3_r25_op_mod;
+        s3_r26_op_mod;
+        s3_r27_op_mod;
+        s3_r28_op_mod;
+        s3_r29_op_mod;
+        s3_r30_op_mod;
+        s3_r31_op_mod;
+      }
+      par {
+        precursor_0;
+        precursor_1;
+        precursor_2;
+        precursor_3;
+        precursor_4;
+        precursor_5;
+        precursor_6;
+        precursor_7;
+        precursor_8;
+        precursor_9;
+        precursor_10;
+        precursor_11;
+        precursor_12;
+        precursor_13;
+        precursor_14;
+        precursor_15;
+        precursor_16;
+        precursor_17;
+        precursor_18;
+        precursor_19;
+        precursor_20;
+        precursor_21;
+        precursor_22;
+        precursor_23;
+        precursor_24;
+        precursor_25;
+        precursor_26;
+        precursor_27;
+        precursor_28;
+        precursor_29;
+        precursor_30;
+        precursor_31;
+      }
+      par {
+        s4_mul0;
+        s4_mul1;
+        s4_mul2;
+        s4_mul3;
+        s4_mul4;
+        s4_mul5;
+        s4_mul6;
+        s4_mul7;
+        s4_mul8;
+        s4_mul9;
+        s4_mul10;
+        s4_mul11;
+        s4_mul12;
+        s4_mul13;
+        s4_mul14;
+        s4_mul15;
+      }
+      par {
+        s4_r0_op_mod;
+        s4_r1_op_mod;
+        s4_r2_op_mod;
+        s4_r3_op_mod;
+        s4_r4_op_mod;
+        s4_r5_op_mod;
+        s4_r6_op_mod;
+        s4_r7_op_mod;
+        s4_r8_op_mod;
+        s4_r9_op_mod;
+        s4_r10_op_mod;
+        s4_r11_op_mod;
+        s4_r12_op_mod;
+        s4_r13_op_mod;
+        s4_r14_op_mod;
+        s4_r15_op_mod;
+        s4_r16_op_mod;
+        s4_r17_op_mod;
+        s4_r18_op_mod;
+        s4_r19_op_mod;
+        s4_r20_op_mod;
+        s4_r21_op_mod;
+        s4_r22_op_mod;
+        s4_r23_op_mod;
+        s4_r24_op_mod;
+        s4_r25_op_mod;
+        s4_r26_op_mod;
+        s4_r27_op_mod;
+        s4_r28_op_mod;
+        s4_r29_op_mod;
+        s4_r30_op_mod;
+        s4_r31_op_mod;
+      }
+      seq {
+        epilogue_0;
+        epilogue_1;
+        epilogue_2;
+        epilogue_3;
+        epilogue_4;
+        epilogue_5;
+        epilogue_6;
+        epilogue_7;
+        epilogue_8;
+        epilogue_9;
+        epilogue_10;
+        epilogue_11;
+        epilogue_12;
+        epilogue_13;
+        epilogue_14;
+        epilogue_15;
+        epilogue_16;
+        epilogue_17;
+        epilogue_18;
+        epilogue_19;
+        epilogue_20;
+        epilogue_21;
+        epilogue_22;
+        epilogue_23;
+        epilogue_24;
+        epilogue_25;
+        epilogue_26;
+        epilogue_27;
+        epilogue_28;
+        epilogue_29;
+        epilogue_30;
+        epilogue_31;
+      }
+    }
+  }
+}
+
