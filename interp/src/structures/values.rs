@@ -49,6 +49,7 @@ fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
 #[derive(Debug)]
 pub struct ValueError {}
 
+#[derive(Debug, Clone)]
 pub enum InputNumber {
     // unsigned
     U8(u8),
