@@ -3,10 +3,11 @@ use super::{
     prim_utils::{get_input_unwrap, get_param},
     Primitive,
 };
-use crate::comb_primitive;
 use crate::values::Value;
+use crate::{comb_primitive, errors::InterpreterError};
 use bitvec::vec::BitVec;
 use calyx::ir;
+use log::warn;
 use std::ops::Not;
 
 /// A constant.
@@ -135,6 +136,12 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
                 || ai & bi & c_in,
         );
         c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
+    }
+    if c_in {
+        if crate::SETTINGS.read().unwrap().error_on_overflow {
+            return Err(InterpreterError::OverflowError());
+        }
+        warn!("Integer over/underflow in std_add({})", WIDTH);
     }
     let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left
