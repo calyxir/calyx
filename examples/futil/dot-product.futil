@@ -12,8 +12,7 @@ component main() -> () {
     const0 = std_const(4,0);
     const1 = std_const(4,7);
     const2 = std_const(1,0);
-    const3 = std_const(1,0);
-    const4 = std_const(4,1);
+    const3 = std_const(4,1);
     dot_0 = std_reg(32);
     i0 = std_reg(4);
     le0 = std_le(4);
@@ -56,7 +55,6 @@ component main() -> () {
       upd1[done] = B_read0_0.done ? 1'd1;
     }
     group upd2<"static"=1> {
-      v0.addr0 = const3.out;
       v0.write_en = 1'd1;
       add0.left = v0.read_data;
       add0.right = dot_0.out;
@@ -67,7 +65,7 @@ component main() -> () {
     group upd3<"static"=1> {
       i0.write_en = 1'd1;
       add1.left = i0.out;
-      add1.right = const4.out;
+      add1.right = const3.out;
       i0.in = 1'd1 ? add1.out;
       upd3[done] = i0.done ? 1'd1;
     }

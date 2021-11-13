@@ -12,8 +12,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     const0 = std_const(4, 0);
     const1 = std_const(4, 7);
     const2 = std_const(1, 0);
-    const3 = std_const(1, 0);
-    const4 = std_const(4, 1);
+    const3 = std_const(4, 1);
     i0 = std_reg(4);
     le0 = std_le(4);
     mult_pipe0 = std_mult_pipe(32);
@@ -41,7 +40,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add0.left = A_read0_0.done & fsm.out == 4'd4 & go | !v0.done & fsm.out == 4'd5 & go ? v0.read_data;
     add0.right = A_read0_0.done & fsm.out == 4'd4 & go | !v0.done & fsm.out == 4'd5 & go ? A_read0_0.out;
     add1.left = v0.done & fsm.out == 4'd5 & go | !i0.done & fsm.out == 4'd6 & go ? i0.out;
-    add1.right = v0.done & fsm.out == 4'd5 & go | !i0.done & fsm.out == 4'd6 & go ? const4.out;
+    add1.right = v0.done & fsm.out == 4'd5 & go | !i0.done & fsm.out == 4'd6 & go ? const3.out;
     bin_read0_0.clk = clk;
     bin_read0_0.in = pd.out & pd0.out & fsm.out == 4'd2 & go | !bin_read0_0.done & fsm.out == 4'd3 & go ? mult_pipe0.out;
     bin_read0_0.reset = reset;
@@ -85,7 +84,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     pd0.reset = reset;
     pd0.write_en = B_read0_0.done & (comb_reg.done & comb_reg.out & fsm.out == 4'd1 & go | !(pd.out & pd0.out) & fsm.out == 4'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 4'd7 & go) | pd.out & pd0.out ? 1'd1;
     v0.addr0 = A_read0_0.done & fsm.out == 4'd4 & go | !v0.done & fsm.out == 4'd5 & go ? const2.out;
-    v0.addr0 = A_read0_0.done & fsm.out == 4'd4 & go | !v0.done & fsm.out == 4'd5 & go ? const3.out;
     v0.clk = clk;
     v0.write_data = A_read0_0.done & fsm.out == 4'd4 & go | !v0.done & fsm.out == 4'd5 & go ? add0.out;
     v0.write_en = A_read0_0.done & fsm.out == 4'd4 & go | !v0.done & fsm.out == 4'd5 & go ? 1'd1;
