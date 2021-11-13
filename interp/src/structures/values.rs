@@ -357,16 +357,8 @@ impl Value {
         initial_val: T1,
         bitwidth: T2,
     ) -> Self {
-        let init: InputNumber = initial_val.into();
-        let mut bv_init = init.as_bit_vec();
-        let width: InputNumber = bitwidth.into();
-        // truncate or extend to appropriate size
-        bv_init.resize(width.as_usize(), init.is_negative());
-        Value {
-            vec: Rc::new(bv_init),
-            signed: Rc::new(RefCell::new(None)),
-            unsigned: Rc::new(RefCell::new(None)),
-        }
+        let (v, _) = Value::from_checked(initial_val, bitwidth);
+        v
     }
 
     /// Returns a bit vector for the given input value of the desired width and a bool
