@@ -27,7 +27,7 @@ impl StdConst {
             .expect("Missing width parameter from std_const binding");
 
         let init_value = get_param(params, "VALUE")
-            .expect("Missing `vale` param from std_const binding");
+            .expect("Missing `value` param from std_const binding");
 
         let value = Value::from(init_value, width);
 
