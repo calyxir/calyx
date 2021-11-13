@@ -6,22 +6,28 @@ from tabulate import tabulate
 
 # Paths assumes you're running this script from the `futil` directory, i.e.
 #   python3 evaluations/cidr-pldi-2022/process-data.py
-#
-# NOTE: Verify the interpreter is pointed to the release binary, i.e.
-# Running the command: `fud config stages.interpreter.exec` should return
-# `.<PATH-TO-CALYX>/target/release/interp`
 
 
-def verify_interpreter_is_release_mode():
+def verify_interpreter_configuration():
     """
-    Verifies the interpreter is in release mode.
+    Verifies the interpreter is in release mode and using
+    the --no-verify flag.
     """
     configuration = subprocess.run(
         ["fud", "config", "stages.interpreter.exec"], capture_output=True
     )
-    assert "release" in str(
-        configuration.stdout
-    ), "The interpreter should be in release mode. To fix this, run `fud config stages.interpreter.exec .<PATH-TO-CALYX>/target/release/interp`"
+    assert "release" in str(configuration.stdout), (
+        "The interpreter should be in release mode. "
+        + "To fix this, run `fud config stages.interpreter.exec .<PATH-TO-CALYX>/target/release/interp`."
+    )
+
+    configuration = subprocess.run(
+        ["fud", "config", "stages.interpreter.flags"], capture_output=True
+    )
+    assert "--no-verify" in str(configuration.stdout), (
+        "The interpreter should use the --no-verify flag. "
+        + 'To fix this, run `fud config stages.interpreter.flags " --no-verify "`.'
+    )
 
 
 def process_data(dataset):
@@ -87,7 +93,7 @@ def write_to_file(data, filename):
 
 
 if __name__ == "__main__":
-    verify_interpreter_is_release_mode()
+    verify_interpreter_configuration()
 
     # A list of datasets to evaluate simulation performance, in the form:
     # (<table-name>, <program-path>, <data-path>, <output-file-name>)
