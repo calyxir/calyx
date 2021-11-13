@@ -100,7 +100,7 @@ class InterpreterStage(Stage):
         @self.step()
         def interpret(
             target: SourceType.Path, tmpdir: SourceType.Directory
-        ) -> SourceType.Stream:
+        ) -> SourceType.String:
             """
             Invoke the interpreter
             """
