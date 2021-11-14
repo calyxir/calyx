@@ -5,6 +5,7 @@ use crate::utils::construct_bindings;
 use crate::validate;
 use crate::values::Value;
 use calyx::ir;
+use ibig::ops::RemEuclid;
 use log::warn;
 use std::collections::VecDeque;
 
@@ -256,10 +257,13 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 )
             };
             let r = if SIGNED {
-                Value::from(left.as_signed() % right.as_signed(), self.width)
+                Value::from(
+                    left.as_signed().rem_euclid(right.as_signed()),
+                    self.width,
+                )
             } else {
                 Value::from(
-                    left.as_unsigned() % right.as_unsigned(),
+                    left.as_unsigned().rem_euclid(right.as_unsigned()),
                     self.width,
                 )
             };
@@ -1727,7 +1731,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
                         self.width,
                     ),
                     Value::from(
-                        left.as_signed() % right.as_signed(),
+                        left.as_signed().rem_euclid(right.as_signed()),
                         self.width,
                     ),
                 )
@@ -1739,7 +1743,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
                         self.width,
                     ),
                     Value::from(
-                        left.as_unsigned() % right.as_unsigned(),
+                        left.as_unsigned().rem_euclid(right.as_unsigned()),
                         self.width,
                     ),
                 )

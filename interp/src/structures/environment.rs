@@ -138,7 +138,7 @@ impl InterpreterState {
                 Box::new(stateful::StdMultPipe::<true>::new(params))
             }
             "std_sdiv_pipe" => {
-                Box::new(stateful::StdMultPipe::<true>::new(params))
+                Box::new(stateful::StdDivPipe::<true>::new(params))
             }
             // fp unsigned arith
             "std_fp_mult_pipe" => {
