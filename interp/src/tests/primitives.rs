@@ -1592,7 +1592,7 @@ mod property_tests {
             let out = extract_output!(output, "out_quotient");
             let remainder = extract_output!(output, "out_remainder");
             assert_eq!(out.as_u64(), in_left / in_right);
-            assert_eq!(remainder.as_u64(), in_left % in_right);
+            assert_eq!(remainder.as_u64(), in_left.rem_euclid(in_right));
         }
 
         #[test]
@@ -1610,7 +1610,7 @@ mod property_tests {
             let out = extract_output!(output, "out_quotient");
             let remainder = extract_output!(output, "out_remainder");
             assert_eq!(out.as_i64(),i64::wrapping_div(in_left, in_right));
-            assert_eq!(remainder.as_i64(), in_left % in_right);
+            assert_eq!(remainder.as_i64(), in_left.rem_euclid(in_right));
         }
     }
 }
