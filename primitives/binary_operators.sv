@@ -415,10 +415,10 @@ module std_div_pipe #(
 
   // Outputs
   always_ff @(posedge clk) begin
-    if (dividend_is_zero) begin
+    if (dividend_is_zero || start) begin
       out_quotient <= 0;
       out_remainder <= 0;
-    end else if (finished) begin
+    end else if (done) begin
       out_quotient <= quotient;
       out_remainder <= dividend;
     end else begin
