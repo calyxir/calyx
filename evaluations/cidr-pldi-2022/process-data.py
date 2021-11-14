@@ -2,7 +2,6 @@ import csv
 import subprocess
 import statistics as st
 from collections import defaultdict
-from tabulate import tabulate
 
 # Paths assumes you're running this script from the `futil` directory, i.e.
 #   python3 evaluations/cidr-pldi-2022/process-data.py
@@ -83,24 +82,20 @@ def gather_data(dataset):
     return result
 
 
-def table(name, data, tablefmt):
+def write_csv_results(filename, name, data, is_first_write):
     """
-    Prints a table in with the general layout as:
-    <name> | stage1 | stage2 | ... | stageN
-    mean   |
-    median |
-    stddev |
+    Writes a CSV file in the format
+    `simulation,stage,mean,median,stddev`
     """
-    headers = [name]
-    mean = ["mean"]
-    median = ["median"]
-    stddev = ["stddev"]
-    for stage, times in sorted(data.items()):
-        headers.append(stage)
-        mean.append(st.mean(times))
-        median.append(st.median(times))
-        stddev.append(st.stdev(times))
-    return tabulate([median, mean, stddev], headers, tablefmt)
+    with open(filename, "a", newline="") as file:
+        writer = csv.writer(file, delimiter=",")
+        if is_first_write:
+            writer.writerow(["simulation", "stage", "mean", "median", "stddev"])
+        for stage, times in sorted(data.items()):
+            mean = round(st.mean(times), 3)
+            median = round(st.median(times), 3)
+            stddev = round(st.stdev(times), 3)
+            writer.writerow([name, stage, mean, median, stddev])
 
 
 def write_to_file(data, filename):
@@ -213,8 +208,8 @@ if __name__ == "__main__":
     # Process the CSV.
     result = gather_data(datasets)
 
-    # The formatting style of table.
-    tablefmt = "latex"
     # Provide meaning to the data.
-    tables = [table(name, data, tablefmt) for name, data in sorted(result.items())]
-    write_to_file(tables, "results.txt")
+    flag = True
+    for name, data in sorted(result.items()):
+        write_csv_results("evaluations/cidr-pldi-2022/results.csv", name, data, flag)
+        flag = False
