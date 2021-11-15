@@ -41,6 +41,7 @@ impl Debugger {
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterResult<InterpreterState> {
+        let mut printed = false;
         let qin = ComponentQIN::new_single(
             &self.main_component,
             &self.main_component.name,
@@ -260,9 +261,9 @@ impl Debugger {
                 }
             }
 
-            if component_interpreter.is_done() {
-                component_interpreter.set_go_low();
-                return component_interpreter.deconstruct();
+            if component_interpreter.is_done() && !printed {
+                println!("Main component has finished executing");
+                printed = true;
             }
         }
     }
