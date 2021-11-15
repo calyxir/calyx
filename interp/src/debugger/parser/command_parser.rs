@@ -139,6 +139,12 @@ impl CommandParser {
         Ok(())
     }
 
+    fn step_over(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+            [group(g)] => Command::StepOver(g)
+        ))
+    }
+
     fn delete(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
                 [brk_id(br)..] => Command::Delete(br.collect())
