@@ -119,10 +119,19 @@ impl CommandParser {
 
     fn print(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [print_code(pc), name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), Some(pc)),
-                [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), None),
-                [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
-                [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
+            [print_code(pc), name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), Some(pc)),
+            [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), None),
+            [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
+            [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
+        ))
+    }
+
+    fn print_state(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+            [print_code(pc), name(ident)..] => Command::PrintState(Some(ident.collect::<Vec<_>>()), Some(pc)),
+            [name(ident)..] => Command::PrintState(Some(ident.collect::<Vec<_>>()), None),
+            [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
+            [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
         ))
     }
 
