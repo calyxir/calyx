@@ -30,9 +30,13 @@ print = {
     (^"print" | ^"p") ~ (print_code | pc_fail)? ~ name+
 }
 
+print_state = {^"print-state" ~ (print_code | pc_fail)? ~ name+ }
+
 print_fail = {
     (^"print" | ^"p") ~ (print_code | pc_fail)?
 }
+
+step_over = {^"step-over" ~ group }
 
 step = { (^"step" | ^"s") }
 cont = {
@@ -57,12 +61,14 @@ exit = { ^"exit" }
 command = {
     SOI ~
     (
-     print
+    print_state
+     | print
      | print_fail
      | delete
      | brk
      | enable
      | disable
+     | step_over
      | step
      // commands without input
      | cont

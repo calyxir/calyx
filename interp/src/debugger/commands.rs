@@ -60,6 +60,8 @@ pub enum Command {
     Disable(Vec<BreakPointId>),
     Enable(Vec<BreakPointId>),
     Delete(Vec<BreakPointId>),
+    StepOver(GroupName),
+    PrintState(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>),
 }
 
 impl Command {
@@ -77,6 +79,7 @@ impl Command {
     fn help_string(&self) -> (Vec<&str>, &str) {
         match self {
             Command::Step => (vec!["Step", "S"], "Advance the execution by a step"),
+            Command::StepOver(_) => (vec!["Step-over", "S"], "Advance the execution over a given group"),
             Command::Continue => ( vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
             Command::Display => (vec!["Display"], "Display the full state"),
             Command::Print(_, _) => (vec!["Print", "P"], "Print target value"),
@@ -87,6 +90,7 @@ impl Command {
             Command::Delete(_)=> (vec!["Delete","Del"], "Delete target breakpoint"),
             Command::Enable(_) => (vec!["Enable"], "Enable target breakpoint"),
             Command::Disable(_) => (vec!["Disable"], "Disable target breakpoint"),
+            Command::PrintState(_,_) => todo!()
         }
     }
 }

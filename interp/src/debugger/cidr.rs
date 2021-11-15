@@ -259,6 +259,8 @@ impl Debugger {
                         self.debugging_ctx.enable_breakpoint(&t)
                     }
                 }
+                Command::StepOver(_) => todo!(),
+                Command::PrintState(_, _) => todo!(),
             }
 
             if component_interpreter.is_done() && !printed {
