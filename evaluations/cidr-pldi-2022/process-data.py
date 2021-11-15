@@ -61,41 +61,54 @@ def process_data(dataset, path):
 
 def gather_data(dataset):
     """
-    Returns a mapping from simulation name to the data, e.g.
+    Returns two mappings from simulation name to the data for both simulation
+    and compilation times, e.g.
     {
       "Dot Product" : {"verilog": [1.1, 2.1], "interpreter": [1.9, 2.2], ...}
     }
     """
-    result = {}
+    simulations = {}
+    compilations = {}
     for name, _ in dataset:
         # Just use the simulation name, e.g. Dot Product -> Dot_Product.csv
         with open(get_csv_filename(name)) as file:
             # Mapping from stage to a list of durations.
-            durations = defaultdict(list)
+            simtimes = defaultdict(list)
+            comptimes = defaultdict(list)
             for row in csv.reader(file, delimiter=","):
                 # e.g. icarus-verilog,simulate,0.126
                 assert len(row) == 3, "expected CSV row: <stage-name>,<step>,<time>"
-                stage, _, time = row
+                stage, step, time = row
                 time = float(time)
-                durations[stage].append(time)
-            result[name] = durations
-    return result
+                if "compile" not in step:
+                    # This is a simulation step.
+                    simtimes[stage].append(time)
+                else:
+                    comptimes[stage].append(time)
+            simulations[name] = simtimes
+            compilations[name] = comptimes
+
+    return simulations, compilations
 
 
-def write_csv_results(filename, name, data, is_first_write):
+def write_csv_results(type, results):
     """
-    Writes a CSV file in the format
-    `simulation,stage,mean,median,stddev`
+    Writes a CSV file with the format:
+    `type,stage,mean,median,stddev`
+
+    to `evaluations/cidr-pldi-2022/<type>_results.csv`.
     """
-    with open(filename, "a", newline="") as file:
+    with open(
+        f"evaluations/cidr-pldi-2022/{type}_results.csv", "a", newline=""
+    ) as file:
         writer = csv.writer(file, delimiter=",")
-        if is_first_write:
-            writer.writerow(["simulation", "stage", "mean", "median", "stddev"])
-        for stage, times in sorted(data.items()):
-            mean = round(st.mean(times), 3)
-            median = round(st.median(times), 3)
-            stddev = round(st.stdev(times), 3)
-            writer.writerow([name, stage, mean, median, stddev])
+        writer.writerow([type, "stage", "mean", "median", "stddev"])
+        for name, data in results.items():
+            for stage, times in data.items():
+                mean = round(st.mean(times), 3)
+                median = round(st.median(times), 3)
+                stddev = round(st.stdev(times), 3)
+                writer.writerow([name, stage, mean, median, stddev])
 
 
 def write_to_file(data, filename):
@@ -124,7 +137,7 @@ if __name__ == "__main__":
             "TCAM",
             "tcam.futil",
         ),
-        # Polybench
+        # # Polybench
         (
             "Linear Algebra 2MM",
             "polybench/linear-algebra-2mm.fuse",
@@ -193,23 +206,21 @@ if __name__ == "__main__":
             "Linear Algebra TRMM",
             "polybench/linear-algebra-trmm.fuse",
         ),
-        # Sqrt Polybench
-        (
-            "Linear Algebra CHOLESKY",
-            "polybench/linear-algebra-cholesky.fuse",
-        ),
-        (
-            "Linear Algebra GRAMSCHMIDT",
-            "polybench/linear-algebra-gramschmidt.fuse",
-        ),
+        # Sqrt Polybench - currently unsupported on the interpreter.
+        # (
+        #     "Linear Algebra CHOLESKY",
+        #     "polybench/linear-algebra-cholesky.fuse",
+        # ),
+        # (
+        #     "Linear Algebra GRAMSCHMIDT",
+        #     "polybench/linear-algebra-gramschmidt.fuse",
+        # ),
     ]
+
     # Run the bash script for each dataset.
     process_data(datasets, path="evaluations/cidr-pldi-2022/benchmarks/")
     # Process the CSV.
-    result = gather_data(datasets)
-
+    simulations, compilations = gather_data(datasets)
     # Provide meaning to the data.
-    flag = True
-    for name, data in sorted(result.items()):
-        write_csv_results("evaluations/cidr-pldi-2022/results.csv", name, data, flag)
-        flag = False
+    write_csv_results("compilation", compilations)
+    write_csv_results("simulation", simulations)
