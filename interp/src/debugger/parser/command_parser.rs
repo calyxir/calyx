@@ -165,8 +165,10 @@ impl CommandParser {
 
     fn command(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
+            [print_state(p), EOI(_)] => p,
             [print(p), EOI(_)] => p,
             [print_fail(_), EOI(_)] => Command::Print(None, None),
+            [step_over(s), EOI(_)] => s,
             [step(s), EOI(_)] => s,
             [cont(c), EOI(_)] => c,
             [help(h), EOI(_)] => h,
