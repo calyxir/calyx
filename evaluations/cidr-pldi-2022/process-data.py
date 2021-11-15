@@ -137,7 +137,7 @@ if __name__ == "__main__":
             "TCAM",
             "tcam.futil",
         ),
-        # # Polybench
+        # Polybench
         (
             "Linear Algebra 2MM",
             "polybench/linear-algebra-2mm.fuse",
