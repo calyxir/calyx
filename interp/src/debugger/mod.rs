@@ -3,5 +3,6 @@ mod commands;
 mod context;
 mod io_utils;
 pub(crate) mod parser;
+pub use commands::PrintCode;
 
 pub use cidr::Debugger;

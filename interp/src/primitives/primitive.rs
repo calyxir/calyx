@@ -2,11 +2,17 @@ use crate::{
     environment::{FullySerialize, StateView},
     errors::InterpreterResult,
     interpreter::ComponentInterpreter,
+    utils::PrintCode,
     values::Value,
 };
+
 use calyx::ir;
+use fraction::Fraction;
+
 use itertools::Itertools;
 use serde::Serialize;
+use std::fmt::Debug;
+use std::fmt::Display;
 /// A primitive for the interpreter.
 /// Roughly corresponds to the cells defined in the primitives library for the Calyx compiler.
 /// Primitives can be either stateful or combinational.
@@ -42,13 +48,13 @@ pub trait Primitive {
     ) -> InterpreterResult<Vec<(ir::Id, Value)>>;
 
     /// Serialize the state of this primitive, if any.
-    fn serialize(&self, _signed: bool) -> Serializeable {
+    fn serialize(&self, _code: Option<PrintCode>) -> Serializeable {
         Serializeable::Empty
     }
 
     // more efficient to override this with true in stateful cases
     fn has_serializeable_state(&self) -> bool {
-        self.serialize(false).has_state()
+        self.serialize(None).has_state()
     }
 
     fn get_state(&self) -> Option<StateView<'_>> {
@@ -109,19 +115,56 @@ impl From<(usize, usize, usize, usize)> for Shape {
 #[derive(Serialize, Clone)]
 #[serde(untagged)]
 pub enum Entry {
-    U64(u64),
-    I64(i64),
+    U(u64),
+    I(i64),
+    Frac(Fraction),
+    Value(Value),
 }
 
 impl From<u64> for Entry {
-    fn from(u64: u64) -> Self {
-        Self::U64(u64)
+    fn from(u: u64) -> Self {
+        Self::U(u)
     }
 }
 
 impl From<i64> for Entry {
-    fn from(i64: i64) -> Self {
-        Self::I64(i64)
+    fn from(i: i64) -> Self {
+        Self::I(i)
+    }
+}
+
+impl From<Fraction> for Entry {
+    fn from(f: Fraction) -> Self {
+        Self::Frac(f)
+    }
+}
+
+impl Entry {
+    pub fn from_val_code(val: &Value, code: &PrintCode) -> Self {
+        match code {
+            PrintCode::Unsigned => val.as_u64().into(),
+            PrintCode::Signed => val.as_i64().into(),
+            PrintCode::UFixed(f) => val.as_ufp(*f).into(),
+            PrintCode::SFixed(f) => val.as_sfp(*f).into(),
+            PrintCode::Binary => Entry::Value(val.clone()),
+        }
+    }
+}
+
+impl Display for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Entry::U(v) => write!(f, "{}", v),
+            Entry::I(v) => write!(f, "{}", v),
+            Entry::Frac(v) => write!(f, "{}", v),
+            Entry::Value(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+impl Debug for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -136,6 +179,21 @@ pub enum Serializeable {
 impl Serializeable {
     pub fn has_state(&self) -> bool {
         !matches!(self, Serializeable::Empty)
+    }
+}
+
+impl Display for Serializeable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Serializeable::Empty => write!(f, ""),
+            Serializeable::Val(v) => write!(f, "{}", v),
+            Serializeable::Array(arr, shape) => {
+                write!(f, "{}", format_array(arr, shape))
+            }
+            full @ Serializeable::Full(_) => {
+                write!(f, "{}", serde_json::to_string(full).unwrap())
+            }
+        }
     }
 }
 
@@ -215,6 +273,59 @@ impl Serialize for dyn Primitive {
     where
         S: serde::Serializer,
     {
-        self.serialize(false).serialize(serializer)
+        self.serialize(None).serialize(serializer)
+    }
+}
+
+fn format_array(arr: &[Entry], shape: &Shape) -> String {
+    match shape {
+        Shape::D2(shape) => {
+            let mem = arr
+                .iter()
+                .chunks(shape.1)
+                .into_iter()
+                .map(|x| x.into_iter().collect::<Vec<_>>())
+                .collect::<Vec<_>>();
+            format!("{:?}", mem)
+        }
+        Shape::D3(shape) => {
+            let mem = arr
+                .iter()
+                .chunks(shape.1 * shape.0)
+                .into_iter()
+                .map(|x| {
+                    x.into_iter()
+                        .chunks(shape.2)
+                        .into_iter()
+                        .map(|y| y.into_iter().collect::<Vec<_>>())
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            format!("{:?}", mem)
+        }
+        Shape::D4(shape) => {
+            let mem = arr
+                .iter()
+                .chunks(shape.2 * shape.1 * shape.3)
+                .into_iter()
+                .map(|x| {
+                    x.into_iter()
+                        .chunks(shape.2 * shape.3)
+                        .into_iter()
+                        .map(|y| {
+                            y.into_iter()
+                                .chunks(shape.3)
+                                .into_iter()
+                                .map(|z| z.into_iter().collect::<Vec<_>>())
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            format!("{:?}", mem)
+        }
+        Shape::D1(_) => {
+            format!("{:?}", arr)
+        }
     }
 }

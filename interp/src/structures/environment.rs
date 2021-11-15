@@ -2,6 +2,7 @@
 
 use super::names::{ComponentQIN, GroupQIN, InstanceName};
 use super::stk_env::Smoosher;
+use crate::debugger::PrintCode;
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::ComponentInterpreter;
 use crate::interpreter_ir as iir;
@@ -613,6 +614,19 @@ impl<'a> StateView<'a> {
         }
     }
 
+    pub fn get_cell_state<R: AsRaw<ir::Cell>>(
+        &self,
+        cell: R,
+        print_code: &PrintCode,
+    ) -> Serializeable {
+        let map = self.get_cell_map();
+        let map_ref = map.borrow();
+        map_ref
+            .get(&cell.as_raw())
+            .map(|x| Primitive::serialize(&**x, Some(*print_code)))
+            .unwrap_or(Serializeable::Empty)
+    }
+
     /// Returns a string representing the current state of the environment. This
     /// just serializes the environment to a string and returns that string
     pub fn state_as_str(&self) -> String {
@@ -692,11 +706,7 @@ impl<'a> StateView<'a> {
                                 if !prim.is_comb() {
                                     return Some((
                                         cell.name().clone(),
-                                        Primitive::serialize(
-                                            &**prim,
-                                            cell.get_attribute("interp_signed")
-                                                .is_some(),
-                                        ),
+                                        Primitive::serialize(&**prim, None), //TODO Griffin: Fix this
                                     ));
                                 }
                             }

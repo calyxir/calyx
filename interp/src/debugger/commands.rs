@@ -28,11 +28,19 @@ impl From<u64> for BreakPointId {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum PrintCode {
+    Binary,
     Unsigned,
     Signed,
     UFixed(usize),
     SFixed(usize),
+}
+
+impl Default for PrintCode {
+    fn default() -> Self {
+        Self::Unsigned
+    }
 }
 // This is used internally to print out the help message but otherwise is not used for anything
 const HELP_LIST: [Command; 10] = [

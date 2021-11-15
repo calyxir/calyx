@@ -10,6 +10,7 @@ use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
 
+pub use crate::debugger::PrintCode;
 /// A wrapper to enable hashing of assignments by their destination port.
 pub(super) struct PortAssignment<'a>(*const Port, &'a Assignment);
 

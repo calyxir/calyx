@@ -7,6 +7,7 @@ use fraction::Fraction;
 use ibig::{ibig, ops::UnsignedAbs, IBig, UBig};
 use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
+use serde::Serialize;
 
 /// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
 ///  integral and fractional bits. The width of the integral bits is described as:
@@ -737,6 +738,15 @@ impl std::fmt::Display for Value {
         let mut vec_rev = (*self.vec).clone();
         vec_rev.reverse();
         write!(f, "{}", vec_rev)
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        unimplemented!("Do not serialize values as bit strings")
     }
 }
 
