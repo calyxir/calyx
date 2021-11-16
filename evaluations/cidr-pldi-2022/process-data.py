@@ -134,8 +134,16 @@ if __name__ == "__main__":
             "ntt-32.futil",
         ),
         (
-            "TCAM",
-            "tcam.futil",
+            "NTT 64",
+            "ntt-64.futil",
+        ),
+        (
+            "TCAM 32",
+            "tcam-32.futil",
+        ),
+        (
+            "TCAM 64",
+            "tcam-64.futil",
         ),
         # Polybench
         (
