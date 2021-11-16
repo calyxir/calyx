@@ -28,7 +28,7 @@ dataflow analysis directly on the AST using Calyx's visitor infrastructure.
 ### Abstract Algorithm
 We model each control statement `s` as a function, `f: p -> p` where `p` is
 the type of the property. Control statements that have children define how information
-flows between it's children.
+flows between its children.
 
 #### Enable
 `f` for `enable A` is similar to the transfer function in standard dataflow analysis. It
@@ -39,8 +39,8 @@ f(enable A, inputs) = (inputs - kill(A)) | gen(A)
 ```
 
 #### Seq
-`seq` defines sequential control flow edges between it's children.
-It is implemented by threading it's input through all of it's children to produce an output.
+`seq` defines sequential control flow edges between its children.
+It is implemented by threading its input through all of its children to produce an output.
 ```
 f(seq { A; B; C; ...; Z; }, inputs) =
      f(A, inputs)
@@ -50,7 +50,7 @@ f(seq { A; B; C; ...; Z; }, inputs) =
   |> f(Z, _)
 ```
 To implement a backwards dataflow analysis, all you need to do is reverse the
-order that `seq` pipes inputs to it's children:
+order that `seq` pipes inputs to its children:
 ```
 // reverse
 f(seq { A; B; C; ...; Z; }, inputs) =
@@ -62,8 +62,8 @@ f(seq { A; B; C; ...; Z; }, inputs) =
 ```
 
 #### If
-`if` passes it's inputs to it's condition group and then feeds the result of this
-to both of it's children. The output is the union of the outputs of both of it's
+`if` passes its inputs to its condition group and then feeds the result of this
+to both of its children. The output is the union of the outputs of both of its
 children. This is standard.
 ```
 f(if some.port with G { True; } else { False; }, inputs) =
@@ -126,7 +126,7 @@ We get the wrong answer. More generally, we can see that union clobbers
 any writes and intersection clobbers any reads that happen in the par.
 
 The solution to this problem is solved by passing the `gen` and `kill` sets along
-with the `live` sets. Then `par` can set it's output to be 
+with the `live` sets. Then `par` can set its output to be 
 ```
 (union(live(children)) - union(kill(children))) | union(gen(children))
 ```
@@ -142,7 +142,7 @@ Then there seems to be an information trade-off for how to define the liveness o
  registers with `x`. However, this by itself would cause `x` to be written to twice in parallel.
  You would have to reorder `B` to run before `A`. The takeaway here is that calling `x` dead
  at `B` gives the register reuse pass more information to work with. To compute
- this information `B` needs the `gens` and `kills` from all of it's siblings (for the same reason that `par`)
+ this information `B` needs the `gens` and `kills` from all of its siblings (for the same reason that `par`)
  needed it. This is not particularly hard to implement, but it's worthy of noting.
  - If you say that `x` is live at `B`, then you can never rewrite `B` to use `x` instead
  of some other register, but you also don't have to worry about reordering statements in a `par`.
@@ -154,7 +154,7 @@ analyses. That's why I set this thought experiment down in writing.
 
 ### Equivalence to worklist algorithm
 In the normal worklist algorithm, we add a statement back to the worklist when
-it's predecessor has changed.
+its predecessor has changed.
 
 The intuition for why this algorithm is equivalent to worklist algorithm is
 that because the only entry into the children for each parent control statement
