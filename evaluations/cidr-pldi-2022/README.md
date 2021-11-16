@@ -36,7 +36,7 @@ cd verilator && git pull && git checkout master && autoconf
 ./configure && make && sudo make install
 ```
 
-4. Install [Calyx Interpreter](https://capra.cs.cornell.edu/docs/calyx/interpreter.html#interpreting-via-fud)
+4. Install [Calyx Interpreter](https://capra.cs.cornell.edu/docs/calyx/interpreter.html#interpreting-via-fud) (necessary for interpreter benchmarks)
 
 ```bash
 # From the futil repository, build in release mode.
