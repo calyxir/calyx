@@ -1,5 +1,6 @@
 import csv
 import subprocess
+import time
 import statistics as st
 from collections import defaultdict
 
@@ -226,9 +227,12 @@ if __name__ == "__main__":
     ]
 
     # Run the bash script for each dataset.
+    begin = time.time()
     process_data(datasets, path="evaluations/cidr-pldi-2022/benchmarks/")
     # Process the CSV.
     simulations, compilations = gather_data(datasets)
     # Provide meaning to the data.
     write_csv_results("compilation", compilations)
     write_csv_results("simulation", simulations)
+
+    print(f"Benchmarks took approximately: {int((begin - time.time()) / 60.0)} minutes.")
