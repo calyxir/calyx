@@ -130,6 +130,7 @@ def run_fud(args, config):
                 data.data = utils.profile_stages(
                     "stage", [ed for ed in path], overall_durations, args.csv
                 )
+                data.typ = SourceType.String
             else:
                 # Otherwise, gather profiling data for each stage and steps provided.
                 def gather_profiling_data(stage, steps):
@@ -160,6 +161,7 @@ def run_fud(args, config):
                     gather_profiling_data(stage, steps)
                     for stage, steps in profiled_stages.items()
                 )
+                data.typ = SourceType.String
 
         # output the data or profiling information.
         if args.output_file is not None:
