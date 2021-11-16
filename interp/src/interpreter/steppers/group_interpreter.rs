@@ -153,7 +153,14 @@ impl AssignmentInterpreter {
             {
                 let new_vals = x.do_tick();
                 for (port, val) in new_vals? {
-                    let port_ref = cell.borrow().find(port).unwrap();
+                    let port_ref =
+                        cell.borrow().find(&port).unwrap_or_else(|| {
+                            panic!(
+                                "Could not find port: {}.{}. This should never happen, please make an issue.",
+                                cell.borrow().name(),
+                                port
+                            )
+                        });
 
                     update_list.push((Rc::clone(&port_ref), val));
                 }
