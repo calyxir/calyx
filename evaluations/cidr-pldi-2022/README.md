@@ -81,7 +81,7 @@ mkdir evaluations/cidr-pldi-2022/individual-results && mkdir evaluations/cidr-pl
 python3 evaluations/cidr-pldi-2022/process-data.py
 ```
 
-This should result in 3 files:
+This should result in 3 files in `evaluations/cidr-pldi-2022/statistics` (as well as individual run results in `/individual-results`):
 - `simulation-fully-lowered-results.csv`: Simulation statistics for the interpreter after fully lowering the Calyx program. 
 - `simulation-results.csv`: Simulation statistics for interpreter, Verilog, and Icarus-Verilog.
 - `compilation-results.csv` Compilation statistics for Verilog and Icarus-Verilog.
