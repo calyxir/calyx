@@ -40,7 +40,7 @@ f(enable A, inputs) = (inputs - kill(A)) | gen(A)
 
 #### Seq
 `seq` defines sequential control flow edges between it's children.
-It is implemented by threading it's input throw all of it's children to produce an output.
+It is implemented by threading it's input through all of it's children to produce an output.
 ```
 f(seq { A; B; C; ...; Z; }, inputs) =
      f(A, inputs)
