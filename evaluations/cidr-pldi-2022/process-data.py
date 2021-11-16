@@ -36,31 +36,42 @@ def verify_interpreter_configuration():
     )
 
 
-def get_csv_filename(name):
+def get_csv_filename(name, lowered):
     """
     Uses the simulation name to produce the CSV file name, e.g. `Dot Product`
-     -> "evaluations/cidr-pldi-2022/benchmarks/results/Dot_Product.csv
+     -> `evaluations/cidr-pldi-2022/individual-results/Dot_Product.csv`
+
+     We give slightly differe names to fully lowered Calyx programs, since Fud can't
+     differentiate the two:
+        `evaluations/cidr-pldi-2022/individual-results/Dot_Product-Lowered.csv`
     """
-    return "evaluations/cidr-pldi-2022/results/" + name.replace(" ", "_") + ".csv"
+    return (
+        "evaluations/cidr-pldi-2022/individual-results/"
+        + name.replace(" ", "_")
+        + ("-Lowered" if lowered else "")
+        + ".csv"
+    )
 
 
-def process_data(dataset, path):
+def process_data(dataset, is_fully_lowered, path, script):
     """
-    Runs the `evaluate-run.sh` script for each iteration of dataset.
+    Runs the script for each iteration of dataset. `is_fully_lowered` is
+    just used to distinguish file names.
     """
     for name, program in dataset:
         subprocess.run(
             [
-                "evaluations/cidr-pldi-2022/evaluate-run.sh",
+                script,
                 path + program,
                 # Assumes that the data is the same path with `.data` appended.
                 path + program + ".data",
-                get_csv_filename(name),
+                get_csv_filename(name, is_fully_lowered),
+                "10",  # Number of simulations per program.
             ]
         )
 
 
-def gather_data(dataset):
+def gather_data(dataset, is_fully_lowered):
     """
     Returns two mappings from simulation name to the data for both simulation
     and compilation times, e.g.
@@ -72,7 +83,7 @@ def gather_data(dataset):
     compilations = {}
     for name, _ in dataset:
         # Just use the simulation name, e.g. Dot Product -> Dot_Product.csv
-        with open(get_csv_filename(name)) as file:
+        with open(get_csv_filename(name, is_fully_lowered)) as file:
             # Mapping from stage to a list of durations.
             simtimes = defaultdict(list)
             comptimes = defaultdict(list)
@@ -97,10 +108,10 @@ def write_csv_results(type, results):
     Writes a CSV file with the format:
     `type,stage,mean,median,stddev`
 
-    to `evaluations/cidr-pldi-2022/<type>_results.csv`.
+    to `evaluations/cidr-pldi-2022/statistics/<type>-results.csv`.
     """
     with open(
-        f"evaluations/cidr-pldi-2022/{type}_results.csv", "a", newline=""
+        f"evaluations/cidr-pldi-2022/statistics/{type}-results.csv", "a", newline=""
     ) as file:
         writer = csv.writer(file, delimiter=",")
         writer.writerow([type, "stage", "mean", "median", "stddev"])
@@ -120,6 +131,32 @@ def write_to_file(data, filename):
     assert isinstance(data, list)
     with open(filename, "a") as file:
         file.writelines("\n".join(data))
+
+
+def run(data, script):
+    """
+    Runs the simulation and data processing on the datasets.
+    """
+    # Run a different script for fully lowered Calyx. These are separated since Fud
+    # has no way to dinstinguish profiling stage names based on previous stages.
+    is_fully_lowered = "fully-lowered" in script
+
+    # Run the bash script for each dataset.
+    process_data(
+        data,
+        is_fully_lowered,
+        path="evaluations/cidr-pldi-2022/benchmarks/",
+        script=f"evaluations/cidr-pldi-2022/scripts/{script}",
+    )
+    # Process the CSV.
+    simulations, compilations = gather_data(data, is_fully_lowered)
+    # Provide meaning to the data.
+    if is_fully_lowered:
+        write_csv_results("simulation-fully-lowered", simulations)
+    else:
+        # No compilation for this, since we only run interpreter simulation for the fully-lowered script.
+        write_csv_results("compilation", compilations)
+        write_csv_results("simulation", simulations)
 
 
 if __name__ == "__main__":
@@ -215,25 +252,14 @@ if __name__ == "__main__":
             "Linear Algebra TRMM",
             "polybench/linear-algebra-trmm.fuse",
         ),
-        # Sqrt Polybench - currently unsupported on the interpreter.
-        # (
-        #     "Linear Algebra CHOLESKY",
-        #     "polybench/linear-algebra-cholesky.fuse",
-        # ),
-        # (
-        #     "Linear Algebra GRAMSCHMIDT",
-        #     "polybench/linear-algebra-gramschmidt.fuse",
-        # ),
     ]
 
-    # Run the bash script for each dataset.
+    print("Beginning benchmarks...")
     begin = time.time()
-    process_data(datasets, path="evaluations/cidr-pldi-2022/benchmarks/")
-    # Process the CSV.
-    simulations, compilations = gather_data(datasets)
-    # Provide meaning to the data.
-    write_csv_results("compilation", compilations)
-    write_csv_results("simulation", simulations)
+    # Run normal benchmarks on interpreter, Verilog, Icarus-Verilog.
+    run(datasets, "evaluate.sh")
+    # Run benchmarks on fully lowered Calyx through the interpreter.
+    run(datasets, "evaluate-fully-lowered.sh")
 
     duration = (begin - time.time()) / 60.0
     print(f"Benchmarks took approximately: {int(duration)} minutes.")

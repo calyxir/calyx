@@ -5,10 +5,11 @@
 #   PROGRAM="examples/futil/dot-product.futil"
 #      DATA="examples/dahlia/dot-product.fuse.data"
 #      FILE="dot-product.csv"
+# INTERVALS=10
   PROGRAM=$1
      DATA=$2
      FILE=$3
-INTERVALS=10
+INTERVALS=$4
 
 # Gather Calyx interpreter simulation times.
 for (( i = 0; i < $INTERVALS; ++i ))
