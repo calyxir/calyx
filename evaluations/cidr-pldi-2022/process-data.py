@@ -235,4 +235,5 @@ if __name__ == "__main__":
     write_csv_results("compilation", compilations)
     write_csv_results("simulation", simulations)
 
-    print(f"Benchmarks took approximately: {int((begin - time.time()) / 60.0)} minutes.")
+    duration = (begin - time.time()) / 60.0
+    print(f"Benchmarks took approximately: {int(duration)} minutes.")
