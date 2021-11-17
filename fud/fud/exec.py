@@ -125,6 +125,8 @@ def run_fud(args, config):
         sp.stop()
 
         if args.profiled_stages is not None:
+            # Overwrite previous data type.
+            data.typ = SourceType.String
             if args.profiled_stages == []:
                 # No stages provided; collect overall stage durations.
                 data.data = utils.profile_stages(
