@@ -60,6 +60,17 @@ impl Primitive for StdConst {
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         Ok(vec![("out".into(), self.value.clone())])
     }
+
+    fn serialize(
+        &self,
+        code: Option<crate::debugger::PrintCode>,
+    ) -> super::Serializeable {
+        let code = code.unwrap_or(crate::debugger::PrintCode::Unsigned);
+        super::Serializeable::Val(super::Entry::from_val_code(
+            &self.value,
+            &code,
+        ))
+    }
 }
 
 // ===================== New core ======================
