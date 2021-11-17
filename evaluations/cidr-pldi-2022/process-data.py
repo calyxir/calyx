@@ -133,6 +133,12 @@ def write_to_file(data, filename):
         file.writelines("\n".join(data))
 
 
+def setup():
+    """Creates the necessary directories to store statistics."""
+    subprocess.run(["mkdir", "-p", "evaluations/cidr-pldi-2022/individual-results"])
+    subprocess.run(["mkdir", "-p", "evaluations/cidr-pldi-2022/statistics"])
+
+
 def run(data, script):
     """
     Runs the simulation and data processing on the datasets.
@@ -160,6 +166,7 @@ def run(data, script):
 
 
 if __name__ == "__main__":
+    setup()
     verify_interpreter_configuration()
 
     # A list of datasets to evaluate simulation performance, in the form:
@@ -261,5 +268,5 @@ if __name__ == "__main__":
     # Run benchmarks on fully lowered Calyx through the interpreter.
     run(datasets, "evaluate-fully-lowered.sh")
 
-    duration = (begin - time.time()) / 60.0
-    print(f"Benchmarks took approximately: {int(duration)} minutes.")
+    duration = (time.time() - begin) / 60.0
+    print(f"Benchmarks took approximately: {int(duration)} minute(s).")

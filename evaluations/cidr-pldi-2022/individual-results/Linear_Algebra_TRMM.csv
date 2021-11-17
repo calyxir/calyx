@@ -1,0 +1,10 @@
+interpreter,interpret,0.158
+interpreter,interpret,0.15
+icarus-verilog,compile_with_iverilog,0.078
+icarus-verilog,simulate,0.35
+icarus-verilog,compile_with_iverilog,0.05
+icarus-verilog,simulate,0.27
+verilog,compile_with_verilator,5.507
+verilog,simulate,0.12
+verilog,compile_with_verilator,5.192
+verilog,simulate,0.118

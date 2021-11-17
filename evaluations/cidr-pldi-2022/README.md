@@ -76,8 +76,7 @@ fud register ntt -p frontends/ntt-pipeline/fud/ntt.py && fud check
 ```bash
 # From the futil repository
 chmod u+x evaluations/cidr-pldi-2022/scripts/evaluate.sh
-chmod u+x evaluations/cidr-pldi-2022/scripts/evaluate-fully-lowered.sh
-mkdir evaluations/cidr-pldi-2022/individual-results && mkdir evaluations/cidr-pldi-2022/statistics   
+chmod u+x evaluations/cidr-pldi-2022/scripts/evaluate-fully-lowered.sh 
 python3 evaluations/cidr-pldi-2022/process-data.py
 ```
 
