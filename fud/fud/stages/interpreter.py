@@ -109,7 +109,7 @@ class InterpreterStage(Stage):
                 data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
             )
 
-            if self.target_stage == _DEBUGGER_TARGET and not "-p" in unwrap_or(
+            if self.target_stage == _DEBUGGER_TARGET and "-p" not in unwrap_or(
                 self.config["stages", self.name, "debugger", "flags"], ""
             ):
                 return transparent_shell(command)
