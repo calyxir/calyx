@@ -135,7 +135,9 @@ class InterpreterStage(Stage):
         result = interpret(input_data, tmpdir)
         cleanup(tmpdir)
 
-        if self.target_stage != _DEBUGGER_TARGET:
+        if self.target_stage != _DEBUGGER_TARGET or "-p" in unwrap_or(
+            self.config["stages", self.name, "debugger", "flags"], ""
+        ):
             return result
 
 
