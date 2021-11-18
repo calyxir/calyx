@@ -159,7 +159,26 @@ impl Debugger {
                         self.debugging_ctx.enable_breakpoint(&t)
                     }
                 }
-                Command::StepOver(_) => todo!(),
+                Command::StepOver(target) => {
+                    let mut current =
+                        component_interpreter.currently_executing_group();
+
+                    if !self.debugging_ctx.is_group_running(current, &target) {
+                        println!("Group is not running")
+                    } else {
+                        component_interpreter.step()?;
+                        current =
+                            component_interpreter.currently_executing_group();
+                        while self
+                            .debugging_ctx
+                            .is_group_running(current, &target)
+                        {
+                            component_interpreter.step()?;
+                            current = component_interpreter
+                                .currently_executing_group();
+                        }
+                    }
+                }
             }
 
             if component_interpreter.is_done() && !printed {

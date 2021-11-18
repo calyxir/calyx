@@ -234,6 +234,18 @@ impl DebuggingContext {
             .collect()
     }
 
+    pub fn is_group_running(
+        &self,
+        current_executing: HashSet<GroupQIN>,
+        target: &GroupName,
+    ) -> bool {
+        let current: HashSet<CompGroupName> =
+            current_executing.into_iter().map(|x| x.into()).collect();
+
+        let target = self.parse_group_name(target);
+        current.contains(&target)
+    }
+
     pub fn print_breakpoints(&self) {
         println!("{}Current breakpoints:", SPACING);
         for breakpoint in self.breakpoints.values() {
