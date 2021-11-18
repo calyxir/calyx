@@ -14,7 +14,9 @@ use crate::structures::names::ComponentQIN;
 use crate::utils::AsRaw;
 use calyx::ir::{self, Id, RRC};
 pub(super) const SPACING: &str = "    ";
+use super::interactive_errors::DebuggerError;
 use crate::interpreter::ConstCell;
+use std::fmt::Write;
 
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [main_loop] function while this struct holds auxilliary information used to
@@ -104,18 +106,24 @@ impl Debugger {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::Print(print_lists, code) => self.do_print(
+                Command::Print(print_lists, code) => match self.do_print(
                     print_lists,
                     code,
                     &component_interpreter,
                     PrintMode::Port,
-                ),
-                Command::PrintState(print_lists, code) => self.do_print(
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
+                Command::PrintState(print_lists, code) => match self.do_print(
                     print_lists,
                     code,
                     &component_interpreter,
                     PrintMode::State,
-                ),
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
@@ -179,7 +187,17 @@ impl Debugger {
                         }
                     }
                 }
-                Command::Watch(_, _, _, _) => todo!(),
+                Command::Watch(group, print_target, print_code, print_mode) => {
+                    if let Err(e) = self.do_print(
+                        print_target,
+                        print_code,
+                        &component_interpreter,
+                        print_mode,
+                    ) {
+                        println!("{}", e); // print is bad
+                    } else {
+                    }
+                }
             }
 
             if component_interpreter.is_done() && !printed {
@@ -195,10 +213,9 @@ impl Debugger {
         code: Option<PrintCode>,
         component_interpreter: &ComponentInterpreter,
         print_mode: PrintMode,
-    ) {
+    ) -> Result<String, DebuggerError> {
         if print_lists.is_none() {
-            println!("Error: command requires a target");
-            return;
+            return Err(DebuggerError::RequiresTarget);
         }
 
         for mut print_list in print_lists.unwrap() {
@@ -222,7 +239,12 @@ impl Debugger {
                     // first look for cell
                     let cell = current_env.get_cell(target);
                     if let Some(cell) = cell {
-                        print_cell(&cell, &current_env, &code, &print_mode)
+                        return Ok(print_cell(
+                            &cell,
+                            &current_env,
+                            &code,
+                            &print_mode,
+                        ));
                     } else if idx != 0 {
                         let prior = &print_list[idx - 1];
 
@@ -233,13 +255,17 @@ impl Debugger {
                                 .iter()
                                 .find(|x| x.borrow().name == target);
                             if let Some(port) = pt {
-                                print_port(port, &current_env, None, &code)
+                                return Ok(print_port(
+                                    port,
+                                    &current_env,
+                                    None,
+                                    &code,
+                                ));
                             } else {
+                                return Err(DebuggerError::CannotFind(
+                                    orig_string,
+                                ));
                                 // cannot find
-                                println!(
-                                    "{} Unable to locate '{}'",
-                                    SPACING, orig_string
-                                )
                             }
                         } else if let Some(port) = current_env
                             .get_comp()
@@ -247,24 +273,18 @@ impl Debugger {
                             .borrow()
                             .find(target)
                         {
-                            print_port(
+                            return Ok(print_port(
                                 &port,
                                 &current_env,
                                 Some(print_list[idx - 1].clone()),
                                 &code,
-                            );
+                            ));
                         } else {
                             // cannot find
-                            println!(
-                                "{} Unable to locate '{}'",
-                                SPACING, orig_string
-                            )
+                            return Err(DebuggerError::CannotFind(orig_string));
                         }
                     } else {
-                        println!(
-                            "{} Unable to locate '{}'",
-                            SPACING, orig_string
-                        )
+                        return Err(DebuggerError::CannotFind(orig_string));
                     }
                 }
                 // still walking
@@ -289,16 +309,12 @@ impl Debugger {
                         // otherwise leave the same
                     } else {
                         // cannot find
-                        println!(
-                            "{} Unable to locate '{}'",
-                            SPACING, orig_string
-                        );
-
-                        break;
+                        return Err(DebuggerError::CannotFind(orig_string));
                     }
                 }
             }
         }
+        unreachable!()
     }
 }
 
@@ -312,7 +328,7 @@ fn print_cell(
     state: &StateView,
     code: &Option<PrintCode>,
     mode: &PrintMode,
-) {
+) -> String {
     let cell_ref = target.borrow();
 
     match mode {
@@ -320,20 +336,23 @@ fn print_cell(
             let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
             let cell_state = state.get_cell_state(&cell_ref, &code);
             if matches!(&cell_state, &Serializeable::Empty) {
-                println!(
+                format!(
                     "{} cell {} has no internal state",
                     SPACING,
                     cell_ref.name()
                 )
             } else {
-                println!("{}{} = {}", SPACING, cell_ref.name(), cell_state);
+                format!("{}{} = {}", SPACING, cell_ref.name(), cell_state)
             }
         }
         PrintMode::Port => {
-            println!("{}{}", SPACING, cell_ref.name());
+            let mut output: String = String::new();
+            writeln!(output, "{}{}", SPACING, cell_ref.name())
+                .expect("Something went wrong trying to print the port");
             for port in cell_ref.ports.iter() {
                 let v = state.lookup(port.as_raw());
-                println!(
+                writeln!(
+                    output,
                     "{}  {} = {}",
                     SPACING,
                     port.borrow().name,
@@ -355,7 +374,9 @@ fn print_cell(
                         format!("{}", &v)
                     }
                 )
+                .expect("Something went wrong trying to print the port");
             }
+            output
         }
     }
 }
@@ -365,7 +386,7 @@ fn print_port(
     state: &StateView,
     prior_name: Option<ir::Id>,
     code: &Option<PrintCode>,
-) {
+) -> String {
     let port_ref = target.borrow();
     let parent_name = if let Some(prior) = prior_name {
         prior
@@ -376,7 +397,7 @@ fn print_port(
     let v = state.lookup(port_ref.as_raw());
     let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
 
-    println!(
+    format!(
         "{}{}.{} = {}",
         SPACING,
         parent_name,
