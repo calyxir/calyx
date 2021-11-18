@@ -1584,6 +1584,54 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
             let upper_idx = (2 * self.width) - self.int_width - 1;
             let lower_idx = self.width - self.int_width;
 
+            if backing_val
+                .iter()
+                .rev()
+                .take((backing_val.len() - 1) - upper_idx as usize)
+                .any(|x| x)
+                && (!backing_val
+                    .iter()
+                    .rev()
+                    .take((backing_val.len() - 1) - upper_idx as usize)
+                    .all(|x| x)
+                    | !SIGNED)
+            {
+                let out = backing_val
+                    .clone()
+                    .slice_out(upper_idx as usize, lower_idx as usize);
+                let fw = self.frac_width * 2;
+
+                warn!(
+                    "Over/underflow in fixed-point multiplier: {} to {}",
+                    if SIGNED {
+                        format!(
+                            "{:.fw$}",
+                            backing_val.as_sfp((self.frac_width * 2) as usize),
+                            fw = fw as usize
+                        )
+                    } else {
+                        format!(
+                            "{:.fw$}",
+                            backing_val.as_ufp((self.frac_width * 2) as usize),
+                            fw = fw as usize
+                        )
+                    },
+                    if SIGNED {
+                        format!(
+                            "{:.fw$}",
+                            out.as_sfp(self.frac_width as usize),
+                            fw = self.frac_width as usize
+                        )
+                    } else {
+                        format!(
+                            "{:.fw$}",
+                            out.as_ufp(self.frac_width as usize),
+                            fw = self.frac_width as usize
+                        )
+                    },
+                )
+            }
+
             self.update = Some(
                 backing_val.slice_out(upper_idx as usize, lower_idx as usize),
             )
