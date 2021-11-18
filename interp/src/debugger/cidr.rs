@@ -179,6 +179,7 @@ impl Debugger {
                         }
                     }
                 }
+                Command::Watch(_, _, _, _) => todo!(),
             }
 
             if component_interpreter.is_done() && !printed {

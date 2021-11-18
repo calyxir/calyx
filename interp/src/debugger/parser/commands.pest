@@ -36,6 +36,10 @@ print_fail = {
     (^"print" | ^"p") ~ (print_code | pc_fail)?
 }
 
+watch = {
+    (^"watch" | ^"w") ~ group ~ ^"with" ~ (print_state | print)
+}
+
 step_over = {^"step-over" ~ group }
 
 step = { (^"step" | ^"s") }
@@ -61,7 +65,8 @@ exit = { ^"exit" }
 command = {
     SOI ~
     (
-    print_state
+    watch
+     | print_state
      | print
      | print_fail
      | delete
