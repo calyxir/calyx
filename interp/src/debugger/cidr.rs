@@ -301,7 +301,7 @@ impl Debugger {
     }
 }
 
-enum PrintMode {
+pub enum PrintMode {
     State,
     Port,
 }

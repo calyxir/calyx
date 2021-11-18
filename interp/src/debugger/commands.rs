@@ -70,6 +70,12 @@ pub enum Command {
     Delete(Vec<BreakPointId>),
     StepOver(GroupName),
     PrintState(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>),
+    Watch(
+        GroupName,
+        Option<Vec<Vec<calyx::ir::Id>>>,
+        Option<PrintCode>,
+        super::cidr::PrintMode,
+    ),
 }
 
 impl Command {
@@ -98,7 +104,8 @@ impl Command {
             Command::Delete(_)=> (vec!["Delete","Del"], "Delete target breakpoint"),
             Command::Enable(_) => (vec!["Enable"], "Enable target breakpoint"),
             Command::Disable(_) => (vec!["Disable"], "Disable target breakpoint"),
-            Command::PrintState(_,_) => todo!()
+            Command::PrintState(_,_) => todo!(),
+            Command::Watch(_, _, _, _) => todo!(),
         }
     }
 }
