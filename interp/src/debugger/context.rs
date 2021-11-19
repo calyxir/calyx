@@ -1,5 +1,6 @@
-use super::cidr::SPACING;
+use super::cidr::{PrintMode, SPACING};
 use super::commands::{BreakPointId, GroupName};
+use super::PrintCode;
 
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
@@ -7,6 +8,18 @@ use calyx::ir::Id;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
+
+pub struct Counter(u64);
+
+impl Counter {
+    pub fn next(&mut self) -> u64 {
+        self.0 += 1;
+        self.0
+    }
+    pub fn new() -> Self {
+        Self(0)
+    }
+}
 
 enum BreakPointState {
     Enabled,  // this breakpoint is active
@@ -35,6 +48,14 @@ impl BreakPoint {
     }
 }
 
+type PrintTuple = (Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode);
+
+struct WatchPoint {
+    _id: u64,
+    _name: CompGroupName,
+    print_details: PrintTuple,
+}
+
 impl std::fmt::Debug for BreakPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -53,25 +74,31 @@ impl std::fmt::Debug for BreakPoint {
 
 pub(super) struct DebuggingContext {
     breakpoints: HashMap<CompGroupName, BreakPoint>,
-    count: u64,
+    watchpoints: HashMap<CompGroupName, (BreakPointState, Vec<WatchPoint>)>,
+    count: Counter,
+    watch_count: Counter,
     // used primarially for checking if a given group exists
     comp_ctx: HashMap<Id, Rc<iir::Component>>,
     main_comp_name: Id,
     /// tracks the breakpoints which are temporarially disabled
     sleeping_breakpoints: HashSet<CompGroupName>,
+    sleeping_watchpoints: HashSet<CompGroupName>,
 }
 
 impl DebuggingContext {
     pub fn new(ctx: &iir::ComponentCtx, main_component: &Id) -> Self {
         Self {
-            count: 0,
+            count: Counter::new(),
+            watch_count: Counter::new(),
             breakpoints: HashMap::new(),
+            watchpoints: HashMap::new(),
             main_comp_name: main_component.clone(),
             sleeping_breakpoints: HashSet::new(),
             comp_ctx: ctx
                 .iter()
                 .map(|x| (x.name.clone(), Rc::clone(x)))
                 .collect(),
+            sleeping_watchpoints: HashSet::new(),
         }
     }
 
@@ -95,9 +122,8 @@ impl DebuggingContext {
         if let std::collections::hash_map::Entry::Vacant(e) =
             self.breakpoints.entry(target_name.clone())
         {
-            self.count += 1;
             let br = BreakPoint {
-                id: self.count,
+                id: self.count.next(),
                 name: target_name,
                 state: BreakPointState::Enabled,
             };
@@ -105,6 +131,22 @@ impl DebuggingContext {
         } else {
             println!("A breakpoint already exists for \"{}\"", &target_name)
         }
+    }
+
+    pub fn add_watchpoint(&mut self, target: GroupName, print: PrintTuple) {
+        let key = self.parse_group_name(&target);
+
+        let watchpoint = WatchPoint {
+            _id: self.watch_count.next(),
+            _name: key.clone(),
+            print_details: print,
+        };
+
+        self.watchpoints
+            .entry(key)
+            .or_insert((BreakPointState::Enabled, Vec::new()))
+            .1
+            .push(watchpoint);
     }
 
     pub fn remove_breakpoint(&mut self, target: &BreakPointId) {
@@ -232,6 +274,55 @@ impl DebuggingContext {
                 false
             })
             .collect()
+    }
+
+    pub fn process_watchpoints(
+        &mut self,
+        current_executing: HashSet<GroupQIN>,
+    ) -> Vec<&'_ PrintTuple> {
+        let current: HashSet<CompGroupName> =
+            current_executing.into_iter().map(|x| x.into()).collect();
+
+        let sleeping = std::mem::take(&mut self.sleeping_watchpoints);
+
+        // wake up sleeping breakpoints
+        self.sleeping_watchpoints = sleeping
+            .into_iter()
+            .filter(|x| {
+                if !current.contains(x) {
+                    self.watchpoints
+                        .get_mut(x)
+                        .map(|x| x.0 = BreakPointState::Enabled);
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect();
+
+        let hit: Vec<_> = current
+            .into_iter()
+            .filter(|x| {
+                if let Some((state, _)) = self.watchpoints.get_mut(x) {
+                    if state.enabled() {
+                        self.sleeping_watchpoints.insert(x.clone());
+                        *state = BreakPointState::Resting;
+                        return true;
+                    }
+                }
+                false
+            })
+            .collect();
+
+        let mut output_vec: Vec<_> = vec![];
+        for target in hit {
+            if let Some(x) = self.watchpoints.get(&target) {
+                for val in x.1.iter() {
+                    output_vec.push(&val.print_details)
+                }
+            }
+        }
+        output_vec
     }
 
     pub fn is_group_running(

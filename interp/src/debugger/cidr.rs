@@ -91,9 +91,34 @@ impl Debugger {
                         && !component_interpreter.is_done()
                     {
                         component_interpreter.step()?;
-                        breakpoints = self.debugging_ctx.hit_breakpoints(
-                            component_interpreter.currently_executing_group(),
+                        let current_exec =
+                            component_interpreter.currently_executing_group();
+
+                        let mut ctx = std::mem::replace(
+                            &mut self.debugging_ctx,
+                            DebuggingContext::new(
+                                &self._context,
+                                &self.main_component.name,
+                            ),
                         );
+
+                        for watch in
+                            ctx.process_watchpoints(current_exec.clone())
+                        {
+                            if let Ok(msg) = self.do_print(
+                                &watch.0,
+                                &watch.1,
+                                &component_interpreter,
+                                &watch.2,
+                            ) {
+                                println!("{}", msg);
+                            }
+                        }
+
+                        self.debugging_ctx = ctx;
+
+                        breakpoints =
+                            self.debugging_ctx.hit_breakpoints(current_exec);
                     }
                     if !component_interpreter.is_done() {
                         for breakpoint in breakpoints {
@@ -107,19 +132,19 @@ impl Debugger {
                     println!("{}", state.state_as_str());
                 }
                 Command::Print(print_lists, code) => match self.do_print(
-                    print_lists,
-                    code,
+                    &print_lists,
+                    &code,
                     &component_interpreter,
-                    PrintMode::Port,
+                    &PrintMode::Port,
                 ) {
                     Ok(msg) => println!("{}", msg),
                     Err(e) => println!("{}", e),
                 },
                 Command::PrintState(print_lists, code) => match self.do_print(
-                    print_lists,
-                    code,
+                    &print_lists,
+                    &code,
                     &component_interpreter,
-                    PrintMode::State,
+                    &PrintMode::State,
                 ) {
                     Ok(msg) => println!("{}", msg),
                     Err(e) => println!("{}", e),
@@ -189,13 +214,17 @@ impl Debugger {
                 }
                 Command::Watch(group, print_target, print_code, print_mode) => {
                     if let Err(e) = self.do_print(
-                        print_target,
-                        print_code,
+                        &print_target,
+                        &print_code,
                         &component_interpreter,
-                        print_mode,
+                        &print_mode,
                     ) {
                         println!("{}", e); // print is bad
                     } else {
+                        self.debugging_ctx.add_watchpoint(
+                            group,
+                            (print_target, print_code, print_mode),
+                        )
                     }
                 }
             }
@@ -209,28 +238,30 @@ impl Debugger {
 
     fn do_print(
         &mut self,
-        print_lists: Option<Vec<Vec<Id>>>,
-        code: Option<PrintCode>,
+        print_lists: &Option<Vec<Vec<Id>>>,
+        code: &Option<PrintCode>,
         component_interpreter: &ComponentInterpreter,
-        print_mode: PrintMode,
+        print_mode: &PrintMode,
     ) -> Result<String, DebuggerError> {
         if print_lists.is_none() {
             return Err(DebuggerError::RequiresTarget);
         }
 
-        for mut print_list in print_lists.unwrap() {
+        for print_list in print_lists.as_ref().unwrap() {
             let orig_string = print_list
                 .iter()
                 .map(|s| s.id.clone())
                 .collect::<Vec<_>>()
                 .join(".");
+
+            let mut iter = print_list.iter();
             if self.main_component.name == print_list[0] {
-                print_list.remove(0);
+                iter.next();
             }
 
             let mut current_target = CurrentTarget::Env(component_interpreter);
 
-            for (idx, target) in print_list.iter().enumerate() {
+            for (idx, target) in iter.enumerate() {
                 let current_ref = current_target.borrow();
                 let current_env = current_ref.get_env().unwrap();
 
@@ -242,8 +273,8 @@ impl Debugger {
                         return Ok(print_cell(
                             &cell,
                             &current_env,
-                            &code,
-                            &print_mode,
+                            code,
+                            print_mode,
                         ));
                     } else if idx != 0 {
                         let prior = &print_list[idx - 1];
@@ -259,7 +290,7 @@ impl Debugger {
                                     port,
                                     &current_env,
                                     None,
-                                    &code,
+                                    code,
                                 ));
                             } else {
                                 return Err(DebuggerError::CannotFind(
@@ -277,7 +308,7 @@ impl Debugger {
                                 &port,
                                 &current_env,
                                 Some(print_list[idx - 1].clone()),
-                                &code,
+                                code,
                             ));
                         } else {
                             // cannot find
