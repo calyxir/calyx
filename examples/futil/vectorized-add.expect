@@ -19,31 +19,31 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated fsm = std_reg(3);
   }
   wires {
-    A0.addr0 = !(pd.out | A_read0_0.done) & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? i0.out;
+    A0.addr0 = !(pd.out | A_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? i0.out;
     A0.clk = clk;
     A_read0_0.clk = clk;
-    A_read0_0.in = !(pd.out | A_read0_0.done) & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? A0.read_data;
+    A_read0_0.in = !(pd.out | A_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? A0.read_data;
     A_read0_0.reset = reset;
-    A_read0_0.write_en = !(pd.out | A_read0_0.done) & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? 1'd1;
-    B0.addr0 = !(pd0.out | B_read0_0.done) & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? i0.out;
+    A_read0_0.write_en = !(pd.out | A_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? 1'd1;
+    B0.addr0 = !(pd0.out | B_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? i0.out;
     B0.clk = clk;
     B_read0_0.clk = clk;
-    B_read0_0.in = !(pd0.out | B_read0_0.done) & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? B0.read_data;
+    B_read0_0.in = !(pd0.out | B_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? B0.read_data;
     B_read0_0.reset = reset;
-    B_read0_0.write_en = !(pd0.out | B_read0_0.done) & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? 1'd1;
-    Sum0.addr0 = !Sum0.done & fsm.out == 3'd3 & go ? i0.out;
+    B_read0_0.write_en = !(pd0.out | B_read0_0.done) & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? 1'd1;
+    Sum0.addr0 = pd.out & pd0.out & fsm.out == 3'd2 & go | !Sum0.done & fsm.out == 3'd3 & go ? i0.out;
     Sum0.clk = clk;
-    Sum0.write_data = !Sum0.done & fsm.out == 3'd3 & go ? add0.out;
-    Sum0.write_en = !Sum0.done & fsm.out == 3'd3 & go ? 1'd1;
+    Sum0.write_data = pd.out & pd0.out & fsm.out == 3'd2 & go | !Sum0.done & fsm.out == 3'd3 & go ? add0.out;
+    Sum0.write_en = pd.out & pd0.out & fsm.out == 3'd2 & go | !Sum0.done & fsm.out == 3'd3 & go ? 1'd1;
     done = fsm.out == 3'd6 ? 1'd1;
-    add0.left = !Sum0.done & fsm.out == 3'd3 & go ? A_read0_0.out;
-    add0.right = !Sum0.done & fsm.out == 3'd3 & go ? B_read0_0.out;
-    add1.left = !i0.done & fsm.out == 3'd4 & go ? i0.out;
-    add1.right = !i0.done & fsm.out == 3'd4 & go ? const2.out;
+    add0.left = pd.out & pd0.out & fsm.out == 3'd2 & go | !Sum0.done & fsm.out == 3'd3 & go ? A_read0_0.out;
+    add0.right = pd.out & pd0.out & fsm.out == 3'd2 & go | !Sum0.done & fsm.out == 3'd3 & go ? B_read0_0.out;
+    add1.left = Sum0.done & fsm.out == 3'd3 & go | !i0.done & fsm.out == 3'd4 & go ? i0.out;
+    add1.right = Sum0.done & fsm.out == 3'd3 & go | !i0.done & fsm.out == 3'd4 & go ? const2.out;
     comb_reg.clk = clk;
-    comb_reg.in = !comb_reg.done & fsm.out == 3'd1 & go | !comb_reg.done & fsm.out == 3'd5 & go ? le0.out;
+    comb_reg.in = i0.done & fsm.out == 3'd0 & go | !comb_reg.done & fsm.out == 3'd1 & go | i0.done & fsm.out == 3'd4 & go | !comb_reg.done & fsm.out == 3'd5 & go ? le0.out;
     comb_reg.reset = reset;
-    comb_reg.write_en = !comb_reg.done & fsm.out == 3'd1 & go | !comb_reg.done & fsm.out == 3'd5 & go ? 1'd1;
+    comb_reg.write_en = i0.done & fsm.out == 3'd0 & go | !comb_reg.done & fsm.out == 3'd1 & go | i0.done & fsm.out == 3'd4 & go | !comb_reg.done & fsm.out == 3'd5 & go ? 1'd1;
     fsm.clk = clk;
     fsm.in = fsm.out == 3'd6 ? 3'd0;
     fsm.in = fsm.out == 3'd0 & i0.done & go ? 3'd1;
@@ -55,22 +55,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.reset = reset;
     fsm.write_en = fsm.out == 3'd0 & i0.done & go | fsm.out == 3'd1 & comb_reg.done & comb_reg.out & go | fsm.out == 3'd5 & comb_reg.done & comb_reg.out & go | fsm.out == 3'd2 & pd.out & pd0.out & go | fsm.out == 3'd3 & Sum0.done & go | fsm.out == 3'd4 & i0.done & go | fsm.out == 3'd1 & comb_reg.done & !comb_reg.out & go | fsm.out == 3'd5 & comb_reg.done & !comb_reg.out & go | fsm.out == 3'd6 ? 1'd1;
     i0.clk = clk;
-    i0.in = !i0.done & fsm.out == 3'd4 & go ? add1.out;
+    i0.in = Sum0.done & fsm.out == 3'd3 & go | !i0.done & fsm.out == 3'd4 & go ? add1.out;
     i0.in = !i0.done & fsm.out == 3'd0 & go ? const0.out;
     i0.reset = reset;
-    i0.write_en = !i0.done & fsm.out == 3'd0 & go | !i0.done & fsm.out == 3'd4 & go ? 1'd1;
-    le0.left = !comb_reg.done & fsm.out == 3'd1 & go | !comb_reg.done & fsm.out == 3'd5 & go ? i0.out;
-    le0.right = !comb_reg.done & fsm.out == 3'd1 & go | !comb_reg.done & fsm.out == 3'd5 & go ? const1.out;
+    i0.write_en = !i0.done & fsm.out == 3'd0 & go | Sum0.done & fsm.out == 3'd3 & go | !i0.done & fsm.out == 3'd4 & go ? 1'd1;
+    le0.left = i0.done & fsm.out == 3'd0 & go | !comb_reg.done & fsm.out == 3'd1 & go | i0.done & fsm.out == 3'd4 & go | !comb_reg.done & fsm.out == 3'd5 & go ? i0.out;
+    le0.right = i0.done & fsm.out == 3'd0 & go | !comb_reg.done & fsm.out == 3'd1 & go | i0.done & fsm.out == 3'd4 & go | !comb_reg.done & fsm.out == 3'd5 & go ? const1.out;
     pd.clk = clk;
     pd.in = pd.out & pd0.out ? 1'd0;
-    pd.in = A_read0_0.done & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? 1'd1;
+    pd.in = A_read0_0.done & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? 1'd1;
     pd.reset = reset;
-    pd.write_en = A_read0_0.done & !(pd.out & pd0.out) & fsm.out == 3'd2 & go | pd.out & pd0.out ? 1'd1;
+    pd.write_en = A_read0_0.done & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) | pd.out & pd0.out ? 1'd1;
     pd0.clk = clk;
     pd0.in = pd.out & pd0.out ? 1'd0;
-    pd0.in = B_read0_0.done & !(pd.out & pd0.out) & fsm.out == 3'd2 & go ? 1'd1;
+    pd0.in = B_read0_0.done & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) ? 1'd1;
     pd0.reset = reset;
-    pd0.write_en = B_read0_0.done & !(pd.out & pd0.out) & fsm.out == 3'd2 & go | pd.out & pd0.out ? 1'd1;
+    pd0.write_en = B_read0_0.done & (comb_reg.done & comb_reg.out & fsm.out == 3'd1 & go | !(pd.out & pd0.out) & fsm.out == 3'd2 & go | comb_reg.done & comb_reg.out & fsm.out == 3'd5 & go) | pd.out & pd0.out ? 1'd1;
   }
 
   control {}
