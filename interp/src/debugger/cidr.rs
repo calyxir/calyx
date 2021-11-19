@@ -255,9 +255,13 @@ impl Debugger {
                 .join(".");
 
             let mut iter = print_list.iter();
-            if self.main_component.name == print_list[0] {
+
+            let length = if self.main_component.name == print_list[0] {
                 iter.next();
-            }
+                print_list.len() - 1
+            } else {
+                print_list.len()
+            };
 
             let mut current_target = CurrentTarget::Env(component_interpreter);
 
@@ -266,7 +270,7 @@ impl Debugger {
                 let current_env = current_ref.get_env().unwrap();
 
                 // lowest level
-                if idx == print_list.len() - 1 {
+                if idx == length - 1 {
                     // first look for cell
                     let cell = current_env.get_cell(target);
                     if let Some(cell) = cell {
