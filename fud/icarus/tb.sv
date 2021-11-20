@@ -32,7 +32,7 @@ initial begin
   $value$plusargs("NOTRACE=%d", NOTRACE);
   if (NOTRACE == 0) begin
     $display("VCD tracing enabled");
-    $dumpfile(OUT);
+    $dumpfile("/dev/null");
     $dumpvars(0,m);
   end else begin
     $display("VCD tracing disabled");
