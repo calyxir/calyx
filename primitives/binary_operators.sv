@@ -287,7 +287,7 @@ module std_fp_sdiv_pipe #(
       right_sign <= right[WIDTH-1];
     end else begin
       left_sign <= left_sign;
-      right_save <= right;
+      right_save <= right_save;
       right_sign <= right_sign;
     end
   end
@@ -579,7 +579,7 @@ module std_sdiv_pipe #(
       right_sign <= right[WIDTH-1];
     end else begin
       left_sign <= left_sign;
-      right_save <= right;
+      right_save <= right_save;
       right_sign <= right_sign;
     end
   end
