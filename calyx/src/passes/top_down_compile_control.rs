@@ -592,8 +592,8 @@ fn calculate_states(
 pub struct TopDownCompileControl {
     /// Print out the FSM representation to STDOUT
     dump_fsm: bool,
-    /// Disable early transitions
-    no_early_transitions: bool,
+    /// Enable early transitions
+    early_transitions: bool,
 }
 
 impl ConstructVisitor for TopDownCompileControl {
@@ -602,7 +602,7 @@ impl ConstructVisitor for TopDownCompileControl {
         Self: Sized + Named,
     {
         let mut dump_fsm = false;
-        let mut no_early_transitions = false;
+        let mut early_transitions = false;
         ctx.extra_opts.iter().for_each(|opt| {
             let mut splits = opt.split(':');
             if splits.next() == Some(Self::name()) {
@@ -610,8 +610,8 @@ impl ConstructVisitor for TopDownCompileControl {
                     Some("dump-fsm") => {
                         dump_fsm = true;
                     }
-                    Some("no-early-transitions") => {
-                        no_early_transitions = true;
+                    Some("early-transitions") => {
+                        early_transitions = true;
                     }
                     _ => (),
                 }
@@ -619,7 +619,7 @@ impl ConstructVisitor for TopDownCompileControl {
         });
         Ok(TopDownCompileControl {
             dump_fsm,
-            no_early_transitions,
+            early_transitions,
         })
     }
 
@@ -690,7 +690,7 @@ impl Visitor for TopDownCompileControl {
                     let schedule = calculate_states(
                         con,
                         &mut builder,
-                        !self.no_early_transitions,
+                        self.early_transitions,
                     )?;
                     let group = builder.add_group("tdcc");
                     if self.dump_fsm {
@@ -771,7 +771,7 @@ impl Visitor for TopDownCompileControl {
         let schedule = calculate_states(
             &control.borrow(),
             &mut builder,
-            !self.no_early_transitions,
+            self.early_transitions,
         )?;
         let group = builder.add_group("tdcc");
         if self.dump_fsm {
