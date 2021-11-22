@@ -39,8 +39,8 @@ This repository contains the source code for the following:
 4. `fud`, The Calyx driver: Utility tool that wraps various hardware toolchains.
 
 [site]: https://calyxir.org
-[docs]: https://capra.cs.cornell.edu/docs/calyx/
-[source-docs]: https://capra.cs.cornell.edu/docs/calyx/source/calyx
-[paper]: https://rachitnigam.com/files/pubs/calyx.pdfinterpreter
+[docs]: https://docs.calyxir.org
+[source-docs]: https://docs.calyxir.org/source/calyx
+[paper]: https://rachitnigam.com/files/pubs/calyx.pdf
 [`calyx`]: https://crates.io/crates/calyx
 [`futil`]: https://crates.io/crates/futil

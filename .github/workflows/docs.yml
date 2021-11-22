@@ -1,0 +1,40 @@
+## Uses the deployment flow described here: https://github.com/peaceiris/actions-gh-pages#%EF%B8%8F-deploy-to-external-repository-external_repository
+# The cucapra/calyx-docs repository contains the public deployment key and the main Calyx repository contains the private key enabling it to write to the docs repository.
+
+name: Docs website
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  playground:
+    name: Docs website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: 'latest'
+      - name: mdbook
+        run: mdbook build
+      - name: Build source documentation
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: -p calyx --no-deps
+      - name: Move source documentation
+        run: |
+          mv ./target/doc ./book/source
+      - name: Create CNAME files
+        run: |
+          echo 'docs.calyxir.org' > ./book/CNAME
+      - name: deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_branch: main
+          deploy_key: ${{ secrets.DOCS_DEPLOY_TOKEN }}
+          external_repository: cucapra/calyx-docs
+          publish_dir: ./book
