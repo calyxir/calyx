@@ -29,6 +29,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           publish_branch: main
-          deploy_token: ${{ secrets.DOCS_DEPLOY_TOKEN }}
+          deploy_key: ${{ secrets.DOCS_DEPLOY_TOKEN }}
           external_repository: cucapra/calyx-docs
           publish_dir: ./book
