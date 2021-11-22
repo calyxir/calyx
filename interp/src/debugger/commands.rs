@@ -42,19 +42,7 @@ impl Default for PrintCode {
         Self::Unsigned
     }
 }
-// This is used internally to print out the help message but otherwise is not used for anything
-const HELP_LIST: [Command; 10] = [
-    Command::Step,
-    Command::Continue,
-    Command::Display,
-    Command::Print(None, None),
-    Command::Break(Vec::new()),
-    Command::Help,
-    Command::InfoBreak,
-    Command::Disable(Vec::new()),
-    Command::Enable(Vec::new()),
-    Command::Delete(Vec::new()),
-];
+
 pub enum Command {
     Step,                                                      // Step execution
     Continue, // Execute until breakpoint
@@ -81,31 +69,31 @@ pub enum Command {
 impl Command {
     pub fn get_help_string() -> String {
         let mut out = String::new();
-        for comm in &HELP_LIST {
-            let (names, message) = comm.help_string();
+        for (names, message) in Command::help_string() {
             writeln!(out, "    {: <20}{}", names.join(", "), message).unwrap();
         }
+
         out
     }
 }
 
 impl Command {
-    fn help_string(&self) -> (Vec<&str>, &str) {
-        match self {
-            Command::Step => (vec!["Step", "S"], "Advance the execution by a step"),
-            Command::StepOver(_) => (vec!["Step-over", "S"], "Advance the execution over a given group"),
-            Command::Continue => ( vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
-            Command::Display => (vec!["Display"], "Display the full state"),
-            Command::Print(_, _) => (vec!["Print", "P"], "Print target value"),
-            Command::Help => (vec!["Help"], "Print this message"),
-            Command::Empty | Command::Exit => unreachable!(), // This command needs no public facing help message
-            Command::Break(_) => (vec!["Break", "Br"], "Create a breakpoint"),
-            Command::InfoBreak => (vec!["Info break"], "List all breakpoints"),
-            Command::Delete(_)=> (vec!["Delete","Del"], "Delete target breakpoint"),
-            Command::Enable(_) => (vec!["Enable"], "Enable target breakpoint"),
-            Command::Disable(_) => (vec!["Disable"], "Disable target breakpoint"),
-            Command::PrintState(_,_) => todo!(),
-            Command::Watch(_, _, _, _) => todo!(),
-        }
+    fn help_string() -> Vec<(Vec<&'static str>, &'static str)> {
+        vec![
+            (vec!["Step", "S"], "Advance the execution by a step"),
+            (vec!["Step-over", "S"], "Advance the execution over a given group"),
+            (vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
+            (vec!["Display"], "Display the full state"),
+            (vec!["Print", "P"], "Print target value"),
+            (vec!["Print-state"], "Print the internal state of the target cell"),
+            (vec!["Watch"], "Watch a given group with a print statement"),
+            (vec!["Help", "h"], "Print this message"),
+            (vec!["Break", "Br"], "Create a breakpoint"),
+            (vec!["Info break"], "List all breakpoints"),
+            (vec!["Delete","Del"], "Delete target breakpoint"),
+            (vec!["Enable"], "Enable target breakpoint"),
+            (vec!["Disable"], "Disable target breakpoint"),
+            (vec!["Exit"], "Exit the debugger")
+        ]
     }
 }
