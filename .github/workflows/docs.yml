@@ -25,6 +25,9 @@ jobs:
       - name: Move source documentation
         run: |
           mv ./target/doc ./book/source
+      - name: Create CNAME files
+        run: |
+          echo 'docs.calyxir.org' > ./book/CNAME
       - name: deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
