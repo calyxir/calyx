@@ -93,7 +93,7 @@ impl Command {
             (vec!["Delete","Del"], "Delete target breakpoint"),
             (vec!["Enable"], "Enable target breakpoint"),
             (vec!["Disable"], "Disable target breakpoint"),
-            (vec!["Exit"], "Exit te debugger")
+            (vec!["Exit"], "Exit the debugger")
         ]
     }
 }
