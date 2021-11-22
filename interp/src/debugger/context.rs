@@ -290,9 +290,9 @@ impl DebuggingContext {
             .into_iter()
             .filter(|x| {
                 if !current.contains(x) {
-                    self.watchpoints
-                        .get_mut(x)
-                        .map(|x| x.0 = BreakPointState::Enabled);
+                    if let Some(x) = self.watchpoints.get_mut(x) {
+                        x.0 = BreakPointState::Enabled;
+                    }
                     false
                 } else {
                     true
