@@ -87,7 +87,7 @@ impl Command {
             (vec!["Print", "P"], "Print target value"),
             (vec!["Print-state"], "Print the internal state of the target cell"),
             (vec!["Watch"], "Watch a given group with a print statement"),
-            (vec!["Help"], "Print this message"),
+            (vec!["Help", "h"], "Print this message"),
             (vec!["Break", "Br"], "Create a breakpoint"),
             (vec!["Info break"], "List all breakpoints"),
             (vec!["Delete","Del"], "Delete target breakpoint"),
