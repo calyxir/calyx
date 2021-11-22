@@ -126,7 +126,6 @@ class IcarusBaseStage(Stage):
             """
             # return stream instead of path because tmpdir gets deleted
             # before the next stage runs
-            return
             return (Path(tmpdir.name) / "output.vcd").open("rb")
 
         # Step 5(self.vc == False): extract cycles + data
