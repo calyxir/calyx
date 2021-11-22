@@ -1,7 +1,7 @@
 use super::prim_utils::{get_input_unwrap, get_param};
-use super::{Primitive, Serializeable};
+use super::{Entry, Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
-use crate::utils::construct_bindings;
+use crate::utils::{construct_bindings, PrintCode};
 use crate::validate;
 use crate::values::Value;
 use calyx::ir;
@@ -136,17 +136,12 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         ])
     }
 
-    fn serialize(&self, signed: bool) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+        let code = signed.unwrap_or_default();
         Serializeable::Array(
             vec![self.product.clone()]
                 .iter()
-                .map(|x| {
-                    if signed {
-                        x.as_i64().into()
-                    } else {
-                        x.as_u64().into()
-                    }
-                })
+                .map(|x| Entry::from_val_code(x, &code))
                 .collect(),
             1.into(),
         )
@@ -300,18 +295,13 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         ])
     }
 
-    fn serialize(&self, signed: bool) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+        let code = signed.unwrap_or_default();
         Serializeable::Array(
             //vec![self.left.clone(), self.right.clone(), self.product.clone()]
             vec![self.quotient.clone(), self.remainder.clone()]
                 .iter()
-                .map(|x| {
-                    if signed {
-                        x.as_i64().into()
-                    } else {
-                        x.as_u64().into()
-                    }
-                })
+                .map(|x| Entry::from_val_code(x, &code))
                 .collect(),
             2.into(),
         )
@@ -420,12 +410,9 @@ impl Primitive for StdReg {
         ])
     }
 
-    fn serialize(&self, signed: bool) -> Serializeable {
-        Serializeable::Val(if signed {
-            self.data[0].as_i64().into()
-        } else {
-            self.data[0].as_u64().into()
-        })
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+        let code = signed.unwrap_or_default();
+        Serializeable::Val(Entry::from_val_code(&self.data[0], &code))
     }
 }
 
@@ -631,17 +618,12 @@ impl Primitive for StdMemD1 {
         ])
     }
 
-    fn serialize(&self, signed: bool) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+        let code = signed.unwrap_or_default();
         Serializeable::Array(
             self.data
                 .iter()
-                .map(|x| {
-                    if signed {
-                        x.as_i64().into()
-                    } else {
-                        x.as_u64().into()
-                    }
-                })
+                .map(|x| Entry::from_val_code(x, &code))
                 .collect(),
             (self.size as usize,).into(),
         )
@@ -891,17 +873,12 @@ impl Primitive for StdMemD2 {
         ])
     }
 
-    fn serialize(&self, signed: bool) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+        let code = signed.unwrap_or_default();
         Serializeable::Array(
             self.data
                 .iter()
-                .map(|x| {
-                    if signed {
-                        x.as_i64().into()
-                    } else {
-                        x.as_u64().into()
-                    }
-                })
+                .map(|x| Entry::from_val_code(x, &code))
                 .collect(),
             (self.d0_size as usize, self.d1_size as usize).into(),
         )
@@ -1173,17 +1150,12 @@ impl Primitive for StdMemD3 {
         ])
     }
 
-    fn serialize(&self, signed: bool) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+        let code = signed.unwrap_or_default();
         Serializeable::Array(
             self.data
                 .iter()
-                .map(|x| {
-                    if signed {
-                        x.as_i64().into()
-                    } else {
-                        x.as_u64().into()
-                    }
-                })
+                .map(|x| Entry::from_val_code(x, &code))
                 .collect(),
             (
                 self.d0_size as usize,
@@ -1498,17 +1470,12 @@ impl Primitive for StdMemD4 {
         ])
     }
 
-    fn serialize(&self, signed: bool) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+        let code = signed.unwrap_or_default();
         Serializeable::Array(
             self.data
                 .iter()
-                .map(|x| {
-                    if signed {
-                        x.as_i64().into()
-                    } else {
-                        x.as_u64().into()
-                    }
-                })
+                .map(|x| Entry::from_val_code(x, &code))
                 .collect(),
             (
                 self.d0_size as usize,
@@ -1616,6 +1583,54 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
 
             let upper_idx = (2 * self.width) - self.int_width - 1;
             let lower_idx = self.width - self.int_width;
+
+            if backing_val
+                .iter()
+                .rev()
+                .take((backing_val.len() - 1) - upper_idx as usize)
+                .any(|x| x)
+                && (!backing_val
+                    .iter()
+                    .rev()
+                    .take((backing_val.len() - 1) - upper_idx as usize)
+                    .all(|x| x)
+                    | !SIGNED)
+            {
+                let out = backing_val
+                    .clone()
+                    .slice_out(upper_idx as usize, lower_idx as usize);
+                let fw = self.frac_width * 2;
+
+                warn!(
+                    "Over/underflow in fixed-point multiplier: {} to {}",
+                    if SIGNED {
+                        format!(
+                            "{:.fw$}",
+                            backing_val.as_sfp((self.frac_width * 2) as usize),
+                            fw = fw as usize
+                        )
+                    } else {
+                        format!(
+                            "{:.fw$}",
+                            backing_val.as_ufp((self.frac_width * 2) as usize),
+                            fw = fw as usize
+                        )
+                    },
+                    if SIGNED {
+                        format!(
+                            "{:.fw$}",
+                            out.as_sfp(self.frac_width as usize),
+                            fw = self.frac_width as usize
+                        )
+                    } else {
+                        format!(
+                            "{:.fw$}",
+                            out.as_ufp(self.frac_width as usize),
+                            fw = self.frac_width as usize
+                        )
+                    },
+                )
+            }
 
             self.update = Some(
                 backing_val.slice_out(upper_idx as usize, lower_idx as usize),

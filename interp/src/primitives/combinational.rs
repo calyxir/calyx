@@ -3,10 +3,11 @@ use super::{
     prim_utils::{get_input_unwrap, get_param},
     Primitive,
 };
-use crate::comb_primitive;
 use crate::values::Value;
+use crate::{comb_primitive, errors::InterpreterError};
 use bitvec::vec::BitVec;
 use calyx::ir;
+use log::warn;
 use std::ops::Not;
 
 /// A constant.
@@ -27,7 +28,7 @@ impl StdConst {
             .expect("Missing width parameter from std_const binding");
 
         let init_value = get_param(params, "VALUE")
-            .expect("Missing `vale` param from std_const binding");
+            .expect("Missing `value` param from std_const binding");
 
         let value = Value::from(init_value, width);
 
@@ -58,6 +59,17 @@ impl Primitive for StdConst {
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         Ok(vec![("out".into(), self.value.clone())])
+    }
+
+    fn serialize(
+        &self,
+        code: Option<crate::debugger::PrintCode>,
+    ) -> super::Serializeable {
+        let code = code.unwrap_or(crate::debugger::PrintCode::Unsigned);
+        super::Serializeable::Val(super::Entry::from_val_code(
+            &self.value,
+            &code,
+        ))
     }
 }
 
@@ -135,6 +147,12 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
                 || ai & bi & c_in,
         );
         c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
+    }
+    if c_in {
+        if crate::SETTINGS.read().unwrap().error_on_overflow {
+            return Err(InterpreterError::OverflowError());
+        }
+        warn!("Integer over/underflow in std_add({})", WIDTH);
     }
     let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left

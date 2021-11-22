@@ -5,6 +5,7 @@ use pest_consume::{match_nodes, Error, Parser};
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
+use super::super::cidr::PrintMode;
 use crate::{debugger::commands::PrintCode, errors::InterpreterResult};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
@@ -119,15 +120,30 @@ impl CommandParser {
 
     fn print(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-                [print_code(pc), name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), Some(pc)),
-                [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), None),
-                [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
-                [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
+            [print_code(pc), name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), Some(pc)),
+            [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), None),
+            [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
+            [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
+        ))
+    }
+
+    fn print_state(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+            [print_code(pc), name(ident)..] => Command::PrintState(Some(ident.collect::<Vec<_>>()), Some(pc)),
+            [name(ident)..] => Command::PrintState(Some(ident.collect::<Vec<_>>()), None),
+            [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
+            [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
         ))
     }
 
     fn print_fail(_input: Node) -> ParseResult<()> {
         Ok(())
+    }
+
+    fn step_over(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+            [group(g)] => Command::StepOver(g)
+        ))
     }
 
     fn delete(input: Node) -> ParseResult<Command> {
@@ -148,10 +164,32 @@ impl CommandParser {
         ))
     }
 
+    fn watch(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+        [group(g), print_state(p)] => {
+            if let Command::PrintState(target, code) = p {
+                Command::Watch(g, target, code,PrintMode::State)
+            } else {
+                unreachable!("Parse produced wrong command?")
+            }
+            },
+        [group(g), print(p)] => {
+                if let Command::Print(target, code) = p {
+                    Command::Watch(g, target, code, PrintMode::Port)
+                } else {
+                    unreachable!("Parse produced wrong command?")
+                }
+            }
+        ))
+    }
+
     fn command(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
+            [watch(w), EOI(_)] => w,
+            [print_state(p), EOI(_)] => p,
             [print(p), EOI(_)] => p,
             [print_fail(_), EOI(_)] => Command::Print(None, None),
+            [step_over(s), EOI(_)] => s,
             [step(s), EOI(_)] => s,
             [cont(c), EOI(_)] => c,
             [help(h), EOI(_)] => h,

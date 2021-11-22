@@ -45,6 +45,7 @@ DEFAULT_CONFIGURATION = {
             "top_module": "main",
             "round_float_to_fixed": True,
             "data": None,
+            "vcd-target": None,
         },
         "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
         "vcd_json": {"file_extensions": [".json"]},

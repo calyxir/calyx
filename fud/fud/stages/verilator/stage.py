@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fud import errors
 from fud.stages import Source, SourceType, Stage
-from fud.utils import TmpDir, shell
+from fud.utils import TmpDir, shell, unwrap_or
 
 from .json_to_dat import convert2dat, convert2json
 
@@ -102,10 +102,14 @@ class VerilatorStage(Stage):
             """
             Simulates compiled Verilator code.
             """
+            # print(self.config["stages", self.name, "vcd-target"])
             return shell(
                 [
                     f"{tmpdir.name}/Vmain",
-                    f"{tmpdir.name}/output.vcd",
+                    unwrap_or(
+                        self.config["stages", self.name, "vcd-target"],
+                        f"{tmpdir.name}/output.vcd",
+                    ),
                     str(self.config["stages", self.name, "cycle_limit"]),
                     # Don't trace if we're only looking at memory outputs
                     "--trace" if self.vcd else "",
@@ -121,7 +125,13 @@ class VerilatorStage(Stage):
             """
             # return stream instead of path because tmpdir get's deleted
             # before the next stage runs
-            return (Path(tmpdir.name) / "output.vcd").open("rb")
+
+            if self.config["stages", self.name, "vcd-target"] is not None:
+                target = Path(self.config["stages", self.name, "vcd-target"])
+            else:
+                target = Path(tmpdir.name) / "output.vcd"
+
+            return target.open("rb")
 
         # Step 5(self.vcd == False): extract cycles + data
         @self.step()

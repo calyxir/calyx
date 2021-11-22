@@ -4,6 +4,7 @@ use super::super::utils::control_is_empty;
 use super::control_interpreter::{
     ControlInterpreter, Interpreter, StructuralInterpreter,
 };
+use crate::debugger::PrintCode;
 use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
@@ -382,7 +383,10 @@ impl Primitive for ComponentInterpreter {
         Some(self.get_env())
     }
 
-    fn serialize(&self, _signed: bool) -> crate::primitives::Serializeable {
+    fn serialize(
+        &self,
+        _signed: Option<PrintCode>,
+    ) -> crate::primitives::Serializeable {
         crate::primitives::Serializeable::Full(self.get_env().gen_serialzer())
     }
 

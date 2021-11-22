@@ -51,6 +51,9 @@ pub struct Opts {
     #[argh(switch, long = "error-on-overflow")]
     /// upgrades [over | under]flow warnings to errors
     error_on_overflow: bool,
+    /// silence warnings
+    #[argh(switch, short = 'q', long = "--quiet")]
+    quiet: bool,
 
     #[argh(subcommand)]
     comm: Option<Command>,
@@ -103,7 +106,7 @@ fn main() -> InterpreterResult<()> {
     stderrlog::new()
         .module(module_path!())
         .quiet(false)
-        .verbosity(1) // warnings
+        .verbosity(if opts.quiet { 0 } else { 1 }) // warnings
         .timestamp(stderrlog::Timestamp::Off)
         .init()
         .unwrap();

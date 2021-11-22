@@ -7,6 +7,7 @@ use fraction::Fraction;
 use ibig::{ibig, ops::UnsignedAbs, IBig, UBig};
 use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
+use serde::Serialize;
 
 /// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
 ///  integral and fractional bits. The width of the integral bits is described as:
@@ -49,6 +50,7 @@ fn get_unsigned_fixed_point(v: &Value, fractional_width: usize) -> Fraction {
 #[derive(Debug)]
 pub struct ValueError {}
 
+#[derive(Debug, Clone)]
 pub enum InputNumber {
     // unsigned
     U8(u8),
@@ -357,16 +359,8 @@ impl Value {
         initial_val: T1,
         bitwidth: T2,
     ) -> Self {
-        let init: InputNumber = initial_val.into();
-        let mut bv_init = init.as_bit_vec();
-        let width: InputNumber = bitwidth.into();
-        // truncate or extend to appropriate size
-        bv_init.resize(width.as_usize(), init.is_negative());
-        Value {
-            vec: Rc::new(bv_init),
-            signed: Rc::new(RefCell::new(None)),
-            unsigned: Rc::new(RefCell::new(None)),
-        }
+        let (v, _) = Value::from_checked(initial_val, bitwidth);
+        v
     }
 
     /// Returns a bit vector for the given input value of the desired width and a bool
@@ -744,6 +738,15 @@ impl std::fmt::Display for Value {
         let mut vec_rev = (*self.vec).clone();
         vec_rev.reverse();
         write!(f, "{}", vec_rev)
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        unimplemented!("Do not serialize values as bit strings")
     }
 }
 
