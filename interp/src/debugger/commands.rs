@@ -42,19 +42,7 @@ impl Default for PrintCode {
         Self::Unsigned
     }
 }
-// This is used internally to print out the help message but otherwise is not used for anything
-const HELP_LIST: [Command; 10] = [
-    Command::Step,
-    Command::Continue,
-    Command::Display,
-    Command::Print(None, None),
-    Command::Break(Vec::new()),
-    Command::Help,
-    Command::InfoBreak,
-    Command::Disable(Vec::new()),
-    Command::Enable(Vec::new()),
-    Command::Delete(Vec::new()),
-];
+
 pub enum Command {
     Step,                                                      // Step execution
     Continue, // Execute until breakpoint
