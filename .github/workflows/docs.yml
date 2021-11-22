@@ -1,9 +1,12 @@
+## Uses the deployment flow described here: https://github.com/peaceiris/actions-gh-pages#%EF%B8%8F-deploy-to-external-repository-external_repository
+# The cucapra/calyx-docs repository contains the public deployment key and the main Calyx repository contains the private key enabling it to write to the docs repository.
+
 name: Docs website
 
-on: [push]
-  # push:
-    # branches:
-      # - master
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   playground:
