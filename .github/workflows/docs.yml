@@ -1,0 +1,34 @@
+name: Docs website
+
+on: [push]
+  # push:
+    # branches:
+      # - master
+
+jobs:
+  playground:
+    name: Docs website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: 'latest'
+      - name: mdbook
+        run: mdbook build
+      - name: Build source documentation
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: -p calyx --no-deps
+      - name: Move source documentation
+        run: |
+          mv ./target/doc ./book/source
+      - name: deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_branch: main
+          deploy_token: ${{ secrets.DOCS_DEPLOY_TOKEN }}
+          external_repository: cucapra/calyx-docs
+          publish_dir: ./book
