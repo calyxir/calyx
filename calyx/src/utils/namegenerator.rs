@@ -19,6 +19,11 @@ impl NameGenerator {
         }
     }
 
+    /// Add generated names
+    pub fn add_names(&mut self, names: HashSet<String>) {
+        self.generated_names.extend(names)
+    }
+
     /// Returns a new String that starts with `prefix`.
     /// For example:
     /// ```
