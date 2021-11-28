@@ -1,0 +1,10 @@
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    reg = std_reg(32);
+  }
+  wires {
+  }
+  control {
+  }
+}

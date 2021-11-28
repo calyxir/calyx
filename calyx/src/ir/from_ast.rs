@@ -1,7 +1,7 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, CellType, Component, Context,
     Control, Direction, GetAttributes, Guard, Id, Invoke, LibrarySignatures,
-    Port, PortDef, Width, RRC,
+    Port, PortDef, Width, RESERVED_NAMES, RRC,
 };
 use crate::{
     errors::{CalyxResult, Error},
@@ -249,6 +249,11 @@ fn build_component(
     builder.component.control = control;
 
     ir_component.attributes = comp.attributes;
+
+    // Add reserved names to the component's namegenerator so future conflicts
+    // don't occur
+    ir_component
+        .add_names(RESERVED_NAMES.iter().map(|s| s.to_string()).collect());
 
     Ok(ir_component)
 }

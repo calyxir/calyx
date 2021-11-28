@@ -2,7 +2,6 @@ use super::{
     Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
     Control, Direction, GetName, Group, Id, RRC,
 };
-use crate::ir::RESERVED_NAMES;
 use crate::utils;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
@@ -58,7 +57,6 @@ impl Component {
         let prev_names: HashSet<_> = ports
             .iter()
             .map(|(name, _, _, _)| name.as_ref().to_string())
-            .chain(RESERVED_NAMES.iter().map(|s| s.to_string()))
             .collect();
 
         let this_sig = Builder::cell_from_signature(
@@ -84,6 +82,10 @@ impl Component {
             namegen: utils::NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
         }
+    }
+
+    pub(super) fn add_names(&mut self, names: HashSet<String>) {
+        self.namegen.add_names(names)
     }
 
     /// Return a reference to the group with `name` if present.
