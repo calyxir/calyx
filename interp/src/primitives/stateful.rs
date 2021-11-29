@@ -8,7 +8,6 @@ use crate::values::Value;
 use calyx::ir;
 use ibig::ops::RemEuclid;
 use log::warn;
-use std::collections::VecDeque;
 
 /// Pipelined Multiplication (3 cycles)
 /// Still bounded by u64.
@@ -1739,8 +1738,8 @@ pub struct StdFpDivPipe<const SIGNED: bool> {
     pub frac_width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is quotient, second is remainder
-    queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
+    update: Option<(Value, Value)>, //first is left, second is right
+    queue: ShiftBuffer<(Value, Value), 2>,
     full_name: ir::Id,
 }
 impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
@@ -1758,7 +1757,7 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
             quotient: Value::zeroes(width),
             remainder: Value::zeroes(width),
             update: None,
-            queue: VecDeque::from(vec![None, None]),
+            queue: ShiftBuffer::default(),
             full_name: name,
         }
     }
@@ -1783,15 +1782,43 @@ impl<const SIGNED: bool> Named for StdFpDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let out = self.queue.pop_back();
-        self.queue.push_front(self.update.take());
-        assert_eq!(
-            self.queue.len(),
-            2,
-            "std_div_pipe's internal queue has length {} != 2",
-            self.queue.len()
-        );
-        Ok(if let Some(Some((q, r))) = out {
+        let computed = if let Some((left, right)) = self.update.take() {
+            if right.as_u64() != 0 {
+                let (q, r) = if SIGNED {
+                    (
+                        Value::from(
+                            (left.as_signed() << self.frac_width as usize)
+                                / right.as_signed(),
+                            self.width,
+                        ),
+                        Value::from(
+                            left.as_signed().rem_euclid(right.as_signed()),
+                            self.width,
+                        ),
+                    )
+                } else {
+                    (
+                        Value::from(
+                            (left.as_unsigned() << self.frac_width as usize)
+                                / right.as_unsigned(),
+                            self.width,
+                        ),
+                        Value::from(
+                            left.as_unsigned().rem_euclid(right.as_unsigned()),
+                            self.width,
+                        ),
+                    )
+                };
+                Some((q, r))
+            } else {
+                warn!("Division by zero ({})", self.get_full_name());
+                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+            }
+        } else {
+            None
+        };
+
+        Ok(if let Some((q, r)) = self.queue.shift(computed) {
             self.quotient = q.clone();
             self.remainder = r.clone();
             vec![
@@ -1828,37 +1855,8 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         let right = get_input_unwrap(inputs, "right");
         let go = get_input_unwrap(inputs, "go");
 
-        if go.as_bool() && right.as_u64() != 0 {
-            let (q, r) = if SIGNED {
-                (
-                    Value::from(
-                        (left.as_signed() << self.frac_width as usize)
-                            / right.as_signed(),
-                        self.width,
-                    ),
-                    Value::from(
-                        left.as_signed().rem_euclid(right.as_signed()),
-                        self.width,
-                    ),
-                )
-            } else {
-                (
-                    Value::from(
-                        (left.as_unsigned() << self.frac_width as usize)
-                            / right.as_unsigned(),
-                        self.width,
-                    ),
-                    Value::from(
-                        left.as_unsigned().rem_euclid(right.as_unsigned()),
-                        self.width,
-                    ),
-                )
-            };
-            self.update = Some((q, r));
-        } else if go.as_bool() {
-            // value is zero
-            self.update =
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)));
+        if go.as_bool() {
+            self.update = Some(((*left).clone(), (*right).clone()));
         } else {
             self.update = None;
         }
@@ -1870,7 +1868,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.update = None;
-        self.queue = VecDeque::from(vec![None, None]);
+        self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
             (ir::Id::from("out_remainder"), self.remainder.clone()),
