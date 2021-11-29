@@ -1,6 +1,7 @@
 use super::{
     super::errors::InterpreterResult,
     prim_utils::{get_input_unwrap, get_param},
+    primitive::Named,
     Primitive,
 };
 use crate::values::Value;
@@ -14,16 +15,18 @@ use std::ops::Not;
 #[derive(Debug)]
 pub struct StdConst {
     value: Value,
+    full_name: ir::Id,
 }
 
 impl StdConst {
-    pub fn from_constants(value: u64, width: u64) -> Self {
+    pub fn from_constants(value: u64, width: u64, name: ir::Id) -> Self {
         StdConst {
             value: Value::from(value, width),
+            full_name: name,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter from std_const binding");
 
@@ -32,7 +35,16 @@ impl StdConst {
 
         let value = Value::from(init_value, width);
 
-        Self { value }
+        Self {
+            value,
+            full_name: name,
+        }
+    }
+}
+
+impl Named for StdConst {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -77,14 +89,21 @@ impl Primitive for StdConst {
 
 pub struct StdMux {
     width: u64,
+    name: ir::Id,
 }
 
 impl StdMux {
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter from std_const binding");
 
-        Self { width }
+        Self { width, name }
+    }
+}
+
+impl Named for StdMux {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.name
     }
 }
 
@@ -134,7 +153,7 @@ comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
 });
 
 // ===================== Unsigned binary operations ======================
-comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(NAME; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let a_iter = left.iter();
     let b_iter = right.iter();
     let mut c_in = false;
@@ -152,17 +171,17 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         if crate::SETTINGS.read().unwrap().error_on_overflow {
             return Err(InterpreterError::OverflowError());
         }
-        warn!("Integer over/underflow in std_add({})", WIDTH);
+        warn!("Integer over/underflow in {}", NAME);
     }
     let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left
     assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
-comb_primitive!(StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(NAME; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
-    let mut adder = StdAdd::from_constants(WIDTH);
+    let mut adder = StdAdd::from_constants(WIDTH, NAME.clone());
     let (_,new_right) = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
@@ -196,10 +215,10 @@ comb_primitive!(StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH
     assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
-comb_primitive!(StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(NAME; StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
-    let mut adder = StdAdd::from_constants(WIDTH);
+    let mut adder = StdAdd::from_constants(WIDTH, NAME.clone());
     let new_right = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),

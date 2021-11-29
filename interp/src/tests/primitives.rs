@@ -9,7 +9,7 @@ use calyx::ir;
 
 #[test]
 fn mult_flickering_go() {
-    let mut mult = stfl::StdMultPipe::<false>::from_constants(32);
+    let mut mult = stfl::StdMultPipe::<false>::from_constants(32, "".into());
     port_bindings![binds;
         go -> (0, 1),
         left -> (2, 32),
@@ -36,7 +36,7 @@ fn mult_flickering_go() {
 
 #[test]
 fn test_std_mult_pipe() {
-    let mut mult = stfl::StdMultPipe::<false>::from_constants(32);
+    let mut mult = stfl::StdMultPipe::<false>::from_constants(32, "".into());
     port_bindings![binds;
         go -> (1, 1),
         left -> (2, 32),
@@ -94,7 +94,7 @@ fn test_std_mult_pipe() {
 
 #[test]
 fn test_std_div_pipe() {
-    let mut div = stfl::StdDivPipe::<false>::from_constants(32);
+    let mut div = stfl::StdDivPipe::<false>::from_constants(32, "".into());
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -161,7 +161,7 @@ fn test_std_div_pipe() {
 
 #[test]
 fn test_std_reg_imval() {
-    let mut reg1 = stfl::StdReg::from_constants(6);
+    let mut reg1 = stfl::StdReg::from_constants(6, "".into());
     //see that unitialized register, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -217,7 +217,7 @@ fn test_std_reg_imval() {
 
 #[test]
 fn test_std_mem_d1() {
-    let mut mem = stfl::StdMemD1::from_constants(6, 10, 4);
+    let mut mem = stfl::StdMemD1::from_constants(6, 10, 4, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -284,7 +284,7 @@ fn test_std_mem_d1() {
 
 #[test]
 fn test_std_mem_d2() {
-    let mut mem = stfl::StdMemD2::from_constants(6, 4, 4, 2, 2);
+    let mut mem = stfl::StdMemD2::from_constants(6, 4, 4, 2, 2, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -349,7 +349,8 @@ fn test_std_mem_d2() {
 
 #[test]
 fn test_std_mem_d3() {
-    let mut mem = stfl::StdMemD3::from_constants(6, 4, 4, 4, 2, 2, 2);
+    let mut mem =
+        stfl::StdMemD3::from_constants(6, 4, 4, 4, 2, 2, 2, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -419,7 +420,8 @@ fn test_std_mem_d3() {
 
 #[test]
 fn test_std_mem_d4() {
-    let mut mem = stfl::StdMemD4::from_constants(6, 4, 4, 4, 4, 2, 2, 2, 2);
+    let mut mem =
+        stfl::StdMemD4::from_constants(6, 4, 4, 4, 4, 2, 2, 2, 2, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -493,7 +495,7 @@ fn test_std_mem_d4() {
 /* #[test]
 fn test_std_const() {
 let val_31 = Value::try_from_init(31, 5).unwrap();
-let const_31 = comb::StdConst::from_constants(5, val_31);
+let const_31 = comb::StdConst::from_constants(5, val_31, "".into());
 assert_eq!(const_31.read_val().as_u64(), 31); //can rust check this equality?
 assert_eq!(const_31.read_u64(), 31);
 }
@@ -501,13 +503,13 @@ assert_eq!(const_31.read_u64(), 31);
 #[should_panic]
 fn test_std_const_panic() {
 let val = Value::try_from_init(75, 7).unwrap();
-comb::StdConst::from_constants(5, val);
+comb::StdConst::from_constants(5, val, "".into());
 } */
 #[test]
 fn test_std_lsh() {
     // lsh with overflow
     // [11111] (31) -> [11100] (28)
-    let mut lsh = comb::StdLsh::from_constants(5);
+    let mut lsh = comb::StdLsh::from_constants(5, "".into());
     port_bindings![binds;
         left -> (31, 5),
         right -> (2, 5)
@@ -524,7 +526,7 @@ fn test_std_lsh() {
 
     // lsh without overflow
     // lsh [010000] (16) by 1 -> [100000] (32)
-    let mut lsh = comb::StdLsh::from_constants(6);
+    let mut lsh = comb::StdLsh::from_constants(6, "".into());
     port_bindings![binds;
         left -> (16, 6),
         right -> (1, 6)
@@ -542,7 +544,7 @@ fn test_std_lsh() {
 #[test]
 fn test_std_lsh_above64() {
     // lsh with overflow
-    let mut lsh = comb::StdLsh::from_constants(275);
+    let mut lsh = comb::StdLsh::from_constants(275, "".into());
     port_bindings![binds;
         left -> (31, 275),
         right -> (275, 275)
@@ -558,7 +560,7 @@ fn test_std_lsh_above64() {
 
     // lsh without overflow
     // lsh [010000] (16) by 1 -> [100000] (32)
-    let mut lsh = comb::StdLsh::from_constants(381);
+    let mut lsh = comb::StdLsh::from_constants(381, "".into());
     port_bindings![binds;
         left -> (16, 381),
         right -> (1, 381)
@@ -577,7 +579,7 @@ fn test_std_lsh_above64() {
 fn test_std_rsh() {
     // Not sure how to catagorize this
     // [1111] (15) -> [0011] (3)
-    let mut rsh = comb::StdRsh::from_constants(4);
+    let mut rsh = comb::StdRsh::from_constants(4, "".into());
     port_bindings![binds;
         left -> (15, 4),
         right -> (2, 4)
@@ -608,7 +610,7 @@ fn test_std_rsh() {
 
 #[test]
 fn test_std_rsh_above64() {
-    let mut rsh = comb::StdRsh::from_constants(275);
+    let mut rsh = comb::StdRsh::from_constants(275, "".into());
     port_bindings![binds;
         left -> (8, 275),
         right -> (4, 275)
@@ -621,7 +623,7 @@ fn test_std_rsh_above64() {
         .map(|(_, v)| v)
         .unwrap();
     assert_eq!(out.as_u64(), 0);
-    let mut rsh = comb::StdRsh::from_constants(381);
+    let mut rsh = comb::StdRsh::from_constants(381, "".into());
     port_bindings![binds;
         left -> (40, 381),
         right -> (3, 381)
@@ -640,7 +642,7 @@ fn test_std_rsh_above64() {
 fn test_std_add() {
     // without overflow
     // add [0011] (3) and [1010] (10) -> [1101] (13)
-    let mut add = comb::StdAdd::from_constants(4);
+    let mut add = comb::StdAdd::from_constants(4, "".into());
     port_bindings![binds;
         left -> (3, 4),
         right -> (10, 4)
@@ -672,7 +674,7 @@ fn test_std_add() {
 #[test]
 fn test_std_add_above64() {
     // without overflow
-    let mut add = comb::StdAdd::from_constants(165);
+    let mut add = comb::StdAdd::from_constants(165, "".into());
     port_bindings![binds;
         left -> (17, 165),
         right -> (35, 165)
@@ -690,7 +692,7 @@ fn test_std_add_above64() {
 #[test]
 #[should_panic]
 fn test_std_add_panic() {
-    let mut add = comb::StdAdd::from_constants(7);
+    let mut add = comb::StdAdd::from_constants(7, "".into());
     port_bindings![binds;
         left -> (81, 7),
         right -> (10, 4)
@@ -701,7 +703,7 @@ fn test_std_add_panic() {
 fn test_std_sub() {
     // without overflow
     // sub [0110] (6) from [1010] (10) -> [0100] (4)
-    let mut sub = comb::StdSub::from_constants(4);
+    let mut sub = comb::StdSub::from_constants(4, "".into());
     port_bindings![binds;
         left -> (10, 4),
         right -> (6, 4)
@@ -748,7 +750,7 @@ fn test_std_sub() {
 #[test]
 fn test_std_sub_above64() {
     // without overflow
-    let mut sub = comb::StdSub::from_constants(1605);
+    let mut sub = comb::StdSub::from_constants(1605, "".into());
     port_bindings![binds;
         left -> (57, 1605),
         right -> (35, 1605)
@@ -766,7 +768,7 @@ fn test_std_sub_above64() {
 #[test]
 #[should_panic]
 fn test_std_sub_panic() {
-    let mut sub = comb::StdAdd::from_constants(5);
+    let mut sub = comb::StdAdd::from_constants(5, "".into());
     port_bindings![binds;
         left -> (52, 6),
         right -> (16, 5)
@@ -777,7 +779,7 @@ fn test_std_sub_panic() {
 fn test_std_slice() {
     // 101 in binary is [1100101], take first 4 bits -> [0101] = 5
     let to_slice = Value::from(101, 7);
-    let mut std_slice = comb::StdSlice::from_constants(7, 4);
+    let mut std_slice = comb::StdSlice::from_constants(7, 4, "".into());
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
         .unwrap()
@@ -788,7 +790,7 @@ fn test_std_slice() {
     assert_eq!(res_slice.as_u64(), 5);
     // Slice the entire bit
     let to_slice = Value::from(548, 10);
-    let mut std_slice = comb::StdSlice::from_constants(10, 10);
+    let mut std_slice = comb::StdSlice::from_constants(10, 10, "".into());
     let res_slice = std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
         .unwrap()
@@ -802,7 +804,7 @@ fn test_std_slice() {
 #[should_panic]
 fn test_std_slice_panic() {
     let to_slice = Value::from(3, 2);
-    let mut std_slice = comb::StdSlice::from_constants(7, 4);
+    let mut std_slice = comb::StdSlice::from_constants(7, 4, "".into());
     std_slice
         .validate_and_execute(&[("in".into(), &to_slice)])
         .unwrap();
@@ -811,7 +813,7 @@ fn test_std_slice_panic() {
 fn test_std_pad() {
     // Add 2 zeroes, should keep the same value
     let to_pad = Value::from(101, 7);
-    let mut std_pad = comb::StdPad::from_constants(7, 9);
+    let mut std_pad = comb::StdPad::from_constants(7, 9, "".into());
     let res_pad = std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
         .unwrap()
@@ -835,7 +837,7 @@ fn test_std_pad() {
 #[should_panic]
 fn test_std_pad_panic() {
     let to_pad = Value::from(21, 5);
-    let mut std_pad = comb::StdPad::from_constants(3, 9);
+    let mut std_pad = comb::StdPad::from_constants(3, 9, "".into());
     std_pad
         .validate_and_execute(&[("in".into(), &to_pad)])
         .unwrap();
@@ -845,7 +847,7 @@ fn test_std_pad_panic() {
 fn test_std_not() {
     // ![1010] (!10) -> [0101] (5)
     let not0 = Value::from(10, 4);
-    let mut std_not = comb::StdNot::from_constants(4);
+    let mut std_not = comb::StdNot::from_constants(4, "".into());
     let res_not = std_not
         .validate_and_execute(&[("in".into(), &not0)])
         .unwrap()
@@ -871,7 +873,7 @@ fn test_std_not() {
 fn test_std_not_panic() {
     //input too short
     let not0 = Value::from(0, 4);
-    let mut std_not = comb::StdNot::from_constants(5);
+    let mut std_not = comb::StdNot::from_constants(5, "".into());
     std_not
         .validate_and_execute(&[("in".into(), &not0)])
         .unwrap()
@@ -884,7 +886,7 @@ fn test_std_not_panic() {
 #[test]
 fn test_std_and() {
     //101: [1100101], 78: [1001110] & -> [1000100] which is 68
-    let mut std_and = comb::StdAnd::from_constants(7);
+    let mut std_and = comb::StdAnd::from_constants(7, "".into());
     port_bindings![binds;
         left -> (101, 7),
         right -> (78, 7)
@@ -899,7 +901,7 @@ fn test_std_and() {
     assert_eq!(res_and.as_u64(), 68);
     //[1010] (10) & [0101] (5) is [0000]
 
-    let mut std_and = comb::StdAnd::from_constants(4);
+    let mut std_and = comb::StdAnd::from_constants(4, "".into());
     port_bindings![binds;
         left -> (10, 4),
         right -> (5, 4)
@@ -917,7 +919,7 @@ fn test_std_and() {
 #[test]
 #[should_panic]
 fn test_std_and_panic() {
-    let mut std_and = comb::StdAnd::from_constants(7);
+    let mut std_and = comb::StdAnd::from_constants(7, "".into());
     port_bindings![binds;
         left -> (91, 7),
         right -> (43, 6)
@@ -934,7 +936,7 @@ fn test_std_and_panic() {
 #[test]
 fn test_std_or() {
     //[101] (5) or [011] (3) is [111] (7)
-    let mut std_or = comb::StdOr::from_constants(3);
+    let mut std_or = comb::StdOr::from_constants(3, "".into());
     port_bindings![binds;
         left -> (5, 3),
         right -> (3, 3)
@@ -966,7 +968,7 @@ fn test_std_or() {
 #[test]
 #[should_panic]
 fn test_std_or_panic() {
-    let mut std_or = comb::StdOr::from_constants(5);
+    let mut std_or = comb::StdOr::from_constants(5, "".into());
     port_bindings![binds;
         left -> (16, 5),
         right -> (78, 7)
@@ -982,7 +984,7 @@ fn test_std_or_panic() {
 #[test]
 fn test_std_xor() {
     //[101] (5) XOR [011] (3) is [110] (6)
-    let mut std_xor = comb::StdXor::from_constants(3);
+    let mut std_xor = comb::StdXor::from_constants(3, "".into());
     port_bindings![binds;
         left -> (5, 3),
         right -> (3, 3)
@@ -1015,7 +1017,7 @@ fn test_std_xor() {
 #[test]
 #[should_panic]
 fn test_std_xor_panic() {
-    let mut std_xor = comb::StdXor::from_constants(6);
+    let mut std_xor = comb::StdXor::from_constants(6, "".into());
     port_bindings![binds;
         left -> (56, 6),
         right -> (92, 7)
@@ -1034,7 +1036,7 @@ fn test_std_xor_panic() {
 // equals
 #[test]
 fn test_std_gt() {
-    let mut std_gt = comb::StdGt::from_constants(16);
+    let mut std_gt = comb::StdGt::from_constants(16, "".into());
     port_bindings![binds;
         left -> (7 ,16),
         right -> (3, 16)
@@ -1067,7 +1069,7 @@ fn test_std_gt() {
 
 #[test]
 fn test_std_gt_above64() {
-    let mut std_gt = comb::StdGt::from_constants(716);
+    let mut std_gt = comb::StdGt::from_constants(716, "".into());
     port_bindings![binds;
         left -> (18446744073709551615_u64, 716),
         right -> (14333, 716)
@@ -1081,7 +1083,7 @@ fn test_std_gt_above64() {
         .unwrap();
     assert_eq!(res_gt.as_u64(), 1);
     //7 > 7 ? no!
-    let mut std_gt = comb::StdGt::from_constants(423);
+    let mut std_gt = comb::StdGt::from_constants(423, "".into());
     port_bindings![binds;
         left -> (7, 423),
         right -> (7, 423)
@@ -1101,7 +1103,7 @@ fn test_std_gt_above64() {
 #[test]
 #[should_panic]
 fn test_std_gt_panic() {
-    let mut std_gt = comb::StdGt::from_constants(3);
+    let mut std_gt = comb::StdGt::from_constants(3, "".into());
     port_bindings![binds;
         left -> (9, 4),
         right -> (3, 2)
@@ -1110,7 +1112,7 @@ fn test_std_gt_panic() {
 }
 #[test]
 fn test_std_lt() {
-    let mut std_lt = comb::StdLt::from_constants(16);
+    let mut std_lt = comb::StdLt::from_constants(16, "".into());
     port_bindings![binds;
         left -> (7, 16),
         right -> (3, 16)
@@ -1144,7 +1146,7 @@ fn test_std_lt() {
 #[test]
 fn test_std_lt_above64() {
     //7298791842 < 17298791842
-    let mut std_lt = comb::StdLt::from_constants(2706);
+    let mut std_lt = comb::StdLt::from_constants(2706, "".into());
     port_bindings![binds;
         left -> (72987918, 2706),
         right -> (18446744073709551615_u64, 2706)
@@ -1158,7 +1160,7 @@ fn test_std_lt_above64() {
         .unwrap();
     assert_eq!(res_lt.as_u64(), 1);
     //3_000_000 < 3_000_000 ? no!
-    let mut std_lt = comb::StdLt::from_constants(2423);
+    let mut std_lt = comb::StdLt::from_constants(2423, "".into());
     port_bindings![binds;
         left -> (3_000_000, 2423),
         right -> (3_000_000, 2423)
@@ -1179,7 +1181,7 @@ fn test_std_lt_above64() {
 #[test]
 #[should_panic]
 fn test_std_lt_panic() {
-    let mut std_lt = comb::StdLt::from_constants(5);
+    let mut std_lt = comb::StdLt::from_constants(5, "".into());
     port_bindings![binds;
         left -> (58, 6),
         right -> (12, 4)
@@ -1188,7 +1190,7 @@ fn test_std_lt_panic() {
 }
 #[test]
 fn test_std_eq() {
-    let mut std_eq = comb::StdEq::from_constants(16);
+    let mut std_eq = comb::StdEq::from_constants(16, "".into());
     port_bindings![binds;
         left -> (4, 16),
         right -> (4, 16)
@@ -1221,7 +1223,7 @@ fn test_std_eq() {
 
 #[test]
 fn test_std_eq_above64() {
-    let mut std_eq = comb::StdEq::from_constants(716);
+    let mut std_eq = comb::StdEq::from_constants(716, "".into());
     port_bindings![binds;
         left -> (18446744073709551615_u64, 716),
         right -> (18446744073709551615_u64, 716)
@@ -1235,7 +1237,7 @@ fn test_std_eq_above64() {
         .unwrap();
     assert_eq!(res_eq.as_u64(), 1);
     // 123456 =12377456 ? no!
-    let mut std_eq = comb::StdEq::from_constants(421113);
+    let mut std_eq = comb::StdEq::from_constants(421113, "".into());
     port_bindings![binds;
         left -> (123456, 421113),
         right -> (12377456, 421113)
@@ -1256,7 +1258,7 @@ fn test_std_eq_above64() {
 #[test]
 #[should_panic]
 fn test_std_eq_panic() {
-    let mut std_eq = comb::StdEq::from_constants(5);
+    let mut std_eq = comb::StdEq::from_constants(5, "".into());
     port_bindings![binds;
         left -> (42, 6),
         right -> (42, 6)
@@ -1265,7 +1267,7 @@ fn test_std_eq_panic() {
 }
 #[test]
 fn test_std_neq() {
-    let mut std_neq = comb::StdNeq::from_constants(16);
+    let mut std_neq = comb::StdNeq::from_constants(16, "".into());
     port_bindings![binds;
         left -> (4, 16),
         right -> (4, 16)
@@ -1299,7 +1301,7 @@ fn test_std_neq() {
 
 #[test]
 fn test_std_neq_above64() {
-    let mut std_neq = comb::StdNeq::from_constants(4321);
+    let mut std_neq = comb::StdNeq::from_constants(4321, "".into());
     port_bindings![binds;
         left -> (18446744073709551615_u64, 4321),
         right -> (18446744073709551615_u64, 4321)
@@ -1333,7 +1335,7 @@ fn test_std_neq_above64() {
 #[test]
 #[should_panic]
 fn test_std_neq_panic() {
-    let mut std_neq = comb::StdNeq::from_constants(5);
+    let mut std_neq = comb::StdNeq::from_constants(5, "".into());
     port_bindings![binds;
         left -> (45, 6),
         right -> (4, 3)
@@ -1343,7 +1345,7 @@ fn test_std_neq_panic() {
 
 #[test]
 fn test_std_ge() {
-    let mut std_ge = comb::StdGe::from_constants(8);
+    let mut std_ge = comb::StdGe::from_constants(8, "".into());
     port_bindings![binds;
         left -> (35, 8),
         right -> (165, 8)
@@ -1377,7 +1379,7 @@ fn test_std_ge() {
 
 #[test]
 fn test_std_ge_above64() {
-    let mut std_ge = comb::StdGe::from_constants(716);
+    let mut std_ge = comb::StdGe::from_constants(716, "".into());
     port_bindings![binds;
         left -> (18446744073709551615_u64, 716),
         right -> (14333, 716)
@@ -1391,7 +1393,7 @@ fn test_std_ge_above64() {
         .unwrap();
     assert_eq!(res_ge.as_u64(), 1);
     // 35 >= 35 ? yes
-    let mut std_ge = comb::StdGe::from_constants(423);
+    let mut std_ge = comb::StdGe::from_constants(423, "".into());
     port_bindings![binds;
         left -> (35, 423),
         right -> (35, 423)
@@ -1412,7 +1414,7 @@ fn test_std_ge_above64() {
 #[test]
 #[should_panic]
 fn test_std_ge_panic() {
-    let mut std_ge = comb::StdGe::from_constants(6);
+    let mut std_ge = comb::StdGe::from_constants(6, "".into());
     port_bindings![binds;
         left -> (40, 6),
         right -> (75, 7)
@@ -1421,7 +1423,7 @@ fn test_std_ge_panic() {
 }
 #[test]
 fn test_std_le() {
-    let mut std_le = comb::StdLe::from_constants(4);
+    let mut std_le = comb::StdLe::from_constants(4, "".into());
     port_bindings![binds;
         left -> (12, 4),
         right -> (8, 4)
@@ -1456,7 +1458,7 @@ fn test_std_le() {
 #[test]
 fn test_std_le_above64() {
     //72987918 <= 9729879
-    let mut std_le = comb::StdLe::from_constants(2706);
+    let mut std_le = comb::StdLe::from_constants(2706, "".into());
     port_bindings![binds;
         left -> (72_987_918, 2706),
         right -> (93_729_879, 2706)
@@ -1470,7 +1472,7 @@ fn test_std_le_above64() {
         .unwrap();
     assert_eq!(res_le.as_u64(), 1);
     //3_000_000 <= 3_000_000 ? yes!
-    let mut std_le = comb::StdLe::from_constants(2423);
+    let mut std_le = comb::StdLe::from_constants(2423, "".into());
     port_bindings![binds;
         left -> (3_000_000, 2423),
         right -> (3_000_000, 2423)
@@ -1491,7 +1493,7 @@ fn test_std_le_above64() {
 #[test]
 #[should_panic]
 fn test_std_le_panic() {
-    let mut std_le = comb::StdLe::from_constants(6);
+    let mut std_le = comb::StdLe::from_constants(6, "".into());
     port_bindings![binds;
         left -> (93, 7),
         right -> (68, 7)
@@ -1521,7 +1523,7 @@ mod property_tests {
     proptest! {
         #[test]
         fn std_add(in_left: u128, in_right: u128) {
-            let mut adder = combinational::StdAdd::from_constants(128);
+            let mut adder = combinational::StdAdd::from_constants(128, "".into());
             port_bindings![binds;
             left -> (in_left, 128),
             right -> (in_right, 128)
@@ -1534,7 +1536,7 @@ mod property_tests {
 
         #[test]
         fn std_sub(in_left: u128, in_right: u128) {
-            let mut sub = combinational::StdSub::from_constants(128);
+            let mut sub = combinational::StdSub::from_constants(128, "".into());
             port_bindings![binds;
             left -> (in_left, 128),
             right -> (in_right, 128)
@@ -1547,7 +1549,7 @@ mod property_tests {
 
         #[test]
         fn std_mult(in_left: u64, in_right: u64){
-            let mut mult = stateful::StdMultPipe::<false>::from_constants(64);
+            let mut mult = stateful::StdMultPipe::<false>::from_constants(64, "".into());
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
@@ -1563,7 +1565,7 @@ mod property_tests {
 
         #[test]
         fn std_smult(in_left: i64, in_right: i64){
-            let mut mult = stateful::StdMultPipe::<true>::from_constants(64);
+            let mut mult = stateful::StdMultPipe::<true>::from_constants(64, "".into());
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
@@ -1579,7 +1581,7 @@ mod property_tests {
 
         #[test]
         fn std_div(in_left: u64, in_right in (1..u64::MAX)) {
-            let mut mult = stateful::StdDivPipe::<false>::from_constants(64);
+            let mut mult = stateful::StdDivPipe::<false>::from_constants(64, "".into());
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
@@ -1597,7 +1599,7 @@ mod property_tests {
 
         #[test]
         fn std_sdiv(in_left: i64, in_right in (i64::MIN..i64::MAX).prop_filter("non-zero", |v| *v != 0_i64))  {
-            let mut mult = stateful::StdDivPipe::<true>::from_constants(64);
+            let mut mult = stateful::StdDivPipe::<true>::from_constants(64, "".into());
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),

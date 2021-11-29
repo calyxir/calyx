@@ -1,4 +1,5 @@
 use super::prim_utils::{get_input_unwrap, get_param};
+use super::primitive::Named;
 use super::{Entry, Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::utils::{construct_bindings, PrintCode};
@@ -22,25 +23,33 @@ pub struct StdMultPipe<const SIGNED: bool> {
     pub product: Value,
     update: Option<Value>,
     queue: VecDeque<Option<Value>>, //invariant: always length 2.
+    full_name: ir::Id,
 }
 
 impl<const SIGNED: bool> StdMultPipe<SIGNED> {
-    pub fn from_constants(width: u64) -> Self {
+    pub fn from_constants(width: u64, name: ir::Id) -> Self {
         StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
             update: None,
             queue: VecDeque::from(vec![None, None]),
+            full_name: name,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width)
+        Self::from_constants(width, name)
+    }
+}
+
+impl<const SIGNED: bool> Named for StdMultPipe<SIGNED> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -114,7 +123,10 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
             if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
-                warn!("Computation has under/overflowed in multiplier");
+                warn!(
+                    "Computation has under/overflowed in multiplier ({})",
+                    self.get_full_name()
+                );
             }
             self.update = Some(value);
         } else {
@@ -163,26 +175,34 @@ pub struct StdDivPipe<const SIGNED: bool> {
     pub remainder: Value,
     update: Option<(Value, Value)>, //first is quotient, second is remainder
     queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
+    full_name: ir::Id,
 }
 
 impl<const SIGNED: bool> StdDivPipe<SIGNED> {
-    pub fn from_constants(width: u64) -> Self {
+    pub fn from_constants(width: u64, name: ir::Id) -> Self {
         StdDivPipe {
             width,
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
             update: None,
             queue: VecDeque::from(vec![None, None]),
+            full_name: name,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width)
+        Self::from_constants(width, name)
+    }
+}
+
+impl<const SIGNED: bool> Named for StdDivPipe<SIGNED> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -269,7 +289,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
             if (overflow) & crate::SETTINGS.read().unwrap().error_on_overflow {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
-                warn!("Overflowed in signed divison")
+                warn!("Overflowed in signed divison ({})", self.get_full_name())
             }
 
             self.update = Some((q, r));
@@ -314,25 +334,33 @@ pub struct StdReg {
     pub data: [Value; 1],
     update: Option<Value>,
     write_en: bool,
+    full_name: ir::Id,
 }
 
 impl StdReg {
-    pub fn from_constants(width: u64) -> Self {
+    pub fn from_constants(width: u64, full_name: ir::Id) -> Self {
         StdReg {
             width,
             data: [Value::new(width as usize)],
             update: None,
             write_en: false,
+            full_name,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_reg binding")
             .1;
-        Self::from_constants(width)
+        Self::from_constants(width, name)
+    }
+}
+
+impl Named for StdReg {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -443,20 +471,26 @@ pub struct StdMemD1 {
     update: Option<(u64, Value)>,
     write_en: bool,
     last_index: u64,
+    full_name: ir::Id,
 }
 
 impl StdMemD1 {
-    pub fn from_constants(width: u64, size: u64, idx_size: u64) -> Self {
+    pub fn from_constants(
+        width: u64,
+        size: u64,
+        idx_size: u64,
+        full_name: ir::Id,
+    ) -> Self {
         let bindings = construct_bindings(
             [("WIDTH", width), ("SIZE", size), ("IDX_SIZE", idx_size)].iter(),
         );
-        Self::new(&bindings)
+        Self::new(&bindings, full_name)
     }
     /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
     /// slots for memory, accepting indecies (addr0) of width [idx_size].
     /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
     /// you will not be able to access the slots near the end of the memory.
-    pub fn new(params: &ir::Binding) -> StdMemD1 {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> StdMemD1 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width param for std_mem_d1");
         let size = get_param(params, "SIZE")
@@ -473,6 +507,7 @@ impl StdMemD1 {
             update: None,
             write_en: false,
             last_index: 0,
+            full_name: name,
         }
     }
 
@@ -494,6 +529,12 @@ impl StdMemD1 {
         }
 
         Ok(())
+    }
+}
+
+impl Named for StdMemD1 {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -661,6 +702,7 @@ pub struct StdMemD2 {
     update: Option<(u64, Value)>,
     write_en: bool,
     last_idx: (u64, u64),
+    full_name: ir::Id,
 }
 
 impl StdMemD2 {
@@ -670,6 +712,7 @@ impl StdMemD2 {
         d1_size: u64,
         d0_idx_size: u64,
         d1_idx_size: u64,
+        full_name: ir::Id,
     ) -> Self {
         let bindings = construct_bindings(
             [
@@ -681,7 +724,7 @@ impl StdMemD2 {
             ]
             .iter(),
         );
-        Self::new(&bindings)
+        Self::new(&bindings, full_name)
     }
 
     #[inline]
@@ -693,7 +736,7 @@ impl StdMemD2 {
     /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
     /// [d0_idx_size] and [d1_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding) -> StdMemD2 {
+    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD2 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d2");
         let d0_size = get_param(params, "D0_SIZE")
@@ -717,6 +760,7 @@ impl StdMemD2 {
             update: None,
             write_en: false,
             last_idx: (0, 0),
+            full_name,
         }
     }
 
@@ -742,6 +786,12 @@ impl StdMemD2 {
     #[inline]
     fn calc_addr(&self, addr0: u64, addr1: u64) -> u64 {
         addr0 * self.d1_size + addr1
+    }
+}
+
+impl Named for StdMemD2 {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -917,9 +967,11 @@ pub struct StdMemD3 {
     update: Option<(u64, Value)>,
     write_en: bool,
     last_idx: (u64, u64, u64),
+    full_name: ir::Id,
 }
 
 impl StdMemD3 {
+    #[allow(clippy::too_many_arguments)]
     pub fn from_constants(
         width: u64,
         d0_size: u64,
@@ -928,6 +980,7 @@ impl StdMemD3 {
         d0_idx_size: u64,
         d1_idx_size: u64,
         d2_idx_size: u64,
+        full_name: ir::Id,
     ) -> Self {
         let bindings = construct_bindings(
             [
@@ -941,13 +994,13 @@ impl StdMemD3 {
             ]
             .iter(),
         );
-        Self::new(&bindings)
+        Self::new(&bindings, full_name)
     }
     /// Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
     /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding) -> StdMemD3 {
+    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD3 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d3");
         let d0_size = get_param(params, "D0_SIZE")
@@ -979,6 +1032,7 @@ impl StdMemD3 {
             update: None,
             write_en: false,
             last_idx: (0, 0, 0),
+            full_name,
         }
     }
 
@@ -1009,6 +1063,12 @@ impl StdMemD3 {
     #[inline]
     fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64) -> u64 {
         self.d2_size * (addr0 * self.d1_size + addr1) + addr2
+    }
+}
+
+impl Named for StdMemD3 {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -1205,6 +1265,7 @@ pub struct StdMemD4 {
     update: Option<(u64, Value)>,
     write_en: bool,
     last_idx: (u64, u64, u64, u64),
+    full_name: ir::Id,
 }
 
 impl StdMemD4 {
@@ -1219,6 +1280,7 @@ impl StdMemD4 {
         d1_idx_size: u64,
         d2_idx_size: u64,
         d3_idx_size: u64,
+        full_name: ir::Id,
     ) -> Self {
         let bindings = construct_bindings(
             [
@@ -1234,13 +1296,13 @@ impl StdMemD4 {
             ]
             .iter(),
         );
-        Self::new(&bindings)
+        Self::new(&bindings, full_name)
     }
     // Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
     /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding) -> StdMemD4 {
+    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD4 {
         // yes this was incredibly tedious to write. Why do you ask?
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d4");
@@ -1279,6 +1341,7 @@ impl StdMemD4 {
             update: None,
             write_en: false,
             last_idx: (0, 0, 0, 0),
+            full_name,
         }
     }
 
@@ -1317,6 +1380,12 @@ impl StdMemD4 {
         self.d0_size * self.d1_size * self.d2_size * self.d3_size
     }
 }
+impl Named for StdMemD4 {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
+    }
+}
+
 impl Primitive for StdMemD4 {
     //null-op for now
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
@@ -1495,10 +1564,16 @@ pub struct StdFpMultPipe<const SIGNED: bool> {
     pub product: Value,
     update: Option<Value>,
     queue: VecDeque<Option<Value>>, //invariant: always length 2.
+    full_name: ir::Id,
 }
 
 impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
-    pub fn from_constants(width: u64, int_width: u64, frac_width: u64) -> Self {
+    pub fn from_constants(
+        width: u64,
+        int_width: u64,
+        frac_width: u64,
+        full_name: ir::Id,
+    ) -> Self {
         assert_eq!(width, int_width + frac_width);
         Self {
             width,
@@ -1507,10 +1582,11 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
             product: Value::zeroes(width),
             update: None,
             queue: VecDeque::from(vec![None, None]),
+            full_name,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, full_name: ir::Id) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("WIDTH parameter missing for fp mult");
         let int_width = get_param(params, "INT_WIDTH")
@@ -1518,7 +1594,13 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
         let frac_width = get_param(params, "FRAC_WIDTH")
             .expect("FRAC_WIDTH parameter missing for fp mult");
 
-        Self::from_constants(width, int_width, frac_width)
+        Self::from_constants(width, int_width, frac_width, full_name)
+    }
+}
+
+impl<const SIGNED: bool> Named for StdFpMultPipe<SIGNED> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 
@@ -1602,7 +1684,8 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
                 let fw = self.frac_width * 2;
 
                 warn!(
-                    "Over/underflow in fixed-point multiplier: {} to {}",
+                    "Over/underflow in fixed-point multiplier ({}): {} to {}",
+                    self.get_full_name(),
                     if SIGNED {
                         format!(
                             "{:.fw$}",
@@ -1663,9 +1746,15 @@ pub struct StdFpDivPipe<const SIGNED: bool> {
     pub remainder: Value,
     update: Option<(Value, Value)>, //first is quotient, second is remainder
     queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
+    full_name: ir::Id,
 }
 impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
-    pub fn from_constants(width: u64, int_width: u64, frac_width: u64) -> Self {
+    pub fn from_constants(
+        width: u64,
+        int_width: u64,
+        frac_width: u64,
+        name: ir::Id,
+    ) -> Self {
         assert_eq!(width, int_width + frac_width);
         Self {
             width,
@@ -1675,10 +1764,11 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
             remainder: Value::zeroes(width),
             update: None,
             queue: VecDeque::from(vec![None, None]),
+            full_name: name,
         }
     }
 
-    pub fn new(params: &ir::Binding) -> Self {
+    pub fn new(params: &ir::Binding, full_name: ir::Id) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("WIDTH parameter missing for fp div");
         let int_width = get_param(params, "INT_WIDTH")
@@ -1686,7 +1776,13 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
         let frac_width = get_param(params, "FRAC_WIDTH")
             .expect("FRAC_WIDTH parameter missing for fp div");
 
-        Self::from_constants(width, int_width, frac_width)
+        Self::from_constants(width, int_width, frac_width, full_name)
+    }
+}
+
+impl<const SIGNED: bool> Named for StdFpDivPipe<SIGNED> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
     }
 }
 

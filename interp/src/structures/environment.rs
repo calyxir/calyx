@@ -1,6 +1,8 @@
 //! Environment for interpreter.
 
-use super::names::{ComponentQIN, GroupQIN, InstanceName};
+use super::names::{
+    ComponentQIN, GroupQIN, InstanceName, QualifiedInstanceName,
+};
 use super::stk_env::Smoosher;
 use crate::debugger::PrintCode;
 use crate::errors::{InterpreterError, InterpreterResult};
@@ -108,91 +110,104 @@ impl InterpreterState {
     fn make_primitive(
         prim_name: &ir::Id,
         params: &ir::Binding,
-        cell_name: Option<&ir::Id>,
+        cell_name: &ir::Id,
         mems: &Option<MemoryMap>,
+        qin_name: &ComponentQIN,
     ) -> InterpreterResult<Box<dyn Primitive>> {
+        let cell_qin = QualifiedInstanceName::new(qin_name, cell_name).as_id();
         Ok(match prim_name.as_ref() {
-            "std_const" => Box::new(combinational::StdConst::new(params)),
+            "std_const" => {
+                Box::new(combinational::StdConst::new(params, cell_qin))
+            }
             // unsigned and signed basic arith
             "std_add" | "std_sadd" => {
-                Box::new(combinational::StdAdd::new(params))
+                Box::new(combinational::StdAdd::new(params, cell_qin))
             }
             "std_sub" | "std_ssub" => {
-                Box::new(combinational::StdSub::new(params))
+                Box::new(combinational::StdSub::new(params, cell_qin))
             }
             // fp basic arith
             "std_fp_sadd" | "std_fp_add" => {
-                Box::new(combinational::StdFpAdd::new(params))
+                Box::new(combinational::StdFpAdd::new(params, cell_qin))
             }
             "std_fp_ssub" | "std_fp_sub" => {
-                Box::new(combinational::StdFpSub::new(params))
+                Box::new(combinational::StdFpSub::new(params, cell_qin))
             }
             // unsigned arith
             "std_mult_pipe" => {
-                Box::new(stateful::StdMultPipe::<false>::new(params))
+                Box::new(stateful::StdMultPipe::<false>::new(params, cell_qin))
             }
             "std_div_pipe" => {
-                Box::new(stateful::StdDivPipe::<false>::new(params))
+                Box::new(stateful::StdDivPipe::<false>::new(params, cell_qin))
             }
             // signed arith
             "std_smult_pipe" => {
-                Box::new(stateful::StdMultPipe::<true>::new(params))
+                Box::new(stateful::StdMultPipe::<true>::new(params, cell_qin))
             }
             "std_sdiv_pipe" => {
-                Box::new(stateful::StdDivPipe::<true>::new(params))
+                Box::new(stateful::StdDivPipe::<true>::new(params, cell_qin))
             }
             // fp unsigned arith
-            "std_fp_mult_pipe" => {
-                Box::new(stateful::StdFpMultPipe::<false>::new(params))
-            }
+            "std_fp_mult_pipe" => Box::new(
+                stateful::StdFpMultPipe::<false>::new(params, cell_qin),
+            ),
             "std_fp_div_pipe" => {
-                Box::new(stateful::StdFpDivPipe::<false>::new(params))
+                Box::new(stateful::StdFpDivPipe::<false>::new(params, cell_qin))
             }
             // fp signed arith
             "std_fp_smult_pipe" => {
-                Box::new(stateful::StdFpMultPipe::<true>::new(params))
+                Box::new(stateful::StdFpMultPipe::<true>::new(params, cell_qin))
             }
             "std_fp_sdiv_pipe" => {
-                Box::new(stateful::StdFpDivPipe::<true>::new(params))
+                Box::new(stateful::StdFpDivPipe::<true>::new(params, cell_qin))
             }
             // unsigned shifts
-            "std_lsh" => Box::new(combinational::StdLsh::new(params)),
-            "std_rsh" => Box::new(combinational::StdRsh::new(params)),
+            "std_lsh" => Box::new(combinational::StdLsh::new(params, cell_qin)),
+            "std_rsh" => Box::new(combinational::StdRsh::new(params, cell_qin)),
             // Logical operators
-            "std_and" => Box::new(combinational::StdAnd::new(params)),
-            "std_or" => Box::new(combinational::StdOr::new(params)),
-            "std_xor" => Box::new(combinational::StdXor::new(params)),
-            "std_not" => Box::new(combinational::StdNot::new(params)),
+            "std_and" => Box::new(combinational::StdAnd::new(params, cell_qin)),
+            "std_or" => Box::new(combinational::StdOr::new(params, cell_qin)),
+            "std_xor" => Box::new(combinational::StdXor::new(params, cell_qin)),
+            "std_not" => Box::new(combinational::StdNot::new(params, cell_qin)),
             // Unsigned Comparsion
-            "std_ge" => Box::new(combinational::StdGe::new(params)),
-            "std_le" => Box::new(combinational::StdLe::new(params)),
-            "std_lt" => Box::new(combinational::StdLt::new(params)),
-            "std_gt" => Box::new(combinational::StdGt::new(params)),
-            "std_eq" => Box::new(combinational::StdEq::new(params)),
-            "std_neq" => Box::new(combinational::StdNeq::new(params)),
+            "std_ge" => Box::new(combinational::StdGe::new(params, cell_qin)),
+            "std_le" => Box::new(combinational::StdLe::new(params, cell_qin)),
+            "std_lt" => Box::new(combinational::StdLt::new(params, cell_qin)),
+            "std_gt" => Box::new(combinational::StdGt::new(params, cell_qin)),
+            "std_eq" => Box::new(combinational::StdEq::new(params, cell_qin)),
+            "std_neq" => Box::new(combinational::StdNeq::new(params, cell_qin)),
             // Signed Comparison
-            "std_sge" => Box::new(combinational::StdSge::new(params)),
-            "std_sle" => Box::new(combinational::StdSle::new(params)),
-            "std_slt" => Box::new(combinational::StdSlt::new(params)),
-            "std_sgt" => Box::new(combinational::StdSgt::new(params)),
-            "std_seq" => Box::new(combinational::StdSeq::new(params)),
-            "std_sneq" => Box::new(combinational::StdSneq::new(params)),
+            "std_sge" => Box::new(combinational::StdSge::new(params, cell_qin)),
+            "std_sle" => Box::new(combinational::StdSle::new(params, cell_qin)),
+            "std_slt" => Box::new(combinational::StdSlt::new(params, cell_qin)),
+            "std_sgt" => Box::new(combinational::StdSgt::new(params, cell_qin)),
+            "std_seq" => Box::new(combinational::StdSeq::new(params, cell_qin)),
+            "std_sneq" => {
+                Box::new(combinational::StdSneq::new(params, cell_qin))
+            }
             // unsigned FP comparison
-            "std_fp_gt" => Box::new(combinational::StdFpGt::new(params)),
+            "std_fp_gt" => {
+                Box::new(combinational::StdFpGt::new(params, cell_qin))
+            }
             // signed FP comparison
-            "std_fp_sgt" => Box::new(combinational::StdFpSgt::new(params)),
-            "std_fp_slt" => Box::new(combinational::StdFpSlt::new(params)),
+            "std_fp_sgt" => {
+                Box::new(combinational::StdFpSgt::new(params, cell_qin))
+            }
+            "std_fp_slt" => {
+                Box::new(combinational::StdFpSlt::new(params, cell_qin))
+            }
             // Resizing ops
-            "std_slice" => Box::new(combinational::StdSlice::new(params)),
-            "std_pad" => Box::new(combinational::StdPad::new(params)),
+            "std_slice" => {
+                Box::new(combinational::StdSlice::new(params, cell_qin))
+            }
+            "std_pad" => Box::new(combinational::StdPad::new(params, cell_qin)),
             // State components
-            "std_reg" => Box::new(stateful::StdReg::new(params)),
+            "std_reg" => Box::new(stateful::StdReg::new(params, cell_qin)),
             "std_mem_d1" => {
-                let mut prim = Box::new(stateful::StdMemD1::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD1::new(params, cell_qin));
 
-                let init = mems
-                    .as_ref()
-                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+                let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
                 if let Some(vals) = init {
                     prim.initialize_memory(vals)?;
@@ -200,11 +215,10 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d2" => {
-                let mut prim = Box::new(stateful::StdMemD2::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD2::new(params, cell_qin));
 
-                let init = mems
-                    .as_ref()
-                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+                let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
                 if let Some(vals) = init {
                     prim.initialize_memory(vals)?;
@@ -212,11 +226,10 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d3" => {
-                let mut prim = Box::new(stateful::StdMemD3::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD3::new(params, cell_qin));
 
-                let init = mems
-                    .as_ref()
-                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+                let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
                 if let Some(vals) = init {
                     prim.initialize_memory(vals)?;
@@ -224,11 +237,10 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d4" => {
-                let mut prim = Box::new(stateful::StdMemD4::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD4::new(params, cell_qin));
 
-                let init = mems
-                    .as_ref()
-                    .and_then(|x| cell_name.and_then(|name| x.get(name)));
+                let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
                 if let Some(vals) = init {
                     prim.initialize_memory(vals)?;
@@ -257,19 +269,14 @@ impl InterpreterState {
                     param_binding,
                     is_comb: _,
                 } => {
-                    let cell_name = match name.as_ref() {
-                        "std_mem_d1" | "std_mem_d2" | "std_mem_d3"
-                        | "std_mem_d4" => Some(cl.name()),
-                        _ => None,
-                    };
-
                     map.insert(
                         cl as ConstCell,
                         Self::make_primitive(
                             name,
                             param_binding,
-                            cell_name,
+                            cl.name(),
                             mems,
+                            qin_name,
                         )?,
                     );
                 }

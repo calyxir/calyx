@@ -13,10 +13,16 @@ use itertools::Itertools;
 use serde::Serialize;
 use std::fmt::Debug;
 use std::fmt::Display;
+
+/// A trait indicating that the thing has a name
+pub trait Named {
+    fn get_full_name(&self) -> &ir::Id;
+}
+
 /// A primitive for the interpreter.
 /// Roughly corresponds to the cells defined in the primitives library for the Calyx compiler.
 /// Primitives can be either stateful or combinational.
-pub trait Primitive {
+pub trait Primitive: Named {
     /// Does nothing for comb. prims; mutates internal state for stateful
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>>;
 

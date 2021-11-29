@@ -42,6 +42,14 @@ impl Eq for InstanceName {}
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ComponentQIN(Rc<Vec<InstanceName>>);
 
+impl ComponentQIN {
+    pub fn as_id(&self) -> Id {
+        let string_vec: Vec<String> =
+            self.0.iter().map(|x| x.instance.clone().id).collect();
+        string_vec.join(".").into()
+    }
+}
+
 impl Deref for ComponentQIN {
     type Target = Vec<InstanceName>;
 
@@ -80,6 +88,15 @@ pub struct QualifiedInstanceName {
     prefix: ComponentQIN,
     /// Cell name
     name: Id,
+}
+
+impl QualifiedInstanceName {
+    pub fn as_id(&self) -> Id {
+        let mut string_vec: Vec<String> =
+            self.prefix.iter().map(|x| x.instance.clone().id).collect();
+        string_vec.push(self.name.id.clone());
+        string_vec.join(".").into()
+    }
 }
 
 impl QualifiedInstanceName {
