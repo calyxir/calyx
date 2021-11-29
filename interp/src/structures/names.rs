@@ -45,18 +45,9 @@ pub struct ComponentQIN(Rc<Vec<InstanceName>>);
 
 impl ComponentQIN {
     pub fn as_id(&self) -> Id {
-        let mut acc = String::new();
-        match self.0.len() {
-            0 => {}
-            _n => {
-                write!(acc, "{}", &self.0[0].instance)
-                    .expect("error with name?");
-                for i in self.0.iter().skip(1) {
-                    write!(acc, ".{}", &i.instance).expect("error with name?");
-                }
-            }
-        }
-        acc.into()
+        let string_vec: Vec<String> =
+            self.0.iter().map(|x| x.instance.clone().id).collect();
+        string_vec.join(".").into()
     }
 }
 
@@ -102,23 +93,10 @@ pub struct QualifiedInstanceName {
 
 impl QualifiedInstanceName {
     pub fn as_id(&self) -> Id {
-        let mut acc = String::new();
-        match self.prefix.len() {
-            0 => {
-                unreachable!("This should never happen")
-            }
-            _n => {
-                write!(acc, "{}", &self.prefix[0].instance)
-                    .expect("error with name?");
-                for i in self.prefix.iter().skip(1) {
-                    write!(acc, ".{}", &i.instance).expect("error with name?");
-                }
-            }
-        }
-
-        write!(acc, ".{}", self.name).expect("error with name?");
-
-        acc.into()
+        let mut string_vec: Vec<String> =
+            self.prefix.iter().map(|x| x.instance.clone().id).collect();
+        string_vec.push(self.name.id.clone());
+        string_vec.join(".").into()
     }
 }
 

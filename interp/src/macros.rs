@@ -225,10 +225,3 @@ macro_rules! validate {
         }
     }
 }
-
-#[macro_export]
-macro_rules! exec_block {
-    ($self:ident, $body:block) => {
-        $body
-    };
-}
