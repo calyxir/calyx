@@ -74,14 +74,14 @@ macro_rules! comb_primitive {
             }
         }
 
-        impl $crate::primitives::primitive::Named for $name {
+        impl $crate::primitives::Named for $name {
             fn get_full_name(&self) -> &calyx::ir::Id {
                 &self.name
             }
         }
 
 
-        impl $crate::primitives::primitive::Primitive for $name {
+        impl $crate::primitives::Primitive for $name {
 
             //null-op; comb don't use do_tick()
             fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>>{
@@ -121,7 +121,8 @@ macro_rules! comb_primitive {
                         p => unreachable!(format!("Unknown port: {}", p)),
                     }
                 }
-                let name_val = self.get_full_name();
+                let name_val = $crate::primitives::Named::get_full_name(self);
+
 
                 let exec_func = |$($param: u64),+, $( $port: &Value ),+, $full_name: &calyx::ir::Id| -> $crate::errors::InterpreterResult<Value> {
                     $execute
