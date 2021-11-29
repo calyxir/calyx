@@ -1563,8 +1563,8 @@ pub struct StdFpMultPipe<const SIGNED: bool> {
     pub int_width: u64,
     pub frac_width: u64,
     pub product: Value,
-    update: Option<Value>,
-    queue: VecDeque<Option<Value>>, //invariant: always length 2.
+    update: Option<(Value, Value)>, // left, right
+    queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
 }
 
@@ -1582,7 +1582,7 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
             frac_width,
             product: Value::zeroes(width),
             update: None,
-            queue: VecDeque::from(vec![None, None]),
+            queue: ShiftBuffer::default(),
             full_name,
         }
     }
@@ -1607,51 +1607,7 @@ impl<const SIGNED: bool> Named for StdFpMultPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let out = self.queue.pop_back();
-        //push update to the front
-        self.queue.push_front(self.update.take());
-        //assert queue still has length 2
-        assert_eq!(
-            self.queue.len(),
-            2,
-            "std_mult_pipe's internal queue has length {} != 2",
-            self.queue.len()
-        );
-        Ok(if let Some(Some(out)) = out {
-            self.product = out.clone();
-            vec![
-                (ir::Id::from("out"), out),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
-        })
-    }
-
-    fn is_comb(&self) -> bool {
-        false
-    }
-
-    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
-        validate![inputs;
-            left: self.width,
-            right: self.width,
-            go: 1
-        ];
-    }
-
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let left = get_input_unwrap(inputs, "left");
-        let right = get_input_unwrap(inputs, "right");
-        let go = get_input_unwrap(inputs, "go");
-
-        if go.as_bool() {
+        let computed = if let Some((left, right)) = self.update.take() {
             let backing_val = if SIGNED {
                 Value::from(
                     left.as_signed() * right.as_signed(),
@@ -1716,9 +1672,47 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
                 )
             }
 
-            self.update = Some(
-                backing_val.slice_out(upper_idx as usize, lower_idx as usize),
-            )
+            Some(backing_val.slice_out(upper_idx as usize, lower_idx as usize))
+        } else {
+            None
+        };
+
+        Ok(if let Some(out) = self.queue.shift(computed) {
+            self.product = out.clone();
+            vec![
+                (ir::Id::from("out"), out),
+                (ir::Id::from("done"), Value::bit_high()),
+            ]
+        } else {
+            vec![
+                (ir::Id::from("out"), Value::zeroes(self.width)),
+                (ir::Id::from("done"), Value::bit_low()),
+            ]
+        })
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            left: self.width,
+            right: self.width,
+            go: 1
+        ];
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        let left = get_input_unwrap(inputs, "left");
+        let right = get_input_unwrap(inputs, "right");
+        let go = get_input_unwrap(inputs, "go");
+
+        if go.as_bool() {
+            self.update = Some(((*left).clone(), (*right).clone()))
         } else {
             self.update = None;
         }
@@ -1731,7 +1725,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.update = None;
-        self.queue = VecDeque::from(vec![None, None]);
+        self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),
             (ir::Id::from("done"), Value::bit_low()),
