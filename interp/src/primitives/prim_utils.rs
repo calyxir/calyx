@@ -58,6 +58,8 @@ impl<T, const N: usize> ShiftBuffer<T, N> {
     /// on the end of the buffer.
     pub fn shift(&mut self, element: Option<T>) -> Option<T> {
         self.buffer.push_front(element);
-        self.buffer.pop_back().flatten()
+        // this is safe as the buffer will always have N + 1 elements before
+        // this call
+        self.buffer.pop_back().unwrap()
     }
 }
