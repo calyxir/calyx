@@ -170,8 +170,8 @@ pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is quotient, second is remainder
-    queue: VecDeque<Option<(Value, Value)>>, //invariant: always length 2
+    update: Option<(Value, Value)>, //first is left, second is right
+    queue: ShiftBuffer<(Value, Value), 2>, //invariant: always length 2
     full_name: ir::Id,
 }
 
@@ -182,7 +182,7 @@ impl<const SIGNED: bool> StdDivPipe<SIGNED> {
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
             update: None,
-            queue: VecDeque::from(vec![None, None]),
+            queue: ShiftBuffer::default(),
             full_name: name,
         }
     }
@@ -205,15 +205,54 @@ impl<const SIGNED: bool> Named for StdDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let out = self.queue.pop_back();
-        self.queue.push_front(self.update.take());
-        assert_eq!(
-            self.queue.len(),
-            2,
-            "std_div_pipe's internal queue has length {} != 2",
-            self.queue.len()
-        );
-        let out = if let Some(Some((q, r))) = out {
+        let computed = if let Some((left, right)) = self.update.take() {
+            if right.as_unsigned() != 0_u32.into() {
+                let (q, overflow) = if SIGNED {
+                    Value::from_checked(
+                        left.as_signed() / right.as_signed(),
+                        self.width,
+                    )
+                } else {
+                    Value::from_checked(
+                        left.as_unsigned() / right.as_unsigned(),
+                        self.width,
+                    )
+                };
+                let r = if SIGNED {
+                    Value::from(
+                        left.as_signed().rem_euclid(right.as_signed()),
+                        self.width,
+                    )
+                } else {
+                    Value::from(
+                        left.as_unsigned().rem_euclid(right.as_unsigned()),
+                        self.width,
+                    )
+                };
+
+                // the only way this is possible is if the division is signed and the
+                // min_val is divided by negative one as the resultant postitive value will
+                // not be representable in the desired bit width
+                if (overflow)
+                    & crate::SETTINGS.read().unwrap().error_on_overflow
+                {
+                    return Err(InterpreterError::OverflowError());
+                } else if overflow {
+                    warn!(
+                        "Overflowed in signed divison ({})",
+                        self.get_full_name()
+                    )
+                }
+                Some((q, r))
+            } else {
+                warn!("Division by zero ({})", self.get_full_name());
+                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+            }
+        } else {
+            None
+        };
+
+        let out = if let Some((q, r)) = self.queue.shift(computed) {
             self.quotient = q.clone();
             self.remainder = r.clone();
             vec![
@@ -256,43 +295,8 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
         //continue computation
-        if go.as_bool() && right.as_unsigned() != 0_u32.into() {
-            let (q, overflow) = if SIGNED {
-                Value::from_checked(
-                    left.as_signed() / right.as_signed(),
-                    self.width,
-                )
-            } else {
-                Value::from_checked(
-                    left.as_unsigned() / right.as_unsigned(),
-                    self.width,
-                )
-            };
-            let r = if SIGNED {
-                Value::from(
-                    left.as_signed().rem_euclid(right.as_signed()),
-                    self.width,
-                )
-            } else {
-                Value::from(
-                    left.as_unsigned().rem_euclid(right.as_unsigned()),
-                    self.width,
-                )
-            };
-
-            // the only way this is possible is if the division is signed and the
-            // min_val is divided by negative one as the resultant postitive value will
-            // not be representable in the desired bit width
-            if (overflow) & crate::SETTINGS.read().unwrap().error_on_overflow {
-                return Err(InterpreterError::OverflowError());
-            } else if overflow {
-                warn!("Overflowed in signed divison ({})", self.get_full_name())
-            }
-
-            self.update = Some((q, r));
-        } else if go.as_bool() {
-            self.update =
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)));
+        if go.as_bool() {
+            self.update = Some(((*left).clone(), (*right).clone()));
         } else {
             self.update = None;
         }
@@ -304,7 +308,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.update = None;
-        self.queue = VecDeque::from(vec![None, None]);
+        self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
             (ir::Id::from("out_remainder"), self.remainder.clone()),
