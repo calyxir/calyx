@@ -1,5 +1,6 @@
 mod primitive;
 pub use primitive::Entry;
+pub use primitive::Named;
 pub use primitive::Primitive;
 pub use primitive::Serializeable;
 

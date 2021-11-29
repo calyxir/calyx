@@ -110,85 +110,141 @@ impl InterpreterState {
         params: &ir::Binding,
         cell_name: Option<&ir::Id>,
         mems: &Option<MemoryMap>,
+        qin_name: &ComponentQIN,
     ) -> InterpreterResult<Box<dyn Primitive>> {
         Ok(match prim_name.as_ref() {
-            "std_const" => Box::new(combinational::StdConst::new(params)),
+            "std_const" => {
+                Box::new(combinational::StdConst::new(params, qin_name.as_id()))
+            }
             // unsigned and signed basic arith
             "std_add" | "std_sadd" => {
-                Box::new(combinational::StdAdd::new(params))
+                Box::new(combinational::StdAdd::new(params, qin_name.as_id()))
             }
             "std_sub" | "std_ssub" => {
-                Box::new(combinational::StdSub::new(params))
+                Box::new(combinational::StdSub::new(params, qin_name.as_id()))
             }
             // fp basic arith
             "std_fp_sadd" | "std_fp_add" => {
-                Box::new(combinational::StdFpAdd::new(params))
+                Box::new(combinational::StdFpAdd::new(params, qin_name.as_id()))
             }
             "std_fp_ssub" | "std_fp_sub" => {
-                Box::new(combinational::StdFpSub::new(params))
+                Box::new(combinational::StdFpSub::new(params, qin_name.as_id()))
             }
             // unsigned arith
-            "std_mult_pipe" => {
-                Box::new(stateful::StdMultPipe::<false>::new(params))
-            }
-            "std_div_pipe" => {
-                Box::new(stateful::StdDivPipe::<false>::new(params))
-            }
+            "std_mult_pipe" => Box::new(stateful::StdMultPipe::<false>::new(
+                params,
+                qin_name.as_id(),
+            )),
+            "std_div_pipe" => Box::new(stateful::StdDivPipe::<false>::new(
+                params,
+                qin_name.as_id(),
+            )),
             // signed arith
-            "std_smult_pipe" => {
-                Box::new(stateful::StdMultPipe::<true>::new(params))
-            }
-            "std_sdiv_pipe" => {
-                Box::new(stateful::StdDivPipe::<true>::new(params))
-            }
+            "std_smult_pipe" => Box::new(stateful::StdMultPipe::<true>::new(
+                params,
+                qin_name.as_id(),
+            )),
+            "std_sdiv_pipe" => Box::new(stateful::StdDivPipe::<true>::new(
+                params,
+                qin_name.as_id(),
+            )),
             // fp unsigned arith
-            "std_fp_mult_pipe" => {
-                Box::new(stateful::StdFpMultPipe::<false>::new(params))
-            }
-            "std_fp_div_pipe" => {
-                Box::new(stateful::StdFpDivPipe::<false>::new(params))
-            }
+            "std_fp_mult_pipe" => Box::new(
+                stateful::StdFpMultPipe::<false>::new(params, qin_name.as_id()),
+            ),
+            "std_fp_div_pipe" => Box::new(
+                stateful::StdFpDivPipe::<false>::new(params, qin_name.as_id()),
+            ),
             // fp signed arith
-            "std_fp_smult_pipe" => {
-                Box::new(stateful::StdFpMultPipe::<true>::new(params))
-            }
-            "std_fp_sdiv_pipe" => {
-                Box::new(stateful::StdFpDivPipe::<true>::new(params))
-            }
+            "std_fp_smult_pipe" => Box::new(
+                stateful::StdFpMultPipe::<true>::new(params, qin_name.as_id()),
+            ),
+            "std_fp_sdiv_pipe" => Box::new(
+                stateful::StdFpDivPipe::<true>::new(params, qin_name.as_id()),
+            ),
             // unsigned shifts
-            "std_lsh" => Box::new(combinational::StdLsh::new(params)),
-            "std_rsh" => Box::new(combinational::StdRsh::new(params)),
+            "std_lsh" => {
+                Box::new(combinational::StdLsh::new(params, qin_name.as_id()))
+            }
+            "std_rsh" => {
+                Box::new(combinational::StdRsh::new(params, qin_name.as_id()))
+            }
             // Logical operators
-            "std_and" => Box::new(combinational::StdAnd::new(params)),
-            "std_or" => Box::new(combinational::StdOr::new(params)),
-            "std_xor" => Box::new(combinational::StdXor::new(params)),
-            "std_not" => Box::new(combinational::StdNot::new(params)),
+            "std_and" => {
+                Box::new(combinational::StdAnd::new(params, qin_name.as_id()))
+            }
+            "std_or" => {
+                Box::new(combinational::StdOr::new(params, qin_name.as_id()))
+            }
+            "std_xor" => {
+                Box::new(combinational::StdXor::new(params, qin_name.as_id()))
+            }
+            "std_not" => {
+                Box::new(combinational::StdNot::new(params, qin_name.as_id()))
+            }
             // Unsigned Comparsion
-            "std_ge" => Box::new(combinational::StdGe::new(params)),
-            "std_le" => Box::new(combinational::StdLe::new(params)),
-            "std_lt" => Box::new(combinational::StdLt::new(params)),
-            "std_gt" => Box::new(combinational::StdGt::new(params)),
-            "std_eq" => Box::new(combinational::StdEq::new(params)),
-            "std_neq" => Box::new(combinational::StdNeq::new(params)),
+            "std_ge" => {
+                Box::new(combinational::StdGe::new(params, qin_name.as_id()))
+            }
+            "std_le" => {
+                Box::new(combinational::StdLe::new(params, qin_name.as_id()))
+            }
+            "std_lt" => {
+                Box::new(combinational::StdLt::new(params, qin_name.as_id()))
+            }
+            "std_gt" => {
+                Box::new(combinational::StdGt::new(params, qin_name.as_id()))
+            }
+            "std_eq" => {
+                Box::new(combinational::StdEq::new(params, qin_name.as_id()))
+            }
+            "std_neq" => {
+                Box::new(combinational::StdNeq::new(params, qin_name.as_id()))
+            }
             // Signed Comparison
-            "std_sge" => Box::new(combinational::StdSge::new(params)),
-            "std_sle" => Box::new(combinational::StdSle::new(params)),
-            "std_slt" => Box::new(combinational::StdSlt::new(params)),
-            "std_sgt" => Box::new(combinational::StdSgt::new(params)),
-            "std_seq" => Box::new(combinational::StdSeq::new(params)),
-            "std_sneq" => Box::new(combinational::StdSneq::new(params)),
+            "std_sge" => {
+                Box::new(combinational::StdSge::new(params, qin_name.as_id()))
+            }
+            "std_sle" => {
+                Box::new(combinational::StdSle::new(params, qin_name.as_id()))
+            }
+            "std_slt" => {
+                Box::new(combinational::StdSlt::new(params, qin_name.as_id()))
+            }
+            "std_sgt" => {
+                Box::new(combinational::StdSgt::new(params, qin_name.as_id()))
+            }
+            "std_seq" => {
+                Box::new(combinational::StdSeq::new(params, qin_name.as_id()))
+            }
+            "std_sneq" => {
+                Box::new(combinational::StdSneq::new(params, qin_name.as_id()))
+            }
             // unsigned FP comparison
-            "std_fp_gt" => Box::new(combinational::StdFpGt::new(params)),
+            "std_fp_gt" => {
+                Box::new(combinational::StdFpGt::new(params, qin_name.as_id()))
+            }
             // signed FP comparison
-            "std_fp_sgt" => Box::new(combinational::StdFpSgt::new(params)),
-            "std_fp_slt" => Box::new(combinational::StdFpSlt::new(params)),
+            "std_fp_sgt" => {
+                Box::new(combinational::StdFpSgt::new(params, qin_name.as_id()))
+            }
+            "std_fp_slt" => {
+                Box::new(combinational::StdFpSlt::new(params, qin_name.as_id()))
+            }
             // Resizing ops
-            "std_slice" => Box::new(combinational::StdSlice::new(params)),
-            "std_pad" => Box::new(combinational::StdPad::new(params)),
+            "std_slice" => {
+                Box::new(combinational::StdSlice::new(params, qin_name.as_id()))
+            }
+            "std_pad" => {
+                Box::new(combinational::StdPad::new(params, qin_name.as_id()))
+            }
             // State components
-            "std_reg" => Box::new(stateful::StdReg::new(params)),
+            "std_reg" => {
+                Box::new(stateful::StdReg::new(params, qin_name.as_id()))
+            }
             "std_mem_d1" => {
-                let mut prim = Box::new(stateful::StdMemD1::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD1::new(params, qin_name.as_id()));
 
                 let init = mems
                     .as_ref()
@@ -200,7 +256,8 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d2" => {
-                let mut prim = Box::new(stateful::StdMemD2::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD2::new(params, qin_name.as_id()));
 
                 let init = mems
                     .as_ref()
@@ -212,7 +269,8 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d3" => {
-                let mut prim = Box::new(stateful::StdMemD3::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD3::new(params, qin_name.as_id()));
 
                 let init = mems
                     .as_ref()
@@ -224,7 +282,8 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d4" => {
-                let mut prim = Box::new(stateful::StdMemD4::new(params));
+                let mut prim =
+                    Box::new(stateful::StdMemD4::new(params, qin_name.as_id()));
 
                 let init = mems
                     .as_ref()
@@ -270,6 +329,7 @@ impl InterpreterState {
                             param_binding,
                             cell_name,
                             mems,
+                            qin_name,
                         )?,
                     );
                 }

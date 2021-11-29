@@ -8,7 +8,7 @@ use crate::debugger::PrintCode;
 use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
-use crate::primitives::Primitive;
+use crate::primitives::{Named, Primitive};
 use crate::structures::names::{ComponentQIN, GroupQIN};
 use crate::utils::AsRaw;
 use crate::values::Value;
@@ -59,6 +59,7 @@ pub struct ComponentInterpreter {
     go_port: RRC<Port>,
     input_hash_set: Rc<HashSet<*const ir::Port>>,
     qual_name: ComponentQIN,
+    full_name_clone: ir::Id, // only for printing
 }
 
 impl ComponentInterpreter {
@@ -106,6 +107,7 @@ impl ComponentInterpreter {
         } else {
             interp = StructuralOrControl::Env(env);
         };
+        let full_clone = qin.as_id();
 
         Self {
             interp,
@@ -117,6 +119,7 @@ impl ComponentInterpreter {
             done_port,
             input_hash_set,
             qual_name: qin,
+            full_name_clone: full_clone,
         }
     }
 
@@ -268,6 +271,12 @@ impl Interpreter for ComponentInterpreter {
             StructuralOrControl::Nothing => unreachable!(),
             StructuralOrControl::Env(_) => Ok(()),
         }
+    }
+}
+
+impl Named for ComponentInterpreter {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name_clone
     }
 }
 

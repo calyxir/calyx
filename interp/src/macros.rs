@@ -24,14 +24,33 @@ macro_rules! comb_primitive {
     ]( $( $port:ident : $width:ident ),+ ) ->
      ( $( $out:ident : $out_width:ident ),+ ) $execute:block
     ) => {
-        #[derive(Clone, Debug, Default)]
+        comb_primitive!(NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+    };
+
+    ($full_name:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        #[derive(Clone, Debug)]
         #[allow(non_snake_case)]
         pub struct $name {
-            $($param: u64),+
+            $($param: u64),+,
+            name: calyx::ir::Id
         }
 
+        impl Default for $name {
+            fn default() -> Self {
+                Self {
+                    name: "".into(),
+                    $($param: 0),+,
+                }
+            }
+        }
+
+
         impl $name {
-            pub fn new(params: &calyx::ir::Binding) -> Self {
+            pub fn new(params: &calyx::ir::Binding, name: calyx::ir::Id) -> Self {
                 let mut base = Self::default();
                 for (param, value) in params {
                     match param.as_ref() {
@@ -39,19 +58,30 @@ macro_rules! comb_primitive {
                         p => unreachable!(format!("Unknown parameter: {}", p)),
                     }
                 }
+                base.name = name;
                 base
+
+
+
             }
 
             #[allow(non_snake_case)]
-            pub fn from_constants($( $param: u64 ),+) -> Self {
+            pub fn from_constants($( $param: u64 ),+, name: calyx::ir::Id) -> Self {
                 $name {
-                    $($param),+
+                    $($param),+,
+                    name
                 }
             }
         }
 
+        impl $crate::primitives::primitive::Named for $name {
+            fn get_full_name(&self) -> &calyx::ir::Id {
+                &self.name
+            }
+        }
 
-        impl Primitive for $name {
+
+        impl $crate::primitives::primitive::Primitive for $name {
 
             //null-op; comb don't use do_tick()
             fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>>{
@@ -91,8 +121,9 @@ macro_rules! comb_primitive {
                         p => unreachable!(format!("Unknown port: {}", p)),
                     }
                 }
+                let name_val = self.get_full_name();
 
-                let exec_func = |$($param: u64),+, $( $port: &Value ),+| -> $crate::errors::InterpreterResult<Value> {
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $full_name: &calyx::ir::Id| -> $crate::errors::InterpreterResult<Value> {
                     $execute
                 };
 
@@ -101,7 +132,8 @@ macro_rules! comb_primitive {
                     $(self.$param),+,
                     $( base
                         .$port
-                        .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+
+                        .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+,
+                    name_val
                 )?;
 
                 return Ok(vec![
@@ -191,4 +223,11 @@ macro_rules! validate {
             }
         }
     }
+}
+
+#[macro_export]
+macro_rules! exec_block {
+    ($self:ident, $body:block) => {
+        $body
+    };
 }
