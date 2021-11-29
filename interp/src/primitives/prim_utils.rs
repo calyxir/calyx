@@ -62,4 +62,13 @@ impl<T, const N: usize> ShiftBuffer<T, N> {
         // this call
         self.buffer.pop_back().unwrap()
     }
+
+    /// Removes all instantiated elements in the buffer and replaces them with
+    /// empty slots
+    pub fn reset(&mut self) {
+        self.buffer.clear();
+        for _ in 0..N {
+            self.buffer.push_front(None)
+        }
+    }
 }

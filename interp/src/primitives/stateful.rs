@@ -1,4 +1,4 @@
-use super::prim_utils::{get_input_unwrap, get_param};
+use super::prim_utils::{get_input_unwrap, get_param, ShiftBuffer};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
@@ -21,8 +21,8 @@ use std::collections::VecDeque;
 pub struct StdMultPipe<const SIGNED: bool> {
     pub width: u64,
     pub product: Value,
-    update: Option<Value>,
-    queue: VecDeque<Option<Value>>, //invariant: always length 2.
+    update: Option<(Value, Value)>,
+    queue: ShiftBuffer<(Value, Value), 2>,
     full_name: ir::Id,
 }
 
@@ -32,17 +32,14 @@ impl<const SIGNED: bool> StdMultPipe<SIGNED> {
             width,
             product: Value::zeroes(width as usize),
             update: None,
-            queue: VecDeque::from(vec![None, None]),
+            queue: ShiftBuffer::default(),
             full_name: name,
         }
     }
 
     pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
-        let width = params
-            .iter()
-            .find(|(n, _)| n.as_ref() == "WIDTH")
-            .expect("Missing `WIDTH` param from std_mult_pipe binding")
-            .1;
+        let width = get_param(params, "WIDTH")
+            .expect("Missing `WIDTH` param from std_mult_pipe binding");
         Self::from_constants(width, name)
     }
 }
@@ -55,25 +52,37 @@ impl<const SIGNED: bool> Named for StdMultPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let out = self.queue.pop_back();
-        //push update to the front
-        self.queue.push_front(self.update.take());
-        //assert queue still has length 2
-        assert_eq!(
-            self.queue.len(),
-            2,
-            "std_mult_pipe's internal queue has length {} != 2",
-            self.queue.len()
-        );
-        let out = if let Some(Some(out)) = out {
-            self.product = out;
+        let out = self.queue.shift(self.update.take());
+
+        let out = if let Some((left, right)) = out {
+            let (value, overflow) = if SIGNED {
+                Value::from_checked(
+                    left.as_signed() * right.as_signed(),
+                    self.width,
+                )
+            } else {
+                Value::from_checked(
+                    left.as_unsigned() * right.as_unsigned(),
+                    self.width,
+                )
+            };
+
+            if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
+                return Err(InterpreterError::OverflowError());
+            } else if overflow {
+                warn!(
+                    "Computation has under/overflowed in multiplier ({})",
+                    self.get_full_name()
+                );
+            }
+
+            self.product = value;
             //return vec w/ out and done
             vec![
                 (ir::Id::from("out"), self.product.clone()),
                 (ir::Id::from("done"), Value::bit_high()),
             ]
         } else {
-            //return empty vec
             vec![
                 (ir::Id::from("out"), Value::zeroes(self.width)),
                 (ir::Id::from("done"), Value::bit_low()),
@@ -106,29 +115,10 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
         let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
         let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
+
         //continue computation
         if go.as_bool() {
-            let (value, overflow) = if SIGNED {
-                Value::from_checked(
-                    left.as_signed() * right.as_signed(),
-                    self.width,
-                )
-            } else {
-                Value::from_checked(
-                    left.as_unsigned() * right.as_unsigned(),
-                    self.width,
-                )
-            };
-
-            if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
-                return Err(InterpreterError::OverflowError());
-            } else if overflow {
-                warn!(
-                    "Computation has under/overflowed in multiplier ({})",
-                    self.get_full_name()
-                );
-            }
-            self.update = Some(value);
+            self.update = Some(((*left).clone(), (*right).clone()));
         } else {
             self.update = None;
         }
@@ -141,7 +131,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.update = None;
-        self.queue = VecDeque::from(vec![None, None]);
+        self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),
             (ir::Id::from("done"), Value::bit_low()),
