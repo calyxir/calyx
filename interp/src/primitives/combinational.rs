@@ -153,7 +153,7 @@ comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
 });
 
 // ===================== Unsigned binary operations ======================
-comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(NAME; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let a_iter = left.iter();
     let b_iter = right.iter();
     let mut c_in = false;
@@ -171,7 +171,7 @@ comb_primitive!(StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         if crate::SETTINGS.read().unwrap().error_on_overflow {
             return Err(InterpreterError::OverflowError());
         }
-        warn!("Integer over/underflow in std_add({})", WIDTH);
+        warn!("Integer over/underflow in {}", NAME);
     }
     let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left

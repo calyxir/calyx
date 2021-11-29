@@ -123,7 +123,10 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
             if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
-                warn!("Computation has under/overflowed in multiplier");
+                warn!(
+                    "Computation has under/overflowed in multiplier ({})",
+                    self.get_full_name()
+                );
             }
             self.update = Some(value);
         } else {
@@ -286,7 +289,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
             if (overflow) & crate::SETTINGS.read().unwrap().error_on_overflow {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
-                warn!("Overflowed in signed divison")
+                warn!("Overflowed in signed divison ({})", self.get_full_name())
             }
 
             self.update = Some((q, r));
@@ -1681,7 +1684,8 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
                 let fw = self.frac_width * 2;
 
                 warn!(
-                    "Over/underflow in fixed-point multiplier: {} to {}",
+                    "Over/underflow in fixed-point multiplier ({}): {} to {}",
+                    self.get_full_name(),
                     if SIGNED {
                         format!(
                             "{:.fw$}",
