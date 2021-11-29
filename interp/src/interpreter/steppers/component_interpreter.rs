@@ -59,7 +59,8 @@ pub struct ComponentInterpreter {
     go_port: RRC<Port>,
     input_hash_set: Rc<HashSet<*const ir::Port>>,
     qual_name: ComponentQIN,
-    full_name_clone: ir::Id, // used to satisfy the Named requirement for primitives
+    /// used to satisfy the Named requirement for primitives, primarially for error messages
+    full_name_clone: ir::Id,
 }
 
 impl ComponentInterpreter {
