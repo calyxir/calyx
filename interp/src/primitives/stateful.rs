@@ -22,7 +22,7 @@ pub struct StdMultPipe<const SIGNED: bool> {
     pub width: u64,
     pub product: Value,
     update: Option<(Value, Value)>,
-    queue: ShiftBuffer<(Value, Value), 2>,
+    queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
 }
 
@@ -52,9 +52,8 @@ impl<const SIGNED: bool> Named for StdMultPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let out = self.queue.shift(self.update.take());
-
-        let out = if let Some((left, right)) = out {
+        // compute the value for this cycle
+        let computed = if let Some((left, right)) = self.update.take() {
             let (value, overflow) = if SIGNED {
                 Value::from_checked(
                     left.as_signed() * right.as_signed(),
@@ -76,6 +75,14 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
                 );
             }
 
+            Some(value)
+        } else {
+            None
+        };
+
+        // shift elements through the buffer
+
+        let out = if let Some(value) = self.queue.shift(computed) {
             self.product = value;
             //return vec w/ out and done
             vec![
