@@ -1,7 +1,6 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
 use std::fmt::Display;
-use std::fmt::Write;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::rc::Rc;
