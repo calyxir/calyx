@@ -101,6 +101,28 @@ pub struct QualifiedInstanceName {
 }
 
 impl QualifiedInstanceName {
+    pub fn as_id(&self) -> Id {
+        let mut acc = String::new();
+        match self.prefix.len() {
+            0 => {
+                unreachable!("This should never happen")
+            }
+            _n => {
+                write!(acc, "{}", &self.prefix[0].instance)
+                    .expect("error with name?");
+                for i in self.prefix.iter().skip(1) {
+                    write!(acc, ".{}", &i.instance).expect("error with name?");
+                }
+            }
+        }
+
+        write!(acc, ".{}", self.name).expect("error with name?");
+
+        acc.into()
+    }
+}
+
+impl QualifiedInstanceName {
     pub fn new(prefix: &ComponentQIN, name: &Id) -> Self {
         Self {
             prefix: prefix.clone(),
