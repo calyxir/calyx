@@ -1,5 +1,6 @@
 use crate::values::Value;
 use calyx::ir;
+use std::collections::VecDeque;
 
 pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
 where
@@ -35,4 +36,39 @@ where
     S: AsRef<str>,
 {
     get_input(inputs, target).unwrap()
+}
+
+/// A shift buffer of a fixed size
+pub struct ShiftBuffer<T, const N: usize> {
+    buffer: VecDeque<Option<T>>,
+}
+
+impl<T, const N: usize> Default for ShiftBuffer<T, N> {
+    fn default() -> Self {
+        let mut buffer = VecDeque::with_capacity(N);
+        for _ in 0..N {
+            buffer.push_front(None)
+        }
+        Self { buffer }
+    }
+}
+
+impl<T, const N: usize> ShiftBuffer<T, N> {
+    /// Shifts an element on to the front of the buffer and returns the element
+    /// on the end of the buffer.
+    pub fn shift(&mut self, element: Option<T>) -> Option<T> {
+        self.buffer.push_front(element);
+        // this is safe as the buffer will always have N + 1 elements before
+        // this call
+        self.buffer.pop_back().unwrap()
+    }
+
+    /// Removes all instantiated elements in the buffer and replaces them with
+    /// empty slots
+    pub fn reset(&mut self) {
+        self.buffer.clear();
+        for _ in 0..N {
+            self.buffer.push_front(None)
+        }
+    }
 }
