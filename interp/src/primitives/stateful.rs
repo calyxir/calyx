@@ -2,12 +2,14 @@ use super::prim_utils::{get_input_unwrap, get_param, ShiftBuffer};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
+use crate::logging::{self, warn};
 use crate::utils::{construct_bindings, PrintCode};
 use crate::validate;
 use crate::values::Value;
 use calyx::ir;
 use ibig::ops::RemEuclid;
-use log::warn;
+
+const DECIMAL_PRINT_WIDTH: usize = 7;
 
 /// Pipelined Multiplication (3 cycles)
 /// Still bounded by u64.
@@ -23,6 +25,7 @@ pub struct StdMultPipe<const SIGNED: bool> {
     update: Option<(Value, Value)>,
     queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
+    logger: logging::Logger,
 }
 
 impl<const SIGNED: bool> StdMultPipe<SIGNED> {
@@ -32,6 +35,7 @@ impl<const SIGNED: bool> StdMultPipe<SIGNED> {
             product: Value::zeroes(width as usize),
             update: None,
             queue: ShiftBuffer::default(),
+            logger: logging::new_sublogger(&name),
             full_name: name,
         }
     }
@@ -69,6 +73,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
                 warn!(
+                    self.logger,
                     "Computation has under/overflowed in multiplier ({})",
                     self.get_full_name()
                 );
@@ -172,6 +177,7 @@ pub struct StdDivPipe<const SIGNED: bool> {
     update: Option<(Value, Value)>, //first is left, second is right
     queue: ShiftBuffer<(Value, Value), 2>, //invariant: always length 2
     full_name: ir::Id,
+    logger: logging::Logger,
 }
 
 impl<const SIGNED: bool> StdDivPipe<SIGNED> {
@@ -182,6 +188,7 @@ impl<const SIGNED: bool> StdDivPipe<SIGNED> {
             remainder: Value::zeroes(width as usize),
             update: None,
             queue: ShiftBuffer::default(),
+            logger: logging::new_sublogger(&name),
             full_name: name,
         }
     }
@@ -238,13 +245,15 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                     return Err(InterpreterError::OverflowError());
                 } else if overflow {
                     warn!(
-                        "Overflowed in signed divison ({})",
-                        self.get_full_name()
+                        self.logger,
+                        "Computation underflow ({} -> {})",
+                        left.as_signed() / right.as_signed(),
+                        q.as_signed()
                     )
                 }
                 Some((q, r))
             } else {
-                warn!("Division by zero ({})", self.get_full_name());
+                warn!(self.logger, "Division by zero");
                 Some((Value::zeroes(self.width), Value::zeroes(self.width)))
             }
         } else {
@@ -1565,6 +1574,7 @@ pub struct StdFpMultPipe<const SIGNED: bool> {
     update: Option<(Value, Value)>, // left, right
     queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
+    logger: logging::Logger,
 }
 
 impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
@@ -1582,6 +1592,7 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
             product: Value::zeroes(width),
             update: None,
             queue: ShiftBuffer::default(),
+            logger: logging::new_sublogger(&full_name),
             full_name,
         }
     }
@@ -1637,35 +1648,34 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
                 let out = backing_val
                     .clone()
                     .slice_out(upper_idx as usize, lower_idx as usize);
-                let fw = self.frac_width * 2;
 
                 warn!(
-                    "Over/underflow in fixed-point multiplier ({}): {} to {}",
-                    self.get_full_name(),
+                    self.logger,
+                    "Computation over/underflow: {} to {}",
                     if SIGNED {
                         format!(
                             "{:.fw$}",
                             backing_val.as_sfp((self.frac_width * 2) as usize),
-                            fw = fw as usize
+                            fw = DECIMAL_PRINT_WIDTH
                         )
                     } else {
                         format!(
                             "{:.fw$}",
                             backing_val.as_ufp((self.frac_width * 2) as usize),
-                            fw = fw as usize
+                            fw = DECIMAL_PRINT_WIDTH
                         )
                     },
                     if SIGNED {
                         format!(
                             "{:.fw$}",
                             out.as_sfp(self.frac_width as usize),
-                            fw = self.frac_width as usize
+                            fw = DECIMAL_PRINT_WIDTH
                         )
                     } else {
                         format!(
                             "{:.fw$}",
                             out.as_ufp(self.frac_width as usize),
-                            fw = self.frac_width as usize
+                            fw = DECIMAL_PRINT_WIDTH
                         )
                     },
                 )
@@ -1741,6 +1751,7 @@ pub struct StdFpDivPipe<const SIGNED: bool> {
     update: Option<(Value, Value)>, //first is left, second is right
     queue: ShiftBuffer<(Value, Value), 2>,
     full_name: ir::Id,
+    logger: logging::Logger,
 }
 impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
     pub fn from_constants(
@@ -1758,6 +1769,7 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
             remainder: Value::zeroes(width),
             update: None,
             queue: ShiftBuffer::default(),
+            logger: logging::new_sublogger(&name),
             full_name: name,
         }
     }
@@ -1811,7 +1823,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
                 };
                 Some((q, r))
             } else {
-                warn!("Division by zero ({})", self.get_full_name());
+                warn!(self.logger, "Division by zero");
                 Some((Value::zeroes(self.width), Value::zeroes(self.width)))
             }
         } else {

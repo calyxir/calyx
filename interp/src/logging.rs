@@ -1,8 +1,10 @@
 use lazy_static::*;
 
 // re-export for convenience
-pub use slog::{debug, error, info, trace, warn};
-use slog::{o, Drain, Level, Logger};
+#[allow(unused_imports)]
+pub(crate) use slog::{debug, error, info, o, trace, warn, Logger};
+
+use slog::{Drain, Level};
 
 lazy_static! {
     /// Global root logger. Note should be initialized after SETTINGS
@@ -20,4 +22,8 @@ lazy_static! {
 
         slog::Logger::root(drain, o!())
     };
+}
+
+pub fn new_sublogger<S: AsRef<str>>(source_name: S) -> Logger {
+    ROOT_LOGGER.new(o!("source" => String::from(source_name.as_ref())))
 }
