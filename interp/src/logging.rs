@@ -1,8 +1,9 @@
 use lazy_static::*;
 
 // re-export for convenience
+pub use slog::Logger;
 #[allow(unused_imports)]
-pub(crate) use slog::{debug, error, info, o, trace, warn, Logger};
+pub(crate) use slog::{debug, error, info, o, trace, warn};
 
 use slog::{Drain, Level};
 
