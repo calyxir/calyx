@@ -15,6 +15,8 @@ pub struct Config {
     pub error_on_overflow: bool,
     /// permits "sloppy" interpretation with parallel blocks
     pub allow_par_conflicts: bool,
+    /// suppresses warning printing
+    pub quiet: bool,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -22,6 +24,7 @@ impl Default for Config {
             allow_invalid_memory_access: false,
             error_on_overflow: false,
             allow_par_conflicts: false,
+            quiet: false,
         }
     }
 }

@@ -8,11 +8,12 @@ use interp::{
 };
 
 use argh::FromArgs;
-use log::warn;
+use slog::{o, warn, Drain};
 use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
+
 #[derive(FromArgs)]
 /// The Calyx Interpreter
 pub struct Opts {
@@ -104,18 +105,12 @@ fn print_res(
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
-    // TODO (Griffin): add some of the config flags to CLI
-    stderrlog::new()
-        .module(module_path!())
-        .quiet(false)
-        .verbosity(if opts.quiet { 0 } else { 1 }) // warnings
-        .timestamp(stderrlog::Timestamp::Off)
-        .init()
-        .unwrap();
-
     {
         // get read access to the settings
         let mut write_lock = interp::SETTINGS.write().unwrap();
+        if opts.quiet {
+            write_lock.quiet = true;
+        }
         if opts.allow_invalid_memory_access {
             write_lock.allow_invalid_memory_access = true;
         }
@@ -124,9 +119,14 @@ fn main() -> InterpreterResult<()> {
         }
         if opts.allow_par_conflicts {
             write_lock.allow_par_conflicts = true;
-            warn!("You have enabled Par conflicts. This is not recommended and is usually a bad idea")
         }
         // release lock
+    }
+
+    let log = &interp::logging::ROOT_LOGGER;
+
+    if interp::SETTINGS.read().unwrap().allow_par_conflicts {
+        warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
     }
 
     // Construct IR
