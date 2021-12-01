@@ -97,7 +97,6 @@ fn print_res(
     }
 }
 
-//first half of this is tests
 /// Interpret a group from a Calyx program
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
