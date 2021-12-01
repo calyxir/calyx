@@ -74,8 +74,17 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
             } else if overflow {
                 warn!(
                     self.logger,
-                    "Computation has under/overflowed in multiplier ({})",
-                    self.get_full_name()
+                    "Computation under/overflowed ({} -> {})",
+                    if SIGNED {
+                        format!("{}", left.as_signed() * right.as_signed())
+                    } else {
+                        format!("{}", left.as_unsigned() * right.as_unsigned())
+                    },
+                    if SIGNED {
+                        format!("{}", value.as_signed())
+                    } else {
+                        format!("{}", value.as_unsigned())
+                    }
                 );
             }
 
