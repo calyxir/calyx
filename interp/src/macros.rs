@@ -150,7 +150,7 @@ macro_rules! comb_primitive {
                         .$port
                         .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+,
                     &self.logger,
-                    self.get_full_name(),
+                    $crate::primitives::Named::get_full_name(self),
                 )?;
 
                 return Ok(vec![
