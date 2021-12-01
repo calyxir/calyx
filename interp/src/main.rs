@@ -8,7 +8,7 @@ use interp::{
 };
 
 use argh::FromArgs;
-use slog::{o, warn, Drain};
+use slog::warn;
 use std::{
     path::{Path, PathBuf},
     rc::Rc,

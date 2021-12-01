@@ -20,8 +20,6 @@ argh = "0.1.5"
 rustyline = "9.0.0"
 fraction = { version = "0.9.0", features = ["with-serde-support"] }
 thiserror = "1.0.26"
-log = { version = "0.4.14", features = ["std"]}
-stderrlog = "0.5.1"
 lazy_static = "1.4.0"
 ibig = { version= "0.3.4", features = ["serde"] }
 pest = "2.1.3"

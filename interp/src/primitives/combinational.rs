@@ -4,11 +4,11 @@ use super::{
     primitive::Named,
     Primitive,
 };
+use crate::logging::warn;
 use crate::values::Value;
 use crate::{comb_primitive, errors::InterpreterError};
 use bitvec::vec::BitVec;
 use calyx::ir;
-use log::warn;
 use std::ops::Not;
 
 /// A constant.
@@ -153,7 +153,7 @@ comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
 });
 
 // ===================== Unsigned binary operations ======================
-comb_primitive!(NAME; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(LOG: logger; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let a_iter = left.iter();
     let b_iter = right.iter();
     let mut c_in = false;
@@ -171,17 +171,17 @@ comb_primitive!(NAME; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
         if crate::SETTINGS.read().unwrap().error_on_overflow {
             return Err(InterpreterError::OverflowError());
         }
-        warn!("Integer over/underflow in {}", NAME);
+        warn!(logger, "Computation over/underflow");
     }
     let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left
     assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
-comb_primitive!(NAME; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(NAME: full_name; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
-    let mut adder = StdAdd::from_constants(WIDTH, NAME.clone());
+    let mut adder = StdAdd::from_constants(WIDTH, full_name.clone());
     let (_,new_right) = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
@@ -215,7 +215,7 @@ comb_primitive!(StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH
     assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
-comb_primitive!(NAME; StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(NAME: NAME; StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
     let mut adder = StdAdd::from_constants(WIDTH, NAME.clone());

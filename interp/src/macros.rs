@@ -24,10 +24,26 @@ macro_rules! comb_primitive {
     ]( $( $port:ident : $width:ident ),+ ) ->
      ( $( $out:ident : $out_width:ident ),+ ) $execute:block
     ) => {
-        comb_primitive!(NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+        comb_primitive!(LOG; NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
     };
 
-    ($full_name:ident; $name:ident[
+    (LOG : $log:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        comb_primitive!($log; NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+    };
+
+    (NAME : $full_name:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        comb_primitive!(LOG; $full_name; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+    };
+
+    ($log:ident; $full_name:ident; $name:ident[
         $( $param:ident ),+
     ]( $( $port:ident : $width:ident ),+ ) ->
      ( $( $out:ident : $out_width:ident ),+ ) $execute:block
@@ -36,13 +52,15 @@ macro_rules! comb_primitive {
         #[allow(non_snake_case)]
         pub struct $name {
             $($param: u64),+,
-            name: calyx::ir::Id
+            name: calyx::ir::Id,
+            logger: $crate::logging::Logger,
         }
 
         impl Default for $name {
             fn default() -> Self {
                 Self {
                     name: "".into(),
+                    logger: $crate::logging::new_sublogger(""),
                     $($param: 0),+,
                 }
             }
@@ -58,17 +76,16 @@ macro_rules! comb_primitive {
                         p => unreachable!(format!("Unknown parameter: {}", p)),
                     }
                 }
+                base.logger = $crate::logging::new_sublogger(&name);
                 base.name = name;
                 base
-
-
-
             }
 
             #[allow(non_snake_case)]
             pub fn from_constants($( $param: u64 ),+, name: calyx::ir::Id) -> Self {
                 $name {
                     $($param),+,
+                    logger: $crate::logging::new_sublogger(&name),
                     name
                 }
             }
@@ -121,10 +138,8 @@ macro_rules! comb_primitive {
                         p => unreachable!(format!("Unknown port: {}", p)),
                     }
                 }
-                let name_val = $crate::primitives::Named::get_full_name(self);
 
-
-                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $full_name: &calyx::ir::Id| -> $crate::errors::InterpreterResult<Value> {
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $log: &$crate::logging::Logger, $full_name:&calyx::ir::Id| -> $crate::errors::InterpreterResult<Value> {
                     $execute
                 };
 
@@ -134,7 +149,8 @@ macro_rules! comb_primitive {
                     $( base
                         .$port
                         .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+,
-                    name_val
+                    &self.logger,
+                    self.get_full_name(),
                 )?;
 
                 return Ok(vec![
