@@ -1,15 +1,18 @@
-use crate::environment::InterpreterState;
-use argh::FromArgs;
 use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
-use interp::debugger::Debugger;
-use interp::environment;
-use interp::errors::{InterpreterError, InterpreterResult};
-use interp::interpreter::interpret_component;
-use interp::interpreter_ir as iir;
+use interp::{
+    debugger::Debugger,
+    environment::InterpreterState,
+    errors::{InterpreterError, InterpreterResult},
+    interpreter::interpret_component,
+    interpreter_ir as iir,
+};
+
+use argh::FromArgs;
 use log::warn;
-use std::path::Path;
-use std::path::PathBuf;
-use std::rc::Rc;
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 #[derive(FromArgs)]
 /// The Calyx Interpreter
 pub struct Opts {
@@ -151,11 +154,8 @@ fn main() -> InterpreterResult<()> {
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
-    let env = environment::InterpreterState::init_top_level(
-        &components,
-        main_component,
-        &mems,
-    );
+    let env =
+        InterpreterState::init_top_level(&components, main_component, &mems);
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
         Command::Interpret(_) => interpret_component(main_component, env?),
