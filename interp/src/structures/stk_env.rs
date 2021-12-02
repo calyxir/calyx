@@ -838,7 +838,10 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                         if crate::SETTINGS.read().unwrap().allow_par_conflicts
                             && prev == v
                         {
-                            log::warn!("Allowing parallel conflict")
+                            crate::logging::warn!(
+                                crate::logging::ROOT_LOGGER,
+                                "Allowing parallel conflict"
+                            )
                         } else {
                             return Err(CollisionError(k, prev, v));
                         }
