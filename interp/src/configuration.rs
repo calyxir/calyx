@@ -19,7 +19,7 @@ pub struct Config {
     pub quiet: bool,
 }
 
-#[allow(clippy::derivable_impls)]
+// #[allow(clippy::derivable_impls)]
 impl Default for Config {
     fn default() -> Self {
         Self {
