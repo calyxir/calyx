@@ -5,7 +5,6 @@ use crate::ir::{
 };
 use boolean_expression::Expr;
 use ir::traversal::{Action, VisResult};
-use itertools::Itertools;
 
 impl From<ir::Guard> for Expr<ir::Guard> {
     fn from(guard: ir::Guard) -> Self {
