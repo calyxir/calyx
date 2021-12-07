@@ -5,7 +5,6 @@ use crate::ir::{
 };
 use boolean_expression::Expr;
 use ir::traversal::{Action, VisResult};
-use itertools::Itertools;
 
 impl From<ir::Guard> for Expr<ir::Guard> {
     fn from(guard: ir::Guard) -> Self {
@@ -116,7 +115,7 @@ fn simplify_guard(guard: ir::Guard) -> ir::Guard {
                 })
                 .fold(ir::Guard::True, |acc, x| acc & x)
         })
-        .fold1(ir::Guard::or)
+        .reduce(ir::Guard::or)
         .unwrap();
 
     let common_guard = common
