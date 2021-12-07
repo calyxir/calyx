@@ -116,7 +116,7 @@ fn simplify_guard(guard: ir::Guard) -> ir::Guard {
                 })
                 .fold(ir::Guard::True, |acc, x| acc & x)
         })
-        .fold1(ir::Guard::or)
+        .reduce(ir::Guard::or)
         .unwrap();
 
     let common_guard = common
