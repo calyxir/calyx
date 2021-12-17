@@ -576,6 +576,7 @@ impl Primitive for StdMemD1 {
             }
 
             return Err(InterpreterError::InvalidMemoryAccess {
+                name: self.full_name.clone(),
                 access: vec![self.last_index],
                 dims: vec![self.size],
             });
@@ -831,6 +832,7 @@ impl Primitive for StdMemD2 {
                 }
             }
             return Err(InterpreterError::InvalidMemoryAccess {
+                name: self.full_name.clone(),
                 access: vec![self.last_idx.0, self.last_idx.1],
                 dims: vec![self.d0_size, self.d1_size],
             });
@@ -1109,6 +1111,7 @@ impl Primitive for StdMemD3 {
                 }
             }
             return Err(InterpreterError::InvalidMemoryAccess {
+                name: self.full_name.clone(),
                 access: vec![self.last_idx.0, self.last_idx.1, self.last_idx.2],
                 dims: vec![self.d0_size, self.d1_size, self.d2_size],
             });
@@ -1424,6 +1427,7 @@ impl Primitive for StdMemD4 {
             }
 
             return Err(InterpreterError::InvalidMemoryAccess {
+                name: self.full_name.clone(),
                 access: vec![
                     self.last_idx.0,
                     self.last_idx.1,

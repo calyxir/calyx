@@ -80,17 +80,17 @@ impl Command {
 impl Command {
     fn help_string() -> Vec<(Vec<&'static str>, &'static str)> {
         vec![
-            (vec!["Step", "S"], "Advance the execution by a step"),
-            (vec!["Step-over", "S"], "Advance the execution over a given group"),
-            (vec!["Continue", "C"], "Continue until the program finishes executing or hits a breakpoint"),
+            (vec!["Step", "s"], "Advance the execution by a step"),
+            (vec!["Step-over"], "Advance the execution over a given group"),
+            (vec!["Continue", "c"], "Continue until the program finishes executing or hits a breakpoint"),
             (vec!["Display"], "Display the full state"),
-            (vec!["Print", "P"], "Print target value"),
+            (vec!["Print", "p"], "Print target value"),
             (vec!["Print-state"], "Print the internal state of the target cell"),
             (vec!["Watch"], "Watch a given group with a print statement"),
             (vec!["Help", "h"], "Print this message"),
-            (vec!["Break", "Br"], "Create a breakpoint"),
-            (vec!["Info break"], "List all breakpoints"),
-            (vec!["Delete","Del"], "Delete target breakpoint"),
+            (vec!["Break", "br"], "Create a breakpoint"),
+            (vec!["Info break", "ib"], "List all breakpoints"),
+            (vec!["Delete","del"], "Delete target breakpoint"),
             (vec!["Enable"], "Enable target breakpoint"),
             (vec!["Disable"], "Disable target breakpoint"),
             (vec!["Exit"], "Exit the debugger")

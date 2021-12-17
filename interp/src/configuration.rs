@@ -18,6 +18,8 @@ pub struct Config {
     /// suppresses warning printing
     pub quiet: bool,
 }
+
+// #[allow(clippy::derivable_impls)]
 impl Default for Config {
     fn default() -> Self {
         Self {
