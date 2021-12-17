@@ -263,7 +263,7 @@ jobs:
       run: |
         unset JAVA_TOOL_OPTIONS
         # Run all tests except TVM
-        runt -x tvm -d -o fail
+        runt -x relay -d -o fail
     - name: Run Python Tests
       run: pytest fud/fud/stages/verilator/tests/numeric_types.py
 
