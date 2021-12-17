@@ -152,6 +152,10 @@ comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
     Ok(r#in.clone_bit_vec().not().into())
 });
 
+comb_primitive!(StdWire[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
+    Ok(r#in.clone().into())
+});
+
 // ===================== Unsigned binary operations ======================
 comb_primitive!(LOG: logger; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let a_iter = left.iter();
