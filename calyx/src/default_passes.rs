@@ -6,6 +6,7 @@ use crate::passes::{
     LowerGuards, MergeAssign, MinimizeRegs, Papercut, ParToSeq,
     RegisterUnsharing, RemoveCombGroups, ResetInsertion, ResourceSharing,
     SimplifyGuards, SynthesisPapercut, TopDownCompileControl, WellFormed,
+    WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -25,6 +26,7 @@ impl PassManager {
         pm.register_pass::<GoInsertion>()?;
         pm.register_pass::<ComponentInterface>()?;
         pm.register_pass::<Inliner>()?;
+        pm.register_pass::<WireInliner>()?;
         pm.register_pass::<Externalize>()?;
         pm.register_pass::<CollapseControl>()?;
         pm.register_pass::<CompileEmpty>()?;
