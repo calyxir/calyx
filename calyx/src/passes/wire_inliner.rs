@@ -89,12 +89,16 @@ impl Visitor for WireInliner {
             gr.borrow_mut().assignments = assigns;
         });
 
-        let mut all_assigns: Vec<ir::Assignment> = groups
+        let mut group_assigns = groups
             .into_iter()
             .flat_map(|g| g.borrow_mut().assignments.drain(..).collect_vec())
             .collect_vec();
 
-        comp.continuous_assignments.append(&mut all_assigns);
+        comp.continuous_assignments
+            .iter_mut()
+            .for_each(|assign| rewrite_assign(&hole_map, assign));
+
+        comp.continuous_assignments.append(&mut group_assigns);
 
         // remove group from control
         Ok(Action::Change(ir::Control::empty()))
