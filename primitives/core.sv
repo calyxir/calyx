@@ -18,10 +18,10 @@ module std_const #(
 endmodule
 
 module std_wire #(
-  parameter WIDTH = 32,
+  parameter WIDTH = 32
 ) (
   input logic [WIDTH - 1:0] in,
-  output logic [WIDTH - 1:0] out,
+  output logic [WIDTH - 1:0] out
 );
   assign out = in;
 endmodule
