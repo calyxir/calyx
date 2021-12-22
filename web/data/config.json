@@ -1,5 +1,5 @@
 {
-    "url_prefix": "https://raw.githubusercontent.com/cucapra/futil/",
+    "url_prefix": "https://raw.githubusercontent.com/cucapra/calyx/",
     "categories": [
         {
             "name": "library",
@@ -14,7 +14,7 @@
             "name": "examples",
             "items": [
                 {
-                    "name": "Seq",
+                    "name": "Sequence",
                     "file": "tests/correctness/seq.futil",
                     "root": "/",
                     "passes": [
@@ -22,35 +22,37 @@
                     ]
                 },
                 {
-                    "name": "Par",
-                    "file": "tests/correctness/par.futil",
-                    "root": "/",
-                    "passes": [
-                        "tdcc"
-                    ]
-                },
-                {
-                    "name": "If",
+                    "name": "Conditional",
                     "file": "tests/correctness/if.futil",
                     "root": "/",
                     "passes": [
+                        "remove-comb-groups",
                         "tdcc"
                     ]
                 },
                 {
-                    "name": "While",
+                    "name": "Loops",
                     "file": "tests/correctness/while.futil",
                     "root": "/",
                     "passes": [
+                        "remove-comb-groups",
                         "tdcc"
                     ]
                 },
                 {
-                    "name": "Invoke",
+                    "name": "Invoke (call)",
                     "file": "tests/passes/compile-invoke.futil",
                     "root": "/",
                     "passes": [
                         "compile-invoke"
+                    ]
+                },
+                {
+                    "name": "Parallel",
+                    "file": "tests/correctness/par.futil",
+                    "root": "/",
+                    "passes": [
+                        "tdcc"
                     ]
                 },
                 {

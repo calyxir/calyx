@@ -18,9 +18,8 @@
         <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
     </head>
     <body>
-    <header>
-    </header>
         <div id="diffEditor" class="container editor language-futil center">
+            <!-- Logo -->
             <div class="logo">
             <a class="unstyled-link" href="https://calyxir.org">
             <img class="main-logo" src="https://calyxir.org/img/logo-text.svg" alt="Calyx" />
@@ -28,12 +27,13 @@
             <h3>
             A Compiler Infrastructure for Accelerator Generators
             </h3>
-            <hr/>
             </div>
+            <!-- Examples -->
             <div class="example">
             <h2>Examples</h2>
             <select id="examples-select"></select>
             </div>
+            <!-- Pass Selector -->
             <div class="passes center">
             <h2> Compiler Passes </h2>
                 <div id="passes"></div>
@@ -41,6 +41,7 @@
                 <button id="compile">Compile</button>
                 </div>
             </div>
+            <!-- Input Editor -->
             <div class="input-editor">
               <pre id="input"
                    class="left"
@@ -49,6 +50,7 @@
                   <code></code>
               </pre>
             </div>
+            <!-- Output Editor -->
             <div class="output-editor">
               <pre id="output"
                    class="right"
@@ -56,6 +58,7 @@
                   <code></code>
               </pre>
             </div>
+            <!-- Footer -->
             <div class="footer">
               <hr/>
               <div id="calyx-version"></div>

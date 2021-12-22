@@ -5,11 +5,19 @@
     --edit-code-bg: hsl(44, 87%, 94%);
     --view-code-bg: hsl(44, 50%, 97%);
     --border-color: rgba(0, 0, 0, 0.5);
-
     --border-radius: 4px;
 }
 
 body {
     color: var(--dark-text-color);
     background: var(--bg-color);
+}
+
+h1, h2 {
+  margin-top: 1em;
+  margin-bottom: 0.1em;
+}
+
+h3 {
+  margin-top: 0.5em;
 }
