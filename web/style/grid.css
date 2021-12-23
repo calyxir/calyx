@@ -14,14 +14,13 @@ body {
 
 .container {
   display: grid;
-  grid-template-rows: 0.1fr 0.1fr 0.3fr 3fr 3fr 0.2fr;
   grid-template-areas:
-  "logo logo"
-  "example example"
-  "passes passes"
-  "input input"
-  "output output"
-  "footer footer"
+  "logo"
+  "example"
+  "passes"
+  "input"
+  "output"
+  "footer"
 }
 .main-logo {
   height: 7rem;
@@ -65,9 +64,11 @@ body {
 }
 .input-editor {
   grid-area: input;
+  overflow: auto;
 }
 .output-editor {
   grid-area: output;
+  overflow: auto;
 }
 .footer {
   margin-top: 2em;

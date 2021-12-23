@@ -8,9 +8,7 @@
         <title>Calyx Playground</title>
 
         <link rel="stylesheet" type="text/css" href="node_modules/prismjs/themes/prism-solarizedlight.css">
-        <link rel="stylesheet" type="text/css" href="style/toggle.css">
         <link rel="stylesheet" type="text/css" href="style/grid.css">
-        <link rel="stylesheet" type="text/css" href="style/scroll.css">
         <link rel="stylesheet" type="text/css" href="style/diff.css">
         <link rel="stylesheet" type="text/css" href="style/editor.css">
         <link rel="stylesheet" type="text/css" href="style/main.css">
@@ -18,7 +16,7 @@
         <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
     </head>
     <body>
-        <div id="diffEditor" class="container editor language-futil center">
+        <div id="diffEditor" class="container editor language-futil">
             <!-- Logo -->
             <div class="logo">
             <a class="unstyled-link" href="https://calyxir.org">
@@ -34,7 +32,7 @@
             <select id="examples-select"></select>
             </div>
             <!-- Pass Selector -->
-            <div class="passes center">
+            <div class="passes">
             <h2> Compiler Passes </h2>
                 <div id="passes"></div>
                 <div class="compile">
@@ -44,7 +42,6 @@
             <!-- Input Editor -->
             <div class="input-editor">
               <pre id="input"
-                   class="left"
                    contenteditable="true"
                    spellcheck="false">
                   <code></code>
@@ -53,7 +50,6 @@
             <!-- Output Editor -->
             <div class="output-editor">
               <pre id="output"
-                   class="right"
                    contenteditable="false">
                   <code></code>
               </pre>
