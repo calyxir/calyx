@@ -169,6 +169,9 @@ impl InterpreterState {
             "std_or" => Box::new(combinational::StdOr::new(params, cell_qin)),
             "std_xor" => Box::new(combinational::StdXor::new(params, cell_qin)),
             "std_not" => Box::new(combinational::StdNot::new(params, cell_qin)),
+            "std_wire" => {
+                Box::new(combinational::StdWire::new(params, cell_qin))
+            }
             // Unsigned Comparsion
             "std_ge" => Box::new(combinational::StdGe::new(params, cell_qin)),
             "std_le" => Box::new(combinational::StdLe::new(params, cell_qin)),
