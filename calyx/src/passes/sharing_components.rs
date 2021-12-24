@@ -209,7 +209,7 @@ impl<T: ShareComponents> Visitor for T {
 
         if let Some(cell) = parent {
             // find rewrite for conditional port cell
-            let rewrite = self.get_rewrites().get(&cell.borrow().name());
+            let rewrite = self.get_rewrites().get(cell.borrow().name());
             if let Some(new_cell) = rewrite {
                 let new_port = new_cell.borrow().get(&cond_port.borrow().name);
                 s.port = new_port;
@@ -240,7 +240,7 @@ impl<T: ShareComponents> Visitor for T {
 
         if let Some(cell) = parent {
             // find rewrite for conditional port cell
-            let rewrite = self.get_rewrites().get(&cell.borrow().name());
+            let rewrite = self.get_rewrites().get(cell.borrow().name());
             if let Some(new_cell) = rewrite {
                 let new_port = new_cell.borrow().get(&cond_port.borrow().name);
                 s.port = new_port;
@@ -268,7 +268,7 @@ impl<T: ShareComponents> Visitor for T {
 
             if let Some(cell) = parent {
                 // find rewrite for conditional port cell
-                let rewrite = self.get_rewrites().get(&cell.borrow().name());
+                let rewrite = self.get_rewrites().get(cell.borrow().name());
                 if let Some(new_cell) = rewrite {
                     let new_port = new_cell.borrow().get(&src.borrow().name);
                     *src.borrow_mut() = new_port.borrow().clone();
@@ -288,7 +288,7 @@ impl<T: ShareComponents> Visitor for T {
 
             if let Some(cell) = parent {
                 // find rewrite for conditional port cell
-                let rewrite = self.get_rewrites().get(&cell.borrow().name());
+                let rewrite = self.get_rewrites().get(cell.borrow().name());
                 if let Some(new_cell) = rewrite {
                     let new_port = new_cell.borrow().get(&dest.borrow().name);
                     *dest.borrow_mut() = new_port.borrow().clone();
