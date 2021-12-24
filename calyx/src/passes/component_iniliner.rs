@@ -122,7 +122,7 @@ impl Visitor for ComponentInliner {
             let cell = cell_ref.borrow();
             if cell.is_component() && cell.get_attribute("inline").is_some() {
                 let comp_name = cell.type_name().unwrap();
-                Self::inline_component(&mut builder, comp_map[&comp_name]);
+                Self::inline_component(&mut builder, comp_map[comp_name]);
             }
         }
 

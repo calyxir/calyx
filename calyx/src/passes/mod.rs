@@ -34,6 +34,7 @@ pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
 pub use compile_empty::CompileEmpty;
 pub use compile_invoke::CompileInvoke;
+pub use component_iniliner::ComponentInliner;
 pub use component_interface::ComponentInterface;
 pub use dead_cell_removal::DeadCellRemoval;
 pub use dead_group_removal::DeadGroupRemoval;
