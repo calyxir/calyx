@@ -125,7 +125,7 @@ pub enum CellType {
         /// Name of the primitive cell used to instantiate this cell.
         name: Id,
         /// Bindings for the parameters. Uses Vec to retain the input order.
-        param_binding: Binding,
+        param_binding: Box<Binding>,
         /// True iff this is a combinational primitive
         is_comb: bool,
     },
@@ -177,7 +177,7 @@ impl Cell {
         self.ports
             .iter()
             .find(|&g| g.borrow().name == name)
-            .map(|r| Rc::clone(r))
+            .map(Rc::clone)
     }
 
     /// Get a reference to the first port that has the attribute `attr`.
@@ -188,7 +188,7 @@ impl Cell {
         self.ports
             .iter()
             .find(|&g| g.borrow().attributes.has(attr.as_ref()))
-            .map(|r| Rc::clone(r))
+            .map(Rc::clone)
     }
 
     /// Get a reference to the named port and throw an error if it doesn't
@@ -331,7 +331,7 @@ impl Group {
         self.holes
             .iter()
             .find(|&g| g.borrow().name == name)
-            .map(|r| Rc::clone(r))
+            .map(Rc::clone)
     }
 
     /// Get a reference to the named hole or panic.

@@ -153,7 +153,7 @@ impl IRPrinter {
     ) -> io::Result<()> {
         let sig = comp.signature.borrow();
         let (inputs, outputs): (Vec<_>, Vec<_>) =
-            sig.ports.iter().map(|p| Rc::clone(p)).partition(|p| {
+            sig.ports.iter().map(Rc::clone).partition(|p| {
                 // Cell signature stores the ports in reversed direction.
                 matches!(p.borrow().direction, ir::Direction::Output)
             });

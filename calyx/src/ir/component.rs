@@ -199,7 +199,7 @@ impl<T: GetName> IdList<T> {
     where
         S: Clone + AsRef<str>,
     {
-        self.0.get(&name.as_ref().into()).map(|r| Rc::clone(r))
+        self.0.get(&name.as_ref().into()).map(Rc::clone)
     }
 }
 
