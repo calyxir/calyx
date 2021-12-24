@@ -107,6 +107,7 @@ impl Visitor for Inliner {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // get the only group in the enable
         let top_level = match &*comp.control.borrow() {

@@ -98,6 +98,7 @@ impl Visitor for RemoveCombGroups {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         self.updated = false;
 
@@ -206,6 +207,7 @@ impl Visitor for RemoveCombGroups {
         s: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(c) = &s.comb_group {
             let mut new_group = None;
@@ -255,6 +257,7 @@ impl Visitor for RemoveCombGroups {
         s: &mut ir::While,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if s.cond.is_some() {
             // Construct a new `while` statement
@@ -291,6 +294,7 @@ impl Visitor for RemoveCombGroups {
         s: &mut ir::If,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if s.cond.is_some() {
             // Construct a new `if` statement
@@ -329,6 +333,7 @@ impl Visitor for RemoveCombGroups {
         &mut self,
         comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if self.updated && comp.attributes.get("static").is_some() {
             return Err(Error::PassAssumption(

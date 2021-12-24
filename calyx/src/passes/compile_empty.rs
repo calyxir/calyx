@@ -40,6 +40,7 @@ impl Visitor for CompileEmpty {
         _s: &mut ir::Empty,
         comp: &mut Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let group_ref = match &self.group_name {
             Some(g) => comp.find_group(g).unwrap(),
@@ -76,6 +77,7 @@ impl Visitor for CompileEmpty {
         &mut self,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // The empty group, if created, is only defined for this component.
         // Deregister it before walking over another group.

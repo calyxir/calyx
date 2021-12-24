@@ -75,6 +75,7 @@ impl Visitor for GroupToInvoke {
         s: &mut ir::Enable,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let group = s.group.borrow();
 

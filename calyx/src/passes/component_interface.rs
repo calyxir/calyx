@@ -47,6 +47,7 @@ impl Visitor for ComponentInterface {
         &mut self,
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let control_ref = Rc::clone(&comp.control);
         let control = control_ref.borrow();
