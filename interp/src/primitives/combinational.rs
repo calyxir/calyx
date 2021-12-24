@@ -153,7 +153,7 @@ comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
 });
 
 comb_primitive!(StdWire[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
-    Ok(r#in.clone().into())
+    Ok(r#in.clone())
 });
 
 // ===================== Unsigned binary operations ======================
