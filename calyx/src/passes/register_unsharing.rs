@@ -22,7 +22,7 @@ impl Named for RegisterUnsharing {
     }
 }
 
-type RewriteMap<T> = HashMap<T, Vec<(RRC<Cell>, RRC<Cell>)>>;
+type RewriteMap<T> = HashMap<T, HashMap<ir::Id, RRC<Cell>>>;
 
 // A struct for managing the overlapping analysis and rewrite information
 struct Bookkeeper {
@@ -123,16 +123,16 @@ impl Bookkeeper {
             for group_or_invoke in grouplist {
                 match group_or_invoke {
                     GroupOrInvoke::Group(group) => {
-                        grp_map.entry(group).or_default().push((
-                            builder.component.find_cell(old_name).unwrap(),
+                        grp_map.entry(group).or_default().insert(
+                            old_name.clone(),
                             builder.component.find_cell(new_name).unwrap(),
-                        ))
+                        );
                     }
                     GroupOrInvoke::Invoke(invoke) => {
-                        invoke_map.entry(invoke.clone()).or_default().push((
-                            builder.component.find_cell(old_name).unwrap(),
+                        invoke_map.entry(invoke.clone()).or_default().insert(
+                            old_name.clone(),
                             builder.component.find_cell(new_name).unwrap(),
-                        ))
+                        );
                     }
                 }
             }
@@ -203,29 +203,25 @@ impl Visitor for RegisterUnsharing {
 
 fn replace_invoke_ports(
     invoke: &mut ir::Invoke,
-    rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+    rewrites: &HashMap<ir::Id, RRC<ir::Cell>>,
 ) {
-    let parent_matches = |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
-        if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-            Rc::ptr_eq(&cell_wref.upgrade(), cell)
-        } else {
-            false
-        }
-    };
-
     let get_port =
         |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
             Rc::clone(&cell.borrow().get(&port.borrow().name))
         };
 
-    for (_name, port) in
-        invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut())
-    {
-        if let Some((_old, new)) = rewrites
-            .iter()
-            .find(|&(cell, _)| parent_matches(port, cell))
-        {
-            *port = get_port(port, new)
+    for (_, port) in invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut()) {
+        let rewrite =
+            if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
+                let cell_ref = cell_wref.upgrade();
+                let parent = cell_ref.borrow();
+                rewrites.get(parent.name())
+            } else {
+                None
+            };
+
+        if let Some(cell) = rewrite {
+            *port = get_port(port, cell)
         }
     }
 }

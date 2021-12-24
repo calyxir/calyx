@@ -7,7 +7,7 @@ use ir::{
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -70,10 +70,10 @@ pub trait ShareComponents {
     }
 
     /// Set the list of rewrites.
-    fn set_rewrites(&mut self, rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>);
+    fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, RRC<ir::Cell>>);
 
     /// Get the list of rewrites.
-    fn get_rewrites(&self) -> &[(RRC<ir::Cell>, RRC<ir::Cell>)];
+    fn get_rewrites(&self) -> &HashMap<ir::Id, RRC<ir::Cell>>;
 }
 
 impl<T: ShareComponents> Visitor for T {
@@ -154,12 +154,15 @@ impl<T: ShareComponents> Visitor for T {
             }
         });
 
-        let mut coloring = Vec::new();
+        let mut coloring = HashMap::new();
         for graph in graphs_by_type.values() {
             if graph.has_nodes() {
-                coloring.extend(graph.color_greedy().iter().map(|(a, b)| {
-                    (comp.find_cell(&a).unwrap(), comp.find_cell(&b).unwrap())
-                }));
+                coloring.extend(
+                    graph
+                        .color_greedy()
+                        .iter()
+                        .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
+                );
             }
         }
 
@@ -204,12 +207,8 @@ impl<T: ShareComponents> Visitor for T {
 
         if let Some(cell) = parent {
             // find rewrite for conditional port cell
-            let rewrite = self
-                .get_rewrites()
-                .iter()
-                .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-            if let Some((_, new_cell)) = rewrite {
+            let rewrite = self.get_rewrites().get(&cell.borrow().name());
+            if let Some(new_cell) = rewrite {
                 let new_port = new_cell.borrow().get(&cond_port.borrow().name);
                 s.port = new_port;
             }
@@ -238,12 +237,8 @@ impl<T: ShareComponents> Visitor for T {
 
         if let Some(cell) = parent {
             // find rewrite for conditional port cell
-            let rewrite = self
-                .get_rewrites()
-                .iter()
-                .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-            if let Some((_, new_cell)) = rewrite {
+            let rewrite = self.get_rewrites().get(&cell.borrow().name());
+            if let Some(new_cell) = rewrite {
                 let new_port = new_cell.borrow().get(&cond_port.borrow().name);
                 s.port = new_port;
             }
@@ -269,12 +264,8 @@ impl<T: ShareComponents> Visitor for T {
 
             if let Some(cell) = parent {
                 // find rewrite for conditional port cell
-                let rewrite = self
-                    .get_rewrites()
-                    .iter()
-                    .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-                if let Some((_, new_cell)) = rewrite {
+                let rewrite = self.get_rewrites().get(&cell.borrow().name());
+                if let Some(new_cell) = rewrite {
                     let new_port = new_cell.borrow().get(&src.borrow().name);
                     *src.borrow_mut() = new_port.borrow().clone();
                 }
@@ -293,12 +284,8 @@ impl<T: ShareComponents> Visitor for T {
 
             if let Some(cell) = parent {
                 // find rewrite for conditional port cell
-                let rewrite = self
-                    .get_rewrites()
-                    .iter()
-                    .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-                if let Some((_, new_cell)) = rewrite {
+                let rewrite = self.get_rewrites().get(&cell.borrow().name());
+                if let Some(new_cell) = rewrite {
                     let new_port = new_cell.borrow().get(&dest.borrow().name);
                     *dest.borrow_mut() = new_port.borrow().clone();
                 }

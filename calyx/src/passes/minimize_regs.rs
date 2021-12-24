@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::sharing_components::ShareComponents;
 use crate::{
     analysis::LiveRangeAnalysis,
@@ -20,7 +22,7 @@ use crate::{
 #[derive(Default)]
 pub struct MinimizeRegs {
     live: LiveRangeAnalysis,
-    rewrites: Vec<(ir::RRC<ir::Cell>, ir::RRC<ir::Cell>)>,
+    rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
 }
 
 impl Named for MinimizeRegs {
@@ -63,14 +65,11 @@ impl ShareComponents for MinimizeRegs {
         }
     }
 
-    fn set_rewrites(
-        &mut self,
-        rewrites: Vec<(ir::RRC<ir::Cell>, ir::RRC<ir::Cell>)>,
-    ) {
+    fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>) {
         self.rewrites = rewrites;
     }
 
-    fn get_rewrites(&self) -> &[(ir::RRC<ir::Cell>, ir::RRC<ir::Cell>)] {
+    fn get_rewrites(&self) -> &HashMap<ir::Id, ir::RRC<ir::Cell>> {
         &self.rewrites
     }
 }
