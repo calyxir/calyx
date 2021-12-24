@@ -21,6 +21,7 @@ use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 pub struct ComponentInliner;
 
 impl ComponentInliner {
+    /// Inline a cell definition into the component associated with the `builder`.
     fn inline_cell(
         builder: &mut ir::Builder,
         cell_ref: &RRC<ir::Cell>,
@@ -48,14 +49,40 @@ impl ComponentInliner {
         (Rc::clone(cell_ref), new_cell)
     }
 
-    // Inline component `comp` into the parent component attached to `builder`
+    /// Inline a group definition from a component into the component associated
+    /// with the `builder`.
+    fn inline_group(
+        builder: &mut ir::Builder,
+        cell_map: &Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>,
+        gr: &RRC<ir::Group>,
+    ) -> (RRC<ir::Group>, RRC<ir::Group>) {
+        let group = gr.borrow();
+        let new_group = builder.add_group(group.clone_name());
+        new_group.borrow_mut().attributes = group.attributes.clone();
+
+        // Rewrite assignments
+        let mut asgns = group.assignments.clone();
+        ir::Builder::rename_port_uses(&cell_map, &mut asgns);
+        new_group.borrow_mut().assignments = asgns;
+        (Rc::clone(gr), new_group)
+    }
+
+    /// Inline component `comp` into the parent component attached to `builder`
     fn inline_component(builder: &mut ir::Builder, comp: &ir::Component) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
-        let rewrite_map = comp
+        let cell_map = comp
             .cells
             .iter()
             .map(|cell_ref| Self::inline_cell(builder, cell_ref))
+            .collect::<Vec<_>>();
+
+        // For each group, create a new group and rewrite all assignments within
+        // it using the `rewrite_map`.
+        let group_map = comp
+            .groups
+            .iter()
+            .map(|gr| Self::inline_group(builder, &cell_map, gr))
             .collect::<Vec<_>>();
     }
 }
