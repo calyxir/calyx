@@ -37,6 +37,7 @@ impl Visitor for ParToSeq {
         s: &mut ir::Par,
         _comp: &mut ir::Component,
         _c: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let par = ir::Control::seq(s.stmts.drain(..).collect());
         Ok(Action::Change(par))

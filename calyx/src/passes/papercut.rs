@@ -139,6 +139,7 @@ impl Visitor for Papercut {
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // If the control program is empty, check that the `done` signal
         // has been assigned to.
@@ -254,6 +255,7 @@ impl Visitor for Papercut {
         s: &mut ir::While,
         _comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if s.cond.is_none() {
             let port = s.port.borrow();
@@ -281,6 +283,7 @@ impl Visitor for Papercut {
         s: &mut ir::If,
         _comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if s.cond.is_none() {
             let port = s.port.borrow();

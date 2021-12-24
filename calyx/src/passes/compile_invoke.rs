@@ -24,6 +24,7 @@ impl Visitor for CompileInvoke {
         s: &mut ir::Invoke,
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, ctx);
 

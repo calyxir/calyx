@@ -57,6 +57,7 @@ impl Visitor for Externalize {
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Extract external cells.
         let (ext_cells, cells): (Vec<_>, Vec<_>) =

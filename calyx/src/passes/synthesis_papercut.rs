@@ -40,6 +40,7 @@ impl Visitor for SynthesisPapercut {
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Get all the memory cells.
         let memory_cells = comp

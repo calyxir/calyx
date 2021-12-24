@@ -156,6 +156,7 @@ impl Visitor for RegisterUnsharing {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         self.bookkeeper.replace(Bookkeeper::new(comp));
         let mut builder = Builder::new(comp, sigs);
@@ -179,6 +180,7 @@ impl Visitor for RegisterUnsharing {
         invoke: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(name) = self
             .bookkeeper

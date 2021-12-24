@@ -373,6 +373,7 @@ impl Visitor for InferStaticTiming {
         &mut self,
         comp: &mut ir::Component,
         _lib: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let mut latency_result: Option<u64>;
         for group in comp.groups.iter() {
@@ -407,6 +408,7 @@ impl Visitor for InferStaticTiming {
         s: &mut ir::While,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let (Some(bound), Some(body_time)) = (
             s.attributes.get("bound").cloned(),
@@ -422,6 +424,7 @@ impl Visitor for InferStaticTiming {
         s: &mut ir::If,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let (Some(ttime), Some(ftime)) = (
             s.tbranch
@@ -442,6 +445,7 @@ impl Visitor for InferStaticTiming {
         s: &mut ir::Par,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(time) = accumulate_static_time(&s.stmts, 0, cmp::max) {
             s.attributes.insert("static", time);
@@ -454,6 +458,7 @@ impl Visitor for InferStaticTiming {
         s: &mut ir::Seq,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(time) = accumulate_static_time(&s.stmts, 0, Add::add) {
             s.attributes.insert("static", time);
@@ -466,6 +471,7 @@ impl Visitor for InferStaticTiming {
         s: &mut ir::Enable,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(time) = s.group.borrow().attributes.get("static") {
             s.attributes.insert("static", *time);
@@ -479,6 +485,7 @@ impl Visitor for InferStaticTiming {
         s: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // If we've found static timing for the invoked component, add
         // this information to invoke.
@@ -497,6 +504,7 @@ impl Visitor for InferStaticTiming {
         &mut self,
         comp: &mut ir::Component,
         _lib: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(time) = comp
             .control

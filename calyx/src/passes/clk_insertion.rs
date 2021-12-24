@@ -25,6 +25,7 @@ impl Visitor for ClkInsertion {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let builder = ir::Builder::new(comp, sigs);
 

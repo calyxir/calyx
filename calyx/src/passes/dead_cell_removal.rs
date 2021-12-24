@@ -28,6 +28,7 @@ impl Visitor for DeadCellRemoval {
         s: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // add input and output ports to used cells
         self.used_cells.extend(
@@ -50,6 +51,7 @@ impl Visitor for DeadCellRemoval {
         &mut self,
         comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // All cells used in groups
         for group in comp.groups.iter() {
