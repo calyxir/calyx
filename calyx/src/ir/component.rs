@@ -180,6 +180,12 @@ impl<T: GetName> IdList<T> {
         self.0.insert(name, item);
     }
 
+    /// Add all elements to the collection
+    pub fn append(&mut self, items: impl Iterator<Item = RRC<T>>) {
+        let map = items.map(|i| (i.clone_name(), i));
+        self.0.extend(map);
+    }
+
     /// Returns an iterator over immutable references
     pub fn iter(&self) -> impl Clone + Iterator<Item = &RRC<T>> {
         self.0.values()
@@ -211,21 +217,5 @@ impl<T: GetName> IdList<T> {
 impl<T: GetName> Default for IdList<T> {
     fn default() -> Self {
         IdList(LinkedHashMap::new())
-    }
-}
-
-impl<T: GetName> Extend<RRC<T>> for IdList<T> {
-    fn extend<I: IntoIterator<Item = RRC<T>>>(&mut self, iter: I) {
-        for item in iter {
-            self.add(item)
-        }
-    }
-}
-
-impl<'a, T: GetName + 'a> Extend<&'a RRC<T>> for IdList<T> {
-    fn extend<I: IntoIterator<Item = &'a RRC<T>>>(&mut self, iter: I) {
-        for item in iter {
-            self.add(item.clone())
-        }
     }
 }

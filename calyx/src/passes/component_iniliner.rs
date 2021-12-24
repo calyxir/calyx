@@ -118,7 +118,7 @@ impl Visitor for ComponentInliner {
             .map(|comp| (comp.name.clone(), comp))
             .collect::<HashMap<_, _>>();
 
-        for cell_ref in cells {
+        for cell_ref in &cells {
             let cell = cell_ref.borrow();
             if cell.is_component() && cell.get_attribute("inline").is_some() {
                 let comp_name = cell.type_name().unwrap();
@@ -126,9 +126,10 @@ impl Visitor for ComponentInliner {
             }
         }
 
-        // Add back all the cells
-        todo!();
-        // comp.cells = cells.append(comp.cells);
+        // Add back all the cells in original order.
+        let mut new_cells = ir::IdList::from(cells);
+        new_cells.append(comp.cells.drain());
+        comp.cells = new_cells;
 
         Ok(Action::Continue)
     }
