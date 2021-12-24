@@ -141,7 +141,10 @@ impl Bookkeeper {
         for (grp, rename_cells) in grp_map {
             let group = builder.component.find_group(grp).unwrap();
             let mut group_ref = group.borrow_mut();
-            builder.rename_port_uses(&rename_cells, &mut group_ref.assignments)
+            ir::Builder::rename_port_uses(
+                &rename_cells,
+                &mut group_ref.assignments,
+            )
         }
 
         self.invoke_map = invoke_map;

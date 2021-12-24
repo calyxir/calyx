@@ -169,13 +169,13 @@ impl<T: ShareComponents> Visitor for T {
         for group_ref in builder.component.groups.iter() {
             let mut group = group_ref.borrow_mut();
             let mut assigns: Vec<_> = group.assignments.drain(..).collect();
-            builder.rename_port_uses(&coloring, &mut assigns);
+            ir::Builder::rename_port_uses(&coloring, &mut assigns);
             group.assignments = assigns;
         }
 
         let mut assigns: Vec<_> =
             builder.component.continuous_assignments.drain(..).collect();
-        builder.rename_port_uses(&coloring, &mut assigns);
+        ir::Builder::rename_port_uses(&coloring, &mut assigns);
         builder.component.continuous_assignments = assigns;
 
         self.set_rewrites(coloring);
