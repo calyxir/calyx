@@ -29,7 +29,7 @@ type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
 /// Map name of old combination group to new combinational group
 type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
 /// Map canonical name of old port to new port
-type PortMap = HashMap<(ir::Id, ir::Id), RRC<ir::Port>>;
+type PortMap = HashMap<(ir::Id, ir::Id), RRC<ir::Cell>>;
 
 impl ComponentInliner {
     /// Inline a cell definition into the component associated with the `builder`.
@@ -182,11 +182,41 @@ impl ComponentInliner {
         }
     }
 
+    /// Rewrite a use of an interface port.
+    fn rewrite_interface_use(port_map: PortMap, assign: &mut ir::Assignment) {
+        fn this_parent(port: &RRC<ir::Port>) -> bool {
+            let parent = &port.borrow().parent;
+            if let ir::PortParent::Cell(cell_wref) = parent {
+                let cell_ref = cell_wref.upgrade();
+                let cell = cell_ref.borrow();
+                return matches!(cell.prototype, ir::CellType::ThisComponent);
+            }
+            false
+        }
+
+        if this_parent(&assign.src) {
+            let idx = assign.src.borrow().canonical();
+            assign.src = port_map[&idx].borrow().get("out");
+        }
+        if this_parent(&assign.dst) {
+            let idx = assign.dst.borrow().canonical();
+            assign.dst = port_map[&idx].borrow().get("in");
+        }
+        assign.guard.for_each(&|port| {
+            if this_parent(&port) {
+                let idx = port.borrow().canonical();
+                Some(ir::Guard::port(port_map[&idx].borrow().get("out")))
+            } else {
+                None
+            }
+        });
+    }
+
     /// Adds wires that can hold the values written to various output ports.
-    fn inline_outputs(
+    fn inline_interface(
         builder: &mut ir::Builder,
         comp: &ir::Component,
-    ) -> HashMap<ir::Id, RRC<ir::Cell>> {
+    ) -> PortMap {
         // For each output port, generate a wire that will store its value
         comp.signature
             .borrow()
@@ -197,7 +227,7 @@ impl ComponentInliner {
                 let wire_name = format!("{}_{}", comp.name, port.name);
                 let wire =
                     builder.add_primitive(wire_name, "std_wire", &[port.width]);
-                (port.name.clone(), wire)
+                (port.canonical(), wire)
             })
             .collect()
     }
@@ -214,6 +244,9 @@ impl ComponentInliner {
             .iter()
             .map(|cell_ref| Self::inline_cell(builder, cell_ref))
             .collect();
+
+        // Rewrites to inline the interface.
+        let interface_map = Self::inline_interface(builder, comp);
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
