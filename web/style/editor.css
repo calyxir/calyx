@@ -1,23 +1,22 @@
 .editor pre {
     font-family: 'Source Code Pro', monospace;
-    font-size: 1em;
+    font-size: 14px;
     font-weight: 400;
     letter-spacing: normal;
     line-height: 20px;
     white-space: pre;
     padding: 0.4em 0;
     border: 0.7px solid var(--border-color);
-    /* width: 80%; */
-    overflow: auto;
+    width: 100%;
 }
 
-pre.right {
-    padding-left: 0.4em;
+.output-editor > pre {
+    /* padding-left: 0.4em; */
     background: var(--view-code-bg);
 }
 
-pre.left {
-    padding-right: 0.1em;
+.input-editor > pre {
+    /* padding-right: 0.1em; */
     border-radius: var(--border-radius) 0 0 var(--border-radius);
     background: var(--edit-code-bg);
     border-right: unset;

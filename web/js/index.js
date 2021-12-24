@@ -5,12 +5,18 @@ import calyx_info from "../calyx_hash.json";
 import { updateDiffEditor } from './diffEditor.js';
 import 'regenerator-runtime/runtime';
 
+import Prism from 'prismjs';
+import './prism-futil.js';
+import 'prismjs/plugins/keep-markup/prism-keep-markup';
+import 'prismjs/plugins/line-numbers/prism-line-numbers';
+
 var LIBRARIES = {};
 var CURRENT_CODE = {};
 var EDIT_MODE = false;
 
 config.url_prefix = config.url_prefix + calyx_info.version;
 
+// =========== Pass Selector =================
 function buttonSet(pass, value) {
     pass.active = value;
     if (value) {
@@ -32,13 +38,14 @@ function createToggle(pass) {
     return button;
 }
 
-let passDiv = document.getElementById("passes");
+const passDiv = document.getElementById("passes");
 for (let pass of passes.passes) {
     let button = createToggle(pass);
     pass.button = button;
     passDiv.appendChild(button);
 }
 
+// ============= Compile ===============
 function getActivePasses() {
     return passes.passes
         .filter(p => p.active)
@@ -70,8 +77,13 @@ function compile() {
         CURRENT_CODE.code
     );
     // update the diff editor
-    var editor = document.getElementById("diffEditor");
-    updateDiffEditor(editor, CURRENT_CODE.code, compiledCode);
+    const editor = document.getElementById("diffEditor");
+    const srcDiv = editor.querySelector("#input");
+    const destDiv = editor.querySelector("#output");
+
+    destDiv.innerHTML = compiledCode;
+    Prism.highlightElement(srcDiv);
+    Prism.highlightElement(destDiv);
 }
 
 
@@ -104,6 +116,23 @@ async function fetchLibs(names, root) {
     return await Promise.all(proms);
 }
 
+const input = document.getElementById("input");
+input.oninput = function() {
+    CURRENT_CODE.code = input.innerText;
+};
+
+
+// ============ Examples ==============
+// Add examples for the selector
+const examples_select = document.getElementById("examples-select");
+for (let item of config.examples) {
+  let option = document.createElement('option');
+  option.text = item.name;
+  option.value = JSON.stringify(item);
+  examples_select.add(option);
+}
+
+// Load example from the github repository
 async function getExample(name, root) {
     let url = `${config.url_prefix}${root}${name}`;
     let response = await fetch(url);
@@ -118,71 +147,33 @@ async function getExample(name, root) {
     };
 }
 
-var input = document.getElementById("input");
-var output = document.getElementById("output");
-function update() {
-    input.innerHTML = CURRENT_CODE.code;
-}
-
-function removeDiffStyle(children) {
-    for (let node of children) {
-        if (node.classList.contains("diff-empty", "diff-deletion")) {
-            input.removeChild(node);
-        }
-        node.classList.remove("diff-addition", "diff-deletion");
-        if (node.children.length > 0) {
-            removeDiffStyle(node.children);
-        }
-    }
-}
-
-input.onclick = function() {
-    if (!EDIT_MODE) {
-        removeDiffStyle(input.children);
-        output.innerHTML = "";
-        EDIT_MODE = true;
-    }
-};
-
-input.oninput = function() {
-    CURRENT_CODE.code = input.innerText;
-};
-
-// var examples_box = document.getElementById("examples");
-var examples_select = document.getElementById("examples-select");
+// Define onchange method for example selector.
 examples_select.onchange = function() {
+    const input = document.getElementById("input");
+    const output = document.getElementById("output");
     input.innerHTML = "loading...";
-    output.innerHTML = "loading...";
+    output.innerHTML = "Compile `compile` to generate output.";
     let value = JSON.parse(examples_select.value);
     getExample(value.file, value.root)
         .then(t => CURRENT_CODE = t)
-        .then(() => update())
-        .then(() => selectPasses(value))
-        .then(() => compile());
-    // wrapLines(input);
+        .then(() => {
+          input.innerHTML = CURRENT_CODE.code;
+          const editor = document.getElementById("diffEditor");
+          const srcDiv = editor.querySelector("#input");
+          Prism.highlightElement(srcDiv);
+        })
+        .then(() => selectPasses(value));
 };
 
-// set calyx version
-var futil_version_div = document.getElementById("calyx-version");
-var git_link = document.createElement('a');
+// Call once to load example on page load.
+examples_select.onchange()
+
+// =============== Footer ===============
+// Append Calyx version to the footer
+const ver_div = document.getElementById("calyx-version");
+const git_link = document.createElement('a');
 git_link.appendChild(document.createTextNode(calyx_info.version.slice(0, 8)));
 git_link.href = "https://github.com/cucapra/calyx/tree/" + calyx_info.version;
-futil_version_div.appendChild(document.createTextNode("Built with Calyx version "));
-futil_version_div.appendChild(git_link);
+ver_div.appendChild(document.createTextNode("Built with Calyx version "));
+ver_div.appendChild(git_link);
 
-// text
-let option;
-for (var i in config.categories) {
-    var group = config.categories[i];
-    var sel = document.getElementById(group.name + "-select");
-    if (sel) {
-        for (var j in group.items) {
-            var item = group.items[j];
-            option = document.createElement('option');
-            option.text = item.name;
-            option.value = JSON.stringify(item);
-            sel.add(option);
-        }
-        sel.onchange();
-    }
-}
