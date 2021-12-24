@@ -1,5 +1,10 @@
+use std::collections::HashMap;
+use std::rc::Rc;
+
+use itertools::Itertools;
+
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, LibrarySignatures};
+use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 
 /// Inlines all sub-components marked with the `@inline` attribute.
 /// Cannot inline components when they:
@@ -16,10 +21,43 @@ use crate::ir::{self, LibrarySignatures};
 pub struct ComponentInliner;
 
 impl ComponentInliner {
+    fn inline_cell(
+        builder: &mut ir::Builder,
+        cell_ref: &RRC<ir::Cell>,
+    ) -> (RRC<ir::Cell>, RRC<ir::Cell>) {
+        let cell = cell_ref.borrow();
+        let cn = cell.clone_name();
+        let new_cell = match &cell.prototype {
+            ir::CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            } => builder.add_primitive(
+                cn,
+                name,
+                &param_binding.iter().map(|(_, v)| *v).collect_vec(),
+            ),
+            ir::CellType::Component { name } => {
+                builder.add_component(cn, name.clone(), cell.get_signature())
+            }
+            ir::CellType::Constant { val, width } => {
+                builder.add_constant(*val, *width)
+            }
+            ir::CellType::ThisComponent => unreachable!(),
+        };
+        (Rc::clone(cell_ref), new_cell)
+    }
+
     // Inline component `comp` into the parent component attached to `builder`
-    /* fn inline_component(builder: &mut ir::Builder, comp: &ir::Component) {
-        todo!()
-    } */
+    fn inline_component(builder: &mut ir::Builder, comp: &ir::Component) {
+        // For each cell in the component, create a new cell in the parent
+        // of the same type and build a rewrite map using it.
+        let rewrite_map = comp
+            .cells
+            .iter()
+            .map(|cell_ref| Self::inline_cell(builder, cell_ref))
+            .collect::<Vec<_>>();
+    }
 }
 
 impl Named for ComponentInliner {
@@ -33,18 +71,37 @@ impl Named for ComponentInliner {
 }
 
 impl Visitor for ComponentInliner {
+    // Inlining should proceed bottom-up
+    fn require_postorder() -> bool {
+        true
+    }
+
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
+        sigs: &LibrarySignatures,
+        comps: &[ir::Component],
     ) -> VisResult {
-        for cell_ref in comp.cells.iter() {
+        let cells = comp.cells.drain().collect_vec();
+        let mut builder = ir::Builder::new(comp, sigs);
+
+        // Mapping from component name to component definition
+        let comp_map = comps
+            .iter()
+            .map(|comp| (comp.name.clone(), comp))
+            .collect::<HashMap<_, _>>();
+
+        for cell_ref in cells {
             let cell = cell_ref.borrow();
             if cell.is_component() && cell.get_attribute("inline").is_some() {
-                todo!()
+                let comp_name = cell.type_name().unwrap();
+                Self::inline_component(&mut builder, comp_map[&comp_name]);
             }
         }
+
+        // Add back all the cells
+        todo!();
+        // comp.cells = cells.append(comp.cells);
 
         Ok(Action::Continue)
     }

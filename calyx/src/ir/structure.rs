@@ -289,6 +289,22 @@ impl Cell {
     pub fn ports(&self) -> &SmallVec<[RRC<Port>; 10]> {
         &self.ports
     }
+
+    // Get the signature of this cell as a vector. Each element corresponds to a port in the Cell.
+    pub fn get_signature(&self) -> Vec<(Id, u64, Direction, Attributes)> {
+        self.ports
+            .iter()
+            .map(|port_ref| {
+                let port = port_ref.borrow();
+                (
+                    port.name.clone(),
+                    port.width,
+                    port.direction.clone(),
+                    port.attributes.clone(),
+                )
+            })
+            .collect()
+    }
 }
 
 /// Generic wrapper for iterators that return [RRC] of [super::Cell].

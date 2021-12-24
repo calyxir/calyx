@@ -156,6 +156,11 @@ impl<T: GetName> IdList<T> {
         self.0.is_empty()
     }
 
+    // Length of the underlying storage.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Keep only the elements in the collection which satisfy the given
     /// predicate
     pub fn retain<F>(&mut self, mut f: F)
