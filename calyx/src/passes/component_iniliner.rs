@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use itertools::Itertools;
 
@@ -20,12 +19,16 @@ use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 #[derive(Default)]
 pub struct ComponentInliner;
 
+type CellMap = HashMap<ir::Id, RRC<ir::Cell>>;
+type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
+type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
+
 impl ComponentInliner {
     /// Inline a cell definition into the component associated with the `builder`.
     fn inline_cell(
         builder: &mut ir::Builder,
         cell_ref: &RRC<ir::Cell>,
-    ) -> (RRC<ir::Cell>, RRC<ir::Cell>) {
+    ) -> (ir::Id, RRC<ir::Cell>) {
         let cell = cell_ref.borrow();
         let cn = cell.clone_name();
         let new_cell = match &cell.prototype {
@@ -34,28 +37,30 @@ impl ComponentInliner {
                 param_binding,
                 ..
             } => builder.add_primitive(
-                cn,
+                cn.clone(),
                 name,
                 &param_binding.iter().map(|(_, v)| *v).collect_vec(),
             ),
-            ir::CellType::Component { name } => {
-                builder.add_component(cn, name.clone(), cell.get_signature())
-            }
+            ir::CellType::Component { name } => builder.add_component(
+                cn.clone(),
+                name.clone(),
+                cell.get_signature(),
+            ),
             ir::CellType::Constant { val, width } => {
                 builder.add_constant(*val, *width)
             }
             ir::CellType::ThisComponent => unreachable!(),
         };
-        (Rc::clone(cell_ref), new_cell)
+        (cn, new_cell)
     }
 
     /// Inline a group definition from a component into the component associated
     /// with the `builder`.
     fn inline_group(
         builder: &mut ir::Builder,
-        cell_map: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        cell_map: &CellMap,
         gr: &RRC<ir::Group>,
-    ) -> (RRC<ir::Group>, RRC<ir::Group>) {
+    ) -> (ir::Id, RRC<ir::Group>) {
         let group = gr.borrow();
         let new_group = builder.add_group(group.clone_name());
         new_group.borrow_mut().attributes = group.attributes.clone();
@@ -64,16 +69,16 @@ impl ComponentInliner {
         let mut asgns = group.assignments.clone();
         ir::Builder::rename_port_uses(cell_map, &mut asgns);
         new_group.borrow_mut().assignments = asgns;
-        (Rc::clone(gr), new_group)
+        (group.clone_name(), new_group)
     }
 
     /// Inline a group definition from a component into the component associated
     /// with the `builder`.
     fn inline_comb_group(
         builder: &mut ir::Builder,
-        cell_map: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        cell_map: &CellMap,
         gr: &RRC<ir::CombGroup>,
-    ) -> (RRC<ir::CombGroup>, RRC<ir::CombGroup>) {
+    ) -> (ir::Id, RRC<ir::CombGroup>) {
         let group = gr.borrow();
         let new_group = builder.add_comb_group(group.clone_name());
         new_group.borrow_mut().attributes = group.attributes.clone();
@@ -82,32 +87,67 @@ impl ComponentInliner {
         let mut asgns = group.assignments.clone();
         ir::Builder::rename_port_uses(cell_map, &mut asgns);
         new_group.borrow_mut().assignments = asgns;
-        (Rc::clone(gr), new_group)
+        (group.clone_name(), new_group)
+    }
+
+    /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
+    /// rewrite maps.
+    fn rewrite_control(
+        con: &ir::Control,
+        cell_map: &CellMap,
+        group_map: &GroupMap,
+        comb_group_map: CombGroupMap,
+    ) -> ir::Control {
+        // Clone in the input control program.
+        let control = ir::Control::clone(con);
+
+        fn rewrite(
+            c: &mut ir::Control,
+            cm: &CellMap,
+            gm: &GroupMap,
+            cgm: &CombGroupMap,
+        ) {
+            match c {
+                ir::Control::Empty(_) => (),
+                ir::Control::Enable(ir::Enable { group, .. }) => {
+                    todo!()
+                    // *group = group_map[group];
+                }
+                ir::Control::Seq(ir::Seq { stmts, .. })
+                | ir::Control::Par(ir::Par { stmts, .. }) => {
+                    stmts.iter_mut().for_each(|c| rewrite(c, cm, gm, cgm))
+                }
+                ir::Control::If(_) => todo!(),
+                ir::Control::While(_) => todo!(),
+                ir::Control::Invoke(_) => todo!(),
+            }
+        }
+
+        todo!()
     }
 
     /// Inline component `comp` into the parent component attached to `builder`
     fn inline_component(builder: &mut ir::Builder, comp: &ir::Component) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
-        let cell_map = comp
+        let cell_map: CellMap = comp
             .cells
             .iter()
             .map(|cell_ref| Self::inline_cell(builder, cell_ref))
-            .collect::<Vec<_>>();
+            .collect();
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
-        let group_map = comp
+        let group_map: GroupMap = comp
             .groups
             .iter()
             .map(|gr| Self::inline_group(builder, &cell_map, gr))
-            .collect::<Vec<_>>();
-
-        let comb_group_map = comp
+            .collect();
+        let comb_group_map: CombGroupMap = comp
             .comb_groups
             .iter()
             .map(|gr| Self::inline_comb_group(builder, &cell_map, gr))
-            .collect::<Vec<_>>();
+            .collect();
     }
 }
 
