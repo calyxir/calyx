@@ -12,7 +12,7 @@ pub struct ResourceSharing {
     used_cells_map: HashMap<ir::Id, Vec<ir::Id>>,
 
     /// This is used to rewrite all uses of `old_cell` with `new_cell` in the group.
-    rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>,
+    rewrites: HashMap<ir::Id, RRC<ir::Cell>>,
 
     /// Set of shareable components.
     shareable_components: HashSet<ir::Id>,
@@ -45,14 +45,14 @@ impl ConstructVisitor for ResourceSharing {
         }
         Ok(ResourceSharing {
             used_cells_map: HashMap::new(),
-            rewrites: Vec::new(),
+            rewrites: HashMap::new(),
             shareable_components,
         })
     }
 
     fn clear_data(&mut self) {
         self.used_cells_map = HashMap::new();
-        self.rewrites = Vec::new();
+        self.rewrites = HashMap::new();
     }
 }
 
@@ -98,11 +98,11 @@ impl ShareComponents for ResourceSharing {
         }
     }
 
-    fn set_rewrites(&mut self, rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>) {
+    fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, RRC<ir::Cell>>) {
         self.rewrites = rewrites;
     }
 
-    fn get_rewrites(&self) -> &[(RRC<ir::Cell>, RRC<ir::Cell>)] {
+    fn get_rewrites(&self) -> &HashMap<ir::Id, RRC<ir::Cell>> {
         &self.rewrites
     }
 }
