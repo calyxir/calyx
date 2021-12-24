@@ -53,6 +53,7 @@ impl Visitor for WireInliner {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let groups = comp.groups.drain().collect_vec();
         let mut builder = ir::Builder::new(comp, sigs);
