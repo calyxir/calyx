@@ -1,8 +1,8 @@
-module test_bench;
+module TOP;
 
 // Signals for the main module.
 logic go, done, clk, reset;
-main #() m (
+main #() main (
   .go(go),
   .clk(clk),
   .reset(reset),
@@ -33,7 +33,7 @@ initial begin
   if (NOTRACE == 0) begin
     $display("VCD tracing enabled");
     $dumpfile(OUT);
-    $dumpvars(0,m);
+    $dumpvars(0,main);
   end else begin
     $display("VCD tracing disabled");
   end
