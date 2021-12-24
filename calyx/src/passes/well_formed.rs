@@ -48,6 +48,7 @@ impl Visitor for WellFormed {
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Check if any of the cells use a reserved name.
         for cell_ref in comp.cells.iter() {
@@ -96,6 +97,7 @@ impl Visitor for WellFormed {
         s: &mut ir::Enable,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         self.used_groups.insert(s.group.clone_name());
 
@@ -130,6 +132,7 @@ impl Visitor for WellFormed {
         s: &mut ir::Invoke,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         for (id, port) in &s.inputs {
             if port.borrow().direction != ir::Direction::Output {
@@ -161,6 +164,7 @@ impl Visitor for WellFormed {
         s: &mut ir::If,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
@@ -174,6 +178,7 @@ impl Visitor for WellFormed {
         s: &mut ir::While,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
@@ -186,6 +191,7 @@ impl Visitor for WellFormed {
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let all_groups: HashSet<ir::Id> =
             comp.groups.iter().map(|g| g.clone_name()).collect();

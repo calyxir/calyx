@@ -3,6 +3,7 @@
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
 use smallvec::smallvec;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// IR builder.
@@ -243,20 +244,9 @@ impl<'a> Builder<'a> {
     /// b.in = b.done ? b.out;
     /// ```
     pub fn rename_port_uses(
-        &self,
-        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        rewrites: &HashMap<ir::Id, RRC<ir::Cell>>,
         assigns: &mut Vec<ir::Assignment>,
     ) {
-        // Returns true if the port's parent in the given cell.
-        let parent_matches =
-            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
-                if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-                    Rc::ptr_eq(&cell_wref.upgrade(), cell)
-                } else {
-                    false
-                }
-            };
-
         // Returns a reference to the port with the same name in cell.
         let get_port =
             |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
@@ -264,10 +254,16 @@ impl<'a> Builder<'a> {
             };
 
         let rewrite_port = |port: &RRC<ir::Port>| -> Option<RRC<ir::Port>> {
-            rewrites
-                .iter()
-                .find(|(cell, _)| parent_matches(port, cell))
-                .map(|(_, new_cell)| get_port(port, new_cell))
+            let rewrite = if let ir::PortParent::Cell(cell_wref) =
+                &port.borrow().parent
+            {
+                let cell_ref = cell_wref.upgrade();
+                let cell_name = cell_ref.borrow();
+                rewrites.get(cell_name.name())
+            } else {
+                None
+            };
+            rewrite.map(|new_cell| get_port(port, new_cell))
         };
 
         for assign in assigns {

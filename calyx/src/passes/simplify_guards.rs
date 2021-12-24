@@ -130,6 +130,7 @@ impl Visitor for SimplifyGuards {
         &mut self,
         comp: &mut ir::Component,
         _: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         for group in comp.groups.iter() {
             group

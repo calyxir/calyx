@@ -131,6 +131,7 @@ impl Visitor for LowerGuards {
         &mut self,
         comp: &mut ir::Component,
         sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
 

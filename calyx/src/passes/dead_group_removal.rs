@@ -31,6 +31,7 @@ impl Visitor for DeadGroupRemoval {
         s: &mut ir::Enable,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         self.used_groups.insert(s.group.borrow().clone_name());
         Ok(Action::Continue)
@@ -41,6 +42,7 @@ impl Visitor for DeadGroupRemoval {
         s: &mut ir::If,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(cg) = &s.cond {
             self.used_comb_groups.insert(cg.borrow().clone_name());
@@ -53,6 +55,7 @@ impl Visitor for DeadGroupRemoval {
         s: &mut ir::While,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(cg) = &s.cond {
             self.used_comb_groups.insert(cg.borrow().clone_name());
@@ -64,6 +67,7 @@ impl Visitor for DeadGroupRemoval {
         &mut self,
         comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Groups that are driven by their `go` signals should not be
         // removed.

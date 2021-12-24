@@ -67,12 +67,14 @@ impl PostOrder {
     /// Traverses components in post-order and applies `upd`.
     pub fn apply_update<F>(&mut self, mut upd: F) -> CalyxResult<()>
     where
-        F: FnMut(&mut ir::Component) -> CalyxResult<()>,
+        F: FnMut(&mut ir::Component, &Vec<ir::Component>) -> CalyxResult<()>,
     {
-        self.order
-            .clone()
-            .iter()
-            .try_for_each(|idx| upd(&mut self.comps[idx.index()]))?;
+        for idx in self.order.iter() {
+            let mut comp = self.comps.remove(idx.index());
+            upd(&mut comp, &self.comps)?;
+            self.comps.insert(idx.index(), comp)
+        }
+
         Ok(())
     }
 

@@ -47,6 +47,7 @@ impl Visitor for GuardCanonical {
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         for group in comp.groups.iter() {
             update_assigns(&mut group.borrow_mut().assignments[..]);
