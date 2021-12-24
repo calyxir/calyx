@@ -22,9 +22,14 @@ pub struct ComponentInliner {
     control_map: HashMap<ir::Id, ir::Control>,
 }
 
+/// Map name of old cell to the new cell
 type CellMap = HashMap<ir::Id, RRC<ir::Cell>>;
+/// Map name of old group to new group
 type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
+/// Map name of old combination group to new combinational group
 type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
+/// Map canonical name of old port to new port
+type PortMap = HashMap<(ir::Id, ir::Id), RRC<ir::Port>>;
 
 impl ComponentInliner {
     /// Inline a cell definition into the component associated with the `builder`.
@@ -70,7 +75,7 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        ir::Builder::rename_port_uses(cell_map, &mut asgns);
+        ir::Builder::rename_cell_uses(cell_map, &mut asgns);
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -88,7 +93,7 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        ir::Builder::rename_port_uses(cell_map, &mut asgns);
+        ir::Builder::rename_cell_uses(cell_map, &mut asgns);
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -175,6 +180,26 @@ impl ComponentInliner {
                 }
             }
         }
+    }
+
+    /// Adds wires that can hold the values written to various output ports.
+    fn inline_outputs(
+        builder: &mut ir::Builder,
+        comp: &ir::Component,
+    ) -> HashMap<ir::Id, RRC<ir::Cell>> {
+        // For each output port, generate a wire that will store its value
+        comp.signature
+            .borrow()
+            .ports
+            .iter()
+            .map(|port_ref| {
+                let port = port_ref.borrow();
+                let wire_name = format!("{}_{}", comp.name, port.name);
+                let wire =
+                    builder.add_primitive(wire_name, "std_wire", &[port.width]);
+                (port.name.clone(), wire)
+            })
+            .collect()
     }
 
     /// Inline component `comp` into the parent component attached to `builder`
