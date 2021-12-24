@@ -79,7 +79,7 @@ impl PassManager {
             [
                 GoInsertion,
                 ComponentInterface,
-                WireInliner,
+                Inliner,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
