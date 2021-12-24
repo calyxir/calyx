@@ -101,7 +101,11 @@ export function updateDiffEditor(editor, sourceCode, compiledCode) {
     let srcDiv = editor.querySelector("#input");
     let destDiv = editor.querySelector("#output");
 
-    if (compiledCode.startsWith("Error:")) {
+    destDiv.innerHTML = compiledCode;
+    Prism.highlightElement(srcDiv);
+    Prism.highlightElement(destDiv);
+
+    /* if (compiledCode.startsWith("Error:")) {
         // there was compilation error. show that
         destDiv.innerHTML = compiledCode;
     } else {
@@ -111,5 +115,5 @@ export function updateDiffEditor(editor, sourceCode, compiledCode) {
         // syntax highlighting
         Prism.highlightElement(srcDiv);
         Prism.highlightElement(destDiv);
-    }
+    } */
 }
