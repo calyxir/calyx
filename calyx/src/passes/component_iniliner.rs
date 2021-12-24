@@ -17,7 +17,10 @@ use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 ///   3. Inline the control program for every `invoke` statement referring to the
 ///      instance.
 #[derive(Default)]
-pub struct ComponentInliner;
+pub struct ComponentInliner {
+    // Map from the name of an instance to its associated control program.
+    control_map: HashMap<ir::Id, ir::Control>,
+}
 
 type CellMap = HashMap<ir::Id, RRC<ir::Cell>>;
 type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
@@ -93,41 +96,92 @@ impl ComponentInliner {
     /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
     /// rewrite maps.
     fn rewrite_control(
-        con: &ir::Control,
-        cell_map: &CellMap,
-        group_map: &GroupMap,
-        comb_group_map: CombGroupMap,
-    ) -> ir::Control {
-        // Clone in the input control program.
-        let control = ir::Control::clone(con);
-
-        fn rewrite(
-            c: &mut ir::Control,
-            cm: &CellMap,
-            gm: &GroupMap,
-            cgm: &CombGroupMap,
-        ) {
-            match c {
-                ir::Control::Empty(_) => (),
-                ir::Control::Enable(ir::Enable { group, .. }) => {
-                    todo!()
-                    // *group = group_map[group];
+        c: &mut ir::Control,
+        cm: &CellMap,
+        gm: &GroupMap,
+        cgm: &CombGroupMap,
+    ) {
+        match c {
+            ir::Control::Empty(_) => (),
+            ir::Control::Enable(en) => {
+                let g = &en.group.borrow().clone_name();
+                let new_group = Rc::clone(&gm[g]);
+                en.group = new_group;
+            }
+            ir::Control::Seq(ir::Seq { stmts, .. })
+            | ir::Control::Par(ir::Par { stmts, .. }) => stmts
+                .iter_mut()
+                .for_each(|c| Self::rewrite_control(c, cm, gm, cgm)),
+            ir::Control::If(ife) => {
+                // Rewrite port use
+                let new_port = {
+                    let port = &ife.port.borrow();
+                    let parent = port.cell_parent().borrow().clone_name();
+                    let new_parent = &cm[&parent];
+                    &new_parent.borrow().get(&port.name)
+                };
+                ife.port = Rc::clone(new_port);
+                // Rewrite conditional comb group if defined
+                if let Some(cg_ref) = &ife.cond {
+                    let cg = cg_ref.borrow().clone_name();
+                    let new_cg = Rc::clone(&cgm[&cg]);
+                    ife.cond = Some(new_cg);
                 }
-                ir::Control::Seq(ir::Seq { stmts, .. })
-                | ir::Control::Par(ir::Par { stmts, .. }) => {
-                    stmts.iter_mut().for_each(|c| rewrite(c, cm, gm, cgm))
+                // rewrite branches
+                Self::rewrite_control(&mut ife.tbranch, cm, gm, cgm);
+                Self::rewrite_control(&mut ife.fbranch, cm, gm, cgm);
+            }
+            ir::Control::While(wh) => {
+                // Rewrite port use
+                let new_port = {
+                    let port = &wh.port.borrow();
+                    let parent = port.cell_parent().borrow().clone_name();
+                    let new_parent = &cm[&parent];
+                    &new_parent.borrow().get(&port.name)
+                };
+                wh.port = Rc::clone(new_port);
+                // Rewrite conditional comb group if defined
+                if let Some(cg_ref) = &wh.cond {
+                    let cg = cg_ref.borrow().clone_name();
+                    let new_cg = Rc::clone(&cgm[&cg]);
+                    wh.cond = Some(new_cg);
                 }
-                ir::Control::If(_) => todo!(),
-                ir::Control::While(_) => todo!(),
-                ir::Control::Invoke(_) => todo!(),
+                // rewrite body
+                Self::rewrite_control(&mut wh.body, cm, gm, cgm);
+            }
+            ir::Control::Invoke(inv) => {
+                // Rewrite the name of the cell
+                let name = inv.comp.borrow().clone_name();
+                let new_cell = &cm[&name];
+                inv.comp = Rc::clone(new_cell);
+                // Rewrite the parameters
+                let rewrite_port = |port_ref: &RRC<ir::Port>| -> RRC<ir::Port> {
+                    let port = port_ref.borrow();
+                    let name = port.cell_parent().borrow().clone_name();
+                    let new_parent = &cm[&name];
+                    new_parent.borrow().get(&port.name)
+                };
+                inv.inputs.iter_mut().for_each(|(_, port)| {
+                    *port = rewrite_port(&*port);
+                });
+                inv.outputs.iter_mut().for_each(|(_, port)| {
+                    *port = rewrite_port(&*port);
+                });
+                // Rewrite the combinational group
+                if let Some(cg_ref) = &inv.comb_group {
+                    let cg = cg_ref.borrow().clone_name();
+                    let new_cg = Rc::clone(&cgm[&cg]);
+                    inv.comb_group = Some(new_cg);
+                }
             }
         }
-
-        todo!()
     }
 
     /// Inline component `comp` into the parent component attached to `builder`
-    fn inline_component(builder: &mut ir::Builder, comp: &ir::Component) {
+    fn inline_component(
+        builder: &mut ir::Builder,
+        comp: &ir::Component,
+    ) -> ir::Control {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
         let cell_map: CellMap = comp
@@ -148,6 +202,11 @@ impl ComponentInliner {
             .iter()
             .map(|gr| Self::inline_comb_group(builder, &cell_map, gr))
             .collect();
+
+        // Generate a control program associated with this instance
+        let mut con = ir::Control::clone(&comp.control.borrow());
+        Self::rewrite_control(&mut con, &cell_map, &group_map, &comb_group_map);
+        con
     }
 }
 
@@ -192,7 +251,9 @@ impl Visitor for ComponentInliner {
             let cell = cell_ref.borrow();
             if cell.is_component() {
                 let comp_name = cell.type_name().unwrap();
-                Self::inline_component(&mut builder, comp_map[comp_name]);
+                let con =
+                    Self::inline_component(&mut builder, comp_map[comp_name]);
+                self.control_map.insert(cell.clone_name(), con);
             }
         }
 
@@ -201,11 +262,18 @@ impl Visitor for ComponentInliner {
 
     fn invoke(
         &mut self,
-        _s: &mut ir::Invoke,
+        s: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        Ok(Action::Continue)
+        // If the associated instance has been inlined, replace the invoke with
+        // its control program.
+        let cell = s.comp.borrow();
+        if let Some(con) = self.control_map.get(cell.name()) {
+            Ok(Action::Change(ir::Control::clone(con)))
+        } else {
+            Ok(Action::Continue)
+        }
     }
 }
