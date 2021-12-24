@@ -118,13 +118,8 @@ impl<'a> Builder<'a> {
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
-        if let Some(cell) = self
-            .component
-            .cells
-            .iter()
-            .find(|&c| *c.borrow().name() == name)
-        {
-            return Rc::clone(cell);
+        if let Some(cell) = self.component.cells.find(&name) {
+            return Rc::clone(&cell);
         }
 
         // Construct this cell if it's not already present in the context.

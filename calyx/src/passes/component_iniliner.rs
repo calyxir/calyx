@@ -53,7 +53,7 @@ impl ComponentInliner {
     /// with the `builder`.
     fn inline_group(
         builder: &mut ir::Builder,
-        cell_map: &Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>,
+        cell_map: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
         gr: &RRC<ir::Group>,
     ) -> (RRC<ir::Group>, RRC<ir::Group>) {
         let group = gr.borrow();
@@ -62,7 +62,7 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        ir::Builder::rename_port_uses(&cell_map, &mut asgns);
+        ir::Builder::rename_port_uses(cell_map, &mut asgns);
         new_group.borrow_mut().assignments = asgns;
         (Rc::clone(gr), new_group)
     }
@@ -109,8 +109,13 @@ impl Visitor for ComponentInliner {
         sigs: &LibrarySignatures,
         comps: &[ir::Component],
     ) -> VisResult {
-        let cells = comp.cells.drain().collect_vec();
-        let mut builder = ir::Builder::new(comp, sigs);
+        // Separate out cells that need to be inlined.
+        let (inline_cells, cells): (Vec<_>, Vec<_>) =
+            comp.cells.drain().partition(|cr| {
+                let cell = cr.borrow();
+                cell.get_attribute("inline").is_some()
+            });
+        comp.cells.append(cells.into_iter());
 
         // Mapping from component name to component definition
         let comp_map = comps
@@ -118,18 +123,14 @@ impl Visitor for ComponentInliner {
             .map(|comp| (comp.name.clone(), comp))
             .collect::<HashMap<_, _>>();
 
-        for cell_ref in &cells {
+        let mut builder = ir::Builder::new(comp, sigs);
+        for cell_ref in inline_cells {
             let cell = cell_ref.borrow();
-            if cell.is_component() && cell.get_attribute("inline").is_some() {
+            if cell.is_component() {
                 let comp_name = cell.type_name().unwrap();
                 Self::inline_component(&mut builder, comp_map[comp_name]);
             }
         }
-
-        // Add back all the cells in original order.
-        let mut new_cells = ir::IdList::from(cells);
-        new_cells.append(comp.cells.drain());
-        comp.cells = new_cells;
 
         Ok(Action::Continue)
     }
