@@ -172,7 +172,7 @@ impl<'a> Builder<'a> {
             name,
             ir::CellType::Primitive {
                 name: prim_id,
-                param_binding,
+                param_binding: Box::new(param_binding),
                 is_comb: prim.is_comb,
             },
             ports,

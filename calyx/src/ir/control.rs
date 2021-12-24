@@ -210,11 +210,11 @@ impl Control {
     pub fn clone(con: &Control) -> Control {
         match con {
             Control::Seq(Seq { stmts, attributes }) => Control::Seq(Seq {
-                stmts: stmts.iter().map(|stmt| Control::clone(stmt)).collect(),
+                stmts: stmts.iter().map(Control::clone).collect(),
                 attributes: attributes.clone(),
             }),
             Control::Par(Par { stmts, attributes }) => Control::Par(Par {
-                stmts: stmts.iter().map(|stmt| Control::clone(stmt)).collect(),
+                stmts: stmts.iter().map(Control::clone).collect(),
                 attributes: attributes.clone(),
             }),
             Control::If(If {
