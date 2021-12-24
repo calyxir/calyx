@@ -242,7 +242,7 @@ impl<'a> Builder<'a> {
     /// ```
     /// b.in = b.done ? b.out;
     /// ```
-    pub fn rename_cell_uses(
+    pub fn rename_port_uses(
         &self,
         rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
         assigns: &mut Vec<ir::Assignment>,
