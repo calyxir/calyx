@@ -29,7 +29,7 @@ impl<'a> Iterator for SigIter<'a> {
 }
 
 impl LibrarySignatures {
-    /// Return the [Primitive] associated to this Id.
+    /// Return the [Primitive] associated with the given name if defined, otherwise return None.
     pub fn find_primitive<S>(&self, name: S) -> Option<&Primitive>
     where
         S: AsRef<str>,
@@ -56,7 +56,7 @@ impl LibrarySignatures {
         })
     }
 
-    /// Return an iterator over the underlying
+    /// Return an iterator over all defined primitives.
     pub fn signatures(&self) -> SigIter<'_> {
         SigIter {
             iter: Box::new(

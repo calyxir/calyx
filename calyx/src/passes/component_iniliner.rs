@@ -15,22 +15,37 @@ use crate::ir::{self, LibrarySignatures};
 #[derive(Default)]
 pub struct ComponentInliner;
 
+impl ComponentInliner {
+    // Inline component `comp` into the parent component attached to `builder`
+    /* fn inline_component(builder: &mut ir::Builder, comp: &ir::Component) {
+        todo!()
+    } */
+}
+
 impl Named for ComponentInliner {
     fn name() -> &'static str {
         "inline"
     }
 
     fn description() -> &'static str {
-        "attempts to inline all components marked with @inline attribute"
+        "inline all component instances marked with @inline attribute"
     }
 }
 
 impl Visitor for ComponentInliner {
     fn start(
         &mut self,
-        _comp: &mut ir::Component,
+        comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
+        for cell_ref in comp.cells.iter() {
+            let cell = cell_ref.borrow();
+            if cell.is_component() && cell.get_attribute("inline").is_some() {
+                todo!()
+            }
+        }
+
         Ok(Action::Continue)
     }
 
@@ -39,6 +54,7 @@ impl Visitor for ComponentInliner {
         _s: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
