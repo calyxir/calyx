@@ -67,6 +67,24 @@ impl ComponentInliner {
         (Rc::clone(gr), new_group)
     }
 
+    /// Inline a group definition from a component into the component associated
+    /// with the `builder`.
+    fn inline_comb_group(
+        builder: &mut ir::Builder,
+        cell_map: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
+        gr: &RRC<ir::CombGroup>,
+    ) -> (RRC<ir::CombGroup>, RRC<ir::CombGroup>) {
+        let group = gr.borrow();
+        let new_group = builder.add_comb_group(group.clone_name());
+        new_group.borrow_mut().attributes = group.attributes.clone();
+
+        // Rewrite assignments
+        let mut asgns = group.assignments.clone();
+        ir::Builder::rename_port_uses(cell_map, &mut asgns);
+        new_group.borrow_mut().assignments = asgns;
+        (Rc::clone(gr), new_group)
+    }
+
     /// Inline component `comp` into the parent component attached to `builder`
     fn inline_component(builder: &mut ir::Builder, comp: &ir::Component) {
         // For each cell in the component, create a new cell in the parent
@@ -83,6 +101,12 @@ impl ComponentInliner {
             .groups
             .iter()
             .map(|gr| Self::inline_group(builder, &cell_map, gr))
+            .collect::<Vec<_>>();
+
+        let comb_group_map = comp
+            .comb_groups
+            .iter()
+            .map(|gr| Self::inline_comb_group(builder, &cell_map, gr))
             .collect::<Vec<_>>();
     }
 }
