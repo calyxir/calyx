@@ -7,6 +7,8 @@ lazy_static! {
     /// read-only after simulation has begun.
     pub static ref SETTINGS: RwLock<Config> = RwLock::new(Config::default());
 }
+
+#[derive(Default)]
 pub struct Config {
     /// enables/disables "sloppy" interpretation which returns 0 for invalid indicies
     /// rather than erroring
@@ -17,16 +19,4 @@ pub struct Config {
     pub allow_par_conflicts: bool,
     /// suppresses warning printing
     pub quiet: bool,
-}
-
-// #[allow(clippy::derivable_impls)]
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            allow_invalid_memory_access: false,
-            error_on_overflow: false,
-            allow_par_conflicts: false,
-            quiet: false,
-        }
-    }
 }
