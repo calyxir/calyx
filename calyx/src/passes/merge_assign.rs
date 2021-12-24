@@ -64,6 +64,7 @@ impl Visitor for MergeAssign {
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         for group in comp.groups.iter() {
             let assigns = group.borrow_mut().assignments.drain(..).collect();

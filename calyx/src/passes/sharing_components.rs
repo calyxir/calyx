@@ -81,6 +81,7 @@ impl<T: ShareComponents> Visitor for T {
         &mut self,
         comp: &mut ir::Component,
         sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         self.initialize(comp, sigs);
 
@@ -188,6 +189,7 @@ impl<T: ShareComponents> Visitor for T {
         s: &mut ir::If,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let cond_port = &s.port;
 
@@ -224,6 +226,7 @@ impl<T: ShareComponents> Visitor for T {
         s: &mut ir::While,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let cond_port = &s.port;
         // Check if the cell associated with the port was rewritten for the cond
@@ -257,6 +260,7 @@ impl<T: ShareComponents> Visitor for T {
         s: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // rename inputs
         for (_id, src) in &s.inputs {

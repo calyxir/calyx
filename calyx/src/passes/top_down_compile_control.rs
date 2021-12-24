@@ -643,6 +643,7 @@ impl Visitor for TopDownCompileControl {
         &mut self,
         comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Do not try to compile an enable
         if matches!(
@@ -665,6 +666,7 @@ impl Visitor for TopDownCompileControl {
         s: &mut ir::Par,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
 
@@ -763,6 +765,7 @@ impl Visitor for TopDownCompileControl {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let control = Rc::clone(&comp.control);
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
