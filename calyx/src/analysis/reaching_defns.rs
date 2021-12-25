@@ -173,7 +173,7 @@ impl ReachingDefinitionAnalysis {
     /// which can be ignored if one is not rewriting values
     /// **NOTE**: Assumes that each group appears at only one place in the control
     /// structure.
-    pub fn new(_comp: &ir::Component, control: &ir::Control) -> Self {
+    pub fn new(control: &ir::Control) -> Self {
         let initial_set = DefSet::default();
         let mut analysis = ReachingDefinitionAnalysis::default();
         let mut counter: u64 = 0;
