@@ -43,7 +43,7 @@ fn compile(
 
     let mut buffer: Vec<u8> = vec![];
     for comp in &rep.components {
-        ir::IRPrinter::write_component(comp, &mut buffer)?;
+        ir::Printer::write_component(comp, &mut buffer)?;
     }
     Ok(String::from_utf8(buffer).unwrap())
 }

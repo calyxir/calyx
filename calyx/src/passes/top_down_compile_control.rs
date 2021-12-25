@@ -11,7 +11,7 @@ use crate::{
         LibrarySignatures, RRC,
     },
 };
-use ir::IRPrinter;
+use ir::Printer;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
 use std::collections::HashMap;
@@ -198,7 +198,7 @@ impl Schedule {
             .for_each(|(state, assigns)| {
                 writeln!(out, "{}:", state).unwrap();
                 assigns.iter().for_each(|assign| {
-                    IRPrinter::write_assignment(assign, 2, out).unwrap();
+                    Printer::write_assignment(assign, 2, out).unwrap();
                     writeln!(out).unwrap();
                 })
             });
@@ -208,7 +208,7 @@ impl Schedule {
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                writeln!(out, "  ({}, {}): {}", i, f, IRPrinter::guard_str(g))
+                writeln!(out, "  ({}, {}): {}", i, f, Printer::guard_str(g))
                     .unwrap();
             });
     }

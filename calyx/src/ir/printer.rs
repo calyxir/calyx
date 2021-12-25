@@ -9,9 +9,9 @@ use std::path::Path;
 use std::rc::Rc;
 
 /// Printer for the IR.
-pub struct IRPrinter;
+pub struct Printer;
 
-impl IRPrinter {
+impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     fn format_at_attributes(attrs: &ir::Attributes) -> String {
