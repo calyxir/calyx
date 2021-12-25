@@ -119,6 +119,22 @@ impl Component {
     {
         self.namegen.gen_name(prefix)
     }
+
+    /// Apply function on all assignments contained within the component.
+    pub fn for_each_assignment<F>(&mut self, f: &F)
+    where
+        F: Fn(&mut Assignment),
+    {
+        for group_ref in self.groups.iter() {
+            let mut group = group_ref.borrow_mut();
+            group.assignments.iter_mut().for_each(f);
+        }
+        for comb_group_ref in self.comb_groups.iter() {
+            let mut comb_group = comb_group_ref.borrow_mut();
+            comb_group.assignments.iter_mut().for_each(f);
+        }
+        self.continuous_assignments.iter_mut().for_each(f);
+    }
 }
 
 /// A wrapper struct exposing an ordered collection of named entities within an

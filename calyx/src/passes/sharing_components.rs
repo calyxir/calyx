@@ -167,20 +167,10 @@ impl<T: ShareComponents> Visitor for T {
             }
         }
 
-        // apply the coloring as a renaming of registers for both groups
-        // and continuous assignments
-        let builder = ir::Builder::new(comp, sigs);
-        for group_ref in builder.component.groups.iter() {
-            let mut group = group_ref.borrow_mut();
-            let mut assigns: Vec<_> = group.assignments.drain(..).collect();
-            ir::Rewriter::rename_cell_uses(&coloring, &mut assigns);
-            group.assignments = assigns;
-        }
-
-        let mut assigns: Vec<_> =
-            builder.component.continuous_assignments.drain(..).collect();
-        ir::Rewriter::rename_cell_uses(&coloring, &mut assigns);
-        builder.component.continuous_assignments = assigns;
+        // Rewrite assignments using the coloring generated.
+        comp.for_each_assignment(&|assign| {
+            ir::Rewriter::rename_cell_use(&coloring, assign)
+        });
 
         ir::Rewriter::rewrite_control(
             &mut *comp.control.borrow_mut(),
