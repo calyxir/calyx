@@ -62,6 +62,18 @@ impl ComponentInliner {
         (cn, new_cell)
     }
 
+    /// Rewrite assignments using the given [CellMap] and [PortMap].
+    fn rewrite_assigns(
+        assigns: &mut Vec<ir::Assignment>,
+        cell_map: &CellMap,
+        interface_map: &PortMap,
+    ) {
+        for assign in assigns.iter_mut() {
+            ir::Rewriter::rename_cell_use(cell_map, assign);
+            Self::rewrite_interface_use(interface_map, assign)
+        }
+    }
+
     /// Inline a group definition from a component into the component associated
     /// with the `builder`.
     fn inline_group(
@@ -76,10 +88,7 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        for assign in asgns.iter_mut() {
-            ir::Rewriter::rename_cell_use(cell_map, assign);
-            Self::rewrite_interface_use(interface_map, assign)
-        }
+        Self::rewrite_assigns(&mut asgns, cell_map, interface_map);
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -98,10 +107,7 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        for assign in asgns.iter_mut() {
-            ir::Rewriter::rename_cell_use(cell_map, assign);
-            Self::rewrite_interface_use(interface_map, assign)
-        }
+        Self::rewrite_assigns(&mut asgns, cell_map, interface_map);
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -157,12 +163,17 @@ impl ComponentInliner {
             .collect()
     }
 
-    /// Inline component `comp` into the parent component attached to `builder`
+    /// Inline component `comp` into the parent component attached to `builder`.
+    /// Returns:
+    /// 1. The control program associated with the component being inlined,
+    ///    rewritten for the specific instance.
+    /// 2. A [PortMap] to be used in the parent component to rewrite uses of
+    ///    interface ports of the component being inlined.
     fn inline_component(
         builder: &mut ir::Builder,
         comp: &ir::Component,
         name: ir::Id,
-    ) -> ir::Control {
+    ) -> (ir::Control, PortMap) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
         let cell_map: CellMap = comp
@@ -191,6 +202,14 @@ impl ComponentInliner {
             })
             .collect();
 
+        // Rewrite continuous assignments
+        let mut cont_assigns = comp.continuous_assignments.clone();
+        Self::rewrite_assigns(&mut cont_assigns, &cell_map, &interface_map);
+        builder
+            .component
+            .continuous_assignments
+            .extend(cont_assigns);
+
         // Generate a control program associated with this instance
         let mut con = ir::Control::clone(&comp.control.borrow());
         ir::Rewriter::rewrite_control(
@@ -199,7 +218,8 @@ impl ComponentInliner {
             &group_map,
             &comb_group_map,
         );
-        con
+
+        (con, interface_map)
     }
 }
 
@@ -239,19 +259,41 @@ impl Visitor for ComponentInliner {
             .map(|comp| (comp.name.clone(), comp))
             .collect::<HashMap<_, _>>();
 
+        // Rewrites for the interface ports of the component being used in the
+        // parent.
+        let mut interface_rewrites: PortMap = HashMap::new();
+
         let mut builder = ir::Builder::new(comp, sigs);
         for cell_ref in inline_cells {
             let cell = cell_ref.borrow();
             if cell.is_component() {
                 let comp_name = cell.type_name().unwrap();
-                let con = Self::inline_component(
+                let (control, rewrites) = Self::inline_component(
                     &mut builder,
                     comp_map[comp_name],
                     cell.clone_name(),
                 );
-                self.control_map.insert(cell.clone_name(), con);
+                interface_rewrites.extend(&mut rewrites.into_iter());
+                self.control_map.insert(cell.clone_name(), control);
             }
         }
+
+        // Rewrite all assignment in the component to use interface wires
+        // from the inlined instances.
+        comp.for_each_assignment(&|assign| {
+            assign.for_each_port(|pr| {
+                let port = &pr.borrow();
+                interface_rewrites.get(&port.canonical()).map(|cell| {
+                    let pn = match port.direction {
+                        ir::Direction::Input => "in",
+                        ir::Direction::Output => "out",
+                        ir::Direction::Inout => unreachable!(),
+                    };
+                    cell.borrow().get(pn)
+                })
+            });
+            Self::rewrite_interface_use(&interface_rewrites, assign)
+        });
 
         Ok(Action::Continue)
     }

@@ -60,15 +60,7 @@ impl Rewriter {
         rewrites: &CellRewriteMap,
         assign: &mut ir::Assignment,
     ) {
-        if let Some(new_port) = Self::get_port_rewrite(rewrites, &assign.src) {
-            assign.src = new_port;
-        }
-        if let Some(new_port) = Self::get_port_rewrite(rewrites, &assign.dst) {
-            assign.dst = new_port;
-        }
-        assign.guard.for_each(&|port| {
-            Self::get_port_rewrite(rewrites, &port).map(ir::Guard::port)
-        });
+        assign.for_each_port(|port| Self::get_port_rewrite(rewrites, port));
     }
 
     /// Convinience wrapper around [Self::rename_cell_use] that operates
@@ -90,24 +82,8 @@ impl Rewriter {
         rewrites: &PortRewriteMap,
         assign: &mut ir::Assignment,
     ) {
-        let new_src = rewrites
-            .get(&assign.src.borrow().canonical())
-            .map(Rc::clone);
-        if let Some(src) = new_src {
-            assign.src = src;
-        }
-
-        let new_dst = rewrites
-            .get(&assign.dst.borrow().canonical())
-            .map(Rc::clone);
-        if let Some(dst) = new_dst {
-            assign.dst = dst;
-        }
-
-        assign.guard.for_each(&|port| {
-            rewrites
-                .get(&port.borrow().canonical())
-                .map(|p| ir::Guard::port(Rc::clone(p)))
+        assign.for_each_port(|port| {
+            rewrites.get(&port.borrow().canonical()).map(Rc::clone)
         });
     }
 
