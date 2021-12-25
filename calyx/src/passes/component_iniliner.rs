@@ -67,6 +67,7 @@ impl ComponentInliner {
     fn inline_group(
         builder: &mut ir::Builder,
         cell_map: &CellMap,
+        interface_map: &PortMap,
         gr: &RRC<ir::Group>,
     ) -> (ir::Id, RRC<ir::Group>) {
         let group = gr.borrow();
@@ -75,7 +76,10 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        ir::Builder::rename_cell_uses(cell_map, &mut asgns);
+        for assign in asgns.iter_mut() {
+            ir::Rewriter::rename_cell_use(cell_map, assign);
+            Self::rewrite_interface_use(interface_map, assign)
+        }
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -93,7 +97,7 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        ir::Builder::rename_cell_uses(cell_map, &mut asgns);
+        ir::Rewriter::rename_cell_uses(cell_map, &mut asgns);
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -183,7 +187,7 @@ impl ComponentInliner {
     }
 
     /// Rewrite a use of an interface port.
-    fn rewrite_interface_use(port_map: PortMap, assign: &mut ir::Assignment) {
+    fn rewrite_interface_use(port_map: &PortMap, assign: &mut ir::Assignment) {
         fn this_parent(port: &RRC<ir::Port>) -> bool {
             let parent = &port.borrow().parent;
             if let ir::PortParent::Cell(cell_wref) = parent {
@@ -253,7 +257,9 @@ impl ComponentInliner {
         let group_map: GroupMap = comp
             .groups
             .iter()
-            .map(|gr| Self::inline_group(builder, &cell_map, gr))
+            .map(|gr| {
+                Self::inline_group(builder, &cell_map, &interface_map, gr)
+            })
             .collect();
         let comb_group_map: CombGroupMap = comp
             .comb_groups
