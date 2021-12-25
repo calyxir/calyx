@@ -138,7 +138,7 @@ impl<T> AsRaw<T> for &RRC<T> {
 
 pub fn assignment_to_string(assignment: &ir::Assignment) -> String {
     let mut str = vec![];
-    ir::IRPrinter::write_assignment(assignment, 0, &mut str)
+    ir::Printer::write_assignment(assignment, 0, &mut str)
         .expect("Write Failed");
     String::from_utf8(str).expect("Found invalid UTF-8")
 }

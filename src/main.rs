@@ -51,7 +51,7 @@ fn main() -> CalyxResult<()> {
         let out = &mut opts.output.get_write();
         if opts.compile_mode == CompileMode::Project {
             for (path, prims) in ctx.lib.externs() {
-                ir::IRPrinter::write_extern(
+                ir::Printer::write_extern(
                     (&path, &prims.into_iter().map(|(_, v)| v).collect_vec()),
                     out,
                 )?;
@@ -63,7 +63,7 @@ fn main() -> CalyxResult<()> {
             }
         }
         for comp in &ctx.components {
-            ir::IRPrinter::write_component(comp, out)?;
+            ir::Printer::write_component(comp, out)?;
             writeln!(out)?
         }
         Ok(())

@@ -3,7 +3,6 @@
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
 use smallvec::smallvec;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// IR builder.
@@ -229,53 +228,6 @@ impl<'a> Builder<'a> {
             dst,
             src,
             guard: Box::new(guard),
-        }
-    }
-
-    /// Rewrite all reads and writes from `cell` in the given assingments to
-    /// the same ports on `new_cell`.
-    ///
-    /// For example, given with `cell = a` and `new_cell = b`
-    /// ```
-    /// a.in = a.done ? a.out;
-    /// ```
-    /// is rewritten to
-    /// ```
-    /// b.in = b.done ? b.out;
-    /// ```
-    pub fn rename_port_uses(
-        rewrites: &HashMap<ir::Id, RRC<ir::Cell>>,
-        assigns: &mut Vec<ir::Assignment>,
-    ) {
-        // Returns a reference to the port with the same name in cell.
-        let get_port =
-            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
-                Rc::clone(&cell.borrow().get(&port.borrow().name))
-            };
-
-        let rewrite_port = |port: &RRC<ir::Port>| -> Option<RRC<ir::Port>> {
-            let rewrite = if let ir::PortParent::Cell(cell_wref) =
-                &port.borrow().parent
-            {
-                let cell_ref = cell_wref.upgrade();
-                let cell_name = cell_ref.borrow();
-                rewrites.get(cell_name.name())
-            } else {
-                None
-            };
-            rewrite.map(|new_cell| get_port(port, new_cell))
-        };
-
-        for assign in assigns {
-            if let Some(new_port) = rewrite_port(&assign.src) {
-                assign.src = new_port;
-            }
-            if let Some(new_port) = rewrite_port(&assign.dst) {
-                assign.dst = new_port;
-            }
-            assign
-                .guard
-                .for_each(&|port| rewrite_port(&port).map(ir::Guard::port));
         }
     }
 

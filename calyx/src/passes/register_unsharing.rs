@@ -3,7 +3,7 @@ use crate::analysis::reaching_defns::{
 };
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Builder, Cell, CloneName, LibrarySignatures, RRC};
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct RegisterUnsharing {
@@ -18,7 +18,7 @@ impl Named for RegisterUnsharing {
     }
 
     fn description() -> &'static str {
-        "Split apart shared values into separate regsters"
+        "Split apart shared values into separate registers"
     }
 }
 
@@ -55,8 +55,7 @@ impl Bookkeeper {
             })
             .collect();
 
-        let analysis =
-            ReachingDefinitionAnalysis::new(comp, &comp.control.borrow());
+        let analysis = ReachingDefinitionAnalysis::new(&comp.control.borrow());
 
         let invoke_map = HashMap::new();
 
@@ -141,7 +140,7 @@ impl Bookkeeper {
         for (grp, rename_cells) in grp_map {
             let group = builder.component.find_group(grp).unwrap();
             let mut group_ref = group.borrow_mut();
-            ir::Builder::rename_port_uses(
+            ir::Rewriter::rename_cell_uses(
                 &rename_cells,
                 &mut group_ref.assignments,
             )
@@ -195,35 +194,14 @@ impl Visitor for RegisterUnsharing {
 
             // only do rewrites if there is actually rewriting to do
             if let Some(rename_vec) = vec_array {
-                replace_invoke_ports(invoke, rename_vec);
+                ir::Rewriter::rewrite_invoke(
+                    invoke,
+                    rename_vec,
+                    &HashMap::new(),
+                );
             }
         }
 
         Ok(Action::Continue)
-    }
-}
-
-fn replace_invoke_ports(
-    invoke: &mut ir::Invoke,
-    rewrites: &HashMap<ir::Id, RRC<ir::Cell>>,
-) {
-    let get_port =
-        |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
-            Rc::clone(&cell.borrow().get(&port.borrow().name))
-        };
-
-    for (_, port) in invoke.inputs.iter_mut().chain(invoke.outputs.iter_mut()) {
-        let rewrite =
-            if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-                let cell_ref = cell_wref.upgrade();
-                let parent = cell_ref.borrow();
-                rewrites.get(parent.name())
-            } else {
-                None
-            };
-
-        if let Some(cell) = rewrite {
-            *port = get_port(port, cell)
-        }
     }
 }

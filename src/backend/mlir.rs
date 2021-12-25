@@ -1,5 +1,5 @@
 use calyx::errors::Error;
-use calyx::ir::{GetAttributes, IRPrinter};
+use calyx::ir::GetAttributes;
 
 use crate::ir::{self, RRC};
 use std::collections::HashMap;
@@ -264,7 +264,7 @@ impl MlirBackend {
         } else if matches!(&*assign.guard, ir::Guard::True) {
             /* Print nothing */
         } else {
-            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", IRPrinter::guard_str(&*assign.guard));
+            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", ir::Printer::guard_str(&*assign.guard));
         }
         write!(f, "{}", Self::get_port_access(&assign.src.borrow()),)?;
         write!(f, " : i{}", assign.src.borrow().width)

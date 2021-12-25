@@ -173,129 +173,22 @@ impl<T: ShareComponents> Visitor for T {
         for group_ref in builder.component.groups.iter() {
             let mut group = group_ref.borrow_mut();
             let mut assigns: Vec<_> = group.assignments.drain(..).collect();
-            ir::Builder::rename_port_uses(&coloring, &mut assigns);
+            ir::Rewriter::rename_cell_uses(&coloring, &mut assigns);
             group.assignments = assigns;
         }
 
         let mut assigns: Vec<_> =
             builder.component.continuous_assignments.drain(..).collect();
-        ir::Builder::rename_port_uses(&coloring, &mut assigns);
+        ir::Rewriter::rename_cell_uses(&coloring, &mut assigns);
         builder.component.continuous_assignments = assigns;
 
-        self.set_rewrites(coloring);
+        ir::Rewriter::rewrite_control(
+            &mut *comp.control.borrow_mut(),
+            &coloring,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
-        Ok(Action::Continue)
-    }
-
-    fn start_if(
-        &mut self,
-        s: &mut ir::If,
-        _comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        let cond_port = &s.port;
-
-        // XXX(sam), is just having a single cell -> cell map for
-        // rewrites sufficient. or do you need cell, group_id -> cell
-
-        let parent = if let ir::PortParent::Cell(cell_wref) =
-            &cond_port.borrow().parent
-        {
-            Some(cell_wref.upgrade())
-        } else {
-            None
-        };
-
-        if let Some(cell) = parent {
-            // find rewrite for conditional port cell
-            let rewrite = self.get_rewrites().get(cell.borrow().name());
-            if let Some(new_cell) = rewrite {
-                let new_port = new_cell.borrow().get(&cond_port.borrow().name);
-                s.port = new_port;
-            }
-        };
-
-        Ok(Action::Continue)
-    }
-
-    // Rewrite the name of the cond port if this group was re-written.
-    fn start_while(
-        &mut self,
-        s: &mut ir::While,
-        _comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        let cond_port = &s.port;
-        // Check if the cell associated with the port was rewritten for the cond
-        // group.
-        let parent = if let ir::PortParent::Cell(cell_wref) =
-            &cond_port.borrow().parent
-        {
-            Some(cell_wref.upgrade())
-        } else {
-            None
-        };
-
-        if let Some(cell) = parent {
-            // find rewrite for conditional port cell
-            let rewrite = self.get_rewrites().get(cell.borrow().name());
-            if let Some(new_cell) = rewrite {
-                let new_port = new_cell.borrow().get(&cond_port.borrow().name);
-                s.port = new_port;
-            }
-        };
-
-        Ok(Action::Continue)
-    }
-
-    fn invoke(
-        &mut self,
-        s: &mut ir::Invoke,
-        _comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        // rename inputs
-        for (_id, src) in &s.inputs {
-            let parent =
-                if let ir::PortParent::Cell(cell_wref) = &src.borrow().parent {
-                    Some(cell_wref.upgrade())
-                } else {
-                    None
-                };
-
-            if let Some(cell) = parent {
-                // find rewrite for conditional port cell
-                let rewrite = self.get_rewrites().get(cell.borrow().name());
-                if let Some(new_cell) = rewrite {
-                    let new_port = new_cell.borrow().get(&src.borrow().name);
-                    *src.borrow_mut() = new_port.borrow().clone();
-                }
-            };
-        }
-
-        // rename outputs
-        for (_id, dest) in &s.outputs {
-            let parent = if let ir::PortParent::Cell(cell_wref) =
-                &dest.borrow().parent
-            {
-                Some(cell_wref.upgrade())
-            } else {
-                None
-            };
-
-            if let Some(cell) = parent {
-                // find rewrite for conditional port cell
-                let rewrite = self.get_rewrites().get(cell.borrow().name());
-                if let Some(new_cell) = rewrite {
-                    let new_port = new_cell.borrow().get(&dest.borrow().name);
-                    *dest.borrow_mut() = new_port.borrow().clone();
-                }
-            };
-        }
-
-        Ok(Action::Continue)
+        Ok(Action::Stop)
     }
 }

@@ -190,7 +190,7 @@ impl Opts {
             }
             BackendOpt::Calyx => {
                 for (path, prims) in context.lib.externs() {
-                    ir::IRPrinter::write_extern(
+                    ir::Printer::write_extern(
                         (
                             &path,
                             &prims.into_iter().map(|(_, v)| v).collect_vec(),
@@ -199,7 +199,7 @@ impl Opts {
                     )?;
                 }
                 for comp in &context.components {
-                    ir::IRPrinter::write_component(
+                    ir::Printer::write_component(
                         comp,
                         &mut self.output.get_write(),
                     )?;
