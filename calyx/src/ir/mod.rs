@@ -18,6 +18,7 @@ mod id;
 mod primitives;
 mod printer;
 mod reserved_names;
+mod rewriter;
 mod structure;
 
 // Re-export types at the module level.
@@ -32,6 +33,7 @@ pub use id::Id;
 pub use primitives::{PortDef, Primitive, Width};
 pub use printer::Printer;
 pub use reserved_names::RESERVED_NAMES;
+pub use rewriter::Rewriter;
 pub use structure::{
     Assignment, Binding, Cell, CellIterator, CellType, CloneName, CombGroup,
     Direction, GetName, Group, Port, PortIterator, PortParent,
