@@ -89,6 +89,7 @@ impl ComponentInliner {
     fn inline_comb_group(
         builder: &mut ir::Builder,
         cell_map: &CellMap,
+        interface_map: &PortMap,
         gr: &RRC<ir::CombGroup>,
     ) -> (ir::Id, RRC<ir::CombGroup>) {
         let group = gr.borrow();
@@ -97,7 +98,10 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        ir::Rewriter::rename_cell_uses(cell_map, &mut asgns);
+        for assign in asgns.iter_mut() {
+            ir::Rewriter::rename_cell_use(cell_map, assign);
+            Self::rewrite_interface_use(interface_map, assign)
+        }
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -136,6 +140,7 @@ impl ComponentInliner {
     fn inline_interface(
         builder: &mut ir::Builder,
         comp: &ir::Component,
+        name: ir::Id,
     ) -> PortMap {
         // For each output port, generate a wire that will store its value
         comp.signature
@@ -144,7 +149,7 @@ impl ComponentInliner {
             .iter()
             .map(|port_ref| {
                 let port = port_ref.borrow();
-                let wire_name = format!("{}_{}", comp.name, port.name);
+                let wire_name = format!("{}_{}", name, port.name);
                 let wire =
                     builder.add_primitive(wire_name, "std_wire", &[port.width]);
                 (port.canonical(), wire)
@@ -156,6 +161,7 @@ impl ComponentInliner {
     fn inline_component(
         builder: &mut ir::Builder,
         comp: &ir::Component,
+        name: ir::Id,
     ) -> ir::Control {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
@@ -166,7 +172,7 @@ impl ComponentInliner {
             .collect();
 
         // Rewrites to inline the interface.
-        let interface_map = Self::inline_interface(builder, comp);
+        let interface_map = Self::inline_interface(builder, comp, name);
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
@@ -180,7 +186,9 @@ impl ComponentInliner {
         let comb_group_map: CombGroupMap = comp
             .comb_groups
             .iter()
-            .map(|gr| Self::inline_comb_group(builder, &cell_map, gr))
+            .map(|gr| {
+                Self::inline_comb_group(builder, &cell_map, &interface_map, gr)
+            })
             .collect();
 
         // Generate a control program associated with this instance
@@ -236,8 +244,11 @@ impl Visitor for ComponentInliner {
             let cell = cell_ref.borrow();
             if cell.is_component() {
                 let comp_name = cell.type_name().unwrap();
-                let con =
-                    Self::inline_component(&mut builder, comp_map[comp_name]);
+                let con = Self::inline_component(
+                    &mut builder,
+                    comp_map[comp_name],
+                    cell.clone_name(),
+                );
                 self.control_map.insert(cell.clone_name(), con);
             }
         }
