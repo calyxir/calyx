@@ -3,6 +3,7 @@ use super::{
     Control, Direction, GetName, Group, Id, RRC,
 };
 use crate::utils;
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -125,13 +126,19 @@ impl Component {
     where
         F: Fn(&mut Assignment),
     {
+        // Detach assignments from the group so that ports that use group
+        // `go` and `done` condition can access the parent group.
         for group_ref in self.groups.iter() {
-            let mut group = group_ref.borrow_mut();
-            group.assignments.iter_mut().for_each(f);
+            let mut assigns =
+                group_ref.borrow_mut().assignments.drain(..).collect_vec();
+            assigns.iter_mut().for_each(f);
+            group_ref.borrow_mut().assignments = assigns;
         }
-        for comb_group_ref in self.comb_groups.iter() {
-            let mut comb_group = comb_group_ref.borrow_mut();
-            comb_group.assignments.iter_mut().for_each(f);
+        for group_ref in self.comb_groups.iter() {
+            let mut assigns =
+                group_ref.borrow_mut().assignments.drain(..).collect_vec();
+            assigns.iter_mut().for_each(f);
+            group_ref.borrow_mut().assignments = assigns;
         }
         self.continuous_assignments.iter_mut().for_each(f);
     }

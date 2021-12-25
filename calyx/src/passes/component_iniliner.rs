@@ -183,7 +183,7 @@ impl ComponentInliner {
             .collect();
 
         // Rewrites to inline the interface.
-        let interface_map = Self::inline_interface(builder, comp, name);
+        let interface_map = Self::inline_interface(builder, comp, name.clone());
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
@@ -219,7 +219,13 @@ impl ComponentInliner {
             &comb_group_map,
         );
 
-        (con, interface_map)
+        (
+            con,
+            interface_map
+                .into_iter()
+                .map(|((_, p), v)| ((name.clone(), p), v))
+                .collect(),
+        )
     }
 }
 
@@ -278,6 +284,11 @@ impl Visitor for ComponentInliner {
             }
         }
 
+        println!(
+            "{:?}",
+            interface_rewrites.iter().map(|(k, _)| k).collect_vec()
+        );
+
         // Rewrite all assignment in the component to use interface wires
         // from the inlined instances.
         comp.for_each_assignment(&|assign| {
@@ -292,7 +303,6 @@ impl Visitor for ComponentInliner {
                     cell.borrow().get(pn)
                 })
             });
-            Self::rewrite_interface_use(&interface_rewrites, assign)
         });
 
         Ok(Action::Continue)
