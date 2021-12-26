@@ -29,7 +29,8 @@ impl Rewriter {
     }
 
     /// Return a port rewrite if it is defeind in the set of rewrites.
-    fn get_port_rewrite(
+    #[inline]
+    pub fn get_port_rewrite(
         rewrites: &CellRewriteMap,
         port: &RRC<ir::Port>,
     ) -> Option<RRC<ir::Port>> {

@@ -62,15 +62,36 @@ impl ComponentInliner {
         (cn, new_cell)
     }
 
-    /// Rewrite assignments using the given [CellMap] and [PortMap].
+    /// Rewrite assignments using a [CellMap], [PortMap], and an optional new group.
+    /// Attempts the following rewrites in order:
+    /// 1. Using the [CellMap] to get the same port on a new [Cell].
+    /// 2. Using the [PortMap] to a new [Port].
+    /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns(
         assigns: &mut Vec<ir::Assignment>,
         cell_map: &CellMap,
         interface_map: &PortMap,
+        new_group: Option<&RRC<ir::Group>>,
     ) {
         for assign in assigns.iter_mut() {
-            ir::Rewriter::rename_cell_use(cell_map, assign);
-            Self::rewrite_interface_use(interface_map, assign)
+            assign.for_each_port(|port| {
+                if let np @ Some(_) =
+                    ir::Rewriter::get_port_rewrite(cell_map, port)
+                {
+                    return np;
+                }
+                if let np @ Some(_) =
+                    Self::rewrite_interface_use(interface_map, port)
+                {
+                    return np;
+                }
+                if let Some(grp) = new_group {
+                    if port.borrow().is_hole() {
+                        return Some(grp.borrow().get(&port.borrow().name));
+                    }
+                }
+                None
+            });
         }
     }
 
@@ -88,7 +109,12 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        Self::rewrite_assigns(&mut asgns, cell_map, interface_map);
+        Self::rewrite_assigns(
+            &mut asgns,
+            cell_map,
+            interface_map,
+            Some(&new_group),
+        );
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -107,39 +133,23 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        Self::rewrite_assigns(&mut asgns, cell_map, interface_map);
+        Self::rewrite_assigns(&mut asgns, cell_map, interface_map, None);
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
 
     /// Rewrite a use of an interface port.
-    fn rewrite_interface_use(port_map: &PortMap, assign: &mut ir::Assignment) {
-        fn this_parent(port: &RRC<ir::Port>) -> bool {
-            let parent = &port.borrow().parent;
-            if let ir::PortParent::Cell(cell_wref) = parent {
-                let cell_ref = cell_wref.upgrade();
-                let cell = cell_ref.borrow();
-                return matches!(cell.prototype, ir::CellType::ThisComponent);
-            }
-            false
-        }
-
-        if this_parent(&assign.src) {
-            let idx = assign.src.borrow().canonical();
-            assign.src = port_map[&idx].borrow().get("out");
-        }
-        if this_parent(&assign.dst) {
-            let idx = assign.dst.borrow().canonical();
-            assign.dst = port_map[&idx].borrow().get("in");
-        }
-        assign.guard.for_each(&|port| {
-            if this_parent(&port) {
-                let idx = port.borrow().canonical();
-                Some(ir::Guard::port(port_map[&idx].borrow().get("out")))
-            } else {
-                None
-            }
-        });
+    fn rewrite_interface_use(
+        port_map: &PortMap,
+        pr: &RRC<ir::Port>,
+    ) -> Option<RRC<ir::Port>> {
+        let port = pr.borrow();
+        let idx = port.canonical();
+        port_map.get(&idx).and_then(|cell| match port.direction {
+            ir::Direction::Input => Some(cell.borrow().get("in")),
+            ir::Direction::Output => Some(cell.borrow().get("out")),
+            ir::Direction::Inout => None,
+        })
     }
 
     /// Adds wires that can hold the values written to various output ports.
@@ -204,7 +214,12 @@ impl ComponentInliner {
 
         // Rewrite continuous assignments
         let mut cont_assigns = comp.continuous_assignments.clone();
-        Self::rewrite_assigns(&mut cont_assigns, &cell_map, &interface_map);
+        Self::rewrite_assigns(
+            &mut cont_assigns,
+            &cell_map,
+            &interface_map,
+            None,
+        );
         builder
             .component
             .continuous_assignments
@@ -269,13 +284,12 @@ impl Visitor for ComponentInliner {
         // parent.
         let mut interface_rewrites: PortMap = HashMap::new();
 
-        let mut builder = ir::Builder::new(comp, sigs);
         for cell_ref in inline_cells {
             let cell = cell_ref.borrow();
             if cell.is_component() {
                 let comp_name = cell.type_name().unwrap();
                 let (control, rewrites) = Self::inline_component(
-                    &mut builder,
+                    &mut ir::Builder::new(comp, sigs),
                     comp_map[comp_name],
                     cell.clone_name(),
                 );
@@ -284,11 +298,7 @@ impl Visitor for ComponentInliner {
             }
         }
 
-        println!(
-            "{:?}",
-            interface_rewrites.iter().map(|(k, _)| k).collect_vec()
-        );
-
+        // XXX: This is unneccessarily iterate over the newly inlined groups.
         // Rewrite all assignment in the component to use interface wires
         // from the inlined instances.
         comp.for_each_assignment(&|assign| {
