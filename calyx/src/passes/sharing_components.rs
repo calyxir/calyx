@@ -168,13 +168,16 @@ impl<T: ShareComponents> Visitor for T {
         }
 
         // Rewrite assignments using the coloring generated.
+        let empty_map = HashMap::new();
+        let rewriter = ir::rewriter::PortRewrite::new(&coloring, &empty_map);
         comp.for_each_assignment(&|assign| {
-            ir::Rewriter::rename_cell_use(&coloring, assign)
+            assign.for_each_port(|port| rewriter.get(port));
         });
 
-        ir::Rewriter::rewrite_control(
+        // Rewrite control uses of ports
+        ir::rewriter::Rewriter::rewrite_control(
             &mut *comp.control.borrow_mut(),
-            &coloring,
+            &rewriter,
             &HashMap::new(),
             &HashMap::new(),
         );

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
+use crate::ir::rewriter::PortRewrite;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 
@@ -29,7 +30,7 @@ type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
 /// Map name of old combination group to new combinational group
 type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
 /// Map canonical name of old port to new port
-type PortMap = HashMap<(ir::Id, ir::Id), RRC<ir::Cell>>;
+type PortMap = HashMap<(ir::Id, ir::Id), RRC<ir::Port>>;
 
 impl ComponentInliner {
     /// Inline a cell definition into the component associated with the `builder`.
@@ -69,38 +70,28 @@ impl ComponentInliner {
     /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns(
         assigns: &mut Vec<ir::Assignment>,
-        cell_map: &CellMap,
-        interface_map: &PortMap,
+        port_rewrite: &PortRewrite,
         new_group: Option<&RRC<ir::Group>>,
     ) {
-        for assign in assigns.iter_mut() {
+        assigns.iter_mut().for_each(|assign| {
             assign.for_each_port(|port| {
-                if let np @ Some(_) =
-                    ir::Rewriter::get_port_rewrite(cell_map, port)
-                {
-                    return np;
-                }
-                if let np @ Some(_) =
-                    Self::rewrite_interface_use(interface_map, port)
-                {
-                    return np;
-                }
-                if let Some(grp) = new_group {
-                    if port.borrow().is_hole() {
-                        return Some(grp.borrow().get(&port.borrow().name));
+                port_rewrite.get(port).or_else(|| {
+                    if let Some(grp) = new_group {
+                        if port.borrow().is_hole() {
+                            return Some(grp.borrow().get(&port.borrow().name));
+                        }
                     }
-                }
-                None
+                    None
+                })
             });
-        }
+        })
     }
 
     /// Inline a group definition from a component into the component associated
     /// with the `builder`.
     fn inline_group(
         builder: &mut ir::Builder,
-        cell_map: &CellMap,
-        interface_map: &PortMap,
+        port_rewrite: &PortRewrite,
         gr: &RRC<ir::Group>,
     ) -> (ir::Id, RRC<ir::Group>) {
         let group = gr.borrow();
@@ -109,12 +100,7 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        Self::rewrite_assigns(
-            &mut asgns,
-            cell_map,
-            interface_map,
-            Some(&new_group),
-        );
+        Self::rewrite_assigns(&mut asgns, port_rewrite, Some(&new_group));
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -123,8 +109,7 @@ impl ComponentInliner {
     /// with the `builder`.
     fn inline_comb_group(
         builder: &mut ir::Builder,
-        cell_map: &CellMap,
-        interface_map: &PortMap,
+        port_rewrite: &PortRewrite,
         gr: &RRC<ir::CombGroup>,
     ) -> (ir::Id, RRC<ir::CombGroup>) {
         let group = gr.borrow();
@@ -133,23 +118,9 @@ impl ComponentInliner {
 
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
-        Self::rewrite_assigns(&mut asgns, cell_map, interface_map, None);
+        Self::rewrite_assigns(&mut asgns, port_rewrite, None);
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
-    }
-
-    /// Rewrite a use of an interface port.
-    fn rewrite_interface_use(
-        port_map: &PortMap,
-        pr: &RRC<ir::Port>,
-    ) -> Option<RRC<ir::Port>> {
-        let port = pr.borrow();
-        let idx = port.canonical();
-        port_map.get(&idx).and_then(|cell| match port.direction {
-            ir::Direction::Input => Some(cell.borrow().get("in")),
-            ir::Direction::Output => Some(cell.borrow().get("out")),
-            ir::Direction::Inout => None,
-        })
     }
 
     /// Adds wires that can hold the values written to various output ports.
@@ -166,9 +137,15 @@ impl ComponentInliner {
             .map(|port_ref| {
                 let port = port_ref.borrow();
                 let wire_name = format!("{}_{}", name, port.name);
-                let wire =
+                let wire_ref =
                     builder.add_primitive(wire_name, "std_wire", &[port.width]);
-                (port.canonical(), wire)
+                let wire = wire_ref.borrow();
+                let pn = match port.direction {
+                    ir::Direction::Input => "in",
+                    ir::Direction::Output => "out",
+                    ir::Direction::Inout => unreachable!(),
+                };
+                (port.canonical(), wire.get(pn))
             })
             .collect()
     }
@@ -191,35 +168,26 @@ impl ComponentInliner {
             .iter()
             .map(|cell_ref| Self::inline_cell(builder, cell_ref))
             .collect();
-
         // Rewrites to inline the interface.
         let interface_map = Self::inline_interface(builder, comp, name.clone());
+        let rewrite = PortRewrite::new(&cell_map, &interface_map);
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
         let group_map: GroupMap = comp
             .groups
             .iter()
-            .map(|gr| {
-                Self::inline_group(builder, &cell_map, &interface_map, gr)
-            })
+            .map(|gr| Self::inline_group(builder, &rewrite, gr))
             .collect();
         let comb_group_map: CombGroupMap = comp
             .comb_groups
             .iter()
-            .map(|gr| {
-                Self::inline_comb_group(builder, &cell_map, &interface_map, gr)
-            })
+            .map(|gr| Self::inline_comb_group(builder, &rewrite, gr))
             .collect();
 
         // Rewrite continuous assignments
         let mut cont_assigns = comp.continuous_assignments.clone();
-        Self::rewrite_assigns(
-            &mut cont_assigns,
-            &cell_map,
-            &interface_map,
-            None,
-        );
+        Self::rewrite_assigns(&mut cont_assigns, &rewrite, None);
         builder
             .component
             .continuous_assignments
@@ -227,9 +195,9 @@ impl ComponentInliner {
 
         // Generate a control program associated with this instance
         let mut con = ir::Control::clone(&comp.control.borrow());
-        ir::Rewriter::rewrite_control(
+        ir::rewriter::Rewriter::rewrite_control(
             &mut con,
-            &cell_map,
+            &rewrite,
             &group_map,
             &comb_group_map,
         );
@@ -238,7 +206,15 @@ impl ComponentInliner {
             con,
             interface_map
                 .into_iter()
-                .map(|((_, p), v)| ((name.clone(), p), v))
+                .map(|((_, p), pr)| {
+                    let port = pr.borrow();
+                    let np = match port.name.id.as_str() {
+                        "in" => "out",
+                        "out" => "in",
+                        _ => unreachable!(),
+                    };
+                    ((name.clone(), p), port.cell_parent().borrow().get(np))
+                })
                 .collect(),
         )
     }
@@ -304,14 +280,7 @@ impl Visitor for ComponentInliner {
         comp.for_each_assignment(&|assign| {
             assign.for_each_port(|pr| {
                 let port = &pr.borrow();
-                interface_rewrites.get(&port.canonical()).map(|cell| {
-                    let pn = match port.direction {
-                        ir::Direction::Input => "in",
-                        ir::Direction::Output => "out",
-                        ir::Direction::Inout => unreachable!(),
-                    };
-                    cell.borrow().get(pn)
-                })
+                interface_rewrites.get(&port.canonical()).cloned()
             });
         });
 
