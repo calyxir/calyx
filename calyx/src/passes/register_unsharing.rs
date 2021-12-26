@@ -165,8 +165,7 @@ impl Bookkeeper {
             let group_ref = comp.find_group(grp).unwrap();
             let mut group = group_ref.borrow_mut();
             let empty_map = HashMap::new();
-            let rewriter =
-                ir::rewriter::PortRewrite::new(&rename_cells, &empty_map);
+            let rewriter = ir::Rewriter::new(&rename_cells, &empty_map);
             group
                 .assignments
                 .iter_mut()
@@ -206,13 +205,8 @@ impl Visitor for RegisterUnsharing {
             // only do rewrites if there is actually rewriting to do
             if let Some(rename_vec) = book.invoke_map.get(name) {
                 let empty_map = HashMap::new();
-                let rewriter =
-                    ir::rewriter::PortRewrite::new(rename_vec, &empty_map);
-                ir::rewriter::Rewriter::rewrite_invoke(
-                    invoke,
-                    &rewriter,
-                    &HashMap::new(),
-                );
+                let rewriter = ir::Rewriter::new(rename_vec, &empty_map);
+                rewriter.rewrite_invoke(invoke, &HashMap::new());
             }
         }
 

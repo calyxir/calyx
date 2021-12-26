@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::ir::rewriter::PortRewrite;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 
@@ -70,7 +69,7 @@ impl ComponentInliner {
     /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns(
         assigns: &mut Vec<ir::Assignment>,
-        port_rewrite: &PortRewrite,
+        port_rewrite: &ir::Rewriter,
         new_group: Option<&RRC<ir::Group>>,
     ) {
         assigns.iter_mut().for_each(|assign| {
@@ -91,7 +90,7 @@ impl ComponentInliner {
     /// with the `builder`.
     fn inline_group(
         builder: &mut ir::Builder,
-        port_rewrite: &PortRewrite,
+        port_rewrite: &ir::Rewriter,
         gr: &RRC<ir::Group>,
     ) -> (ir::Id, RRC<ir::Group>) {
         let group = gr.borrow();
@@ -109,7 +108,7 @@ impl ComponentInliner {
     /// with the `builder`.
     fn inline_comb_group(
         builder: &mut ir::Builder,
-        port_rewrite: &PortRewrite,
+        port_rewrite: &ir::Rewriter,
         gr: &RRC<ir::CombGroup>,
     ) -> (ir::Id, RRC<ir::CombGroup>) {
         let group = gr.borrow();
@@ -170,7 +169,7 @@ impl ComponentInliner {
             .collect();
         // Rewrites to inline the interface.
         let interface_map = Self::inline_interface(builder, comp, name.clone());
-        let rewrite = PortRewrite::new(&cell_map, &interface_map);
+        let rewrite = ir::Rewriter::new(&cell_map, &interface_map);
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
@@ -195,12 +194,7 @@ impl ComponentInliner {
 
         // Generate a control program associated with this instance
         let mut con = ir::Control::clone(&comp.control.borrow());
-        ir::rewriter::Rewriter::rewrite_control(
-            &mut con,
-            &rewrite,
-            &group_map,
-            &comb_group_map,
-        );
+        rewrite.rewrite_control(&mut con, &group_map, &comb_group_map);
 
         (
             con,

@@ -20,12 +20,12 @@ type CombGroupRewriteMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
 /// A structure to track rewrite maps for ports. Stores both cell rewrites and direct port
 /// rewrites. Attempts to apply port rewrites first before trying the cell
 /// rewrite.
-pub struct PortRewrite<'a> {
+pub struct Rewriter<'a> {
     cell_map: &'a CellRewriteMap,
     port_map: &'a PortRewriteMap,
 }
 
-impl<'a> PortRewrite<'a> {
+impl<'a> Rewriter<'a> {
     pub fn new(
         cell_map: &'a CellRewriteMap,
         port_map: &'a PortRewriteMap,
@@ -91,45 +91,16 @@ impl<'a> PortRewrite<'a> {
             .or_else(|| self.get_cell_port_rewrite(port_ref))
     }
 
-    /* /// Returns ownership of the underlying rewrite maps
-    pub fn take(self) -> (CellRewriteMap, PortRewriteMap) {
-        (self.cell_map, self.port_map)
-    } */
-}
-
-/// IR Rewriter. Defines methods to rewrite various parts of the IR using
-/// rewrite maps.
-pub struct Rewriter;
-
-impl Rewriter {
-    /// Return a port rewrite if it is defeind in the set of rewrites.
-    #[inline]
-    pub fn get_port_rewrite(
-        rewrites: &CellRewriteMap,
-        port: &RRC<ir::Port>,
-    ) -> Option<RRC<ir::Port>> {
-        let rewrite =
-            if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-                let cell_ref = cell_wref.upgrade();
-                let cell_name = cell_ref.borrow();
-                rewrites.get(cell_name.name())
-            } else {
-                None
-            };
-        rewrite.map(|new_cell| {
-            Rc::clone(&new_cell.borrow().get(&port.borrow().name))
-        })
-    }
-
+    // =========== Control Rewriting Methods =============
     /// Rewrite a `invoke` node using a [CellRewriteMap] and a [CombGroupRewriteMap]
     pub fn rewrite_invoke(
+        &self,
         inv: &mut ir::Invoke,
-        port_rewrite: &PortRewrite,
         comb_group_map: &CombGroupRewriteMap,
     ) {
         // Rewrite the name of the cell
         let name = inv.comp.borrow().clone_name();
-        if let Some(new_cell) = &port_rewrite.get_cell_rewrite(&name) {
+        if let Some(new_cell) = &self.get_cell_rewrite(&name) {
             inv.comp = Rc::clone(new_cell);
         }
 
@@ -146,7 +117,7 @@ impl Rewriter {
             .iter_mut()
             .chain(inv.outputs.iter_mut())
             .for_each(|(_, port)| {
-                if let Some(new_port) = port_rewrite.get(&*port) {
+                if let Some(new_port) = self.get(&*port) {
                     *port = new_port;
                 }
             });
@@ -155,8 +126,8 @@ impl Rewriter {
     /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
     /// rewrite maps.
     pub fn rewrite_control(
+        &self,
         c: &mut ir::Control,
-        port_rewrite: &PortRewrite,
         group_map: &GroupRewriteMap,
         comb_group_map: &CombGroupRewriteMap,
     ) {
@@ -171,17 +142,12 @@ impl Rewriter {
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter_mut().for_each(|c| {
-                    Self::rewrite_control(
-                        c,
-                        port_rewrite,
-                        group_map,
-                        comb_group_map,
-                    )
+                    self.rewrite_control(c, group_map, comb_group_map)
                 })
             }
             ir::Control::If(ife) => {
                 // Rewrite port use
-                if let Some(new_port) = port_rewrite.get(&ife.port) {
+                if let Some(new_port) = self.get(&ife.port) {
                     ife.port = new_port;
                 }
                 // Rewrite conditional comb group if defined
@@ -192,22 +158,20 @@ impl Rewriter {
                     }
                 }
                 // rewrite branches
-                Self::rewrite_control(
+                self.rewrite_control(
                     &mut ife.tbranch,
-                    port_rewrite,
                     group_map,
                     comb_group_map,
                 );
-                Self::rewrite_control(
+                self.rewrite_control(
                     &mut ife.fbranch,
-                    port_rewrite,
                     group_map,
                     comb_group_map,
                 );
             }
             ir::Control::While(wh) => {
                 // Rewrite port use
-                if let Some(new_port) = port_rewrite.get(&wh.port) {
+                if let Some(new_port) = self.get(&wh.port) {
                     wh.port = new_port;
                 }
                 // Rewrite conditional comb group if defined
@@ -218,15 +182,10 @@ impl Rewriter {
                     }
                 }
                 // rewrite body
-                Self::rewrite_control(
-                    &mut wh.body,
-                    port_rewrite,
-                    group_map,
-                    comb_group_map,
-                );
+                self.rewrite_control(&mut wh.body, group_map, comb_group_map);
             }
             ir::Control::Invoke(inv) => {
-                Self::rewrite_invoke(inv, port_rewrite, comb_group_map)
+                self.rewrite_invoke(inv, comb_group_map)
             }
         }
     }
