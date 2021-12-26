@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
+use crate::analysis;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 
@@ -236,6 +237,17 @@ impl Visitor for ComponentInliner {
         sigs: &LibrarySignatures,
         comps: &[ir::Component],
     ) -> VisResult {
+        // Use analysis to get all bindings for invokes
+        let invoke_bindings =
+            analysis::ControlPorts::from(&*comp.control.borrow())
+                .get_all_bindings();
+
+        for (instance, bindings) in invoke_bindings {
+            if bindings.len() > 1 {
+                panic!("Instance {} has multiple invoke bindings", instance)
+            }
+        }
+
         // Separate out cells that need to be inlined.
         let (inline_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain().partition(|cr| {

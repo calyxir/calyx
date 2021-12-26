@@ -36,6 +36,11 @@ impl ControlPorts {
     pub fn get_bindings(&self, instance: &ir::Id) -> Option<&Vec<Binding>> {
         self.invoke_map.get(instance)
     }
+
+    /// Return the entire invoke binding map.
+    pub fn get_all_bindings(self) -> InvokeMap {
+        self.invoke_map
+    }
 }
 
 /// Helper method to construct a [ControlPorts] instance.
