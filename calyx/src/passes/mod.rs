@@ -53,6 +53,7 @@ pub use register_unsharing::RegisterUnsharing;
 pub use remove_comb_groups::RemoveCombGroups;
 pub use reset_insertion::ResetInsertion;
 pub use resource_sharing::ResourceSharing;
+pub use sharing_components::ShareComponents;
 pub use simplify_guards::SimplifyGuards;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;

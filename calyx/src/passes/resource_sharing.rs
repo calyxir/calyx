@@ -16,6 +16,9 @@ pub struct ResourceSharing {
 
     /// Set of shareable components.
     shareable_components: HashSet<ir::Id>,
+
+    /// Cell active in continuous assignments
+    cont_cells: HashSet<ir::Id>,
 }
 
 impl Named for ResourceSharing {
@@ -47,12 +50,14 @@ impl ConstructVisitor for ResourceSharing {
             used_cells_map: HashMap::new(),
             rewrites: HashMap::new(),
             shareable_components,
+            cont_cells: HashSet::new(),
         })
     }
 
     fn clear_data(&mut self) {
         self.used_cells_map = HashMap::new();
         self.rewrites = HashMap::new();
+        self.cont_cells = HashSet::new();
     }
 }
 
@@ -62,6 +67,11 @@ impl ShareComponents for ResourceSharing {
         component: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
+        // Cell used in continuous assignments cannot be shared.
+        self.cont_cells =
+            analysis::ReadWriteSet::uses(&component.continuous_assignments)
+                .map(|cr| cr.borrow().clone_name())
+                .collect();
         self.used_cells_map = component
             .groups
             .iter()
@@ -82,6 +92,10 @@ impl ShareComponents for ResourceSharing {
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
+        // Cells used in continuous assignments cannot be shared.
+        if self.cont_cells.contains(cell.name()) {
+            return false;
+        }
         if let Some(type_name) = cell.type_name() {
             self.shareable_components.contains(type_name)
         } else {

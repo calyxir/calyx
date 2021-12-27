@@ -285,7 +285,7 @@ impl InferStaticTiming {
     }
 
     /// Attempts to infer the number of cycles starting when
-    /// group[go] is high, and port is high. If inference is
+    /// `group[go]` is high, and port is high. If inference is
     /// not possible, returns None.
     fn infer_latency(&self, group: &ir::Group) -> Option<u64> {
         // Creates a write dependency graph, which contains an edge (`a`, `b`) if:
