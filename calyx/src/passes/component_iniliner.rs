@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use itertools::Itertools;
@@ -257,6 +257,8 @@ impl Visitor for ComponentInliner {
         // parent.
         let mut interface_rewrites: PortMap = HashMap::new();
 
+        // Track names of cells that were inlined.
+        let mut inlined_cells = HashSet::new();
         let mut builder = ir::Builder::new(comp, sigs);
         for cell_ref in inline_cells {
             let cell = cell_ref.borrow();
@@ -269,6 +271,7 @@ impl Visitor for ComponentInliner {
                 );
                 interface_rewrites.extend(&mut rewrites.into_iter());
                 self.control_map.insert(cell.clone_name(), control);
+                inlined_cells.insert(cell.clone_name());
             }
         }
 
@@ -282,10 +285,13 @@ impl Visitor for ComponentInliner {
             });
         });
 
-        // Use analysis to get all bindings for invokes
+        // Use analysis to get all bindings for invokes and filter out bindings
+        // for inlined cells.
         let invoke_bindings =
             analysis::ControlPorts::from(&*builder.component.control.borrow())
-                .get_all_bindings();
+                .get_all_bindings()
+                .into_iter()
+                .filter(|(instance, _)| inlined_cells.contains(instance));
 
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {
