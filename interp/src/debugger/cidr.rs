@@ -62,7 +62,7 @@ impl Debugger {
 
         let mut input_stream = Input::default();
         println!("== Calyx Interactive Debugger ==");
-        loop {
+        while !component_interpreter.is_done() {
             let comm = input_stream.next_command();
             let comm = match comm {
                 Ok(c) => c,
@@ -226,10 +226,6 @@ impl Debugger {
                         )
                     }
                 }
-            }
-
-            if component_interpreter.is_done() {
-                break;
             }
         }
 
