@@ -557,10 +557,10 @@ fn calculate_states(
 /// ```
 ///
 /// The cycle-level timing for this FSM will look like:
-///     - cycle 0: (f.out == 0), enable one
-///     - cycle t: (f.out == 0), (one[done] == 1), disable one
-///     - cycle t+1: (f.out == 1), enable two
-///     - cycle t+l: (f.out == 1), (two[done] == 1), disable two
+///     - cycle 0: (`f.out` == 0), enable one
+///     - cycle t: (`f.out` == 0), (`one[done]` == 1), disable one
+///     - cycle t+1: (`f.out` == 1), enable two
+///     - cycle t+l: (`f.out` == 1), (`two[done]` == 1), disable two
 ///     - cycle t+l+1: finish
 ///
 /// The transition t -> t+1 represents one where group one is done but group two hasn't started

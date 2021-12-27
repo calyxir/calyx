@@ -297,8 +297,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
 ///////////////// Group Construction /////////////////////////
 
-/// Build an [ir::Group] from an [ast::Group] and attach it to the [ir::Compoennt]
-/// associated with the [ir::Builder]
+/// Build an [super::Group] from an [ast::Group] and attach it to the [Component]
+/// associated with the [Builder]
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
     if group.is_comb {
         let ir_group = builder.add_comb_group(group.name);
