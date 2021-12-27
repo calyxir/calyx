@@ -96,11 +96,27 @@ impl ComponentInterpreter {
             .unwrap()
             .clone();
 
-        let mut input_hash_set =
+        let mut override_set =
             inputs.iter().map(|x| x.as_raw()).collect::<HashSet<_>>();
-        input_hash_set.insert(done_port.as_raw());
+        override_set.insert(done_port.as_raw());
 
-        let input_hash_set = Rc::new(input_hash_set);
+        // Need to include continuous assignments in the override
+        for assignment in comp.continuous_assignments.iter() {
+            override_set.insert(assignment.dst.as_raw());
+            let dst_ref = assignment.dst.borrow();
+            if let ir::PortParent::Cell(c) = &dst_ref.parent {
+                let cell = c.upgrade();
+                let cell_ref = cell.borrow();
+                for port in cell_ref.ports() {
+                    let port_ref = port.borrow();
+                    if let calyx::ir::Direction::Output = port_ref.direction {
+                        override_set.insert(port.as_raw());
+                    }
+                }
+            }
+        }
+
+        let input_hash_set = Rc::new(override_set);
         let interp;
 
         if control_is_empty(&control) {
