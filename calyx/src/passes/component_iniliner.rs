@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use itertools::Itertools;
 
 use crate::analysis;
+use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 
@@ -237,17 +239,6 @@ impl Visitor for ComponentInliner {
         sigs: &LibrarySignatures,
         comps: &[ir::Component],
     ) -> VisResult {
-        // Use analysis to get all bindings for invokes
-        let invoke_bindings =
-            analysis::ControlPorts::from(&*comp.control.borrow())
-                .get_all_bindings();
-
-        for (instance, bindings) in invoke_bindings {
-            if bindings.len() > 1 {
-                panic!("Instance {} has multiple invoke bindings", instance)
-            }
-        }
-
         // Separate out cells that need to be inlined.
         let (inline_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain().partition(|cr| {
@@ -266,12 +257,13 @@ impl Visitor for ComponentInliner {
         // parent.
         let mut interface_rewrites: PortMap = HashMap::new();
 
+        let mut builder = ir::Builder::new(comp, sigs);
         for cell_ref in inline_cells {
             let cell = cell_ref.borrow();
             if cell.is_component() {
                 let comp_name = cell.type_name().unwrap();
                 let (control, rewrites) = Self::inline_component(
-                    &mut ir::Builder::new(comp, sigs),
+                    &mut builder,
                     comp_map[comp_name],
                     cell.clone_name(),
                 );
@@ -283,12 +275,58 @@ impl Visitor for ComponentInliner {
         // XXX: This is unneccessarily iterate over the newly inlined groups.
         // Rewrite all assignment in the component to use interface wires
         // from the inlined instances.
-        comp.for_each_assignment(&|assign| {
+        builder.component.for_each_assignment(&|assign| {
             assign.for_each_port(|pr| {
                 let port = &pr.borrow();
                 interface_rewrites.get(&port.canonical()).cloned()
             });
         });
+
+        // Use analysis to get all bindings for invokes
+        let invoke_bindings =
+            analysis::ControlPorts::from(&*builder.component.control.borrow())
+                .get_all_bindings();
+
+        // Ensure that all invokes use the same parameters and inline the parameter assignments.
+        for (instance, mut bindings) in invoke_bindings {
+            assert!(!bindings.is_empty(), "Instance binding cannot be empty");
+            if bindings.len() > 1 {
+                return Err(
+                    Error::PassAssumption(
+                        Self::name().to_string(),
+                        format!(
+                            "Instance `{}.{}` invoked with multiple parameters (currently unsupported)",
+                            comp.name,
+                            instance)));
+            }
+            let binding = bindings.pop().unwrap();
+            let mut assigns = binding
+                .into_iter()
+                .map(|(name, param)| {
+                    let port = Rc::clone(
+                        &interface_rewrites[&(instance.clone(), name)],
+                    );
+                    let dir = port.borrow().direction.clone();
+                    match dir {
+                        ir::Direction::Input => builder.build_assignment(
+                            port,
+                            param,
+                            ir::Guard::True,
+                        ),
+                        ir::Direction::Output => builder.build_assignment(
+                            param,
+                            port,
+                            ir::Guard::True,
+                        ),
+                        ir::Direction::Inout => unreachable!(),
+                    }
+                })
+                .collect_vec();
+            builder
+                .component
+                .continuous_assignments
+                .append(&mut assigns);
+        }
 
         Ok(Action::Continue)
     }
