@@ -137,7 +137,7 @@ class XilinxStage(Stage):
                 log.debug(chunk.strip())
             log.debug(stderr.read().decode("UTF-8").strip())
 
-        local_tmpdir = self.mktmp()
+        local_tmpdir = mktmp()
         if self.remote_exec.use_ssh:
             self.remote_exec.import_libs()
         xilinx = compile_xilinx(input_data)
