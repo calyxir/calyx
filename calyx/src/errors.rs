@@ -179,7 +179,7 @@ impl std::fmt::Debug for Error {
                 write!(f, "{}", msg)
             }
             MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
-            PassAssumption(pass, msg) => write!(f, "Pass `{}` requires: {}", pass, msg),
+            PassAssumption(pass, msg) => write!(f, "Pass `{}` assumption violated: {}", pass, msg),
             MalformedStructure(msg) => write!(f, "Malformed Structure: {}", msg),
             Impossible(msg) => write!(f, "Impossible: {}\nThis error should never occur. Report report this as a bug.", msg),
             MissingImplementation(name, id) => write!(f, "Mising {} implementation for `{}`", name, id.to_string()),

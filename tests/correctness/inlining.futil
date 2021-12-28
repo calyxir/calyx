@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/binary_operators.futil";
+import "primitives/unsynthesizable.futil";
 component main() -> () {
   cells {
     t0_idx = std_reg(2);
@@ -15,18 +15,18 @@ component main() -> () {
     l1_add = std_add(2);
     @external(1) l1 = std_mem_d1(32, 3, 2);
     @external(1) out_mem = std_mem_d1(32, 4, 3);
-    pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
     left_0_0 = std_reg(32);
-    pe_0_1 = mac_pe();
     top_0_1 = std_reg(32);
     left_0_1 = std_reg(32);
-    pe_1_0 = mac_pe();
     top_1_0 = std_reg(32);
     left_1_0 = std_reg(32);
-    pe_1_1 = mac_pe();
     top_1_1 = std_reg(32);
     left_1_1 = std_reg(32);
+    @inline pe_1_0 = mac_pe();
+    @inline pe_1_1 = mac_pe();
+    @inline pe_0_1 = mac_pe();
+    @inline pe_0_0 = mac_pe();
   }
   wires {
     group t0_idx_init {
@@ -237,15 +237,23 @@ component main() -> () {
 component mac_pe(top: 32, left: 32) -> (out: 32) {
   cells {
     // Storage
+    mul_out = std_reg(32);
     acc = std_reg(32);
     // Computation
     add = std_add(32);
-    mul = std_mult_pipe(32);
+    mult0 = std_unsyn_mult(32);
   }
   wires {
+    group do_mul {
+      mult0.left = top;
+      mult0.right = left;
+      mul_out.in = mult0.out;
+      mul_out.write_en = 1'd1;
+      do_mul[done] = mul_out.done;
+    }
     group do_add {
       add.left = acc.out;
-      add.right = mul.out;
+      add.right = mul_out.out;
       acc.in = add.out;
       acc.write_en = 1'd1;
       do_add[done] = acc.done;
@@ -254,8 +262,8 @@ component mac_pe(top: 32, left: 32) -> (out: 32) {
   }
   control {
     seq {
-        invoke mul(left = top, right = left)();
-        do_add;
+      do_mul;
+      do_add;
     }
   }
 }

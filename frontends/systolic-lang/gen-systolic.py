@@ -237,24 +237,21 @@ def instantiate_data_move(row, col, right_edge, down_edge):
     return structures
 
 
-def instantiate_output_move(row, col, row_idx_bitwidth, col_idx_bitwidth):
+def instantiate_output_move(row, col, cols, idx_bitwidth):
     """
     Generates groups to move the final value from a PE into the output array.
     """
     group_name = py_ast.CompVar(
         NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}")
     )
+    idx = row * cols + col
     pe = py_ast.CompVar(f"pe_{row}_{col}")
     return py_ast.Group(
         group_name,
         connections=[
             py_ast.Connect(
-                py_ast.ConstantPort(row_idx_bitwidth, row),
+                py_ast.ConstantPort(idx_bitwidth, idx),
                 py_ast.CompPort(OUT_MEM, "addr0"),
-            ),
-            py_ast.Connect(
-                py_ast.ConstantPort(col_idx_bitwidth, col),
-                py_ast.CompPort(OUT_MEM, "addr1"),
             ),
             py_ast.Connect(
                 py_ast.CompPort(pe, "out"), py_ast.CompPort(OUT_MEM, "write_data")
@@ -474,14 +471,12 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
         wires.extend(s)
 
     # Instantiate output memory
-    out_ridx_size = bits_needed(left_length)
-    out_cidx_size = bits_needed(top_length)
+    total_size = left_length * top_length
+    out_idx_size = bits_needed(total_size)
     cells.append(
         py_ast.Cell(
             OUT_MEM,
-            py_ast.Stdlib().mem_d2(
-                BITWIDTH, left_length, top_length, out_ridx_size, out_cidx_size
-            ),
+            py_ast.Stdlib().mem_d1(BITWIDTH, total_size, out_idx_size),
             is_external=True,
         )
     )
@@ -500,7 +495,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             wires.extend(s)
 
             # Instantiate output movement structure
-            s = instantiate_output_move(row, col, out_ridx_size, out_cidx_size)
+            s = instantiate_output_move(row, col, top_length, out_idx_size)
             wires.append(s)
     main = py_ast.Component(
         name="main",

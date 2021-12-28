@@ -6,7 +6,7 @@ use crate::{
     ir::{self, traversal::Named},
 };
 
-/// Given a `LiveRangeAnalysis` that specifies the registers alive at each
+/// Given a [LiveRangeAnalysis] that specifies the registers alive at each
 /// group, minimize the registers used for each component.
 ///
 /// This works by constructing an interference graph for each alive register.
@@ -17,7 +17,7 @@ use crate::{
 /// A greedy graph coloring algorithm on the interference graph
 /// is used to assign each register a name.
 ///
-/// This pass only renames uses of registers. `DeadCellRemoval` should be run after this
+/// This pass only renames uses of registers. [DeadCellRemoval] should be run after this
 /// to actually remove the register definitions.
 #[derive(Default)]
 pub struct MinimizeRegs {
