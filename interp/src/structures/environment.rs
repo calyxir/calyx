@@ -513,6 +513,10 @@ impl InterpreterState {
             .flatten()
             .collect()
     }
+
+    pub fn as_state_view(&self) -> StateView<'_> {
+        StateView::SingleView(self)
+    }
 }
 
 impl Serialize for InterpreterState {
@@ -532,6 +536,7 @@ pub struct FullySerialize {
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
 }
 
+#[derive(Clone)]
 pub struct CompositeView<'a>(&'a InterpreterState, Vec<StateView<'a>>);
 
 impl<'a, 'outer> CompositeView<'a> {
@@ -549,6 +554,7 @@ impl<'a> Serialize for StateView<'a> {
     }
 }
 
+#[derive(Clone)]
 pub enum StateView<'inner> {
     SingleView(&'inner InterpreterState),
     Composite(CompositeView<'inner>),
