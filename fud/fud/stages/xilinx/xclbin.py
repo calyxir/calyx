@@ -119,7 +119,7 @@ class XilinxStage(Stage):
                     f"-tclargs xclbin/kernel.xo kernel {self.mode} {self.device}",
                 ]
             )
-            self._shell(cmd)
+            self._shell(client, cmd)
 
         @self.step()
         def compile_xclbin(client: SourceType.UnTyped, tmpdir: SourceType.String):
@@ -140,7 +140,7 @@ class XilinxStage(Stage):
                     "xclbin/kernel.xo",
                 ]
             )
-            self._shell(cmd)
+            self._shell(client, cmd)
 
         local_tmpdir = mktmp()
         if self.remote_exec.use_ssh:
