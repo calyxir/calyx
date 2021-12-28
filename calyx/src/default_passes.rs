@@ -56,6 +56,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
+                ComponentInliner,
                 RemoveCombGroups, // Must run before `infer-static-timing`.
                 InferStaticTiming,
                 CollapseControl,

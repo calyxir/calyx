@@ -1,0 +1,63 @@
+{
+  "t0": {
+    "data": [
+      30,
+      40,
+      50
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "t1": {
+    "data": [
+      10,
+      20,
+      30
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "l0": {
+    "data": [
+      4,
+      6,
+      8
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "l1": {
+    "data": [
+      7,
+      9,
+      11
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "out_mem": {
+    "data": [
+      [
+        [0,0],
+        [0,0]
+      ]
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
+}
