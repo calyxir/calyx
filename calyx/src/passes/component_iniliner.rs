@@ -239,6 +239,10 @@ impl Visitor for ComponentInliner {
         sigs: &LibrarySignatures,
         comps: &[ir::Component],
     ) -> VisResult {
+        // Calculate the control ports before the component is modified.
+        let control_ports =
+            analysis::ControlPorts::from(&*comp.control.borrow());
+
         // Separate out cells that need to be inlined.
         let (inline_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain().partition(|cr| {
@@ -287,11 +291,10 @@ impl Visitor for ComponentInliner {
 
         // Use analysis to get all bindings for invokes and filter out bindings
         // for inlined cells.
-        let invoke_bindings =
-            analysis::ControlPorts::from(&*builder.component.control.borrow())
-                .get_all_bindings()
-                .into_iter()
-                .filter(|(instance, _)| inlined_cells.contains(instance));
+        let invoke_bindings = control_ports
+            .get_all_bindings()
+            .into_iter()
+            .filter(|(instance, _)| inlined_cells.contains(instance));
 
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {
