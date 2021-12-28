@@ -14,7 +14,6 @@ class RemoteExecution:
 
     def __init__(self, stage):
         self.stage = stage
-        self.device_files = self.stage.device_files
         self.target_name = self.stage.target_name
         if self.stage.config["stages", self.stage.name, "remote"] is not None:
             self.use_ssh = True
@@ -67,33 +66,6 @@ class RemoteExecution:
 
         client = establish_connection()
         tmpdir = mktmp(client)
-        return client, tmpdir
-
-    def open_and_send_one(self, input_path):
-        """Connect to the SSH server and send a single input file.
-
-        `input_path` is a local path to a single file to transfer to the
-        remote server. These stages create a temporary directory for
-        that remote file.
-
-        Return a client object and the temporary directory for the file.
-        """
-
-        @self.stage.step()
-        def send_file(
-            client: SourceType.UnTyped,
-            src_path: SourceType.Path,
-            tmpdir: SourceType.String,
-        ):
-            """
-            Copy device files over ssh channel.
-            """
-            with self.SCPClient(client.get_transport()) as scp:
-                scp.put(self.device_files, remote_path=tmpdir)
-                scp.put(str(src_path), remote_path=f"{tmpdir}/{self.target_name}")
-
-        client, tmpdir = self._open()
-        send_file(client, input_path, tmpdir)
         return client, tmpdir
 
     def open_and_send(self, input_files):
