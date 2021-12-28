@@ -160,7 +160,6 @@ class RemoteExecution:
             client: SourceType.UnTyped,
             remote_tmpdir: SourceType.String,
             local_tmpdir: SourceType.Directory,
-            path: SourceType.String,
         ) -> SourceType.Stream:
             """Retrieve a single remote file as a stream.
             """
@@ -170,5 +169,5 @@ class RemoteExecution:
                 scp.get(src_path, dest_path)
             return dest_path.open("rb")
 
-        fetch_file(client, remote_tmpdir, local_tmpdir, path)
+        fetch_file(client, remote_tmpdir, local_tmpdir)
         self._close(client, remote_tmpdir)
