@@ -193,10 +193,16 @@ def shell(cmd, stdin=None, stdout_as_debug=False):
         if stderr is not None:
             stderr.seek(0)
             raise errors.StepFailure(
-                cmd, stdout.read().decode("UTF-8"), stderr.read().decode("UTF-8")
+                cmd,
+                stdout.read().decode("UTF-8"),
+                stderr.read().decode("UTF-8"),
             )
         else:
-            raise errors.StepFailure(cmd, "No stdout captured.", "No stderr captured.")
+            raise errors.StepFailure(
+                cmd,
+                stdout.read().decode("UTF-8"),
+                "No stderr captured.",
+            )
     return stdout
 
 
