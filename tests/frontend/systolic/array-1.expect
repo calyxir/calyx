@@ -8,7 +8,7 @@ component main() -> () {
     l0_idx = std_reg(2);
     l0_add = std_add(2);
     @external(1) l0 = std_mem_d1(32, 3, 2);
-    @external(1) out_mem = std_mem_d2(32, 1, 1, 1, 1);
+    @external(1) out_mem = std_mem_d1(32, 1, 1);
     pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
     left_0_0 = std_reg(32);
@@ -52,7 +52,6 @@ component main() -> () {
     }
     group pe_0_0_out_write {
       out_mem.addr0 = 1'd0;
-      out_mem.addr1 = 1'd0;
       out_mem.write_data = pe_0_0.out;
       out_mem.write_en = 1'd1;
       pe_0_0_out_write[done] = out_mem.done;
