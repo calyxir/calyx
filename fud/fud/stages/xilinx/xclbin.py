@@ -142,6 +142,13 @@ class XilinxStage(Stage):
             )
             self._shell(client, cmd)
 
+        @self.step()
+        def read_file(
+            tmpdir: SourceType.Directory,
+            name: SourceType.String,
+        ) -> SourceType.Stream:
+            return Path(tmpdir.name) / name.data
+
         local_tmpdir = mktmp()
         if self.remote_exec.use_ssh:
             self.remote_exec.import_libs()
@@ -169,8 +176,8 @@ class XilinxStage(Stage):
                 "xclbin/kernel.xclbin",
             )
         else:
-            xclbin = Source(
-                Path(local_tmpdir) / "xclbin/kernel.xclbin",
-                SourceType.Path,
+            xclbin = read_file(
+                local_tmpdir,
+                Source("xclbin/kernel.xclbin", SourceType.String),
             )
         return xclbin
