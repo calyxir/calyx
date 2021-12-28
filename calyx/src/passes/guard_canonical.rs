@@ -5,14 +5,14 @@ use crate::ir::{
     LibrarySignatures,
 };
 
-// For each group and continuous assignments, canonicalize guard
-// statements that has constant 1 as either a source or a guard.
-//
-// # Example
-// ```
-// a[done] = 1'd1 ? r1.done -> a[done] = r1.done
-// a[done] = r1.done ? 1'd1 -> a[done] = r1.done
-// ```
+/// For each group and continuous assignments, canonicalize guard
+/// statements that has constant 1 as either a source or a guard.
+///
+/// # Example
+/// ```
+/// a[done] = 1'd1 ? r1.done -> a[done] = r1.done
+/// a[done] = r1.done ? 1'd1 -> a[done] = r1.done
+/// ```
 #[derive(Default)]
 pub struct GuardCanonical;
 

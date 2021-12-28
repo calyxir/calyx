@@ -74,6 +74,11 @@ The `go` and `done` attributes are, in particular, used by the `infer-static-tim
 Along with the `static(n)` attribute, this allows the pass to calculate when
 a particular done signal of a primitive will be high.
 
+### `inline`
+Used by the `inline` pass on cell definitions. Instructs the pass to completely
+inline the instance into the parent component and replace all `invoke`s of the
+instance with the control program of the instance.
+
 ### `stable`
 Applied to port definitions of primitives and components. The intended semantics
 are that after invoking the component, the value on the port remains latched

@@ -1,3 +1,5 @@
+//! Pass to unshare registers by analyzing the live ranges of values stored
+//! within them.
 use crate::analysis::reaching_defns::{
     GroupOrInvoke, ReachingDefinitionAnalysis,
 };
@@ -5,11 +7,36 @@ use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Builder, Cell, CloneName, LibrarySignatures, RRC};
 use std::collections::HashMap;
 
+/// Unsharing registers reduces the amount of multiplexers used in the final design, trading them
+/// off for more memory.
+///
+/// A register use is said to be shared if it is used to store multiple, non-overlapping values in
+/// it. Unsharing, then, is the process of identifying such usages of registers and generating
+/// new registers to store non-overlapping values. For example, the following program:
+///
+/// ```
+/// let x = 1;
+/// x = x + 2;
+/// x = x + 3
+/// ```
+///
+/// Can be rewritten as:
+/// ```
+/// let x = 1;
+/// let y = x + 2;
+/// let z = y + 3;
+/// ```
+///
+/// On the other hand, the following use of a register cannot be unshared:
+/// ```
+/// let x = 0;
+/// for i in 0..10 {
+///   x = x + 1;
+/// }
+/// ```
 #[derive(Default)]
 pub struct RegisterUnsharing {
-    // This is an option because it cannot be initialized until the component is
-    // seen
-    bookkeeper: Option<Bookkeeper>,
+    bookkeeper: Bookkeeper,
 }
 
 impl Named for RegisterUnsharing {
@@ -25,6 +52,7 @@ impl Named for RegisterUnsharing {
 type RewriteMap<T> = HashMap<T, HashMap<ir::Id, RRC<Cell>>>;
 
 // A struct for managing the overlapping analysis and rewrite information
+#[derive(Default)]
 struct Bookkeeper {
     analysis: ReachingDefinitionAnalysis,
     widths: HashMap<ir::Id, u64>,
@@ -55,16 +83,13 @@ impl Bookkeeper {
             })
             .collect();
 
-        let analysis = ReachingDefinitionAnalysis::new(&comp.control.borrow());
-
-        let invoke_map = HashMap::new();
-
         Self {
-            analysis,
             widths,
-            invoke_map,
+            analysis: ReachingDefinitionAnalysis::new(&comp.control.borrow()),
+            invoke_map: HashMap::new(),
         }
     }
+
     /// This method takes the reaching definition analysis and uses it to
     /// determine the set of of overlapping definitions for each register.
     /// Registers may be split into X registers where X is the number of sets in
@@ -113,37 +138,38 @@ impl Bookkeeper {
 
     fn rename(
         &mut self,
-        builder: &mut Builder,
+        comp: &mut ir::Component,
         rename_list: &[(ir::Id, ir::Id, Vec<GroupOrInvoke>)],
     ) {
         let mut grp_map: RewriteMap<&ir::Id> = HashMap::new();
         let mut invoke_map: RewriteMap<ir::Id> = HashMap::new();
         for (new_name, old_name, grouplist) in rename_list {
             for group_or_invoke in grouplist {
+                let name = old_name.clone();
+                let cell = comp.find_cell(new_name).unwrap();
                 match group_or_invoke {
                     GroupOrInvoke::Group(group) => {
-                        grp_map.entry(group).or_default().insert(
-                            old_name.clone(),
-                            builder.component.find_cell(new_name).unwrap(),
-                        );
+                        grp_map.entry(group).or_default().insert(name, cell);
                     }
                     GroupOrInvoke::Invoke(invoke) => {
-                        invoke_map.entry(invoke.clone()).or_default().insert(
-                            old_name.clone(),
-                            builder.component.find_cell(new_name).unwrap(),
-                        );
+                        invoke_map
+                            .entry(invoke.clone())
+                            .or_default()
+                            .insert(name, cell);
                     }
                 }
             }
         }
 
         for (grp, rename_cells) in grp_map {
-            let group = builder.component.find_group(grp).unwrap();
-            let mut group_ref = group.borrow_mut();
-            ir::Rewriter::rename_cell_uses(
-                &rename_cells,
-                &mut group_ref.assignments,
-            )
+            let group_ref = comp.find_group(grp).unwrap();
+            let mut group = group_ref.borrow_mut();
+            let empty_map = HashMap::new();
+            let rewriter = ir::Rewriter::new(&rename_cells, &empty_map);
+            group
+                .assignments
+                .iter_mut()
+                .for_each(|assign| assign.for_each_port(|p| rewriter.get(p)));
         }
 
         self.invoke_map = invoke_map;
@@ -157,20 +183,12 @@ impl Visitor for RegisterUnsharing {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        self.bookkeeper.replace(Bookkeeper::new(comp));
+        self.bookkeeper = Bookkeeper::new(comp);
         let mut builder = Builder::new(comp, sigs);
-
-        let rename_list = self
-            .bookkeeper
-            .as_mut()
-            .unwrap()
-            .create_new_regs(&mut builder);
-
-        self.bookkeeper
-            .as_mut()
-            .unwrap()
-            .rename(&mut builder, &rename_list);
-
+        // Build a rename list
+        let rename_list = self.bookkeeper.create_new_regs(&mut builder);
+        // Perform the structural renaming.
+        self.bookkeeper.rename(comp, &rename_list);
         Ok(Action::Continue)
     }
 
@@ -181,24 +199,14 @@ impl Visitor for RegisterUnsharing {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(name) = self
-            .bookkeeper
-            .as_ref()
-            .unwrap()
-            .analysis
-            .meta
-            .fetch_label(invoke)
-        {
-            let vec_array =
-                &self.bookkeeper.as_ref().unwrap().invoke_map.get(name);
+        let book = &self.bookkeeper;
 
+        if let Some(name) = book.analysis.meta.fetch_label(invoke) {
             // only do rewrites if there is actually rewriting to do
-            if let Some(rename_vec) = vec_array {
-                ir::Rewriter::rewrite_invoke(
-                    invoke,
-                    rename_vec,
-                    &HashMap::new(),
-                );
+            if let Some(rename_vec) = book.invoke_map.get(name) {
+                let empty_map = HashMap::new();
+                let rewriter = ir::Rewriter::new(rename_vec, &empty_map);
+                rewriter.rewrite_invoke(invoke, &HashMap::new());
             }
         }
 

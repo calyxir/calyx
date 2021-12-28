@@ -5,6 +5,8 @@ use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use super::CellType;
+
 /// IR builder.
 /// Uses internal references to the component to construct and validate
 /// constructs when needed.
@@ -23,6 +25,9 @@ pub struct Builder<'a> {
     /// Cells added are generated during a compiler pass.
     generated: bool,
 }
+
+/// Signature of [Port]s for a [Cell].
+type CellPortSig = Vec<(ir::Id, u64, ir::Direction, ir::Attributes)>;
 
 impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
@@ -113,13 +118,8 @@ impl<'a> Builder<'a> {
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
-        if let Some(cell) = self
-            .component
-            .cells
-            .iter()
-            .find(|&c| *c.borrow().name() == name)
-        {
-            return Rc::clone(cell);
+        if let Some(cell) = self.component.cells.find(&name) {
+            return Rc::clone(&cell);
         }
 
         // Construct this cell if it's not already present in the context.
@@ -175,6 +175,32 @@ impl<'a> Builder<'a> {
                 is_comb: prim.is_comb,
             },
             ports,
+        );
+        if self.generated {
+            cell.borrow_mut().add_attribute("generated", 1);
+        }
+        self.component.cells.add(Rc::clone(&cell));
+        cell
+    }
+
+    /// Add a component instance to this component using its name and port
+    /// signature.
+    pub fn add_component<Pre>(
+        &mut self,
+        prefix: Pre,
+        component: Pre,
+        sig: CellPortSig,
+    ) -> RRC<ir::Cell>
+    where
+        Pre: Into<ir::Id> + ToString + Clone,
+    {
+        let name = self.component.generate_name(prefix);
+        let cell = Self::cell_from_signature(
+            name,
+            CellType::Component {
+                name: component.into(),
+            },
+            sig,
         );
         if self.generated {
             cell.borrow_mut().add_attribute("generated", 1);
@@ -257,7 +283,7 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        ports: Vec<(ir::Id, u64, ir::Direction, ir::Attributes)>,
+        ports: CellPortSig,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,

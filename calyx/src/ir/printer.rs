@@ -483,9 +483,9 @@ impl Printer {
                 let cell_ref =
                     cell_wref.internal.upgrade().unwrap_or_else(|| {
                         panic!(
-                        "Malformed AST: No reference to Cell for port `{:#?}'",
-                        port
-                    )
+                            "Malformed AST: No reference to Cell for port `{}'",
+                            port.name
+                        )
                     });
                 let cell = cell_ref.borrow();
                 match cell.prototype {

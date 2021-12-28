@@ -16,9 +16,9 @@ use std::{collections::HashMap, rc::Rc};
 /// of the program.
 /// All remaining wires are continuous assignments which can be transformed
 /// into wires in a hardware description language.
-pub struct Inliner;
+pub struct HoleInliner;
 
-impl Named for Inliner {
+impl Named for HoleInliner {
     fn name() -> &'static str {
         "hole-inliner"
     }
@@ -102,7 +102,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
     }
 }
 
-impl Visitor for Inliner {
+impl Visitor for HoleInliner {
     fn start(
         &mut self,
         comp: &mut ir::Component,
