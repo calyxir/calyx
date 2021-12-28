@@ -80,11 +80,9 @@ class RemoteExecution:
         @self.stage.step()
         def send_files(
             client: SourceType.UnTyped,
-            file_map: SourceType.UnTyped,
             tmpdir: SourceType.String,
         ):
-            """
-            Copy device files over ssh channel.
+            """Copy the input files over the SSH channel.
             """
             with self.SCPClient(client.get_transport()) as scp:
                 for src_path, dest_path in input_files.items():
@@ -94,7 +92,7 @@ class RemoteExecution:
                     )
 
         client, tmpdir = self._open()
-        send_files(client, input_files, tmpdir)
+        send_files(client, tmpdir)
         return client, tmpdir
 
     def execute(self, client, tmpdir, cmd):
