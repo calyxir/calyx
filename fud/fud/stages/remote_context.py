@@ -87,8 +87,8 @@ class RemoteExecution:
             with self.SCPClient(client.get_transport()) as scp:
                 for src_path, dest_path in input_files.items():
                     scp.put(
-                        str(src_path),
-                        os.path.join(tmpdir, dest_path),
+                        src_path,
+                        str(Path(tmpdir) / dest_path),
                     )
 
         client, tmpdir = self._open()
