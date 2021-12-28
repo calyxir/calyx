@@ -25,6 +25,9 @@ pub struct Papercut {
     /// When the `port` in the tuple is being read from, all the ports in the
     /// set must be driven.
     read_together: HashMap<ir::Id, Vec<ReadTogether>>,
+
+    /// The cells that are driven through continuous assignments
+    cont_cells: HashSet<ir::Id>,
 }
 
 /// Construct @write_together specs from the primitive definitions.
@@ -72,7 +75,7 @@ fn read_together_specs<'a>(
                         });
                     // There should only be one port in the read_together specification.
                     if outputs.len() != 1 {
-                        return Err(Error::Papercut(format!("Invalid @read_together specification for primitive `{}`. Each specification groups is only allowed to have one output port specified.", prim.name), prim.name.clone()))
+                        return Err(Error::Papercut(format!("Invalid @read_together specification for primitive `{}`. Each specification group is only allowed to have one output port specified.", prim.name), prim.name.clone()))
                     }
                     assert!(outputs.len() == 1);
                     Ok((
@@ -98,11 +101,13 @@ impl ConstructVisitor for Papercut {
         Ok(Papercut {
             write_together,
             read_together,
+            cont_cells: HashSet::new(),
         })
     }
 
     fn clear_data(&mut self) {
-        /* All data is shared between components. */
+        // Library specifications are shared
+        self.cont_cells = HashSet::new();
     }
 }
 
@@ -141,8 +146,7 @@ impl Visitor for Papercut {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // If the control program is empty, check that the `done` signal
-        // has been assigned to.
+        // If the control program is empty, check that the `done` signal has been assigned to.
         if let ir::Control::Empty(..) = *comp.control.borrow() {
             let done_use =
                 comp.continuous_assignments.iter().find(|assign_ref| {
@@ -156,11 +160,10 @@ impl Visitor for Papercut {
             }
         }
 
-        // For each component that's being driven in a group, make
-        // sure all signals defined for that component's
-        // `write_together' and `read_together' are also driven.
-        // For example, for a register, both the `.in' port and the
-        // `.write_en' port need to be driven.
+        // For each component that's being driven in a group, make sure all signals defined for
+        // that component's `write_together' and `read_together' are also driven.
+        // For example, for a register, both the `.in' port and the `.write_en' port need to be
+        // driven.
         for group_ref in comp.groups.iter() {
             let group = group_ref.borrow();
             // Build a map from (instance name, primitive name) to the signals being
@@ -247,6 +250,12 @@ impl Visitor for Papercut {
             }
         }
 
+        // Compute all cells that are driven in by the continuous assignments0
+        self.cont_cells =
+            analysis::ReadWriteSet::write_set(&comp.continuous_assignments)
+                .map(|cr| cr.borrow().clone_name())
+                .collect();
+
         Ok(Action::Continue)
     }
 
@@ -268,7 +277,8 @@ impl Visitor for Papercut {
                     ..
                 } = &cell.prototype
                 {
-                    if *is_comb {
+                    // If the cell is combinational and not driven by continuous assignments
+                    if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         return Err(Error::Papercut(msg, cell.name().clone()));
                     }
@@ -296,7 +306,8 @@ impl Visitor for Papercut {
                     ..
                 } = &cell.prototype
                 {
-                    if *is_comb {
+                    // If the cell is combinational and not driven by continuous assignments
+                    if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         return Err(Error::Papercut(msg, cell.name().clone()));
                     }
