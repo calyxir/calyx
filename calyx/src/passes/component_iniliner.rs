@@ -246,11 +246,6 @@ impl Visitor for ComponentInliner {
         sigs: &LibrarySignatures,
         comps: &[ir::Component],
     ) -> VisResult {
-        // Calculate the control ports before the component is modified, otherwise references will
-        // point to cells that have been removed.
-        let control_ports =
-            analysis::ControlPorts::from(&*comp.control.borrow());
-
         // Separate out cells that need to be inlined.
         let (inline_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain().partition(|cr| {
@@ -259,6 +254,9 @@ impl Visitor for ComponentInliner {
             });
         comp.cells.append(cells.into_iter());
 
+        // Check if any of the instances has been structurally invoked
+
+        // Early exit if there is nothing to inline
         if inline_cells.is_empty() {
             return Ok(Action::Stop);
         }
@@ -286,25 +284,43 @@ impl Visitor for ComponentInliner {
                 interface_rewrites.extend(rewrites);
                 self.control_map.insert(cell.clone_name(), control);
                 inlined_cells.insert(cell.clone_name());
+            } else {
+                return Err(Error::PassAssumption(
+                    Self::name().to_string(),
+                    format!(
+                        "Cannot inline `{}`. It is a instance of primitive: `{}`",
+                        cell.name(),
+                        cell.type_name().unwrap_or(&ir::Id::from("constant"))
+                    ),
+                ));
             }
         }
 
         // XXX: This is unneccessarily iterate over the newly inlined groups.
         // Rewrite all assignment in the component to use interface wires
-        // from the inlined instances.
+        // from the inlined instances and check if the `go` or `done` ports
+        // on any of the instances was used for structural invokes.
         builder.component.for_each_assignment(&|assign| {
             assign.for_each_port(|pr| {
                 let port = &pr.borrow();
-                interface_rewrites.get(&port.canonical()).cloned()
+                let np = interface_rewrites.get(&port.canonical());
+                if np.is_some() && (port.name == "go" || port.name == "done") {
+                    panic!(
+                        "Cannot inline instance. It is structurally structurally invoked: `{}`",
+                        port.cell_parent().borrow().name(),
+                    );
+                }
+                np.cloned()
             });
         });
 
         // Use analysis to get all bindings for invokes and filter out bindings
         // for inlined cells.
-        let invoke_bindings = control_ports
-            .get_all_bindings()
-            .into_iter()
-            .filter(|(instance, _)| inlined_cells.contains(instance));
+        let invoke_bindings =
+            analysis::ControlPorts::from(&*builder.component.control.borrow())
+                .get_all_bindings()
+                .into_iter()
+                .filter(|(instance, _)| inlined_cells.contains(instance));
 
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {
