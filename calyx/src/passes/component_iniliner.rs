@@ -8,6 +8,15 @@ use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 
+/// Map name of old cell to the new cell
+type CellMap = HashMap<ir::Id, RRC<ir::Cell>>;
+/// Map name of old group to new group
+type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
+/// Map name of old combination group to new combinational group
+type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
+/// Map canonical name of old port to new port
+type PortMap = HashMap<(ir::Id, ir::Id), RRC<ir::Port>>;
+
 /// Inlines all sub-components marked with the `@inline` attribute.
 /// Cannot inline components when they:
 ///   1. Are primitives
@@ -21,18 +30,14 @@ use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 ///      instance.
 #[derive(Default)]
 pub struct ComponentInliner {
-    // Map from the name of an instance to its associated control program.
+    /// Map from the name of an instance to its associated control program.
     control_map: HashMap<ir::Id, ir::Control>,
+    /// Mapping for ports on cells that have been inlined.
+    interface_rewrites: PortMap,
+    /// Cells that have been inlined. We retain these so that references within
+    /// the control program of the parent are valid.
+    inlined_cells: Vec<RRC<ir::Cell>>,
 }
-
-/// Map name of old cell to the new cell
-type CellMap = HashMap<ir::Id, RRC<ir::Cell>>;
-/// Map name of old group to new group
-type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
-/// Map name of old combination group to new combinational group
-type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
-/// Map canonical name of old port to new port
-type PortMap = HashMap<(ir::Id, ir::Id), RRC<ir::Port>>;
 
 impl ComponentInliner {
     /// Inline a cell definition into the component associated with the `builder`.
@@ -156,13 +161,16 @@ impl ComponentInliner {
     /// Returns:
     /// 1. The control program associated with the component being inlined,
     ///    rewritten for the specific instance.
-    /// 2. A [PortMap] to be used in the parent component to rewrite uses of
-    ///    interface ports of the component being inlined.
+    /// 2. A [PortMap] (in form of an iterator) to be used in the parent component to rewrite uses
+    ///    of interface ports of the component being inlined.
     fn inline_component(
         builder: &mut ir::Builder,
         comp: &ir::Component,
         name: ir::Id,
-    ) -> (ir::Control, PortMap) {
+    ) -> (
+        ir::Control,
+        impl Iterator<Item = ((ir::Id, ir::Id), RRC<ir::Port>)>,
+    ) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
         let cell_map: CellMap = comp
@@ -199,21 +207,20 @@ impl ComponentInliner {
         let mut con = ir::Control::clone(&comp.control.borrow());
         rewrite.rewrite_control(&mut con, &group_map, &comb_group_map);
 
-        (
-            con,
-            interface_map
-                .into_iter()
-                .map(|((_, p), pr)| {
-                    let port = pr.borrow();
-                    let np = match port.name.id.as_str() {
-                        "in" => "out",
-                        "out" => "in",
-                        _ => unreachable!(),
-                    };
-                    ((name.clone(), p), port.cell_parent().borrow().get(np))
-                })
-                .collect(),
-        )
+        // Generate interface map for use in the parent cell.
+        // Return as an iterator because it's immediately merged into the global rewrite map.
+        let rev_interface_map =
+            interface_map.into_iter().map(move |((_, p), pr)| {
+                let port = pr.borrow();
+                let np = match port.name.id.as_str() {
+                    "in" => "out",
+                    "out" => "in",
+                    _ => unreachable!(),
+                };
+                ((name.clone(), p), port.cell_parent().borrow().get(np))
+            });
+
+        (con, rev_interface_map)
     }
 }
 
@@ -239,7 +246,8 @@ impl Visitor for ComponentInliner {
         sigs: &LibrarySignatures,
         comps: &[ir::Component],
     ) -> VisResult {
-        // Calculate the control ports before the component is modified.
+        // Calculate the control ports before the component is modified, otherwise references will
+        // point to cells that have been removed.
         let control_ports =
             analysis::ControlPorts::from(&*comp.control.borrow());
 
@@ -251,20 +259,22 @@ impl Visitor for ComponentInliner {
             });
         comp.cells.append(cells.into_iter());
 
+        if inline_cells.is_empty() {
+            return Ok(Action::Stop);
+        }
+
         // Mapping from component name to component definition
         let comp_map = comps
             .iter()
-            .map(|comp| (comp.name.clone(), comp))
+            .map(|comp| (&comp.name, comp))
             .collect::<HashMap<_, _>>();
 
-        // Rewrites for the interface ports of the component being used in the
-        // parent.
+        // Rewrites for the interface ports of inlined cells.
         let mut interface_rewrites: PortMap = HashMap::new();
-
         // Track names of cells that were inlined.
         let mut inlined_cells = HashSet::new();
         let mut builder = ir::Builder::new(comp, sigs);
-        for cell_ref in inline_cells {
+        for cell_ref in &inline_cells {
             let cell = cell_ref.borrow();
             if cell.is_component() {
                 let comp_name = cell.type_name().unwrap();
@@ -273,7 +283,7 @@ impl Visitor for ComponentInliner {
                     comp_map[comp_name],
                     cell.clone_name(),
                 );
-                interface_rewrites.extend(&mut rewrites.into_iter());
+                interface_rewrites.extend(rewrites);
                 self.control_map.insert(cell.clone_name(), control);
                 inlined_cells.insert(cell.clone_name());
             }
@@ -298,7 +308,6 @@ impl Visitor for ComponentInliner {
 
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {
-            assert!(!bindings.is_empty(), "Instance binding cannot be empty");
             if bindings.len() > 1 {
                 return Err(
                     Error::PassAssumption(
@@ -308,22 +317,30 @@ impl Visitor for ComponentInliner {
                             comp.name,
                             instance)));
             }
-            let binding = bindings.pop().unwrap();
+            let binding =
+                bindings.pop().expect("Instance binding cannot be empty");
             let mut assigns = binding
                 .into_iter()
                 .map(|(name, param)| {
                     let port = Rc::clone(
                         &interface_rewrites[&(instance.clone(), name)],
                     );
+                    // The parameter can refer to port on a cell that has been
+                    // inlined.
+                    let name = param.borrow().canonical();
+                    let new_param = interface_rewrites
+                        .get(&name)
+                        .map(Rc::clone)
+                        .unwrap_or(param);
                     let dir = port.borrow().direction.clone();
                     match dir {
                         ir::Direction::Input => builder.build_assignment(
                             port,
-                            param,
+                            new_param,
                             ir::Guard::True,
                         ),
                         ir::Direction::Output => builder.build_assignment(
-                            param,
+                            new_param,
                             port,
                             ir::Guard::True,
                         ),
@@ -337,6 +354,39 @@ impl Visitor for ComponentInliner {
                 .append(&mut assigns);
         }
 
+        self.interface_rewrites = interface_rewrites;
+        // Save inlined cells so that references within the parent control
+        // program remain valid.
+        self.inlined_cells = inline_cells;
+
+        Ok(Action::Continue)
+    }
+
+    fn start_if(
+        &mut self,
+        s: &mut ir::If,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let name = &s.port.borrow().canonical();
+        if let Some(new_port) = self.interface_rewrites.get(name) {
+            s.port = Rc::clone(new_port);
+        }
+        Ok(Action::Continue)
+    }
+
+    fn start_while(
+        &mut self,
+        s: &mut ir::While,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let name = &s.port.borrow().canonical();
+        if let Some(new_port) = self.interface_rewrites.get(name) {
+            s.port = Rc::clone(new_port);
+        }
         Ok(Action::Continue)
     }
 
