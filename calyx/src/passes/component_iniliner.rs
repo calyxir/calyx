@@ -254,8 +254,6 @@ impl Visitor for ComponentInliner {
             });
         comp.cells.append(cells.into_iter());
 
-        // Check if any of the instances has been structurally invoked
-
         // Early exit if there is nothing to inline
         if inline_cells.is_empty() {
             return Ok(Action::Stop);
