@@ -147,6 +147,8 @@ class XilinxStage(Stage):
             tmpdir: SourceType.Directory,
             name: SourceType.String,
         ) -> SourceType.Stream:
+            """Read an output file.
+            """
             return Path(tmpdir.name) / name.data
 
         local_tmpdir = mktmp()
