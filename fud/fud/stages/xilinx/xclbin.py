@@ -168,4 +168,9 @@ class XilinxStage(Stage):
                 local_tmpdir,
                 "xclbin/kernel.xclbin",
             )
+        else:
+            xclbin = Source(
+                Path(local_tmpdir) / "xclbin/kernel.xclbin",
+                SourceType.Path,
+            )
         return xclbin
