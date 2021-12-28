@@ -148,7 +148,7 @@ class XilinxStage(Stage):
                 xilinx: "toplevel.v",
                 kernel: "main.sv",
                 xml: "kernel.xml",
-                self.gen_xo_tcl: "gen_xo.tcl",
+                Source(self.gen_xo_tcl, SourceType.Path): "gen_xo.tcl",
             })
         package_xo(client, remote_tmpdir)
         compile_xclbin(client, remote_tmpdir)
