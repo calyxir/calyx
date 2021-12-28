@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from .. import errors
-from ..stages import SourceType
+from ..stages import Source, SourceType
 from ..utils import shell
 
 
@@ -72,7 +72,8 @@ class RemoteExecution:
 
         `input_files` is a dict that maps local paths to remote paths,
         the latter of which will be relative to the remote temporary
-        directory.
+        directory. Each source should be a Path-type Source, and each
+        destination should be a plain string.
 
         Return a client object and the temporary directory for the files.
         """
@@ -81,7 +82,7 @@ class RemoteExecution:
         def send_file(
             client: SourceType.UnTyped,
             tmpdir: SourceType.String,
-            src_path: SourceType.String,
+            src_path: SourceType.Path,
             dest_path: SourceType.String,
         ):
             """Copy one input file over the SSH channel.
@@ -94,7 +95,8 @@ class RemoteExecution:
 
         client, tmpdir = self._open()
         for src_path, dest_path in input_files.items():
-            send_file(client, tmpdir, src_path, dest_path)
+            send_file(client, tmpdir, src_path,
+                      Source(dest_path, SourceType.String))
         return client, tmpdir
 
     def execute(self, client, tmpdir, cmd):
