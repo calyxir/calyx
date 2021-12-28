@@ -4,7 +4,7 @@ from pathlib import Path
 from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution
 from fud.stages.futil import FutilStage
-from fud.utils import TmpDir
+from fud.utils import TmpDir, shell
 
 
 class XilinxStage(Stage):
@@ -43,6 +43,19 @@ class XilinxStage(Stage):
         self.device = self.config["stages", self.name, "device"]
 
         self.setup()
+
+    def _shell(self, client, cmd):
+        """Run a command, either locally or remotely.
+        """
+        if self.remote_exec.use_ssh:
+            _, stdout, stderr = client.exec_command(cmd)
+            for chunk in iter(lambda: stdout.readline(2048), ""):
+                log.debug(chunk.strip())
+            log.debug(stderr.read().decode("UTF-8").strip())
+
+        else:
+            stdout = shell(cmd)
+            log.debug(stdout)
 
     def _define_steps(self, input_data):
         # Step 1: Make a new temporary directory
@@ -106,11 +119,7 @@ class XilinxStage(Stage):
                     f"-tclargs xclbin/kernel.xo kernel {self.mode} {self.device}",
                 ]
             )
-            _, stdout, stderr = client.exec_command(cmd)
-
-            for chunk in iter(lambda: stdout.readline(2048), ""):
-                log.debug(chunk.strip())
-            log.debug(stderr.read().decode("UTF-8").strip())
+            self._shell(cmd)
 
         @self.step()
         def compile_xclbin(client: SourceType.UnTyped, tmpdir: SourceType.String):
@@ -131,11 +140,7 @@ class XilinxStage(Stage):
                     "xclbin/kernel.xo",
                 ]
             )
-            _, stdout, stderr = client.exec_command(cmd)
-
-            for chunk in iter(lambda: stdout.readline(2048), ""):
-                log.debug(chunk.strip())
-            log.debug(stderr.read().decode("UTF-8").strip())
+            self._shell(cmd)
 
         local_tmpdir = mktmp()
         if self.remote_exec.use_ssh:
@@ -150,8 +155,12 @@ class XilinxStage(Stage):
                 xml: "kernel.xml",
                 Source(self.gen_xo_tcl, SourceType.Path): "gen_xo.tcl",
             })
-        package_xo(client, remote_tmpdir)
-        compile_xclbin(client, remote_tmpdir)
+            tmpdir = remote_tmpdir
+        else:
+            client = Source(None, SourceType.UnTyped)
+            tmpdir = local_tmpdir
+        package_xo(client, tmpdir)
+        compile_xclbin(client, tmpdir)
         if self.remote_exec.use_ssh:
             xclbin = self.remote_exec.close_and_get(
                 client,
