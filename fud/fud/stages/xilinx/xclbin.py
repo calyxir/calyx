@@ -65,7 +65,7 @@ class XilinxStage(Stage):
         it maps local Source paths to destination strings.
         """
 
-        @self.stage.step()
+        @self.step()
         def copy_file(
             tmpdir: SourceType.String,
             src_path: SourceType.Path,
@@ -189,7 +189,7 @@ class XilinxStage(Stage):
             client, remote_tmpdir = self.remote_exec.open_and_send(file_map)
             tmpdir = remote_tmpdir
         else:
-            self._copy_files(file_map)
+            self._copy_files(local_tmpdir, file_map)
             client = Source(None, SourceType.UnTyped)
             tmpdir = local_tmpdir
         package_xo(client, tmpdir)
