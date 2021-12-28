@@ -14,7 +14,6 @@ class RemoteExecution:
 
     def __init__(self, stage):
         self.stage = stage
-        self.target_name = self.stage.target_name
         if self.stage.config["stages", self.stage.name, "remote"] is not None:
             self.use_ssh = True
             self.ssh_host = self.stage.config["stages", self.stage.name, "ssh_host"]
