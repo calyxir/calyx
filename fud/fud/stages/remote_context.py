@@ -1,4 +1,6 @@
 import logging as log
+import os
+from pathlib import Path
 
 from .. import errors
 from ..stages import SourceType
@@ -38,7 +40,12 @@ class RemoteExecution:
 
         import_libs()
 
-    def open_and_transfer(self, input_path):
+    def _open(self):
+        """Establish an SSH connection.
+
+        Return a client object and the temporary directory created on the
+        remote host.
+        """
         @self.stage.step()
         def establish_connection() -> SourceType.UnTyped:
             """
@@ -58,10 +65,24 @@ class RemoteExecution:
             tmpdir = stdout.read().decode("ascii").strip()
             return tmpdir
 
+        client = establish_connection()
+        tmpdir = mktmp(client)
+        return client, tmpdir
+
+    def open_and_send_one(self, input_path):
+        """Connect to the SSH server and send a single input file.
+
+        `input_path` is a local path to a single file to transfer to the
+        remote server. These stages create a temporary directory for
+        that remote file.
+
+        Return a client object and the temporary directory for the file.
+        """
+
         @self.stage.step()
-        def send_files(
+        def send_file(
             client: SourceType.UnTyped,
-            verilog_path: SourceType.Path,
+            src_path: SourceType.Path,
             tmpdir: SourceType.String,
         ):
             """
@@ -69,12 +90,41 @@ class RemoteExecution:
             """
             with self.SCPClient(client.get_transport()) as scp:
                 scp.put(self.device_files, remote_path=tmpdir)
-                scp.put(str(verilog_path), remote_path=f"{tmpdir}/{self.target_name}")
+                scp.put(str(src_path), remote_path=f"{tmpdir}/{self.target_name}")
 
-        client = establish_connection()
-        tmpdir = mktmp(client)
-        send_files(client, input_path, tmpdir)
-        return (client, tmpdir)
+        client, tmpdir = self._open()
+        send_file(client, input_path, tmpdir)
+        return client, tmpdir
+
+    def open_and_send(self, input_files):
+        """Connect to the SSH server and send input files.
+
+        `input_files` is a dict that maps local paths to remote paths,
+        the latter of which will be relative to the remote temporary
+        directory.
+
+        Return a client object and the temporary directory for the files.
+        """
+
+        @self.stage.step()
+        def send_files(
+            client: SourceType.UnTyped,
+            file_map: SourceType.UnTyped,
+            tmpdir: SourceType.String,
+        ):
+            """
+            Copy device files over ssh channel.
+            """
+            with self.SCPClient(client.get_transport()) as scp:
+                for src_path, dest_path in input_files.items():
+                    scp.put(
+                        str(src_path),
+                        os.path.join(tmpdir, dest_path),
+                    )
+
+        client, tmpdir = self._open()
+        send_files(client, input_files, tmpdir)
+        return client, tmpdir
 
     def execute(self, client, tmpdir, cmd):
         @self.stage.step()
@@ -92,7 +142,26 @@ class RemoteExecution:
 
         run_vivado(client, tmpdir)
 
+    def _close(self, client, remote_tmpdir):
+        """Close the SSH connection to the server.
+
+        Also removes the remote temporary directory.
+        """
+        @self.stage.step()
+        def finalize_ssh(client: SourceType.UnTyped, tmpdir: SourceType.String):
+            """
+            Remove created temporary files and close ssh connection.
+            """
+            client.exec_command(f"rm -r {tmpdir}")
+            client.close()
+
+        finalize_ssh(client, remote_tmpdir)
+
     def close_and_transfer(self, client, remote_tmpdir, local_tmpdir):
+        """Close the SSH connection and fetch the remote files.
+
+        Copy the entire contents of `remote_tmpdir` to `local_tmpdir`.
+        """
         @self.stage.step()
         def copy_back(
             client: SourceType.UnTyped,
@@ -109,13 +178,28 @@ class RemoteExecution:
                 shell(f"mv {local_tmpdir.name}/tmp.* {local_tmpdir.name}")
                 shell(f"rm -r {local_tmpdir.name}/tmp.*")
 
-        @self.stage.step()
-        def finalize_ssh(client: SourceType.UnTyped, tmpdir: SourceType.String):
-            """
-            Remove created temporary files and close ssh connection.
-            """
-            client.exec_command(f"rm -r {tmpdir}")
-            client.close()
-
         copy_back(client, remote_tmpdir, local_tmpdir)
-        finalize_ssh(client, remote_tmpdir)
+        self._close(client, remote_tmpdir)
+
+    def close_and_get(self, client, remote_tmpdir, local_tmpdir, path):
+        """Close the SSH connection and retrieve a single file.
+
+        Produces the resulting downloaded file as a stream.
+        """
+        @self.stage.step()
+        def fetch_file(
+            client: SourceType.UnTyped,
+            remote_tmpdir: SourceType.String,
+            local_tmpdir: SourceType.Directory,
+            path: SourceType.String,
+        ) -> SourceType.Stream:
+            """Retrieve a single remote file as a stream.
+            """
+            src_path = Path(remote_tmpdir) / path
+            dest_path = Path(local_tmpdir.name) / os.path.basename(path)
+            with self.SCPClient(client.get_transport()) as scp:
+                scp.get(src_path, dest_path)
+            return dest_path.open("rb")
+
+        fetch_file(client, remote_tmpdir, local_tmpdir, path)
+        self._close(client, remote_tmpdir)
