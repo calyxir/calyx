@@ -1,5 +1,6 @@
 import logging as log
 from pathlib import Path
+import shutil
 
 from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution
@@ -56,6 +57,27 @@ class XilinxStage(Stage):
         else:
             stdout = shell(cmd)
             log.debug(stdout)
+
+    def _copy_files(self, tmpdir, input_files):
+        """Copy input files to a temporary directory.
+
+        `input_files` is a dict with the same format as `open_and_send`:
+        it maps local Source paths to destination strings.
+        """
+
+        @self.stage.step()
+        def copy_file(
+            tmpdir: SourceType.String,
+            src_path: SourceType.Path,
+            dest_path: SourceType.String,
+        ):
+            """Copy an input file.
+            """
+            shutil.copyfile(src_path, Path(tmpdir) / dest_path)
+
+        for src_path, dest_path in input_files.items():
+            copy_file(tmpdir, src_path,
+                      Source(dest_path, SourceType.String))
 
     def _define_steps(self, input_data):
         # Step 1: Make a new temporary directory
@@ -157,15 +179,17 @@ class XilinxStage(Stage):
         xilinx = compile_xilinx(input_data)
         xml = compile_xml(input_data)
         kernel = compile_kernel(input_data)
+        file_map = {
+            xilinx: "toplevel.v",
+            kernel: "main.sv",
+            xml: "kernel.xml",
+            Source(self.gen_xo_tcl, SourceType.Path): "gen_xo.tcl",
+        }
         if self.remote_exec.use_ssh:
-            client, remote_tmpdir = self.remote_exec.open_and_send({
-                xilinx: "toplevel.v",
-                kernel: "main.sv",
-                xml: "kernel.xml",
-                Source(self.gen_xo_tcl, SourceType.Path): "gen_xo.tcl",
-            })
+            client, remote_tmpdir = self.remote_exec.open_and_send(file_map)
             tmpdir = remote_tmpdir
         else:
+            self._copy_files(file_map)
             client = Source(None, SourceType.UnTyped)
             tmpdir = local_tmpdir
         package_xo(client, tmpdir)
