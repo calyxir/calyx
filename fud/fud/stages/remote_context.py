@@ -78,21 +78,23 @@ class RemoteExecution:
         """
 
         @self.stage.step()
-        def send_files(
+        def send_file(
             client: SourceType.UnTyped,
             tmpdir: SourceType.String,
+            src_path: SourceType.String,
+            dest_path: SourceType.String,
         ):
-            """Copy the input files over the SSH channel.
+            """Copy one input file over the SSH channel.
             """
             with self.SCPClient(client.get_transport()) as scp:
-                for src_path, dest_path in input_files.items():
-                    scp.put(
-                        src_path,
-                        str(Path(tmpdir) / dest_path),
-                    )
+                scp.put(
+                    src_path,
+                    str(Path(tmpdir) / dest_path),
+                )
 
         client, tmpdir = self._open()
-        send_files(client, tmpdir)
+        for src_path, dest_path in input_files.items():
+            send_file(client, tmpdir, src_path, dest_path)
         return client, tmpdir
 
     def execute(self, client, tmpdir, cmd):
