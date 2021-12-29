@@ -201,7 +201,9 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
         env=os.environ,
     )
     proc.wait()
-    stdout.seek(0)
+    if stdout:
+        stdout.seek(0)
+
     if proc.returncode:
         if stderr:
             stderr.seek(0)
@@ -210,6 +212,7 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
             stdout.read().decode("UTF-8"),
             stderr.read().decode("UTF-8") if stderr else "No stderr captured.",
         )
+
     return stdout
 
 
