@@ -72,8 +72,8 @@ class RemoteExecution:
 
         `input_files` is a dict that maps local paths to remote paths,
         the latter of which will be relative to the remote temporary
-        directory. Each source should be a Path-type Source, and each
-        destination should be a plain string.
+        directory. Each source should be a Path, and each destination
+        should be a string (either may be Source-wrapped).
 
         Return a client object and the temporary directory for the files.
         """
@@ -95,8 +95,11 @@ class RemoteExecution:
 
         client, tmpdir = self._open()
         for src_path, dest_path in input_files.items():
-            send_file(client, tmpdir, src_path,
-                      Source(dest_path, SourceType.String))
+            if not isinstance(src_path, Source):
+                src_path = Source(src_path, SourceType.Path)
+            if not isinstance(dest_path, Source):
+                dest_path = Source(dest_path, SourceType.String)
+            send_file(client, tmpdir, src_path, dest_path)
         return client, tmpdir
 
     def execute(self, client, tmpdir, cmd):

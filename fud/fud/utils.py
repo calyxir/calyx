@@ -165,8 +165,8 @@ class SpinnerWrapper:
 def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
     """Run `cmd` as a shell command.
 
-    Return an output stream. Raise `errors.StepFailure` if the
-    command fails.
+    Return an output stream (or None if stdout is not captured). Raise
+    `errors.StepFailure` if the command fails.
     """
 
     if isinstance(cmd, list):

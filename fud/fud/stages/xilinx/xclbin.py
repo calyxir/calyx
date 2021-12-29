@@ -188,7 +188,7 @@ class XilinxStage(Stage):
             xilinx: "toplevel.v",
             kernel: "main.sv",
             xml: "kernel.xml",
-            Source(self.gen_xo_tcl, SourceType.Path): "gen_xo.tcl",
+            self.gen_xo_tcl: "gen_xo.tcl",
         }
         if self.remote_exec.use_ssh:
             client, tmpdir = self.remote_exec.open_and_send(file_map)

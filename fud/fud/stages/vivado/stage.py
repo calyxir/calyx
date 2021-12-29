@@ -101,18 +101,14 @@ class VivadoStage(VivadoBaseStage):
             config,
             "Produces synthesis files from a Verilog program",
             device_files=[
-                str(
-                    Path(config["global", "futil_directory"])
-                    / "fud"
-                    / "synth"
-                    / "synth.tcl"
-                ),
-                str(
-                    Path(config["global", "futil_directory"])
-                    / "fud"
-                    / "synth"
-                    / "device.xdc"
-                ),
+                Path(config["global", "futil_directory"])
+                / "fud"
+                / "synth"
+                / "synth.tcl",
+                Path(config["global", "futil_directory"])
+                / "fud"
+                / "synth"
+                / "device.xdc",
             ],
             target_name="main.sv",
             local_exec=config["stages", self.name, "exec"],
