@@ -44,7 +44,6 @@ impl Debugger {
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterResult<InterpreterState> {
-        let mut printed = false;
         let qin = ComponentQIN::new_single(
             &self.main_component,
             &self.main_component.name,
@@ -63,7 +62,7 @@ impl Debugger {
 
         let mut input_stream = Input::default();
         println!("== Calyx Interactive Debugger ==");
-        loop {
+        while !component_interpreter.is_done() {
             let comm = input_stream.next_command();
             let comm = match comm {
                 Ok(c) => c,
@@ -108,7 +107,7 @@ impl Debugger {
                             if let Ok(msg) = self.do_print(
                                 &watch.0,
                                 &watch.1,
-                                &component_interpreter,
+                                component_interpreter.get_env(),
                                 &watch.2,
                             ) {
                                 println!("{}", msg);
@@ -134,7 +133,7 @@ impl Debugger {
                 Command::Print(print_lists, code) => match self.do_print(
                     &print_lists,
                     &code,
-                    &component_interpreter,
+                    component_interpreter.get_env(),
                     &PrintMode::Port,
                 ) {
                     Ok(msg) => println!("{}", msg),
@@ -143,7 +142,7 @@ impl Debugger {
                 Command::PrintState(print_lists, code) => match self.do_print(
                     &print_lists,
                     &code,
-                    &component_interpreter,
+                    component_interpreter.get_env(),
                     &PrintMode::State,
                 ) {
                     Ok(msg) => println!("{}", msg),
@@ -216,7 +215,7 @@ impl Debugger {
                     if let Err(e) = self.do_print(
                         &print_target,
                         &print_code,
-                        &component_interpreter,
+                        component_interpreter.get_env(),
                         &print_mode,
                     ) {
                         println!("{}", e); // print is bad
@@ -228,10 +227,60 @@ impl Debugger {
                     }
                 }
             }
+        }
 
-            if component_interpreter.is_done() && !printed {
-                println!("Main component has finished executing");
-                printed = true;
+        let final_env = component_interpreter.deconstruct()?;
+
+        println!("Main component has finished executing. Debugger is now in inspection mode.");
+
+        loop {
+            let comm = input_stream.next_command();
+            let comm = match comm {
+                Ok(c) => c,
+                Err(e) => match &e {
+                    InterpreterError::InvalidCommand(_)
+                    | InterpreterError::UnknownCommand(_)
+                    | InterpreterError::ParseError(_) => {
+                        println!("Error: {}", e);
+                        continue;
+                    }
+                    _ => return Err(e),
+                },
+            };
+
+            match comm {
+                Command::Empty => {}
+                Command::Display => {
+                    let state = final_env.as_state_view();
+                    println!("{}", state.state_as_str());
+                }
+                Command::Print(print_lists, code) => match self.do_print(
+                    &print_lists,
+                    &code,
+                    final_env.as_state_view(),
+                    &PrintMode::Port,
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
+                Command::PrintState(print_lists, code) => match self.do_print(
+                    &print_lists,
+                    &code,
+                    final_env.as_state_view(),
+                    &PrintMode::State,
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
+                Command::Help => {
+                    print!("{}", Command::get_help_string())
+                }
+                Command::Exit => return Err(InterpreterError::Exit),
+                _ => {
+                    println!(
+                        "This command is unavailable after program termination"
+                    )
+                }
             }
         }
     }
@@ -240,7 +289,7 @@ impl Debugger {
         &mut self,
         print_lists: &Option<Vec<Vec<Id>>>,
         code: &Option<PrintCode>,
-        component_interpreter: &ComponentInterpreter,
+        root: StateView,
         print_mode: &PrintMode,
     ) -> Result<String, DebuggerError> {
         if print_lists.is_none() {
@@ -263,7 +312,7 @@ impl Debugger {
                 print_list.len()
             };
 
-            let mut current_target = CurrentTarget::Env(component_interpreter);
+            let mut current_target = CurrentTarget::Env(&root);
 
             for (idx, target) in iter.enumerate() {
                 let current_ref = current_target.borrow();
@@ -448,14 +497,14 @@ fn print_port(
 }
 
 enum CurrentTarget<'a> {
-    Env(&'a dyn crate::primitives::Primitive),
+    Env(&'a StateView<'a>),
     Target { name: ConstCell, map: PrimitiveMap },
 }
 
 impl<'a> CurrentTarget<'a> {
     pub fn borrow(&self) -> TargetRef<'_, '_> {
         match self {
-            CurrentTarget::Env(e) => TargetRef::Env(*e),
+            CurrentTarget::Env(e) => TargetRef::Env(e),
             CurrentTarget::Target { name, map } => {
                 TargetRef::Target(*name, map.borrow())
             }
@@ -464,7 +513,7 @@ impl<'a> CurrentTarget<'a> {
 }
 
 enum TargetRef<'a, 'c> {
-    Env(&'a dyn crate::primitives::Primitive),
+    Env(&'c StateView<'a>),
     Target(
         ConstCell,
         Ref<'c, HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>,
@@ -474,7 +523,7 @@ enum TargetRef<'a, 'c> {
 impl<'a, 'c> TargetRef<'a, 'c> {
     pub fn get_env(&self) -> Option<StateView<'_>> {
         match self {
-            TargetRef::Env(e) => e.get_state(),
+            TargetRef::Env(e) => Some((*e).clone()),
             TargetRef::Target(target, map) => map[target].get_state(),
         }
     }

@@ -3,6 +3,8 @@
 use std::collections::HashSet;
 use std::rc::Rc;
 
+use calyx::ir::PortParent;
+
 use super::interpret_group::{
     finish_comb_group_interpretation, finish_group_interpretation,
     interpret_comb_group, interpret_group, interpret_invoke,
@@ -11,6 +13,7 @@ use crate::environment::InterpreterState;
 use crate::errors::InterpreterResult;
 
 use crate::interpreter_ir as iir;
+use crate::utils::AsRaw;
 
 /// Helper function to evaluate control
 pub fn interpret_control(
@@ -87,7 +90,26 @@ fn eval_par(
         smooshers.push(is.port_map);
     }
 
-    env.port_map = env.port_map.merge_many(smooshers, &HashSet::new())?;
+    let mut override_set: HashSet<_> = continuous_assignments
+        .iter()
+        .map(|a| a.dst.as_raw())
+        .collect();
+
+    for dest_cell in continuous_assignments.iter().map(|x| &x.dst) {
+        let dst_ref = dest_cell.borrow();
+        if let PortParent::Cell(c) = &dst_ref.parent {
+            let cell = c.upgrade();
+            let cell_ref = cell.borrow();
+            for port in cell_ref.ports() {
+                let port_ref = port.borrow();
+                if let calyx::ir::Direction::Output = port_ref.direction {
+                    override_set.insert(port.as_raw());
+                }
+            }
+        }
+    }
+
+    env.port_map = env.port_map.merge_many(smooshers, &override_set)?;
     env.clk = tl;
 
     Ok(env)
