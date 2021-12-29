@@ -163,9 +163,10 @@ class SpinnerWrapper:
 
 
 def shell(cmd, stdin=None, stdout_as_debug=False):
-    """
-    Runs `cmd` in the shell and returns a stream of the output.
-    Raises `errors.StepFailure` if the command fails.
+    """Run `cmd` as a shell command.
+
+    Return an output stream. Raise `errors.StepFailure` if the
+    command fails.
     """
 
     if isinstance(cmd, list):
@@ -179,30 +180,32 @@ def shell(cmd, stdin=None, stdout_as_debug=False):
     log.debug(cmd)
 
     stdout = TemporaryFile()
-    stderr = None
-    # if we are not in debug mode, capture stderr
-    if not is_debug():
+
+    # In debug mode, let stderr stream to the terminal. Otherwise,
+    # capture it to a temporary file for error reporting.
+    if is_debug():
+        stderr = None
+    else:
         stderr = TemporaryFile()
 
     proc = subprocess.Popen(
-        cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
+        cmd,
+        shell=True,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+        env=os.environ,
     )
     proc.wait()
     stdout.seek(0)
-    if proc.returncode != 0:
-        if stderr is not None:
+    if proc.returncode:
+        if stderr:
             stderr.seek(0)
-            raise errors.StepFailure(
-                cmd,
-                stdout.read().decode("UTF-8"),
-                stderr.read().decode("UTF-8"),
-            )
-        else:
-            raise errors.StepFailure(
-                cmd,
-                stdout.read().decode("UTF-8"),
-                "No stderr captured.",
-            )
+        raise errors.StepFailure(
+            cmd,
+            stdout.read().decode("UTF-8"),
+            stderr.read().decode("UTF-8") if stderr else "No stderr captured.",
+        )
     return stdout
 
 
