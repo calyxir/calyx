@@ -92,6 +92,10 @@ Here's an example of going all the way from a Calyx program to that:
 
 On our machines, compiling even a simple example like the above for simulation takes about 2 minutes, end to end.
 
+By default, the Xilinx tools run in a temporary directory that is deleted when `fud` finishes.
+To instead keep the sandbox directory, use `-s xclbin.save_temps true`.
+You can then find the results in a directory named `fud-out-N` for some number `N`.
+
 ### How it Works
 
 The first step is to generate input files.
