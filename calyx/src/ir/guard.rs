@@ -4,7 +4,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
 /// Comparison operations that can be performed between ports by [ir::Guard::Comp].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PortComp {
     /// p1 == p2
     Eq,
@@ -285,8 +285,9 @@ impl PartialEq for Guard {
             (Guard::Or(la, ra), Guard::Or(lb, rb))
             | (Guard::And(la, ra), Guard::And(lb, rb)) => la == lb && ra == rb,
             (Guard::CompOp(opa, la, ra), Guard::CompOp(opb, lb, rb)) => {
-                (la.borrow().get_parent_name(), &la.borrow().name)
-                    == (lb.borrow().get_parent_name(), &lb.borrow().name)
+                (opa == opb)
+                    && (la.borrow().get_parent_name(), &la.borrow().name)
+                        == (lb.borrow().get_parent_name(), &lb.borrow().name)
                     && (ra.borrow().get_parent_name(), &ra.borrow().name)
                         == (rb.borrow().get_parent_name(), &rb.borrow().name)
             }
