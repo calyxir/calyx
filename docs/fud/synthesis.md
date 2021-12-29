@@ -60,6 +60,46 @@ This route involves generating an [AXI][] interface wrapper for the Calyx progra
 ### Set Up
 
 As above, you can invoke the Xilinx toolchain locally or remotely, via SSH.
+To set up SSH execution, you can edit your `config.toml` to add settings like this:
+
+    [stages.xclbin]
+    ssh_host = "havarti"
+    ssh_username = "als485"
+    remote = true
+
+To use local execution, just leave off the `remote = true` line.
+
+### Compile
+
+The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
+Here's an example of going all the way from a Calyx program to that:
+
+    fud e --to xclbin examples/futil/dot-product.futil
+
+On our machines, compiling even a simple example like the above takes about 2 minutes, end to end.
+
+### How it Works
+
+The first step is to generate input files.
+We need to generate:
+
+* The RTL for the design itself, using the compile command-line flags `-b verilog --synthesis -p external`. We name this file `main.sv`.
+* A Verilog interface wrapper, using `XilinxInterfaceBackend`, via `-b xilinx`. We call this `toplevel.v`.
+* An XML document describing the interface, using `XilinxXmlBackend`, via `-b xilinx-xml`. This file gets named `kernel.xml`.
+
+We also use [a static Tcl script, `gen_xo.tcl`,][gen_xo] to drive the Xilinx tools.
+The `fud` driver gathers these files together in a sandbox directory.
+Then, the Xilinx toolchain's first step is to compile the Verilog to a `.xo` file, which is a Xilinx analog of a `.o` object file.
+The Vivado command line looks roughly like this:
+
+    vivado -mode batch -source gen_xo.tcl -tclargs xclbin/kernel.xo kernel hw_emu xilinx_u50_gen3x16_xdma_201920_3
+
+Those arguments after `-tclargs`, unsurprisingly, get passed to [`gen_xo.tcl`][gen_xo].
+
+Then, we take this `.xo` and turn it into an [`.xclbin`][xclbin], in a step that is Xilinx's analog of "linking" an executable.
+This step uses the `v++` tool, with a command line that looks like this:
+
+    v++ -g -t hw_emu --platform xilinx_u50_gen3x16_xdma_201920_3 --save-temps --profile.data all:all:all --profile.exec all:all:all -lo xclbin/kernel.xclbin xclbin/kernel.xo
 
 [vivado]: https://www.xilinx.com/products/design-tools/vivado.html
 [vhls]: https://www.xilinx.com/products/design-tools/vivado/integration/esl-design.html
@@ -69,3 +109,5 @@ As above, you can invoke the Xilinx toolchain locally or remotely, via SSH.
 [dahlia]: https://capra.cs.cornell.edu/dahlia/
 [axi]: https://en.wikipedia.org/wiki/Advanced_eXtensible_Interface
 [xrt]: https://xilinx.github.io/XRT/
+[xclbin]: https://xilinx.github.io/XRT/2021.2/html/formats.html#xclbin
+[gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
