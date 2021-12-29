@@ -192,6 +192,17 @@ impl ComponentInterpreter {
         let raw = self.done_port.as_raw();
         self.get_mut_env().insert(raw, Value::bit_low())
     }
+
+    /// Interpret a calyx program from the root
+    pub fn interpret_program(
+        env: InterpreterState,
+        comp: &Rc<iir::Component>,
+    ) -> InterpreterResult<InterpreterState> {
+        let qin = ComponentQIN::new_single(comp, &comp.name);
+        let mut main_comp = Self::from_component(comp, env, qin);
+        main_comp.run()?;
+        main_comp.deconstruct()
+    }
 }
 
 impl Interpreter for ComponentInterpreter {
