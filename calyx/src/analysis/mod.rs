@@ -14,6 +14,7 @@ mod schedule_conflicts;
 mod variable_detection;
 
 pub use control_ports::ControlPorts;
+pub use dataflow_order::DataflowOrder;
 pub use graph::GraphAnalysis;
 pub use graph_coloring::GraphColoring;
 pub use live_range_analysis::LiveRangeAnalysis;
