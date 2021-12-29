@@ -44,6 +44,7 @@ class RemoteExecution:
         Return a client object and the temporary directory created on the
         remote host.
         """
+
         @self.stage.step()
         def establish_connection() -> SourceType.UnTyped:
             """
@@ -85,8 +86,7 @@ class RemoteExecution:
             src_path: SourceType.Path,
             dest_path: SourceType.String,
         ):
-            """Copy one input file over the SSH channel.
-            """
+            """Copy one input file over the SSH channel."""
             with self.SCPClient(client.get_transport()) as scp:
                 scp.put(
                     src_path,
@@ -123,6 +123,7 @@ class RemoteExecution:
 
         Also removes the remote temporary directory.
         """
+
         @self.stage.step()
         def finalize_ssh(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
@@ -138,6 +139,7 @@ class RemoteExecution:
 
         Copy the entire contents of `remote_tmpdir` to `local_tmpdir`.
         """
+
         @self.stage.step()
         def copy_back(
             client: SourceType.UnTyped,
@@ -160,13 +162,13 @@ class RemoteExecution:
 
         Produces the resulting downloaded file.
         """
+
         @self.stage.step()
         def fetch_file(
             client: SourceType.UnTyped,
             remote_tmpdir: SourceType.String,
         ) -> SourceType.Path:
-            """Download a file over SSH.
-            """
+            """Download a file over SSH."""
             src_path = Path(remote_tmpdir) / path
             with NamedTemporaryFile("wb", delete=False) as tmpfile:
                 dest_path = tmpfile.name

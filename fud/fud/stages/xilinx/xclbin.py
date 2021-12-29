@@ -46,8 +46,7 @@ class XilinxStage(Stage):
         self.setup()
 
     def _shell(self, client, cmd):
-        """Run a command, either locally or remotely.
-        """
+        """Run a command, either locally or remotely."""
         if self.remote_exec.use_ssh:
             _, stdout, stderr = client.exec_command(cmd)
             for chunk in iter(lambda: stdout.readline(2048), ""):
@@ -73,8 +72,7 @@ class XilinxStage(Stage):
             src_path: SourceType.Path,
             dest_path: SourceType.String,
         ):
-            """Copy an input file.
-            """
+            """Copy an input file."""
             shutil.copyfile(src_path, Path(tmpdir) / dest_path)
 
         tmpdir = Source(TmpDir(), SourceType.Directory)
@@ -176,8 +174,7 @@ class XilinxStage(Stage):
             tmpdir: SourceType.Directory,
             name: SourceType.String,
         ) -> SourceType.Stream:
-            """Read an output file.
-            """
+            """Read an output file."""
             return Path(tmpdir.name) / name.data
 
         if self.remote_exec.use_ssh:
