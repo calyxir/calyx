@@ -43,6 +43,21 @@ You can optionally tell `fud` where these commands exist on your machine:
     fud config stages.synth-verilog.exec <path> # update vivado path
     fud config stages.vivado-hls.exec <path> # update vivado_hls path
 
+### Run
+
+To run the entire toolchain and extract statistics from RTL synthesis, use the `resource-estimate` target state.
+For example:
+
+    fud e --to resource-estimate examples/futil/dot-product.futil
+
+To instead obtain the raw synthesis results, use `synth-files`.
+
+To run the analogous toolchain for Dahlia programs via HLS, use the `hls-estimate` target state:
+
+    fud e --to hls-estimate examples/dahlia/dot-product.fuse
+
+There is also an `hls-files` state for the raw results of Vivado HLS.
+
 [vivado]: https://www.xilinx.com/products/design-tools/vivado.html
 [vhls]: https://www.xilinx.com/products/design-tools/vivado/integration/esl-design.html
 [gorgonzola]: https://capra.cs.cornell.edu/private/gorgonzola.html
