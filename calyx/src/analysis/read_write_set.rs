@@ -1,6 +1,6 @@
-use crate::ir::{self, CloneName};
+use crate::ir::{self, CloneName, RRC};
 use itertools::Itertools;
-use std::rc::Rc;
+use std::{iter, rc::Rc};
 
 /// Calcuate the reads-from and writes-to set for a given set of assignments.
 pub struct ReadWriteSet;
@@ -12,10 +12,8 @@ impl ReadWriteSet {
             .guard
             .all_ports()
             .into_iter()
-            .chain(Some(Rc::clone(&assign.src)).into_iter())
-            .filter(|port| {
-                matches!(port.borrow().parent, ir::PortParent::Cell(_))
-            });
+            .chain(iter::once(Rc::clone(&assign.src)))
+            .filter(|port| !port.borrow().is_hole());
         ir::PortIterator {
             port_iter: Box::new(iter),
         }
@@ -31,9 +29,10 @@ impl ReadWriteSet {
 
     /// Returns [ir::Port] which are written to in the assignments.
     pub fn port_write_set(assigns: &[ir::Assignment]) -> ir::PortIterator<'_> {
-        let iter = assigns.iter().map(|assign| Rc::clone(&assign.dst)).filter(
-            |port| matches!(port.borrow().parent, ir::PortParent::Cell(_)),
-        );
+        let iter = assigns
+            .iter()
+            .map(|assign| Rc::clone(&assign.dst))
+            .filter(|port| !port.borrow().is_hole());
         ir::PortIterator {
             port_iter: Box::new(iter),
         }
@@ -43,14 +42,7 @@ impl ReadWriteSet {
     /// **Ignores** reads from group holes.
     pub fn read_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
         let iter = Self::port_read_set(assigns)
-            .map(|port_ref| {
-                let port = port_ref.borrow();
-                if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                    Rc::clone(&cell_wref.upgrade())
-                } else {
-                    unreachable!()
-                }
-            })
+            .map(|port| Rc::clone(&port.borrow().cell_parent()))
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
@@ -62,14 +54,7 @@ impl ReadWriteSet {
     /// **Ignores** reads from group holes.
     pub fn write_set(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
         let iter = Self::port_write_set(assigns)
-            .map(|port_ref| {
-                let port = port_ref.borrow();
-                if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                    Rc::clone(&cell_wref.upgrade())
-                } else {
-                    unreachable!()
-                }
-            })
+            .map(|port| Rc::clone(&port.borrow().cell_parent()))
             .unique_by(|cell| cell.clone_name());
 
         ir::CellIterator {
@@ -80,28 +65,25 @@ impl ReadWriteSet {
     /// Returns the register cells whose out port is read anywhere in the given
     /// assignments
     pub fn register_reads(assigns: &[ir::Assignment]) -> ir::CellIterator<'_> {
-        let guard_ports = assigns.iter().flat_map(|assign| {
-            assign.guard.all_ports().into_iter().filter_map(|port_ref| {
-                let port = port_ref.borrow();
-                if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                    if &port.name == "out" {
-                        return Some(Rc::clone(&cell_wref.upgrade()));
-                    }
+        fn is_register_out(port_ref: RRC<ir::Port>) -> Option<RRC<ir::Cell>> {
+            let port = port_ref.borrow();
+            if let ir::PortParent::Cell(cell_wref) = &port.parent {
+                if &port.name == "out" {
+                    return Some(Rc::clone(&cell_wref.upgrade()));
                 }
-                None
-            })
+            }
+            None
+        }
+        let guard_ports = assigns.iter().flat_map(|assign| {
+            assign
+                .guard
+                .all_ports()
+                .into_iter()
+                .filter_map(is_register_out)
         });
         let iter = assigns
             .iter()
-            .filter_map(|assign| {
-                let src_ref = assign.src.borrow();
-                if let ir::PortParent::Cell(cell_wref) = &src_ref.parent {
-                    if src_ref.name == "out" {
-                        return Some(Rc::clone(&cell_wref.upgrade()));
-                    }
-                }
-                None
-            })
+            .filter_map(|assign| is_register_out(Rc::clone(&assign.src)))
             .chain(guard_ports)
             .filter(|x| {
                 if let Some(name) = x.borrow().type_name() {
