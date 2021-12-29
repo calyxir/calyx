@@ -64,6 +64,14 @@ pub struct ComponentInterpreter {
 }
 
 impl ComponentInterpreter {
+    pub fn make_main_component(
+        env: InterpreterState,
+        comp: &Rc<iir::Component>,
+    ) -> Self {
+        let qin = ComponentQIN::new_single(comp, &comp.name);
+        Self::from_component(comp, env, qin)
+    }
+
     pub fn from_component(
         comp: &Rc<iir::Component>,
         env: InterpreterState,
