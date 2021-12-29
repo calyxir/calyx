@@ -58,11 +58,13 @@ class XilinxStage(Stage):
             stdout = shell(cmd)
             log.debug(stdout)
 
-    def _copy_files(self, tmpdir, input_files):
-        """Copy input files to a temporary directory.
+    def _sandbox(self, input_files):
+        """Copy input files to a fresh temporary directory.
 
         `input_files` is a dict with the same format as `open_and_send`:
         it maps local Source paths to destination strings.
+
+        Return a path to the newly-created temporary directory.
         """
 
         @self.step()
@@ -75,9 +77,11 @@ class XilinxStage(Stage):
             """
             shutil.copyfile(src_path, Path(tmpdir) / dest_path)
 
+        tmpdir = TmpDir()
         for src_path, dest_path in input_files.items():
             copy_file(tmpdir, src_path,
                       Source(dest_path, SourceType.String))
+        return tmpdir
 
     def _define_steps(self, input_data):
         # Step 1: Make a new temporary directory
@@ -173,12 +177,13 @@ class XilinxStage(Stage):
             """
             return Path(tmpdir.name) / name.data
 
-        local_tmpdir = mktmp()
         if self.remote_exec.use_ssh:
             self.remote_exec.import_libs()
+
         xilinx = compile_xilinx(input_data)
         xml = compile_xml(input_data)
         kernel = compile_kernel(input_data)
+
         file_map = {
             xilinx: "toplevel.v",
             kernel: "main.sv",
@@ -186,23 +191,23 @@ class XilinxStage(Stage):
             Source(self.gen_xo_tcl, SourceType.Path): "gen_xo.tcl",
         }
         if self.remote_exec.use_ssh:
-            client, remote_tmpdir = self.remote_exec.open_and_send(file_map)
-            tmpdir = remote_tmpdir
+            client, tmpdir = self.remote_exec.open_and_send(file_map)
         else:
-            self._copy_files(local_tmpdir, file_map)
+            tmpdir = self._sandbox(file_map)
             client = Source(None, SourceType.UnTyped)
-            tmpdir = local_tmpdir
+
         package_xo(client, tmpdir)
         compile_xclbin(client, tmpdir)
+
         if self.remote_exec.use_ssh:
             xclbin = self.remote_exec.close_and_get(
                 client,
-                remote_tmpdir,
+                tmpdir,
                 "xclbin/kernel.xclbin",
             )
         else:
             xclbin = read_file(
-                local_tmpdir,
+                tmpdir,
                 Source("xclbin/kernel.xclbin", SourceType.String),
             )
         return xclbin
