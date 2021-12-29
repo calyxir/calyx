@@ -28,12 +28,7 @@ fn validate_guard(guard: &ir::Guard) -> bool {
         Guard::Or(left, right) | Guard::And(left, right) => {
             validate_guard(left) && validate_guard(right)
         }
-        Guard::Eq(left, right)
-        | Guard::Neq(left, right)
-        | Guard::Gt(left, right)
-        | Guard::Lt(left, right)
-        | Guard::Geq(left, right)
-        | Guard::Leq(left, right) => {
+        Guard::CompOp(_, left, right) => {
             !left.borrow().is_hole() && !right.borrow().is_hole()
         }
         Guard::Not(inner) => validate_guard(inner),
@@ -373,12 +368,14 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
     let op = |g: &ir::Guard| match g {
         Guard::Or(..) => v::Expr::new_bit_or,
         Guard::And(..) => v::Expr::new_bit_and,
-        Guard::Eq(..) => v::Expr::new_eq,
-        Guard::Neq(..) => v::Expr::new_neq,
-        Guard::Gt(..) => v::Expr::new_gt,
-        Guard::Lt(..) => v::Expr::new_lt,
-        Guard::Geq(..) => v::Expr::new_geq,
-        Guard::Leq(..) => v::Expr::new_leq,
+        Guard::CompOp(op, ..) => match op {
+            ir::PortComp::Eq => v::Expr::new_eq,
+            ir::PortComp::Neq => v::Expr::new_neq,
+            ir::PortComp::Gt => v::Expr::new_gt,
+            ir::PortComp::Lt => v::Expr::new_lt,
+            ir::PortComp::Geq => v::Expr::new_geq,
+            ir::PortComp::Leq => v::Expr::new_leq,
+        },
         Guard::Not(..) | Guard::Port(..) | Guard::True => unreachable!(),
     };
 
@@ -386,12 +383,7 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
         Guard::And(l, r) | Guard::Or(l, r) => {
             op(guard)(guard_to_expr(l), guard_to_expr(r))
         }
-        Guard::Neq(l, r)
-        | Guard::Eq(l, r)
-        | Guard::Gt(l, r)
-        | Guard::Lt(l, r)
-        | Guard::Geq(l, r)
-        | Guard::Leq(l, r) => {
+        Guard::CompOp(_, l, r) => {
             op(guard)(port_to_ref(Rc::clone(l)), port_to_ref(Rc::clone(r)))
         }
         Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
