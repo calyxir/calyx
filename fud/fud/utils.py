@@ -71,6 +71,7 @@ class Directory:
 
 
 class TmpDir(Directory):
+    """A temporary directory that is automatically deleted."""
     def __init__(self):
         self.tmpdir_obj = TemporaryDirectory()
         self.name = self.tmpdir_obj.name
@@ -80,6 +81,28 @@ class TmpDir(Directory):
 
     def __str__(self):
         return self.name
+
+
+class FreshDir(Directory):
+    """A new empty directory for saving results into.
+
+    The directory is created in the current working directory with an
+    arbitrary name. This way, `FreshDir` works like `TmpDir` except the
+    directory is not automatically removed. (It can still be manually
+    deleted, of course.)
+    """
+    def __init__(self):
+        # Select a name that doesn't exist.
+        i = 0
+        while True:
+            name = 'fud-out-{}'.format(i)
+            if not os.path.exists(name):
+                break
+            i += 1
+
+        # Create the directory.
+        os.mkdir(name)
+        self.name = os.abspath(name)
 
 
 class Conversions:
