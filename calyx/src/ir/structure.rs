@@ -220,11 +220,6 @@ impl Cell {
         matches!(&self.prototype, CellType::Component { .. })
     }
 
-    /// Returns true iff this cell is an instance of a primitive.
-    pub fn is_primitive(&self) -> bool {
-        matches!(&self.prototype, CellType::Primitive { .. })
-    }
-
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
     /// exist.
     pub fn get_with_attr<S>(&self, attr: S) -> RRC<Port>
