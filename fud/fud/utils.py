@@ -209,7 +209,7 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
             stderr.seek(0)
         raise errors.StepFailure(
             cmd,
-            stdout.read().decode("UTF-8"),
+            stdout.read().decode("UTF-8") if stdout else "No stdout captured.",
             stderr.read().decode("UTF-8") if stderr else "No stderr captured.",
         )
 
