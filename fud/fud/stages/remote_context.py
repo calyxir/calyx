@@ -7,8 +7,13 @@ from ..stages import Source, SourceType
 
 
 class RemoteExecution:
-    """
-    TODO(rachit): Document this.
+    """A utility for executing commands on a remote SSH server.
+
+    A `RemoteExecution` object gets "attached" to a fud stage. That
+    stage can then use the configuration options `remote` (to enable
+    remote execution), `ssh_host`, and `ssh_user`. The stage should call
+    `open_and_send`, `execute`, and `close_and_*` to create steps to run
+    the relevant functionality remotely.
     """
 
     def __init__(self, stage):
@@ -103,10 +108,8 @@ class RemoteExecution:
 
     def execute(self, client, tmpdir, cmd):
         @self.stage.step()
-        def run_vivado(client: SourceType.UnTyped, tmpdir: SourceType.String):
-            """
-            Run vivado command remotely.
-            """
+        def run_remote(client: SourceType.UnTyped, tmpdir: SourceType.String):
+            """Run a command remotely via SSH."""
             _, stdout, stderr = client.exec_command(
                 " ".join([f"cd {tmpdir}", "&&", cmd])
             )
@@ -115,7 +118,7 @@ class RemoteExecution:
             for chunk in iter(lambda: stdout.readline(2048), ""):
                 log.debug(chunk.strip())
 
-        run_vivado(client, tmpdir)
+        run_remote(client, tmpdir)
 
     def _close(self, client, remote_tmpdir):
         """Close the SSH connection to the server.
