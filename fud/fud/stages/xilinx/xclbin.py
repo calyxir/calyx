@@ -79,6 +79,10 @@ class XilinxStage(Stage):
 
         tmpdir = Source(TmpDir(), SourceType.Directory)
         for src_path, dest_path in input_files.items():
+            if not isinstance(src_path, Source):
+                src_path = Source(src_path, SourceType.Path)
+            if not isinstance(dest_path, Source):
+                dest_path = Source(dest_path, SourceType.String)
             copy_file(tmpdir, src_path,
                       Source(dest_path, SourceType.String))
         return tmpdir
