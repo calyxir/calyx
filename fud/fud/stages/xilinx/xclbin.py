@@ -83,8 +83,7 @@ class XilinxStage(Stage):
                 src_path = Source(src_path, SourceType.Path)
             if not isinstance(dest_path, Source):
                 dest_path = Source(dest_path, SourceType.String)
-            copy_file(tmpdir, src_path,
-                      Source(dest_path, SourceType.String))
+            copy_file(tmpdir, src_path, dest_path)
         return tmpdir
 
     def _define_steps(self, input_data):
