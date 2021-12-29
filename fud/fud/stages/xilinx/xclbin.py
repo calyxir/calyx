@@ -77,7 +77,7 @@ class XilinxStage(Stage):
             """
             shutil.copyfile(src_path, Path(tmpdir) / dest_path)
 
-        tmpdir = TmpDir()
+        tmpdir = Source(TmpDir(), SourceType.Directory)
         for src_path, dest_path in input_files.items():
             copy_file(tmpdir, src_path,
                       Source(dest_path, SourceType.String))
