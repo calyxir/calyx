@@ -55,7 +55,7 @@ class XilinxStage(Stage):
             log.debug(stderr.read().decode("UTF-8").strip())
 
         else:
-            stdout = shell(cmd)
+            stdout = shell(cmd, capture_stdout=False)
             log.debug(stdout)
 
     def _sandbox(self, input_files):

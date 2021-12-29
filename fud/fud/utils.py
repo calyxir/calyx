@@ -162,7 +162,7 @@ class SpinnerWrapper:
         self.spinner.stop()
 
 
-def shell(cmd, stdin=None, stdout_as_debug=False):
+def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
     """Run `cmd` as a shell command.
 
     Return an output stream. Raise `errors.StepFailure` if the
@@ -176,17 +176,21 @@ def shell(cmd, stdin=None, stdout_as_debug=False):
         cmd += ">&2"
 
     assert isinstance(cmd, str)
-
     log.debug(cmd)
 
-    stdout = TemporaryFile()
-
-    # In debug mode, let stderr stream to the terminal. Otherwise,
-    # capture it to a temporary file for error reporting.
+    # In debug mode, let stderr stream to the terminal (and the same
+    # with stdout, unless we need it for capture). Otherwise, capture
+    # stderr to a temporary file for error reporting (and stdout
+    # unconditionally).
     if is_debug():
         stderr = None
+        if capture_stdout:
+            stdout = TemporaryFile()
+        else:
+            stdout = None
     else:
         stderr = TemporaryFile()
+        stdout = TemporaryFile()
 
     proc = subprocess.Popen(
         cmd,
