@@ -151,8 +151,6 @@ class RemoteExecution:
                 scp.get(
                     remote_tmpdir, local_path=f"{local_tmpdir.name}", recursive=True
                 )
-                shell(f"mv {local_tmpdir.name}/tmp.* {local_tmpdir.name}")
-                shell(f"rm -r {local_tmpdir.name}/tmp.*")
 
         copy_back(client, remote_tmpdir, local_tmpdir)
         self._close(client, remote_tmpdir)
