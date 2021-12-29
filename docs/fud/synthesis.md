@@ -69,6 +69,16 @@ To set up SSH execution, you can edit your `config.toml` to add settings like th
 
 To use local execution, just leave off the `remote = true` line.
 
+You can also set the Xilinx mode and target device:
+
+    [stages.xclbin]
+    mode = "hw_emu"
+    device = "xilinx_u50_gen3x16_xdma_201920_3"
+
+The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
+The device string above is for the [Alveo U50][u50] card, which we have at Cornell, but I honestly don't know how you're supposed to find the right string for a different FPGA target.
+Hopefully someone will figure this out and document it in the future.
+
 ### Compile
 
 The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
@@ -76,7 +86,7 @@ Here's an example of going all the way from a Calyx program to that:
 
     fud e --to xclbin examples/futil/dot-product.futil
 
-On our machines, compiling even a simple example like the above takes about 2 minutes, end to end.
+On our machines, compiling even a simple example like the above for simulation takes about 2 minutes, end to end.
 
 ### How it Works
 
@@ -111,3 +121,4 @@ This step uses the `v++` tool, with a command line that looks like this:
 [xrt]: https://xilinx.github.io/XRT/
 [xclbin]: https://xilinx.github.io/XRT/2021.2/html/formats.html#xclbin
 [gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
+[u50]: https://www.xilinx.com/products/boards-and-kits/alveo/u50.html
