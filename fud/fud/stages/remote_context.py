@@ -1,6 +1,6 @@
 import logging as log
-import os
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from .. import errors
 from ..stages import Source, SourceType
@@ -154,24 +154,25 @@ class RemoteExecution:
         copy_back(client, remote_tmpdir, local_tmpdir)
         self._close(client, remote_tmpdir)
 
-    def close_and_get(self, client, remote_tmpdir, local_tmpdir, path):
+    def close_and_get(self, client, remote_tmpdir, path):
         """Close the SSH connection and retrieve a single file.
 
-        Produces the resulting downloaded file as a stream.
+        Produces the resulting downloaded file.
         """
         @self.stage.step()
         def fetch_file(
             client: SourceType.UnTyped,
             remote_tmpdir: SourceType.String,
-            local_tmpdir: SourceType.Directory,
-        ) -> SourceType.Stream:
-            """Retrieve a single remote file as a stream.
+        ) -> SourceType.Path:
+            """Download a file over SSH.
             """
             src_path = Path(remote_tmpdir) / path
-            dest_path = Path(local_tmpdir.name) / os.path.basename(path)
+            with NamedTemporaryFile("wb", delete=False) as tmpfile:
+                dest_path = tmpfile.name
             with self.SCPClient(client.get_transport()) as scp:
                 scp.get(src_path, dest_path)
             return dest_path.open("rb")
 
-        fetch_file(client, remote_tmpdir, local_tmpdir)
+        local_path = fetch_file(client, remote_tmpdir)
         self._close(client, remote_tmpdir)
+        return local_path

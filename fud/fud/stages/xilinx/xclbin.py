@@ -198,7 +198,6 @@ class XilinxStage(Stage):
             xclbin = self.remote_exec.close_and_get(
                 client,
                 remote_tmpdir,
-                local_tmpdir,
                 "xclbin/kernel.xclbin",
             )
         else:
