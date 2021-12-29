@@ -11,6 +11,7 @@ pub mod reaching_defns;
 mod read_write_set;
 mod schedule_conflicts;
 mod variable_detection;
+mod dataflow_order;
 
 pub use control_ports::ControlPorts;
 pub use graph::GraphAnalysis;
