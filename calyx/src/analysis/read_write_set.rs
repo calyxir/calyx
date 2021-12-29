@@ -6,18 +6,24 @@ use std::rc::Rc;
 pub struct ReadWriteSet;
 
 impl ReadWriteSet {
-    /// Returns [ir::Port] which are read from in the assignments.
-    pub fn port_read_set(assigns: &[ir::Assignment]) -> ir::PortIterator<'_> {
-        let guard_ports = assigns
-            .iter()
-            .flat_map(|assign| assign.guard.all_ports().into_iter());
-        let iter = assigns
-            .iter()
-            .map(|assign| Rc::clone(&assign.src))
-            .chain(guard_ports)
+    /// Returns [ir::Port] that are read from in the given Assignment.
+    pub fn port_reads(assign: &ir::Assignment) -> ir::PortIterator<'_> {
+        let iter = assign
+            .guard
+            .all_ports()
+            .into_iter()
+            .chain(Some(Rc::clone(&assign.src)).into_iter())
             .filter(|port| {
                 matches!(port.borrow().parent, ir::PortParent::Cell(_))
             });
+        ir::PortIterator {
+            port_iter: Box::new(iter),
+        }
+    }
+
+    /// Returns [ir::Port] which are read from in the assignments.
+    pub fn port_read_set(assigns: &[ir::Assignment]) -> ir::PortIterator<'_> {
+        let iter = assigns.iter().flat_map(Self::port_reads);
         ir::PortIterator {
             port_iter: Box::new(iter),
         }
