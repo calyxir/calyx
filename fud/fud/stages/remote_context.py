@@ -4,7 +4,6 @@ from tempfile import NamedTemporaryFile
 
 from .. import errors
 from ..stages import Source, SourceType
-from ..utils import shell
 
 
 class RemoteExecution:
