@@ -178,9 +178,9 @@ class XilinxStage(Stage):
         def read_file(
             tmpdir: SourceType.Directory,
             name: SourceType.String,
-        ) -> SourceType.Stream:
+        ) -> SourceType.Path:
             """Read an output file."""
-            return Path(tmpdir.name) / name.data
+            return Path(tmpdir.name) / name
 
         if self.remote_exec.use_ssh:
             self.remote_exec.import_libs()
@@ -205,15 +205,14 @@ class XilinxStage(Stage):
         compile_xclbin(client, tmpdir)
 
         if self.remote_exec.use_ssh:
-            xclbin = self.remote_exec.close_and_get(
+            return self.remote_exec.close_and_get(
                 client,
                 tmpdir,
                 "xclbin/kernel.xclbin",
                 keep=self.save_temps,
             )
         else:
-            xclbin = read_file(
+            return read_file(
                 tmpdir,
                 Source("xclbin/kernel.xclbin", SourceType.String),
             )
-        return xclbin
