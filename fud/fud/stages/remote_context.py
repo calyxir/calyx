@@ -178,7 +178,7 @@ class RemoteExecution:
                 dest_path = tmpfile.name
             with self.SCPClient(client.get_transport()) as scp:
                 scp.get(src_path, dest_path)
-            return dest_path.open("rb")
+            return Path(dest_path)
 
         local_path = fetch_file(client, remote_tmpdir)
         self._close(client, remote_tmpdir, keep=keep)
