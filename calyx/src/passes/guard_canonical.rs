@@ -8,6 +8,9 @@ use crate::ir::{
     LibrarySignatures,
 };
 
+/// Perform serval canonicalizations on the program.
+///
+/// ## Simplifying Guards
 /// For each group and continuous assignments, canonicalize guard
 /// statements that has constant 1 as either a source or a guard.
 ///
@@ -16,16 +19,20 @@ use crate::ir::{
 /// a[done] = 1'd1 ? r1.done -> a[done] = r1.done
 /// a[done] = r1.done ? 1'd1 -> a[done] = r1.done
 /// ```
+///
+/// ## Dataflow Ordering of Assignments
+/// Uses [analysis::DataflowOrder] to sort all sets of assignments in the
+/// program into dataflow order.
 #[derive(Default)]
-pub struct GuardCanonical;
+pub struct Canonicalize;
 
-impl Named for GuardCanonical {
+impl Named for Canonicalize {
     fn name() -> &'static str {
-        "guard-canonical"
+        "canonicalize"
     }
 
     fn description() -> &'static str {
-        "canonicalizes guard expressions"
+        "canonicalize the program"
     }
 }
 
@@ -44,7 +51,7 @@ fn update_assign(mut assign: ir::Assignment) -> ir::Assignment {
     assign
 }
 
-impl Visitor for GuardCanonical {
+impl Visitor for Canonicalize {
     fn start(
         &mut self,
         comp: &mut ir::Component,
@@ -52,7 +59,6 @@ impl Visitor for GuardCanonical {
         _comps: &[ir::Component],
     ) -> VisResult {
         for gr in comp.groups.iter() {
-            eprintln!("{}", gr.borrow().name());
             let assigns = gr
                 .borrow_mut()
                 .assignments
@@ -63,7 +69,6 @@ impl Visitor for GuardCanonical {
                 analysis::DataflowOrder::dataflow_sort(assigns)?;
         }
         for cgr in comp.comb_groups.iter() {
-            eprintln!("{}", cgr.borrow().name());
             let assigns = cgr
                 .borrow_mut()
                 .assignments

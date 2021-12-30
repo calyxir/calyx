@@ -41,7 +41,7 @@ pub use dead_group_removal::DeadGroupRemoval;
 pub use externalize::Externalize;
 pub use go_insertion::GoInsertion;
 pub use group_to_invoke::GroupToInvoke;
-pub use guard_canonical::GuardCanonical;
+pub use guard_canonical::Canonicalize;
 pub use hole_inliner::HoleInliner;
 pub use infer_static_timing::InferStaticTiming;
 pub use lower_guards::LowerGuards;

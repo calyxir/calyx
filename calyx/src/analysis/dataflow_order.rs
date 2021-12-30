@@ -24,6 +24,8 @@ fn is_seq_port(port: &ir::Port) -> bool {
 }
 
 impl DataflowOrder {
+    /// Get the [NodeIndex] associated with the provided `name`. If `name` has
+    /// not been added to the graph yet, add it and return the index.
     fn get_index(
         name: ir::Id,
         rev_map: &mut HashMap<ir::Id, NodeIndex>,
@@ -39,6 +41,7 @@ impl DataflowOrder {
         }
     }
 
+    /// Return a sorted vector of assignments in dataflow order.
     pub fn dataflow_sort(
         assigns: Vec<ir::Assignment>,
     ) -> CalyxResult<Vec<ir::Assignment>> {
@@ -78,6 +81,7 @@ impl DataflowOrder {
                 .unique()
                 .for_each(|c| {
                     let read_idx = Self::get_index(c, &mut rev_map, &mut gr);
+                    // Self loops are not allowed.
                     if read_idx != wr_index {
                         gr.add_edge(read_idx, wr_index, ());
                     }
