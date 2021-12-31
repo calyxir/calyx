@@ -2,9 +2,10 @@ import logging as log
 
 from pathlib import Path
 
-from fud.stages import Stage, SourceType
+from fud.stages import Stage, SourceType, Source
 from fud.utils import TmpDir
 from fud import errors
+from fud.stages.remote_context import RemoteExecution, LocalSandbox
 
 
 class HwEmulationStage(Stage):
@@ -17,7 +18,7 @@ class HwEmulationStage(Stage):
             input_type=SourceType.Path,
             output_type=SourceType.Path,
             config=config,
-            description="Runs Vivado hw emulation",
+            description="Runs Vivado hardware emulation",
         )
 
         xilinx_location = self.config["stages", self.name, "xilinx_location"]
@@ -27,6 +28,7 @@ class HwEmulationStage(Stage):
         )
 
         self.host_cpp = self.config["stages", self.name, "host"]
+        self.save_temps = bool(self.config["stages", self.name, "save_temps"])
 
         self.xrt = (
             Path(self.config["global", "futil_directory"])
@@ -41,30 +43,15 @@ class HwEmulationStage(Stage):
             / "sim_script.tcl"
         )
         self.mode = self.config["stages", self.name, "mode"]
-        self.device = "xilinx_u50_gen3x16_xdma_201920_3"
+        self.device = "xilinx_u50_gen3x16_xdma_201920_3"  # TODO: Hard-coded.
 
         # remote execution
-        self.SSHClient = None
-        self.SCPClient = None
-        self.ssh_host = self.config["stages", self.name, "ssh_host"]
-        self.ssh_user = self.config["stages", self.name, "ssh_username"]
+        self.remote_exec = RemoteExecution(self)
         self.temp_location = self.config["stages", "xclbin", "temp_location"]
 
         self.setup()
 
     def _define_steps(self, input_data):
-        @self.step()
-        def import_libs():
-            """Import remote libs."""
-            try:
-                from paramiko import SSHClient
-                from scp import SCPClient
-
-                self.SSHClient = SSHClient
-                self.SCPClient = SCPClient
-            except ModuleNotFoundError:
-                raise errors.RemoteLibsNotInstalled
-
         @self.step()
         def check_host_cpp():
             """
@@ -72,24 +59,6 @@ class HwEmulationStage(Stage):
             """
             if self.host_cpp is None:
                 raise errors.MissingDynamicConfiguration("wdb.host")
-
-        @self.step()
-        def establish_connection() -> SourceType.UnTyped:
-            """
-            Establish SSH connection
-            """
-            client = self.SSHClient()
-            client.load_system_host_keys()
-            client.connect(self.ssh_host, username=self.ssh_user)
-            return client
-
-        @self.step()
-        def make_remote_tmpdir(client: SourceType.UnTyped) -> SourceType.String:
-            """
-            Execution `mktemp -d` on server.
-            """
-            _, stdout, _ = client.exec_command(f"mktemp -d -p {self.temp_location}")
-            return stdout.read().decode("ascii").strip()
 
         @self.step()
         def send_files(
@@ -105,12 +74,6 @@ class HwEmulationStage(Stage):
                 scp.put(self.host_cpp, remote_path=f"{tmpdir}/host.cpp")
                 scp.put(self.xrt, remote_path=f"{tmpdir}/xrt.ini")
                 scp.put(self.sim_script, remote_path=f"{tmpdir}/sim_script.tcl")
-
-        @self.step()
-        def setup_environment(client: SourceType.UnTyped):
-            """
-            Source Xilinx scripts
-            """
 
         @self.step()
         def compile_host(client: SourceType.UnTyped, tmpdir: SourceType.String):
@@ -199,25 +162,33 @@ class HwEmulationStage(Stage):
                 )
             return wdb_path.open("rb")
 
-        @self.step()
-        def cleanup(client: SourceType.UnTyped, tmpdir: SourceType.String):
-            """
-            Close SSH Connection and cleanup temporaries.
-            """
-            if self.config["stages", self.name, "save_temps"] is None:
-                client.exec_command("rm -r {tmpdir}")
-            else:
-                print(tmpdir)
-            client.close()
-
         check_host_cpp()
-        client = establish_connection()
-        tmpdir = make_remote_tmpdir(client)
-        send_files(client, tmpdir, input_data)
+
+        file_map = {
+            input_data: "kernel.xclbin",
+            self.host_cpp: "host.cpp",
+            self.xrt: "xrt.ini",
+            self.sim_script: "sim_script.tcl",
+        }
+        if self.remote_exec.use_ssh:
+            self.remote_exec.import_libs()
+            client, tmpdir = self.remote_exec.open_and_send(file_map)
+        else:
+            sandbox = LocalSandbox(self, self.save_temps)
+            tmpdir = sandbox.create(file_map)
+            client = Source(None, SourceType.UnTyped)
+
         compile_host(client, tmpdir)
         generate_emconfig(client, tmpdir)
         emulate(client, tmpdir)
-        wdb = download_wdb(client, tmpdir)
-        cleanup(client, tmpdir)
 
-        return wdb
+        wdb_name = "xilinx_u50_gen3x16_xdma_201920_3-0-kernel.wdb"
+        if self.remote_exec.use_ssh:
+            return self.remote_exec.close_and_get(
+                client,
+                tmpdir,
+                wdb_name,
+                keep=self.save_temps,
+            )
+        else:
+            return sandbox.get_file(tmpdir, wdb_name)
