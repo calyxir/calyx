@@ -191,4 +191,4 @@ class HwEmulationStage(Stage):
                 keep=self.save_temps,
             )
         else:
-            return sandbox.get_file(tmpdir, wdb_name)
+            return sandbox.get_file(wdb_name)
