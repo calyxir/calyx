@@ -97,6 +97,19 @@ By default, the Xilinx tools run in a temporary directory that is deleted when `
 To instead keep the sandbox directory, use `-s xclbin.save_temps true`.
 You can then find the results in a directory named `fud-out-N` for some number `N`.
 
+### Emulate
+
+You can also execute compiled designs through Xilinx hardware emulation.
+Use the `wdb` state as your `fud` target:
+
+    fud e -vv foo.xclbin -s wdb.save_temps true -o out.wdb
+
+This stage produces a Vivado [waveform database (WDB) file][wdb]
+Through the magic of `fud`, you can also go all the way from a Calyx program to a `wdb` file in the same way.
+
+You also need to provide a host C++ program via the `wdb.host` parameter, but I don't know much about that yet, so documentation about that will have to wait.
+Similarly, I don't yet know what you're supposed to *do* with a WDB file; maybe we should figure out how to produce a VCD instead.
+
 ### How it Works
 
 The first step is to generate input files.
@@ -131,3 +144,4 @@ This step uses the `v++` tool, with a command line that looks like this:
 [xclbin]: https://xilinx.github.io/XRT/2021.2/html/formats.html#xclbin
 [gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
 [u50]: https://www.xilinx.com/products/boards-and-kits/alveo/u50.html
+[wdb]: https://support.xilinx.com/s/article/64000?language=en_US
