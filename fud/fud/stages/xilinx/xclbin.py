@@ -4,7 +4,7 @@ from pathlib import Path
 from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
 from fud.stages.futil import FutilStage
-from fud.utils import TmpDir, shell
+from fud.utils import shell
 
 
 class XilinxStage(Stage):
@@ -61,14 +61,6 @@ class XilinxStage(Stage):
             log.debug(stdout)
 
     def _define_steps(self, input_data):
-        # Step 1: Make a new temporary directory
-        @self.step()
-        def mktmp() -> SourceType.Directory:
-            """
-            Make temporary directory to store generated files.
-            """
-            return TmpDir()
-
         # Step 2: Compile input using `-b xilinx`
         @self.step()
         def compile_xilinx(inp: SourceType.Stream) -> SourceType.Path:

@@ -3,9 +3,9 @@ import logging as log
 from pathlib import Path
 
 from fud.stages import Stage, SourceType, Source
-from fud.utils import TmpDir
 from fud import errors
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
+from fud.utils import shell
 
 
 class HwEmulationStage(Stage):
@@ -51,6 +51,18 @@ class HwEmulationStage(Stage):
 
         self.setup()
 
+    def _shell(self, client, cmd):
+        """Run a command, either locally or remotely."""
+        if self.remote_exec.use_ssh:
+            _, stdout, stderr = client.exec_command(cmd)
+            for chunk in iter(lambda: stdout.readline(2048), ""):
+                log.debug(chunk.strip())
+            log.debug(stderr.read().decode("UTF-8").strip())
+
+        else:
+            stdout = shell(cmd, capture_stdout=False)
+            log.debug(stdout)
+
     def _define_steps(self, input_data):
         @self.step()
         def check_host_cpp():
@@ -61,106 +73,46 @@ class HwEmulationStage(Stage):
                 raise errors.MissingDynamicConfiguration("wdb.host")
 
         @self.step()
-        def send_files(
-            client: SourceType.UnTyped,
-            tmpdir: SourceType.String,
-            xclbin: SourceType.Path,
-        ):
-            """
-            Copy files over ssh channel
-            """
-            with self.SCPClient(client.get_transport()) as scp:
-                scp.put(xclbin, remote_path=f"{tmpdir}/kernel.xclbin")
-                scp.put(self.host_cpp, remote_path=f"{tmpdir}/host.cpp")
-                scp.put(self.xrt, remote_path=f"{tmpdir}/xrt.ini")
-                scp.put(self.sim_script, remote_path=f"{tmpdir}/sim_script.tcl")
-
-        @self.step()
         def compile_host(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Compile the host code
             """
-            _, stdout, stderr = client.exec_command(
-                " ".join(
-                    [
-                        f"cd {tmpdir}",
-                        "&&",
-                        "g++",
-                        "-I/opt/xilinx/xrt/include",
-                        "-I/scratch/opt/Xilinx/Vivado/2020.2/include",
-                        "-Wall -O0 -g -std=c++14 -fmessage-length=0",
-                        "host.cpp",
-                        "-o 'host'",
-                        "-L/opt/xilinx/xrt/lib -lOpenCL -lpthread -lrt -lstdc++",
-                    ]
-                )
+            cmd = (
+                f"cd {tmpdir} && "
+                "g++ "
+                "-I/opt/xilinx/xrt/include "
+                "-I/scratch/opt/Xilinx/Vivado/2020.2/include "
+                "-Wall -O0 -g -std=c++14 -fmessage-length=0 "
+                "host.cpp "
+                "-o 'host' "
+                "-L/opt/xilinx/xrt/lib -lOpenCL -lpthread -lrt -lstdc++"
             )
-
-            for chunk in iter(lambda: stdout.readline(2048), ""):
-                log.debug(chunk.strip())
-            log.debug(stderr.read().decode("UTF-8").strip())
+            self._shell(client, cmd)
 
         @self.step()
         def generate_emconfig(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Generate emconfig.json
             """
-            _, stdout, stderr = client.exec_command(
-                " ".join(
-                    [
-                        f"cd {tmpdir}",
-                        "&&",
-                        "/scratch/opt/Xilinx/Vitis/2020.2/bin/emconfigutil",
-                        f"--platform {self.device}",
-                        "--od .",
-                    ]
-                )
+            cmd = (
+                f"cd {tmpdir} && "
+                "/scratch/opt/Xilinx/Vitis/2020.2/bin/emconfigutil "
+                f"--platform {self.device} "
+                "--od ."
             )
-
-            for chunk in iter(lambda: stdout.readline(2048), ""):
-                log.debug(chunk.strip())
-            log.debug(stderr.read().decode("UTF-8").strip())
+            self._shell(client, cmd)
 
         @self.step()
         def emulate(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Emulation the xclbin
             """
-            _, stdout, stderr = client.exec_command(
-                " ".join(
-                    [
-                        f"cd {tmpdir}",
-                        "&&",
-                        self.setup_commands,
-                        "&&",
-                        f"XCL_EMULATION_MODE={self.mode}",
-                        "./host",
-                        "kernel.xclbin",
-                        self.device,
-                    ]
-                )
+            cmd = (
+                f"cd {tmpdir} && {self.setup_commands} && "
+                f"XCL_EMULATION_MODE={self.mode} "
+                f"./host kernel.xclbin {self.device}"
             )
-
-            for chunk in iter(lambda: stdout.readline(2048), ""):
-                log.debug(chunk.strip())
-            log.debug(stderr.read().decode("UTF-8").strip())
-
-        @self.step()
-        def download_wdb(
-            client: SourceType.UnTyped,
-            tmpdir: SourceType.String,
-        ) -> SourceType.Stream:
-            """
-            Download xclbin file
-            """
-            local_tmpdir = TmpDir()
-            wdb_path = Path(local_tmpdir.name) / "kernel.wdb"
-            with self.SCPClient(client.get_transport()) as scp:
-                scp.get(
-                    f"{tmpdir}/xilinx_u50_gen3x16_xdma_201920_3-0-kernel.wdb",
-                    local_path=str(wdb_path),
-                )
-            return wdb_path.open("rb")
+            self._shell(client, cmd)
 
         check_host_cpp()
 
