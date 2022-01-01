@@ -152,8 +152,7 @@ class RemoteExecution:
             remote_tmpdir: SourceType.String,
             local_tmpdir: SourceType.Directory,
         ):
-            """Copy files generated on server back to local host.
-            """
+            """Copy files generated on server back to local host."""
             with self.SCPClient(client.get_transport()) as scp:
                 scp.get(
                     remote_tmpdir, local_path=f"{local_tmpdir.name}", recursive=True
