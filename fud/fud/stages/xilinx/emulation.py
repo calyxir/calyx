@@ -21,10 +21,11 @@ class HwEmulationStage(Stage):
             description="Runs Vivado hardware emulation",
         )
 
-        xilinx_location = self.config["stages", self.name, "xilinx_location"]
-        xrt_location = self.config["stages", self.name, "xrt_location"]
+        self.xilinx_location = self.config["stages", self.name, "xilinx_location"]
+        self.xrt_location = self.config["stages", self.name, "xrt_location"]
         self.setup_commands = (
-            f"source {xilinx_location}/settings64.sh && source {xrt_location}/setup.sh"
+            f"source {self.xilinx_location}/settings64.sh && "
+            f"source {self.xrt_location}/setup.sh"
         )
 
         self.host_cpp = self.config["stages", self.name, "host"]
@@ -80,12 +81,12 @@ class HwEmulationStage(Stage):
             cmd = (
                 f"cd {tmpdir} && "
                 "g++ "
-                "-I/opt/xilinx/xrt/include "
-                "-I/scratch/opt/Xilinx/Vivado/2020.2/include "
+                f"-I{self.xrt_location}/include "
+                f"-I{self.xilinx_location}/include "
                 "-Wall -O0 -g -std=c++14 -fmessage-length=0 "
                 "host.cpp "
                 "-o 'host' "
-                "-L/opt/xilinx/xrt/lib -lOpenCL -lpthread -lrt -lstdc++"
+                f"-L{self.xrt_location}/lib -lOpenCL -lpthread -lrt -lstdc++"
             )
             self._shell(client, cmd)
 
@@ -96,7 +97,7 @@ class HwEmulationStage(Stage):
             """
             cmd = (
                 f"cd {tmpdir} && "
-                "/scratch/opt/Xilinx/Vitis/2020.2/bin/emconfigutil "
+                f"{self.xilinx_location}/bin/emconfigutil "
                 f"--platform {self.device} "
                 "--od ."
             )
@@ -134,7 +135,7 @@ class HwEmulationStage(Stage):
         generate_emconfig(client, tmpdir)
         emulate(client, tmpdir)
 
-        wdb_name = "xilinx_u50_gen3x16_xdma_201920_3-0-kernel.wdb"
+        wdb_name = f"{self.device}-0-kernel.wdb"
         if self.remote_exec.use_ssh:
             return self.remote_exec.close_and_get(
                 client,
