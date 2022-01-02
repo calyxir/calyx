@@ -7,16 +7,46 @@ use petgraph::{
 };
 
 use super::read_write_set::ReadWriteSet;
-use crate::{
-    errors::{CalyxResult, Error},
-    ir::{self, CloneName},
-};
+use crate::analysis;
+use crate::errors::{CalyxResult, Error};
+use crate::ir::{self, CloneName};
+
+/// Mapping from the name output port to all the input ports that must be driven.
+type WriteMap = HashMap<ir::Id, HashSet<ir::Id>>;
+
+type ReadSpec = Vec<(ir::Id, HashSet<ir::Id>)>;
 
 /// Given a set of assignment, generates an ordering that respects combinatinal
 /// dataflow.
 pub struct DataflowOrder {
     // Read together specs used in sorting assignments into dataflow order.
-    read_together: HashMap<ir::Id, Vec<(ir::Id, HashSet<ir::Id>)>>,
+    read_together: HashMap<ir::Id, ReadSpec>,
+}
+
+fn to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
+    let read_together_spec = analysis::ReadWriteSpec::read_together_spec(prim)?;
+    let mut inputs = HashSet::new();
+    let mut outputs = Vec::new();
+    for port in &prim.signature {
+        if port.attributes.get("read_together").is_some() {
+            continue;
+        }
+        match port.direction {
+            ir::Direction::Input => {
+                inputs.insert(port.name.clone());
+            }
+            ir::Direction::Output => outputs.push(port.name.clone()),
+            ir::Direction::Inout => {
+                unreachable!("Primitive ports should not be in-out")
+            }
+        }
+    }
+    let all_ports: WriteMap = outputs
+        .into_iter()
+        .map(|out| (out, inputs.clone()))
+        .chain(read_together_spec)
+        .collect();
+    Ok(all_ports)
 }
 
 /// Returns true iff the given port is a sequential output and therefore should

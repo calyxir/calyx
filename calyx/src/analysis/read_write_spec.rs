@@ -46,13 +46,16 @@ impl ReadWriteSpec {
         write_together
     }
 
-    /// Construct @read_together specs from the primitive definitions.
-    pub fn read_together_specs<'a>(
-        primitives: impl Iterator<Item = &'a ir::Primitive>,
-    ) -> CalyxResult<ReadTogetherSpecs> {
-        let mut read_together = HashMap::new();
-        for prim in primitives {
-            let reads: Vec<ReadTogether> = prim
+    /// Construct `@read_together` spec from the definition of a primitive.
+    /// Each spec is allowed to have exactly one output port along with one
+    /// or more input ports.
+    /// The specification dictates that before reading the output port, the
+    /// input ports must be driven, i.e., the output port is combinationally
+    /// related to the input ports and only those ports.
+    pub fn read_together_spec(
+        prim: &ir::Primitive,
+    ) -> CalyxResult<Vec<ReadTogether>> {
+        prim
                 .find_all_with_attr("read_together")
                 .into_iter()
                 .map(|pd| (pd.attributes.get("read_together").unwrap(), pd))
@@ -76,7 +79,16 @@ impl ReadWriteSpec {
                             .collect::<HashSet<_>>(),
                     ))
                 })
-                .collect::<CalyxResult<_>>()?;
+                .collect::<CalyxResult<_>>()
+    }
+
+    /// Construct @read_together specs from the primitive definitions.
+    pub fn read_together_specs<'a>(
+        primitives: impl Iterator<Item = &'a ir::Primitive>,
+    ) -> CalyxResult<ReadTogetherSpecs> {
+        let mut read_together = HashMap::new();
+        for prim in primitives {
+            let reads = Self::read_together_spec(prim)?;
             if !reads.is_empty() {
                 read_together.insert(prim.name.clone(), reads);
             }
