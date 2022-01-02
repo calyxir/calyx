@@ -311,19 +311,6 @@ impl Cell {
     }
 }
 
-/// Generic wrapper for iterators that return [RRC] of [super::Cell].
-pub struct CellIterator<'a> {
-    pub iter: Box<dyn Iterator<Item = RRC<Cell>> + 'a>,
-}
-
-impl Iterator for CellIterator<'_> {
-    type Item = RRC<Cell>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
 /// Represents a guarded assignment in the program
 #[derive(Clone, Debug)]
 pub struct Assignment {
