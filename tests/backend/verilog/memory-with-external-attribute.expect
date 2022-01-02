@@ -371,8 +371,9 @@ module main (
     output logic done
 );
     string DATA;
+    int CODE;
     initial begin
-        $value$plusargs("DATA=%s", DATA);
+        CODE = $value$plusargs("DATA=%s", DATA);
         $display("DATA (path to meminit files): %s", DATA);
         $readmemh({DATA, "/m1.dat"}, m1.mem);
     end
