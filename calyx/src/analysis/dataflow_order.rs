@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 use petgraph::{
@@ -14,7 +14,10 @@ use crate::{
 
 /// Given a set of assignment, generates an ordering that respects combinatinal
 /// dataflow.
-pub struct DataflowOrder;
+pub struct DataflowOrder {
+    // Read together specs used in sorting assignments into dataflow order.
+    read_together: HashMap<ir::Id, Vec<(ir::Id, HashSet<ir::Id>)>>,
+}
 
 /// Returns true iff the given port is a sequential output and therefore should
 /// not be used in the ordering decision.
@@ -24,6 +27,12 @@ fn is_seq_port(port: &ir::Port) -> bool {
 }
 
 impl DataflowOrder {
+    pub fn new(
+        read_together: HashMap<ir::Id, Vec<(ir::Id, HashSet<ir::Id>)>>,
+    ) -> Self {
+        Self { read_together }
+    }
+
     /// Get the [NodeIndex] associated with the provided `name`. If `name` has
     /// not been added to the graph yet, add it and return the index.
     fn get_index(
@@ -43,6 +52,7 @@ impl DataflowOrder {
 
     /// Return a sorted vector of assignments in dataflow order.
     pub fn dataflow_sort(
+        &self,
         assigns: Vec<ir::Assignment>,
     ) -> CalyxResult<Vec<ir::Assignment>> {
         let mut gr: DiGraph<ir::Id, ()> = DiGraph::new();

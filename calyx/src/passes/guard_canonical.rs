@@ -1,6 +1,7 @@
 use itertools::Itertools;
 
 use crate::analysis;
+use crate::ir::traversal::ConstructVisitor;
 use crate::ir::Guard;
 use crate::ir::{
     self,
@@ -23,8 +24,26 @@ use crate::ir::{
 /// ## Dataflow Ordering of Assignments
 /// Uses [analysis::DataflowOrder] to sort all sets of assignments in the
 /// program into dataflow order.
-#[derive(Default)]
-pub struct Canonicalize;
+pub struct Canonicalize {
+    // A [analysis::DataflowOrder] used to reorder assignments into dataflow order.
+    order: analysis::DataflowOrder,
+}
+
+impl ConstructVisitor for Canonicalize {
+    fn from(ctx: &ir::Context) -> crate::errors::CalyxResult<Self>
+    where
+        Self: Sized,
+    {
+        let read_together =
+            analysis::ReadWriteSpec::read_together_specs(ctx.lib.signatures())?;
+        let order = analysis::DataflowOrder::new(read_together);
+        Ok(Canonicalize { order })
+    }
+
+    fn clear_data(&mut self) {
+        // Data is shared between components
+    }
+}
 
 impl Named for Canonicalize {
     fn name() -> &'static str {
@@ -65,8 +84,7 @@ impl Visitor for Canonicalize {
                 .drain(..)
                 .map(update_assign)
                 .collect_vec();
-            gr.borrow_mut().assignments =
-                analysis::DataflowOrder::dataflow_sort(assigns)?;
+            gr.borrow_mut().assignments = self.order.dataflow_sort(assigns)?;
         }
         for cgr in comp.comb_groups.iter() {
             let assigns = cgr
@@ -75,16 +93,14 @@ impl Visitor for Canonicalize {
                 .drain(..)
                 .map(update_assign)
                 .collect_vec();
-            cgr.borrow_mut().assignments =
-                analysis::DataflowOrder::dataflow_sort(assigns)?;
+            cgr.borrow_mut().assignments = self.order.dataflow_sort(assigns)?;
         }
         let cont_assigns = comp
             .continuous_assignments
             .drain(..)
             .map(update_assign)
             .collect_vec();
-        comp.continuous_assignments =
-            analysis::DataflowOrder::dataflow_sort(cont_assigns)?;
+        comp.continuous_assignments = self.order.dataflow_sort(cont_assigns)?;
 
         Ok(Action::Stop)
     }
