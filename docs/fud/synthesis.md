@@ -83,6 +83,14 @@ The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
 The device string above is for the [Alveo U50][u50] card, which we have at Cornell, but I honestly don't know how you're supposed to find the right string for a different FPGA target.
 Hopefully someone will figure this out and document it in the future.
 
+To use hardware emulation, you will also need to configure the `wdb` stage.
+It has similar `ssh_host`, `ssh_username`, and `remote` options to the `xclbin` stage.
+You will also need to configure the stage to point to your installations of [Vitis][] and [XRT][], like this:
+
+    [stages.wdb]
+    xilinx_location: /scratch/opt/Xilinx/Vitis/2020.2
+    xrt_location: /opt/xilinx/xrt
+
 ### Compile
 
 The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
@@ -106,6 +114,7 @@ Use the `wdb` state as your `fud` target:
 
 This stage produces a Vivado [waveform database (WDB) file][wdb]
 Through the magic of `fud`, you can also go all the way from a Calyx program to a `wdb` file in the same way.
+There is also a `wdb.save_temps` option, as with the `xclbin` stage.
 
 You also need to provide a host C++ program via the `wdb.host` parameter, but I don't know much about that yet, so documentation about that will have to wait.
 Similarly, I don't yet know what you're supposed to *do* with a WDB file; maybe we should figure out how to produce a VCD instead.
