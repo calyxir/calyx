@@ -14,18 +14,9 @@ pub struct ScheduleConflicts {
     rev_map: HashMap<Idx, ir::Id>,
 }
 
-/// Wrapper to iterate over all the conflict edges.
-pub struct ConflictIterator<'a> {
-    iter: Box<dyn Iterator<Item = (ir::Id, ir::Id)> + 'a>,
-}
-
-impl Iterator for ConflictIterator<'_> {
-    type Item = (ir::Id, ir::Id);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
+/// A conflict between two group is specified using the name of the groups
+/// involved
+type Conflict = (ir::Id, ir::Id);
 
 impl ScheduleConflicts {
     /// Return a vector of all groups that conflict with this group.
@@ -40,18 +31,13 @@ impl ScheduleConflicts {
 
     /// Returns an iterator containing all conflict edges,
     /// `(src group: ir::Id, dst group: ir::Id)`, in this graph.
-    pub fn all_conflicts(&self) -> ConflictIterator<'_> {
-        let iter =
-            self.graph
-                .graph
-                .edge_references()
-                .map(move |(src, dst, _)| {
-                    (self.rev_map[&src].clone(), self.rev_map[&dst].clone())
-                });
-
-        ConflictIterator {
-            iter: Box::new(iter),
-        }
+    pub fn all_conflicts(&self) -> impl Iterator<Item = Conflict> + '_ {
+        self.graph
+            .graph
+            .edge_references()
+            .map(move |(src, dst, _)| {
+                (self.rev_map[&src].clone(), self.rev_map[&dst].clone())
+            })
     }
 
     /////////////// Internal Methods //////////////////
