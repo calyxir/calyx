@@ -34,9 +34,7 @@ impl ConstructVisitor for Canonicalize {
     where
         Self: Sized,
     {
-        let read_together =
-            analysis::ReadWriteSpec::read_together_specs(ctx.lib.signatures())?;
-        let order = analysis::DataflowOrder::new(read_together);
+        let order = analysis::DataflowOrder::new(ctx.lib.signatures())?;
         Ok(Canonicalize { order })
     }
 

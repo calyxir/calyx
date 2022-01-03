@@ -11,22 +11,24 @@ use crate::analysis;
 use crate::errors::{CalyxResult, Error};
 use crate::ir::{self, CloneName};
 
-/// Mapping from the name output port to all the input ports that must be driven.
+/// Mapping from the name output port to all the input ports that must be driven before it.
 type WriteMap = HashMap<ir::Id, HashSet<ir::Id>>;
-
-type ReadSpec = Vec<(ir::Id, HashSet<ir::Id>)>;
 
 /// Given a set of assignment, generates an ordering that respects combinatinal
 /// dataflow.
 pub struct DataflowOrder {
-    // Read together specs used in sorting assignments into dataflow order.
-    read_together: HashMap<ir::Id, ReadSpec>,
+    // Mapping from name of a primitive to its [WriteMap].
+    write_map: HashMap<ir::Id, WriteMap>,
 }
 
 fn to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
     let read_together_spec = analysis::ReadWriteSpec::read_together_spec(prim)?;
     let mut inputs = HashSet::new();
-    let mut outputs = Vec::new();
+    let mut outputs: Vec<(ir::Id, bool)> = Vec::new();
+
+    // Handle ports not mentioned in read_together specs.
+    // Each remaining output ports are dependent on all remaining inputs unless it is marked as
+    // @stable in which case it does not depend on any inputs.
     for port in &prim.signature {
         if port.attributes.get("read_together").is_some() {
             continue;
@@ -35,7 +37,10 @@ fn to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
             ir::Direction::Input => {
                 inputs.insert(port.name.clone());
             }
-            ir::Direction::Output => outputs.push(port.name.clone()),
+            ir::Direction::Output => outputs.push((
+                port.name.clone(),
+                port.attributes.get("stable").is_some(),
+            )),
             ir::Direction::Inout => {
                 unreachable!("Primitive ports should not be in-out")
             }
@@ -43,7 +48,14 @@ fn to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
     }
     let all_ports: WriteMap = outputs
         .into_iter()
-        .map(|out| (out, inputs.clone()))
+        .map(|(out, stable)| {
+            // Stable ports don't depend on anything
+            if stable {
+                (out, HashSet::new())
+            } else {
+                (out, inputs.clone())
+            }
+        })
         .chain(read_together_spec)
         .collect();
     Ok(all_ports)
@@ -57,10 +69,13 @@ fn is_seq_port(port: &ir::Port) -> bool {
 }
 
 impl DataflowOrder {
-    pub fn new(
-        read_together: HashMap<ir::Id, Vec<(ir::Id, HashSet<ir::Id>)>>,
-    ) -> Self {
-        Self { read_together }
+    pub fn new<'a>(
+        primitives: impl Iterator<Item = &'a ir::Primitive>,
+    ) -> CalyxResult<Self> {
+        let write_map = primitives
+            .map(|p| to_write_map(p).map(|wm| (p.name.clone(), wm)))
+            .collect::<CalyxResult<_>>()?;
+        Ok(DataflowOrder { write_map })
     }
 
     /// Get the [NodeIndex] associated with the provided `name`. If `name` has
@@ -77,6 +92,70 @@ impl DataflowOrder {
             let idx = gr.add_node(name.clone());
             rev_map.insert(name, idx);
             idx
+        }
+    }
+
+    pub fn sort(&self, assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
+        // Construct a graph where a node is an assignment and there is edge between
+        // nodes if one should occur before another.
+        let mut gr: DiGraph<ir::Assignment, ()> = DiGraph::new();
+
+        // Mapping from the index corresponding to an assignment to its read/write sets.
+        let mut reads: HashMap<(ir::Id, ir::Id), NodeIndex> = HashMap::new();
+        let mut writes: HashMap<NodeIndex, (ir::Id, ir::Id)> = HashMap::new();
+
+        // Assignments to the hole are not considered in the sorting.
+        let mut hole_writes: Vec<ir::Assignment> = Vec::new();
+
+        // Construct the nodes that contain the assignments
+        for assign in assigns {
+            if assign.dst.borrow().is_hole() {
+                hole_writes.push(assign)
+            } else {
+                let rs = ReadWriteSet::port_reads(&assign)
+                    .map(|p| p.borrow().canonical())
+                    .collect_vec();
+                let ws = assign.dst.borrow().canonical();
+                let idx = gr.add_node(assign);
+                reads.extend(rs.into_iter().map(|r| (r, idx)).into_iter());
+                writes.insert(idx, ws);
+            }
+        }
+
+        // Walk over the writes and add edges between all required reads
+        for (w_idx, (prim, port)) in writes {
+            let dep_ports = self
+                .write_map
+                .get(&prim)
+                .expect(&format!("Primitive {} write map is not defined", prim))
+                .get(&port)
+                .expect(&format!(
+                    "Port {}.{} write map is not defined",
+                    prim, port
+                ));
+
+            for port in dep_ports.into_iter().cloned() {
+                if let Some(r_idx) = reads.get(&(prim.clone(), port)) {
+                    gr.add_edge(*r_idx, w_idx, ());
+                }
+            }
+        }
+
+        // Generate a topological ordering
+        if let Ok(order) = algo::toposort(&gr, None) {
+            let mut assigns = Vec::new();
+            for idx in order {
+                assigns.push(gr.remove_node(idx).unwrap())
+            }
+            assigns
+        } else {
+            todo!()
+            /* let msg = assign_map
+                .values()
+                .flatten()
+                .map(ir::Printer::assignment_to_str)
+                .join("\n");
+            Err(Error::Misc(format!("Found combinational cycle:\n{}", msg))) */
         }
     }
 
