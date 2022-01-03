@@ -461,29 +461,17 @@ impl InterpreterState {
                 self.eval_guard(g1)? && self.eval_guard(g2)?
             }
             ir::Guard::Not(g) => !self.eval_guard(g)?,
-            ir::Guard::Eq(g1, g2) => {
-                self.get_from_port(&g1.borrow())
-                    == self.get_from_port(&g2.borrow())
-            }
-            ir::Guard::Neq(g1, g2) => {
-                self.get_from_port(&g1.borrow())
-                    != self.get_from_port(&g2.borrow())
-            }
-            ir::Guard::Gt(g1, g2) => {
-                self.get_from_port(&g1.borrow())
-                    > self.get_from_port(&g2.borrow())
-            }
-            ir::Guard::Lt(g1, g2) => {
-                self.get_from_port(&g1.borrow())
-                    < self.get_from_port(&g2.borrow())
-            }
-            ir::Guard::Geq(g1, g2) => {
-                self.get_from_port(&g1.borrow())
-                    >= self.get_from_port(&g2.borrow())
-            }
-            ir::Guard::Leq(g1, g2) => {
-                self.get_from_port(&g1.borrow())
-                    <= self.get_from_port(&g2.borrow())
+            ir::Guard::CompOp(op, g1, g2) => {
+                let p1 = self.get_from_port(&g1.borrow());
+                let p2 = self.get_from_port(&g2.borrow());
+                match op {
+                    ir::PortComp::Eq => p1 == p2,
+                    ir::PortComp::Neq => p1 != p2,
+                    ir::PortComp::Gt => p1 > p2,
+                    ir::PortComp::Lt => p1 < p2,
+                    ir::PortComp::Geq => p1 >= p2,
+                    ir::PortComp::Leq => p1 <= p2,
+                }
             }
             ir::Guard::Port(p) => {
                 let val = self.get_from_port(&p.borrow());

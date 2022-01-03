@@ -605,18 +605,15 @@ component main() -> () {
     v_2_20 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0<"static"=0> {
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1<"static"=0> {
       le1.left = j0.out;
       le1.right = const3.out;
     }
-    group cond10 {
-      cond10[done] = 1'd1;
+    comb group cond10 {
       and14.left = eq16.out;
       and14.right = eq17.out;
       eq16.left = div_pipe20.out_remainder;
@@ -630,8 +627,7 @@ component main() -> () {
       div_pipe21.right = const54.out;
       div_pipe21.go = !div_pipe21.done ? 1'd1;
     }
-    group cond11 {
-      cond11[done] = 1'd1;
+    comb group cond11 {
       and15.left = eq18.out;
       and15.right = eq19.out;
       eq18.left = div_pipe24.out_remainder;
@@ -645,8 +641,7 @@ component main() -> () {
       div_pipe25.right = const60.out;
       div_pipe25.go = !div_pipe25.done ? 1'd1;
     }
-    group cond12 {
-      cond12[done] = 1'd1;
+    comb group cond12 {
       and16.left = eq20.out;
       and16.right = eq21.out;
       eq20.left = div_pipe28.out_remainder;
@@ -660,8 +655,7 @@ component main() -> () {
       div_pipe29.right = const66.out;
       div_pipe29.go = !div_pipe29.done ? 1'd1;
     }
-    group cond13 {
-      cond13[done] = 1'd1;
+    comb group cond13 {
       and17.left = eq22.out;
       and17.right = eq23.out;
       eq22.left = div_pipe32.out_remainder;
@@ -675,8 +669,7 @@ component main() -> () {
       div_pipe33.right = const72.out;
       div_pipe33.go = !div_pipe33.done ? 1'd1;
     }
-    group cond14 {
-      cond14[done] = 1'd1;
+    comb group cond14 {
       and18.left = eq24.out;
       and18.right = eq25.out;
       eq24.left = div_pipe36.out_remainder;
@@ -690,8 +683,7 @@ component main() -> () {
       div_pipe37.right = const78.out;
       div_pipe37.go = !div_pipe37.done ? 1'd1;
     }
-    group cond15 {
-      cond15[done] = 1'd1;
+    comb group cond15 {
       and19.left = eq26.out;
       and19.right = eq27.out;
       eq26.left = div_pipe40.out_remainder;
@@ -705,8 +697,7 @@ component main() -> () {
       div_pipe41.right = const84.out;
       div_pipe41.go = !div_pipe41.done ? 1'd1;
     }
-    group cond16 {
-      cond16[done] = 1'd1;
+    comb group cond16 {
       and20.left = eq28.out;
       and20.right = eq29.out;
       eq28.left = div_pipe44.out_remainder;
@@ -720,23 +711,19 @@ component main() -> () {
       div_pipe45.right = const90.out;
       div_pipe45.go = !div_pipe45.done ? 1'd1;
     }
-    group cond17<"static"=0> {
-      cond17[done] = 1'd1;
+    comb group cond17<"static"=0> {
       le2.left = i1.out;
       le2.right = const97.out;
     }
-    group cond18<"static"=0> {
-      cond18[done] = 1'd1;
+    comb group cond18<"static"=0> {
       le3.left = j1.out;
       le3.right = const99.out;
     }
-    group cond19<"static"=0> {
-      cond19[done] = 1'd1;
+    comb group cond19<"static"=0> {
       le4.left = k0.out;
       le4.right = const101.out;
     }
-    group cond2 {
-      cond2[done] = 1'd1;
+    comb group cond2 {
       and1.left = eq0.out;
       and1.right = eq1.out;
       eq0.left = and0.out;
@@ -749,18 +736,15 @@ component main() -> () {
       div_pipe0.right = const6.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
-    group cond20<"static"=0> {
-      cond20[done] = 1'd1;
+    comb group cond20<"static"=0> {
       le5.left = i2.out;
       le5.right = const106.out;
     }
-    group cond21<"static"=0> {
-      cond21[done] = 1'd1;
+    comb group cond21<"static"=0> {
       le6.left = j2.out;
       le6.right = const108.out;
     }
-    group cond22 {
-      cond22[done] = 1'd1;
+    comb group cond22 {
       and21.left = eq30.out;
       and21.right = eq31.out;
       eq30.left = div_pipe48.out_remainder;
@@ -774,8 +758,7 @@ component main() -> () {
       div_pipe49.right = const111.out;
       div_pipe49.go = !div_pipe49.done ? 1'd1;
     }
-    group cond23 {
-      cond23[done] = 1'd1;
+    comb group cond23 {
       and22.left = eq32.out;
       and22.right = eq33.out;
       eq32.left = div_pipe52.out_remainder;
@@ -789,8 +772,7 @@ component main() -> () {
       div_pipe53.right = const117.out;
       div_pipe53.go = !div_pipe53.done ? 1'd1;
     }
-    group cond24 {
-      cond24[done] = 1'd1;
+    comb group cond24 {
       and23.left = eq34.out;
       and23.right = eq35.out;
       eq34.left = div_pipe56.out_remainder;
@@ -804,8 +786,7 @@ component main() -> () {
       div_pipe57.right = const123.out;
       div_pipe57.go = !div_pipe57.done ? 1'd1;
     }
-    group cond25 {
-      cond25[done] = 1'd1;
+    comb group cond25 {
       and24.left = eq36.out;
       and24.right = eq37.out;
       eq36.left = div_pipe60.out_remainder;
@@ -819,8 +800,7 @@ component main() -> () {
       div_pipe61.right = const129.out;
       div_pipe61.go = !div_pipe61.done ? 1'd1;
     }
-    group cond26 {
-      cond26[done] = 1'd1;
+    comb group cond26 {
       and25.left = eq38.out;
       and25.right = eq39.out;
       eq38.left = div_pipe64.out_remainder;
@@ -834,8 +814,7 @@ component main() -> () {
       div_pipe65.right = const135.out;
       div_pipe65.go = !div_pipe65.done ? 1'd1;
     }
-    group cond27 {
-      cond27[done] = 1'd1;
+    comb group cond27 {
       and26.left = eq40.out;
       and26.right = eq41.out;
       eq40.left = div_pipe68.out_remainder;
@@ -849,8 +828,7 @@ component main() -> () {
       div_pipe69.right = const141.out;
       div_pipe69.go = !div_pipe69.done ? 1'd1;
     }
-    group cond28 {
-      cond28[done] = 1'd1;
+    comb group cond28 {
       and27.left = eq42.out;
       and27.right = eq43.out;
       eq42.left = div_pipe72.out_remainder;
@@ -864,8 +842,7 @@ component main() -> () {
       div_pipe73.right = const147.out;
       div_pipe73.go = !div_pipe73.done ? 1'd1;
     }
-    group cond29 {
-      cond29[done] = 1'd1;
+    comb group cond29 {
       and28.left = eq44.out;
       and28.right = eq45.out;
       eq44.left = div_pipe76.out_remainder;
@@ -879,8 +856,7 @@ component main() -> () {
       div_pipe77.right = const153.out;
       div_pipe77.go = !div_pipe77.done ? 1'd1;
     }
-    group cond3 {
-      cond3[done] = 1'd1;
+    comb group cond3 {
       and3.left = eq2.out;
       and3.right = eq3.out;
       eq2.left = and2.out;
@@ -893,8 +869,7 @@ component main() -> () {
       div_pipe2.right = const12.out;
       div_pipe2.go = !div_pipe2.done ? 1'd1;
     }
-    group cond30 {
-      cond30[done] = 1'd1;
+    comb group cond30 {
       and29.left = eq46.out;
       and29.right = eq47.out;
       eq46.left = div_pipe80.out_remainder;
@@ -908,8 +883,7 @@ component main() -> () {
       div_pipe81.right = const159.out;
       div_pipe81.go = !div_pipe81.done ? 1'd1;
     }
-    group cond4 {
-      cond4[done] = 1'd1;
+    comb group cond4 {
       and5.left = eq4.out;
       and5.right = eq5.out;
       eq4.left = and4.out;
@@ -922,8 +896,7 @@ component main() -> () {
       div_pipe4.right = const18.out;
       div_pipe4.go = !div_pipe4.done ? 1'd1;
     }
-    group cond5 {
-      cond5[done] = 1'd1;
+    comb group cond5 {
       and7.left = eq6.out;
       and7.right = eq7.out;
       eq6.left = div_pipe6.out_remainder;
@@ -936,8 +909,7 @@ component main() -> () {
       and6.left = i0.out;
       and6.right = const24.out;
     }
-    group cond6 {
-      cond6[done] = 1'd1;
+    comb group cond6 {
       and9.left = eq8.out;
       and9.right = eq9.out;
       eq8.left = div_pipe8.out_remainder;
@@ -950,8 +922,7 @@ component main() -> () {
       and8.left = i0.out;
       and8.right = const30.out;
     }
-    group cond7 {
-      cond7[done] = 1'd1;
+    comb group cond7 {
       and11.left = eq10.out;
       and11.right = eq11.out;
       eq10.left = div_pipe10.out_remainder;
@@ -964,8 +935,7 @@ component main() -> () {
       and10.left = i0.out;
       and10.right = const36.out;
     }
-    group cond8 {
-      cond8[done] = 1'd1;
+    comb group cond8 {
       and12.left = eq12.out;
       and12.right = eq13.out;
       eq12.left = div_pipe12.out_remainder;
@@ -979,8 +949,7 @@ component main() -> () {
       div_pipe13.right = const42.out;
       div_pipe13.go = !div_pipe13.done ? 1'd1;
     }
-    group cond9 {
-      cond9[done] = 1'd1;
+    comb group cond9 {
       and13.left = eq14.out;
       and13.right = eq15.out;
       eq14.left = div_pipe16.out_remainder;

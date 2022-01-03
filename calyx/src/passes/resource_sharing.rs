@@ -88,7 +88,12 @@ impl ShareComponents for ResourceSharing {
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        self.used_cells_map[group_name].clone()
+        self.used_cells_map
+            .get(group_name)
+            .unwrap_or_else(|| {
+                panic!("Missing used cells for group: {}", group_name)
+            })
+            .clone()
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {

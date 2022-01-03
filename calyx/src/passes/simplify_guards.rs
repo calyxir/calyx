@@ -13,9 +13,10 @@ impl From<ir::Guard> for Expr<ir::Guard> {
             ir::Guard::Or(l, r) => Expr::or((*l).into(), (*r).into()),
             ir::Guard::Not(e) => Expr::not((*e).into()),
             ir::Guard::True => Expr::Const(true),
-            ir::Guard::Neq(l, r) => Expr::not(ir::Guard::Eq(l, r).into()),
-            ir::Guard::Leq(l, r) => Expr::not(ir::Guard::Gt(l, r).into()),
-            ir::Guard::Geq(l, r) => Expr::not(ir::Guard::Lt(l, r).into()),
+            ir::Guard::CompOp(
+                ir::PortComp::Neq | ir::PortComp::Leq | ir::PortComp::Geq,
+                ..,
+            ) => Expr::not((!guard).into()),
             _ => Expr::Terminal(guard),
         }
     }

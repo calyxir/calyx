@@ -455,12 +455,7 @@ impl Printer {
                 };
                 format!("{} {} {}", left, &guard.op_str(), right)
             }
-            ir::Guard::Eq(l, r)
-            | ir::Guard::Neq(l, r)
-            | ir::Guard::Gt(l, r)
-            | ir::Guard::Lt(l, r)
-            | ir::Guard::Geq(l, r)
-            | ir::Guard::Leq(l, r) => {
+            ir::Guard::CompOp(_, l, r) => {
                 format!(
                     "{} {} {}",
                     Self::get_port_access(&l.borrow()),
