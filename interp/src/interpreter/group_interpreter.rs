@@ -100,6 +100,7 @@ pub struct AssignmentInterpreter {
     cont_assigns: iir::ContinuousAssignments,
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
+    possible_ports: HashSet<*const ir::Port>,
 }
 
 impl AssignmentInterpreter {
@@ -117,6 +118,12 @@ impl AssignmentInterpreter {
             assigns.get_ref().iter().chain(cont_assigns.iter()),
             done_signal,
         );
+        let possible_ports: HashSet<*const ir::Port> = assigns
+            .get_ref()
+            .iter()
+            .chain(cont_assigns.iter())
+            .map(|a| a.dst.as_raw())
+            .collect();
 
         Self {
             state,
@@ -125,6 +132,7 @@ impl AssignmentInterpreter {
             cont_assigns: Rc::clone(cont_assigns),
             cells,
             val_changed: None,
+            possible_ports,
         }
     }
 
@@ -179,14 +187,6 @@ impl AssignmentInterpreter {
     /// converge
     pub fn step_convergence(&mut self) -> InterpreterResult<()> {
         self.val_changed = Some(true); // always run convergence if called
-
-        let possible_ports: HashSet<*const ir::Port> = self
-            .assigns
-            .get_ref()
-            .iter()
-            .chain(self.cont_assigns.iter())
-            .map(|a| a.dst.as_raw())
-            .collect();
 
         // this unwrap is safe
         while self.val_changed.unwrap() {
@@ -245,7 +245,7 @@ impl AssignmentInterpreter {
 
             //now assign rest to 0
             //first get all that need to be 0
-            for port in &possible_ports - &assigned_const_ports {
+            for port in &self.possible_ports - &assigned_const_ports {
                 //need to set to zero, because unassigned
                 //ok now proceed
 
