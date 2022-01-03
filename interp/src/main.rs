@@ -3,7 +3,7 @@ use interp::{
     debugger::Debugger,
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
-    interpreter::interpret_component,
+    interpreter::ComponentInterpreter,
     interpreter_ir as iir,
 };
 
@@ -155,13 +155,15 @@ fn main() -> InterpreterResult<()> {
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
     let env =
-        InterpreterState::init_top_level(&components, main_component, &mems);
+        InterpreterState::init_top_level(&components, main_component, &mems)?;
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
-        Command::Interpret(_) => interpret_component(main_component, env?),
+        Command::Interpret(_) => {
+            ComponentInterpreter::interpret_program(env, main_component)
+        }
         Command::Debug(CommandDebug { pass_through }) => {
             let mut cidb = Debugger::new(&components, main_component);
-            cidb.main_loop(env?, pass_through)
+            cidb.main_loop(env, pass_through)
         }
     };
 

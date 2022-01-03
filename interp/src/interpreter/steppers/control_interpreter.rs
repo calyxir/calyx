@@ -1,7 +1,7 @@
 use super::super::utils::{get_done_port, get_go_port};
+use super::group_interpreter::finish_interpretation;
 use super::AssignmentInterpreter;
 use crate::errors::InterpreterError;
-use crate::interpreter::interpret_group::finish_interpretation;
 use crate::interpreter_ir as iir;
 use crate::structures::names::{ComponentQIN, GroupQIN};
 use crate::utils::AsRaw;
