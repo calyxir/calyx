@@ -86,7 +86,7 @@ impl DataflowOrder {
     ) -> CalyxResult<Vec<ir::Assignment>> {
         // Construct a graph where a node is an assignment and there is edge between
         // nodes if one should occur before another.
-        let mut gr: DiGraph<ir::Assignment, ()> = DiGraph::new();
+        let mut gr: DiGraph<Option<ir::Assignment>, ()> = DiGraph::new();
 
         // Mapping from the index corresponding to an assignment to its read/write sets.
         let mut writes: HashMap<(ir::Id, ir::Id), Vec<NodeIndex>> =
@@ -106,7 +106,7 @@ impl DataflowOrder {
                     .filter_map(|p| parent_port(&p))
                     .collect_vec();
                 let ws = assign.dst.borrow().canonical();
-                let idx = gr.add_node(assign);
+                let idx = gr.add_node(Some(assign));
                 reads.extend(rs.into_iter().map(|r| (idx, r)));
                 writes.entry(ws).or_default().push(idx);
             }
@@ -127,7 +127,7 @@ impl DataflowOrder {
 
             println!(
                 "Assignment {} depends on:",
-                ir::Printer::assignment_to_str(&gr[r_idx]),
+                ir::Printer::assignment_to_str(gr[r_idx].as_ref().unwrap()),
             );
 
             dep_ports
@@ -138,7 +138,9 @@ impl DataflowOrder {
                 .for_each(|w_idx| {
                     println!(
                         "  {}",
-                        ir::Printer::assignment_to_str(&gr[*w_idx])
+                        ir::Printer::assignment_to_str(
+                            gr[*w_idx].as_ref().unwrap()
+                        )
                     );
                     gr.add_edge(*w_idx, r_idx, ());
                 });
@@ -146,21 +148,26 @@ impl DataflowOrder {
 
         // Generate a topological ordering
         if let Ok(order) = algo::toposort(&gr, None) {
-            let mut assigns = Vec::new();
-            for idx in order {
-                // XXX Remove this clone of the assignment
-                assigns.push(gr[idx].clone())
-            }
+            let mut assigns = order
+                .into_iter()
+                .map(|idx| std::mem::replace(&mut gr[idx], None).unwrap())
+                .collect_vec();
             assigns.append(&mut hole_writes);
             Ok(assigns)
         } else {
-            Err(Error::Misc(format!("Found combinational cycle")))
-            /* let msg = assign_map
-                .values()
-                .flatten()
-                .map(ir::Printer::assignment_to_str)
+            // Compute strongly connected component of the graph
+            let sccs = algo::kosaraju_scc(&gr);
+            let scc = sccs
+                .iter()
+                .find(|cc| cc.len() > 1)
+                .expect("No strongly connected component of size > 1");
+            let msg = scc
+                .iter()
+                .map(|idx| {
+                    ir::Printer::assignment_to_str(gr[*idx].as_ref().unwrap())
+                })
                 .join("\n");
-            Err(Error::Misc(format!("Found combinational cycle:\n{}", msg))) */
+            Err(Error::Misc(format!("Found combinational cycle:\n{}", msg)))
         }
     }
 }
