@@ -202,7 +202,9 @@ impl ComponentInterpreter {
     ) -> InterpreterResult<InterpreterState> {
         let qin = ComponentQIN::new_single(comp, &comp.name);
         let mut main_comp = Self::from_component(comp, env, qin);
+        main_comp.set_go_high();
         main_comp.run()?;
+        main_comp.set_go_low();
         main_comp.deconstruct()
     }
 }
@@ -308,6 +310,22 @@ impl Interpreter for ComponentInterpreter {
             StructuralOrControl::Control(c) => c.converge(),
             StructuralOrControl::Nothing => unreachable!(),
             StructuralOrControl::Env(_) => Ok(()),
+        }
+    }
+
+    fn run(&mut self) -> InterpreterResult<()> {
+        match &mut self.interp {
+            StructuralOrControl::Structural(s) => s.run(),
+            StructuralOrControl::Control(c) => c.run(),
+            StructuralOrControl::Nothing => unreachable!(),
+            StructuralOrControl::Env(_) => {
+                if self.go_is_high() {
+                    self.step()?;
+                    self.run()
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }
