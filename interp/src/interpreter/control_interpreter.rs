@@ -350,6 +350,29 @@ impl Interpreter for SeqInterpreter {
             Ok(())
         }
     }
+
+    fn run(&mut self) -> InterpreterResult<()> {
+        if self.env.is_some() && self.seq_index == 0 {
+            let mut env = self.env.take();
+            for stmt in self.seq.stmts.iter() {
+                let mut interp = ControlInterpreter::new(
+                    stmt,
+                    env.take().unwrap(),
+                    &self.continuous_assignments,
+                    Rc::clone(&self.input_ports),
+                    &self.qin,
+                );
+                interp.run()?;
+                env = Some(interp.deconstruct()?);
+            }
+            Ok(())
+        } else {
+            while !self.is_done() {
+                self.step()?;
+            }
+            Ok(())
+        }
+    }
 }
 
 pub struct ParInterpreter {
