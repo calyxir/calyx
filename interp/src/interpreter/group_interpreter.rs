@@ -283,15 +283,6 @@ impl AssignmentInterpreter {
         self.step_convergence()
     }
 
-    // /// Run interpreter until it is finished executing and return the output
-    // /// environment
-    // pub fn run_and_deconstruct(
-    //     mut self,
-    // ) -> InterpreterResult<InterpreterState> {
-    //     self.run()?;
-    //     self.deconstruct()
-    // }
-
     /// Run the interpreter until it finishes executing
     pub fn run(&mut self) -> InterpreterResult<()> {
         while !self.is_deconstructable() {
