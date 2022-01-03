@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 
-use super::super::utils::control_is_empty;
-use super::control_interpreter::{
-    ControlInterpreter, Interpreter, StructuralInterpreter,
+use super::{
+    control_interpreter::{
+        ControlInterpreter, Interpreter, StructuralInterpreter,
+    },
+    utils::control_is_empty,
 };
 use crate::debugger::PrintCode;
 use crate::environment::{InterpreterState, MutStateView, StateView};

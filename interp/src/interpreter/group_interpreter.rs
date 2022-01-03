@@ -1,4 +1,4 @@
-use super::super::utils::{self, ConstCell, ConstPort};
+use super::utils::{self, ConstCell, ConstPort};
 use crate::environment::InterpreterState;
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::utils::get_dest_cells;
