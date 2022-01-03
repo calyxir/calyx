@@ -6,6 +6,7 @@ use super::{
 use crate::{
     errors::{CalyxResult, Error},
     frontend::{self, ast},
+    ir::PortComp,
     utils::NameGenerator,
 };
 use linked_hash_map::LinkedHashMap;
@@ -398,12 +399,36 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> CalyxResult<Guard> {
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
-        GE::Eq(l, r) => Guard::Eq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Neq(l, r) => Guard::Neq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Gt(l, r) => Guard::Gt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Lt(l, r) => Guard::Lt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Geq(l, r) => Guard::Geq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Leq(l, r) => Guard::Leq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::Eq(l, r) => Guard::CompOp(
+            PortComp::Eq,
+            atom_to_port(l, bd)?,
+            atom_to_port(r, bd)?,
+        ),
+        GE::Neq(l, r) => Guard::CompOp(
+            PortComp::Neq,
+            atom_to_port(l, bd)?,
+            atom_to_port(r, bd)?,
+        ),
+        GE::Gt(l, r) => Guard::CompOp(
+            PortComp::Gt,
+            atom_to_port(l, bd)?,
+            atom_to_port(r, bd)?,
+        ),
+        GE::Lt(l, r) => Guard::CompOp(
+            PortComp::Lt,
+            atom_to_port(l, bd)?,
+            atom_to_port(r, bd)?,
+        ),
+        GE::Geq(l, r) => Guard::CompOp(
+            PortComp::Geq,
+            atom_to_port(l, bd)?,
+            atom_to_port(r, bd)?,
+        ),
+        GE::Leq(l, r) => Guard::CompOp(
+            PortComp::Leq,
+            atom_to_port(l, bd)?,
+            atom_to_port(r, bd)?,
+        ),
     })
 }
 

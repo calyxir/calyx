@@ -3,6 +3,23 @@ use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
+/// Comparison operations that can be performed between ports by [ir::Guard::Comp].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PortComp {
+    /// p1 == p2
+    Eq,
+    /// p1 != p2
+    Neq,
+    /// p1 > p2
+    Gt,
+    /// p1 < p2
+    Lt,
+    /// p1 >= p2
+    Geq,
+    /// p1 <= p2
+    Leq,
+}
+
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug, Clone)]
 pub enum Guard {
@@ -14,18 +31,8 @@ pub enum Guard {
     Not(Box<Guard>),
     /// The constant true
     True,
-    /// Represents `p1 == p2`.
-    Eq(RRC<Port>, RRC<Port>),
-    /// Represents `p1 != p2`.
-    Neq(RRC<Port>, RRC<Port>),
-    /// Represents `p1 > p2`.
-    Gt(RRC<Port>, RRC<Port>),
-    /// Represents `p1 < p2`.
-    Lt(RRC<Port>, RRC<Port>),
-    /// Represents `p1 >= p2`.
-    Geq(RRC<Port>, RRC<Port>),
-    /// Represents `p1 <= p2`.
-    Leq(RRC<Port>, RRC<Port>),
+    /// Comparison operator.
+    CompOp(PortComp, RRC<Port>, RRC<Port>),
     /// Uses the value on a port as the condition. Same as `p1 == true`
     Port(RRC<Port>),
 }
@@ -43,12 +50,7 @@ impl Hash for Guard {
                 l.hash(state);
                 r.hash(state)
             }
-            Guard::Eq(l, r)
-            | Guard::Neq(l, r)
-            | Guard::Gt(l, r)
-            | Guard::Lt(l, r)
-            | Guard::Geq(l, r)
-            | Guard::Leq(l, r) => {
+            Guard::CompOp(_, l, r) => {
                 l.borrow().name.hash(state);
                 l.borrow().get_parent_name().hash(state);
                 r.borrow().name.hash(state);
@@ -81,12 +83,7 @@ impl Guard {
             Guard::Not(inner) => {
                 inner.for_each(f);
             }
-            Guard::Eq(l, r)
-            | Guard::Neq(l, r)
-            | Guard::Gt(l, r)
-            | Guard::Lt(l, r)
-            | Guard::Geq(l, r)
-            | Guard::Leq(l, r) => {
+            Guard::CompOp(_, l, r) => {
                 match f(Rc::clone(l)) {
                     Some(Guard::Port(p)) => *l = p,
                     Some(_) => unreachable!(
@@ -120,12 +117,7 @@ impl Guard {
                 atoms.append(&mut r.all_ports());
                 atoms
             }
-            Guard::Eq(l, r)
-            | Guard::Neq(l, r)
-            | Guard::Gt(l, r)
-            | Guard::Lt(l, r)
-            | Guard::Leq(l, r)
-            | Guard::Geq(l, r) => {
+            Guard::CompOp(_, l, r) => {
                 vec![Rc::clone(l), Rc::clone(r)]
             }
             Guard::Not(g) => g.all_ports(),
@@ -159,12 +151,14 @@ impl Guard {
         match self {
             Guard::And(..) => "&".to_string(),
             Guard::Or(..) => "|".to_string(),
-            Guard::Eq(..) => "==".to_string(),
-            Guard::Neq(..) => "!=".to_string(),
-            Guard::Gt(..) => ">".to_string(),
-            Guard::Lt(..) => "<".to_string(),
-            Guard::Geq(..) => ">=".to_string(),
-            Guard::Leq(..) => "<=".to_string(),
+            Guard::CompOp(op, _, _) => match op {
+                PortComp::Eq => "==".to_string(),
+                PortComp::Neq => "!=".to_string(),
+                PortComp::Gt => ">".to_string(),
+                PortComp::Lt => "<".to_string(),
+                PortComp::Geq => ">=".to_string(),
+                PortComp::Leq => "<=".to_string(),
+            },
             Guard::Not(..) => "!".to_string(),
             Guard::Port(..) | Guard::True => {
                 panic!("No operator string for Guard::Port")
@@ -204,7 +198,9 @@ impl Guard {
 
     pub fn eq(self, other: Guard) -> Self {
         match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => Guard::Eq(l, r),
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Eq, l, r)
+            }
             (l, r) => {
                 unreachable!("Cannot build Guard::Eq using {:?} and {:?}", l, r)
             }
@@ -213,7 +209,9 @@ impl Guard {
 
     pub fn neq(self, other: Guard) -> Self {
         match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => Guard::Neq(l, r),
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Neq, l, r)
+            }
             (l, r) => {
                 unreachable!(
                     "Cannot build Guard::Neq using {:?} and {:?}",
@@ -225,7 +223,9 @@ impl Guard {
 
     pub fn le(self, other: Guard) -> Self {
         match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => Guard::Leq(l, r),
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Leq, l, r)
+            }
             (l, r) => {
                 unreachable!(
                     "Cannot build Guard::Leq using {:?} and {:?}",
@@ -237,7 +237,9 @@ impl Guard {
 
     pub fn lt(self, other: Guard) -> Self {
         match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => Guard::Lt(l, r),
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Lt, l, r)
+            }
             (l, r) => {
                 unreachable!("Cannot build Guard::Lt using {:?} and {:?}", l, r)
             }
@@ -246,7 +248,9 @@ impl Guard {
 
     pub fn ge(self, other: Guard) -> Self {
         match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => Guard::Geq(l, r),
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Geq, l, r)
+            }
             (l, r) => {
                 unreachable!(
                     "Cannot build Guard::Geq using {:?} and {:?}",
@@ -258,7 +262,9 @@ impl Guard {
 
     pub fn gt(self, other: Guard) -> Self {
         match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => Guard::Gt(l, r),
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Gt, l, r)
+            }
             (l, r) => {
                 unreachable!("Cannot build Guard::Gt using {:?} and {:?}", l, r)
             }
@@ -278,14 +284,10 @@ impl PartialEq for Guard {
         match (self, other) {
             (Guard::Or(la, ra), Guard::Or(lb, rb))
             | (Guard::And(la, ra), Guard::And(lb, rb)) => la == lb && ra == rb,
-            (Guard::Eq(la, ra), Guard::Eq(lb, rb))
-            | (Guard::Neq(la, ra), Guard::Neq(lb, rb))
-            | (Guard::Gt(la, ra), Guard::Gt(lb, rb))
-            | (Guard::Lt(la, ra), Guard::Lt(lb, rb))
-            | (Guard::Geq(la, ra), Guard::Geq(lb, rb))
-            | (Guard::Leq(la, ra), Guard::Leq(lb, rb)) => {
-                (la.borrow().get_parent_name(), &la.borrow().name)
-                    == (lb.borrow().get_parent_name(), &lb.borrow().name)
+            (Guard::CompOp(opa, la, ra), Guard::CompOp(opb, lb, rb)) => {
+                (opa == opb)
+                    && (la.borrow().get_parent_name(), &la.borrow().name)
+                        == (lb.borrow().get_parent_name(), &lb.borrow().name)
                     && (ra.borrow().get_parent_name(), &ra.borrow().name)
                         == (rb.borrow().get_parent_name(), &rb.borrow().name)
             }
@@ -316,12 +318,7 @@ impl Ord for Guard {
         match (self, other) {
             (Guard::Or(..), Guard::Or(..))
             | (Guard::And(..), Guard::And(..))
-            | (Guard::Eq(..), Guard::Eq(..))
-            | (Guard::Neq(..), Guard::Neq(..))
-            | (Guard::Gt(..), Guard::Gt(..))
-            | (Guard::Lt(..), Guard::Lt(..))
-            | (Guard::Geq(..), Guard::Geq(..))
-            | (Guard::Leq(..), Guard::Leq(..))
+            | (Guard::CompOp(..), Guard::CompOp(..))
             | (Guard::Not(..), Guard::Not(..))
             | (Guard::Port(..), Guard::Port(..))
             | (Guard::True, Guard::True) => Ordering::Equal,
@@ -329,18 +326,18 @@ impl Ord for Guard {
             (_, Guard::Or(..)) => Ordering::Less,
             (Guard::And(..), _) => Ordering::Greater,
             (_, Guard::And(..)) => Ordering::Less,
-            (Guard::Leq(..), _) => Ordering::Greater,
-            (_, Guard::Leq(..)) => Ordering::Less,
-            (Guard::Geq(..), _) => Ordering::Greater,
-            (_, Guard::Geq(..)) => Ordering::Less,
-            (Guard::Lt(..), _) => Ordering::Greater,
-            (_, Guard::Lt(..)) => Ordering::Less,
-            (Guard::Gt(..), _) => Ordering::Greater,
-            (_, Guard::Gt(..)) => Ordering::Less,
-            (Guard::Eq(..), _) => Ordering::Greater,
-            (_, Guard::Eq(..)) => Ordering::Less,
-            (Guard::Neq(..), _) => Ordering::Greater,
-            (_, Guard::Neq(..)) => Ordering::Less,
+            (Guard::CompOp(PortComp::Leq, ..), _) => Ordering::Greater,
+            (_, Guard::CompOp(PortComp::Leq, ..)) => Ordering::Less,
+            (Guard::CompOp(PortComp::Geq, ..), _) => Ordering::Greater,
+            (_, Guard::CompOp(PortComp::Geq, ..)) => Ordering::Less,
+            (Guard::CompOp(PortComp::Lt, ..), _) => Ordering::Greater,
+            (_, Guard::CompOp(PortComp::Lt, ..)) => Ordering::Less,
+            (Guard::CompOp(PortComp::Gt, ..), _) => Ordering::Greater,
+            (_, Guard::CompOp(PortComp::Gt, ..)) => Ordering::Less,
+            (Guard::CompOp(PortComp::Eq, ..), _) => Ordering::Greater,
+            (_, Guard::CompOp(PortComp::Eq, ..)) => Ordering::Less,
+            (Guard::CompOp(PortComp::Neq, ..), _) => Ordering::Greater,
+            (_, Guard::CompOp(PortComp::Neq, ..)) => Ordering::Less,
             (Guard::Not(..), _) => Ordering::Greater,
             (_, Guard::Not(..)) => Ordering::Less,
             (Guard::Port(..), _) => Ordering::Greater,
@@ -384,12 +381,24 @@ impl Not for Guard {
 
     fn not(self) -> Self {
         match self {
-            Guard::Eq(lhs, rhs) => Guard::Neq(lhs, rhs),
-            Guard::Neq(lhs, rhs) => Guard::Eq(lhs, rhs),
-            Guard::Gt(lhs, rhs) => Guard::Leq(lhs, rhs),
-            Guard::Lt(lhs, rhs) => Guard::Geq(lhs, rhs),
-            Guard::Geq(lhs, rhs) => Guard::Lt(lhs, rhs),
-            Guard::Leq(lhs, rhs) => Guard::Gt(lhs, rhs),
+            Guard::CompOp(PortComp::Eq, lhs, rhs) => {
+                Guard::CompOp(PortComp::Neq, lhs, rhs)
+            }
+            Guard::CompOp(PortComp::Neq, lhs, rhs) => {
+                Guard::CompOp(PortComp::Eq, lhs, rhs)
+            }
+            Guard::CompOp(PortComp::Gt, lhs, rhs) => {
+                Guard::CompOp(PortComp::Leq, lhs, rhs)
+            }
+            Guard::CompOp(PortComp::Lt, lhs, rhs) => {
+                Guard::CompOp(PortComp::Geq, lhs, rhs)
+            }
+            Guard::CompOp(PortComp::Geq, lhs, rhs) => {
+                Guard::CompOp(PortComp::Lt, lhs, rhs)
+            }
+            Guard::CompOp(PortComp::Leq, lhs, rhs) => {
+                Guard::CompOp(PortComp::Gt, lhs, rhs)
+            }
             Guard::Not(expr) => *expr,
             _ => Guard::Not(Box::new(self)),
         }

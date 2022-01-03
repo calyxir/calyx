@@ -28,12 +28,7 @@ fn validate_guard(guard: &ir::Guard) -> bool {
         Guard::Or(left, right) | Guard::And(left, right) => {
             validate_guard(left) && validate_guard(right)
         }
-        Guard::Eq(left, right)
-        | Guard::Neq(left, right)
-        | Guard::Gt(left, right)
-        | Guard::Lt(left, right)
-        | Guard::Geq(left, right)
-        | Guard::Leq(left, right) => {
+        Guard::CompOp(_, left, right) => {
             !left.borrow().is_hole() && !right.borrow().is_hole()
         }
         Guard::Not(inner) => validate_guard(inner),
@@ -177,6 +172,8 @@ fn emit_component(
     wires.iter().for_each(|(name, width, _)| {
         module.add_decl(v::Decl::new_logic(name, *width));
     });
+
+    // Generate initial assignments for all input ports in defined cells.
     if initialize_inputs {
         let mut initial = v::ParallelProcess::new_initial();
         wires.iter().for_each(|(name, width, dir)| {
@@ -312,9 +309,10 @@ fn emit_guard_disjoint_check(
 
     // Generated error message
     let (cell, port) = dst_ref.borrow().canonical();
-    let err = v::Sequential::new_error(&format!(
-        "Multiple assignment to port `{}.{}'.",
-        cell, port
+    let msg = format!("Multiple assignment to port `{}.{}'.", cell, port);
+    let err = v::Sequential::new_seqexpr(v::Expr::new_call(
+        "$fatal",
+        vec![v::Expr::new_int(2), v::Expr::Str(msg)],
     ));
     check.add_seq(err);
     Some(v::Sequential::If(check))
@@ -373,12 +371,14 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
     let op = |g: &ir::Guard| match g {
         Guard::Or(..) => v::Expr::new_bit_or,
         Guard::And(..) => v::Expr::new_bit_and,
-        Guard::Eq(..) => v::Expr::new_eq,
-        Guard::Neq(..) => v::Expr::new_neq,
-        Guard::Gt(..) => v::Expr::new_gt,
-        Guard::Lt(..) => v::Expr::new_lt,
-        Guard::Geq(..) => v::Expr::new_geq,
-        Guard::Leq(..) => v::Expr::new_leq,
+        Guard::CompOp(op, ..) => match op {
+            ir::PortComp::Eq => v::Expr::new_eq,
+            ir::PortComp::Neq => v::Expr::new_neq,
+            ir::PortComp::Gt => v::Expr::new_gt,
+            ir::PortComp::Lt => v::Expr::new_lt,
+            ir::PortComp::Geq => v::Expr::new_geq,
+            ir::PortComp::Leq => v::Expr::new_leq,
+        },
         Guard::Not(..) | Guard::Port(..) | Guard::True => unreachable!(),
     };
 
@@ -386,12 +386,7 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
         Guard::And(l, r) | Guard::Or(l, r) => {
             op(guard)(guard_to_expr(l), guard_to_expr(r))
         }
-        Guard::Neq(l, r)
-        | Guard::Eq(l, r)
-        | Guard::Gt(l, r)
-        | Guard::Lt(l, r)
-        | Guard::Geq(l, r)
-        | Guard::Leq(l, r) => {
+        Guard::CompOp(_, l, r) => {
             op(guard)(port_to_ref(Rc::clone(l)), port_to_ref(Rc::clone(r)))
         }
         Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
@@ -405,8 +400,10 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 //==========================================
 /// Generates code of the form:
 /// ```
+/// string DATA;
+/// int CODE;
 /// initial begin
-///   $value$plusargs("DATA=%s", DATA);
+///   CODE = $value$plusargs("DATA=%s", DATA);
 ///   $display("DATA: %s", DATA);
 ///   $readmemh({DATA, "/<mem_name>.dat"}, <mem_name>.mem);
 ///   ...
@@ -418,14 +415,20 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     // Import futil helper library.
     let data_decl = v::Stmt::new_rawstr("string DATA;".to_string());
+    let code_decl = v::Stmt::new_rawstr("int CODE;".to_string());
+
+    let plus_args = v::Sequential::new_blk_assign(
+        v::Expr::Ref("CODE".to_string()),
+        v::Expr::new_call(
+            "$value$plusargs",
+            vec![v::Expr::new_str("DATA=%s"), v::Expr::new_ref("DATA")],
+        ),
+    );
 
     let mut initial_block = v::ParallelProcess::new_initial();
     initial_block
         // get the data
-        .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
-            "$value$plusargs",
-            vec![v::Expr::new_str("DATA=%s"), v::Expr::new_ref("DATA")],
-        )))
+        .add_seq(plus_args)
         // log the path to the data
         .add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$display",
@@ -483,6 +486,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
 
     vec![
         data_decl,
+        code_decl,
         v::Stmt::new_parallel(v::Parallel::new_process(initial_block)),
         v::Stmt::new_parallel(v::Parallel::new_process(final_block)),
     ]
