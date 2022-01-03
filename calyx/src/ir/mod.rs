@@ -35,8 +35,8 @@ pub use printer::Printer;
 pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;
 pub use structure::{
-    Assignment, Binding, Cell, CellIterator, CellType, CloneName, CombGroup,
-    Direction, GetName, Group, Port, PortIterator, PortParent,
+    Assignment, Binding, Cell, CellType, CloneName, CombGroup, Direction,
+    GetName, Group, Port, PortIterator, PortParent,
 };
 
 /// Visitor to traverse a control program.

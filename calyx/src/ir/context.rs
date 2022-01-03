@@ -15,19 +15,6 @@ pub struct LibrarySignatures {
     primitive_definitions: Vec<(PathBuf, LinkedHashMap<Id, Primitive>)>,
 }
 
-/// Iterator over primitive signatures defined in [LibrarySignatures].
-pub struct SigIter<'a> {
-    iter: Box<dyn Iterator<Item = &'a Primitive> + 'a>,
-}
-
-impl<'a> Iterator for SigIter<'a> {
-    type Item = &'a Primitive;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
 impl LibrarySignatures {
     /// Return the [Primitive] associated with the given name if defined, otherwise return None.
     pub fn find_primitive<S>(&self, name: S) -> Option<&Primitive>
@@ -57,14 +44,10 @@ impl LibrarySignatures {
     }
 
     /// Return an iterator over all defined primitives.
-    pub fn signatures(&self) -> SigIter<'_> {
-        SigIter {
-            iter: Box::new(
-                self.primitive_definitions
-                    .iter()
-                    .flat_map(|(_, sig)| sig.values()),
-            ),
-        }
+    pub fn signatures(&self) -> impl Iterator<Item = &Primitive> + '_ {
+        self.primitive_definitions
+            .iter()
+            .flat_map(|(_, sig)| sig.values())
     }
 
     /// Return the underlying externs
