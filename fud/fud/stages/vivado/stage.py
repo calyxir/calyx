@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+import os
 
 from fud.stages import SourceType, Stage
 from fud.stages.remote_context import RemoteExecution
@@ -48,7 +49,12 @@ class VivadoBaseStage(Stage):
         local_tmpdir = self.setup_environment(verilog_path)
         if self.use_ssh:
             self.remote_exec.import_libs()
-            (client, remote_tmpdir) = self.remote_exec.open_and_transfer(verilog_path)
+            client, remote_tmpdir = self.remote_exec.open_and_send(
+                {
+                    verilog_path: self.target_name,
+                    **{p: os.path.basename(p) for p in self.device_files},
+                }
+            )
             self.remote_exec.execute(client, remote_tmpdir, self.cmd)
             self.remote_exec.close_and_transfer(client, remote_tmpdir, local_tmpdir)
         else:
@@ -97,18 +103,14 @@ class VivadoStage(VivadoBaseStage):
             config,
             "Produces synthesis files from a Verilog program",
             device_files=[
-                str(
-                    Path(config["global", "futil_directory"])
-                    / "fud"
-                    / "synth"
-                    / "synth.tcl"
-                ),
-                str(
-                    Path(config["global", "futil_directory"])
-                    / "fud"
-                    / "synth"
-                    / "device.xdc"
-                ),
+                Path(config["global", "futil_directory"])
+                / "fud"
+                / "synth"
+                / "synth.tcl",
+                Path(config["global", "futil_directory"])
+                / "fud"
+                / "synth"
+                / "device.xdc",
             ],
             target_name="main.sv",
             local_exec=config["stages", self.name, "exec"],

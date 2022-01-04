@@ -162,10 +162,11 @@ class SpinnerWrapper:
         self.spinner.stop()
 
 
-def shell(cmd, stdin=None, stdout_as_debug=False):
-    """
-    Runs `cmd` in the shell and returns a stream of the output.
-    Raises `errors.StepFailure` if the command fails.
+def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
+    """Run `cmd` as a shell command.
+
+    Return an output stream (or None if stdout is not captured). Raise
+    `errors.StepFailure` if the command fails.
     """
 
     if isinstance(cmd, list):
@@ -175,28 +176,43 @@ def shell(cmd, stdin=None, stdout_as_debug=False):
         cmd += ">&2"
 
     assert isinstance(cmd, str)
-
     log.debug(cmd)
 
-    stdout = TemporaryFile()
-    stderr = None
-    # if we are not in debug mode, capture stderr
-    if not is_debug():
+    # In debug mode, let stderr stream to the terminal (and the same
+    # with stdout, unless we need it for capture). Otherwise, capture
+    # stderr to a temporary file for error reporting (and stdout
+    # unconditionally).
+    if is_debug():
+        stderr = None
+        if capture_stdout:
+            stdout = TemporaryFile()
+        else:
+            stdout = None
+    else:
         stderr = TemporaryFile()
+        stdout = TemporaryFile()
 
     proc = subprocess.Popen(
-        cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
+        cmd,
+        shell=True,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+        env=os.environ,
     )
     proc.wait()
-    stdout.seek(0)
-    if proc.returncode != 0:
-        if stderr is not None:
+    if stdout:
+        stdout.seek(0)
+
+    if proc.returncode:
+        if stderr:
             stderr.seek(0)
-            raise errors.StepFailure(
-                cmd, stdout.read().decode("UTF-8"), stderr.read().decode("UTF-8")
-            )
-        else:
-            raise errors.StepFailure(cmd, "No stdout captured.", "No stderr captured.")
+        raise errors.StepFailure(
+            cmd,
+            stdout.read().decode("UTF-8") if stdout else "No stdout captured.",
+            stderr.read().decode("UTF-8") if stderr else "No stderr captured.",
+        )
+
     return stdout
 
 

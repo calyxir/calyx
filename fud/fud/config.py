@@ -71,6 +71,7 @@ DEFAULT_CONFIGURATION = {
             "temp_location": "/tmp",
             "ssh_host": "",
             "ssh_username": "",
+            "remote": None,
             "save_temps": None,
         },
         "wdb": {
