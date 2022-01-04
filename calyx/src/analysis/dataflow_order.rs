@@ -125,25 +125,24 @@ impl DataflowOrder {
                     panic!("Port `{}.{}` write map is not defined", prim, port)
                 });
 
-            println!(
-                "Assignment {} depends on:",
-                ir::Printer::assignment_to_str(gr[r_idx].as_ref().unwrap()),
-            );
-
             dep_ports
                 .iter()
                 .cloned()
                 .flat_map(|port| writes.get(&(inst.clone(), port)))
                 .flatten()
-                .for_each(|w_idx| {
-                    println!(
-                        "  {}",
-                        ir::Printer::assignment_to_str(
-                            gr[*w_idx].as_ref().unwrap()
-                        )
-                    );
-                    gr.add_edge(*w_idx, r_idx, ());
-                });
+                .try_for_each(|w_idx| {
+                    if *w_idx == r_idx {
+                        Err(Error::Misc(format!(
+                            "Assignment depends on itself: {}",
+                            ir::Printer::assignment_to_str(
+                                gr[*w_idx].as_ref().unwrap()
+                            )
+                        )))
+                    } else {
+                        gr.add_edge(*w_idx, r_idx, ());
+                        Ok(())
+                    }
+                })?;
         }
 
         // Generate a topological ordering
@@ -160,7 +159,7 @@ impl DataflowOrder {
             let scc = sccs
                 .iter()
                 .find(|cc| cc.len() > 1)
-                .expect("No strongly connected component of size > 1");
+                .expect("All combinational cycles are self loops");
             let msg = scc
                 .iter()
                 .map(|idx| {
