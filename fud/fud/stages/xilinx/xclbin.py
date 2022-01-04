@@ -1,10 +1,11 @@
 import logging as log
 from pathlib import Path
+import shutil
 
-from fud import errors
 from fud.stages import Source, SourceType, Stage
+from fud.stages.remote_context import RemoteExecution
 from fud.stages.futil import FutilStage
-from fud.utils import TmpDir
+from fud.utils import TmpDir, shell
 
 
 class XilinxStage(Stage):
@@ -36,8 +37,7 @@ class XilinxStage(Stage):
         )
 
         # remote execution
-        self.ssh_host = self.config["stages", self.name, "ssh_host"]
-        self.ssh_user = self.config["stages", self.name, "ssh_username"]
+        self.remote_exec = RemoteExecution(self)
         self.temp_location = self.config["stages", self.name, "temp_location"]
 
         self.mode = self.config["stages", self.name, "mode"]
@@ -45,25 +45,53 @@ class XilinxStage(Stage):
 
         self.setup()
 
-    def _define_steps(self, input_data):
-        # # Step 1: Make a new temporary directory
-        # @self.step()
-        # def mktmp() -> SourceType.Directory:
-        #     """
-        #     Make temporary directory to store generated files.
-        #     """
-        #     return TmpDir()
-        @self.step()
-        def import_libs():
-            """Import remote libs."""
-            try:
-                from paramiko import SSHClient
-                from scp import SCPClient
+    def _shell(self, client, cmd):
+        """Run a command, either locally or remotely."""
+        if self.remote_exec.use_ssh:
+            _, stdout, stderr = client.exec_command(cmd)
+            for chunk in iter(lambda: stdout.readline(2048), ""):
+                log.debug(chunk.strip())
+            log.debug(stderr.read().decode("UTF-8").strip())
 
-                self.SSHClient = SSHClient
-                self.SCPClient = SCPClient
-            except ModuleNotFoundError:
-                raise errors.RemoteLibsNotInstalled
+        else:
+            stdout = shell(cmd, capture_stdout=False)
+            log.debug(stdout)
+
+    def _sandbox(self, input_files):
+        """Copy input files to a fresh temporary directory.
+
+        `input_files` is a dict with the same format as `open_and_send`:
+        it maps local Source paths to destination strings.
+
+        Return a path to the newly-created temporary directory.
+        """
+
+        @self.step()
+        def copy_file(
+            tmpdir: SourceType.String,
+            src_path: SourceType.Path,
+            dest_path: SourceType.String,
+        ):
+            """Copy an input file."""
+            shutil.copyfile(src_path, Path(tmpdir) / dest_path)
+
+        tmpdir = Source(TmpDir(), SourceType.Directory)
+        for src_path, dest_path in input_files.items():
+            if not isinstance(src_path, Source):
+                src_path = Source(src_path, SourceType.Path)
+            if not isinstance(dest_path, Source):
+                dest_path = Source(dest_path, SourceType.String)
+            copy_file(tmpdir, src_path, dest_path)
+        return tmpdir
+
+    def _define_steps(self, input_data):
+        # Step 1: Make a new temporary directory
+        @self.step()
+        def mktmp() -> SourceType.Directory:
+            """
+            Make temporary directory to store generated files.
+            """
+            return TmpDir()
 
         # Step 2: Compile input using `-b xilinx`
         @self.step()
@@ -102,41 +130,6 @@ class XilinxStage(Stage):
             )
 
         @self.step()
-        def establish_connection() -> SourceType.UnTyped:
-            """
-            Establish SSH connection
-            """
-            client = self.SSHClient()
-            client.load_system_host_keys()
-            client.connect(self.ssh_host, username=self.ssh_user)
-            return client
-
-        @self.step()
-        def make_remote_tmpdir(client: SourceType.UnTyped) -> SourceType.String:
-            """
-            Execution `mktemp -d` on server.
-            """
-            _, stdout, _ = client.exec_command(f"mktemp -d -p {self.temp_location}")
-            return stdout.read().decode("ascii").strip()
-
-        @self.step()
-        def send_files(
-            client: SourceType.UnTyped,
-            tmpdir: SourceType.String,
-            xilinx: SourceType.Path,
-            xml: SourceType.Path,
-            kernel: SourceType.Path,
-        ):
-            """
-            Copy files over ssh channel
-            """
-            with self.SCPClient(client.get_transport()) as scp:
-                scp.put(xilinx, remote_path=f"{tmpdir}/toplevel.v")
-                scp.put(kernel, remote_path=f"{tmpdir}/main.sv")
-                scp.put(xml, remote_path=f"{tmpdir}/kernel.xml")
-                scp.put(self.gen_xo_tcl, remote_path=f"{tmpdir}/gen_xo.tcl")
-
-        @self.step()
         def package_xo(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Package verilog into XO file.
@@ -153,11 +146,7 @@ class XilinxStage(Stage):
                     f"-tclargs xclbin/kernel.xo kernel {self.mode} {self.device}",
                 ]
             )
-            _, stdout, stderr = client.exec_command(cmd)
-
-            for chunk in iter(lambda: stdout.readline(2048), ""):
-                log.debug(chunk.strip())
-            log.debug(stderr.read().decode("UTF-8").strip())
+            self._shell(client, cmd)
 
         @self.step()
         def compile_xclbin(client: SourceType.UnTyped, tmpdir: SourceType.String):
@@ -178,46 +167,47 @@ class XilinxStage(Stage):
                     "xclbin/kernel.xo",
                 ]
             )
-            _, stdout, stderr = client.exec_command(cmd)
-
-            for chunk in iter(lambda: stdout.readline(2048), ""):
-                log.debug(chunk.strip())
-            log.debug(stderr.read().decode("UTF-8").strip())
+            self._shell(client, cmd)
 
         @self.step()
-        def download_xclbin(
-            client: SourceType.UnTyped,
-            tmpdir: SourceType.String,
+        def read_file(
+            tmpdir: SourceType.Directory,
+            name: SourceType.String,
         ) -> SourceType.Stream:
-            """
-            Download xclbin file
-            """
-            local_tmpdir = TmpDir()
-            xclbin_path = Path(local_tmpdir.name) / "kernel.xclbin"
-            with self.SCPClient(client.get_transport()) as scp:
-                scp.get(f"{tmpdir}/xclbin/kernel.xclbin", local_path=str(xclbin_path))
-            return xclbin_path.open("rb")
+            """Read an output file."""
+            return Path(tmpdir.name) / name.data
 
-        @self.step()
-        def cleanup(client: SourceType.UnTyped, tmpdir: SourceType.String):
-            """
-            Close SSH Connection and cleanup temporaries.
-            """
-            if self.config["stages", self.name, "save_temps"] is None:
-                client.exec_command("rm -r {tmpdir}")
-            else:
-                print(tmpdir)
-            client.close()
+        if self.remote_exec.use_ssh:
+            self.remote_exec.import_libs()
 
-        import_libs()
         xilinx = compile_xilinx(input_data)
         xml = compile_xml(input_data)
         kernel = compile_kernel(input_data)
-        client = establish_connection()
-        tmpdir = make_remote_tmpdir(client)
-        send_files(client, tmpdir, xilinx, xml, kernel)
+
+        file_map = {
+            xilinx: "toplevel.v",
+            kernel: "main.sv",
+            xml: "kernel.xml",
+            self.gen_xo_tcl: "gen_xo.tcl",
+        }
+        if self.remote_exec.use_ssh:
+            client, tmpdir = self.remote_exec.open_and_send(file_map)
+        else:
+            tmpdir = self._sandbox(file_map)
+            client = Source(None, SourceType.UnTyped)
+
         package_xo(client, tmpdir)
         compile_xclbin(client, tmpdir)
-        xclbin = download_xclbin(client, tmpdir)
-        cleanup(client, tmpdir)
+
+        if self.remote_exec.use_ssh:
+            xclbin = self.remote_exec.close_and_get(
+                client,
+                tmpdir,
+                "xclbin/kernel.xclbin",
+            )
+        else:
+            xclbin = read_file(
+                tmpdir,
+                Source("xclbin/kernel.xclbin", SourceType.String),
+            )
         return xclbin

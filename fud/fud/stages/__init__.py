@@ -68,6 +68,10 @@ class Source:
             SourceType.Stream: lambda s: conv.bytes_to_stream(conv.stream_to_bytes(s)),
             SourceType.Bytes: conv.string_to_bytes,
         },
+        SourceType.Directory: {
+            SourceType.String: lambda d: d.name,
+            SourceType.Path: lambda d: Path(d.name),
+        },
     }
 
     def __init__(self, data, typ):
