@@ -1,9 +1,9 @@
-mod interpret_component;
-mod interpret_control;
-mod interpret_group;
-mod steppers;
+mod component_interpreter;
+mod control_interpreter;
+mod group_interpreter;
+
 mod utils;
 
-pub use interpret_component::interpret_component;
-pub use steppers::{ComponentInterpreter, Interpreter};
+pub use component_interpreter::ComponentInterpreter;
+pub use control_interpreter::Interpreter;
 pub use utils::{ConstCell, ConstPort};

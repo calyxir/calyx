@@ -1,7 +1,7 @@
-use super::super::utils::{get_done_port, get_go_port};
-use super::AssignmentInterpreter;
+use super::group_interpreter::finish_interpretation;
+use super::group_interpreter::AssignmentInterpreter;
+use super::utils::{get_done_port, get_go_port};
 use crate::errors::InterpreterError;
-use crate::interpreter::interpret_group::finish_interpretation;
 use crate::interpreter_ir as iir;
 use crate::structures::names::{ComponentQIN, GroupQIN};
 use crate::utils::AsRaw;
@@ -347,6 +347,29 @@ impl Interpreter for SeqInterpreter {
         if let Some(cur) = &mut self.current_interpreter {
             cur.converge()
         } else {
+            Ok(())
+        }
+    }
+
+    fn run(&mut self) -> InterpreterResult<()> {
+        if self.env.is_some() && self.seq_index == 0 {
+            let mut env = self.env.take();
+            for stmt in self.seq.stmts.iter() {
+                let mut interp = ControlInterpreter::new(
+                    stmt,
+                    env.take().unwrap(),
+                    &self.continuous_assignments,
+                    Rc::clone(&self.input_ports),
+                    &self.qin,
+                );
+                interp.run()?;
+                env = Some(interp.deconstruct()?);
+            }
+            Ok(())
+        } else {
+            while !self.is_done() {
+                self.step()?;
+            }
             Ok(())
         }
     }

@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 
-use super::super::utils::control_is_empty;
-use super::control_interpreter::{
-    ControlInterpreter, Interpreter, StructuralInterpreter,
+use super::{
+    control_interpreter::{
+        ControlInterpreter, Interpreter, StructuralInterpreter,
+    },
+    utils::control_is_empty,
 };
 use crate::debugger::PrintCode;
 use crate::environment::{InterpreterState, MutStateView, StateView};
@@ -64,6 +66,14 @@ pub struct ComponentInterpreter {
 }
 
 impl ComponentInterpreter {
+    pub fn make_main_component(
+        env: InterpreterState,
+        comp: &Rc<iir::Component>,
+    ) -> Self {
+        let qin = ComponentQIN::new_single(comp, &comp.name);
+        Self::from_component(comp, env, qin)
+    }
+
     pub fn from_component(
         comp: &Rc<iir::Component>,
         env: InterpreterState,
@@ -184,6 +194,19 @@ impl ComponentInterpreter {
         let raw = self.done_port.as_raw();
         self.get_mut_env().insert(raw, Value::bit_low())
     }
+
+    /// Interpret a calyx program from the root
+    pub fn interpret_program(
+        env: InterpreterState,
+        comp: &Rc<iir::Component>,
+    ) -> InterpreterResult<InterpreterState> {
+        let qin = ComponentQIN::new_single(comp, &comp.name);
+        let mut main_comp = Self::from_component(comp, env, qin);
+        main_comp.set_go_high();
+        main_comp.run()?;
+        main_comp.set_go_low();
+        main_comp.deconstruct()
+    }
 }
 
 impl Interpreter for ComponentInterpreter {
@@ -287,6 +310,22 @@ impl Interpreter for ComponentInterpreter {
             StructuralOrControl::Control(c) => c.converge(),
             StructuralOrControl::Nothing => unreachable!(),
             StructuralOrControl::Env(_) => Ok(()),
+        }
+    }
+
+    fn run(&mut self) -> InterpreterResult<()> {
+        match &mut self.interp {
+            StructuralOrControl::Structural(s) => s.run(),
+            StructuralOrControl::Control(c) => c.run(),
+            StructuralOrControl::Nothing => unreachable!(),
+            StructuralOrControl::Env(_) => {
+                if self.go_is_high() {
+                    self.step()?;
+                    self.run()
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }
