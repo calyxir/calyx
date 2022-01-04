@@ -1,4 +1,5 @@
 //! Passes for the Calyx compiler.
+mod canonical;
 mod clk_insertion;
 mod collapse_control;
 mod compile_empty;
@@ -10,7 +11,6 @@ mod dead_group_removal;
 mod externalize;
 mod go_insertion;
 mod group_to_invoke;
-mod guard_canonical;
 mod hole_inliner;
 mod infer_static_timing;
 mod lower_guards;
@@ -30,6 +30,7 @@ mod top_down_compile_control;
 mod well_formed;
 mod wire_inliner;
 
+pub use canonical::Canonicalize;
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
 pub use compile_empty::CompileEmpty;
@@ -41,7 +42,6 @@ pub use dead_group_removal::DeadGroupRemoval;
 pub use externalize::Externalize;
 pub use go_insertion::GoInsertion;
 pub use group_to_invoke::GroupToInvoke;
-pub use guard_canonical::Canonicalize;
 pub use hole_inliner::HoleInliner;
 pub use infer_static_timing::InferStaticTiming;
 pub use lower_guards::LowerGuards;
