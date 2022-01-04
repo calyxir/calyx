@@ -14,6 +14,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     group foo {
+      r.write_en = 1'd1 ? 1'd1;
       gt.left = r.out;
       gt.right = 32'd10;
       lt.left = r.out;
@@ -30,7 +31,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       or1.left = or0.out;
       or1.right = not0.out;
       r.in = or1.out ? 32'd0;
-      r.write_en = 1'd1 ? 1'd1;
       foo[done] = 1'd1 ? r.done;
     }
   }
