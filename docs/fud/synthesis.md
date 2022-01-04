@@ -24,10 +24,12 @@ To set up to **invoke the Xilinx tools over SSH**, first tell `fud` your usernam
     # Vivado
     fud config stages.synth-verilog.ssh_host <hostname>
     fud config stages.synth-verilog.ssh_username <username>
+    fud config stages.synth-verilog.remote true
 
     # Vivado HLS
     fud config stages.vivado-hls.ssh_host <hostname>
     fud config stages.vivado-hls.ssh_username <username>
+    fud config stages.vivado-hls.remote true
 
 The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
 
@@ -36,6 +38,8 @@ You can optionally tell `fud` where these commands exist on your machine:
 
     fud config stages.synth-verilog.exec <path> # update vivado path
     fud config stages.vivado-hls.exec <path> # update vivado_hls path
+
+Leave the `remote` option unset to use local execution and these `exec` paths (which are ignored for remote execution).
 
 ### Run
 
