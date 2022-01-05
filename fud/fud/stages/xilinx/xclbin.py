@@ -209,7 +209,7 @@ class XilinxStage(Stage):
                 client,
                 tmpdir,
                 "xclbin/kernel.xclbin",
-                keep=self.save_temps,
+                keep_tmpdir=self.save_temps,
             )
         else:
             return read_file(

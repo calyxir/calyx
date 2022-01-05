@@ -120,11 +120,11 @@ class RemoteExecution:
 
         run_remote(client, tmpdir)
 
-    def _close(self, client, remote_tmpdir, keep=False):
+    def _close(self, client, remote_tmpdir, keep_tmpdir=False):
         """Close the SSH connection to the server.
 
-        Also removes the remote temporary directory, unless the `keep`
-        flag is set.
+        Also removes the remote temporary directory, unless the
+        `keep_tmpdir` flag is set.
         """
 
         @self.stage.step()
@@ -132,7 +132,7 @@ class RemoteExecution:
             """
             Remove created temporary files and close ssh connection.
             """
-            if not keep:
+            if not keep_tmpdir:
                 client.exec_command(f"rm -r {tmpdir}")
             client.close()
 
@@ -161,7 +161,7 @@ class RemoteExecution:
         copy_back(client, remote_tmpdir, local_tmpdir)
         self._close(client, remote_tmpdir)
 
-    def close_and_get(self, client, remote_tmpdir, path, keep=False):
+    def close_and_get(self, client, remote_tmpdir, path, keep_tmpdir=False):
         """Close the SSH connection and retrieve a single file.
 
         Produces the resulting downloaded file.
@@ -181,5 +181,5 @@ class RemoteExecution:
             return Path(dest_path)
 
         local_path = fetch_file(client, remote_tmpdir)
-        self._close(client, remote_tmpdir, keep=keep)
+        self._close(client, remote_tmpdir, keep_tmpdir=keep_tmpdir)
         return local_path
