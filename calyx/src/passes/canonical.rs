@@ -34,10 +34,7 @@ impl ConstructVisitor for Canonicalize {
     where
         Self: Sized,
     {
-        let order = analysis::DataflowOrder::new(
-            ctx.lib.signatures(),
-            ctx.components.iter(),
-        )?;
+        let order = analysis::DataflowOrder::new(ctx.lib.signatures())?;
         Ok(Canonicalize { order })
     }
 

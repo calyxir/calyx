@@ -22,17 +22,6 @@ pub struct DataflowOrder {
     write_map: HashMap<ir::Id, WriteMap>,
 }
 
-/// Ports are considered as interface attributes if they have the following
-/// attributes: @go, @done, @reset, @clk
-fn interface_attr(attrs: &ir::Attributes) -> bool {
-    attrs
-        .get("go")
-        .or_else(|| attrs.get("done"))
-        .or_else(|| attrs.get("reset"))
-        .or_else(|| attrs.get("clk"))
-        .is_some()
-}
-
 /// Generate a write map using a primitive definition.
 fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
     let read_together_spec = analysis::ReadWriteSpec::read_together_spec(prim)?;
@@ -53,8 +42,7 @@ fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
             }
             ir::Direction::Output => outputs.push((
                 port.name.clone(),
-                port.attributes.get("stable").is_some()
-                    || interface_attr(attrs),
+                attrs.get("stable").or_else(|| attrs.get("done")).is_some(),
             )),
             ir::Direction::Inout => {
                 unreachable!("Primitive ports should not be inout")
@@ -90,7 +78,6 @@ fn primitive_parent(pr: &RRC<ir::Port>) -> Option<ir::Id> {
 impl DataflowOrder {
     pub fn new<'a>(
         primitives: impl Iterator<Item = &'a ir::Primitive>,
-        components: impl Iterator<Item = &'a ir::Component>,
     ) -> CalyxResult<Self> {
         let write_map = primitives
             .map(|p| prim_to_write_map(p).map(|wm| (p.name.clone(), wm)))
