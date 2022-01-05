@@ -6,6 +6,7 @@ type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
 use super::super::cidr::PrintMode;
+use super::super::commands::WatchPosition;
 use crate::{debugger::commands::PrintCode, errors::InterpreterResult};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
@@ -57,6 +58,21 @@ impl CommandParser {
 
     fn pc_s(_input: Node) -> ParseResult<()> {
         Ok(())
+    }
+
+    fn before(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn after(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn watch_position(input: Node) -> ParseResult<WatchPosition> {
+        Ok(match_nodes!(input.into_children();
+            [before(_)] => WatchPosition::Before,
+            [after(_)] => WatchPosition::After
+        ))
     }
 
     fn pc_ufx(input: Node) -> ParseResult<usize> {
@@ -170,16 +186,30 @@ impl CommandParser {
 
     fn watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
+        [group(g), watch_position(wp), print_state(p)] => {
+            if let Command::PrintState(target, code) = p {
+                Command::Watch(g, wp, target, code, PrintMode::State)
+            } else {
+                unreachable!("Parse produced wrong command?")
+            }
+            },
+        [group(g), watch_position(wp), print(p)] => {
+                if let Command::Print(target, code) = p {
+                    Command::Watch(g, wp, target, code, PrintMode::Port)
+                } else {
+                    unreachable!("Parse produced wrong command?")
+                }
+            },
         [group(g), print_state(p)] => {
             if let Command::PrintState(target, code) = p {
-                Command::Watch(g, target, code,PrintMode::State)
+                Command::Watch(g, WatchPosition::default(), target, code, PrintMode::State)
             } else {
                 unreachable!("Parse produced wrong command?")
             }
             },
         [group(g), print(p)] => {
                 if let Command::Print(target, code) = p {
-                    Command::Watch(g, target, code, PrintMode::Port)
+                    Command::Watch(g, WatchPosition::default(), target, code, PrintMode::Port)
                 } else {
                     unreachable!("Parse produced wrong command?")
                 }

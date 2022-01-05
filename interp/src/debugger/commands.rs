@@ -43,6 +43,18 @@ impl Default for PrintCode {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum WatchPosition {
+    Before,
+    After,
+}
+
+impl Default for WatchPosition {
+    fn default() -> Self {
+        Self::Before
+    }
+}
+
 pub enum Command {
     Step,                                                      // Step execution
     Continue, // Execute until breakpoint
@@ -61,6 +73,7 @@ pub enum Command {
     PrintState(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>),
     Watch(
         GroupName,
+        WatchPosition,
         Option<Vec<Vec<calyx::ir::Id>>>,
         Option<PrintCode>,
         super::cidr::PrintMode,

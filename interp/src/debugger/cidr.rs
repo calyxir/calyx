@@ -10,7 +10,7 @@ use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
 use crate::primitives::Serializeable;
-use crate::structures::names::ComponentQIN;
+use crate::structures::names::{CompGroupName, ComponentQIN};
 use crate::utils::AsRaw;
 use calyx::ir::{self, Id, RRC};
 pub(super) const SPACING: &str = "    ";
@@ -82,9 +82,19 @@ impl Debugger {
                     component_interpreter.step()?;
                 }
                 Command::Continue => {
-                    let mut breakpoints = self.debugging_ctx.hit_breakpoints(
+                    self.debugging_ctx.set_current_time(
                         component_interpreter.currently_executing_group(),
                     );
+
+                    let mut ctx = std::mem::replace(
+                        &mut self.debugging_ctx,
+                        DebuggingContext::new(
+                            &self._context,
+                            &self.main_component.name,
+                        ),
+                    );
+
+                    let mut breakpoints: Vec<CompGroupName> = vec![];
 
                     while breakpoints.is_empty()
                         && !component_interpreter.is_done()
@@ -93,17 +103,9 @@ impl Debugger {
                         let current_exec =
                             component_interpreter.currently_executing_group();
 
-                        let mut ctx = std::mem::replace(
-                            &mut self.debugging_ctx,
-                            DebuggingContext::new(
-                                &self._context,
-                                &self.main_component.name,
-                            ),
-                        );
+                        ctx.advance_time(current_exec);
 
-                        for watch in
-                            ctx.process_watchpoints(current_exec.clone())
-                        {
+                        for watch in ctx.process_watchpoints() {
                             if let Ok(msg) = self.do_print(
                                 &watch.0,
                                 &watch.1,
@@ -114,11 +116,16 @@ impl Debugger {
                             }
                         }
 
-                        self.debugging_ctx = ctx;
-
-                        breakpoints =
-                            self.debugging_ctx.hit_breakpoints(current_exec);
+                        breakpoints = self
+                            .debugging_ctx
+                            .hit_breakpoints()
+                            .into_iter()
+                            .cloned()
+                            .collect();
                     }
+
+                    self.debugging_ctx = ctx;
+
                     if !component_interpreter.is_done() {
                         for breakpoint in breakpoints {
                             println!("Hit breakpoint: {}", breakpoint);
@@ -211,7 +218,13 @@ impl Debugger {
                         }
                     }
                 }
-                Command::Watch(group, print_target, print_code, print_mode) => {
+                Command::Watch(
+                    group,
+                    watch_pos,
+                    print_target,
+                    print_code,
+                    print_mode,
+                ) => {
                     if let Err(e) = self.do_print(
                         &print_target,
                         &print_code,
@@ -222,6 +235,7 @@ impl Debugger {
                     } else {
                         self.debugging_ctx.add_watchpoint(
                             group,
+                            watch_pos,
                             (print_target, print_code, print_mode),
                         )
                     }

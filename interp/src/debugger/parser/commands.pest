@@ -36,8 +36,13 @@ print_fail = {
     (^"print" | ^"p") ~ (print_code | pc_fail)?
 }
 
+before = {^"before"}
+after = {^"after"}
+
+watch_position = { before | after }
+
 watch = {
-    (^"watch" | ^"w") ~ group ~ ^"with" ~ (print_state | print)
+    (^"watch" | ^"w") ~ watch_position? ~ group ~ ^"with" ~ (print_state | print)
 }
 
 step_over = {^"step-over" ~ group }
