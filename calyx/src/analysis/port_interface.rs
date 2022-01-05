@@ -17,9 +17,9 @@ type WriteTogether = HashSet<ir::Id>;
 type WriteTogetherSpecs = HashMap<ir::Id, Vec<WriteTogether>>;
 
 /// Helper methods to parse `@read_together` and `@write_together` specifications
-pub struct ReadWriteSpec;
+pub struct PortInterface;
 
-impl ReadWriteSpec {
+impl PortInterface {
     /// Construct @write_together specs from the primitive definitions.
     pub fn write_together_specs<'a>(
         primitives: impl Iterator<Item = &'a ir::Primitive>,
@@ -52,7 +52,7 @@ impl ReadWriteSpec {
     /// The specification dictates that before reading the output port, the
     /// input ports must be driven, i.e., the output port is combinationally
     /// related to the input ports and only those ports.
-    pub fn read_together_spec(
+    pub fn comb_path_spec(
         prim: &ir::Primitive,
     ) -> CalyxResult<Vec<ReadTogether>> {
         prim
@@ -83,12 +83,12 @@ impl ReadWriteSpec {
     }
 
     /// Construct @read_together specs from the primitive definitions.
-    pub fn read_together_specs<'a>(
+    pub fn comb_path_specs<'a>(
         primitives: impl Iterator<Item = &'a ir::Primitive>,
     ) -> CalyxResult<ReadTogetherSpecs> {
         let mut read_together = HashMap::new();
         for prim in primitives {
-            let reads = Self::read_together_spec(prim)?;
+            let reads = Self::comb_path_spec(prim)?;
             if !reads.is_empty() {
                 read_together.insert(prim.name.clone(), reads);
             }

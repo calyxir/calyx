@@ -33,9 +33,9 @@ pub struct Papercut {
 impl ConstructVisitor for Papercut {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let write_together =
-            analysis::ReadWriteSpec::write_together_specs(ctx.lib.signatures());
+            analysis::PortInterface::write_together_specs(ctx.lib.signatures());
         let read_together =
-            analysis::ReadWriteSpec::read_together_specs(ctx.lib.signatures())?;
+            analysis::PortInterface::comb_path_specs(ctx.lib.signatures())?;
         Ok(Papercut {
             write_together,
             read_together,

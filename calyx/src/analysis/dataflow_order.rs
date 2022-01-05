@@ -24,7 +24,7 @@ pub struct DataflowOrder {
 
 /// Generate a write map using a primitive definition.
 fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
-    let read_together_spec = analysis::ReadWriteSpec::read_together_spec(prim)?;
+    let read_together_spec = analysis::PortInterface::comb_path_spec(prim)?;
     let mut inputs = HashSet::new();
     let mut outputs: Vec<(ir::Id, bool)> = Vec::new();
 
