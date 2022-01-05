@@ -116,8 +116,7 @@ impl Debugger {
                             }
                         }
 
-                        breakpoints = self
-                            .debugging_ctx
+                        breakpoints = ctx
                             .hit_breakpoints()
                             .into_iter()
                             .cloned()

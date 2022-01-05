@@ -186,14 +186,14 @@ impl CommandParser {
 
     fn watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-        [group(g), watch_position(wp), print_state(p)] => {
+        [watch_position(wp), group(g),  print_state(p)] => {
             if let Command::PrintState(target, code) = p {
                 Command::Watch(g, wp, target, code, PrintMode::State)
             } else {
                 unreachable!("Parse produced wrong command?")
             }
             },
-        [group(g), watch_position(wp), print(p)] => {
+        [watch_position(wp), group(g),  print(p)] => {
                 if let Command::Print(target, code) = p {
                     Command::Watch(g, wp, target, code, PrintMode::Port)
                 } else {

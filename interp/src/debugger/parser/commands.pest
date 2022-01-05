@@ -42,7 +42,7 @@ after = {^"after"}
 watch_position = { before | after }
 
 watch = {
-    (^"watch" | ^"w") ~ watch_position? ~ group ~ ^"with" ~ (print_state | print)
+    (^"watch" | ^"w") ~ (watch_position)? ~ group ~ ^"with" ~ (print_state | print)
 }
 
 step_over = {^"step-over" ~ group }
