@@ -43,6 +43,10 @@ impl CommandParser {
         Ok(Command::InfoBreak)
     }
 
+    fn info_watch(_input: Node) -> ParseResult<Command> {
+        Ok(Command::InfoWatch)
+    }
+
     fn exit(_input: Node) -> ParseResult<Command> {
         Ok(Command::Exit)
     }
@@ -196,6 +200,7 @@ impl CommandParser {
             [display(disp), EOI(_)] => disp,
             [brk(b), EOI(_)] => b,
             [info_break(ib), EOI(_)] => ib,
+            [info_watch(iw), EOI(_)] => iw,
             [delete(del), EOI(_)] => del,
             [enable(e), EOI(_)] => e,
             [disable(dis), EOI(_)] => dis,

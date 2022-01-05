@@ -226,6 +226,7 @@ impl Debugger {
                         )
                     }
                 }
+                Command::InfoWatch => todo!(),
             }
         }
 

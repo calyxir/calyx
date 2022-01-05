@@ -53,6 +53,7 @@ pub enum Command {
     Help,                  // Help message
     Exit,                  // Exit the debugger
     InfoBreak,             // List breakpoints
+    InfoWatch,
     Disable(Vec<BreakPointId>),
     Enable(Vec<BreakPointId>),
     Delete(Vec<BreakPointId>),

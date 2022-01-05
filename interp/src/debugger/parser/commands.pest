@@ -51,6 +51,7 @@ help = {
 }
 display = { ^"display" | ^"d" }
 info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
+info_watch = { (^"info" ~ ^"watch") | ^"i" ~ ^"w" }
 
 brk = { (^"break" | ^"br") ~ group* }
 brk_id = { (group | num) }
@@ -79,6 +80,7 @@ command = {
      | cont
      | help
      | info_break
+     | info_watch
      | display
      | exit
     )?
