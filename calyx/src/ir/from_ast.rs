@@ -399,36 +399,19 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> CalyxResult<Guard> {
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
-        GE::Eq(l, r) => Guard::CompOp(
-            PortComp::Eq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Neq(l, r) => Guard::CompOp(
-            PortComp::Neq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Gt(l, r) => Guard::CompOp(
-            PortComp::Gt,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Lt(l, r) => Guard::CompOp(
-            PortComp::Lt,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Geq(l, r) => Guard::CompOp(
-            PortComp::Geq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Leq(l, r) => Guard::CompOp(
-            PortComp::Leq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
+        GE::CompOp(op, l, r) => {
+            let nl = atom_to_port(l, bd)?;
+            let nr = atom_to_port(r, bd)?;
+            let nop = match op {
+                ast::GuardComp::Eq => PortComp::Eq,
+                ast::GuardComp::Neq => PortComp::Neq,
+                ast::GuardComp::Gt => PortComp::Gt,
+                ast::GuardComp::Lt => PortComp::Lt,
+                ast::GuardComp::Geq => PortComp::Geq,
+                ast::GuardComp::Leq => PortComp::Leq,
+            };
+            Guard::CompOp(nop, nl, nr)
+        }
     })
 }
 

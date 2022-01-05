@@ -1,7 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 
 //! Parser for Calyx programs.
-use super::ast::{self, BitNum, NumType};
+use super::ast::{self, BitNum, GuardComp as GC, GuardExpr, NumType};
 use crate::errors::{self, CalyxResult, Span};
 use crate::ir;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
@@ -454,12 +454,12 @@ impl CalyxParser {
     fn cmp_expr(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
-            [expr(l), guard_eq(_), expr(r)] => ast::GuardExpr::Eq(l, r),
-            [expr(l), guard_neq(_), expr(r)] => ast::GuardExpr::Neq(l, r),
-            [expr(l), guard_geq(_), expr(r)] => ast::GuardExpr::Geq(l, r),
-            [expr(l), guard_leq(_), expr(r)] => ast::GuardExpr::Leq(l, r),
-            [expr(l), guard_gt(_), expr(r)] =>  ast::GuardExpr::Gt(l, r),
-            [expr(l), guard_lt(_), expr(r)] =>  ast::GuardExpr::Lt(l, r),
+            [expr(l), guard_eq(_), expr(r)] => GuardExpr::CompOp(GC::Eq, l, r),
+            [expr(l), guard_neq(_), expr(r)] => GuardExpr::CompOp(GC::Neq, l, r),
+            [expr(l), guard_geq(_), expr(r)] => GuardExpr::CompOp(GC::Geq, l, r),
+            [expr(l), guard_leq(_), expr(r)] => GuardExpr::CompOp(GC::Leq, l, r),
+            [expr(l), guard_gt(_), expr(r)] =>  GuardExpr::CompOp(GC::Gt, l, r),
+            [expr(l), guard_lt(_), expr(r)] =>  GuardExpr::CompOp(GC::Lt, l, r),
         ))
     }
 
