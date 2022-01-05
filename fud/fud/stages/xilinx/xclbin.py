@@ -40,6 +40,8 @@ class XilinxStage(Stage):
         self.remote_exec = RemoteExecution(self)
         self.temp_location = self.config["stages", self.name, "temp_location"]
 
+        # As a debugging aid, the pass can optionally preserve the
+        # (local or remote) sandbox where the Xilinx commands ran.
         self.save_temps = bool(self.config["stages", self.name, "save_temps"])
 
         self.mode = self.config["stages", self.name, "mode"]
