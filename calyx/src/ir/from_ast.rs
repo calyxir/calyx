@@ -370,14 +370,42 @@ fn atom_to_port(
     }
 }
 
+/// Ensures that the given port has the required direction.
+fn ensure_direction(pr: RRC<Port>, dir: Direction) -> CalyxResult<RRC<Port>> {
+    let port_dir = pr.borrow().direction.clone();
+    match (dir, port_dir) {
+        (Direction::Input, Direction::Output) => {
+            let (c, p) = pr.borrow().canonical();
+            Err(Error::MalformedStructure(format!(
+                "Port `{}.{}` occurs in write position but is an output port",
+                c, p
+            )))
+        }
+        (Direction::Output, Direction::Input) => {
+            let (c, p) = pr.borrow().canonical();
+            Err(Error::MalformedStructure(format!(
+                "Port `{}.{}` occurs in write position but is an output port",
+                c, p
+            )))
+        }
+        _ => Ok(pr),
+    }
+}
+
 /// Build an ir::Assignment from ast::Wire.
 /// The Assignment contains pointers to the relevant ports.
 fn build_assignment(
     wire: ast::Wire,
     builder: &mut Builder,
 ) -> CalyxResult<Assignment> {
-    let src_port: RRC<Port> = atom_to_port(wire.src.expr, builder)?;
-    let dst_port: RRC<Port> = get_port_ref(wire.dest, builder.component)?;
+    let src_port: RRC<Port> = ensure_direction(
+        atom_to_port(wire.src.expr, builder)?,
+        Direction::Output,
+    )?;
+    let dst_port: RRC<Port> = ensure_direction(
+        get_port_ref(wire.dest, builder.component)?,
+        Direction::Input,
+    )?;
     let guard = match wire.src.guard {
         Some(g) => build_guard(g, builder)?,
         None => Guard::True,
@@ -395,40 +423,26 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> CalyxResult<Guard> {
     };
 
     Ok(match guard {
-        GE::Atom(atom) => Guard::port(atom_to_port(atom, bd)?),
+        GE::Atom(atom) => Guard::port(ensure_direction(
+            atom_to_port(atom, bd)?,
+            Direction::Output,
+        )?),
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
-        GE::Eq(l, r) => Guard::CompOp(
-            PortComp::Eq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Neq(l, r) => Guard::CompOp(
-            PortComp::Neq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Gt(l, r) => Guard::CompOp(
-            PortComp::Gt,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Lt(l, r) => Guard::CompOp(
-            PortComp::Lt,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Geq(l, r) => Guard::CompOp(
-            PortComp::Geq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
-        GE::Leq(l, r) => Guard::CompOp(
-            PortComp::Leq,
-            atom_to_port(l, bd)?,
-            atom_to_port(r, bd)?,
-        ),
+        GE::CompOp(op, l, r) => {
+            let nl = ensure_direction(atom_to_port(l, bd)?, Direction::Output)?;
+            let nr = ensure_direction(atom_to_port(r, bd)?, Direction::Output)?;
+            let nop = match op {
+                ast::GuardComp::Eq => PortComp::Eq,
+                ast::GuardComp::Neq => PortComp::Neq,
+                ast::GuardComp::Gt => PortComp::Gt,
+                ast::GuardComp::Lt => PortComp::Lt,
+                ast::GuardComp::Geq => PortComp::Geq,
+                ast::GuardComp::Leq => PortComp::Leq,
+            };
+            Guard::CompOp(nop, nl, nr)
+        }
     })
 }
 
@@ -466,11 +480,19 @@ fn build_control(
             );
             let inputs = inputs
                 .into_iter()
-                .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
+                .map(|(id, port)| {
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Output))
+                        .map(|p| (id, p))
+                })
                 .collect::<Result<_, _>>()?;
             let outputs = outputs
                 .into_iter()
-                .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
+                .map(|(id, port)| {
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Input))
+                        .map(|p| (id, p))
+                })
                 .collect::<Result<_, _>>()?;
             let mut inv = Invoke {
                 comp: cell,
@@ -531,7 +553,10 @@ fn build_control(
                 })
                 .transpose()?;
             let mut con = Control::if_(
-                get_port_ref(port, builder.component)?,
+                ensure_direction(
+                    get_port_ref(port, builder.component)?,
+                    Direction::Output,
+                )?,
                 group,
                 Box::new(build_control(*tbranch, builder)?),
                 Box::new(build_control(*fbranch, builder)?),
@@ -556,7 +581,10 @@ fn build_control(
                 })
                 .transpose()?;
             let mut con = Control::while_(
-                get_port_ref(port, builder.component)?,
+                ensure_direction(
+                    get_port_ref(port, builder.component)?,
+                    Direction::Output,
+                )?,
                 group,
                 Box::new(build_control(*body, builder)?),
             );
