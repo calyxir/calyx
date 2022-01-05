@@ -5,7 +5,7 @@ import shutil
 from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution
 from fud.stages.futil import FutilStage
-from fud.utils import TmpDir, shell
+from fud.utils import TmpDir, FreshDir, shell
 
 
 class XilinxStage(Stage):
@@ -39,6 +39,10 @@ class XilinxStage(Stage):
         # remote execution
         self.remote_exec = RemoteExecution(self)
         self.temp_location = self.config["stages", self.name, "temp_location"]
+
+        # As a debugging aid, the pass can optionally preserve the
+        # (local or remote) sandbox where the Xilinx commands ran.
+        self.save_temps = bool(self.config["stages", self.name, "save_temps"])
 
         self.mode = self.config["stages", self.name, "mode"]
         self.device = self.config["stages", self.name, "device"]
@@ -75,7 +79,10 @@ class XilinxStage(Stage):
             """Copy an input file."""
             shutil.copyfile(src_path, Path(tmpdir) / dest_path)
 
-        tmpdir = Source(TmpDir(), SourceType.Directory)
+        tmpdir = Source(
+            FreshDir() if self.save_temps else TmpDir(),
+            SourceType.Directory,
+        )
         for src_path, dest_path in input_files.items():
             if not isinstance(src_path, Source):
                 src_path = Source(src_path, SourceType.Path)
@@ -173,9 +180,9 @@ class XilinxStage(Stage):
         def read_file(
             tmpdir: SourceType.Directory,
             name: SourceType.String,
-        ) -> SourceType.Stream:
+        ) -> SourceType.Path:
             """Read an output file."""
-            return Path(tmpdir.name) / name.data
+            return Path(tmpdir.name) / name
 
         if self.remote_exec.use_ssh:
             self.remote_exec.import_libs()
@@ -200,14 +207,14 @@ class XilinxStage(Stage):
         compile_xclbin(client, tmpdir)
 
         if self.remote_exec.use_ssh:
-            xclbin = self.remote_exec.close_and_get(
+            return self.remote_exec.close_and_get(
                 client,
                 tmpdir,
                 "xclbin/kernel.xclbin",
+                keep_tmpdir=self.save_temps,
             )
         else:
-            xclbin = read_file(
+            return read_file(
                 tmpdir,
                 Source("xclbin/kernel.xclbin", SourceType.String),
             )
-        return xclbin

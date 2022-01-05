@@ -88,9 +88,14 @@ Hopefully someone will figure this out and document it in the future.
 The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
 Here's an example of going all the way from a Calyx program to that:
 
-    fud e --to xclbin examples/futil/dot-product.futil
+    fud e examples/futil/dot-product.futil -o foo.xclbin
 
-On our machines, compiling even a simple example like the above for simulation takes about 2 minutes, end to end.
+On our machines, compiling even a simple example like the above for simulation takes about 5 minutes, end to end.
+A failed run takes about 2 minutes to produce an error.
+
+By default, the Xilinx tools run in a temporary directory that is deleted when `fud` finishes.
+To instead keep the sandbox directory, use `-s xclbin.save_temps true`.
+You can then find the results in a directory named `fud-out-N` for some number `N`.
 
 ### How it Works
 
