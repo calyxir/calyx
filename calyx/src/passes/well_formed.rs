@@ -134,24 +134,6 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        for (id, port) in &s.inputs {
-            if port.borrow().direction != ir::Direction::Output {
-                panic!(
-                    "Input argument `{}` for `invoke {}` uses non-output port: `{}`. Input arguments should use output ports.",
-                    id,
-                    s.comp.borrow().name(),
-                    port.borrow().name)
-            }
-        }
-        for (id, port) in &s.outputs {
-            if port.borrow().direction != ir::Direction::Input {
-                panic!(
-                    "Output argument `{}` for `invoke {}` uses non-input port: `{}`. Output arguments should use input ports.",
-                    id,
-                    s.comp.borrow().name(),
-                    port.borrow().name)
-            }
-        }
         // Add cond group as a used port.
         if let Some(c) = &s.comb_group {
             self.used_comb_groups.insert(c.clone_name());
