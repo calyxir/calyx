@@ -127,19 +127,53 @@ We need to generate:
 * A Verilog interface wrapper, using `XilinxInterfaceBackend`, via `-b xilinx`. We call this `toplevel.v`.
 * An XML document describing the interface, using `XilinxXmlBackend`, via `-b xilinx-xml`. This file gets named `kernel.xml`.
 
-We also use [a static Tcl script, `gen_xo.tcl`,][gen_xo] to drive the Xilinx tools.
 The `fud` driver gathers these files together in a sandbox directory.
-Then, the Xilinx toolchain's first step is to compile the Verilog to a `.xo` file, which is a Xilinx analog of a `.o` object file.
+The next step is to run the Xilinx tools.
+
+#### Background: `.xo` and `.xclbin`
+
+In the Xilinx toolchain, compilation to an executable bitstream (or simulation blob) appears to requires two steps:
+taking your Verilog sources and creating an `.xo` file, and then taking that and producing an `.xclbin` “executable” file.
+The idea appears to be a kind of metaphor for a standard C compilation workflow in software-land: `.xo` is like a `.o` object file, and `.xclbin` contains actual executable code (bitstream or emulation equivalent), like a software executable binary.
+Going from Verilog to `.xo` is like “compilation” and going from `.xo` to `.xclbin` is like “linking.”
+
+However,  this analogy is kind of a lie.
+Generating an `.xo` file actually does very little work:
+it just packages up the Verilog source code and some auxiliary files.
+An `.xo` is literally a zip file with that stuff packed up inside.
+All the actual work happens during “linking,” i.e., going from `.xo` to `.xclbin` using the `v++` tool.
+This situation is a poignant reminder of how impossible separate compilation is in the EDA world.
+A proper analogy would involve separately compiling the Verilog into some kind of low-level representation, and then linking would properly smash together those separately-compiled objects.
+Instead, in Xilinx-land, “compilation” is just simple bundling and “linking” does all the compilation in one monolithic step.
+It’s kind of cute that the Xilinx toolchain is pretending the world is otherwise, but it’s also kind of sad.
+
+Anyway, the only way to produce a `.xo` file from RTL code appears to be to use Vivado (i.e., the actual `vivado` program).
+Nothing from the newer Vitis package currently appears capable of producing `.xo` files from Verilog (although `v++` can produce these files during HLS compilation, presumably by invoking Vivado).
+
+The main components in an `.xo` file, aside from the Verilog source code itself, are two XML files:
+`kernel.xml`, a short file describing the argument interfaces to the hardware design,
+and `component.xml`, a much longer and more complicated [IP-XACT][] file that also has to do with the interface to the RTL.
+We currently generate `kernel.xml` ourselves (with the `xilinx-xml` backend described above) and then use Vivado, via a Tcl script, to generate the IP-XACT file.
+
+In the future, we could consider trying to route around using Vivado by generating the IP-XACT file ourselves, using a tool such as [DUH][].
+
+#### Our Workflow
+
+The first step is to produce an `.xo` file.
+We also use [a static Tcl script, `gen_xo.tcl`,][gen_xo] which is a simplified version of [a script from Xilinx's Vitis tutorials][package_kernel].
+The gist of this script is that it creates a Vivado project, adds the source files, twiddles some settings, and then uses the [`package_xo` command][package_xo] to read stuff from this project as an "IP directory" and produce an `.xo` file.
 The Vivado command line looks roughly like this:
 
-    vivado -mode batch -source gen_xo.tcl -tclargs xclbin/kernel.xo kernel hw_emu xilinx_u50_gen3x16_xdma_201920_3
+    vivado -mode batch -source gen_xo.tcl -tclargs xclbin/kernel.xo
 
-Those arguments after `-tclargs`, unsurprisingly, get passed to [`gen_xo.tcl`][gen_xo].
+That output filename after `-tclargs`, unsurprisingly, gets passed to [`gen_xo.tcl`][gen_xo].
 
-Then, we take this `.xo` and turn it into an [`.xclbin`][xclbin], in a step that is Xilinx's analog of "linking" an executable.
+Then, we take this `.xo` and turn it into an [`.xclbin`][xclbin].
 This step uses the `v++` tool, with a command line that looks like this:
 
     v++ -g -t hw_emu --platform xilinx_u50_gen3x16_xdma_201920_3 --save-temps --profile.data all:all:all --profile.exec all:all:all -lo xclbin/kernel.xclbin xclbin/kernel.xo
+
+Fortunately, the `v++` tool doesn't need any Tcl to drive it; all the action happens on the command line.
 
 [vivado]: https://www.xilinx.com/products/design-tools/vivado.html
 [vhls]: https://www.xilinx.com/products/design-tools/vivado/integration/esl-design.html
@@ -153,3 +187,7 @@ This step uses the `v++` tool, with a command line that looks like this:
 [gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
 [u50]: https://www.xilinx.com/products/boards-and-kits/alveo/u50.html
 [wdb]: https://support.xilinx.com/s/article/64000?language=en_US
+[ip-xact]: https://en.wikipedia.org/wiki/IP-XACT
+[duh]: https://github.com/sifive/duh
+[package_kernel]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.1/Hardware_Acceleration/Feature_Tutorials/01-rtl_kernel_workflow/reference-files/scripts/package_kernel.tcl
+[package_xo]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/package_xo-Command
