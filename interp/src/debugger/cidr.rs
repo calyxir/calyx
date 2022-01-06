@@ -239,7 +239,7 @@ impl Debugger {
                         )
                     }
                 }
-                Command::InfoWatch => todo!(),
+                Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
             }
         }
 
