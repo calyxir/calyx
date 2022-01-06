@@ -1,7 +1,9 @@
 import logging as log
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+import shutil
 
+from fud.utils import TmpDir, FreshDir
 from .. import errors
 from ..stages import Source, SourceType
 
@@ -150,9 +152,7 @@ class RemoteExecution:
             remote_tmpdir: SourceType.String,
             local_tmpdir: SourceType.Directory,
         ):
-            """
-            Copy files generated on server back to local host.
-            """
+            """Copy files generated on server back to local host."""
             with self.SCPClient(client.get_transport()) as scp:
                 scp.get(
                     remote_tmpdir, local_path=f"{local_tmpdir.name}", recursive=True
@@ -183,3 +183,65 @@ class RemoteExecution:
         local_path = fetch_file(client, remote_tmpdir)
         self._close(client, remote_tmpdir, keep_tmpdir=keep_tmpdir)
         return local_path
+
+
+class LocalSandbox:
+    """A utility for running commands in a temporary directory.
+
+    This is meant as a local alternative to `RemoteExecution`. Like that
+    utility, this provides steps to create a temporary directory,
+    execute programs in that temporary directory, and then retrieve
+    files from it. However, all this happens locally instead of via SSH.
+    """
+
+    def __init__(self, stage, save_temps=False):
+        self.stage = stage
+        self.save_temps = save_temps
+
+    def create(self, input_files):
+        """Copy input files to a fresh temporary directory.
+
+        `input_files` is a dict with the same format as `open_and_send`:
+        it maps local Source paths to destination strings.
+
+        Return a path to the newly-created temporary directory.
+        """
+
+        @self.stage.step()
+        def copy_file(
+            tmpdir: SourceType.String,
+            src_path: SourceType.Path,
+            dest_path: SourceType.String,
+        ):
+            """Copy an input file."""
+            shutil.copyfile(src_path, Path(tmpdir) / dest_path)
+
+        tmpdir = Source(
+            FreshDir() if self.save_temps else TmpDir(),
+            SourceType.Directory,
+        )
+        for src_path, dest_path in input_files.items():
+            if not isinstance(src_path, Source):
+                src_path = Source(src_path, SourceType.Path)
+            if not isinstance(dest_path, Source):
+                dest_path = Source(dest_path, SourceType.String)
+            copy_file(tmpdir, src_path, dest_path)
+
+        self.tmpdir = tmpdir
+        return tmpdir
+
+    def get_file(self, name):
+        """Retrieve a file from the sandbox directory."""
+
+        @self.stage.step()
+        def read_file(
+            tmpdir: SourceType.Directory,
+            name: SourceType.String,
+        ) -> SourceType.Path:
+            """Read an output file."""
+            return Path(tmpdir.name) / name
+
+        return read_file(
+            self.tmpdir,
+            Source(name, SourceType.String),
+        )

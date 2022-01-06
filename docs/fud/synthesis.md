@@ -83,6 +83,14 @@ The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
 The device string above is for the [Alveo U50][u50] card, which we have at Cornell, but I honestly don't know how you're supposed to find the right string for a different FPGA target.
 Hopefully someone will figure this out and document it in the future.
 
+To use hardware emulation, you will also need to configure the `wdb` stage.
+It has similar `ssh_host`, `ssh_username`, and `remote` options to the `xclbin` stage.
+You will also need to configure the stage to point to your installations of [Vitis][] and [XRT][], like this:
+
+    [stages.wdb]
+    xilinx_location: /scratch/opt/Xilinx/Vitis/2020.2
+    xrt_location: /opt/xilinx/xrt
+
 ### Compile
 
 The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
@@ -96,6 +104,20 @@ A failed run takes about 2 minutes to produce an error.
 By default, the Xilinx tools run in a temporary directory that is deleted when `fud` finishes.
 To instead keep the sandbox directory, use `-s xclbin.save_temps true`.
 You can then find the results in a directory named `fud-out-N` for some number `N`.
+
+### Emulate
+
+You can also execute compiled designs through Xilinx hardware emulation.
+Use the `wdb` state as your `fud` target:
+
+    fud e -vv foo.xclbin -s wdb.save_temps true -o out.wdb
+
+This stage produces a Vivado [waveform database (WDB) file][wdb]
+Through the magic of `fud`, you can also go all the way from a Calyx program to a `wdb` file in the same way.
+There is also a `wdb.save_temps` option, as with the `xclbin` stage.
+
+You also need to provide a host C++ program via the `wdb.host` parameter, but I don't know much about that yet, so documentation about that will have to wait.
+Similarly, I don't yet know what you're supposed to *do* with a WDB file; maybe we should figure out how to produce a VCD instead.
 
 ### How it Works
 
@@ -131,3 +153,4 @@ This step uses the `v++` tool, with a command line that looks like this:
 [xclbin]: https://xilinx.github.io/XRT/2021.2/html/formats.html#xclbin
 [gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
 [u50]: https://www.xilinx.com/products/boards-and-kits/alveo/u50.html
+[wdb]: https://support.xilinx.com/s/article/64000?language=en_US

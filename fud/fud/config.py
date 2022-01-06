@@ -79,6 +79,7 @@ DEFAULT_CONFIGURATION = {
             "mode": "hw_emu",
             "ssh_host": "",
             "ssh_username": "",
+            "remote": None,
             "host": None,
             "save_temps": None,
             "xilinx_location": "/scratch/opt/Xilinx/Vitis/2020.2",
