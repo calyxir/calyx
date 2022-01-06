@@ -1,9 +1,9 @@
 <h1>
 <p align="center">
-<img src="https://capra.cs.cornell.edu/calyx/img/logo-text.svg" width="300">
+<img src="https://calyxir.org/img/logo-text.svg" width="300">
 </p>
 <p align="center">
-<a href="https://capra.cs.cornell.edu/calyx">A Compiler Infrastructure for Accelerator Generators</a>
+<a href="https://calyxir.org">A Compiler Infrastructure for Accelerator Generators</a>
 </p>
 </h1>
 
@@ -38,9 +38,9 @@ This repository contains the source code for the following:
 3. Calyx debugger (`interp/`): An interpreter and debugger for Calyx.
 4. `fud`, The Calyx driver: Utility tool that wraps various hardware toolchains.
 
-[site]: https://capra.cs.cornell.edu/calyx
-[docs]: https://capra.cs.cornell.edu/docs/calyx/
-[source-docs]: https://capra.cs.cornell.edu/docs/calyx/source/calyx
-[paper]: https://rachitnigam.com/files/pubs/calyx.pdfinterpreter
+[site]: https://calyxir.org
+[docs]: https://docs.calyxir.org
+[source-docs]: https://docs.calyxir.org/source/calyx
+[paper]: https://rachitnigam.com/files/pubs/calyx.pdf
 [`calyx`]: https://crates.io/crates/calyx
 [`futil`]: https://crates.io/crates/futil

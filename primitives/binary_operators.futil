@@ -8,15 +8,16 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH)->(out: WIDTH);
 
-  primitive std_fp_mult_pipe[
+  primitive std_fp_mult_pipe<"static"=3>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
   ) -> (
-    out: WIDTH,
+    @stable out: WIDTH,
     @done done: 1
   );
 
@@ -24,28 +25,19 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
   ) -> (
-    out_remainder: WIDTH,
-    out_quotient: WIDTH,
+    @stable out_remainder: WIDTH,
+    @stable out_quotient: WIDTH,
     @done done: 1
   );
 
   comb primitive std_fp_gt<"share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
-
-  comb primitive std_fp_add_dwidth<"share"=1>[
-    WIDTH1,
-    WIDTH2,
-    INT_WIDTH1,
-    FRAC_WIDTH1,
-    INT_WIDTH2,
-    FRAC_WIDTH2,
-    OUT_WIDTH
-  ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
 
   /// =================== Signed, Fixed Point =========================
   comb primitive std_fp_sadd<"share"=1>[
@@ -56,15 +48,16 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive std_fp_smult_pipe[
+  primitive std_fp_smult_pipe<"static"=3>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
   ) -> (
-    out: WIDTH,
+    @stable out: WIDTH,
     @done done: 1
   );
 
@@ -72,12 +65,13 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
   ) -> (
-    out_remainder: WIDTH,
-    out_quotient: WIDTH,
+    @stable out_remainder: WIDTH,
+    @stable out_quotient: WIDTH,
     @done done: 1
   );
 
@@ -89,38 +83,30 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: 1);
 
-  comb primitive std_fp_sadd_dwidth<"share"=1>[
-    WIDTH1,
-    WIDTH2 ,
-    INT_WIDTH1,
-    FRAC_WIDTH1,
-    INT_WIDTH2,
-    FRAC_WIDTH2,
-    OUT_WIDTH
-  ](left: WIDTH1, right: WIDTH2) -> (out: OUT_WIDTH);
-
   /// =================== Unsigned, Bitnum =========================
   /// Other unsigned bitnum primitives are found in the core library,
   /// since they're required for FSM encoding.
 
-  primitive std_mult_pipe[WIDTH](
+  primitive std_mult_pipe<"static"=3>[WIDTH](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH
   ) -> (
-    out: WIDTH,
+    @stable out: WIDTH,
     @done done: 1
   );
 
   primitive std_div_pipe[WIDTH](
-    @write_together(1) left: WIDTH,
-    @write_together(1) right: WIDTH,
+    @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
-    @clk clk: 1
+    @write_together(1) left: WIDTH,
+    @write_together(1) right: WIDTH
   ) -> (
-    out_quotient: WIDTH,
-    out_remainder: WIDTH,
+    @stable out_quotient: WIDTH,
+    @stable out_remainder: WIDTH,
     @done done: 1
   );
 
@@ -128,17 +114,20 @@ extern "binary_operators.sv" {
   comb primitive std_sadd<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   comb primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive std_smult_pipe[WIDTH](
+  primitive std_smult_pipe<"static"=3>[WIDTH](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
-    @write_together(1) right: WIDTH,
-    @write_together(1) go: 1,
-    @clk clk: 1
+    @write_together(1) right: WIDTH
   ) -> (
-    out: WIDTH, done: 1
+    @stable out: WIDTH,
+    @done done: 1
   );
 
   primitive std_sdiv_pipe[WIDTH](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) left: WIDTH,
     @write_together(1) right: WIDTH

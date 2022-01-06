@@ -1,6 +1,8 @@
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, CloneName, Component, LibrarySignatures};
+use crate::ir::{
+    self, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
+};
 use std::collections::HashSet;
 
 /// Pass to check if the program is well-formed.
@@ -9,12 +11,26 @@ use std::collections::HashSet;
 /// 1. Programs that don't use a defined group or combinational group.
 /// 2. Groups that don't write to their done signal.
 /// 3. Groups that write to another group's done signal.
-#[derive(Default)]
 pub struct WellFormed {
+    /// Reserved names
+    reserved_names: HashSet<String>,
     /// Names of the groups that have been used in the control.
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
     used_comb_groups: HashSet<ir::Id>,
+}
+
+impl Default for WellFormed {
+    fn default() -> Self {
+        let reserved_names =
+            RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
+
+        WellFormed {
+            reserved_names,
+            used_groups: HashSet::new(),
+            used_comb_groups: HashSet::new(),
+        }
+    }
 }
 
 impl Named for WellFormed {
@@ -32,7 +48,16 @@ impl Visitor for WellFormed {
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
+        // Check if any of the cells use a reserved name.
+        for cell_ref in comp.cells.iter() {
+            let cell = cell_ref.borrow();
+            if self.reserved_names.contains(&cell.name().id) {
+                return Err(Error::ReservedName(cell.clone_name()));
+            }
+        }
+
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
         comp.groups.iter().try_for_each(|group_ref| {
@@ -72,6 +97,7 @@ impl Visitor for WellFormed {
         s: &mut ir::Enable,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         self.used_groups.insert(s.group.clone_name());
 
@@ -106,24 +132,11 @@ impl Visitor for WellFormed {
         s: &mut ir::Invoke,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
-        for (id, port) in &s.inputs {
-            if port.borrow().direction != ir::Direction::Output {
-                panic!(
-                    "Input argument `{}` for `invoke {}` uses non-output port: `{}`. Input arguments should use output ports.",
-                    id,
-                    s.comp.borrow().name(),
-                    port.borrow().name)
-            }
-        }
-        for (id, port) in &s.outputs {
-            if port.borrow().direction != ir::Direction::Input {
-                panic!(
-                    "Output argument `{}` for `invoke {}` uses non-input port: `{}`. Output arguments should use input ports.",
-                    id,
-                    s.comp.borrow().name(),
-                    port.borrow().name)
-            }
+        // Add cond group as a used port.
+        if let Some(c) = &s.comb_group {
+            self.used_comb_groups.insert(c.clone_name());
         }
         Ok(Action::Continue)
     }
@@ -133,6 +146,7 @@ impl Visitor for WellFormed {
         s: &mut ir::If,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
@@ -146,6 +160,7 @@ impl Visitor for WellFormed {
         s: &mut ir::While,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
@@ -158,6 +173,7 @@ impl Visitor for WellFormed {
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let all_groups: HashSet<ir::Id> =
             comp.groups.iter().map(|g| g.clone_name()).collect();

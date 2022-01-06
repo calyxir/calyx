@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component mem_copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done: 1, length: 3) -> (dest0_write_data: 32, dest0_write_en: 1, dest0_addr0: 3, src0_write_data: 32, src0_write_en: 1, src0_addr0: 3) {
   cells {
     const1 = std_const(3,0);

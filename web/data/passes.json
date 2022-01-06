@@ -46,13 +46,13 @@
             "description": "compile-empty"
         },
         {
-            "name": "static-timing",
-            "title": "Static Timing",
-            "description": "static-timing"
+            "name": "remove-comb-groups",
+            "title": "Remove combinational groups",
+            "description": "tdcc"
         },
         {
             "name": "tdcc",
-            "title": "Top-Down Compile Control",
+            "title": "Top Down Compile Control",
             "description": "tdcc"
         },
         {

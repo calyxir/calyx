@@ -1,4 +1,4 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component main() -> () {
   cells {
@@ -15,7 +15,7 @@ component main() -> () {
       reg0.in = const1.out;
       op[done] = reg0.done;
     }
-    
+
   }
 
   control {

@@ -35,7 +35,7 @@ impl Named for GroupToInvoke {
 fn construct_invoke(
     assigns: &[ir::Assignment],
     comp: RRC<ir::Cell>,
-) -> ir::Invoke {
+) -> ir::Control {
     let mut inputs = Vec::new();
     let mut outputs = Vec::new();
 
@@ -66,12 +66,7 @@ fn construct_invoke(
         }
     }
 
-    ir::Invoke {
-        comp,
-        inputs,
-        outputs,
-        attributes: ir::Attributes::default(),
-    }
+    ir::Control::invoke(comp, inputs, outputs)
 }
 
 impl Visitor for GroupToInvoke {
@@ -80,6 +75,7 @@ impl Visitor for GroupToInvoke {
         s: &mut ir::Enable,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let group = s.group.borrow();
 
@@ -129,9 +125,6 @@ impl Visitor for GroupToInvoke {
             }
         }
 
-        Ok(Action::Change(ir::Control::Invoke(construct_invoke(
-            &group.assignments,
-            cell,
-        ))))
+        Ok(Action::Change(construct_invoke(&group.assignments, cell)))
     }
 }

@@ -1,5 +1,5 @@
 // -p remove-comb-groups -p resource-sharing
-import "primitives/std.lib";
+import "primitives/core.futil";
 component main() -> () {
   cells {
     gt0 = std_gt(32);

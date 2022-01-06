@@ -1,4 +1,4 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 component copy(dest_done: 1, src_read_data: 32, length: 3) ->
               (dest_write_data: 32, dest_write_en: 1, dest_addr0: 3, src_addr0: 3) {
   cells {

@@ -1,5 +1,4 @@
 !*.json
 .cache/
 dist/
-rust/calyx_hash.json
-yarn.lock
+calyx_hash.json

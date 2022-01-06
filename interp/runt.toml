@@ -39,7 +39,7 @@ paths = [
     "tests/primitives/*.futil"
 ]
 cmd = """
-../target/debug/interp {} | jq .memories
+../target/debug/interp {} -q | jq .memories
 """
 timeout = 3
 
@@ -62,7 +62,7 @@ paths = [
     "tests/control/static/*.futil"
 ]
 cmd = """
-../target/debug/interp {} | jq .memories
+../target/debug/interp {} -q | jq .memories
 """
 timeout = 3
 
@@ -72,7 +72,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to interpreter-out -s verilog.data {}.data -q | jq .memories
+fud e {} --to interpreter-out -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories
 """
 
 [[tests]]
@@ -81,25 +81,7 @@ paths = [
   "tests/control/invoke/*.futil"
   ]
 cmd = """
-fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s verilog.data {}.data -q | jq .memories
-"""
-
-[[tests]]
-name = "invoke (CIDR)"
-paths = [
-  "tests/control/invoke/*.futil"
-  ]
-cmd = """
-fud e {} --to debugger -s verilog.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
-"""
-
-[[tests]]
-name = "invoke comp (CIDR)"
-paths = [
-  "tests/control/invoke/*.futil"
-  ]
-cmd = """
-fud e {} --to debugger  -s futil.flags "-p compile-invoke" -s verilog.data {}.data -s interpreter.debugger.flags "-p " -q | jq .memories
+fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories
 """
 
 [[tests]]
@@ -113,50 +95,6 @@ cmd = """
 ../target/debug/futil {} -d pre-opt -d post-opt -p remove-comb-groups -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
-timeout = 3
-
-
-[[tests]]
-name = "unit (CIDR)"
-paths = [
-  "tests/unit/*.futil"
-]
-cmd = """
-  ../target/debug/interp {} debug -p | jq .memories
-"""
-timeout = 3
-
-[[tests]]
-name = "primitives (CIDR)"
-paths = [
-    "tests/primitives/*.futil"
-]
-cmd = """
-../target/debug/interp {} debug -p | jq .memories
-"""
-timeout = 3
-
-[[tests]]
-name = "control (CIDR)"
-paths = [
-    "tests/control/*.futil",
-    "tests/control/iteration/*.futil"
-]
-cmd = """
-../target/debug/interp {} debug -p | jq .memories
-"""
-timeout = 3
-
-[[tests]]
-name = "fully structural (CIDR)"
-paths = [
-    "tests/control/*.futil",
-  # Disabled iteration tests due to bug
-  #    "tests/control/iteration/*.futil"
-]
-cmd = """
-../target/debug/futil {} -d pre-opt -d post-opt -p remove-comb-groups -l ../ | ../target/debug/interp debug -p | jq .memories
-"""
 timeout = 3
 
 [[tests]]

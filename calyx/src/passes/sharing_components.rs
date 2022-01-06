@@ -1,3 +1,4 @@
+//! Defines common traits for methods that attempt to share components.
 use crate::{
     analysis::{GraphColoring, ScheduleConflicts},
     ir,
@@ -7,33 +8,32 @@ use ir::{
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
 /// to minimize the number of used components.
 ///
 /// You must implement the functions:
-///  - `lookup_group_conflicts`
-///  - `cell_filter`
-///  - `set_rewrites`
-///  - `get_rewrites`
+///  - [ShareComponents::lookup_group_conflicts]
+///  - [ShareComponents::cell_filter]
+///  - [ShareComponents::set_rewrites]
+///  - [ShareComponents::get_rewrites]
 ///
-/// Given these functions, the trait `Visitor` will automatically be
+/// Given these functions, the trait [Visitor] will automatically be
 /// implemented for your struct.
 ///
 /// The algorithm that runs is:
 ///  - instantiate conflict graph using all component cells that satisfy `cell_filter`
-///  - use `ScheduleConflicts` to find groups that run in parallel with each other
-///  - for each group, `G` that runs in parallel with another group `H`, add edges between
-///  each cell in the sets `lookup_group_conflicts(G)` and `lookup_group_conflicts(H)`.
+///  - use [ScheduleConflicts] to find groups that run in parallel with each other
+///  - for each group, `G` that runs in parallel with another group `H`, add edges between each
+///  cell in the sets `lookup_group_conflicts(G)` and `lookup_group_conflicts(H)`.
 ///  - add conflicts between cells where for `c0 != c1`
 ///  - call `custom_conflicts` to insert pass specific conflict edges
 ///  - perform graph coloring using `self.ordering` to define the order of the greedy coloring
 ///  - use coloring to rewrite group assignments, continuous assignments, and conditional ports.
 pub trait ShareComponents {
-    /// Initialize the structure using `&ir::Component` and `&ir::LibrarySignatures`.
-    /// This function is called at the very beginning of the traversal
+    /// Initialize the structure. This function is called at the very beginning of the traversal
     /// before anything else.
     fn initialize(
         &mut self,
@@ -61,7 +61,7 @@ pub trait ShareComponents {
     }
 
     /// Called after the initial conflict graph is constructed.
-    /// This function let's you add custom conflicts to the graph
+    /// This function lets you add custom conflicts to the graph
     /// before graph coloring is performed.
     fn custom_conflicts<F>(&self, _comp: &ir::Component, _add_conflicts: F)
     where
@@ -70,10 +70,10 @@ pub trait ShareComponents {
     }
 
     /// Set the list of rewrites.
-    fn set_rewrites(&mut self, rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>);
+    fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, RRC<ir::Cell>>);
 
     /// Get the list of rewrites.
-    fn get_rewrites(&self) -> &[(RRC<ir::Cell>, RRC<ir::Cell>)];
+    fn get_rewrites(&self) -> &HashMap<ir::Id, RRC<ir::Cell>>;
 }
 
 impl<T: ShareComponents> Visitor for T {
@@ -81,6 +81,7 @@ impl<T: ShareComponents> Visitor for T {
         &mut self,
         comp: &mut ir::Component,
         sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         self.initialize(comp, sigs);
 
@@ -154,157 +155,32 @@ impl<T: ShareComponents> Visitor for T {
             }
         });
 
-        let mut coloring = Vec::new();
+        let mut coloring = HashMap::new();
         for graph in graphs_by_type.values() {
             if graph.has_nodes() {
-                coloring.extend(graph.color_greedy().iter().map(|(a, b)| {
-                    (comp.find_cell(&a).unwrap(), comp.find_cell(&b).unwrap())
-                }));
+                coloring.extend(
+                    graph
+                        .color_greedy()
+                        .iter()
+                        .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
+                );
             }
         }
 
-        // apply the coloring as a renaming of registers for both groups
-        // and continuous assignments
-        let builder = ir::Builder::new(comp, sigs);
-        for group_ref in builder.component.groups.iter() {
-            let mut group = group_ref.borrow_mut();
-            let mut assigns: Vec<_> = group.assignments.drain(..).collect();
-            builder.rename_port_uses(&coloring, &mut assigns);
-            group.assignments = assigns;
-        }
+        // Rewrite assignments using the coloring generated.
+        let empty_map = HashMap::new();
+        let rewriter = ir::Rewriter::new(&coloring, &empty_map);
+        comp.for_each_assignment(&|assign| {
+            assign.for_each_port(|port| rewriter.get(port));
+        });
 
-        let mut assigns: Vec<_> =
-            builder.component.continuous_assignments.drain(..).collect();
-        builder.rename_port_uses(&coloring, &mut assigns);
-        builder.component.continuous_assignments = assigns;
+        // Rewrite control uses of ports
+        rewriter.rewrite_control(
+            &mut *comp.control.borrow_mut(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
 
-        self.set_rewrites(coloring);
-
-        Ok(Action::Continue)
-    }
-
-    fn start_if(
-        &mut self,
-        s: &mut ir::If,
-        _comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
-    ) -> VisResult {
-        let cond_port = &s.port;
-
-        // XXX(sam), is just having a single cell -> cell map for
-        // rewrites sufficient. or do you need cell, group_id -> cell
-
-        let parent = if let ir::PortParent::Cell(cell_wref) =
-            &cond_port.borrow().parent
-        {
-            Some(cell_wref.upgrade())
-        } else {
-            None
-        };
-
-        if let Some(cell) = parent {
-            // find rewrite for conditional port cell
-            let rewrite = self
-                .get_rewrites()
-                .iter()
-                .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-            if let Some((_, new_cell)) = rewrite {
-                let new_port = new_cell.borrow().get(&cond_port.borrow().name);
-                s.port = new_port;
-            }
-        };
-
-        Ok(Action::Continue)
-    }
-
-    // Rewrite the name of the cond port if this group was re-written.
-    fn start_while(
-        &mut self,
-        s: &mut ir::While,
-        _comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
-    ) -> VisResult {
-        let cond_port = &s.port;
-        // Check if the cell associated with the port was rewritten for the cond
-        // group.
-        let parent = if let ir::PortParent::Cell(cell_wref) =
-            &cond_port.borrow().parent
-        {
-            Some(cell_wref.upgrade())
-        } else {
-            None
-        };
-
-        if let Some(cell) = parent {
-            // find rewrite for conditional port cell
-            let rewrite = self
-                .get_rewrites()
-                .iter()
-                .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-            if let Some((_, new_cell)) = rewrite {
-                let new_port = new_cell.borrow().get(&cond_port.borrow().name);
-                s.port = new_port;
-            }
-        };
-
-        Ok(Action::Continue)
-    }
-
-    fn invoke(
-        &mut self,
-        s: &mut ir::Invoke,
-        _comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
-    ) -> VisResult {
-        // rename inputs
-        for (_id, src) in &s.inputs {
-            let parent =
-                if let ir::PortParent::Cell(cell_wref) = &src.borrow().parent {
-                    Some(cell_wref.upgrade())
-                } else {
-                    None
-                };
-
-            if let Some(cell) = parent {
-                // find rewrite for conditional port cell
-                let rewrite = self
-                    .get_rewrites()
-                    .iter()
-                    .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-                if let Some((_, new_cell)) = rewrite {
-                    let new_port = new_cell.borrow().get(&src.borrow().name);
-                    *src.borrow_mut() = new_port.borrow().clone();
-                }
-            };
-        }
-
-        // rename outputs
-        for (_id, dest) in &s.outputs {
-            let parent = if let ir::PortParent::Cell(cell_wref) =
-                &dest.borrow().parent
-            {
-                Some(cell_wref.upgrade())
-            } else {
-                None
-            };
-
-            if let Some(cell) = parent {
-                // find rewrite for conditional port cell
-                let rewrite = self
-                    .get_rewrites()
-                    .iter()
-                    .find(|(c, _)| Rc::ptr_eq(c, &cell));
-
-                if let Some((_, new_cell)) = rewrite {
-                    let new_port = new_cell.borrow().get(&dest.borrow().name);
-                    *dest.borrow_mut() = new_port.borrow().clone();
-                }
-            };
-        }
-
-        Ok(Action::Continue)
+        Ok(Action::Stop)
     }
 }

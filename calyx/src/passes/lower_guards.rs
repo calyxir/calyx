@@ -23,12 +23,14 @@ fn guard_to_prim(guard: &ir::Guard) -> Option<String> {
     let var_name = match guard {
         ir::Guard::Or(..) => "or",
         ir::Guard::And(..) => "and",
-        ir::Guard::Eq(..) => "eq",
-        ir::Guard::Neq(..) => "neq",
-        ir::Guard::Gt(..) => "gt",
-        ir::Guard::Lt(..) => "lt",
-        ir::Guard::Geq(..) => "ge",
-        ir::Guard::Leq(..) => "le",
+        ir::Guard::CompOp(op, _, _) => match op {
+            ir::PortComp::Eq => "eq",
+            ir::PortComp::Neq => "neq",
+            ir::PortComp::Gt => "gt",
+            ir::PortComp::Lt => "lt",
+            ir::PortComp::Geq => "ge",
+            ir::PortComp::Leq => "le",
+        },
         ir::Guard::True | ir::Guard::Not(_) | ir::Guard::Port(_) => {
             return None;
         }
@@ -66,12 +68,7 @@ fn lower_guard(
             prim.get("out")
         }
 
-        ir::Guard::Eq(l, r)
-        | ir::Guard::Neq(l, r)
-        | ir::Guard::Gt(l, r)
-        | ir::Guard::Lt(l, r)
-        | ir::Guard::Geq(l, r)
-        | ir::Guard::Leq(l, r) => {
+        ir::Guard::CompOp(_, l, r) => {
             let prim = maybe_prim.unwrap();
             let prim_name = format!("std_{}", prim);
             let prim_cell =
@@ -131,6 +128,7 @@ impl Visitor for LowerGuards {
         &mut self,
         comp: &mut ir::Component,
         sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
 

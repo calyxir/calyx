@@ -1,11 +1,12 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, CellType, Component, Context,
-    Control, Direction, GetAttributes, Guard, Id, LibrarySignatures, Port,
-    PortDef, Width, RRC,
+    Control, Direction, GetAttributes, Guard, Id, Invoke, LibrarySignatures,
+    Port, PortDef, Width, RESERVED_NAMES, RRC,
 };
 use crate::{
     errors::{CalyxResult, Error},
     frontend::{self, ast},
+    ir::PortComp,
     utils::NameGenerator,
 };
 use linked_hash_map::LinkedHashMap;
@@ -138,16 +139,25 @@ pub fn ast_to_ir(
             .comp_sigs
             .insert(comp.name.clone(), comp.signature.clone());
     }
-    let comps = workspace
+    let comps: Vec<Component> = workspace
         .components
         .into_iter()
         .map(|comp| build_component(comp, &sig_ctx))
         .collect::<Result<_, _>>()?;
 
+    // Find the entrypoint for the program.
+    let entrypoint = comps
+        .iter()
+        .find(|c| c.attributes.get("toplevel").is_some())
+        .or_else(|| comps.iter().find(|c| c.name == "main"))
+        .map(|c| c.name.clone())
+        .ok_or_else(|| Error::Misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
+
     Ok(Context {
         components: comps,
         lib: sig_ctx.lib,
         bc,
+        entrypoint,
         extra_opts: vec![],
     })
 }
@@ -241,6 +251,11 @@ fn build_component(
 
     ir_component.attributes = comp.attributes;
 
+    // Add reserved names to the component's namegenerator so future conflicts
+    // don't occur
+    ir_component
+        .add_names(RESERVED_NAMES.iter().map(|s| s.to_string()).collect());
+
     Ok(ir_component)
 }
 
@@ -283,8 +298,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
 ///////////////// Group Construction /////////////////////////
 
-/// Build an [ir::Group] from an [ast::Group] and attach it to the [ir::Compoennt]
-/// associated with the [ir::Builder]
+/// Build an [super::Group] from an [ast::Group] and attach it to the [Component]
+/// associated with the [Builder]
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
     if group.is_comb {
         let ir_group = builder.add_comb_group(group.name);
@@ -355,14 +370,42 @@ fn atom_to_port(
     }
 }
 
+/// Ensures that the given port has the required direction.
+fn ensure_direction(pr: RRC<Port>, dir: Direction) -> CalyxResult<RRC<Port>> {
+    let port_dir = pr.borrow().direction.clone();
+    match (dir, port_dir) {
+        (Direction::Input, Direction::Output) => {
+            let (c, p) = pr.borrow().canonical();
+            Err(Error::MalformedStructure(format!(
+                "Port `{}.{}` occurs in write position but is an output port",
+                c, p
+            )))
+        }
+        (Direction::Output, Direction::Input) => {
+            let (c, p) = pr.borrow().canonical();
+            Err(Error::MalformedStructure(format!(
+                "Port `{}.{}` occurs in write position but is an output port",
+                c, p
+            )))
+        }
+        _ => Ok(pr),
+    }
+}
+
 /// Build an ir::Assignment from ast::Wire.
 /// The Assignment contains pointers to the relevant ports.
 fn build_assignment(
     wire: ast::Wire,
     builder: &mut Builder,
 ) -> CalyxResult<Assignment> {
-    let src_port: RRC<Port> = atom_to_port(wire.src.expr, builder)?;
-    let dst_port: RRC<Port> = get_port_ref(wire.dest, builder.component)?;
+    let src_port: RRC<Port> = ensure_direction(
+        atom_to_port(wire.src.expr, builder)?,
+        Direction::Output,
+    )?;
+    let dst_port: RRC<Port> = ensure_direction(
+        get_port_ref(wire.dest, builder.component)?,
+        Direction::Input,
+    )?;
     let guard = match wire.src.guard {
         Some(g) => build_guard(g, builder)?,
         None => Guard::True,
@@ -380,16 +423,26 @@ fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> CalyxResult<Guard> {
     };
 
     Ok(match guard {
-        GE::Atom(atom) => Guard::port(atom_to_port(atom, bd)?),
+        GE::Atom(atom) => Guard::port(ensure_direction(
+            atom_to_port(atom, bd)?,
+            Direction::Output,
+        )?),
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
-        GE::Eq(l, r) => Guard::Eq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Neq(l, r) => Guard::Neq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Gt(l, r) => Guard::Gt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Lt(l, r) => Guard::Lt(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Geq(l, r) => Guard::Geq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
-        GE::Leq(l, r) => Guard::Leq(atom_to_port(l, bd)?, atom_to_port(r, bd)?),
+        GE::CompOp(op, l, r) => {
+            let nl = ensure_direction(atom_to_port(l, bd)?, Direction::Output)?;
+            let nr = ensure_direction(atom_to_port(r, bd)?, Direction::Output)?;
+            let nop = match op {
+                ast::GuardComp::Eq => PortComp::Eq,
+                ast::GuardComp::Neq => PortComp::Neq,
+                ast::GuardComp::Gt => PortComp::Gt,
+                ast::GuardComp::Lt => PortComp::Lt,
+                ast::GuardComp::Geq => PortComp::Geq,
+                ast::GuardComp::Leq => PortComp::Leq,
+            };
+            Guard::CompOp(nop, nl, nr)
+        }
     })
 }
 
@@ -418,23 +471,49 @@ fn build_control(
             inputs,
             outputs,
             attributes,
+            comb_group,
         } => {
             let cell = Rc::clone(
                 &builder.component.find_cell(&component).ok_or_else(|| {
                     Error::Undefined(component.clone(), "cell".to_string())
                 })?,
             );
-            let inps = inputs
+            let inputs = inputs
                 .into_iter()
-                .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
+                .map(|(id, port)| {
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Output))
+                        .map(|p| (id, p))
+                })
                 .collect::<Result<_, _>>()?;
-            let outs = outputs
+            let outputs = outputs
                 .into_iter()
-                .map(|(id, port)| atom_to_port(port, builder).map(|p| (id, p)))
+                .map(|(id, port)| {
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Input))
+                        .map(|p| (id, p))
+                })
                 .collect::<Result<_, _>>()?;
-            let mut inv = Control::invoke(cell, inps, outs);
-            *(inv.get_mut_attributes().unwrap()) = attributes;
-            inv
+            let mut inv = Invoke {
+                comp: cell,
+                inputs,
+                outputs,
+                attributes,
+                comb_group: None,
+            };
+            if let Some(cg) = comb_group {
+                let cg_ref = builder
+                    .component
+                    .find_comb_group(&cg)
+                    .ok_or_else(|| {
+                        Error::Undefined(
+                            cg.clone(),
+                            "combinational group".to_string(),
+                        )
+                    })?;
+                inv.comb_group = Some(cg_ref);
+            }
+            Control::Invoke(inv)
         }
         ast::Control::Seq { stmts, attributes } => {
             let mut s = Control::seq(
@@ -474,7 +553,10 @@ fn build_control(
                 })
                 .transpose()?;
             let mut con = Control::if_(
-                get_port_ref(port, builder.component)?,
+                ensure_direction(
+                    get_port_ref(port, builder.component)?,
+                    Direction::Output,
+                )?,
                 group,
                 Box::new(build_control(*tbranch, builder)?),
                 Box::new(build_control(*fbranch, builder)?),
@@ -499,7 +581,10 @@ fn build_control(
                 })
                 .transpose()?;
             let mut con = Control::while_(
-                get_port_ref(port, builder.component)?,
+                ensure_direction(
+                    get_port_ref(port, builder.component)?,
+                    Direction::Output,
+                )?,
                 group,
                 Box::new(build_control(*body, builder)?),
             );

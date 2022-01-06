@@ -54,6 +54,15 @@ impl Port {
         matches!(&self.parent, PortParent::Group(_))
     }
 
+    /// Returns the parent of the [Port] which must be [Cell]. Throws an error
+    /// otherwise.
+    pub fn cell_parent(&self) -> RRC<Cell> {
+        if let PortParent::Cell(cell_wref) = &self.parent {
+            return cell_wref.upgrade();
+        }
+        unreachable!("This port should have a cell parent")
+    }
+
     /// Checks if this port is a constant of value: `val`.
     pub fn is_constant(&self, val: u64, width: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {
@@ -125,7 +134,7 @@ pub enum CellType {
         /// Name of the primitive cell used to instantiate this cell.
         name: Id,
         /// Bindings for the parameters. Uses Vec to retain the input order.
-        param_binding: Binding,
+        param_binding: Box<Binding>,
         /// True iff this is a combinational primitive
         is_comb: bool,
     },
@@ -177,7 +186,7 @@ impl Cell {
         self.ports
             .iter()
             .find(|&g| g.borrow().name == name)
-            .map(|r| Rc::clone(r))
+            .map(Rc::clone)
     }
 
     /// Get a reference to the first port that has the attribute `attr`.
@@ -188,7 +197,7 @@ impl Cell {
         self.ports
             .iter()
             .find(|&g| g.borrow().attributes.has(attr.as_ref()))
-            .map(|r| Rc::clone(r))
+            .map(Rc::clone)
     }
 
     /// Get a reference to the named port and throw an error if it doesn't
@@ -204,6 +213,16 @@ impl Cell {
                 self.name.to_string()
             )
         })
+    }
+
+    /// Returns true iff this cell is an instance of a Calyx-defined component.
+    pub fn is_component(&self) -> bool {
+        matches!(&self.prototype, CellType::Component { .. })
+    }
+
+    /// Returns true iff this cell is an instance of a primitive.
+    pub fn is_primitive(&self) -> bool {
+        matches!(&self.prototype, CellType::Primitive { .. })
     }
 
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
@@ -279,18 +298,21 @@ impl Cell {
     pub fn ports(&self) -> &SmallVec<[RRC<Port>; 10]> {
         &self.ports
     }
-}
 
-/// Generic wrapper for iterators that return [RRC] of [super::Cell].
-pub struct CellIterator<'a> {
-    pub iter: Box<dyn Iterator<Item = RRC<Cell>> + 'a>,
-}
-
-impl Iterator for CellIterator<'_> {
-    type Item = RRC<Cell>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+    // Get the signature of this cell as a vector. Each element corresponds to a port in the Cell.
+    pub fn get_signature(&self) -> Vec<(Id, u64, Direction, Attributes)> {
+        self.ports
+            .iter()
+            .map(|port_ref| {
+                let port = port_ref.borrow();
+                (
+                    port.name.clone(),
+                    port.width,
+                    port.direction.clone(),
+                    port.attributes.clone(),
+                )
+            })
+            .collect()
     }
 }
 
@@ -305,6 +327,23 @@ pub struct Assignment {
 
     /// The guard for this assignment.
     pub guard: Box<Guard>,
+}
+
+impl Assignment {
+    /// Apply function `f` to each port contained within the assignment and
+    /// replace the port with the generated value if not None.
+    pub fn for_each_port<F>(&mut self, f: F)
+    where
+        F: Fn(&RRC<Port>) -> Option<RRC<Port>>,
+    {
+        if let Some(new_src) = f(&self.src) {
+            self.src = new_src;
+        }
+        if let Some(new_dst) = f(&self.dst) {
+            self.dst = new_dst;
+        }
+        self.guard.for_each(&|port| f(&port).map(Guard::port))
+    }
 }
 
 /// A Group of assignments that perform a logical action.
@@ -331,7 +370,7 @@ impl Group {
         self.holes
             .iter()
             .find(|&g| g.borrow().name == name)
-            .map(|r| Rc::clone(r))
+            .map(Rc::clone)
     }
 
     /// Get a reference to the named hole or panic.

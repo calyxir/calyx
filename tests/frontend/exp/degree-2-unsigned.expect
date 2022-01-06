@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component exp(x: 32) -> (out: 32) {
   cells {
     exponent_value = std_reg(32);

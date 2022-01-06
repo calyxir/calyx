@@ -1,5 +1,5 @@
 // -p all -d infer-static-timing -d well-formed -d papercut -d resource-sharing -p simplify-guards
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component main() -> () {
   cells {

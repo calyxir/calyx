@@ -17,6 +17,15 @@ module std_const #(
   assign out = VALUE;
 endmodule
 
+module std_wire #(
+  parameter WIDTH = 32
+) (
+  input logic [WIDTH - 1:0] in,
+  output logic [WIDTH - 1:0] out
+);
+  assign out = in;
+endmodule
+
 module std_slice #(
     parameter IN_WIDTH  = 32,
     parameter OUT_WIDTH = 32
@@ -362,8 +371,9 @@ module main (
     output logic done
 );
     string DATA;
+    int CODE;
     initial begin
-        $value$plusargs("DATA=%s", DATA);
+        CODE = $value$plusargs("DATA=%s", DATA);
         $display("DATA (path to meminit files): %s", DATA);
         $readmemh({DATA, "/m1.dat"}, m1.mem);
     end

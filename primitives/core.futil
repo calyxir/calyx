@@ -1,6 +1,7 @@
 extern "core.sv" {
   /// Primitives
   comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH);
+  comb primitive std_wire<"share"=1>[WIDTH](in: WIDTH) -> (out: WIDTH);
   comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
   comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
 
@@ -30,7 +31,7 @@ extern "core.sv" {
     @clk clk: 1,
     @reset reset: 1
   ) -> (
-    out: WIDTH,
+    @stable out: WIDTH,
     @done done: 1
   );
 

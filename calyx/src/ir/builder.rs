@@ -5,6 +5,8 @@ use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use super::CellType;
+
 /// IR builder.
 /// Uses internal references to the component to construct and validate
 /// constructs when needed.
@@ -23,6 +25,9 @@ pub struct Builder<'a> {
     /// Cells added are generated during a compiler pass.
     generated: bool,
 }
+
+/// Signature of [Port]s for a [Cell].
+type CellPortSig = Vec<(ir::Id, u64, ir::Direction, ir::Attributes)>;
 
 impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
@@ -113,13 +118,8 @@ impl<'a> Builder<'a> {
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
-        if let Some(cell) = self
-            .component
-            .cells
-            .iter()
-            .find(|&c| *c.borrow().name() == name)
-        {
-            return Rc::clone(cell);
+        if let Some(cell) = self.component.cells.find(&name) {
+            return Rc::clone(&cell);
         }
 
         // Construct this cell if it's not already present in the context.
@@ -150,15 +150,15 @@ impl<'a> Builder<'a> {
     /// // Construct a std_reg.
     /// builder.add_primitive("fsm", "std_reg", vec![32]);
     /// ```
-    pub fn add_primitive<S, P>(
+    pub fn add_primitive<Pre, Prim>(
         &mut self,
-        prefix: S,
-        primitive: P,
+        prefix: Pre,
+        primitive: Prim,
         param_values: &[u64],
     ) -> RRC<ir::Cell>
     where
-        S: Into<ir::Id> + ToString + Clone,
-        P: AsRef<str>,
+        Pre: Into<ir::Id> + ToString + Clone,
+        Prim: AsRef<str>,
     {
         let prim_id = ir::Id::from(primitive.as_ref());
         let prim = &self.lib.get_primitive(&prim_id);
@@ -171,10 +171,36 @@ impl<'a> Builder<'a> {
             name,
             ir::CellType::Primitive {
                 name: prim_id,
-                param_binding,
+                param_binding: Box::new(param_binding),
                 is_comb: prim.is_comb,
             },
             ports,
+        );
+        if self.generated {
+            cell.borrow_mut().add_attribute("generated", 1);
+        }
+        self.component.cells.add(Rc::clone(&cell));
+        cell
+    }
+
+    /// Add a component instance to this component using its name and port
+    /// signature.
+    pub fn add_component<Pre>(
+        &mut self,
+        prefix: Pre,
+        component: Pre,
+        sig: CellPortSig,
+    ) -> RRC<ir::Cell>
+    where
+        Pre: Into<ir::Id> + ToString + Clone,
+    {
+        let name = self.component.generate_name(prefix);
+        let cell = Self::cell_from_signature(
+            name,
+            CellType::Component {
+                name: component.into(),
+            },
+            sig,
         );
         if self.generated {
             cell.borrow_mut().add_attribute("generated", 1);
@@ -231,58 +257,6 @@ impl<'a> Builder<'a> {
         }
     }
 
-    /// Rewrite all reads and writes from `cell` in the given assingments to
-    /// the same ports on `new_cell`.
-    ///
-    /// For example, given with `cell = a` and `new_cell = b`
-    /// ```
-    /// a.in = a.done ? a.out;
-    /// ```
-    /// is rewritten to
-    /// ```
-    /// b.in = b.done ? b.out;
-    /// ```
-    pub fn rename_port_uses(
-        &self,
-        rewrites: &[(RRC<ir::Cell>, RRC<ir::Cell>)],
-        assigns: &mut Vec<ir::Assignment>,
-    ) {
-        // Returns true if the port's parent in the given cell.
-        let parent_matches =
-            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> bool {
-                if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
-                    Rc::ptr_eq(&cell_wref.upgrade(), cell)
-                } else {
-                    false
-                }
-            };
-
-        // Returns a reference to the port with the same name in cell.
-        let get_port =
-            |port: &RRC<ir::Port>, cell: &RRC<ir::Cell>| -> RRC<ir::Port> {
-                Rc::clone(&cell.borrow().get(&port.borrow().name))
-            };
-
-        let rewrite_port = |port: &RRC<ir::Port>| -> Option<RRC<ir::Port>> {
-            rewrites
-                .iter()
-                .find(|(cell, _)| parent_matches(port, cell))
-                .map(|(_, new_cell)| get_port(port, new_cell))
-        };
-
-        for assign in assigns {
-            if let Some(new_port) = rewrite_port(&assign.src) {
-                assign.src = new_port;
-            }
-            if let Some(new_port) = rewrite_port(&assign.dst) {
-                assign.dst = new_port;
-            }
-            assign
-                .guard
-                .for_each(&|port| rewrite_port(&port).map(ir::Guard::port));
-        }
-    }
-
     ///////////////////// Internal functions/////////////////////////////////
     /// VALIDATE: Check if the component contains the cell/group associated
     /// with the port exists in the Component.
@@ -309,7 +283,7 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        ports: Vec<(ir::Id, u64, ir::Direction, ir::Attributes)>,
+        ports: CellPortSig,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell {
             name,

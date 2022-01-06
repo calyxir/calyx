@@ -12,10 +12,13 @@ pub struct ResourceSharing {
     used_cells_map: HashMap<ir::Id, Vec<ir::Id>>,
 
     /// This is used to rewrite all uses of `old_cell` with `new_cell` in the group.
-    rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>,
+    rewrites: HashMap<ir::Id, RRC<ir::Cell>>,
 
     /// Set of shareable components.
     shareable_components: HashSet<ir::Id>,
+
+    /// Cell active in continuous assignments
+    cont_cells: HashSet<ir::Id>,
 }
 
 impl Named for ResourceSharing {
@@ -45,14 +48,16 @@ impl ConstructVisitor for ResourceSharing {
         }
         Ok(ResourceSharing {
             used_cells_map: HashMap::new(),
-            rewrites: Vec::new(),
+            rewrites: HashMap::new(),
             shareable_components,
+            cont_cells: HashSet::new(),
         })
     }
 
     fn clear_data(&mut self) {
         self.used_cells_map = HashMap::new();
-        self.rewrites = Vec::new();
+        self.rewrites = HashMap::new();
+        self.cont_cells = HashSet::new();
     }
 }
 
@@ -62,6 +67,11 @@ impl ShareComponents for ResourceSharing {
         component: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
+        // Cell used in continuous assignments cannot be shared.
+        self.cont_cells =
+            analysis::ReadWriteSet::uses(&component.continuous_assignments)
+                .map(|cr| cr.borrow().clone_name())
+                .collect();
         self.used_cells_map = component
             .groups
             .iter()
@@ -78,10 +88,19 @@ impl ShareComponents for ResourceSharing {
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        self.used_cells_map[group_name].clone()
+        self.used_cells_map
+            .get(group_name)
+            .unwrap_or_else(|| {
+                panic!("Missing used cells for group: {}", group_name)
+            })
+            .clone()
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
+        // Cells used in continuous assignments cannot be shared.
+        if self.cont_cells.contains(cell.name()) {
+            return false;
+        }
         if let Some(type_name) = cell.type_name() {
             self.shareable_components.contains(type_name)
         } else {
@@ -98,11 +117,11 @@ impl ShareComponents for ResourceSharing {
         }
     }
 
-    fn set_rewrites(&mut self, rewrites: Vec<(RRC<ir::Cell>, RRC<ir::Cell>)>) {
+    fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, RRC<ir::Cell>>) {
         self.rewrites = rewrites;
     }
 
-    fn get_rewrites(&self) -> &[(RRC<ir::Cell>, RRC<ir::Cell>)] {
+    fn get_rewrites(&self) -> &HashMap<ir::Id, RRC<ir::Cell>> {
         &self.rewrites
     }
 }

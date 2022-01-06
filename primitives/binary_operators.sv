@@ -1,3 +1,4 @@
+/* verilator lint_off MULTITOP */
 /// =================== Unsigned, Fixed Point =========================
 module std_fp_add #(
     parameter WIDTH = 32,
@@ -26,38 +27,75 @@ endmodule
 module std_fp_mult_pipe #(
     parameter WIDTH = 32,
     parameter INT_WIDTH = 16,
-    parameter FRAC_WIDTH = 16
+    parameter FRAC_WIDTH = 16,
+    parameter SIGNED = 0
 ) (
     input  logic [WIDTH-1:0] left,
     input  logic [WIDTH-1:0] right,
     input  logic             go,
     input  logic             clk,
+    input  logic             reset,
     output logic [WIDTH-1:0] out,
     output logic             done
 );
   logic [WIDTH-1:0]          rtmp;
   logic [WIDTH-1:0]          ltmp;
   logic [(WIDTH << 1) - 1:0] out_tmp;
-  reg done_buf[1:0];
+  // Buffer used to walk through the 3 cycles of the pipeline.
+  logic done_buf[2:0];
+
+  assign done = done_buf[2];
+
+  // If the done buffer is completely empty and go is high then execution
+  // just started.
+  logic start;
+  assign start = go & done_buf[0] == 0 & done_buf[1] == 0;
+
+  // Start sending the done signal.
+  always_ff @(posedge clk) begin
+    if (start)
+      done_buf[0] <= 1;
+    else
+      done_buf[0] <= 0;
+  end
+
+  // Push the done signal through the pipeline.
   always_ff @(posedge clk) begin
     if (go) begin
-      rtmp <= right;
-      ltmp <= left;
-      out_tmp <= ltmp * rtmp;
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
-
-      done <= done_buf[1];
-      done_buf[0] <= 1'b1;
+      done_buf[2] <= done_buf[1];
       done_buf[1] <= done_buf[0];
+    end else begin
+      done_buf[2] <= 0;
+      done_buf[1] <= 0;
+    end
+  end
+
+  always_ff @(posedge clk) begin
+    if (go)
+      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
+    else
+      out <= out;
+  end
+
+  // Move the multiplication computation through the pipeline.
+  always_ff @(posedge clk) begin
+    if (go) begin
+      if (SIGNED) begin
+        rtmp <= $signed(right);
+        ltmp <= $signed(left);
+        out_tmp <= $signed(
+          { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
+          { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
+        );
+      end else begin
+        rtmp <= right;
+        ltmp <= left;
+        out_tmp <= ltmp * rtmp;
+      end
     end else begin
       rtmp <= 0;
       ltmp <= 0;
       out_tmp <= 0;
-      out <= 0;
-
-      done <= 0;
-      done_buf[0] <= 0;
-      done_buf[1] <= 0;
     end
   end
 endmodule
@@ -70,6 +108,7 @@ module std_fp_div_pipe #(
 ) (
     input  logic             go,
     input  logic             clk,
+    input  logic             reset,
     input  logic [WIDTH-1:0] left,
     input  logic [WIDTH-1:0] right,
     output logic [WIDTH-1:0] out_remainder,
@@ -81,10 +120,20 @@ module std_fp_div_pipe #(
     logic [WIDTH-1:0] quotient, quotient_next;
     logic [WIDTH:0] acc, acc_next;
     logic [$clog2(ITERATIONS)-1:0] idx;
-    logic start, running, finished;
+    logic start, running, finished, dividend_is_zero;
 
     assign start = go && !running;
-    assign finished = running && (idx == ITERATIONS - 1);
+    assign dividend_is_zero = start && left == 0;
+    assign finished = idx == ITERATIONS - 1 && running;
+
+    always_ff @(posedge clk) begin
+      if (reset || finished || dividend_is_zero)
+        running <= 0;
+      else if (start)
+        running <= 1;
+      else
+        running <= running;
+    end
 
     always_comb begin
       if (acc >= {1'b0, right}) begin
@@ -95,36 +144,49 @@ module std_fp_div_pipe #(
       end
     end
 
+    // `done` signaling
     always_ff @(posedge clk) begin
-      if (!go) begin
-        running <= 0;
-        done <= 0;
-        out_remainder <= 0;
-        out_quotient <= 0;
-      end else if (start && left == 0) begin
-        out_remainder <= 0;
-        out_quotient <= 0;
+      if (dividend_is_zero || finished)
         done <= 1;
-      end
-
-      if (start) begin
-        running <= 1;
+      else
         done <= 0;
+    end
+
+    always_ff @(posedge clk) begin
+      if (running)
+        idx <= idx + 1;
+      else
         idx <= 0;
-        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+    end
+
+    always_ff @(posedge clk) begin
+      if (start) begin
         out_quotient <= 0;
         out_remainder <= left;
+      end else if (go == 0) begin
+        out_quotient <= out_quotient;
+        out_remainder <= out_remainder;
+      end else if (dividend_is_zero) begin
+        out_quotient <= 0;
+        out_remainder <= 0;
       end else if (finished) begin
-        running <= 0;
-        done <= 1;
         out_quotient <= quotient_next;
+        out_remainder <= out_remainder;
       end else begin
-        idx <= idx + 1;
+        out_quotient <= out_quotient;
+        if (right <= out_remainder)
+          out_remainder <= out_remainder - right;
+        else
+          out_remainder <= out_remainder;
+      end
+    end
+
+    always_ff @(posedge clk) begin
+      if (start) begin
+        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+      end else begin
         acc <= acc_next;
         quotient <= quotient_next;
-        if (right <= out_remainder) begin
-          out_remainder <= out_remainder - right;
-        end
       end
     end
 endmodule
@@ -139,57 +201,6 @@ module std_fp_gt #(
     output logic             out
 );
   assign out = left > right;
-endmodule
-
-module std_fp_add_dwidth #(
-    parameter WIDTH1 = 32,
-    parameter WIDTH2 = 32,
-    parameter INT_WIDTH1 = 16,
-    parameter FRAC_WIDTH1 = 16,
-    parameter INT_WIDTH2 = 12,
-    parameter FRAC_WIDTH2 = 20,
-    parameter OUT_WIDTH = 36
-) (
-    input  logic [   WIDTH1-1:0] left,
-    input  logic [   WIDTH2-1:0] right,
-    output logic [OUT_WIDTH-1:0] out
-);
-
-  localparam BIG_INT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
-  localparam BIG_FRACT = (FRAC_WIDTH1 >= FRAC_WIDTH2) ? FRAC_WIDTH1 : FRAC_WIDTH2;
-
-  initial begin
-    if (BIG_INT + BIG_FRACT != OUT_WIDTH)
-      $error("std_fp_add_dwidth: Given output width not equal to computed output width");
-  end
-
-  logic [INT_WIDTH1-1:0] left_int;
-  logic [INT_WIDTH2-1:0] right_int;
-  logic [FRAC_WIDTH1-1:0] left_fract;
-  logic [FRAC_WIDTH2-1:0] right_fract;
-
-  logic [BIG_INT-1:0] mod_right_int;
-  logic [BIG_FRACT-1:0] mod_left_fract;
-
-  logic [BIG_INT-1:0] whole_int;
-  logic [BIG_FRACT-1:0] whole_fract;
-
-  assign {left_int, left_fract} = left;
-  assign {right_int, right_fract} = right;
-
-  assign mod_left_fract = left_fract * (2 ** (FRAC_WIDTH2 - FRAC_WIDTH1));
-
-  always_comb begin
-    if ((mod_left_fract + right_fract) >= 2 ** FRAC_WIDTH2) begin
-      whole_int = left_int + right_int + 1;
-      whole_fract = mod_left_fract + right_fract - 2 ** FRAC_WIDTH2;
-    end else begin
-      whole_int = left_int + right_int;
-      whole_fract = mod_left_fract + right_fract;
-    end
-  end
-
-  assign out = {whole_int, whole_fract};
 endmodule
 
 /// =================== Signed, Fixed Point =========================
@@ -223,42 +234,28 @@ module std_fp_smult_pipe #(
     parameter INT_WIDTH = 16,
     parameter FRAC_WIDTH = 16
 ) (
-    input  signed       [WIDTH-1:0] left,
-    input  signed       [WIDTH-1:0] right,
+    input  [WIDTH-1:0]              left,
+    input  [WIDTH-1:0]              right,
+    input  logic                    reset,
     input  logic                    go,
     input  logic                    clk,
-    output logic signed [WIDTH-1:0] out,
+    output logic [WIDTH-1:0]        out,
     output logic                    done
 );
-  logic signed [WIDTH-1:0] ltmp;
-  logic signed [WIDTH-1:0] rtmp;
-  logic signed [(WIDTH << 1) - 1:0] out_tmp;
-  reg done_buf[1:0];
-  always_ff @(posedge clk) begin
-    if (go) begin
-      ltmp <= left;
-      rtmp <= right;
-      // Sign extend by the first bit for the operands.
-      out_tmp <= $signed(
-                   { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
-                   { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
-                 );
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1: WIDTH - INT_WIDTH];
-
-      done <= done_buf[1];
-      done_buf[0] <= 1'b1;
-      done_buf[1] <= done_buf[0];
-    end else begin
-      rtmp <= 0;
-      ltmp <= 0;
-      out_tmp <= 0;
-      out <= 0;
-
-      done <= 0;
-      done_buf[0] <= 0;
-      done_buf[1] <= 0;
-    end
-  end
+  std_fp_mult_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(INT_WIDTH),
+    .FRAC_WIDTH(FRAC_WIDTH),
+    .SIGNED(1)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .reset(reset),
+    .go(go),
+    .left(left),
+    .right(right),
+    .out(out)
+  );
 endmodule
 
 module std_fp_sdiv_pipe #(
@@ -268,6 +265,7 @@ module std_fp_sdiv_pipe #(
 ) (
     input                     clk,
     input                     go,
+    input                     reset,
     input  signed [WIDTH-1:0] left,
     input  signed [WIDTH-1:0] right,
     output signed [WIDTH-1:0] out_quotient,
@@ -275,21 +273,44 @@ module std_fp_sdiv_pipe #(
     output logic              done
 );
 
-  logic signed [WIDTH-1:0] left_abs;
-  logic signed [WIDTH-1:0] right_abs;
-  logic signed [WIDTH-1:0] comp_out_q;
-  logic signed [WIDTH-1:0] comp_out_r;
+  logic signed [WIDTH-1:0] left_abs, right_abs, comp_out_q, comp_out_r, right_save, out_rem_intermediate;
+
+  // Registers to figure out how to transform outputs.
+  logic different_signs, left_sign, right_sign;
+
+  // Latch the value of control registers so that their available after
+  // go signal becomes low.
+  always_ff @(posedge clk) begin
+    if (go) begin
+      right_save <= right_abs;
+      left_sign <= left[WIDTH-1];
+      right_sign <= right[WIDTH-1];
+    end else begin
+      left_sign <= left_sign;
+      right_save <= right_save;
+      right_sign <= right_sign;
+    end
+  end
 
   assign right_abs = right[WIDTH-1] ? -right : right;
   assign left_abs = left[WIDTH-1] ? -left : left;
-  assign out_quotient = left[WIDTH-1] ^ right[WIDTH-1] ? -comp_out_q : comp_out_q;
-  assign out_remainder = (left[WIDTH-1] && comp_out_r) ? $signed(right - comp_out_r) : comp_out_r;
+
+  assign different_signs = left_sign ^ right_sign;
+  assign out_quotient = different_signs ? -comp_out_q : comp_out_q;
+
+  // Remainder is computed as:
+  //  t0 = |left| % |right|
+  //  t1 = if left * right < 0 and t0 != 0 then |right| - t0 else t0
+  //  rem = if right < 0 then -t1 else t1
+  assign out_rem_intermediate = different_signs & |comp_out_r ? $signed(right_save - comp_out_r) : comp_out_r;
+  assign out_remainder = right_sign ? -out_rem_intermediate : out_rem_intermediate;
 
   std_fp_div_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(INT_WIDTH),
     .FRAC_WIDTH(FRAC_WIDTH)
   ) comp (
+    .reset(reset),
     .clk(clk),
     .done(done),
     .go(go),
@@ -298,52 +319,6 @@ module std_fp_sdiv_pipe #(
     .out_quotient(comp_out_q),
     .out_remainder(comp_out_r)
   );
-endmodule
-
-module std_fp_sadd_dwidth #(
-    parameter WIDTH1 = 32,
-    parameter WIDTH2 = 32,
-    parameter INT_WIDTH1 = 16,
-    parameter FRAC_WIDTH1 = 16,
-    parameter INT_WIDTH2 = 12,
-    parameter FRAC_WIDTH2 = 20,
-    parameter OUT_WIDTH = 36
-) (
-    input  logic [   WIDTH1-1:0] left,
-    input  logic [   WIDTH2-1:0] right,
-    output logic [OUT_WIDTH-1:0] out
-);
-
-  logic signed [INT_WIDTH1-1:0] left_int;
-  logic signed [INT_WIDTH2-1:0] right_int;
-  logic [FRAC_WIDTH1-1:0] left_fract;
-  logic [FRAC_WIDTH2-1:0] right_fract;
-
-  localparam BIG_INT = (INT_WIDTH1 >= INT_WIDTH2) ? INT_WIDTH1 : INT_WIDTH2;
-  localparam BIG_FRACT = (FRAC_WIDTH1 >= FRAC_WIDTH2) ? FRAC_WIDTH1 : FRAC_WIDTH2;
-
-  logic [BIG_INT-1:0] mod_right_int;
-  logic [BIG_FRACT-1:0] mod_left_fract;
-
-  logic [BIG_INT-1:0] whole_int;
-  logic [BIG_FRACT-1:0] whole_fract;
-
-  assign {left_int, left_fract} = left;
-  assign {right_int, right_fract} = right;
-
-  assign mod_left_fract = left_fract * (2 ** (FRAC_WIDTH2 - FRAC_WIDTH1));
-
-  always_comb begin
-    if ((mod_left_fract + right_fract) >= 2 ** FRAC_WIDTH2) begin
-      whole_int = $signed(left_int + right_int + 1);
-      whole_fract = mod_left_fract + right_fract - 2 ** FRAC_WIDTH2;
-    end else begin
-      whole_int = $signed(left_int + right_int);
-      whole_fract = mod_left_fract + right_fract;
-    end
-  end
-
-  assign out = {whole_int, whole_fract};
 endmodule
 
 module std_fp_sgt #(
@@ -376,6 +351,7 @@ module std_mult_pipe #(
 ) (
     input  logic [WIDTH-1:0] left,
     input  logic [WIDTH-1:0] right,
+    input  logic             reset,
     input  logic             go,
     input  logic             clk,
     output logic [WIDTH-1:0] out,
@@ -384,8 +360,10 @@ module std_mult_pipe #(
   std_fp_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
-    .FRAC_WIDTH(0)
+    .FRAC_WIDTH(0),
+    .SIGNED(0)
   ) comp (
+    .reset(reset),
     .clk(clk),
     .done(done),
     .go(go),
@@ -398,6 +376,7 @@ endmodule
 module std_div_pipe #(
     parameter WIDTH = 32
 ) (
+    input                    reset,
     input                    clk,
     input                    go,
     input        [WIDTH-1:0] left,
@@ -411,62 +390,114 @@ module std_div_pipe #(
   logic [(WIDTH-1)*2:0] divisor;
   logic [WIDTH-1:0] quotient;
   logic [WIDTH-1:0] quotient_msk;
-  logic start, running, finished;
+  logic start, running, finished, dividend_is_zero;
 
   assign start = go && !running;
-  assign finished = !quotient_msk && running;
+  assign finished = quotient_msk == 0 && running;
+  assign dividend_is_zero = start && left == 0;
 
   always_ff @(posedge clk) begin
-    if (!go) begin
-      running <= 0;
+    // Early return if the divisor is zero.
+    if (finished || dividend_is_zero)
+      done <= 1;
+    else
       done <= 0;
-      out_remainder <= 0;
-      out_quotient <= 0;
-    end else if (start && left == 0) begin
-      out_remainder <= 0;
-      out_quotient <= 0;
-      done <= 1;
-    end
+  end
 
-    if (start) begin
-      running <= 1;
-      dividend <= left;
-      divisor <= right << WIDTH - 1;
-      quotient <= 0;
-      quotient_msk <= 1 << WIDTH - 1;
-    end else if (finished) begin
+  always_ff @(posedge clk) begin
+    if (reset || finished || dividend_is_zero)
       running <= 0;
-      done <= 1;
-      out_remainder <= dividend;
+    else if (start)
+      running <= 1;
+    else
+      running <= running;
+  end
+
+  // Outputs
+  always_ff @(posedge clk) begin
+    if (dividend_is_zero || start) begin
+      out_quotient <= 0;
+      out_remainder <= 0;
+    end else if (finished) begin
       out_quotient <= quotient;
+      out_remainder <= dividend;
     end else begin
-      if (divisor <= dividend) begin
-        dividend <= dividend - divisor;
-        quotient <= quotient | quotient_msk;
-      end
-      divisor <= divisor >> 1;
-      quotient_msk <= quotient_msk >> 1;
+      // Otherwise, explicitly latch the values.
+      out_quotient <= out_quotient;
+      out_remainder <= out_remainder;
     end
   end
 
+  // Calculate the quotient mask.
+  always_ff @(posedge clk) begin
+    if (start)
+      quotient_msk <= 1 << WIDTH - 1;
+    else if (running)
+      quotient_msk <= quotient_msk >> 1;
+    else
+      quotient_msk <= quotient_msk;
+  end
+
+  // Calculate the quotient.
+  always_ff @(posedge clk) begin
+    if (start)
+      quotient <= 0;
+    else if (divisor <= dividend)
+      quotient <= quotient | quotient_msk;
+    else
+      quotient <= quotient;
+  end
+
+  // Calculate the dividend.
+  always_ff @(posedge clk) begin
+    if (start)
+      dividend <= left;
+    else if (divisor <= dividend)
+      dividend <= dividend - divisor;
+    else
+      dividend <= dividend;
+  end
+
+  always_ff @(posedge clk) begin
+    if (start) begin
+      divisor <= right << WIDTH - 1;
+    end else if (finished) begin
+      divisor <= 0;
+    end else begin
+      divisor <= divisor >> 1;
+    end
+  end
+
+  // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
-    // Simulation self test against unsynthesizable implementation.
+    logic [WIDTH-1:0] l, r;
+    always_ff @(posedge clk) begin
+      if (go) begin
+        l <= left;
+        r <= right;
+      end else begin
+        l <= l;
+        r <= r;
+      end
+    end
+
     always @(posedge clk) begin
-      if (finished && dividend != $unsigned(left % right))
+      if (done && $unsigned(out_remainder) != $unsigned(l % r))
         $error(
           "\nstd_div_pipe (Remainder): Computed and golden outputs do not match!\n",
-          "left: %0d", $unsigned(left),
-          "  right: %0d\n", $unsigned(right),
-          "expected: %0d", $unsigned(left % right),
-          "  computed: %0d", $unsigned(dividend)
+          "left: %0d", $unsigned(l),
+          "  right: %0d\n", $unsigned(r),
+          "expected: %0d", $unsigned(l % r),
+          "  computed: %0d", $unsigned(out_remainder)
         );
-      if (finished && quotient != $unsigned(left / right))
+
+      if (done && $unsigned(out_quotient) != $unsigned(l / r))
         $error(
           "\nstd_div_pipe (Quotient): Computed and golden outputs do not match!\n",
-          "left: %0d", $unsigned(left),
-          "  right: %0d\n", $unsigned(right),
-          "expected: %0d", $unsigned(left / right),
-          "  computed: %0d", $unsigned(quotient)
+          "left: %0d", $unsigned(l),
+          "  right: %0d\n", $unsigned(r),
+          "expected: %0d", $unsigned(l / r),
+          "  computed: %0d", $unsigned(out_quotient)
         );
     end
   `endif
@@ -496,6 +527,7 @@ endmodule
 module std_smult_pipe #(
     parameter WIDTH = 32
 ) (
+    input  logic                    reset,
     input  logic                    go,
     input  logic                    clk,
     input  signed       [WIDTH-1:0] left,
@@ -503,11 +535,13 @@ module std_smult_pipe #(
     output logic signed [WIDTH-1:0] out,
     output logic                    done
 );
-  std_fp_smult_pipe #(
+  std_fp_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
-    .FRAC_WIDTH(0)
+    .FRAC_WIDTH(0),
+    .SIGNED(1)
   ) comp (
+    .reset(reset),
     .clk(clk),
     .done(done),
     .go(go),
@@ -521,27 +555,52 @@ endmodule
 module std_sdiv_pipe #(
     parameter WIDTH = 32
 ) (
-    input                     clk,
-    input                     go,
-    input  signed [WIDTH-1:0] left,
-    input  signed [WIDTH-1:0] right,
-    output signed [WIDTH-1:0] out_quotient,
-    output signed [WIDTH-1:0] out_remainder,
-    output logic              done
+    input                           reset,
+    input                           clk,
+    input                           go,
+    input  logic signed [WIDTH-1:0] left,
+    input  logic signed [WIDTH-1:0] right,
+    output logic signed [WIDTH-1:0] out_quotient,
+    output logic signed [WIDTH-1:0] out_remainder,
+    output logic                    done
 );
 
-  logic signed [WIDTH-1:0] left_abs, right_abs, comp_out_q, comp_out_r;
-  logic different_signs;
+  logic signed [WIDTH-1:0] left_abs, right_abs, comp_out_q, comp_out_r, right_save, out_rem_intermediate;
+
+  // Registers to figure out how to transform outputs.
+  logic different_signs, left_sign, right_sign;
+
+  // Latch the value of control registers so that their available after
+  // go signal becomes low.
+  always_ff @(posedge clk) begin
+    if (go) begin
+      right_save <= right_abs;
+      left_sign <= left[WIDTH-1];
+      right_sign <= right[WIDTH-1];
+    end else begin
+      left_sign <= left_sign;
+      right_save <= right_save;
+      right_sign <= right_sign;
+    end
+  end
 
   assign right_abs = right[WIDTH-1] ? -right : right;
   assign left_abs = left[WIDTH-1] ? -left : left;
-  assign different_signs = left[WIDTH-1] ^ right[WIDTH-1];
+
+  assign different_signs = left_sign ^ right_sign;
   assign out_quotient = different_signs ? -comp_out_q : comp_out_q;
-  assign out_remainder = (left[WIDTH-1] && comp_out_r) ? $signed(right - comp_out_r) : comp_out_r;
+
+  // Remainder is computed as:
+  //  t0 = |left| % |right|
+  //  t1 = if left * right < 0 and t0 != 0 then |right| - t0 else t0
+  //  rem = if right < 0 then -t1 else t1
+  assign out_rem_intermediate = different_signs & |comp_out_r ? $signed(right_save - comp_out_r) : comp_out_r;
+  assign out_remainder = right_sign ? -out_rem_intermediate : out_rem_intermediate;
 
   std_div_pipe #(
     .WIDTH(WIDTH)
   ) comp (
+    .reset(reset),
     .clk(clk),
     .done(done),
     .go(go),
@@ -551,24 +610,35 @@ module std_sdiv_pipe #(
     .out_remainder(comp_out_r)
   );
 
+  // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
-    // Simulation self test against unsynthesizable implementation.
+    logic signed [WIDTH-1:0] l, r;
+    always_ff @(posedge clk) begin
+      if (go) begin
+        l <= left;
+        r <= right;
+      end else begin
+        l <= l;
+        r <= r;
+      end
+    end
+
     always @(posedge clk) begin
-      if (done && out_quotient != $signed(left / right))
+      if (done && out_quotient != $signed(l / r))
         $error(
           "\nstd_sdiv_pipe (Quotient): Computed and golden outputs do not match!\n",
-          "left: %0d", left,
-          "  right: %0d\n", right,
-          "expected: %0d", $signed(left / right),
-          "  computed: %0d", $signed(out_quotient)
+          "left: %0d", l,
+          "  right: %0d\n", r,
+          "expected: %0d", $signed(l / r),
+          "  computed: %0d", $signed(out_quotient),
         );
-      if (done && out_remainder != $signed(((left % right) + right) % right))
+      if (done && out_remainder != $signed(((l % r) + r) % r))
         $error(
           "\nstd_sdiv_pipe (Remainder): Computed and golden outputs do not match!\n",
-          "left: %0d", left,
-          "  right: %0d\n", right,
-          "expected: %0d", $signed(((left % right) + right) % right),
-          "  computed: %0d", $signed(out_remainder)
+          "left: %0d", l,
+          "  right: %0d\n", r,
+          "expected: %0d", $signed(((l % r) + r) % r),
+          "  computed: %0d", $signed(out_remainder),
         );
     end
   `endif

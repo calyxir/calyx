@@ -13,15 +13,15 @@ Prism.languages.futil = {
         greedy: true
     },
     'namespace': {
-        pattern: /\b(?:extern|component)\b/,
+        pattern: /\b(?:extern|component|primitive)\b/,
         lookbehind: true,
     },
     'function': {
-        pattern: /\b(?:cells|wires|control)\b/,
+        pattern: /\b(?:cells|wires|control|group|comb)\b/,
         lookbehind: true,
     },
     'keyword': {
-        pattern: /\b(?:prim|group|seq|par|if|while|with)\b/,
+        pattern: /\b(?:|seq|par|if|while|with|invoke)\b/,
         lookbehind: true,
     },
     'number': [

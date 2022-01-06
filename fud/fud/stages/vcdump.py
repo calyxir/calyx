@@ -3,14 +3,16 @@ from fud.utils import shell
 
 
 class VcdumpStage(Stage):
+    name = "vcd"
+
     def __init__(self, config):
         super().__init__(
-            "vcd",
-            "vcd_json",
-            SourceType.Stream,
-            SourceType.Stream,
-            config,
-            "Transform VCD file to JSON",
+            src_state="vcd",
+            target_state="vcd_json",
+            input_type=SourceType.Stream,
+            output_type=SourceType.Stream,
+            config=config,
+            description="Transform VCD file to JSON",
         )
         self.setup()
 

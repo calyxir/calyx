@@ -1,8 +1,8 @@
-module test_bench;
+module TOP;
 
 // Signals for the main module.
 logic go, done, clk, reset;
-main #() m (
+main #() main (
   .go(go),
   .clk(clk),
   .reset(reset),
@@ -22,18 +22,20 @@ string OUT;
 int NOTRACE;
 // Maximum number of cycles to simulate
 int CYCLE_LIMIT;
+// Dummy variable to track value returned by $value$plusargs
+int CODE;
 
 initial begin
-  $value$plusargs("OUT=%s", OUT);
-  $value$plusargs("CYCLE_LIMIT=%d", CYCLE_LIMIT);
+  CODE = $value$plusargs("OUT=%s", OUT);
+  CODE = $value$plusargs("CYCLE_LIMIT=%d", CYCLE_LIMIT);
   if (CYCLE_LIMIT != 0) begin
     $display("cycle limit set to %d", CYCLE_LIMIT);
   end
-  $value$plusargs("NOTRACE=%d", NOTRACE);
+  CODE = $value$plusargs("NOTRACE=%d", NOTRACE);
   if (NOTRACE == 0) begin
     $display("VCD tracing enabled");
     $dumpfile(OUT);
-    $dumpvars(0,m);
+    $dumpvars(0,main);
   end else begin
     $display("VCD tracing disabled");
   end

@@ -1,5 +1,5 @@
 // -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
-import "primitives/std.lib";
+import "primitives/core.futil";
 component main() -> () {
   cells {
     @external(1) a_src0 = std_mem_d1(32,8,4);

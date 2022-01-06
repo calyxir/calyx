@@ -1,0 +1,139 @@
+import "primitives/core.futil";
+component check(left: 4, right: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 1) {
+  cells {
+    lt = std_lt(4);
+    r = std_reg(1);
+  }
+  wires {
+    group do_comp {
+      lt.right = right;
+      lt.left = left;
+      r.in = lt.out;
+      r.write_en = 1'd1;
+      do_comp[done] = r.done;
+    }
+    out = r.out;
+  }
+
+  control {
+    do_comp;
+  }
+}
+component counter(start: 4, end: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 4, @done done: 1) {
+  cells {
+    count = std_reg(4);
+    lt = std_lt(4);
+    @generated lt0 = std_lt(4);
+    @generated r = std_reg(1);
+    @generated comp_left = std_wire(4);
+    @generated comp_right = std_wire(4);
+    @generated comp_out = std_wire(1);
+    @generated comp_go = std_wire(1);
+    @generated comp_clk = std_wire(1);
+    @generated comp_reset = std_wire(1);
+    @generated comp_done = std_wire(1);
+  }
+  wires {
+    group init<"static"=1> {
+      count.in = start;
+      count.write_en = 1'd1;
+      init[done] = count.done;
+    }
+    group do_comp {
+      lt0.right = comp_right.out;
+      lt0.left = comp_left.out;
+      r.in = lt0.out;
+      r.write_en = 1'd1;
+      do_comp[done] = r.done;
+    }
+    comb group cond {
+      lt.right = end;
+      lt.left = count.out;
+    }
+    out = count.out;
+    comp_out.in = r.out;
+    comp_left.in = start;
+    comp_right.in = end;
+  }
+
+  control {
+    seq {
+      do_comp;
+      if lt.out with cond {
+        init;
+      }
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 4, @done done: 1) {
+  cells {
+    count = std_reg(4);
+    lt = std_lt(4);
+    @generated count0 = std_reg(4);
+    @generated lt0 = std_lt(4);
+    @generated lt00 = std_lt(4);
+    @generated r = std_reg(1);
+    @generated comp_left = std_wire(4);
+    @generated comp_right = std_wire(4);
+    @generated comp_out = std_wire(1);
+    @generated comp_go = std_wire(1);
+    @generated comp_clk = std_wire(1);
+    @generated comp_reset = std_wire(1);
+    @generated comp_done = std_wire(1);
+    @generated c_start = std_wire(4);
+    @generated c_end = std_wire(4);
+    @generated c_out = std_wire(4);
+    @generated c_go = std_wire(1);
+    @generated c_clk = std_wire(1);
+    @generated c_reset = std_wire(1);
+    @generated c_done = std_wire(1);
+  }
+  wires {
+    group init<"static"=1> {
+      count.in = 4'd0;
+      count.write_en = 1'd1;
+      init[done] = count.done;
+    }
+    group init0<"static"=1> {
+      count0.in = c_start.out;
+      count0.write_en = 1'd1;
+      init0[done] = count0.done;
+    }
+    group do_comp {
+      lt00.right = comp_right.out;
+      lt00.left = comp_left.out;
+      r.in = lt00.out;
+      r.write_en = 1'd1;
+      do_comp[done] = r.done;
+    }
+    comb group cond {
+      lt.right = 4'd10;
+      lt.left = count.out;
+    }
+    comb group cond0 {
+      lt0.right = c_end.out;
+      lt0.left = count0.out;
+    }
+    out = count.out;
+    c_out.in = count0.out;
+    comp_out.in = r.out;
+    comp_left.in = c_start.out;
+    comp_right.in = c_end.out;
+    c_start.in = 4'd2;
+    c_end.in = 4'd10;
+  }
+
+  control {
+    seq {
+      seq {
+        do_comp;
+        if lt0.out with cond0 {
+          init0;
+        }
+      }
+      if c_out.out with cond {
+        init;
+      }
+    }
+  }
+}

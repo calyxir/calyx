@@ -123,14 +123,19 @@ pub enum GuardExpr {
     And(Box<GuardExpr>, Box<GuardExpr>),
     Or(Box<GuardExpr>, Box<GuardExpr>),
     Not(Box<GuardExpr>),
-    // Comparison operations
-    Eq(Atom, Atom),
-    Neq(Atom, Atom),
-    Gt(Atom, Atom),
-    Lt(Atom, Atom),
-    Geq(Atom, Atom),
-    Leq(Atom, Atom),
+    CompOp(GuardComp, Atom, Atom),
     Atom(Atom),
+}
+
+/// Possible comparison operators for guards.
+#[derive(Debug)]
+pub enum GuardComp {
+    Eq,
+    Neq,
+    Gt,
+    Lt,
+    Geq,
+    Leq,
 }
 
 /// A guard is a conditions in `guard_conj` which guard the value
@@ -269,6 +274,8 @@ pub enum Control {
         outputs: Vec<(ir::Id, Atom)>,
         /// Attributes
         attributes: ir::Attributes,
+        /// Combinational group that may execute with this invoke.
+        comb_group: Option<ir::Id>,
     },
     /// Control statement that does nothing.
     Empty {},

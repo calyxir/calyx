@@ -55,14 +55,6 @@ def register_stages(registry, cfg):
     registry.register(
         futil.FutilStage(
             cfg,
-            "icarus-verilog",
-            "-b verilog --disable-verify --disable-init",
-            "Compile Calyx to Verilog instrumented for simulation",
-        )
-    )
-    registry.register(
-        futil.FutilStage(
-            cfg,
             "mlir",
             "-b mlir -p well-formed -p lower-guards",
             "Compile Calyx to MLIR",
@@ -121,7 +113,7 @@ def register_stages(registry, cfg):
             cfg,
             "interpreter",
             "-p none",
-            "Compile Calyx to Calyx",
+            "Compile Calyx for interpretation with CIDR",
         )
     )
 
@@ -169,27 +161,29 @@ def register_external_stages(cfg, registry):
         2. Keys defined in the configuration
     """
 
-    for (stage, attrs) in cfg[["stages"]].items():
-        if attrs.get("external"):
-            mod = external.validate_external_stage(stage, cfg)
+    # No externals to load.
+    if not ["externals"] in cfg:
+        return
 
-            # register the discovered stages
-            for stage_class in mod.__STAGES__:
-                try:
-                    registry.register(stage_class(cfg))
-                except Exception as e:
-                    location = cfg["stages", stage, "location"]
-                    raise errors.InvalidExternalStage(
-                        stage,
-                        "\n".join(
-                            [
-                                f"In {stage_class.__name__} from '{location}':",
-                                "```",
-                                str(e),
-                                "```",
-                            ]
-                        ),
-                    )
+    for (ext, location) in cfg[["externals"]].items():
+        mod = external.validate_external_stage(ext, cfg)
+
+        # register the discovered stages
+        for stage_class in mod.__STAGES__:
+            try:
+                registry.register(stage_class(cfg))
+            except Exception as e:
+                raise errors.InvalidExternalStage(
+                    ext,
+                    "\n".join(
+                        [
+                            f"In {stage_class.name} from '{location}':",
+                            "```",
+                            str(e),
+                            "```",
+                        ]
+                    ),
+                )
 
 
 def display_config(args, cfg):
@@ -308,6 +302,22 @@ def main():
 
 
 def config_run(parser):
+    parser.add_argument(
+        "-pr",
+        "--dump_prof",
+        nargs="*",
+        help="Dumps profile information for <stage>. If no stages are "
+        + "provided, dumps the overall profiling information for this run.",
+        dest="profiled_stages",
+    )
+    parser.add_argument(
+        "-csv",
+        "--csv_format",
+        dest="csv",
+        action="store_true",
+        help="Whether data should be printed in CSV format. "
+        + "This is currently only supported for profiling.",
+    )
     parser.add_argument("--from", dest="source", help="Name of the start stage")
     parser.add_argument("--to", dest="dest", help="Name of the final stage")
     parser.add_argument(
@@ -318,7 +328,7 @@ def config_run(parser):
         help="Names of intermediate stages (repeatable option)",
     )
     parser.add_argument(
-        "-o", dest="output_file", help="Name of the outpfule file (default: STDOUT)"
+        "-o", dest="output_file", help="Name of the output file (default: STDOUT)"
     )
     parser.add_argument(
         "-s",

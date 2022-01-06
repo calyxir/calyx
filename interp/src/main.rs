@@ -1,13 +1,18 @@
-use crate::environment::InterpreterState;
-use argh::FromArgs;
 use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
-use interp::debugger::Debugger;
-use interp::environment;
-use interp::errors::{InterpreterError, InterpreterResult};
-use interp::interpreter::interpret_component;
-use interp::RefHandler;
-use std::path::PathBuf;
-use std::{cell::RefCell, path::Path};
+use interp::{
+    debugger::Debugger,
+    environment::InterpreterState,
+    errors::{InterpreterError, InterpreterResult},
+    interpreter::ComponentInterpreter,
+    interpreter_ir as iir,
+};
+
+use argh::FromArgs;
+use slog::warn;
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 #[derive(FromArgs)]
 /// The Calyx Interpreter
@@ -38,6 +43,21 @@ pub struct Opts {
     /// flag to bypass verification checks before running the program
     /// note: the interpreter will not behave correctly on malformed input
     skip_verification: bool,
+
+    #[argh(switch, long = "allow-invalid-memory-access")]
+    /// enables "sloppy" memory access which returns zero when passed an invalid index
+    /// rather than erroring
+    allow_invalid_memory_access: bool,
+
+    #[argh(switch, long = "allow-par-conflicts")]
+    /// enables "sloppy" par simulation which allows parallel overlap when values agree
+    allow_par_conflicts: bool,
+    #[argh(switch, long = "error-on-overflow")]
+    /// upgrades [over | under]flow warnings to errors
+    error_on_overflow: bool,
+    /// silence warnings
+    #[argh(switch, short = 'q', long = "--quiet")]
+    quiet: bool,
 
     #[argh(subcommand)]
     comm: Option<Command>,
@@ -81,50 +101,68 @@ fn print_res(
     }
 }
 
-//first half of this is tests
 /// Interpret a group from a Calyx program
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
+    {
+        // get read access to the settings
+        let mut write_lock = interp::SETTINGS.write().unwrap();
+        if opts.quiet {
+            write_lock.quiet = true;
+        }
+        if opts.allow_invalid_memory_access {
+            write_lock.allow_invalid_memory_access = true;
+        }
+        if opts.error_on_overflow {
+            write_lock.error_on_overflow = true;
+        }
+        if opts.allow_par_conflicts {
+            write_lock.allow_par_conflicts = true;
+        }
+        // release lock
+    }
+
+    let log = &interp::logging::ROOT_LOGGER;
+
+    if interp::SETTINGS.read().unwrap().allow_par_conflicts {
+        warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
+    }
+
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
-    let ir = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
-    let ctx = ir::RRC::new(RefCell::new(ir));
+    let mut ctx = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
     let pm = PassManager::default_passes()?;
 
     if !opts.skip_verification {
-        pm.execute_plan(&mut ctx.borrow_mut(), &["validate".to_string()], &[])?;
+        pm.execute_plan(&mut ctx, &["validate".to_string()], &[])?;
     }
 
-    let ctx_ref: &ir::Context = &ctx.borrow();
-    let components = ctx_ref.components.iter();
-    let controls: Vec<_> = ctx_ref
-        .components
+    let entry_point = ctx.entrypoint;
+
+    let components: iir::ComponentCtx = Rc::new(
+        ctx.components
+            .into_iter()
+            .map(|x| Rc::new(x.into()))
+            .collect(),
+    );
+
+    let main_component = components
         .iter()
-        .map(|x| x.control.borrow())
-        .collect();
-    let control_refs: Vec<&ir::Control> =
-        controls.iter().map(|x| x as &ir::Control).collect();
-    let ref_handler =
-        RefHandler::construct(components, control_refs.iter().copied());
-    let main_component = ctx_ref
-        .components
-        .iter()
-        .find(|&cm| cm.name == "main")
+        .find(|&cm| cm.name == entry_point)
         .ok_or(InterpreterError::MissingMainComponent)?;
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
-    let env = environment::InterpreterState::init(
-        ctx.clone(),
-        main_component,
-        &ref_handler,
-        &mems,
-    );
+
+    let env =
+        InterpreterState::init_top_level(&components, main_component, &mems)?;
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
-        Command::Interpret(_) => interpret_component(main_component, env),
+        Command::Interpret(_) => {
+            ComponentInterpreter::interpret_program(env, main_component)
+        }
         Command::Debug(CommandDebug { pass_through }) => {
-            let mut cidb = Debugger::new(ctx_ref, main_component);
+            let mut cidb = Debugger::new(&components, main_component);
             cidb.main_loop(env, pass_through)
         }
     };

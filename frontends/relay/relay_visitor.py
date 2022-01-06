@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import numpy as np
 from tvm import relay, ir
@@ -235,7 +235,8 @@ def emit_calyx(relay_ir) -> str:
         (
             Program(
                 imports=[
-                    Import("primitives/std.lib"),
+                    Import("primitives/core.futil"),
+                    Import("primitives/binary_operators.futil"),
                     Import("primitives/math.futil"),
                 ],
                 components=[main],

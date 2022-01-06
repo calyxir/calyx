@@ -1,6 +1,6 @@
 // -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
-import "primitives/std.lib";
-component kernel() -> () {
+import "primitives/core.futil";
+component main() -> () {
   cells {
     b = std_reg(32);
     before = std_reg(4);

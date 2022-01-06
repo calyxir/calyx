@@ -37,6 +37,7 @@ impl Visitor for GoInsertion {
         &mut self,
         comp: &mut ir::Component,
         _c: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         for group in comp.groups.iter() {
             let group_go = guard!(group["go"]);

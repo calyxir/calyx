@@ -2,8 +2,8 @@ use super::{
     Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
     Control, Direction, GetName, Group, Id, RRC,
 };
-use crate::ir::RESERVED_NAMES;
 use crate::utils;
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -58,7 +58,6 @@ impl Component {
         let prev_names: HashSet<_> = ports
             .iter()
             .map(|(name, _, _, _)| name.as_ref().to_string())
-            .chain(RESERVED_NAMES.iter().map(|s| s.to_string()))
             .collect();
 
         let this_sig = Builder::cell_from_signature(
@@ -84,6 +83,10 @@ impl Component {
             namegen: utils::NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
         }
+    }
+
+    pub(super) fn add_names(&mut self, names: HashSet<String>) {
+        self.namegen.add_names(names)
     }
 
     /// Return a reference to the group with `name` if present.
@@ -116,6 +119,28 @@ impl Component {
         S: Into<Id> + ToString + Clone,
     {
         self.namegen.gen_name(prefix)
+    }
+
+    /// Apply function on all assignments contained within the component.
+    pub fn for_each_assignment<F>(&mut self, f: &F)
+    where
+        F: Fn(&mut Assignment),
+    {
+        // Detach assignments from the group so that ports that use group
+        // `go` and `done` condition can access the parent group.
+        for group_ref in self.groups.iter() {
+            let mut assigns =
+                group_ref.borrow_mut().assignments.drain(..).collect_vec();
+            assigns.iter_mut().for_each(f);
+            group_ref.borrow_mut().assignments = assigns;
+        }
+        for group_ref in self.comb_groups.iter() {
+            let mut assigns =
+                group_ref.borrow_mut().assignments.drain(..).collect_vec();
+            assigns.iter_mut().for_each(f);
+            group_ref.borrow_mut().assignments = assigns;
+        }
+        self.continuous_assignments.iter_mut().for_each(f);
     }
 }
 
@@ -154,6 +179,11 @@ impl<T: GetName> IdList<T> {
         self.0.is_empty()
     }
 
+    // Length of the underlying storage.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Keep only the elements in the collection which satisfy the given
     /// predicate
     pub fn retain<F>(&mut self, mut f: F)
@@ -171,6 +201,12 @@ impl<T: GetName> IdList<T> {
     pub fn add(&mut self, item: RRC<T>) {
         let name = item.clone_name();
         self.0.insert(name, item);
+    }
+
+    /// Add all elements to the collection
+    pub fn append(&mut self, items: impl Iterator<Item = RRC<T>>) {
+        let map = items.map(|i| (i.clone_name(), i));
+        self.0.extend(map);
     }
 
     /// Returns an iterator over immutable references
@@ -197,28 +233,12 @@ impl<T: GetName> IdList<T> {
     where
         S: Clone + AsRef<str>,
     {
-        self.0.get(&name.as_ref().into()).map(|r| Rc::clone(r))
+        self.0.get(&name.as_ref().into()).map(Rc::clone)
     }
 }
 
 impl<T: GetName> Default for IdList<T> {
     fn default() -> Self {
         IdList(LinkedHashMap::new())
-    }
-}
-
-impl<T: GetName> Extend<RRC<T>> for IdList<T> {
-    fn extend<I: IntoIterator<Item = RRC<T>>>(&mut self, iter: I) {
-        for item in iter {
-            self.add(item)
-        }
-    }
-}
-
-impl<'a, T: GetName + 'a> Extend<&'a RRC<T>> for IdList<T> {
-    fn extend<I: IntoIterator<Item = &'a RRC<T>>>(&mut self, iter: I) {
-        for item in iter {
-            self.add(item.clone())
-        }
     }
 }

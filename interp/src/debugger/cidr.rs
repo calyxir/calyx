@@ -1,45 +1,57 @@
-use super::commands::Command;
+use std::cell::Ref;
+use std::collections::HashMap;
+use std::rc::Rc;
+
+use super::commands::{Command, PrintCode};
 use super::context::DebuggingContext;
 use super::io_utils::Input;
-use crate::environment::{InterpreterState, StateView};
+use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
+use crate::interpreter_ir as iir;
+use crate::primitives::Serializeable;
+use crate::structures::names::ComponentQIN;
 use crate::utils::AsRaw;
-use calyx::ir::{self, RRC};
-
+use calyx::ir::{self, Id, RRC};
 pub(super) const SPACING: &str = "    ";
+use super::interactive_errors::DebuggerError;
+use crate::interpreter::ConstCell;
+use std::fmt::Write;
 
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [main_loop] function while this struct holds auxilliary information used to
 /// coordinate the debugging process.
-pub struct Debugger<'a> {
-    context: &'a ir::Context,
-    main_component: &'a ir::Component,
+pub struct Debugger {
+    _context: iir::ComponentCtx,
+    main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
 }
 
-impl<'a> Debugger<'a> {
+impl Debugger {
     pub fn new(
-        context: &'a ir::Context,
-        main_component: &'a ir::Component,
+        context: &iir::ComponentCtx,
+        main_component: &Rc<iir::Component>,
     ) -> Self {
         Self {
-            context,
-            main_component,
-            debugging_ctx: DebuggingContext::default(),
+            _context: Rc::clone(context),
+            main_component: Rc::clone(main_component),
+            debugging_ctx: DebuggingContext::new(context, &main_component.name),
         }
     }
 
-    pub fn main_loop<'outer>(
+    pub fn main_loop(
         &mut self,
-        env: InterpreterState<'outer>,
+        env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
-    ) -> InterpreterResult<InterpreterState<'outer>> {
-        let control: &ir::Control = &self.main_component.control.borrow();
+    ) -> InterpreterResult<InterpreterState> {
+        let qin = ComponentQIN::new_single(
+            &self.main_component,
+            &self.main_component.name,
+        );
         let mut component_interpreter = ComponentInterpreter::from_component(
-            self.main_component,
-            control,
+            &self.main_component,
             env,
+            qin,
         );
         component_interpreter.set_go_high();
 
@@ -50,14 +62,15 @@ impl<'a> Debugger<'a> {
 
         let mut input_stream = Input::default();
         println!("== Calyx Interactive Debugger ==");
-        loop {
+        while !component_interpreter.is_done() {
             let comm = input_stream.next_command();
             let comm = match comm {
                 Ok(c) => c,
                 Err(e) => match &e {
                     InterpreterError::InvalidCommand(_)
-                    | InterpreterError::UnknownCommand(_) => {
-                        println!("{:?}", e);
+                    | InterpreterError::UnknownCommand(_)
+                    | InterpreterError::ParseError(_) => {
+                        println!("Error: {}", e);
                         continue;
                     }
                     _ => return Err(e),
@@ -70,16 +83,41 @@ impl<'a> Debugger<'a> {
                 }
                 Command::Continue => {
                     let mut breakpoints = self.debugging_ctx.hit_breakpoints(
-                        &component_interpreter.currently_executing_group(),
+                        component_interpreter.currently_executing_group(),
                     );
 
                     while breakpoints.is_empty()
                         && !component_interpreter.is_done()
                     {
                         component_interpreter.step()?;
-                        breakpoints = self.debugging_ctx.hit_breakpoints(
-                            &component_interpreter.currently_executing_group(),
+                        let current_exec =
+                            component_interpreter.currently_executing_group();
+
+                        let mut ctx = std::mem::replace(
+                            &mut self.debugging_ctx,
+                            DebuggingContext::new(
+                                &self._context,
+                                &self.main_component.name,
+                            ),
                         );
+
+                        for watch in
+                            ctx.process_watchpoints(current_exec.clone())
+                        {
+                            if let Ok(msg) = self.do_print(
+                                &watch.0,
+                                &watch.1,
+                                component_interpreter.get_env(),
+                                &watch.2,
+                            ) {
+                                println!("{}", msg);
+                            }
+                        }
+
+                        self.debugging_ctx = ctx;
+
+                        breakpoints =
+                            self.debugging_ctx.hit_breakpoints(current_exec);
                     }
                     if !component_interpreter.is_done() {
                         for breakpoint in breakpoints {
@@ -92,182 +130,401 @@ impl<'a> Debugger<'a> {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::PrintCell(cell) => {
-                    let cells: Vec<_> =
-                        component_interpreter.get_env().get_cells(&cell);
-
-                    match cells.len() {
-                        0 => {
-                            println!(
-                                "{}Unable to print. No cell named '{}'",
-                                SPACING, &cell
-                            )
-                        }
-                        1 => {
-                            let cell_ref = &cells[0];
-                            print_cell(
-                                cell_ref,
-                                &component_interpreter.get_env(),
-                            );
-                        }
-                        _ => {
-                            println!(
-                                "{}Unable to print. '{}' is ambiguous",
-                                SPACING, &cell
-                            )
-                        }
-                    }
-                }
-                Command::PrintCellOrPort(first, second) => {
-                    // component & cell/port
-                    if let Some(comp) =
-                        self.context.components.iter().find(|x| x.name == first)
-                    {
-                        if let Some(cell) = comp.find_cell(&second) {
-                            print_cell(&cell, &component_interpreter.get_env())
-                        } else if let Some(port) =
-                            comp.signature.borrow().find(&second)
-                        {
-                            let env = component_interpreter.get_env();
-                            println!(
-                                "{}{}.{} = {}",
-                                SPACING,
-                                &first,
-                                &second,
-                                env.lookup(port.as_raw())
-                            )
-                        } else {
-                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, &second, &first)
-                        }
-                    }
-                    // cell & port
-                    else {
-                        let cells =
-                            component_interpreter.get_env().get_cells(&first);
-
-                        // multiple possible cells
-                        if cells.len() > 1 {
-                            println!(
-                                "{}Unable to print. '{}' is ambiguous",
-                                SPACING, &first
-                            )
-                        } else if cells.is_empty() {
-                            println!(
-                                "{}Unable to print. There is no component/cell named '{}'",
-                                SPACING,
-                                &first,
-                            )
-                        // past this point the cell vec has one possible entry
-                        } else if cells
-                            .iter()
-                            .all(|x| x.borrow().find(&second).is_none())
-                        {
-                            println!(
-                                "{}Unable to print. Component '{}' has no cell named '{}'",
-                                SPACING,
-                                &first, &second
-                            )
-                        } else {
-                            let entry = &cells[0];
-
-                            if let Some(port) = entry.borrow().find(&second) {
-                                print_port(
-                                    &port,
-                                    &component_interpreter.get_env(),
-                                )
-                            }
-                        }
-                    }
-                }
-                Command::PrintFullySpecified(comp, cell, port) => {
-                    if let Some(comp_ref) =
-                        self.context.components.iter().find(|x| x.name == comp)
-                    {
-                        if let Some(cell_rrc) = comp_ref.find_cell(&cell) {
-                            let cell_ref = cell_rrc.borrow();
-                            if let Some(port_ref) = cell_ref.find(&port) {
-                                let state = component_interpreter.get_env();
-                                print_port(&port_ref, &state)
-                            } else {
-                                println!("{}Unable to print. Cell '{}' has no port named '{}'", SPACING, cell, port)
-                            }
-                        } else {
-                            println!("{}Unable to print. Component '{}' has no cell named '{}'", SPACING, comp, cell)
-                        }
-                    } else {
-                        println!("{}Unable to print. There is no component named '{}'", SPACING, comp)
-                    }
-                }
+                Command::Print(print_lists, code) => match self.do_print(
+                    &print_lists,
+                    &code,
+                    component_interpreter.get_env(),
+                    &PrintMode::Port,
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
+                Command::PrintState(print_lists, code) => match self.do_print(
+                    &print_lists,
+                    &code,
+                    component_interpreter.get_env(),
+                    &PrintMode::State,
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
-                Command::Break(target) => {
-                    if self
-                        .context
-                        .components
-                        .iter()
-                        .any(|x| x.groups.find(&target).is_some())
-                    {
+                Command::Break(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+
+                    for target in targets {
                         self.debugging_ctx.add_breakpoint(target)
-                    } else {
-                        println!(
-                            "{}There is no group named: {}",
-                            SPACING, target
-                        )
                     }
                 }
                 Command::Exit => return Err(InterpreterError::Exit),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
-                Command::DelBreakpointByNum(target) => {
-                    self.debugging_ctx.remove_breakpoint_by_number(target)
+                Command::Delete(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for t in targets {
+                        self.debugging_ctx.remove_breakpoint(&t)
+                    }
                 }
-                Command::DelBreakpointByName(target) => {
-                    self.debugging_ctx.remove_breakpoint(target)
+
+                Command::Disable(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for t in targets {
+                        self.debugging_ctx.disable_breakpoint(&t)
+                    }
                 }
-                Command::EnableBreakpointByNum(target) => {
-                    self.debugging_ctx.enable_breakpoint_by_num(target)
+                Command::Enable(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for t in targets {
+                        self.debugging_ctx.enable_breakpoint(&t)
+                    }
                 }
-                Command::EnableBreakpointByName(target) => {
-                    self.debugging_ctx.enable_breakpoint(&target)
+                Command::StepOver(target) => {
+                    let mut current =
+                        component_interpreter.currently_executing_group();
+
+                    if !self.debugging_ctx.is_group_running(current, &target) {
+                        println!("Group is not running")
+                    } else {
+                        component_interpreter.step()?;
+                        current =
+                            component_interpreter.currently_executing_group();
+                        while self
+                            .debugging_ctx
+                            .is_group_running(current, &target)
+                        {
+                            component_interpreter.step()?;
+                            current = component_interpreter
+                                .currently_executing_group();
+                        }
+                    }
                 }
-                Command::DisableBreakpointByNum(target) => {
-                    self.debugging_ctx.disable_breakpoint_by_num(target)
-                }
-                Command::DisableBreakpointByName(target) => {
-                    self.debugging_ctx.disable_breakpoint(&target)
+                Command::Watch(group, print_target, print_code, print_mode) => {
+                    if let Err(e) = self.do_print(
+                        &print_target,
+                        &print_code,
+                        component_interpreter.get_env(),
+                        &print_mode,
+                    ) {
+                        println!("{}", e); // print is bad
+                    } else {
+                        self.debugging_ctx.add_watchpoint(
+                            group,
+                            (print_target, print_code, print_mode),
+                        )
+                    }
                 }
             }
+        }
 
-            if component_interpreter.is_done() {
-                component_interpreter.set_go_low();
-                return component_interpreter.deconstruct();
+        let final_env = component_interpreter.deconstruct()?;
+
+        println!("Main component has finished executing. Debugger is now in inspection mode.");
+
+        loop {
+            let comm = input_stream.next_command();
+            let comm = match comm {
+                Ok(c) => c,
+                Err(e) => match &e {
+                    InterpreterError::InvalidCommand(_)
+                    | InterpreterError::UnknownCommand(_)
+                    | InterpreterError::ParseError(_) => {
+                        println!("Error: {}", e);
+                        continue;
+                    }
+                    _ => return Err(e),
+                },
+            };
+
+            match comm {
+                Command::Empty => {}
+                Command::Display => {
+                    let state = final_env.as_state_view();
+                    println!("{}", state.state_as_str());
+                }
+                Command::Print(print_lists, code) => match self.do_print(
+                    &print_lists,
+                    &code,
+                    final_env.as_state_view(),
+                    &PrintMode::Port,
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
+                Command::PrintState(print_lists, code) => match self.do_print(
+                    &print_lists,
+                    &code,
+                    final_env.as_state_view(),
+                    &PrintMode::State,
+                ) {
+                    Ok(msg) => println!("{}", msg),
+                    Err(e) => println!("{}", e),
+                },
+                Command::Help => {
+                    print!("{}", Command::get_help_string())
+                }
+                Command::Exit => return Err(InterpreterError::Exit),
+                _ => {
+                    println!(
+                        "This command is unavailable after program termination"
+                    )
+                }
+            }
+        }
+    }
+
+    fn do_print(
+        &mut self,
+        print_lists: &Option<Vec<Vec<Id>>>,
+        code: &Option<PrintCode>,
+        root: StateView,
+        print_mode: &PrintMode,
+    ) -> Result<String, DebuggerError> {
+        if print_lists.is_none() {
+            return Err(DebuggerError::RequiresTarget);
+        }
+
+        for print_list in print_lists.as_ref().unwrap() {
+            let orig_string = print_list
+                .iter()
+                .map(|s| s.id.clone())
+                .collect::<Vec<_>>()
+                .join(".");
+
+            let mut iter = print_list.iter();
+
+            let length = if self.main_component.name == print_list[0] {
+                iter.next();
+                print_list.len() - 1
+            } else {
+                print_list.len()
+            };
+
+            let mut current_target = CurrentTarget::Env(&root);
+
+            for (idx, target) in iter.enumerate() {
+                let current_ref = current_target.borrow();
+                let current_env = current_ref.get_env().unwrap();
+
+                // lowest level
+                if idx == length - 1 {
+                    // first look for cell
+                    let cell = current_env.get_cell(target);
+                    if let Some(cell) = cell {
+                        return Ok(print_cell(
+                            &cell,
+                            &current_env,
+                            code,
+                            print_mode,
+                        ));
+                    } else if idx != 0 {
+                        let prior = &print_list[idx - 1];
+
+                        if let Some(parent) = current_env.get_cell(&prior) {
+                            let parent_ref = parent.borrow();
+                            let pt = parent_ref
+                                .ports()
+                                .iter()
+                                .find(|x| x.borrow().name == target);
+                            if let Some(port) = pt {
+                                return Ok(print_port(
+                                    port,
+                                    &current_env,
+                                    None,
+                                    code,
+                                ));
+                            } else {
+                                return Err(DebuggerError::CannotFind(
+                                    orig_string,
+                                ));
+                                // cannot find
+                            }
+                        } else if let Some(port) = current_env
+                            .get_comp()
+                            .signature
+                            .borrow()
+                            .find(target)
+                        {
+                            return Ok(print_port(
+                                &port,
+                                &current_env,
+                                Some(print_list[idx - 1].clone()),
+                                code,
+                            ));
+                        } else {
+                            // cannot find
+                            return Err(DebuggerError::CannotFind(orig_string));
+                        }
+                    } else {
+                        return Err(DebuggerError::CannotFind(orig_string));
+                    }
+                }
+                // still walking
+                else {
+                    let map = Rc::clone(current_env.get_cell_map());
+                    let cell = current_env.get_cell(target);
+                    if let Some(rrc_cell) = cell {
+                        // need to release these references to replace current
+                        // target
+                        if map.borrow()[&rrc_cell.as_raw()]
+                            .get_state()
+                            .is_some()
+                        {
+                            drop(current_env);
+                            drop(current_ref);
+
+                            current_target = CurrentTarget::Target {
+                                name: rrc_cell.as_raw(),
+                                map,
+                            }
+                        }
+                        // otherwise leave the same
+                    } else {
+                        // cannot find
+                        return Err(DebuggerError::CannotFind(orig_string));
+                    }
+                }
+            }
+        }
+        unreachable!()
+    }
+}
+
+pub enum PrintMode {
+    State,
+    Port,
+}
+
+fn print_cell(
+    target: &RRC<ir::Cell>,
+    state: &StateView,
+    code: &Option<PrintCode>,
+    mode: &PrintMode,
+) -> String {
+    let cell_ref = target.borrow();
+
+    match mode {
+        PrintMode::State => {
+            let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
+            let cell_state = state.get_cell_state(&cell_ref, &code);
+            if matches!(&cell_state, &Serializeable::Empty) {
+                format!(
+                    "{} cell {} has no internal state",
+                    SPACING,
+                    cell_ref.name()
+                )
+            } else {
+                format!("{}{} = {}", SPACING, cell_ref.name(), cell_state)
+            }
+        }
+        PrintMode::Port => {
+            let mut output: String = String::new();
+            writeln!(output, "{}{}", SPACING, cell_ref.name())
+                .expect("Something went wrong trying to print the port");
+            for port in cell_ref.ports.iter() {
+                let v = state.lookup(port.as_raw());
+                writeln!(
+                    output,
+                    "{}  {} = {}",
+                    SPACING,
+                    port.borrow().name,
+                    if let Some(code) = code {
+                        match code {
+                            PrintCode::Unsigned => {
+                                format!("{}", v.as_unsigned())
+                            }
+                            PrintCode::Signed => format!("{}", v.as_signed()),
+                            PrintCode::UFixed(num) => {
+                                format!("{}", v.as_ufp(*num))
+                            }
+                            PrintCode::SFixed(num) => {
+                                format!("{}", v.as_sfp(*num))
+                            }
+                            PrintCode::Binary => format!("{}", v),
+                        }
+                    } else {
+                        format!("{}", &v)
+                    }
+                )
+                .expect("Something went wrong trying to print the port");
+            }
+            output
+        }
+    }
+}
+
+fn print_port(
+    target: &RRC<ir::Port>,
+    state: &StateView,
+    prior_name: Option<ir::Id>,
+    code: &Option<PrintCode>,
+) -> String {
+    let port_ref = target.borrow();
+    let parent_name = if let Some(prior) = prior_name {
+        prior
+    } else {
+        port_ref.get_parent_name()
+    };
+
+    let v = state.lookup(port_ref.as_raw());
+    let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
+
+    format!(
+        "{}{}.{} = {}",
+        SPACING,
+        parent_name,
+        port_ref.name,
+        match code {
+            PrintCode::Unsigned => format!("{}", v.as_unsigned()),
+            PrintCode::Signed => format!("{}", v.as_signed()),
+            PrintCode::UFixed(num) => format!("{}", v.as_ufp(num)),
+            PrintCode::SFixed(num) => format!("{}", v.as_sfp(num)),
+            PrintCode::Binary => format!("{}", v),
+        }
+    )
+}
+
+enum CurrentTarget<'a> {
+    Env(&'a StateView<'a>),
+    Target { name: ConstCell, map: PrimitiveMap },
+}
+
+impl<'a> CurrentTarget<'a> {
+    pub fn borrow(&self) -> TargetRef<'_, '_> {
+        match self {
+            CurrentTarget::Env(e) => TargetRef::Env(e),
+            CurrentTarget::Target { name, map } => {
+                TargetRef::Target(*name, map.borrow())
             }
         }
     }
 }
 
-fn print_cell(target: &RRC<ir::Cell>, state: &StateView) {
-    let cell_ref = target.borrow();
-    println!("{}{}", SPACING, cell_ref.name());
-    for port in cell_ref.ports.iter() {
-        println!(
-            "{}  {} = {}",
-            SPACING,
-            port.borrow().name,
-            state.lookup(port.as_raw())
-        )
-    }
+enum TargetRef<'a, 'c> {
+    Env(&'c StateView<'a>),
+    Target(
+        ConstCell,
+        Ref<'c, HashMap<ConstCell, Box<dyn crate::primitives::Primitive>>>,
+    ),
 }
 
-fn print_port(target: &RRC<ir::Port>, state: &StateView) {
-    let port_ref = target.borrow();
-    let parent_name = port_ref.get_parent_name();
-
-    println!(
-        "{}{}.{} = {}",
-        SPACING,
-        parent_name,
-        port_ref.name,
-        state.lookup(port_ref.as_raw())
-    )
+impl<'a, 'c> TargetRef<'a, 'c> {
+    pub fn get_env(&self) -> Option<StateView<'_>> {
+        match self {
+            TargetRef::Env(e) => Some((*e).clone()),
+            TargetRef::Target(target, map) => map[target].get_state(),
+        }
+    }
 }

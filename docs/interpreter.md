@@ -28,10 +28,10 @@ Here's how to run a Calyx program:
 
     fud e --to interpreter-out interp/tests/control/if.futil
 
-To provide input data, set the `interpreter.data` variable, like so:
+To provide input data, set the `verilog.data` variable, like so:
 
     fud e --to interpreter-out \
-        -s interpreter.data tests/correctness/while.futil.data \
+        -s verilog.data tests/correctness/while.futil.data \
         tests/correctness/while.futil
 
 By default, fud will not transform the Calyx code before feeding it to the interpreter.

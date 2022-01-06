@@ -1,4 +1,5 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     add0 = std_fp_add(4,2,2);

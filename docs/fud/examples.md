@@ -67,6 +67,6 @@ In addition to Verilator, fud can execute Calyx programs using the experimental 
 # === data:    tests/correctness/while.futil.data
 fud exec \
   tests/correctness/while.futil \
-  -s interpreter.data tests/correctness/while.futil.data \
+  -s verilog.data tests/correctness/while.futil.data \
   --to interpreter-out
 ```

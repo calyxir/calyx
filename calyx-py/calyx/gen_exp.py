@@ -696,7 +696,10 @@ if __name__ == "__main__":
         )
 
     program = Program(
-        imports=[Import("primitives/std.lib")],
+        imports=[
+            Import("primitives/core.futil"),
+            Import("primitives/binary_operators.futil")
+        ],
         components=generate_exp_taylor_series_approximation(
             degree, width, int_width, is_signed
         ),

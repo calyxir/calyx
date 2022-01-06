@@ -1,4 +1,5 @@
 import "core.futil";
+import "binary_operators.futil";
 
 extern "math.sv" {
   // Fixed point square root operator, using a digit-by-digit algorithm.
@@ -7,10 +8,11 @@ extern "math.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) in: WIDTH
   ) -> (
-    out: WIDTH,
+    @stable out: WIDTH,
     @done done: 1
   );
 
@@ -18,10 +20,11 @@ extern "math.sv" {
     WIDTH
   ](
     @clk clk: 1,
+    @reset reset: 1,
     @write_together(1) @go go: 1,
     @write_together(1) in: WIDTH
   ) -> (
-    out: WIDTH,
+    @stable out: WIDTH,
     @done done: 1
   );
 }

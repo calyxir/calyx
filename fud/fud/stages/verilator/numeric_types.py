@@ -30,11 +30,21 @@ class NumericType:
                 f"The value: {value} of type: "
                 f"{type(value)} should be a non-empty string."
             )
-        if value.startswith("-") and not is_signed:
+        elif value.startswith("-") and not is_signed:
             raise InvalidNumericType(
-                f"A negative value was provided: {value}, " f"and `is_signed` is False."
+                f"A negative value was provided: {value}, and `is_signed` is False."
             )
+        # Some backends may use `x` to represent an uninitialized digit, e.g. `0bxxxx`.
+        # Since this cannot be properly translated into a number, returns error.
         value = value.strip()
+        stripped_prefix = value[2:] if value.startswith("0x") else value
+        if any(digit == "x" for digit in stripped_prefix):
+            raise InvalidNumericType(
+                f"Tried to parse value: {value} with width: {width}, "
+                "which is uninitialized. This should probably not happen. "
+                "Please open an issue in the Calyx repository with a minimal "
+                "reproduction."
+            )
         self.width = width
         self.is_signed = is_signed
 
@@ -91,7 +101,7 @@ class Bitnum(NumericType):
 
         if len(self.bit_string_repr) > width:
             raise InvalidNumericType(
-                f"The value: {value} will overflow when trying to represent"
+                f"The value: {value} will overflow when trying to represent "
                 f"{len(self.bit_string_repr)} bits with width: {width}"
             )
 

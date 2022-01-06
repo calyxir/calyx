@@ -1,4 +1,4 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 component identity<"static"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
@@ -8,6 +8,7 @@ component identity<"static"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) 
     out = r.out;
     r.clk = clk;
     r.in = go ? in;
+    r.reset = reset;
     r.write_en = go ? 1'd1;
   }
 
@@ -22,8 +23,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   wires {
     done = fsm.out == 2'd2 ? 1'd1;
     current_value.clk = clk;
-    current_value.in = id.done & fsm.out == 2'd0 & go | !current_value.done & fsm.out == 2'd1 & go ? id.out;
-    current_value.write_en = id.done & fsm.out == 2'd0 & go | !current_value.done & fsm.out == 2'd1 & go ? 1'd1;
+    current_value.in = !current_value.done & fsm.out == 2'd1 & go ? id.out;
+    current_value.reset = reset;
+    current_value.write_en = !current_value.done & fsm.out == 2'd1 & go ? 1'd1;
     fsm.clk = clk;
     fsm.in = fsm.out == 2'd2 ? 2'd0;
     fsm.in = fsm.out == 2'd0 & id.done & go ? 2'd1;
@@ -33,6 +35,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     id.clk = clk;
     id.go = !id.done & fsm.out == 2'd0 & go ? 1'd1;
     id.in = !id.done & fsm.out == 2'd0 & go ? 32'd10;
+    id.reset = reset;
   }
 
   control {}

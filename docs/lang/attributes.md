@@ -45,6 +45,12 @@ control {
 ```
 
 ## Meaning of Attributes
+
+### `toplevel`
+The entrypoint for the Calyx program. If no component has this attribute, then
+the compiler looks for a component named `main`. If neither is found, the
+compiler errors out.
+
 ### `external`
 The `external` attribute has meaning when it is attached to a cell.
 It has two meanings:
@@ -67,6 +73,35 @@ The `go` and `done` attributes are, in particular, used by the `infer-static-tim
 `go` and `done` signals.
 Along with the `static(n)` attribute, this allows the pass to calculate when
 a particular done signal of a primitive will be high.
+
+### `inline`
+Used by the `inline` pass on cell definitions. Instructs the pass to completely
+inline the instance into the parent component and replace all `invoke`s of the
+instance with the control program of the instance.
+
+### `stable`
+Applied to port definitions of primitives and components. The intended semantics
+are that after invoking the component, the value on the port remains latched
+till the next invocation.
+
+For example
+```
+cells {
+  m = std_mult_pipe(32);
+}
+wires {
+  group use_m_out { // uses m.out }
+}
+control {
+  invoke m(left = 32'd10, right = 32'd4)();
+  use_m_out;
+}
+```
+
+The value of `m.out` in `use_m_out` will be `32'd40`.
+
+This annotation is currently used by the primitives library and the Dahlia
+frontend and is not checked by any pass.
 
 ### `share`
 Can be attached to a component and indicates that a component can be shared

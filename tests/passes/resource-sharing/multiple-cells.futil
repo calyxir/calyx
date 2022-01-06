@@ -1,5 +1,5 @@
 // -p resource-sharing
-import "primitives/std.lib";
+import "primitives/core.futil";
 component main() -> () {
   cells {
     add0 = std_add(32);

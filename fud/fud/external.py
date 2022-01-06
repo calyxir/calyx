@@ -9,7 +9,7 @@ def validate_external_stage(stage, cfg):
     Validate specification of an external stage in the configuration.
     """
     # get file location of stage and ensure that it exists
-    location = cfg["stages", stage, "location"]
+    location = cfg["externals", stage]
     if not Path(location).exists():
         raise errors.InvalidExternalStage(
             stage, f"No such file or directory: '{location}'"

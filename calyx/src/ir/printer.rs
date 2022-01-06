@@ -9,9 +9,9 @@ use std::path::Path;
 use std::rc::Rc;
 
 /// Printer for the IR.
-pub struct IRPrinter;
+pub struct Printer;
 
-impl IRPrinter {
+impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     fn format_at_attributes(attrs: &ir::Attributes) -> String {
@@ -153,7 +153,7 @@ impl IRPrinter {
     ) -> io::Result<()> {
         let sig = comp.signature.borrow();
         let (inputs, outputs): (Vec<_>, Vec<_>) =
-            sig.ports.iter().map(|p| Rc::clone(p)).partition(|p| {
+            sig.ports.iter().map(Rc::clone).partition(|p| {
                 // Cell signature stores the ports in reversed direction.
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
@@ -324,6 +324,7 @@ impl IRPrinter {
                 inputs,
                 outputs,
                 attributes,
+                comb_group,
             }) => {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
@@ -355,9 +356,14 @@ impl IRPrinter {
                     )?;
                 }
                 if outputs.is_empty() {
-                    writeln!(f, ");")
+                    write!(f, ")")?;
                 } else {
-                    writeln!(f, "\n{});", " ".repeat(indent_level))
+                    write!(f, "\n{})", " ".repeat(indent_level))?;
+                }
+                if let Some(group) = comb_group {
+                    writeln!(f, "with {};", group.borrow().name)
+                } else {
+                    writeln!(f, ";")
                 }
             }
             ir::Control::Seq(ir::Seq { stmts, attributes }) => {
@@ -442,12 +448,7 @@ impl IRPrinter {
                 };
                 format!("{} {} {}", left, &guard.op_str(), right)
             }
-            ir::Guard::Eq(l, r)
-            | ir::Guard::Neq(l, r)
-            | ir::Guard::Gt(l, r)
-            | ir::Guard::Lt(l, r)
-            | ir::Guard::Geq(l, r)
-            | ir::Guard::Leq(l, r) => {
+            ir::Guard::CompOp(_, l, r) => {
                 format!(
                     "{} {} {}",
                     Self::get_port_access(&l.borrow()),
@@ -477,9 +478,9 @@ impl IRPrinter {
                 let cell_ref =
                     cell_wref.internal.upgrade().unwrap_or_else(|| {
                         panic!(
-                        "Malformed AST: No reference to Cell for port `{:#?}'",
-                        port
-                    )
+                            "Malformed AST: No reference to Cell for port `{}'",
+                            port.name
+                        )
                     });
                 let cell = cell_ref.borrow();
                 match cell.prototype {

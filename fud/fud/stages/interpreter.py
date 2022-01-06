@@ -14,6 +14,9 @@ _DEBUGGER_TARGET = "debugger"
 
 
 class InterpreterStage(Stage):
+
+    name = "interpreter"
+
     @classmethod
     def debugger(cls, config, interp_flags, debug_flags, desc):
         self = cls(
@@ -37,12 +40,12 @@ class InterpreterStage(Stage):
         output_name="interpreter-out",
     ):
         super().__init__(
-            "interpreter",
-            output_name,
-            SourceType.Stream,
-            output_type,
-            config,
-            desc,
+            src_state="interpreter",
+            target_state=output_name,
+            input_type=SourceType.Stream,
+            output_type=output_type,
+            config=config,
+            description=desc,
         )
 
         self.flags = flags
@@ -106,7 +109,9 @@ class InterpreterStage(Stage):
                 data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
             )
 
-            if self.target_stage == _DEBUGGER_TARGET:
+            if self.target_stage == _DEBUGGER_TARGET and "-p" not in unwrap_or(
+                self.config["stages", self.name, "debugger", "flags"], ""
+            ):
                 return transparent_shell(command)
             else:
                 return shell(command)
@@ -130,7 +135,9 @@ class InterpreterStage(Stage):
         result = interpret(input_data, tmpdir)
         cleanup(tmpdir)
 
-        if self.target_stage != _DEBUGGER_TARGET:
+        if self.target_stage != _DEBUGGER_TARGET or "-p" in unwrap_or(
+            self.config["stages", self.name, "debugger", "flags"], ""
+        ):
             return result
 
 

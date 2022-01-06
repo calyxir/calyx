@@ -1,0 +1,86 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+dot = _{"."}
+ident_syms = _{ "_" | "-" | "'" }
+num = @{ASCII_DIGIT+}
+
+
+
+identifier = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
+
+group = {(identifier ~ "::" ~ identifier | identifier)}
+
+name = { identifier ~ (dot ~ identifier)* }
+
+pc_un = { ^"u" }
+pc_s = { ^"s" }
+pc_ufx = { ^"u." ~ num }
+pc_sfx = { ^"s." ~ num }
+
+print_code = { "\\" ~
+    (
+        pc_ufx |
+        pc_sfx |
+        pc_s |
+        pc_un
+    )
+}
+pc_fail = @{ "\\" ~ ASCII_ALPHA* }
+
+print = {
+    (^"print" | ^"p") ~ (print_code | pc_fail)? ~ name+
+}
+
+print_state = {^"print-state" ~ (print_code | pc_fail)? ~ name+ }
+
+print_fail = {
+    (^"print" | ^"p") ~ (print_code | pc_fail)?
+}
+
+watch = {
+    (^"watch" | ^"w") ~ group ~ ^"with" ~ (print_state | print)
+}
+
+step_over = {^"step-over" ~ group }
+
+step = { (^"step" | ^"s") }
+cont = {
+    (^"continue" | ^"c")
+}
+help = {
+    (^"help" | ^"h")
+}
+display = { ^"display" | ^"d" }
+info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
+
+brk = { (^"break" | ^"br") ~ group* }
+brk_id = { (group | num) }
+
+delete = { (^"delete" | ^"del") ~ brk_id* }
+
+enable = { (^"enable") ~ brk_id* }
+disable = { (^"disable") ~ brk_id* }
+
+exit = { ^"exit" }
+
+command = {
+    SOI ~
+    (
+    watch
+     | print_state
+     | print
+     | print_fail
+     | delete
+     | brk
+     | enable
+     | disable
+     | step_over
+     | step
+     // commands without input
+     | cont
+     | help
+     | info_break
+     | display
+     | exit
+    )?
+    ~ EOI
+}

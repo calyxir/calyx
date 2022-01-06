@@ -1,5 +1,5 @@
 use calyx::errors::Error;
-use calyx::ir::{GetAttributes, IRPrinter};
+use calyx::ir::GetAttributes;
 
 use crate::ir::{self, RRC};
 use std::collections::HashMap;
@@ -26,7 +26,7 @@ impl Backend for MlirBackend {
     ) -> calyx::errors::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
-            writeln!(f, "calyx.program {{\n")?;
+            writeln!(f, "calyx.program \"{}\" {{\n", ctx.entrypoint)?;
             ctx.components.iter().try_for_each(|comp| {
                 Self::write_component(comp, f)?;
                 writeln!(f)
@@ -89,7 +89,7 @@ impl MlirBackend {
     ) -> io::Result<()> {
         let sig = comp.signature.borrow();
         let (inputs, outputs): (Vec<_>, Vec<_>) =
-            sig.ports.iter().map(|p| Rc::clone(p)).partition(|p| {
+            sig.ports.iter().map(Rc::clone).partition(|p| {
                 // Cell signature stores the ports in reversed direction.
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
@@ -153,11 +153,11 @@ impl MlirBackend {
                     .collect();
                 match name.as_ref() {
                     "std_reg" => {
-                        write!(f, "calyx.register \"{}\"", cell_name)
+                        write!(f, "calyx.register @{}", cell_name)
                     }
                     "std_mem_d1" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}] x {}> [{}]",
+                        "calyx.memory @{} <[{}] x {}> [{}]",
                         cell_name,
                         bind["SIZE"],
                         bind["WIDTH"],
@@ -165,7 +165,7 @@ impl MlirBackend {
                     ),
                     "std_mem_d2" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}] x {}> [{}, {}]",
+                        "calyx.memory @{} <[{}, {}] x {}> [{}, {}]",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -175,7 +175,7 @@ impl MlirBackend {
                     ),
                     "std_mem_d3" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}] x {}> [{}, {}, {}]",
+                        "calyx.memory @{} <[{}, {}, {}] x {}> [{}, {}, {}]",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -187,7 +187,7 @@ impl MlirBackend {
                     ),
                     "std_mem_d4" => write!(
                         f,
-                        "calyx.memory \"{}\"<[{}, {}, {}, {}] x {}> [{}, {}, {}, {}]",
+                        "calyx.memory @{} <[{}, {}, {}, {}] x {}> [{}, {}, {}, {}]",
                         cell_name,
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
@@ -199,11 +199,11 @@ impl MlirBackend {
                         bind["D2_IDX_SIZE"],
                         bind["D3_IDX_SIZE"]
                     ),
-                    prim => write!(f, "calyx.{} \"{}\"", prim, cell_name)
+                    prim => write!(f, "calyx.{} @{}", prim, cell_name)
                 }
             }
             ir::CellType::Component { name } => {
-                write!(f, "calyx.instance \"{}\" @{}", cell_name, name)
+                write!(f, "calyx.instance @{} of @{}", cell_name, name)
             }
             ir::CellType::Constant { val, .. } => {
                 write!(f, "hw.constant {}", val)
@@ -264,7 +264,7 @@ impl MlirBackend {
         } else if matches!(&*assign.guard, ir::Guard::True) {
             /* Print nothing */
         } else {
-            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", IRPrinter::guard_str(&*assign.guard));
+            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", ir::Printer::guard_str(&*assign.guard));
         }
         write!(f, "{}", Self::get_port_access(&assign.src.borrow()),)?;
         write!(f, " : i{}", assign.src.borrow().width)

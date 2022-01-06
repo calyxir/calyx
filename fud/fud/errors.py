@@ -7,6 +7,20 @@ class FudError(Exception):
     """
 
 
+class CycleLimitedReached(FudError):
+    """
+    The cycle limit has been reached for simulation.
+    """
+
+    def __init__(self, stage, cycle_limit):
+        super().__init__(
+            f"The cycle limit for simulation: {cycle_limit} "
+            "has been reached. Either your program is not making progress, "
+            "or you need to increase the cycle limit with the flag: "
+            f"\n    -s {stage}.cycle_limit <cycle-limit>"
+        )
+
+
 class NoInputFile(FudError):
     def __init__(self, possible_dests=None):
         msg = "No filename or type provided for exec."
@@ -54,10 +68,9 @@ class MissingDynamicConfiguration(FudError):
 
     def __init__(self, variable):
         msg = (
-            "Provide an input file or "
-            + f"`{variable}' needs to be set. "
+            f"`{variable}' needs to be set. "
             + "Use the runtime configuration flag to provide a value: "
-            + "'-s {variable} <value>'."
+            + f"'-s {variable} <value>'."
         )
         super().__init__(msg)
 
@@ -71,8 +84,8 @@ class NoPathFound(FudError):
     def __init__(self, source, destination, through):
         msg = (
             f"No way to convert input in stage `{source}' to "
-            + f"stage `{destination}'"
-            + f"that go through stages {', '.join(through)}"
+            + f"stage `{destination}' "
+            + f"that go through stage(s) {', '.join(through)}"
             if len(through) > 0
             else ""
         )
@@ -86,6 +99,16 @@ class UndefinedStage(FudError):
 
     def __init__(self, stage):
         msg = f"No stage named {stage}"
+        super().__init__(msg)
+
+
+class UndefinedSteps(FudError):
+    """
+    No steps with the defined name for the given stage.
+    """
+
+    def __init__(self, stage, steps):
+        msg = f"No step(s): {', '.join(steps)} defined for stage: {stage}"
         super().__init__(msg)
 
 
@@ -224,4 +247,15 @@ class InvalidExternalStage(FudError):
     def __init__(self, stage_name, msg):
         msg = f"""Unable to load external stage: {stage_name}
 {msg}"""
+        super().__init__(msg)
+
+
+class FudRegisterError(FudError):
+    """
+    An error raised when an external stage is not valid.
+    """
+
+    def __init__(self, msg, stage_name=None):
+        name = f" `{stage_name}'" if stage_name is not None else ""
+        msg = f"""Failed to register`{name}': {msg}"""
         super().__init__(msg)

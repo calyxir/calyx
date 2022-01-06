@@ -57,16 +57,17 @@ impl Visitor for Externalize {
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Extract external cells.
         let (ext_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain().partition(|cr| {
                 let cell = cr.borrow();
-                cell.get_attribute("external") == Some(&1)
+                cell.get_attribute("external").is_some()
             });
 
         // Re-add non-external cells.
-        comp.cells.extend(cells);
+        comp.cells.append(cells.into_iter());
 
         // Detach the port from the component's cell and attach it to the
         // component's signature.

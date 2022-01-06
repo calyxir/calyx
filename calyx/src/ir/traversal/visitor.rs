@@ -1,6 +1,8 @@
 //! Implements a visitor for `ir::Control` programs.
 //! Program passes implemented as the Visitor are directly invoked on
 //! [`ir::Context`] to compile every [`ir::Component`] using the pass.
+use itertools::Itertools;
+
 use super::action::{Action, VisResult};
 use super::PostOrder;
 use crate::errors::CalyxResult;
@@ -104,11 +106,12 @@ pub trait Visitor {
         &mut self,
         comp: &mut ir::Component,
         signatures: &LibrarySignatures,
+        components: &[Component],
     ) -> CalyxResult<()>
     where
         Self: Sized,
     {
-        self.start(comp, signatures)?
+        self.start(comp, signatures, components)?
             .and_then(|| {
                 // Create a clone of the reference to the Control
                 // program.
@@ -118,10 +121,12 @@ pub trait Visitor {
                     return Ok(Action::Continue);
                 }
                 // Mutably borrow the control program and traverse.
-                control_ref.borrow_mut().visit(self, comp, signatures)?;
+                control_ref
+                    .borrow_mut()
+                    .visit(self, comp, signatures, components)?;
                 Ok(Action::Continue)
             })?
-            .and_then(|| self.finish(comp, signatures))?
+            .and_then(|| self.finish(comp, signatures, components))?
             .apply_change(&mut comp.control.borrow_mut());
         Ok(())
     }
@@ -140,27 +145,25 @@ pub trait Visitor {
         Self: Sized + ConstructVisitor,
     {
         let signatures = &context.lib;
+        let mut comps = context.components.drain(..).collect_vec();
 
         if Self::require_postorder() {
             // Temporarily take ownership of components from context.
-            let comps = context.components.drain(..).collect();
             let mut po = PostOrder::new(comps);
-            po.apply_update(|comp| {
-                self.traverse_component(comp, signatures)?;
+            po.apply_update(|comp, comps| {
+                self.traverse_component(comp, signatures, comps)?;
                 self.clear_data();
                 Ok(())
             })?;
             context.components = po.take();
         } else {
-            context
-                .components
-                // Mutably borrow the components in the context
-                .iter_mut()
-                .try_for_each(|comp| {
-                    self.traverse_component(comp, signatures)?;
-                    self.clear_data();
-                    Ok(()) as CalyxResult<_>
-                })?;
+            for idx in 0..comps.len() {
+                let mut comp = comps.remove(idx);
+                self.traverse_component(&mut comp, signatures, &comps)?;
+                self.clear_data();
+                comps.insert(idx, comp);
+            }
+            context.components = comps;
         }
 
         Ok(())
@@ -183,6 +186,7 @@ pub trait Visitor {
         &mut self,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -194,6 +198,7 @@ pub trait Visitor {
         &mut self,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -204,6 +209,7 @@ pub trait Visitor {
         _s: &mut ir::Seq,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -214,6 +220,7 @@ pub trait Visitor {
         _s: &mut ir::Seq,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -224,6 +231,7 @@ pub trait Visitor {
         _s: &mut ir::Par,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -234,6 +242,7 @@ pub trait Visitor {
         _s: &mut ir::Par,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -244,6 +253,7 @@ pub trait Visitor {
         _s: &mut ir::If,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -254,6 +264,7 @@ pub trait Visitor {
         _s: &mut ir::If,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -264,6 +275,7 @@ pub trait Visitor {
         _s: &mut ir::While,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -274,6 +286,7 @@ pub trait Visitor {
         _s: &mut ir::While,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -284,6 +297,7 @@ pub trait Visitor {
         _s: &mut ir::Enable,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -294,6 +308,7 @@ pub trait Visitor {
         _s: &mut ir::Invoke,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -304,6 +319,7 @@ pub trait Visitor {
         _s: &mut ir::Empty,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         Ok(Action::Continue)
     }
@@ -321,6 +337,7 @@ pub trait Visitable {
         visitor: &mut dyn Visitor,
         component: &mut Component,
         signatures: &LibrarySignatures,
+        components: &[ir::Component],
     ) -> VisResult;
 }
 
@@ -330,32 +347,49 @@ impl Visitable for Control {
         visitor: &mut dyn Visitor,
         component: &mut Component,
         sigs: &LibrarySignatures,
+        comps: &[ir::Component],
     ) -> VisResult {
         let res = match self {
             Control::Seq(ctrl) => visitor
-                .start_seq(ctrl, component, sigs)?
-                .and_then(|| ctrl.stmts.visit(visitor, component, sigs))?
+                .start_seq(ctrl, component, sigs, comps)?
+                .and_then(|| ctrl.stmts.visit(visitor, component, sigs, comps))?
                 .pop()
-                .and_then(|| visitor.finish_seq(ctrl, component, sigs))?,
+                .and_then(|| {
+                    visitor.finish_seq(ctrl, component, sigs, comps)
+                })?,
             Control::Par(ctrl) => visitor
-                .start_par(ctrl, component, sigs)?
-                .and_then(|| ctrl.stmts.visit(visitor, component, sigs))?
+                .start_par(ctrl, component, sigs, comps)?
+                .and_then(|| ctrl.stmts.visit(visitor, component, sigs, comps))?
                 .pop()
-                .and_then(|| visitor.finish_par(ctrl, component, sigs))?,
+                .and_then(|| {
+                    visitor.finish_par(ctrl, component, sigs, comps)
+                })?,
             Control::If(ctrl) => visitor
-                .start_if(ctrl, component, sigs)?
-                .and_then(|| ctrl.tbranch.visit(visitor, component, sigs))?
-                .and_then(|| ctrl.fbranch.visit(visitor, component, sigs))?
+                .start_if(ctrl, component, sigs, comps)?
+                .and_then(|| {
+                    ctrl.tbranch.visit(visitor, component, sigs, comps)
+                })?
+                .and_then(|| {
+                    ctrl.fbranch.visit(visitor, component, sigs, comps)
+                })?
                 .pop()
-                .and_then(|| visitor.finish_if(ctrl, component, sigs))?,
+                .and_then(|| visitor.finish_if(ctrl, component, sigs, comps))?,
             Control::While(ctrl) => visitor
-                .start_while(ctrl, component, sigs)?
-                .and_then(|| ctrl.body.visit(visitor, component, sigs))?
+                .start_while(ctrl, component, sigs, comps)?
+                .and_then(|| ctrl.body.visit(visitor, component, sigs, comps))?
                 .pop()
-                .and_then(|| visitor.finish_while(ctrl, component, sigs))?,
-            Control::Enable(ctrl) => visitor.enable(ctrl, component, sigs)?,
-            Control::Empty(ctrl) => visitor.empty(ctrl, component, sigs)?,
-            Control::Invoke(data) => visitor.invoke(data, component, sigs)?,
+                .and_then(|| {
+                    visitor.finish_while(ctrl, component, sigs, comps)
+                })?,
+            Control::Enable(ctrl) => {
+                visitor.enable(ctrl, component, sigs, comps)?
+            }
+            Control::Empty(ctrl) => {
+                visitor.empty(ctrl, component, sigs, comps)?
+            }
+            Control::Invoke(data) => {
+                visitor.invoke(data, component, sigs, comps)?
+            }
         };
         Ok(res.apply_change(self))
     }
@@ -368,9 +402,10 @@ impl<V: Visitable> Visitable for Vec<V> {
         visitor: &mut dyn Visitor,
         component: &mut Component,
         sigs: &LibrarySignatures,
+        components: &[ir::Component],
     ) -> VisResult {
         for t in self {
-            let res = t.visit(visitor, component, sigs)?;
+            let res = t.visit(visitor, component, sigs, components)?;
             match res {
                 Action::Continue | Action::SkipChildren | Action::Change(_) => {
                     continue;

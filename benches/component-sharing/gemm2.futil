@@ -1,5 +1,6 @@
 // git.status = clean, build.date = Mon Mar 22 14:26:22 EDT 2021, git.hash = 8dd37e4
-import "primitives/std.lib";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     A0_0 = std_mem_d2(32,1,2,1,2);
@@ -305,43 +306,35 @@ component main() -> () {
     v_1_10 = std_reg(32);
   }
   wires {
-    group cond0<"static"=0> {
-      cond0[done] = 1'd1;
+    comb group cond0 {
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group cond1<"static"=0> {
-      cond1[done] = 1'd1;
+    comb group cond1 {
       le1.left = j0.out;
       le1.right = const3.out;
     }
-    group cond10<"static"=0> {
-      cond10[done] = 1'd1;
+    comb group cond10 {
       le2.left = i1.out;
       le2.right = const55.out;
     }
-    group cond11<"static"=0> {
-      cond11[done] = 1'd1;
+    comb group cond11 {
       le3.left = j1.out;
       le3.right = const57.out;
     }
-    group cond12<"static"=0> {
-      cond12[done] = 1'd1;
+    comb group cond12 {
       le4.left = k0.out;
       le4.right = const59.out;
     }
-    group cond13<"static"=0> {
-      cond13[done] = 1'd1;
+    comb group cond13<"static"=0> {
       le5.left = i2.out;
       le5.right = const64.out;
     }
-    group cond14<"static"=0> {
-      cond14[done] = 1'd1;
+    comb group cond14<"static"=0> {
       le6.left = j2.out;
       le6.right = const66.out;
     }
-    group cond15<"static"=0> {
-      cond15[done] = 1'd1;
+    comb group cond15<"static"=0> {
       and26.left = eq16.out;
       and26.right = eq17.out;
       eq16.left = and24.out;
@@ -353,8 +346,7 @@ component main() -> () {
       and25.left = i2.out;
       and25.right = const69.out;
     }
-    group cond16<"static"=0> {
-      cond16[done] = 1'd1;
+    comb group cond16<"static"=0> {
       and29.left = eq18.out;
       and29.right = eq19.out;
       eq18.left = and27.out;
@@ -366,8 +358,7 @@ component main() -> () {
       and28.left = i2.out;
       and28.right = const75.out;
     }
-    group cond17<"static"=0> {
-      cond17[done] = 1'd1;
+    comb group cond17<"static"=0> {
       and32.left = eq20.out;
       and32.right = eq21.out;
       eq20.left = and30.out;
@@ -379,8 +370,7 @@ component main() -> () {
       and31.left = i2.out;
       and31.right = const81.out;
     }
-    group cond18<"static"=0> {
-      cond18[done] = 1'd1;
+    comb group cond18<"static"=0> {
       and35.left = eq22.out;
       and35.right = eq23.out;
       eq22.left = and33.out;
@@ -392,8 +382,7 @@ component main() -> () {
       and34.left = i2.out;
       and34.right = const87.out;
     }
-    group cond2<"static"=0> {
-      cond2[done] = 1'd1;
+    comb group cond2<"static"=0> {
       and2.left = eq0.out;
       and2.right = eq1.out;
       eq0.left = and0.out;
@@ -405,8 +394,7 @@ component main() -> () {
       and1.left = i0.out;
       and1.right = const6.out;
     }
-    group cond3<"static"=0> {
-      cond3[done] = 1'd1;
+    comb group cond3<"static"=0> {
       and5.left = eq2.out;
       and5.right = eq3.out;
       eq2.left = and3.out;
@@ -418,8 +406,7 @@ component main() -> () {
       and4.left = i0.out;
       and4.right = const12.out;
     }
-    group cond4<"static"=0> {
-      cond4[done] = 1'd1;
+    comb group cond4<"static"=0> {
       and8.left = eq4.out;
       and8.right = eq5.out;
       eq4.left = and6.out;
@@ -431,8 +418,7 @@ component main() -> () {
       and7.left = i0.out;
       and7.right = const18.out;
     }
-    group cond5<"static"=0> {
-      cond5[done] = 1'd1;
+    comb group cond5<"static"=0> {
       and11.left = eq6.out;
       and11.right = eq7.out;
       eq6.left = and9.out;
@@ -444,8 +430,7 @@ component main() -> () {
       and10.left = i0.out;
       and10.right = const24.out;
     }
-    group cond6<"static"=0> {
-      cond6[done] = 1'd1;
+    comb group cond6<"static"=0> {
       and14.left = eq8.out;
       and14.right = eq9.out;
       eq8.left = and12.out;
@@ -457,8 +442,7 @@ component main() -> () {
       and13.left = i0.out;
       and13.right = const30.out;
     }
-    group cond7<"static"=0> {
-      cond7[done] = 1'd1;
+    comb group cond7<"static"=0> {
       and17.left = eq10.out;
       and17.right = eq11.out;
       eq10.left = and15.out;
@@ -470,8 +454,7 @@ component main() -> () {
       and16.left = i0.out;
       and16.right = const36.out;
     }
-    group cond8<"static"=0> {
-      cond8[done] = 1'd1;
+    comb group cond8<"static"=0> {
       and20.left = eq12.out;
       and20.right = eq13.out;
       eq12.left = and18.out;
@@ -483,8 +466,7 @@ component main() -> () {
       and19.left = i0.out;
       and19.right = const42.out;
     }
-    group cond9<"static"=0> {
-      cond9[done] = 1'd1;
+    comb group cond9<"static"=0> {
       and23.left = eq14.out;
       and23.right = eq15.out;
       eq14.left = and21.out;

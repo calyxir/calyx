@@ -1,6 +1,7 @@
 import logging as log
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from halo import Halo
@@ -95,25 +96,77 @@ def run_fud(args, config):
         else:
             data = Source(Path(str(input_file)), SourceType.Path)
 
+        profiled_stages = utils.parse_profiling_input(args)
+        # tracks profiling information requested by the flag (if set).
+        collected_for_profiling = {}
+        # tracks the approximate time elapsed to run each stage.
+        overall_durations = []
+
         # run all the stages
         for ed in path:
-            sp.start_stage(f"{ed.name} → {ed.target_stage}")
+            txt = f"{ed.src_stage} → {ed.target_stage}" + (
+                f" ({ed.name})" if ed.name != ed.src_stage else ""
+            )
+            sp.start_stage(txt)
             try:
                 if ed._no_spinner:
                     sp.stop()
-                    result = ed.run(data, None)
-                else:
-                    result = ed.run(data, sp)
-                data = result
+                begin = time.time()
+                data = ed.run(data, sp=sp if ed._no_spinner else None)
+                overall_durations.append(time.time() - begin)
                 sp.end_stage()
             except errors.StepFailure as e:
                 sp.fail()
                 print(e)
                 exit(-1)
-
+            # Collect profiling information for this stage.
+            if ed.name in profiled_stages:
+                collected_for_profiling[ed.name] = ed
         sp.stop()
 
-        # output the data returned from the file step
+        if args.profiled_stages is not None:
+            if data is None:
+                data = Source("", SourceType.String)
+            else:
+                # Overwrite previous data type.
+                data.typ = SourceType.String
+            if args.profiled_stages == []:
+                # No stages provided; collect overall stage durations.
+                data.data = utils.profile_stages(
+                    "stage", [ed for ed in path], overall_durations, args.csv
+                )
+            else:
+                # Otherwise, gather profiling data for each stage and steps provided.
+                def gather_profiling_data(stage, steps):
+                    data = collected_for_profiling.get(stage)
+                    # Verify this is a valid stage.
+                    if data is None:
+                        raise errors.UndefinedStage(stage)
+                    # Verify the steps are valid.
+                    valid_steps = [s.name for s in data.steps]
+                    invalid_steps = [s for s in steps if s not in valid_steps]
+                    if invalid_steps:
+                        raise errors.UndefinedSteps(stage, invalid_steps)
+                    # If no specific steps provided for this stage, append all of them.
+                    profiled_steps = [
+                        s for s in data.steps if steps == [] or s.name in steps
+                    ]
+                    # Gather all the step names that are being profiled.
+                    profiled_names = [s.name for s in profiled_steps]
+                    profiled_durations = [data.durations[s] for s in profiled_names]
+                    return utils.profile_stages(
+                        stage,
+                        profiled_steps,
+                        profiled_durations,
+                        args.csv,
+                    )
+
+                data.data = "\n".join(
+                    gather_profiling_data(stage, steps)
+                    for stage, steps in profiled_stages.items()
+                )
+
+        # output the data or profiling information.
         if args.output_file is not None:
             if data.typ == SourceType.Directory:
                 shutil.move(data.data.name, args.output_file)

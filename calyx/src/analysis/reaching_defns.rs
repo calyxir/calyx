@@ -146,7 +146,7 @@ impl BitOr<&DefSet> for &DefSet {
 type OverlapMap = BTreeMap<ir::Id, Vec<BTreeSet<(ir::Id, GroupOrInvoke)>>>;
 
 /// A struct used to compute a reaching definition analysis. The only field is a
-/// map between GroupOrInvoke labels and the definitions that exit the given
+/// map between [GroupOrInvoke] labels and the definitions that exit the given
 /// group or the given Invoke node. This analysis is conservative and will only
 /// kill a definition if the group MUST write the given register and does not
 /// read it. If this is not the case old definitions will remain in the reaching
@@ -156,7 +156,7 @@ type OverlapMap = BTreeMap<ir::Id, Vec<BTreeSet<(ir::Id, GroupOrInvoke)>>>;
 /// within the control structure and will provide inaccurate results if this
 /// expectation is violated.
 ///
-/// Like LiveRangeAnalysis par blocks are treated via a parallel CFG approach.
+/// Like [LiveRangeAnalysis] par blocks are treated via a parallel CFG approach.
 /// Concretely this means that after a par block executes any id that is killed
 /// by one arm is killed and all defs introduced (but not killed) by any arm are
 /// defined. Note that this assumes separate arms are not writing the same
@@ -173,7 +173,7 @@ impl ReachingDefinitionAnalysis {
     /// which can be ignored if one is not rewriting values
     /// **NOTE**: Assumes that each group appears at only one place in the control
     /// structure.
-    pub fn new(_comp: &ir::Component, control: &ir::Control) -> Self {
+    pub fn new(control: &ir::Control) -> Self {
         let initial_set = DefSet::default();
         let mut analysis = ReachingDefinitionAnalysis::default();
         let mut counter: u64 = 0;

@@ -7,10 +7,12 @@ class MrXLStage(Stage):
     Stage that invokes the MrXL frontend.
     """
 
+    name = "mrxl"
+
     def __init__(self, config):
         super().__init__(
-            name="mrxl",
-            target_stage="futil",
+            src_state="mrxl",
+            target_state="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             config=config,
@@ -20,9 +22,7 @@ class MrXLStage(Stage):
 
     @staticmethod
     def defaults():
-        return {
-            "exec": "mrxl"
-        }
+        return {"exec": "mrxl"}
 
     def _define_steps(self, input_path):
         @self.step(description=self.cmd)
@@ -33,6 +33,4 @@ class MrXLStage(Stage):
 
 
 # Export the defined stages to fud
-__STAGES__ = [
-    MrXLStage
-]
+__STAGES__ = [MrXLStage]

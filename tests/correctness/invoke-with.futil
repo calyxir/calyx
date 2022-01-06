@@ -1,0 +1,30 @@
+// -p remove-comb-groups
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+  cells {
+    m = std_mult_pipe(32);
+    a0 = std_add(32);
+    a1 = std_add(32);
+    @external out = std_mem_d1(32, 1, 1);
+  }
+  wires {
+    comb group do_adds {
+      a0.left = 32'd1; a0.right = 32'd2;
+      a1.left = 32'd3; a1.right = 32'd4;
+    }
+    group save_out {
+      out.addr0 = 1'd0;
+      out.write_data = m.out;
+      out.write_en = 1'd1;
+      save_out[done] = out.done;
+    }
+  }
+  control {
+    seq {
+      invoke m(left = a0.out, right = a1.out)() with do_adds;
+      save_out;
+    }
+  }
+}

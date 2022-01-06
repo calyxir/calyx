@@ -1,4 +1,4 @@
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 //// ANCHOR: component
 component identity(in: 32) -> (out: 32) {

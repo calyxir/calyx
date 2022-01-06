@@ -1,12 +1,9 @@
 ======== main:tdcc =========
 0:
   cond0[go] = !cond0[done] ? 1'd1;
-  do_add[go] = cond0[done] & comb_reg.out ? 1'd1;
 1:
   do_add[go] = !do_add[done] ? 1'd1;
-  cond0[go] = do_add[done] ? 1'd1;
 2:
-  do_add[go] = cond0[done] & comb_reg.out ? 1'd1;
   cond0[go] = !cond0[done] ? 1'd1;
 3:
   <end>

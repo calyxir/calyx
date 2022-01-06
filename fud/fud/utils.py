@@ -14,7 +14,7 @@ def eprint(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
-def is_warming():
+def is_warning():
     return log.getLogger().level <= log.WARNING
 
 
@@ -34,13 +34,14 @@ def unwrap_or(val, default):
 
 
 def logging_setup(args):
-    # Color for warning and error mesages
+    # Color for warning, error, and info messages.
+    log.addLevelName(log.INFO, "\033[1;34m%s\033[1;0m" % log.getLevelName(log.INFO))
     log.addLevelName(
         log.WARNING, "\033[1;33m%s\033[1;0m" % log.getLevelName(log.WARNING)
     )
     log.addLevelName(log.ERROR, "\033[1;31m%s\033[1;0m" % log.getLevelName(log.ERROR))
 
-    # set verbosity level
+    # Set verbosity level.
     level = None
     if "verbose" not in args or args.verbose == 0:
         level = log.WARNING
@@ -70,6 +71,8 @@ class Directory:
 
 
 class TmpDir(Directory):
+    """A temporary directory that is automatically deleted."""
+
     def __init__(self):
         self.tmpdir_obj = TemporaryDirectory()
         self.name = self.tmpdir_obj.name
@@ -79,6 +82,29 @@ class TmpDir(Directory):
 
     def __str__(self):
         return self.name
+
+
+class FreshDir(Directory):
+    """A new empty directory for saving results into.
+
+    The directory is created in the current working directory with an
+    arbitrary name. This way, `FreshDir` works like `TmpDir` except the
+    directory is not automatically removed. (It can still be manually
+    deleted, of course.)
+    """
+
+    def __init__(self):
+        # Select a name that doesn't exist.
+        i = 0
+        while True:
+            name = "fud-out-{}".format(i)
+            if not os.path.exists(name):
+                break
+            i += 1
+
+        # Create the directory.
+        os.mkdir(name)
+        self.name = os.path.abspath(name)
 
 
 class Conversions:
@@ -161,10 +187,11 @@ class SpinnerWrapper:
         self.spinner.stop()
 
 
-def shell(cmd, stdin=None, stdout_as_debug=False):
-    """
-    Runs `cmd` in the shell and returns a stream of the output.
-    Raises `errors.StepFailure` if the command fails.
+def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
+    """Run `cmd` as a shell command.
+
+    Return an output stream (or None if stdout is not captured). Raise
+    `errors.StepFailure` if the command fails.
     """
 
     if isinstance(cmd, list):
@@ -174,28 +201,43 @@ def shell(cmd, stdin=None, stdout_as_debug=False):
         cmd += ">&2"
 
     assert isinstance(cmd, str)
-
     log.debug(cmd)
 
-    stdout = TemporaryFile()
-    stderr = None
-    # if we are not in debug mode, capture stderr
-    if not is_debug():
+    # In debug mode, let stderr stream to the terminal (and the same
+    # with stdout, unless we need it for capture). Otherwise, capture
+    # stderr to a temporary file for error reporting (and stdout
+    # unconditionally).
+    if is_debug():
+        stderr = None
+        if capture_stdout:
+            stdout = TemporaryFile()
+        else:
+            stdout = None
+    else:
         stderr = TemporaryFile()
+        stdout = TemporaryFile()
 
     proc = subprocess.Popen(
-        cmd, shell=True, stdin=stdin, stdout=stdout, stderr=stderr, env=os.environ
+        cmd,
+        shell=True,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+        env=os.environ,
     )
     proc.wait()
-    stdout.seek(0)
-    if proc.returncode != 0:
-        if stderr is not None:
+    if stdout:
+        stdout.seek(0)
+
+    if proc.returncode:
+        if stderr:
             stderr.seek(0)
-            raise errors.StepFailure(
-                cmd, stdout.read().decode("UTF-8"), stderr.read().decode("UTF-8")
-            )
-        else:
-            raise errors.StepFailure(cmd, "No stdout captured.", "No stderr captured.")
+        raise errors.StepFailure(
+            cmd,
+            stdout.read().decode("UTF-8") if stdout else "No stdout captured.",
+            stderr.read().decode("UTF-8") if stderr else "No stderr captured.",
+        )
+
     return stdout
 
 
@@ -214,3 +256,76 @@ def transparent_shell(cmd):
     proc = subprocess.Popen(cmd, env=os.environ, shell=True)
 
     proc.wait()
+
+
+def parse_profiling_input(args):
+    """
+    Returns a mapping from stage to steps from the `profiled_stages` argument.
+    For example, if the user passes in `-pr a.a1 a.a2 b.b1 c`, this will return:
+    {"a" : ["a1", "a2"], "b" : ["b1"], "c" : [] }
+    """
+    stages = {}
+    if args.profiled_stages is None:
+        return stages
+    # Retrieve all stages.
+    for stage in args.profiled_stages:
+        if "." not in stage:
+            stages[stage] = []
+        else:
+            s, _ = stage.split(".")
+            stages[s] = []
+    # Append all steps.
+    for stage in args.profiled_stages:
+        if "." not in stage:
+            continue
+        _, step = stage.split(".")
+        stages[s].append(step)
+    return stages
+
+
+def profiling_dump(stage, phases, durations):
+    """
+    Returns time elapsed during each stage or step of the fud execution.
+    """
+    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
+
+    def name_and_space(s: str) -> str:
+        # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
+        return "".join((s, max(32 - len(s), 1) * " "))
+
+    return f"{name_and_space(stage)}elapsed time (s)\n" + "\n".join(
+        f"{name_and_space(p.name)}{round(t, 3)}" for p, t in zip(phases, durations)
+    )
+
+
+def profiling_csv(stage, phases, durations):
+    """
+    Dumps the profiling information into a CSV format.
+    For example, with
+        stage:     `x`
+        phases:    ['a', 'b', 'c']
+        durations: [1.42, 2.0, 3.4445]
+    The output will be:
+    ```
+    x,a,1.42
+    x,b,2.0
+    x,c,3.444
+    ```
+    """
+    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
+    return "\n".join(
+        [f"{stage},{p.name},{round(t, 3)}" for (p, t) in zip(phases, durations)]
+    )
+
+
+def profile_stages(stage, phases, durations, is_csv):
+    """
+    Returns either a human-readable or CSV format profiling information,
+    depending on `is_csv`.
+    """
+    kwargs = {
+        "stage": stage,
+        "phases": phases,
+        "durations": durations,
+    }
+    return profiling_csv(**kwargs) if is_csv else profiling_dump(**kwargs)

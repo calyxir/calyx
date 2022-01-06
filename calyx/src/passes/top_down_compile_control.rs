@@ -11,7 +11,7 @@ use crate::{
         LibrarySignatures, RRC,
     },
 };
-use ir::IRPrinter;
+use ir::Printer;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
 use std::collections::HashMap;
@@ -198,7 +198,7 @@ impl Schedule {
             .for_each(|(state, assigns)| {
                 writeln!(out, "{}:", state).unwrap();
                 assigns.iter().for_each(|assign| {
-                    IRPrinter::write_assignment(assign, 2, out).unwrap();
+                    Printer::write_assignment(assign, 2, out).unwrap();
                     writeln!(out).unwrap();
                 })
             });
@@ -208,7 +208,7 @@ impl Schedule {
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                writeln!(out, "  ({}, {}): {}", i, f, IRPrinter::guard_str(g))
+                writeln!(out, "  ({}, {}): {}", i, f, Printer::guard_str(g))
                     .unwrap();
             });
     }
@@ -557,10 +557,10 @@ fn calculate_states(
 /// ```
 ///
 /// The cycle-level timing for this FSM will look like:
-///     - cycle 0: (f.out == 0), enable one
-///     - cycle t: (f.out == 0), (one[done] == 1), disable one
-///     - cycle t+1: (f.out == 1), enable two
-///     - cycle t+l: (f.out == 1), (two[done] == 1), disable two
+///     - cycle 0: (`f.out` == 0), enable one
+///     - cycle t: (`f.out` == 0), (`one[done]` == 1), disable one
+///     - cycle t+1: (`f.out` == 1), enable two
+///     - cycle t+l: (`f.out` == 1), (`two[done]` == 1), disable two
 ///     - cycle t+l+1: finish
 ///
 /// The transition t -> t+1 represents one where group one is done but group two hasn't started
@@ -592,8 +592,8 @@ fn calculate_states(
 pub struct TopDownCompileControl {
     /// Print out the FSM representation to STDOUT
     dump_fsm: bool,
-    /// Disable early transitions
-    no_early_transitions: bool,
+    /// Enable early transitions
+    early_transitions: bool,
 }
 
 impl ConstructVisitor for TopDownCompileControl {
@@ -602,7 +602,7 @@ impl ConstructVisitor for TopDownCompileControl {
         Self: Sized + Named,
     {
         let mut dump_fsm = false;
-        let mut no_early_transitions = false;
+        let mut early_transitions = false;
         ctx.extra_opts.iter().for_each(|opt| {
             let mut splits = opt.split(':');
             if splits.next() == Some(Self::name()) {
@@ -610,8 +610,8 @@ impl ConstructVisitor for TopDownCompileControl {
                     Some("dump-fsm") => {
                         dump_fsm = true;
                     }
-                    Some("no-early-transitions") => {
-                        no_early_transitions = true;
+                    Some("early-transitions") => {
+                        early_transitions = true;
                     }
                     _ => (),
                 }
@@ -619,7 +619,7 @@ impl ConstructVisitor for TopDownCompileControl {
         });
         Ok(TopDownCompileControl {
             dump_fsm,
-            no_early_transitions,
+            early_transitions,
         })
     }
 
@@ -643,6 +643,7 @@ impl Visitor for TopDownCompileControl {
         &mut self,
         comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Do not try to compile an enable
         if matches!(
@@ -665,6 +666,7 @@ impl Visitor for TopDownCompileControl {
         s: &mut ir::Par,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
 
@@ -690,7 +692,7 @@ impl Visitor for TopDownCompileControl {
                     let schedule = calculate_states(
                         con,
                         &mut builder,
-                        !self.no_early_transitions,
+                        self.early_transitions,
                     )?;
                     let group = builder.add_group("tdcc");
                     if self.dump_fsm {
@@ -763,6 +765,7 @@ impl Visitor for TopDownCompileControl {
         &mut self,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         let control = Rc::clone(&comp.control);
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
@@ -771,7 +774,7 @@ impl Visitor for TopDownCompileControl {
         let schedule = calculate_states(
             &control.borrow(),
             &mut builder,
-            !self.no_early_transitions,
+            self.early_transitions,
         )?;
         let group = builder.add_group("tdcc");
         if self.dump_fsm {

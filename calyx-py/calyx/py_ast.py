@@ -60,7 +60,7 @@ class Component:
         self.name = name
         self.controls = controls
         # Partition cells and wires.
-        is_cell = lambda x: isinstance(x, Cell)
+        def is_cell(x): return isinstance(x, Cell)
         self.cells = [s for s in structs if is_cell(s)]
         self.wires = [s for s in structs if not is_cell(s)]
 
@@ -296,11 +296,17 @@ class Invoke(Control):
     id: CompVar
     in_connects: List[(str, Port)]
     out_connects: List[(str, Port)]
+    comb_group: CompVar = None
 
     def doc(self) -> str:
         in_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.in_connects])
         out_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.out_connects])
-        return f"invoke {self.id.doc()}({in_defs})({out_defs});"
+        inv = f"invoke {self.id.doc()}({in_defs})({out_defs})"
+        if self.comb_group is not None:
+            inv += f" with {self.comb_group.doc()};"
+        else:
+            inv += ";"
+        return inv
 
 
 @dataclass
@@ -310,8 +316,11 @@ class While(Control):
     body: Control
 
     def doc(self) -> str:
+        cond = f"while {self.port.doc()}"
+        if cond is not None:
+            cond += f" with {self.cond.doc()}"
         return block(
-            f"while {self.port.doc()} with {self.cond.doc()}", self.body.doc(), sep=""
+            cond, self.body.doc(), sep=""
         )
 
 
@@ -329,7 +338,9 @@ class If(Control):
     false_branch: Control = Empty()
 
     def doc(self) -> str:
-        cond = f"if {self.port.doc()} with {self.cond.doc()}"
+        cond = f"if {self.port.doc()}"
+        if cond is not None:
+            cond += f" with {self.cond.doc()}"
         true_branch = self.true_branch.doc()
         if isinstance(self.false_branch, Empty):
             false_branch = ""
@@ -413,30 +424,6 @@ class Stdlib:
         self, op: str, width: int, int_width: int, frac_width: int, signed: bool
     ):
         return CompInst(
-            f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]
-        )
-
-    def fixed_point_diff_width(
-        self,
-        op: str,
-        width1: int,
-        width2: int,
-        int_width1: int,
-        frac_width1: int,
-        int_width2: int,
-        frac_width2: int,
-        out_width: int,
-        signed: bool,
-    ):
-        return CompInst(
-            f'std_fp_{"s" if signed else ""}{op}_dwidth',
-            [
-                width1,
-                width2,
-                int_width1,
-                frac_width1,
-                int_width2,
-                frac_width2,
-                out_width,
-            ],
+            f'std_fp_{"s" if signed else ""}{op}', [
+                width, int_width, frac_width]
         )

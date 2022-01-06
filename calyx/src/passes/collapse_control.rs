@@ -49,6 +49,7 @@ impl Visitor for CollapseControl {
         s: &mut ir::Seq,
         _comp: &mut ir::Component,
         _c: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));
@@ -75,6 +76,7 @@ impl Visitor for CollapseControl {
         s: &mut ir::Par,
         _comp: &mut ir::Component,
         _c: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         if s.stmts.is_empty() {
             return Ok(Action::Change(ir::Control::empty()));

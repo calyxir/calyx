@@ -47,7 +47,10 @@ main_component = Component(
 )
 
 # Create the Calyx program.
-program = Program(imports=[Import("primitives/std.lib")], components=[main_component])
+program = Program(imports=[
+    Import("primitives/core.futil"),
+    Import("primitives/binary_operators.futil")
+], components=[main_component])
 
 # Emit the code.
 program.emit()

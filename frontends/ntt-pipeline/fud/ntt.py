@@ -8,10 +8,12 @@ class NTTStage(Stage):
     Stage to transform NTT configurations into Calyx programs.
     """
 
+    name = "ntt"
+
     def __init__(self, config):
         super().__init__(
-            name="ntt",
-            target_stage="futil",
+            src_state="ntt",
+            target_state="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             config=config,
@@ -23,9 +25,7 @@ class NTTStage(Stage):
     def defaults():
         parent = pathlib.Path(__file__).parent.resolve()
         script_loc = parent / "../gen-ntt-pipeline.py"
-        return {
-            "exec": str(script_loc.resolve())
-        }
+        return {"exec": str(script_loc.resolve())}
 
     def _define_steps(self, input_path):
         @self.step(description=self.cmd)
@@ -36,6 +36,4 @@ class NTTStage(Stage):
 
 
 # Export the defined stages to fud
-__STAGES__ = [
-    NTTStage
-]
+__STAGES__ = [NTTStage]

@@ -1,6 +1,6 @@
 // -p externalize
 
-import "primitives/std.lib";
+import "primitives/core.futil";
 
 component main() -> () {
   cells {

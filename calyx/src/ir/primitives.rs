@@ -41,6 +41,13 @@ impl Primitive {
         SmallVec<[(Id, u64); 5]>,
         Vec<(Id, u64, Direction, Attributes)>,
     )> {
+        if self.params.len() != parameters.len() {
+            return Err(Error::InvalidParamBinding(
+                self.name.clone(),
+                self.params.len(),
+                parameters.len(),
+            ));
+        }
         let bindings = self
             .params
             .iter()
@@ -120,7 +127,7 @@ impl std::fmt::Display for Width {
 impl PortDef {
     /// Given a map from names of parameters to their values, attempt to
     /// resolve this definition.
-    /// Returns [`SignatureResolutionFailed`](crate::errors::Error::SignatureResolutionFailed) if there is no binding for a required parameter binding.
+    /// Returns [Error::ParamBindingMissing] if there is no binding for a required parameter binding.
     pub fn resolve(
         &self,
         binding: &LinkedHashMap<Id, u64>,
@@ -133,7 +140,7 @@ impl PortDef {
                 Some(width) => {
                     Ok((self.name.clone(), *width, self.attributes.clone()))
                 }
-                None => Err(Error::SignatureResolutionFailed(
+                None => Err(Error::ParamBindingMissing(
                     self.name.clone(),
                     value.clone(),
                 )),

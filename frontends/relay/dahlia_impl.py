@@ -376,7 +376,8 @@ def conv2d(fd: DahliaFuncDef) -> str:
     kernel_size = fd.attributes.get_int_tuple("kernel_size")
     size0, size1, size2, size3 = res.comp.args[1:5]
 
-    channels = fd.attributes.get_int("channels") or size1
+    # If no channels provided, inferred from second dimension of the data.
+    channels = fd.attributes.get_int("channels") or data.comp.args[2]
 
     return emit_dahlia_definition(
         fd,
@@ -415,7 +416,8 @@ def reshape(fd: DahliaFuncDef) -> str:
 
     assert (
         # See the TVM Relay API for significance of `newshape` values.
-        newshape[0] == -1 and rdims == 2
+        newshape[0] == -1
+        and rdims == 2
     ), f"""Only supports a subset of `reshape` functionality (i.e. where the dimensions are inferred).
         E.g.
         let  %x: Tensor[(1, 2, 2, 2), float32] = ...;

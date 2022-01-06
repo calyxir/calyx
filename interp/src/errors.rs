@@ -2,6 +2,7 @@ use crate::utils::assignment_to_string;
 use crate::values::Value;
 use calyx::errors::Error;
 use calyx::ir::{self, Assignment, Id};
+
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
@@ -17,6 +18,13 @@ pub enum InterpreterError {
     /// The given debugger command does not exist
     #[error("unknown command - {0}")]
     UnknownCommand(String),
+
+    /// Unable to parse the debugger command
+    #[error(transparent)]
+    ParseError(
+        #[from]
+        pest_consume::Error<crate::debugger::parser::command_parser::Rule>,
+    ),
 
     /// Wrapper for errors coming from the interactive CLI
     #[error(transparent)]
@@ -79,6 +87,26 @@ pub enum InterpreterError {
         expected: u64,
         given: usize,
     },
+
+    #[error("unknown primitive - \"{0}\"")]
+    UnknownPrimitive(String),
+    #[error("program evaluated the truth value of a wire \"{}.{}\" which is not one bit. Wire is {} bits wide.", 0.0, 0.1, 1)]
+    InvalidBoolCast((Id, Id), u64),
+    #[error("the interpreter attempted to exit the group \"{0}\" before it finished. This should never happen, please report it.")]
+    InvalidGroupExitNamed(Id),
+    #[error("the interpreter attempted to exit a phantom group before it finished. This should never happen, please report it")]
+    InvalidGroupExitUnnamed,
+
+    #[error("invalid memory access to memory {}. Given index ({}) but memory has dimension ({})", name, access.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "), dims.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", "))]
+    InvalidMemoryAccess {
+        access: Vec<u64>,
+        dims: Vec<u64>,
+        name: Id,
+    },
+
+    // TODO (Griffin): Make this error message better please
+    #[error("Computation has under/overflowed its bounds")]
+    OverflowError(),
 }
 
 impl InterpreterError {
@@ -111,11 +139,11 @@ impl From<Error> for InterpreterError {
     }
 }
 
-impl From<crate::stk_env::CollisionError<*const ir::Port, Value>>
+impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
     for InterpreterError
 {
     fn from(
-        err: crate::stk_env::CollisionError<
+        err: crate::structures::stk_env::CollisionError<
             *const calyx::ir::Port,
             crate::values::Value,
         >,

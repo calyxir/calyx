@@ -148,7 +148,7 @@ jobs:
     - name: Install fud
       run: |
         cd fud
-        flit install
+        flit install --deps production
         cd ..
         echo "============= Setting Fud configuration =============="
         fud config global.futil_directory '/home/runner/work/calyx/calyx'
