@@ -90,6 +90,19 @@ You will also need to configure the stage to point to your installations of [Vit
     xilinx_location: /scratch/opt/Xilinx/Vitis/2020.2
     xrt_location: /opt/xilinx/xrt
 
+The setup scripts can also be invoked manually.
+
+    source <Vitis_install_path>/Vitis/2020.1/settings64.sh
+    source /opt/xilinx/xrt/setup.sh
+
+On some Ubuntu distributions, you must also export LIBRARY\_PATH.
+
+    export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+
+To execute a Calyx program on an FPGA, add a `toplevel` annotation to the main component to configure the top-level function of the RTL design. 
+
+    component main<"toplevel"=1>() -> ()
+
 ### Compile
 
 The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
