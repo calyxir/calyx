@@ -1,7 +1,7 @@
-use std::fmt::Write;
-use std::ops::Deref;
-
 use calyx::ir::Id;
+use itertools::{self, Itertools};
+use std::fmt::{Display, Write};
+use std::ops::Deref;
 
 #[derive(Debug, Default)]
 pub struct GroupName(pub Vec<calyx::ir::Id>);
@@ -45,6 +45,22 @@ impl Default for PrintCode {
     }
 }
 
+impl Display for PrintCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                PrintCode::Binary => "\\b".to_string(),
+                PrintCode::Unsigned => "\\u".to_string(),
+                PrintCode::Signed => "\\s".to_string(),
+                PrintCode::UFixed(n) => format!("\\u.{}", n),
+                PrintCode::SFixed(n) => format!("\\s.{}", n),
+            }
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum WatchPosition {
     Before,
@@ -82,6 +98,35 @@ impl PrintTuple {
 impl From<(Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)> for PrintTuple {
     fn from(val: (Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)) -> Self {
         PrintTuple(val.0, val.1, val.2)
+    }
+}
+
+impl Display for PrintTuple {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self.2 {
+                PrintMode::State => "print-state",
+                PrintMode::Port => "print",
+            }
+        )?;
+        write!(
+            f,
+            "{}",
+            match &self.1 {
+                Some(s) => format!("{}", s),
+                None => "".to_string(),
+            }
+        )?;
+        write!(
+            f,
+            " {}",
+            match &self.0 {
+                Some(v) => v.iter().map(|x| x.iter().join(".")).join(" "),
+                None => "".to_string(),
+            }
+        )
     }
 }
 
