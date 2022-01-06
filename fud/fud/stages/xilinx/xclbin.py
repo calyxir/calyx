@@ -108,7 +108,7 @@ class XilinxStage(Stage):
                 "/scratch/opt/Xilinx/Vivado/2020.2/bin/vivado "
                 "-mode batch "
                 "-source gen_xo.tcl "
-                f"-tclargs xclbin/kernel.xo kernel {self.mode} {self.device}"
+                f"-tclargs xclbin/kernel.xo"
             )
             self._shell(client, cmd)
 
