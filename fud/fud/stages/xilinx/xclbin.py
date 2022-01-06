@@ -102,17 +102,13 @@ class XilinxStage(Stage):
             """
             Package verilog into XO file.
             """
-            cmd = " ".join(
-                [
-                    f"cd {tmpdir}",
-                    "&&",
-                    "mkdir -p xclbin",
-                    "&&",
-                    "/scratch/opt/Xilinx/Vivado/2020.2/bin/vivado",
-                    "-mode batch",
-                    "-source gen_xo.tcl",
-                    f"-tclargs xclbin/kernel.xo kernel {self.mode} {self.device}",
-                ]
+            cmd = (
+                f"cd {tmpdir} && "
+                "mkdir -p xclbin && "
+                "/scratch/opt/Xilinx/Vivado/2020.2/bin/vivado "
+                "-mode batch "
+                "-source gen_xo.tcl "
+                f"-tclargs xclbin/kernel.xo kernel {self.mode} {self.device}"
             )
             self._shell(client, cmd)
 
@@ -121,19 +117,16 @@ class XilinxStage(Stage):
             """
             Compile XO into xclbin.
             """
-            cmd = " ".join(
-                [
-                    f"cd {tmpdir}",
-                    "&&",
-                    "/scratch/opt/Xilinx/Vitis/2020.2/bin/v++ -g",
-                    f"-t {self.mode}",
-                    f"--platform {self.device}",
-                    "--save-temps",
-                    "--profile.data all:all:all",
-                    "--profile.exec all:all:all",
-                    "-lo xclbin/kernel.xclbin",
-                    "xclbin/kernel.xo",
-                ]
+            cmd = (
+                f"cd {tmpdir} && "
+                "/scratch/opt/Xilinx/Vitis/2020.2/bin/v++ -g "
+                f"-t {self.mode} "
+                f"--platform {self.device} "
+                "--save-temps "
+                "--profile.data all:all:all "
+                "--profile.exec all:all:all "
+                "-lo xclbin/kernel.xclbin "
+                "xclbin/kernel.xo"
             )
             self._shell(client, cmd)
 
