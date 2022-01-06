@@ -1,13 +1,12 @@
 use super::cidr::SPACING;
-use super::commands::{
-    BreakPointId, GroupName, PrintCode, PrintMode, PrintTuple, WatchPosition,
-};
+use super::commands::{BreakPointId, GroupName, PrintTuple, WatchPosition};
 
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
 use calyx::ir::Id;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::rc::Rc;
 
 pub struct Counter(u64);
@@ -50,9 +49,15 @@ impl BreakPoint {
 
 #[derive(Debug)]
 struct WatchPoint {
-    _id: u64,
-    _name: CompGroupName,
+    id: u64,
+    name: CompGroupName,
     print_details: PrintTuple,
+}
+
+impl Display for WatchPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.  {}", self.id, self.print_details)
+    }
 }
 
 impl std::fmt::Debug for BreakPoint {
@@ -177,8 +182,8 @@ impl DebuggingContext {
         let key = self.parse_group_name(&target);
 
         let watchpoint = WatchPoint {
-            _id: self.watch_count.next(),
-            _name: key.clone(),
+            id: self.watch_count.next(),
+            name: key.clone(),
             print_details: print.into(),
         };
 
@@ -359,5 +364,21 @@ impl DebuggingContext {
 
     pub fn print_watchpoints(&self) {
         println!("{}Current watchpoints:", SPACING);
+        let inner_spacing = format!("{}    ", SPACING);
+        let outer_spacing = format!("{}  ", SPACING);
+
+        for (group, (_brk, watchpoints)) in self.watchpoints_before.iter() {
+            println!("{}Before {}:", outer_spacing, group);
+            for watchpoint in watchpoints.iter() {
+                println!("{}{}", inner_spacing, watchpoint);
+            }
+        }
+
+        for (group, (_brk, watchpoints)) in self.watchpoints_after.iter() {
+            println!("{}After {}:", outer_spacing, group);
+            for watchpoint in watchpoints.iter() {
+                println!("{}{}", inner_spacing, watchpoint);
+            }
+        }
     }
 }
