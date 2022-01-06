@@ -2,7 +2,7 @@ use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::commands::{Command, PrintCode};
+use super::commands::{Command, PrintCode, PrintMode};
 use super::context::DebuggingContext;
 use super::io_utils::Input;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
@@ -107,10 +107,10 @@ impl Debugger {
 
                         for watch in ctx.process_watchpoints() {
                             if let Ok(msg) = self.do_print(
-                                &watch.0,
-                                &watch.1,
+                                watch.target(),
+                                watch.print_code(),
                                 component_interpreter.get_env(),
-                                &watch.2,
+                                watch.print_mode(),
                             ) {
                                 println!("{}", msg);
                             }
@@ -414,11 +414,6 @@ impl Debugger {
         }
         unreachable!()
     }
-}
-
-pub enum PrintMode {
-    State,
-    Port,
 }
 
 fn print_cell(

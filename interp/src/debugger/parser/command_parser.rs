@@ -5,8 +5,7 @@ use pest_consume::{match_nodes, Error, Parser};
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use super::super::cidr::PrintMode;
-use super::super::commands::WatchPosition;
+use super::super::commands::{PrintMode, WatchPosition};
 use crate::{debugger::commands::PrintCode, errors::InterpreterResult};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes

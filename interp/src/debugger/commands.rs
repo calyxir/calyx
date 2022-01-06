@@ -1,6 +1,8 @@
 use std::fmt::Write;
 use std::ops::Deref;
 
+use calyx::ir::Id;
+
 #[derive(Debug, Default)]
 pub struct GroupName(pub Vec<calyx::ir::Id>);
 
@@ -28,7 +30,7 @@ impl From<u64> for BreakPointId {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum PrintCode {
     Binary,
     Unsigned,
@@ -55,6 +57,34 @@ impl Default for WatchPosition {
     }
 }
 
+#[derive(Debug)]
+pub enum PrintMode {
+    State,
+    Port,
+}
+#[derive(Debug)]
+pub struct PrintTuple(Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode);
+
+impl PrintTuple {
+    pub fn target(&self) -> &Option<Vec<Vec<Id>>> {
+        &self.0
+    }
+
+    pub fn print_code(&self) -> &Option<PrintCode> {
+        &self.1
+    }
+
+    pub fn print_mode(&self) -> &PrintMode {
+        &self.2
+    }
+}
+
+impl From<(Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)> for PrintTuple {
+    fn from(val: (Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)) -> Self {
+        PrintTuple(val.0, val.1, val.2)
+    }
+}
+
 pub enum Command {
     Step,                                                      // Step execution
     Continue, // Execute until breakpoint
@@ -76,7 +106,7 @@ pub enum Command {
         WatchPosition,
         Option<Vec<Vec<calyx::ir::Id>>>,
         Option<PrintCode>,
-        super::cidr::PrintMode,
+        PrintMode,
     ),
 }
 

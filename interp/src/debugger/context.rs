@@ -1,6 +1,7 @@
-use super::cidr::{PrintMode, SPACING};
-use super::commands::{BreakPointId, GroupName, WatchPosition};
-use super::PrintCode;
+use super::cidr::SPACING;
+use super::commands::{
+    BreakPointId, GroupName, PrintCode, PrintMode, PrintTuple, WatchPosition,
+};
 
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
@@ -47,8 +48,7 @@ impl BreakPoint {
     }
 }
 
-type PrintTuple = (Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode);
-
+#[derive(Debug)]
 struct WatchPoint {
     _id: u64,
     _name: CompGroupName,
@@ -168,18 +168,18 @@ impl DebuggingContext {
         }
     }
 
-    pub fn add_watchpoint(
+    pub fn add_watchpoint<PT: Into<PrintTuple>>(
         &mut self,
         target: GroupName,
         position: WatchPosition,
-        print: PrintTuple,
+        print: PT,
     ) {
         let key = self.parse_group_name(&target);
 
         let watchpoint = WatchPoint {
             _id: self.watch_count.next(),
             _name: key.clone(),
-            print_details: print,
+            print_details: print.into(),
         };
 
         match position {
@@ -358,6 +358,6 @@ impl DebuggingContext {
     }
 
     pub fn print_watchpoints(&self) {
-        todo!()
+        println!("{}Current watchpoints:", SPACING);
     }
 }
