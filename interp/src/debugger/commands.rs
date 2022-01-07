@@ -144,6 +144,7 @@ pub enum Command {
     Disable(Vec<BreakPointId>),
     Enable(Vec<BreakPointId>),
     Delete(Vec<BreakPointId>),
+    DeleteWatch(Vec<BreakPointId>),
     StepOver(GroupName),
     PrintState(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>),
     Watch(

@@ -171,6 +171,12 @@ impl CommandParser {
         ))
     }
 
+    fn delete_watch(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+                [brk_id(br)..] => Command::DeleteWatch(br.collect())
+        ))
+    }
+
     fn enable(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
                 [brk_id(br)..] => Command::Enable(br.collect())
@@ -231,6 +237,7 @@ impl CommandParser {
             [info_break(ib), EOI(_)] => ib,
             [info_watch(iw), EOI(_)] => iw,
             [delete(del), EOI(_)] => del,
+            [delete_watch(del), EOI(_)] => del,
             [enable(e), EOI(_)] => e,
             [disable(dis), EOI(_)] => dis,
             [exit(exit), EOI(_)] => exit,
