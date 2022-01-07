@@ -218,7 +218,11 @@ impl Visitor for Papercut {
                     // If the cell is combinational and not driven by continuous assignments
                     if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
-                        return Err(Error::Papercut(msg, cell.name().clone()));
+                        // Use dummy Id to get correct source location for error
+                        return Err(Error::Papercut(
+                            s.attributes.fmt_err(&msg),
+                            ir::Id::from(""),
+                        ));
                     }
                 }
             }
@@ -247,7 +251,11 @@ impl Visitor for Papercut {
                     // If the cell is combinational and not driven by continuous assignments
                     if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
-                        return Err(Error::Papercut(msg, cell.name().clone()));
+                        // Use dummy Id to get correct source location for error
+                        return Err(Error::Papercut(
+                            s.attributes.fmt_err(&msg),
+                            ir::Id::from(""),
+                        ));
                     }
                 }
             }
