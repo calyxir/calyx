@@ -113,7 +113,7 @@ impl Display for PrintTuple {
         )?;
         write!(
             f,
-            "{}",
+            " {}",
             match &self.1 {
                 Some(s) => format!("{}", s),
                 None => "".to_string(),

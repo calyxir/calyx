@@ -398,10 +398,14 @@ impl DebuggingContext {
             }
         }
 
+        println!();
+
         for (group, (_brk, watchpoints)) in self.watchpoints_after.iter() {
-            println!("{}After {}:", outer_spacing, group);
-            for watchpoint in watchpoints.iter() {
-                println!("{}{}", inner_spacing, watchpoint);
+            if !watchpoints.is_empty() {
+                println!("{}After {}:", outer_spacing, group);
+                for watchpoint in watchpoints.iter() {
+                    println!("{}{}", inner_spacing, watchpoint);
+                }
             }
         }
     }
