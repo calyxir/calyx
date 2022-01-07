@@ -80,7 +80,7 @@ You can also set the Xilinx mode and target device:
     device = "xilinx_u50_gen3x16_xdma_201920_3"
 
 The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
-The device string above is for the [Alveo U50][u50] card, which we have at Cornell. The installed Xilinx card would typically be found under the directory `/opt/xilinx/platforms`, in which case one would be able to find a device name of interest.
+The device string above is for the [Alveo U50][u50] card, which we have at Cornell. The installed Xilinx card would typically be found under the directory `/opt/xilinx/platforms`, where one would be able to find a device name of interest.
 
 To use hardware emulation, you will also need to configure the `wdb` stage.
 It has similar `ssh_host`, `ssh_username`, and `remote` options to the `xclbin` stage.
