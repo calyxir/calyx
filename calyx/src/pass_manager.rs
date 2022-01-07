@@ -173,6 +173,13 @@ impl PassManager {
 }
 
 /// Simple macro to register an alias with a pass manager.
+///
+/// ## Example
+/// ```
+/// let pm = PassManager::default();
+/// // Register passes WellFormed, Papercut, and Canonicalize.
+/// register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
+/// ```
 #[macro_export]
 macro_rules! register_alias {
     (@unwrap_name $pass:ident) => {
