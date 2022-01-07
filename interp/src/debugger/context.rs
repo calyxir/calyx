@@ -50,7 +50,6 @@ impl BreakPoint {
 #[derive(Debug)]
 struct WatchPoint {
     id: u64,
-    name: CompGroupName,
     print_details: PrintTuple,
 }
 
@@ -183,7 +182,6 @@ impl DebuggingContext {
 
         let watchpoint = WatchPoint {
             id: self.watch_count.next(),
-            name: key.clone(),
             print_details: print.into(),
         };
 
