@@ -1,0 +1,19 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    add = std_add(4);
+    lt = std_lt(4);
+    r = std_reg(4);
+  }
+  wires {
+    r.write_en = 1'd1;
+    add.right = 4'd1;
+    add.left = !r.out ? 4'd0;
+    lt.right = 4'd10;
+    add.left = r.out ? r.out;
+    r.in = add.out;
+    lt.left = add.out;
+  }
+
+  control {}
+}
