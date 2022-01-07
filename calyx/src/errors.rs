@@ -94,12 +94,12 @@ impl Span {
         let mut out_idx: usize = 0;
         for l in lines {
             let next_pos = pos + l.len();
-            if self.start > pos && self.start <= next_pos {
+            if self.start >= pos && self.start <= next_pos {
                 out_line = linum;
                 out_idx = pos;
                 collect_lines = true;
             }
-            if collect_lines && self.end > pos {
+            if collect_lines && self.end >= pos {
                 buf.push(l)
             }
             if self.end <= next_pos {
