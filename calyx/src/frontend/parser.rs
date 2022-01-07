@@ -373,10 +373,11 @@ impl CalyxParser {
 
     // ================ Cells =====================
     fn cell_without_semi(input: Node) -> ParseResult<ast::Cell> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>
-            ast::Cell::from(id, prim, args, attrs)
+            ast::Cell::from(id, prim, args, attrs.add_span(span))
         ))
     }
 
