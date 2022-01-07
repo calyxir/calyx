@@ -1,0 +1,7 @@
+---CODE---
+1
+---STDERR---
+Error: Found combinational cycle:
+lt.left = add.out;
+add.left = lt.out ? r.out;
+add.left = !lt.out ? 4'd0;
