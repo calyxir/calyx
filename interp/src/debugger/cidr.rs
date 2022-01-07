@@ -178,7 +178,15 @@ impl Debugger {
                         self.debugging_ctx.remove_breakpoint(&t)
                     }
                 }
-                Command::DeleteWatch(targets) => todo!(),
+                Command::DeleteWatch(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for target in targets {
+                        self.debugging_ctx.remove_watchpoint(&target)
+                    }
+                }
                 Command::Disable(targets) => {
                     if targets.is_empty() {
                         println!("Error: command requires a target");

@@ -224,6 +224,13 @@ impl DebuggingContext {
         }
     }
 
+    pub fn remove_watchpoint(&mut self, target: &BreakPointId) {
+        match target {
+            BreakPointId::Name(name) => self.remove_watchpoint_by_name(name),
+            BreakPointId::Number(num) => self.remove_watchpoint_by_number(*num),
+        }
+    }
+
     fn remove_breakpoint_by_name(&mut self, target: &GroupName) {
         let key = self.parse_group_name(target);
 
@@ -232,6 +239,25 @@ impl DebuggingContext {
 
     fn remove_breakpoint_by_number(&mut self, target: u64) {
         self.breakpoints.retain(|_k, x| x.id != target);
+    }
+
+    fn remove_watchpoint_by_name(&mut self, target: &GroupName) {
+        let key = self.parse_group_name(target);
+
+        self.watchpoints_before.remove(&key);
+        self.watchpoints_after.remove(&key);
+    }
+
+    fn remove_watchpoint_by_number(&mut self, target: u64) {
+        // TODO (Griffin): Make this less inefficient, if it becomes a problem
+        // probably add a reverse lookup table or something
+        for watchpoints in self
+            .watchpoints_before
+            .values_mut()
+            .chain(self.watchpoints_after.values_mut())
+        {
+            watchpoints.1.retain(|x| x.id != target);
+        }
     }
 
     fn enable_breakpoint_by_name(&mut self, target: &GroupName) {
