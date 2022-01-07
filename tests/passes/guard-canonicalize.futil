@@ -1,4 +1,4 @@
-// -p guard-canonical
+// -p canonicalize
 
 import "primitives/core.futil";
 component main() -> (out: 1) {

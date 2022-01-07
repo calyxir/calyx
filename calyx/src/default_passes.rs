@@ -1,12 +1,12 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    ClkInsertion, CollapseControl, CompileEmpty, CompileInvoke,
+    Canonicalize, ClkInsertion, CollapseControl, CompileEmpty, CompileInvoke,
     ComponentInliner, ComponentInterface, DeadCellRemoval, DeadGroupRemoval,
-    Externalize, GoInsertion, GroupToInvoke, GuardCanonical, HoleInliner,
-    InferStaticTiming, LowerGuards, MergeAssign, MinimizeRegs, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
-    ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    WellFormed, WireInliner,
+    Externalize, GoInsertion, GroupToInvoke, HoleInliner, InferStaticTiming,
+    LowerGuards, MergeAssign, MinimizeRegs, Papercut, ParToSeq,
+    RegisterUnsharing, RemoveCombGroups, ResetInsertion, ResourceSharing,
+    SimplifyGuards, SynthesisPapercut, TopDownCompileControl, WellFormed,
+    WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -45,13 +45,13 @@ impl PassManager {
         // pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<SynthesisPapercut>()?;
         pm.register_pass::<RegisterUnsharing>()?;
-        pm.register_pass::<GuardCanonical>()?;
+        pm.register_pass::<Canonicalize>()?;
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<RemoveCombGroups>()?;
         pm.register_pass::<GroupToInvoke>()?;
 
-        register_alias!(pm, "validate", [WellFormed, Papercut, GuardCanonical]);
+        register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
             pm,
             "pre-opt",

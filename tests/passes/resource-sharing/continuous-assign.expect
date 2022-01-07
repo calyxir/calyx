@@ -8,9 +8,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add1 = std_add(32);
   }
   wires {
-    add0.left = r1.out;
-    add1.left = r0.out;
     done = r0.done;
+    add1.left = r0.out;
+    add0.left = r1.out;
   }
 
   control {}
