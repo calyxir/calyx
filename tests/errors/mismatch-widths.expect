@@ -1,5 +1,6 @@
 ---CODE---
-101
+1
 ---STDERR---
-thread 'main' panicked at 'Invalid assignment. `x.out' and `add.left' have different widths', calyx/src/ir/builder.rs:229:9
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Error: Malformed Structure: tests/errors/mismatch-widths.futil
+8 |    add.left = x.out;
+  |    ^^^^^^^^^^^^^^^^^ Mismatched port widths. Source has size 16 while destination requires 32.

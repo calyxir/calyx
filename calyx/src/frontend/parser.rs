@@ -88,6 +88,11 @@ impl CalyxParser {
         let input = inputs.single()?;
         Ok(CalyxParser::file(input)?)
     }
+
+    fn get_span(node: &Node) -> Span {
+        let ud = node.user_data();
+        Span::new(node.as_span(), Rc::clone(&ud.file), Rc::clone(&ud.input))
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -112,15 +117,8 @@ impl CalyxParser {
 
     // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
-        let ud = input.user_data();
-        Ok(ir::Id::new(
-            input.as_str(),
-            Some(Span::new(
-                input.as_span(),
-                Rc::clone(&ud.file),
-                Rc::clone(&ud.input),
-            )),
-        ))
+        let span = Self::get_span(&input);
+        Ok(ir::Id::new(input.as_str(), Some(span)))
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {
@@ -353,20 +351,21 @@ impl CalyxParser {
         ))
     }
     fn primitive(input: Node) -> ParseResult<ir::Primitive> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [name_with_attribute((name, attrs)), sig_with_params((p, s))] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
-                attributes: attrs,
+                attributes: attrs.add_span(span),
                 is_comb: false,
             },
             [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => ir::Primitive {
                 name,
                 params: p,
                 signature: s,
-                attributes: attrs,
+                attributes: attrs.add_span(span),
                 is_comb: true,
             },
         ))
@@ -374,10 +373,11 @@ impl CalyxParser {
 
     // ================ Cells =====================
     fn cell_without_semi(input: Node) -> ParseResult<ast::Cell> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>
-            ast::Cell::from(id, prim, args, attrs)
+            ast::Cell::from(id, prim, args, attrs.add_span(span))
         ))
     }
 
@@ -510,31 +510,35 @@ impl CalyxParser {
     }
 
     fn wire(input: Node) -> ParseResult<ast::Wire> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [LHS(dest), expr(expr)] => ast::Wire {
+            [at_attributes(attrs), LHS(dest), expr(expr)] => ast::Wire {
                 src: ast::Guard { guard: None, expr },
-                dest
+                dest,
+                attributes: attrs.add_span(span),
             },
-            [LHS(dest), switch_stmt(src)] => ast::Wire {
+            [at_attributes(attrs), LHS(dest), switch_stmt(src)] => ast::Wire {
                 src,
-                dest
+                dest,
+                attributes: attrs.add_span(span),
             }
         ))
     }
 
     fn group(input: Node) -> ParseResult<ast::Group> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [name_with_attribute((name, attrs)), wire(wire)..] => ast::Group {
                 name,
-                attributes: attrs,
+                attributes: attrs.add_span(span),
                 wires: wire.collect(),
                 is_comb: false,
             },
             [comb(_), name_with_attribute((name, attrs)), wire(wire)..] => ast::Group {
                 name,
-                attributes: attrs,
+                attributes: attrs.add_span(span),
                 wires: wire.collect(),
                 is_comb: true,
             }
@@ -574,6 +578,7 @@ impl CalyxParser {
     }
 
     fn invoke(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
@@ -581,7 +586,7 @@ impl CalyxParser {
                     comp,
                     inputs,
                     outputs,
-                    attributes: attrs,
+                    attributes: attrs.add_span(span),
                     comb_group: None
                 },
             [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs), identifier(group)] =>
@@ -589,38 +594,41 @@ impl CalyxParser {
                     comp,
                     inputs,
                     outputs,
-                    attributes: attrs,
+                    attributes: attrs.add_span(span),
                     comb_group: Some(group)
                 }
         ))
     }
 
     fn enable(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), identifier(name)] => ast::Control::Enable {
                 comp: name,
-                attributes: attrs
+                attributes: attrs.add_span(span)
             }
         ))
     }
 
     fn seq(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), stmt(stmt)..] => ast::Control::Seq {
                 stmts: stmt.collect(),
-                attributes: attrs,
+                attributes: attrs.add_span(span),
             }
         ))
     }
 
     fn par(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), stmt(stmt)..] => ast::Control::Par {
                 stmts: stmt.collect(),
-                attributes: attrs,
+                attributes: attrs.add_span(span),
             }
         ))
     }
@@ -634,6 +642,7 @@ impl CalyxParser {
     }
 
     fn if_stmt(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), port_with((port, cond)), block(stmt)] => ast::Control::If {
@@ -641,7 +650,7 @@ impl CalyxParser {
                 cond,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty{}),
-                attributes: attrs,
+                attributes: attrs.add_span(span),
             },
             [at_attributes(attrs), port_with((port, cond)), block(tbranch), block(fbranch)] =>
                 ast::Control::If {
@@ -649,7 +658,7 @@ impl CalyxParser {
                     cond,
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
-                    attributes: attrs,
+                    attributes: attrs.add_span(span),
                 },
             [at_attributes(attrs), port_with((port, cond)), block(tbranch), if_stmt(fbranch)] =>
                 ast::Control::If {
@@ -657,20 +666,21 @@ impl CalyxParser {
                     cond,
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
-                    attributes: attrs,
+                    attributes: attrs.add_span(span),
                 },
 
         ))
     }
 
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [at_attributes(attrs), port_with((port, cond)), block(stmt)] => ast::Control::While {
                 port,
                 cond,
                 body: Box::new(stmt),
-                attributes: attrs,
+                attributes: attrs.add_span(span),
             }
         ))
     }
@@ -712,6 +722,7 @@ impl CalyxParser {
     }
 
     fn component(input: Node) -> ParseResult<ast::ComponentDef> {
+        let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
             [
@@ -729,7 +740,7 @@ impl CalyxParser {
                     groups,
                     continuous_assignments,
                     control,
-                    attributes,
+                    attributes: attributes.add_span(span),
                 }
         }))
     }

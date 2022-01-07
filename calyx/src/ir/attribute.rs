@@ -1,11 +1,15 @@
 use linked_hash_map::LinkedHashMap;
 use std::ops::Index;
 
+use crate::errors::Span;
+
 /// Attributes associated with a specific IR structure.
 #[derive(Debug, Clone)]
 pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
     pub(super) attrs: LinkedHashMap<String, u64>,
+    /// Source location information for the item
+    span: Option<Span>,
 }
 
 impl Default for Attributes {
@@ -13,6 +17,7 @@ impl Default for Attributes {
         Attributes {
             // Does not allocate any space.
             attrs: LinkedHashMap::with_capacity(0),
+            span: None,
         }
     }
 }
@@ -21,6 +26,7 @@ impl From<Vec<(String, u64)>> for Attributes {
     fn from(v: Vec<(String, u64)>) -> Self {
         Attributes {
             attrs: v.into_iter().collect(),
+            span: None,
         }
     }
 }
@@ -72,8 +78,23 @@ impl Attributes {
         self.attrs.remove(&key.to_string())
     }
 
+    /// Iterate over all attributes
     pub fn iter(&self) -> impl Iterator<Item = (&String, &u64)> {
         self.attrs.iter()
+    }
+
+    /// Set the span information
+    pub fn add_span(mut self, span: Span) -> Self {
+        self.span = Some(span);
+        self
+    }
+
+    /// Format an error with the span information if present.
+    pub fn fmt_err(&self, err_msg: &str) -> String {
+        match &self.span {
+            Some(span) => span.format(err_msg),
+            None => err_msg.to_string(),
+        }
     }
 }
 
