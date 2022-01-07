@@ -406,6 +406,14 @@ fn build_assignment(
         get_port_ref(wire.dest, builder.component)?,
         Direction::Input,
     )?;
+    if src_port.borrow().width != dst_port.borrow().width {
+        let msg = format!(
+            "Mismatched port widths. Source has size {} while destination requires {}.",
+            src_port.borrow().width,
+            dst_port.borrow().width,
+        );
+        return Err(Error::MalformedStructure(wire.attributes.fmt_err(&msg)));
+    }
     let guard = match wire.src.guard {
         Some(g) => build_guard(g, builder)?,
         None => Guard::True,

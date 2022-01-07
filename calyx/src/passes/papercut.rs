@@ -30,74 +30,12 @@ pub struct Papercut {
     cont_cells: HashSet<ir::Id>,
 }
 
-/// Construct @write_together specs from the primitive definitions.
-fn write_together_specs<'a>(
-    primitives: impl Iterator<Item = &'a ir::Primitive>,
-) -> HashMap<ir::Id, Vec<HashSet<ir::Id>>> {
-    let mut write_together = HashMap::new();
-    for prim in primitives {
-        let writes: Vec<HashSet<ir::Id>> = prim
-            .find_all_with_attr("write_together")
-            .into_iter()
-            .map(|pd| {
-                (
-                    pd.attributes.get("write_together").unwrap(),
-                    pd.name.clone(),
-                )
-            })
-            .into_group_map()
-            .into_values()
-            .map(|writes| writes.into_iter().collect::<HashSet<_>>())
-            .collect();
-        if !writes.is_empty() {
-            write_together.insert(prim.name.clone(), writes);
-        }
-    }
-    write_together
-}
-
-/// Construct @read_together specs from the primitive definitions.
-fn read_together_specs<'a>(
-    primitives: impl Iterator<Item = &'a ir::Primitive>,
-) -> CalyxResult<HashMap<ir::Id, Vec<ReadTogether>>> {
-    let mut read_together = HashMap::new();
-    for prim in primitives {
-        let reads: Vec<ReadTogether> = prim
-                .find_all_with_attr("read_together")
-                .into_iter()
-                .map(|pd| (pd.attributes.get("read_together").unwrap(), pd))
-                .into_group_map()
-                .into_values()
-                .map(|ports| {
-                    let (outputs, inputs): (Vec<_>, Vec<_>) =
-                        ports.into_iter().partition(|&port| {
-                            matches!(port.direction, ir::Direction::Output)
-                        });
-                    // There should only be one port in the read_together specification.
-                    if outputs.len() != 1 {
-                        return Err(Error::Papercut(format!("Invalid @read_together specification for primitive `{}`. Each specification group is only allowed to have one output port specified.", prim.name), prim.name.clone()))
-                    }
-                    assert!(outputs.len() == 1);
-                    Ok((
-                        outputs[0].name.clone(),
-                        inputs
-                            .into_iter()
-                            .map(|port| port.name.clone())
-                            .collect::<HashSet<_>>(),
-                    ))
-                })
-                .collect::<CalyxResult<_>>()?;
-        if !reads.is_empty() {
-            read_together.insert(prim.name.clone(), reads);
-        }
-    }
-    Ok(read_together)
-}
-
 impl ConstructVisitor for Papercut {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
-        let write_together = write_together_specs(ctx.lib.signatures());
-        let read_together = read_together_specs(ctx.lib.signatures())?;
+        let write_together =
+            analysis::PortInterface::write_together_specs(ctx.lib.signatures());
+        let read_together =
+            analysis::PortInterface::comb_path_specs(ctx.lib.signatures())?;
         Ok(Papercut {
             write_together,
             read_together,
@@ -280,7 +218,11 @@ impl Visitor for Papercut {
                     // If the cell is combinational and not driven by continuous assignments
                     if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
-                        return Err(Error::Papercut(msg, cell.name().clone()));
+                        // Use dummy Id to get correct source location for error
+                        return Err(Error::Papercut(
+                            s.attributes.fmt_err(&msg),
+                            ir::Id::from(""),
+                        ));
                     }
                 }
             }
@@ -309,7 +251,11 @@ impl Visitor for Papercut {
                     // If the cell is combinational and not driven by continuous assignments
                     if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
-                        return Err(Error::Papercut(msg, cell.name().clone()));
+                        // Use dummy Id to get correct source location for error
+                        return Err(Error::Papercut(
+                            s.attributes.fmt_err(&msg),
+                            ir::Id::from(""),
+                        ));
                     }
                 }
             }

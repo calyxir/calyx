@@ -180,7 +180,7 @@ switch_stmt = {
 }
 
 wire = {
-      LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
+      at_attributes ~ LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
 // =========== Attribute parsing ===============

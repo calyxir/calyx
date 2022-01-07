@@ -1,0 +1,20 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    add0 = std_add(4);
+    add1 = std_add(4);
+    add2 = std_add(4);
+  }
+  wires {
+    comb group adds {
+      add0.right = 4'd1;
+      add0.left = 4'd2;
+      add1.right = 4'd3;
+      add2.left = add0.out;
+      add1.left = add0.out;
+      add2.right = add1.out;
+    }
+  }
+
+  control {}
+}

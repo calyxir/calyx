@@ -1,0 +1,20 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    mc = multi_comb(32);
+    r = std_reg(32);
+  }
+  wires {
+    group foo {
+      mc.addr_a = 32'd0;
+      mc.addr_b = mc.out_a;
+      r.in = mc.out_b;
+      r.write_en = 1'd1;
+      foo[done] = r.done;
+    }
+  }
+
+  control {
+    foo;
+  }
+}
