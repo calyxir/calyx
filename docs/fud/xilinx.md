@@ -90,19 +90,6 @@ You will also need to configure the stage to point to your installations of [Vit
     xilinx_location: /scratch/opt/Xilinx/Vitis/2020.2
     xrt_location: /opt/xilinx/xrt
 
-The setup scripts can also be invoked manually.
-
-    source <Vitis_install_path>/Vitis/2020.1/settings64.sh
-    source /opt/xilinx/xrt/setup.sh
-
-On some Ubuntu distributions, you must also export LIBRARY\_PATH.
-
-    export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
-
-To execute a Calyx program on an FPGA, add a `toplevel` annotation to the main component to configure the top-level function of the RTL design. 
-
-    component main<"toplevel"=1>() -> ()
-
 ### Compile
 
 The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
@@ -141,7 +128,21 @@ We need to generate:
 * An XML document describing the interface, using `XilinxXmlBackend`, via `-b xilinx-xml`. This file gets named `kernel.xml`.
 
 The `fud` driver gathers these files together in a sandbox directory.
-The next step is to run the Xilinx tools.
+The next step is to run the Xilinx tools (adopted from [Vitis Tutorial Part 2][vitis_tutorial]).
+
+In order to start using the Xilinx tools, we first invoke setup scripts.
+
+    source <Vitis_install_path>/Vitis/2020.1/settings64.sh
+    source /opt/xilinx/xrt/setup.sh
+
+On some Ubuntu distributions, you must also export `LIBRARY_PATH`.
+
+    export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+
+We verify that the tools are set up correctly by checking their versions.
+
+    vitis -version
+    vivado -version
 
 #### Background: `.xo` and `.xclbin`
 
@@ -200,6 +201,7 @@ Fortunately, the `v++` tool doesn't need any Tcl to drive it; all the action hap
 [gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
 [u50]: https://www.xilinx.com/products/boards-and-kits/alveo/u50.html
 [wdb]: https://support.xilinx.com/s/article/64000?language=en_US
+[vitis_tutorial]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.2/Getting_Started/Vitis/Part2.md
 [ip-xact]: https://en.wikipedia.org/wiki/IP-XACT
 [duh]: https://github.com/sifive/duh
 [package_kernel]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.1/Hardware_Acceleration/Feature_Tutorials/01-rtl_kernel_workflow/reference-files/scripts/package_kernel.tcl
