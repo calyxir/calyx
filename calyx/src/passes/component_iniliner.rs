@@ -283,13 +283,15 @@ impl Visitor for ComponentInliner {
                 self.control_map.insert(cell.clone_name(), control);
                 inlined_cells.insert(cell.clone_name());
             } else {
+                let msg = format!(
+                    "Cannot inline `{}`. It is a instance of primitive: `{}`",
+                    cell.name(),
+                    cell.type_name().unwrap_or(&ir::Id::from("constant"))
+                );
+
                 return Err(Error::PassAssumption(
                     Self::name().to_string(),
-                    format!(
-                        "Cannot inline `{}`. It is a instance of primitive: `{}`",
-                        cell.name(),
-                        cell.type_name().unwrap_or(&ir::Id::from("constant"))
-                    ),
+                    cell.attributes.fmt_err(&msg),
                 ));
             }
         }

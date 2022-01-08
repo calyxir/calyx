@@ -1,0 +1,33 @@
+// -p validate -p canonicalize
+import "primitives/core.futil";
+
+extern "dummy.sv" {
+  // Component with two disjoint combinational paths.
+  primitive multi_comb[WIDTH](
+    @read_together(1) addr_a: WIDTH,
+    @read_together(2) addr_b: WIDTH
+  ) -> (
+    @read_together(1) out_a: WIDTH,
+    @read_together(2) out_b: WIDTH
+  );
+}
+
+component main() -> () {
+  cells {
+    mc = multi_comb(32);
+    r = std_reg(32);
+  }
+
+  wires {
+    group foo {
+      mc.addr_b = mc.out_a;
+      mc.addr_a = 32'd0;
+      r.in = mc.out_b;
+      r.write_en = 1'd1;
+      foo[done] = r.done;
+    }
+  }
+  control {
+    foo;
+  }
+}

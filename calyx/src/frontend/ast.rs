@@ -72,19 +72,6 @@ pub enum Port {
     Hole { group: ir::Id, name: ir::Id },
 }
 
-impl Port {
-    /// Returns the name of the port being referenced.
-    ///  - `(@ comp A)` returns `A`
-    ///  - `(@ this B)` returns `B`
-    pub fn port_name(&self) -> &ir::Id {
-        match self {
-            Port::Comp { port, .. } => port,
-            Port::This { port } => port,
-            Port::Hole { name, .. } => name,
-        }
-    }
-}
-
 // ===================================
 // AST for wire guard expressions
 // ===================================
@@ -138,8 +125,7 @@ pub enum GuardComp {
     Leq,
 }
 
-/// A guard is a conditions in `guard_conj` which guard the value
-/// represented by `expr`.
+/// Guards `expr` using the optional guard condition `guard`.
 #[derive(Debug)]
 pub struct Guard {
     pub guard: Option<GuardExpr>,
@@ -206,6 +192,9 @@ pub struct Wire {
 
     /// Guarded destinations of the wire.
     pub dest: Port,
+
+    /// Attributes for this assignment
+    pub attributes: ir::Attributes,
 }
 
 /// Control AST nodes.

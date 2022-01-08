@@ -1,0 +1,19 @@
+// -p well-formed -p canonicalize
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    add = std_add(4);
+    lt = std_lt(4);
+    r = std_reg(4);
+  }
+  wires {
+    lt.left = add.out;
+    add.left = lt.out ? r.out;
+    r.in = add.out;
+    lt.right = 4'd10;
+    add.left = !lt.out ? 4'd0;
+    add.right = 4'd1;
+    r.write_en = 1'd1;
+  }
+  control {}
+}

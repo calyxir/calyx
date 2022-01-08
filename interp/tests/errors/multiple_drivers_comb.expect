@@ -3,5 +3,5 @@
 ---STDERR---
 Error: multiple assignments to one port: add0.left
     Conflict between:
-     1. add0.left = const0.out;
-     2. add0.left = const1.out;
+     1. add0.left = const1.out;
+     2. add0.left = const0.out;

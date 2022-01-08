@@ -80,9 +80,12 @@ inline the instance into the parent component and replace all `invoke`s of the
 instance with the control program of the instance.
 
 ### `stable`
-Applied to port definitions of primitives and components. The intended semantics
-are that after invoking the component, the value on the port remains latched
-till the next invocation.
+Used by the `canonicalize` pass.
+Only meaningful on output ports and states that their value is provided by
+a sequential element and is therefore available outside combinational time.
+
+For example, after invoking a multiplier, the value on its `out` port remains
+latched till the next invocation.
 
 For example
 ```
@@ -101,7 +104,7 @@ control {
 The value of `m.out` in `use_m_out` will be `32'd40`.
 
 This annotation is currently used by the primitives library and the Dahlia
-frontend and is not checked by any pass.
+frontend.
 
 ### `share`
 Can be attached to a component and indicates that a component can be shared
@@ -139,9 +142,10 @@ Note that `@write_together` specifications cannot encode implication of the
 form "if port `x` is driven then `y` should be driven".
 
 ### `read_together(n)`
-Used by the `papercut` pass.
-Defines a group `n` in which when the read port is used then all the write
-ports must be driven as well.
+
+Used by `papercut` and `canonicalize`.
+Defines a combinational path `n` between a set of an input ports and an output
+port.
 ```
 primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
   @read_together(1) addr0: IDX_SIZE, ...
