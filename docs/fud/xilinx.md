@@ -128,21 +128,19 @@ We need to generate:
 * An XML document describing the interface, using `XilinxXmlBackend`, via `-b xilinx-xml`. This file gets named `kernel.xml`.
 
 The `fud` driver gathers these files together in a sandbox directory.
-The next step is to run the Xilinx tools (adopted from [Vitis Tutorial Part 2][vitis_tutorial]).
+The next step is to run the Xilinx tools.
 
-In order to start using the Xilinx tools, we first invoke setup scripts.
+The rest of this section describes how this workflow works under the hood.
+If you want to follow along by typing commands manually, you can start by invoking the setup scripts for [Vitis][] and [XRT][]:
 
     source <Vitis_install_path>/Vitis/2020.1/settings64.sh
     source /opt/xilinx/xrt/setup.sh
 
-On some Ubuntu distributions, you must also export `LIBRARY_PATH`.
+On some Ubuntu setups, you may need to update `LIBRARY_PATH`:
 
     export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
 
-We verify that the tools are set up correctly by checking their versions.
-
-    vitis -version
-    vivado -version
+You can check that everything is working by typing `vitis -version` or `vivado -version`.
 
 #### Background: `.xo` and `.xclbin`
 
