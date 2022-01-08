@@ -53,24 +53,29 @@ impl Visitor for DeadCellRemoval {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // All cells used in groups
         for group in comp.groups.iter() {
             self.used_cells.extend(
-                &mut analysis::ReadWriteSet::uses(&group.borrow().assignments)
-                    .map(|c| c.clone_name()),
+                &mut analysis::ReadWriteSet::uses(
+                    group.borrow().assignments.iter(),
+                )
+                .map(|c| c.clone_name()),
             )
         }
         for cg in comp.comb_groups.iter() {
             self.used_cells.extend(
-                &mut analysis::ReadWriteSet::uses(&cg.borrow().assignments)
-                    .map(|c| c.clone_name()),
+                &mut analysis::ReadWriteSet::uses(
+                    cg.borrow().assignments.iter(),
+                )
+                .map(|c| c.clone_name()),
             )
         }
 
         // All cells used in continuous assignments.
         self.used_cells.extend(
-            &mut analysis::ReadWriteSet::uses(&comp.continuous_assignments)
-                .map(|c| c.clone_name()),
+            &mut analysis::ReadWriteSet::uses(
+                comp.continuous_assignments.iter(),
+            )
+            .map(|c| c.clone_name()),
         );
 
         // Remove cells that are not used.

@@ -82,7 +82,7 @@ impl Visitor for GroupToInvoke {
         // There should be exactly one component being written to in the
         // group.
         let mut writes =
-            ReadWriteSet::write_set(&group.assignments).collect_vec();
+            ReadWriteSet::write_set(group.assignments.iter()).collect_vec();
         if writes.len() != 1 {
             return Ok(Action::Continue);
         }

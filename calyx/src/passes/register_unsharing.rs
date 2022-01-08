@@ -107,7 +107,7 @@ impl Bookkeeper {
     ) -> Vec<(ir::Id, ir::Id, Vec<GroupOrInvoke>)> {
         let overlap = self
             .analysis
-            .calculate_overlap(&builder.component.continuous_assignments);
+            .calculate_overlap(builder.component.continuous_assignments.iter());
 
         let mut rename_list = vec![];
 

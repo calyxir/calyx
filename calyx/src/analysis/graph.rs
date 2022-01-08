@@ -75,24 +75,21 @@ impl GraphAnalysis {
         // insert nodes for src and dst ports
         let src_key = asgn.src.borrow().canonical();
         let dst_key = asgn.dst.borrow().canonical();
-        nodes
-            .entry(src_key.clone())
+        let src_node = *nodes
+            .entry(src_key)
             .or_insert_with(|| graph.add_node(Rc::clone(&asgn.src)));
-        nodes
-            .entry(dst_key.clone())
+        let dst_node = *nodes
+            .entry(dst_key)
             .or_insert_with(|| graph.add_node(Rc::clone(&asgn.dst)));
-        // add edge for the assignment
-        let src_node = nodes[&src_key];
-        let dst_node = nodes[&dst_key];
         graph.add_edge(src_node, dst_node, ());
         // add edges for guards that read from the port in the guard
         // and write to the dst of the assignment
         for port in &asgn.guard.all_ports() {
             let guard_key = port.borrow().canonical();
-            nodes
-                .entry(guard_key.clone())
+            let idx = *nodes
+                .entry(guard_key)
                 .or_insert_with(|| graph.add_node(Rc::clone(port)));
-            graph.add_edge(nodes[&guard_key], dst_node, ());
+            graph.add_edge(idx, dst_node, ());
         }
     }
 
