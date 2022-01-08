@@ -80,8 +80,7 @@ You can also set the Xilinx mode and target device:
     device = "xilinx_u50_gen3x16_xdma_201920_3"
 
 The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
-The device string above is for the [Alveo U50][u50] card, which we have at Cornell, but I honestly don't know how you're supposed to find the right string for a different FPGA target.
-Hopefully someone will figure this out and document it in the future.
+The device string above is for the [Alveo U50][u50] card, which we have at Cornell. The installed Xilinx card would typically be found under the directory `/opt/xilinx/platforms`, where one would be able to find a device name of interest.
 
 To use hardware emulation, you will also need to configure the `wdb` stage.
 It has similar `ssh_host`, `ssh_username`, and `remote` options to the `xclbin` stage.
@@ -130,6 +129,18 @@ We need to generate:
 
 The `fud` driver gathers these files together in a sandbox directory.
 The next step is to run the Xilinx tools.
+
+The rest of this section describes how this workflow works under the hood.
+If you want to follow along by typing commands manually, you can start by invoking the setup scripts for [Vitis][] and [XRT][]:
+
+    source <Vitis_install_path>/Vitis/2020.1/settings64.sh
+    source /opt/xilinx/xrt/setup.sh
+
+On some Ubuntu setups, you may need to update `LIBRARY_PATH`:
+
+    export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+
+You can check that everything is working by typing `vitis -version` or `vivado -version`.
 
 #### Background: `.xo` and `.xclbin`
 
@@ -188,6 +199,7 @@ Fortunately, the `v++` tool doesn't need any Tcl to drive it; all the action hap
 [gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
 [u50]: https://www.xilinx.com/products/boards-and-kits/alveo/u50.html
 [wdb]: https://support.xilinx.com/s/article/64000?language=en_US
+[vitis_tutorial]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.2/Getting_Started/Vitis/Part2.md
 [ip-xact]: https://en.wikipedia.org/wiki/IP-XACT
 [duh]: https://github.com/sifive/duh
 [package_kernel]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.1/Hardware_Acceleration/Feature_Tutorials/01-rtl_kernel_workflow/reference-files/scripts/package_kernel.tcl

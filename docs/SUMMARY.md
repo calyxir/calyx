@@ -3,7 +3,7 @@
 - [Getting Started](./intro.md)
 - [`fud`: The Calyx Driver](./fud/index.md)
   - [Examples](./fud/examples.md)
-  - [Synthesis and HLS Backend](./fud/synthesis.md)
+  - [Xilinx Tools](./fud/xilinx.md)
   - [External Stages](./fud/external.md)
   - [Multiple Paths](./fud/multiple-paths.md)
   - [CIRCT](./fud/circt.md)
