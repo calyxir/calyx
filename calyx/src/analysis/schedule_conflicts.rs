@@ -1,5 +1,6 @@
 use crate::ir::{self, CloneName};
 use crate::utils::{Idx, WeightGraph};
+use itertools::Itertools;
 use petgraph::visit::IntoEdgeReferences;
 use std::collections::HashMap;
 

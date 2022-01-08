@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
+
+use itertools::Itertools;
 
 use super::sharing_components::ShareComponents;
 use crate::{
@@ -43,8 +45,8 @@ impl ShareComponents for MinimizeRegs {
         self.live = LiveRangeAnalysis::new(comp, &*comp.control.borrow());
     }
 
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        self.live.get(group_name).iter().cloned().collect()
+    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> &BTreeSet<ir::Id> {
+        self.live.get(group_name)
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
@@ -57,12 +59,19 @@ impl ShareComponents for MinimizeRegs {
 
     fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
     where
-        F: FnMut(Vec<ir::Id>),
+        F: FnMut(Vec<&BTreeSet<ir::Id>>),
     {
-        for group in comp.groups.iter() {
+        add_conflicts(
+            comp.groups
+                .iter()
+                .map(|g| self.live.get(g.borrow().name()))
+                .unique()
+                .collect_vec(),
+        );
+        /* for group in comp.groups.iter() {
             let conflicts = self.live.get(group.borrow().name());
             add_conflicts(conflicts.iter().cloned().collect());
-        }
+        } */
     }
 
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>) {

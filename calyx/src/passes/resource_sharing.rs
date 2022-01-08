@@ -3,7 +3,7 @@ use crate::analysis;
 use crate::errors::CalyxResult;
 use crate::ir::{self, traversal::Named, CloneName, RRC};
 use ir::traversal::ConstructVisitor;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Rewrites groups to share cells marked with the "share" attribute
 /// when the groups are guaranteed to never run in parallel.
@@ -94,13 +94,14 @@ impl ShareComponents for ResourceSharing {
         self.used_cells_map = group_uses.chain(cg_uses).collect();
     }
 
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        self.used_cells_map
-            .get(group_name)
-            .unwrap_or_else(|| {
-                panic!("Missing used cells for group: {}", group_name)
-            })
-            .clone()
+    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> &BTreeSet<ir::Id> {
+        todo!()
+        /* self.used_cells_map
+        .get(group_name)
+        .unwrap_or_else(|| {
+            panic!("Missing used cells for group: {}", group_name)
+        })
+        .clone() */
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
@@ -117,11 +118,12 @@ impl ShareComponents for ResourceSharing {
 
     fn custom_conflicts<F>(&self, _comp: &ir::Component, mut add_conflicts: F)
     where
-        F: FnMut(Vec<ir::Id>),
+        F: FnMut(Vec<&BTreeSet<ir::Id>>),
     {
-        for used in self.used_cells_map.values() {
+        todo!()
+        /* for used in self.used_cells_map.values() {
             add_conflicts(used.clone())
-        }
+        } */
     }
 
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, RRC<ir::Cell>>) {

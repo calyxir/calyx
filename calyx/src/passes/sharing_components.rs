@@ -1,14 +1,20 @@
 //! Defines common traits for methods that attempt to share components.
 use crate::{
     analysis::{GraphColoring, ScheduleConflicts},
-    ir,
+    ir::{
+        self,
+        traversal::{Loggable, Named},
+    },
 };
 use ir::{
     traversal::{Action, VisResult, Visitor},
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::{
+    collections::{BTreeSet, HashMap, HashSet},
+    time::Instant,
+};
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -46,7 +52,7 @@ pub trait ShareComponents {
     /// Return a vector of conflicting cell names for a the group `group_name`.
     /// These are the names of the cells that conflict if their groups are
     /// run in parallel.
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id>;
+    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> &BTreeSet<ir::Id>;
 
     /// Given a cell and the library signatures, this function decides if
     /// this cell is relevant to the current sharing pass or not. This
@@ -65,7 +71,7 @@ pub trait ShareComponents {
     /// before graph coloring is performed.
     fn custom_conflicts<F>(&self, _comp: &ir::Component, _add_conflicts: F)
     where
-        F: FnMut(Vec<ir::Id>),
+        F: FnMut(Vec<&BTreeSet<ir::Id>>),
     {
     }
 
@@ -76,7 +82,7 @@ pub trait ShareComponents {
     fn get_rewrites(&self) -> &HashMap<ir::Id, RRC<ir::Cell>>;
 }
 
-impl<T: ShareComponents> Visitor for T {
+impl<T: ShareComponents + Named> Visitor for T {
     fn start(
         &mut self,
         comp: &mut ir::Component,
@@ -85,76 +91,90 @@ impl<T: ShareComponents> Visitor for T {
     ) -> VisResult {
         self.initialize(comp, sigs);
 
+        // Iterator over filtered cells
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
-        let id_to_type: HashMap<ir::Id, ir::CellType> = cells
-            .clone()
+        // Mapping from name of cell to its type.
+        let cell_type: HashMap<ir::Id, ir::CellType> = cells
             .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
-        let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
-            HashMap::new();
-        for cell in cells {
-            cells_by_type
-                .entry(cell.borrow().prototype.clone())
-                .or_default()
-                .push(cell.clone_name())
-        }
+        // Mapping from type to all cells of that type.
+        let cells_by_type: HashMap<&ir::CellType, Vec<&ir::Id>> =
+            cell_type.iter().map(|(k, v)| (v, k)).into_group_map();
 
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
             cells_by_type
                 .into_iter()
                 .map(|(key, cell_names)| {
-                    (key, GraphColoring::from(cell_names.into_iter()))
+                    (
+                        key.clone(),
+                        GraphColoring::from(cell_names.into_iter().cloned()),
+                    )
                 })
                 .collect();
 
+        // Adding conflict edges between cells that belong to conflicted groups.
+        // For each conflict @ (g1, g2):
+        //   l1 = conflicts(g1)
+        //   l2 = conflicts(g2)
+        //   For (c1, c2) in combinations(l1, l2):
+        //     if type(c1) == type(c2):
+        //       graph[type(c1)].add_conflict(c1, c2)
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
+
+        let s = Instant::now();
         let group_conflicts = par_conflicts
             .all_conflicts()
             .into_grouping_map_by(|(g1, _)| g1.clone())
             .fold(
-                HashMap::new(),
-                |mut acc: HashMap<ir::CellType, Vec<ir::Id>>,
-                 _,
-                 (_, conflicted_group)| {
+                HashMap::<&ir::CellType, HashSet<&ir::Id>>::new(),
+                |mut acc, _, (_, conflicted_group)| {
                     for conflict in
                         self.lookup_group_conflicts(&conflicted_group)
                     {
-                        acc.entry(id_to_type[&conflict].clone())
+                        acc.entry(&cell_type[conflict])
                             .or_default()
-                            .push(conflict.clone())
+                            .insert(conflict);
                     }
                     acc
                 },
             );
+        self.elog("compute-conflicts", s.elapsed().as_millis());
 
+        let s = Instant::now();
         group_conflicts
             .into_iter()
             .for_each(|(group, conflict_group_b)| {
                 for a in self.lookup_group_conflicts(&group) {
-                    let g = graphs_by_type.get_mut(&id_to_type[&a]).unwrap();
-                    if let Some(confs) = conflict_group_b.get(&id_to_type[&a]) {
+                    let g = graphs_by_type.get_mut(&cell_type[a]).unwrap();
+                    if let Some(confs) = conflict_group_b.get(&cell_type[a]) {
                         for b in confs {
                             if a != b {
-                                g.insert_conflict(&a, b);
+                                g.insert_conflict(a, b);
                             }
                         }
                     }
                 }
             });
+        self.elog("add-conflicts", s.elapsed().as_millis());
 
         // add custom conflicts
-        self.custom_conflicts(comp, |confs: Vec<ir::Id>| {
-            for (a, b) in confs.iter().tuple_combinations() {
-                if id_to_type[a] == id_to_type[b] {
-                    if let Some(g) = graphs_by_type.get_mut(&id_to_type[a]) {
-                        g.insert_conflict(a, b)
+        let s = Instant::now();
+        self.custom_conflicts(comp, |confs: Vec<&BTreeSet<ir::Id>>| {
+            for conf in confs {
+                for (a, b) in conf.iter().tuple_combinations() {
+                    if cell_type[a] == cell_type[b] {
+                        if let Some(g) = graphs_by_type.get_mut(&cell_type[a]) {
+                            g.insert_conflict(a, b)
+                        }
                     }
                 }
             }
         });
+        self.elog("custom-conflicts", s.elapsed().as_millis());
 
+        let s = Instant::now();
         let mut coloring = HashMap::new();
         for graph in graphs_by_type.values() {
             if graph.has_nodes() {
@@ -166,6 +186,7 @@ impl<T: ShareComponents> Visitor for T {
                 );
             }
         }
+        self.elog("coloring", s.elapsed().as_millis());
 
         // Rewrite assignments using the coloring generated.
         let empty_map = HashMap::new();

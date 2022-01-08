@@ -4,7 +4,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     fmt::Debug,
     ops::{BitOr, Sub},
 };
@@ -13,11 +13,11 @@ use std::{
 /// the `live`, `gen`, and `kill` sets.
 #[derive(Default, Clone)]
 pub struct Prop {
-    set: HashSet<ir::Id>,
+    set: BTreeSet<ir::Id>,
 }
 
 /// Conversion to Prop from things that can be converted to HashSet<ir::Id>.
-impl<T: Into<HashSet<ir::Id>>> From<T> for Prop {
+impl<T: Into<BTreeSet<ir::Id>>> From<T> for Prop {
     fn from(t: T) -> Self {
         Prop { set: t.into() }
     }
@@ -252,7 +252,7 @@ impl LiveRangeAnalysis {
             ReadWriteSet::read_set(comp.continuous_assignments.iter())
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
-                .collect::<HashSet<_>>()
+                .collect::<BTreeSet<_>>()
                 .into();
         for (_, prop) in ranges.live.iter_mut() {
             *prop = &*prop | &global_reads;
@@ -261,7 +261,7 @@ impl LiveRangeAnalysis {
         ranges
     }
     /// Look up the set of things live at a group definition.
-    pub fn get(&self, group: &ir::Id) -> &HashSet<ir::Id> {
+    pub fn get(&self, group: &ir::Id) -> &BTreeSet<ir::Id> {
         &self
             .live
             .get(group)
@@ -328,17 +328,17 @@ impl LiveRangeAnalysis {
                 });
 
             // calculate reads, but ignore `variable`. we've already dealt with that
-            let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
+            let reads: BTreeSet<_> = ReadWriteSet::read_set(assignments)
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
                 .collect();
 
-            let mut writes = HashSet::new();
+            let mut writes = BTreeSet::new();
             writes.insert(variable.clone());
 
             (reads.into(), writes.into())
         } else {
-            let reads: HashSet<_> =
+            let reads: BTreeSet<_> =
                 ReadWriteSet::read_set(group.assignments.iter())
                     .filter(|c| {
                         c.borrow().type_name() == Some(&"std_reg".into())
@@ -354,7 +354,7 @@ impl LiveRangeAnalysis {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            let writes: HashSet<_> =
+            let writes: BTreeSet<_> =
                 ReadWriteSet::write_set(assignments.iter())
                     .filter(|c| {
                         c.borrow().type_name() == Some(&"std_reg".into())
@@ -382,14 +382,14 @@ impl LiveRangeAnalysis {
             .inputs
             .iter()
             .filter_map(|(_, src)| Self::port_to_cell_name(src))
-            .collect::<HashSet<ir::Id>>()
+            .collect::<BTreeSet<ir::Id>>()
             .into();
 
         let writes: Prop = invoke
             .outputs
             .iter()
             .filter_map(|(_, src)| Self::port_to_cell_name(src))
-            .collect::<HashSet<ir::Id>>()
+            .collect::<BTreeSet<ir::Id>>()
             .into();
 
         (reads, writes)
