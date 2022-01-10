@@ -220,4 +220,55 @@ argument. So to view the contents of `out_mem` with a signed interpretation:
 
 ## Watchpoints
 
+Watchpoints are like breakpoints but rather than stop the execution when they
+are passed, they instead print out some information. Like breakpoints, they are
+set on group *definitions*, such as `main::group_1` or `pow::do_mul`
+
+### Setting watchpoints
+
+The general form of watchpoints looks like
+```
+watch [POSITION] GROUP with PRINT-COMMAND
+```
+
+where:
+
+- `GROUP` is the group definition to be watched
+- `PRINT-COMMAND` is a full `print` or `print-state` command to be run by the watchpoint
+
+The optional `POSITION` argument may either be `before` or `after`. This
+specifies whether the watchpoint should run when the group first becomes active
+(`before`) or when the group finishes running (`after`). This defaults to
+`before` if not set.
+
+### Managing watchpoints
+
+Watchpoint management is similar to breakpoints. However there may be multiple
+watchpoints for a single group definition, so deleting watchpoints via the group
+name will delete all the watchpoints associated with the group. Watchpoints do
+not currently have an enable/disable state.
+
+To view all the watchpoint definitions:
+
+```
+ > info watch
+
+...
+
+ > iw
+```
+
+To delete watchpoints:
+
+```
+ > delete-watch 1
+ > del-watch main::group_1
+```
+
+## Exiting the debugger
+
+Use `help` to see all commands. Use `exit` to exit the debugger.
+
+
 [fud]: /fud/index.md
+[gdb]: https://sourceware.org/gdb/
