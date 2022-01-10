@@ -1,7 +1,8 @@
 //! Environment for interpreter.
 
 use super::names::{
-    ComponentQIN, GroupQIN, InstanceName, QualifiedInstanceName,
+    ComponentQualifiedInstanceName, GroupQIN, InstanceName,
+    QualifiedInstanceName,
 };
 use super::stk_env::Smoosher;
 use crate::debugger::PrintCode;
@@ -71,7 +72,8 @@ impl InterpreterState {
         mems: &Option<MemoryMap>,
     ) -> InterpreterResult<Self> {
         // only for the main component
-        let qin = ComponentQIN::new_single(target, &target.name);
+        let qin =
+            ComponentQualifiedInstanceName::new_single(target, &target.name);
         let (map, set) = Self::construct_cell_map(target, ctx, mems, &qin)?;
 
         Ok(Self {
@@ -88,7 +90,7 @@ impl InterpreterState {
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> InterpreterResult<Self> {
         let (map, set) = Self::construct_cell_map(target, ctx, mems, qin)?;
 
@@ -112,7 +114,7 @@ impl InterpreterState {
         params: &ir::Binding,
         cell_name: &ir::Id,
         mems: &Option<MemoryMap>,
-        qin_name: &ComponentQIN,
+        qin_name: &ComponentQualifiedInstanceName,
     ) -> InterpreterResult<Box<dyn Primitive>> {
         let cell_qin = QualifiedInstanceName::new(qin_name, cell_name).as_id();
         Ok(match prim_name.as_ref() {
@@ -259,7 +261,7 @@ impl InterpreterState {
         comp: &Rc<iir::Component>,
         ctx: &iir::ComponentCtx,
         mems: &Option<MemoryMap>,
-        qin_name: &ComponentQIN,
+        qin_name: &ComponentQualifiedInstanceName,
     ) -> InterpreterResult<(PrimitiveMap, HashSet<ConstCell>)> {
         let mut map = HashMap::new();
         let mut set = HashSet::new();

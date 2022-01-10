@@ -10,7 +10,7 @@ use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
 use crate::primitives::Serializeable;
-use crate::structures::names::{CompGroupName, ComponentQIN};
+use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::utils::AsRaw;
 use calyx::ir::{self, Id, RRC};
 pub(super) const SPACING: &str = "    ";
@@ -44,7 +44,7 @@ impl Debugger {
         env: InterpreterState,
         pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterResult<InterpreterState> {
-        let qin = ComponentQIN::new_single(
+        let qin = ComponentQualifiedInstanceName::new_single(
             &self.main_component,
             &self.main_component.name,
         );

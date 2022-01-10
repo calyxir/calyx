@@ -3,7 +3,7 @@ use super::group_interpreter::AssignmentInterpreter;
 use super::utils::{get_done_port, get_go_port};
 use crate::errors::InterpreterError;
 use crate::interpreter_ir as iir;
-use crate::structures::names::{ComponentQIN, GroupQIN};
+use crate::structures::names::{ComponentQualifiedInstanceName, GroupQIN};
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -157,7 +157,7 @@ pub struct EnableInterpreter {
     enable: EnableHolder,
     group_name: Option<ir::Id>,
     interp: AssignmentInterpreter,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl EnableInterpreter {
@@ -166,7 +166,7 @@ impl EnableInterpreter {
         group_name: Option<ir::Id>,
         mut env: InterpreterState,
         continuous: &iir::ContinuousAssignments,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self
     where
         E: Into<EnableHolder>,
@@ -248,7 +248,7 @@ pub struct SeqInterpreter {
     input_ports: Rc<HashSet<*const ir::Port>>,
     seq: Rc<iir::Seq>,
     seq_index: usize,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 impl SeqInterpreter {
     pub fn new(
@@ -256,7 +256,7 @@ impl SeqInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         Self {
             current_interpreter: None,
@@ -380,7 +380,7 @@ pub struct ParInterpreter {
     interpreters: Vec<ControlInterpreter>,
     in_state: InterpreterState,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    _qin: ComponentQIN,
+    _qin: ComponentQualifiedInstanceName,
 }
 
 impl ParInterpreter {
@@ -389,7 +389,7 @@ impl ParInterpreter {
         mut env: InterpreterState,
         continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let mut env = env.force_fork();
         let interpreters = par
@@ -487,7 +487,7 @@ pub struct IfInterpreter {
     branch_interp: Option<ControlInterpreter>,
     continuous_assignments: iir::ContinuousAssignments,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl IfInterpreter {
@@ -496,7 +496,7 @@ impl IfInterpreter {
         env: InterpreterState,
         continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let cond_port: ConstPort = ctrl_if.port.as_ptr();
 
@@ -637,7 +637,7 @@ pub struct WhileInterpreter {
     input_ports: Rc<HashSet<*const ir::Port>>,
     terminal_env: Option<InterpreterState>,
     wh: Rc<iir::While>,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl WhileInterpreter {
@@ -646,7 +646,7 @@ impl WhileInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let port: ConstPort = ctrl_while.port.as_ptr();
         let cond_interp;
@@ -936,7 +936,7 @@ impl ControlInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         match control {
             iir::Control::Seq(s) => Self::Seq(Box::new(SeqInterpreter::new(
