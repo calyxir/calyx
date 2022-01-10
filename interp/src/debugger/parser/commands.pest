@@ -36,8 +36,13 @@ print_fail = {
     (^"print" | ^"p") ~ (print_code | pc_fail)?
 }
 
+before = {^"before"}
+after = {^"after"}
+
+watch_position = { before | after }
+
 watch = {
-    (^"watch" | ^"w") ~ group ~ ^"with" ~ (print_state | print)
+    (^"watch" | ^"w") ~ (watch_position)? ~ group ~ ^"with" ~ (print_state | print)
 }
 
 step_over = {^"step-over" ~ group }
@@ -51,11 +56,14 @@ help = {
 }
 display = { ^"display" | ^"d" }
 info_break = { (^"info" ~ ^"break") | ^"i" ~ ^"b" }
+info_watch = { (^"info" ~ ^"watch") | ^"i" ~ ^"w" }
 
 brk = { (^"break" | ^"br") ~ group* }
 brk_id = { (group | num) }
 
 delete = { (^"delete" | ^"del") ~ brk_id* }
+
+delete_watch = { (^"delete-watch" | ^"del-watch") ~ brk_id* }
 
 enable = { (^"enable") ~ brk_id* }
 disable = { (^"disable") ~ brk_id* }
@@ -69,6 +77,7 @@ command = {
      | print_state
      | print
      | print_fail
+     | delete_watch
      | delete
      | brk
      | enable
@@ -79,6 +88,7 @@ command = {
      | cont
      | help
      | info_break
+     | info_watch
      | display
      | exit
     )?

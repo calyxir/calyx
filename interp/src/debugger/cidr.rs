@@ -2,7 +2,7 @@ use std::cell::Ref;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::commands::{Command, PrintCode};
+use super::commands::{Command, PrintCode, PrintMode};
 use super::context::DebuggingContext;
 use super::io_utils::Input;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
@@ -10,7 +10,7 @@ use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
 use crate::primitives::Serializeable;
-use crate::structures::names::ComponentQIN;
+use crate::structures::names::{CompGroupName, ComponentQIN};
 use crate::utils::AsRaw;
 use calyx::ir::{self, Id, RRC};
 pub(super) const SPACING: &str = "    ";
@@ -82,9 +82,19 @@ impl Debugger {
                     component_interpreter.step()?;
                 }
                 Command::Continue => {
-                    let mut breakpoints = self.debugging_ctx.hit_breakpoints(
+                    self.debugging_ctx.set_current_time(
                         component_interpreter.currently_executing_group(),
                     );
+
+                    let mut ctx = std::mem::replace(
+                        &mut self.debugging_ctx,
+                        DebuggingContext::new(
+                            &self._context,
+                            &self.main_component.name,
+                        ),
+                    );
+
+                    let mut breakpoints: Vec<CompGroupName> = vec![];
 
                     while breakpoints.is_empty()
                         && !component_interpreter.is_done()
@@ -93,32 +103,28 @@ impl Debugger {
                         let current_exec =
                             component_interpreter.currently_executing_group();
 
-                        let mut ctx = std::mem::replace(
-                            &mut self.debugging_ctx,
-                            DebuggingContext::new(
-                                &self._context,
-                                &self.main_component.name,
-                            ),
-                        );
+                        ctx.advance_time(current_exec);
 
-                        for watch in
-                            ctx.process_watchpoints(current_exec.clone())
-                        {
+                        for watch in ctx.process_watchpoints() {
                             if let Ok(msg) = self.do_print(
-                                &watch.0,
-                                &watch.1,
+                                watch.target(),
+                                watch.print_code(),
                                 component_interpreter.get_env(),
-                                &watch.2,
+                                watch.print_mode(),
                             ) {
                                 println!("{}", msg);
                             }
                         }
 
-                        self.debugging_ctx = ctx;
-
-                        breakpoints =
-                            self.debugging_ctx.hit_breakpoints(current_exec);
+                        breakpoints = ctx
+                            .hit_breakpoints()
+                            .into_iter()
+                            .cloned()
+                            .collect();
                     }
+
+                    self.debugging_ctx = ctx;
+
                     if !component_interpreter.is_done() {
                         for breakpoint in breakpoints {
                             println!("Hit breakpoint: {}", breakpoint);
@@ -172,7 +178,15 @@ impl Debugger {
                         self.debugging_ctx.remove_breakpoint(&t)
                     }
                 }
-
+                Command::DeleteWatch(targets) => {
+                    if targets.is_empty() {
+                        println!("Error: command requires a target");
+                        continue;
+                    }
+                    for target in targets {
+                        self.debugging_ctx.remove_watchpoint(&target)
+                    }
+                }
                 Command::Disable(targets) => {
                     if targets.is_empty() {
                         println!("Error: command requires a target");
@@ -211,7 +225,13 @@ impl Debugger {
                         }
                     }
                 }
-                Command::Watch(group, print_target, print_code, print_mode) => {
+                Command::Watch(
+                    group,
+                    watch_pos,
+                    print_target,
+                    print_code,
+                    print_mode,
+                ) => {
                     if let Err(e) = self.do_print(
                         &print_target,
                         &print_code,
@@ -222,10 +242,12 @@ impl Debugger {
                     } else {
                         self.debugging_ctx.add_watchpoint(
                             group,
+                            watch_pos,
                             (print_target, print_code, print_mode),
                         )
                     }
                 }
+                Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
             }
         }
 
@@ -400,11 +422,6 @@ impl Debugger {
         }
         unreachable!()
     }
-}
-
-pub enum PrintMode {
-    State,
-    Port,
 }
 
 fn print_cell(

@@ -1,12 +1,12 @@
-use super::cidr::{PrintMode, SPACING};
-use super::commands::{BreakPointId, GroupName};
-use super::PrintCode;
+use super::cidr::SPACING;
+use super::commands::{BreakPointId, GroupName, PrintTuple, WatchPosition};
 
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
 use calyx::ir::Id;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::rc::Rc;
 
 pub struct Counter(u64);
@@ -24,7 +24,6 @@ impl Counter {
 enum BreakPointState {
     Enabled,  // this breakpoint is active
     Disabled, // this breakpoint is inactive
-    Resting,  // this breakpoint has been temporarily disabled
 }
 
 impl BreakPointState {
@@ -48,12 +47,16 @@ impl BreakPoint {
     }
 }
 
-type PrintTuple = (Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode);
-
+#[derive(Debug)]
 struct WatchPoint {
-    _id: u64,
-    _name: CompGroupName,
+    id: u64,
     print_details: PrintTuple,
+}
+
+impl Display for WatchPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.  {}", self.id, self.print_details)
+    }
 }
 
 impl std::fmt::Debug for BreakPoint {
@@ -64,25 +67,60 @@ impl std::fmt::Debug for BreakPoint {
             &self.id,
             &self.name,
             match &self.state {
-                BreakPointState::Resting | BreakPointState::Enabled =>
-                    "enabled",
+                BreakPointState::Enabled => "enabled",
                 BreakPointState::Disabled => "disabled",
             }
         )
     }
 }
 
+struct GroupExecutionInfo<T: std::cmp::Eq + std::hash::Hash> {
+    previous: HashSet<T>,
+    current: HashSet<T>,
+}
+
+impl<T: std::cmp::Eq + std::hash::Hash> GroupExecutionInfo<T> {
+    fn new() -> Self {
+        Self {
+            previous: HashSet::new(),
+            current: HashSet::new(),
+        }
+    }
+
+    fn shift_current(&mut self, current: HashSet<T>) {
+        std::mem::swap(&mut self.previous, &mut self.current);
+        self.current = current;
+    }
+
+    fn _in_previous(&self, key: &T) -> bool {
+        self.previous.contains(key)
+    }
+
+    fn _in_current(&self, key: &T) -> bool {
+        self.current.contains(key)
+    }
+
+    fn groups_new_off(&self) -> impl Iterator<Item = &T> {
+        self.previous.difference(&self.current)
+    }
+
+    fn groups_new_on(&self) -> impl Iterator<Item = &T> {
+        self.current.difference(&self.previous)
+    }
+}
+
 pub(super) struct DebuggingContext {
     breakpoints: HashMap<CompGroupName, BreakPoint>,
-    watchpoints: HashMap<CompGroupName, (BreakPointState, Vec<WatchPoint>)>,
+    watchpoints_before:
+        HashMap<CompGroupName, (BreakPointState, Vec<WatchPoint>)>,
+    watchpoints_after:
+        HashMap<CompGroupName, (BreakPointState, Vec<WatchPoint>)>,
     count: Counter,
     watch_count: Counter,
+    group_exec_info: GroupExecutionInfo<CompGroupName>,
     // used primarially for checking if a given group exists
     comp_ctx: HashMap<Id, Rc<iir::Component>>,
     main_comp_name: Id,
-    /// tracks the breakpoints which are temporarially disabled
-    sleeping_breakpoints: HashSet<CompGroupName>,
-    sleeping_watchpoints: HashSet<CompGroupName>,
 }
 
 impl DebuggingContext {
@@ -91,14 +129,15 @@ impl DebuggingContext {
             count: Counter::new(),
             watch_count: Counter::new(),
             breakpoints: HashMap::new(),
-            watchpoints: HashMap::new(),
+            watchpoints_before: HashMap::new(),
+            watchpoints_after: HashMap::new(),
+            group_exec_info: GroupExecutionInfo::new(),
             main_comp_name: main_component.clone(),
-            sleeping_breakpoints: HashSet::new(),
+
             comp_ctx: ctx
                 .iter()
                 .map(|x| (x.name.clone(), Rc::clone(x)))
                 .collect(),
-            sleeping_watchpoints: HashSet::new(),
         }
     }
 
@@ -133,20 +172,35 @@ impl DebuggingContext {
         }
     }
 
-    pub fn add_watchpoint(&mut self, target: GroupName, print: PrintTuple) {
+    pub fn add_watchpoint<PT: Into<PrintTuple>>(
+        &mut self,
+        target: GroupName,
+        position: WatchPosition,
+        print: PT,
+    ) {
         let key = self.parse_group_name(&target);
 
         let watchpoint = WatchPoint {
-            _id: self.watch_count.next(),
-            _name: key.clone(),
-            print_details: print,
+            id: self.watch_count.next(),
+            print_details: print.into(),
         };
 
-        self.watchpoints
-            .entry(key)
-            .or_insert((BreakPointState::Enabled, Vec::new()))
-            .1
-            .push(watchpoint);
+        match position {
+            WatchPosition::Before => {
+                self.watchpoints_before
+                    .entry(key)
+                    .or_insert((BreakPointState::Enabled, Vec::new()))
+                    .1
+                    .push(watchpoint);
+            }
+            WatchPosition::After => {
+                self.watchpoints_after
+                    .entry(key)
+                    .or_insert((BreakPointState::Enabled, Vec::new()))
+                    .1
+                    .push(watchpoint);
+            }
+        }
     }
 
     pub fn remove_breakpoint(&mut self, target: &BreakPointId) {
@@ -170,24 +224,40 @@ impl DebuggingContext {
         }
     }
 
+    pub fn remove_watchpoint(&mut self, target: &BreakPointId) {
+        match target {
+            BreakPointId::Name(name) => self.remove_watchpoint_by_name(name),
+            BreakPointId::Number(num) => self.remove_watchpoint_by_number(*num),
+        }
+    }
+
     fn remove_breakpoint_by_name(&mut self, target: &GroupName) {
         let key = self.parse_group_name(target);
 
         self.breakpoints.remove(&key);
-        self.sleeping_breakpoints.remove(&key);
     }
 
     fn remove_breakpoint_by_number(&mut self, target: u64) {
-        let mut sleeping = std::mem::take(&mut self.sleeping_breakpoints);
-        self.breakpoints.retain(|k, x| {
-            if x.id != target {
-                true
-            } else {
-                sleeping.remove(k);
-                false
-            }
-        });
-        self.sleeping_breakpoints = sleeping;
+        self.breakpoints.retain(|_k, x| x.id != target);
+    }
+
+    fn remove_watchpoint_by_name(&mut self, target: &GroupName) {
+        let key = self.parse_group_name(target);
+
+        self.watchpoints_before.remove(&key);
+        self.watchpoints_after.remove(&key);
+    }
+
+    fn remove_watchpoint_by_number(&mut self, target: u64) {
+        // TODO (Griffin): Make this less inefficient, if it becomes a problem
+        // probably add a reverse lookup table or something
+        for watchpoints in self
+            .watchpoints_before
+            .values_mut()
+            .chain(self.watchpoints_after.values_mut())
+        {
+            watchpoints.1.retain(|x| x.id != target);
+        }
     }
 
     fn enable_breakpoint_by_name(&mut self, target: &GroupName) {
@@ -212,8 +282,7 @@ impl DebuggingContext {
         let key = self.parse_group_name(target);
 
         if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
-            self.sleeping_breakpoints.remove(&key);
-            // add some feedback
+            // TODO (Griffin): add some feedback
             breakpoint.disable()
         }
     }
@@ -221,7 +290,6 @@ impl DebuggingContext {
     fn disable_breakpoint_by_num(&mut self, target: u64) {
         for x in self.breakpoints.values_mut() {
             if x.id == target {
-                self.sleeping_breakpoints.remove(&x.name);
                 x.disable();
                 break;
             }
@@ -239,89 +307,63 @@ impl DebuggingContext {
         }
     }
 
-    pub fn hit_breakpoints(
-        &mut self,
-        current_executing: HashSet<GroupQIN>,
-    ) -> Vec<CompGroupName> {
+    pub fn advance_time(&mut self, current: HashSet<GroupQIN>) {
+        self.group_exec_info
+            .shift_current(current.into_iter().map(|x| x.into()).collect());
+    }
+
+    pub fn set_current_time(&mut self, current: HashSet<GroupQIN>) {
         let current: HashSet<CompGroupName> =
-            current_executing.into_iter().map(|x| x.into()).collect();
+            current.into_iter().map(|x| x.into()).collect();
+        self.group_exec_info.shift_current(current.clone());
+        self.group_exec_info.shift_current(current);
+    }
 
-        let sleeping = std::mem::take(&mut self.sleeping_breakpoints);
-
-        // wake up sleeping breakpoints
-        self.sleeping_breakpoints = sleeping
-            .into_iter()
+    pub fn hit_breakpoints(&self) -> Vec<&CompGroupName> {
+        self.group_exec_info
+            .groups_new_on()
             .filter(|x| {
-                if !current.contains(x) {
-                    self.breakpoints.get_mut(x).unwrap().enable();
-                    false
-                } else {
-                    true
-                }
-            })
-            .collect();
-
-        current
-            .into_iter()
-            .filter(|x| {
-                if let Some(brk) = self.breakpoints.get_mut(x) {
-                    if brk.state.enabled() {
-                        self.sleeping_breakpoints.insert(x.clone());
-                        brk.state = BreakPointState::Resting;
-                        return true;
-                    }
+                if let Some(brk) = self.breakpoints.get(x) {
+                    return brk.state.enabled();
                 }
                 false
             })
             .collect()
     }
 
-    pub fn process_watchpoints(
-        &mut self,
-        current_executing: HashSet<GroupQIN>,
-    ) -> Vec<&'_ PrintTuple> {
-        let current: HashSet<CompGroupName> =
-            current_executing.into_iter().map(|x| x.into()).collect();
-
-        let sleeping = std::mem::take(&mut self.sleeping_watchpoints);
-
-        // wake up sleeping breakpoints
-        self.sleeping_watchpoints = sleeping
-            .into_iter()
-            .filter(|x| {
-                if !current.contains(x) {
-                    if let Some(x) = self.watchpoints.get_mut(x) {
-                        x.0 = BreakPointState::Enabled;
-                    }
-                    false
-                } else {
-                    true
-                }
-            })
-            .collect();
-
-        let hit: Vec<_> = current
-            .into_iter()
-            .filter(|x| {
-                if let Some((state, _)) = self.watchpoints.get_mut(x) {
-                    if state.enabled() {
-                        self.sleeping_watchpoints.insert(x.clone());
-                        *state = BreakPointState::Resting;
-                        return true;
-                    }
-                }
-                false
-            })
-            .collect();
-
+    pub fn process_watchpoints(&self) -> Vec<&'_ PrintTuple> {
         let mut output_vec: Vec<_> = vec![];
-        for target in hit {
-            if let Some(x) = self.watchpoints.get(&target) {
+
+        let before_iter = self.group_exec_info.groups_new_on().filter(|x| {
+            if let Some((state, _)) = self.watchpoints_before.get(x) {
+                return state.enabled();
+            }
+            false
+        });
+
+        let after_iter = self.group_exec_info.groups_new_off().filter(|x| {
+            if let Some((state, _)) = self.watchpoints_after.get(x) {
+                return state.enabled();
+            }
+            false
+        });
+
+        for target in before_iter {
+            if let Some(x) = self.watchpoints_before.get(target) {
                 for val in x.1.iter() {
                     output_vec.push(&val.print_details)
                 }
             }
         }
+
+        for target in after_iter {
+            if let Some(x) = self.watchpoints_after.get(target) {
+                for val in x.1.iter() {
+                    output_vec.push(&val.print_details)
+                }
+            }
+        }
+
         output_vec
     }
 
@@ -341,6 +383,30 @@ impl DebuggingContext {
         println!("{}Current breakpoints:", SPACING);
         for breakpoint in self.breakpoints.values() {
             println!("{}{:?}", SPACING, breakpoint)
+        }
+    }
+
+    pub fn print_watchpoints(&self) {
+        println!("{}Current watchpoints:", SPACING);
+        let inner_spacing = format!("{}    ", SPACING);
+        let outer_spacing = format!("{}  ", SPACING);
+
+        for (group, (_brk, watchpoints)) in self.watchpoints_before.iter() {
+            println!("{}Before {}:", outer_spacing, group);
+            for watchpoint in watchpoints.iter() {
+                println!("{}{}", inner_spacing, watchpoint);
+            }
+        }
+
+        println!();
+
+        for (group, (_brk, watchpoints)) in self.watchpoints_after.iter() {
+            if !watchpoints.is_empty() {
+                println!("{}After {}:", outer_spacing, group);
+                for watchpoint in watchpoints.iter() {
+                    println!("{}{}", inner_spacing, watchpoint);
+                }
+            }
         }
     }
 }

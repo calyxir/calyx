@@ -1,4 +1,6 @@
-use std::fmt::Write;
+use calyx::ir::Id;
+use itertools::{self, Itertools};
+use std::fmt::{Display, Write};
 use std::ops::Deref;
 
 #[derive(Debug, Default)]
@@ -28,7 +30,7 @@ impl From<u64> for BreakPointId {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum PrintCode {
     Binary,
     Unsigned,
@@ -43,6 +45,91 @@ impl Default for PrintCode {
     }
 }
 
+impl Display for PrintCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                PrintCode::Binary => "\\b".to_string(),
+                PrintCode::Unsigned => "\\u".to_string(),
+                PrintCode::Signed => "\\s".to_string(),
+                PrintCode::UFixed(n) => format!("\\u.{}", n),
+                PrintCode::SFixed(n) => format!("\\s.{}", n),
+            }
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum WatchPosition {
+    Before,
+    After,
+}
+
+impl Default for WatchPosition {
+    fn default() -> Self {
+        Self::Before
+    }
+}
+
+#[derive(Debug)]
+pub enum PrintMode {
+    State,
+    Port,
+}
+#[derive(Debug)]
+pub struct PrintTuple(Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode);
+
+impl PrintTuple {
+    pub fn target(&self) -> &Option<Vec<Vec<Id>>> {
+        &self.0
+    }
+
+    pub fn print_code(&self) -> &Option<PrintCode> {
+        &self.1
+    }
+
+    pub fn print_mode(&self) -> &PrintMode {
+        &self.2
+    }
+}
+
+impl From<(Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)> for PrintTuple {
+    fn from(val: (Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)) -> Self {
+        PrintTuple(val.0, val.1, val.2)
+    }
+}
+
+impl Display for PrintTuple {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self.2 {
+                PrintMode::State => "print-state",
+                PrintMode::Port => "print",
+            }
+        )?;
+        write!(
+            f,
+            " {}",
+            match &self.1 {
+                Some(s) => format!("{}", s),
+                None => "".to_string(),
+            }
+        )?;
+        write!(
+            f,
+            " {}",
+            match &self.0 {
+                Some(v) => v.iter().map(|x| x.iter().join(".")).join(" "),
+                None => "".to_string(),
+            }
+        )
+    }
+}
+
 pub enum Command {
     Step,                                                      // Step execution
     Continue, // Execute until breakpoint
@@ -53,16 +140,19 @@ pub enum Command {
     Help,                  // Help message
     Exit,                  // Exit the debugger
     InfoBreak,             // List breakpoints
+    InfoWatch,
     Disable(Vec<BreakPointId>),
     Enable(Vec<BreakPointId>),
     Delete(Vec<BreakPointId>),
+    DeleteWatch(Vec<BreakPointId>),
     StepOver(GroupName),
     PrintState(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>),
     Watch(
         GroupName,
+        WatchPosition,
         Option<Vec<Vec<calyx::ir::Id>>>,
         Option<PrintCode>,
-        super::cidr::PrintMode,
+        PrintMode,
     ),
 }
 
