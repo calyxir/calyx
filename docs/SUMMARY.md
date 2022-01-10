@@ -28,6 +28,9 @@
   - [MrXL](./frontends/mrxl.md)
 - [Optimizations](./optimizations/index.md)
   - [Dataflow Analysis](./optimizations/dataflow.md)
-- [Debugging Tips](./debug/debug.md)
+- [Debugging](./debug/index.md)
+  - [Tips](./debug/debug.md)
+  - [Interactive Debugger](./debug/cider.md)
+
 ----
 [Contributors](./contributors.md)
