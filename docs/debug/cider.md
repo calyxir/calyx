@@ -70,4 +70,77 @@ Main component has finished executing. Debugger is now in inspection mode.
 
 ## Breakpoints
 
+CIDR supports breakpoints on group definitions. This helps focus attention on
+suspect portions of the code.
+
+### Setting a breakpoint
+
+Breakpoints may be set on the main component by simple specifying the group of
+interest.
+
+```
+break group_1
+```
+
+This is identical to
+
+```
+break main::group_1
+```
+
+For sub-components, the name of the sub-component must be included with the
+double colon separating the group name. To break on the `do_mul` group inside
+the `pow` sub-component:
+
+```
+break pow::do_mul
+```
+
+### Managing breakpoints
+
+To see a list of breakpoints:
+```
+info break
+```
+or
+```
+ib
+```
+
+This produces output like this:
+```
+ > ib
+     Current breakpoints:
+    1.  main::group_1  enabled
+    2.  pow::do_mul enabled
+```
+
+All breakpoints have a number associated with them and they may be managed with
+this number or the group name.
+
+To enable or disable a breakpoint:
+
+```
+disable group_1 2
+enable 1 pow::do_mul
+```
+
+Note that this is equivalent to:
+```
+disable group_1
+disable 2
+enable 1
+enable pow::do_mul
+```
+
+To delete a breakpoint:
+```
+delete 1
+del pow::do_mul
+```
+
+Deleted breakpoints will be entirely removed while disabled breakpoints will
+remain until they are either enabled again or subsequently deleted. Disabled
+breakpoints will not cause program execution to halt when `continue`-ing.
+
 [fud]: /fud/index.md
