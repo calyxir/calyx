@@ -143,4 +143,80 @@ Deleted breakpoints will be entirely removed while disabled breakpoints will
 remain until they are either enabled again or subsequently deleted. Disabled
 breakpoints will not cause program execution to halt when `continue`-ing.
 
+## Inspecting State
+
+### `display`
+
+The display command dumps the full state of the main component without
+formatting. Use the `print` and `print-state` commands for targeted inspection
+with formatting.
+
+### Formatting codes
+
+CIDR supports several different formatting codes which do the hardwork of
+interpreting the data in human readable ways.
+
+
+| name | code | description
+|------|------|-----------|
+|binary|  | The default, a bit vector with the msb on the left
+|unsigned| \u | Unsigned bit-num formatting
+|signed| \s | Two's Complement formatting
+|unsigned fixedpoint| \u.N | For N >=1. Unsigned Fixed-point with N fractional bits. The remaining bits are for the integral component.
+|signed fixedpoint| \s.N | For N >=1. Signed Fixed-point with N fractional bits. The remaining bits are for the integral component.
+
+### `print` and `print-state`
+
+These commands allow inspecting *instance* state with optional formatting. Note
+that this is different from breakpoints which operate on *definitions*. For example to print the ports of the `std_mul` instance named `mul` in the `pow` instance `pow_1` attached to the main component:
+
+```
+print main.pow_1.mul
+```
+
+as with breakpoints, the leading `main` may be elided:
+```
+print pow_1.mul
+```
+
+This will print all the ports attached to this multiplier instance with binary
+formatting.
+
+Formatting codes may be supplied as the first argument.
+
+```
+print \u pow_1.mul
+```
+
+The `print` may also target specific ports on cells, rather than just the cell
+itself. To see only the output of the multiplier (with unsigned formatting):
+
+```
+print \u pow_1.mul.out
+```
+
+The `print-state` command works in the same way as the `print` command, except
+it displays the internal state of a cell, rather than port values. As such, it
+can only target cells and only those with some internal state, such as registers
+or memories. For example, if the main component has a memory named `out_mem` its
+contents may be viewed via:
+
+```
+print-state main.out_mem
+```
+
+or just
+
+```
+print-state out_mem
+```
+
+As with `print`, `print-state` supports formatting codes as an optional first
+argument. So to view the contents of `out_mem` with a signed interpretation:
+
+```
+print-state \s out_mem
+```
+
+
 [fud]: /fud/index.md
