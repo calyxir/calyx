@@ -79,13 +79,13 @@ Breakpoints may be set on the main component by simple specifying the group of
 interest.
 
 ```
-break group_1
+ > break group_1
 ```
 
 This is identical to
 
 ```
-break main::group_1
+ > break main::group_1
 ```
 
 For sub-components, the name of the sub-component must be included with the
@@ -93,18 +93,18 @@ double colon separating the group name. To break on the `do_mul` group inside
 the `pow` sub-component:
 
 ```
-break pow::do_mul
+ > break pow::do_mul
 ```
 
 ### Managing breakpoints
 
 To see a list of breakpoints:
 ```
-info break
+ > info break
 ```
 or
 ```
-ib
+ > ib
 ```
 
 This produces output like this:
@@ -121,22 +121,22 @@ this number or the group name.
 To enable or disable a breakpoint:
 
 ```
-disable group_1 2
-enable 1 pow::do_mul
+ > disable group_1 2
+ > enable 1 pow::do_mul
 ```
 
 Note that this is equivalent to:
 ```
-disable group_1
-disable 2
-enable 1
-enable pow::do_mul
+ > disable group_1
+ > disable 2
+ > enable 1
+ > enable pow::do_mul
 ```
 
 To delete a breakpoint:
 ```
-delete 1
-del pow::do_mul
+ > delete 1
+ > del pow::do_mul
 ```
 
 Deleted breakpoints will be entirely removed while disabled breakpoints will
@@ -153,7 +153,7 @@ with formatting.
 
 ### Formatting codes
 
-CIDR supports several different formatting codes which do the hardwork of
+CIDR supports several different formatting codes which do the hard work of
 interpreting the data in human readable ways.
 
 
@@ -171,12 +171,12 @@ These commands allow inspecting *instance* state with optional formatting. Note
 that this is different from breakpoints which operate on *definitions*. For example to print the ports of the `std_mul` instance named `mul` in the `pow` instance `pow_1` attached to the main component:
 
 ```
-print main.pow_1.mul
+ > print main.pow_1.mul
 ```
 
 as with breakpoints, the leading `main` may be elided:
 ```
-print pow_1.mul
+ > print pow_1.mul
 ```
 
 This will print all the ports attached to this multiplier instance with binary
@@ -185,14 +185,14 @@ formatting.
 Formatting codes may be supplied as the first argument.
 
 ```
-print \u pow_1.mul
+ > print \u pow_1.mul
 ```
 
 The `print` may also target specific ports on cells, rather than just the cell
 itself. To see only the output of the multiplier (with unsigned formatting):
 
 ```
-print \u pow_1.mul.out
+ > print \u pow_1.mul.out
 ```
 
 The `print-state` command works in the same way as the `print` command, except
@@ -202,21 +202,22 @@ or memories. For example, if the main component has a memory named `out_mem` its
 contents may be viewed via:
 
 ```
-print-state main.out_mem
+ > print-state main.out_mem
 ```
 
 or just
 
 ```
-print-state out_mem
+ > print-state out_mem
 ```
 
 As with `print`, `print-state` supports formatting codes as an optional first
 argument. So to view the contents of `out_mem` with a signed interpretation:
 
 ```
-print-state \s out_mem
+ > print-state \s out_mem
 ```
 
+## Watchpoints
 
 [fud]: /fud/index.md
