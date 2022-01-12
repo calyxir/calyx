@@ -1,0 +1,15 @@
+ver = "0.3.2"
+
+# Run Vivado/Vitis to produce an xclbin binary.
+# This command needs to output to a temporary file and delete it because fud
+# can only dump text data to stdout, not binary data.
+[[tests]]
+name = "compile"
+paths = [
+  "*.futil"
+]
+cmd = """
+fud exec -s futil.exec '../../target/debug/futil' \
+    {} -o {}.xclbin &&
+    rm {}.xclbin
+"""
