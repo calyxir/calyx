@@ -13,7 +13,8 @@ module std_sync_reg #(
    input wire                 reset,
     // output
    output logic [WIDTH - 1:0] out,
-   output logic               done,
+   output logic               write_done,
+   output logic               read_done,
    output logic               blocked
 );
 
@@ -61,14 +62,24 @@ module std_sync_reg #(
       state <= state;
   end
 
-  // Done signal
+  // Done signal for write commital
   always_ff @(posedge clk) begin
     if (reset)
-      done <= 0;
+      write_done <= 0;
     else if (WRITE_ST)
-      done <= 1;
+      write_done <= 1;
     else
-      done <= 0;
+      write_done <= 0;
+  end
+
+  // Done signal for read commital
+  always_ff @(posedge clk) begin
+    if (reset)
+      read_done <= 0;
+    else if (READ_ST)
+      read_done <= 1;
+    else
+      read_done <= 0;
   end
 
   // Blocked signal
