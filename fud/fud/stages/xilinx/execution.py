@@ -55,12 +55,14 @@ class HwExecutionStage(Stage):
             os.chdir(tmp_dir.name)
             xrt_output_logname = "output.log"
             with open("xrt.ini", "w") as f:
-                f.writelines([
-                    "[Runtime]\n",
-                    f"runtime_log={xrt_output_logname}\n",
-                    "[Emulation]\n",
-                    "print_infos_in_console=false\n",
-                ])
+                f.writelines(
+                    [
+                        "[Runtime]\n",
+                        f"runtime_log={xrt_output_logname}\n",
+                        "[Emulation]\n",
+                        "print_infos_in_console=false\n",
+                    ]
+                )
 
             ctx = self.cl.create_some_context(0)
             dev = ctx.devices[0]
@@ -101,15 +103,15 @@ class HwExecutionStage(Stage):
             del ctx
 
             # Add xrt log output to our debug output.
-            log.debug('XRT log:')
+            log.debug("XRT log:")
             with open(xrt_output_logname, "r") as f:
                 for line in f.readlines():
                     log.debug(line.strip())
 
             # And, in emulation mode, also include the emulation log.
-            emu_log = 'emulation_debug.log'
+            emu_log = "emulation_debug.log"
             if os.path.exists(emu_log):
-                log.debug('Emulation log:')
+                log.debug("Emulation log:")
                 with open(emu_log, "r") as f:
                     for line in f.readlines():
                         log.debug(line.strip())
