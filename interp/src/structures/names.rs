@@ -97,14 +97,29 @@ impl QualifiedInstanceName {
         string_vec.push(self.name.id.clone());
         string_vec.join(".").into()
     }
-}
 
-impl QualifiedInstanceName {
     pub fn new(prefix: &ComponentQualifiedInstanceName, name: &Id) -> Self {
         Self {
             prefix: prefix.clone(),
             name: name.clone(),
         }
+    }
+
+    pub fn prefix_length(&self) -> usize {
+        self.prefix.0.len()
+    }
+
+    pub fn shared_prefix_of(&self, other: &Self) -> bool {
+        for (a, b) in self.prefix.0.iter().zip(other.prefix.0.iter()) {
+            if a != b {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn equal_prefix(&self, other: &Self) -> bool {
+        self.prefix == other.prefix
     }
 }
 
