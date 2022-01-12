@@ -1,0 +1,20 @@
+XILINX_XRT        : /opt/xilinx/xrt
+PATH              : /opt/xilinx/xrt/bin:/scratch/opt/Xilinx/Vitis_HLS/2020.2/bin:/scratch/opt/Xilinx/Vitis/2020.2/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/microblaze/lin/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/arm/lin/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/microblaze/linux_toolchain/lin64_le/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch32/lin/gcc-arm-linux-gnueabi/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch32/lin/gcc-arm-none-eabi/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch64/lin/aarch64-linux/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch64/lin/aarch64-none/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/armr5/lin/gcc-arm-none-eabi/bin:/scratch/opt/Xilinx/Vitis/2020.2/tps/lnx64/cmake-3.3.2/bin:/scratch/opt/Xilinx/Vitis/2020.2/aietools/bin:/scratch/opt/Xilinx/Vivado/2020.2/bin:/scratch/opt/Xilinx/DocNav:/scratch/opt/Xilinx/Vitis_HLS/2020.2/bin:/scratch/opt/Xilinx/Vitis/2020.2/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/microblaze/lin/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/arm/lin/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/microblaze/linux_toolchain/lin64_le/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch32/lin/gcc-arm-linux-gnueabi/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch32/lin/gcc-arm-none-eabi/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch64/lin/aarch64-linux/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/aarch64/lin/aarch64-none/bin:/scratch/opt/Xilinx/Vitis/2020.2/gnu/armr5/lin/gcc-arm-none-eabi/bin:/scratch/opt/Xilinx/Vitis/2020.2/tps/lnx64/cmake-3.3.2/bin:/scratch/opt/Xilinx/Vitis/2020.2/aietools/bin:/scratch/opt/Xilinx/Vivado/2020.2/bin:/scratch/opt/Xilinx/DocNav:/home/als485/.cargo/bin:/home/als485/.rsrc/bin:/usr/local/opt/python/libexec/bin:/home/als485/Library/Python/3.9/bin:/usr/local/bin:/usr/local/sbin:/home/als485/.cargo/bin:/home/als485/.rsrc/bin:/usr/local/opt/python/libexec/bin:/home/als485/Library/Python/3.9/bin:/usr/local/bin:/usr/local/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/als485/.ec2/bin:/home/als485/.cabal/bin:/usr/local/git/bin:/usr/bin/vendor_perl:/usr/texbin:/home/als485/.gem/ruby/2.0.0/bin:/home/als485/.local/bin:/usr/sbin:/sbin:/home/als485/.node_modules/bin:/home/als485/.ec2/bin:/home/als485/.cabal/bin:/usr/local/git/bin:/usr/bin/vendor_perl:/usr/texbin:/home/als485/.gem/ruby/2.0.0/bin:/home/als485/.local/bin:/usr/sbin:/sbin:/home/als485/.node_modules/bin
+LD_LIBRARY_PATH   : /opt/xilinx/xrt/lib:
+PYTHONPATH        : /opt/xilinx/xrt/python:
+CRITICAL WARNING: [HW-EMU 08-0] Unable to find emconfig.json. Using default device "xilinx:pcie-hw-em:7v3:1.0"
+INFO: [HW-EMU 01] Hardware emulation runs simulation underneath. Using a large data set will result in long simulation times. It is recommended that a small dataset is used for faster execution. The flow uses approximate models for DDR memory and interconnect and hence the performance data generated is approximate.
+INFO::[ Vitis-EM 22 ] [Time elapsed: 0 minute(s) 16 seconds, Emulation time: 0.0952107 ms]
+Data transfer between kernel(s) and global memory(s)
+Toplevel_1:m0_axi-HBM[0]          RD = 0.125 KB               WR = 0.000 KB        
+
+INFO: [HW-EMU 06-0] Waiting for the simulator process to exit
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+{
+  "memories": {
+    "mem": [
+      10
+    ]
+  },
+  "runtime": 0.008090734481811523
+}
