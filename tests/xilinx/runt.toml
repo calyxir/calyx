@@ -9,7 +9,7 @@ paths = [
   "*.futil"
 ]
 cmd = """
-fud exec -s futil.exec '../../target/debug/futil' \
+fud exec -q -s futil.exec '../../target/debug/futil' \
     {} -o {}.xclbin &&
     rm {}.xclbin
 """
@@ -21,10 +21,10 @@ paths = [
   "*.futil"
 ]
 cmd = """
-source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh ; \
+bash -c 'source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh ; \
 source /opt/xilinx/xrt/setup.sh ; \
 EMCONFIG_PATH=`pwd` \
 XCL_EMULATION_MODE=hw_emu \
-fud e {} --to fpga \
-    -s fpga.data data.json
+fud exec -q -s futil.exec '../../target/debug/futil' \
+    {} --to fpga -s fpga.data data.json'
 """
