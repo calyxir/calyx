@@ -9,7 +9,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 /// when the groups are guaranteed to never run in parallel.
 pub struct ResourceSharing {
     /// Mapping from the name of a group to the cells that it uses.
-    used_cells_map: HashMap<ir::Id, Vec<ir::Id>>,
+    used_cells_map: HashMap<ir::Id, BTreeSet<ir::Id>>,
 
     /// This is used to rewrite all uses of `old_cell` with `new_cell` in the group.
     rewrites: HashMap<ir::Id, RRC<ir::Cell>>,
@@ -79,7 +79,7 @@ impl ShareComponents for ResourceSharing {
                 analysis::ReadWriteSet::uses(group.borrow().assignments.iter())
                     .filter(|cell| self.cell_filter(&cell.borrow()))
                     .map(|cell| cell.clone_name())
-                    .collect::<Vec<_>>(),
+                    .collect::<BTreeSet<_>>(),
             )
         });
         let cg_uses = component.comb_groups.iter().map(|cg| {
@@ -88,20 +88,16 @@ impl ShareComponents for ResourceSharing {
                 analysis::ReadWriteSet::uses(cg.borrow().assignments.iter())
                     .filter(|cell| self.cell_filter(&cell.borrow()))
                     .map(|cell| cell.clone_name())
-                    .collect::<Vec<_>>(),
+                    .collect::<BTreeSet<_>>(),
             )
         });
         self.used_cells_map = group_uses.chain(cg_uses).collect();
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> &BTreeSet<ir::Id> {
-        todo!()
-        /* self.used_cells_map
-        .get(group_name)
-        .unwrap_or_else(|| {
+        self.used_cells_map.get(group_name).unwrap_or_else(|| {
             panic!("Missing used cells for group: {}", group_name)
         })
-        .clone() */
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
@@ -120,10 +116,7 @@ impl ShareComponents for ResourceSharing {
     where
         F: FnMut(Vec<&BTreeSet<ir::Id>>),
     {
-        todo!()
-        /* for used in self.used_cells_map.values() {
-            add_conflicts(used.clone())
-        } */
+        add_conflicts(self.used_cells_map.values().collect())
     }
 
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, RRC<ir::Cell>>) {

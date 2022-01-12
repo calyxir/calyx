@@ -4,7 +4,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashMap},
     fmt::Debug,
     ops::{BitOr, Sub},
 };

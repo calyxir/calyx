@@ -1,20 +1,9 @@
 //! Defines common traits for methods that attempt to share components.
-use crate::{
-    analysis::{GraphColoring, ScheduleConflicts},
-    ir::{
-        self,
-        traversal::{Loggable, Named},
-    },
-};
-use ir::{
-    traversal::{Action, VisResult, Visitor},
-    CloneName, RRC,
-};
+use crate::analysis::{GraphColoring, ScheduleConflicts};
+use crate::ir::traversal::{Action, VisResult, Visitor};
+use crate::ir::{self, CloneName, RRC};
 use itertools::Itertools;
-use std::{
-    collections::{BTreeSet, HashMap, HashSet},
-    time::Instant,
-};
+use std::collections::{BTreeSet, HashMap};
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -82,7 +71,7 @@ pub trait ShareComponents {
     fn get_rewrites(&self) -> &HashMap<ir::Id, RRC<ir::Cell>>;
 }
 
-impl<T: ShareComponents + Named> Visitor for T {
+impl<T: ShareComponents> Visitor for T {
     fn start(
         &mut self,
         comp: &mut ir::Component,
@@ -123,12 +112,11 @@ impl<T: ShareComponents + Named> Visitor for T {
         //       graph[type(c1)].add_conflict(c1, c2)
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
 
-        let s = Instant::now();
         let group_conflicts = par_conflicts
             .all_conflicts()
             .into_grouping_map_by(|(g1, _)| g1.clone())
             .fold(
-                HashMap::<&ir::CellType, HashSet<&ir::Id>>::new(),
+                HashMap::<&ir::CellType, BTreeSet<&ir::Id>>::new(),
                 |mut acc, _, (_, conflicted_group)| {
                     for conflict in
                         self.lookup_group_conflicts(&conflicted_group)
@@ -140,9 +128,7 @@ impl<T: ShareComponents + Named> Visitor for T {
                     acc
                 },
             );
-        self.elog("compute-conflicts", s.elapsed().as_millis());
 
-        let s = Instant::now();
         group_conflicts
             .into_iter()
             .for_each(|(group, conflict_group_b)| {
@@ -157,10 +143,8 @@ impl<T: ShareComponents + Named> Visitor for T {
                     }
                 }
             });
-        self.elog("add-conflicts", s.elapsed().as_millis());
 
         // add custom conflicts
-        let s = Instant::now();
         self.custom_conflicts(comp, |confs: Vec<&BTreeSet<ir::Id>>| {
             for conf in confs {
                 for (a, b) in conf.iter().tuple_combinations() {
@@ -172,9 +156,7 @@ impl<T: ShareComponents + Named> Visitor for T {
                 }
             }
         });
-        self.elog("custom-conflicts", s.elapsed().as_millis());
 
-        let s = Instant::now();
         let mut coloring = HashMap::new();
         for graph in graphs_by_type.values() {
             if graph.has_nodes() {
@@ -186,7 +168,6 @@ impl<T: ShareComponents + Named> Visitor for T {
                 );
             }
         }
-        self.elog("coloring", s.elapsed().as_millis());
 
         // Rewrite assignments using the coloring generated.
         let empty_map = HashMap::new();
