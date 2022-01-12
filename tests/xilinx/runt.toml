@@ -5,6 +5,7 @@ ver = "0.3.2"
 # can only dump text data to stdout, not binary data.
 [[tests]]
 name = "compile"
+expect_dir = "compile"
 paths = [
   "*.futil"
 ]
@@ -17,6 +18,7 @@ fud exec -q -s futil.exec '../../target/debug/futil' \
 # Compile *and* actually emulate a program using OpenCL.
 [[tests]]
 name = "emulate"
+expect_dir = "emulate"
 paths = [
   "*.futil"
 ]
