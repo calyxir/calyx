@@ -12,11 +12,11 @@ pub struct CombProp;
 
 impl Named for CombProp {
     fn name() -> &'static str {
-        todo!()
+        "comb-prop"
     }
 
     fn description() -> &'static str {
-        todo!()
+        "propagate unconditional continuous assignments"
     }
 }
 
