@@ -16,6 +16,17 @@ class Registry:
         self.config = config
         self.graph = nx.DiGraph()
 
+    def get_states(self, stage):
+        """
+        Returns the pairs of input and output states that the given stage
+        operates upon.
+        """
+        out = [
+            (s, e) for (s, e, st) in self.graph.edges(data="stage") if st.name == stage
+        ]
+        assert len(out) > 0, f"No state tranformation for {stage} found."
+        return out
+
     def register(self, stage):
         """
         Defines a new stage named `stage` that converts programs from `src` to
