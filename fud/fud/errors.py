@@ -1,6 +1,3 @@
-from pathlib import Path
-
-
 class FudError(Exception):
     """
     An error caught by the Calyx Driver.
