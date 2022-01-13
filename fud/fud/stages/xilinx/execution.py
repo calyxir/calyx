@@ -90,9 +90,10 @@ class HwExecutionStage(Stage):
             start_time = time.time()
             kern(cmds, (1,), (1,), np.uint32(10000), *buffers.values())
             end_time = time.time()
+            log.debug(f"Emulation time: {end_time - start_time} sec")
 
             # read the result
-            output = {"memories": {}, "runtime": end_time - start_time}
+            output = {"memories": {}}
             for name, buf in buffers.items():
                 out_buf = np.zeros_like(data[name]["data"]).astype(np.uint32)
                 self.cl.enqueue_copy(cmds, out_buf, buf)
