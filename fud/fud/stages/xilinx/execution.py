@@ -104,7 +104,7 @@ class HwExecutionStage(Stage):
 
             # Add xrt log output to our debug output.
             if os.path.exists(xrt_output_logname):
-                log.debug('XRT log:')
+                log.debug("XRT log:")
                 with open(xrt_output_logname, "r") as f:
                     for line in f.readlines():
                         log.debug(line.strip())
