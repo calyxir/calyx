@@ -1,12 +1,8 @@
-INFO::[ Vitis-EM 22 ] [Time elapsed: 0 minute(s) 17 seconds, Emulation time: 0.109057 ms]
-Data transfer between kernel(s) and global memory(s)
-Toplevel_1:m0_axi-HBM[0]          RD = 0.125 KB               WR = 0.000 KB        
 
 {
   "memories": {
     "mem": [
       10
     ]
-  },
-  "runtime": 0.0008778572082519531
+  }
 }
