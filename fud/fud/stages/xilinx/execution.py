@@ -69,12 +69,12 @@ class HwExecutionStage(Stage):
             cmds = self.cl.CommandQueue(ctx, dev)
             prg = self.cl.Program(ctx, [dev], [xclbin_source])
 
-            # Work around a mysterious, intermittent PyOpenCL bug. It
+            prg.build()
+
+            # Work around an intermittent PyOpenCL bug. Using prg.Toplevel
             # internally accesses prg._source, expecting it to be a normal
             # attribute instead of a kernel name.
-            prg._source = None
-
-            prg.build()
+            kern = self.cl.Kernel(prg, "Toplevel")
 
             buffers = {}
             for mem in data.keys():
@@ -88,7 +88,7 @@ class HwExecutionStage(Stage):
                 buffers[mem] = buf
 
             start_time = time.time()
-            prg.Toplevel(cmds, (1,), (1,), np.uint32(10000), *buffers.values())
+            kern(cmds, (1,), (1,), np.uint32(10000), *buffers.values())
             end_time = time.time()
 
             # read the result
@@ -103,10 +103,11 @@ class HwExecutionStage(Stage):
             del ctx
 
             # Add xrt log output to our debug output.
-            log.debug("XRT log:")
-            with open(xrt_output_logname, "r") as f:
-                for line in f.readlines():
-                    log.debug(line.strip())
+            if os.path.exists(xrt_output_logname):
+                log.debug('XRT log:')
+                with open(xrt_output_logname, "r") as f:
+                    for line in f.readlines():
+                        log.debug(line.strip())
 
             # And, in emulation mode, also include the emulation log.
             emu_log = "emulation_debug.log"
