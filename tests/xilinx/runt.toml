@@ -29,5 +29,6 @@ source /opt/xilinx/xrt/setup.sh > /dev/null ; \
 EMCONFIG_PATH=`pwd` \
 XCL_EMULATION_MODE=hw_emu \
 fud exec -q -s futil.exec '../../target/debug/futil' \
-    {} --to fpga -s fpga.data data.json'
+    {} --to fpga -s fpga.data data.json' | \
+    grep -Ev '^INFO|^Data|RD ='
 """
