@@ -28,7 +28,7 @@ source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh > /dev/null ; \
 source /opt/xilinx/xrt/setup.sh > /dev/null ; \
 EMCONFIG_PATH=`pwd` \
 XCL_EMULATION_MODE=hw_emu \
-fud exec -q -s futil.exec '../../target/debug/futil' \
-    {} --to fpga -s fpga.data data.json' | \
-    grep -Ev '^INFO|^Data|RD ='
+fud exec -q -s futil.exec ../../target/debug/futil \
+    {} --to fpga -s fpga.data data.json | \
+    grep -Ev "^INFO|^Data|RD ="'
 """
