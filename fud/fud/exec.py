@@ -14,7 +14,7 @@ def discover_implied_states(filename, config):
     """
     Use the mapping from filename extensions to stages to figure out which
     states were implied.
-    Returns both the implied stage and the set of states.
+    Returns the input state on which the implied stage operates
     """
     suffix = Path(filename).suffix
     stages = []
@@ -31,10 +31,16 @@ def discover_implied_states(filename, config):
     elif len(stages) > 1:
         msg = f"`{suffix}' corresponds to multiple stages: {stages}. "
         raise errors.UnknownExtension(msg, filename)
-
     stage = stages[0]
+
     states = config.REGISTRY.get_states(stage)
-    return (stage, states)
+    sources = set([source for (source, _) in states])
+    # Only able to discover state if the stage has one input
+    if len(sources) > 1:
+        msg = f"Implied stage `{stage}' has multiple inputs: {states}. "
+        raise errors.UnknownExtension(msg, filename)
+    source = list(sources)[0]
+    return source
 
 
 def construct_path(args, config, through):
@@ -44,22 +50,12 @@ def construct_path(args, config, through):
     # find source
     source = args.source
     if source is None:
-        (stage, states) = discover_implied_states(args.input_file, config)
-        sources = set([source for (source, _) in states])
-        if len(sources) > 1:
-            msg = f"Implied stage `{stage}' has multiple inputs: {states}. "
-            raise errors.UnknownExtension(msg, args.source)
-        source = list(sources)[0]
+        source = discover_implied_states(args.input_file, config)
 
     # find target
     target = args.dest
     if target is None:
-        (stage, states) = discover_implied_states(args.output_file, config)
-        targets = set([target for (_, target) in states])
-        if len(targets) > 1:
-            msg = f"Implied stage `{stage}' has multiple outputs: {states}. "
-            raise errors.UnknownExtension(msg, args.dest)
-        target = list(targets)[0]
+        target = discover_implied_states(args.output_file, config)
 
     path = config.REGISTRY.make_path(source, target, through)
     if path is None:

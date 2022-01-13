@@ -45,10 +45,10 @@ class Registry:
 
         nodes = self.graph.nodes()
         if start not in nodes:
-            raise UndefinedStage(start)
+            raise UndefinedStage(start, "Validate source state of the path")
 
         if dest not in nodes:
-            raise UndefinedStage(dest)
+            raise UndefinedStage(dest, "Validate target state of the path")
 
         all_paths = list(nx.all_simple_edge_paths(self.graph, start, dest))
 

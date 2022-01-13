@@ -92,8 +92,9 @@ class UndefinedStage(FudError):
     No stage with the defined name.
     """
 
-    def __init__(self, stage):
-        msg = f"No stage named {stage}"
+    def __init__(self, stage, ctx=None):
+        more = "" if ctx is None else f" .Context: {ctx}"
+        msg = f"No stage named {stage}{more}"
         super().__init__(msg)
 
 
