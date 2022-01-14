@@ -2,6 +2,7 @@
 mod canonical;
 mod clk_insertion;
 mod collapse_control;
+mod comb_prop;
 mod compile_empty;
 mod compile_invoke;
 mod component_iniliner;
@@ -34,6 +35,7 @@ mod wire_inliner;
 pub use canonical::Canonicalize;
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
+pub use comb_prop::CombProp;
 pub use compile_empty::CompileEmpty;
 pub use compile_invoke::CompileInvoke;
 pub use component_iniliner::ComponentInliner;
