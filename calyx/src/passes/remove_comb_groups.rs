@@ -103,7 +103,7 @@ impl Visitor for RemoveCombGroups {
         self.updated = false;
 
         let mut used_ports =
-            analysis::ControlPorts::from(&*comp.control.borrow());
+            analysis::ControlPorts::<false>::from(&*comp.control.borrow());
 
         // If any groups were updated, tell the pass that updates
         // were made.

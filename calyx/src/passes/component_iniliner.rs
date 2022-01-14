@@ -316,11 +316,12 @@ impl Visitor for ComponentInliner {
 
         // Use analysis to get all bindings for invokes and filter out bindings
         // for inlined cells.
-        let invoke_bindings =
-            analysis::ControlPorts::from(&*builder.component.control.borrow())
-                .get_all_bindings()
-                .into_iter()
-                .filter(|(instance, _)| inlined_cells.contains(instance));
+        let invoke_bindings = analysis::ControlPorts::<true>::from(
+            &*builder.component.control.borrow(),
+        )
+        .get_all_bindings()
+        .into_iter()
+        .filter(|(instance, _)| inlined_cells.contains(instance));
 
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {

@@ -71,9 +71,9 @@ impl Guard {
     /// Mutates a guard by calling `f` on every leaf in the
     /// guard tree and replacing the leaf with the guard that `f`
     /// returns.
-    pub fn for_each<F>(&mut self, f: &F)
+    pub fn for_each<F>(&mut self, f: &mut F)
     where
-        F: Fn(RRC<Port>) -> Option<Guard>,
+        F: FnMut(RRC<Port>) -> Option<Guard>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {

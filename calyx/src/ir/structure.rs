@@ -323,9 +323,9 @@ pub struct Assignment {
 impl Assignment {
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
-    pub fn for_each_port<F>(&mut self, f: F)
+    pub fn for_each_port<F>(&mut self, mut f: F)
     where
-        F: Fn(&RRC<Port>) -> Option<RRC<Port>>,
+        F: FnMut(&RRC<Port>) -> Option<RRC<Port>>,
     {
         if let Some(new_src) = f(&self.src) {
             self.src = new_src;
@@ -333,7 +333,7 @@ impl Assignment {
         if let Some(new_dst) = f(&self.dst) {
             self.dst = new_dst;
         }
-        self.guard.for_each(&|port| f(&port).map(Guard::port))
+        self.guard.for_each(&mut |port| f(&port).map(Guard::port))
     }
 }
 

@@ -122,22 +122,26 @@ impl Component {
     }
 
     /// Apply function on all assignments contained within the component.
-    pub fn for_each_assignment<F>(&mut self, f: F)
+    pub fn for_each_assignment<F>(&mut self, mut f: F)
     where
-        F: FnMut(&mut Assignment) + Copy,
+        F: FnMut(&mut Assignment),
     {
         // Detach assignments from the group so that ports that use group
         // `go` and `done` condition can access the parent group.
         for group_ref in self.groups.iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
-            assigns.iter_mut().for_each(f);
+            for assign in &mut assigns {
+                f(assign)
+            }
             group_ref.borrow_mut().assignments = assigns;
         }
         for group_ref in self.comb_groups.iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
-            assigns.iter_mut().for_each(f);
+            for assign in &mut assigns {
+                f(assign)
+            }
             group_ref.borrow_mut().assignments = assigns;
         }
         self.continuous_assignments.iter_mut().for_each(f);
