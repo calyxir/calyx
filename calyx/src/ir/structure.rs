@@ -207,11 +207,7 @@ impl Cell {
         S: std::fmt::Display + Clone + AsRef<str>,
     {
         self.find(&name).unwrap_or_else(|| {
-            panic!(
-                "Port `{}' not found on cell `{}'",
-                name.to_string(),
-                self.name.to_string()
-            )
+            panic!("Port `{name}' not found on cell `{}'", self.name,)
         })
     }
 
@@ -244,7 +240,7 @@ impl Cell {
             panic!(
                 "Port with attribute `{}' not found on cell `{}'",
                 attr.as_ref(),
-                self.name.to_string()
+                self.name,
             )
         })
     }
@@ -388,11 +384,7 @@ impl Group {
         S: std::fmt::Display + AsRef<str>,
     {
         self.find(&name).unwrap_or_else(|| {
-            panic!(
-                "Hole `{}' not found on group `{}'",
-                name.to_string(),
-                self.name.to_string()
-            )
+            panic!("Hole `{name}' not found on group `{}'", self.name)
         })
     }
 
