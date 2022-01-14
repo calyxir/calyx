@@ -32,6 +32,11 @@ impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
         self.used_ports.remove(group)
     }
 
+    /// Get all the ports used in the control program
+    pub fn get_ports(self) -> impl Iterator<Item = RRC<ir::Port>> {
+        self.used_ports.into_values().flatten()
+    }
+
     /// Get all bindings for an instance
     pub fn get_bindings(&self, instance: &ir::Id) -> Option<&Vec<Binding>> {
         if WITH_MAP {
