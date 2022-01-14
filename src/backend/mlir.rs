@@ -73,7 +73,7 @@ impl MlirBackend {
             .map(|p| {
                 format!(
                     "%{}: i{}{}",
-                    p.borrow().name.id.to_string(),
+                    p.borrow().name.id,
                     p.borrow().width,
                     Self::format_attributes(&p.borrow().attributes)
                 )
@@ -400,7 +400,7 @@ impl MlirBackend {
                         format!("%{}.out", ir::Cell::constant_name(val, width))
                     }
                     ir::CellType::ThisComponent => {
-                        format!("%{}", port.name.to_string())
+                        format!("%{}", port.name)
                     }
                     _ => format!("%{}.{}", cell.name().id, port.name.id),
                 }
