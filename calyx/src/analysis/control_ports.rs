@@ -14,32 +14,27 @@ type InvokeMap = HashMap<ir::Id, Vec<Binding>>;
 /// Contains a mapping from name of [ir::CombGroup] to the ports read by the control program
 /// as well as the mapping from invoke statements to the port mappings.
 /// The vector of ports is guaranteed to only contain unique ports.
-pub struct ControlPorts<const WITH_MAP: bool> {
+pub struct ControlPorts<const INVOKE_MAP: bool> {
     // Map name of combinational group to the ports read by the control program.
-    used_ports: PortMap,
+    cg_to_port: PortMap,
     // Mapping from name of invoke instance to the port bindings.
     invoke_map: InvokeMap,
 }
 
-impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
+impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
     /// Return a reference to the port reads associated with the group.
     pub fn get(&self, group: &ir::Id) -> Option<&Vec<RRC<ir::Port>>> {
-        self.used_ports.get(group)
+        self.cg_to_port.get(group)
     }
 
     /// Remove the port reads associated with the group.
     pub fn remove(&mut self, group: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
-        self.used_ports.remove(group)
-    }
-
-    /// Get all the ports used in the control program
-    pub fn get_ports(self) -> impl Iterator<Item = RRC<ir::Port>> {
-        self.used_ports.into_values().flatten()
+        self.cg_to_port.remove(group)
     }
 
     /// Get all bindings for an instance
     pub fn get_bindings(&self, instance: &ir::Id) -> Option<&Vec<Binding>> {
-        if WITH_MAP {
+        if INVOKE_MAP {
             self.invoke_map.get(instance)
         } else {
             panic!("ControlPorts instance built without invoke_map")
@@ -48,7 +43,7 @@ impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
 
     /// Return the entire invoke binding map.
     pub fn get_all_bindings(self) -> InvokeMap {
-        if WITH_MAP {
+        if INVOKE_MAP {
             self.invoke_map
         } else {
             panic!("ControlPorts instance built without invoke_map")
@@ -56,7 +51,7 @@ impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
     }
 }
 
-impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
+impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
     fn construct(&mut self, con: &ir::Control) {
         match con {
             ir::Control::Enable(_) | ir::Control::Empty(_) => {}
@@ -80,12 +75,12 @@ impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
                         .filter(|port| {
                             cells.contains(&port.borrow().get_parent_name())
                         });
-                    self.used_ports
+                    self.cg_to_port
                         .entry(c.borrow().name().clone())
                         .or_default()
                         .extend(ports);
                 }
-                if WITH_MAP {
+                if INVOKE_MAP {
                     let name = comp.borrow().clone_name();
                     let bindings = inputs
                         .iter()
@@ -103,7 +98,7 @@ impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
                 ..
             }) => {
                 if let Some(c) = cond {
-                    self.used_ports
+                    self.cg_to_port
                         .entry(c.borrow().name().clone())
                         .or_default()
                         .push(Rc::clone(port));
@@ -116,7 +111,7 @@ impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
                 cond, port, body, ..
             }) => {
                 if let Some(c) = cond {
-                    self.used_ports
+                    self.cg_to_port
                         .entry(c.borrow().name().clone())
                         .or_default()
                         .push(Rc::clone(port));
@@ -131,19 +126,19 @@ impl<const WITH_MAP: bool> ControlPorts<WITH_MAP> {
     }
 }
 
-impl<const WITH_MAP: bool> From<&ir::Control> for ControlPorts<WITH_MAP> {
+impl<const INVOKE_MAP: bool> From<&ir::Control> for ControlPorts<INVOKE_MAP> {
     fn from(con: &ir::Control) -> Self {
         let mut cp = ControlPorts {
-            used_ports: HashMap::new(),
+            cg_to_port: HashMap::new(),
             invoke_map: HashMap::new(),
         };
         cp.construct(con);
         // Deduplicate all group port reads
-        cp.used_ports.values_mut().for_each(|v| {
+        cp.cg_to_port.values_mut().for_each(|v| {
             *v = v.drain(..).unique_by(|p| p.borrow().canonical()).collect()
         });
         // Deduplicate all invoke bindings if map was constructed
-        if WITH_MAP {
+        if INVOKE_MAP {
             cp.invoke_map.values_mut().for_each(|v| {
                 *v = v
                     .drain(..)

@@ -53,7 +53,7 @@ impl Visitor for WellFormed {
         // Check if any of the cells use a reserved name.
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
-            if self.reserved_names.contains(&cell.name().id) {
+            if self.reserved_names.contains(&*cell.name().id) {
                 return Err(Error::ReservedName(cell.clone_name()));
             }
         }
