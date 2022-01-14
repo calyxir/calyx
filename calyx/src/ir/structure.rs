@@ -216,6 +216,20 @@ impl Cell {
         matches!(&self.prototype, CellType::Component { .. })
     }
 
+    /// Returns true if this is an instance of a primitive. If the optional name is provided then
+    /// only returns true if the primitive has the given name.
+    pub fn is_primitive<S>(&self, prim: Option<S>) -> bool
+    where
+        S: AsRef<str>,
+    {
+        match &self.prototype {
+            CellType::Primitive { name, .. } => {
+                prim.as_ref().map(|p| name.eq(p)).unwrap_or(true)
+            }
+            _ => false,
+        }
+    }
+
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
     /// exist.
     pub fn get_with_attr<S>(&self, attr: S) -> RRC<Port>

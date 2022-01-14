@@ -1,0 +1,34 @@
+import "primitives/core.futil";
+component main(a: 4, b: 4, c: 1, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    w1 = std_wire(4);
+    w2 = std_wire(4);
+    w3 = std_wire(1);
+    w4 = std_wire(1);
+    r = std_reg(4);
+    lt = std_lt(4);
+  }
+  wires {
+    group g {
+      r.in = a;
+      r.write_en = 1'd1;
+      g[done] = r.done;
+    }
+    comb group cond {
+      lt.right = r.out;
+      lt.left = b;
+    }
+    w3.in = c;
+    w4.in = c;
+    w2.in = b;
+    w1.in = a;
+  }
+
+  control {
+    if lt.out with cond {
+      if c {
+        g;
+      }
+    }
+  }
+}
