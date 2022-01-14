@@ -62,7 +62,7 @@ impl Printer {
                     } else {
                         "".to_string()
                     },
-                    p.borrow().name.id.to_string(),
+                    p.borrow().name.id,
                     p.borrow().width
                 )
             })

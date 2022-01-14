@@ -81,8 +81,7 @@ impl Visitor for WellFormed {
             }).collect::<CalyxResult<Vec<_>>>()?;
             if done.is_empty() {
                 Err(Error::MalformedStructure(gname.fmt_err(&format!(
-                    "No writes to the `done' hole for group `{}'",
-                    gname.to_string()
+                    "No writes to the `done' hole for group `{gname}'",
                 ))))
             } else {
                 Ok(())
