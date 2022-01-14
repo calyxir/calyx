@@ -27,15 +27,47 @@ impl Visitor for CombProp {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Build rewrites from unconditional continuous assignments.
-        let port_rewrites: HashMap<(ir::Id, ir::Id), RRC<ir::Port>> = comp
-            .continuous_assignments
+        let mut port_rewrites: HashMap<(ir::Id, ir::Id), RRC<ir::Port>> =
+            HashMap::new();
+
+        // Build rewrites from unconditional continuous assignments to input
+        // ports of `std_wire`.
+        comp.continuous_assignments
             .iter()
-            .filter(|assign| assign.guard.is_true())
-            .map(|assign| {
-                (assign.src.borrow().canonical(), Rc::clone(&assign.dst))
+            .filter(|assign| {
+                if assign.guard.is_true() {
+                    let dst = assign.dst.borrow();
+                    match &dst.parent {
+                        ir::PortParent::Cell(cell_wref) => {
+                            let cr = cell_wref.upgrade();
+                            let cell = cr.borrow();
+                            cell.is_primitive(Some("std_wire"))
+                        }
+                        ir::PortParent::Group(_) => false,
+                    }
+                } else {
+                    false
+                }
             })
-            .collect();
+            .for_each(|assign| {
+                let dst = assign.dst.borrow();
+                if let ir::PortParent::Cell(cell_wref) = &dst.parent {
+                    let cr = cell_wref.upgrade();
+                    let cell = cr.borrow();
+                    let dst_idx = cell.get("out").borrow().canonical();
+
+                    // If the source has been rewritten, use the rewrite
+                    // value from that instead.
+                    let v = port_rewrites
+                        .get(&assign.src.borrow().canonical())
+                        .cloned();
+                    if let Some(pr) = v {
+                        port_rewrites.insert(dst_idx, Rc::clone(&pr));
+                    } else {
+                        port_rewrites.insert(dst_idx, Rc::clone(&assign.src));
+                    }
+                };
+            });
 
         let cell_rewrites = HashMap::new();
         let rewriter = ir::Rewriter::new(&cell_rewrites, &port_rewrites);
