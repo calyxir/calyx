@@ -7,7 +7,6 @@ mod compile_empty;
 mod compile_invoke;
 mod component_iniliner;
 mod component_interface;
-mod dead_assign_removal;
 mod dead_cell_removal;
 mod dead_group_removal;
 mod externalize;

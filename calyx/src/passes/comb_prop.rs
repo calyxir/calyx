@@ -104,7 +104,7 @@ impl Visitor for CombProp {
         let rewriter = ir::Rewriter::new(&cell_rewrites, &port_rewrites);
 
         // Rewrite assignments
-        comp.for_each_assignment(&|assign| {
+        comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
                 if port.borrow().direction == ir::Direction::Output {
                     port_rewrites.get(&port.borrow().canonical()).cloned()
