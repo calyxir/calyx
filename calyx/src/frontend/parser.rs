@@ -51,9 +51,8 @@ impl CalyxParser {
     pub fn parse_file(path: &Path) -> CalyxResult<ast::NamespaceDef> {
         let content = &fs::read(path).map_err(|err| {
             errors::Error::InvalidFile(format!(
-                "Failed to read {}: {}",
+                "Failed to read {}: {err}",
                 path.to_string_lossy(),
-                err.to_string()
             ))
         })?;
         let string_content = std::str::from_utf8(content)?;
@@ -74,10 +73,9 @@ impl CalyxParser {
     pub fn parse<R: Read>(mut r: R) -> CalyxResult<ast::NamespaceDef> {
         let mut buf = String::new();
         r.read_to_string(&mut buf).map_err(|err| {
-            errors::Error::InvalidFile(format!(
-                "Failed to parse buffer: {}",
-                err.to_string()
-            ))
+            errors::Error::InvalidFile(
+                format!("Failed to parse buffer: {err}",),
+            )
         })?;
         let user_data = UserData {
             input: Rc::from(buf.as_ref()),
