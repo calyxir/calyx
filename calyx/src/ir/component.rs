@@ -122,9 +122,9 @@ impl Component {
     }
 
     /// Apply function on all assignments contained within the component.
-    pub fn for_each_assignment<F>(&mut self, f: &F)
+    pub fn for_each_assignment<F>(&mut self, f: F)
     where
-        F: Fn(&mut Assignment),
+        F: FnMut(&mut Assignment) + Copy,
     {
         // Detach assignments from the group so that ports that use group
         // `go` and `done` condition can access the parent group.
