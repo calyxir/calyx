@@ -7,6 +7,37 @@ use crate::ir::{
     RRC,
 };
 
+/// Propagate unconditional writes to the input port of `std_wire`s. Equivalent
+/// to copy propagation in software compilers.
+///
+/// For example, we can safely inline the value `c` wherever `w.out` is read.
+/// ```
+/// w.in = c;
+/// group g {
+///   r.in = w.out
+/// }
+/// ```
+///
+/// Gets rewritten to:
+/// ```
+/// w.in = c;
+/// group g {
+///   r.in = c;
+/// }
+/// ```
+///
+/// Correctly propagates writes through mutliple wires:
+/// ```
+/// w1.in = c;
+/// w2.in = w1.out;
+/// r.in = w2.out;
+/// ```
+/// into:
+/// ```
+/// w1.in = c;
+/// w2.in = c;
+/// r.in = c;
+/// ```
 #[derive(Default)]
 pub struct CombProp;
 
