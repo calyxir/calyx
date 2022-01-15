@@ -153,26 +153,22 @@ impl std::fmt::Debug for Error {
                 write!(f, "{}", name.fmt_err("Group not used in control"))
             }
             AlreadyBound(name, bound_by) => {
-                let msg =
-                    format!("Name already bound by {}", bound_by.to_string());
+                let msg = format!("Name already bound by {bound_by}");
                 write!(f, "{}", name.fmt_err(&msg))
             }
             ReservedName(name) => {
-                let msg =
-                    format!("Use of reserved keyword: {}", name.to_string());
+                let msg = format!("Use of reserved keyword: {name}");
                 write!(f, "{}", name.fmt_err(&msg))
             }
             Undefined(name, typ) => {
-                let msg =
-                    format!("Undefined {} name: {}", typ, name.to_string());
+                let msg = format!("Undefined {typ} name: {name}");
                 write!(f, "{}", name.fmt_err(&msg))
             }
-            InvalidFile(err) => write!(f, "{}", err),
-            WriteError(msg) => write!(f, "{}", msg),
-            ParseError(err) => write!(f, "Calyx Parser: {}", err),
+            InvalidFile(err) => write!(f, "{err}"),
+            WriteError(msg) => write!(f, "{msg}"),
+            ParseError(err) => write!(f, "Calyx Parser: {err}"),
             ParamBindingMissing(id, param_name) => {
-                let msg =
-                    format!("Failed to resolve: {}", param_name.to_string());
+                let msg = format!("Failed to resolve: {param_name}");
                 write!(
                     f,
                     "{}\nwhich is used here:{}",
@@ -189,14 +185,14 @@ impl std::fmt::Debug for Error {
                 );
                 write!(f, "{}", msg)
             }
-            MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
+            MalformedControl(msg) => write!(f, "Malformed Control: {msg}"),
             PassAssumption(pass, msg) => {
-                write!(f, "Pass `{}` assumption violated: {}", pass, msg)
+                write!(f, "Pass `{pass}` assumption violated: {msg}")
             }
             MalformedStructure(msg) => {
-                write!(f, "Malformed Structure: {}", msg)
+                write!(f, "Malformed Structure: {msg}")
             }
-            Misc(msg) => write!(f, "{}", msg),
+            Misc(msg) => write!(f, "{msg}"),
         }
     }
 }
