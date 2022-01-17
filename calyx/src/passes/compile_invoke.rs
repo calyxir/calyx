@@ -39,9 +39,9 @@ impl Visitor for CompileInvoke {
         let cell = s.comp.borrow();
         let go_port = cell
             .find_with_attr("go")
-            .ok_or_else(|| Error::MalformedControl(format!("Invoked component `{}` does not have a port with attribute @go", cell.name())))?;
+            .ok_or_else(|| Error::malformed_control(format!("Invoked component `{}` does not have a port with attribute @go", cell.name())))?;
         let done_port = cell.find_with_attr("done")
-            .ok_or_else(|| Error::MalformedControl(format!("Invoked component `{}` does not have a port with attribute @done", cell.name())))?;
+            .ok_or_else(|| Error::malformed_control(format!("Invoked component `{}` does not have a port with attribute @done", cell.name())))?;
         let go_assign = builder.build_assignment(
             go_port,
             one.borrow().get("out"),

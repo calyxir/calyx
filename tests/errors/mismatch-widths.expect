@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Structure: tests/errors/mismatch-widths.futil
+Error: tests/errors/mismatch-widths.futil
 8 |    add.left = x.out;
-  |    ^^^^^^^^^^^^^^^^^ Mismatched port widths. Source has size 16 while destination requires 32.
+  |    ^^^^^^^^^^^^^^^^^ Malformed Structure: Mismatched port widths. Source has size 16 while destination requires 32.

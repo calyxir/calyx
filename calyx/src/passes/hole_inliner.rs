@@ -113,7 +113,7 @@ impl Visitor for HoleInliner {
         let top_level = match &*comp.control.borrow() {
             ir::Control::Empty(_) => return Ok(Action::Stop),
             ir::Control::Enable(en) => Rc::clone(&en.group),
-            _ => return Err(Error::MalformedControl(format!(
+            _ => return Err(Error::malformed_control(format!(
                     "{}: Control shoudl be a single enable. Try running `{}` before inlining.",
                     Self::name(),
                     TopDownCompileControl::name()))
@@ -146,7 +146,7 @@ impl Visitor for HoleInliner {
         // if subgraph has cycles, error out
         if subgraph.has_cycles() {
             // XXX use topo sort to find where the cycle is
-            return Err(Error::MalformedStructure(
+            return Err(Error::malformed_structure(
                 "Cyclic hole definition.".to_string(),
             ));
         }

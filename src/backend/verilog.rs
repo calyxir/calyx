@@ -47,16 +47,18 @@ where
             let port = asgn.dst.borrow();
             // check if port is a hole
             if port.is_hole() {
-                return Err(Error::MalformedStructure(
+                return Err(Error::malformed_structure(
                     "Groups / Holes can not be turned into Verilog".to_string(),
-                ));
+                )
+                .with_pos(&port.attributes));
             }
 
             // validate guard
             if !validate_guard(&asgn.guard) {
-                return Err(Error::MalformedStructure(
+                return Err(Error::malformed_structure(
                     "Groups / Holes can not be turned into Verilog".to_string(),
-                ));
+                )
+                .with_pos(&port.attributes));
             };
         }
     }
@@ -68,7 +70,10 @@ where
 fn validate_control(ctrl: &ir::Control) -> CalyxResult<()> {
     match ctrl {
         Control::Empty(_) => Ok(()),
-        _ => Err(Error::MalformedControl("Control must be empty".to_string())),
+        c => Err(Error::malformed_structure(
+            "Control must be empty".to_string(),
+        )
+        .with_pos(c)),
     }
 }
 
@@ -97,7 +102,7 @@ impl Backend for VerilogBackend {
             let mut ext = File::open(extern_path).unwrap();
             io::copy(&mut ext, &mut file.get_write()).map_err(|err| {
                 let std::io::Error { .. } = err;
-                Error::WriteError(format!(
+                Error::write_error(format!(
                     "File not found: {}",
                     file.as_path_string()
                 ))
@@ -123,7 +128,7 @@ impl Backend for VerilogBackend {
 
         write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
             let std::io::Error { .. } = err;
-            Error::WriteError(format!(
+            Error::write_error(format!(
                 "File not found: {}",
                 file.as_path_string()
             ))

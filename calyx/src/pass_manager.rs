@@ -36,7 +36,7 @@ impl PassManager {
     {
         let name = Pass::name().to_string();
         if self.passes.contains_key(&name) {
-            return Err(Error::Misc(format!(
+            return Err(Error::misc(format!(
                 "Pass with name '{}' is already registered.",
                 name
             )));
@@ -58,7 +58,7 @@ impl PassManager {
         passes: Vec<String>,
     ) -> CalyxResult<()> {
         if self.aliases.contains_key(&name) {
-            return Err(Error::Misc(format!(
+            return Err(Error::misc(format!(
                 "Alias with name '{}'  already registered.",
                 name
             )));
@@ -140,7 +140,7 @@ impl PassManager {
         // Validate that names of passes in incl and excl sets are known
         passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
-                Err(Error::Misc(format!(
+                Err(Error::misc(format!(
                     "Unknown pass: {pass}. Run compiler with --list-passes to view registered passes."
                 )))
             } else {

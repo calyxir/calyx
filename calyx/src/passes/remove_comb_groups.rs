@@ -117,7 +117,7 @@ impl Visitor for RemoveCombGroups {
                 let name = cg_ref.borrow().name().clone();
                 // Register the ports read by the combinational group's usages.
                 let used_ports = used_ports.remove(&name).ok_or_else(|| {
-                    Error::MalformedStructure(format!(
+                    Error::malformed_structure(format!(
                         "values from combinational group `{}` never used",
                         name
                     ))
@@ -220,7 +220,7 @@ impl Visitor for RemoveCombGroups {
                 })
                 .collect_vec();
             if new_group.is_none() {
-                return Err(Error::MalformedControl(format!(
+                return Err(Error::malformed_control(format!(
                     "Ports from combinational group `{}` attached to invoke-with clause are not used.",
                     c.borrow().name()
                 )));
@@ -327,11 +327,9 @@ impl Visitor for RemoveCombGroups {
     ) -> VisResult {
         if comp.attributes.get("static").is_some() {
             let msg =
-                format!("Component {} has both a top-level \"static\" annotations and combinational groups which is not supported because eliminating comb groups changing the timing behavior of a component.", comp.name);
-            return Err(Error::PassAssumption(
-                Self::name().to_string(),
-                comp.attributes.fmt_err(&msg),
-            ));
+                format!("Component {} has both a top-level \"static\" annotations and combinational groups which is not supported", comp.name);
+            return Err(Error::pass_assumption(Self::name().to_string(), msg)
+                .with_pos(&comp.attributes));
         }
         Ok(Action::Continue)
     }

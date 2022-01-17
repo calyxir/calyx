@@ -54,8 +54,15 @@ class HwExecutionStage(Stage):
             tmp_dir = TmpDir()
             os.chdir(tmp_dir.name)
             xrt_output_logname = "output.log"
-            with open("xrt.ini", "w+") as f:
-                f.writelines(["[Runtime]\n", f"runtime_log={xrt_output_logname}"])
+            with open("xrt.ini", "w") as f:
+                f.writelines(
+                    [
+                        "[Runtime]\n",
+                        f"runtime_log={xrt_output_logname}\n",
+                        "[Emulation]\n",
+                        "print_infos_in_console=false\n",
+                    ]
+                )
 
             ctx = self.cl.create_some_context(0)
             dev = ctx.devices[0]
@@ -63,6 +70,11 @@ class HwExecutionStage(Stage):
             prg = self.cl.Program(ctx, [dev], [xclbin_source])
 
             prg.build()
+
+            # Work around an intermittent PyOpenCL bug. Using prg.Toplevel
+            # internally accesses prg._source, expecting it to be a normal
+            # attribute instead of a kernel name.
+            kern = self.cl.Kernel(prg, "Toplevel")
 
             buffers = {}
             for mem in data.keys():
@@ -76,11 +88,12 @@ class HwExecutionStage(Stage):
                 buffers[mem] = buf
 
             start_time = time.time()
-            prg.Toplevel(cmds, (1,), (1,), np.uint32(10000), *buffers.values())
+            kern(cmds, (1,), (1,), np.uint32(10000), *buffers.values())
             end_time = time.time()
+            log.debug(f"Emulation time: {end_time - start_time} sec")
 
             # read the result
-            output = {"memories": {}, "runtime": end_time - start_time}
+            output = {"memories": {}}
             for name, buf in buffers.items():
                 out_buf = np.zeros_like(data[name]["data"]).astype(np.uint32)
                 self.cl.enqueue_copy(cmds, out_buf, buf)
@@ -89,10 +102,21 @@ class HwExecutionStage(Stage):
 
             # cleanup
             del ctx
-            # add xrt log output to our debug output
-            with open(xrt_output_logname, "r") as f:
-                for line in f.readlines():
-                    log.debug(line.strip())
+
+            # Add xrt log output to our debug output.
+            if os.path.exists(xrt_output_logname):
+                log.debug("XRT log:")
+                with open(xrt_output_logname, "r") as f:
+                    for line in f.readlines():
+                        log.debug(line.strip())
+
+            # And, in emulation mode, also include the emulation log.
+            emu_log = "emulation_debug.log"
+            if os.path.exists(emu_log):
+                log.debug("Emulation log:")
+                with open(emu_log, "r") as f:
+                    for line in f.readlines():
+                        log.debug(line.strip())
 
             return sjson.dumps(output, indent=2, use_decimal=True)
 

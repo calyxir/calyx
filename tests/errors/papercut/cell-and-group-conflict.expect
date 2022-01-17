@@ -3,4 +3,7 @@
 ---STDERR---
 Error: tests/errors/papercut/cell-and-group-conflict.futil
 9 |    group incr {
-  |          ^^^^ Name already bound by cell
+  |          ^^^^ Name `incr' already bound by cell
+tests/errors/papercut/cell-and-group-conflict.futil
+5 |    incr = std_add(32);
+  |    ^^^^ Previous definition

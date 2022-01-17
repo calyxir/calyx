@@ -53,8 +53,9 @@ impl Visitor for WellFormed {
         // Check if any of the cells use a reserved name.
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
-            if self.reserved_names.contains(&*cell.name().id) {
-                return Err(Error::ReservedName(cell.clone_name()));
+            if self.reserved_names.contains(&cell.name().id) {
+                return Err(Error::reserved_name(cell.clone_name())
+                    .with_pos(cell.name()));
             }
         }
 
@@ -71,18 +72,18 @@ impl Visitor for WellFormed {
             }).map(|assign| {
                 let dst = assign.dst.borrow();
                 if gname != &dst.get_parent_name() {
-                    Err(Error::MalformedStructure(
+                    Err(Error::malformed_structure(
                             format!("Group `{}` refers to the done condition of another group (`{}`).",
                             group.name(),
-                            dst.get_parent_name())))
+                            dst.get_parent_name())).with_pos(&dst.attributes))
                 } else {
                     Ok(())
                 }
             }).collect::<CalyxResult<Vec<_>>>()?;
             if done.is_empty() {
-                Err(Error::MalformedStructure(gname.fmt_err(&format!(
+                Err(Error::malformed_structure(format!(
                     "No writes to the `done' hole for group `{gname}'",
-                ))))
+                )).with_pos(&group.attributes))
             } else {
                 Ok(())
             }
@@ -120,7 +121,7 @@ impl Visitor for WellFormed {
             .unwrap_or(false)
             || done_assign.unwrap_or(false)
         {
-            return Err(Error::MalformedStructure(group.name().fmt_err("Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.")));
+            return Err(Error::malformed_structure("Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));
         }
 
         Ok(Action::Continue)
@@ -174,22 +175,33 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Find unused groups
         let all_groups: HashSet<ir::Id> =
             comp.groups.iter().map(|g| g.clone_name()).collect();
         if let Some(group) =
             all_groups.difference(&self.used_groups).into_iter().next()
         {
-            return Err(Error::UnusedGroup(group.clone()));
+            let gr = comp.find_group(&group).unwrap();
+            let gr = gr.borrow();
+            return Err(
+                Error::unused(group.clone(), "group").with_pos(&gr.attributes)
+            );
         };
 
         let all_comb_groups: HashSet<ir::Id> =
             comp.comb_groups.iter().map(|g| g.clone_name()).collect();
-        if let Some(group) = all_comb_groups
+        if let Some(comb_group) = all_comb_groups
             .difference(&self.used_comb_groups)
             .into_iter()
             .next()
         {
-            return Err(Error::UnusedGroup(group.clone()));
+            let cgr = comp.find_group(&comb_group).unwrap();
+            let cgr = cgr.borrow();
+            return Err(Error::unused(
+                comb_group.clone(),
+                "combinational group",
+            )
+            .with_pos(&cgr.attributes));
         }
         Ok(Action::Continue)
     }
