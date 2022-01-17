@@ -248,6 +248,7 @@ impl Debugger {
                     }
                 }
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
+                Command::PrintPC => todo!(),
             }
         }
 
