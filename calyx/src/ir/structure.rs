@@ -1,6 +1,6 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -158,7 +158,7 @@ pub enum CellType {
 #[derive(Debug)]
 pub struct Cell {
     /// Name of this cell.
-    pub(super) name: Id,
+    name: Id,
     /// Ports on this cell
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
@@ -178,6 +178,16 @@ impl GetAttributes for Cell {
 }
 
 impl Cell {
+    /// Construct a cell
+    pub fn new(name: Id, prototype: CellType) -> Self {
+        Self {
+            name,
+            ports: smallvec![],
+            prototype,
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Get a reference to the named port if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
@@ -355,7 +365,7 @@ impl Assignment {
 #[derive(Debug)]
 pub struct Group {
     /// Name of this group
-    pub(super) name: Id,
+    name: Id,
 
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
@@ -367,6 +377,15 @@ pub struct Group {
     pub attributes: Attributes,
 }
 impl Group {
+    pub fn new(name: Id) -> Self {
+        Self {
+            name,
+            assignments: vec![],
+            holes: smallvec![],
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
     where
