@@ -188,17 +188,20 @@ impl<T: GetName> IdList<T> {
         self.0.len()
     }
 
-    /// Keep only the elements in the collection which satisfy the given
-    /// predicate
-    pub fn retain<F>(&mut self, mut f: F)
+    /// Keep only the elements in the collection which satisfy the given predicate and return the
+    /// number of elements removed.
+    pub fn retain<F>(&mut self, mut f: F) -> u64
     where
         F: FnMut(&RRC<T>) -> bool,
     {
+        let mut removed = 0;
         for entry in self.0.entries() {
             if !f(entry.get()) {
                 entry.remove();
+                removed += 1;
             }
         }
+        removed
     }
 
     /// Add a new element to the colleciton

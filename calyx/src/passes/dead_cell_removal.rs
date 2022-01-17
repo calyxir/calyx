@@ -72,17 +72,6 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Add all cells that have at least one output read.
-        comp.for_each_assignment(|assign| {
-            assign.for_each_port(|port| {
-                let port = port.borrow();
-                if port.direction == ir::Direction::Output {
-                    self.all_reads.insert(port.get_parent_name());
-                }
-                None
-            });
-        });
-
         // Add @external cells.
         self.all_reads.extend(
             comp.cells
@@ -93,27 +82,62 @@ impl Visitor for DeadCellRemoval {
         // Add component signature
         self.all_reads.insert(comp.signature.clone_name());
 
-        // Remove writes to ports on unused cells.
-        for gr in comp.groups.iter() {
-            gr.borrow_mut().assignments.retain(|asgn| {
-                let dst = asgn.dst.borrow();
-                dst.is_hole() || self.all_reads.contains(&dst.get_parent_name())
-            })
-        }
-        for cgr in comp.comb_groups.iter() {
-            cgr.borrow_mut().assignments.retain(|asgn| {
-                let dst = asgn.dst.borrow();
-                self.all_reads.contains(&dst.get_parent_name())
-            })
-        }
-        comp.continuous_assignments.retain(|asgn| {
-            let dst = asgn.dst.borrow();
-            dst.is_hole() || self.all_reads.contains(&dst.get_parent_name())
-        });
+        // Add all cells that have at least one output read.
+        loop {
+            let mut wire_reads = HashSet::new();
+            comp.for_each_assignment(|assign| {
+                assign.for_each_port(|port| {
+                    let port = port.borrow();
+                    if port.direction == ir::Direction::Output {
+                        wire_reads.insert(port.get_parent_name());
+                    }
+                    None
+                });
+            });
 
-        // Remove unused cells
-        comp.cells
-            .retain(|c| self.all_reads.contains(c.borrow().name()));
+            // Remove writes to ports on unused cells.
+            for gr in comp.groups.iter() {
+                gr.borrow_mut().assignments.retain(|asgn| {
+                    let dst = asgn.dst.borrow();
+                    if dst.is_hole() {
+                        true
+                    } else {
+                        let parent = &dst.get_parent_name();
+                        self.all_reads.contains(parent)
+                            || wire_reads.contains(parent)
+                    }
+                })
+            }
+            for cgr in comp.comb_groups.iter() {
+                cgr.borrow_mut().assignments.retain(|asgn| {
+                    let dst = asgn.dst.borrow();
+                    let parent = &dst.get_parent_name();
+                    self.all_reads.contains(parent)
+                        || wire_reads.contains(parent)
+                })
+            }
+            comp.continuous_assignments.retain(|asgn| {
+                let dst = asgn.dst.borrow();
+                if dst.is_hole() {
+                    true
+                } else {
+                    let parent = &dst.get_parent_name();
+                    self.all_reads.contains(parent)
+                        || wire_reads.contains(parent)
+                }
+            });
+
+            // Remove unused cells
+            let removed = comp.cells.retain(|c| {
+                let cell = c.borrow();
+                self.all_reads.contains(cell.name())
+                    || wire_reads.contains(cell.name())
+            });
+
+            if removed == 0 {
+                break;
+            }
+        }
 
         Ok(Action::Stop)
     }

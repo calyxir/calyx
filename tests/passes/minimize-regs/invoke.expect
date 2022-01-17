@@ -23,7 +23,7 @@ component add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     x = std_reg(32);
-    add_x = std_add(32);
+    @external add_x = std_add(32);
     my_add = add();
   }
   wires {
