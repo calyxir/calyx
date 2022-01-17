@@ -76,6 +76,7 @@ command = {
     SOI ~
     (
     watch
+     | comm_where
      | print_state
      | print
      | print_fail
@@ -93,7 +94,6 @@ command = {
      | info_watch
      | display
      | exit
-     | comm_where
     )?
     ~ EOI
 }
