@@ -70,7 +70,7 @@ impl Workspace {
             return Ok(lib);
         }
 
-        Err(Error::InvalidFile(
+        Err(Error::invalid_file(
             format!("Import path `{}` found neither in the parent ({}) nor library path ({})",
             import.as_ref().to_string_lossy(),
             parent.to_string_lossy(),
@@ -91,7 +91,7 @@ impl Workspace {
         if parent_path.exists() {
             return Ok(parent_path);
         }
-        Err(Error::InvalidFile(format!(
+        Err(Error::invalid_file(format!(
             "Extern path `{}` not found in parent directory ({})",
             extern_path.as_ref().to_string_lossy(),
             parent.to_string_lossy(),
@@ -152,7 +152,7 @@ impl Workspace {
 
         let mut workspace = Workspace::default();
         let abs_lib_path = lib_path.canonicalize().map_err(|err| {
-            Error::InvalidFile(format!(
+            Error::invalid_file(format!(
                 "Failed to canonicalize library path `{}`: {}",
                 lib_path.to_string_lossy(),
                 err
@@ -201,7 +201,7 @@ impl Workspace {
 
         // Merge the initial namespace
         let parent_canonical = parent_path.canonicalize().map_err(|err| {
-            Error::InvalidFile(format!(
+            Error::invalid_file(format!(
                 "Failed to canonicalize parent path `{}`: {}",
                 parent_path.to_string_lossy(),
                 err

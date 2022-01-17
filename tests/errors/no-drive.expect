@@ -3,6 +3,6 @@
 ---STDERR---
 Error: tests/errors/no-drive.futil
 8 |    group no_drive {
-  |          ^^^^^^^^ [Papercut] Required signal not driven inside the group.
+  |    ^^^^^^^^^^^^^^^^ [Papercut] Required signal not driven inside the group.
 When writing to the port `r.in', the ports [r.write_en] must also be written to.
 The primitive type `std_reg' requires this invariant.

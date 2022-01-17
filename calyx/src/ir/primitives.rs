@@ -42,11 +42,13 @@ impl Primitive {
         Vec<(Id, u64, Direction, Attributes)>,
     )> {
         if self.params.len() != parameters.len() {
-            return Err(Error::InvalidParamBinding(
-                self.name.clone(),
-                self.params.len(),
-                parameters.len(),
-            ));
+            let msg = format!(
+               "Invalid parameter binding for primitive `{}`. Requires {} parameters but provided with {}.",
+               self.name.clone(),
+               self.params.len(),
+               parameters.len(),
+            );
+            return Err(Error::malformed_structure(msg));
         }
         let bindings = self
             .params
@@ -140,10 +142,11 @@ impl PortDef {
                 Some(width) => {
                     Ok((self.name.clone(), *width, self.attributes.clone()))
                 }
-                None => Err(Error::ParamBindingMissing(
-                    self.name.clone(),
-                    value.clone(),
-                )),
+                None => {
+                    let param_name = &self.name;
+                    let msg = format!("Failed to resolve: {param_name}");
+                    Err(Error::malformed_structure(msg).with_pos(value))
+                }
             },
         }
     }

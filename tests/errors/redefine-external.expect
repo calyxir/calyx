@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/errors/redefine-external.futil
 7 |component exp() -> () {
-  |          ^^^ Name already bound by component or primitive
+  |          ^^^ Name `exp' already bound by component or primitive

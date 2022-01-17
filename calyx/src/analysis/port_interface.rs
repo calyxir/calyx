@@ -68,7 +68,7 @@ impl PortInterface {
                         });
                     // There should only be one port in the read_together specification.
                     if outputs.len() != 1 {
-                        return Err(Error::Papercut(format!("Invalid @read_together specification for primitive `{}`. Each specification group is only allowed to have one output port specified.", prim.name), prim.name.clone()))
+                        return Err(Error::papercut(format!("Invalid @read_together specification for primitive `{}`. Each specification group is only allowed to have one output port specified.", prim.name)).with_pos(&prim.name))
                     }
                     assert!(outputs.len() == 1);
                     Ok((

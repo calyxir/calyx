@@ -40,7 +40,7 @@ fn main() -> CalyxResult<()> {
     if opts.compile_mode == CompileMode::File
         && !matches!(opts.backend, BackendOpt::Calyx | BackendOpt::None)
     {
-        return Err(Error::Misc(format!(
+        return Err(Error::misc(format!(
             "--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project",
             opts.backend.to_string()
         )));
