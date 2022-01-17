@@ -136,7 +136,7 @@ class IcarusBaseStage(Stage):
             """
             Convert .dat files back into a json file
             """
-            r = re.search(r"Simulated\s+(\d+) cycles", simulated_output)
+            r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
             data = {
                 "cycles": int(r.group(1)) if r is not None else 0,
                 "memories": convert2json(tmpdir.name, "out"),

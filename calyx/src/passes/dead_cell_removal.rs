@@ -72,7 +72,7 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Add all combinational cells that have at least one output read.
+        // Add all cells that have at least one output read.
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
                 let port = port.borrow();
@@ -82,6 +82,16 @@ impl Visitor for DeadCellRemoval {
                 None
             });
         });
+
+        // Add @external cells.
+        self.all_reads.extend(
+            comp.cells
+                .iter()
+                .filter(|c| c.borrow().attributes.get("external").is_some())
+                .map(|c| c.clone_name()),
+        );
+        // Add component signature
+        self.all_reads.insert(comp.signature.clone_name());
 
         // Remove writes to ports on unused cells.
         for gr in comp.groups.iter() {

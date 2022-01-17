@@ -3,4 +3,4 @@
 ---STDERR---
 Error: Pass `remove-comb-groups` assumption violated: tests/passes/remove-comb-groups/comb-with-static.futil
 3 |component main<"static"=1>(in: 32) -> () {
-  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Component main has both a top-level "static" annotations and combinational groups which is not supported
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Component main has both a top-level "static" annotations and combinational groups which is not supported because eliminating comb groups changing the timing behavior of a component.
