@@ -50,7 +50,7 @@ impl CalyxParser {
     /// Parse a Calyx program into an AST representation.
     pub fn parse_file(path: &Path) -> CalyxResult<ast::NamespaceDef> {
         let content = &fs::read(path).map_err(|err| {
-            errors::Error::InvalidFile(format!(
+            errors::Error::invalid_file(format!(
                 "Failed to read {}: {err}",
                 path.to_string_lossy(),
             ))
@@ -73,9 +73,9 @@ impl CalyxParser {
     pub fn parse<R: Read>(mut r: R) -> CalyxResult<ast::NamespaceDef> {
         let mut buf = String::new();
         r.read_to_string(&mut buf).map_err(|err| {
-            errors::Error::InvalidFile(
-                format!("Failed to parse buffer: {err}",),
-            )
+            errors::Error::invalid_file(format!(
+                "Failed to parse buffer: {err}",
+            ))
         })?;
         let user_data = UserData {
             input: Rc::from(buf.as_ref()),

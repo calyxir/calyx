@@ -35,7 +35,7 @@ impl Backend for MlirBackend {
         };
         res.map_err(|err| {
             let std::io::Error { .. } = err;
-            Error::WriteError(format!(
+            Error::write_error(format!(
                 "File not found: {}",
                 file.as_path_string()
             ))

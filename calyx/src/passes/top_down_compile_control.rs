@@ -388,7 +388,7 @@ fn calculate_states_recur(
             ..
         }) => {
             if cond.is_some() {
-                return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
+                return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
             }
             let port_guard: ir::Guard = Rc::clone(port).into();
             // Previous states transitioning into true branch need the conditional
@@ -419,7 +419,7 @@ fn calculate_states_recur(
             cond, port, body, ..
         }) => {
             if cond.is_some() {
-                return Err(Error::MalformedStructure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
+                return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
             }
 
             let port_guard: ir::Guard = Rc::clone(port).into();
