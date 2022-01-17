@@ -123,6 +123,46 @@ impl QualifiedInstanceName {
     }
 }
 
+pub enum GroupName {
+    /// An actual group
+    Group(Id),
+    /// A phantom group with a displayable name
+    Phantom(String),
+    /// No group name
+    None,
+}
+
+pub struct GroupQualifiedInstanceName {
+    pub prefix: ComponentQualifiedInstanceName,
+    pub group: GroupName,
+}
+
+impl GroupQualifiedInstanceName {
+    pub fn new_group(comp: &ComponentQualifiedInstanceName, name: &Id) -> Self {
+        Self {
+            prefix: comp.clone(),
+            group: GroupName::Group(name.clone()),
+        }
+    }
+
+    pub fn new_phantom(
+        comp: &ComponentQualifiedInstanceName,
+        name: &String,
+    ) -> Self {
+        Self {
+            prefix: comp.clone(),
+            group: GroupName::Phantom(name.clone()),
+        }
+    }
+
+    pub fn new_empty(comp: &ComponentQualifiedInstanceName) -> Self {
+        Self {
+            prefix: comp.clone(),
+            group: GroupName::None,
+        }
+    }
+}
+
 pub type GroupQIN = QualifiedInstanceName;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]

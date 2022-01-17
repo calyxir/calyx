@@ -15,7 +15,6 @@ use crate::utils::AsRaw;
 use calyx::ir::{self, Id, RRC};
 pub(super) const SPACING: &str = "    ";
 use super::interactive_errors::DebuggerError;
-use super::name_tree::NameTreeRoot;
 use crate::interpreter::ConstCell;
 use std::fmt::Write;
 

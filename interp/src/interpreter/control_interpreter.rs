@@ -1,9 +1,11 @@
-use super::group_interpreter::finish_interpretation;
-use super::group_interpreter::AssignmentInterpreter;
+use super::group_interpreter::{finish_interpretation, AssignmentInterpreter};
 use super::utils::{get_done_port, get_go_port};
+use crate::debugger::name_tree::ActiveTreeNode;
 use crate::errors::InterpreterError;
 use crate::interpreter_ir as iir;
-use crate::structures::names::{ComponentQualifiedInstanceName, GroupQIN};
+use crate::structures::names::{
+    ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
+};
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -48,6 +50,10 @@ pub trait Interpreter {
     fn currently_executing_group(&self) -> HashSet<GroupQIN>;
 
     fn get_mut_env(&mut self) -> MutStateView<'_>;
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        vec![]
+    }
 }
 
 pub struct EmptyInterpreter {
@@ -237,6 +243,10 @@ impl Interpreter for EnableInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         self.interp.step_convergence()
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        vec![]
     }
 }
 
