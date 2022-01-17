@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::*;
 // Contruct a workspace from a namspace
 fn ws_from_ns(ns: frontend::NamespaceDef) -> CalyxResult<frontend::Workspace> {
     if !ns.imports.is_empty() {
-        return Err(errors::Error::Misc(
+        return Err(errors::Error::misc(
             "import not supported in the web demo".to_string(),
         ));
     }

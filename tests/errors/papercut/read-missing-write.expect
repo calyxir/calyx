@@ -3,6 +3,6 @@
 ---STDERR---
 Error: tests/errors/papercut/read-missing-write.futil
 10 |    group incr {
-   |          ^^^^ [Papercut] Required signal not driven inside the group.
+   |    ^^^^^^^^^^^^ [Papercut] Required signal not driven inside the group.
 When read the port `mem.read_data', the ports [mem.addr0] must be written to.
 The primitive type `std_mem_d1' requires this invariant.

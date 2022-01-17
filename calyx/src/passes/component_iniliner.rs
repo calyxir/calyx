@@ -289,10 +289,11 @@ impl Visitor for ComponentInliner {
                     cell.type_name().unwrap_or(&ir::Id::from("constant"))
                 );
 
-                return Err(Error::PassAssumption(
+                return Err(Error::pass_assumption(
                     Self::name().to_string(),
-                    cell.attributes.fmt_err(&msg),
-                ));
+                    msg,
+                )
+                .with_pos(&cell.attributes));
             }
         }
 
@@ -326,7 +327,7 @@ impl Visitor for ComponentInliner {
         for (instance, mut bindings) in invoke_bindings {
             if bindings.len() > 1 {
                 return Err(
-                    Error::PassAssumption(
+                    Error::pass_assumption(
                         Self::name().to_string(),
                         format!(
                             "Instance `{}.{}` invoked with multiple parameters (currently unsupported)",
