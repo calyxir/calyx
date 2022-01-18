@@ -246,7 +246,14 @@ impl Interpreter for EnableInterpreter {
     }
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        vec![]
+        let name = match &self.group_name {
+            Some(name) => {
+                GroupQualifiedInstanceName::new_group(&self.qin, name)
+            }
+            None => GroupQualifiedInstanceName::new_empty(&self.qin),
+        };
+
+        vec![ActiveTreeNode::new(name)]
     }
 }
 
@@ -383,6 +390,14 @@ impl Interpreter for SeqInterpreter {
             Ok(())
         }
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        if let Some(current) = &self.current_interpreter {
+            current.get_active_tree()
+        } else {
+            vec![]
+        }
+    }
 }
 
 pub struct ParInterpreter {
@@ -487,6 +502,13 @@ impl Interpreter for ParInterpreter {
             }
         }
         Ok(())
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        self.interpreters
+            .iter()
+            .flat_map(|x| x.get_active_tree())
+            .collect()
     }
 }
 pub struct IfInterpreter {
@@ -636,6 +658,14 @@ impl Interpreter for IfInterpreter {
             (None, Some(i)) => i.converge(),
             (Some(i), None) => i.converge(),
             _ => unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition."),
+        }
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        if let Some(interp) = &self.cond {
+            interp.get_active_tree()
+        } else {
+            self.branch_interp.as_ref().unwrap().get_active_tree()
         }
     }
 }
@@ -810,10 +840,19 @@ impl Interpreter for WhileInterpreter {
             unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
         }
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        if let Some(interp) = &self.cond_interp {
+            interp.get_active_tree()
+        } else {
+            self.body_interp.as_ref().unwrap().get_active_tree()
+        }
+    }
 }
 pub struct InvokeInterpreter {
     invoke: Rc<iir::Invoke>,
     assign_interp: AssignmentInterpreter,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl InvokeInterpreter {
@@ -821,6 +860,7 @@ impl InvokeInterpreter {
         invoke: &Rc<iir::Invoke>,
         mut env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let mut assignment_vec: Vec<Assignment> = vec![];
         let comp_cell = invoke.comp.borrow();
@@ -868,6 +908,7 @@ impl InvokeInterpreter {
         Self {
             invoke: Rc::clone(invoke),
             assign_interp: interp,
+            qin: qin.clone(),
         }
     }
 }
@@ -911,6 +952,15 @@ impl Interpreter for InvokeInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         self.assign_interp.step_convergence()
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        let name = GroupQualifiedInstanceName::new_phantom(
+            &self.qin,
+            self.invoke.comp.borrow().name(),
+        );
+
+        vec![ActiveTreeNode::new(name)]
     }
 }
 
@@ -980,7 +1030,7 @@ impl ControlInterpreter {
                 )))
             }
             iir::Control::Invoke(i) => Self::Invoke(Box::new(
-                InvokeInterpreter::new(i, env, continuous_assignments),
+                InvokeInterpreter::new(i, env, continuous_assignments, qin),
             )),
             iir::Control::Enable(e) => {
                 Self::Enable(Box::new(EnableInterpreter::new(
@@ -1029,6 +1079,10 @@ impl Interpreter for ControlInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         control_match!(self, i, i.converge())
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        control_match!(self, i, i.get_active_tree())
     }
 }
 

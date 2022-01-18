@@ -5,9 +5,11 @@ use super::names::{
     QualifiedInstanceName,
 };
 use super::stk_env::Smoosher;
+use crate::debugger::name_tree::ActiveTreeNode;
 use crate::debugger::PrintCode;
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::ComponentInterpreter;
+use crate::interpreter::Interpreter;
 use crate::interpreter_ir as iir;
 use crate::primitives::{
     combinational, stateful, Entry, Primitive, Serializeable,
@@ -496,9 +498,10 @@ impl InterpreterState {
         self.sub_comp_set
             .iter()
             .map(|x| {
-                crate::interpreter::Interpreter::currently_executing_group(
-                    lookup[x].get_comp_interpreter().unwrap(),
-                )
+                lookup[x]
+                    .get_comp_interpreter()
+                    .unwrap()
+                    .currently_executing_group()
             })
             .flatten()
             .collect()
@@ -506,6 +509,17 @@ impl InterpreterState {
 
     pub fn as_state_view(&self) -> StateView<'_> {
         StateView::SingleView(self)
+    }
+    pub fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        let lookup = self.cell_map.borrow();
+
+        self.sub_comp_set
+            .iter()
+            .map(|x| {
+                lookup[x].get_comp_interpreter().unwrap().get_active_tree()
+            })
+            .flatten()
+            .collect()
     }
 }
 
@@ -617,6 +631,12 @@ impl<'a> StateView<'a> {
         match self {
             StateView::SingleView(c) => &c.component,
             StateView::Composite(c) => &c.0.component,
+        }
+    }
+    pub fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        match self {
+            StateView::SingleView(c) => c.get_active_tree(),
+            StateView::Composite(c) => c.0.get_active_tree(),
         }
     }
 

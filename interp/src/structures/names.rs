@@ -1,9 +1,6 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
-use std::fmt::Display;
-use std::hash::Hash;
-use std::ops::Deref;
-use std::rc::Rc;
+use std::{fmt::Display, hash::Hash, ops::Deref, rc::Rc};
 
 #[derive(Debug, Clone)]
 /// A portion of a qualified name representing an instance of a Calyx component.
@@ -127,7 +124,7 @@ pub enum GroupName {
     /// An actual group
     Group(Id),
     /// A phantom group with a displayable name
-    Phantom(String),
+    Phantom(Id),
     /// No group name
     None,
 }
@@ -147,7 +144,7 @@ impl GroupQualifiedInstanceName {
 
     pub fn new_phantom(
         comp: &ComponentQualifiedInstanceName,
-        name: &String,
+        name: &Id,
     ) -> Self {
         Self {
             prefix: comp.clone(),

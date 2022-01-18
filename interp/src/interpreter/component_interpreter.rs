@@ -6,12 +6,14 @@ use super::{
     },
     utils::control_is_empty,
 };
-use crate::debugger::PrintCode;
+use crate::debugger::{name_tree::ActiveTreeNode, PrintCode};
 use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
 use crate::primitives::{Named, Primitive};
-use crate::structures::names::{ComponentQualifiedInstanceName, GroupQIN};
+use crate::structures::names::{
+    ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
+};
 use crate::utils::AsRaw;
 use crate::values::Value;
 use calyx::ir::{self, Port, RRC};
@@ -327,6 +329,32 @@ impl Interpreter for ComponentInterpreter {
                 }
             }
         }
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        let children = match &self.interp {
+            // TODO (Griffin): Include structural info
+            StructuralOrControl::Structural(_) => {
+                vec![]
+            }
+            StructuralOrControl::Control(c) => c.get_active_tree(),
+            StructuralOrControl::Env(_) => vec![],
+            StructuralOrControl::Nothing => todo!(),
+        };
+
+        let env = self.get_env();
+
+        let sub_comp_children = env.get_active_tree();
+
+        let mut root_node = ActiveTreeNode::new(
+            GroupQualifiedInstanceName::new_empty(&self.qual_name),
+        );
+
+        for x in children.into_iter().chain(sub_comp_children.into_iter()) {
+            root_node.insert(x)
+        }
+
+        vec![root_node]
     }
 }
 
