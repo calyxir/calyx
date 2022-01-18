@@ -1,7 +1,6 @@
 use crate::structures::names::{
     ComponentQualifiedInstanceName, GroupQualifiedInstanceName,
 };
-use std::collections::{HashMap, HashSet};
 
 pub struct ActiveTreeNode {
     name: GroupQualifiedInstanceName,

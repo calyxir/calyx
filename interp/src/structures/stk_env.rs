@@ -159,7 +159,7 @@ impl<T> List<T> {
                     (Some(head.elem), tail_list)
                 }
                 Err(e) => {
-                    panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists! Current strong count {}", Rc::strong_count(&e.head.as_ref().unwrap()));
+                    panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists! Current strong count {}", Rc::strong_count(e.head.as_ref().unwrap()));
                 }
             }
         }
