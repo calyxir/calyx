@@ -120,6 +120,7 @@ impl QualifiedInstanceName {
     }
 }
 
+#[derive(Debug)]
 pub enum GroupName {
     /// An actual group
     Group(Id),
@@ -129,6 +130,7 @@ pub enum GroupName {
     None,
 }
 
+#[derive(Debug)]
 pub struct GroupQualifiedInstanceName {
     pub prefix: ComponentQualifiedInstanceName,
     pub group: GroupName,

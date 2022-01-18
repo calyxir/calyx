@@ -2,6 +2,7 @@ use crate::structures::names::{
     ComponentQualifiedInstanceName, GroupQualifiedInstanceName,
 };
 
+#[derive(Debug)]
 pub struct ActiveTreeNode {
     name: GroupQualifiedInstanceName,
     children: Vec<ActiveTreeNode>,
