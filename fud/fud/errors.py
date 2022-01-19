@@ -1,6 +1,3 @@
-from pathlib import Path
-
-
 class FudError(Exception):
     """
     An error caught by the Calyx Driver.
@@ -36,13 +33,8 @@ class UnknownExtension(FudError):
     Thrown when the implicit stage discovery mechanism fails.
     """
 
-    def __init__(self, filename):
-        path = Path(filename)
-        ext = path.suffix
-        super().__init__(
-            f"`{ext}' does not correspond to any known stage. "
-            + "Please provide an explicit stage using --to or --from."
-        )
+    def __init__(self, msg, filename):
+        super().__init__(msg + "Please provide an explicit stage using --to or --from.")
 
 
 class UnsetConfiguration(FudError):
@@ -97,8 +89,9 @@ class UndefinedStage(FudError):
     No stage with the defined name.
     """
 
-    def __init__(self, stage):
-        msg = f"No stage named {stage}"
+    def __init__(self, stage, ctx=None):
+        more = "" if ctx is None else f" .Context: {ctx}"
+        msg = f"No stage named {stage}{more}"
         super().__init__(msg)
 
 
@@ -255,7 +248,6 @@ class FudRegisterError(FudError):
     An error raised when an external stage is not valid.
     """
 
-    def __init__(self, msg, stage_name=None):
-        name = f" `{stage_name}'" if stage_name is not None else ""
-        msg = f"""Failed to register`{name}': {msg}"""
+    def __init__(self, conf, msg):
+        msg = f"""Failed to register `{conf}': {msg}"""
         super().__init__(msg)

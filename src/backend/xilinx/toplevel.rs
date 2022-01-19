@@ -41,7 +41,7 @@ impl Backend for XilinxInterfaceBackend {
 
         let memories = external_memories(toplevel);
         if memories.is_empty() {
-            return Err(Error::Misc(
+            return Err(Error::misc(
                     "Program has no memories marked with attribute @external.".to_owned() +
                     " Please make sure that at least one memory is marked as @external."));
         }

@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Structure: tests/errors/comb-group-in-control.futil
+Error: tests/errors/comb-group-in-control.futil
 7 |    group a {
-  |          ^ Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.
+  |    ^^^^^^^^^ Malformed Structure: Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.

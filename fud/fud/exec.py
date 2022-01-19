@@ -10,23 +10,37 @@ from . import errors, utils
 from .stages import Source, SourceType
 
 
-def discover_implied_stage(filename, config, possible_dests=None):
+def discover_implied_states(filename, config):
     """
     Use the mapping from filename extensions to stages to figure out which
-    stage was implied.
+    states were implied.
+    Returns the input state on which the implied stage operates
     """
-    if filename is None:
-        raise errors.NoInputFile(possible_dests)
-
     suffix = Path(filename).suffix
+    stages = []
     for (name, stage) in config["stages"].items():
         if "file_extensions" in stage:
             for ext in stage["file_extensions"]:
                 if suffix == ext:
-                    return name
+                    stages.append(name)
 
-    # no stages corresponding with this file extension where found
-    raise errors.UnknownExtension(filename)
+    # Implied stages only discovered when there is exactly one
+    if len(stages) == 0:
+        msg = f"`{suffix}' does not correspond to any known stage. "
+        raise errors.UnknownExtension(msg, filename)
+    elif len(stages) > 1:
+        msg = f"`{suffix}' corresponds to multiple stages: {stages}. "
+        raise errors.UnknownExtension(msg, filename)
+    stage = stages[0]
+
+    states = config.REGISTRY.get_states(stage)
+    sources = set([source for (source, _) in states])
+    # Only able to discover state if the stage has one input
+    if len(sources) > 1:
+        msg = f"Implied stage `{stage}' has multiple inputs: {states}. "
+        raise errors.UnknownExtension(msg, filename)
+    source = list(sources)[0]
+    return source
 
 
 def construct_path(args, config, through):
@@ -36,12 +50,12 @@ def construct_path(args, config, through):
     # find source
     source = args.source
     if source is None:
-        source = discover_implied_stage(args.input_file, config)
+        source = discover_implied_states(args.input_file, config)
 
     # find target
     target = args.dest
     if target is None:
-        target = discover_implied_stage(args.output_file, config)
+        target = discover_implied_states(args.output_file, config)
 
     path = config.REGISTRY.make_path(source, target, through)
     if path is None:

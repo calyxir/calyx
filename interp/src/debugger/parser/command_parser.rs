@@ -5,7 +5,7 @@ use pest_consume::{match_nodes, Error, Parser};
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
-use super::super::cidr::PrintMode;
+use super::super::commands::{PrintMode, WatchPosition};
 use crate::{debugger::commands::PrintCode, errors::InterpreterResult};
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
@@ -43,6 +43,10 @@ impl CommandParser {
         Ok(Command::InfoBreak)
     }
 
+    fn info_watch(_input: Node) -> ParseResult<Command> {
+        Ok(Command::InfoWatch)
+    }
+
     fn exit(_input: Node) -> ParseResult<Command> {
         Ok(Command::Exit)
     }
@@ -53,6 +57,21 @@ impl CommandParser {
 
     fn pc_s(_input: Node) -> ParseResult<()> {
         Ok(())
+    }
+
+    fn before(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn after(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn watch_position(input: Node) -> ParseResult<WatchPosition> {
+        Ok(match_nodes!(input.into_children();
+            [before(_)] => WatchPosition::Before,
+            [after(_)] => WatchPosition::After
+        ))
     }
 
     fn pc_ufx(input: Node) -> ParseResult<usize> {
@@ -152,6 +171,12 @@ impl CommandParser {
         ))
     }
 
+    fn delete_watch(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+                [brk_id(br)..] => Command::DeleteWatch(br.collect())
+        ))
+    }
+
     fn enable(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
                 [brk_id(br)..] => Command::Enable(br.collect())
@@ -166,16 +191,30 @@ impl CommandParser {
 
     fn watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
+        [watch_position(wp), group(g),  print_state(p)] => {
+            if let Command::PrintState(target, code) = p {
+                Command::Watch(g, wp, target, code, PrintMode::State)
+            } else {
+                unreachable!("Parse produced wrong command?")
+            }
+            },
+        [watch_position(wp), group(g),  print(p)] => {
+                if let Command::Print(target, code) = p {
+                    Command::Watch(g, wp, target, code, PrintMode::Port)
+                } else {
+                    unreachable!("Parse produced wrong command?")
+                }
+            },
         [group(g), print_state(p)] => {
             if let Command::PrintState(target, code) = p {
-                Command::Watch(g, target, code,PrintMode::State)
+                Command::Watch(g, WatchPosition::default(), target, code, PrintMode::State)
             } else {
                 unreachable!("Parse produced wrong command?")
             }
             },
         [group(g), print(p)] => {
                 if let Command::Print(target, code) = p {
-                    Command::Watch(g, target, code, PrintMode::Port)
+                    Command::Watch(g, WatchPosition::default(), target, code, PrintMode::Port)
                 } else {
                     unreachable!("Parse produced wrong command?")
                 }
@@ -196,7 +235,9 @@ impl CommandParser {
             [display(disp), EOI(_)] => disp,
             [brk(b), EOI(_)] => b,
             [info_break(ib), EOI(_)] => ib,
+            [info_watch(iw), EOI(_)] => iw,
             [delete(del), EOI(_)] => del,
+            [delete_watch(del), EOI(_)] => del,
             [enable(e), EOI(_)] => e,
             [disable(dis), EOI(_)] => dis,
             [exit(exit), EOI(_)] => exit,

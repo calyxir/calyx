@@ -16,6 +16,17 @@ class Registry:
         self.config = config
         self.graph = nx.DiGraph()
 
+    def get_states(self, stage):
+        """
+        Returns the pairs of input and output states that the given stage
+        operates upon.
+        """
+        out = [
+            (s, e) for (s, e, st) in self.graph.edges(data="stage") if st.name == stage
+        ]
+        assert len(out) > 0, f"No state tranformation for {stage} found."
+        return out
+
     def register(self, stage):
         """
         Defines a new stage named `stage` that converts programs from `src` to
@@ -34,10 +45,10 @@ class Registry:
 
         nodes = self.graph.nodes()
         if start not in nodes:
-            raise UndefinedStage(start)
+            raise UndefinedStage(start, "Validate source state of the path")
 
         if dest not in nodes:
-            raise UndefinedStage(dest)
+            raise UndefinedStage(dest, "Validate target state of the path")
 
         all_paths = list(nx.all_simple_edge_paths(self.graph, start, dest))
 

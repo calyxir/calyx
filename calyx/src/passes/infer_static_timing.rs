@@ -380,12 +380,18 @@ impl Visitor for InferStaticTiming {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
                 let grp = group.borrow();
                 if let Some(curr_lat) = grp.attributes.get("static") {
+                    // Inferred latency is not the same as the provided latency annotation.
                     if *curr_lat != latency {
-                        return Err(Error::ImpossibleLatencyAnnotation(
-                            grp.name().to_string(),
-                            *curr_lat,
-                            latency,
-                        ));
+                        let msg1 = format!("Annotated latency: {}", curr_lat);
+                        let msg2 = format!("Inferred latency: {}", latency);
+                        let msg = format!(
+                            "Impossible \"static\" latency annotation for group {}.\n{}\n{}",
+                            grp.name(),
+                            msg1,
+                            msg2
+                        );
+                        return Err(Error::malformed_structure(msg)
+                            .with_pos(&grp.attributes));
                     }
                 }
                 latency_result = Some(latency);

@@ -94,7 +94,7 @@ impl Visitor for Papercut {
                     assign.name == "done" && !assign.is_hole()
                 });
             if done_use.is_none() {
-                return Err(Error::Papercut(format!("Component `{}` has an empty control program and does not assign to the `done` port. Without an assignment to the `done`, the component cannot return control flow.", comp.name.clone()), comp.name.clone()));
+                return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the `done` port. Without an assignment to the `done`, the component cannot return control flow.", comp.name)).with_pos(&comp.name));
             }
         }
 
@@ -146,10 +146,8 @@ impl Visitor for Papercut {
                                         read,
                                         missing,
                                         comp_type);
-                            return Err(Error::Papercut(
-                                msg,
-                                group.clone_name(),
-                            ));
+                            return Err(Error::papercut(msg)
+                                .with_pos(&group.attributes));
                         }
                     }
                 }
@@ -179,10 +177,8 @@ impl Visitor for Papercut {
                                         first,
                                         missing,
                                         comp_type);
-                            return Err(Error::Papercut(
-                                msg,
-                                group.clone_name(),
-                            ));
+                            return Err(Error::papercut(msg)
+                                .with_pos(&group.attributes));
                         }
                     }
                 }
@@ -221,10 +217,9 @@ impl Visitor for Papercut {
                     if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
-                        return Err(Error::Papercut(
-                            s.attributes.fmt_err(&msg),
-                            ir::Id::from(""),
-                        ));
+                        return Err(
+                            Error::papercut(msg).with_pos(&s.attributes)
+                        );
                     }
                 }
             }
@@ -254,10 +249,9 @@ impl Visitor for Papercut {
                     if *is_comb && !self.cont_cells.contains(cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
-                        return Err(Error::Papercut(
-                            s.attributes.fmt_err(&msg),
-                            ir::Id::from(""),
-                        ));
+                        return Err(
+                            Error::papercut(msg).with_pos(&s.attributes)
+                        );
                     }
                 }
             }
