@@ -130,7 +130,6 @@ pub enum GroupName {
     None,
 }
 
-#[derive(Debug)]
 pub struct GroupQualifiedInstanceName {
     pub prefix: ComponentQualifiedInstanceName,
     pub group: GroupName,
@@ -159,6 +158,15 @@ impl GroupQualifiedInstanceName {
             prefix: comp.clone(),
             group: GroupName::None,
         }
+    }
+}
+
+impl std::fmt::Debug for GroupQualifiedInstanceName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GroupQualifiedInstanceName")
+            .field("prefix", &self.prefix.as_id())
+            .field("group", &self.group)
+            .finish()
     }
 }
 

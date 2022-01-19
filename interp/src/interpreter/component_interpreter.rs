@@ -332,29 +332,33 @@ impl Interpreter for ComponentInterpreter {
     }
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        let children = match &self.interp {
-            // TODO (Griffin): Include structural info
-            StructuralOrControl::Structural(_) => {
-                vec![]
+        if self.go_is_high() {
+            let children = match &self.interp {
+                // TODO (Griffin): Include structural info
+                StructuralOrControl::Structural(_) => {
+                    vec![]
+                }
+                StructuralOrControl::Control(c) => c.get_active_tree(),
+                StructuralOrControl::Env(_) => vec![],
+                StructuralOrControl::Nothing => todo!(),
+            };
+
+            let env = self.get_env();
+
+            let sub_comp_children = env.get_active_tree();
+
+            let mut root_node = ActiveTreeNode::new(
+                GroupQualifiedInstanceName::new_empty(&self.qual_name),
+            );
+
+            for x in children.into_iter().chain(sub_comp_children.into_iter()) {
+                root_node.insert(x)
             }
-            StructuralOrControl::Control(c) => c.get_active_tree(),
-            StructuralOrControl::Env(_) => vec![],
-            StructuralOrControl::Nothing => todo!(),
-        };
 
-        let env = self.get_env();
-
-        let sub_comp_children = env.get_active_tree();
-
-        let mut root_node = ActiveTreeNode::new(
-            GroupQualifiedInstanceName::new_empty(&self.qual_name),
-        );
-
-        for x in children.into_iter().chain(sub_comp_children.into_iter()) {
-            root_node.insert(x)
+            vec![root_node]
+        } else {
+            vec![]
         }
-
-        vec![root_node]
     }
 }
 
