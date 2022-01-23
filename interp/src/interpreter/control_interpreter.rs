@@ -957,7 +957,7 @@ impl Interpreter for InvokeInterpreter {
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
         let name = GroupQualifiedInstanceName::new_phantom(
             &self.qin,
-            self.invoke.comp.borrow().name(),
+            &(format!("invoke {}", self.invoke.comp.borrow().name()).into()),
         );
 
         vec![ActiveTreeNode::new(name)]

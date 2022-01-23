@@ -6,9 +6,9 @@ use std::{fmt::Display, hash::Hash, ops::Deref, rc::Rc};
 /// A portion of a qualified name representing an instance of a Calyx component.
 pub struct InstanceName {
     /// Handle to the component definition
-    component_id: Rc<iir::Component>,
+    pub component_id: Rc<iir::Component>,
     /// The name of the instance
-    instance: Id,
+    pub instance: Id,
 }
 
 impl InstanceName {
