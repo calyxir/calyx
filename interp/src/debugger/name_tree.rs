@@ -24,6 +24,11 @@ impl ActiveTreeNode {
 
         if TOP {
             write!(out, "{}", self.name.prefix.as_id()).unwrap();
+        } else if let crate::structures::names::GroupName::None =
+            &self.name.group
+        {
+            write!(out, "{}", self.name.prefix.last().unwrap().instance)
+                .unwrap();
         } else {
             write!(
                 out,
