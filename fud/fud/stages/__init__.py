@@ -284,8 +284,10 @@ class Stage:
     def output(self):
         return self.final_output
 
-    def run(self, input_data, executor):
-
+    def run(self, input_data):
+        """
+        Run the stage as a function.
+        """
         assert isinstance(
             input_data, Source
         ), "Input object is not an instance of Source"
@@ -295,8 +297,7 @@ class Stage:
 
         # run all the steps
         for step in self.steps:
-            with executor.step(step.name):
-                step()
+            step()
 
         return self.final_output
 
