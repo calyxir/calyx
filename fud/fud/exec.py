@@ -1,12 +1,11 @@
 import logging as log
 import shutil
 import sys
-import time
 from pathlib import Path
 
 from halo import Halo
 
-from . import errors, utils
+from . import errors, utils, executor
 from .stages import Source, SourceType
 
 
@@ -161,21 +160,21 @@ def run_fud(args, config):
     else:
         sp = None
 
-    sp = utils.Executor(sp, persist=log.getLogger().level <= log.INFO)
+    exec = executor.Executor(sp, persist=log.getLogger().level <= log.INFO)
     # Execute the generated path
-    with sp:
+    with exec:
         for ed in path:
             txt = f"{ed.src_stage} → {ed.target_stage}"
             if ed.name != ed.src_stage:
                 txt += f" ({ed.name})"
-            with sp.stage(ed.name, ed._no_spinner, txt):
-                data = ed.run(data, executor=sp)
+            with exec.stage(ed.name, ed._no_spinner, txt):
+                data = ed.run(data, executor=exec)
 
     # Stages to be profiled
     profiled_stages = utils.parse_profiling_input(args)
     # Report profiling information if flag was provided.
     if args.profiled_stages is not None:
-        data = report_profiling(profiled_stages, sp.durations, args.csv)
+        data = report_profiling(profiled_stages, exec.durations, args.csv)
 
     # output the data or profiling information.
     if args.output_file is not None:
