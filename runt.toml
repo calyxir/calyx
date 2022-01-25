@@ -53,7 +53,7 @@ cmd = """
 fud exec -s futil.exec './target/debug/futil' \
          -s verilog.cycle_limit 500 \
          --through verilog \
-         {} --to dat -q | \
+         {} --to dat -q 2>&1 | \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
