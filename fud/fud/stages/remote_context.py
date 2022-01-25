@@ -51,7 +51,14 @@ class RemoteExecution:
         remote host.
         """
 
-        @self.stage.step()
+        if self.ssh_host == "" or self.ssh_user == "":
+            log.warn(
+                f"Attempting to use remote execution but SSH host or user look invalid. Host: `{self.ssh_host}`, user: `{self.ssh_user}`"
+            )
+
+        @self.stage.step(
+            description=f"Start ssh connection to `{self.ssh_user}@{self.ssh_host}`"
+        )
         def establish_connection() -> SourceType.UnTyped:
             """
             Establish ssh connection.
@@ -216,10 +223,12 @@ class LocalSandbox:
             """Copy an input file."""
             shutil.copyfile(src_path, Path(tmpdir) / dest_path)
 
+        # Schedule
         tmpdir = Source(
             FreshDir() if self.save_temps else TmpDir(),
             SourceType.Directory,
         )
+
         for src_path, dest_path in input_files.items():
             if not isinstance(src_path, Source):
                 src_path = Source(src_path, SourceType.Path)
