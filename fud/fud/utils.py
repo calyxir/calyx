@@ -142,17 +142,38 @@ class Conversions:
         return data.encode("UTF-8")
 
 
+class DummySpinner:
+    """
+    Dummy class to implement the interface of a spinner object.
+    All methods are a sham and do nothing.
+    """
+
+    def __init__(self):
+        pass
+
+    def start(self, text=None):
+        pass
+
+    def stop(self, text=None):
+        pass
+
+    def fail(self, text=None):
+        pass
+
+    def succeed(self, text=None):
+        pass
+
+
 class Executor:
     """
     Executor for paths.
     """
 
-    def __init__(self, spinner, persist):
+    def __init__(self, spinner, persist=False):
         # Persist outputs from the spinner
-        self.persist = persist
-
+        self._persist = persist
         # Spinner object
-        self._spinner = spinner
+        self._spinner = DummySpinner() if spinner is None else spinner
         # Current stage name
         self._stage_text = None
         # Current step name
@@ -163,12 +184,11 @@ class Executor:
         # Mapping from stage -> step -> duration
         self.durations = {}
 
-    def _update(self):
-        if not self.no_spinner:
-            msg = f"{self._stage_text}"
-            if self._step_text is not None:
-                msg += f": {self._step_text}"
-            self._spinner.start(msg)
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._spinner.stop()
 
     # Control spinner behavior
     def disable_spinner(self):
@@ -194,16 +214,21 @@ class Executor:
         assert self.stage is not None, "Attempt to create a step before a stage"
         return StepExecutor(self, name)
 
+    def _update(self):
+        if not self.no_spinner:
+            msg = f"{self._stage_text}"
+            if self._step_text is not None:
+                msg += f": {self._step_text}"
+            self._spinner.start(msg)
+
     # Mark stage boundaries. Use the stage method above instead of these.
     def _start_stage(self, text):
         self._stage_text = text
         self._update()
 
     def _end_stage(self, is_err):
-        if self.persist:
-            if is_err:
-                self._spinner.fail()
-            else:
+        if self._persist:
+            if not is_err:
                 self._spinner.succeed()
 
     # Mark step boundaries. Use the step method above instead of these.
@@ -212,7 +237,7 @@ class Executor:
         self._update()
 
     def _end_step(self, is_err):
-        if self.persist:
+        if self._persist:
             if is_err:
                 self._spinner.fail()
             else:
@@ -220,7 +245,10 @@ class Executor:
         self._step_text = None
         self._update()
 
-    def stop(self):
+    def _stop(self):
+        """
+        Stops the spinner associated with this executor.
+        """
         self._spinner.stop()
 
 
@@ -233,7 +261,7 @@ class StageExecutor(object):
         self.parent_exec = parent_exec
         self.stage = stage
         if disable_spinner:
-            self.parent_exec.stop()
+            self.parent_exec._stop()
             self.parent_exec.disable_spinner()
 
     def __enter__(self):

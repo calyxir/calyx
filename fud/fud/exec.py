@@ -146,59 +146,55 @@ def run_fud(args, config):
             ed.dry_run()
         return
 
+    # construct a source object for the input
+    data = None
+    if input_file is None:
+        data = Source(None, SourceType.UnTyped)
+    else:
+        data = Source(Path(str(input_file)), SourceType.Path)
+
+    profiled_stages = utils.parse_profiling_input(args)
+    # tracks profiling information requested by the flag (if set).
+    collected_for_profiling = {}
+    # tracks the approximate time elapsed to run each stage.
+    overall_durations = []
+
     # spinner is disabled if we are in debug mode, doing a dry_run, or are in quiet mode
     spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
-
     # Execute the path transformation specification.
-    with Halo(
-        spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
-    ) as sp:
+    if spinner_enabled:
+        sp = Halo(
+            spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
+        )
+    else:
+        sp = None
 
-        sp = utils.Executor(sp, persist=log.getLogger().level <= log.INFO)
-
-        # construct a source object for the input
-        data = None
-        if input_file is None:
-            data = Source(None, SourceType.UnTyped)
-        else:
-            data = Source(Path(str(input_file)), SourceType.Path)
-
-        profiled_stages = utils.parse_profiling_input(args)
-        # tracks profiling information requested by the flag (if set).
-        collected_for_profiling = {}
-        # tracks the approximate time elapsed to run each stage.
-        overall_durations = []
-
-        # run all the stages
+    # Execute the generated path
+    with utils.Executor(sp, persist=log.getLogger().level <= log.INFO) as sp:
         for ed in path:
             txt = f"{ed.src_stage} → {ed.target_stage}" + (
                 f" ({ed.name})" if ed.name != ed.src_stage else ""
             )
             with sp.stage(txt, ed._no_spinner):
-                try:
-                    begin = time.time()
-                    data = ed.run(data, executor=sp)
-                    overall_durations.append(time.time() - begin)
-                except errors.StepFailure as e:
-                    print(e)
-                    exit(-1)
+                begin = time.time()
+                data = ed.run(data, executor=sp)
+                overall_durations.append(time.time() - begin)
             # Collect profiling information for this stage.
             if ed.name in profiled_stages:
                 collected_for_profiling[ed.name] = ed
-        sp.stop()
 
-        # Report profiling information if flag was provided.
-        if args.profiled_stages is not None:
-            data = report_profiling(
-                args, path, profiled_stages, overall_durations, collected_for_profiling
-            )
+    # Report profiling information if flag was provided.
+    if args.profiled_stages is not None:
+        data = report_profiling(
+            args, path, profiled_stages, overall_durations, collected_for_profiling
+        )
 
-        # output the data or profiling information.
-        if args.output_file is not None:
-            if data.typ == SourceType.Directory:
-                shutil.move(data.data.name, args.output_file)
-            else:
-                with Path(args.output_file).open("wb") as f:
-                    f.write(data.convert_to(SourceType.Bytes).data)
-        elif data:
-            print(data.convert_to(SourceType.String).data)
+    # output the data or profiling information.
+    if args.output_file is not None:
+        if data.typ == SourceType.Directory:
+            shutil.move(data.data.name, args.output_file)
+        else:
+            with Path(args.output_file).open("wb") as f:
+                f.write(data.convert_to(SourceType.Bytes).data)
+    elif data:
+        print(data.convert_to(SourceType.String).data)
