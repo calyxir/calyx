@@ -75,7 +75,9 @@ def gather_profiling_data(collected_for_profiling, stage, steps, is_csv):
     data = collected_for_profiling.get(stage)
     # Verify this is a valid stage.
     if data is None:
-        raise errors.UndefinedStage(stage)
+        raise errors.UndefinedStage(stage, "Extracting profiling information")
+
+    # If no specific steps provided for this stage, append all of them.
     if steps == []:
         profiled_steps = [s for s in data.steps]
     else:
@@ -84,11 +86,10 @@ def gather_profiling_data(collected_for_profiling, stage, steps, is_csv):
         invalid_steps = [s for s in steps if s not in valid_steps]
         if invalid_steps:
             raise errors.UndefinedSteps(stage, invalid_steps, valid_steps)
-        # If no specific steps provided for this stage, append all of them.
-        profiled_steps = [s for s in data.steps if steps == [] or s.name in steps]
+        profiled_steps = [s for s in data.steps if s.name in steps]
+
     # Gather all the step names that are being profiled.
-    profiled_names = [s.name for s in profiled_steps]
-    profiled_durations = [data.durations[s] for s in profiled_names]
+    profiled_durations = [data.durations[s.name] for s in profiled_steps]
     return utils.profile_stages(
         stage,
         profiled_steps,
