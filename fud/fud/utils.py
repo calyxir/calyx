@@ -267,19 +267,18 @@ def parse_profiling_input(args):
     stages = {}
     if args.profiled_stages is None:
         return stages
-    # Retrieve all stages.
-    for stage in args.profiled_stages:
-        if "." not in stage:
-            stages[stage] = []
+
+    for stage_step in args.profiled_stages:
+        if "." in stage_step:
+            stage, step = stage_step.split(".")
         else:
-            s, _ = stage.split(".")
-            stages[s] = []
-    # Append all steps.
-    for stage in args.profiled_stages:
-        if "." not in stage:
-            continue
-        _, step = stage.split(".")
-        stages[s].append(step)
+            stage, step = stage_step, None
+        # If stage has not been added it, add it.
+        if stage not in stages:
+            stages[stage] = []
+        if step is not None:
+            stages[stage].append(step)
+
     return stages
 
 
