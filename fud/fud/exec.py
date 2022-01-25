@@ -174,18 +174,14 @@ def run_fud(args, config):
             txt = f"{ed.src_stage} → {ed.target_stage}" + (
                 f" ({ed.name})" if ed.name != ed.src_stage else ""
             )
-            sp.start_stage(txt)
-            try:
-                if ed._no_spinner:
-                    sp.stop()
-                begin = time.time()
-                data = ed.run(data, sp=None if ed._no_spinner else sp)
-                overall_durations.append(time.time() - begin)
-                sp.end_stage()
-            except errors.StepFailure as e:
-                sp.fail()
-                print(e)
-                exit(-1)
+            with sp.stage(txt, ed._no_spinner):
+                try:
+                    begin = time.time()
+                    data = ed.run(data, executor=sp)
+                    overall_durations.append(time.time() - begin)
+                except errors.StepFailure as e:
+                    print(e)
+                    exit(-1)
             # Collect profiling information for this stage.
             if ed.name in profiled_stages:
                 collected_for_profiling[ed.name] = ed

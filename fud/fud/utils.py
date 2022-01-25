@@ -148,52 +148,116 @@ class Executor:
     """
 
     def __init__(self, spinner, persist):
-        # Spinner object
-        self.spinner = spinner
         # Persist outputs from the spinner
         self.persist = persist
+
+        # Spinner object
+        self._spinner = spinner
         # Current stage name
-        self.stage_text = ""
+        self._stage_text = None
         # Current step name
-        self.step_text = ""
+        self._step_text = None
 
         # Disable spinner outputs
-        self.disable_spinner = False
+        self.no_spinner = False
         # Mapping from stage -> step -> duration
         self.durations = {}
 
     def _update(self):
-        if self.step_text != "":
-            self.spinner.start(f"{self.stage_text}: {self.step_text}")
-        else:
-            self.spinner.start(f"{self.stage_text}")
+        if not self.no_spinner:
+            msg = f"{self._stage_text}"
+            if self._step_text is not None:
+                msg += f": {self._step_text}"
+            self._spinner.start(msg)
 
-    def start_stage(self, text):
-        self.stage_text = text
+    # Control spinner behavior
+    def disable_spinner(self):
+        self.no_spinner = True
+
+    def enable_spinner(self):
+        self.no_spinner = False
+
+    def stage(self, name, disable_spinner):
+        """
+        Use this to create a stage boundary:
+            with executor.stage(name, disable_spinner):
+                # Things to do with the stage
+        """
+        return StageExecutor(self, name, disable_spinner)
+
+    def step(self, name):
+        """
+        Use this to create a step boundary:
+            with executor.step(name):
+                # Things to do with the step
+        """
+        assert self.stage is not None, "Attempt to create a step before a stage"
+        return StepExecutor(self, name)
+
+    # Mark stage boundaries. Use the stage method above instead of these.
+    def _start_stage(self, text):
+        self._stage_text = text
         self._update()
 
-    def end_stage(self):
+    def _end_stage(self, is_err):
         if self.persist:
-            self.spinner.succeed()
+            if is_err:
+                self._spinner.fail()
+            else:
+                self._spinner.succeed()
 
-    def start_step(self, text):
-        self.step_text = text
+    # Mark step boundaries. Use the step method above instead of these.
+    def _start_step(self, text):
+        self._step_text = text
         self._update()
 
-    def end_step(self):
+    def _end_step(self, is_err):
         if self.persist:
-            self.spinner.succeed()
-        self.step_text = ""
+            if is_err:
+                self._spinner.fail()
+            else:
+                self._spinner.succeed()
+        self._step_text = None
         self._update()
-
-    def succeed(self):
-        self.spinner.succeed()
-
-    def fail(self, text=None):
-        self.spinner.fail(text)
 
     def stop(self):
-        self.spinner.stop()
+        self._spinner.stop()
+
+
+class StageExecutor(object):
+    """
+    Handles execution of a stage.
+    """
+
+    def __init__(self, parent_exec, stage, disable_spinner):
+        self.parent_exec = parent_exec
+        self.stage = stage
+        if disable_spinner:
+            self.parent_exec.stop()
+            self.parent_exec.disable_spinner()
+
+    def __enter__(self):
+        self.parent_exec._start_stage(self.stage)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.parent_exec._end_stage(exc_type is not None)
+        self.parent_exec.enable_spinner()
+
+
+class StepExecutor(object):
+    """
+    Handles execution of a step.
+    """
+
+    def __init__(self, parent_exec, step):
+        self.parent_exec = parent_exec
+        self.step = step
+
+    def __enter__(self):
+        self.parent_exec._start_step(self.step)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.parent_exec._end_step(exc_type is not None)
 
 
 def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):

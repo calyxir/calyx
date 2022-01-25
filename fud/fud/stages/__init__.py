@@ -270,7 +270,8 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
-    def run(self, input_data, sp=None):
+    def run(self, input_data, executor):
+
         assert isinstance(
             input_data, Source
         ), "Input object is not an instance of Source"
@@ -280,14 +281,10 @@ class Stage:
 
         # run all the steps
         for step in self.steps:
-            # If a spinner is provided, print details using it.
-            if sp is not None:
-                sp.start_step(step.name)
-            begin = time.time()
-            step()
-            self.durations[step.name] = time.time() - begin
-            if sp is not None:
-                sp.end_step()
+            with executor.step(step.name):
+                begin = time.time()
+                step()
+                self.durations[step.name] = time.time() - begin
 
         return self.final_output
 
