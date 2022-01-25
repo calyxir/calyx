@@ -160,7 +160,8 @@ def run_fud(args, config):
     else:
         sp = None
 
-    exec = executor.Executor(sp, persist=log.getLogger().level <= log.INFO)
+    enable_profile = args.profiled_stages is not None
+    exec = executor.Executor(sp, log.getLogger().level <= log.INFO, enable_profile)
     # Execute the generated path
     with exec:
         for ed in path:
@@ -172,8 +173,9 @@ def run_fud(args, config):
 
     # Stages to be profiled
     profiled_stages = utils.parse_profiling_input(args)
+
     # Report profiling information if flag was provided.
-    if args.profiled_stages is not None:
+    if enable_profile:
         data = report_profiling(profiled_stages, exec.durations, args.csv)
 
     # output the data or profiling information.

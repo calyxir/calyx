@@ -44,12 +44,27 @@ class Profiler:
         return time.time() - t
 
 
+class DummyProfiler:
+    """
+    Dummy profiler that does nothing
+    """
+
+    def __init__(self):
+        pass
+
+    def start(self):
+        pass
+
+    def end(self):
+        pass
+
+
 class Executor:
     """
     Executor for paths.
     """
 
-    def __init__(self, spinner, persist=False):
+    def __init__(self, spinner, persist=False, profile=False):
         # Persist outputs from the spinner
         self._persist = persist
         # Spinner object
@@ -61,7 +76,7 @@ class Executor:
         self._step_text = None
 
         # Profiler for this executor
-        self._profiler = Profiler()
+        self._profiler = Profiler() if profile else DummyProfiler()
 
         # Disable spinner outputs
         self._no_spinner = False
