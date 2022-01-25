@@ -1,6 +1,7 @@
 from collections import namedtuple
 import networkx as nx
 
+from fud import stages
 from fud.errors import UndefinedStage, MultiplePaths
 
 # An edge in the state graph
@@ -36,7 +37,7 @@ class Registry:
 
         self.graph.add_edge(stage.src_stage, stage.target_stage, stage=stage)
 
-    def make_path(self, start, dest, through=[]):
+    def make_path(self, start, dest, through=[]) -> list[stages.Stage]:
         """
         Compute a path from `start` to `dest` that contains all stages
         mentioned in `through`.
@@ -95,23 +96,29 @@ class Registry:
                     stage_paths.append(stage_path)
 
         if len(stage_paths) > 1:
-            p = []
-            for path in all_paths:
-                if len(path) == 0:
-                    continue
-                # Add the starting src
-                path_str = path[0][0]
-                for (_, dst) in path:
-                    path_str += f" → {dst}"
-                    cost = self.config.get(("stages", dst, "priority"))
-                    if cost is not None:
-                        path_str += f" (cost: {cost})"
-                p.append(path_str)
-            raise MultiplePaths(start, dest, "\n".join(p))
+            raise MultiplePaths(start, dest, self.paths_str(all_paths))
         elif len(stage_paths) == 0:
             return None
         else:
             return stage_paths[0]
+
+    def paths_str(self, paths):
+        """
+        Generate a string representation for computed paths
+        """
+        p = []
+        for path in paths:
+            if len(path) == 0:
+                continue
+            # Add the starting src
+            path_str = path[0][0]
+            for (_, dst) in path:
+                path_str += f" → {dst}"
+                cost = self.config.get(("stages", dst, "priority"))
+                if cost is not None:
+                    path_str += f" (cost: {cost})"
+            p.append(path_str)
+        return "\n".join(p)
 
     def __str__(self):
         stages = {}

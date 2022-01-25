@@ -42,19 +42,19 @@ def discover_implied_states(filename, config):
     return source
 
 
-def construct_path(args, config, through) -> list[stages.Stage]:
+def construct_path(
+    config, source=None, target=None, input_file=None, output_file=None, through=[]
+) -> list[stages.Stage]:
     """
     Construct the path of stages implied by the passed arguments.
     """
     # find source
-    source = args.source
     if source is None:
-        source = discover_implied_states(args.input_file, config)
+        source = discover_implied_states(input_file, config)
 
     # find target
-    target = args.dest
     if target is None:
-        target = discover_implied_states(args.output_file, config)
+        target = discover_implied_states(output_file, config)
 
     path = config.registry.make_path(source, target, through)
     if path is None:
@@ -129,7 +129,9 @@ def run_fud(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    path = construct_path(args, config, args.through)
+    path = construct_path(
+        config, args.source, args.dest, args.input_file, args.output_file, args.through
+    )
 
     # check if we need `-o` specified
     if path[-1].output_type == SourceType.Directory and args.output_file is None:
