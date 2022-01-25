@@ -12,6 +12,41 @@ from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
 
 
+class Step:
+    """
+    A step within a stage description.
+    """
+
+    def __init__(self, name, func, args, output, description):
+        self.name = name
+        self.func = func
+        self.args = args
+        self.output = output
+        if description is not None:
+            self.description = description
+        elif self.func.__doc__ is not None:
+            self.description = self.func.__doc__.strip()
+        else:
+            raise Exception(f"Step {self.name} does not have a description.")
+
+    def __call__(self):
+        if is_debug():
+            args = list(self.args)
+            arg_str = ", ".join(map(lambda a: str(a), args))
+            log.debug(f"{self.name}({arg_str})")
+            self.args = args
+        self.output.data = self.func(*self.args)
+        return self.output
+
+    def __str__(self):
+        if self.description is not None:
+            return f"{self.name}: {self.description}"
+        elif self.func.__doc__ is not None:
+            return f"{self.name}: {self.func.__doc__.strip()}"
+        else:
+            return f"{self.name}: <python function>"
+
+
 class SourceType(Enum):
     """
     Enum capturing the kind of source this is.
@@ -236,14 +271,16 @@ class Stage:
         pass
 
     def run(self, input_data, sp=None):
-        assert isinstance(input_data, Source)
+        assert isinstance(
+            input_data, Source
+        ), "Input object is not an instance of Source"
 
         # fill in input_data
         self.hollow_input_data.data = input_data.convert_to(self.input_type).data
 
         # run all the steps
         for step in self.steps:
-
+            # If a spinner is provided, print details using it.
             if sp is not None:
                 sp.start_step(step.name)
             begin = time.time()
@@ -257,34 +294,3 @@ class Stage:
     def dry_run(self):
         for i, step in enumerate(self.steps):
             print(f"  {i+1}) {step}")
-
-
-class Step:
-    def __init__(self, name, func, args, output, description):
-        self.name = name
-        self.func = func
-        self.args = args
-        self.output = output
-        if description is not None:
-            self.description = description
-        elif self.func.__doc__ is not None:
-            self.description = self.func.__doc__.strip()
-        else:
-            raise Exception(f"Step {self.name} does not have a description.")
-
-    def __call__(self):
-        if is_debug():
-            args = list(self.args)
-            arg_str = ", ".join(map(lambda a: str(a), args))
-            log.debug(f"{self.name}({arg_str})")
-            self.args = args
-        self.output.data = self.func(*self.args)
-        return self.output
-
-    def __str__(self):
-        if self.description is not None:
-            return f"{self.name}: {self.description}"
-        elif self.func.__doc__ is not None:
-            return f"{self.name}: {self.func.__doc__.strip()}"
-        else:
-            return f"{self.name}: <python function>"

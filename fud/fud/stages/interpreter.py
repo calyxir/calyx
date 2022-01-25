@@ -97,7 +97,7 @@ class InterpreterStage(Stage):
                 round_float_to_fixed,
             )
 
-        @self.step()
+        @self.step(description=cmd)
         def interpret(
             target: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:

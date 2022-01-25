@@ -3,6 +3,7 @@ import networkx as nx
 
 from fud.errors import UndefinedStage, MultiplePaths
 
+# An edge in the state graph
 Edge = namedtuple("Edge", ["dest", "stage"])
 
 
@@ -50,10 +51,15 @@ class Registry:
         if dest not in nodes:
             raise UndefinedStage(dest, "Validate target state of the path")
 
+        for node in through:
+            if node not in nodes:
+                raise UndefinedStage(node, "State provided using --through")
+
         all_paths = list(nx.all_simple_edge_paths(self.graph, start, dest))
 
         # Compute all stage pipelines that can be run.
         stage_paths = []
+
         # Minimum cost path
         min_cost = None
         for path in all_paths:
