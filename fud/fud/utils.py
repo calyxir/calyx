@@ -142,16 +142,25 @@ class Conversions:
         return data.encode("UTF-8")
 
 
-class SpinnerWrapper:
+class Executor:
     """
-    Wraps a spinner object.
+    Executor for paths.
     """
 
-    def __init__(self, spinner, save):
+    def __init__(self, spinner, persist):
+        # Spinner object
         self.spinner = spinner
-        self.save = save
+        # Persist outputs from the spinner
+        self.persist = persist
+        # Current stage name
         self.stage_text = ""
+        # Current step name
         self.step_text = ""
+
+        # Disable spinner outputs
+        self.disable_spinner = False
+        # Mapping from stage -> step -> duration
+        self.durations = {}
 
     def _update(self):
         if self.step_text != "":
@@ -164,7 +173,7 @@ class SpinnerWrapper:
         self._update()
 
     def end_stage(self):
-        if self.save:
+        if self.persist:
             self.spinner.succeed()
 
     def start_step(self, text):
@@ -172,7 +181,7 @@ class SpinnerWrapper:
         self._update()
 
     def end_step(self):
-        if self.save:
+        if self.persist:
             self.spinner.succeed()
         self.step_text = ""
         self._update()

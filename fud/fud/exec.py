@@ -154,7 +154,7 @@ def run_fud(args, config):
         spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
     ) as sp:
 
-        sp = utils.SpinnerWrapper(sp, save=log.getLogger().level <= log.INFO)
+        sp = utils.Executor(sp, persist=log.getLogger().level <= log.INFO)
 
         # construct a source object for the input
         data = None
@@ -179,7 +179,7 @@ def run_fud(args, config):
                 if ed._no_spinner:
                     sp.stop()
                 begin = time.time()
-                data = ed.run(data, sp=sp if ed._no_spinner else None)
+                data = ed.run(data, sp=None if ed._no_spinner else sp)
                 overall_durations.append(time.time() - begin)
                 sp.end_stage()
             except errors.StepFailure as e:
