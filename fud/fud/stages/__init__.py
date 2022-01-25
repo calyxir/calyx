@@ -2,7 +2,6 @@
 
 import functools
 import inspect
-import time
 import logging as log
 from enum import Enum, auto
 from io import IOBase
@@ -189,8 +188,6 @@ class Stage:
         self.description = description
         self.steps = []
         self._no_spinner = False
-        # Mapping from step name to its elapsed run time.
-        self.durations = {}
 
     def setup(self):
         """
@@ -270,6 +267,23 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
+    def get_steps(self, input_data):
+        """
+        Generate steps contained within this stage.
+        """
+        assert isinstance(
+            input_data, Source
+        ), "Input object is not an instance of Source"
+
+        # fill in input_data
+        self.hollow_input_data.data = input_data.convert_to(self.input_type).data
+
+        for step in self.steps:
+            yield step
+
+    def output(self):
+        return self.final_output
+
     def run(self, input_data, executor):
 
         assert isinstance(
@@ -282,9 +296,7 @@ class Stage:
         # run all the steps
         for step in self.steps:
             with executor.step(step.name):
-                begin = time.time()
                 step()
-                self.durations[step.name] = time.time() - begin
 
         return self.final_output
 

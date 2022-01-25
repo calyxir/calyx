@@ -1,5 +1,4 @@
 import sys
-import time
 import logging as log
 import shutil
 from tempfile import TemporaryDirectory, NamedTemporaryFile, TemporaryFile
@@ -238,7 +237,7 @@ def parse_profiling_input(args):
     return stages
 
 
-def profiling_dump(stage, phases, durations):
+def profiling_dump(stage, phases, durations) -> str:
     """
     Returns time elapsed during each stage or step of the fud execution.
     """
@@ -252,7 +251,7 @@ def profiling_dump(stage, phases, durations):
     )
 
 
-def profiling_csv(stage, phases, durations):
+def profiling_csv(stage, phases, durations) -> str:
     """
     Dumps the profiling information into a CSV format.
     For example, with
@@ -271,7 +270,7 @@ def profiling_csv(stage, phases, durations):
     )
 
 
-def profile_stages(stage, phases, durations, is_csv):
+def profile_stages(stage, phases, durations, is_csv) -> str:
     """
     Returns either a human-readable or CSV format profiling information,
     depending on `is_csv`.

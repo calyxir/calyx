@@ -5,7 +5,7 @@ from pathlib import Path
 
 from halo import Halo
 
-from . import errors, utils, executor
+from . import errors, utils, executor, stages
 from .stages import Source, SourceType
 
 
@@ -32,7 +32,7 @@ def discover_implied_states(filename, config):
         raise errors.UnknownExtension(msg, filename)
     stage = stages[0]
 
-    states = config.REGISTRY.get_states(stage)
+    states = config.registry.get_states(stage)
     sources = set([source for (source, _) in states])
     # Only able to discover state if the stage has one input
     if len(sources) > 1:
@@ -42,7 +42,7 @@ def discover_implied_states(filename, config):
     return source
 
 
-def construct_path(args, config, through):
+def construct_path(args, config, through) -> list[stages.Stage]:
     """
     Construct the path of stages implied by the passed arguments.
     """
@@ -56,7 +56,7 @@ def construct_path(args, config, through):
     if target is None:
         target = discover_implied_states(args.output_file, config)
 
-    path = config.REGISTRY.make_path(source, target, through)
+    path = config.registry.make_path(source, target, through)
     if path is None:
         raise errors.NoPathFound(source, target, through)
 
@@ -168,8 +168,14 @@ def run_fud(args, config):
             txt = f"{ed.src_stage} → {ed.target_stage}"
             if ed.name != ed.src_stage:
                 txt += f" ({ed.name})"
+            # Start a new stage
             with exec.stage(ed.name, ed._no_spinner, txt):
-                data = ed.run(data, executor=exec)
+                for step in ed.get_steps(data):
+                    # Execute step within the stage
+                    with exec.step(step.name):
+                        step()
+
+                data = ed.output()
 
     # Stages to be profiled
     profiled_stages = utils.parse_profiling_input(args)

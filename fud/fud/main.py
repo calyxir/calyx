@@ -282,13 +282,13 @@ def main():
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
-            cfg.REGISTRY = Registry(cfg)
-            register_stages(cfg.REGISTRY, cfg)
+            cfg.registry = Registry(cfg)
+            register_stages(cfg.registry, cfg)
 
         if args.command == "exec":
             exec.run_fud(args, cfg)
         elif args.command == "info":
-            print(cfg.REGISTRY)
+            print(cfg.registry)
         elif args.command == "config":
             display_config(args, cfg)
         elif args.command == "check":
