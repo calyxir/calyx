@@ -68,28 +68,27 @@ def construct_path(args, config, through):
     return path
 
 
-def gather_profiling_data(collected_for_profiling, stage, steps, is_csv):
+def gather_profiling_data(durations, stage, steps, is_csv):
     """
     Gather profiling information for a given stage.
     """
-    data = collected_for_profiling.get(stage)
+    data = durations.get(stage)
     # Verify this is a valid stage.
     if data is None:
         raise errors.UndefinedStage(stage, "Extracting profiling information")
 
     # If no specific steps provided for this stage, append all of them.
     if steps == []:
-        profiled_steps = [s for s in data.steps]
+        profiled_steps = list(data.keys())
     else:
         # Verify the steps are valid.
-        valid_steps = [s.name for s in data.steps]
-        invalid_steps = [s for s in steps if s not in valid_steps]
+        invalid_steps = [s for s in steps if s not in data.keys()]
         if invalid_steps:
-            raise errors.UndefinedSteps(stage, invalid_steps, valid_steps)
-        profiled_steps = [s for s in data.steps if s.name in steps]
+            raise errors.UndefinedSteps(stage, invalid_steps, data.keys())
+        profiled_steps = steps
 
     # Gather all the step names that are being profiled.
-    profiled_durations = [data.durations[s.name] for s in profiled_steps]
+    profiled_durations = [data[s] for s in profiled_steps]
     return utils.profile_stages(
         stage,
         profiled_steps,
@@ -98,23 +97,22 @@ def gather_profiling_data(collected_for_profiling, stage, steps, is_csv):
     )
 
 
-def report_profiling(
-    args, path, profiled_stages, overall_durations, collected_for_profiling
-):
+def report_profiling(profiled_stages, durations, is_csv):
     """
     Report profiling information collected during execution.
     """
     data = Source("", SourceType.String)
 
-    if args.profiled_stages == []:
+    if profiled_stages == []:
+        totals = []
+        for stage, step_times in durations.items():
+            totals.append(sum(step_times.values()))
         # No stages provided; collect overall stage durations.
-        data.data = utils.profile_stages(
-            "stage", [ed for ed in path], overall_durations, args.csv
-        )
+        data.data = utils.profile_stages("stage", durations.keys(), totals, is_csv)
     else:
         # Otherwise, gather profiling data for each stage and steps provided.
         data.data = "\n".join(
-            gather_profiling_data(collected_for_profiling, stage, steps, args.csv)
+            gather_profiling_data(durations, stage, steps, is_csv)
             for stage, steps in profiled_stages.items()
         )
 
@@ -153,12 +151,6 @@ def run_fud(args, config):
     else:
         data = Source(Path(str(input_file)), SourceType.Path)
 
-    profiled_stages = utils.parse_profiling_input(args)
-    # tracks profiling information requested by the flag (if set).
-    collected_for_profiling = {}
-    # tracks the approximate time elapsed to run each stage.
-    overall_durations = []
-
     # spinner is disabled if we are in debug mode, doing a dry_run, or are in quiet mode
     spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
     # Execute the path transformation specification.
@@ -169,25 +161,21 @@ def run_fud(args, config):
     else:
         sp = None
 
+    sp = utils.Executor(sp, persist=log.getLogger().level <= log.INFO)
     # Execute the generated path
-    with utils.Executor(sp, persist=log.getLogger().level <= log.INFO) as sp:
+    with sp:
         for ed in path:
-            txt = f"{ed.src_stage} → {ed.target_stage}" + (
-                f" ({ed.name})" if ed.name != ed.src_stage else ""
-            )
-            with sp.stage(txt, ed._no_spinner):
-                begin = time.time()
+            txt = f"{ed.src_stage} → {ed.target_stage}"
+            if ed.name != ed.src_stage:
+                txt += f" ({ed.name})"
+            with sp.stage(ed.name, ed._no_spinner, txt):
                 data = ed.run(data, executor=sp)
-                overall_durations.append(time.time() - begin)
-            # Collect profiling information for this stage.
-            if ed.name in profiled_stages:
-                collected_for_profiling[ed.name] = ed
 
+    # Stages to be profiled
+    profiled_stages = utils.parse_profiling_input(args)
     # Report profiling information if flag was provided.
     if args.profiled_stages is not None:
-        data = report_profiling(
-            args, path, profiled_stages, overall_durations, collected_for_profiling
-        )
+        data = report_profiling(profiled_stages, sp.durations, args.csv)
 
     # output the data or profiling information.
     if args.output_file is not None:
