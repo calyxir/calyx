@@ -134,11 +134,8 @@ def run_fud(args, config):
     # Execute the generated path
     with exec:
         for ed in path:
-            txt = f"{ed.src_state} → {ed.target_state}"
-            if ed.name != ed.src_state:
-                txt += f" ({ed.name})"
             # Start a new stage
-            with exec.stage(ed.name, ed._no_spinner, txt):
+            with exec.stage(ed.name, ed._no_spinner):
                 for step in ed.get_steps(data):
                     # Execute step within the stage
                     with exec.step(step.name):
