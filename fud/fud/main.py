@@ -172,7 +172,7 @@ def register_external_stages(cfg, registry):
         for stage_class in mod.__STAGES__:
             try:
                 registry.register(stage_class(cfg))
-            except Exception as e:
+            except errors.FudError as e:
                 raise errors.InvalidExternalStage(
                     ext,
                     "\n".join(
