@@ -174,8 +174,8 @@ class Stage:
         config,
         description,
     ):
-        self.src_stage = src_state
-        self.target_stage = target_state
+        self.src_state = src_state
+        self.target_state = target_state
         self.input_type = input_type
         self.output_type = output_type
         self.config = config
@@ -229,7 +229,7 @@ class Stage:
                 if len(args) != len(input_types):
                     raise Exception(
                         f"Expected {len(input_types)} input arguments,"
-                        + " but only recieved {len(args)}"
+                        f" but recieved {len(args)}"
                     )
 
                 # make sure that the args are convertible to expected input

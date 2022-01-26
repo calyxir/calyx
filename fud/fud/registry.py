@@ -35,7 +35,7 @@ class Registry:
         `tar`
         """
 
-        self.graph.add_edge(stage.src_stage, stage.target_stage, stage=stage)
+        self.graph.add_edge(stage.src_state, stage.target_state, stage=stage)
 
     def make_path(self, start, dest, through=[]) -> list[stages.Stage]:
         """

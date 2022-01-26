@@ -66,10 +66,10 @@ class InterpreterStage(Stage):
                 "--data" if self.data_path else "",
                 "{data_file}" if self.data_path else "",
                 "{target}",
-                "debug" if self.target_stage == _DEBUGGER_TARGET else "",
-                self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
+                "debug" if self.target_state == _DEBUGGER_TARGET else "",
+                self.debugger_flags if self.target_state == _DEBUGGER_TARGET else "",
                 unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
-                if self.target_stage == _DEBUGGER_TARGET
+                if self.target_state == _DEBUGGER_TARGET
                 else "",
             ]
         )
@@ -109,7 +109,7 @@ class InterpreterStage(Stage):
                 data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
             )
 
-            if self.target_stage == _DEBUGGER_TARGET and "-p" not in unwrap_or(
+            if self.target_state == _DEBUGGER_TARGET and "-p" not in unwrap_or(
                 self.config["stages", self.name, "debugger", "flags"], ""
             ):
                 return transparent_shell(command)
@@ -135,7 +135,7 @@ class InterpreterStage(Stage):
         result = interpret(input_data, tmpdir)
         cleanup(tmpdir)
 
-        if self.target_stage != _DEBUGGER_TARGET or "-p" in unwrap_or(
+        if self.target_state != _DEBUGGER_TARGET or "-p" in unwrap_or(
             self.config["stages", self.name, "debugger", "flags"], ""
         ):
             return result
