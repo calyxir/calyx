@@ -18,14 +18,16 @@ class DahliaStage(Stage):
         self.setup()
 
     def _define_steps(self, input_data):
-        cmd = [
-            self.cmd,
-            unwrap_or(self.config["stages", self.name, "flags"], ""),
-            self.flags,
-            "{prog}",
-        ]
+        cmd = " ".join(
+            [
+                self.cmd,
+                unwrap_or(self.config["stages", self.name, "flags"], ""),
+                self.flags,
+                "{prog}",
+            ]
+        )
 
-        @self.step(description=" ".join(cmd))
+        @self.step(description=cmd)
         def run_dahlia(dahlia_prog: SourceType.Path) -> SourceType.Stream:
             return shell(cmd.format(prog=str(dahlia_prog)))
 
