@@ -53,7 +53,8 @@ class RemoteExecution:
 
         if self.ssh_host == "" or self.ssh_user == "":
             log.warn(
-                f"Attempting to use remote execution but SSH host or user look invalid. Host: `{self.ssh_host}`, user: `{self.ssh_user}`"
+                f"Attempting to use remote execution but SSH host or user look invalid."
+                " Host: `{self.ssh_host}`, user: `{self.ssh_user}`"
             )
 
         @self.stage.step(
