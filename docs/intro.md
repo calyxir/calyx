@@ -74,12 +74,16 @@ fud check
 
 `fud` will report certain tools are not available. This is expected.
 
-## Simulating with Verilator
+## Simulation
 
-[Verilator][] is the default simulation backend for Calyx. If you want to
-run your Calyx programs, you need to install Verilator.
+There are three ways to run Calyx programs:
+[Verilator][], [Icarus Verilog][], and Calyx's native [interpreter][].
+You'll want to set up one of these options so you can try out your code.
 
-On a Mac, install with:
+### Verilator
+
+On a Mac, you can install Verilator with [Homebrew][]:
+
 ```
 brew install verilator
 ```
@@ -104,6 +108,24 @@ fud check
 `fud` should report that the `verilator` binary was installed and has the
 right version.
 Some tools will be reported missing. This is expected.
+
+### Icarus Verilog
+
+Icarus is generally faster to start up and is easier to install than Verilator, but it is slower at simulating large designs.
+
+Icarus is also available in Homebrew:
+
+```
+brew install icarus-verilog
+```
+
+On other platforms, try the corresponding package in your package manager.
+
+Use `fud check` again to make sure things are working.
+
+### Interpreter
+
+TK Do we want to recommend this yet?
 
 ### Generating Simulation Results
 
@@ -133,6 +155,8 @@ fud e examples/tutorial/language-tutorial-iterate.futil \
   --to dat -v
 ```
 
+TK Show how to switch between Verilator, Icarus, and the interpreter.
+
 This command will compile `examples/tutorial/language-tutorial-iterate.futil` to Verilog
 using the Calyx compiler, simulate the design using the data in `examples/tutorial/data.json`, and generate a JSON representation of the
 final memory state.
@@ -152,6 +176,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [vcdump]: https://github.com/sgpthomas/vcdump
 [verilator]: https://www.veripool.org/wiki/verilator
 [verilator-install]: https://www.veripool.org/projects/verilator/wiki/Installing
+[icarus verilog]: http://iverilog.icarus.com
 [jq]: https://stedolan.github.io/jq/
 [jq-install]: https://stedolan.github.io/jq/
 [frontends]: ./frontends/index.md
@@ -161,3 +186,5 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [dahlia]: https://github.com/cucapra/dahlia
 [dahlia-install]: https://github.com/cucapra/dahlia#set-it-up
 [sbt]: https://www.scala-sbt.org/download.html
+[interpreter]: ./interpreter.md
+[homebrew]: https://brew.sh
