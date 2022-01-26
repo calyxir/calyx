@@ -6,10 +6,7 @@ from pathlib import Path
 from pprint import PrettyPrinter
 
 from .utils import eprint
-from . import errors, external
-
-# Global registry. Initialized by main.py.
-REGISTRY = None
+from . import errors, external, registry
 
 # keys to prompt the user for
 WIZARD_DATA = {
@@ -200,6 +197,8 @@ class Configuration:
 
         self.config_file = self.path / "config.toml"
         self.config_file.touch()
+
+        self.registry: registry.Registry = None
 
         # load the configuration file
         self.config = DynamicDict(toml.load(self.config_file))

@@ -59,7 +59,8 @@ class VerilatorStage(Stage):
         @self.step()
         def json_to_dat(tmp_dir: SourceType.Directory, json_path: SourceType.Stream):
             """
-            Converts a `json` data format into a series of `.dat` files.
+            Converts a `json` data format into a series of `.dat` files inside the given
+            temporary directory.
             """
             round_float_to_fixed = self.config[
                 "stages", self.name, "round_float_to_fixed"
@@ -123,8 +124,8 @@ class VerilatorStage(Stage):
             """
             Return the generated `output.vcd`.
             """
-            # return stream instead of path because tmpdir get's deleted
-            # before the next stage runs
+            # return stream instead of path because tmpdir gets deleted before
+            # the next stage runs
 
             if self.config["stages", self.name, "vcd-target"] is not None:
                 target = Path(self.config["stages", self.name, "vcd-target"])

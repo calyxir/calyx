@@ -142,51 +142,6 @@ class Conversions:
         return data.encode("UTF-8")
 
 
-class SpinnerWrapper:
-    """
-    Wraps a spinner object.
-    """
-
-    def __init__(self, spinner, save):
-        self.spinner = spinner
-        self.save = save
-        self.stage_text = ""
-        self.step_text = ""
-
-    def _update(self):
-        if self.step_text != "":
-            self.spinner.start(f"{self.stage_text}: {self.step_text}")
-        else:
-            self.spinner.start(f"{self.stage_text}")
-
-    def start_stage(self, text):
-        self.stage_text = text
-        self._update()
-
-    def end_stage(self):
-        if self.save:
-            self.spinner.succeed()
-
-    def start_step(self, text):
-        self.step_text = text
-        self._update()
-
-    def end_step(self):
-        if self.save:
-            self.spinner.succeed()
-        self.step_text = ""
-        self._update()
-
-    def succeed(self):
-        self.spinner.succeed()
-
-    def fail(self, text=None):
-        self.spinner.fail(text)
-
-    def stop(self):
-        self.spinner.stop()
-
-
 def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
     """Run `cmd` as a shell command.
 
@@ -267,38 +222,36 @@ def parse_profiling_input(args):
     stages = {}
     if args.profiled_stages is None:
         return stages
-    # Retrieve all stages.
-    for stage in args.profiled_stages:
-        if "." not in stage:
-            stages[stage] = []
+
+    for stage_step in args.profiled_stages:
+        if "." in stage_step:
+            stage, step = stage_step.split(".")
         else:
-            s, _ = stage.split(".")
-            stages[s] = []
-    # Append all steps.
-    for stage in args.profiled_stages:
-        if "." not in stage:
-            continue
-        _, step = stage.split(".")
-        stages[s].append(step)
+            stage, step = stage_step, None
+        # If stage has not been added it, add it.
+        if stage not in stages:
+            stages[stage] = []
+        if step is not None:
+            stages[stage].append(step)
+
     return stages
 
 
-def profiling_dump(stage, phases, durations):
+def profiling_dump(stage, phases, durations) -> str:
     """
     Returns time elapsed during each stage or step of the fud execution.
     """
-    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
 
     def name_and_space(s: str) -> str:
         # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
         return "".join((s, max(32 - len(s), 1) * " "))
 
     return f"{name_and_space(stage)}elapsed time (s)\n" + "\n".join(
-        f"{name_and_space(p.name)}{round(t, 3)}" for p, t in zip(phases, durations)
+        f"{name_and_space(p)}{round(t, 3)}" for p, t in zip(phases, durations)
     )
 
 
-def profiling_csv(stage, phases, durations):
+def profiling_csv(stage, phases, durations) -> str:
     """
     Dumps the profiling information into a CSV format.
     For example, with
@@ -312,13 +265,12 @@ def profiling_csv(stage, phases, durations):
     x,c,3.444
     ```
     """
-    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
     return "\n".join(
-        [f"{stage},{p.name},{round(t, 3)}" for (p, t) in zip(phases, durations)]
+        [f"{stage},{p},{round(t, 3)}" for (p, t) in zip(phases, durations)]
     )
 
 
-def profile_stages(stage, phases, durations, is_csv):
+def profile_stages(stage, phases, durations, is_csv) -> str:
     """
     Returns either a human-readable or CSV format profiling information,
     depending on `is_csv`.

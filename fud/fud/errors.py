@@ -90,8 +90,9 @@ class UndefinedStage(FudError):
     """
 
     def __init__(self, stage, ctx=None):
-        more = "" if ctx is None else f" .Context: {ctx}"
-        msg = f"No stage named {stage}{more}"
+        msg = f"No stage named {stage}"
+        if ctx is not None:
+            msg += f". Context: {ctx}"
         super().__init__(msg)
 
 
@@ -100,8 +101,10 @@ class UndefinedSteps(FudError):
     No steps with the defined name for the given stage.
     """
 
-    def __init__(self, stage, steps):
+    def __init__(self, stage, steps, known_steps):
         msg = f"No step(s): {', '.join(steps)} defined for stage: {stage}"
+        if known_steps is not None:
+            msg += f". Known steps: {', '.join(known_steps)}"
         super().__init__(msg)
 
 

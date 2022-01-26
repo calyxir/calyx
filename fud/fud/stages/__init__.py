@@ -2,7 +2,6 @@
 
 import functools
 import inspect
-import time
 import logging as log
 from enum import Enum, auto
 from io import IOBase
@@ -10,6 +9,41 @@ from pathlib import Path
 
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
+
+
+class Step:
+    """
+    A step within a stage description.
+    """
+
+    def __init__(self, name, func, args, output, description):
+        self.name = name
+        self.func = func
+        self.args = args
+        self.output = output
+        if description is not None:
+            self.description = description
+        elif self.func.__doc__ is not None:
+            self.description = self.func.__doc__.strip()
+        else:
+            raise Exception(f"Step {self.name} does not have a description.")
+
+    def __call__(self):
+        if is_debug():
+            args = list(self.args)
+            arg_str = ", ".join(map(lambda a: str(a), args))
+            log.debug(f"{self.name}({arg_str})")
+            self.args = args
+        self.output.data = self.func(*self.args)
+        return self.output
+
+    def __str__(self):
+        if self.description is not None:
+            return f"{self.name}: {self.description}"
+        elif self.func.__doc__ is not None:
+            return f"{self.name}: {self.func.__doc__.strip()}"
+        else:
+            return f"{self.name}: <python function>"
 
 
 class SourceType(Enum):
@@ -154,8 +188,6 @@ class Stage:
         self.description = description
         self.steps = []
         self._no_spinner = False
-        # Mapping from step name to its elapsed run time.
-        self.durations = {}
 
     def setup(self):
         """
@@ -235,56 +267,40 @@ class Stage:
     def _define_steps(self, input_data):
         pass
 
-    def run(self, input_data, sp=None):
-        assert isinstance(input_data, Source)
+    def get_steps(self, input_data):
+        """
+        Generate steps contained within this stage.
+        """
+        assert isinstance(
+            input_data, Source
+        ), "Input object is not an instance of Source"
+
+        # fill in input_data
+        self.hollow_input_data.data = input_data.convert_to(self.input_type).data
+
+        for step in self.steps:
+            yield step
+
+    def output(self):
+        return self.final_output
+
+    def run(self, input_data):
+        """
+        Run the stage as a function.
+        """
+        assert isinstance(
+            input_data, Source
+        ), "Input object is not an instance of Source"
 
         # fill in input_data
         self.hollow_input_data.data = input_data.convert_to(self.input_type).data
 
         # run all the steps
         for step in self.steps:
-
-            if sp is not None:
-                sp.start_step(step.name)
-            begin = time.time()
             step()
-            self.durations[step.name] = time.time() - begin
-            if sp is not None:
-                sp.end_step()
 
         return self.final_output
 
     def dry_run(self):
         for i, step in enumerate(self.steps):
             print(f"  {i+1}) {step}")
-
-
-class Step:
-    def __init__(self, name, func, args, output, description):
-        self.name = name
-        self.func = func
-        self.args = args
-        self.output = output
-        if description is not None:
-            self.description = description
-        elif self.func.__doc__ is not None:
-            self.description = self.func.__doc__.strip()
-        else:
-            raise Exception(f"Step {self.name} does not have a description.")
-
-    def __call__(self):
-        if is_debug():
-            args = list(self.args)
-            arg_str = ", ".join(map(lambda a: str(a), args))
-            log.debug(f"{self.name}({arg_str})")
-            self.args = args
-        self.output.data = self.func(*self.args)
-        return self.output
-
-    def __str__(self):
-        if self.description is not None:
-            return f"{self.name}: {self.description}"
-        elif self.func.__doc__ is not None:
-            return f"{self.name}: {self.func.__doc__.strip()}"
-        else:
-            return f"{self.name}: <python function>"
