@@ -69,7 +69,7 @@ def report_profiling(profiled_stages, durations, is_csv):
     """
     data = Source("", SourceType.String)
 
-    if profiled_stages == []:
+    if not profiled_stages:
         totals = []
         for stage, step_times in durations.items():
             totals.append(sum(step_times.values()))
