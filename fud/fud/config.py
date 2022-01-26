@@ -285,6 +285,38 @@ class Configuration:
             else:
                 log.error(f"No external script named `{args.name}'.")
 
+    def discover_implied_states(self, filename):
+        """
+        Use the mapping from filename extensions to stages to figure out which
+        states were implied.
+        Returns the input state on which the implied stage operates
+        """
+        suffix = Path(filename).suffix
+        stages = []
+        for (name, stage) in self["stages"].items():
+            if "file_extensions" in stage:
+                for ext in stage["file_extensions"]:
+                    if suffix == ext:
+                        stages.append(name)
+
+        # Implied stages only discovered when there is exactly one
+        if len(stages) == 0:
+            msg = f"`{suffix}' does not correspond to any known stage. "
+            raise errors.UnknownExtension(msg, filename)
+        elif len(stages) > 1:
+            msg = f"`{suffix}' corresponds to multiple stages: {stages}. "
+            raise errors.UnknownExtension(msg, filename)
+        stage = stages[0]
+
+        states = self.registry.get_states(stage)
+        sources = set([source for (source, _) in states])
+        # Only able to discover state if the stage has one input
+        if len(sources) > 1:
+            msg = f"Implied stage `{stage}' has multiple inputs: {states}. "
+            raise errors.UnknownExtension(msg, filename)
+        source = list(sources)[0]
+        return source
+
     def __getitem__(self, keys):
         try:
             return self.config[keys]
