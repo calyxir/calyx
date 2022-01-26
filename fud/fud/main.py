@@ -225,7 +225,7 @@ def main():
     # Name of the subparser stored in command
     subparsers = parser.add_subparsers()
 
-    config_run(
+    run_parser = config_run(
         subparsers.add_parser(
             "exec",
             help="Execute one of the Calyx-related tools",
@@ -282,13 +282,22 @@ def main():
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
-            cfg.REGISTRY = Registry(cfg)
-            register_stages(cfg.REGISTRY, cfg)
+            cfg.registry = Registry(cfg)
+            register_stages(cfg.registry, cfg)
 
         if args.command == "exec":
+            if not (args.input_file or args.source):
+                run_parser.error(
+                    "Please provide either an input file or a --from option"
+                )
+            if not (args.output_file or args.dest):
+                run_parser.error(
+                    "Please provide either an output file or a --to option"
+                )
+
             exec.run_fud(args, cfg)
         elif args.command == "info":
-            print(cfg.REGISTRY)
+            print(cfg.registry)
         elif args.command == "config":
             display_config(args, cfg)
         elif args.command == "check":
@@ -351,6 +360,8 @@ def config_run(parser):
     parser.add_argument("-q", "--quiet", action="store_true")
     parser.add_argument("input_file", help="Path to the input file", nargs="?")
     parser.set_defaults(command="exec")
+
+    return parser
 
 
 def config_config(parser):
