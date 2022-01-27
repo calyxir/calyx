@@ -15,7 +15,6 @@ class DahliaStage(Stage):
             description=descr,
         )
         self.flags = flags
-        self.setup()
 
     def _define_steps(self, input_data):
         cmd = " ".join(

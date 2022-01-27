@@ -211,10 +211,14 @@ class Stage:
         # Handle to the current executor. Made available during execution.
         self.executor_handle = None
 
+        # True if the computation graph has been staged
+        self.staged = False
+
     def setup(self):
         """
         Defines all the steps for this Stage by running self._define_steps.
         """
+        self.staged = True
         self.steps = []
         self.hollow_input_data = Source(None, self.input_type)
         self.final_output = self._define_steps(self.hollow_input_data)
@@ -313,6 +317,7 @@ class Stage:
         assert isinstance(
             input_data, Source
         ), "Input object is not an instance of Source"
+        assert self.staged, f"{self.name} has not been staged yet. Call setup() first."
 
         # fill in input_data
         self.hollow_input_data.data = input_data.convert_to(self.input_type).data

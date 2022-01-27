@@ -43,7 +43,6 @@ class VivadoBaseStage(Stage):
             self.cmd = remote_exec + " " + flags
         else:
             self.cmd = local_exec + " " + flags
-        self.setup()
 
     def _define_steps(self, verilog_path):
         local_tmpdir = self.setup_environment(verilog_path)
@@ -161,7 +160,6 @@ class VivadoExtractStage(Stage):
             config=config,
             description="Extracts information from Vivado synthesis files",
         )
-        self.setup()
 
     def _define_steps(self, input_dir):
         @self.step()
@@ -186,7 +184,6 @@ class VivadoHLSExtractStage(Stage):
             config=config,
             description="Extracts information from Vivado HLS synthesis files",
         )
-        self.setup()
 
     def _define_steps(self, input_dir):
         @self.step()

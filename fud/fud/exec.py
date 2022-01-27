@@ -100,6 +100,10 @@ def run_fud(args, config):
         config, args.source, args.dest, args.input_file, args.output_file, args.through
     )
 
+    # Stage computation for stages in the path
+    for stage in path:
+        stage.setup()
+
     # check if we need `-o` specified
     if path[-1].output_type == SourceType.Directory and args.output_file is None:
         raise errors.NeedOutputSpecified(path[-1])

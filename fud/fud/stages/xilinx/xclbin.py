@@ -46,8 +46,6 @@ class XilinxStage(Stage):
         self.mode = self.config["stages", self.name, "mode"]
         self.device = self.config["stages", self.name, "device"]
 
-        self.setup()
-
     def _shell(self, client, cmd):
         """Run a command, either locally or remotely."""
         if self.remote_exec.use_ssh:

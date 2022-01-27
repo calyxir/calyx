@@ -50,8 +50,6 @@ class HwEmulationStage(Stage):
         self.remote_exec = RemoteExecution(self)
         self.temp_location = self.config["stages", "xclbin", "temp_location"]
 
-        self.setup()
-
     def _shell(self, client, cmd):
         """Run a command, either locally or remotely."""
         if self.remote_exec.use_ssh:

@@ -52,8 +52,6 @@ class InterpreterStage(Stage):
         self.debugger_flags = debugger_flags
         self.data_path = self.config["stages", "verilog", "data"]
 
-        self.setup()
-
     def _is_debugger(self):
         """
         Am I a debugger?

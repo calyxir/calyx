@@ -16,7 +16,6 @@ class FutilStage(Stage):
             config=config,
             description=desc,
         )
-        self.setup()
 
     @staticmethod
     def defaults():

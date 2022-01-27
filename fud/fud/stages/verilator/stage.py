@@ -35,7 +35,6 @@ class VerilatorStage(Stage):
             ),
         ]
         self.data_path = self.config["stages", self.name, "data"]
-        self.setup()
 
     def _define_steps(self, input_data):
         # Step 1: Make a new temporary directory

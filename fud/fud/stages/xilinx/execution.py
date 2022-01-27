@@ -25,8 +25,6 @@ class HwExecutionStage(Stage):
 
         self.data_path = self.config["stages", self.name, "data"]
 
-        self.setup()
-
     def _define_steps(self, input_data):
         @self.step()
         def import_libs():

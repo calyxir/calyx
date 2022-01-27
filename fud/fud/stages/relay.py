@@ -26,7 +26,6 @@ class RelayStage(Stage):
             / "relay"
             / "relay_visitor.py"
         )
-        self.setup()
 
     def _define_steps(self, input_path):
         @self.step(description=str(self.script))

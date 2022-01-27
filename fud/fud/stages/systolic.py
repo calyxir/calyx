@@ -28,7 +28,6 @@ class SystolicStage(Stage):
             / "systolic-lang"
             / "gen-systolic.py"
         )
-        self.setup()
 
     def _define_steps(self, input_path):
         @self.step(description=str(self.script))

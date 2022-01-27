@@ -30,7 +30,6 @@ class IcarusBaseStage(Stage):
         self.runtime = config["stages", self.name, "runtime"]
         self.data_path = config.get(("stages", "verilog", "data"))
         self.object_name = "main.vvp"
-        self.setup()
 
     @staticmethod
     def defaults():

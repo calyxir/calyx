@@ -14,7 +14,6 @@ class VcdumpStage(Stage):
             config=config,
             description="Transform VCD file to JSON",
         )
-        self.setup()
 
     def _define_steps(self, stream):
         @self.step(description=f"{self.cmd} --pretty")
