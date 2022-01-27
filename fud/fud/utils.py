@@ -63,6 +63,9 @@ def logging_setup(args):
 
 
 class Directory:
+    """
+    Represents a Directory path
+    """
     def __init__(self, name):
         self.name = name
 
@@ -109,11 +112,11 @@ class FreshDir(Directory):
 
 class Conversions:
     @staticmethod
-    def path_to_directory(data):
+    def path_to_directory(data: Path):
         if data.is_dir():
-            return Directory(data.name)
+            return Directory(data)
         else:
-            raise errors.SourceConversionNotDirectory(data.name)
+            raise errors.SourceConversionNotDirectory(data)
 
     @staticmethod
     def path_to_stream(data):
