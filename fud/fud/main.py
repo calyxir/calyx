@@ -276,8 +276,8 @@ def main():
         cfg = Configuration()
 
         # update the stages config with arguments provided via cmdline
-        if "dynamic_config" in args and args.dynamic_config is not None:
-            for key, value in args.dynamic_config:
+        if "stage_dynamic_config" in args and args.stage_dynamic_config is not None:
+            for key, value in args.stage_dynamic_config:
                 cfg[["stages"] + key.split(".")] = value
 
         # Build the registry if stage information is going to be used.
@@ -345,7 +345,7 @@ def config_run(parser):
         help="Override stage configuration key-value pairs for this run",
         nargs=2,
         metavar=("key", "value"),
-        dest="dynamic_config",
+        dest="stage_dynamic_config",
         action="append",
     )
     parser.add_argument(
