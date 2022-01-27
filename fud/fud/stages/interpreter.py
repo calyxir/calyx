@@ -25,7 +25,7 @@ class InterpreterStage(Stage):
             debug_flags,
             desc,
             output_name=_DEBUGGER_TARGET,
-            output_type=None,
+            output_type=SourceType.Terminal,
         )
         self._no_spinner = True
         return self
@@ -54,25 +54,35 @@ class InterpreterStage(Stage):
 
         self.setup()
 
+    def _is_debugger(self):
+        """
+        Am I a debugger?
+        """
+        return self.target_state == _DEBUGGER_TARGET
+
     def _define_steps(self, input_data):
 
-        cmd = " ".join(
-            [
-                self.cmd,
-                self.flags,
-                unwrap_or(self.config["stages", self.name, "flags"], ""),
-                "-l",
-                self.config["global", "futil_directory"],
-                "--data" if self.data_path else "",
-                "{data_file}" if self.data_path else "",
-                "{target}",
-                "debug" if self.target_state == _DEBUGGER_TARGET else "",
-                self.debugger_flags if self.target_state == _DEBUGGER_TARGET else "",
+        cmd = [
+            self.cmd,
+            self.flags,
+            unwrap_or(self.config["stages", self.name, "flags"], ""),
+            "-l",
+            self.config["global", "futil_directory"],
+            "--data" if self.data_path else "",
+            "{data_file}" if self.data_path else "",
+            "{target}",
+        ]
+
+        if self._is_debugger():
+            cmd += [
+                "debug" if self._is_debugger() else "",
+                self.debugger_flags if self._is_debugger() else "",
                 unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
-                if self.target_state == _DEBUGGER_TARGET
+                if self._is_debugger()
                 else "",
             ]
-        )
+
+        cmd = " ".join(cmd)
 
         @self.step()
         def mktmp() -> SourceType.Directory:
@@ -109,12 +119,19 @@ class InterpreterStage(Stage):
                 data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
             )
 
-            if self.target_state == _DEBUGGER_TARGET and "-p" not in unwrap_or(
-                self.config["stages", self.name, "debugger", "flags"], ""
-            ):
-                return transparent_shell(command)
-            else:
-                return shell(command)
+            return shell(command)
+
+        @self.step(description=cmd)
+        def debug(
+                target: SourceType.Path, tmpdir: SourceType.Directory
+        ) -> SourceType.Terminal:
+            """
+            Invoke the debugger
+            """
+            command = cmd.format(
+                data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
+            )
+            transparent_shell(command)
 
         @self.step()
         def cleanup(tmpdir: SourceType.Directory):
@@ -124,7 +141,6 @@ class InterpreterStage(Stage):
             tmpdir.remove()
 
         # schedule
-
         tmpdir = mktmp()
 
         if self.data_path is not None:
@@ -132,12 +148,11 @@ class InterpreterStage(Stage):
                 tmpdir, Source(Path(self.data_path), SourceType.Path)
             )
 
-        result = interpret(input_data, tmpdir)
-        cleanup(tmpdir)
-
-        if self.target_state != _DEBUGGER_TARGET or "-p" in unwrap_or(
-            self.config["stages", self.name, "debugger", "flags"], ""
-        ):
+        if self._is_debugger():
+            debug(input_data, tmpdir)
+        else:
+            result = interpret(input_data, tmpdir)
+            cleanup(tmpdir)
             return result
 
 

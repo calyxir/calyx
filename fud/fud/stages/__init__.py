@@ -22,7 +22,7 @@ class Step:
     They are generally created using the @step decorator defined by stages.
     """
 
-    def __init__(self, name, func, args, output, description):
+    def __init__(self, name: str, func, args, output: Source, description: str):
         self.name = name
         self.func = func
         self.args = args
@@ -64,6 +64,7 @@ class SourceType(Enum):
     @String: Represents a python string. Data is a string.
     @Bytes: Represents a python byte string. Data is bytes.
     @UnTyped: Represents anything. No guarantees on what data is.
+    @Terminal: Source will not return and `fud` should hand off control.
     """
 
     Path = auto()
@@ -72,6 +73,7 @@ class SourceType(Enum):
     String = auto()
     Bytes = auto()
     UnTyped = auto()
+    Terminal = auto()
 
     def __str__(self):
         if self == SourceType.Path:
@@ -86,6 +88,8 @@ class SourceType(Enum):
             return "Bytes"
         elif self == SourceType.UnTyped:
             return "UnTyped"
+        elif self == SourceType.Terminal:
+            return "Terminal"
 
 
 class Source:
@@ -114,6 +118,7 @@ class Source:
             SourceType.String: lambda d: d.name,
             SourceType.Path: lambda d: Path(d.name),
         },
+        SourceType.Terminal: {},
     }
 
     def __init__(self, data, typ):
@@ -133,6 +138,8 @@ class Source:
             elif self.typ == SourceType.UnTyped:
                 # no guarantees on Untyped
                 pass
+            elif self.typ == SourceType.Terminal:
+                assert data is None, "Terminal Source cannot contain data"
         self.data = data
 
     def is_convertible_to(self, other):
