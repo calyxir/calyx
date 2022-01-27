@@ -341,7 +341,8 @@ def config_run(parser):
     )
     parser.add_argument(
         "-s",
-        help="Override configuration key-value pairs for this run",
+        "--stage-val",
+        help="Override stage configuration key-value pairs for this run",
         nargs=2,
         metavar=("key", "value"),
         dest="dynamic_config",

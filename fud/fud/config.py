@@ -196,7 +196,8 @@ class Configuration:
         self.path.mkdir(exist_ok=True)
 
         self.config_file = self.path / "config.toml"
-        self.config_file.touch()
+        if not self.config_file.exists():
+            self.config_file.touch()
 
         self.registry: registry.Registry = None
 
