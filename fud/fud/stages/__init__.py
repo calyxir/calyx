@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """The definitions of fud stages."""
 
 import functools
@@ -12,6 +13,7 @@ from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .. import config
 
@@ -239,8 +241,10 @@ class Stage:
             annotations = []
             for ty in list(sig.parameters.values()):
                 if ty.annotation is ty.empty:
-                    raise Exception(f"Missing type annotation for argument `{ty}`."
-                                    " Steps require `Source` types for all arguments")
+                    raise Exception(
+                        f"Missing type annotation for argument `{ty}`."
+                        " Steps require `Source` types for all arguments"
+                    )
                 annotations.append(ty.annotation)
             input_types = tuple(annotations)
 

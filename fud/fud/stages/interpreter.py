@@ -123,7 +123,7 @@ class InterpreterStage(Stage):
 
         @self.step(description=cmd)
         def debug(
-                target: SourceType.Path, tmpdir: SourceType.Directory
+            target: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Terminal:
             """
             Invoke the debugger

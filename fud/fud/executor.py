@@ -123,7 +123,7 @@ class Executor:
         self.ctx.append(name)
 
     def _end_ctx(self, is_err, profiling_data=None):
-        msg = '.'.join(self.ctx)
+        msg = ".".join(self.ctx)
         if profiling_data:
             msg += f" ({profiling_data} ms)"
         if self._persist:
