@@ -292,7 +292,14 @@ class Stage:
 
         return step_decorator
 
-    def _define_steps(self, input_data):
+    def _define_steps(self, input_data: Source):
+        """
+        Generate the staged execution graph for this Stage. Generally, this
+        function will define all the steps in this Stage and define an execution
+        schedule for those stages.
+        When executed, each step will be added to this Stage's computation
+        graph.
+        """
         pass
 
     def get_steps(self, input_data, executor):
@@ -314,7 +321,7 @@ class Stage:
     def output(self):
         return self.final_output
 
-    def run(self, input_data):
+    def run(self, input_data: Source):
         """
         Run the stage as a function.
         """
