@@ -1,12 +1,11 @@
 import logging as log
 import shutil
 import sys
-import time
 from pathlib import Path
 
 from halo import Halo
 
-from . import errors, utils
+from . import errors, utils, executor, stages
 from .stages import Source, SourceType
 
 
@@ -33,7 +32,7 @@ def discover_implied_states(filename, config):
         raise errors.UnknownExtension(msg, filename)
     stage = stages[0]
 
-    states = config.REGISTRY.get_states(stage)
+    states = config.registry.get_states(stage)
     sources = set([source for (source, _) in states])
     # Only able to discover state if the stage has one input
     if len(sources) > 1:
@@ -43,21 +42,21 @@ def discover_implied_states(filename, config):
     return source
 
 
-def construct_path(args, config, through):
+def construct_path(
+    config, source=None, target=None, input_file=None, output_file=None, through=[]
+) -> list[stages.Stage]:
     """
     Construct the path of stages implied by the passed arguments.
     """
     # find source
-    source = args.source
     if source is None:
-        source = discover_implied_states(args.input_file, config)
+        source = discover_implied_states(input_file, config)
 
     # find target
-    target = args.dest
     if target is None:
-        target = discover_implied_states(args.output_file, config)
+        target = discover_implied_states(output_file, config)
 
-    path = config.REGISTRY.make_path(source, target, through)
+    path = config.registry.make_path(source, target, through)
     if path is None:
         raise errors.NoPathFound(source, target, through)
 
@@ -66,6 +65,57 @@ def construct_path(args, config, through):
         raise errors.TrivialPath(source)
 
     return path
+
+
+def gather_profiling_data(durations, stage, steps, is_csv):
+    """
+    Gather profiling information for a given stage.
+    """
+    data = durations.get(stage)
+    # Verify this is a valid stage.
+    if data is None:
+        raise errors.UndefinedStage(stage, "Extracting profiling information")
+
+    # If no specific steps provided for this stage, append all of them.
+    if steps == []:
+        profiled_steps = list(data.keys())
+    else:
+        # Verify the steps are valid.
+        invalid_steps = [s for s in steps if s not in data.keys()]
+        if invalid_steps:
+            raise errors.UndefinedSteps(stage, invalid_steps, data.keys())
+        profiled_steps = steps
+
+    # Gather all the step names that are being profiled.
+    profiled_durations = [data[s] for s in profiled_steps]
+    return utils.profile_stages(
+        stage,
+        profiled_steps,
+        profiled_durations,
+        is_csv,
+    )
+
+
+def report_profiling(profiled_stages, durations, is_csv):
+    """
+    Report profiling information collected during execution.
+    """
+    data = Source("", SourceType.String)
+
+    if profiled_stages == []:
+        totals = []
+        for stage, step_times in durations.items():
+            totals.append(sum(step_times.values()))
+        # No stages provided; collect overall stage durations.
+        data.data = utils.profile_stages("stage", durations.keys(), totals, is_csv)
+    else:
+        # Otherwise, gather profiling data for each stage and steps provided.
+        data.data = "\n".join(
+            gather_profiling_data(durations, stage, steps, is_csv)
+            for stage, steps in profiled_stages.items()
+        )
+
+    return data
 
 
 def run_fud(args, config):
@@ -79,7 +129,9 @@ def run_fud(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    path = construct_path(args, config, args.through)
+    path = construct_path(
+        config, args.source, args.dest, args.input_file, args.output_file, args.through
+    )
 
     # check if we need `-o` specified
     if path[-1].output_type == SourceType.Directory and args.output_file is None:
@@ -93,99 +145,53 @@ def run_fud(args, config):
             ed.dry_run()
         return
 
+    # construct a source object for the input
+    data = None
+    if input_file is None:
+        data = Source(None, SourceType.UnTyped)
+    else:
+        data = Source(Path(str(input_file)), SourceType.Path)
+
     # spinner is disabled if we are in debug mode, doing a dry_run, or are in quiet mode
     spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
-
     # Execute the path transformation specification.
-    with Halo(
-        spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
-    ) as sp:
+    if spinner_enabled:
+        sp = Halo(
+            spinner="dots", color="cyan", stream=sys.stderr, enabled=spinner_enabled
+        )
+    else:
+        sp = None
 
-        sp = utils.SpinnerWrapper(sp, save=log.getLogger().level <= log.INFO)
-
-        # construct a source object for the input
-        data = None
-        if input_file is None:
-            data = Source(None, SourceType.UnTyped)
-        else:
-            data = Source(Path(str(input_file)), SourceType.Path)
-
-        profiled_stages = utils.parse_profiling_input(args)
-        # tracks profiling information requested by the flag (if set).
-        collected_for_profiling = {}
-        # tracks the approximate time elapsed to run each stage.
-        overall_durations = []
-
-        # run all the stages
+    enable_profile = args.profiled_stages is not None
+    exec = executor.Executor(sp, log.getLogger().level <= log.INFO, enable_profile)
+    # Execute the generated path
+    with exec:
         for ed in path:
-            txt = f"{ed.src_stage} → {ed.target_stage}" + (
-                f" ({ed.name})" if ed.name != ed.src_stage else ""
-            )
-            sp.start_stage(txt)
-            try:
-                if ed._no_spinner:
-                    sp.stop()
-                begin = time.time()
-                data = ed.run(data, sp=sp if ed._no_spinner else None)
-                overall_durations.append(time.time() - begin)
-                sp.end_stage()
-            except errors.StepFailure as e:
-                sp.fail()
-                print(e)
-                exit(-1)
-            # Collect profiling information for this stage.
-            if ed.name in profiled_stages:
-                collected_for_profiling[ed.name] = ed
-        sp.stop()
+            txt = f"{ed.src_stage} → {ed.target_stage}"
+            if ed.name != ed.src_stage:
+                txt += f" ({ed.name})"
+            # Start a new stage
+            with exec.stage(ed.name, ed._no_spinner, txt):
+                for step in ed.get_steps(data):
+                    # Execute step within the stage
+                    with exec.step(step.name):
+                        step()
 
-        if args.profiled_stages is not None:
-            if data is None:
-                data = Source("", SourceType.String)
-            else:
-                # Overwrite previous data type.
-                data.typ = SourceType.String
-            if args.profiled_stages == []:
-                # No stages provided; collect overall stage durations.
-                data.data = utils.profile_stages(
-                    "stage", [ed for ed in path], overall_durations, args.csv
-                )
-            else:
-                # Otherwise, gather profiling data for each stage and steps provided.
-                def gather_profiling_data(stage, steps):
-                    data = collected_for_profiling.get(stage)
-                    # Verify this is a valid stage.
-                    if data is None:
-                        raise errors.UndefinedStage(stage)
-                    # Verify the steps are valid.
-                    valid_steps = [s.name for s in data.steps]
-                    invalid_steps = [s for s in steps if s not in valid_steps]
-                    if invalid_steps:
-                        raise errors.UndefinedSteps(stage, invalid_steps)
-                    # If no specific steps provided for this stage, append all of them.
-                    profiled_steps = [
-                        s for s in data.steps if steps == [] or s.name in steps
-                    ]
-                    # Gather all the step names that are being profiled.
-                    profiled_names = [s.name for s in profiled_steps]
-                    profiled_durations = [data.durations[s] for s in profiled_names]
-                    return utils.profile_stages(
-                        stage,
-                        profiled_steps,
-                        profiled_durations,
-                        args.csv,
-                    )
+                data = ed.output()
 
-                data.data = "\n".join(
-                    gather_profiling_data(stage, steps)
-                    for stage, steps in profiled_stages.items()
-                )
+    # Stages to be profiled
+    profiled_stages = utils.parse_profiling_input(args)
 
-        # output the data or profiling information.
-        if args.output_file is not None:
-            if data.typ == SourceType.Directory:
-                shutil.move(data.data.name, args.output_file)
-            else:
-                with Path(args.output_file).open("wb") as f:
-                    f.write(data.convert_to(SourceType.Bytes).data)
-        elif data:
-            print(data.convert_to(SourceType.String).data)
+    # Report profiling information if flag was provided.
+    if enable_profile:
+        data = report_profiling(profiled_stages, exec.durations, args.csv)
+
+    # output the data or profiling information.
+    if args.output_file is not None:
+        if data.typ == SourceType.Directory:
+            shutil.move(data.data.name, args.output_file)
+        else:
+            with Path(args.output_file).open("wb") as f:
+                f.write(data.convert_to(SourceType.Bytes).data)
+    elif data:
+        print(data.convert_to(SourceType.String).data)
