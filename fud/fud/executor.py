@@ -107,7 +107,7 @@ class Executor:
             with executor.step(name):
                 # Things to do with the step
         """
-        assert self.stage is not None, "Attempt to create a step before a stage"
+        assert self.ctx != [], "Attempt to create a step before a stage"
         return StepExecutor(self, name)
 
     def context(self, name, profile):
@@ -119,20 +119,19 @@ class Executor:
             self._spinner.start(msg)
 
     # Mark context boundaries
-    def _start_ctx(self, name, profile):
+    def _start_ctx(self, name):
         self.ctx.append(name)
 
     def _end_ctx(self, is_err, profiling_data=None):
-        self.ctx.pop()
+        msg = '.'.join(self.ctx)
         if profiling_data:
-            msg = f"{self.name} ({profiling_data} ms)"
-        else:
-            msg = self.name
+            msg += f" ({profiling_data} ms)"
         if self._persist:
             if is_err:
                 self._spinner.fail(msg)
             else:
                 self._spinner.succeed(msg)
+        self.ctx.pop()
         self._update()
 
     # Mark stage boundaries. Use the stage method above instead of these.

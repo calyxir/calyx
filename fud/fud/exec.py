@@ -107,9 +107,9 @@ def run_fud(args, config):
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
         print("fud will perform the following steps:")
-        for ed in path:
-            print(f"Stage: {ed.name}")
-            ed.dry_run()
+        for stage in path:
+            print(f"Stage: {stage.name}")
+            stage.dry_run()
         return
 
     # construct a source object for the input
@@ -131,17 +131,18 @@ def run_fud(args, config):
 
     enable_profile = args.profiled_stages is not None
     exec = executor.Executor(sp, log.getLogger().level <= log.INFO, enable_profile)
+
     # Execute the generated path
     with exec:
-        for ed in path:
+        for stage in path:
             # Start a new stage
-            with exec.stage(ed.name, ed._no_spinner):
-                for step in ed.get_steps(data):
+            with exec.stage(stage.name, stage._no_spinner):
+                for step in stage.get_steps(data, exec):
                     # Execute step within the stage
                     with exec.step(step.name):
                         step()
 
-                data = ed.output()
+                data = stage.output()
 
     # Stages to be profiled
     profiled_stages = utils.parse_profiling_input(args)
