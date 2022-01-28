@@ -23,13 +23,13 @@ class SystolicStage(Stage):
         )
 
     def _define_steps(self, input_path, config):
-        script = (
+        script = str(
             Path(config["global", "futil_directory"])
             / "frontends"
             / "systolic-lang"
             / "gen-systolic.py"
         )
-        cmd = " ".join([script, "{{input_path}}"])
+        cmd = " ".join([script, "{input_path}"])
 
         @self.step(description=cmd)
         def run_systolic(input_path: SourceType.Path) -> SourceType.Stream:
