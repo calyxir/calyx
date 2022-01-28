@@ -1,4 +1,3 @@
-from typing import List
 import logging as log
 import shutil
 import sys
@@ -6,7 +5,7 @@ from pathlib import Path
 
 from halo import Halo
 
-from . import errors, utils, executor, stages
+from . import errors, utils, executor
 from .stages import Source, SourceType
 
 
