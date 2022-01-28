@@ -33,6 +33,6 @@ class SystolicStage(Stage):
 
         @self.step(description=cmd)
         def run_systolic(input_path: SourceType.Path) -> SourceType.Stream:
-            return shell(cmd.format(input_path=input_path))
+            return shell(cmd.format(input_path=str(input_path)))
 
         return run_systolic(input_path)
