@@ -5,19 +5,20 @@ from fud.utils import shell
 class VcdumpStage(Stage):
     name = "vcd"
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
             src_state="vcd",
             target_state="vcd_json",
             input_type=SourceType.Stream,
             output_type=SourceType.Stream,
-            config=config,
-            description="Transform VCD file to JSON",
+            description="Transform VCD file to JSON using `vcdump`",
         )
 
-    def _define_steps(self, stream):
-        @self.step(description=f"{self.cmd} --pretty")
+    def _define_steps(self, stream, config):
+        cmd = " ".join([config["stages", self.name, "exec"], "--pretty"])
+
+        @self.step(description=cmd)
         def run_vcdump(inp_stream: SourceType.Stream) -> SourceType.Stream:
-            return shell(f"{self.cmd} --pretty", stdin=inp_stream)
+            return shell(cmd, stdin=inp_stream)
 
         return run_vcdump(stream)

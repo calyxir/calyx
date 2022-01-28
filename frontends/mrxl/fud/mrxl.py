@@ -9,25 +9,25 @@ class MrXLStage(Stage):
 
     name = "mrxl"
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
             src_state="mrxl",
             target_state="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description="Compiles MrXL to Calyx.",
         )
-        self.setup()
 
     @staticmethod
     def defaults():
         return {"exec": "mrxl"}
 
-    def _define_steps(self, input_path):
-        @self.step(description=self.cmd)
+    def _define_steps(self, input_path, config):
+        cmd = config["stags", self.name, "exec"]
+
+        @self.step(description=cmd)
         def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
-            return shell(f"{self.cmd} {str(mrxl_prog)}")
+            return shell(f"{cmd} {str(mrxl_prog)}")
 
         return run_mrxl(input_path)
 

@@ -5,22 +5,22 @@ from fud.utils import shell, unwrap_or
 class DahliaStage(Stage):
     name = "dahlia"
 
-    def __init__(self, config, dest, flags, descr):
+    def __init__(self, dest, flags, descr):
         super().__init__(
             src_state="dahlia",
             target_state=dest,
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description=descr,
         )
         self.flags = flags
 
-    def _define_steps(self, input_data):
+    def _define_steps(self, input_data, config):
+        dahlia_exec = config["stages", self.name, "exec"]
         cmd = " ".join(
             [
-                self.cmd,
-                unwrap_or(self.config["stages", self.name, "flags"], ""),
+                dahlia_exec,
+                unwrap_or(config["stages", self.name, "flags"], ""),
                 self.flags,
                 "{prog}",
             ]

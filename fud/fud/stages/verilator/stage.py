@@ -13,30 +13,31 @@ class VerilatorStage(Stage):
 
     name = "verilog"
 
-    def __init__(self, config, mem, desc):
+    def __init__(self, mem, desc):
         super().__init__(
             src_state="verilog",
             target_state=mem,
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description=desc,
         )
 
         if mem not in ["vcd", "dat"]:
             raise Exception("mem has to be 'vcd' or 'dat'")
         self.vcd = mem == "vcd"
-        self.testbench_files = [
+
+    def _define_steps(self, input_data, config):
+
+        testbench_files = [
             str(
-                Path(self.config["global", "futil_directory"])
+                Path(config["global", "futil_directory"])
                 / "fud"
                 / "sim"
                 / "testbench.cpp"
             ),
         ]
-        self.data_path = self.config["stages", self.name, "data"]
+        data_path = config.get(["stages", self.name, "data"])
 
-    def _define_steps(self, input_data):
         # Step 1: Make a new temporary directory
         @self.step()
         def mktmp() -> SourceType.Directory:
@@ -61,9 +62,7 @@ class VerilatorStage(Stage):
             Converts a `json` data format into a series of `.dat` files inside the given
             temporary directory.
             """
-            round_float_to_fixed = self.config[
-                "stages", self.name, "round_float_to_fixed"
-            ]
+            round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
             convert2dat(
                 tmp_dir.name,
                 sjson.load(json_path, use_decimal=True),
@@ -74,14 +73,14 @@ class VerilatorStage(Stage):
         # Step 3: compile with verilator
         cmd = " ".join(
             [
-                self.cmd,
+                config["stages", self.name, "exec"],
                 "-cc",
                 "--trace",
                 "{input_path}",
-                "--exe " + " --exe ".join(self.testbench_files),
+                "--exe " + " --exe ".join(testbench_files),
                 "--build",
                 "--top-module",
-                self.config["stages", self.name, "top_module"],
+                config["stages", self.name, "top_module"],
                 "--Mdir",
                 "{tmpdir_name}",
             ]
@@ -102,15 +101,14 @@ class VerilatorStage(Stage):
             """
             Simulates compiled Verilator code.
             """
-            # print(self.config["stages", self.name, "vcd-target"])
             return shell(
                 [
                     f"{tmpdir.name}/Vmain",
                     unwrap_or(
-                        self.config["stages", self.name, "vcd-target"],
+                        config["stages", self.name, "vcd-target"],
                         f"{tmpdir.name}/output.vcd",
                     ),
-                    str(self.config["stages", self.name, "cycle_limit"]),
+                    str(config["stages", self.name, "cycle_limit"]),
                     # Don't trace if we're only looking at memory outputs
                     "--trace" if self.vcd else "",
                     f"+DATA={tmpdir.name}",
@@ -126,8 +124,8 @@ class VerilatorStage(Stage):
             # return stream instead of path because tmpdir gets deleted before
             # the next stage runs
 
-            if self.config["stages", self.name, "vcd-target"] is not None:
-                target = Path(self.config["stages", self.name, "vcd-target"])
+            if config["stages", self.name, "vcd-target"] is not None:
+                target = Path(config["stages", self.name, "vcd-target"])
             else:
                 target = Path(tmpdir.name) / "output.vcd"
 
@@ -164,10 +162,10 @@ class VerilatorStage(Stage):
         # Schedule
         tmpdir = mktmp()
         # if we need to, convert dynamically sourced json to dat
-        if self.data_path is None:
+        if data_path is None:
             check_verilog_for_mem_read(input_data)
         else:
-            json_to_dat(tmpdir, Source(Path(self.data_path), SourceType.Path))
+            json_to_dat(tmpdir, Source(Path(data_path), SourceType.Path))
         compile_with_verilator(input_data, tmpdir)
         stdout = simulate(tmpdir)
         result = output_vcd(tmpdir) if self.vcd else output_json(stdout, tmpdir)

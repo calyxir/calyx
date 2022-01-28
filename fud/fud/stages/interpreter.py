@@ -18,9 +18,8 @@ class InterpreterStage(Stage):
     name = "interpreter"
 
     @classmethod
-    def debugger(cls, config, interp_flags, debug_flags, desc):
+    def debugger(cls, interp_flags, debug_flags, desc):
         self = cls(
-            config,
             interp_flags,
             debug_flags,
             desc,
@@ -32,7 +31,6 @@ class InterpreterStage(Stage):
 
     def __init__(
         self,
-        config,
         flags,
         debugger_flags,
         desc,
@@ -44,13 +42,11 @@ class InterpreterStage(Stage):
             target_state=output_name,
             input_type=SourceType.Stream,
             output_type=output_type,
-            config=config,
             description=desc,
         )
 
         self.flags = flags
         self.debugger_flags = debugger_flags
-        self.data_path = self.config["stages", "verilog", "data"]
 
     def _is_debugger(self):
         """
@@ -58,16 +54,19 @@ class InterpreterStage(Stage):
         """
         return self.target_state == _DEBUGGER_TARGET
 
-    def _define_steps(self, input_data):
+    def _define_steps(self, input_data, config):
+
+        script = config["stages", self.name, "exec"]
+        data_path = config["stages", "verilog", "data"]
 
         cmd = [
-            self.cmd,
+            script,
             self.flags,
-            unwrap_or(self.config["stages", self.name, "flags"], ""),
+            unwrap_or(config["stages", self.name, "flags"], ""),
             "-l",
-            self.config["global", "futil_directory"],
-            "--data" if self.data_path else "",
-            "{data_file}" if self.data_path else "",
+            config["global", "futil_directory"],
+            "--data" if data_path else "",
+            "{data_file}" if data_path else "",
             "{target}",
         ]
 
@@ -75,7 +74,7 @@ class InterpreterStage(Stage):
             cmd += [
                 "debug" if self._is_debugger() else "",
                 self.debugger_flags if self._is_debugger() else "",
-                unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
+                unwrap_or(config["stages", self.name, "debugger", "flags"], "")
                 if self._is_debugger()
                 else "",
             ]
@@ -96,9 +95,7 @@ class InterpreterStage(Stage):
             """
             Creates a data file to initialze the interpreter memories
             """
-            round_float_to_fixed = self.config[
-                "stages", self.name, "round_float_to_fixed"
-            ]
+            round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
             convert_to_json(
                 tmpdir.name,
                 sjson.load(json_path, use_decimal=True),
@@ -141,9 +138,9 @@ class InterpreterStage(Stage):
         # schedule
         tmpdir = mktmp()
 
-        if self.data_path is not None:
+        if data_path is not None:
             convert_json_to_interp_json(
-                tmpdir, Source(Path(self.data_path), SourceType.Path)
+                tmpdir, Source(Path(data_path), SourceType.Path)
             )
 
         if self._is_debugger():

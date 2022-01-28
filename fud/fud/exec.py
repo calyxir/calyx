@@ -102,7 +102,7 @@ def run_fud(args, config):
 
     # Stage computation for stages in the path
     for stage in path:
-        stage.setup()
+        stage.setup(config)
 
     # check if we need `-o` specified
     if path[-1].output_type == SourceType.Directory and args.output_file is None:

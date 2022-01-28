@@ -20,19 +20,18 @@ from .stages import (
 )
 
 
-def register_stages(registry, cfg):
+def register_stages(registry):
     """
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
     registry.register(
         dahlia.DahliaStage(
-            cfg, "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
+            "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
         )
     )
     registry.register(
         dahlia.DahliaStage(
-            cfg,
             "vivado-hls",
             "--memory-interface ap_memory",
             "Compile Dahlia to Vivado C++",
@@ -40,13 +39,12 @@ def register_stages(registry, cfg):
     )
 
     # Relay
-    registry.register(relay.RelayStage(cfg))
+    registry.register(relay.RelayStage())
     # Systolic Array
-    registry.register(systolic.SystolicStage(cfg))
+    registry.register(systolic.SystolicStage())
     # Calyx
     registry.register(
         futil.FutilStage(
-            cfg,
             "verilog",
             "-b verilog",
             "Compile Calyx to Verilog instrumented for simulation",
@@ -54,7 +52,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "mlir",
             "-b mlir -p well-formed -p lower-guards",
             "Compile Calyx to MLIR",
@@ -62,7 +59,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "synth-verilog",
             "-b verilog --synthesis -p external",
             "Compile Calyx to synthesizable Verilog",
@@ -70,7 +66,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "futil-lowered",
             "-b futil",
             "Compile Calyx to Calyx to remove all control and inline groups",
@@ -78,7 +73,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "futil-noinline",
             "-b futil -d hole-inliner",
             "Compile Calyx to Calyx to remove all control and inline groups",
@@ -86,7 +80,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "futil-externalize",
             "-b futil -p externalize",
             "Compile Calyx to Calyx to externalize all external memory primitives",
@@ -94,7 +87,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "axi-wrapper",
             "-b xilinx",
             "Generate the AXI wrapper for Calyx",
@@ -102,7 +94,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "xilinx-xml",
             "-b xilinx-xml",
             "Generate the XML metadata for Xilinx",
@@ -110,7 +101,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "interpreter",
             "-p none",
             "Compile Calyx for interpretation with CIDR",
@@ -119,37 +109,31 @@ def register_stages(registry, cfg):
 
     # Verilator
     registry.register(
-        verilator.VerilatorStage(
-            cfg, "vcd", "Generate a VCD file from Verilog simulation"
-        )
+        verilator.VerilatorStage("vcd", "Generate a VCD file from Verilog simulation")
     )
     registry.register(
         verilator.VerilatorStage(
-            cfg, "dat", "Generate a JSON file with final state of all memories"
+            "dat", "Generate a JSON file with final state of all memories"
         )
     )
 
     # # Vivado / vivado hls
-    registry.register(vivado.VivadoStage(cfg))
-    registry.register(vivado.VivadoExtractStage(cfg))
-    registry.register(vivado.VivadoHLSStage(cfg))
-    registry.register(vivado.VivadoHLSExtractStage(cfg))
+    registry.register(vivado.VivadoStage())
+    registry.register(vivado.VivadoExtractStage())
+    registry.register(vivado.VivadoHLSStage())
+    registry.register(vivado.VivadoHLSExtractStage())
 
     # Vcdump
-    registry.register(vcdump.VcdumpStage(cfg))
+    registry.register(vcdump.VcdumpStage())
 
     # Xilinx
-    registry.register(xilinx.XilinxStage(cfg))
-    registry.register(xilinx.HwEmulationStage(cfg))
-    registry.register(xilinx.HwExecutionStage(cfg))
+    registry.register(xilinx.XilinxStage())
+    registry.register(xilinx.HwEmulationStage())
+    registry.register(xilinx.HwExecutionStage())
 
     # Interpreter
-    registry.register(interpreter.InterpreterStage(cfg, "", "", "Run the interpreter"))
-    registry.register(
-        interpreter.InterpreterStage.debugger(cfg, "", "", "Run the debugger")
-    )
-    # register external stages
-    register_external_stages(cfg, registry)
+    registry.register(interpreter.InterpreterStage("", "", "Run the interpreter"))
+    registry.register(interpreter.InterpreterStage.debugger("", "", "Run the debugger"))
 
 
 def register_external_stages(cfg, registry):
@@ -171,8 +155,8 @@ def register_external_stages(cfg, registry):
         # register the discovered stages
         for stage_class in mod.__STAGES__:
             try:
-                registry.register(stage_class(cfg))
-            except errors.FudError as e:
+                registry.register(stage_class())
+            except Exception as e:
                 raise errors.InvalidExternalStage(
                     ext,
                     "\n".join(
@@ -183,7 +167,7 @@ def register_external_stages(cfg, registry):
                             "```",
                         ]
                     ),
-                )
+                ) from e
 
 
 def display_config(args, cfg):
@@ -283,7 +267,8 @@ def main():
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
             cfg.registry = Registry(cfg)
-            register_stages(cfg.registry, cfg)
+            register_stages(cfg.registry)
+            register_external_stages(cfg, cfg.registry)
 
         if args.command == "exec":
             if not (args.input_file or args.source):

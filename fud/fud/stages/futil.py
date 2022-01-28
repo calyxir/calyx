@@ -6,14 +6,13 @@ from ..utils import shell, unwrap_or
 class FutilStage(Stage):
     name = "futil"
 
-    def __init__(self, config, destination, flags, desc):
+    def __init__(self, destination, flags, desc):
         self.flags = flags
         super().__init__(
             src_state="futil",
             target_state=destination,
             input_type=SourceType.Stream,
             output_type=SourceType.Stream,
-            config=config,
             description=desc,
         )
 
@@ -21,14 +20,15 @@ class FutilStage(Stage):
     def defaults():
         return {}
 
-    def _define_steps(self, input_data):
+    def _define_steps(self, input_data, config):
+        calyx_exec = config["stages", self.name, "exec"]
         cmd = " ".join(
             [
-                self.cmd,
+                calyx_exec,
                 "-l",
-                self.config["global", "futil_directory"],
+                config["global", "futil_directory"],
                 self.flags,
-                unwrap_or(self.config["stages", self.name, "flags"], ""),
+                unwrap_or(config["stages", self.name, "flags"], ""),
             ]
         )
 

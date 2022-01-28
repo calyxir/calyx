@@ -13,19 +13,18 @@ from fud.utils import TmpDir
 class HwExecutionStage(Stage):
     name = "fpga"
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
             src_state="xclbin",
             target_state="fpga",
             input_type=SourceType.Path,
             output_type=SourceType.String,
-            config=config,
             description="Run an xclbin on an fpga",
         )
 
-        self.data_path = self.config["stages", self.name, "data"]
+    def _define_steps(self, input_data, config):
+        data_path = config["stages", self.name, "data"]
 
-    def _define_steps(self, input_data):
         @self.step()
         def import_libs():
             """Import optional libraries"""
@@ -40,10 +39,10 @@ class HwExecutionStage(Stage):
         def run(xclbin: SourceType.Path) -> SourceType.String:
             """Run the xclbin with datafile"""
 
-            if self.data_path is None:
+            if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
 
-            data = sjson.load(open(self.data_path), use_decimal=True)
+            data = sjson.load(open(data_path), use_decimal=True)
             xclbin_source = xclbin.open("rb").read()
 
             # create a temporary directory with an xrt.ini file that redirects

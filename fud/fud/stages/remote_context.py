@@ -18,12 +18,12 @@ class RemoteExecution:
     the relevant functionality remotely.
     """
 
-    def __init__(self, stage):
+    def __init__(self, stage, config):
         self.stage = stage
-        if self.stage.config["stages", self.stage.name, "remote"] is not None:
+        if config["stages", self.stage.name, "remote"] is not None:
             self.use_ssh = True
-            self.ssh_host = self.stage.config["stages", self.stage.name, "ssh_host"]
-            self.ssh_user = self.stage.config["stages", self.stage.name, "ssh_username"]
+            self.ssh_host = config["stages", self.stage.name, "ssh_host"]
+            self.ssh_user = config["stages", self.stage.name, "ssh_username"]
         else:
             self.use_ssh = False
 

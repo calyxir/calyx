@@ -11,27 +11,28 @@ class SystolicStage(Stage):
 
     name = "systolic"
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
             src_state="systolic",
             target_state="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description=(
                 "Generates a matrix multiply using a systolic array architecture"
             ),
         )
-        self.script = (
-            Path(self.config["global", "futil_directory"])
+
+    def _define_steps(self, input_path, config):
+        script = (
+            Path(config["global", "futil_directory"])
             / "frontends"
             / "systolic-lang"
             / "gen-systolic.py"
         )
+        cmd = " ".join([script, "{{input_path}}"])
 
-    def _define_steps(self, input_path):
-        @self.step(description=str(self.script))
+        @self.step(description=cmd)
         def run_systolic(input_path: SourceType.Path) -> SourceType.Stream:
-            return shell(f"{str(self.script)} {str(input_path)}")
+            return shell(cmd.format(input_path=input_path))
 
         return run_systolic(input_path)

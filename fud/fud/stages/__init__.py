@@ -188,19 +188,12 @@ class Stage:
         target_state: str,
         input_type: Source,
         output_type: Source,
-        config: config.Configuration,
         description: str,
     ):
         self.src_state = src_state
         self.target_state = target_state
         self.input_type = input_type
         self.output_type = output_type
-        self.config = config
-
-        if ["stages", self.name, "exec"] in self.config:
-            self.cmd = self.config["stages", self.name, "exec"]
-        else:
-            self.cmd = None
 
         self.description = description
         self._no_spinner = False
@@ -214,23 +207,23 @@ class Stage:
         # True if the computation graph has been staged
         self.staged = False
 
-    def setup(self):
+    def setup(self, config):
         """
         Defines all the steps for this Stage by running self._define_steps.
         """
         self.staged = True
         self.steps = []
         self.hollow_input_data = Source(None, self.input_type)
-        self.final_output = self._define_steps(self.hollow_input_data)
+        self.final_output = self._define_steps(self.hollow_input_data, config)
 
     def step(self, description=None):
         """
         Define a step for this Stage using a decorator.
         For example the following defines a step that runs a command in the
         shell:
-            @self.step(description=self.cmd)
+            @self.step(description=cmd)
             def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
-                return shell(f"{self.cmd} {str(mrxl_prog)}")
+                return shell(f"{cmd} {str(mrxl_prog)}")
         """
 
         def step_decorator(function):
@@ -300,7 +293,7 @@ class Stage:
 
         return step_decorator
 
-    def _define_steps(self, input_data: Source):
+    def _define_steps(self, input_data: Source, config: config.Configuration):
         """
         Generate the staged execution graph for this Stage. Generally, this
         function will define all the steps in this Stage and define an execution

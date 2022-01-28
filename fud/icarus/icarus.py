@@ -16,19 +16,15 @@ class IcarusBaseStage(Stage):
 
     name = "icarus-verilog"
 
-    def __init__(self, is_vcd, desc, config):
+    def __init__(self, is_vcd, desc):
         super().__init__(
             src_state="icarus-verilog",
             target_state="vcd" if is_vcd else "dat",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description=desc,
         )
         self.is_vcd = is_vcd
-        self.testbench = config["stages", self.name, "testbench"]
-        self.runtime = config["stages", self.name, "runtime"]
-        self.data_path = config.get(("stages", "verilog", "data"))
         self.object_name = "main.vvp"
 
     @staticmethod
@@ -37,12 +33,15 @@ class IcarusBaseStage(Stage):
         test_bench = parent / "./tb.sv"
         return {
             "exec": "iverilog",
-            "runtime": "vvp",
             "testbench": str(test_bench.resolve()),
             "round_float_to_fixed": True,
         }
 
-    def _define_steps(self, input_data):
+    def _define_steps(self, input_data, config):
+        testbench = config["stages", self.name, "testbench"]
+        data_path = config.get(("stages", "verilog", "data"))
+        cmd = config["stages", self, "exec"]
+
         # Step 1: Make a new temporary directory
         @self.step()
         def mktmp() -> SourceType.Directory:
@@ -66,9 +65,7 @@ class IcarusBaseStage(Stage):
             """
             Converts a `json` data format into a series of `.dat` files.
             """
-            round_float_to_fixed = self.config[
-                "stages", self.name, "round_float_to_fixed"
-            ]
+            round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
             convert2dat(
                 tmp_dir.name,
                 sjson.load(json_path, use_decimal=True),
@@ -79,11 +76,11 @@ class IcarusBaseStage(Stage):
         # Step 3: compile with verilator
         cmd = " ".join(
             [
-                self.cmd,
+                cmd,
                 "-g2012",
                 "-o",
                 "{exec_path}",
-                self.testbench,
+                testbench,
                 "{input_path}",
             ]
         )
@@ -106,7 +103,7 @@ class IcarusBaseStage(Stage):
             """
             Simulates compiled icarus verilog program.
             """
-            cycle_limit = self.config["stages", "verilog", "cycle_limit"]
+            cycle_limit = config["stages", "verilog", "cycle_limit"]
             return shell(
                 [
                     f"{tmpdir.name}/{self.object_name}",
@@ -152,10 +149,10 @@ class IcarusBaseStage(Stage):
         # Schedule
         tmpdir = mktmp()
         # if we need to, convert dynamically sourced json to dat
-        if self.data_path is None:
+        if data_path is None:
             check_verilog_for_mem_read(input_data)
         else:
-            json_to_dat(tmpdir, Source(Path(self.data_path), SourceType.Path))
+            json_to_dat(tmpdir, Source(Path(data_path), SourceType.Path))
         compile_with_iverilog(input_data, tmpdir)
         stdout = simulate(tmpdir)
         result = None
@@ -174,9 +171,8 @@ class FutilToIcarus(futil.FutilStage):
 
     # No name since FutilStage already defines names
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
-            config,
             "icarus-verilog",
             "-b verilog --disable-init --disable-verify",
             "Compile Calyx to Verilog instrumented for simulation",
@@ -188,10 +184,8 @@ class IcarusToVCDStage(IcarusBaseStage):
     Stage to generate VCD files by simulating through Icarus
     """
 
-    def __init__(self, config):
-        super().__init__(
-            True, "Runs Verilog programs with Icarus and generates VCD", config
-        )
+    def __init__(self):
+        super().__init__(True, "Runs Verilog programs with Icarus and generates VCD")
 
 
 class IcarusToJsonStage(IcarusBaseStage):
@@ -199,11 +193,10 @@ class IcarusToJsonStage(IcarusBaseStage):
     Stage to generate VCD files by simulating through Icarus
     """
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
             False,
             "Runs Verilog programs with Icarus and generates JSON memory file",
-            config,
         )
 
 
