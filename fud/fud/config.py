@@ -5,6 +5,9 @@ import logging as log
 from pathlib import Path
 from pprint import PrettyPrinter
 
+from typing import List
+from . import stages
+
 from .utils import eprint
 from . import errors, external, registry
 
@@ -317,6 +320,30 @@ class Configuration:
             raise errors.UnknownExtension(msg, filename)
         source = list(sources)[0]
         return source
+
+    def construct_path(
+        self, source=None, target=None, input_file=None, output_file=None, through=[]
+    ) -> List[stages.Stage]:
+        """
+        Construct the path of stages implied by the passed arguments.
+        """
+        # find source
+        if source is None:
+            source = self.discover_implied_states(input_file)
+
+        # find target
+        if target is None:
+            target = self.discover_implied_states(output_file)
+
+        path = self.registry.make_path(source, target, through)
+        if path is None:
+            raise errors.NoPathFound(source, target, through)
+
+        # If the path doesn't execute anything, it is probably an error.
+        if len(path) == 0:
+            raise errors.TrivialPath(source)
+
+        return path
 
     def __getitem__(self, keys):
         try:

@@ -1,3 +1,4 @@
+from typing import List
 import logging as log
 import shutil
 import sys
@@ -7,31 +8,6 @@ from halo import Halo
 
 from . import errors, utils, executor, stages
 from .stages import Source, SourceType
-
-
-def construct_path(
-    config, source=None, target=None, input_file=None, output_file=None, through=[]
-) -> list[stages.Stage]:
-    """
-    Construct the path of stages implied by the passed arguments.
-    """
-    # find source
-    if source is None:
-        source = config.discover_implied_states(input_file)
-
-    # find target
-    if target is None:
-        target = config.discover_implied_states(output_file)
-
-    path = config.registry.make_path(source, target, through)
-    if path is None:
-        raise errors.NoPathFound(source, target, through)
-
-    # If the path doesn't execute anything, it is probably an error.
-    if len(path) == 0:
-        raise errors.TrivialPath(source)
-
-    return path
 
 
 def gather_profiling_data(durations, stage, steps, is_csv):
@@ -96,8 +72,8 @@ def run_fud(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    path = construct_path(
-        config, args.source, args.dest, args.input_file, args.output_file, args.through
+    path = config.construct_path(
+        args.source, args.dest, args.input_file, args.output_file, args.through
     )
 
     # Stage computation for stages in the path

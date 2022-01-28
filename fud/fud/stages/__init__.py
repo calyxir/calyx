@@ -12,10 +12,10 @@ from pathlib import Path
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from .. import config
+    from .. import config, executor
 
 
 class Step:
@@ -179,7 +179,7 @@ class Stage:
     """
 
     # The name of a Stage is shared by all instances.
-    name = None
+    name = ""
 
     def __init__(
         self,
@@ -199,15 +199,15 @@ class Stage:
         self._no_spinner = False
 
         # Steps contained within the execution graph of this Stage.
-        self.steps = []
+        self.steps: List[Step] = []
 
         # Handle to the current executor. Made available during execution.
-        self.executor_handle = None
+        self.executor_handle: Optional[executor.Executor] = None
 
         # True if the computation graph has been staged
         self.staged = False
 
-    def setup(self, config):
+    def setup(self, config: config.Configuration):
         """
         Defines all the steps for this Stage by running self._define_steps.
         """
