@@ -23,7 +23,7 @@ class MrXLStage(Stage):
         return {"exec": "mrxl"}
 
     def _define_steps(self, input_path, config):
-        cmd = config["stags", self.name, "exec"]
+        cmd = config["stages", self.name, "exec"]
 
         @self.step(description=cmd)
         def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
