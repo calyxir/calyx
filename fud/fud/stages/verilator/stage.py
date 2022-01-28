@@ -26,7 +26,7 @@ class VerilatorStage(Stage):
             raise Exception("mem has to be 'vcd' or 'dat'")
         self.vcd = mem == "vcd"
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
 
         testbench_files = [
             str(
@@ -39,7 +39,7 @@ class VerilatorStage(Stage):
         data_path = config.get(["stages", self.name, "data"])
 
         # Step 1: Make a new temporary directory
-        @self.step()
+        @builder.step()
         def mktmp() -> SourceType.Directory:
             """
             Make temporary directory to store Verilator build files.
@@ -47,7 +47,7 @@ class VerilatorStage(Stage):
             return TmpDir()
 
         # Step 2a: check if we need verilog.data to be passes
-        @self.step()
+        @builder.step()
         def check_verilog_for_mem_read(verilog_src: SourceType.String):
             """
             Read input verilog to see if `verilog.data` needs to be set.
@@ -56,7 +56,7 @@ class VerilatorStage(Stage):
                 raise errors.MissingDynamicConfiguration("verilog.data")
 
         # Step 2: Transform data from JSON to Dat.
-        @self.step()
+        @builder.step()
         def json_to_dat(tmp_dir: SourceType.Directory, json_path: SourceType.Stream):
             """
             Converts a `json` data format into a series of `.dat` files inside the given
@@ -86,7 +86,7 @@ class VerilatorStage(Stage):
             ]
         )
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def compile_with_verilator(
             input_path: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:
@@ -96,7 +96,7 @@ class VerilatorStage(Stage):
             )
 
         # Step 4: simulate
-        @self.step()
+        @builder.step()
         def simulate(tmpdir: SourceType.Directory) -> SourceType.Stream:
             """
             Simulates compiled Verilator code.
@@ -116,7 +116,7 @@ class VerilatorStage(Stage):
             )
 
         # Step 5(self.vcd == True): extract
-        @self.step()
+        @builder.step()
         def output_vcd(tmpdir: SourceType.Directory) -> SourceType.Stream:
             """
             Return the generated `output.vcd`.
@@ -132,7 +132,7 @@ class VerilatorStage(Stage):
             return target.open("rb")
 
         # Step 5(self.vcd == False): extract cycles + data
-        @self.step()
+        @builder.step()
         def output_json(
             simulated_output: SourceType.String, tmpdir: SourceType.Directory
         ) -> SourceType.String:
@@ -152,7 +152,7 @@ class VerilatorStage(Stage):
             }
             return sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True)
 
-        @self.step()
+        @builder.step()
         def cleanup(tmpdir: SourceType.Directory):
             """
             Cleanup Verilator build files that we no longer need.
@@ -160,6 +160,7 @@ class VerilatorStage(Stage):
             tmpdir.remove()
 
         # Schedule
+        input_data = builder.input()
         tmpdir = mktmp()
         # if we need to, convert dynamically sourced json to dat
         if data_path is None:

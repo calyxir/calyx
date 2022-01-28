@@ -20,7 +20,7 @@ class FutilStage(Stage):
     def defaults():
         return {}
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
         calyx_exec = config["stages", self.name, "exec"]
         cmd = " ".join(
             [
@@ -32,11 +32,11 @@ class FutilStage(Stage):
             ]
         )
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def run_futil(inp_stream: SourceType.Stream) -> SourceType.Stream:
             return shell(
                 cmd,
                 stdin=inp_stream,
             )
 
-        return run_futil(input_data)
+        return run_futil(builder.input())

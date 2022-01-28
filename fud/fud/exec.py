@@ -1,3 +1,5 @@
+from typing import List
+
 import logging as log
 import shutil
 import sys
@@ -6,7 +8,7 @@ from pathlib import Path
 from halo import Halo
 
 from . import errors, utils, executor
-from .stages import Source, SourceType
+from .stages import Source, SourceType, ComputationGraph
 
 
 def gather_profiling_data(durations, stage, steps, is_csv):
@@ -74,10 +76,7 @@ def run_fud(args, config):
     path = config.construct_path(
         args.source, args.dest, args.input_file, args.output_file, args.through
     )
-
-    # Stage computation for stages in the path
-    for stage in path:
-        stage.setup(config)
+    path: List[ComputationGraph] = list(map(lambda stage: stage.setup(config), path))
 
     # check if we need `-o` specified
     if path[-1].output_type == SourceType.Directory and args.output_file is None:
@@ -86,9 +85,9 @@ def run_fud(args, config):
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
         print("fud will perform the following steps:")
-        for stage in path:
-            print(f"Stage: {stage.name}")
-            stage.dry_run()
+        for comp_graph in path:
+            print(f"Stage: {comp_graph.name}")
+            comp_graph.dry_run()
         return
 
     # construct a source object for the input
@@ -113,15 +112,16 @@ def run_fud(args, config):
 
     # Execute the generated path
     with exec:
-        for stage in path:
+        for comp_graph in path:
             # Start a new stage
-            with exec.stage(stage.name, stage._no_spinner):
-                for step in stage.get_steps(data, exec):
+            # TODO: Proper input for the no_spinner argument
+            with exec.stage(comp_graph.stage_name, False):
+                for step in comp_graph.get_steps(data, exec):
                     # Execute step within the stage
                     with exec.step(step.name):
                         step()
 
-                data = stage.output()
+                data = comp_graph.output
 
     # Stages to be profiled
     profiled_stages = utils.parse_profiling_input(args)

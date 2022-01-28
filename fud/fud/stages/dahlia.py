@@ -15,7 +15,7 @@ class DahliaStage(Stage):
         )
         self.flags = flags
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
         dahlia_exec = config["stages", self.name, "exec"]
         cmd = " ".join(
             [
@@ -26,8 +26,8 @@ class DahliaStage(Stage):
             ]
         )
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def run_dahlia(dahlia_prog: SourceType.Path) -> SourceType.Stream:
             return shell(cmd.format(prog=str(dahlia_prog)))
 
-        return run_dahlia(input_data)
+        return run_dahlia(builder.input())

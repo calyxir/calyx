@@ -12,7 +12,7 @@ from pathlib import Path
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from .. import config, executor
@@ -120,7 +120,9 @@ class Source:
             SourceType.String: lambda d: d.name,
             SourceType.Path: lambda d: Path(d.name),
         },
+        # Terminal and UnTyped cannot be converted
         SourceType.Terminal: {},
+        SourceType.UnTyped: {},
     }
 
     def __init__(self, data, typ):
@@ -178,7 +180,7 @@ class Stage:
     `description`: Description of this stage
     """
 
-    # The name of a Stage is shared by all instances.
+    # The name of a Stage is shared by all instances of the stage.
     name = ""
 
     def __init__(
@@ -196,27 +198,70 @@ class Stage:
         self.output_type = output_type
 
         self.description = description
-        self._no_spinner = False
 
-        # Steps contained within the execution graph of this Stage.
+    def setup(self, config: config.Configuration) -> ComputationGraph:
+        """
+        Construct a computation graph for this stage.
+        Returns a `ComputationGraph` representing the staged computation.
+        """
+
+        builder = ComputationGraph(self.name, self.input_type, self.output_type)
+        builder.output = self._define_steps(builder, config)
+        return builder
+
+    def _define_steps(
+        self, builder: ComputationGraph, config: config.Configuration
+    ) -> Source:
+        """
+        Generate the staged execution graph for this Stage. Generally, this
+        function will define all the steps in this Stage and define an execution
+        schedule for those stages.
+        When executed, each step will be added to this Stage's computation
+        graph.
+        """
+        pass
+
+
+class ComputationGraph:
+
+    """Construct the computation graph for a stage"""
+
+    def __init__(self, stage_name, input_type, output_type):
+        self.input_type = input_type
+        self.output_type = output_type
+        self.stage_name = stage_name
+
+        # Steps defined for this execution graph.
         self.steps: List[Step] = []
+        # Input this computation graph
+        self._input: Source = Source(None, self.input_type)
+        self.output: Source = None
 
-        # Handle to the current executor. Made available during execution.
-        self.executor_handle: Optional[executor.Executor] = None
+        # Handle to the executor for this computation graph
+        self.executor_handle: executor.Executor = None
 
-        # True if the computation graph has been staged
-        self.staged = False
+    def input(self):
+        return self._input
 
-    def setup(self, config: config.Configuration):
+    def dry_run(self):
+        for i, step in enumerate(self.steps):
+            print(f"  {i+1}) {step}")
+
+    def get_steps(self, input_data: Source, executor: executor.Executor):
         """
-        Defines all the steps for this Stage by running self._define_steps.
+        Steps associated with this computation graph
         """
-        self.staged = True
-        self.steps = []
-        self.hollow_input_data = Source(None, self.input_type)
-        self.final_output = self._define_steps(self.hollow_input_data, config)
+        assert isinstance(
+            input_data, Source
+        ), "Input object is not an instance of Source"
 
-    def step(self, description=None):
+        # fill in input_data
+        self._input.data = input_data.convert_to(self.input_type).data
+
+        for step in self.steps:
+            yield step
+
+    def step(builder: ComputationGraph, description=None):
         """
         Define a step for this Stage using a decorator.
         For example the following defines a step that runs a command in the
@@ -226,6 +271,7 @@ class Stage:
                 return shell(f"{cmd} {str(mrxl_prog)}")
         """
 
+        # Define a function because the decorator needs to take in arguments.
         def step_decorator(function):
             """
             Decorator that transforms functions into `Step` and ensures that
@@ -277,7 +323,7 @@ class Stage:
                     lambda a: a[0].convert_to(a[1]).data, zip(args, input_types)
                 )
                 # thunk the function as a Step and add it to the current stage.
-                self.steps.append(
+                builder.steps.append(
                     Step(
                         function.__name__,
                         function,
@@ -292,54 +338,3 @@ class Stage:
             return wrapper
 
         return step_decorator
-
-    def _define_steps(self, input_data: Source, config: config.Configuration):
-        """
-        Generate the staged execution graph for this Stage. Generally, this
-        function will define all the steps in this Stage and define an execution
-        schedule for those stages.
-        When executed, each step will be added to this Stage's computation
-        graph.
-        """
-        pass
-
-    def get_steps(self, input_data, executor):
-        """
-        Generate steps contained within this stage.
-        """
-        assert isinstance(
-            input_data, Source
-        ), "Input object is not an instance of Source"
-        assert self.staged, f"{self.name} has not been staged yet. Call setup() first."
-
-        # fill in input_data
-        self.hollow_input_data.data = input_data.convert_to(self.input_type).data
-        # Define the executor
-        self.executor_handle = executor
-
-        for step in self.steps:
-            yield step
-
-    def output(self):
-        return self.final_output
-
-    def run(self, input_data: Source):
-        """
-        Run the stage as a function.
-        """
-        assert isinstance(
-            input_data, Source
-        ), "Input object is not an instance of Source"
-
-        # fill in input_data
-        self.hollow_input_data.data = input_data.convert_to(self.input_type).data
-
-        # run all the steps
-        for step in self.steps:
-            step()
-
-        return self.final_output
-
-    def dry_run(self):
-        for i, step in enumerate(self.steps):
-            print(f"  {i+1}) {step}")
