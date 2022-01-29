@@ -22,14 +22,14 @@ class MrXLStage(Stage):
     def defaults():
         return {"exec": "mrxl"}
 
-    def _define_steps(self, input_path, config):
+    def _define_steps(self, builder, config):
         cmd = config["stages", self.name, "exec"]
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
             return shell(f"{cmd} {str(mrxl_prog)}")
 
-        return run_mrxl(input_path)
+        return run_mrxl(builder.input())
 
 
 # Export the defined stages to fud

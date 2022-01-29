@@ -78,13 +78,16 @@ def run_fud(args, config):
     )
 
     # check if input is needed
-    if path[0].input_type not in [SourceType.UnTyped, SourceType.Terminal]:
-        raise errors.NeedInputSpecified(path[0])
+    if args.input_file is None:
+        if path[0].input_type not in [SourceType.UnTyped, SourceType.Terminal]:
+            raise errors.NeedInputSpecified(path[0])
 
     # check if we need `-o` specified
-    if path[-1].output_type == SourceType.Directory and args.output_file is None:
-        raise errors.NeedOutputSpecified(path[-1])
+    if args.output_file is None:
+        if path[-1].output_type == SourceType.Directory:
+            raise errors.NeedOutputSpecified(path[-1])
 
+    # Stage the computation graphs for all the stages in the path
     path: List[ComputationGraph] = list(map(lambda stage: stage.setup(config), path))
 
     # if we are doing a dry run, print out stages and exit

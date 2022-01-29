@@ -38,7 +38,7 @@ class XilinxStage(Stage):
             stdout = shell(cmd, capture_stdout=False)
             log.debug(stdout)
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
         # As a debugging aid, the pass can optionally preserve the
         # (local or remote) sandbox where the Xilinx commands ran.
         save_temps = bool(config["stages", self.name, "save_temps"])
@@ -58,7 +58,7 @@ class XilinxStage(Stage):
         )
 
         # Step 2: Compile input using `-b xilinx`
-        @self.step()
+        @builder.step()
         def compile_xilinx(inp: SourceType.Stream) -> SourceType.Path:
             """
             Generate AXI controller to interface with the Calyx kernel.
@@ -72,7 +72,7 @@ class XilinxStage(Stage):
             )
 
         # Step 3: Compiler input using `-b xilinx-xml`
-        @self.step()
+        @builder.step()
         def compile_xml(inp: SourceType.Stream) -> SourceType.Path:
             """
             Generate XML configuration from Calyx input.
@@ -86,7 +86,7 @@ class XilinxStage(Stage):
             )
 
         # Step 3: Compiler input using `-b xilinx-xml`
-        @self.step()
+        @builder.step()
         def compile_kernel(inp: SourceType.Stream) -> SourceType.Path:
             """
             Compile Calyx program to synthesizable Verilog for Xilinx tools.
@@ -97,7 +97,7 @@ class XilinxStage(Stage):
                 .data
             )
 
-        @self.step()
+        @builder.step()
         def package_xo(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Package verilog into XO file.
@@ -112,7 +112,7 @@ class XilinxStage(Stage):
             )
             self._shell(client, cmd, remote_exec)
 
-        @self.step()
+        @builder.step()
         def compile_xclbin(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Compile XO into xclbin.
@@ -130,6 +130,8 @@ class XilinxStage(Stage):
             )
             self._shell(client, cmd, remote_exec)
 
+        # Schedule
+        input_data = builder.input()
         if self.remote_exec.use_ssh:
             self.remote_exec.import_libs()
 

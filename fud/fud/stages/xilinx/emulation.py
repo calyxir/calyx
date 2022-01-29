@@ -34,7 +34,7 @@ class HwEmulationStage(Stage):
             stdout = shell(cmd, capture_stdout=False)
             log.debug(stdout)
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
 
         xilinx_location = config["stages", self.name, "xilinx_location"]
         xrt_location = config["stages", self.name, "xrt_location"]
@@ -59,7 +59,7 @@ class HwEmulationStage(Stage):
         # remote execution
         remote_exec = RemoteExecution(self, config)
 
-        @self.step()
+        @builder.step()
         def check_host_cpp():
             """
             Make sure that `-s wdb.host` is provided
@@ -67,7 +67,7 @@ class HwEmulationStage(Stage):
             if host_cpp is None:
                 raise errors.MissingDynamicConfiguration("wdb.host")
 
-        @self.step()
+        @builder.step()
         def compile_host(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Compile the host code
@@ -84,7 +84,7 @@ class HwEmulationStage(Stage):
             )
             self._shell(client, cmd)
 
-        @self.step()
+        @builder.step()
         def generate_emconfig(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Generate emconfig.json
@@ -97,7 +97,7 @@ class HwEmulationStage(Stage):
             )
             self._shell(client, cmd)
 
-        @self.step()
+        @builder.step()
         def emulate(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Emulation the xclbin
@@ -109,7 +109,9 @@ class HwEmulationStage(Stage):
             )
             self._shell(client, cmd)
 
+        # Schedule
         check_host_cpp()
+        input_data = builder.input()
 
         file_map = {
             input_data: "kernel.xclbin",

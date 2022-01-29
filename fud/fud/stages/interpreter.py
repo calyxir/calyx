@@ -54,7 +54,7 @@ class InterpreterStage(Stage):
         """
         return self.target_state == _DEBUGGER_TARGET
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
 
         script = config["stages", self.name, "exec"]
         data_path = config["stages", "verilog", "data"]
@@ -81,14 +81,14 @@ class InterpreterStage(Stage):
 
         cmd = " ".join(cmd)
 
-        @self.step()
+        @builder.step()
         def mktmp() -> SourceType.Directory:
             """
             Make temporary directory to store Verilator build files.
             """
             return TmpDir()
 
-        @self.step()
+        @builder.step()
         def convert_json_to_interp_json(
             tmpdir: SourceType.Directory, json_path: SourceType.Stream
         ):
@@ -102,7 +102,7 @@ class InterpreterStage(Stage):
                 round_float_to_fixed,
             )
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def interpret(
             target: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:
@@ -116,7 +116,7 @@ class InterpreterStage(Stage):
 
             return shell(command)
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def debug(
             target: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Terminal:
@@ -128,7 +128,7 @@ class InterpreterStage(Stage):
             )
             transparent_shell(command)
 
-        @self.step()
+        @builder.step()
         def cleanup(tmpdir: SourceType.Directory):
             """
             Remove the temporary directory
@@ -136,6 +136,7 @@ class InterpreterStage(Stage):
             tmpdir.remove()
 
         # schedule
+        input_data = builder.input()
         tmpdir = mktmp()
 
         if data_path is not None:

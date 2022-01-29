@@ -266,7 +266,7 @@ class ComputationGraph:
         Define a step for this Stage using a decorator.
         For example the following defines a step that runs a command in the
         shell:
-            @self.step(description=cmd)
+            @builder.step(description=cmd)
             def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
                 return shell(f"{cmd} {str(mrxl_prog)}")
         """

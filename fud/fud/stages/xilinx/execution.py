@@ -22,10 +22,10 @@ class HwExecutionStage(Stage):
             description="Run an xclbin on an fpga",
         )
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
         data_path = config["stages", self.name, "data"]
 
-        @self.step()
+        @builder.step()
         def import_libs():
             """Import optional libraries"""
             try:
@@ -35,7 +35,7 @@ class HwExecutionStage(Stage):
             except ImportError:
                 raise errors.RemoteLibsNotInstalled
 
-        @self.step()
+        @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
             """Run the xclbin with datafile"""
 
@@ -118,5 +118,5 @@ class HwExecutionStage(Stage):
             return sjson.dumps(output, indent=2, use_decimal=True)
 
         import_libs()
-        res = run(input_data)
+        res = run(builder.input())
         return res

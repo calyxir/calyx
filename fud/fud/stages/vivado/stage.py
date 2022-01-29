@@ -41,7 +41,7 @@ class VivadoBaseStage(Stage):
         """
         pass
 
-    def _define_steps(self, verilog_path, config):
+    def _define_steps(self, builder, config):
         use_ssh = bool(config.get(["stages", self.name, "remote"]))
         if use_ssh:
             cmd = f"{config['stages', self.name, 'exec']} {self.flags}"
@@ -49,6 +49,7 @@ class VivadoBaseStage(Stage):
             cmd = f"{self.remote_exec} {self.flags}"
 
         # Steps and schedule
+        verilog_path = builder.input()
         local_tmpdir = self.setup_environment(verilog_path, config)
         if use_ssh:
             remote_exec = RemoteExecution(self, config)
@@ -62,20 +63,20 @@ class VivadoBaseStage(Stage):
             remote_exec.execute(client, remote_tmpdir, cmd)
             remote_exec.close_and_transfer(client, remote_tmpdir, local_tmpdir)
         else:
-            self.execute(local_tmpdir, cmd)
+            VivadoBaseStage.execute(builder, local_tmpdir, cmd)
 
         return local_tmpdir
 
-    def setup_environment(self, verilog_path, config):
+    def setup_environment(self, builder, config):
         # Step 1: Make a new temporary directory
-        @self.step()
+        @builder.step()
         def mktmp() -> SourceType.Directory:
             """
             Make temporary directory to store Vivado synthesis files.
             """
             return TmpDir()
 
-        @self.step()
+        @builder.step()
         def local_move_files(
             verilog_path: SourceType.Path, tmpdir: SourceType.Directory
         ):
@@ -87,11 +88,12 @@ class VivadoBaseStage(Stage):
             shutil.copy(str(verilog_path), f"{tmpdir.name}/{self.target_name}")
 
         tmpdir = mktmp()
-        local_move_files(verilog_path, tmpdir)
+        local_move_files(builder.input(), tmpdir)
         return tmpdir
 
-    def execute(self, tmpdir, cmd):
-        @self.step(description=cmd)
+    @staticmethod
+    def execute(builder, tmpdir, cmd):
+        @builder.step(description=cmd)
         def run_vivado(tmpdir: SourceType.Directory):
             shell(" ".join([f"cd {tmpdir.name}", "&&", cmd]), stdout_as_debug=True)
 
@@ -157,15 +159,15 @@ class VivadoExtractStage(Stage):
             description="Extracts information from Vivado synthesis files",
         )
 
-    def _define_steps(self, input_dir, config):
-        @self.step()
+    def _define_steps(self, builder, config):
+        @builder.step()
         def extract(directory: SourceType.Directory) -> SourceType.String:
             """
             Extract relevant data from Vivado synthesis files.
             """
             return futil_extract(Path(directory.name))
 
-        return extract(input_dir)
+        return extract(builder.input())
 
 
 class VivadoHLSExtractStage(Stage):
@@ -180,12 +182,12 @@ class VivadoHLSExtractStage(Stage):
             description="Extracts information from Vivado HLS synthesis files",
         )
 
-    def _define_steps(self, input_dir, config):
-        @self.step()
+    def _define_steps(self, builder, config):
+        @builder.step()
         def extract(directory: SourceType.Directory) -> SourceType.String:
             """
             Extract relevant data from Vivado synthesis files.
             """
             return hls_extract(Path(directory.name))
 
-        return extract(input_dir)
+        return extract(builder.input())

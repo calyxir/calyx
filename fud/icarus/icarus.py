@@ -37,13 +37,13 @@ class IcarusBaseStage(Stage):
             "round_float_to_fixed": True,
         }
 
-    def _define_steps(self, input_data, config):
+    def _define_steps(self, builder, config):
         testbench = config["stages", self.name, "testbench"]
         data_path = config.get(("stages", "verilog", "data"))
         cmd = config["stages", self, "exec"]
 
         # Step 1: Make a new temporary directory
-        @self.step()
+        @builder.step()
         def mktmp() -> SourceType.Directory:
             """
             Make temporary directory to store Verilator build files.
@@ -51,7 +51,7 @@ class IcarusBaseStage(Stage):
             return TmpDir()
 
         # Step 2a: check if we need verilog.data to be passes
-        @self.step()
+        @builder.step()
         def check_verilog_for_mem_read(verilog_src: SourceType.String):
             """
             Read input verilog to see if `icarus-verilog.data` needs to be set.
@@ -60,7 +60,7 @@ class IcarusBaseStage(Stage):
                 raise errors.MissingDynamicConfiguration("verilog.data")
 
         # Step 2: Transform data from JSON to Dat.
-        @self.step()
+        @builder.step()
         def json_to_dat(tmp_dir: SourceType.Directory, json_path: SourceType.Stream):
             """
             Converts a `json` data format into a series of `.dat` files.
@@ -85,7 +85,7 @@ class IcarusBaseStage(Stage):
             ]
         )
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def compile_with_iverilog(
             input_path: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:
@@ -98,7 +98,7 @@ class IcarusBaseStage(Stage):
             )
 
         # Step 4: simulate
-        @self.step()
+        @builder.step()
         def simulate(tmpdir: SourceType.Directory) -> SourceType.Stream:
             """
             Simulates compiled icarus verilog program.
@@ -115,7 +115,7 @@ class IcarusBaseStage(Stage):
             )
 
         # Step 5(self.vcd == True): extract
-        @self.step()
+        @builder.step()
         def output_vcd(tmpdir: SourceType.Directory) -> SourceType.Stream:
             """
             Return the generated `output.vcd`.
@@ -125,7 +125,7 @@ class IcarusBaseStage(Stage):
             return (Path(tmpdir.name) / "output.vcd").open("rb")
 
         # Step 5(self.vc == False): extract cycles + data
-        @self.step()
+        @builder.step()
         def output_json(
             simulated_output: SourceType.String, tmpdir: SourceType.Directory
         ) -> SourceType.String:
@@ -139,7 +139,7 @@ class IcarusBaseStage(Stage):
             }
             return sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True)
 
-        @self.step()
+        @builder.step()
         def cleanup(tmpdir: SourceType.Directory):
             """
             Cleanup build files
@@ -147,6 +147,7 @@ class IcarusBaseStage(Stage):
             tmpdir.remove()
 
         # Schedule
+        input_data = builder.input()
         tmpdir = mktmp()
         # if we need to, convert dynamically sourced json to dat
         if data_path is None:
