@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict
+from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Callable
 
 """The definitions of fud stages."""
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ from ..utils import Directory, is_debug
 class Step:
     """
     A Step represents some delayed computation that is a part of a stage.
-    They are generally created using the @step decorator defined by stages.
+    They are generally created using the @step decorator.
     """
 
     def __init__(self, name: str, func, args, output: Source, description: str):
@@ -93,7 +93,7 @@ class SourceType(Enum):
 
 
 class Source:
-    convert_map: Dict[SourceType, Dict[SourceType, Any]] = {
+    convert_map: Dict[SourceType, Dict[SourceType, Callable[[Any], Any]]] = {
         SourceType.Path: {
             SourceType.Directory: conv.path_to_directory,
             SourceType.Stream: conv.path_to_stream,
@@ -129,7 +129,7 @@ class Source:
             path = Path(str(path))
         return Source(path, SourceType.Path)
 
-    def __init__(self, data, typ):
+    def __init__(self, data: Optional[Any], typ: SourceType):
         self.typ = typ
         # check to make sure data is the right type
         if data is not None:
@@ -146,8 +146,8 @@ class Source:
             elif self.typ == SourceType.UnTyped:
                 # no guarantees on Untyped
                 pass
-            elif self.typ == SourceType.Terminal:
-                assert data is None, "Terminal Source cannot contain data"
+        if self.typ == SourceType.Terminal:
+            assert data is None, "Terminal Source cannot contain data"
         self.data = data
 
     def is_convertible_to(self, other: SourceType):
@@ -157,6 +157,8 @@ class Source:
             return other in Source.convert_map[self.typ]
 
     def convert_to(self, other: SourceType) -> Source:
+        assert self.data is not None
+
         if self.typ == other:
             return self
 

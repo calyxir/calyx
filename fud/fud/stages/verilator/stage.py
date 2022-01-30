@@ -165,7 +165,8 @@ class VerilatorStage(Stage):
         if data_path is None:
             check_verilog_for_mem_read(input_data)
         else:
-            json_to_dat(tmpdir, Source(Path(data_path), SourceType.Path))
+            json_to_dat(tmpdir, Source.path(data_path))
+        print(input_data)
         compile_with_verilator(input_data, tmpdir)
         stdout = simulate(tmpdir)
         result = output_vcd(tmpdir) if self.vcd else output_json(stdout, tmpdir)

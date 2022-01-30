@@ -2,7 +2,7 @@ import sys
 import logging as log
 import shutil
 from tempfile import TemporaryDirectory, NamedTemporaryFile, TemporaryFile
-from io import BytesIO
+from io import BytesIO, IOBase
 from pathlib import Path
 import subprocess
 import os
@@ -120,29 +120,32 @@ class Conversions:
             raise errors.SourceConversionNotDirectory(data)
 
     @staticmethod
-    def path_to_stream(data):
+    def path_to_stream(data: Path):
         return open(data, "rb")
 
     @staticmethod
-    def stream_to_path(data):
+    def stream_to_path(data: IOBase) -> Path:
         with NamedTemporaryFile("wb", delete=False) as tmpfile:
             tmpfile.write(data.read())
+            data.close()
             return Path(tmpfile.name)
 
     @staticmethod
-    def stream_to_bytes(data):
-        return data.read()
+    def stream_to_bytes(data: IOBase) -> bytes:
+        out = data.read()
+        data.close()
+        return out
 
     @staticmethod
-    def bytes_to_stream(data):
+    def bytes_to_stream(data: bytes) -> IOBase:
         return BytesIO(data)
 
     @staticmethod
-    def bytes_to_string(data):
+    def bytes_to_string(data: bytes) -> str:
         return data.decode("UTF-8")
 
     @staticmethod
-    def string_to_bytes(data):
+    def string_to_bytes(data: str) -> bytes:
         return data.encode("UTF-8")
 
 

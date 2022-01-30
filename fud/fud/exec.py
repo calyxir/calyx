@@ -75,8 +75,7 @@ def chain_stages(
     else:
         path[0].setup(config, builder)
 
-    for stage in path[1:]:
-        stage.setup(config, builder)
+    builder.and_then_path(path[1:], config)
 
     return builder
 
