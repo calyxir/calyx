@@ -51,7 +51,7 @@ class VivadoBaseStage(Stage):
         # Steps and schedule
         local_tmpdir = self.setup_environment(verilog_path, config)
         if use_ssh:
-            remote_exec = RemoteExecution(self, config)
+            remote_exec = RemoteExecution(builder, self, config)
             remote_exec.import_libs()
             client, remote_tmpdir = remote_exec.open_and_send(
                 {

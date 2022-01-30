@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, List, Optional
 
 """The definitions of fud stages."""
 if TYPE_CHECKING:
-    from .. import config, executor
+    from .config import Configuration
+    from .executor import Executor
 
 import functools
 import inspect
@@ -199,7 +200,7 @@ class Stage:
 
     def setup(
         self,
-        config: config.Configuration,
+        config: Configuration,
         builder: Optional[ComputationGraph] = None,
     ) -> ComputationGraph:
         """
@@ -210,16 +211,15 @@ class Stage:
         # If a builder is provided, construct the computation graph using it.
         if builder:
             # Builder's current output because the stage's input.
-            builder.output = self._define_steps(builder.output, builder, config)
-            builder.output_type = self.output_type
+            builder.and_then(self, config)
         else:
-            builder = ComputationGraph(self.name, self.input_type, self.output_type)
+            builder = ComputationGraph(self.input_type, self.output_type)
             builder.output = self._define_steps(builder._input, builder, config)
 
         return builder
 
     def _define_steps(
-        self, input: Source, builder: ComputationGraph, config: config.Configuration
+        self, input: Source, builder: ComputationGraph, config: Configuration
     ) -> Source:
         """
         Generate the staged execution graph for this Stage. Generally, this
@@ -237,40 +237,42 @@ class ComputationGraph:
 
     def __init__(
         self,
-        stage_name: str,
         input_type: SourceType,
         output_type: SourceType,
-        input: Optional[Source] = None,
     ):
         self.input_type = input_type
         self.output_type = output_type
-        self.stage_name = stage_name
 
         # Steps defined for this execution graph.
         self.steps: List[Step] = []
         # Input this computation graph
-        if input is None:
-            self._input: Source = Source(None, self.input_type)
-        else:
-            self._input: Source = input
+        self._input = Source(None, self.input_type)
 
         self.output: Optional[Source] = None
 
         # Handle to the executor for this computation graph
-        self.executor_handle: executor.Executor = None
+        self.executor_handle: Executor = None
 
     def dry_run(self):
+        """
+        Print out step information without running them.
+        """
         for step in self.steps:
             print(f"  - {step}")
 
-    # XXX(rachit): input_data can probably be remove once setup can stitch
-    # together steps
-    def get_steps(self, input_data: Optional[Source] = None):
+    def and_then(self, stage: Stage, config: Configuration):
+        """
+        Compose the stage's computation graph with the current graph.
+        """
+        self.output = stage._define_steps(self.output, self, config)
+        self.output_type = stage.output_type
+        return self
+
+    def get_steps(self, input_data: Source):
         """
         Steps associated with this computation graph
         """
-        if input_data is not None:
-            self._input.data = input_data.convert_to(self.input_type).data
+        self._input.data = input_data.convert_to(self.input_type).data
 
         for step in self.steps:
             yield step

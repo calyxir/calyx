@@ -20,11 +20,6 @@ class XilinxStage(Stage):
         )
 
         # sub stages to use futil to compile
-        self.xilinx_futil = FutilStage("xilinx-verilog", "-b xilinx", "")
-        self.xml_futil = FutilStage("xilinx-verilog", "-b xilinx-xml", "")
-        self.kernel_futil = FutilStage(
-            "xilinx-verilog", "-b verilog --synthesis -p external", ""
-        )
 
     def _shell(self, client, cmd, remote_exec):
         """Run a command, either locally or remotely."""
@@ -47,7 +42,7 @@ class XilinxStage(Stage):
         device = config["stages", self.name, "device"]
 
         # remote execution context
-        remote_exec = RemoteExecution(self, config)
+        remote_exec = RemoteExecution(builder, self, config)
 
         # tcl files
         self.gen_xo_tcl = (
@@ -57,86 +52,54 @@ class XilinxStage(Stage):
             / "gen_xo.tcl"
         )
 
-        # Step 2: Compile input using `-b xilinx`
-        @builder.step()
-        def compile_xilinx(inp: SourceType.Stream) -> SourceType.Path:
-            """
-            Generate AXI controller to interface with the Calyx kernel.
-            """
-            return (
-                # XXX(rachit): This will no longer work. Need to call setup on
-                # the stage before `run`.
-                self.xilinx_futil.run(Source(inp, SourceType.Stream))
-                .convert_to(SourceType.Path)
-                .data
-            )
+        package_cmd = (
+            "cd {tmpdir} && "
+            "mkdir -p xclbin && "
+            "/scratch/opt/Xilinx/Vivado/2020.2/bin/vivado "
+            "-mode batch "
+            "-source gen_xo.tcl "
+            f"-tclargs xclbin/kernel.xo"
+        )
 
-        # Step 3: Compiler input using `-b xilinx-xml`
-        @builder.step()
-        def compile_xml(inp: SourceType.Stream) -> SourceType.Path:
-            """
-            Generate XML configuration from Calyx input.
-            """
-            return (
-                # XXX(rachit): This will no longer work. Need to call setup on
-                # the stage before `run`.
-                self.xml_futil.run(Source(inp, SourceType.Stream))
-                .convert_to(SourceType.Path)
-                .data
-            )
-
-        # Step 3: Compiler input using `-b xilinx-xml`
-        @builder.step()
-        def compile_kernel(inp: SourceType.Stream) -> SourceType.Path:
-            """
-            Compile Calyx program to synthesizable Verilog for Xilinx tools.
-            """
-            return (
-                self.kernel_futil.run(Source(inp, SourceType.Stream))
-                .convert_to(SourceType.Path)
-                .data
-            )
-
-        @builder.step()
+        @builder.step(package_cmd)
         def package_xo(client: SourceType.UnTyped, tmpdir: SourceType.String):
-            """
-            Package verilog into XO file.
-            """
-            cmd = (
-                f"cd {tmpdir} && "
-                "mkdir -p xclbin && "
-                "/scratch/opt/Xilinx/Vivado/2020.2/bin/vivado "
-                "-mode batch "
-                "-source gen_xo.tcl "
-                f"-tclargs xclbin/kernel.xo"
-            )
-            self._shell(client, cmd, remote_exec)
+            self._shell(client, package_cmd.format(tmpdir=tmpdir), remote_exec)
 
-        @builder.step()
+        xclbin_cmd = (
+            "cd {tmpdir} && "
+            "/scratch/opt/Xilinx/Vitis/2020.2/bin/v++ -g "
+            "-t {mode} "
+            "--platform {device} "
+            "--save-temps "
+            "--profile.data all:all:all "
+            "--profile.exec all:all:all "
+            "-lo xclbin/kernel.xclbin "
+            "xclbin/kernel.xo"
+        )
+
+        @builder.step(xclbin_cmd)
         def compile_xclbin(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Compile XO into xclbin.
             """
-            cmd = (
-                f"cd {tmpdir} && "
-                "/scratch/opt/Xilinx/Vitis/2020.2/bin/v++ -g "
-                f"-t {mode} "
-                f"--platform {device} "
-                "--save-temps "
-                "--profile.data all:all:all "
-                "--profile.exec all:all:all "
-                "-lo xclbin/kernel.xclbin "
-                "xclbin/kernel.xo"
-            )
-            self._shell(client, cmd, remote_exec)
+            self._shell(client, xclbin_cmd.format(
+                tmpdir=tmpdir, mode=mode, device=device), remote_exec)
 
         # Schedule
-        if self.remote_exec.use_ssh:
-            self.remote_exec.import_libs()
+        # External stages called by this stage
+        xilinx_stage = FutilStage("xilinx-verilog", "-b xilinx", "")
+        xml_futil = FutilStage("xilinx-verilog", "-b xilinx-xml", "")
+        kernel_futil = FutilStage(
+            "xilinx-verilog", "-b verilog --synthesis -p external", ""
+        )
 
-        xilinx = compile_xilinx(input_data)
-        xml = compile_xml(input_data)
-        kernel = compile_kernel(input_data)
+        if remote_exec.use_ssh:
+            remote_exec.import_libs()
+
+        # Compile files using external stages
+        xilinx = xilinx_stage._define_steps(input_data, builder, config)
+        xml = xml_futil._define_steps(input_data, builder, config)
+        kernel = kernel_futil._define_steps(input_data, builder, config)
 
         file_map = {
             xilinx: "toplevel.v",
@@ -144,18 +107,18 @@ class XilinxStage(Stage):
             xml: "kernel.xml",
             self.gen_xo_tcl: "gen_xo.tcl",
         }
-        if self.remote_exec.use_ssh:
-            client, tmpdir = self.remote_exec.open_and_send(file_map)
+        if remote_exec.use_ssh:
+            client, tmpdir = remote_exec.open_and_send(file_map)
         else:
-            sandbox = LocalSandbox(self, save_temps)
+            sandbox = LocalSandbox(builder, save_temps)
             tmpdir = sandbox.create(file_map)
             client = Source(None, SourceType.UnTyped)
 
         package_xo(client, tmpdir)
         compile_xclbin(client, tmpdir)
 
-        if self.remote_exec.use_ssh:
-            return self.remote_exec.close_and_get(
+        if remote_exec.use_ssh:
+            return remote_exec.close_and_get(
                 client,
                 tmpdir,
                 "xclbin/kernel.xclbin",

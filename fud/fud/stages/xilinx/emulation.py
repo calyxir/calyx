@@ -57,7 +57,7 @@ class HwEmulationStage(Stage):
         mode = config["stages", self.name, "mode"]
 
         # remote execution
-        remote_exec = RemoteExecution(self, config)
+        remote_exec = RemoteExecution(builder, self, config)
 
         @builder.step()
         def check_host_cpp():
@@ -122,7 +122,7 @@ class HwEmulationStage(Stage):
             remote_exec.import_libs()
             client, tmpdir = remote_exec.open_and_send(file_map)
         else:
-            sandbox = LocalSandbox(self, save_temps)
+            sandbox = LocalSandbox(builder, save_temps)
             tmpdir = sandbox.create(file_map)
             client = Source(None, SourceType.UnTyped)
 
