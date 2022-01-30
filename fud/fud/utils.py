@@ -125,6 +125,9 @@ class Conversions:
 
     @staticmethod
     def stream_to_path(data: IOBase) -> Path:
+        assert (
+            not data.closed
+        ), "Closed stream. This probably means that a previous stage used this up."
         with NamedTemporaryFile("wb", delete=False) as tmpfile:
             tmpfile.write(data.read())
             data.close()
@@ -132,6 +135,9 @@ class Conversions:
 
     @staticmethod
     def stream_to_bytes(data: IOBase) -> bytes:
+        assert (
+            not data.closed
+        ), "Closed stream. This probably means that a previous stage used this up."
         out = data.read()
         data.close()
         return out
