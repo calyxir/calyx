@@ -94,7 +94,6 @@ def run_fud(args, config):
     if args.dry_run:
         print("fud will perform the following steps:")
         for comp_graph in path:
-            print(f"Stage: {comp_graph.name}")
             comp_graph.dry_run()
         return
 

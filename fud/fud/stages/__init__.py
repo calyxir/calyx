@@ -244,8 +244,8 @@ class ComputationGraph:
         return self._input
 
     def dry_run(self):
-        for i, step in enumerate(self.steps):
-            print(f"  {i+1}) {step}")
+        for step in self.steps:
+            print(f"  - {self.stage_name}.{step}")
 
     def get_steps(self, input_data: Source, executor: executor.Executor):
         """
