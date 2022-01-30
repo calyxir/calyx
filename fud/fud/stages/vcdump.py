@@ -14,8 +14,7 @@ class VcdumpStage(Stage):
             description="Transform VCD file to JSON using `vcdump`",
         )
 
-    def _define_steps(self, builder, config):
-        stream = builder.input()
+    def _define_steps(self, stream, builder, config):
         cmd = " ".join([config["stages", self.name, "exec"], "--pretty"])
 
         @builder.step(description=cmd)

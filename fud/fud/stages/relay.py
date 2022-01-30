@@ -20,7 +20,7 @@ class RelayStage(Stage):
             description="Generates the Calyx program from the TVM Relay IR.",
         )
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input, builder, config):
         script = (
             Path(config["global", "futil_directory"])
             / "frontends"
@@ -32,4 +32,4 @@ class RelayStage(Stage):
         def run_relay(input_path: SourceType.Path) -> SourceType.Stream:
             return shell(f"{str(script)} {str(input_path)}")
 
-        return run_relay(builder.input())
+        return run_relay(input)

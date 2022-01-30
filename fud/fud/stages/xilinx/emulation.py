@@ -34,7 +34,7 @@ class HwEmulationStage(Stage):
             stdout = shell(cmd, capture_stdout=False)
             log.debug(stdout)
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input_data, builder, config):
 
         xilinx_location = config["stages", self.name, "xilinx_location"]
         xrt_location = config["stages", self.name, "xrt_location"]
@@ -111,7 +111,6 @@ class HwEmulationStage(Stage):
 
         # Schedule
         check_host_cpp()
-        input_data = builder.input()
 
         file_map = {
             input_data: "kernel.xclbin",

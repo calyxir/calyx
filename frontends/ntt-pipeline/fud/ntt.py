@@ -25,14 +25,14 @@ class NTTStage(Stage):
         script_loc = parent / "../gen-ntt-pipeline.py"
         return {"exec": str(script_loc.resolve())}
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input, builder, config):
         cmd = config["stages", self.name, "exec"]
 
         @builder.step(description=cmd)
         def run_ntt(conf: SourceType.Path) -> SourceType.Stream:
             return shell(f"{cmd} {str(conf)}")
 
-        return run_ntt(builder.input())
+        return run_ntt(input)
 
 
 # Export the defined stages to fud

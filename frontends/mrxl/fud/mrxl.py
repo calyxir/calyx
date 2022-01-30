@@ -30,7 +30,7 @@ class MrXLStage(Stage):
         """
         return {"exec": "mrxl"}
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input, builder, config):
         """
         Define the steps that will execute in this stage. Each step represents
         a delayed computation that will occur when the stage is executed.
@@ -49,7 +49,7 @@ class MrXLStage(Stage):
         # Define a schedule using the steps.
         # A schedule *looks* like an imperative program but actually represents
         # a computation graph that is executed later on.
-        return run_mrxl(builder.input())
+        return run_mrxl(input)
 
 
 # Export the defined stages to fud

@@ -22,7 +22,7 @@ class SystolicStage(Stage):
             ),
         )
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input, builder, config):
         script = str(
             Path(config["global", "futil_directory"])
             / "frontends"
@@ -35,4 +35,4 @@ class SystolicStage(Stage):
         def run_systolic(input_path: SourceType.Path) -> SourceType.Stream:
             return shell(cmd.format(input_path=str(input_path)))
 
-        return run_systolic(builder.input())
+        return run_systolic(input)

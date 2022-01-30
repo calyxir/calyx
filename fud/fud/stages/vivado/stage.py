@@ -41,7 +41,7 @@ class VivadoBaseStage(Stage):
         """
         pass
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, verilog_path, builder, config):
         use_ssh = bool(config.get(["stages", self.name, "remote"]))
         if use_ssh:
             cmd = f"{config['stages', self.name, 'exec']} {self.flags}"
@@ -49,7 +49,6 @@ class VivadoBaseStage(Stage):
             cmd = f"{self.remote_exec} {self.flags}"
 
         # Steps and schedule
-        verilog_path = builder.input()
         local_tmpdir = self.setup_environment(verilog_path, config)
         if use_ssh:
             remote_exec = RemoteExecution(self, config)
@@ -67,7 +66,7 @@ class VivadoBaseStage(Stage):
 
         return local_tmpdir
 
-    def setup_environment(self, builder, config):
+    def setup_environment(self, input, builder, config):
         # Step 1: Make a new temporary directory
         @builder.step()
         def mktmp() -> SourceType.Directory:
@@ -88,7 +87,7 @@ class VivadoBaseStage(Stage):
             shutil.copy(str(verilog_path), f"{tmpdir.name}/{self.target_name}")
 
         tmpdir = mktmp()
-        local_move_files(builder.input(), tmpdir)
+        local_move_files(input, tmpdir)
         return tmpdir
 
     @staticmethod
@@ -159,7 +158,7 @@ class VivadoExtractStage(Stage):
             description="Extracts information from Vivado synthesis files",
         )
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input, builder, config):
         @builder.step()
         def extract(directory: SourceType.Directory) -> SourceType.String:
             """
@@ -167,7 +166,7 @@ class VivadoExtractStage(Stage):
             """
             return futil_extract(Path(directory.name))
 
-        return extract(builder.input())
+        return extract(input)
 
 
 class VivadoHLSExtractStage(Stage):
@@ -182,7 +181,7 @@ class VivadoHLSExtractStage(Stage):
             description="Extracts information from Vivado HLS synthesis files",
         )
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input, builder, config):
         @builder.step()
         def extract(directory: SourceType.Directory) -> SourceType.String:
             """
@@ -190,4 +189,4 @@ class VivadoHLSExtractStage(Stage):
             """
             return hls_extract(Path(directory.name))
 
-        return extract(builder.input())
+        return extract(input)

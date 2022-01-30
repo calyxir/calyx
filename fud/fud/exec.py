@@ -8,7 +8,8 @@ from pathlib import Path
 from halo import Halo
 
 from . import errors, utils, executor
-from .stages import Source, SourceType, ComputationGraph
+from .config import Configuration
+from .stages import Source, SourceType, ComputationGraph, Stage
 
 
 def gather_profiling_data(durations, stage, steps, is_csv):
@@ -62,6 +63,19 @@ def report_profiling(profiled_stages, durations, is_csv):
     return data
 
 
+def path_graph(path: List[Stage], config: Configuration) -> ComputationGraph:
+    """
+    Transform a path into a staged computation
+    """
+    assert len(path) > 0, "Path is empty"
+    builder = path[0].setup(config)
+
+    for stage in path[1:]:
+        stage.setup(config, builder)
+
+    return builder
+
+
 def run_fud(args, config):
     """
     Execute all the stages implied by the passed `args`
@@ -73,39 +87,31 @@ def run_fud(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    path = config.construct_path(
-        args.source, args.dest, args.input_file, args.output_file, args.through
+    path = path_graph(
+        config.construct_path(
+            args.source, args.dest, args.input_file, args.output_file, args.through
+        ),
+        config,
     )
 
     # check if input is needed
     if args.input_file is None:
-        if path[0].input_type not in [SourceType.UnTyped, SourceType.Terminal]:
+        if path.input_type not in [SourceType.UnTyped, SourceType.Terminal]:
             raise errors.NeedInputSpecified(path[0])
 
     # check if we need `-o` specified
     if args.output_file is None:
-        if path[-1].output_type == SourceType.Directory:
+        if path.output_type == SourceType.Directory:
             raise errors.NeedOutputSpecified(path[-1])
-
-    # Stage the computation graphs for all the stages in the path
-    path: List[ComputationGraph] = list(map(lambda stage: stage.setup(config), path))
 
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
         print("fud will perform the following steps:")
-        for comp_graph in path:
-            comp_graph.dry_run()
+        path.dry_run()
         return
 
-    # construct a source object for the input
-    data = None
-    if input_file is None:
-        data = Source(None, SourceType.UnTyped)
-    else:
-        data = Source(Path(str(input_file)), SourceType.Path)
-
     # spinner is disabled if we are in debug mode, doing a dry_run, or are in quiet mode
-    spinner_enabled = not (utils.is_debug() or args.dry_run or args.quiet)
+    spinner_enabled = not (utils.is_debug() or args.quiet)
     # Execute the path transformation specification.
     if spinner_enabled:
         sp = Halo(
@@ -117,32 +123,35 @@ def run_fud(args, config):
     enable_profile = args.profiled_stages is not None
     exec = executor.Executor(sp, log.getLogger().level <= log.INFO, enable_profile)
 
+    # construct a source object for the input
+    input = None
+    if input_file is None:
+        input = Source(None, SourceType.UnTyped)
+    else:
+        input = Source(Path(str(input_file)), SourceType.Path)
+
     # Execute the generated path
     with exec:
-        for comp_graph in path:
-            # Start a new stage
-            # TODO: Proper input for the no_spinner argument
-            with exec.stage(comp_graph.stage_name, False):
-                for step in comp_graph.get_steps(data, exec):
-                    # Execute step within the stage
-                    with exec.step(step.name):
-                        step()
-
-                data = comp_graph.output
+        for step in path.get_steps(input):
+            # Execute step within the stage
+            with exec.context(step.name, False):
+                step()
 
     # Stages to be profiled
     profiled_stages = utils.parse_profiling_input(args)
 
     # Report profiling information if flag was provided.
     if enable_profile:
-        data = report_profiling(profiled_stages, exec.durations, args.csv)
+        output = report_profiling(profiled_stages, exec.durations, args.csv)
+    else:
+        output = path.output
 
     # output the data or profiling information.
     if args.output_file is not None:
-        if data.typ == SourceType.Directory:
-            shutil.move(data.data.name, args.output_file)
+        if output.typ == SourceType.Directory:
+            shutil.move(output.data.name, args.output_file)
         else:
             with Path(args.output_file).open("wb") as f:
-                f.write(data.convert_to(SourceType.Bytes).data)
-    elif data:
-        print(data.convert_to(SourceType.String).data)
+                f.write(output.convert_to(SourceType.Bytes).data)
+    elif output:
+        print(output.convert_to(SourceType.String).data)

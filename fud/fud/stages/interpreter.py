@@ -54,7 +54,7 @@ class InterpreterStage(Stage):
         """
         return self.target_state == _DEBUGGER_TARGET
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input_data, builder, config):
 
         script = config["stages", self.name, "exec"]
         data_path = config["stages", "verilog", "data"]
@@ -136,7 +136,6 @@ class InterpreterStage(Stage):
             tmpdir.remove()
 
         # schedule
-        input_data = builder.input()
         tmpdir = mktmp()
 
         if data_path is not None:

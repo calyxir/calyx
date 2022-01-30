@@ -22,7 +22,7 @@ class HwExecutionStage(Stage):
             description="Run an xclbin on an fpga",
         )
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input, builder, config):
         data_path = config["stages", self.name, "data"]
 
         @builder.step()
@@ -118,5 +118,5 @@ class HwExecutionStage(Stage):
             return sjson.dumps(output, indent=2, use_decimal=True)
 
         import_libs()
-        res = run(builder.input())
+        res = run(input)
         return res

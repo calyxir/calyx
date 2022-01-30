@@ -26,7 +26,7 @@ class VerilatorStage(Stage):
             raise Exception("mem has to be 'vcd' or 'dat'")
         self.vcd = mem == "vcd"
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input_data, builder, config):
 
         testbench_files = [
             str(
@@ -160,7 +160,6 @@ class VerilatorStage(Stage):
             tmpdir.remove()
 
         # Schedule
-        input_data = builder.input()
         tmpdir = mktmp()
         # if we need to, convert dynamically sourced json to dat
         if data_path is None:

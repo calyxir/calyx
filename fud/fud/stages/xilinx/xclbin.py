@@ -38,7 +38,7 @@ class XilinxStage(Stage):
             stdout = shell(cmd, capture_stdout=False)
             log.debug(stdout)
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input_data, builder, config):
         # As a debugging aid, the pass can optionally preserve the
         # (local or remote) sandbox where the Xilinx commands ran.
         save_temps = bool(config["stages", self.name, "save_temps"])
@@ -131,7 +131,6 @@ class XilinxStage(Stage):
             self._shell(client, cmd, remote_exec)
 
         # Schedule
-        input_data = builder.input()
         if self.remote_exec.use_ssh:
             self.remote_exec.import_libs()
 

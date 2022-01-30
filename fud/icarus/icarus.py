@@ -37,10 +37,10 @@ class IcarusBaseStage(Stage):
             "round_float_to_fixed": True,
         }
 
-    def _define_steps(self, builder, config):
+    def _define_steps(self, input_data, builder, config):
         testbench = config["stages", self.name, "testbench"]
         data_path = config.get(("stages", "verilog", "data"))
-        cmd = config["stages", self, "exec"]
+        cmd = config["stages", self.name, "exec"]
 
         # Step 1: Make a new temporary directory
         @builder.step()
@@ -147,7 +147,6 @@ class IcarusBaseStage(Stage):
             tmpdir.remove()
 
         # Schedule
-        input_data = builder.input()
         tmpdir = mktmp()
         # if we need to, convert dynamically sourced json to dat
         if data_path is None:
