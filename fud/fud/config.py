@@ -1,4 +1,4 @@
-import appdirs
+import appdirs  # type: ignore
 import toml
 import sys
 import logging as log

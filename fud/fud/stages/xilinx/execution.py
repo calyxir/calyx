@@ -29,7 +29,7 @@ class HwExecutionStage(Stage):
         def import_libs():
             """Import optional libraries"""
             try:
-                import pyopencl as cl
+                import pyopencl as cl  # type: ignore
 
                 self.cl = cl
             except ImportError:

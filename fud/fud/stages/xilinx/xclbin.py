@@ -82,8 +82,11 @@ class XilinxStage(Stage):
             """
             Compile XO into xclbin.
             """
-            self._shell(client, xclbin_cmd.format(
-                tmpdir=tmpdir, mode=mode, device=device), remote_exec)
+            self._shell(
+                client,
+                xclbin_cmd.format(tmpdir=tmpdir, mode=mode, device=device),
+                remote_exec,
+            )
 
         # Schedule
         # External stages called by this stage

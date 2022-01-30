@@ -1,11 +1,11 @@
-from typing import List
+from typing import List, Optional
 
 import logging as log
 import shutil
 import sys
 from pathlib import Path
 
-from halo import Halo
+from halo import Halo  # type: ignore
 
 from . import errors, utils, executor
 from .config import Configuration
@@ -63,12 +63,17 @@ def report_profiling(profiled_stages, durations, is_csv):
     return data
 
 
-def path_graph(path: List[Stage], config: Configuration) -> ComputationGraph:
+def chain_stages(
+    path: List[Stage], config: Configuration, builder: Optional[ComputationGraph] = None
+) -> ComputationGraph:
     """
     Transform a path into a staged computation
     """
     assert len(path) > 0, "Path is empty"
-    builder = path[0].setup(config)
+    if builder is None:
+        builder = path[0].setup(config)
+    else:
+        path[0].setup(config, builder)
 
     for stage in path[1:]:
         stage.setup(config, builder)
@@ -87,7 +92,7 @@ def run_fud(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    path = path_graph(
+    path = chain_stages(
         config.construct_path(
             args.source, args.dest, args.input_file, args.output_file, args.through
         ),
@@ -128,7 +133,7 @@ def run_fud(args, config):
     if input_file is None:
         input = Source(None, SourceType.UnTyped)
     else:
-        input = Source(Path(str(input_file)), SourceType.Path)
+        input = Source.path(input_file)
 
     # Execute the generated path
     with exec:

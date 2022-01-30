@@ -37,7 +37,7 @@ class RemoteExecution:
                 # dynamically import libraries if they are installed
                 try:
                     from paramiko import SSHClient
-                    from scp import SCPClient
+                    from scp import SCPClient  # type: ignore
 
                     self.SSHClient = SSHClient
                     self.SCPClient = SCPClient

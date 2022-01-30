@@ -1,5 +1,7 @@
+from typing import Optional, List
+
 from collections import namedtuple
-import networkx as nx
+import networkx as nx  # type: ignore
 
 from fud import stages
 from fud.errors import UndefinedStage, MultiplePaths
@@ -37,7 +39,7 @@ class Registry:
 
         self.graph.add_edge(stage.src_state, stage.target_state, stage=stage)
 
-    def make_path(self, start, dest, through=[]) -> list[stages.Stage]:
+    def make_path(self, start, dest, through=[]) -> Optional[List[stages.Stage]]:
         """
         Compute a path from `start` to `dest` that contains all stages
         mentioned in `through`.
