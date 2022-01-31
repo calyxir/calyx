@@ -299,10 +299,9 @@ class Configuration:
         suffix = Path(filename).suffix
         stages = []
         for (name, stage) in self["stages"].items():
-            if "file_extensions" in stage:
-                for ext in stage["file_extensions"]:
-                    if suffix == ext:
-                        stages.append(name)
+            if "file_extensions" not in stage:
+                continue
+            stages.extend(name if ext == suffix for ext in stage["file_extensions"])
 
         # Implied stages only discovered when there is exactly one
         if len(stages) == 0:
