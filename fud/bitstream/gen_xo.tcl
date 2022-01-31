@@ -1,10 +1,11 @@
-if { $::argc != 1 } {
+if { $::argc != 2 } {
     puts "ERROR: Program \"$::argv0\" requires 1 argument!\n"
-    puts "Usage: $::argv0 <xoname>\n"
+    puts "Usage: $::argv0 <xoname> $::argv1 <num_axi>\n"
     exit
 }
 
 set xoname [lindex $::argv 0]
+set num_axi [lindex $::argv 1]
 set path_to_packaged "./packaged_kernel"
 
 # Make a temporary Vivado project.
@@ -22,7 +23,9 @@ set_property sdx_kernel_type rtl [ipx::current_core]
 
 # Declare bus interfaces.
 ipx::associate_bus_interfaces -busif s_axi_control -clock ap_clk [ipx::current_core]
-ipx::associate_bus_interfaces -busif m0_axi -clock ap_clk [ipx::current_core]
+for {set i 0} {$i < $num_axi} {incr i} {
+    ipx::associate_bus_interfaces -busif m{$i}_axi -clock ap_clk [ipx::current_core]
+}
 
 # Close & save the temporary project.
 ipx::update_checksums [ipx::current_core]
