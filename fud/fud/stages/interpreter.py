@@ -72,11 +72,9 @@ class InterpreterStage(Stage):
 
         if self._is_debugger():
             cmd += [
-                "debug" if self._is_debugger() else "",
-                self.debugger_flags if self._is_debugger() else "",
+                "debug",
+                self.debugger_flags,
                 unwrap_or(config["stages", self.name, "debugger", "flags"], "")
-                if self._is_debugger()
-                else "",
             ]
 
         cmd = " ".join(cmd)
