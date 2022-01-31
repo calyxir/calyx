@@ -301,7 +301,8 @@ class Configuration:
         for (name, stage) in self["stages"].items():
             if "file_extensions" not in stage:
                 continue
-            stages.extend(name if ext == suffix for ext in stage["file_extensions"])
+            if any([ext == suffix for ext in stage["file_extensions"]]):
+                stages.append(name)
 
         # Implied stages only discovered when there is exactly one
         if len(stages) == 0:
