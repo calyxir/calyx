@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from collections import namedtuple
 import networkx as nx  # type: ignore
@@ -20,7 +20,7 @@ class Registry:
         self.config = config
         self.graph = nx.DiGraph()
 
-    def get_states(self, stage):
+    def get_states(self, stage: str) -> List[Tuple[str, str]]:
         """
         Returns the pairs of input and output states that the given stage
         operates upon.

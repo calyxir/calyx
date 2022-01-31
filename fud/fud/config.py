@@ -1,3 +1,5 @@
+from typing import List, Set
+
 import appdirs  # type: ignore
 import toml
 import sys
@@ -5,7 +7,6 @@ import logging as log
 from pathlib import Path
 from pprint import PrettyPrinter
 
-from typing import List
 from . import stages
 
 from .utils import eprint
@@ -313,13 +314,13 @@ class Configuration:
         stage = stages[0]
 
         states = self.registry.get_states(stage)
-        sources = set([source for (source, _) in states])
+        sources: Set[str] = set([source for (source, _) in states])
+
         # Only able to discover state if the stage has one input
         if len(sources) > 1:
             msg = f"Implied stage `{stage}' has multiple inputs: {states}. "
             raise errors.UnknownExtension(msg, filename)
-        source = list(sources)[0]
-        return source
+        return sources.pop()
 
     def construct_path(
         self, source=None, target=None, input_file=None, output_file=None, through=[]
