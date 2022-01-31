@@ -1,3 +1,4 @@
+from typing import List, Dict
 import sys
 import logging as log
 import shutil
@@ -226,13 +227,14 @@ def transparent_shell(cmd):
     proc.wait()
 
 
-def parse_profiling_input(args):
+def parse_profiling_input(args) -> Dict[str, List[str]]:
     """
     Returns a mapping from stage to steps from the `profiled_stages` argument.
     For example, if the user passes in `-pr a.a1 a.a2 b.b1 c`, this will return:
     {"a" : ["a1", "a2"], "b" : ["b1"], "c" : [] }
     """
-    stages = {}
+    stages: Dict[str, List[str]] = {}
+
     if args.profiled_stages is None:
         return stages
 

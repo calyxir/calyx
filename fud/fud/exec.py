@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import logging as log
 import shutil
@@ -41,7 +41,7 @@ def gather_profiling_data(durations, stage, steps, is_csv):
     )
 
 
-def report_profiling(profiled_stages, durations, is_csv):
+def report_profiling(profiled_stages: Dict[str, List[str]], durations, is_csv):
     """
     Report profiling information collected during execution.
     """
