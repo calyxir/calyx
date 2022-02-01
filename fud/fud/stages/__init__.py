@@ -56,22 +56,6 @@ class Step:
         return f"{self.name}: {self.description}"
 
 
-def convert_source_to(input: Source, output: Source, output_type: SourceType):
-    """
-    Returns a Step that converts input to the `output_type` SourceType"""
-
-    def transform_source(input: Source) -> Any:
-        return input.convert_to(output_type).data
-
-    return Step(
-        "transform",
-        transform_source,
-        [input],
-        output,
-        f"transform input to {output_type}",
-    )
-
-
 class SourceType(Enum):
     """
     Enum capturing the kind of source this is.
@@ -298,9 +282,7 @@ class ComputationGraph:
         # If the stage's input type doesn't match the current output type,
         # convert it.
         if self.output.typ != stage.input_type:
-            input = Source(None, stage.input_type)
-            convert_step = convert_source_to(self.output, input, stage.input_type)
-            self.steps.append(convert_step)
+            input = self.convert_source_to(self.output, stage.input_type)
         else:
             input = self.output
 
@@ -349,6 +331,25 @@ class ComputationGraph:
 
         for step in self.steps:
             yield step
+
+    def convert_source_to(self, input: Source, output_type: SourceType) -> Source:
+        """
+        Returns a Step that converts input to the `output_type` SourceType
+        """
+
+        def transform_source(input: Source) -> Any:
+            return input.convert_to(output_type).data
+
+        output = Source(None, output_type)
+        convert_step = Step(
+            "transform",
+            transform_source,
+            [input],
+            output,
+            f"transform input to {output_type}",
+        )
+        self.steps.append(convert_step)
+        return output
 
     def step(builder: ComputationGraph, description=None):
         """
