@@ -6,12 +6,14 @@ use super::{
     },
     utils::control_is_empty,
 };
-use crate::debugger::PrintCode;
+use crate::debugger::{name_tree::ActiveTreeNode, PrintCode};
 use crate::environment::{InterpreterState, MutStateView, StateView};
 use crate::errors::InterpreterResult;
 use crate::interpreter_ir as iir;
 use crate::primitives::{Named, Primitive};
-use crate::structures::names::{ComponentQIN, GroupQIN};
+use crate::structures::names::{
+    ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
+};
 use crate::utils::AsRaw;
 use crate::values::Value;
 use calyx::ir::{self, Port, RRC};
@@ -60,7 +62,7 @@ pub struct ComponentInterpreter {
     done_port: RRC<Port>,
     go_port: RRC<Port>,
     input_hash_set: Rc<HashSet<*const ir::Port>>,
-    qual_name: ComponentQIN,
+    qual_name: ComponentQualifiedInstanceName,
     /// used to satisfy the Named requirement for primitives, primarially for error messages
     full_name_clone: ir::Id,
 }
@@ -70,14 +72,14 @@ impl ComponentInterpreter {
         env: InterpreterState,
         comp: &Rc<iir::Component>,
     ) -> Self {
-        let qin = ComponentQIN::new_single(comp, &comp.name);
+        let qin = ComponentQualifiedInstanceName::new_single(comp, &comp.name);
         Self::from_component(comp, env, qin)
     }
 
     pub fn from_component(
         comp: &Rc<iir::Component>,
         env: InterpreterState,
-        qin: ComponentQIN,
+        qin: ComponentQualifiedInstanceName,
     ) -> Self {
         let (mut inputs, mut outputs) = (Vec::new(), Vec::new());
 
@@ -200,7 +202,7 @@ impl ComponentInterpreter {
         env: InterpreterState,
         comp: &Rc<iir::Component>,
     ) -> InterpreterResult<InterpreterState> {
-        let qin = ComponentQIN::new_single(comp, &comp.name);
+        let qin = ComponentQualifiedInstanceName::new_single(comp, &comp.name);
         let mut main_comp = Self::from_component(comp, env, qin);
         main_comp.set_go_high();
         main_comp.run()?;
@@ -326,6 +328,36 @@ impl Interpreter for ComponentInterpreter {
                     Ok(())
                 }
             }
+        }
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        if self.go_is_high() {
+            let children = match &self.interp {
+                // TODO (Griffin): Include structural info
+                StructuralOrControl::Structural(_) => {
+                    vec![]
+                }
+                StructuralOrControl::Control(c) => c.get_active_tree(),
+                StructuralOrControl::Env(_) => vec![],
+                StructuralOrControl::Nothing => todo!(),
+            };
+
+            let env = self.get_env();
+
+            let sub_comp_children = env.get_active_tree();
+
+            let mut root_node = ActiveTreeNode::new(
+                GroupQualifiedInstanceName::new_empty(&self.qual_name),
+            );
+
+            for x in children.into_iter().chain(sub_comp_children.into_iter()) {
+                root_node.insert(x)
+            }
+
+            vec![root_node]
+        } else {
+            vec![]
         }
     }
 }

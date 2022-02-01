@@ -2,7 +2,7 @@
 name = "interp"
 version = "0.1.0"
 authors = ["The Calyx authors"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 doctest = false # Don't run doc tests
