@@ -18,21 +18,19 @@ class InterpreterStage(Stage):
     name = "interpreter"
 
     @classmethod
-    def debugger(cls, config, interp_flags, debug_flags, desc):
+    def debugger(cls, interp_flags, debug_flags, desc):
         self = cls(
-            config,
             interp_flags,
             debug_flags,
             desc,
             output_name=_DEBUGGER_TARGET,
-            output_type=None,
+            output_type=SourceType.Terminal,
         )
         self._no_spinner = True
         return self
 
     def __init__(
         self,
-        config,
         flags,
         debugger_flags,
         desc,
@@ -44,60 +42,65 @@ class InterpreterStage(Stage):
             target_state=output_name,
             input_type=SourceType.Stream,
             output_type=output_type,
-            config=config,
             description=desc,
         )
 
         self.flags = flags
         self.debugger_flags = debugger_flags
-        self.data_path = self.config["stages", "verilog", "data"]
 
-        self.setup()
+    def _is_debugger(self):
+        """
+        Am I a debugger?
+        """
+        return self.target_state == _DEBUGGER_TARGET
 
-    def _define_steps(self, input_data):
+    def _define_steps(self, input_data, builder, config):
 
-        cmd = " ".join(
-            [
-                self.cmd,
-                self.flags,
-                unwrap_or(self.config["stages", self.name, "flags"], ""),
-                "-l",
-                self.config["global", "futil_directory"],
-                "--data" if self.data_path else "",
-                "{data_file}" if self.data_path else "",
-                "{target}",
-                "debug" if self.target_stage == _DEBUGGER_TARGET else "",
-                self.debugger_flags if self.target_stage == _DEBUGGER_TARGET else "",
-                unwrap_or(self.config["stages", self.name, "debugger", "flags"], "")
-                if self.target_stage == _DEBUGGER_TARGET
-                else "",
+        script = config["stages", self.name, "exec"]
+        data_path = config["stages", "verilog", "data"]
+
+        cmd = [
+            script,
+            self.flags,
+            unwrap_or(config["stages", self.name, "flags"], ""),
+            "-l",
+            config["global", "futil_directory"],
+            "--data" if data_path else "",
+            "{data_file}" if data_path else "",
+            "{target}",
+        ]
+
+        if self._is_debugger():
+            cmd += [
+                "debug",
+                self.debugger_flags,
+                unwrap_or(config["stages", self.name, "debugger", "flags"], ""),
             ]
-        )
 
-        @self.step()
+        cmd = " ".join(cmd)
+
+        @builder.step()
         def mktmp() -> SourceType.Directory:
             """
             Make temporary directory to store Verilator build files.
             """
             return TmpDir()
 
-        @self.step()
+        @builder.step()
         def convert_json_to_interp_json(
             tmpdir: SourceType.Directory, json_path: SourceType.Stream
         ):
             """
             Creates a data file to initialze the interpreter memories
             """
-            round_float_to_fixed = self.config[
-                "stages", self.name, "round_float_to_fixed"
-            ]
+            round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
             convert_to_json(
                 tmpdir.name,
                 sjson.load(json_path, use_decimal=True),
                 round_float_to_fixed,
             )
 
-        @self.step(description=cmd)
+        @builder.step(description=cmd)
         def interpret(
             target: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:
@@ -109,14 +112,21 @@ class InterpreterStage(Stage):
                 data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
             )
 
-            if self.target_stage == _DEBUGGER_TARGET and "-p" not in unwrap_or(
-                self.config["stages", self.name, "debugger", "flags"], ""
-            ):
-                return transparent_shell(command)
-            else:
-                return shell(command)
+            return shell(command)
 
-        @self.step()
+        @builder.step(description=cmd)
+        def debug(
+            target: SourceType.Path, tmpdir: SourceType.Directory
+        ) -> SourceType.Terminal:
+            """
+            Invoke the debugger
+            """
+            command = cmd.format(
+                data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
+            )
+            transparent_shell(command)
+
+        @builder.step()
         def cleanup(tmpdir: SourceType.Directory):
             """
             Remove the temporary directory
@@ -124,20 +134,18 @@ class InterpreterStage(Stage):
             tmpdir.remove()
 
         # schedule
-
         tmpdir = mktmp()
 
-        if self.data_path is not None:
+        if data_path is not None:
             convert_json_to_interp_json(
-                tmpdir, Source(Path(self.data_path), SourceType.Path)
+                tmpdir, Source(Path(data_path), SourceType.Path)
             )
 
-        result = interpret(input_data, tmpdir)
-        cleanup(tmpdir)
-
-        if self.target_stage != _DEBUGGER_TARGET or "-p" in unwrap_or(
-            self.config["stages", self.name, "debugger", "flags"], ""
-        ):
+        if self._is_debugger():
+            debug(input_data, tmpdir)
+        else:
+            result = interpret(input_data, tmpdir)
+            cleanup(tmpdir)
             return result
 
 

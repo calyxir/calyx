@@ -1,9 +1,13 @@
-import appdirs
+from typing import List, Set
+
+import appdirs  # type: ignore
 import toml
 import sys
 import logging as log
 from pathlib import Path
 from pprint import PrettyPrinter
+
+from . import stages
 
 from .utils import eprint
 from . import errors, external, registry
@@ -196,7 +200,8 @@ class Configuration:
         self.path.mkdir(exist_ok=True)
 
         self.config_file = self.path / "config.toml"
-        self.config_file.touch()
+        if not self.config_file.exists():
+            self.config_file.touch()
 
         self.registry: registry.Registry = None
 
@@ -284,6 +289,62 @@ class Configuration:
                 del self[["externals", args.name]]
             else:
                 log.error(f"No external script named `{args.name}'.")
+
+    def discover_implied_states(self, filename):
+        """
+        Use the mapping from filename extensions to stages to figure out which
+        states were implied.
+        Returns the input state on which the implied stage operates
+        """
+        suffix = Path(filename).suffix
+        stages = []
+        for (name, stage) in self["stages"].items():
+            if "file_extensions" not in stage:
+                continue
+            if any([ext == suffix for ext in stage["file_extensions"]]):
+                stages.append(name)
+
+        # Implied stages only discovered when there is exactly one
+        if len(stages) == 0:
+            msg = f"`{suffix}' does not correspond to any known stage. "
+            raise errors.UnknownExtension(msg, filename)
+        elif len(stages) > 1:
+            msg = f"`{suffix}' corresponds to multiple stages: {stages}. "
+            raise errors.UnknownExtension(msg, filename)
+        stage = stages[0]
+
+        states = self.registry.get_states(stage)
+        sources: Set[str] = set([source for (source, _) in states])
+
+        # Only able to discover state if the stage has one input
+        if len(sources) > 1:
+            msg = f"Implied stage `{stage}' has multiple inputs: {states}. "
+            raise errors.UnknownExtension(msg, filename)
+        return sources.pop()
+
+    def construct_path(
+        self, source=None, target=None, input_file=None, output_file=None, through=[]
+    ) -> List[stages.Stage]:
+        """
+        Construct the path of stages implied by the passed arguments.
+        """
+        # find source
+        if source is None:
+            source = self.discover_implied_states(input_file)
+
+        # find target
+        if target is None:
+            target = self.discover_implied_states(output_file)
+
+        path = self.registry.make_path(source, target, through)
+        if path is None:
+            raise errors.NoPathFound(source, target, through)
+
+        # If the path doesn't execute anything, it is probably an error.
+        if len(path) == 0:
+            raise errors.TrivialPath(source)
+
+        return path
 
     def __getitem__(self, keys):
         try:

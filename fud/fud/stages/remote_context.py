@@ -5,7 +5,8 @@ import shutil
 
 from fud.utils import TmpDir, FreshDir
 from .. import errors
-from ..stages import Source, SourceType
+from ..stages import Source, SourceType, ComputationGraph, Stage
+from ..config import Configuration
 
 
 class RemoteExecution:
@@ -18,24 +19,25 @@ class RemoteExecution:
     the relevant functionality remotely.
     """
 
-    def __init__(self, stage):
+    def __init__(self, builder: ComputationGraph, stage: Stage, config: Configuration):
         self.stage = stage
-        if self.stage.config["stages", self.stage.name, "remote"] is not None:
+        self.builder = builder
+        if config["stages", self.stage.name, "remote"] is not None:
             self.use_ssh = True
-            self.ssh_host = self.stage.config["stages", self.stage.name, "ssh_host"]
-            self.ssh_user = self.stage.config["stages", self.stage.name, "ssh_username"]
+            self.ssh_host = config["stages", self.stage.name, "ssh_host"]
+            self.ssh_user = config["stages", self.stage.name, "ssh_username"]
         else:
             self.use_ssh = False
 
     def import_libs(self):
-        @self.stage.step()
+        @self.builder.step()
         def import_libs():
             """Import libraries"""
             if self.use_ssh:
                 # dynamically import libraries if they are installed
                 try:
                     from paramiko import SSHClient
-                    from scp import SCPClient
+                    from scp import SCPClient  # type: ignore
 
                     self.SSHClient = SSHClient
                     self.SCPClient = SCPClient
@@ -57,7 +59,7 @@ class RemoteExecution:
                 f" Host: `{self.ssh_host}`, user: `{self.ssh_user}`"
             )
 
-        @self.stage.step(
+        @self.builder.step(
             description=f"Start ssh connection to `{self.ssh_user}@{self.ssh_host}`"
         )
         def establish_connection() -> SourceType.UnTyped:
@@ -69,7 +71,7 @@ class RemoteExecution:
             client.connect(self.ssh_host, username=self.ssh_user)
             return client
 
-        @self.stage.step()
+        @self.builder.step()
         def mktmp(client: SourceType.UnTyped) -> SourceType.String:
             """
             Execute `mktemp -d` over ssh connection.
@@ -93,7 +95,7 @@ class RemoteExecution:
         Return a client object and the temporary directory for the files.
         """
 
-        @self.stage.step()
+        @self.builder.step()
         def send_file(
             client: SourceType.UnTyped,
             tmpdir: SourceType.String,
@@ -117,7 +119,7 @@ class RemoteExecution:
         return client, tmpdir
 
     def execute(self, client, tmpdir, cmd):
-        @self.stage.step()
+        @self.builder.step(f"SSH execute: {cmd}")
         def run_remote(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """Run a command remotely via SSH."""
             _, stdout, stderr = client.exec_command(
@@ -137,7 +139,7 @@ class RemoteExecution:
         `keep_tmpdir` flag is set.
         """
 
-        @self.stage.step()
+        @self.builder.step()
         def finalize_ssh(client: SourceType.UnTyped, tmpdir: SourceType.String):
             """
             Remove created temporary files and close ssh connection.
@@ -154,7 +156,7 @@ class RemoteExecution:
         Copy the entire contents of `remote_tmpdir` to `local_tmpdir`.
         """
 
-        @self.stage.step()
+        @self.builder.step()
         def copy_back(
             client: SourceType.UnTyped,
             remote_tmpdir: SourceType.String,
@@ -175,7 +177,7 @@ class RemoteExecution:
         Produces the resulting downloaded file.
         """
 
-        @self.stage.step()
+        @self.builder.step()
         def fetch_file(
             client: SourceType.UnTyped,
             remote_tmpdir: SourceType.String,
@@ -202,8 +204,8 @@ class LocalSandbox:
     files from it. However, all this happens locally instead of via SSH.
     """
 
-    def __init__(self, stage, save_temps=False):
-        self.stage = stage
+    def __init__(self, builder, save_temps=False):
+        self.builder = builder
         self.save_temps = save_temps
 
     def create(self, input_files):
@@ -215,14 +217,26 @@ class LocalSandbox:
         Return a path to the newly-created temporary directory.
         """
 
-        @self.stage.step()
-        def copy_file(
-            tmpdir: SourceType.String,
-            src_path: SourceType.Path,
-            dest_path: SourceType.String,
-        ):
-            """Copy an input file."""
-            shutil.copyfile(src_path, Path(tmpdir) / dest_path)
+        def copy_file(tmpdir, src, dst):
+
+            src_str = "{src}" if isinstance(src, Source) else str(src)
+            dst_str = "{dst}" if isinstance(dst, Source) else str(dst)
+            tmp_str = "{tmpdir}" if isinstance(tmpdir, Source) else str(tmpdir)
+
+            @self.builder.step(description=f"copy {src_str} to {tmp_str}/{dst_str}")
+            def copy(
+                tmpdir: SourceType.String,
+                src_path: SourceType.Path,
+                dest_path: SourceType.String,
+            ):
+                shutil.copyfile(src_path, Path(tmpdir) / dest_path)
+
+            if not isinstance(src, Source):
+                src = Source(src, SourceType.Path)
+            if not isinstance(dst, Source):
+                dst = Source(dst, SourceType.String)
+
+            return copy(tmpdir, src, dst)
 
         # Schedule
         tmpdir = Source(
@@ -231,10 +245,6 @@ class LocalSandbox:
         )
 
         for src_path, dest_path in input_files.items():
-            if not isinstance(src_path, Source):
-                src_path = Source(src_path, SourceType.Path)
-            if not isinstance(dest_path, Source):
-                dest_path = Source(dest_path, SourceType.String)
             copy_file(tmpdir, src_path, dest_path)
 
         self.tmpdir = tmpdir
@@ -243,7 +253,7 @@ class LocalSandbox:
     def get_file(self, name):
         """Retrieve a file from the sandbox directory."""
 
-        @self.stage.step()
+        @self.builder.step()
         def read_file(
             tmpdir: SourceType.Directory,
             name: SourceType.String,

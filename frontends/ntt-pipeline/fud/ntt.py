@@ -10,16 +10,14 @@ class NTTStage(Stage):
 
     name = "ntt"
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
             src_state="ntt",
             target_state="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description="Compiles NTT configuration to Calyx.",
         )
-        self.setup()
 
     @staticmethod
     def defaults():
@@ -27,12 +25,14 @@ class NTTStage(Stage):
         script_loc = parent / "../gen-ntt-pipeline.py"
         return {"exec": str(script_loc.resolve())}
 
-    def _define_steps(self, input_path):
-        @self.step(description=self.cmd)
-        def run_ntt(conf: SourceType.Path) -> SourceType.Stream:
-            return shell(f"{self.cmd} {str(conf)}")
+    def _define_steps(self, input, builder, config):
+        cmd = config["stages", self.name, "exec"]
 
-        return run_ntt(input_path)
+        @builder.step(description=cmd)
+        def run_ntt(conf: SourceType.Path) -> SourceType.Stream:
+            return shell(f"{cmd} {str(conf)}")
+
+        return run_ntt(input)
 
 
 # Export the defined stages to fud
