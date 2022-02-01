@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Callable
+from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Callable, Iterable
 
 """The definitions of fud stages."""
 if TYPE_CHECKING:
@@ -22,7 +22,9 @@ class Step:
     They are generally created using the @step decorator.
     """
 
-    def __init__(self, name: str, func, args, output: Source, description: str):
+    def __init__(
+        self, name: str, func, args: Iterable[Any], output: Source, description: str
+    ):
         self.name = name
         self.func = func
         self.args = args
@@ -52,6 +54,22 @@ class Step:
 
     def __str__(self):
         return f"{self.name}: {self.description}"
+
+
+def convert_source_to(input: Source, output: Source, output_type: SourceType):
+    """
+    Returns a Step that converts input to the `output_type` SourceType"""
+
+    def transform_source(input: Source) -> Any:
+        return input.convert_to(output_type).data
+
+    return Step(
+        "transform",
+        transform_source,
+        [input],
+        output,
+        f"transform input to {output_type}",
+    )
 
 
 class SourceType(Enum):
@@ -271,7 +289,17 @@ class ComputationGraph:
         will take the final output as their input.
         """
         assert self.output is not None
-        self.output = stage._define_steps(self.output, self, config)
+
+        # If the stage's input type doesn't match the current output type,
+        # convert it.
+        if self.output.typ != stage.input_type:
+            input = Source(None, stage.input_type)
+            convert_step = convert_source_to(self.output, input, stage.input_type)
+            self.steps.append(convert_step)
+        else:
+            input = self.output
+
+        self.output = stage._define_steps(input, self, config)
         self.output_type = stage.output_type
         return self
 
