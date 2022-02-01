@@ -227,32 +227,7 @@ def transparent_shell(cmd):
     proc.wait()
 
 
-def parse_profiling_input(args) -> Dict[str, List[str]]:
-    """
-    Returns a mapping from stage to steps from the `profiled_stages` argument.
-    For example, if the user passes in `-pr a.a1 a.a2 b.b1 c`, this will return:
-    {"a" : ["a1", "a2"], "b" : ["b1"], "c" : [] }
-    """
-    stages: Dict[str, List[str]] = {}
-
-    if args.profiled_stages is None:
-        return stages
-
-    for stage_step in args.profiled_stages:
-        if "." in stage_step:
-            stage, step = stage_step.split(".")
-        else:
-            stage, step = stage_step, None
-        # If stage has not been added it, add it.
-        if stage not in stages:
-            stages[stage] = []
-        if step is not None:
-            stages[stage].append(step)
-
-    return stages
-
-
-def profiling_dump(stage, phases, durations) -> str:
+def profiling_dump(durations: Dict[str, float]) -> str:
     """
     Returns time elapsed during each stage or step of the fud execution.
     """
@@ -261,12 +236,12 @@ def profiling_dump(stage, phases, durations) -> str:
         # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
         return "".join((s, max(32 - len(s), 1) * " "))
 
-    return f"{name_and_space(stage)}elapsed time (s)\n" + "\n".join(
-        f"{name_and_space(p)}{round(t, 3)}" for p, t in zip(phases, durations)
+    return f"{name_and_space('step')}elapsed time (s)\n" + "\n".join(
+        f"{name_and_space(p)}{round(t, 3)}" for p, t in durations.items()
     )
 
 
-def profiling_csv(stage, phases, durations) -> str:
+def profiling_csv(durations: Dict[str, float]) -> str:
     """
     Dumps the profiling information into a CSV format.
     For example, with
@@ -280,19 +255,12 @@ def profiling_csv(stage, phases, durations) -> str:
     x,c,3.444
     ```
     """
-    return "\n".join(
-        [f"{stage},{p},{round(t, 3)}" for (p, t) in zip(phases, durations)]
-    )
+    return "\n".join([f"{p},{round(t, 3)}" for (p, t) in durations.items()])
 
 
-def profile_stages(stage, phases, durations, is_csv) -> str:
+def profile_stages(durations: Dict[str, float], is_csv) -> str:
     """
     Returns either a human-readable or CSV format profiling information,
     depending on `is_csv`.
     """
-    kwargs = {
-        "stage": stage,
-        "phases": phases,
-        "durations": durations,
-    }
-    return profiling_csv(**kwargs) if is_csv else profiling_dump(**kwargs)
+    return profiling_csv(durations) if is_csv else profiling_dump(durations)

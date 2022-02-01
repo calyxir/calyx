@@ -111,7 +111,8 @@ class Executor:
     def _end_ctx(self, is_err, profiling_data=None):
         msg = self.ctx
         if profiling_data:
-            msg += f" ({profiling_data} ms)"
+            self.durations[self.ctx] = profiling_data
+            msg += f" ({profiling_data:.3f} ms)"
         if self._persist:
             if is_err:
                 self._spinner.fail(msg)

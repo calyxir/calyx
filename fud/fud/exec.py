@@ -12,54 +12,12 @@ from .config import Configuration
 from .stages import Source, SourceType, ComputationGraph, Stage
 
 
-def gather_profiling_data(durations, stage, steps, is_csv):
-    """
-    Gather profiling information for a given stage.
-    """
-    data = durations.get(stage)
-    # Verify this is a valid stage.
-    if data is None:
-        raise errors.UndefinedStage(stage, "Extracting profiling information")
-
-    # If no specific steps provided for this stage, append all of them.
-    if steps == []:
-        profiled_steps = list(data.keys())
-    else:
-        # Verify the steps are valid.
-        invalid_steps = [s for s in steps if s not in data.keys()]
-        if invalid_steps:
-            raise errors.UndefinedSteps(stage, invalid_steps, data.keys())
-        profiled_steps = steps
-
-    # Gather all the step names that are being profiled.
-    profiled_durations = [data[s] for s in profiled_steps]
-    return utils.profile_stages(
-        stage,
-        profiled_steps,
-        profiled_durations,
-        is_csv,
-    )
-
-
-def report_profiling(profiled_stages: Dict[str, List[str]], durations, is_csv):
+def report_profiling(durations: Dict[str, float], is_csv: bool):
     """
     Report profiling information collected during execution.
     """
-    data = Source("", SourceType.String)
-
-    if not profiled_stages:
-        totals = []
-        for stage, step_times in durations.items():
-            totals.append(sum(step_times.values()))
-        # No stages provided; collect overall stage durations.
-        data.data = utils.profile_stages("stage", durations.keys(), totals, is_csv)
-    else:
-        # Otherwise, gather profiling data for each stage and steps provided.
-        data.data = "\n".join(
-            gather_profiling_data(durations, stage, steps, is_csv)
-            for stage, steps in profiled_stages.items()
-        )
-
+    data = Source(None, SourceType.String)
+    data.data = utils.profile_stages(durations, is_csv)
     return data
 
 
@@ -141,12 +99,16 @@ def run_fud(args, config):
             with exec.context(step.name):
                 step()
 
-    # Stages to be profiled
-    profiled_stages = utils.parse_profiling_input(args)
-
     # Report profiling information if flag was provided.
     if enable_profile:
-        output = report_profiling(profiled_stages, exec.durations, args.csv)
+        output = Source(None, SourceType.String)
+        if args.profiled_stages:
+            durations = dict(
+                filter(lambda kv: kv[0] in args.profiled_stages, exec.durations.items())
+            )
+        else:
+            durations = exec.durations
+        output.data = utils.profile_stages(durations, args.csv)
     else:
         output = path.output
 
