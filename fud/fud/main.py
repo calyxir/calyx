@@ -1,6 +1,7 @@
 import argparse
 import logging as log
 from sys import exit
+import os
 
 import toml
 
@@ -284,7 +285,10 @@ def main():
         elif args.command == "info":
             print(cfg.registry)
         elif args.command == "config":
-            display_config(args, cfg)
+            if args.edit:
+                os.system(f"{os.getenv('EDITOR')} '{cfg.config_file}'")
+            else:
+                display_config(args, cfg)
         elif args.command == "check":
             check.check(cfg)
         elif args.command == "register":
@@ -351,6 +355,12 @@ def config_run(parser):
 
 
 def config_config(parser):
+    parser.add_argument(
+        "-e",
+        "--edit",
+        help="Edit the configuration file using $EDITOR",
+        action="store_true",
+    )
     parser.add_argument("key", help="The key to perform an action on.", nargs="?")
     parser.add_argument("value", help="The value to write.", nargs="?")
     parser.add_argument(
