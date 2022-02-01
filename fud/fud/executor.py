@@ -1,3 +1,5 @@
+from typing import Optional
+
 import time
 
 
@@ -73,7 +75,7 @@ class Executor:
         self._profiler = Profiler() if profile else DummyProfiler()
 
         # Current context
-        self.ctx = []
+        self.ctx: Optional[str] = None
 
         # Disable spinner outputs
         self._no_spinner = False
@@ -93,21 +95,21 @@ class Executor:
     def enable_spinner(self):
         self._no_spinner = False
 
-    def context(self, name, profile):
-        return ContextExecutor(self, name, profile)
+    def context(self, name):
+        return ContextExecutor(self, name, self._profiler)
 
     def _update(self):
         if not self._no_spinner:
-            msg = f"{'.'.join(self.ctx)}"
-            self._spinner.start(msg)
+            self._spinner.start(self.ctx)
 
     # Mark context boundaries
     def _start_ctx(self, name):
-        self.ctx.append(name)
+        assert self.ctx is None, "Attempted to start a nested execution"
+        self.ctx = name
         self._update()
 
     def _end_ctx(self, is_err, profiling_data=None):
-        msg = ".".join(self.ctx)
+        msg = self.ctx
         if profiling_data:
             msg += f" ({profiling_data} ms)"
         if self._persist:
@@ -115,7 +117,7 @@ class Executor:
                 self._spinner.fail(msg)
             else:
                 self._spinner.succeed(msg)
-        self.ctx.pop()
+        self.ctx = None
         self._update()
 
     def _stop(self):
@@ -130,10 +132,10 @@ class ContextExecutor(object):
     Handles execution of a generic context.
     """
 
-    def __init__(self, parent_exec, ctx, profile):
+    def __init__(self, parent_exec, ctx, profiler):
         self.parent_exec = parent_exec
         self.ctx = ctx
-        self.profiler = Profiler() if profile else DummyProfiler()
+        self.profiler = profiler
 
     def __enter__(self):
         self.profiler.start()

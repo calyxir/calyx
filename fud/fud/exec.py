@@ -138,7 +138,7 @@ def run_fud(args, config):
     with exec:
         for step in path.get_steps(input):
             # Execute step within the stage
-            with exec.context(step.name, False):
+            with exec.context(step.name):
                 step()
 
     # Stages to be profiled

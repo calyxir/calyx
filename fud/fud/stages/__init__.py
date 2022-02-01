@@ -239,7 +239,9 @@ class Stage:
             builder.and_then(self, config)
         else:
             builder = ComputationGraph(self.input_type, self.output_type)
+            builder.ctx.append(self.name)
             builder.output = self._define_steps(builder._input, builder, config)
+            builder.ctx.pop()
 
         return builder
 
@@ -273,6 +275,9 @@ class ComputationGraph:
         # Input this computation graph
         self._input = Source(None, self.input_type)
 
+        # Current context. Used to providing better stage names.
+        self.ctx: List[str] = []
+
         self.output: Optional[Source] = None
 
     def dry_run(self):
@@ -299,7 +304,9 @@ class ComputationGraph:
         else:
             input = self.output
 
+        self.ctx.append(stage.name)
         self.output = stage._define_steps(input, self, config)
+        self.ctx.pop()
         self.output_type = stage.output_type
         return self
 
@@ -410,10 +417,14 @@ class ComputationGraph:
                 unwrapped_args = map(
                     lambda a: a[0].convert_to(a[1]).data, zip(args, input_types)
                 )
+                if builder.ctx:
+                    name = f"{'.'.join(builder.ctx)}.{function.__name__}"
+                else:
+                    name = function.__name__
                 # thunk the function as a Step and add it to the current stage.
                 builder.steps.append(
                     Step(
-                        function.__name__,
+                        name,
                         function,
                         unwrapped_args,
                         future_output,
