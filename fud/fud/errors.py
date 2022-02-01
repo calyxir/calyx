@@ -109,7 +109,8 @@ class MultiplePaths(FudError):
             f"Multiple stage pipelines can transform {src} to {dst}:\n"
             + paths
             + "\nUse the --through flag to select an intermediate stage."
-            + " See https://docs.calyxir.org/fud/multiple-paths.html for more information."
+            + " See https://docs.calyxir.org/fud/multiple-paths.html for"
+            + " more information."
         )
         super().__init__(msg)
 
