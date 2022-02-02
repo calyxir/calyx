@@ -154,6 +154,7 @@ pub enum Command {
         Option<PrintCode>,
         PrintMode,
     ),
+    PrintPC,
 }
 
 impl Command {

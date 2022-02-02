@@ -5,27 +5,29 @@ from fud.utils import shell, unwrap_or
 class DahliaStage(Stage):
     name = "dahlia"
 
-    def __init__(self, config, dest, flags, descr):
+    def __init__(self, dest, flags, descr):
         super().__init__(
             src_state="dahlia",
             target_state=dest,
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description=descr,
         )
         self.flags = flags
-        self.setup()
 
-    def _define_steps(self, input_data):
-        cmd = [
-            self.cmd,
-            unwrap_or(self.config["stages", self.name, "flags"], ""),
-            self.flags,
-        ]
+    def _define_steps(self, input, builder, config):
+        dahlia_exec = config["stages", self.name, "exec"]
+        cmd = " ".join(
+            [
+                dahlia_exec,
+                unwrap_or(config["stages", self.name, "flags"], ""),
+                self.flags,
+                "{prog}",
+            ]
+        )
 
-        @self.step(description=" ".join(cmd))
+        @builder.step(description=cmd)
         def run_dahlia(dahlia_prog: SourceType.Path) -> SourceType.Stream:
-            return shell(cmd + [str(dahlia_prog)])
+            return shell(cmd.format(prog=str(dahlia_prog)))
 
-        return run_dahlia(input_data)
+        return run_dahlia(input)

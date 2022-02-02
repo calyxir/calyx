@@ -26,6 +26,35 @@ impl<T> Clone for List<T> {
     }
 }
 
+impl<T> Drop for List<T> {
+    fn drop(&mut self) {
+        let mut head = self.head.take();
+        while let Some(node) = head {
+            if let Ok(mut node) = Rc::try_unwrap(node) {
+                head = node.next.take();
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+impl<T> List<T> {
+    fn unwrap_head(mut self) -> Result<Node<T>, Self> {
+        if let Some(head) = self.head.take() {
+            match Rc::try_unwrap(head) {
+                Ok(n) => Ok(n),
+                Err(rc) => {
+                    self.head = Some(rc);
+                    Err(self)
+                }
+            }
+        } else {
+            Err(self)
+        }
+    }
+}
+
 /// The underlying, functional linked list used by the Smoosher.
 /// Taken from "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5
 /// Added the [same_head], [is_empty], and [split] functions.
@@ -124,13 +153,13 @@ impl<T> List<T> {
         if self.is_empty() {
             (None, self)
         } else {
-            match Rc::try_unwrap(self.head.unwrap()) {
+            match self.unwrap_head() {
                 Ok(head) => {
                     let tail_list = List { head: head.next }; //better: not cloning the tail
                     (Some(head.elem), tail_list)
                 }
                 Err(e) => {
-                    panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists! Current strong count {}", Rc::strong_count(&e))
+                    panic!("Cannot unwrap the head of this list. You probably tried Smooshing while a fork exists! Current strong count {}", Rc::strong_count(e.head.as_ref().unwrap()));
                 }
             }
         }

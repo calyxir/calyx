@@ -51,6 +51,10 @@ impl CommandParser {
         Ok(Command::Exit)
     }
 
+    fn comm_where(_input: Node) -> ParseResult<Command> {
+        Ok(Command::PrintPC)
+    }
+
     fn pc_un(_input: Node) -> ParseResult<()> {
         Ok(())
     }
@@ -231,6 +235,7 @@ impl CommandParser {
             [step_over(s), EOI(_)] => s,
             [step(s), EOI(_)] => s,
             [cont(c), EOI(_)] => c,
+            [comm_where(w), EOI(_)] => w,
             [help(h), EOI(_)] => h,
             [display(disp), EOI(_)] => disp,
             [brk(b), EOI(_)] => b,

@@ -1,6 +1,7 @@
 import argparse
 import logging as log
 from sys import exit
+import os
 
 import toml
 
@@ -20,19 +21,18 @@ from .stages import (
 )
 
 
-def register_stages(registry, cfg):
+def register_stages(registry):
     """
     Register stages and command line flags required to generate the results.
     """
     # Dahlia
     registry.register(
         dahlia.DahliaStage(
-            cfg, "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
+            "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
         )
     )
     registry.register(
         dahlia.DahliaStage(
-            cfg,
             "vivado-hls",
             "--memory-interface ap_memory",
             "Compile Dahlia to Vivado C++",
@@ -40,13 +40,12 @@ def register_stages(registry, cfg):
     )
 
     # Relay
-    registry.register(relay.RelayStage(cfg))
+    registry.register(relay.RelayStage())
     # Systolic Array
-    registry.register(systolic.SystolicStage(cfg))
+    registry.register(systolic.SystolicStage())
     # Calyx
     registry.register(
         futil.FutilStage(
-            cfg,
             "verilog",
             "-b verilog",
             "Compile Calyx to Verilog instrumented for simulation",
@@ -54,7 +53,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "mlir",
             "-b mlir -p well-formed -p lower-guards",
             "Compile Calyx to MLIR",
@@ -62,7 +60,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "synth-verilog",
             "-b verilog --synthesis -p external",
             "Compile Calyx to synthesizable Verilog",
@@ -70,7 +67,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "futil-lowered",
             "-b futil",
             "Compile Calyx to Calyx to remove all control and inline groups",
@@ -78,7 +74,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "futil-noinline",
             "-b futil -d hole-inliner",
             "Compile Calyx to Calyx to remove all control and inline groups",
@@ -86,7 +81,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "futil-externalize",
             "-b futil -p externalize",
             "Compile Calyx to Calyx to externalize all external memory primitives",
@@ -94,7 +88,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "axi-wrapper",
             "-b xilinx",
             "Generate the AXI wrapper for Calyx",
@@ -102,7 +95,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "xilinx-xml",
             "-b xilinx-xml",
             "Generate the XML metadata for Xilinx",
@@ -110,7 +102,6 @@ def register_stages(registry, cfg):
     )
     registry.register(
         futil.FutilStage(
-            cfg,
             "interpreter",
             "-p none",
             "Compile Calyx for interpretation with CIDR",
@@ -119,37 +110,31 @@ def register_stages(registry, cfg):
 
     # Verilator
     registry.register(
-        verilator.VerilatorStage(
-            cfg, "vcd", "Generate a VCD file from Verilog simulation"
-        )
+        verilator.VerilatorStage("vcd", "Generate a VCD file from Verilog simulation")
     )
     registry.register(
         verilator.VerilatorStage(
-            cfg, "dat", "Generate a JSON file with final state of all memories"
+            "dat", "Generate a JSON file with final state of all memories"
         )
     )
 
     # # Vivado / vivado hls
-    registry.register(vivado.VivadoStage(cfg))
-    registry.register(vivado.VivadoExtractStage(cfg))
-    registry.register(vivado.VivadoHLSStage(cfg))
-    registry.register(vivado.VivadoHLSExtractStage(cfg))
+    registry.register(vivado.VivadoStage())
+    registry.register(vivado.VivadoExtractStage())
+    registry.register(vivado.VivadoHLSStage())
+    registry.register(vivado.VivadoHLSExtractStage())
 
     # Vcdump
-    registry.register(vcdump.VcdumpStage(cfg))
+    registry.register(vcdump.VcdumpStage())
 
     # Xilinx
-    registry.register(xilinx.XilinxStage(cfg))
-    registry.register(xilinx.HwEmulationStage(cfg))
-    registry.register(xilinx.HwExecutionStage(cfg))
+    registry.register(xilinx.XilinxStage())
+    registry.register(xilinx.HwEmulationStage())
+    registry.register(xilinx.HwExecutionStage())
 
     # Interpreter
-    registry.register(interpreter.InterpreterStage(cfg, "", "", "Run the interpreter"))
-    registry.register(
-        interpreter.InterpreterStage.debugger(cfg, "", "", "Run the debugger")
-    )
-    # register external stages
-    register_external_stages(cfg, registry)
+    registry.register(interpreter.InterpreterStage("", "", "Run the interpreter"))
+    registry.register(interpreter.InterpreterStage.debugger("", "", "Run the debugger"))
 
 
 def register_external_stages(cfg, registry):
@@ -171,7 +156,7 @@ def register_external_stages(cfg, registry):
         # register the discovered stages
         for stage_class in mod.__STAGES__:
             try:
-                registry.register(stage_class(cfg))
+                registry.register(stage_class())
             except Exception as e:
                 raise errors.InvalidExternalStage(
                     ext,
@@ -183,7 +168,7 @@ def register_external_stages(cfg, registry):
                             "```",
                         ]
                     ),
-                )
+                ) from e
 
 
 def display_config(args, cfg):
@@ -225,7 +210,7 @@ def main():
     # Name of the subparser stored in command
     subparsers = parser.add_subparsers()
 
-    config_run(
+    run_parser = config_run(
         subparsers.add_parser(
             "exec",
             help="Execute one of the Calyx-related tools",
@@ -276,21 +261,34 @@ def main():
         cfg = Configuration()
 
         # update the stages config with arguments provided via cmdline
-        if "dynamic_config" in args and args.dynamic_config is not None:
-            for key, value in args.dynamic_config:
+        if "stage_dynamic_config" in args and args.stage_dynamic_config is not None:
+            for key, value in args.stage_dynamic_config:
                 cfg[["stages"] + key.split(".")] = value
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
-            cfg.REGISTRY = Registry(cfg)
-            register_stages(cfg.REGISTRY, cfg)
+            cfg.registry = Registry(cfg)
+            register_stages(cfg.registry)
+            register_external_stages(cfg, cfg.registry)
 
         if args.command == "exec":
+            if not (args.input_file or args.source):
+                run_parser.error(
+                    "Please provide either an input file or a --from option"
+                )
+            if not (args.output_file or args.dest):
+                run_parser.error(
+                    "Please provide either an output file or a --to option"
+                )
+
             exec.run_fud(args, cfg)
         elif args.command == "info":
-            print(cfg.REGISTRY)
+            print(cfg.registry)
         elif args.command == "config":
-            display_config(args, cfg)
+            if args.edit:
+                os.system(f"{os.getenv('EDITOR')} '{cfg.config_file}'")
+            else:
+                display_config(args, cfg)
         elif args.command == "check":
             check.check(cfg)
         elif args.command == "register":
@@ -332,10 +330,11 @@ def config_run(parser):
     )
     parser.add_argument(
         "-s",
-        help="Override configuration key-value pairs for this run",
+        "--stage-val",
+        help="Override stage configuration key-value pairs for this run",
         nargs=2,
         metavar=("key", "value"),
-        dest="dynamic_config",
+        dest="stage_dynamic_config",
         action="append",
     )
     parser.add_argument(
@@ -352,8 +351,16 @@ def config_run(parser):
     parser.add_argument("input_file", help="Path to the input file", nargs="?")
     parser.set_defaults(command="exec")
 
+    return parser
+
 
 def config_config(parser):
+    parser.add_argument(
+        "-e",
+        "--edit",
+        help="Edit the configuration file using $EDITOR",
+        action="store_true",
+    )
     parser.add_argument("key", help="The key to perform an action on.", nargs="?")
     parser.add_argument("value", help="The value to write.", nargs="?")
     parser.add_argument(

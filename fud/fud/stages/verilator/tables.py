@@ -45,7 +45,7 @@ def compute_exp_frac_table(frac_width: int):
 
     # Gets the permutations of 2^f_bit,
     # in increasing order.
-    binary_permutations = map(list, product(["0", "1"], repeat=frac_width))
+    binary_permutations = map(lambda l: list(l), product(["0", "1"], repeat=frac_width))
 
     e_table = [0] * (2 ** frac_width)
     for permutation in binary_permutations:

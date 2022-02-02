@@ -68,12 +68,15 @@ delete_watch = { (^"delete-watch" | ^"del-watch") ~ brk_id* }
 enable = { (^"enable") ~ brk_id* }
 disable = { (^"disable") ~ brk_id* }
 
-exit = { ^"exit" }
+exit = { ^"exit" | ^"quit" }
+
+comm_where = { ^"where" | ^"pc" }
 
 command = {
     SOI ~
     (
     watch
+     | comm_where
      | print_state
      | print
      | print_fail
