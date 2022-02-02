@@ -301,7 +301,7 @@ impl Visitor for ComponentInliner {
         // Rewrite all assignment in the component to use interface wires
         // from the inlined instances and check if the `go` or `done` ports
         // on any of the instances was used for structural invokes.
-        builder.component.for_each_assignment(&|assign| {
+        builder.component.for_each_assignment(|assign| {
             assign.for_each_port(|pr| {
                 let port = &pr.borrow();
                 let np = interface_rewrites.get(&port.canonical());
@@ -317,11 +317,12 @@ impl Visitor for ComponentInliner {
 
         // Use analysis to get all bindings for invokes and filter out bindings
         // for inlined cells.
-        let invoke_bindings =
-            analysis::ControlPorts::from(&*builder.component.control.borrow())
-                .get_all_bindings()
-                .into_iter()
-                .filter(|(instance, _)| inlined_cells.contains(instance));
+        let invoke_bindings = analysis::ControlPorts::<true>::from(
+            &*builder.component.control.borrow(),
+        )
+        .get_all_bindings()
+        .into_iter()
+        .filter(|(instance, _)| inlined_cells.contains(instance));
 
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {

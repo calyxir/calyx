@@ -3,7 +3,7 @@ import simplejson as sjson
 from pathlib import Path
 
 from fud.stages import Stage, SourceType, Source
-from fud.utils import shell, TmpDir
+from fud.utils import shell, TmpDir, log
 from fud.stages.verilator.json_to_dat import convert2dat, convert2json
 from fud.stages import futil
 import fud.errors as errors
@@ -132,9 +132,12 @@ class IcarusBaseStage(Stage):
             """
             Convert .dat files back into a json file
             """
-            r = re.search(r"Simulated\s+(\d+) cycles", simulated_output)
+            r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
+            cycle_count = int(r.group(1)) if r is not None else 0
+            if cycle_count < 0:
+                log.warn("Cycle count is less than 0")
             data = {
-                "cycles": int(r.group(1)) if r is not None else 0,
+                "cycles": cycle_count,
                 "memories": convert2json(tmpdir.name, "out"),
             }
             return sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True)

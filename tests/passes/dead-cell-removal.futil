@@ -22,7 +22,7 @@ component add(left: 32, right: 32) -> (out: 32) {
   }
 }
 
-component main() -> () {
+component main() -> (out: 32) {
   cells {
     used_reg = std_reg(32);
     used_le = std_le(1);
@@ -32,6 +32,7 @@ component main() -> () {
   }
   wires {
     used_reg.in = used_le.out ? 32'd10;
+    out = used_reg.out;
   }
   control {
     invoke my_add(left = add_input.out, right = add_input.out)();

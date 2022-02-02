@@ -5,8 +5,8 @@ component main() -> () {
   cells {
     x = std_reg(32);
     y = std_reg(32);
-    add_x = std_add(32);
-    add_y = std_add(32);
+    @external add_x = std_add(32);
+    @external add_y = std_add(32);
   }
 
   wires {
