@@ -159,7 +159,8 @@ class Source:
             return other in Source.convert_map[self.typ]
 
     def convert_to(self, other: SourceType) -> Source:
-        assert self.data is not None
+        assert self.typ != SourceType.Terminal, "Terminal data cannot be converted"
+        assert self.typ == SourceType.UnTyped or self.data is not None
 
         if self.typ == other:
             return self
