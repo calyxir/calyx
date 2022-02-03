@@ -1,10 +1,11 @@
+use super::math_utilities::get_bit_width_from;
 use crate::errors::{CalyxResult, Error};
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures, Printer,
+    LibrarySignatures, Printer, RRC,
 };
-use crate::{build_assignments, structure};
+use crate::{build_assignments, guard, structure};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -25,6 +26,11 @@ struct Schedule {
 }
 
 impl Schedule {
+    // TODO: this should be based on transitions when we have them.
+    fn last_state(&self) -> u64 {
+        self.enables.iter().map(|(k, _)| k.1).max().unwrap()
+    }
+
     #[allow(dead_code)]
     fn display(&self) {
         self.enables
@@ -49,6 +55,35 @@ impl Schedule {
             .for_each(|(i, f, g)| {
                 eprintln!("({}, {}): {}", i, f, Printer::guard_str(&g));
             })
+    }
+
+    fn realize_schedule(self, builder: &mut ir::Builder) -> RRC<ir::Group> {
+        let group = builder.add_group("tdst");
+        let final_state = self.last_state();
+        let fsm_size = get_bit_width_from(final_state + 1);
+
+        structure!(builder;
+            let fsm = prim std_reg(fsm_size);
+        );
+
+        group.borrow_mut().assignments.extend(
+            self.enables
+                .into_iter()
+                .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+                .flat_map(|((lb, ub), mut assigns)| {
+                    let lb_const = builder.add_constant(lb, fsm_size);
+                    let ub_const = builder.add_constant(ub, fsm_size);
+                    let state_guard = guard!(fsm["out"])
+                        .ge(guard!(lb_const["out"]))
+                        .and(guard!(fsm["out"]).lt(guard!(ub_const["out"])));
+                    assigns.iter_mut().for_each(|assign| {
+                        assign.guard.update(|g| g.and(state_guard.clone()))
+                    });
+                    assigns
+                }),
+        );
+
+        group
     }
 }
 
@@ -245,6 +280,8 @@ impl Visitor for TopDownStaticTiming {
 
         schedule.display();
 
-        Ok(Action::Continue)
+        let group = schedule.realize_schedule(&mut builder);
+
+        Ok(Action::Change(ir::Control::enable(group)))
     }
 }
