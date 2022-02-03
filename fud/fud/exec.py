@@ -49,22 +49,21 @@ def run_fud(args, config):
         if not input_file.exists():
             raise FileNotFoundError(input_file)
 
-    path = chain_stages(
-        config.construct_path(
-            args.source, args.dest, args.input_file, args.output_file, args.through
-        ),
-        config,
+    path = config.construct_path(
+        args.source, args.dest, args.input_file, args.output_file, args.through
     )
 
     # check if input is needed
     if args.input_file is None:
-        if path.input_type not in [SourceType.UnTyped, SourceType.Terminal]:
+        if path[0].input_type not in [SourceType.UnTyped, SourceType.Terminal]:
             raise errors.NeedInputSpecified(path[0])
 
     # check if we need `-o` specified
     if args.output_file is None:
-        if path.output_type == SourceType.Directory:
+        if path[-1].output_type == SourceType.Directory:
             raise errors.NeedOutputSpecified(path[-1])
+
+    path = chain_stages(path, config)
 
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
