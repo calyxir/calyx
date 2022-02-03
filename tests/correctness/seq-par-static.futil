@@ -1,0 +1,51 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    one0 = std_reg(32);
+    two0 = std_reg(32);
+    two1 = std_reg(32);
+    three0 = std_reg(32);
+    four0 = std_reg(32);
+    four1 = std_reg(32);
+  }
+  wires {
+    group one {
+      one0.write_en = 1'd1;
+      one0.in = 32'd1;
+      one[done] = one0.done;
+    }
+
+    group two {
+      two0.write_en = 1'd1;
+      two1.write_en = two0.done;
+      two0.in = 32'd1;
+      two1.in = two0.out;
+      two[done] = two1.done;
+    }
+
+    group three {
+      three0.write_en = 1'd1;
+      three0.in = 32'd1;
+      three[done] = three0.done;
+    }
+
+    group four {
+      four0.write_en = 1'd1;
+      four1.write_en = four0.done;
+      four0.in = 32'd1;
+      four1.in = four0.out;
+      four[done] = four1.done;
+    }
+  }
+  control {
+    par {
+      one;
+      two;
+      seq {
+        three;
+	four;
+      }
+    }
+  }
+}
