@@ -8,6 +8,7 @@ use crate::ir::{
 use crate::{build_assignments, guard, structure};
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::ops::Not;
 use std::rc::Rc;
 
 /// A range of FSM states.
@@ -170,15 +171,26 @@ fn if_calculate_states(
         return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownStaticTiming::name(), con.cond.as_ref().unwrap().borrow().name())));
     }
 
+    let port_guard: ir::Guard = Rc::clone(&con.port).into();
     let cur = cur_state;
     let mut max;
-    match calculate_states(&con.tbranch, cur, pre_guard, schedule, builder) {
+
+    // If branch.
+    match calculate_states(&con.tbranch, cur, &port_guard, schedule, builder) {
         Ok(state) => {
             max = state;
         }
         Err(e) => return Err(e),
     }
-    match calculate_states(&con.fbranch, cur, pre_guard, schedule, builder) {
+
+    // Else branch.
+    match calculate_states(
+        &con.fbranch,
+        cur,
+        &port_guard.not(),
+        schedule,
+        builder,
+    ) {
         Ok(state) => {
             if state > max {
                 max = state;
@@ -186,6 +198,7 @@ fn if_calculate_states(
         }
         Err(e) => return Err(e),
     }
+
     Ok(max)
 }
 
