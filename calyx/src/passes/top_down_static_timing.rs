@@ -1,3 +1,4 @@
+use crate::errors::{CalyxResult, Error};
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
@@ -61,7 +62,7 @@ fn calculate_states(
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> u64 {
+) -> CalyxResult<u64> {
     match con {
         ir::Control::Enable(e) => {
             enable_calculate_states(e, cur_state, pre_guard, schedule, builder)
@@ -88,12 +89,17 @@ fn seq_calculate_states(
     pre_guard: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> u64 {
+) -> CalyxResult<u64> {
     let mut cur = cur_state;
     for stmt in &con.stmts {
-        cur = calculate_states(stmt, cur, pre_guard, schedule, builder)
+        match calculate_states(stmt, cur, pre_guard, schedule, builder) {
+            Ok(state) => {
+                cur = state;
+            }
+            Err(e) => return Err(e),
+        }
     }
-    cur
+    Ok(cur)
 }
 
 fn par_calculate_states(
@@ -102,16 +108,20 @@ fn par_calculate_states(
     pre_guard: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> u64 {
+) -> CalyxResult<u64> {
     let cur = cur_state;
     let mut max = 0;
     for stmt in &con.stmts {
-        let next = calculate_states(stmt, cur, pre_guard, schedule, builder);
-        if next > max {
-            max = next;
+        match calculate_states(stmt, cur, pre_guard, schedule, builder) {
+            Ok(state) => {
+                if state > max {
+                    max = state;
+                }
+            }
+            Err(e) => return Err(e),
         }
     }
-    max
+    Ok(max)
 }
 
 fn if_calculate_states(
@@ -120,19 +130,28 @@ fn if_calculate_states(
     pre_guard: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> u64 {
-    structure!(builder;
-        let signal_on = constant(1, 1);
-        let signal_off = constant(0, 1);
-        let st_cs_if = prim std_reg(1);
-    );
+) -> CalyxResult<u64> {
+    if con.cond.is_some() {
+        return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownStaticTiming::name(), con.cond.as_ref().unwrap().borrow().name())));
+    }
 
-    // If the condition is defined using a combinational group, make it
-    // take one cycle.
-
-    // Compute the value in the condition and save its value in cs_if
-
-    todo!()
+    let cur = cur_state;
+    let mut max;
+    match calculate_states(&con.tbranch, cur, pre_guard, schedule, builder) {
+        Ok(state) => {
+            max = state;
+        }
+        Err(e) => return Err(e),
+    }
+    match calculate_states(&con.fbranch, cur, pre_guard, schedule, builder) {
+        Ok(state) => {
+            if state > max {
+                max = state;
+            }
+        }
+        Err(e) => return Err(e),
+    }
+    Ok(max)
 }
 
 fn while_calculate_states(
@@ -141,7 +160,7 @@ fn while_calculate_states(
     pre_guar: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> u64 {
+) -> CalyxResult<u64> {
     todo!();
 }
 
@@ -159,7 +178,7 @@ fn enable_calculate_states(
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> u64 {
+) -> CalyxResult<u64> {
     let time = con
         .attributes
         .get("static")
@@ -177,7 +196,7 @@ fn enable_calculate_states(
         .entry(range)
         .or_default()
         .append(&mut assigns);
-    cur_state + time
+    Ok(cur_state + time)
 }
 
 #[derive(Default)]
@@ -212,13 +231,17 @@ impl Visitor for TopDownStaticTiming {
         let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
 
-        calculate_states(
+        let result = calculate_states(
             &control.borrow(),
             0,
             &ir::Guard::True,
             &mut schedule,
             &mut builder,
         );
+
+        if result.is_err() {
+            return Err(result.unwrap_err());
+        }
 
         schedule.display();
 
