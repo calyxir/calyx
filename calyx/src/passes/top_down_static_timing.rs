@@ -88,6 +88,11 @@ impl Schedule {
     }
 }
 
+/// Represents an edge from a predeccesor to the current control node.
+/// The `u64` represents the FSM state of the predeccesor and the guard needs
+/// to be true for the predeccesor to transition to the current state.
+type PredEdge = (u64, ir::Guard);
+
 fn calculate_states(
     con: &ir::Control,
     // The current state
@@ -98,7 +103,7 @@ fn calculate_states(
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> CalyxResult<u64> {
+) -> CalyxResult<Vec<PredEdge>> {
     match con {
         ir::Control::Enable(e) => {
             enable_calculate_states(e, cur_state, pre_guard, schedule, builder)
@@ -125,17 +130,22 @@ fn seq_calculate_states(
     pre_guard: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> CalyxResult<u64> {
-    let mut cur = cur_state;
+) -> CalyxResult<Vec<PredEdge>> {
+    let mut preds = vec![];
     for stmt in &con.stmts {
-        match calculate_states(stmt, cur, pre_guard, schedule, builder) {
-            Ok(state) => {
-                cur = state;
+        let new_state = preds
+            .iter()
+            .max_by_key(|(state, _)| state)
+            .unwrap_or(&(cur_state, pre_guard.clone()))
+            .0;
+        match calculate_states(stmt, new_state, pre_guard, schedule, builder) {
+            Ok(inner_preds) => {
+                preds = inner_preds;
             }
             Err(e) => return Err(e),
         }
     }
-    Ok(cur)
+    Ok(preds)
 }
 
 fn par_calculate_states(
@@ -144,20 +154,18 @@ fn par_calculate_states(
     pre_guard: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> CalyxResult<u64> {
+) -> CalyxResult<Vec<PredEdge>> {
     let cur = cur_state;
-    let mut max = 0;
+    let mut preds = vec![];
     for stmt in &con.stmts {
         match calculate_states(stmt, cur, pre_guard, schedule, builder) {
-            Ok(state) => {
-                if state > max {
-                    max = state;
-                }
+            Ok(inner_preds) => {
+                preds.extend(inner_preds);
             }
             Err(e) => return Err(e),
         }
     }
-    Ok(max)
+    Ok(preds)
 }
 
 fn if_calculate_states(
@@ -166,40 +174,39 @@ fn if_calculate_states(
     pre_guard: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> CalyxResult<u64> {
+) -> CalyxResult<Vec<PredEdge>> {
     if con.cond.is_some() {
         return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownStaticTiming::name(), con.cond.as_ref().unwrap().borrow().name())));
     }
 
     let port_guard: ir::Guard = Rc::clone(&con.port).into();
-    let cur = cur_state;
-    let mut max;
+    let mut preds = vec![];
 
     // If branch.
-    match calculate_states(&con.tbranch, cur, &port_guard, schedule, builder) {
-        Ok(state) => {
-            max = state;
-        }
+    match calculate_states(
+        &con.tbranch,
+        cur_state,
+        &port_guard,
+        schedule,
+        builder,
+    ) {
+        Ok(inner_preds) => preds.extend(inner_preds),
         Err(e) => return Err(e),
     }
 
     // Else branch.
     match calculate_states(
         &con.fbranch,
-        cur,
+        cur_state,
         &port_guard.not(),
         schedule,
         builder,
     ) {
-        Ok(state) => {
-            if state > max {
-                max = state;
-            }
-        }
+        Ok(inner_preds) => preds.extend(inner_preds),
         Err(e) => return Err(e),
     }
 
-    Ok(max)
+    Ok(preds)
 }
 
 fn while_calculate_states(
@@ -208,7 +215,7 @@ fn while_calculate_states(
     pre_guar: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
-) -> CalyxResult<u64> {
+) -> CalyxResult<Vec<PredEdge>> {
     todo!();
 }
 
@@ -226,7 +233,7 @@ fn enable_calculate_states(
     schedule: &mut Schedule,
     // Component builder
     builder: &mut ir::Builder,
-) -> CalyxResult<u64> {
+) -> CalyxResult<Vec<PredEdge>> {
     let time = con
         .attributes
         .get("static")
@@ -244,7 +251,7 @@ fn enable_calculate_states(
         .entry(range)
         .or_default()
         .append(&mut assigns);
-    Ok(cur_state + time)
+    Ok(vec![(cur_state + time, pre_guard.clone())])
 }
 
 #[derive(Default)]
