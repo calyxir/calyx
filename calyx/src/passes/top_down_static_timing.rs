@@ -1,11 +1,12 @@
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
-    IRPrinter, LibrarySignatures,
+    LibrarySignatures, Printer,
 };
 use crate::{build_assignments, structure};
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// A range of FSM states.
 type Range = (u64, u64);
@@ -31,7 +32,7 @@ impl Schedule {
             .for_each(|(state, assigns)| {
                 eprint!("({}, {}): ", state.0, state.1);
                 assigns.iter().for_each(|assign| {
-                    IRPrinter::write_assignment(
+                    Printer::write_assignment(
                         assign,
                         0,
                         &mut std::io::stderr(),
@@ -45,7 +46,7 @@ impl Schedule {
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                eprintln!("({}, {}): {}", i, f, IRPrinter::guard_str(&g));
+                eprintln!("({}, {}): {}", i, f, Printer::guard_str(&g));
             })
     }
 }
@@ -68,6 +69,15 @@ fn calculate_states(
         ir::Control::Seq(s) => {
             seq_calculate_states(s, cur_state, pre_guard, schedule, builder)
         }
+        ir::Control::Par(p) => {
+            par_calculate_states(p, cur_state, pre_guard, schedule, builder)
+        }
+        ir::Control::If(i) => {
+            if_calculate_states(i, cur_state, pre_guard, schedule, builder)
+        }
+        ir::Control::While(w) => {
+            while_calculate_states(w, cur_state, pre_guard, schedule, builder)
+        }
         _ => panic!("Not yet implemented!"),
     }
 }
@@ -86,8 +96,26 @@ fn seq_calculate_states(
     cur
 }
 
+fn par_calculate_states(
+    con: &ir::Par,
+    cur_state: u64,
+    pre_guard: &ir::Guard,
+    schedule: &mut Schedule,
+    builder: &mut ir::Builder,
+) -> u64 {
+    let cur = cur_state;
+    let mut max = 0;
+    for stmt in &con.stmts {
+        let next = calculate_states(stmt, cur, pre_guard, schedule, builder);
+        if next > max {
+            max = next;
+        }
+    }
+    max
+}
+
 fn if_calculate_states(
-    con: &ir::Seq,
+    con: &ir::If,
     cur_state: u64,
     pre_guard: &ir::Guard,
     schedule: &mut Schedule,
@@ -105,6 +133,16 @@ fn if_calculate_states(
     // Compute the value in the condition and save its value in cs_if
 
     todo!()
+}
+
+fn while_calculate_states(
+    con: &ir::While,
+    cur_state: u64,
+    pre_guar: &ir::Guard,
+    schedule: &mut Schedule,
+    builder: &mut ir::Builder,
+) -> u64 {
+    todo!();
 }
 
 /// Compiled to:
@@ -159,7 +197,8 @@ impl Visitor for TopDownStaticTiming {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
+        sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Do not try to compile an enable or empty control
         if matches!(
@@ -169,27 +208,20 @@ impl Visitor for TopDownStaticTiming {
             return Ok(Action::Stop);
         }
 
-        Ok(Action::Continue)
-    }
+        let control = Rc::clone(&comp.control);
+        let mut schedule = Schedule::default();
+        let mut builder = ir::Builder::new(comp, sigs);
 
-    fn start_seq(
-        &mut self,
-        s: &mut ir::Seq,
-        comp: &mut ir::Component,
-        sigs: &LibrarySignatures,
-    ) -> VisResult {
-        if s.attributes.has("static") {
-            let mut schedule = Schedule::default();
-            let mut builder = ir::Builder::new(comp, sigs);
-            seq_calculate_states(
-                &*s,
-                0,
-                &ir::Guard::True,
-                &mut schedule,
-                &mut builder,
-            );
-            schedule.display();
-        }
+        calculate_states(
+            &control.borrow(),
+            0,
+            &ir::Guard::True,
+            &mut schedule,
+            &mut builder,
+        );
+
+        schedule.display();
+
         Ok(Action::Continue)
     }
 }
