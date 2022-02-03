@@ -97,18 +97,20 @@ So make a file called something like `data.json` containing something along thes
 The `mem` key means we're providing the initial value for our memory called `mem`.
 We have one (unsigned integer) data element, and we indicate the bit width (32 bits).
 
-If you want to see how this Calyx program compiles to Verilog, here's the fud incantation you need:
+If you want to see how this Calyx program compiles to Verilog, here's the [fud][] incantation you need:
 
     fud exec language-tutorial-mem.futil --to verilog
 
 Not terribly interesting!
 However, one nice thing you can do with programs is execute them.
 
-To run our program using [Verilator][], do this:
+To run our program using [Icarus Verilog][], do this:
 
-    fud exec language-tutorial-mem.futil --to dat -s verilog.data data.json
+    fud exec language-tutorial-mem.futil --to dat --through icarus-verilog \
+        -s verilog.data data.json
 
 Using `--to dat` asks fud to run the program, and the extra `-s verilog.data <filename>` argument tells it where to find the input data.
+The `--through icarus-verilog` option tells fud which Verilog simulator to use (see [the chapter about fud][fud] for alternatives such as [Verilator][]).
 Executing this program should print:
 
 ```
@@ -265,3 +267,5 @@ The output should be the result of adding 4 to the initial value 8 times, so 10 
 [json]: https://www.json.org/
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/cucapra/calyx/tree/master/examples/tutorial
+[icarus verilog]: http://iverilog.icarus.com
+[fud]: ./fud/index.md

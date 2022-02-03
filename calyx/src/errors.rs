@@ -7,49 +7,6 @@ use crate::ir;
 use std::cmp;
 use std::rc::Rc;
 
-/// Standard error type for Calyx errors.
-pub enum Error {
-    /// Error while parsing a Calyx program.
-    ParseError(pest_consume::Error<parser::Rule>),
-    /// Using a reserved keyword as a program identifier.
-    ReservedName(ir::Id),
-
-    /// The control program is malformed.
-    MalformedControl(String),
-    /// The connections are malformed.
-    MalformedStructure(String),
-
-    /// Requirement of a pass was not satisfied
-    PassAssumption(String, String),
-
-    /// The name has not been bound
-    Undefined(ir::Id, String),
-    /// The name has already been bound.
-    AlreadyBound(ir::Id, String),
-
-    /// The group was not used in the program.
-    UnusedGroup(ir::Id),
-
-    /// No value provided for a primitive parameter.
-    ParamBindingMissing(ir::Id, ir::Id),
-    /// Invalid parameter binding provided
-    InvalidParamBinding(ir::Id, usize, usize),
-
-    /// Papercut error: signals a commonly made mistake in Calyx program.
-    Papercut(String, ir::Id),
-
-    /// Group "static" latency annotation differed from inferred latency.
-    ImpossibleLatencyAnnotation(String, u64, u64),
-
-    // =========== Frontend Errors ===============
-    /// Miscellaneous error message
-    Misc(String),
-    /// The input file is invalid (does not exist).
-    InvalidFile(String),
-    /// Failed to write the output
-    WriteError(String),
-}
-
 /// Convience wrapper to represent success or meaningul compiler error.
 pub type CalyxResult<T> = std::result::Result<T, Error>;
 
@@ -131,12 +88,174 @@ impl Span {
     }
 }
 
+/// An IR node that may contain position information.
+pub trait WithPos {
+    /// Copy the span associated with this node.
+    fn copy_span(&self) -> Option<Span>;
+}
+
+pub struct Error {
+    kind: ErrorKind,
+    pos: Option<Span>,
+    post_msg: Option<String>,
+}
+
 impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.pos {
+            None => write!(f, "{}", self.kind)?,
+            Some(pos) => write!(f, "{}", pos.format(&self.kind.to_string()))?,
+        }
+        if let Some(post) = &self.post_msg {
+            write!(f, "\n{}", post)?;
+        }
+        Ok(())
+    }
+}
+
+impl Error {
+    pub fn with_pos<T: WithPos>(mut self, pos: &T) -> Self {
+        self.pos = pos.copy_span();
+        self
+    }
+
+    pub fn with_post_msg(mut self, msg: Option<String>) -> Self {
+        self.post_msg = msg;
+        self
+    }
+
+    pub fn parse_error(err: pest_consume::Error<parser::Rule>) -> Self {
+        Self {
+            kind: ErrorKind::ParseError(err),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn reserved_name(name: ir::Id) -> Self {
+        Self {
+            kind: ErrorKind::ReservedName(name),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn malformed_control(msg: String) -> Self {
+        Self {
+            kind: ErrorKind::MalformedControl(msg),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn malformed_structure<S: ToString>(msg: S) -> Self {
+        Self {
+            kind: ErrorKind::MalformedStructure(msg.to_string()),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn pass_assumption(pass: String, msg: String) -> Self {
+        Self {
+            kind: ErrorKind::PassAssumption(pass, msg),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn undefined(name: ir::Id, typ: String) -> Self {
+        let pos = name.copy_span();
+        Self {
+            kind: ErrorKind::Undefined(name, typ),
+            pos,
+            post_msg: None,
+        }
+    }
+    pub fn already_bound(name: ir::Id, typ: String) -> Self {
+        let pos = name.copy_span();
+        Self {
+            kind: ErrorKind::AlreadyBound(name, typ),
+            pos,
+            post_msg: None,
+        }
+    }
+    pub fn unused<S: ToString>(group: ir::Id, typ: S) -> Self {
+        Self {
+            kind: ErrorKind::Unused(group, typ.to_string()),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn papercut(msg: String) -> Self {
+        Self {
+            kind: ErrorKind::Papercut(msg),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn misc(msg: String) -> Self {
+        Self {
+            kind: ErrorKind::Misc(msg),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn invalid_file(msg: String) -> Self {
+        Self {
+            kind: ErrorKind::InvalidFile(msg),
+            pos: None,
+            post_msg: None,
+        }
+    }
+    pub fn write_error(msg: String) -> Self {
+        Self {
+            kind: ErrorKind::WriteError(msg),
+            pos: None,
+            post_msg: None,
+        }
+    }
+}
+
+/// Standard error type for Calyx errors.
+pub enum ErrorKind {
+    /// Error while parsing a Calyx program.
+    ParseError(pest_consume::Error<parser::Rule>),
+    /// Using a reserved keyword as a program identifier.
+    ReservedName(ir::Id),
+
+    /// The control program is malformed.
+    MalformedControl(String),
+    /// The connections are malformed.
+    MalformedStructure(String),
+
+    /// Requirement of a pass was not satisfied
+    PassAssumption(String, String),
+
+    /// The name has not been bound
+    Undefined(ir::Id, String),
+    /// The name has already been bound.
+    AlreadyBound(ir::Id, String),
+
+    /// The group was not used in the program.
+    Unused(ir::Id, String),
+
+    /// Papercut error: signals a commonly made mistake in Calyx program.
+    Papercut(String),
+
+    /// Group "static" latency annotation differed from inferred latency.
+    ImpossibleLatencyAnnotation(String, u64, u64),
+
+    // =========== Frontend Errors ===============
+    /// Miscellaneous error message
+    Misc(String),
+    /// The input file is invalid (does not exist).
+    InvalidFile(String),
+    /// Failed to write the output
+    WriteError(String),
+}
+
+impl std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use Error::*;
+        use ErrorKind::*;
         match self {
-            Papercut(msg, id) => {
-                write!(f, "{}", id.fmt_err(&("[Papercut] ".to_string() + msg)))
+            Papercut(msg) => {
+                write!(f, "[Papercut] {}", msg)
             }
             ImpossibleLatencyAnnotation(grp_name, ann_val, inferred_val) => {
                 let msg1 = format!("Annotated latency: {}", ann_val);
@@ -149,75 +268,49 @@ impl std::fmt::Debug for Error {
                     msg2
                 )
             }
-            UnusedGroup(name) => {
-                write!(f, "{}", name.fmt_err("Group not used in control"))
+            Unused(name, typ) => {
+                write!(f, "Unused {typ} `{name}'")
             }
             AlreadyBound(name, bound_by) => {
-                let msg =
-                    format!("Name already bound by {}", bound_by.to_string());
-                write!(f, "{}", name.fmt_err(&msg))
+                write!(f, "Name `{name}' already bound by {bound_by}")
             }
             ReservedName(name) => {
-                let msg =
-                    format!("Use of reserved keyword: {}", name.to_string());
-                write!(f, "{}", name.fmt_err(&msg))
+                write!(f, "Use of reserved keyword: {name}")
             }
             Undefined(name, typ) => {
-                let msg =
-                    format!("Undefined {} name: {}", typ, name.to_string());
-                write!(f, "{}", name.fmt_err(&msg))
+                write!(f, "Undefined {typ} name: {name}")
             }
-            InvalidFile(err) => write!(f, "{}", err),
-            WriteError(msg) => write!(f, "{}", msg),
-            ParseError(err) => write!(f, "Calyx Parser: {}", err),
-            ParamBindingMissing(id, param_name) => {
-                let msg =
-                    format!("Failed to resolve: {}", param_name.to_string());
-                write!(
-                    f,
-                    "{}\nwhich is used here:{}",
-                    id.fmt_err(&msg),
-                    param_name.fmt_err("")
-                )
-            }
-            InvalidParamBinding(prim, param_len, bind_len) => {
-                let msg = format!(
-                    "Invalid parameter binding for primitive `{}`. Requires {} parameters but provided with {}.",
-                    prim,
-                    param_len,
-                    bind_len
-                );
-                write!(f, "{}", msg)
-            }
-            MalformedControl(msg) => write!(f, "Malformed Control: {}", msg),
+            ParseError(err) => write!(f, "Calyx Parser: {err}"),
+            MalformedControl(msg) => write!(f, "Malformed Control: {msg}"),
             PassAssumption(pass, msg) => {
-                write!(f, "Pass `{}` assumption violated: {}", pass, msg)
+                write!(f, "Pass `{pass}` assumption violated: {msg}")
             }
             MalformedStructure(msg) => {
-                write!(f, "Malformed Structure: {}", msg)
+                write!(f, "Malformed Structure: {msg}")
             }
-            Misc(msg) => write!(f, "{}", msg),
+            InvalidFile(msg) | WriteError(msg) | Misc(msg) => {
+                write!(f, "{msg}")
+            }
         }
     }
 }
 
 // Conversions from other error types to our error type so that
 // we can use `?` in all the places.
-
 impl From<std::str::Utf8Error> for Error {
     fn from(err: std::str::Utf8Error) -> Self {
-        Error::InvalidFile(err.to_string())
+        Error::invalid_file(err.to_string())
     }
 }
 
 impl From<pest_consume::Error<parser::Rule>> for Error {
     fn from(e: pest_consume::Error<parser::Rule>) -> Self {
-        Error::ParseError(e)
+        Error::parse_error(e)
     }
 }
 
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
-        Error::WriteError(format!("IO Error: {}", e))
+        Error::write_error(format!("IO Error: {}", e))
     }
 }

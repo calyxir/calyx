@@ -154,7 +154,7 @@ impl DataflowOrder {
                 .flatten()
                 .try_for_each(|w_idx| {
                     if *w_idx == r_idx {
-                        Err(Error::Misc(format!(
+                        Err(Error::misc(format!(
                             "Assignment depends on itself: {}",
                             ir::Printer::assignment_to_str(
                                 gr[*w_idx].as_ref().unwrap()
@@ -188,7 +188,7 @@ impl DataflowOrder {
                     ir::Printer::assignment_to_str(gr[*idx].as_ref().unwrap())
                 })
                 .join("\n");
-            Err(Error::Misc(format!("Found combinational cycle:\n{}", msg)))
+            Err(Error::misc(format!("Found combinational cycle:\n{}", msg)))
         }
     }
 }

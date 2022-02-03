@@ -27,7 +27,7 @@ impl NamespaceDef {
                 if atty::isnt(Stream::Stdin) {
                     parser::CalyxParser::parse(std::io::stdin())
                 } else {
-                    Err(Error::InvalidFile(
+                    Err(Error::invalid_file(
                         "No file provided and terminal not a TTY".to_string(),
                     ))
                 }

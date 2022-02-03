@@ -1,8 +1,9 @@
+from typing import Dict
 import sys
 import logging as log
 import shutil
 from tempfile import TemporaryDirectory, NamedTemporaryFile, TemporaryFile
-from io import BytesIO
+from io import BytesIO, IOBase
 from pathlib import Path
 import subprocess
 import os
@@ -63,6 +64,10 @@ def logging_setup(args):
 
 
 class Directory:
+    """
+    Represents a Directory path
+    """
+
     def __init__(self, name):
         self.name = name
 
@@ -109,82 +114,46 @@ class FreshDir(Directory):
 
 class Conversions:
     @staticmethod
-    def path_to_directory(data):
+    def path_to_directory(data: Path):
         if data.is_dir():
-            return Directory(data.name)
+            return Directory(data)
         else:
-            raise errors.SourceConversionNotDirectory(data.name)
+            raise errors.SourceConversionNotDirectory(data)
 
     @staticmethod
-    def path_to_stream(data):
+    def path_to_stream(data: Path):
         return open(data, "rb")
 
     @staticmethod
-    def stream_to_path(data):
+    def stream_to_path(data: IOBase) -> Path:
+        assert (
+            not data.closed
+        ), "Closed stream. This probably means that a previous stage used this up."
         with NamedTemporaryFile("wb", delete=False) as tmpfile:
             tmpfile.write(data.read())
+            data.close()
             return Path(tmpfile.name)
 
     @staticmethod
-    def stream_to_bytes(data):
-        return data.read()
+    def stream_to_bytes(data: IOBase) -> bytes:
+        assert (
+            not data.closed
+        ), "Closed stream. This probably means that a previous stage used this up."
+        out = data.read()
+        data.close()
+        return out
 
     @staticmethod
-    def bytes_to_stream(data):
+    def bytes_to_stream(data: bytes) -> IOBase:
         return BytesIO(data)
 
     @staticmethod
-    def bytes_to_string(data):
+    def bytes_to_string(data: bytes) -> str:
         return data.decode("UTF-8")
 
     @staticmethod
-    def string_to_bytes(data):
+    def string_to_bytes(data: str) -> bytes:
         return data.encode("UTF-8")
-
-
-class SpinnerWrapper:
-    """
-    Wraps a spinner object.
-    """
-
-    def __init__(self, spinner, save):
-        self.spinner = spinner
-        self.save = save
-        self.stage_text = ""
-        self.step_text = ""
-
-    def _update(self):
-        if self.step_text != "":
-            self.spinner.start(f"{self.stage_text}: {self.step_text}")
-        else:
-            self.spinner.start(f"{self.stage_text}")
-
-    def start_stage(self, text):
-        self.stage_text = text
-        self._update()
-
-    def end_stage(self):
-        if self.save:
-            self.spinner.succeed()
-
-    def start_step(self, text):
-        self.step_text = text
-        self._update()
-
-    def end_step(self):
-        if self.save:
-            self.spinner.succeed()
-        self.step_text = ""
-        self._update()
-
-    def succeed(self):
-        self.spinner.succeed()
-
-    def fail(self, text=None):
-        self.spinner.fail(text)
-
-    def stop(self):
-        self.spinner.stop()
 
 
 def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
@@ -258,47 +227,21 @@ def transparent_shell(cmd):
     proc.wait()
 
 
-def parse_profiling_input(args):
-    """
-    Returns a mapping from stage to steps from the `profiled_stages` argument.
-    For example, if the user passes in `-pr a.a1 a.a2 b.b1 c`, this will return:
-    {"a" : ["a1", "a2"], "b" : ["b1"], "c" : [] }
-    """
-    stages = {}
-    if args.profiled_stages is None:
-        return stages
-    # Retrieve all stages.
-    for stage in args.profiled_stages:
-        if "." not in stage:
-            stages[stage] = []
-        else:
-            s, _ = stage.split(".")
-            stages[s] = []
-    # Append all steps.
-    for stage in args.profiled_stages:
-        if "." not in stage:
-            continue
-        _, step = stage.split(".")
-        stages[s].append(step)
-    return stages
-
-
-def profiling_dump(stage, phases, durations):
+def profiling_dump(durations: Dict[str, float]) -> str:
     """
     Returns time elapsed during each stage or step of the fud execution.
     """
-    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
 
     def name_and_space(s: str) -> str:
         # Return a string containing `s` followed by max(32 - len(s), 1) spaces.
         return "".join((s, max(32 - len(s), 1) * " "))
 
-    return f"{name_and_space(stage)}elapsed time (s)\n" + "\n".join(
-        f"{name_and_space(p.name)}{round(t, 3)}" for p, t in zip(phases, durations)
+    return f"{name_and_space('step')}elapsed time (s)\n" + "\n".join(
+        f"{name_and_space(p)}{round(t, 3)}" for p, t in durations.items()
     )
 
 
-def profiling_csv(stage, phases, durations):
+def profiling_csv(durations: Dict[str, float]) -> str:
     """
     Dumps the profiling information into a CSV format.
     For example, with
@@ -312,20 +255,12 @@ def profiling_csv(stage, phases, durations):
     x,c,3.444
     ```
     """
-    assert all(hasattr(p, "name") for p in phases), "expected to have name attribute."
-    return "\n".join(
-        [f"{stage},{p.name},{round(t, 3)}" for (p, t) in zip(phases, durations)]
-    )
+    return "\n".join([f"{p},{round(t, 3)}" for (p, t) in durations.items()])
 
 
-def profile_stages(stage, phases, durations, is_csv):
+def profile_stages(durations: Dict[str, float], is_csv) -> str:
     """
     Returns either a human-readable or CSV format profiling information,
     depending on `is_csv`.
     """
-    kwargs = {
-        "stage": stage,
-        "phases": phases,
-        "durations": durations,
-    }
-    return profiling_csv(**kwargs) if is_csv else profiling_dump(**kwargs)
+    return profiling_csv(durations) if is_csv else profiling_dump(durations)

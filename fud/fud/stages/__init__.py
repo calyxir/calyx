@@ -1,8 +1,12 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, List, Optional, Union, Any, Dict, Callable, Iterable
+
 """The definitions of fud stages."""
+if TYPE_CHECKING:
+    from .config import Configuration
 
 import functools
 import inspect
-import time
 import logging as log
 from enum import Enum, auto
 from io import IOBase
@@ -10,6 +14,46 @@ from pathlib import Path
 
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
+
+
+class Step:
+    """
+    A Step represents some delayed computation that is a part of a stage.
+    They are generally created using the @step decorator.
+    """
+
+    def __init__(
+        self, name: str, func, args: Iterable[Any], output: Source, description: str
+    ):
+        self.name = name
+        self.func = func
+        self.args = args
+        self.output = output
+
+        if description is not None:
+            self.description = description
+        elif self.func.__doc__ is not None:
+            self.description = self.func.__doc__.strip()
+        else:
+            raise Exception(f"Step {self.name} does not have a description.")
+
+        # Whether this Step has been executed or not.
+        self.executed = False
+
+    def __call__(self):
+        assert not self.executed, "Attempting to re-execute the same step"
+
+        if is_debug():
+            args = list(self.args)
+            arg_str = ", ".join(map(lambda a: str(a), args))
+            log.debug(f"{self.name}({arg_str})")
+            self.args = args
+        self.output.data = self.func(*self.args)
+        self.executed = True
+        return self.output
+
+    def __str__(self):
+        return f"{self.name}: {self.description}"
 
 
 class SourceType(Enum):
@@ -22,6 +66,7 @@ class SourceType(Enum):
     @String: Represents a python string. Data is a string.
     @Bytes: Represents a python byte string. Data is bytes.
     @UnTyped: Represents anything. No guarantees on what data is.
+    @Terminal: Source will not return and `fud` should hand off control.
     """
 
     Path = auto()
@@ -30,6 +75,7 @@ class SourceType(Enum):
     String = auto()
     Bytes = auto()
     UnTyped = auto()
+    Terminal = auto()
 
     def __str__(self):
         if self == SourceType.Path:
@@ -44,10 +90,12 @@ class SourceType(Enum):
             return "Bytes"
         elif self == SourceType.UnTyped:
             return "UnTyped"
+        elif self == SourceType.Terminal:
+            return "Terminal"
 
 
 class Source:
-    convert_map = {
+    convert_map: Dict[SourceType, Dict[SourceType, Callable[[Any], Any]]] = {
         SourceType.Path: {
             SourceType.Directory: conv.path_to_directory,
             SourceType.Stream: conv.path_to_stream,
@@ -72,9 +120,18 @@ class Source:
             SourceType.String: lambda d: d.name,
             SourceType.Path: lambda d: Path(d.name),
         },
+        # Terminal and UnTyped cannot be converted
+        SourceType.Terminal: {},
+        SourceType.UnTyped: {},
     }
 
-    def __init__(self, data, typ):
+    @staticmethod
+    def path(path: Optional[Union[str, Path]] = None) -> Source:
+        if path is not None and isinstance(path, str):
+            path = Path(str(path))
+        return Source(path, SourceType.Path)
+
+    def __init__(self, data: Optional[Any], typ: SourceType):
         self.typ = typ
         # check to make sure data is the right type
         if data is not None:
@@ -91,15 +148,20 @@ class Source:
             elif self.typ == SourceType.UnTyped:
                 # no guarantees on Untyped
                 pass
+        if self.typ == SourceType.Terminal:
+            assert data is None, "Terminal Source cannot contain data"
         self.data = data
 
-    def is_convertible_to(self, other):
+    def is_convertible_to(self, other: SourceType):
         if self.typ == other:
             return True
         else:
             return other in Source.convert_map[self.typ]
 
-    def convert_to(self, other):
+    def convert_to(self, other: SourceType) -> Source:
+        assert self.typ != SourceType.Terminal, "Terminal data cannot be converted"
+        assert self.typ == SourceType.UnTyped or self.data is not None
+
         if self.typ == other:
             return self
 
@@ -127,54 +189,185 @@ class Stage:
     `description`: Description of this stage
     """
 
-    # The name of a Stage is shared by all instances.
-    name = None
+    # The name of a Stage is shared by all instances of the stage.
+    name = ""
 
     def __init__(
         self,
         *,  # Force naming of the arguments
-        src_state,
-        target_state,
-        input_type,
-        output_type,
-        config,
-        description,
+        src_state: str,
+        target_state: str,
+        input_type: SourceType,
+        output_type: SourceType,
+        description: str,
     ):
-        self.src_stage = src_state
-        self.target_stage = target_state
+        self.src_state = src_state
+        self.target_state = target_state
         self.input_type = input_type
         self.output_type = output_type
-        self.config = config
-
-        if ["stages", self.name, "exec"] in self.config:
-            self.cmd = self.config["stages", self.name, "exec"]
-        else:
-            self.cmd = None
 
         self.description = description
-        self.steps = []
-        self._no_spinner = False
-        # Mapping from step name to its elapsed run time.
-        self.durations = {}
 
-    def setup(self):
+    def setup(
+        self,
+        config: Configuration,
+        builder: Optional[ComputationGraph] = None,
+    ) -> ComputationGraph:
         """
-        Defines all the steps for this Stage by running self._define_steps.
+        Construct a computation graph for this stage.
+        Returns a `ComputationGraph` representing the staged computation.
         """
-        self.hollow_input_data = Source(None, self.input_type)
-        self.final_output = self._define_steps(self.hollow_input_data)
 
-    def step(self, description=None):
+        # If a builder is provided, construct the computation graph using it.
+        if builder:
+            # Builder's current output because the stage's input.
+            builder.and_then(self, config)
+        else:
+            builder = ComputationGraph(self.input_type, self.output_type)
+            builder.ctx.append(self.name)
+            builder.output = self._define_steps(builder._input, builder, config)
+            builder.ctx.pop()
+
+        return builder
+
+    def _define_steps(
+        self, input: Source, builder: ComputationGraph, config: Configuration
+    ) -> Source:
+        """
+        Generate the staged execution graph for this Stage. Generally, this
+        function will define all the steps in this Stage and define an execution
+        schedule for those stages.
+        When executed, each step will be added to this Stage's computation
+        graph.
+        """
+        pass
+
+
+class ComputationGraph:
+
+    """Construct the computation graph for a stage"""
+
+    def __init__(
+        self,
+        input_type: SourceType,
+        output_type: SourceType,
+    ):
+        self.input_type = input_type
+        self.output_type = output_type
+
+        # Steps defined for this execution graph.
+        self.steps: List[Step] = []
+        # Input this computation graph
+        self._input = Source(None, self.input_type)
+
+        # Current context. Used to providing better stage names.
+        self.ctx: List[str] = []
+
+        self.output: Optional[Source] = None
+
+    def dry_run(self):
+        """
+        Print out step information without running them.
+        """
+        for step in self.steps:
+            print(f"  - {step}")
+
+    def and_then(self, stage: Stage, config: Configuration):
+        """
+        Compose the stage's computation graph with the current graph.
+        The steps in the stage will execute after this computation graph and
+        will take the final output as their input.
+        """
+        assert self.output is not None
+
+        # If the stage's input type doesn't match the current output type,
+        # convert it.
+        if self.output.typ != stage.input_type:
+            input = self.convert_source_to(self.output, stage.input_type)
+        else:
+            input = self.output
+
+        self.ctx.append(stage.name)
+        self.output = stage._define_steps(input, self, config)
+        self.ctx.pop()
+        self.output_type = stage.output_type
+        return self
+
+    def also_do(self, input: Source, stage: Stage, config: Configuration) -> Source:
+        """
+        Define a branch of the computation graph that may use any input.
+        """
+        return stage._define_steps(input, self, config)
+
+    def and_then_path(self, path: List[Stage], config: Configuration):
+        """
+        Convienience method to stage all the computations in a path.
+        """
+        for stage in path:
+            stage.setup(config, self)
+
+    def also_do_path(
+        self, input: Source, path: List[Stage], config: Configuration
+    ) -> Source:
+        """
+        A branch of the computation graph that uses `input` and executes the
+        given path.
+        @returns The output generated by this the branch of computation
+        """
+        assert len(path) > 0, "Path is empty"
+        first = path[0]
+        # The first stage uses the input to this computation graph
+        out = self.also_do(input, first, config)
+        # The remaining path is connected to the other builder
+        for stage in path[1:]:
+            out = self.also_do(out, stage, config)
+
+        return out
+
+    def get_steps(self, input_data: Source):
+        """
+        Steps associated with this computation graph
+        """
+        self._input.data = input_data.convert_to(self.input_type).data
+
+        for step in self.steps:
+            yield step
+
+    def convert_source_to(self, input: Source, output_type: SourceType) -> Source:
+        """
+        Returns a Step that converts input to the `output_type` SourceType
+        """
+
+        def transform_source(input: Source) -> Any:
+            return input.convert_to(output_type).data
+
+        output = Source(None, output_type)
+        convert_step = Step(
+            "transform",
+            transform_source,
+            [input],
+            output,
+            f"transform input to {output_type}",
+        )
+        self.steps.append(convert_step)
+        return output
+
+    def step(builder: ComputationGraph, description=None):
         """
         Define a step for this Stage using a decorator.
         For example the following defines a step that runs a command in the
         shell:
-            @self.step(description=self.cmd)
+            @builder.step(description=cmd)
             def run_mrxl(mrxl_prog: SourceType.Path) -> SourceType.Stream:
-                return shell(f"{self.cmd} {str(mrxl_prog)}")
+                return shell(f"{cmd} {str(mrxl_prog)}")
         """
 
+        # Define a function because the decorator needs to take in arguments.
         def step_decorator(function):
+            """
+            Decorator that transforms functions into `Step` and ensures that
+            the input and output type match.
+            """
             functools.wraps(function)
 
             sig = inspect.signature(function)
@@ -182,43 +375,58 @@ class Stage:
             annotations = []
             for ty in list(sig.parameters.values()):
                 if ty.annotation is ty.empty:
-                    raise Exception(f"Missing type annotation for argument `{ty}`")
+                    raise Exception(
+                        f"Missing type annotation for argument `{ty}`."
+                        " Steps require `SourceType` types for all arguments"
+                    )
                 annotations.append(ty.annotation)
-            input_types = tuple(annotations)
+            input_types: List[SourceType] = tuple(annotations)
 
             # TODO: handle tuples return types
             output_types = sig.return_annotation
 
             # the modified function that the decorator creates
-            def wrapper(*args):
+            def wrapper(*args: Source) -> Source:
 
                 # check to make sure the num of args match the num of expected
                 # args
                 if len(args) != len(input_types):
                     raise Exception(
                         f"Expected {len(input_types)} input arguments,"
-                        + " but only recieved {len(args)}"
+                        f" but recieved {len(args)}"
                     )
 
                 # make sure that the args are convertible to expected input
                 # types
                 for arg, inp in zip(args, input_types):
+                    assert isinstance(
+                        arg, Source
+                    ), f"Argument type is not source: ${type(arg)}"
                     if arg.typ != inp and not arg.is_convertible_to(inp):
                         raise Exception(
                             f"Type mismatch: can't convert {arg.typ} to {inp}"
                         )
 
-                # create a source with no data so that we can return a handle
-                # to this
+                # Create a source with no data so that we can return a handle
+                # to this.
+                # When this step executes, this is updated to contain the data
+                # generated by the step.
                 future_output = Source(None, output_types)
+
                 # convert the args to the right types and unwrap them
+                # NOTE(rachit): This is a *LAZY* computaion and only occurs when
+                # the step's data has been filled.
                 unwrapped_args = map(
                     lambda a: a[0].convert_to(a[1]).data, zip(args, input_types)
                 )
-                # thunk the function as a Step
-                self.steps.append(
+                if builder.ctx:
+                    name = f"{'.'.join(builder.ctx)}.{function.__name__}"
+                else:
+                    name = function.__name__
+                # thunk the function as a Step and add it to the current stage.
+                builder.steps.append(
                     Step(
-                        function.__name__,
+                        name,
                         function,
                         unwrapped_args,
                         future_output,
@@ -231,60 +439,3 @@ class Stage:
             return wrapper
 
         return step_decorator
-
-    def _define_steps(self, input_data):
-        pass
-
-    def run(self, input_data, sp=None):
-        assert isinstance(input_data, Source)
-
-        # fill in input_data
-        self.hollow_input_data.data = input_data.convert_to(self.input_type).data
-
-        # run all the steps
-        for step in self.steps:
-
-            if sp is not None:
-                sp.start_step(step.name)
-            begin = time.time()
-            step()
-            self.durations[step.name] = time.time() - begin
-            if sp is not None:
-                sp.end_step()
-
-        return self.final_output
-
-    def dry_run(self):
-        for i, step in enumerate(self.steps):
-            print(f"  {i+1}) {step}")
-
-
-class Step:
-    def __init__(self, name, func, args, output, description):
-        self.name = name
-        self.func = func
-        self.args = args
-        self.output = output
-        if description is not None:
-            self.description = description
-        elif self.func.__doc__ is not None:
-            self.description = self.func.__doc__.strip()
-        else:
-            raise Exception(f"Step {self.name} does not have a description.")
-
-    def __call__(self):
-        if is_debug():
-            args = list(self.args)
-            arg_str = ", ".join(map(lambda a: str(a), args))
-            log.debug(f"{self.name}({arg_str})")
-            self.args = args
-        self.output.data = self.func(*self.args)
-        return self.output
-
-    def __str__(self):
-        if self.description is not None:
-            return f"{self.name}: {self.description}"
-        elif self.func.__doc__ is not None:
-            return f"{self.name}: {self.func.__doc__.strip()}"
-        else:
-            return f"{self.name}: <python function>"

@@ -1,7 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
-use smallvec::smallvec;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -66,12 +65,7 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::Group {
-            name,
-            attributes: ir::Attributes::default(),
-            holes: smallvec![],
-            assignments: vec![],
-        }));
+        let group = Rc::new(RefCell::new(ir::Group::new(name)));
 
         // Add default holes to the group.
         for (name, width) in &[("go", 1), ("done", 1)] {
@@ -267,14 +261,14 @@ impl<'a> Builder<'a> {
             ir::PortParent::Cell(cell_wref) => {
                 let cell_ref = cell_wref.internal.upgrade().expect("Weak reference to port's parent cell points to nothing. This usually means that the Component did not retain a pointer to the Cell.");
 
-                let cell_name = &cell_ref.borrow().name;
-                self.component.find_cell(cell_name).expect("Port's parent cell not present in the component. Add the cell to the component before using the Port.");
+                let cell = &cell_ref.borrow();
+                self.component.find_cell(cell.name()).expect("Port's parent cell not present in the component. Add the cell to the component before using the Port.");
             }
             ir::PortParent::Group(group_wref) => {
                 let group_ref = group_wref.internal.upgrade().expect("Weak reference to hole's parent group points to nothing. This usually means that the Component did not retain a pointer to the Group.");
 
-                let group_name = &group_ref.borrow().name;
-                self.component.find_group(group_name).expect("Hole's parent cell not present in the component. Add the group to the component before using the Hole.");
+                let group = &group_ref.borrow();
+                self.component.find_group(group.name()).expect("Hole's parent cell not present in the component. Add the group to the component before using the Hole.");
             }
         };
     }
@@ -285,14 +279,7 @@ impl<'a> Builder<'a> {
         typ: ir::CellType,
         ports: CellPortSig,
     ) -> RRC<ir::Cell> {
-        let cell = Rc::new(RefCell::new(ir::Cell {
-            name,
-            ports: smallvec![],
-            prototype: typ,
-            // with_capacity(0) does not allocate space.
-            // Same as HashMap::with_capacity
-            attributes: ir::Attributes::default(),
-        }));
+        let cell = Rc::new(RefCell::new(ir::Cell::new(name, typ)));
         ports
             .into_iter()
             .for_each(|(name, width, direction, attributes)| {

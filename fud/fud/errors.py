@@ -1,6 +1,3 @@
-from pathlib import Path
-
-
 class FudError(Exception):
     """
     An error caught by the Calyx Driver.
@@ -21,28 +18,14 @@ class CycleLimitedReached(FudError):
         )
 
 
-class NoInputFile(FudError):
-    def __init__(self, possible_dests=None):
-        msg = "No filename or type provided for exec."
-        if possible_dests is not None:
-            dests = ",".join(map(lambda e: e.dest, possible_dests))
-            msg += f"\nPossible destination stages: [{dests}]"
-        super().__init__(msg)
-
-
 class UnknownExtension(FudError):
     """
     The provided extension does not correspond to any known stage.
     Thrown when the implicit stage discovery mechanism fails.
     """
 
-    def __init__(self, filename):
-        path = Path(filename)
-        ext = path.suffix
-        super().__init__(
-            f"`{ext}' does not correspond to any known stage. "
-            + "Please provide an explicit stage using --to or --from."
-        )
+    def __init__(self, msg, filename):
+        super().__init__(msg + "Please provide an explicit stage using --to or --from.")
 
 
 class UnsetConfiguration(FudError):
@@ -97,8 +80,10 @@ class UndefinedStage(FudError):
     No stage with the defined name.
     """
 
-    def __init__(self, stage):
+    def __init__(self, stage, ctx=None):
         msg = f"No stage named {stage}"
+        if ctx is not None:
+            msg += f". Context: {ctx}"
         super().__init__(msg)
 
 
@@ -107,8 +92,10 @@ class UndefinedSteps(FudError):
     No steps with the defined name for the given stage.
     """
 
-    def __init__(self, stage, steps):
+    def __init__(self, stage, steps, known_steps):
         msg = f"No step(s): {', '.join(steps)} defined for stage: {stage}"
+        if known_steps is not None:
+            msg += f". Known steps: {', '.join(known_steps)}"
         super().__init__(msg)
 
 
@@ -121,7 +108,9 @@ class MultiplePaths(FudError):
         msg = (
             f"Multiple stage pipelines can transform {src} to {dst}:\n"
             + paths
-            + "\nUse the --through flag to select an intermediate stage"
+            + "\nUse the --through flag to select an intermediate stage."
+            + " See https://docs.calyxir.org/fud/multiple-paths.html for"
+            + " more information."
         )
         super().__init__(msg)
 
@@ -186,6 +175,19 @@ class StepFailure(FudError):
             + stderr
             + "\n=====STDOUT=====\n"
             + stdout
+        )
+        super().__init__(msg)
+
+
+class NeedInputSpecified(FudError):
+    """
+    Error raised when the starting stage needs an input
+    """
+
+    def __init__(self, stage):
+        msg = (
+            f"The starting stage `{stage.name}` requires an input of type"
+            f" `{stage.input_type}` but no input was provided."
         )
         super().__init__(msg)
 
@@ -255,7 +257,6 @@ class FudRegisterError(FudError):
     An error raised when an external stage is not valid.
     """
 
-    def __init__(self, msg, stage_name=None):
-        name = f" `{stage_name}'" if stage_name is not None else ""
-        msg = f"""Failed to register`{name}': {msg}"""
+    def __init__(self, conf, msg):
+        msg = f"""Failed to register `{conf}': {msg}"""
         super().__init__(msg)

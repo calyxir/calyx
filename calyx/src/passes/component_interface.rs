@@ -71,7 +71,7 @@ impl Visitor for ComponentInterface {
         } else if let ir::Control::Empty(..) = &*control {
             Ok(Action::Stop)
         } else {
-            Err(Error::MalformedControl(format!(
+            Err(Error::malformed_control(format!(
                 "{}: Structure has more than one group",
                 Self::name()
             )))

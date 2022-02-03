@@ -1,4 +1,4 @@
-use crate::errors::Span;
+use crate::errors::{Span, WithPos};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
@@ -21,12 +21,11 @@ impl Id {
             span,
         }
     }
+}
 
-    pub fn fmt_err(&self, err_msg: &str) -> String {
-        match &self.span {
-            Some(span) => span.format(err_msg),
-            None => err_msg.to_string(),
-        }
+impl WithPos for Id {
+    fn copy_span(&self) -> Option<Span> {
+        self.span.clone()
     }
 }
 

@@ -1,8 +1,12 @@
-from collections import namedtuple
-import networkx as nx
+from typing import Optional, List, Tuple
 
+from collections import namedtuple
+import networkx as nx  # type: ignore
+
+from fud import stages
 from fud.errors import UndefinedStage, MultiplePaths
 
+# An edge in the state graph
 Edge = namedtuple("Edge", ["dest", "stage"])
 
 
@@ -16,15 +20,26 @@ class Registry:
         self.config = config
         self.graph = nx.DiGraph()
 
+    def get_states(self, stage: str) -> List[Tuple[str, str]]:
+        """
+        Returns the pairs of input and output states that the given stage
+        operates upon.
+        """
+        out = [
+            (s, e) for (s, e, st) in self.graph.edges(data="stage") if st.name == stage
+        ]
+        assert len(out) > 0, f"No state tranformation for {stage} found."
+        return out
+
     def register(self, stage):
         """
         Defines a new stage named `stage` that converts programs from `src` to
         `tar`
         """
 
-        self.graph.add_edge(stage.src_stage, stage.target_stage, stage=stage)
+        self.graph.add_edge(stage.src_state, stage.target_state, stage=stage)
 
-    def make_path(self, start, dest, through=[]):
+    def make_path(self, start, dest, through=[]) -> Optional[List[stages.Stage]]:
         """
         Compute a path from `start` to `dest` that contains all stages
         mentioned in `through`.
@@ -34,15 +49,20 @@ class Registry:
 
         nodes = self.graph.nodes()
         if start not in nodes:
-            raise UndefinedStage(start)
+            raise UndefinedStage(start, "Validate source state of the path")
 
         if dest not in nodes:
-            raise UndefinedStage(dest)
+            raise UndefinedStage(dest, "Validate target state of the path")
+
+        for node in through:
+            if node not in nodes:
+                raise UndefinedStage(node, "State provided using --through")
 
         all_paths = list(nx.all_simple_edge_paths(self.graph, start, dest))
 
         # Compute all stage pipelines that can be run.
         stage_paths = []
+
         # Minimum cost path
         min_cost = None
         for path in all_paths:
@@ -78,23 +98,29 @@ class Registry:
                     stage_paths.append(stage_path)
 
         if len(stage_paths) > 1:
-            p = []
-            for path in all_paths:
-                if len(path) == 0:
-                    continue
-                # Add the starting src
-                path_str = path[0][0]
-                for (_, dst) in path:
-                    path_str += f" → {dst}"
-                    cost = self.config.get(("stages", dst, "priority"))
-                    if cost is not None:
-                        path_str += f" (cost: {cost})"
-                p.append(path_str)
-            raise MultiplePaths(start, dest, "\n".join(p))
+            raise MultiplePaths(start, dest, self.paths_str(all_paths))
         elif len(stage_paths) == 0:
             return None
         else:
             return stage_paths[0]
+
+    def paths_str(self, paths):
+        """
+        Generate a string representation for computed paths
+        """
+        p = []
+        for path in paths:
+            if len(path) == 0:
+                continue
+            # Add the starting src
+            path_str = path[0][0]
+            for (_, dst) in path:
+                path_str += f" → {dst}"
+                cost = self.config.get(("stages", dst, "priority"))
+                if cost is not None:
+                    path_str += f" (cost: {cost})"
+            p.append(path_str)
+        return "\n".join(p)
 
     def __str__(self):
         stages = {}

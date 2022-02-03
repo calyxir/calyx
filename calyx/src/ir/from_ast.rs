@@ -4,7 +4,7 @@ use super::{
     Port, PortDef, Width, RESERVED_NAMES, RRC,
 };
 use crate::{
-    errors::{CalyxResult, Error},
+    errors::{CalyxResult, Error, WithPos},
     frontend::{self, ast},
     ir::PortComp,
     utils::NameGenerator,
@@ -36,7 +36,7 @@ fn check_signature(sig: &[PortDef]) -> CalyxResult<()> {
                 if !inputs.contains(&pd.name) {
                     inputs.insert(&pd.name);
                 } else {
-                    return Err(Error::AlreadyBound(
+                    return Err(Error::already_bound(
                         pd.name.clone(),
                         "component".to_string(),
                     ));
@@ -46,7 +46,7 @@ fn check_signature(sig: &[PortDef]) -> CalyxResult<()> {
                 if !outputs.contains(&pd.name) {
                     outputs.insert(&pd.name);
                 } else {
-                    return Err(Error::AlreadyBound(
+                    return Err(Error::already_bound(
                         pd.name.clone(),
                         "component".to_string(),
                     ));
@@ -106,7 +106,7 @@ pub fn ast_to_ir(
 
     for bound in prim_names.chain(comp_names) {
         if all_names.contains(bound) {
-            return Err(Error::AlreadyBound(
+            return Err(Error::already_bound(
                 bound.clone(),
                 "component or primitive".to_string(),
             ));
@@ -151,7 +151,7 @@ pub fn ast_to_ir(
         .find(|c| c.attributes.get("toplevel").is_some())
         .or_else(|| comps.iter().find(|c| c.name == "main"))
         .map(|c| c.name.clone())
-        .ok_or_else(|| Error::Misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
+        .ok_or_else(|| Error::misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
 
     Ok(Context {
         components: comps,
@@ -166,15 +166,21 @@ fn validate_component(
     comp: &ast::ComponentDef,
     sig_ctx: &SigCtx,
 ) -> CalyxResult<()> {
-    let mut cells = HashSet::new();
-    let mut groups = HashSet::new();
+    let mut cells: HashSet<Id> = HashSet::new();
+    let mut groups: HashSet<Id> = HashSet::new();
 
     for cell in &comp.cells {
         if cells.contains(&cell.name) {
-            return Err(Error::AlreadyBound(
+            let prev = cells
+                .get(&cell.name)
+                .unwrap()
+                .copy_span()
+                .map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(
                 cell.name.clone(),
                 "cell".to_string(),
-            ));
+            )
+            .with_post_msg(prev));
         }
         cells.insert(cell.name.clone());
 
@@ -183,7 +189,7 @@ fn validate_component(
         if sig_ctx.lib.find_primitive(&proto_name).is_none()
             && !sig_ctx.comp_sigs.contains_key(proto_name)
         {
-            return Err(Error::Undefined(
+            return Err(Error::undefined(
                 proto_name.clone(),
                 "primitive or component".to_string(),
             ));
@@ -193,10 +199,25 @@ fn validate_component(
     for group in &comp.groups {
         let name = &group.name;
         if groups.contains(name) {
-            return Err(Error::AlreadyBound(name.clone(), "group".to_string()));
+            let prev = groups
+                .get(name)
+                .unwrap()
+                .copy_span()
+                .map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(
+                name.clone(),
+                "group".to_string(),
+            )
+            .with_post_msg(prev));
         }
         if cells.contains(name) {
-            return Err(Error::AlreadyBound(name.clone(), "cell".to_string()));
+            let prev = cells
+                .get(name)
+                .unwrap()
+                .copy_span()
+                .map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(name.clone(), "cell".to_string())
+                .with_post_msg(prev));
         }
         groups.insert(name.clone());
     }
@@ -237,11 +258,8 @@ fn build_component(
         .into_iter()
         .try_for_each(|g| add_group(g, &mut builder))?;
 
-    let continuous_assignments = comp
-        .continuous_assignments
-        .into_iter()
-        .map(|w| build_assignment(w, &mut builder))
-        .collect::<CalyxResult<Vec<_>>>()?;
+    let continuous_assignments =
+        build_assignments(comp.continuous_assignments, &mut builder)?;
     builder.component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
@@ -303,21 +321,13 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
     if group.is_comb {
         let ir_group = builder.add_comb_group(group.name);
-        let assigns = group
-            .wires
-            .into_iter()
-            .map(|assign| build_assignment(assign, builder))
-            .collect::<CalyxResult<Vec<_>>>()?;
+        let assigns = build_assignments(group.wires, builder)?;
 
         ir_group.borrow_mut().attributes = group.attributes;
         ir_group.borrow_mut().assignments = assigns;
     } else {
         let ir_group = builder.add_group(group.name);
-        let assigns = group
-            .wires
-            .into_iter()
-            .map(|assign| build_assignment(assign, builder))
-            .collect::<CalyxResult<Vec<_>>>()?;
+        let assigns = build_assignments(group.wires, builder)?;
 
         ir_group.borrow_mut().attributes = group.attributes;
         ir_group.borrow_mut().assignments = assigns;
@@ -334,22 +344,22 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
         ast::Port::Comp { component, port } => comp
             .find_cell(&component)
             .ok_or_else(|| {
-                Error::Undefined(component.clone(), "cell".to_string())
+                Error::undefined(component.clone(), "cell".to_string())
             })?
             .borrow()
             .find(&port)
-            .ok_or_else(|| Error::Undefined(port, "port".to_string())),
+            .ok_or_else(|| Error::undefined(port, "port".to_string())),
         ast::Port::This { port } => {
             comp.signature.borrow().find(&port).ok_or_else(|| {
-                Error::Undefined(port, "component port".to_string())
+                Error::undefined(port, "component port".to_string())
             })
         }
         ast::Port::Hole { group, name: port } => comp
             .find_group(&group)
-            .ok_or_else(|| Error::Undefined(group, "group".to_string()))?
+            .ok_or_else(|| Error::undefined(group, "group".to_string()))?
             .borrow()
             .find(&port)
-            .ok_or_else(|| Error::Undefined(port, "hole".to_string())),
+            .ok_or_else(|| Error::undefined(port, "hole".to_string())),
     }
 }
 
@@ -376,14 +386,14 @@ fn ensure_direction(pr: RRC<Port>, dir: Direction) -> CalyxResult<RRC<Port>> {
     match (dir, port_dir) {
         (Direction::Input, Direction::Output) => {
             let (c, p) = pr.borrow().canonical();
-            Err(Error::MalformedStructure(format!(
+            Err(Error::malformed_structure(format!(
                 "Port `{}.{}` occurs in write position but is an output port",
                 c, p
             )))
         }
         (Direction::Output, Direction::Input) => {
             let (c, p) = pr.borrow().canonical();
-            Err(Error::MalformedStructure(format!(
+            Err(Error::malformed_structure(format!(
                 "Port `{}.{}` occurs in write position but is an output port",
                 c, p
             )))
@@ -412,7 +422,7 @@ fn build_assignment(
             src_port.borrow().width,
             dst_port.borrow().width,
         );
-        return Err(Error::MalformedStructure(wire.attributes.fmt_err(&msg)));
+        return Err(Error::malformed_structure(msg).with_pos(&wire.attributes));
     }
     let guard = match wire.src.guard {
         Some(g) => build_guard(g, builder)?,
@@ -420,6 +430,19 @@ fn build_assignment(
     };
 
     Ok(builder.build_assignment(dst_port, src_port, guard))
+}
+
+fn build_assignments(
+    assigns: Vec<ast::Wire>,
+    builder: &mut Builder,
+) -> CalyxResult<Vec<Assignment>> {
+    assigns
+        .into_iter()
+        .map(|w| {
+            let attrs = w.attributes.clone();
+            build_assignment(w, builder).map_err(|err| err.with_pos(&attrs))
+        })
+        .collect::<CalyxResult<Vec<_>>>()
 }
 
 /// Transform an ast::GuardExpr to an ir::Guard.
@@ -468,7 +491,7 @@ fn build_control(
         } => {
             let mut en = Control::enable(Rc::clone(
                 &builder.component.find_group(&component).ok_or_else(|| {
-                    Error::Undefined(component.clone(), "group".to_string())
+                    Error::undefined(component.clone(), "group".to_string())
                 })?,
             ));
             *(en.get_mut_attributes().unwrap()) = attributes;
@@ -483,7 +506,7 @@ fn build_control(
         } => {
             let cell = Rc::clone(
                 &builder.component.find_cell(&component).ok_or_else(|| {
-                    Error::Undefined(component.clone(), "cell".to_string())
+                    Error::undefined(component.clone(), "cell".to_string())
                 })?,
             );
             let inputs = inputs
@@ -514,7 +537,7 @@ fn build_control(
                     .component
                     .find_comb_group(&cg)
                     .ok_or_else(|| {
-                        Error::Undefined(
+                        Error::undefined(
                             cg.clone(),
                             "combinational group".to_string(),
                         )
@@ -553,7 +576,7 @@ fn build_control(
             let group = maybe_cond
                 .map(|cond| {
                     builder.component.find_comb_group(&cond).ok_or_else(|| {
-                        Error::Undefined(
+                        Error::undefined(
                             cond.clone(),
                             "combinational group".to_string(),
                         )
@@ -581,7 +604,7 @@ fn build_control(
             let group = maybe_cond
                 .map(|cond| {
                     builder.component.find_comb_group(&cond).ok_or_else(|| {
-                        Error::Undefined(
+                        Error::undefined(
                             cond.clone(),
                             "combinational group".to_string(),
                         )

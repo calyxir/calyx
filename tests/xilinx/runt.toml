@@ -1,0 +1,34 @@
+ver = "0.3.2"
+
+# Run Vivado/Vitis to produce an xclbin binary.
+# This command needs to output to a temporary file and delete it because fud
+# can only dump text data to stdout, not binary data.
+[[tests]]
+name = "compile"
+expect_dir = "compile"
+paths = [
+  "*.futil"
+]
+cmd = """
+fud exec -q -s futil.exec '../../target/debug/futil' \
+    {} -o {}.xclbin &&
+    rm {}.xclbin
+"""
+
+# Compile *and* actually emulate a program using OpenCL.
+[[tests]]
+name = "emulate"
+expect_dir = "emulate"
+paths = [
+  "*.futil"
+]
+cmd = """
+bash -c '\
+source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh > /dev/null ; \
+source /opt/xilinx/xrt/setup.sh > /dev/null ; \
+EMCONFIG_PATH=`pwd` \
+XCL_EMULATION_MODE=hw_emu \
+fud exec -q -s futil.exec ../../target/debug/futil \
+    {} --to fpga -s fpga.data data.json | \
+    grep -Ev "^INFO|^Data|RD ="'
+"""

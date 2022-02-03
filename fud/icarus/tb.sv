@@ -9,8 +9,9 @@ main #() main (
   .done(done)
 );
 
-// Cycle counter
-logic [0:63] cycle_count;
+// Cycle counter. Make this signed to catch errors with cycle simulation
+// counts.
+logic signed [0:63] cycle_count;
 
 always_ff @(posedge clk) begin
   cycle_count <= cycle_count + 1;

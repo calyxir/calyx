@@ -1,12 +1,12 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    Canonicalize, ClkInsertion, CollapseControl, CompileEmpty, CompileInvoke,
-    ComponentInliner, ComponentInterface, DeadCellRemoval, DeadGroupRemoval,
-    Externalize, GoInsertion, GroupToInvoke, HoleInliner, InferStaticTiming,
-    LowerGuards, MergeAssign, MinimizeRegs, Papercut, ParToSeq,
-    RegisterUnsharing, RemoveCombGroups, ResetInsertion, ResourceSharing,
-    SimplifyGuards, SynthesisPapercut, TopDownCompileControl, WellFormed,
-    WireInliner,
+    Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
+    CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
+    DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
+    InferStaticTiming, LowerGuards, MergeAssign, MinimizeRegs, Papercut,
+    ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
+    WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -18,38 +18,46 @@ impl PassManager {
         // Construct the pass manager and register all passes.
         let mut pm = PassManager::default();
 
-        // Register passes.
+        // Validation passes
         pm.register_pass::<WellFormed>()?;
-        // pm.register_pass::<StaticTiming>()?;
-        // pm.register_pass::<CompileControl>()?;
-        pm.register_pass::<CompileInvoke>()?;
+        pm.register_pass::<Papercut>()?;
+        pm.register_pass::<Canonicalize>()?;
+
+        // Optimization passes
+        pm.register_pass::<CombProp>()?;
         pm.register_pass::<ComponentInliner>()?;
-        pm.register_pass::<GoInsertion>()?;
-        pm.register_pass::<ComponentInterface>()?;
-        pm.register_pass::<WireInliner>()?;
-        pm.register_pass::<HoleInliner>()?;
-        pm.register_pass::<Externalize>()?;
         pm.register_pass::<CollapseControl>()?;
         pm.register_pass::<CompileEmpty>()?;
-        pm.register_pass::<Papercut>()?;
-        pm.register_pass::<ClkInsertion>()?;
-        pm.register_pass::<ResetInsertion>()?;
         pm.register_pass::<ResourceSharing>()?;
         pm.register_pass::<DeadCellRemoval>()?;
-        pm.register_pass::<DeadGroupRemoval>()?;
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
-        pm.register_pass::<SimplifyGuards>()?;
-        pm.register_pass::<MergeAssign>()?;
-        pm.register_pass::<TopDownCompileControl>()?;
-        // pm.register_pass::<TopDownStaticTiming>()?;
-        pm.register_pass::<SynthesisPapercut>()?;
-        pm.register_pass::<RegisterUnsharing>()?;
-        pm.register_pass::<Canonicalize>()?;
-        pm.register_pass::<LowerGuards>()?;
-        pm.register_pass::<ParToSeq>()?;
+
+        // Compilation passes
+        pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<RemoveCombGroups>()?;
+        pm.register_pass::<TopDownCompileControl>()?;
+
+        // Lowering passes
+        pm.register_pass::<GoInsertion>()?;
+        pm.register_pass::<ComponentInterface>()?;
+        pm.register_pass::<HoleInliner>()?;
+        pm.register_pass::<ClkInsertion>()?;
+        pm.register_pass::<ResetInsertion>()?;
+        pm.register_pass::<MergeAssign>()?;
+
+        // Enabled in the synthesis compilation flow
+        pm.register_pass::<SynthesisPapercut>()?;
+        pm.register_pass::<Externalize>()?;
+
+        // Disabled by default
+        pm.register_pass::<DeadGroupRemoval>()?;
+        pm.register_pass::<SimplifyGuards>()?;
+        pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GroupToInvoke>()?;
+        pm.register_pass::<ParToSeq>()?;
+        pm.register_pass::<LowerGuards>()?;
+        pm.register_pass::<WireInliner>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
@@ -57,6 +65,7 @@ impl PassManager {
             "pre-opt",
             [
                 ComponentInliner,
+                CombProp,
                 RemoveCombGroups, // Must run before `infer-static-timing`.
                 InferStaticTiming,
                 CollapseControl,
@@ -67,14 +76,13 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [
-                CompileInvoke,
-                CompileEmpty,
-                // StaticTiming,
-                TopDownCompileControl
-            ]
+            [CompileInvoke, CompileEmpty, TopDownCompileControl]
         );
-        register_alias!(pm, "post-opt", [DeadCellRemoval]);
+        register_alias!(
+            pm,
+            "post-opt",
+            [DeadGroupRemoval, DeadCellRemoval, CombProp]
+        );
         register_alias!(
             pm,
             "lower",
@@ -88,7 +96,7 @@ impl PassManager {
             ]
         );
 
-        // Register aliases
+        // Default flow
         register_alias!(
             pm,
             "all",

@@ -1,6 +1,6 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -158,7 +158,7 @@ pub enum CellType {
 #[derive(Debug)]
 pub struct Cell {
     /// Name of this cell.
-    pub(super) name: Id,
+    name: Id,
     /// Ports on this cell
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
@@ -178,6 +178,16 @@ impl GetAttributes for Cell {
 }
 
 impl Cell {
+    /// Construct a cell
+    pub fn new(name: Id, prototype: CellType) -> Self {
+        Self {
+            name,
+            ports: smallvec![],
+            prototype,
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Get a reference to the named port if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
@@ -207,17 +217,27 @@ impl Cell {
         S: std::fmt::Display + Clone + AsRef<str>,
     {
         self.find(&name).unwrap_or_else(|| {
-            panic!(
-                "Port `{}' not found on cell `{}'",
-                name.to_string(),
-                self.name.to_string()
-            )
+            panic!("Port `{name}' not found on cell `{}'", self.name,)
         })
     }
 
     /// Returns true iff this cell is an instance of a Calyx-defined component.
     pub fn is_component(&self) -> bool {
         matches!(&self.prototype, CellType::Component { .. })
+    }
+
+    /// Returns true if this is an instance of a primitive. If the optional name is provided then
+    /// only returns true if the primitive has the given name.
+    pub fn is_primitive<S>(&self, prim: Option<S>) -> bool
+    where
+        S: AsRef<str>,
+    {
+        match &self.prototype {
+            CellType::Primitive { name, .. } => {
+                prim.as_ref().map(|p| name.eq(p)).unwrap_or(true)
+            }
+            _ => false,
+        }
     }
 
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
@@ -230,7 +250,7 @@ impl Cell {
             panic!(
                 "Port with attribute `{}' not found on cell `{}'",
                 attr.as_ref(),
-                self.name.to_string()
+                self.name,
             )
         })
     }
@@ -327,9 +347,9 @@ pub struct Assignment {
 impl Assignment {
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
-    pub fn for_each_port<F>(&mut self, f: F)
+    pub fn for_each_port<F>(&mut self, mut f: F)
     where
-        F: Fn(&RRC<Port>) -> Option<RRC<Port>>,
+        F: FnMut(&RRC<Port>) -> Option<RRC<Port>>,
     {
         if let Some(new_src) = f(&self.src) {
             self.src = new_src;
@@ -337,7 +357,7 @@ impl Assignment {
         if let Some(new_dst) = f(&self.dst) {
             self.dst = new_dst;
         }
-        self.guard.for_each(&|port| f(&port).map(Guard::port))
+        self.guard.for_each(&mut |port| f(&port).map(Guard::port))
     }
 }
 
@@ -345,7 +365,7 @@ impl Assignment {
 #[derive(Debug)]
 pub struct Group {
     /// Name of this group
-    pub(super) name: Id,
+    name: Id,
 
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
@@ -357,6 +377,15 @@ pub struct Group {
     pub attributes: Attributes,
 }
 impl Group {
+    pub fn new(name: Id) -> Self {
+        Self {
+            name,
+            assignments: vec![],
+            holes: smallvec![],
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
     where
@@ -374,11 +403,7 @@ impl Group {
         S: std::fmt::Display + AsRef<str>,
     {
         self.find(&name).unwrap_or_else(|| {
-            panic!(
-                "Hole `{}' not found on group `{}'",
-                name.to_string(),
-                self.name.to_string()
-            )
+            panic!("Hole `{name}' not found on group `{}'", self.name)
         })
     }
 

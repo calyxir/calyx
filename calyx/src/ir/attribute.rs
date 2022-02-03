@@ -1,7 +1,7 @@
 use linked_hash_map::LinkedHashMap;
 use std::ops::Index;
 
-use crate::errors::Span;
+use crate::errors::{Span, WithPos};
 
 /// Attributes associated with a specific IR structure.
 #[derive(Debug, Clone)]
@@ -28,6 +28,12 @@ impl From<Vec<(String, u64)>> for Attributes {
             attrs: v.into_iter().collect(),
             span: None,
         }
+    }
+}
+
+impl WithPos for Attributes {
+    fn copy_span(&self) -> Option<Span> {
+        self.span.clone()
     }
 }
 
@@ -88,13 +94,11 @@ impl Attributes {
         self.span = Some(span);
         self
     }
+}
 
-    /// Format an error with the span information if present.
-    pub fn fmt_err(&self, err_msg: &str) -> String {
-        match &self.span {
-            Some(span) => span.format(err_msg),
-            None => err_msg.to_string(),
-        }
+impl<T: GetAttributes> WithPos for T {
+    fn copy_span(&self) -> Option<Span> {
+        self.get_attributes().and_then(|attrs| attrs.copy_span())
     }
 }
 
