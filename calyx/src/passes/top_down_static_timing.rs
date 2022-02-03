@@ -132,12 +132,23 @@ fn seq_calculate_states(
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
     let mut preds = vec![];
+    let mut new_state = cur_state;
     for stmt in &con.stmts {
-        let new_state = preds
+        // Compute the new start state from the latest predecessor.
+        new_state = preds
             .iter()
             .max_by_key(|(state, _)| state)
             .unwrap_or(&(cur_state, pre_guard.clone()))
             .0;
+
+        // Add transitions from each predecessor to the new state.
+        schedule.transitions.extend(
+            preds
+                .iter()
+                .map(|(s, g)| (s.clone() - 1, new_state, g.clone())),
+        );
+
+        // Recurse into statement and save new predecessors.
         match calculate_states(stmt, new_state, pre_guard, schedule, builder) {
             Ok(inner_preds) => {
                 preds = inner_preds;
@@ -145,6 +156,12 @@ fn seq_calculate_states(
             Err(e) => return Err(e),
         }
     }
+
+    // Add transition out of last state in the sequence.
+    schedule
+        .transitions
+        .extend(preds.iter().map(|(s, g)| (new_state, s.clone(), g.clone())));
+
     Ok(preds)
 }
 
@@ -246,11 +263,21 @@ fn enable_calculate_states(
     let mut assigns = build_assignments!(builder;
         group["go"] = pre_guard ? signal_on["out"];
     );
+
+    // Enable when in range of group's latency.
     schedule
         .enables
         .entry(range)
         .or_default()
         .append(&mut assigns);
+
+    // Transition to the next state latency times.
+    let starts = cur_state..cur_state + time - 1;
+    let ends = cur_state + 1..cur_state + time;
+    schedule
+        .transitions
+        .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
+
     Ok(vec![(cur_state + time, pre_guard.clone())])
 }
 
