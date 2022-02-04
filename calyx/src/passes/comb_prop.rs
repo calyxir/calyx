@@ -127,15 +127,6 @@ impl Visitor for CombProp {
 
         port_rewrites.extend(updates);
 
-        for ((cell, port), port_ref) in &port_rewrites {
-            eprintln!(
-                "{}.{} -> {}",
-                cell.id,
-                port.id,
-                ir::Printer::port_to_str(&port_ref.borrow())
-            );
-        }
-
         // Rewrite assignments
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
