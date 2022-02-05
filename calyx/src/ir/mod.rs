@@ -18,7 +18,7 @@ mod id;
 mod primitives;
 mod printer;
 mod reserved_names;
-mod rewriter;
+pub mod rewriter;
 mod structure;
 
 // Re-export types at the module level.
