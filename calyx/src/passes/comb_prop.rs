@@ -1,17 +1,90 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use itertools::Itertools;
-
 use crate::ir::{
     self,
-    traversal::{Action, Named, VisResult, Visitor},
+    traversal::{Action, VisResult, Visitor},
     RRC,
 };
 
 /// A data structure to track rewrites of ports with added functionality to declare
 /// two wires to be "equal" when they are connected together.
-struct WireRewriter {}
+#[derive(Default)]
+struct WireRewriter {
+    rewrites: ir::rewriter::PortRewriteMap,
+}
+
+impl WireRewriter {
+    /// Insert into rewrite map. If `v` is in current `rewrites`, then insert `k` -> `rewrites[v]`.
+    /// Panics if there is already a mapping for `k`.
+    pub fn insert(&mut self, from: RRC<ir::Port>, to: RRC<ir::Port>) {
+        let from_idx = from.borrow().canonical();
+        let to_idx = to.borrow().canonical();
+
+        // Should not attempt to replace keys
+        if let Some(old) = self.rewrites.get(&from_idx) {
+            let old_c = old.borrow().canonical();
+            panic!(
+                "Replacing {}.{} -> {}.{} with {}.{} -> {}.{}",
+                from_idx.0,
+                from_idx.1,
+                old_c.0,
+                old_c.1,
+                from_idx.0,
+                from_idx.1,
+                to_idx.0,
+                to_idx.1
+            );
+        }
+
+        self.rewrites.insert(from_idx, to);
+    }
+
+    /// Apply all the defined equalities to the current set of rewrites.
+    fn make_consistent(self) -> ir::rewriter::PortRewriteMap {
+        // Perform rewrites on the defined rewrites
+        self.rewrites
+            .iter()
+            .map(|(from, to)| {
+                let to_idx = to.borrow().canonical();
+                let mut final_to = self.rewrites.get(&to_idx);
+                while let Some(new_to) = final_to {
+                    if let Some(new_new_to) =
+                        self.rewrites.get(&new_to.borrow().canonical())
+                    {
+                        final_to = Some(new_new_to);
+                    } else {
+                        break;
+                    }
+                }
+                (from.clone(), Rc::clone(final_to.unwrap_or(to)))
+            })
+            /* // Remove identity rewrites
+            .filter(|(k, pr)| k != &pr.borrow().canonical()) */
+            .collect()
+    }
+}
+
+impl From<WireRewriter> for ir::rewriter::PortRewriteMap {
+    fn from(v: WireRewriter) -> Self {
+        v.make_consistent()
+    }
+}
+
+impl std::fmt::Debug for WireRewriter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for ((cell, port), port_ref) in &self.rewrites {
+            writeln!(
+                f,
+                "{}.{} -> {}",
+                cell.id,
+                port.id,
+                ir::Printer::port_to_str(&port_ref.borrow())
+            )?
+        }
+        Ok(())
+    }
+}
 
 /// Propagate unconditional writes to the input port of `std_wire`s. Equivalent
 /// to copy propagation in software compilers.
@@ -47,7 +120,7 @@ struct WireRewriter {}
 #[derive(Default)]
 pub struct CombProp;
 
-impl Named for CombProp {
+impl ir::traversal::Named for CombProp {
     fn name() -> &'static str {
         "comb-prop"
     }
@@ -64,8 +137,7 @@ impl Visitor for CombProp {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut port_rewrites: HashMap<ir::Canonical, RRC<ir::Port>> =
-            HashMap::new();
+        let mut rewrites = WireRewriter::default();
 
         let parent_is_wire = |parent: &ir::PortParent| -> bool {
             match parent {
@@ -84,62 +156,46 @@ impl Visitor for CombProp {
                 continue;
             }
 
-            // src port forwards value on the wire
             let dst = assign.dst.borrow();
-            if parent_is_wire(&dst.parent) {
-                if let ir::PortParent::Cell(cell_wref) = &dst.parent {
-                    let cr = cell_wref.upgrade();
-                    let cell = cr.borrow();
-                    let dst_idx = cell.get("out").borrow().canonical();
-
-                    // If the source has been rewritten, use the rewrite
-                    // value from that instead.
-                    port_rewrites.insert(dst_idx, Rc::clone(&assign.src));
-                };
-            }
-
-            // wire forwards writes to dst port.
             let src = assign.src.borrow();
-            if parent_is_wire(&src.parent) {
-                if let ir::PortParent::Cell(cell_wref) = &src.parent {
-                    let cr = cell_wref.upgrade();
-                    let cell = cr.borrow();
-                    let dst_idx = cell.get("in").borrow().canonical();
-                    port_rewrites.insert(dst_idx, Rc::clone(&assign.dst));
-                };
+            let dst_is_wire = parent_is_wire(&dst.parent);
+            let src_is_wire = parent_is_wire(&src.parent);
+
+            if dst_is_wire {
+                // src port forwards value on the wire
+                rewrites.insert(
+                    dst.cell_parent().borrow().get("out"),
+                    Rc::clone(&assign.src),
+                );
+            }
+            if src_is_wire {
+                // wire forwards writes to dst port
+                rewrites.insert(
+                    src.cell_parent().borrow().get("in"),
+                    Rc::clone(&assign.dst),
+                );
             }
         }
-
-        // Make the rewrites consistent.
-        let updates = port_rewrites
-            .iter()
-            .flat_map(|(from, to)| {
-                let to_idx = to.borrow().canonical();
-                let mut final_to = port_rewrites.get(&to_idx);
-                while let Some(new_to) = final_to {
-                    if let Some(new_new_to) =
-                        port_rewrites.get(&new_to.borrow().canonical())
-                    {
-                        final_to = Some(new_new_to);
-                    } else {
-                        break;
-                    }
-                }
-                final_to.map(|to| (from.clone(), to.clone()))
-            })
-            .collect_vec();
-
-        port_rewrites.extend(updates);
+        eprintln!("{:?}", rewrites);
 
         // Rewrite assignments
+        let rewrites: ir::rewriter::PortRewriteMap = rewrites.into();
+        for ((cell, port), port_ref) in &rewrites {
+            eprintln!(
+                "{}.{} -> {}",
+                cell.id,
+                port.id,
+                ir::Printer::port_to_str(&port_ref.borrow())
+            );
+        }
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
-                port_rewrites.get(&port.borrow().canonical()).cloned()
+                rewrites.get(&port.borrow().canonical()).cloned()
             })
         });
 
         let cell_rewrites = HashMap::new();
-        let rewriter = ir::Rewriter::new(&cell_rewrites, &port_rewrites);
+        let rewriter = ir::Rewriter::new(&cell_rewrites, &rewrites);
         rewriter.rewrite_control(
             &mut comp.control.borrow_mut(),
             &HashMap::new(),
