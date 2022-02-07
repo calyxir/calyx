@@ -17,27 +17,19 @@ struct WireRewriter {
 impl WireRewriter {
     /// Insert into rewrite map. If `v` is in current `rewrites`, then insert `k` -> `rewrites[v]`.
     /// Panics if there is already a mapping for `k`.
-    pub fn insert(&mut self, from: RRC<ir::Port>, to: RRC<ir::Port>) {
+    pub fn insert(
+        &mut self,
+        from: RRC<ir::Port>,
+        to: RRC<ir::Port>,
+    ) -> Option<RRC<ir::Port>> {
         let from_idx = from.borrow().canonical();
-        let to_idx = to.borrow().canonical();
+        self.rewrites.insert(from_idx, to)
+    }
 
-        // Should not attempt to replace keys
-        if let Some(old) = self.rewrites.get(&from_idx) {
-            let old_c = old.borrow().canonical();
-            panic!(
-                "Replacing {}.{} -> {}.{} with {}.{} -> {}.{}",
-                from_idx.0,
-                from_idx.1,
-                old_c.0,
-                old_c.1,
-                from_idx.0,
-                from_idx.1,
-                to_idx.0,
-                to_idx.1
-            );
-        }
-
-        self.rewrites.insert(from_idx, to);
+    // Removes the mapping associated with the key.
+    pub fn remove(&mut self, from: RRC<ir::Port>) {
+        let from_idx = from.borrow().canonical();
+        self.rewrites.remove(&from_idx);
     }
 
     /// Apply all the defined equalities to the current set of rewrites.
@@ -59,8 +51,6 @@ impl WireRewriter {
                 }
                 (from.clone(), Rc::clone(final_to.unwrap_or(to)))
             })
-            /* // Remove identity rewrites
-            .filter(|(k, pr)| k != &pr.borrow().canonical()) */
             .collect()
     }
 }
@@ -118,7 +108,12 @@ impl std::fmt::Debug for WireRewriter {
 /// r.in = c;
 /// ```
 #[derive(Default)]
-pub struct CombProp;
+pub struct CombProp {
+    /// Disable automatic removal of some dead assignments needed for correctness and instead mark
+    /// them with @dead.
+    /// NOTE: if this is disabled, the pass will not remove obviously conflicting assignments.
+    do_not_eliminate: bool,
+}
 
 impl ir::traversal::Named for CombProp {
     fn name() -> &'static str {
@@ -150,44 +145,55 @@ impl Visitor for CombProp {
             }
         };
 
-        for assign in &comp.continuous_assignments {
+        for assign in &mut comp.continuous_assignments {
             // Skip conditional continuous assignments
             if !assign.guard.is_true() {
                 continue;
             }
 
+            // If the destination is a wire, then we have something like:
+            // ```
+            // wire.in = c.out;
+            // ```
+            // Which means all instances of `wire.out` can be replaced with `c.out` because the
+            // wire is being used to forward values from `c.out`.
             let dst = assign.dst.borrow();
-            let src = assign.src.borrow();
-            let dst_is_wire = parent_is_wire(&dst.parent);
-            let src_is_wire = parent_is_wire(&src.parent);
-
-            if dst_is_wire {
-                // src port forwards value on the wire
+            if parent_is_wire(&dst.parent) {
                 rewrites.insert(
                     dst.cell_parent().borrow().get("out"),
                     Rc::clone(&assign.src),
                 );
             }
-            if src_is_wire {
-                // wire forwards writes to dst port
-                rewrites.insert(
-                    src.cell_parent().borrow().get("in"),
-                    Rc::clone(&assign.dst),
-                );
+
+            // If the source is a wire, we have something like:
+            // ```
+            // c.in = wire.out;
+            // ```
+            // Which means all instances of `wire.in` can be replaced with `c.in` because the wire
+            // is being used to unconditionally forward values.
+            let src = assign.src.borrow();
+            if parent_is_wire(&src.parent) {
+                let port = src.cell_parent().borrow().get("in");
+                let old_v =
+                    rewrites.insert(Rc::clone(&port), Rc::clone(&assign.dst));
+
+                // If the insertion process found an old key, we have something like:
+                // ```
+                // x.in = wire.out;
+                // y.in = wire.out;
+                // ```
+                // This means that `wire` is being used to forward values to many components and a
+                // simple inlining will not work.
+                if old_v.is_some() {
+                    rewrites.remove(port)
+                }
             }
         }
+
         eprintln!("{:?}", rewrites);
 
         // Rewrite assignments
         let rewrites: ir::rewriter::PortRewriteMap = rewrites.into();
-        for ((cell, port), port_ref) in &rewrites {
-            eprintln!(
-                "{}.{} -> {}",
-                cell.id,
-                port.id,
-                ir::Printer::port_to_str(&port_ref.borrow())
-            );
-        }
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
                 rewrites.get(&port.borrow().canonical()).cloned()
@@ -201,6 +207,20 @@ impl Visitor for CombProp {
             &HashMap::new(),
             &HashMap::new(),
         );
+
+        // Remove writes to all the ports that show up in write position
+        let mut rewritten = rewrites.into_values();
+        if self.do_not_eliminate {
+            // If elimination is disabled, mark the assignments with the @dead attribute.
+            for assign in &mut comp.continuous_assignments {
+                if rewritten.any(|v| Rc::ptr_eq(&v, &assign.dst)) {
+                    assign.attributes.insert("dead", 1)
+                }
+            }
+        } else {
+            comp.continuous_assignments
+                .retain(|assign| !rewritten.any(|v| Rc::ptr_eq(&v, &assign.dst)));
+        }
 
         Ok(Action::Continue)
     }
