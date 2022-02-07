@@ -190,8 +190,6 @@ impl Visitor for CombProp {
             }
         }
 
-        eprintln!("{:?}", rewrites);
-
         // Rewrite assignments
         let rewrites: ir::rewriter::PortRewriteMap = rewrites.into();
         comp.for_each_assignment(|assign| {

@@ -19,7 +19,6 @@ component main(a: 4, b: 4, c: 1, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@d
       lt.left = b;
     }
     w4.in = c;
-    w4.in = c;
     w2.in = b;
     w1.in = a;
   }
