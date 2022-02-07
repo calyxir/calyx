@@ -429,7 +429,9 @@ fn build_assignment(
         None => Guard::True,
     };
 
-    Ok(builder.build_assignment(dst_port, src_port, guard))
+    let mut assign = builder.build_assignment(dst_port, src_port, guard);
+    assign.attributes = wire.attributes;
+    Ok(assign)
 }
 
 fn build_assignments(

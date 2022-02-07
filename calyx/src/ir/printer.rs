@@ -258,6 +258,9 @@ impl Printer {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
+        if !assign.attributes.is_empty() {
+            write!(f, "{} ", Self::format_at_attributes(&assign.attributes))?
+        }
         write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
         if !matches!(&*assign.guard, ir::Guard::True) {
             write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
