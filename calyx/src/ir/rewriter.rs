@@ -10,7 +10,7 @@ pub type CellRewriteMap = HashMap<ir::Id, RRC<ir::Cell>>;
 
 /// Map to rewrite port uses. Maps the canonical name of an old port (generated using
 /// [ir::Port::canonical]) to the new [ir::Port] instance.
-pub type PortRewriteMap = HashMap<(ir::Id, ir::Id), RRC<ir::Port>>;
+pub type PortRewriteMap = HashMap<ir::Canonical, RRC<ir::Port>>;
 
 /// Map name of old group to new group
 type GroupRewriteMap = HashMap<ir::Id, RRC<ir::Group>>;

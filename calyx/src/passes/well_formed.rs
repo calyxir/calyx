@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
@@ -41,6 +43,16 @@ impl Named for WellFormed {
     fn description() -> &'static str {
         "Check if the structure and control are well formed."
     }
+}
+
+/// Returns an error if the assignments are obviously conflicting. This happens when two
+/// assignments assign to the same port unconditionally.
+fn obvious_conflicts(assigns: &[ir::Assignment]) -> CalyxResult<()> {
+    /* let dst_grps = assigns
+    .iter()
+    .map(|a| (a.dst.borrow().canonical(), a))
+    .sorted_by(|dst1, dst2| dst); */
+    todo!()
 }
 
 impl Visitor for WellFormed {

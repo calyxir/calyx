@@ -165,7 +165,7 @@ impl ComponentInliner {
         name: ir::Id,
     ) -> (
         ir::Control,
-        impl Iterator<Item = ((ir::Id, ir::Id), RRC<ir::Port>)>,
+        impl Iterator<Item = (ir::Canonical, RRC<ir::Port>)>,
     ) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
@@ -206,14 +206,18 @@ impl ComponentInliner {
         // Generate interface map for use in the parent cell.
         // Return as an iterator because it's immediately merged into the global rewrite map.
         let rev_interface_map =
-            interface_map.into_iter().map(move |((_, p), pr)| {
+            interface_map.into_iter().map(move |(cp, pr)| {
+                let ir::Canonical(_, p) = cp;
                 let port = pr.borrow();
                 let np = match port.name.id.as_str() {
                     "in" => "out",
                     "out" => "in",
                     _ => unreachable!(),
                 };
-                ((name.clone(), p), port.cell_parent().borrow().get(np))
+                (
+                    ir::Canonical(name.clone(), p),
+                    port.cell_parent().borrow().get(np),
+                )
             });
 
         (con, rev_interface_map)
@@ -338,7 +342,8 @@ impl Visitor for ComponentInliner {
                 .into_iter()
                 .map(|(name, param)| {
                     let port = Rc::clone(
-                        &interface_rewrites[&(instance.clone(), name)],
+                        &interface_rewrites
+                            [&ir::Canonical(instance.clone(), name)],
                     );
                     // The parameter can refer to port on a cell that has been
                     // inlined.
