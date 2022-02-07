@@ -7,10 +7,6 @@ use crate::ir::{
     RRC,
 };
 
-/// A data structure to track rewrites of ports with added functionality to declare
-/// two wires to be "equal" when they are connected together.
-struct WireRewriter {}
-
 /// Propagate unconditional writes to the input port of `std_wire`s. Equivalent
 /// to copy propagation in software compilers.
 ///
