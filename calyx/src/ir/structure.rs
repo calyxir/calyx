@@ -342,6 +342,9 @@ pub struct Assignment {
 
     /// The guard for this assignment.
     pub guard: Box<Guard>,
+
+    /// Attributes for this assignment.
+    pub attributes: Attributes,
 }
 
 impl Assignment {

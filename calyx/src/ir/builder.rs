@@ -248,6 +248,7 @@ impl<'a> Builder<'a> {
             dst,
             src,
             guard: Box::new(guard),
+            attributes: ir::Attributes::default(),
         }
     }
 
