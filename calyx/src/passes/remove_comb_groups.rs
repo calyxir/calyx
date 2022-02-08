@@ -79,7 +79,7 @@ pub struct RemoveCombGroups {
 }
 
 /// Represents (group_name, (cell_name, port_name))
-type PortInGroup = (ir::Id, (ir::Id, ir::Id));
+type PortInGroup = (ir::Id, ir::Canonical);
 
 impl Named for RemoveCombGroups {
     fn name() -> &'static str {

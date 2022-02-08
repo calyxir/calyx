@@ -1,7 +1,7 @@
 use super::{
-    Assignment, Attributes, BackendConf, Builder, CellType, Component, Context,
-    Control, Direction, GetAttributes, Guard, Id, Invoke, LibrarySignatures,
-    Port, PortDef, Width, RESERVED_NAMES, RRC,
+    Assignment, Attributes, BackendConf, Builder, Canonical, CellType,
+    Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
+    LibrarySignatures, Port, PortDef, Width, RESERVED_NAMES, RRC,
 };
 use crate::{
     errors::{CalyxResult, Error, WithPos},
@@ -385,14 +385,14 @@ fn ensure_direction(pr: RRC<Port>, dir: Direction) -> CalyxResult<RRC<Port>> {
     let port_dir = pr.borrow().direction.clone();
     match (dir, port_dir) {
         (Direction::Input, Direction::Output) => {
-            let (c, p) = pr.borrow().canonical();
+            let Canonical(c, p) = pr.borrow().canonical();
             Err(Error::malformed_structure(format!(
                 "Port `{}.{}` occurs in write position but is an output port",
                 c, p
             )))
         }
         (Direction::Output, Direction::Input) => {
-            let (c, p) = pr.borrow().canonical();
+            let Canonical(c, p) = pr.borrow().canonical();
             Err(Error::malformed_structure(format!(
                 "Port `{}.{}` occurs in write position but is an output port",
                 c, p

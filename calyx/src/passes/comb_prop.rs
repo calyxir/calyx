@@ -58,7 +58,7 @@ impl Visitor for CombProp {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut port_rewrites: HashMap<(ir::Id, ir::Id), RRC<ir::Port>> =
+        let mut port_rewrites: HashMap<ir::Canonical, RRC<ir::Port>> =
             HashMap::new();
 
         // Build rewrites from unconditional continuous assignments to input

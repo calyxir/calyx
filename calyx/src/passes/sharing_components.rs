@@ -155,7 +155,7 @@ impl<T: ShareComponents> Visitor for T {
             }
         });
 
-        let mut coloring = HashMap::new();
+        let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
         for graph in graphs_by_type.values() {
             if graph.has_nodes() {
                 coloring.extend(
@@ -168,7 +168,7 @@ impl<T: ShareComponents> Visitor for T {
         }
 
         // Rewrite assignments using the coloring generated.
-        let empty_map = HashMap::new();
+        let empty_map: ir::rewriter::PortRewriteMap = HashMap::new();
         let rewriter = ir::Rewriter::new(&coloring, &empty_map);
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| rewriter.get(port));
