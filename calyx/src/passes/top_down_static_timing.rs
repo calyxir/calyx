@@ -213,7 +213,7 @@ fn if_calculate_states(
     match calculate_states(
         &con.tbranch,
         cur_state,
-        &port_guard,
+        &pre_guard.clone().and(port_guard.clone()),
         schedule,
         builder,
     ) {
@@ -225,7 +225,7 @@ fn if_calculate_states(
     match calculate_states(
         &con.fbranch,
         cur_state,
-        &port_guard.not(),
+        &pre_guard.clone().and(port_guard.not()),
         schedule,
         builder,
     ) {
