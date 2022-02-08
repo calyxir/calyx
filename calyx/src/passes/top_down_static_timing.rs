@@ -182,17 +182,35 @@ fn par_calculate_states(
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
-    let cur = cur_state;
-    let mut preds = vec![];
+    let mut max_state = 0;
     for stmt in &con.stmts {
-        match calculate_states(stmt, cur, pre_guard, schedule, builder) {
+        match calculate_states(stmt, cur_state, pre_guard, schedule, builder) {
             Ok(inner_preds) => {
-                preds.extend(inner_preds);
+                // Compute the start state from the latest predecessor.
+                let inner_max_state = inner_preds
+                    .iter()
+                    .max_by_key(|(state, _)| state)
+                    .unwrap()
+                    .0;
+
+                // Keep track of the latest predecessor state from any statement.
+                if inner_max_state > max_state {
+                    max_state = inner_max_state;
+                }
             }
             Err(e) => return Err(e),
         }
     }
-    Ok(preds)
+
+    // Add transitions from the cur_state up to the max_state.
+    let starts = cur_state..max_state - 1;
+    let ends = cur_state + 1..max_state;
+    schedule
+        .transitions
+        .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
+
+    // Return a single predecessor for the last state.
+    Ok(vec![(max_state, pre_guard.clone())])
 }
 
 fn if_calculate_states(
