@@ -249,7 +249,7 @@ impl Visitor for WellFormed {
             .into_iter()
             .next()
         {
-            let cgr = comp.find_group(&comb_group).unwrap();
+            let cgr = comp.find_comb_group(&comb_group).unwrap();
             let cgr = cgr.borrow();
             return Err(Error::unused(
                 comb_group.clone(),
