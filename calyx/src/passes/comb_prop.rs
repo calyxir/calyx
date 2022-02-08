@@ -63,7 +63,7 @@ impl From<WireRewriter> for ir::rewriter::PortRewriteMap {
 
 impl std::fmt::Debug for WireRewriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for ((cell, port), port_ref) in &self.rewrites {
+        for (ir::Canonical(cell, port), port_ref) in &self.rewrites {
             writeln!(
                 f,
                 "{}.{} -> {}",
