@@ -86,6 +86,14 @@ impl Span {
         buf += &format!("{}|{}{} {}", linum_space, space, mark, err_msg);
         buf
     }
+
+    /// Visualizes the span without any message or mkaring
+    pub fn show(&self) -> String {
+        let (lines, _, linum) = self.get_lines();
+        let l = lines[0];
+        let linum_text = format!("{} ", linum);
+        format!("{}|{}\n", linum_text, l)
+    }
 }
 
 /// An IR node that may contain position information.

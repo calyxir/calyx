@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::errors::{CalyxResult, Error};
+use crate::errors::{CalyxResult, Error, WithPos};
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
     self, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
@@ -47,12 +47,35 @@ impl Named for WellFormed {
 
 /// Returns an error if the assignments are obviously conflicting. This happens when two
 /// assignments assign to the same port unconditionally.
-fn obvious_conflicts(assigns: &[ir::Assignment]) -> CalyxResult<()> {
-    /* let dst_grps = assigns
-    .iter()
-    .map(|a| (a.dst.borrow().canonical(), a))
-    .sorted_by(|dst1, dst2| dst); */
-    todo!()
+fn obvious_conflicts<'a, I>(assigns: I) -> CalyxResult<()>
+where
+    I: Iterator<Item = &'a ir::Assignment>,
+{
+    let dst_grps = assigns
+        .filter(|a| a.guard.is_true())
+        .map(|a| (a.dst.borrow().canonical(), a))
+        .sorted_by(|(dst1, _), (dst2, _)| ir::Canonical::cmp(dst1, dst2))
+        .group_by(|(dst, _)| dst.clone());
+
+    for (_, group) in &dst_grps {
+        let assigns = group.map(|(_, a)| a).collect_vec();
+        if assigns.len() > 1 {
+            let msg = assigns
+                .into_iter()
+                .map(|a| {
+                    a.attributes
+                        .copy_span()
+                        .map(|s| s.show())
+                        .unwrap_or_else(|| ir::Printer::assignment_to_str(a))
+                })
+                .join("");
+            return Err(Error::malformed_structure(format!(
+                "Obviously conflicting assignments found:\n{}",
+                msg
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl Visitor for WellFormed {
@@ -100,6 +123,25 @@ impl Visitor for WellFormed {
                 Ok(())
             }
         })?;
+
+        // Check for obvious conflicting assignments
+        for gr in comp.groups.iter() {
+            obvious_conflicts(
+                gr.borrow()
+                    .assignments
+                    .iter()
+                    .chain(comp.continuous_assignments.iter()),
+            )?;
+        }
+        for cgr in comp.comb_groups.iter() {
+            obvious_conflicts(
+                cgr.borrow()
+                    .assignments
+                    .iter()
+                    .chain(comp.continuous_assignments.iter()),
+            )?;
+        }
+        obvious_conflicts(comp.continuous_assignments.iter())?;
 
         Ok(Action::Continue)
     }
