@@ -216,8 +216,9 @@ impl Visitor for CombProp {
                 }
             }
         } else {
-            comp.continuous_assignments
-                .retain(|assign| !rewritten.any(|v| Rc::ptr_eq(&v, &assign.dst)));
+            comp.continuous_assignments.retain(|assign| {
+                !rewritten.any(|v| Rc::ptr_eq(&v, &assign.dst))
+            });
         }
 
         Ok(Action::Continue)
