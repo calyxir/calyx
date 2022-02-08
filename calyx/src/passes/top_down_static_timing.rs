@@ -3,7 +3,7 @@ use crate::errors::{CalyxResult, Error};
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures, Printer, RRC,
+    Attributes, LibrarySignatures, Printer, RRC,
 };
 use crate::{build_assignments, guard, structure};
 use itertools::Itertools;
@@ -131,6 +131,8 @@ fn seq_calculate_states(
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
+    get_static_time(&con.attributes);
+
     let mut preds = vec![];
     let default_pred = (cur_state, pre_guard.clone());
     for stmt in &con.stmts {
@@ -159,6 +161,8 @@ fn par_calculate_states(
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
+    get_static_time(&con.attributes);
+
     let mut max_state = 0;
     for stmt in &con.stmts {
         match calculate_states(stmt, cur_state, pre_guard, schedule, builder) {
@@ -197,6 +201,8 @@ fn if_calculate_states(
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
+    get_static_time(&con.attributes);
+
     if con.cond.is_some() {
         return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownStaticTiming::name(), con.cond.as_ref().unwrap().borrow().name())));
     }
@@ -238,6 +244,7 @@ fn while_calculate_states(
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
+    get_static_time(&con.attributes);
     todo!();
 }
 
@@ -256,10 +263,7 @@ fn enable_calculate_states(
     // Component builder
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
-    let time = con
-        .attributes
-        .get("static")
-        .expect("`static` annotation missing");
+    let time = get_static_time(&con.attributes);
     let range = (cur_state, cur_state + time);
     let group = &con.group;
     structure!(builder;
@@ -287,7 +291,14 @@ fn enable_calculate_states(
     Ok(vec![(cur_state + time, pre_guard.clone())])
 }
 
-// Helper to add transitions and return the next state.
+// Helper to assert ttributes have a static annotation, and return its latency.
+fn get_static_time(attributes: &Attributes) -> u64 {
+    return *attributes
+        .get("static")
+        .expect("`static` annotation missing");
+}
+
+// Helper to add seqential transitions and return the next state.
 fn seq_add_transitions(
     schedule: &mut Schedule,
     preds: &Vec<PredEdge>,
