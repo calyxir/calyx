@@ -7,7 +7,7 @@ use crate::ir::{
 };
 use crate::{build_assignments, guard, structure};
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
 
@@ -23,7 +23,7 @@ type Range = (u64, u64);
 #[derive(Default)]
 struct Schedule {
     enables: HashMap<Range, Vec<ir::Assignment>>,
-    transitions: Vec<(u64, u64, ir::Guard)>,
+    transitions: HashSet<(u64, u64, ir::Guard)>,
 }
 
 impl Schedule {
@@ -124,6 +124,29 @@ fn calculate_states(
     }
 }
 
+fn seq_add_transitions(
+    schedule: &mut Schedule,
+    preds: &Vec<PredEdge>,
+    default_pred: &PredEdge,
+) -> u64 {
+    // Compute the new start state from the latest predecessor.
+    let new_state = preds
+        .iter()
+        .max_by_key(|(state, _)| state)
+        .unwrap_or(default_pred)
+        .0;
+
+    // Add transitions from each predecessor to the new state.
+    schedule.transitions.extend(
+        preds
+            .iter()
+            .map(|(s, g)| (s.clone() - 1, new_state, g.clone())),
+    );
+
+    // Return the new state.
+    new_state
+}
+
 fn seq_calculate_states(
     con: &ir::Seq,
     cur_state: u64,
@@ -132,21 +155,10 @@ fn seq_calculate_states(
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
     let mut preds = vec![];
-    let mut new_state = cur_state;
+    let default_pred = (cur_state, pre_guard.clone());
     for stmt in &con.stmts {
-        // Compute the new start state from the latest predecessor.
-        new_state = preds
-            .iter()
-            .max_by_key(|(state, _)| state)
-            .unwrap_or(&(cur_state, pre_guard.clone()))
-            .0;
-
-        // Add transitions from each predecessor to the new state.
-        schedule.transitions.extend(
-            preds
-                .iter()
-                .map(|(s, g)| (s.clone() - 1, new_state, g.clone())),
-        );
+        // Add transition(s) from last state to the new state.
+        let new_state = seq_add_transitions(schedule, &preds, &default_pred);
 
         // Recurse into statement and save new predecessors.
         match calculate_states(stmt, new_state, pre_guard, schedule, builder) {
@@ -157,10 +169,8 @@ fn seq_calculate_states(
         }
     }
 
-    // Add transition out of last state in the sequence.
-    schedule
-        .transitions
-        .extend(preds.iter().map(|(s, g)| (new_state, s.clone(), g.clone())));
+    // Add final transition(s) from the last statement.
+    seq_add_transitions(schedule, &preds, &default_pred);
 
     Ok(preds)
 }
@@ -271,7 +281,8 @@ fn enable_calculate_states(
         .or_default()
         .append(&mut assigns);
 
-    // Transition to the next state latency times.
+    // Add any necessary internal transitions. In the case time is 1 and there
+    // is a single transition, it is taken care of by the parent.
     let starts = cur_state..cur_state + time - 1;
     let ends = cur_state + 1..cur_state + time;
     schedule
