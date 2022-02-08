@@ -124,29 +124,6 @@ fn calculate_states(
     }
 }
 
-fn seq_add_transitions(
-    schedule: &mut Schedule,
-    preds: &Vec<PredEdge>,
-    default_pred: &PredEdge,
-) -> u64 {
-    // Compute the new start state from the latest predecessor.
-    let new_state = preds
-        .iter()
-        .max_by_key(|(state, _)| state)
-        .unwrap_or(default_pred)
-        .0;
-
-    // Add transitions from each predecessor to the new state.
-    schedule.transitions.extend(
-        preds
-            .iter()
-            .map(|(s, g)| (s.clone() - 1, new_state, g.clone())),
-    );
-
-    // Return the new state.
-    new_state
-}
-
 fn seq_calculate_states(
     con: &ir::Seq,
     cur_state: u64,
@@ -308,6 +285,30 @@ fn enable_calculate_states(
         .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
 
     Ok(vec![(cur_state + time, pre_guard.clone())])
+}
+
+// Helper to add transitions and return the next state.
+fn seq_add_transitions(
+    schedule: &mut Schedule,
+    preds: &Vec<PredEdge>,
+    default_pred: &PredEdge,
+) -> u64 {
+    // Compute the new start state from the latest predecessor.
+    let new_state = preds
+        .iter()
+        .max_by_key(|(state, _)| state)
+        .unwrap_or(default_pred)
+        .0;
+
+    // Add transitions from each predecessor to the new state.
+    schedule.transitions.extend(
+        preds
+            .iter()
+            .map(|(s, g)| (s.clone() - 1, new_state, g.clone())),
+    );
+
+    // Return the new state.
+    new_state
 }
 
 #[derive(Default)]
