@@ -27,9 +27,8 @@ struct Schedule {
 }
 
 impl Schedule {
-    // TODO: this should be based on transitions when we have them.
     fn last_state(&self) -> u64 {
-        self.enables.iter().map(|(k, _)| k.1).max().unwrap()
+        self.transitions.iter().map(|(_, e, _)| *e).max().unwrap()
     }
 
     #[allow(dead_code)]
@@ -64,9 +63,13 @@ impl Schedule {
         let fsm_size = get_bit_width_from(final_state + 1);
 
         structure!(builder;
-            let fsm = prim std_reg(fsm_size);
+           let fsm = prim std_reg(fsm_size);
+           let signal_on = constant(1, 1);
+           let first_state = constant(0, fsm_size);
+           let last_state = constant(final_state, fsm_size);
         );
 
+        // Enable assignments.
         group.borrow_mut().assignments.extend(
             self.enables
                 .into_iter()
@@ -83,6 +86,56 @@ impl Schedule {
                     assigns
                 }),
         );
+
+        // Transition assignments.
+        group.borrow_mut().assignments.extend(
+            self.transitions
+                .into_iter()
+                .sorted_by_key(|(start, _, _)| *start)
+                .flat_map(|(start, end, guard)| {
+                    structure!(builder;
+                        let start_const = constant(start, fsm_size);
+                        let end_const = constant(end, fsm_size);
+                    );
+
+                    let end_borrow = end_const.borrow();
+                    let transition_guard = guard!(fsm["out"])
+                        .eq(guard!(start_const["out"]))
+                        .and(guard);
+
+                    vec![
+                        builder.build_assignment(
+                            fsm.borrow().get("in"),
+                            end_borrow.get("out"),
+                            transition_guard.clone(),
+                        ),
+                        builder.build_assignment(
+                            fsm.borrow().get("write_en"),
+                            signal_on.borrow().get("out"),
+                            transition_guard,
+                        ),
+                    ]
+                }),
+        );
+
+        // Done condition for group.
+        let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        let done_assign = builder.build_assignment(
+            group.borrow().get("done"),
+            signal_on.borrow().get("out"),
+            last_guard.clone(),
+        );
+        group.borrow_mut().assignments.push(done_assign);
+
+        // Cleanup: Add a transition from last state to the first state.
+        let mut reset_fsm = build_assignments!(builder;
+            fsm["in"] = last_guard ? first_state["out"];
+            fsm["write_en"] = last_guard ? signal_on["out"];
+        );
+        builder
+            .component
+            .continuous_assignments
+            .append(&mut reset_fsm);
 
         group
     }
