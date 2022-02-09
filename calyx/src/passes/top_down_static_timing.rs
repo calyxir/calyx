@@ -194,12 +194,8 @@ fn seq_calculate_states(
         let new_state = seq_add_transitions(schedule, &preds, &default_pred);
 
         // Recurse into statement and save new predecessors.
-        match calculate_states(stmt, new_state, pre_guard, schedule, builder) {
-            Ok(inner_preds) => {
-                preds = inner_preds;
-            }
-            Err(e) => return Err(e),
-        }
+        preds =
+            calculate_states(stmt, new_state, pre_guard, schedule, builder)?;
     }
 
     // Add final transition(s) from the last statement.
@@ -219,21 +215,16 @@ fn par_calculate_states(
 
     let mut max_state = 0;
     for stmt in &con.stmts {
-        match calculate_states(stmt, cur_state, pre_guard, schedule, builder) {
-            Ok(inner_preds) => {
-                // Compute the start state from the latest predecessor.
-                let inner_max_state = inner_preds
-                    .iter()
-                    .max_by_key(|(state, _)| state)
-                    .unwrap()
-                    .0;
+        let preds =
+            calculate_states(stmt, cur_state, pre_guard, schedule, builder)?;
 
-                // Keep track of the latest predecessor state from any statement.
-                if inner_max_state > max_state {
-                    max_state = inner_max_state;
-                }
-            }
-            Err(e) => return Err(e),
+        // Compute the start state from the latest predecessor.
+        let inner_max_state =
+            preds.iter().max_by_key(|(state, _)| state).unwrap().0;
+
+        // Keep track of the latest predecessor state from any statement.
+        if inner_max_state > max_state {
+            max_state = inner_max_state;
         }
     }
 
@@ -264,29 +255,23 @@ fn if_calculate_states(
     let port_guard: ir::Guard = Rc::clone(&con.port).into();
     let mut preds = vec![];
 
-    // If branch.
-    match calculate_states(
+    // Then branch.
+    preds.extend(calculate_states(
         &con.tbranch,
         cur_state,
         &pre_guard.clone().and(port_guard.clone()),
         schedule,
         builder,
-    ) {
-        Ok(inner_preds) => preds.extend(inner_preds),
-        Err(e) => return Err(e),
-    }
+    )?);
 
     // Else branch.
-    match calculate_states(
+    preds.extend(calculate_states(
         &con.fbranch,
         cur_state,
         &pre_guard.clone().and(port_guard.not()),
         schedule,
         builder,
-    ) {
-        Ok(inner_preds) => preds.extend(inner_preds),
-        Err(e) => return Err(e),
-    }
+    )?);
 
     Ok(preds)
 }
