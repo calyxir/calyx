@@ -872,6 +872,7 @@ impl InvokeInterpreter {
                 dst: comp_input_port,
                 src: Rc::clone(connection),
                 guard: Guard::default().into(),
+                attributes: ir::Attributes::default(),
             });
         }
 
@@ -882,6 +883,7 @@ impl InvokeInterpreter {
                 dst: Rc::clone(connection),
                 src: comp_output_port,
                 guard: Guard::default().into(),
+                attributes: ir::Attributes::default(),
             })
         }
 

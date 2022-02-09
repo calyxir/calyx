@@ -19,7 +19,7 @@ class NumericType:
 
     width: int
     is_signed: bool
-    string_repr: str = None
+    string_repr: str
     bit_string_repr: str = None
     hex_string_repr: str = None
     uint_repr: int = None

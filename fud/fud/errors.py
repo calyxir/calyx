@@ -18,15 +18,6 @@ class CycleLimitedReached(FudError):
         )
 
 
-class NoInputFile(FudError):
-    def __init__(self, possible_dests=None):
-        msg = "No filename or type provided for exec."
-        if possible_dests is not None:
-            dests = ",".join(map(lambda e: e.dest, possible_dests))
-            msg += f"\nPossible destination stages: [{dests}]"
-        super().__init__(msg)
-
-
 class UnknownExtension(FudError):
     """
     The provided extension does not correspond to any known stage.
@@ -117,7 +108,9 @@ class MultiplePaths(FudError):
         msg = (
             f"Multiple stage pipelines can transform {src} to {dst}:\n"
             + paths
-            + "\nUse the --through flag to select an intermediate stage"
+            + "\nUse the --through flag to select an intermediate stage."
+            + " See https://docs.calyxir.org/fud/multiple-paths.html for"
+            + " more information."
         )
         super().__init__(msg)
 
@@ -182,6 +175,19 @@ class StepFailure(FudError):
             + stderr
             + "\n=====STDOUT=====\n"
             + stdout
+        )
+        super().__init__(msg)
+
+
+class NeedInputSpecified(FudError):
+    """
+    Error raised when the starting stage needs an input
+    """
+
+    def __init__(self, stage):
+        msg = (
+            f"The starting stage `{stage.name}` requires an input of type"
+            f" `{stage.input_type}` but no input was provided."
         )
         super().__init__(msg)
 

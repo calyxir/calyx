@@ -12,8 +12,6 @@ use crate::{analysis, ir, ir::RRC};
 
 /// Mapping from the name output port to all the input ports that must be driven before it.
 type WriteMap = HashMap<ir::Id, HashSet<ir::Id>>;
-/// Canonical name of a port
-type Canonical = (ir::Id, ir::Id);
 
 /// Given a set of assignment, generates an ordering that respects combinatinal
 /// dataflow.
@@ -94,8 +92,8 @@ impl DataflowOrder {
         let mut gr: DiGraph<Option<ir::Assignment>, ()> = DiGraph::new();
 
         // Mapping from the index corresponding to an assignment to its read/write sets.
-        let mut writes: HashMap<Canonical, Vec<NodeIndex>> = HashMap::new();
-        let mut reads: Vec<(NodeIndex, (ir::Id, Canonical))> =
+        let mut writes: HashMap<ir::Canonical, Vec<NodeIndex>> = HashMap::new();
+        let mut reads: Vec<(NodeIndex, (ir::Id, ir::Canonical))> =
             Vec::with_capacity(assigns.len());
 
         // Assignments to the hole are not considered in the sorting.
@@ -135,7 +133,8 @@ impl DataflowOrder {
         // Walk over the writes and add edges between all required reads
         // XXX(rachit): This probably adds a bunch of duplicate edges and in the
         // worst case makes this pass much slower than it needs to be.
-        for (r_idx, (comp, (inst, port))) in reads {
+        for (r_idx, (comp, canonical_port)) in reads {
+            let ir::Canonical(inst, port) = canonical_port;
             let dep_ports = self
                 .write_map
                 .get(&comp)
@@ -144,13 +143,17 @@ impl DataflowOrder {
                 })
                 .get(&port)
                 .unwrap_or_else(|| {
-                    panic!("Port `{}.{}` write map is not defined", comp, port)
+                    panic!(
+                        "Port `{}.{}` write map is not defined",
+                        comp,
+                        port.clone()
+                    )
                 });
 
             dep_ports
                 .iter()
                 .cloned()
-                .flat_map(|port| writes.get(&(inst.clone(), port)))
+                .flat_map(|port| writes.get(&ir::Canonical(inst.clone(), port)))
                 .flatten()
                 .try_for_each(|w_idx| {
                     if *w_idx == r_idx {

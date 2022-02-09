@@ -36,10 +36,8 @@ impl Named for MergeAssign {
 }
 
 fn merge_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
-    // A (cell, port) pair used as a key.
-    type Key = (ir::Id, ir::Id);
     // Map from (dst, src) -> Assignment
-    let mut map: LinkedHashMap<(Key, Key), ir::Assignment> =
+    let mut map: LinkedHashMap<(ir::Canonical, ir::Canonical), ir::Assignment> =
         LinkedHashMap::new();
 
     for assign in assigns {
