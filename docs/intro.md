@@ -111,6 +111,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 ## Where to go next?
 
+- [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
 - [How does the language work?](./tutorial/language-tut.md)
 - [How do I install Calyx frontends?](./fud/index.html#dahlia-fronted)
 - [Examples with `fud`](./fud/examples.md)
