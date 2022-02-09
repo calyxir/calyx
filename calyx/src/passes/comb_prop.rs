@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use itertools::Itertools;
+
 use crate::ir::{
     self,
     traversal::{Action, VisResult, Visitor},
@@ -9,7 +11,7 @@ use crate::ir::{
 
 /// A data structure to track rewrites of ports with added functionality to declare
 /// two wires to be "equal" when they are connected together.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct WireRewriter {
     rewrites: ir::rewriter::PortRewriteMap,
 }
@@ -33,9 +35,10 @@ impl WireRewriter {
     }
 
     /// Apply all the defined equalities to the current set of rewrites.
-    fn make_consistent(self) -> ir::rewriter::PortRewriteMap {
+    fn make_consistent(self) -> Self {
         // Perform rewrites on the defined rewrites
-        self.rewrites
+        let rewrites = self
+            .rewrites
             .iter()
             .map(|(from, to)| {
                 let to_idx = to.borrow().canonical();
@@ -51,13 +54,14 @@ impl WireRewriter {
                 }
                 (from.clone(), Rc::clone(final_to.unwrap_or(to)))
             })
-            .collect()
+            .collect();
+        Self { rewrites }
     }
 }
 
 impl From<WireRewriter> for ir::rewriter::PortRewriteMap {
     fn from(v: WireRewriter) -> Self {
-        v.make_consistent()
+        v.make_consistent().rewrites
     }
 }
 
@@ -76,8 +80,21 @@ impl std::fmt::Debug for WireRewriter {
     }
 }
 
-/// Propagate unconditional writes to the input port of `std_wire`s. Equivalent
-/// to copy propagation in software compilers.
+/// Propagate unconditional reads and writes from wires.
+///
+/// If the source is a wire, we have something like:
+/// ```
+/// c.in = wire.out;
+/// ```
+/// Which means all instances of `wire.in` can be replaced with `c.in` because the wire
+/// is being used to unconditionally forward values.
+///
+/// If the destination is a wire, then we have something like:
+/// ```
+/// wire.in = c.out;
+/// ```
+/// Which means all instances of `wire.out` can be replaced with `c.out` because the
+/// wire is being used to forward values from `c.out`.
 ///
 /// For example, we can safely inline the value `c` wherever `w.out` is read.
 /// ```
@@ -150,7 +167,6 @@ impl Visitor for CombProp {
             if !assign.guard.is_true() {
                 continue;
             }
-
             // If the destination is a wire, then we have something like:
             // ```
             // wire.in = c.out;
@@ -185,7 +201,7 @@ impl Visitor for CombProp {
                 // This means that `wire` is being used to forward values to many components and a
                 // simple inlining will not work.
                 if old_v.is_some() {
-                    rewrites.remove(port)
+                    rewrites.remove(port);
                 }
             }
         }
@@ -207,17 +223,17 @@ impl Visitor for CombProp {
         );
 
         // Remove writes to all the ports that show up in write position
-        let mut rewritten = rewrites.into_values();
+        let rewritten = rewrites.into_values().collect_vec();
         if self.do_not_eliminate {
             // If elimination is disabled, mark the assignments with the @dead attribute.
             for assign in &mut comp.continuous_assignments {
-                if rewritten.any(|v| Rc::ptr_eq(&v, &assign.dst)) {
+                if rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst)) {
                     assign.attributes.insert("dead", 1)
                 }
             }
         } else {
             comp.continuous_assignments.retain(|assign| {
-                !rewritten.any(|v| Rc::ptr_eq(&v, &assign.dst))
+                !rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst))
             });
         }
 
