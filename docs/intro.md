@@ -82,7 +82,7 @@ You'll want to set up at least one of these options so you can try out your code
 
 Icarus is an easy way to get started on most platforms.
 On a Mac, you can install Icarus Verilog with [Homebrew][] by typing `brew install icarus-verilog`.
-On Ubuntu, try `apt install iverilog`.
+On Ubuntu, [install from source][icarus-install-source].
 Then install the relevant [fud support][fud-icarus] by running:
 
     fud register icarus-verilog -p fud/icarus/icarus.py
@@ -155,3 +155,4 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [homebrew]: https://brew.sh
 [fud-icarus]: ./fud/index.md#icarus-verilog
 [fud-verilator]: ./fud/index.md#verilator
+[icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source
