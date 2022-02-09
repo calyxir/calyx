@@ -43,7 +43,7 @@ VERSIONS = {
         "version": "v2019.2",
         "compare": "==",
     },
-    "icarus": {
+    "icarus-verilog": {
         "flag": "-V",
         "extract": lambda out: out.split(" ")[3],
         "version": "11.0",
