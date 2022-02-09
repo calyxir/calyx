@@ -92,25 +92,6 @@ Type `fud check` to make sure the new stage is working.
 
 You can instead consider [setting up Verilator][fud-verilator] for faster long-running simulations or using the [interpreter][] to avoid RTL simulation altogether.
 
-### Generating Simulation Results
-
-By default, simulating with Icarus or Verilator will produce a [VCD file][vcd], which
-is not human-readable.
-Our tests use [vcdump][] to transform VCD file into JSON files.
-
-Install vcdump:
-```
-cargo install vcdump
-```
-Use `fud` to check the right version was installed:
-```
-fud check
-```
-
-It should report that the `vcdump` binary is available and has the right
-version.
-Some tools will be reported missing. This is expected.
-
 ## Running a Hardware Design
 
 We're all set to run a Calyx hardware design now. Run the following command:
