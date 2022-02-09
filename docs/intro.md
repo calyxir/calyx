@@ -98,7 +98,7 @@ We're all set to run a Calyx hardware design now. Run the following command:
 ```
 fud e examples/tutorial/language-tutorial-iterate.futil \
   -s verilog.data examples/tutorial/data.json \
-  --to dat -v --through icarus-verilog
+  --to dat --through icarus-verilog -v
 ```
 
 (Change the last bit to `--through verilog` to use Verilator instead.)
