@@ -1,5 +1,6 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::{CalyxResult, Error};
+use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
@@ -344,14 +345,14 @@ fn enable_calculate_states(
     Ok(vec![(cur_state + time, pre_guard.clone())])
 }
 
-// Helper to assert ttributes have a static annotation, and return its latency.
+/// Helper to assert attributes have a static annotation, and return its latency.
 fn get_static_time(attributes: &Attributes) -> u64 {
     return *attributes
         .get("static")
         .expect("`static` annotation missing");
 }
 
-// Helper to add seqential transitions and return the next state.
+/// Helper to add seqential transitions and return the next state.
 fn seq_add_transitions(
     schedule: &mut Schedule,
     preds: &Vec<PredEdge>,
@@ -375,8 +376,35 @@ fn seq_add_transitions(
     new_state
 }
 
-#[derive(Default)]
-pub struct TopDownStaticTiming;
+pub struct TopDownStaticTiming {
+    /// Print out the FSM representation to STDOUT.
+    dump_fsm: bool,
+}
+
+impl ConstructVisitor for TopDownStaticTiming {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized + Named,
+    {
+        let mut dump_fsm = false;
+        ctx.extra_opts.iter().for_each(|opt| {
+            let mut splits = opt.split(':');
+            if splits.next() == Some(Self::name()) {
+                match splits.next() {
+                    Some("dump-fsm") => {
+                        dump_fsm = true;
+                    }
+                    _ => (),
+                }
+            }
+        });
+        Ok(TopDownStaticTiming { dump_fsm })
+    }
+
+    fn clear_data(&mut self) {
+        /* All data can be transferred between components */
+    }
+}
 
 impl Named for TopDownStaticTiming {
     fn name() -> &'static str {
@@ -419,7 +447,9 @@ impl Visitor for TopDownStaticTiming {
             return Err(result.unwrap_err());
         }
 
-        schedule.display();
+        if self.dump_fsm {
+            schedule.display();
+        }
 
         let group = schedule.realize_schedule(&mut builder);
 
