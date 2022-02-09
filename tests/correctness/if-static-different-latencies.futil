@@ -14,9 +14,6 @@ component main() -> () {
     // false branch
     @external(1) i = std_mem_d1(32, 1, 1);
     add = std_add(32);
-
-    // other group
-    r0 = std_reg(32);
   }
   wires {
     comb group cond {
@@ -47,21 +44,12 @@ component main() -> () {
       i.addr0 = 1'd0;
       false[done] = i.done;
     }
-
-    group other {
-      r0.write_en = 1'd1;
-      r0.in = 32'd1;
-      true[done] = r0.done;
-    }
   }
   control {
-    seq {
-      if eq.out with cond {
-        true;
-      } else {
-        false;
-      }
-      other;
+    if eq.out with cond {
+      true;
+    } else {
+      false;
     }
   }
 }
