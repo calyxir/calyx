@@ -36,6 +36,7 @@ impl PassManager {
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<RemoveCombGroups>()?;
+        pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
 
         // Lowering passes
@@ -58,7 +59,6 @@ impl PassManager {
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<WireInliner>()?;
-        pm.register_pass::<TopDownStaticTiming>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
@@ -77,7 +77,12 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [CompileInvoke, CompileEmpty, TopDownCompileControl]
+            [
+                CompileInvoke,
+                CompileEmpty,
+                TopDownStaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(
             pm,
