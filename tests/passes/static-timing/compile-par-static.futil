@@ -1,4 +1,4 @@
-// -p remove-comb-groups -p compile-control
+// -x top-down-st:dump-fsm -d post-opt -d lower -b none
 
 import "primitives/core.futil";
 
