@@ -1,0 +1,20 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    w1 = std_wire(32);
+    w2 = std_wire(32);
+    @external r = std_reg(32);
+    @external p = std_reg(32);
+  }
+  wires {
+    group write_p {
+      p.in = r.out;
+      p.write_en = 1'd1;
+      write_p[done] = p.done;
+    }
+  }
+
+  control {
+    write_p;
+  }
+}
