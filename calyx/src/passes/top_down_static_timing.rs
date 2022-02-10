@@ -32,29 +32,26 @@ impl Schedule {
         self.transitions.iter().map(|(_, e, _)| *e).max().unwrap()
     }
 
-    #[allow(dead_code)]
     fn display(&self) {
+        let out = &mut std::io::stdout();
+        println!("enables:");
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|(state, assigns)| {
-                eprint!("({}, {}): ", state.0, state.1);
+                print!("({}, {}): ", state.0, state.1);
                 assigns.iter().for_each(|assign| {
-                    Printer::write_assignment(
-                        assign,
-                        0,
-                        &mut std::io::stderr(),
-                    )
-                    .expect("Printing failed!");
-                    eprintln!();
+                    Printer::write_assignment(assign, 0, out)
+                        .expect("Printing failed!");
+                    println!("");
                 })
             });
-        eprintln!("------------");
+        println!("transitions:");
         self.transitions
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                eprintln!("({}, {}): {}", i, f, Printer::guard_str(&g));
+                println!("({}, {}): {}", i, f, Printer::guard_str(&g));
             })
     }
 
