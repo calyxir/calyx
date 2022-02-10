@@ -1,4 +1,4 @@
-// -p remove-comb-groups -p static-timing
+// -x top-down-st:dump-fsm -d post-opt -d lower -b none
 
 import "primitives/core.futil";
 
@@ -22,10 +22,9 @@ component main() -> () {
       false[done] = f.done;
     }
 
-    group cond<"static"=0> {
+    comb group cond {
       lt.left = 1'b1;
       lt.right = 1'b0;
-      cond[done] = 1'b1;
     }
   }
 
