@@ -1,0 +1,13 @@
+enables:
+[0, 1)
+  cond0[go] = 1'd1;
+[1, 2)
+  true[go] = t.out ? 1'd1;
+  false[go] = !t.out ? 1'd1;
+transitions:
+(0)->(1)
+  1'b1
+(1)->(2)
+  t.out
+(1)->(2)
+  !t.out
