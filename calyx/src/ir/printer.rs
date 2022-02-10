@@ -261,11 +261,11 @@ impl Printer {
         if !assign.attributes.is_empty() {
             write!(f, "{} ", Self::format_at_attributes(&assign.attributes))?
         }
-        write!(f, "{} = ", Self::get_port_access(&assign.dst.borrow()))?;
+        write!(f, "{} = ", Self::port_to_str(&assign.dst.borrow()))?;
         if !matches!(&*assign.guard, ir::Guard::True) {
             write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
         }
-        write!(f, "{};", Self::get_port_access(&assign.src.borrow()))
+        write!(f, "{};", Self::port_to_str(&assign.src.borrow()))
     }
 
     /// Convinience method to get string representation of [ir::Assignment].
@@ -347,7 +347,7 @@ impl Printer {
                         if i == 0 { "" } else { "," },
                         " ".repeat(indent_level + 2),
                         arg,
-                        Self::get_port_access(&port.borrow())
+                        Self::port_to_str(&port.borrow())
                     )?;
                 }
                 if inputs.is_empty() {
@@ -362,7 +362,7 @@ impl Printer {
                         if i == 0 { "" } else { "," },
                         " ".repeat(indent_level + 2),
                         arg,
-                        Self::get_port_access(&port.borrow())
+                        Self::port_to_str(&port.borrow())
                     )?;
                 }
                 if outputs.is_empty() {
@@ -406,7 +406,7 @@ impl Printer {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
-                write!(f, "if {} ", Self::get_port_access(&port.borrow()),)?;
+                write!(f, "if {} ", Self::port_to_str(&port.borrow()),)?;
                 if let Some(c) = cond {
                     write!(f, "with {} ", c.borrow().name.id)?;
                 }
@@ -430,7 +430,7 @@ impl Printer {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
-                write!(f, "while {} ", Self::get_port_access(&port.borrow()),)?;
+                write!(f, "while {} ", Self::port_to_str(&port.borrow()),)?;
                 if let Some(c) = cond {
                     write!(f, "with {} ", c.borrow().name.id)?;
                 }
@@ -461,9 +461,9 @@ impl Printer {
             ir::Guard::CompOp(_, l, r) => {
                 format!(
                     "{} {} {}",
-                    Self::get_port_access(&l.borrow()),
+                    Self::port_to_str(&l.borrow()),
                     &guard.op_str(),
-                    Self::get_port_access(&r.borrow())
+                    Self::port_to_str(&r.borrow())
                 )
             }
             ir::Guard::Not(g) => {
@@ -474,15 +474,13 @@ impl Printer {
                 };
                 format!("!{}", s)
             }
-            ir::Guard::Port(port_ref) => {
-                Self::get_port_access(&port_ref.borrow())
-            }
+            ir::Guard::Port(port_ref) => Self::port_to_str(&port_ref.borrow()),
             ir::Guard::True => "1'b1".to_string(),
         }
     }
 
     /// Get the port access expression.
-    fn get_port_access(port: &ir::Port) -> String {
+    pub fn port_to_str(port: &ir::Port) -> String {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
                 let cell_ref =
