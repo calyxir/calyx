@@ -39,11 +39,12 @@ impl Schedule {
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|(state, assigns)| {
-                print!("({}, {}): ", state.0, state.1);
+                print!("[{}, {})\n", state.0, state.1);
                 assigns.iter().for_each(|assign| {
+                    print!("  ");
                     Printer::write_assignment(assign, 0, out)
                         .expect("Printing failed!");
-                    println!("");
+                    println!();
                 })
             });
         println!("transitions:");
@@ -51,7 +52,7 @@ impl Schedule {
             .iter()
             .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
             .for_each(|(i, f, g)| {
-                println!("({}, {}): {}", i, f, Printer::guard_str(&g));
+                println!("({})->({})\n  {}", i, f, Printer::guard_str(&g));
             })
     }
 
@@ -226,11 +227,17 @@ fn par_calculate_states(
     }
 
     // Add transitions from the cur_state up to the max_state.
-    let starts = cur_state..max_state - 1;
-    let ends = cur_state + 1..max_state;
-    schedule
-        .transitions
-        .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
+    if cur_state + 1 == max_state {
+        schedule
+            .transitions
+            .insert((cur_state, max_state, pre_guard.clone()));
+    } else {
+        let starts = cur_state..max_state - 1;
+        let ends = cur_state + 1..max_state;
+        schedule
+            .transitions
+            .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
+    }
 
     // Return a single predecessor for the last state.
     Ok(vec![(max_state, pre_guard.clone())])
