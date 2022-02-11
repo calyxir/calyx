@@ -9,9 +9,6 @@ doctest = false # Don't run doc tests
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[profile.release]
-debug = 1
-incremental = true
 
 [dependencies]
 calyx = { path = "../calyx" }
