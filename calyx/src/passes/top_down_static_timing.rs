@@ -4,7 +4,7 @@ use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
-    Attributes, LibrarySignatures, Printer, RRC,
+    LibrarySignatures, Printer, RRC,
 };
 use crate::{build_assignments, guard, structure};
 use itertools::Itertools;
@@ -277,11 +277,54 @@ fn if_calculate_states(
 fn while_calculate_states(
     con: &ir::While,
     cur_state: u64,
-    pre_guar: &ir::Guard,
+    pre_guard: &ir::Guard,
     schedule: &mut Schedule,
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
-    todo!();
+    if con.cond.is_some() {
+        return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of while. This should have compiled away.", TopDownStaticTiming::name(), con.cond.as_ref().unwrap().borrow().name())));
+    }
+
+    let port_guard: ir::Guard = Rc::clone(&con.port).into();
+
+    let preds = calculate_states(
+        &con.body,
+        cur_state,
+        &pre_guard.clone().and(port_guard.clone()),
+        schedule,
+        builder,
+    )?;
+
+    let body_exit = preds
+        .iter()
+        .max_by_key(|(state, _)| state)
+        .unwrap_or(&(cur_state, pre_guard.clone()))
+        .0
+        + 1;
+
+    // Add transitions from entry to exit when false.
+    schedule.transitions.insert((
+        cur_state,
+        body_exit,
+        port_guard.clone().not(),
+    ));
+
+    // Add transitions from end of inner control to entry or exit state.
+    schedule.transitions.extend(
+        preds
+            .iter()
+            .flat_map(|(state, _)| {
+                vec![
+                    // When guard is true, back to entry.
+                    (*state, cur_state, port_guard.clone()),
+                    // When guard is false, down to exit.
+                    (*state, body_exit, port_guard.clone().not()),
+                ]
+            })
+            .collect_vec(),
+    );
+
+    Ok(vec![(body_exit + 1, pre_guard.clone())])
 }
 
 /// Compiled to:

@@ -1,0 +1,22 @@
+enables:
+[0, 1)
+  cond0[go] = 1'd1;
+[1, 2)
+  do_add[go] = comb_reg.out ? 1'd1;
+[2, 3)
+  cond0[go] = comb_reg.out ? 1'd1;
+transitions:
+(0)->(1)
+  1'b1
+(1)->(2)
+  comb_reg.out
+(1)->(4)
+  !comb_reg.out
+(2)->(3)
+  comb_reg.out
+(3)->(1)
+  comb_reg.out
+(3)->(4)
+  !comb_reg.out
+(4)->(5)
+  1'b1
