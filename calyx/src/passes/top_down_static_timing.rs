@@ -348,10 +348,14 @@ fn enable_calculate_states(
     // Component builder
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
-    let time = con
-        .attributes
-        .get("static")
-        .expect("`static` annotation missing");
+    let time_option = con.attributes.get("static");
+    if time_option.is_none() {
+        return Err(Error::pass_assumption(
+            TopDownStaticTiming::name().to_string(),
+            "static control required".to_string(),
+        ));
+    }
+    let time = time_option.unwrap();
 
     let range = (cur_state, cur_state + time);
     let group = &con.group;
@@ -463,6 +467,7 @@ impl Visitor for TopDownStaticTiming {
         let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
 
+        // Compile control program and save schedule.
         let result = calculate_states(
             &control.borrow(),
             0,
@@ -471,14 +476,17 @@ impl Visitor for TopDownStaticTiming {
             &mut builder,
         );
 
+        // Continue if calculate_states didn't find the necessary static timing.
         if result.is_err() {
-            return Err(result.unwrap_err());
+            return Ok(Action::Continue);
         }
 
+        // Dump FSM if requested.
         if self.dump_fsm {
             schedule.display();
         }
 
+        // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule(&mut builder);
 
         Ok(Action::Change(ir::Control::enable(group)))
