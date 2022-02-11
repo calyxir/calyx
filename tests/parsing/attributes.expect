@@ -7,7 +7,7 @@ component main<"static"=1>(@stable(32) @go_port in: 32, go: 1, clk: 1, @go go0: 
   }
   wires {
     group upd<"stable"=1> {
-      upd[done] = r.done;
+      @dead upd[done] = r.done;
     }
     comb group cond<"stable"=0> {
     }

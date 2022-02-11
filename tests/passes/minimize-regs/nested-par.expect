@@ -3,10 +3,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     b0 = std_reg(32);
     before0 = std_reg(4);
-    read_x0 = std_add(4);
+    @external read_x0 = std_add(4);
     b1 = std_reg(32);
     before1 = std_reg(4);
-    read_x1 = std_add(4);
+    @external read_x1 = std_add(4);
   }
   wires {
     group wr_before0<"static"=1> {

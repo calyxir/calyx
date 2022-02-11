@@ -28,7 +28,7 @@ impl Named for HoleInliner {
     }
 }
 
-type Store = HashMap<(ir::Id, ir::Id), (RRC<ir::Port>, ir::Guard)>;
+type Store = HashMap<ir::Canonical, (RRC<ir::Port>, ir::Guard)>;
 
 /// Finds the 'fixed_point' of a map from Hole names to guards under the
 /// inlining operation. The map contains entries like:
@@ -86,7 +86,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
             let key = read.borrow().canonical();
             map.entry(read.borrow().canonical())
                 .and_modify(|(_, guard)| {
-                    guard.for_each(&|port| {
+                    guard.for_each(&mut |port| {
                         if port.borrow().canonical() == hole_key {
                             Some(new_guard.clone())
                         } else {
@@ -208,7 +208,7 @@ impl Visitor for HoleInliner {
 
         // replace reads from a hole with the value in the map
         for asgn in &mut assignments {
-            asgn.guard.for_each(&|port| {
+            asgn.guard.for_each(&mut |port| {
                 if port.borrow().is_hole() {
                     Some(map[&port.borrow().canonical()].1.clone())
                 } else {

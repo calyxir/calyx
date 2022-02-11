@@ -4,7 +4,7 @@ use crate::analysis::reaching_defns::{
     GroupOrInvoke, ReachingDefinitionAnalysis,
 };
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Builder, Cell, CloneName, LibrarySignatures, RRC};
+use crate::ir::{self, Builder, CloneName, LibrarySignatures};
 use std::collections::HashMap;
 
 /// Unsharing registers reduces the amount of multiplexers used in the final design, trading them
@@ -49,7 +49,7 @@ impl Named for RegisterUnsharing {
     }
 }
 
-type RewriteMap<T> = HashMap<T, HashMap<ir::Id, RRC<Cell>>>;
+type RewriteMap<T> = HashMap<T, ir::rewriter::CellRewriteMap>;
 
 // A struct for managing the overlapping analysis and rewrite information
 #[derive(Default)]

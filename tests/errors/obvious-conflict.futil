@@ -1,0 +1,14 @@
+// -p well-formed
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    w1 = std_wire(32);
+    w2 = std_wire(32);
+  }
+  wires {
+    r.in = w1.out;
+    r.in = w2.out;
+  }
+  control {}
+}

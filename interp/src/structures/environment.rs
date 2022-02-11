@@ -480,8 +480,9 @@ impl InterpreterState {
             ir::Guard::Port(p) => {
                 let val = self.get_from_port(&p.borrow());
                 if val.len() != 1 {
+                    let can = p.borrow().canonical();
                     return Err(InterpreterError::InvalidBoolCast(
-                        p.borrow().canonical(),
+                        (can.0, can.1),
                         p.borrow().width,
                     ));
                 } else {

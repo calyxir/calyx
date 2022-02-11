@@ -43,7 +43,7 @@ fn rewrite_assign(map: &HoleMapping, assign: &mut ir::Assignment) {
     if let Some(cell) = rewrite(&assign.src) {
         assign.src = cell.borrow().get("out");
     }
-    assign.guard.for_each(&|port| {
+    assign.guard.for_each(&mut |port| {
         rewrite(&port).map(|cell| ir::Guard::port(cell.borrow().get("out")))
     });
 }

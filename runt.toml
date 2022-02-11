@@ -45,7 +45,7 @@ cmd = """
 
 ## Tests errors that occur at runtime
 [[tests]]
-name = "[core] runtime errors"
+name = "runtime errors"
 paths = [
   "tests/errors/runtime/*.futil"
 ]
