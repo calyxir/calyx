@@ -50,7 +50,13 @@ impl Schedule {
         println!("transitions:");
         self.transitions
             .iter()
-            .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
+            .sorted_by(|(k1, k2, g1), (k3, k4, g2)| match k1.cmp(k3) {
+                std::cmp::Ordering::Equal => match k2.cmp(k4) {
+                    std::cmp::Ordering::Equal => g1.cmp(g2),
+                    other => other,
+                },
+                other => other,
+            })
             .for_each(|(i, f, g)| {
                 println!("({})->({})\n  {}", i, f, Printer::guard_str(&g));
             })
