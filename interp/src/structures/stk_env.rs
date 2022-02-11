@@ -864,7 +864,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                         a_head.insert(k, v);
                     } else {
                         let prev = a_head.remove(&k).unwrap();
-                        if crate::SETTINGS.read().unwrap().allow_par_conflicts
+                        if crate::SETTINGS.read().allow_par_conflicts
                             && prev == v
                         {
                             crate::logging::warn!(

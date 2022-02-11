@@ -1,5 +1,5 @@
 use lazy_static::*;
-use std::sync::RwLock;
+use parking_lot::RwLock;
 
 lazy_static! {
     /// Global configuration object which stores the current configuration options for
