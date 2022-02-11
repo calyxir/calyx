@@ -48,6 +48,10 @@ pub struct Port {
     pub attributes: Attributes,
 }
 
+/// Canonical name of a Port
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Canonical(pub Id, pub Id);
+
 impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
@@ -86,8 +90,8 @@ impl Port {
     }
 
     /// Get the canonical representation for this Port.
-    pub fn canonical(&self) -> (Id, Id) {
-        (self.get_parent_name(), self.name.clone())
+    pub fn canonical(&self) -> Canonical {
+        Canonical(self.get_parent_name(), self.name.clone())
     }
 }
 
@@ -342,6 +346,9 @@ pub struct Assignment {
 
     /// The guard for this assignment.
     pub guard: Box<Guard>,
+
+    /// Attributes for this assignment.
+    pub attributes: Attributes,
 }
 
 impl Assignment {

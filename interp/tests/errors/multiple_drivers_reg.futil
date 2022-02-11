@@ -5,14 +5,18 @@ component main() -> () {
     const0 = std_const(32, 13);
     const1 = std_const(32, 10);
     reg0 = std_reg(32);
-
+    eq = std_eq(1);
   }
 
   wires {
     group op {
+      // Construct a guard that is always true.
+      eq.left = 1'd1;
+      eq.right = 1'd1;
+
       reg0.write_en = 1'd1;
-      reg0.in = const0.out;
-      reg0.in = const1.out;
+      reg0.in = eq.out ? const0.out;
+      reg0.in = eq.out ? const1.out;
       op[done] = reg0.done;
     }
 

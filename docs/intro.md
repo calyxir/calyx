@@ -82,7 +82,7 @@ You'll want to set up at least one of these options so you can try out your code
 
 Icarus is an easy way to get started on most platforms.
 On a Mac, you can install Icarus Verilog with [Homebrew][] by typing `brew install icarus-verilog`.
-On Ubuntu, try `apt install iverilog`.
+On Ubuntu, [install from source][icarus-install-source].
 Then install the relevant [fud support][fud-icarus] by running:
 
     fud register icarus-verilog -p fud/icarus/icarus.py
@@ -92,32 +92,13 @@ Type `fud check` to make sure the new stage is working.
 
 You can instead consider [setting up Verilator][fud-verilator] for faster long-running simulations or using the [interpreter][] to avoid RTL simulation altogether.
 
-### Generating Simulation Results
-
-By default, simulating with Icarus or Verilator will produce a [VCD file][vcd], which
-is not human-readable.
-Our tests use [vcdump][] to transform VCD file into JSON files.
-
-Install vcdump:
-```
-cargo install vcdump
-```
-Use `fud` to check the right version was installed:
-```
-fud check
-```
-
-It should report that the `vcdump` binary is available and has the right
-version.
-Some tools will be reported missing. This is expected.
-
 ## Running a Hardware Design
 
 We're all set to run a Calyx hardware design now. Run the following command:
 ```
 fud e examples/tutorial/language-tutorial-iterate.futil \
   -s verilog.data examples/tutorial/data.json \
-  --to dat -v --through icarus-verilog
+  --to dat --through icarus-verilog -v
 ```
 
 (Change the last bit to `--through verilog` to use Verilator instead.)
@@ -130,6 +111,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 ## Where to go next?
 
+- [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
 - [How does the language work?](./tutorial/language-tut.md)
 - [How do I install Calyx frontends?](./fud/index.html#dahlia-fronted)
 - [Examples with `fud`](./fud/examples.md)
@@ -155,3 +137,4 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [homebrew]: https://brew.sh
 [fud-icarus]: ./fud/index.md#icarus-verilog
 [fud-verilator]: ./fud/index.md#verilator
+[icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source

@@ -28,7 +28,7 @@ impl Named for HoleInliner {
     }
 }
 
-type Store = HashMap<(ir::Id, ir::Id), (RRC<ir::Port>, ir::Guard)>;
+type Store = HashMap<ir::Canonical, (RRC<ir::Port>, ir::Guard)>;
 
 /// Finds the 'fixed_point' of a map from Hole names to guards under the
 /// inlining operation. The map contains entries like:

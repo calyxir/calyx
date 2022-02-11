@@ -3,5 +3,5 @@
 ---STDERR---
 Error: multiple assignments to one port: reg0.in
     Conflict between:
-     1. reg0.in = const1.out;
-     2. reg0.in = const0.out;
+     1. reg0.in = eq.out ? const1.out;
+     2. reg0.in = eq.out ? const0.out;

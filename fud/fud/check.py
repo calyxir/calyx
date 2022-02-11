@@ -6,6 +6,7 @@ from packaging import version
 import sys
 
 # Dictionary that defines how to check the version for different tools.
+# Maps names of stage to the command needed to check the tool.
 VERSIONS = {
     "dahlia": {
         "flag": "--version",
@@ -41,6 +42,12 @@ VERSIONS = {
         "extract": lambda out: out.split(" ")[10],
         "version": "v2019.2",
         "compare": "==",
+    },
+    "icarus-verilog": {
+        "flag": "-V",
+        "extract": lambda out: out.split(" ")[3],
+        "version": "11.0",
+        "compare": ">=",
     },
 }
 
@@ -128,11 +135,13 @@ def check(cfg):
             cprint(f"stages.{name}.exec:", attrs=["bold"])
             exec_path = shutil.which(stage["exec"])
             exec_name = colored(stage["exec"], "yellow")
-            if exec_path is not None or stage["exec"].startswith("cargo run"):
+            if stage["exec"].startswith("cargo run"):
+                cprint(" ✔", "green", end=" ")
+            elif exec_path is not None:
                 cprint(" ✔", "green", end=" ")
                 print(f"{exec_name} installed.")
                 # check if path is absolute or relative
-                if exec_path is not None and not Path(exec_path).is_absolute():
+                if not Path(exec_path).is_absolute():
                     print(
                         f"   {exec_name} is a relative path and "
                         + "will not work from every directory."
