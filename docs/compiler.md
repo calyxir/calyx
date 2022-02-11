@@ -21,6 +21,7 @@ cargo run -- -l ./primitives
 ```
 
 ## Primitive Libraries Format
+
 The primitive libraries consist of a `.futil` file paired with a `.sv` file. The
 `.futil` file defines a series of Calyx shim bindings in `extern` blocks which
 match up with SystemVerilog definitions of those primitives. These libraries may
@@ -71,4 +72,4 @@ the default execution alias `all`:
 cargo run -- examples/futil/simple.futil -p all -d static-timing
 ```
 
-[comp]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/
+[comp]: https://docs.calyxir.org/source/calyx/

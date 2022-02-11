@@ -1,23 +1,33 @@
-# Summary
+[Getting Started](./intro.md)
 
-- [Getting Started](./intro.md)
+# Calyx Language
+
+- [Language Tutorial](./tutorial/language-tut.md)
+  - [Multi-Component Designs](./lang/multi-component.md)
+  - [Passing Memories by Reference](./lang/memories-by-reference.md)
+  - [Attributes](./lang/attributes.md)
+
+# Running Calyx Programs
+
 - [`fud`: The Calyx Driver](./fud/index.md)
   - [Examples](./fud/examples.md)
   - [Xilinx Tools](./fud/xilinx.md)
   - [External Stages](./fud/external.md)
   - [Multiple Paths](./fud/multiple-paths.md)
   - [CIRCT](./fud/circt.md)
-- [The Calyx Compiler](./compiler.md)
-  - [Primitive Library](./libraries/core.md)
 - [The Calyx Interpreter](./interpreter.md)
-- [Tools](./tools/index.md)
-  - [Runt](./tools/runt.md)
-  - [`exp` Generator](./tools/exp-generator.md)
-  - [Editor Highlighting](./tools/editor-highlighting.md)
-- [Language Tutorial](./tutorial/language-tut.md)
-  - [Multi-Component Designs](./lang/multi-component.md)
-  - [Passing Memories by Reference](./lang/memories-by-reference.md)
-  - [Attributes](./lang/attributes.md)
+  - [Interactive Debugger](./debug/cider.md)
+
+# The Calyx Compiler
+
+- [The Calyx Compiler](./compiler.md)
+- [Primitive Library](./libraries/core.md)
+- [Dataflow Analysis](./optimizations/dataflow.md)
+- [Debugging](./debug/index.md)
+  - [Tips](./debug/debug.md)
+
+# Generating Calyx
+
 - [Emitting Calyx from Python](./calyx-py.md)
 - [Frontend Tutorial](./tutorial/frontend-tut.md)
 - [Frontend Compilers](./frontends/index.md)
@@ -26,11 +36,12 @@
   - [TVM Relay](./frontends/tvm-relay.md)
   - [NTT Pipeline Generator](./frontends/ntt.md)
   - [MrXL](./frontends/mrxl.md)
-- [Optimizations](./optimizations/index.md)
-  - [Dataflow Analysis](./optimizations/dataflow.md)
-- [Debugging](./debug/index.md)
-  - [Tips](./debug/debug.md)
-  - [Interactive Debugger](./debug/cider.md)
+
+# Tools
+
+- [Runt](./tools/runt.md)
+- [`exp` Generator](./tools/exp-generator.md)
+- [Editor Highlighting](./tools/editor-highlighting.md)
 
 ----
 [Contributors](./contributors.md)
