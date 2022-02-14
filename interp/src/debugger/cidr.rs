@@ -15,6 +15,7 @@ use crate::{interpreter_ir as iir, primitives::Serializeable};
 use calyx::ir::{self, Id, RRC};
 use std::fmt::Write;
 
+/// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
 /// The interactive Calyx debugger. The debugger itself is run with the
