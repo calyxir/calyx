@@ -1,22 +1,21 @@
-use std::cell::Ref;
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::{cell::Ref, collections::HashMap, rc::Rc};
 
-use super::commands::{Command, PrintCode, PrintMode};
-use super::context::DebuggingContext;
-use super::io_utils::Input;
+use super::{
+    commands::{Command, PrintCode, PrintMode},
+    context::DebuggingContext,
+    interactive_errors::DebuggerError,
+    io_utils::Input,
+};
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
-use crate::interpreter::{ComponentInterpreter, Interpreter};
-use crate::interpreter_ir as iir;
-use crate::primitives::Serializeable;
+use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::utils::AsRaw;
+use crate::{interpreter_ir as iir, primitives::Serializeable};
 use calyx::ir::{self, Id, RRC};
-pub(super) const SPACING: &str = "    ";
-use super::interactive_errors::DebuggerError;
-use crate::interpreter::ConstCell;
 use std::fmt::Write;
+
+pub(super) const SPACING: &str = "    ";
 
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [main_loop] function while this struct holds auxilliary information used to
