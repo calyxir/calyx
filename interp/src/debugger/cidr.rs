@@ -42,7 +42,6 @@ impl Debugger {
     pub fn main_loop(
         &mut self,
         env: InterpreterState,
-        pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterResult<InterpreterState> {
         let qin = ComponentQualifiedInstanceName::new_single(
             &self.main_component,
@@ -54,11 +53,6 @@ impl Debugger {
             qin,
         );
         component_interpreter.set_go_high();
-
-        if pass_through {
-            component_interpreter.run()?;
-            return component_interpreter.deconstruct();
-        }
 
         let mut input_stream = Input::default();
         println!("== Calyx Interactive Debugger ==");

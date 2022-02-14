@@ -81,11 +81,7 @@ struct CommandInterpret {}
 #[derive(FromArgs)]
 #[argh(subcommand, name = "debug")]
 /// Interpret the given program with the interactive debugger
-struct CommandDebug {
-    #[argh(switch, short = 'p', long = "pass-through")]
-    /// flag which runs the program to completion through the debugger
-    pass_through: bool,
-}
+struct CommandDebug {}
 
 #[inline]
 fn print_res(
@@ -161,9 +157,9 @@ fn main() -> InterpreterResult<()> {
         Command::Interpret(_) => {
             ComponentInterpreter::interpret_program(env, main_component)
         }
-        Command::Debug(CommandDebug { pass_through }) => {
+        Command::Debug(CommandDebug {}) => {
             let mut cidb = Debugger::new(&components, main_component);
-            cidb.main_loop(env, pass_through)
+            cidb.main_loop(env)
         }
     };
 
