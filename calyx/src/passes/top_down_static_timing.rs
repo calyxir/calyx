@@ -6,7 +6,7 @@ use crate::ir::{
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures, Printer, RRC,
 };
-use crate::{build_assignments, guard, structure};
+use crate::{build_assignments, guard, passes, structure};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
@@ -174,7 +174,12 @@ fn calculate_states(
         ir::Control::While(w) => {
             while_calculate_states(w, cur_state, pre_guard, schedule, builder)
         }
-        _ => panic!("Not yet implemented!"),
+        ir::Control::Invoke(_) => unreachable!(
+            "`invoke` statements should have been compiled away. Run `{}` before this pass.",
+            passes::CompileInvoke::name()),
+        ir::Control::Empty(_) => unreachable!(
+            "`empty` statements should have been compiled away. Run `{}` before this pass.",
+            passes::CompileEmpty::name()),
     }
 }
 
@@ -312,19 +317,16 @@ fn while_calculate_states(
     ));
 
     // Add transitions from end of inner control to entry or exit state.
-    schedule.transitions.extend(
-        preds
-            .iter()
-            .flat_map(|(state, _)| {
-                vec![
-                    // When guard is true, back to entry.
-                    (*state, cur_state, port_guard.clone()),
-                    // When guard is false, down to exit.
-                    (*state, body_exit, port_guard.clone().not()),
-                ]
-            })
-            .collect_vec(),
-    );
+    schedule
+        .transitions
+        .extend(preds.iter().flat_map(|(state, _)| {
+            vec![
+                // When guard is true, back to entry.
+                (*state, cur_state, port_guard.clone()),
+                // When guard is false, down to exit.
+                (*state, body_exit, port_guard.clone().not()),
+            ]
+        }));
 
     Ok(vec![(body_exit + 1, pre_guard.clone())])
 }
