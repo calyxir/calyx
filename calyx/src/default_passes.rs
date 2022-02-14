@@ -6,7 +6,7 @@ use crate::passes::{
     InferStaticTiming, LowerGuards, MergeAssign, MinimizeRegs, Papercut,
     ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
     ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    WellFormed, WireInliner,
+    WellFormed, WireInliner, MergeStaticPar,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -32,6 +32,7 @@ impl PassManager {
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
+        pm.register_pass::<MergeStaticPar>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;

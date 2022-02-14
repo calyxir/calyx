@@ -30,7 +30,9 @@ mod synthesis_papercut;
 mod top_down_compile_control;
 mod well_formed;
 mod wire_inliner;
+mod merge_static_par;
 
+pub use merge_static_par::MergeStaticPar;
 pub use canonical::Canonicalize;
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
