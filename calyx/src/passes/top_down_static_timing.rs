@@ -38,8 +38,8 @@ impl Schedule {
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .for_each(|(state, assigns)| {
-                print!("[{}, {})\n", state.0, state.1);
+            .for_each(|((start, end), assigns)| {
+                println!("[{}, {})", start, end);
                 assigns.iter().for_each(|assign| {
                     print!("  ");
                     Printer::write_assignment(assign, 0, out)
@@ -58,7 +58,7 @@ impl Schedule {
                 other => other,
             })
             .for_each(|(i, f, g)| {
-                println!("({})->({})\n  {}", i, f, Printer::guard_str(&g));
+                println!("({})->({})\n  {}", i, f, Printer::guard_str(g));
             })
     }
 
@@ -387,7 +387,7 @@ fn enable_calculate_states(
 /// Helper to add seqential transitions and return the next state.
 fn seq_add_transitions(
     schedule: &mut Schedule,
-    preds: &Vec<PredEdge>,
+    preds: &[PredEdge],
     default_pred: &PredEdge,
 ) -> u64 {
     // Compute the new start state from the latest predecessor.
@@ -398,11 +398,9 @@ fn seq_add_transitions(
         .0;
 
     // Add transitions from each predecessor to the new state.
-    schedule.transitions.extend(
-        preds
-            .iter()
-            .map(|(s, g)| (s.clone() - 1, new_state, g.clone())),
-    );
+    schedule
+        .transitions
+        .extend(preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())));
 
     // Return the new state.
     new_state
@@ -422,11 +420,8 @@ impl ConstructVisitor for TopDownStaticTiming {
         ctx.extra_opts.iter().for_each(|opt| {
             let mut splits = opt.split(':');
             if splits.next() == Some(Self::name()) {
-                match splits.next() {
-                    Some("dump-fsm") => {
-                        dump_fsm = true;
-                    }
-                    _ => (),
+                if let Some("dump-fsm") = splits.next() {
+                    dump_fsm = true;
                 }
             }
         });
