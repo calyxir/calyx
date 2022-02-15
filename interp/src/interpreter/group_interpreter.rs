@@ -193,6 +193,10 @@ impl AssignmentInterpreter {
             let mut assigned_ports: HashSet<PortAssignment> = HashSet::new();
             self.val_changed = Some(false);
 
+            // for change based simulation
+            let mut cells_to_run_rrc: Vec<RRC<Cell>> = Vec::new();
+            let mut cells_to_run_set: HashSet<*const Cell> = HashSet::new();
+
             let mut updates_list = vec![];
 
             let assign_ref = self.assigns.get_ref();
@@ -232,6 +236,17 @@ impl AssignmentInterpreter {
                     let new_val = new_val_ref.clone();
 
                     if old_val != new_val_ref {
+                        if cfg!(change_based_sim) {
+                            let pref = port.borrow();
+
+                            if let ir::PortParent::Cell(cell) = &pref.parent {
+                                let cell_rrc = cell.upgrade();
+                                if cells_to_run_set.insert(cell_rrc.as_raw()) {
+                                    cells_to_run_rrc.push(cell_rrc)
+                                }
+                            }
+                        }
+
                         updates_list.push((port, new_val)); //no point in rewriting same value to this list
                         self.val_changed = Some(true);
                     }
@@ -269,8 +284,15 @@ impl AssignmentInterpreter {
                 self.state.insert(port, value);
             }
 
-            let changed =
-                eval_prims(&mut self.state, self.cells.iter(), false)?;
+            let changed = eval_prims(
+                &mut self.state,
+                if cfg!(change_based_sim) {
+                    cells_to_run_rrc.iter()
+                } else {
+                    self.cells.iter()
+                },
+                false,
+            )?;
             if changed {
                 self.val_changed = Some(true);
             }

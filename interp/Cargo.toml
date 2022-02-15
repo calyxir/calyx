@@ -10,7 +10,7 @@ doctest = false # Don't run doc tests
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-changed-based-sim = []
+change_based_sim = []
 
 [dependencies]
 calyx = { path = "../calyx" }
