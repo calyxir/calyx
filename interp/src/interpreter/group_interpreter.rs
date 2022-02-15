@@ -6,7 +6,7 @@ use crate::utils::{AsRaw, PortAssignment, RcOrConst};
 use crate::values::Value;
 use calyx::ir::{self, Assignment, Cell, RRC};
 use std::cell::Ref;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use super::control_interpreter::EnableHolder;
@@ -101,6 +101,7 @@ pub struct AssignmentInterpreter {
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
     possible_ports: HashSet<*const ir::Port>,
+    port_lookup_map: HashMap<*const ir::Port, RRC<ir::Port>>,
 }
 
 impl AssignmentInterpreter {
@@ -118,11 +119,15 @@ impl AssignmentInterpreter {
             assigns.get_ref().iter().chain(cont_assigns.iter()),
             done_signal,
         );
+        let mut port_lookup_map = HashMap::new();
         let possible_ports: HashSet<*const ir::Port> = assigns
             .get_ref()
             .iter()
             .chain(cont_assigns.iter())
-            .map(|a| a.dst.as_raw())
+            .map(|a| {
+                port_lookup_map.insert(a.dst.as_raw(), a.dst.clone());
+                a.dst.as_raw()
+            })
             .collect();
 
         Self {
@@ -133,6 +138,7 @@ impl AssignmentInterpreter {
             cells,
             val_changed: None,
             possible_ports,
+            port_lookup_map,
         }
     }
 
@@ -272,6 +278,16 @@ impl AssignmentInterpreter {
                 let new_val = Value::from(0, old_val_width);
 
                 if old_val.as_unsigned() != 0_u32.into() {
+                    if cfg!(change_based_sim) {
+                        let port_ref = &self.port_lookup_map[&port].borrow();
+                        if let ir::PortParent::Cell(cell) = &port_ref.parent {
+                            let cell_rrc = cell.upgrade();
+                            if cells_to_run_set.insert(cell_rrc.as_raw()) {
+                                cells_to_run_rrc.push(cell_rrc)
+                            }
+                        }
+                    }
+
                     self.val_changed = Some(true);
                 }
 
