@@ -69,7 +69,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
                 )
             };
 
-            if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
+            if overflow & crate::SETTINGS.read().error_on_overflow {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
                 warn!(
@@ -248,9 +248,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 // the only way this is possible is if the division is signed and the
                 // min_val is divided by negative one as the resultant postitive value will
                 // not be representable in the desired bit width
-                if (overflow)
-                    & crate::SETTINGS.read().unwrap().error_on_overflow
-                {
+                if (overflow) & crate::SETTINGS.read().error_on_overflow {
                     return Err(InterpreterError::OverflowError());
                 } else if overflow {
                     warn!(
@@ -561,7 +559,7 @@ impl Primitive for StdMemD1 {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
         if self.last_index >= self.size {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if crate::SETTINGS.read().allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -818,7 +816,7 @@ impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         if self.calc_addr(self.last_idx.0, self.last_idx.1) >= self.max_idx() {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if crate::SETTINGS.read().allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -1097,7 +1095,7 @@ impl Primitive for StdMemD3 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2) >= self.max_idx() {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if crate::SETTINGS.read().allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -1412,7 +1410,7 @@ impl Primitive for StdMemD4 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2, addr3) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2, addr3) >= self.max_idx() {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if crate::SETTINGS.read().allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
