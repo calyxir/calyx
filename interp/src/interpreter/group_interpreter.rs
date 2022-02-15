@@ -239,10 +239,11 @@ impl AssignmentInterpreter {
                         self.state.get_from_port(&assignment.src.borrow());
                     // no need to make updates if the value has not changed
                     let port = assignment.dst.clone(); // Rc clone
-                    let new_val = new_val_ref.clone();
 
                     if old_val != new_val_ref {
-                        if cfg!(change_based_sim) {
+                        let new_val = new_val_ref.clone();
+
+                        if cfg!(feature = "change-based-sim") {
                             let pref = port.borrow();
 
                             if let ir::PortParent::Cell(cell) = &pref.parent {
@@ -278,7 +279,7 @@ impl AssignmentInterpreter {
                 let new_val = Value::from(0, old_val_width);
 
                 if old_val.as_unsigned() != 0_u32.into() {
-                    if cfg!(change_based_sim) {
+                    if cfg!(feature = "change-based-sim") {
                         let port_ref = &self.port_lookup_map[&port].borrow();
                         if let ir::PortParent::Cell(cell) = &port_ref.parent {
                             let cell_rrc = cell.upgrade();
@@ -302,7 +303,7 @@ impl AssignmentInterpreter {
 
             let changed = eval_prims(
                 &mut self.state,
-                if cfg!(change_based_sim) {
+                if cfg!(feature = "change-based-sim") {
                     cells_to_run_rrc.iter()
                 } else {
                     self.cells.iter()
