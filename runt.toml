@@ -68,6 +68,7 @@ paths = [
 cmd = """
 fud exec -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
+         -s futil.flags ' -d infer-static-timing' \
          -s verilog.cycle_limit 500 \
          --through verilog \
          {} --to dat \
