@@ -3,7 +3,10 @@ use once_cell::sync::OnceCell;
 static SETTINGS: OnceCell<Config> = OnceCell::new();
 
 pub fn get_config() -> &'static Config {
-    SETTINGS.get().expect("Config not initialized")
+    SETTINGS.get().unwrap_or_else(|| {
+        init_default_config();
+        SETTINGS.get().unwrap()
+    })
 }
 
 pub fn init_config(conf: Config) {
@@ -12,6 +15,10 @@ pub fn init_config(conf: Config) {
         .expect("Failed to set config, perhaps it is already initialized");
 }
 
+#[allow(unused_must_use)]
+pub fn init_default_config() {
+    SETTINGS.set(Config::default());
+}
 // this can be a copy type because it's just a bunch of bools
 #[derive(Debug, Default, Clone, Copy)]
 /// Configuration struct which controls runtime behavior

@@ -10,6 +10,10 @@ use slog::{Drain, Level};
 
 static ROOT_LOGGER: OnceCell<Logger> = OnceCell::new();
 
+pub fn initialze_default_logger() {
+    initialze_logger(&Config::default());
+}
+
 pub fn initialze_logger(config: &Config) {
     let decorator = slog_term::TermDecorator::new().stderr().build();
     let drain = slog_term::FullFormat::new(decorator).build();
@@ -24,13 +28,17 @@ pub fn initialze_logger(config: &Config) {
 
     let logger = slog::Logger::root(drain, o!());
 
-    ROOT_LOGGER
-        .set(logger)
-        .expect("Failed to set logger, perhaps it is already initialized");
+    #[allow(unused_must_use)]
+    {
+        ROOT_LOGGER.set(logger);
+    }
 }
 
 pub fn root() -> &'static Logger {
-    ROOT_LOGGER.get().expect("logger not initialized")
+    ROOT_LOGGER.get().unwrap_or_else(|| {
+        initialze_default_logger();
+        ROOT_LOGGER.get().unwrap()
+    })
 }
 
 /// Utility method for creating subloggers for components/primitives/etc. This
