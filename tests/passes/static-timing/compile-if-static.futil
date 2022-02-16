@@ -1,4 +1,4 @@
-// -x top-down-st:dump-fsm -d post-opt -d lower -b none
+// -x top-down-st:dump-fsm -p top-down-st -b none
 
 import "primitives/core.futil";
 
@@ -6,6 +6,7 @@ component main() -> () {
   cells {
     t = std_reg(1);
     f = std_reg(1);
+    comb_reg = std_reg(1);
     lt = std_lt(1);
   }
 
@@ -22,17 +23,23 @@ component main() -> () {
       false[done] = f.done;
     }
 
-    comb group cond {
-      lt.left = 1'b1;
-      lt.right = 1'b0;
+    group cond0<"static"=1> {
+      lt.left = 1'd1;
+      lt.right = 1'd0;
+      comb_reg.in = lt.out;
+      comb_reg.write_en = 1'd1;
+      cond0[done] = comb_reg.done ? 1'd1;
     }
   }
 
   control {
-    if lt.out with cond {
-      true;
-    } else {
-      false;
+    @static(3) seq {
+      @static cond0;
+      @static(2) if comb_reg.out {
+        @static true;
+      } else {
+        @static false;
+      }
     }
   }
 }
