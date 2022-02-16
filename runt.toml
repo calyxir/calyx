@@ -68,7 +68,7 @@ paths = [
 cmd = """
 fud exec -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
-         -s futil.flags ' -d infer-static-timing' \
+         -s futil.flags ' -d top-down-st' \
          -s verilog.cycle_limit 500 \
          --through verilog \
          {} --to dat \
@@ -120,6 +120,7 @@ fud e --from systolic --to vcd_json --through verilog \
       {} \
       -s verilog.data {}.data \
       -s futil.exec './target/debug/futil' \
+      -s futil.flags ' -d top-down-st' \
       -q \
       | jq -f {}.jq
 
@@ -145,7 +146,7 @@ rm {}.futil;
 name = "[frontend] mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
-fud e -q {} --from mrxl --to dat --through verilog -s verilog.data {}.data | jq .memories
+fud e -q {} --from mrxl --to dat -s futil.flags ' -d top-down-st' --through verilog -s verilog.data {}.data | jq .memories
 """
 
 [[tests]]
@@ -214,6 +215,7 @@ name = "language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         -s futil.flags ' -d top-down-st' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
          --to dat -q
@@ -224,6 +226,7 @@ name = "memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         -s futil.flags ' -d top-down-st' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q
@@ -234,6 +237,7 @@ name = "dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         -s futil.flags ' -d top-down-st' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q
@@ -243,5 +247,5 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[core] futil examples"
 paths = ["examples/futil/*.futil"]
 cmd = """
-./target/debug/futil {} -m file
+./target/debug/futil {} -m file -d top-down-st
 """
