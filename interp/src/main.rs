@@ -107,7 +107,7 @@ fn main() -> InterpreterResult<()> {
 
     {
         // get read access to the settings
-        let mut write_lock = interp::SETTINGS.write().unwrap();
+        let mut write_lock = interp::SETTINGS.write();
         if opts.quiet {
             write_lock.quiet = true;
         }
@@ -125,7 +125,7 @@ fn main() -> InterpreterResult<()> {
 
     let log = &interp::logging::ROOT_LOGGER;
 
-    if interp::SETTINGS.read().unwrap().allow_par_conflicts {
+    if interp::SETTINGS.read().allow_par_conflicts {
         warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
     }
 

@@ -25,6 +25,9 @@ quick-xml = { version = "0.22.0", features = ["serialize"] }
 members = ["calyx", "interp", "web/rust"]
 exclude = ["site"]
 
+[profile.release]
+incremental = true
+
 [dev-dependencies]
 criterion = {version = "0.3", features=["html_reports"]}
 
