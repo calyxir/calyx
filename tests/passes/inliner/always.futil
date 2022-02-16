@@ -1,0 +1,81 @@
+// -p validate -p inline -x inline:always
+import "primitives/core.futil";
+
+component check(left: 4, right: 4) -> (out: 1) {
+  cells {
+    lt = std_lt(4);
+    r = std_reg(1);
+  }
+  wires {
+    group do_comp {
+      lt.right = right;
+      lt.left = left;
+      r.in = lt.out;
+      r.write_en = 1'd1;
+      do_comp[done] = r.done;
+    }
+
+    out = r.out;
+  }
+  control {
+    do_comp;
+  }
+}
+
+component counter(start: 4, end: 4) -> (out: 4) {
+  cells {
+    count = std_reg(4);
+    lt = std_lt(4);
+    comp = check();
+  }
+  wires {
+    group init<"static"=1> {
+      count.in = start;
+      count.write_en = 1'd1;
+      init[done] = count.done;
+    }
+    comb group cond {
+      lt.right = end;
+      lt.left = count.out;
+    }
+    out = count.out;
+  }
+  control {
+    seq {
+      invoke comp(left = start, right = end)();
+      if lt.out with cond {
+        init;
+      }
+    }
+  }
+}
+
+// The component is almost exactly the same to check of the name generator
+// works.
+component main() -> (out: 4) {
+  cells {
+    c = counter();
+    count = std_reg(4);
+    lt = std_lt(4);
+  }
+  wires {
+    group init<"static"=1> {
+      count.in = 4'd0;
+      count.write_en = 1'd1;
+      init[done] = count.done;
+    }
+    comb group cond {
+      lt.right = 4'd10;
+      lt.left = count.out;
+    }
+    out = count.out;
+  }
+  control {
+    seq {
+      invoke c(start = 4'd2, end = 4'd10)();
+      if c.out with cond {
+        init;
+      }
+    }
+  }
+}
