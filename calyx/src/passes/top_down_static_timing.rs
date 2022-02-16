@@ -78,9 +78,16 @@ impl Schedule {
                 .flat_map(|((lb, ub), mut assigns)| {
                     let lb_const = builder.add_constant(lb, fsm_size);
                     let ub_const = builder.add_constant(ub, fsm_size);
-                    let state_guard = guard!(fsm["out"])
-                        .ge(guard!(lb_const["out"]))
-                        .and(guard!(fsm["out"]).lt(guard!(ub_const["out"])));
+                    let state_guard;
+                    if lb == 0 {
+                        state_guard =
+                            guard!(fsm["out"]).lt(guard!(ub_const["out"]));
+                    } else {
+                        state_guard =
+                            guard!(fsm["out"]).ge(guard!(lb_const["out"])).and(
+                                guard!(fsm["out"]).lt(guard!(ub_const["out"])),
+                            );
+                    };
                     assigns.iter_mut().for_each(|assign| {
                         assign.guard.update(|g| g.and(state_guard.clone()))
                     });
