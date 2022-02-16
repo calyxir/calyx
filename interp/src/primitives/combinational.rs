@@ -172,7 +172,7 @@ comb_primitive!(LOG: logger; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: W
         c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
     }
     if c_in {
-        if crate::SETTINGS.read().error_on_overflow {
+        if crate::configuration::get_config().error_on_overflow {
             return Err(InterpreterError::OverflowError());
         }
         warn!(logger, "Computation over/underflow");

@@ -1,5 +1,6 @@
 use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
 use interp::{
+    configuration,
     debugger::Debugger,
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
@@ -101,27 +102,21 @@ fn print_res(
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
-    {
-        // get read access to the settings
-        let mut write_lock = interp::SETTINGS.write();
-        if opts.quiet {
-            write_lock.quiet = true;
-        }
-        if opts.allow_invalid_memory_access {
-            write_lock.allow_invalid_memory_access = true;
-        }
-        if opts.error_on_overflow {
-            write_lock.error_on_overflow = true;
-        }
-        if opts.allow_par_conflicts {
-            write_lock.allow_par_conflicts = true;
-        }
-        // release lock
-    }
+    let builder = configuration::ConfigBuilder::new();
 
-    let log = &interp::logging::ROOT_LOGGER;
+    let config = builder
+        .quiet(opts.quiet)
+        .allow_invalid_memory_access(opts.allow_invalid_memory_access)
+        .error_on_overflow(opts.error_on_overflow)
+        .allow_par_conflicts(opts.allow_par_conflicts)
+        .build();
 
-    if interp::SETTINGS.read().allow_par_conflicts {
+    interp::logging::initialze_logger(&config);
+    configuration::init_config(config);
+
+    let log = interp::logging::root();
+
+    if config.allow_par_conflicts {
         warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
     }
 
