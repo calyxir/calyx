@@ -194,6 +194,7 @@ impl AssignmentInterpreter {
     pub fn step_convergence(&mut self) -> InterpreterResult<()> {
         self.val_changed = Some(true); // always run convergence if called
 
+        // only used when compiled with change-based-sim feature
         let mut first_iteration = true;
 
         // this unwrap is safe
