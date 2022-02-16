@@ -194,6 +194,8 @@ impl AssignmentInterpreter {
     pub fn step_convergence(&mut self) -> InterpreterResult<()> {
         self.val_changed = Some(true); // always run convergence if called
 
+        let mut first_iteration = true;
+
         // this unwrap is safe
         while self.val_changed.unwrap() {
             let mut assigned_ports: HashSet<PortAssignment> = HashSet::new();
@@ -304,7 +306,11 @@ impl AssignmentInterpreter {
             let changed = eval_prims(
                 &mut self.state,
                 if cfg!(feature = "change-based-sim") {
-                    cells_to_run_rrc.iter()
+                    if first_iteration {
+                        self.cells.iter()
+                    } else {
+                        cells_to_run_rrc.iter()
+                    }
                 } else {
                     self.cells.iter()
                 },
@@ -312,6 +318,10 @@ impl AssignmentInterpreter {
             )?;
             if changed {
                 self.val_changed = Some(true);
+            }
+
+            if cfg!(feature = "change-based-sim") {
+                first_iteration = false;
             }
         }
         Ok(())
