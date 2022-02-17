@@ -62,7 +62,7 @@ class InterpreterStage(Stage):
         cmd = [
             script,
             self.flags,
-            unwrap_or(config["stages", self.name, "flags"], ""),
+            "{flags}",
             "-l",
             config["global", "futil_directory"],
             "--data" if data_path else "",
@@ -122,7 +122,9 @@ class InterpreterStage(Stage):
             Invoke the debugger
             """
             command = cmd.format(
-                data_file=Path(tmpdir.name) / _FILE_NAME, target=str(target)
+                data_file=Path(tmpdir.name) / _FILE_NAME,
+                target=str(target),
+                flags=unwrap_or(config["stages", self.name, "flags"], ""),
             )
             transparent_shell(command)
 
