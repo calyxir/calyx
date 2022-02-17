@@ -1,3 +1,5 @@
+from typing import Optional
+
 import time
 
 
@@ -69,14 +71,11 @@ class Executor:
         self._persist = persist
         # Spinner object
         self._spinner = DummySpinner() if spinner is None else spinner
-        # Current stage name and text. Provide both to customize spinner output.
-        self._stage_text = None
-        self._stage_name = None
-        # Current step name
-        self._step_text = None
-
         # Profiler for this executor
         self._profiler = Profiler() if profile else DummyProfiler()
+
+        # Current context
+        self.ctx: Optional[str] = None
 
         # Disable spinner outputs
         self._no_spinner = False
@@ -96,56 +95,30 @@ class Executor:
     def enable_spinner(self):
         self._no_spinner = False
 
-    def stage(self, name, disable_spinner, txt=None):
-        """
-        Use this to create a stage boundary:
-            with executor.stage(name, disable_spinner):
-                # Things to do with the stage
-        """
-        return StageExecutor(self, name, disable_spinner, txt)
-
-    def step(self, name):
-        """
-        Use this to create a step boundary:
-            with executor.step(name):
-                # Things to do with the step
-        """
-        assert self.stage is not None, "Attempt to create a step before a stage"
-        return StepExecutor(self, name)
+    def context(self, name):
+        return ContextExecutor(self, name, self._profiler)
 
     def _update(self):
         if not self._no_spinner:
-            msg = f"{self._stage_text}"
-            if self._step_text is not None:
-                msg += f": {self._step_text}"
-            self._spinner.start(msg)
+            self._spinner.start(self.ctx)
 
-    # Mark stage boundaries. Use the stage method above instead of these.
-    def _start_stage(self, name, text=None):
-        self._stage_text = text if text else name
-        self._stage_name = name
+    # Mark context boundaries
+    def _start_ctx(self, name):
+        assert self.ctx is None, "Attempted to start a nested execution"
+        self.ctx = name
         self._update()
-        self.durations[name] = {}
 
-    def _end_stage(self, is_err):
-        if self._persist:
-            if not is_err:
-                self._spinner.succeed()
-
-    # Mark step boundaries. Use the step method above instead of these.
-    def _start_step(self, text):
-        self._step_text = text
-        self._update()
-        self._profiler.start()
-
-    def _end_step(self, is_err):
+    def _end_ctx(self, is_err, profiling_data=None):
+        msg = self.ctx
+        if profiling_data:
+            self.durations[self.ctx] = profiling_data
+            msg += f" ({profiling_data:.3f} ms)"
         if self._persist:
             if is_err:
-                self._spinner.fail()
+                self._spinner.fail(msg)
             else:
-                self._spinner.succeed()
-        self.durations[self._stage_name][self._step_text] = self._profiler.end()
-        self._step_text = None
+                self._spinner.succeed(msg)
+        self.ctx = None
         self._update()
 
     def _stop(self):
@@ -155,38 +128,19 @@ class Executor:
         self._spinner.stop()
 
 
-class StageExecutor(object):
+class ContextExecutor(object):
     """
-    Handles execution of a stage.
+    Handles execution of a generic context.
     """
 
-    def __init__(self, parent_exec, stage, disable_spinner, txt):
+    def __init__(self, parent_exec, ctx, profiler):
         self.parent_exec = parent_exec
-        self.stage = stage
-        self.txt = txt
-        if disable_spinner:
-            self.parent_exec._stop()
-            self.parent_exec.disable_spinner()
+        self.ctx = ctx
+        self.profiler = profiler
 
     def __enter__(self):
-        self.parent_exec._start_stage(self.stage, self.txt if self.txt else self.stage)
+        self.profiler.start()
+        self.parent_exec._start_ctx(self.ctx)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.parent_exec._end_stage(exc_type is not None)
-        self.parent_exec.enable_spinner()
-
-
-class StepExecutor(object):
-    """
-    Handles execution of a step.
-    """
-
-    def __init__(self, parent_exec, step):
-        self.parent_exec = parent_exec
-        self.step = step
-
-    def __enter__(self):
-        self.parent_exec._start_step(self.step)
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.parent_exec._end_step(exc_type is not None)
+        self.parent_exec._end_ctx(exc_type is not None, self.profiler.end())

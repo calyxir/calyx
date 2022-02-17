@@ -49,7 +49,7 @@ runt -i core
 If everything has been installed correctly, this should not produce any failing
 tests.
 
-## Installing the Command-line Driver
+## Installing the Command-Line Driver
 
 [The Calyx driver](./fud) wraps the various compiler frontends and
 backends to simplify running Calyx programs.
@@ -61,7 +61,7 @@ pip3 install flit
 
 Install `fud` (from the root of the repository):
 ```
-flit -f fud/pyproject.toml install -s
+flit -f fud/pyproject.toml install -s --deps production
 ```
 Configure `fud`:
 ```
@@ -74,55 +74,23 @@ fud check
 
 `fud` will report certain tools are not available. This is expected.
 
-## Simulating with Verilator
+## Simulation
 
-[Verilator][] is the default simulation backend for Calyx. If you want to
-run your Calyx programs, you need to install Verilator.
+There are three ways to run Calyx programs:
+[Verilator][], [Icarus Verilog][], and Calyx's native [interpreter][].
+You'll want to set up at least one of these options so you can try out your code.
 
-On a Mac, install with:
-```
-brew install verilator
-```
+Icarus is an easy way to get started on most platforms.
+On a Mac, you can install Icarus Verilog with [Homebrew][] by typing `brew install icarus-verilog`.
+On Ubuntu, [install from source][icarus-install-source].
+Then install the relevant [fud support][fud-icarus] by running:
 
-Otherwise, you will probably need to compile it from source yourself (the versions in Linux repositories are generally out of date).
-There instructions are stolen from [Verilator's installation instructions][verilator-install]:
-```
-git clone https://github.com/verilator/verilator
-cd verilator
-git pull
-git checkout master
-autoconf
-./configure
-make
-sudo make install
-```
+    fud register icarus-verilog -p fud/icarus/icarus.py
 
-Use `fud` to check you have the right version:
-```
-fud check
-```
-`fud` should report that the `verilator` binary was installed and has the
-right version.
-Some tools will be reported missing. This is expected.
+Type `fud check` to make sure the new stage is working.
+(Some missing tools are expected; just pay attention to the report for `stages.icarus-verilog.exec`.)
 
-### Generating Simulation Results
-
-By default, simulating with Verilator will produce a [VCD file][vcd] which
-is not human-readable.
-Our tests use [vcdump][] to transform VCD file into JSON files.
-
-Install vcdump:
-```
-cargo install vcdump
-```
-Use `fud` to check the right version was installed:
-```
-fud check
-```
-
-It should report that the `vcdump` binary is available and has the right
-version.
-Some tools will be reported missing. This is expected.
+You can instead consider [setting up Verilator][fud-verilator] for faster long-running simulations or using the [interpreter][] to avoid RTL simulation altogether.
 
 ## Running a Hardware Design
 
@@ -130,8 +98,10 @@ We're all set to run a Calyx hardware design now. Run the following command:
 ```
 fud e examples/tutorial/language-tutorial-iterate.futil \
   -s verilog.data examples/tutorial/data.json \
-  --to dat -v
+  --to dat --through icarus-verilog -v
 ```
+
+(Change the last bit to `--through verilog` to use Verilator instead.)
 
 This command will compile `examples/tutorial/language-tutorial-iterate.futil` to Verilog
 using the Calyx compiler, simulate the design using the data in `examples/tutorial/data.json`, and generate a JSON representation of the
@@ -141,6 +111,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 ## Where to go next?
 
+- [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
 - [How does the language work?](./tutorial/language-tut.md)
 - [How do I install Calyx frontends?](./fud/index.html#dahlia-fronted)
 - [Examples with `fud`](./fud/examples.md)
@@ -152,6 +123,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [vcdump]: https://github.com/sgpthomas/vcdump
 [verilator]: https://www.veripool.org/wiki/verilator
 [verilator-install]: https://www.veripool.org/projects/verilator/wiki/Installing
+[icarus verilog]: http://iverilog.icarus.com
 [jq]: https://stedolan.github.io/jq/
 [jq-install]: https://stedolan.github.io/jq/
 [frontends]: ./frontends/index.md
@@ -161,3 +133,8 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [dahlia]: https://github.com/cucapra/dahlia
 [dahlia-install]: https://github.com/cucapra/dahlia#set-it-up
 [sbt]: https://www.scala-sbt.org/download.html
+[interpreter]: ./interpreter.md
+[homebrew]: https://brew.sh
+[fud-icarus]: ./fud/index.md#icarus-verilog
+[fud-verilator]: ./fud/index.md#verilator
+[icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source

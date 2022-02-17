@@ -19,7 +19,7 @@ class NumericType:
 
     width: int
     is_signed: bool
-    string_repr: str = None
+    string_repr: str
     bit_string_repr: str = None
     hex_string_repr: str = None
     uint_repr: int = None
@@ -40,10 +40,11 @@ class NumericType:
         stripped_prefix = value[2:] if value.startswith("0x") else value
         if any(digit == "x" for digit in stripped_prefix):
             raise InvalidNumericType(
-                f"Tried to parse value: {value} with width: {width}, "
-                "which is uninitialized. This should probably not happen. "
-                "Please open an issue in the Calyx repository with a minimal "
-                "reproduction."
+                f"Memory contains the value: `{value}', which is uninitialized. "
+                "This happens when the Calyx design attempts to read a port"
+                " that is not connected to anything."
+                " Try to generate a VCD file using `--to vcd` and look for signals "
+                "that are not driven in a given cycle."
             )
         self.width = width
         self.is_signed = is_signed

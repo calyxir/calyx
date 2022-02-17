@@ -1,17 +1,14 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
-use std::fmt::Display;
-use std::hash::Hash;
-use std::ops::Deref;
-use std::rc::Rc;
+use std::{fmt::Display, hash::Hash, ops::Deref, rc::Rc};
 
 #[derive(Debug, Clone)]
 /// A portion of a qualified name representing an instance of a Calyx component.
 pub struct InstanceName {
     /// Handle to the component definition
-    component_id: Rc<iir::Component>,
+    pub component_id: Rc<iir::Component>,
     /// The name of the instance
-    instance: Id,
+    pub instance: Id,
 }
 
 impl InstanceName {
@@ -40,9 +37,9 @@ impl PartialEq for InstanceName {
 impl Eq for InstanceName {}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct ComponentQIN(Rc<Vec<InstanceName>>);
+pub struct ComponentQualifiedInstanceName(Rc<Vec<InstanceName>>);
 
-impl ComponentQIN {
+impl ComponentQualifiedInstanceName {
     pub fn as_id(&self) -> Id {
         let string_vec: Vec<String> =
             self.0.iter().map(|x| x.instance.clone().id).collect();
@@ -50,7 +47,7 @@ impl ComponentQIN {
     }
 }
 
-impl Deref for ComponentQIN {
+impl Deref for ComponentQualifiedInstanceName {
     type Target = Vec<InstanceName>;
 
     fn deref(&self) -> &Self::Target {
@@ -58,7 +55,7 @@ impl Deref for ComponentQIN {
     }
 }
 
-impl ComponentQIN {
+impl ComponentQualifiedInstanceName {
     pub fn new_extend(&self, inst: InstanceName) -> Self {
         let mut inner = (*self.0).clone();
         inner.push(inst);
@@ -74,7 +71,7 @@ impl ComponentQIN {
     }
 }
 
-impl<T: Into<InstanceName>> From<T> for ComponentQIN {
+impl<T: Into<InstanceName>> From<T> for ComponentQualifiedInstanceName {
     fn from(input: T) -> Self {
         let inst: InstanceName = input.into();
         Self(Rc::new(vec![inst]))
@@ -85,8 +82,8 @@ impl<T: Into<InstanceName>> From<T> for ComponentQIN {
 /// The fully-qualified instance name of some calyx entity
 pub struct QualifiedInstanceName {
     /// The instance names of the ancestors in the state tree
-    prefix: ComponentQIN,
-    /// Cell name
+    prefix: ComponentQualifiedInstanceName,
+    /// Cell/group/port name
     name: Id,
 }
 
@@ -97,62 +94,83 @@ impl QualifiedInstanceName {
         string_vec.push(self.name.id.clone());
         string_vec.join(".").into()
     }
-}
 
-impl QualifiedInstanceName {
-    pub fn new(prefix: &ComponentQIN, name: &Id) -> Self {
+    pub fn new(prefix: &ComponentQualifiedInstanceName, name: &Id) -> Self {
         Self {
             prefix: prefix.clone(),
             name: name.clone(),
         }
     }
-}
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-/// A qualified name which does not contain instance information
-pub struct QualifiedName {
-    prefix: Vec<Id>,
-    name: Id,
-}
+    pub fn prefix_length(&self) -> usize {
+        self.prefix.0.len()
+    }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-/// A qualified instance group name
-pub struct GroupQIN(QualifiedInstanceName);
+    pub fn shared_prefix_of(&self, other: &Self) -> bool {
+        for (a, b) in self.prefix.0.iter().zip(other.prefix.0.iter()) {
+            if a != b {
+                return false;
+            }
+        }
+        true
+    }
 
-impl GroupQIN {
-    pub fn new(prefix: &ComponentQIN, name: &Id) -> Self {
-        Self(QualifiedInstanceName::new(prefix, name))
+    pub fn equal_prefix(&self, other: &Self) -> bool {
+        self.prefix == other.prefix
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-/// A qualified group name
-pub struct GroupQN(QualifiedName);
+#[derive(Debug)]
+pub enum GroupName {
+    /// An actual group
+    Group(Id),
+    /// A phantom group with a displayable name
+    Phantom(Id),
+    /// No group name
+    None,
+}
 
-impl From<QualifiedInstanceName> for QualifiedName {
-    fn from(qin: QualifiedInstanceName) -> Self {
+pub struct GroupQualifiedInstanceName {
+    pub prefix: ComponentQualifiedInstanceName,
+    pub group: GroupName,
+}
+
+impl GroupQualifiedInstanceName {
+    pub fn new_group(comp: &ComponentQualifiedInstanceName, name: &Id) -> Self {
         Self {
-            prefix: qin
-                .prefix
-                .iter()
-                .map(|x| x.component_id.name.clone())
-                .collect(),
-            name: qin.name,
+            prefix: comp.clone(),
+            group: GroupName::Group(name.clone()),
+        }
+    }
+
+    pub fn new_phantom(
+        comp: &ComponentQualifiedInstanceName,
+        name: &Id,
+    ) -> Self {
+        Self {
+            prefix: comp.clone(),
+            group: GroupName::Phantom(name.clone()),
+        }
+    }
+
+    pub fn new_empty(comp: &ComponentQualifiedInstanceName) -> Self {
+        Self {
+            prefix: comp.clone(),
+            group: GroupName::None,
         }
     }
 }
 
-impl From<QualifiedInstanceName> for GroupQIN {
-    fn from(qin: QualifiedInstanceName) -> Self {
-        Self(qin)
+impl std::fmt::Debug for GroupQualifiedInstanceName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GroupQualifiedInstanceName")
+            .field("prefix", &self.prefix.as_id())
+            .field("group", &self.group)
+            .finish()
     }
 }
 
-impl From<QualifiedName> for GroupQN {
-    fn from(qn: QualifiedName) -> Self {
-        Self(qn)
-    }
-}
+pub type GroupQIN = QualifiedInstanceName;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct CompGroupName {
@@ -162,9 +180,9 @@ pub struct CompGroupName {
 
 impl From<GroupQIN> for CompGroupName {
     fn from(qin: GroupQIN) -> Self {
-        let last = qin.0.prefix.last().unwrap();
+        let last = qin.prefix.last().unwrap();
         Self {
-            group_name: qin.0.name,
+            group_name: qin.name,
             component_name: last.component_id.name.clone(),
         }
     }

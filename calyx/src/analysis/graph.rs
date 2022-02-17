@@ -34,7 +34,7 @@ pub type CellGraph = DiGraph<Node, Edge>;
 /// such as all the reads from a port or all the write to a port.
 #[derive(Clone, Default, Debug)]
 pub struct GraphAnalysis {
-    nodes: HashMap<(Id, Id), NodeIndex>,
+    nodes: HashMap<ir::Canonical, NodeIndex>,
     graph: CellGraph,
 }
 
@@ -152,10 +152,9 @@ impl GraphAnalysis {
         for (a_ref, b_ref) in edges {
             let a = a_ref.borrow();
             let b = b_ref.borrow();
-            if let (Some(a_idx), Some(b_idx)) = (
-                nodes.get(&(a.get_parent_name(), a.name.clone())),
-                nodes.get(&(b.get_parent_name(), b.name.clone())),
-            ) {
+            if let (Some(a_idx), Some(b_idx)) =
+                (nodes.get(&a.canonical()), nodes.get(&b.canonical()))
+            {
                 graph.add_edge(*a_idx, *b_idx, ());
             }
         }
@@ -181,14 +180,8 @@ impl GraphAnalysis {
         start: &ir::Port,
         finish: &ir::Port,
     ) -> Vec<Vec<RRC<ir::Port>>> {
-        let start_idx = self
-            .nodes
-            .get(&(start.get_parent_name(), start.name.clone()))
-            .unwrap();
-        let finish_idx = self
-            .nodes
-            .get(&(finish.get_parent_name(), finish.name.clone()))
-            .unwrap();
+        let start_idx = self.nodes.get(&start.canonical()).unwrap();
+        let finish_idx = self.nodes.get(&finish.canonical()).unwrap();
 
         let paths: Vec<Vec<RRC<ir::Port>>> = algo::all_simple_paths(
             &self.graph,
@@ -272,8 +265,7 @@ impl GraphAnalysis {
                 .node_indices()
                 .find(|idx| *graph_copy[*idx].borrow() == *port)
                 .unwrap();
-            nodes_copy
-                .insert((port.get_parent_name(), port.name.clone()), n_idx);
+            nodes_copy.insert(port.canonical(), n_idx);
         }
 
         Self {

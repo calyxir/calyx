@@ -11,26 +11,25 @@ class RelayStage(Stage):
 
     name = "relay"
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(
             src_state="relay",
             target_state="futil",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
-            config=config,
             description="Generates the Calyx program from the TVM Relay IR.",
         )
-        self.script = (
-            Path(self.config["global", "futil_directory"])
+
+    def _define_steps(self, input, builder, config):
+        script = (
+            Path(config["global", "futil_directory"])
             / "frontends"
             / "relay"
             / "relay_visitor.py"
         )
-        self.setup()
 
-    def _define_steps(self, input_path):
-        @self.step(description=str(self.script))
+        @builder.step(description=str(script))
         def run_relay(input_path: SourceType.Path) -> SourceType.Stream:
-            return shell(f"{str(self.script)} {str(input_path)}")
+            return shell(f"{str(script)} {str(input_path)}")
 
-        return run_relay(input_path)
+        return run_relay(input)

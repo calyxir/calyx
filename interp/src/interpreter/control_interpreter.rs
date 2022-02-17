@@ -1,9 +1,11 @@
-use super::group_interpreter::finish_interpretation;
-use super::group_interpreter::AssignmentInterpreter;
+use super::group_interpreter::{finish_interpretation, AssignmentInterpreter};
 use super::utils::{get_done_port, get_go_port};
+use crate::debugger::name_tree::ActiveTreeNode;
 use crate::errors::InterpreterError;
 use crate::interpreter_ir as iir;
-use crate::structures::names::{ComponentQIN, GroupQIN};
+use crate::structures::names::{
+    ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
+};
 use crate::utils::AsRaw;
 use crate::{
     environment::{
@@ -48,6 +50,10 @@ pub trait Interpreter {
     fn currently_executing_group(&self) -> HashSet<GroupQIN>;
 
     fn get_mut_env(&mut self) -> MutStateView<'_>;
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        vec![]
+    }
 }
 
 pub struct EmptyInterpreter {
@@ -157,7 +163,7 @@ pub struct EnableInterpreter {
     enable: EnableHolder,
     group_name: Option<ir::Id>,
     interp: AssignmentInterpreter,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl EnableInterpreter {
@@ -166,7 +172,7 @@ impl EnableInterpreter {
         group_name: Option<ir::Id>,
         mut env: InterpreterState,
         continuous: &iir::ContinuousAssignments,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self
     where
         E: Into<EnableHolder>,
@@ -238,6 +244,17 @@ impl Interpreter for EnableInterpreter {
     fn converge(&mut self) -> InterpreterResult<()> {
         self.interp.step_convergence()
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        let name = match &self.group_name {
+            Some(name) => {
+                GroupQualifiedInstanceName::new_group(&self.qin, name)
+            }
+            None => GroupQualifiedInstanceName::new_empty(&self.qin),
+        };
+
+        vec![ActiveTreeNode::new(name)]
+    }
 }
 
 pub struct SeqInterpreter {
@@ -248,7 +265,7 @@ pub struct SeqInterpreter {
     input_ports: Rc<HashSet<*const ir::Port>>,
     seq: Rc<iir::Seq>,
     seq_index: usize,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 impl SeqInterpreter {
     pub fn new(
@@ -256,7 +273,7 @@ impl SeqInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         Self {
             current_interpreter: None,
@@ -373,6 +390,14 @@ impl Interpreter for SeqInterpreter {
             Ok(())
         }
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        if let Some(current) = &self.current_interpreter {
+            current.get_active_tree()
+        } else {
+            vec![]
+        }
+    }
 }
 
 pub struct ParInterpreter {
@@ -380,7 +405,7 @@ pub struct ParInterpreter {
     interpreters: Vec<ControlInterpreter>,
     in_state: InterpreterState,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    _qin: ComponentQIN,
+    _qin: ComponentQualifiedInstanceName,
 }
 
 impl ParInterpreter {
@@ -389,7 +414,7 @@ impl ParInterpreter {
         mut env: InterpreterState,
         continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let mut env = env.force_fork();
         let interpreters = par
@@ -478,6 +503,13 @@ impl Interpreter for ParInterpreter {
         }
         Ok(())
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        self.interpreters
+            .iter()
+            .flat_map(|x| x.get_active_tree())
+            .collect()
+    }
 }
 pub struct IfInterpreter {
     port: ConstPort,
@@ -487,7 +519,7 @@ pub struct IfInterpreter {
     branch_interp: Option<ControlInterpreter>,
     continuous_assignments: iir::ContinuousAssignments,
     input_ports: Rc<HashSet<*const ir::Port>>,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl IfInterpreter {
@@ -496,7 +528,7 @@ impl IfInterpreter {
         env: InterpreterState,
         continuous_assigns: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let cond_port: ConstPort = ctrl_if.port.as_ptr();
 
@@ -628,6 +660,14 @@ impl Interpreter for IfInterpreter {
             _ => unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition."),
         }
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        if let Some(interp) = &self.cond {
+            interp.get_active_tree()
+        } else {
+            self.branch_interp.as_ref().unwrap().get_active_tree()
+        }
+    }
 }
 pub struct WhileInterpreter {
     port: ConstPort,
@@ -637,7 +677,7 @@ pub struct WhileInterpreter {
     input_ports: Rc<HashSet<*const ir::Port>>,
     terminal_env: Option<InterpreterState>,
     wh: Rc<iir::While>,
-    qin: ComponentQIN,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl WhileInterpreter {
@@ -646,7 +686,7 @@ impl WhileInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let port: ConstPort = ctrl_while.port.as_ptr();
         let cond_interp;
@@ -800,10 +840,19 @@ impl Interpreter for WhileInterpreter {
             unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
         }
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        if let Some(interp) = &self.cond_interp {
+            interp.get_active_tree()
+        } else {
+            self.body_interp.as_ref().unwrap().get_active_tree()
+        }
+    }
 }
 pub struct InvokeInterpreter {
     invoke: Rc<iir::Invoke>,
     assign_interp: AssignmentInterpreter,
+    qin: ComponentQualifiedInstanceName,
 }
 
 impl InvokeInterpreter {
@@ -811,6 +860,7 @@ impl InvokeInterpreter {
         invoke: &Rc<iir::Invoke>,
         mut env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         let mut assignment_vec: Vec<Assignment> = vec![];
         let comp_cell = invoke.comp.borrow();
@@ -822,6 +872,7 @@ impl InvokeInterpreter {
                 dst: comp_input_port,
                 src: Rc::clone(connection),
                 guard: Guard::default().into(),
+                attributes: ir::Attributes::default(),
             });
         }
 
@@ -832,6 +883,7 @@ impl InvokeInterpreter {
                 dst: Rc::clone(connection),
                 src: comp_output_port,
                 guard: Guard::default().into(),
+                attributes: ir::Attributes::default(),
             })
         }
 
@@ -858,6 +910,7 @@ impl InvokeInterpreter {
         Self {
             invoke: Rc::clone(invoke),
             assign_interp: interp,
+            qin: qin.clone(),
         }
     }
 }
@@ -902,6 +955,15 @@ impl Interpreter for InvokeInterpreter {
     fn converge(&mut self) -> InterpreterResult<()> {
         self.assign_interp.step_convergence()
     }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        let name = GroupQualifiedInstanceName::new_phantom(
+            &self.qin,
+            &(format!("invoke {}", self.invoke.comp.borrow().name()).into()),
+        );
+
+        vec![ActiveTreeNode::new(name)]
+    }
 }
 
 // internal use macro that just captures the same name and expression for each
@@ -936,7 +998,7 @@ impl ControlInterpreter {
         env: InterpreterState,
         continuous_assignments: &iir::ContinuousAssignments,
         input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> Self {
         match control {
             iir::Control::Seq(s) => Self::Seq(Box::new(SeqInterpreter::new(
@@ -970,7 +1032,7 @@ impl ControlInterpreter {
                 )))
             }
             iir::Control::Invoke(i) => Self::Invoke(Box::new(
-                InvokeInterpreter::new(i, env, continuous_assignments),
+                InvokeInterpreter::new(i, env, continuous_assignments, qin),
             )),
             iir::Control::Enable(e) => {
                 Self::Enable(Box::new(EnableInterpreter::new(
@@ -1019,6 +1081,10 @@ impl Interpreter for ControlInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         control_match!(self, i, i.converge())
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        control_match!(self, i, i.get_active_tree())
     }
 }
 

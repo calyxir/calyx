@@ -265,6 +265,13 @@ To delete watchpoints:
  > del-watch main::group_1
 ```
 
+## Viewing the program counter
+
+There `where` command (alias `pc`) displays the currently running portion of the
+control tree including active subcomponents. This can be used to more easily
+determine the currently active portion of the design as well as visualize how
+much of the execution is occurring in parallel at any given point.
+
 ## Exiting the debugger
 
 Use `help` to see all commands. Use `exit` to exit the debugger.

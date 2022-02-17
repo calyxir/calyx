@@ -44,7 +44,7 @@ def parse_dat(path, args):
         # verilator.
         for hex_value in f.readlines():
             if hex_value.startswith("//"):
-                log.info(
+                log.debug(
                     f"Ignorning line {repr(hex_value)}"
                     + f" since it looks like a comment: {path}"
                 )

@@ -14,7 +14,7 @@ lazy_static! {
     pub static ref ROOT_LOGGER: Logger = {
         let decorator = slog_term::TermDecorator::new().stderr().build();
         let drain = slog_term::FullFormat::new(decorator).build();
-        let filter_level = if crate::configuration::SETTINGS.read().unwrap().quiet {
+        let filter_level = if crate::configuration::SETTINGS.read().quiet {
             Level::Error
         } else {
             Level::Trace

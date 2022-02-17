@@ -1,9 +1,9 @@
 from random import randint
 from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st  # type: ignore
 import numpy as np
-import pytest
+import pytest  # type: ignore
 
 
 @given(bits=st.lists(st.booleans(), min_size=2, max_size=256), is_signed=st.booleans())
@@ -19,7 +19,7 @@ def test_fixed_point_round_trip(bits, is_signed):
     unsigned_integer = int(bit_string, 2)
     hex_string = np.base_repr(unsigned_integer, 16)
 
-    def fp_round_trip(bit_string: str) -> int:
+    def fp_round_trip(bit_string: str) -> FixedPoint:
         # Round-trips the fixed point conversion.
         bin = FixedPoint(f"0b{bit_string}", width, int_width, is_signed).str_value()
         hex = FixedPoint(f"0x{hex_string}", width, int_width, is_signed).str_value()
@@ -55,7 +55,7 @@ def test_bitnum_round_trip(bits, is_signed):
     unsigned_integer = int(bit_string, 2)
     hex_string = np.base_repr(unsigned_integer, 16)
 
-    def bitnum_round_trip(bit_string: str) -> int:
+    def bitnum_round_trip(bit_string: str) -> Bitnum:
         # Round-trips the bitnum conversion.
         bin = Bitnum(f"0b{bit_string}", width, is_signed).str_value()
         hex = Bitnum(f"0x{hex_string}", width, is_signed).str_value()

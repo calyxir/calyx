@@ -2,12 +2,13 @@
 name = "interp"
 version = "0.1.0"
 authors = ["The Calyx authors"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 doctest = false # Don't run doc tests
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 
 [dependencies]
 calyx = { path = "../calyx" }
@@ -29,6 +30,8 @@ pest_consume = "1.1.1"
 slog = "2.7.0"
 slog-term = "2.8.0"
 slog-async = "2.7.0"
+
+parking_lot = "0.12.0"
 
 [dev-dependencies]
 proptest = "1.0.0"

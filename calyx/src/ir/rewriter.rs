@@ -6,11 +6,11 @@ use super::CloneName;
 
 /// Map to rewrite cell uses. Maps name of the old cell to the new [ir::Cell]
 /// instance.
-type CellRewriteMap = HashMap<ir::Id, RRC<ir::Cell>>;
+pub type CellRewriteMap = HashMap<ir::Id, RRC<ir::Cell>>;
 
 /// Map to rewrite port uses. Maps the canonical name of an old port (generated using
 /// [ir::Port::canonical]) to the new [ir::Port] instance.
-type PortRewriteMap = HashMap<(ir::Id, ir::Id), RRC<ir::Port>>;
+pub type PortRewriteMap = HashMap<ir::Canonical, RRC<ir::Port>>;
 
 /// Map name of old group to new group
 type GroupRewriteMap = HashMap<ir::Id, RRC<ir::Group>>;

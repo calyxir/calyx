@@ -17,8 +17,8 @@ use crate::{analysis, guard, structure};
 /// into proper groups by registering the values read from the ports of cells
 /// used within the combinational group.
 ///
-/// It also transforms *-with into semantically equivalent control programs that first enable a
-/// group that calculates and registers the ports defined by the combinational group.
+/// It also transforms [invoke,if,while]-with into semantically equivalent control programs that
+/// first enable a group that calculates and registers the ports defined by the combinational group
 /// execute the respective cond group and then execute the control operator.
 ///
 /// # Example
@@ -76,12 +76,10 @@ use crate::{analysis, guard, structure};
 pub struct RemoveCombGroups {
     // Mapping from (group_name, (cell_name, port_name)) -> (port, group).
     port_rewrite: HashMap<PortInGroup, (RRC<ir::Port>, RRC<ir::Group>)>,
-    // The pass updated combinational groups for this component.
-    updated: bool,
 }
 
 /// Represents (group_name, (cell_name, port_name))
-type PortInGroup = (ir::Id, (ir::Id, ir::Id));
+type PortInGroup = (ir::Id, ir::Canonical);
 
 impl Named for RemoveCombGroups {
     fn name() -> &'static str {
@@ -100,17 +98,12 @@ impl Visitor for RemoveCombGroups {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        self.updated = false;
-
         let mut used_ports =
-            analysis::ControlPorts::from(&*comp.control.borrow());
+            analysis::ControlPorts::<false>::from(&*comp.control.borrow());
 
-        // If any groups were updated, tell the pass that updates
-        // were made.
-        if !comp.comb_groups.is_empty() {
-            self.updated = true;
-        } else {
-            return Ok(Action::Continue);
+        // Early return if there are no combinational groups
+        if comp.comb_groups.is_empty() {
+            return Ok(Action::Stop);
         }
 
         let mut builder = ir::Builder::new(comp, sigs);
@@ -259,32 +252,29 @@ impl Visitor for RemoveCombGroups {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if s.cond.is_some() {
-            // Construct a new `while` statement
-            let key = (
-                s.cond.as_ref().unwrap().borrow().name().clone(),
-                s.port.borrow().canonical(),
-            );
-            let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
-            let cond_in_body = ir::Control::enable(Rc::clone(cond_ref));
-            let body = std::mem::replace(s.body.as_mut(), ir::Control::empty());
-            let new_body = ir::Control::seq(vec![body, cond_in_body]);
-            let mut while_ = ir::Control::while_(
-                Rc::clone(port_ref),
-                None,
-                Box::new(new_body),
-            );
-            if let Some(attrs) = while_.get_mut_attributes() {
-                *attrs = std::mem::take(&mut s.attributes);
-            }
-            let cond_before_body = ir::Control::enable(Rc::clone(cond_ref));
-            Ok(Action::Change(ir::Control::seq(vec![
-                cond_before_body,
-                while_,
-            ])))
-        } else {
-            Ok(Action::Continue)
+        if s.cond.is_none() {
+            return Ok(Action::Continue);
         }
+
+        // Construct a new `while` statement
+        let key = (
+            s.cond.as_ref().unwrap().borrow().name().clone(),
+            s.port.borrow().canonical(),
+        );
+        let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
+        let cond_in_body = ir::Control::enable(Rc::clone(cond_ref));
+        let body = std::mem::replace(s.body.as_mut(), ir::Control::empty());
+        let new_body = ir::Control::seq(vec![body, cond_in_body]);
+        let mut while_ =
+            ir::Control::while_(Rc::clone(port_ref), None, Box::new(new_body));
+        if let Some(attrs) = while_.get_mut_attributes() {
+            *attrs = std::mem::take(&mut s.attributes);
+        }
+        let cond_before_body = ir::Control::enable(Rc::clone(cond_ref));
+        Ok(Action::Change(ir::Control::seq(vec![
+            cond_before_body,
+            while_,
+        ])))
     }
 
     /// Transforms a `if-with` into a `seq-if` which first runs the cond group
@@ -296,37 +286,37 @@ impl Visitor for RemoveCombGroups {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if s.cond.is_some() {
-            // Construct a new `if` statement
-            let key = (
-                s.cond.as_ref().unwrap().borrow().name().clone(),
-                s.port.borrow().canonical(),
-            );
-            let (port_ref, cond_ref) =
-                self.port_rewrite.get(&key).unwrap_or_else(|| {
-                    panic!(
-                        "{}: Port `{}.{}` in group `{}` doesn't have a rewrite",
-                        Self::name(),
-                        key.1 .0,
-                        key.1 .1,
-                        key.0
-                    )
-                });
-            let tbranch =
-                std::mem::replace(s.tbranch.as_mut(), ir::Control::empty());
-            let fbranch =
-                std::mem::replace(s.fbranch.as_mut(), ir::Control::empty());
-            let if_ = ir::Control::if_(
-                Rc::clone(port_ref),
-                None,
-                Box::new(tbranch),
-                Box::new(fbranch),
-            );
-            let cond = ir::Control::enable(Rc::clone(cond_ref));
-            Ok(Action::Change(ir::Control::seq(vec![cond, if_])))
-        } else {
-            Ok(Action::Continue)
+        if s.cond.is_none() {
+            return Ok(Action::Continue);
         }
+
+        // Construct a new `if` statement
+        let key = (
+            s.cond.as_ref().unwrap().borrow().name().clone(),
+            s.port.borrow().canonical(),
+        );
+        let (port_ref, cond_ref) =
+            self.port_rewrite.get(&key).unwrap_or_else(|| {
+                panic!(
+                    "{}: Port `{}.{}` in group `{}` doesn't have a rewrite",
+                    Self::name(),
+                    key.1 .0,
+                    key.1 .1,
+                    key.0
+                )
+            });
+        let tbranch =
+            std::mem::replace(s.tbranch.as_mut(), ir::Control::empty());
+        let fbranch =
+            std::mem::replace(s.fbranch.as_mut(), ir::Control::empty());
+        let if_ = ir::Control::if_(
+            Rc::clone(port_ref),
+            None,
+            Box::new(tbranch),
+            Box::new(fbranch),
+        );
+        let cond = ir::Control::enable(Rc::clone(cond_ref));
+        Ok(Action::Change(ir::Control::seq(vec![cond, if_])))
     }
 
     fn finish(
@@ -335,7 +325,7 @@ impl Visitor for RemoveCombGroups {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if self.updated && comp.attributes.get("static").is_some() {
+        if comp.attributes.get("static").is_some() {
             let msg =
                 format!("Component {} has both a top-level \"static\" annotations and combinational groups which is not supported", comp.name);
             return Err(Error::pass_assumption(Self::name().to_string(), msg)

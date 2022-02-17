@@ -1,12 +1,15 @@
 //! Environment for interpreter.
 
 use super::names::{
-    ComponentQIN, GroupQIN, InstanceName, QualifiedInstanceName,
+    ComponentQualifiedInstanceName, GroupQIN, InstanceName,
+    QualifiedInstanceName,
 };
 use super::stk_env::Smoosher;
+use crate::debugger::name_tree::ActiveTreeNode;
 use crate::debugger::PrintCode;
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::ComponentInterpreter;
+use crate::interpreter::Interpreter;
 use crate::interpreter_ir as iir;
 use crate::primitives::{
     combinational, stateful, Entry, Primitive, Serializeable,
@@ -71,7 +74,8 @@ impl InterpreterState {
         mems: &Option<MemoryMap>,
     ) -> InterpreterResult<Self> {
         // only for the main component
-        let qin = ComponentQIN::new_single(target, &target.name);
+        let qin =
+            ComponentQualifiedInstanceName::new_single(target, &target.name);
         let (map, set) = Self::construct_cell_map(target, ctx, mems, &qin)?;
 
         Ok(Self {
@@ -88,7 +92,7 @@ impl InterpreterState {
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
-        qin: &ComponentQIN,
+        qin: &ComponentQualifiedInstanceName,
     ) -> InterpreterResult<Self> {
         let (map, set) = Self::construct_cell_map(target, ctx, mems, qin)?;
 
@@ -112,7 +116,7 @@ impl InterpreterState {
         params: &ir::Binding,
         cell_name: &ir::Id,
         mems: &Option<MemoryMap>,
-        qin_name: &ComponentQIN,
+        qin_name: &ComponentQualifiedInstanceName,
     ) -> InterpreterResult<Box<dyn Primitive>> {
         let cell_qin = QualifiedInstanceName::new(qin_name, cell_name).as_id();
         Ok(match prim_name.as_ref() {
@@ -259,7 +263,7 @@ impl InterpreterState {
         comp: &Rc<iir::Component>,
         ctx: &iir::ComponentCtx,
         mems: &Option<MemoryMap>,
-        qin_name: &ComponentQIN,
+        qin_name: &ComponentQualifiedInstanceName,
     ) -> InterpreterResult<(PrimitiveMap, HashSet<ConstCell>)> {
         let mut map = HashMap::new();
         let mut set = HashSet::new();
@@ -476,8 +480,9 @@ impl InterpreterState {
             ir::Guard::Port(p) => {
                 let val = self.get_from_port(&p.borrow());
                 if val.len() != 1 {
+                    let can = p.borrow().canonical();
                     return Err(InterpreterError::InvalidBoolCast(
-                        p.borrow().canonical(),
+                        (can.0, can.1),
                         p.borrow().width,
                     ));
                 } else {
@@ -494,9 +499,10 @@ impl InterpreterState {
         self.sub_comp_set
             .iter()
             .map(|x| {
-                crate::interpreter::Interpreter::currently_executing_group(
-                    lookup[x].get_comp_interpreter().unwrap(),
-                )
+                lookup[x]
+                    .get_comp_interpreter()
+                    .unwrap()
+                    .currently_executing_group()
             })
             .flatten()
             .collect()
@@ -504,6 +510,17 @@ impl InterpreterState {
 
     pub fn as_state_view(&self) -> StateView<'_> {
         StateView::SingleView(self)
+    }
+    pub fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        let lookup = self.cell_map.borrow();
+
+        self.sub_comp_set
+            .iter()
+            .map(|x| {
+                lookup[x].get_comp_interpreter().unwrap().get_active_tree()
+            })
+            .flatten()
+            .collect()
     }
 }
 
@@ -615,6 +632,12 @@ impl<'a> StateView<'a> {
         match self {
             StateView::SingleView(c) => &c.component,
             StateView::Composite(c) => &c.0.component,
+        }
+    }
+    pub fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        match self {
+            StateView::SingleView(c) => c.get_active_tree(),
+            StateView::Composite(c) => c.0.get_active_tree(),
         }
     }
 

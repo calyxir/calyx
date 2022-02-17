@@ -1,6 +1,6 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -48,6 +48,10 @@ pub struct Port {
     pub attributes: Attributes,
 }
 
+/// Canonical name of a Port
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Canonical(pub Id, pub Id);
+
 impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
@@ -86,8 +90,8 @@ impl Port {
     }
 
     /// Get the canonical representation for this Port.
-    pub fn canonical(&self) -> (Id, Id) {
-        (self.get_parent_name(), self.name.clone())
+    pub fn canonical(&self) -> Canonical {
+        Canonical(self.get_parent_name(), self.name.clone())
     }
 }
 
@@ -158,7 +162,7 @@ pub enum CellType {
 #[derive(Debug)]
 pub struct Cell {
     /// Name of this cell.
-    pub(super) name: Id,
+    name: Id,
     /// Ports on this cell
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
@@ -178,6 +182,16 @@ impl GetAttributes for Cell {
 }
 
 impl Cell {
+    /// Construct a cell
+    pub fn new(name: Id, prototype: CellType) -> Self {
+        Self {
+            name,
+            ports: smallvec![],
+            prototype,
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Get a reference to the named port if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
@@ -332,14 +346,17 @@ pub struct Assignment {
 
     /// The guard for this assignment.
     pub guard: Box<Guard>,
+
+    /// Attributes for this assignment.
+    pub attributes: Attributes,
 }
 
 impl Assignment {
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
-    pub fn for_each_port<F>(&mut self, f: F)
+    pub fn for_each_port<F>(&mut self, mut f: F)
     where
-        F: Fn(&RRC<Port>) -> Option<RRC<Port>>,
+        F: FnMut(&RRC<Port>) -> Option<RRC<Port>>,
     {
         if let Some(new_src) = f(&self.src) {
             self.src = new_src;
@@ -347,7 +364,7 @@ impl Assignment {
         if let Some(new_dst) = f(&self.dst) {
             self.dst = new_dst;
         }
-        self.guard.for_each(&|port| f(&port).map(Guard::port))
+        self.guard.for_each(&mut |port| f(&port).map(Guard::port))
     }
 }
 
@@ -355,7 +372,7 @@ impl Assignment {
 #[derive(Debug)]
 pub struct Group {
     /// Name of this group
-    pub(super) name: Id,
+    name: Id,
 
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
@@ -367,6 +384,15 @@ pub struct Group {
     pub attributes: Attributes,
 }
 impl Group {
+    pub fn new(name: Id) -> Self {
+        Self {
+            name,
+            assignments: vec![],
+            holes: smallvec![],
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
     where
