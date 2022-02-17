@@ -63,11 +63,12 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 ..
             }) => {
                 if let Some(c) = comb_group {
-                    let cells =
-                        super::ReadWriteSet::uses(c.borrow().assignments.iter())
-                            .into_iter()
-                            .map(|cell| cell.clone_name())
-                            .collect::<HashSet<_>>();
+                    let cells = super::ReadWriteSet::uses(
+                        c.borrow().assignments.iter(),
+                    )
+                    .into_iter()
+                    .map(|cell| cell.clone_name())
+                    .collect::<HashSet<_>>();
                     // Only add ports that come from cells used in this comb group.
                     let ports = inputs
                         .iter()
