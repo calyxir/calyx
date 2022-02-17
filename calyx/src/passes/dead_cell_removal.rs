@@ -1,4 +1,3 @@
-use crate::analysis;
 use crate::ir::CloneName;
 use crate::ir::{
     self,
@@ -73,30 +72,6 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        for group in comp.groups.iter() {
-            self.all_reads.extend(
-                &mut analysis::ReadWriteSet::uses(
-                    group.borrow().assignments.iter(),
-                )
-                .map(|c| c.clone_name()),
-            )
-        }
-        for cg in comp.comb_groups.iter() {
-            self.all_reads.extend(
-                &mut analysis::ReadWriteSet::uses(
-                    cg.borrow().assignments.iter(),
-                )
-                .map(|c| c.clone_name()),
-            )
-        }
-
-        // All cells used in continuous assignments.
-        self.all_reads.extend(
-            &mut analysis::ReadWriteSet::uses(
-                comp.continuous_assignments.iter(),
-            )
-            .map(|c| c.clone_name()),
-        );
         // Add @external cells.
         self.all_reads.extend(
             comp.cells
