@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/errors/invoke-undefined-port.futil
 15 |    invoke f(b = 32'd10)();
-   |    ^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: `f` does not have port named: `b`
+   |    ^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: `f` does not have port named `b`
