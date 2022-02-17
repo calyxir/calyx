@@ -5,23 +5,18 @@ pub use slog::Logger;
 #[allow(unused_imports)]
 pub(crate) use slog::{debug, error, info, o, trace, warn};
 
-use crate::configuration::Config;
 use slog::{Drain, Level};
 
 static ROOT_LOGGER: OnceCell<Logger> = OnceCell::new();
 
 pub fn initialze_default_logger() {
-    initialze_logger(&Config::default());
+    initialze_logger(false);
 }
 
-pub fn initialze_logger(config: &Config) {
+pub fn initialze_logger(quiet: bool) {
     let decorator = slog_term::TermDecorator::new().stderr().build();
     let drain = slog_term::FullFormat::new(decorator).build();
-    let filter_level = if config.quiet {
-        Level::Error
-    } else {
-        Level::Trace
-    };
+    let filter_level = if quiet { Level::Error } else { Level::Trace };
     let drain = drain.filter_level(filter_level).fuse();
 
     let drain = slog_async::Async::new(drain).build().fuse();

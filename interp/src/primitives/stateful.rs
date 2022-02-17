@@ -26,10 +26,15 @@ pub struct StdMultPipe<const SIGNED: bool> {
     queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
     logger: logging::Logger,
+    error_on_overflow: bool,
 }
 
 impl<const SIGNED: bool> StdMultPipe<SIGNED> {
-    pub fn from_constants(width: u64, name: ir::Id) -> Self {
+    pub fn from_constants(
+        width: u64,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
@@ -37,13 +42,18 @@ impl<const SIGNED: bool> StdMultPipe<SIGNED> {
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
+            error_on_overflow,
         }
     }
 
-    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding");
-        Self::from_constants(width, name)
+        Self::from_constants(width, name, error_on_overflow)
     }
 }
 
@@ -69,7 +79,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
                 )
             };
 
-            if overflow & crate::configuration::get_config().error_on_overflow {
+            if overflow & self.error_on_overflow {
                 return Err(InterpreterError::OverflowError());
             } else if overflow {
                 warn!(
@@ -187,10 +197,15 @@ pub struct StdDivPipe<const SIGNED: bool> {
     queue: ShiftBuffer<(Value, Value), 2>, //invariant: always length 2
     full_name: ir::Id,
     logger: logging::Logger,
+    error_on_overflow: bool,
 }
 
 impl<const SIGNED: bool> StdDivPipe<SIGNED> {
-    pub fn from_constants(width: u64, name: ir::Id) -> Self {
+    pub fn from_constants(
+        width: u64,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         StdDivPipe {
             width,
             quotient: Value::zeroes(width as usize),
@@ -199,16 +214,21 @@ impl<const SIGNED: bool> StdDivPipe<SIGNED> {
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
+            error_on_overflow,
         }
     }
 
-    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width, name)
+        Self::from_constants(width, name, error_on_overflow)
     }
 }
 
@@ -248,9 +268,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 // the only way this is possible is if the division is signed and the
                 // min_val is divided by negative one as the resultant postitive value will
                 // not be representable in the desired bit width
-                if (overflow)
-                    & crate::configuration::get_config().error_on_overflow
-                {
+                if (overflow) & self.error_on_overflow {
                     return Err(InterpreterError::OverflowError());
                 } else if overflow {
                     warn!(
@@ -490,6 +508,7 @@ pub struct StdMemD1 {
     write_en: bool,
     last_index: u64,
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD1 {
@@ -502,13 +521,17 @@ impl StdMemD1 {
         let bindings = construct_bindings(
             [("WIDTH", width), ("SIZE", size), ("IDX_SIZE", idx_size)].iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
     /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
     /// slots for memory, accepting indecies (addr0) of width [idx_size].
     /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
     /// you will not be able to access the slots near the end of the memory.
-    pub fn new(params: &ir::Binding, name: ir::Id) -> StdMemD1 {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD1 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width param for std_mem_d1");
         let size = get_param(params, "SIZE")
@@ -526,6 +549,7 @@ impl StdMemD1 {
             write_en: false,
             last_index: 0,
             full_name: name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -561,7 +585,7 @@ impl Primitive for StdMemD1 {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
         if self.last_index >= self.size {
-            if crate::configuration::get_config().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -722,6 +746,7 @@ pub struct StdMemD2 {
     write_en: bool,
     last_idx: (u64, u64),
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD2 {
@@ -743,7 +768,7 @@ impl StdMemD2 {
             ]
             .iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
 
     #[inline]
@@ -755,7 +780,11 @@ impl StdMemD2 {
     /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
     /// [d0_idx_size] and [d1_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD2 {
+    pub fn new(
+        params: &ir::Binding,
+        full_name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD2 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d2");
         let d0_size = get_param(params, "D0_SIZE")
@@ -780,6 +809,7 @@ impl StdMemD2 {
             write_en: false,
             last_idx: (0, 0),
             full_name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -818,7 +848,7 @@ impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         if self.calc_addr(self.last_idx.0, self.last_idx.1) >= self.max_idx() {
-            if crate::configuration::get_config().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -988,6 +1018,7 @@ pub struct StdMemD3 {
     write_en: bool,
     last_idx: (u64, u64, u64),
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD3 {
@@ -1014,13 +1045,17 @@ impl StdMemD3 {
             ]
             .iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
     /// Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
     /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD3 {
+    pub fn new(
+        params: &ir::Binding,
+        full_name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD3 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d3");
         let d0_size = get_param(params, "D0_SIZE")
@@ -1053,6 +1088,7 @@ impl StdMemD3 {
             write_en: false,
             last_idx: (0, 0, 0),
             full_name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -1097,7 +1133,7 @@ impl Primitive for StdMemD3 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2) >= self.max_idx() {
-            if crate::configuration::get_config().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -1287,6 +1323,7 @@ pub struct StdMemD4 {
     write_en: bool,
     last_idx: (u64, u64, u64, u64),
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD4 {
@@ -1317,13 +1354,17 @@ impl StdMemD4 {
             ]
             .iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
     // Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
     /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD4 {
+    pub fn new(
+        params: &ir::Binding,
+        full_name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD4 {
         // yes this was incredibly tedious to write. Why do you ask?
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d4");
@@ -1363,6 +1404,7 @@ impl StdMemD4 {
             write_en: false,
             last_idx: (0, 0, 0, 0),
             full_name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -1412,7 +1454,7 @@ impl Primitive for StdMemD4 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2, addr3) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2, addr3) >= self.max_idx() {
-            if crate::configuration::get_config().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),

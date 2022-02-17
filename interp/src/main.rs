@@ -111,8 +111,7 @@ fn main() -> InterpreterResult<()> {
         .allow_par_conflicts(opts.allow_par_conflicts)
         .build();
 
-    interp::logging::initialze_logger(&config);
-    configuration::init_config(config);
+    interp::logging::initialze_logger(config.quiet);
 
     let log = interp::logging::root();
 
@@ -145,8 +144,12 @@ fn main() -> InterpreterResult<()> {
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
-    let env =
-        InterpreterState::init_top_level(&components, main_component, &mems)?;
+    let env = InterpreterState::init_top_level(
+        &components,
+        main_component,
+        &mems,
+        &config,
+    )?;
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
         Command::Interpret(_) => {
