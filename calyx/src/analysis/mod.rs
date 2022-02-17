@@ -13,6 +13,7 @@ pub mod reaching_defns;
 mod read_write_set;
 mod schedule_conflicts;
 mod variable_detection;
+mod control_order;
 
 pub use control_ports::ControlPorts;
 pub use dataflow_order::DataflowOrder;
