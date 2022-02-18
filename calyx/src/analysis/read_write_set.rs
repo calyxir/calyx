@@ -121,85 +121,47 @@ impl ReadWriteSet {
 
 impl ReadWriteSet {
     /// Returns the ports that are read by the given control program.
-    pub fn control_port_write_set(con: &ir::Control) -> Vec<RRC<ir::Port>> {
+    pub fn control_port_read_write_set(
+        con: &ir::Control,
+    ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
         match con {
-            ir::Control::Empty(_) => vec![],
-            ir::Control::Enable(ir::Enable { group, .. }) => {
+            ir::Control::Empty(_) => (vec![], vec![]),
+            ir::Control::Enable(ir::Enable { group, .. }) => (
+                Self::port_read_set(group.borrow().assignments.iter())
+                    .collect(),
                 Self::port_write_set(group.borrow().assignments.iter())
-                    .collect()
-            }
-            ir::Control::Invoke(ir::Invoke {
-                outputs,
-                comb_group,
-                ..
-            }) => {
-                let outs = outputs.iter().map(|(_, p)| p).cloned();
-                match comb_group {
-                    Some(cg) => {
-                        Self::port_write_set(cg.borrow().assignments.iter())
-                            .chain(outs)
-                            .collect()
-                    }
-                    None => outs.collect(),
-                }
-            }
-
-            ir::Control::Seq(ir::Seq { stmts, .. })
-            | ir::Control::Par(ir::Par { stmts, .. }) => {
-                stmts.iter().flat_map(Self::control_port_read_set).collect()
-            }
-            ir::Control::If(ir::If {
-                cond,
-                tbranch,
-                fbranch,
-                ..
-            }) => {
-                let common = Self::control_port_read_set(tbranch)
-                    .into_iter()
-                    .chain(Self::control_port_read_set(fbranch).into_iter());
-                match cond {
-                    Some(cg) => {
-                        Self::port_write_set(cg.borrow().assignments.iter())
-                            .chain(common)
-                            .collect()
-                    }
-                    None => common.collect(),
-                }
-            }
-            ir::Control::While(ir::While { cond, body, .. }) => match cond {
-                Some(cg) => {
-                    Self::port_write_set(cg.borrow().assignments.iter())
-                        .chain(Self::control_port_read_set(body).into_iter())
-                        .collect()
-                }
-                None => Self::control_port_read_set(body),
-            },
-        }
-    }
-    /// Returns the ports that are read by the given control program.
-    pub fn control_port_read_set(con: &ir::Control) -> Vec<RRC<ir::Port>> {
-        match con {
-            ir::Control::Empty(_) => vec![],
-            ir::Control::Enable(ir::Enable { group, .. }) => {
-                Self::port_read_set(group.borrow().assignments.iter()).collect()
-            }
+                    .collect(),
+            ),
             ir::Control::Invoke(ir::Invoke {
                 inputs, comb_group, ..
             }) => {
                 let inps = inputs.iter().map(|(_, p)| p).cloned();
+                let outs = inputs.iter().map(|(_, p)| p).cloned();
                 match comb_group {
-                    Some(cg) => {
-                        Self::port_read_set(cg.borrow().assignments.iter())
-                            .chain(inps)
-                            .collect()
+                    Some(cgr) => {
+                        let cg = cgr.borrow();
+                        let assigns = cg.assignments.iter();
+                        let reads = Self::port_read_set(assigns.clone());
+                        let writes = Self::port_write_set(assigns);
+                        (
+                            reads.chain(inps).collect(),
+                            writes.chain(outs).collect(),
+                        )
                     }
-                    None => inps.collect(),
+                    None => (inps.collect(), outs.collect()),
                 }
             }
 
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
-                stmts.iter().flat_map(Self::control_port_read_set).collect()
+                let (mut reads, mut writes) = (vec![], vec![]);
+                for stmt in stmts {
+                    let (mut read, mut write) =
+                        Self::control_port_read_write_set(stmt);
+                    reads.append(&mut read);
+                    writes.append(&mut write);
+                }
+                (reads, writes)
             }
             ir::Control::If(ir::If {
                 port,
@@ -208,33 +170,43 @@ impl ReadWriteSet {
                 fbranch,
                 ..
             }) => {
-                let common = Self::control_port_read_set(tbranch)
-                    .into_iter()
-                    .chain(Self::control_port_read_set(fbranch).into_iter())
-                    .chain(std::iter::once(Rc::clone(port)));
-                match cond {
-                    Some(cg) => {
-                        Self::port_read_set(cg.borrow().assignments.iter())
-                            .chain(common)
-                            .collect()
-                    }
-                    None => common.collect(),
+                let (mut reads, mut writes) = (vec![], vec![]);
+                let (mut treads, mut twrites) =
+                    Self::control_port_read_write_set(tbranch);
+                let (mut freads, mut fwrites) =
+                    Self::control_port_read_write_set(fbranch);
+                reads.append(&mut treads);
+                reads.append(&mut freads);
+                reads.push(Rc::clone(port));
+                writes.append(&mut twrites);
+                writes.append(&mut fwrites);
+
+                if let Some(cg) = cond {
+                    reads.extend(Self::port_read_set(
+                        cg.borrow().assignments.iter(),
+                    ));
+                    writes.extend(Self::port_write_set(
+                        cg.borrow().assignments.iter(),
+                    ));
                 }
+                (reads, writes)
             }
             ir::Control::While(ir::While {
                 port, cond, body, ..
             }) => {
-                let common = Self::control_port_read_set(body)
-                    .into_iter()
-                    .chain(std::iter::once(Rc::clone(port)));
-                match cond {
-                    Some(cg) => {
-                        Self::port_read_set(cg.borrow().assignments.iter())
-                            .chain(common)
-                            .collect()
-                    }
-                    None => common.collect(),
+                let (mut reads, mut writes) =
+                    Self::control_port_read_write_set(body);
+                reads.push(Rc::clone(port));
+
+                if let Some(cg) = cond {
+                    reads.extend(Self::port_read_set(
+                        cg.borrow().assignments.iter(),
+                    ));
+                    writes.extend(Self::port_write_set(
+                        cg.borrow().assignments.iter(),
+                    ));
                 }
+                (reads, writes)
             }
         }
     }
