@@ -179,7 +179,7 @@ comb_primitive!(FLAG: error_on_overflow; LOG: logger; StdAdd[WIDTH](left: WIDTH,
     }
     let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left
-    assert_eq!(tr.width(), left.width());
+    debug_assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
 comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
