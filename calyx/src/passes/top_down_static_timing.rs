@@ -449,37 +449,142 @@ impl Named for TopDownStaticTiming {
 }
 
 impl Visitor for TopDownStaticTiming {
-    fn start(
+    fn start_seq(
         &mut self,
+        con: &mut ir::Seq,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Do not try to compile an enable or empty control
-        if matches!(
-            *comp.control.borrow(),
-            ir::Control::Enable(..) | ir::Control::Empty(..)
-        ) {
-            return Ok(Action::Stop);
+        let time_option = con.attributes.get("static");
+
+        // If sub-tree is not static, skip this node.
+        if time_option.is_none() {
+            return Ok(Action::Continue);
         }
 
-        let control = Rc::clone(&comp.control);
+        // Compile control program and save schedule.
         let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-
-        // Compile control program and save schedule.
-        let result = calculate_states(
-            &control.borrow(),
+        let result = seq_calculate_states(
+            con,
             0,
             &ir::Guard::True,
             &mut schedule,
             &mut builder,
-        );
+        )
+        .unwrap();
 
-        // Continue if calculate_states didn't find the necessary static timing.
-        if result.is_err() {
+        // Dump FSM if requested.
+        if self.dump_fsm {
+            schedule.display();
+        }
+
+        // Realize the schedule in a replacement control group.
+        let group = schedule.realize_schedule(&mut builder);
+
+        Ok(Action::Change(ir::Control::enable(group)))
+    }
+
+    fn start_par(
+        &mut self,
+        con: &mut ir::Par,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let time_option = con.attributes.get("static");
+
+        // If sub-tree is not static, skip this node.
+        if time_option.is_none() {
             return Ok(Action::Continue);
         }
+
+        // Compile control program and save schedule.
+        let mut schedule = Schedule::default();
+        let mut builder = ir::Builder::new(comp, sigs);
+        let result = par_calculate_states(
+            con,
+            0,
+            &ir::Guard::True,
+            &mut schedule,
+            &mut builder,
+        )
+        .unwrap();
+
+        // Dump FSM if requested.
+        if self.dump_fsm {
+            schedule.display();
+        }
+
+        // Realize the schedule in a replacement control group.
+        let group = schedule.realize_schedule(&mut builder);
+
+        Ok(Action::Change(ir::Control::enable(group)))
+    }
+
+    fn start_while(
+        &mut self,
+        con: &mut ir::While,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let time_option = con.attributes.get("static");
+
+        // If sub-tree is not static, skip this node.
+        if time_option.is_none() {
+            return Ok(Action::Continue);
+        }
+
+        // Compile control program and save schedule.
+        let mut schedule = Schedule::default();
+        let mut builder = ir::Builder::new(comp, sigs);
+        let result = while_calculate_states(
+            con,
+            0,
+            &ir::Guard::True,
+            &mut schedule,
+            &mut builder,
+        )
+        .unwrap();
+
+        // Dump FSM if requested.
+        if self.dump_fsm {
+            schedule.display();
+        }
+
+        // Realize the schedule in a replacement control group.
+        let group = schedule.realize_schedule(&mut builder);
+
+        Ok(Action::Change(ir::Control::enable(group)))
+    }
+
+    fn start_if(
+        &mut self,
+        con: &mut ir::If,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let time_option = con.attributes.get("static");
+
+        // If sub-tree is not static, skip this node.
+        if time_option.is_none() {
+            return Ok(Action::Continue);
+        }
+
+        // Compile control program and save schedule.
+        let mut schedule = Schedule::default();
+        let mut builder = ir::Builder::new(comp, sigs);
+        let result = if_calculate_states(
+            con,
+            0,
+            &ir::Guard::True,
+            &mut schedule,
+            &mut builder,
+        )
+        .unwrap();
 
         // Dump FSM if requested.
         if self.dump_fsm {

@@ -1,0 +1,48 @@
+// -x top-down-st:dump-fsm -p top-down-st
+
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    r3 = std_reg(32);
+  }
+
+  wires {
+    group incr_r0<"static"=1> {
+      r0.write_en = 1'd1;
+      r0.in = 32'd10;
+      incr_r0[done] = r0.done;
+    }
+    group incr_r1<"static"=1> {
+      r1.write_en = 1'd1;
+      r1.in = 32'd10;
+      incr_r1[done] = r1.done;
+    }
+    group incr_r2 {
+      r2.write_en = 1'd1;
+      r2.in = 32'd10;
+      incr_r2[done] = r2.done ? 1'd1;
+    }
+    group incr_r3 {
+      r3.write_en = 1'd1;
+      r3.in = 32'd10;
+      incr_r3[done] = r2.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      @static(2) seq {
+        @static incr_r0;
+        @static incr_r1;
+      }
+      seq {
+        incr_r2;
+        incr_r3;
+      }
+    }
+  }
+}

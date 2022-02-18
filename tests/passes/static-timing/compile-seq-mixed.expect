@@ -1,0 +1,63 @@
+enables:
+[0, 1)
+  incr_r0[go] = 1'd1;
+[1, 2)
+  incr_r1[go] = 1'd1;
+transitions:
+(0)->(1)
+  1'b1
+(1)->(2)
+  1'b1
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    r3 = std_reg(32);
+    @generated fsm = std_reg(2);
+  }
+  wires {
+    group incr_r0<"static"=1> {
+      r0.write_en = 1'd1;
+      r0.in = 32'd10;
+      incr_r0[done] = r0.done;
+    }
+    group incr_r1<"static"=1> {
+      r1.write_en = 1'd1;
+      r1.in = 32'd10;
+      incr_r1[done] = r1.done;
+    }
+    group incr_r2 {
+      r2.write_en = 1'd1;
+      r2.in = 32'd10;
+      incr_r2[done] = r2.done ? 1'd1;
+    }
+    group incr_r3 {
+      r3.write_en = 1'd1;
+      r3.in = 32'd10;
+      incr_r3[done] = r2.done ? 1'd1;
+    }
+    group tdst {
+      incr_r0[go] = fsm.out < 2'd1 ? 1'd1;
+      incr_r1[go] = fsm.out >= 2'd1 & fsm.out < 2'd2 ? 1'd1;
+      fsm.in = fsm.out == 2'd0 ? 2'd1;
+      fsm.write_en = fsm.out == 2'd0 ? 1'd1;
+      fsm.in = fsm.out == 2'd1 ? 2'd2;
+      fsm.write_en = fsm.out == 2'd1 ? 1'd1;
+      tdst[done] = fsm.out == 2'd2 ? 1'd1;
+    }
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.write_en = fsm.out == 2'd2 ? 1'd1;
+  }
+
+  control {
+    seq {
+      tdst;
+      seq {
+        incr_r2;
+        incr_r3;
+      }
+    }
+  }
+}
