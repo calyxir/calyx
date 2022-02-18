@@ -1,3 +1,4 @@
+use crate::analysis;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 
@@ -39,7 +40,9 @@ impl Visitor for ParToSeq {
         _c: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let par = ir::Control::seq(s.stmts.drain(..).collect());
+        let total_order =
+            analysis::ControlOrder::get_total_order(s.stmts.drain(..))?;
+        let par = ir::Control::seq(total_order);
         Ok(Action::Change(par))
     }
 }
