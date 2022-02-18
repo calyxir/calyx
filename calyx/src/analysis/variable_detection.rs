@@ -12,10 +12,10 @@ impl VariableDetection {
     ///  - has `g[done] = reg.done`
     /// Returns the name of the register if such a group is detected,
     /// otherwise returns `None`.
-    pub fn variable_like(group_ref: RRC<ir::Group>) -> Option<ir::Id> {
+    pub fn variable_like(group_ref: &RRC<ir::Group>) -> Option<ir::Id> {
         let group = group_ref.borrow();
 
-        let writes = ReadWriteSet::write_set(&group.assignments)
+        let writes = ReadWriteSet::write_set(group.assignments.iter())
             .filter(|cell| cell.borrow().type_name() == Some(&"std_reg".into()))
             .collect::<Vec<_>>();
 

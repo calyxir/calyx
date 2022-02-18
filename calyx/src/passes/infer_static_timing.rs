@@ -164,7 +164,7 @@ impl InferStaticTiming {
         &self,
         group: &ir::Group,
     ) -> Vec<(RRC<ir::Port>, RRC<ir::Port>)> {
-        let rw_set = ReadWriteSet::uses(&group.assignments);
+        let rw_set = ReadWriteSet::uses(group.assignments.iter());
         let mut go_done_edges: Vec<(RRC<ir::Port>, RRC<ir::Port>)> = Vec::new();
         for cell_ref in rw_set {
             let cell = cell_ref.borrow();
