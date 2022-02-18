@@ -1,5 +1,5 @@
-use crate::ir;
 use crate::analysis::ReadWriteSet;
+use crate::ir;
 
 /// Extract the dependency order of a list of control programs.
 /// Dependencies are defined using read/write sets used in the control program.
