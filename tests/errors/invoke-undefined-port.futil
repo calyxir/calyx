@@ -1,0 +1,17 @@
+import "primitives/core.futil";
+
+component foo(a: 32) -> () {
+  cells {}
+  wires {}
+  control {}
+}
+
+component main() -> () {
+  cells {
+    f = foo();
+  }
+  wires {}
+  control {
+    invoke f(b = 32'd10)();
+  }
+}
