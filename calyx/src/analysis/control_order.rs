@@ -21,9 +21,28 @@ use crate::{
 /// C1 < C2 if (R1 subset of W2) and (R2 disjoint W1)
 /// C1 > C2 if (R2 subset of W1) and (R1 disjoint W2)
 /// C1 =!= if (R1 subset of W2) and (R2 subset of W1)
-pub struct ControlOrder;
+///
+/// Setting `BETTER_ERR` turns on additional machinery to generate an explanation for what caused
+/// the error but may require expensive computations. Turn on when cycles should be a hard error.
+pub struct ControlOrder<const BETTER_ERR: bool>;
 
-impl ControlOrder {
+impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
+    fn get_cells(ports: Vec<RRC<ir::Port>>) -> impl Iterator<Item = ir::Id> {
+        ports
+            .into_iter()
+            .filter_map(|p| {
+                let cr = p.borrow().cell_parent();
+                let cell = cr.borrow();
+                match cell.prototype {
+                    // Ignore constants and _this
+                    ir::CellType::Constant { .. }
+                    | ir::CellType::ThisComponent => None,
+                    _ => Some(cell.clone_name()),
+                }
+            })
+            .unique()
+    }
+
     /// Return a total order for the control programs.
     /// Returns an error if there is a cycle
     pub fn get_total_order(
@@ -40,17 +59,7 @@ impl ControlOrder {
             |idx: NodeIndex,
              ports: Vec<RRC<ir::Port>>,
              map: &mut HashMap<ir::Id, Vec<NodeIndex>>| {
-                let cells = ports
-                    .into_iter()
-                    .filter_map(|p| {
-                        let cr = p.borrow().cell_parent();
-                        let cell = cr.borrow();
-                        match cell.prototype {
-                            ir::CellType::Constant { .. } => None,
-                            _ => Some(cell.clone_name()),
-                        }
-                    })
-                    .unique();
+                let cells = Self::get_cells(ports);
                 for cell in cells {
                     map.entry(cell.clone()).or_default().push(idx);
                 }
@@ -85,18 +94,31 @@ impl ControlOrder {
                 .collect_vec();
             Ok(assigns)
         } else {
-            // Compute strongly connected component of the graph
-            let sccs = algo::kosaraju_scc(&gr);
-            let scc = sccs
-                .iter()
-                .find(|cc| cc.len() > 1)
-                .expect("All combinational cycles are self loops");
-            let msg = scc
-                .iter()
-                .map(|idx| {
-                    ir::Printer::control_to_str(gr[*idx].as_ref().unwrap())
-                })
-                .join("\n");
+            let mut msg = "".to_string();
+            if BETTER_ERR {
+                // Compute strongly connected component of the graph
+                let sccs = algo::kosaraju_scc(&gr);
+                let scc = sccs.iter().find(|cc| cc.len() > 1).unwrap();
+                msg = scc
+                    .iter()
+                    .map(|idx| {
+                        let con = gr[*idx].as_ref().unwrap();
+                        let mut msg = ir::Printer::control_to_str(con);
+                        let (port_reads, port_writes) =
+                            ReadWriteSet::control_port_read_write_set(con);
+                        msg += &format!(
+                            "  which reads: {}\n  and writes: {}",
+                            Self::get_cells(port_reads)
+                                .map(|c| c.id)
+                                .join(", "),
+                            Self::get_cells(port_writes)
+                                .map(|c| c.id)
+                                .join(", "),
+                        );
+                        msg
+                    })
+                    .join("\n");
+            }
             Err(Error::misc(format!("No possible sequential ordering. Control programs exhibit data race:\n{}", msg)))
         }
     }

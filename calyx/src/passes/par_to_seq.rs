@@ -41,7 +41,7 @@ impl Visitor for ParToSeq {
         _comps: &[ir::Component],
     ) -> VisResult {
         let total_order =
-            analysis::ControlOrder::get_total_order(s.stmts.drain(..))?;
+            analysis::ControlOrder::<true>::get_total_order(s.stmts.drain(..))?;
         let par = ir::Control::seq(total_order);
         Ok(Action::Change(par))
     }
