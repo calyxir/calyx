@@ -3,8 +3,10 @@ use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, LibrarySignatures};
 
 #[derive(Default)]
-/// Transforms all `par` into `seq`.
-/// Useful for debugging problems with `par`.
+/// Transforms all `par` into `seq`. Uses [analysis::ControlOrder] to get a
+/// sequentialization of `par` such that the program still computes the same
+/// value. When there is no such sequentialization, errors out.
+///
 ///
 /// # Example
 /// ```
