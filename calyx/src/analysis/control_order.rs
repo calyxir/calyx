@@ -14,6 +14,7 @@ use crate::{
 
 /// Extract the dependency order of a list of control programs.
 /// Dependencies are defined using read/write sets used in the control program.
+/// The read/write sets ignore ports on constants and ThisComponent.
 ///
 /// For example, if we have control programs C1 and C2 with read sets R1 and
 /// R2 and write sets W1 and W2 respectively, we can define an order relationship:
