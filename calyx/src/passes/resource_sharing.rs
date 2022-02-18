@@ -68,23 +68,30 @@ impl ShareComponents for ResourceSharing {
         _sigs: &ir::LibrarySignatures,
     ) {
         // Cell used in continuous assignments cannot be shared.
-        self.cont_cells =
-            analysis::ReadWriteSet::uses(&component.continuous_assignments)
-                .map(|cr| cr.borrow().clone_name())
-                .collect();
-        self.used_cells_map = component
-            .groups
-            .iter()
-            .map(|group| {
-                (
-                    group.clone_name(),
-                    analysis::ReadWriteSet::uses(&group.borrow().assignments)
-                        .filter(|cell| self.cell_filter(&cell.borrow()))
-                        .map(|cell| cell.clone_name())
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect();
+        self.cont_cells = analysis::ReadWriteSet::uses(
+            component.continuous_assignments.iter(),
+        )
+        .map(|cr| cr.borrow().clone_name())
+        .collect();
+        let group_uses = component.groups.iter().map(|group| {
+            (
+                group.clone_name(),
+                analysis::ReadWriteSet::uses(group.borrow().assignments.iter())
+                    .filter(|cell| self.cell_filter(&cell.borrow()))
+                    .map(|cell| cell.clone_name())
+                    .collect::<Vec<_>>(),
+            )
+        });
+        let cg_uses = component.comb_groups.iter().map(|cg| {
+            (
+                cg.clone_name(),
+                analysis::ReadWriteSet::uses(cg.borrow().assignments.iter())
+                    .filter(|cell| self.cell_filter(&cell.borrow()))
+                    .map(|cell| cell.clone_name())
+                    .collect::<Vec<_>>(),
+            )
+        });
+        self.used_cells_map = group_uses.chain(cg_uses).collect();
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
