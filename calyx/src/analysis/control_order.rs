@@ -42,7 +42,14 @@ impl ControlOrder {
              map: &mut HashMap<ir::Id, Vec<NodeIndex>>| {
                 let cells = ports
                     .into_iter()
-                    .map(|p| p.borrow().cell_parent().clone_name())
+                    .filter_map(|p| {
+                        let cr = p.borrow().cell_parent();
+                        let cell = cr.borrow();
+                        match cell.prototype {
+                            ir::CellType::Constant { .. } => None,
+                            _ => Some(cell.clone_name()),
+                        }
+                    })
                     .unique();
                 for cell in cells {
                     map.entry(cell.clone()).or_default().push(idx);
@@ -63,7 +70,9 @@ impl ControlOrder {
             if let Some(wr_idxs) = writes.get(&cell) {
                 wr_idxs.iter().cartesian_product(r_idxs.iter()).for_each(
                     |(wr, r)| {
-                        gr.add_edge(*r, *wr, ());
+                        if wr != r {
+                            gr.add_edge(*r, *wr, ());
+                        }
                     },
                 );
             }
