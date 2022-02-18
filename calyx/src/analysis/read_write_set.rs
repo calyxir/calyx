@@ -117,7 +117,65 @@ impl ReadWriteSet {
             .chain(Self::write_set(assigns))
             .unique_by(|cell| cell.clone_name())
     }
+}
 
+impl ReadWriteSet {
+    /// Returns the ports that are read by the given control program.
+    pub fn control_port_write_set(con: &ir::Control) -> Vec<RRC<ir::Port>> {
+        match con {
+            ir::Control::Empty(_) => vec![],
+            ir::Control::Enable(ir::Enable { group, .. }) => {
+                Self::port_write_set(group.borrow().assignments.iter())
+                    .collect()
+            }
+            ir::Control::Invoke(ir::Invoke {
+                outputs,
+                comb_group,
+                ..
+            }) => {
+                let outs = outputs.iter().map(|(_, p)| p).cloned();
+                match comb_group {
+                    Some(cg) => {
+                        Self::port_write_set(cg.borrow().assignments.iter())
+                            .chain(outs)
+                            .collect()
+                    }
+                    None => outs.collect(),
+                }
+            }
+
+            ir::Control::Seq(ir::Seq { stmts, .. })
+            | ir::Control::Par(ir::Par { stmts, .. }) => {
+                stmts.iter().flat_map(Self::control_port_read_set).collect()
+            }
+            ir::Control::If(ir::If {
+                cond,
+                tbranch,
+                fbranch,
+                ..
+            }) => {
+                let common = Self::control_port_read_set(tbranch)
+                    .into_iter()
+                    .chain(Self::control_port_read_set(fbranch).into_iter());
+                match cond {
+                    Some(cg) => {
+                        Self::port_write_set(cg.borrow().assignments.iter())
+                            .chain(common)
+                            .collect()
+                    }
+                    None => common.collect(),
+                }
+            }
+            ir::Control::While(ir::While { cond, body, .. }) => match cond {
+                Some(cg) => {
+                    Self::port_write_set(cg.borrow().assignments.iter())
+                        .chain(Self::control_port_read_set(body).into_iter())
+                        .collect()
+                }
+                None => Self::control_port_read_set(body),
+            },
+        }
+    }
     /// Returns the ports that are read by the given control program.
     pub fn control_port_read_set(con: &ir::Control) -> Vec<RRC<ir::Port>> {
         match con {
