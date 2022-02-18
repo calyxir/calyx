@@ -1,0 +1,10 @@
+---CODE---
+1
+---STDERR---
+Error: No possible sequential ordering. Control programs exhibit data race:
+do_r0;
+  which reads: r1, r0
+  and writes: r0
+do_r1;
+  which reads: r0, r1
+  and writes: r1
