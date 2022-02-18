@@ -146,10 +146,18 @@ impl InterpreterState {
             )),
             // fp basic arith
             "std_fp_sadd" | "std_fp_add" => {
-                Box::new(combinational::StdFpAdd::new(params, cell_qin))
+                Box::new(combinational::StdFpAdd::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
             }
             "std_fp_ssub" | "std_fp_sub" => {
-                Box::new(combinational::StdFpSub::new(params, cell_qin))
+                Box::new(combinational::StdFpSub::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
             }
             // unsigned arith
             "std_mult_pipe" => Box::new(stateful::StdMultPipe::<false>::new(
