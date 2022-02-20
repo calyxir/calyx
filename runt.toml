@@ -130,7 +130,7 @@ fud e --from systolic --to vcd_json --through verilog \
 name = "[frontend] NTT pipeline correctness"
 paths = [ "tests/correctness/ntt-pipeline/*.txt" ]
 cmd = """
-fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
+fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -s futil.flags ' -d top-down-st' -q
 """
 
 [[tests]]
