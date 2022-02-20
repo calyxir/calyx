@@ -466,14 +466,13 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        let result = seq_calculate_states(
+        seq_calculate_states(
             con,
             0,
             &ir::Guard::True,
             &mut schedule,
             &mut builder,
-        )
-        .unwrap();
+        )?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -503,14 +502,13 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        let result = par_calculate_states(
+        par_calculate_states(
             con,
             0,
             &ir::Guard::True,
             &mut schedule,
             &mut builder,
-        )
-        .unwrap();
+        )?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -540,14 +538,13 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        let result = while_calculate_states(
+        while_calculate_states(
             con,
             0,
             &ir::Guard::True,
             &mut schedule,
             &mut builder,
-        )
-        .unwrap();
+        )?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -577,14 +574,13 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        let result = if_calculate_states(
+        if_calculate_states(
             con,
             0,
             &ir::Guard::True,
             &mut schedule,
             &mut builder,
-        )
-        .unwrap();
+        )?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
