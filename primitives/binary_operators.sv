@@ -46,6 +46,8 @@ module std_fp_mult_pipe #(
 
   assign done = done_buf[2];
 
+  assign out = out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
+
   // If the done buffer is completely empty and go is high then execution
   // just started.
   logic start;
@@ -70,13 +72,6 @@ module std_fp_mult_pipe #(
     end
   end
 
-  always_ff @(posedge clk) begin
-    if (go)
-      out <= out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
-    else
-      out <= out;
-  end
-
   // Move the multiplication computation through the pipeline.
   always_ff @(posedge clk) begin
     if (go) begin
@@ -95,7 +90,7 @@ module std_fp_mult_pipe #(
     end else begin
       rtmp <= 0;
       ltmp <= 0;
-      out_tmp <= 0;
+      out_tmp <= out_tmp;
     end
   end
 endmodule
