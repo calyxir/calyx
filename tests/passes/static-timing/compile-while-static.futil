@@ -30,9 +30,9 @@ component main() -> () {
   }
 
   control {
-    @static(3) seq {
+    @static(5) seq {
       @static cond0;
-      @bound @static(2) while comb_reg.out {
+      @bound(2) @static(4) while comb_reg.out {
         @static(2) seq {
           @static do_add;
           @static cond0;

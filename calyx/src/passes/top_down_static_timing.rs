@@ -324,39 +324,23 @@ impl Schedule<'_> {
             .with_pos(&con.attributes));
         }
 
-        let port_guard: ir::Guard = Rc::clone(&con.port).into();
+        let mut body_exit = cur_state;
 
-        let preds = self.calculate_states(
-            &con.body,
-            cur_state,
-            &pre_guard.clone().and(port_guard.clone()),
-        )?;
+        for _ in 0..*con.attributes.get("bound").unwrap() {
+            let preds = self.calculate_states(
+                &con.body,
+                body_exit,
+                &pre_guard.clone(),
+            )?;
 
-        let body_exit = preds
-            .iter()
-            .max_by_key(|(state, _)| state)
-            .unwrap_or(&(cur_state, pre_guard.clone()))
-            .0
-            + 1;
+            body_exit = preds
+                .iter()
+                .max_by_key(|(state, _)| state)
+                .unwrap_or(&(body_exit, pre_guard.clone()))
+                .0;
+        }
 
-        // Add transitions from entry to exit when false.
-        self.transitions.insert((
-            cur_state,
-            body_exit,
-            port_guard.clone().not(),
-        ));
-
-        // Add transitions from end of inner control to entry or exit state.
-        self.transitions.extend(preds.iter().flat_map(|(state, _)| {
-            vec![
-                // When guard is true, back to entry.
-                (*state, cur_state, port_guard.clone()),
-                // When guard is false, down to exit.
-                (*state, body_exit, port_guard.clone().not()),
-            ]
-        }));
-
-        Ok(vec![(body_exit + 1, pre_guard.clone())])
+        Ok(vec![(body_exit, pre_guard.clone())])
     }
 
     /// Compiled to:
