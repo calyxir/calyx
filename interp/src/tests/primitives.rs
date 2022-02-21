@@ -9,7 +9,8 @@ use calyx::ir;
 
 #[test]
 fn mult_flickering_go() {
-    let mut mult = stfl::StdMultPipe::<false>::from_constants(32, "".into());
+    let mut mult =
+        stfl::StdMultPipe::<false>::from_constants(32, "".into(), false);
     port_bindings![binds;
         go -> (0, 1),
         left -> (2, 32),
@@ -36,7 +37,8 @@ fn mult_flickering_go() {
 
 #[test]
 fn test_std_mult_pipe() {
-    let mut mult = stfl::StdMultPipe::<false>::from_constants(32, "".into());
+    let mut mult =
+        stfl::StdMultPipe::<false>::from_constants(32, "".into(), false);
     port_bindings![binds;
         go -> (1, 1),
         left -> (2, 32),
@@ -94,7 +96,8 @@ fn test_std_mult_pipe() {
 
 #[test]
 fn test_std_div_pipe() {
-    let mut div = stfl::StdDivPipe::<false>::from_constants(32, "".into());
+    let mut div =
+        stfl::StdDivPipe::<false>::from_constants(32, "".into(), false);
     port_bindings![binds;
         go -> (1, 1),
         left -> (20, 32),
@@ -642,7 +645,7 @@ fn test_std_rsh_above64() {
 fn test_std_add() {
     // without overflow
     // add [0011] (3) and [1010] (10) -> [1101] (13)
-    let mut add = comb::StdAdd::from_constants(4, "".into());
+    let mut add = comb::StdAdd::from_constants(4, "".into(), false);
     port_bindings![binds;
         left -> (3, 4),
         right -> (10, 4)
@@ -674,7 +677,7 @@ fn test_std_add() {
 #[test]
 fn test_std_add_above64() {
     // without overflow
-    let mut add = comb::StdAdd::from_constants(165, "".into());
+    let mut add = comb::StdAdd::from_constants(165, "".into(), false);
     port_bindings![binds;
         left -> (17, 165),
         right -> (35, 165)
@@ -692,7 +695,7 @@ fn test_std_add_above64() {
 #[test]
 #[should_panic]
 fn test_std_add_panic() {
-    let mut add = comb::StdAdd::from_constants(7, "".into());
+    let mut add = comb::StdAdd::from_constants(7, "".into(), false);
     port_bindings![binds;
         left -> (81, 7),
         right -> (10, 4)
@@ -703,7 +706,7 @@ fn test_std_add_panic() {
 fn test_std_sub() {
     // without overflow
     // sub [0110] (6) from [1010] (10) -> [0100] (4)
-    let mut sub = comb::StdSub::from_constants(4, "".into());
+    let mut sub = comb::StdSub::from_constants(4, "".into(), false);
     port_bindings![binds;
         left -> (10, 4),
         right -> (6, 4)
@@ -750,7 +753,7 @@ fn test_std_sub() {
 #[test]
 fn test_std_sub_above64() {
     // without overflow
-    let mut sub = comb::StdSub::from_constants(1605, "".into());
+    let mut sub = comb::StdSub::from_constants(1605, "".into(), false);
     port_bindings![binds;
         left -> (57, 1605),
         right -> (35, 1605)
@@ -768,7 +771,7 @@ fn test_std_sub_above64() {
 #[test]
 #[should_panic]
 fn test_std_sub_panic() {
-    let mut sub = comb::StdAdd::from_constants(5, "".into());
+    let mut sub = comb::StdAdd::from_constants(5, "".into(), false);
     port_bindings![binds;
         left -> (52, 6),
         right -> (16, 5)
@@ -1523,7 +1526,7 @@ mod property_tests {
     proptest! {
         #[test]
         fn std_add(in_left: u128, in_right: u128) {
-            let mut adder = combinational::StdAdd::from_constants(128, "".into());
+            let mut adder = combinational::StdAdd::from_constants(128, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 128),
             right -> (in_right, 128)
@@ -1536,7 +1539,7 @@ mod property_tests {
 
         #[test]
         fn std_sub(in_left: u128, in_right: u128) {
-            let mut sub = combinational::StdSub::from_constants(128, "".into());
+            let mut sub = combinational::StdSub::from_constants(128, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 128),
             right -> (in_right, 128)
@@ -1549,7 +1552,7 @@ mod property_tests {
 
         #[test]
         fn std_mult(in_left: u64, in_right: u64){
-            let mut mult = stateful::StdMultPipe::<false>::from_constants(64, "".into());
+            let mut mult = stateful::StdMultPipe::<false>::from_constants(64, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
@@ -1565,7 +1568,7 @@ mod property_tests {
 
         #[test]
         fn std_smult(in_left: i64, in_right: i64){
-            let mut mult = stateful::StdMultPipe::<true>::from_constants(64, "".into());
+            let mut mult = stateful::StdMultPipe::<true>::from_constants(64, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
@@ -1581,7 +1584,7 @@ mod property_tests {
 
         #[test]
         fn std_div(in_left: u64, in_right in (1..u64::MAX)) {
-            let mut mult = stateful::StdDivPipe::<false>::from_constants(64, "".into());
+            let mut mult = stateful::StdDivPipe::<false>::from_constants(64, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
@@ -1599,7 +1602,7 @@ mod property_tests {
 
         #[test]
         fn std_sdiv(in_left: i64, in_right in (i64::MIN..i64::MAX).prop_filter("non-zero", |v| *v != 0_i64))  {
-            let mut mult = stateful::StdDivPipe::<true>::from_constants(64, "".into());
+            let mut mult = stateful::StdDivPipe::<true>::from_constants(64, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
