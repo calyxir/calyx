@@ -494,9 +494,10 @@ impl Visitor for TopDownStaticTiming {
         _comps: &[ir::Component],
     ) -> VisResult {
         let time_option = con.attributes.get("static");
+        let bound_option = con.attributes.get("option");
 
         // If sub-tree is not static, skip this node.
-        if time_option.is_none() {
+        if time_option.is_none() || bound_option.is_none() {
             return Ok(Action::Continue);
         }
 
