@@ -421,16 +421,9 @@ impl ConstructVisitor for TopDownStaticTiming {
     where
         Self: Sized + Named,
     {
-        let mut dump_fsm = false;
-        ctx.extra_opts.iter().for_each(|opt| {
-            let mut splits = opt.split(':');
-            if splits.next() == Some(Self::name()) {
-                if let Some("dump-fsm") = splits.next() {
-                    dump_fsm = true;
-                }
-            }
-        });
-        Ok(TopDownStaticTiming { dump_fsm })
+        let opts = Self::get_opts(&["dump-fsm"], ctx);
+
+        Ok(TopDownStaticTiming { dump_fsm: opts[0] })
     }
 
     fn clear_data(&mut self) {
