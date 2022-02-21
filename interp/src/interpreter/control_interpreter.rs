@@ -42,9 +42,7 @@ pub trait Interpreter {
 
     fn get_mut_env(&mut self) -> MutStateView<'_>;
 
-    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        vec![]
-    }
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode>;
 
     fn run_and_deconstruct(mut self) -> InterpreterResult<InterpreterState>
     where
@@ -96,6 +94,10 @@ impl Interpreter for EmptyInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         Ok(())
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        vec![]
     }
 }
 
@@ -1155,5 +1157,9 @@ impl Interpreter for StructuralInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         self.interp.step_convergence()
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        vec![]
     }
 }
