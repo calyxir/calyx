@@ -283,7 +283,11 @@ fn if_calculate_states(
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
     if con.cond.is_some() {
-        return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownStaticTiming::name(), con.cond.as_ref().unwrap().borrow().name())));
+        return Err(Error::malformed_structure(
+                format!("{}: Found group `{}` in with position of if. This should have compiled away.",
+                        TopDownStaticTiming::name(),
+                        con.cond.as_ref().unwrap().borrow().name()))
+            .with_pos(&con.attributes));
     }
 
     let port_guard: ir::Guard = Rc::clone(&con.port).into();
@@ -318,7 +322,11 @@ fn while_calculate_states(
     builder: &mut ir::Builder,
 ) -> CalyxResult<Vec<PredEdge>> {
     if con.cond.is_some() {
-        return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of while. This should have compiled away.", TopDownStaticTiming::name(), con.cond.as_ref().unwrap().borrow().name())));
+        return Err(Error::malformed_structure(
+                format!("{}: Found group `{}` in with position of while. This should have compiled away.",
+                        TopDownStaticTiming::name(),
+                        con.cond.as_ref().unwrap().borrow().name()))
+            .with_pos(&con.attributes));
     }
 
     let port_guard: ir::Guard = Rc::clone(&con.port).into();
