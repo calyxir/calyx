@@ -20,15 +20,6 @@ use calyx::ir::{self, Assignment, Guard, RRC};
 use std::collections::HashSet;
 use std::rc::Rc;
 
-// this almost certainly doesn't need to exist but it can't be a trait fn with a
-// default impl because it consumes self
-macro_rules! run_and_deconstruct {
-    ($name:ident) => {{
-        $name.run()?;
-        $name.deconstruct()
-    }};
-}
-
 pub trait Interpreter {
     fn step(&mut self) -> InterpreterResult<()>;
 
@@ -53,6 +44,14 @@ pub trait Interpreter {
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
         vec![]
+    }
+
+    fn run_and_deconstruct(mut self) -> InterpreterResult<InterpreterState>
+    where
+        Self: Sized,
+    {
+        self.run()?;
+        self.deconstruct()
     }
 }
 
@@ -307,8 +306,8 @@ impl Interpreter for SeqInterpreter {
         // current interpreter can be stepped/deconstructed
         {
             if self.current_interpreter.as_ref().unwrap().is_done() {
-                let mut interp = self.current_interpreter.take().unwrap();
-                let res = run_and_deconstruct!(interp)?;
+                let interp = self.current_interpreter.take().unwrap();
+                let res = interp.run_and_deconstruct()?;
                 self.env = Some(res);
             } else {
                 self.current_interpreter.as_mut().unwrap().step()?
