@@ -190,6 +190,28 @@ fn calculate_states(
     }
 }
 
+/// Helper to add seqential transitions and return the next state.
+fn seq_add_transitions(
+    schedule: &mut Schedule,
+    preds: &[PredEdge],
+    default_pred: &PredEdge,
+) -> u64 {
+    // Compute the new start state from the latest predecessor.
+    let new_state = preds
+        .iter()
+        .max_by_key(|(state, _)| state)
+        .unwrap_or(default_pred)
+        .0;
+
+    // Add transitions from each predecessor to the new state.
+    schedule
+        .transitions
+        .extend(preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())));
+
+    // Return the new state.
+    new_state
+}
+
 fn seq_calculate_states(
     con: &ir::Seq,
     cur_state: u64,
@@ -357,8 +379,9 @@ fn enable_calculate_states(
     if time_option.is_none() {
         return Err(Error::pass_assumption(
             TopDownStaticTiming::name().to_string(),
-            "static control required".to_string(),
-        ));
+            "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
+        )
+        .with_pos(&con.attributes));
     }
     let time = time_option.unwrap();
 
@@ -388,29 +411,6 @@ fn enable_calculate_states(
 
     Ok(vec![(cur_state + time, pre_guard.clone())])
 }
-
-/// Helper to add seqential transitions and return the next state.
-fn seq_add_transitions(
-    schedule: &mut Schedule,
-    preds: &[PredEdge],
-    default_pred: &PredEdge,
-) -> u64 {
-    // Compute the new start state from the latest predecessor.
-    let new_state = preds
-        .iter()
-        .max_by_key(|(state, _)| state)
-        .unwrap_or(default_pred)
-        .0;
-
-    // Add transitions from each predecessor to the new state.
-    schedule
-        .transitions
-        .extend(preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())));
-
-    // Return the new state.
-    new_state
-}
-
 
 /// Lowering pass that generates latency-sensitive FSMs when control sub-programs have `@static`
 /// annotations. The pass works opportunisitically and attempts to compile all nested static
