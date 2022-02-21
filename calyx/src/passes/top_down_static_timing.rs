@@ -411,6 +411,14 @@ fn seq_add_transitions(
     new_state
 }
 
+
+/// Lowering pass that generates latency-sensitive FSMs when control sub-programs have `@static`
+/// annotations. The pass works opportunisitically and attempts to compile all nested static
+/// control programs nested within the overall program, replacing them with groups that implement
+/// the correct transitions.
+///
+/// `while` control blocks can only be statically compiled when they additionally have a `@bound`
+/// annotation which mentions the expected number of times a loop will iterate.
 pub struct TopDownStaticTiming {
     /// Print out the FSM representation to STDOUT.
     dump_fsm: bool,
