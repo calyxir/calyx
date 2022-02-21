@@ -21,13 +21,21 @@ type Range = (u64, u64);
 /// 2. `transitions`: Transitions for the FSM registers. A static FSM normally
 ///    transitions from `state` to `state + 1`. However, special transitions
 ///    are needed for loops, conditionals, and reseting the FSM.
-#[derive(Default)]
-struct Schedule {
+struct Schedule<'a> {
     enables: HashMap<Range, Vec<ir::Assignment>>,
     transitions: HashSet<(u64, u64, ir::Guard)>,
+    builder: &'a mut ir::Builder<'a>,
 }
 
-impl Schedule {
+impl<'a> Schedule<'a> {
+    fn new(builder: &'a mut ir::Builder<'a>) -> Self {
+        Self {
+            enables: HashMap::default(),
+            transitions: HashSet::default(),
+            builder,
+        }
+    }
+
     fn last_state(&self) -> u64 {
         self.transitions.iter().map(|(_, e, _)| *e).max().unwrap()
     }
@@ -58,9 +66,10 @@ impl Schedule {
             })
     }
 
-    fn realize_schedule(self, builder: &mut ir::Builder) -> RRC<ir::Group> {
-        let group = builder.add_group("tdst");
+    fn realize_schedule(self) -> RRC<ir::Group> {
         let final_state = self.last_state();
+        let builder = self.builder;
+        let group = builder.add_group("tdst");
         let fsm_size = get_bit_width_from(final_state + 1);
 
         structure!(builder;
@@ -154,32 +163,30 @@ impl Schedule {
 /// to be true for the predeccesor to transition to the current state.
 type PredEdge = (u64, ir::Guard);
 
-fn calculate_states(
-    con: &ir::Control,
-    // The current state
-    cur_state: u64,
-    // Additional guard for this condition.
-    pre_guard: &ir::Guard,
-    // Current schedule.
-    schedule: &mut Schedule,
-    // Component builder
-    builder: &mut ir::Builder,
-) -> CalyxResult<Vec<PredEdge>> {
-    match con {
+impl Schedule<'_> {
+    fn calculate_states(
+        &mut self,
+        con: &ir::Control,
+        // The current state
+        cur_state: u64,
+        // Additional guard for this condition.
+        pre_guard: &ir::Guard,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        match con {
         ir::Control::Enable(e) => {
-            enable_calculate_states(e, cur_state, pre_guard, schedule, builder)
+            self.enable_calculate_states(e, cur_state, pre_guard)
         }
         ir::Control::Seq(s) => {
-            seq_calculate_states(s, cur_state, pre_guard, schedule, builder)
+            self.seq_calculate_states(s, cur_state, pre_guard)
         }
         ir::Control::Par(p) => {
-            par_calculate_states(p, cur_state, pre_guard, schedule, builder)
+            self.par_calculate_states(p, cur_state, pre_guard)
         }
         ir::Control::If(i) => {
-            if_calculate_states(i, cur_state, pre_guard, schedule, builder)
+            self.if_calculate_states(i, cur_state, pre_guard)
         }
         ir::Control::While(w) => {
-            while_calculate_states(w, cur_state, pre_guard, schedule, builder)
+            self.while_calculate_states(w, cur_state, pre_guard)
         }
         ir::Control::Invoke(_) => unreachable!(
             "`invoke` statements should have been compiled away. Run `{}` before this pass.",
@@ -188,175 +195,159 @@ fn calculate_states(
             "`empty` statements should have been compiled away. Run `{}` before this pass.",
             passes::CompileEmpty::name()),
     }
-}
-
-/// Helper to add seqential transitions and return the next state.
-fn seq_add_transitions(
-    schedule: &mut Schedule,
-    preds: &[PredEdge],
-    default_pred: &PredEdge,
-) -> u64 {
-    // Compute the new start state from the latest predecessor.
-    let new_state = preds
-        .iter()
-        .max_by_key(|(state, _)| state)
-        .unwrap_or(default_pred)
-        .0;
-
-    // Add transitions from each predecessor to the new state.
-    schedule
-        .transitions
-        .extend(preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())));
-
-    // Return the new state.
-    new_state
-}
-
-fn seq_calculate_states(
-    con: &ir::Seq,
-    cur_state: u64,
-    pre_guard: &ir::Guard,
-    schedule: &mut Schedule,
-    builder: &mut ir::Builder,
-) -> CalyxResult<Vec<PredEdge>> {
-    let mut preds = vec![];
-    let default_pred = (cur_state, pre_guard.clone());
-    for stmt in &con.stmts {
-        // Add transition(s) from last state to the new state.
-        let new_state = seq_add_transitions(schedule, &preds, &default_pred);
-
-        // Recurse into statement and save new predecessors.
-        preds =
-            calculate_states(stmt, new_state, pre_guard, schedule, builder)?;
     }
 
-    // Add final transition(s) from the last statement.
-    seq_add_transitions(schedule, &preds, &default_pred);
+    /// Helper to add seqential transitions and return the next state.
+    fn seq_add_transitions(
+        &mut self,
+        preds: &[PredEdge],
+        default_pred: &PredEdge,
+    ) -> u64 {
+        // Compute the new start state from the latest predecessor.
+        let new_state = preds
+            .iter()
+            .max_by_key(|(state, _)| state)
+            .unwrap_or(default_pred)
+            .0;
 
-    Ok(preds)
-}
+        // Add transitions from each predecessor to the new state.
+        self.transitions
+            .extend(preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())));
 
-fn par_calculate_states(
-    con: &ir::Par,
-    cur_state: u64,
-    pre_guard: &ir::Guard,
-    schedule: &mut Schedule,
-    builder: &mut ir::Builder,
-) -> CalyxResult<Vec<PredEdge>> {
-    let mut max_state = 0;
-    for stmt in &con.stmts {
-        let preds =
-            calculate_states(stmt, cur_state, pre_guard, schedule, builder)?;
+        // Return the new state.
+        new_state
+    }
 
-        // Compute the start state from the latest predecessor.
-        let inner_max_state =
-            preds.iter().max_by_key(|(state, _)| state).unwrap().0;
+    fn seq_calculate_states(
+        &mut self,
+        con: &ir::Seq,
+        cur_state: u64,
+        pre_guard: &ir::Guard,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        let mut preds = vec![];
+        let default_pred = (cur_state, pre_guard.clone());
+        for stmt in &con.stmts {
+            // Add transition(s) from last state to the new state.
+            let new_state = self.seq_add_transitions(&preds, &default_pred);
 
-        // Keep track of the latest predecessor state from any statement.
-        if inner_max_state > max_state {
-            max_state = inner_max_state;
+            // Recurse into statement and save new predecessors.
+            preds = self.calculate_states(stmt, new_state, pre_guard)?;
         }
+
+        // Add final transition(s) from the last statement.
+        self.seq_add_transitions(&preds, &default_pred);
+
+        Ok(preds)
     }
 
-    // Add transitions from the cur_state up to the max_state.
-    if cur_state + 1 == max_state {
-        schedule
-            .transitions
-            .insert((cur_state, max_state, pre_guard.clone()));
-    } else {
-        let starts = cur_state..max_state - 1;
-        let ends = cur_state + 1..max_state;
-        schedule
-            .transitions
-            .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
+    fn par_calculate_states(
+        &mut self,
+        con: &ir::Par,
+        cur_state: u64,
+        pre_guard: &ir::Guard,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        let mut max_state = 0;
+        for stmt in &con.stmts {
+            let preds = self.calculate_states(stmt, cur_state, pre_guard)?;
+
+            // Compute the start state from the latest predecessor.
+            let inner_max_state =
+                preds.iter().max_by_key(|(state, _)| state).unwrap().0;
+
+            // Keep track of the latest predecessor state from any statement.
+            if inner_max_state > max_state {
+                max_state = inner_max_state;
+            }
+        }
+
+        // Add transitions from the cur_state up to the max_state.
+        if cur_state + 1 == max_state {
+            self.transitions
+                .insert((cur_state, max_state, pre_guard.clone()));
+        } else {
+            let starts = cur_state..max_state - 1;
+            let ends = cur_state + 1..max_state;
+            self.transitions.extend(
+                starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())),
+            );
+        }
+
+        // Return a single predecessor for the last state.
+        Ok(vec![(max_state, pre_guard.clone())])
     }
 
-    // Return a single predecessor for the last state.
-    Ok(vec![(max_state, pre_guard.clone())])
-}
-
-fn if_calculate_states(
-    con: &ir::If,
-    cur_state: u64,
-    pre_guard: &ir::Guard,
-    schedule: &mut Schedule,
-    builder: &mut ir::Builder,
-) -> CalyxResult<Vec<PredEdge>> {
-    if con.cond.is_some() {
-        return Err(Error::malformed_structure(
+    fn if_calculate_states(
+        &mut self,
+        con: &ir::If,
+        cur_state: u64,
+        pre_guard: &ir::Guard,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        if con.cond.is_some() {
+            return Err(Error::malformed_structure(
                 format!("{}: Found group `{}` in with position of if. This should have compiled away.",
                         TopDownStaticTiming::name(),
                         con.cond.as_ref().unwrap().borrow().name()))
             .with_pos(&con.attributes));
+        }
+
+        let port_guard: ir::Guard = Rc::clone(&con.port).into();
+        let mut preds = vec![];
+
+        // Then branch.
+        preds.extend(self.calculate_states(
+            &con.tbranch,
+            cur_state,
+            &pre_guard.clone().and(port_guard.clone()),
+        )?);
+
+        // Else branch.
+        preds.extend(self.calculate_states(
+            &con.fbranch,
+            cur_state,
+            &pre_guard.clone().and(port_guard.not()),
+        )?);
+
+        Ok(preds)
     }
 
-    let port_guard: ir::Guard = Rc::clone(&con.port).into();
-    let mut preds = vec![];
-
-    // Then branch.
-    preds.extend(calculate_states(
-        &con.tbranch,
-        cur_state,
-        &pre_guard.clone().and(port_guard.clone()),
-        schedule,
-        builder,
-    )?);
-
-    // Else branch.
-    preds.extend(calculate_states(
-        &con.fbranch,
-        cur_state,
-        &pre_guard.clone().and(port_guard.not()),
-        schedule,
-        builder,
-    )?);
-
-    Ok(preds)
-}
-
-fn while_calculate_states(
-    con: &ir::While,
-    cur_state: u64,
-    pre_guard: &ir::Guard,
-    schedule: &mut Schedule,
-    builder: &mut ir::Builder,
-) -> CalyxResult<Vec<PredEdge>> {
-    if con.cond.is_some() {
-        return Err(Error::malformed_structure(
+    fn while_calculate_states(
+        &mut self,
+        con: &ir::While,
+        cur_state: u64,
+        pre_guard: &ir::Guard,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        if con.cond.is_some() {
+            return Err(Error::malformed_structure(
                 format!("{}: Found group `{}` in with position of while. This should have compiled away.",
                         TopDownStaticTiming::name(),
                         con.cond.as_ref().unwrap().borrow().name()))
             .with_pos(&con.attributes));
-    }
+        }
 
-    let port_guard: ir::Guard = Rc::clone(&con.port).into();
+        let port_guard: ir::Guard = Rc::clone(&con.port).into();
 
-    let preds = calculate_states(
-        &con.body,
-        cur_state,
-        &pre_guard.clone().and(port_guard.clone()),
-        schedule,
-        builder,
-    )?;
+        let preds = self.calculate_states(
+            &con.body,
+            cur_state,
+            &pre_guard.clone().and(port_guard.clone()),
+        )?;
 
-    let body_exit = preds
-        .iter()
-        .max_by_key(|(state, _)| state)
-        .unwrap_or(&(cur_state, pre_guard.clone()))
-        .0
-        + 1;
+        let body_exit = preds
+            .iter()
+            .max_by_key(|(state, _)| state)
+            .unwrap_or(&(cur_state, pre_guard.clone()))
+            .0
+            + 1;
 
-    // Add transitions from entry to exit when false.
-    schedule.transitions.insert((
-        cur_state,
-        body_exit,
-        port_guard.clone().not(),
-    ));
+        // Add transitions from entry to exit when false.
+        self.transitions.insert((
+            cur_state,
+            body_exit,
+            port_guard.clone().not(),
+        ));
 
-    // Add transitions from end of inner control to entry or exit state.
-    schedule
-        .transitions
-        .extend(preds.iter().flat_map(|(state, _)| {
+        // Add transitions from end of inner control to entry or exit state.
+        self.transitions.extend(preds.iter().flat_map(|(state, _)| {
             vec![
                 // When guard is true, back to entry.
                 (*state, cur_state, port_guard.clone()),
@@ -365,59 +356,52 @@ fn while_calculate_states(
             ]
         }));
 
-    Ok(vec![(body_exit + 1, pre_guard.clone())])
-}
+        Ok(vec![(body_exit + 1, pre_guard.clone())])
+    }
 
-/// Compiled to:
-/// ```
-/// group[go] = (fsm >= cur_start & fsm < cur_state + static) & pre_guard ? 1'd1;
-/// ```
-fn enable_calculate_states(
-    con: &ir::Enable,
-    // The current state
-    cur_state: u64,
-    // Additional guard for this condition.
-    pre_guard: &ir::Guard,
-    // Current schedule.
-    schedule: &mut Schedule,
-    // Component builder
-    builder: &mut ir::Builder,
-) -> CalyxResult<Vec<PredEdge>> {
-    let time_option = con.attributes.get("static");
-    if time_option.is_none() {
-        return Err(Error::pass_assumption(
+    /// Compiled to:
+    /// ```
+    /// group[go] = (fsm >= cur_start & fsm < cur_state + static) & pre_guard ? 1'd1;
+    /// ```
+    fn enable_calculate_states(
+        &mut self,
+        con: &ir::Enable,
+        // The current state
+        cur_state: u64,
+        // Additional guard for this condition.
+        pre_guard: &ir::Guard,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        let time_option = con.attributes.get("static");
+        if time_option.is_none() {
+            return Err(Error::pass_assumption(
             TopDownStaticTiming::name().to_string(),
             "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
         )
         .with_pos(&con.attributes));
+        }
+        let time = time_option.unwrap();
+
+        let range = (cur_state, cur_state + time);
+        let group = &con.group;
+        structure!(self.builder;
+            let signal_on = constant(1, 1);
+        );
+        let mut assigns = build_assignments!(self.builder;
+            group["go"] = pre_guard ? signal_on["out"];
+        );
+
+        // Enable when in range of group's latency.
+        self.enables.entry(range).or_default().append(&mut assigns);
+
+        // Add any necessary internal transitions. In the case time is 1 and there
+        // is a single transition, it is taken care of by the parent.
+        let starts = cur_state..cur_state + time - 1;
+        let ends = cur_state + 1..cur_state + time;
+        self.transitions
+            .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
+
+        Ok(vec![(cur_state + time, pre_guard.clone())])
     }
-    let time = time_option.unwrap();
-
-    let range = (cur_state, cur_state + time);
-    let group = &con.group;
-    structure!(builder;
-        let signal_on = constant(1, 1);
-    );
-    let mut assigns = build_assignments!(builder;
-        group["go"] = pre_guard ? signal_on["out"];
-    );
-
-    // Enable when in range of group's latency.
-    schedule
-        .enables
-        .entry(range)
-        .or_default()
-        .append(&mut assigns);
-
-    // Add any necessary internal transitions. In the case time is 1 and there
-    // is a single transition, it is taken care of by the parent.
-    let starts = cur_state..cur_state + time - 1;
-    let ends = cur_state + 1..cur_state + time;
-    schedule
-        .transitions
-        .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
-
-    Ok(vec![(cur_state + time, pre_guard.clone())])
 }
 
 /// Lowering pass that generates latency-sensitive FSMs when control sub-programs have `@static`
@@ -473,15 +457,9 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Compile control program and save schedule.
-        let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        seq_calculate_states(
-            con,
-            0,
-            &ir::Guard::True,
-            &mut schedule,
-            &mut builder,
-        )?;
+        let mut schedule = Schedule::new(&mut builder);
+        schedule.seq_calculate_states(con, 0, &ir::Guard::True)?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -489,7 +467,7 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule(&mut builder);
+        let group = schedule.realize_schedule();
 
         Ok(Action::Change(ir::Control::enable(group)))
     }
@@ -509,15 +487,9 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Compile control program and save schedule.
-        let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        par_calculate_states(
-            con,
-            0,
-            &ir::Guard::True,
-            &mut schedule,
-            &mut builder,
-        )?;
+        let mut schedule = Schedule::new(&mut builder);
+        schedule.par_calculate_states(con, 0, &ir::Guard::True)?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -525,7 +497,7 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule(&mut builder);
+        let group = schedule.realize_schedule();
 
         Ok(Action::Change(ir::Control::enable(group)))
     }
@@ -545,15 +517,9 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Compile control program and save schedule.
-        let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        while_calculate_states(
-            con,
-            0,
-            &ir::Guard::True,
-            &mut schedule,
-            &mut builder,
-        )?;
+        let mut schedule = Schedule::new(&mut builder);
+        schedule.while_calculate_states(con, 0, &ir::Guard::True)?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -561,7 +527,7 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule(&mut builder);
+        let group = schedule.realize_schedule();
 
         Ok(Action::Change(ir::Control::enable(group)))
     }
@@ -581,15 +547,9 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Compile control program and save schedule.
-        let mut schedule = Schedule::default();
         let mut builder = ir::Builder::new(comp, sigs);
-        if_calculate_states(
-            con,
-            0,
-            &ir::Guard::True,
-            &mut schedule,
-            &mut builder,
-        )?;
+        let mut schedule = Schedule::new(&mut builder);
+        schedule.if_calculate_states(con, 0, &ir::Guard::True)?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -597,7 +557,7 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule(&mut builder);
+        let group = schedule.realize_schedule();
 
         Ok(Action::Change(ir::Control::enable(group)))
     }
