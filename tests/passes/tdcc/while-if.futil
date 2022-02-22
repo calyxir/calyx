@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d post-opt -d lower -b none
+// -x tdcc:dump-fsm -d top-down-st -d post-opt -d lower -b none
 import "primitives/core.futil";
 component main() -> () {
   cells {

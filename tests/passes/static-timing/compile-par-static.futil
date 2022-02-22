@@ -1,4 +1,4 @@
-// -p remove-comb-groups -p compile-control
+// -x top-down-st:dump-fsm -p top-down-st -b none
 
 import "primitives/core.futil";
 
@@ -30,6 +30,10 @@ component main() -> () {
   }
 
   control {
-    par { A; B; C; }
+    @static par {
+      @static A;
+      @static B;
+      @static C;
+    }
   }
 }
