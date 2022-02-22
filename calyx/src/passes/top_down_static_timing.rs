@@ -66,7 +66,47 @@ impl<'a> Schedule<'a> {
             })
     }
 
+    /// Returns "runs" of FSM states where transitions happen unconditionally
+    fn calculate_runs(&self) -> Vec<Range> {
+        let mut unconditional_states = self
+            .transitions
+            .iter()
+            .filter_map(|(s, e, guard)| {
+                if *e == s + 1 && guard.is_true() {
+                    Some(*s)
+                } else {
+                    None
+                }
+            })
+            .sorted();
+
+        let mut ranges: Vec<Range> = Vec::new();
+        if let Some(mut cur_s) = unconditional_states.next() {
+            let mut start_s = cur_s;
+
+            // Extract the next state
+            for nxt_s in unconditional_states {
+                eprintln!("start: {}, cur: {}, nxt: {}", start_s, cur_s, nxt_s);
+                if nxt_s != cur_s + 1 {
+                    if cur_s - start_s > 1 {
+                        ranges.push((start_s, cur_s));
+                    }
+                    start_s = cur_s;
+                }
+                cur_s = nxt_s
+            }
+            if cur_s - start_s > 1 {
+                ranges.push((start_s, cur_s));
+            }
+        }
+
+        eprintln!("{:?}", ranges);
+
+        ranges
+    }
+
     fn realize_schedule(self) -> RRC<ir::Group> {
+        self.calculate_runs();
         let final_state = self.last_state();
         let builder = self.builder;
         let group = builder.add_group("tdst");
