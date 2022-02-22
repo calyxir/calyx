@@ -793,7 +793,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// lst.push(b);
     /// lst.push(c);
     /// lst.push(e);
-    /// let d = Smoosher::merge_many(a, lst, &HashSet::new()).unwrap();
+    /// let d = Smoosher::merge_many(a, lst, &HashSet::new(), false).unwrap();
     /// assert_eq!(*d.get(&"privet").unwrap(), 11);
     /// assert_eq!(*d.get(&"hi!").unwrap(), 3);
     /// assert_eq!(*d.get(&"bye").unwrap(), 2);
@@ -817,13 +817,14 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// let mut lst = Vec::new();
     /// lst.push(b);
     /// lst.push(c);
-    /// let d = Smoosher::merge_many(a, lst, &HashSet::new()); //a and b has a different fork point
+    /// let d = Smoosher::merge_many(a, lst, &HashSet::new(), false); //a and b has a different fork point
     //from a and c
     /// ```
     pub fn merge_many(
         self,
         other: Vec<Self>,
         overlap_keys: &HashSet<K>,
+        allow_par_conflicts: bool,
     ) -> Result<Self, CollisionError<K, V>> {
         if other.is_empty() {
             return Ok(self);
@@ -864,11 +865,9 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
                         a_head.insert(k, v);
                     } else {
                         let prev = a_head.remove(&k).unwrap();
-                        if crate::SETTINGS.read().allow_par_conflicts
-                            && prev == v
-                        {
+                        if allow_par_conflicts && prev == v {
                             crate::logging::warn!(
-                                crate::logging::ROOT_LOGGER,
+                                crate::logging::root(),
                                 "Allowing parallel conflict"
                             )
                         } else {

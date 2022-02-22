@@ -5,7 +5,9 @@ use itertools::Itertools;
 
 use crate::analysis;
 use crate::errors::Error;
-use crate::ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::ir::traversal::{
+    Action, ConstructVisitor, Named, VisResult, Visitor,
+};
 use crate::ir::{self, CloneName, LibrarySignatures, RRC};
 
 /// Map name of old group to new group
@@ -24,8 +26,9 @@ type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
 ///   2. Inline all groups defined by that instance.
 ///   3. Inline the control program for every `invoke` statement referring to the
 ///      instance.
-#[derive(Default)]
 pub struct ComponentInliner {
+    /// Force inlining of all components. Parsed from the command line.
+    always_inline: bool,
     /// Map from the name of an instance to its associated control program.
     control_map: HashMap<ir::Id, ir::Control>,
     /// Mapping for ports on cells that have been inlined.
@@ -33,6 +36,33 @@ pub struct ComponentInliner {
     /// Cells that have been inlined. We retain these so that references within
     /// the control program of the parent are valid.
     inlined_cells: Vec<RRC<ir::Cell>>,
+}
+
+impl ComponentInliner {
+    /// Equivalent to a default method but not automatically derived because
+    /// it conflicts with the autogeneration of `ConstructVisitor`.
+    fn new(always_inline: bool) -> Self {
+        ComponentInliner {
+            always_inline,
+            control_map: HashMap::default(),
+            interface_rewrites: HashMap::default(),
+            inlined_cells: Vec::default(),
+        }
+    }
+}
+
+impl ConstructVisitor for ComponentInliner {
+    fn from(ctx: &ir::Context) -> crate::errors::CalyxResult<Self>
+    where
+        Self: Sized,
+    {
+        let opts = Self::get_opts(&["always"], ctx);
+        Ok(ComponentInliner::new(opts[0]))
+    }
+
+    fn clear_data(&mut self) {
+        *self = ComponentInliner::new(self.always_inline);
+    }
 }
 
 impl ComponentInliner {
@@ -250,7 +280,13 @@ impl Visitor for ComponentInliner {
         let (inline_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain().partition(|cr| {
                 let cell = cr.borrow();
-                cell.get_attribute("inline").is_some()
+                // If forced inlining is enabled, attempt to inline every
+                // component.
+                if self.always_inline {
+                    cell.is_component()
+                } else {
+                    cell.get_attribute("inline").is_some()
+                }
             });
         comp.cells.append(cells.into_iter());
 

@@ -6,7 +6,7 @@ use crate::passes::{
     InferStaticTiming, LowerGuards, MergeAssign, MinimizeRegs, Papercut,
     ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
     ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    WellFormed, WireInliner,
+    TopDownStaticTiming, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -36,6 +36,7 @@ impl PassManager {
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<RemoveCombGroups>()?;
+        pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
 
         // Lowering passes
@@ -76,7 +77,12 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [CompileInvoke, CompileEmpty, TopDownCompileControl]
+            [
+                CompileInvoke,
+                CompileEmpty,
+                TopDownStaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(
             pm,

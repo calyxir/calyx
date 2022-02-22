@@ -1,0 +1,31 @@
+// -p validate -p par-to-seq
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group do_r0 {
+      r0.write_en = 1'd1;
+      r0.in = r1.out;
+      do_r0[done] = r0.done;
+    }
+    group do_r1 {
+      r1.write_en = 1'd1;
+      r1.in = 32'd30;
+      do_r1[done] = r1.done;
+    }
+  }
+  control {
+    // After running, we expect:
+    // r1 = 30;
+    // r0 = r1;
+    seq {
+      par {
+        do_r1;
+        do_r0;
+      }
+    }
+  }
+}

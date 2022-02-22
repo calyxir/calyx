@@ -188,10 +188,30 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Add cond group as a used port.
         if let Some(c) = &s.comb_group {
             self.used_comb_groups.insert(c.clone_name());
         }
+        // Only refers to ports defined in the invoked instance.
+        let cell = s.comp.borrow();
+        let ports: HashSet<_> =
+            cell.ports.iter().map(|p| p.borrow().name.clone()).collect();
+
+        s.inputs
+            .iter()
+            .chain(s.outputs.iter())
+            .try_for_each(|(port, _)| {
+                if !ports.contains(port) {
+                    Err(Error::malformed_structure(format!(
+                        "`{}` does not have port named `{}`",
+                        cell.name(),
+                        port
+                    ))
+                    .with_pos(&s.attributes))
+                } else {
+                    Ok(())
+                }
+            })?;
+
         Ok(Action::Continue)
     }
 

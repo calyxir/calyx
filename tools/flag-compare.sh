@@ -5,8 +5,8 @@
 
 set -uf -o pipefail
 
-flag1='-p dead-group-removal -p all'
-flag2='-p dead-group-removal -p all -x tdcc:no-early-transitions'
+flag1=' -p dead-group-removal -p all'
+flag2=' -p dead-group-removal -p all -d top-down-st'
 file="$1"
 data="$2"
 out_stage=${3:-dat}
@@ -19,6 +19,7 @@ echo "$flag2" > out2.json
 
 echo "Running with flags: $flag1"
 fud e "$file" --to "$out_stage" \
+  --through icarus-verilog \
   -s interpreter.data "$data" \
   -s verilog.data "$data" \
   -s verilog.cycle_limit 1000 \
@@ -27,6 +28,7 @@ EXEC1=$!
 
 echo "Running with flags: $flag2"
 fud e "$file" --to "$out_stage" \
+  --through icarus-verilog \
   -s interpreter.data "$data" \
   -s verilog.data "$data" \
   -s verilog.cycle_limit 1000 \

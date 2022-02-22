@@ -97,8 +97,8 @@ impl<T: ShareComponents> Visitor for T {
         for cell in cells {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
-                .and_modify(|v| v.push(cell.clone_name()))
-                .or_insert_with(|| vec![cell.clone_name()]);
+                .or_default()
+                .push(cell.clone_name())
         }
 
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
@@ -122,8 +122,8 @@ impl<T: ShareComponents> Visitor for T {
                         self.lookup_group_conflicts(&conflicted_group)
                     {
                         acc.entry(id_to_type[&conflict].clone())
-                            .and_modify(|v| v.push(conflict.clone()))
-                            .or_insert_with(|| vec![conflict]);
+                            .or_default()
+                            .push(conflict.clone())
                     }
                     acc
                 },
