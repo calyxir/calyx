@@ -317,7 +317,7 @@ impl Interpreter for SeqInterpreter {
                 Ok(())
             }
             SeqFsm::Done(_) => Ok(()),
-            SeqFsm::Err => unreachable!(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
@@ -329,7 +329,7 @@ impl Interpreter for SeqInterpreter {
         match self.internal_state {
             SeqFsm::Iterating(_, _) => Err(InterpreterError::InvalidSeqState),
             SeqFsm::Done(e) => Ok(e),
-            SeqFsm::Err => unreachable!(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
@@ -337,7 +337,7 @@ impl Interpreter for SeqInterpreter {
         match &self.internal_state {
             SeqFsm::Iterating(i, _) => i.get_env(),
             SeqFsm::Done(e) => e.into(),
-            SeqFsm::Err => unreachable!(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
@@ -345,7 +345,7 @@ impl Interpreter for SeqInterpreter {
         match &self.internal_state {
             SeqFsm::Iterating(i, _) => i.currently_executing_group(),
             SeqFsm::Done(_) => HashSet::new(),
-            SeqFsm::Err => unreachable!(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
@@ -353,7 +353,7 @@ impl Interpreter for SeqInterpreter {
         match &mut self.internal_state {
             SeqFsm::Iterating(i, _) => i.get_env_mut(),
             SeqFsm::Done(e) => e.into(),
-            SeqFsm::Err => unreachable!(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
@@ -367,7 +367,7 @@ impl Interpreter for SeqInterpreter {
 
     fn run(&mut self) -> InterpreterResult<()> {
         match &mut self.internal_state {
-            SeqFsm::Err => unreachable!(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
             SeqFsm::Iterating(_, _) => {
                 if let SeqFsm::Iterating(i, mut idx) =
                     std::mem::take(&mut self.internal_state)
@@ -393,7 +393,7 @@ impl Interpreter for SeqInterpreter {
         match &self.internal_state {
             SeqFsm::Iterating(i, _) => i.get_active_tree(),
             SeqFsm::Done(_) => vec![],
-            SeqFsm::Err => unreachable!(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 }
@@ -592,7 +592,7 @@ impl Interpreter for IfInterpreter {
             }
             IfFsm::Done(_) => Ok(()),
             IfFsm::Err => {
-                unimplemented!("If interpreter is in an invalid internal state")
+                unimplemented!("There is an error in the If state transition. Please report this.")
             }
         }
     }
@@ -612,7 +612,7 @@ impl Interpreter for IfInterpreter {
         match &self.state {
             IfFsm::Done(e) | IfFsm::Start(e) => e.into(),
             IfFsm::Body(b) => b.get_env(),
-            IfFsm::Err => unreachable!(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 
@@ -620,7 +620,7 @@ impl Interpreter for IfInterpreter {
         match &self.state {
             IfFsm::Done(_) | IfFsm::Start(_) => HashSet::new(),
             IfFsm::Body(b) => b.currently_executing_group(),
-            IfFsm::Err => unreachable!(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 
@@ -628,13 +628,13 @@ impl Interpreter for IfInterpreter {
         match &mut self.state {
             IfFsm::Done(e) | IfFsm::Start(e) => e.into(),
             IfFsm::Body(b) => b.get_env_mut(),
-            IfFsm::Err => unreachable!(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            IfFsm::Err => unreachable!(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
             IfFsm::Body(b_interp) => b_interp.converge(),
             IfFsm::Start(_) | IfFsm::Done(_) => {
                 let is_done = matches!(self.state, IfFsm::Done(_));
@@ -668,7 +668,7 @@ impl Interpreter for IfInterpreter {
         match &self.state {
             IfFsm::Done(_) | IfFsm::Start(_) => Vec::new(),
             IfFsm::Body(b) => b.get_active_tree(),
-            IfFsm::Err => unreachable!(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 }
@@ -708,7 +708,7 @@ impl WhileInterpreter {
 impl Interpreter for WhileInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            WhileFsm::Err => unreachable!(),
+            WhileFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
             WhileFsm::Start(_) => {
                 if let WhileFsm::Start(mut env) =
                     std::mem::take(&mut self.state)
@@ -776,7 +776,7 @@ impl Interpreter for WhileInterpreter {
 
     fn get_env(&self) -> StateView<'_> {
         match &self.state {
-            WhileFsm::Err => unreachable!(),
+            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
             WhileFsm::Start(e) | WhileFsm::Done(e) => e.into(),
             WhileFsm::Body(b) => b.get_env(),
         }
@@ -784,7 +784,7 @@ impl Interpreter for WhileInterpreter {
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         match &self.state {
-            WhileFsm::Err => unreachable!(),
+            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
             WhileFsm::Start(_) | WhileFsm::Done(_) => HashSet::new(),
             WhileFsm::Body(b) => b.currently_executing_group(),
         }
@@ -792,7 +792,7 @@ impl Interpreter for WhileInterpreter {
 
     fn get_env_mut(&mut self) -> MutStateView<'_> {
         match &mut self.state {
-            WhileFsm::Err => unreachable!(),
+            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
             WhileFsm::Start(e) | WhileFsm::Done(e) => e.into(),
             WhileFsm::Body(b) => b.get_env_mut(),
         }
@@ -800,7 +800,7 @@ impl Interpreter for WhileInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            WhileFsm::Err => unreachable!(),
+            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
             WhileFsm::Body(b) => b.converge(),
             WhileFsm::Start(_) | WhileFsm::Done(_) => {
                 let is_done = matches!(self.state, WhileFsm::Done(_));
@@ -832,7 +832,7 @@ impl Interpreter for WhileInterpreter {
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
         match &self.state {
-            WhileFsm::Err => unreachable!(),
+            WhileFsm::Err => unreachable!("There is an error in the while state transition. Please report this."),
             WhileFsm::Start(_) | WhileFsm::Done(_) => vec![],
             WhileFsm::Body(b) => b.get_active_tree(),
         }
