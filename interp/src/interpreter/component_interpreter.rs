@@ -2,20 +2,23 @@ use std::collections::HashSet;
 
 use super::{
     control_interpreter::{
-        ControlInterpreter, Interpreter, StructuralInterpreter,
+        ComponentInfo, ControlInterpreter, StructuralInterpreter,
     },
     utils::control_is_empty,
+    Interpreter,
 };
-use crate::debugger::{name_tree::ActiveTreeNode, PrintCode};
-use crate::environment::{InterpreterState, MutStateView, StateView};
-use crate::errors::InterpreterResult;
-use crate::interpreter_ir as iir;
-use crate::primitives::{Named, Primitive};
-use crate::structures::names::{
-    ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
+use crate::{
+    debugger::{name_tree::ActiveTreeNode, PrintCode},
+    environment::{InterpreterState, MutStateView, StateView},
+    errors::InterpreterResult,
+    interpreter_ir as iir,
+    primitives::{Named, Primitive},
+    structures::names::{
+        ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
+    },
+    utils::AsRaw,
+    values::Value,
 };
-use crate::utils::AsRaw;
-use crate::values::Value;
 use calyx::ir::{self, Port, RRC};
 use std::rc::Rc;
 
@@ -235,11 +238,13 @@ impl Interpreter for ComponentInterpreter {
                     };
 
                     let mut control_interp = ControlInterpreter::new(
-                        &self.control_ref,
+                        self.control_ref.clone(),
                         env,
-                        &self.comp_ref.continuous_assignments,
-                        self.input_hash_set.clone(),
-                        &self.qual_name,
+                        &ComponentInfo::new(
+                            self.comp_ref.continuous_assignments.clone(),
+                            self.input_hash_set.clone(),
+                            self.qual_name.clone(),
+                        ),
                     );
                     let result = control_interp.step();
                     self.interp = control_interp.into();
