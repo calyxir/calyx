@@ -740,15 +740,6 @@ impl std::fmt::Display for Value {
     }
 }
 
-impl Serialize for Value {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        unimplemented!("Do not serialize values as bit strings")
-    }
-}
-
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         self.vec.len() == other.vec.len() && *self.vec == *other.vec
@@ -778,6 +769,15 @@ impl PartialOrd for Value {
     }
 }
 
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        base64::encode(self.as_unsigned().to_le_bytes()).serialize(serializer)
+    }
+}
+
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -786,7 +786,7 @@ impl<'de> Deserialize<'de> for Value {
         struct BitVecVisitor;
 
         impl<'de> Visitor<'de> for BitVecVisitor {
-            type Value = BitString;
+            type Value = (UBig, usize);
 
             fn expecting(
                 &self,
@@ -799,21 +799,13 @@ impl<'de> Deserialize<'de> for Value {
             where
                 E: de::Error,
             {
-                let mut vec = BitString::new();
-                let s = String::from(value);
-                for c in s.chars() {
-                    let bit: bool = c.to_digit(2).unwrap() == 1;
-                    vec.insert(0, bit)
-                }
-                Ok(vec)
+                let s = base64::decode(String::from(value))
+                    .expect("Couldn't convert from base64");
+                Ok((UBig::from_le_bytes(&s), s.len()))
             }
         }
 
-        let val = deserializer.deserialize_str(BitVecVisitor)?;
-        Ok(crate::values::Value {
-            vec: Rc::new(val),
-            signed: Signed::default(),
-            unsigned: Unsigned::default(),
-        })
+        let (val, bytes) = deserializer.deserialize_str(BitVecVisitor)?;
+        Ok(Value::from(val, bytes * 8))
     }
 }

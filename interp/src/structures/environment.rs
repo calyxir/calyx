@@ -416,6 +416,13 @@ impl InterpreterState {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
+    pub fn print_env_raw(&self) {
+        let sv: StateView = self.into();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&sv.gen_serialzer(true)).unwrap()
+        );
+    }
     /// A predicate that checks if the given cell points to a combinational
     /// primitive (or component?)
     pub fn cell_is_comb<C: AsRaw<ir::Cell>>(&self, cell: C) -> bool {
@@ -577,7 +584,7 @@ impl Serialize for InterpreterState {
         S: serde::Serializer,
     {
         let sv: StateView = self.into();
-        sv.gen_serialzer().serialize(serializer)
+        sv.gen_serialzer(false).serialize(serializer)
     }
 }
 #[allow(clippy::borrowed_box)]
@@ -602,7 +609,7 @@ impl<'a> Serialize for StateView<'a> {
     where
         S: serde::Serializer,
     {
-        self.gen_serialzer().serialize(serializer)
+        self.gen_serialzer(false).serialize(serializer)
     }
 }
 
@@ -704,7 +711,7 @@ impl<'a> StateView<'a> {
     /// Returns a string representing the current state of the environment. This
     /// just serializes the environment to a string and returns that string
     pub fn state_as_str(&self) -> String {
-        serde_json::to_string_pretty(&self.gen_serialzer()).unwrap()
+        serde_json::to_string_pretty(&self.gen_serialzer(false)).unwrap()
     }
 
     pub fn get_cells<S: AsRef<str> + Clone>(
@@ -725,7 +732,7 @@ impl<'a> StateView<'a> {
         }
     }
 
-    pub fn gen_serialzer(&self) -> FullySerialize {
+    pub fn gen_serialzer(&self, raw: bool) -> FullySerialize {
         let ctx = self.get_ctx();
         let cell_prim_map = &self.get_cell_map().borrow();
 
@@ -780,7 +787,10 @@ impl<'a> StateView<'a> {
                                 if !prim.is_comb() {
                                     return Some((
                                         cell.name().clone(),
-                                        Primitive::serialize(&**prim, None), //TODO Griffin: Fix this
+                                        Primitive::serialize(
+                                            &**prim,
+                                            raw.then(|| PrintCode::Binary),
+                                        ), //TODO Griffin: Fix this
                                     ));
                                 }
                             }

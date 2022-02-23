@@ -566,8 +566,7 @@ impl StdMemD1 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
 
         Ok(())
@@ -826,8 +825,7 @@ impl StdMemD2 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
         Ok(())
     }
@@ -1105,8 +1103,7 @@ impl StdMemD3 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
         Ok(())
     }
@@ -1426,8 +1423,7 @@ impl StdMemD4 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
 
         Ok(())
