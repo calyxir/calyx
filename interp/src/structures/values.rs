@@ -799,7 +799,7 @@ impl<'de> Deserialize<'de> for Value {
             where
                 E: de::Error,
             {
-                let s = base64::decode(String::from(value))
+                let s = base64::decode(value)
                     .expect("Couldn't convert from base64");
                 Ok((UBig::from_le_bytes(&s), s.len()))
             }

@@ -126,13 +126,6 @@ class InterpreterStage(Stage):
             )
             transparent_shell(command)
 
-        @builder.step()
-        def cleanup(tmpdir: SourceType.Directory):
-            """
-            Remove the temporary directory
-            """
-            tmpdir.remove()
-
         # schedule
         tmpdir = mktmp()
 
@@ -145,7 +138,6 @@ class InterpreterStage(Stage):
             debug(input_data, tmpdir)
         else:
             result = interpret(input_data, tmpdir)
-            cleanup(tmpdir)
             return result
 
 
@@ -174,19 +166,19 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
         shape[k]["width"] = width
 
         def convert(x):
-            with_prefix = False
+
             if not is_fp:
-                return Bitnum(x, **shape[k]).bit_string(with_prefix)
+                return Bitnum(x, **shape[k]).base_64_encode()
 
             try:
-                return FixedPoint(x, **shape[k]).bit_string(with_prefix)
+                return FixedPoint(x, **shape[k]).base_64_encode()
             except InvalidNumericType as error:
                 if round_float_to_fixed:
                     # Only round if it is not already representable.
                     fractional_width = width - int_width
                     x = float_to_fixed(float(x), fractional_width)
                     x = str(x)
-                    return FixedPoint(x, **shape[k]).bit_string(with_prefix)
+                    return FixedPoint(x, **shape[k]).base_64_encode()
                 else:
                     raise error
 

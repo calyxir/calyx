@@ -1,9 +1,11 @@
+import base64
 import numpy as np
 from math import log2
 from fractions import Fraction
 from dataclasses import dataclass
 from decimal import Decimal, getcontext
 from fud.errors import InvalidNumericType
+import math
 
 
 @dataclass
@@ -79,6 +81,11 @@ class NumericType:
     def unsigned_integer(self) -> int:
         return self.uint_repr
 
+    def base_64_encode(self) -> str:
+        return base64.standard_b64encode(
+            int(self.string_repr).to_bytes(math.ceil(self.width / 8), "little")
+        )
+
     def pretty_print(self):
         pass
 
@@ -97,7 +104,7 @@ class Bitnum(NumericType):
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
         if is_signed and self.uint_repr > (2 ** (width - 1)):
-            negated_value = -1 * ((2 ** width) - self.uint_repr)
+            negated_value = -1 * ((2**width) - self.uint_repr)
             self.string_repr = str(negated_value)
 
         if len(self.bit_string_repr) > width:
@@ -201,7 +208,7 @@ has led to overflow.
 
         int_bits = np.binary_repr(int_partition, self.int_width)
         frac_bits = np.binary_repr(
-            round(frac_width_rational * (2 ** self.frac_width)), self.frac_width
+            round(frac_width_rational * (2**self.frac_width)), self.frac_width
         )
         # Given the binary form of the integer part and fractional part of
         # the decimal, simply append the two strings.
