@@ -179,25 +179,25 @@ impl ComponentInterpreter {
     #[inline]
     pub fn set_go_high(&mut self) {
         let raw = self.go_port.as_raw();
-        self.get_mut_env().insert(raw, Value::bit_high())
+        self.get_env_mut().insert(raw, Value::bit_high())
     }
 
     #[inline]
     pub fn set_go_low(&mut self) {
         let raw = self.go_port.as_raw();
-        self.get_mut_env().insert(raw, Value::bit_low())
+        self.get_env_mut().insert(raw, Value::bit_low())
     }
 
     #[inline]
     fn set_done_high(&mut self) {
         let raw = self.done_port.as_raw();
-        self.get_mut_env().insert(raw, Value::bit_high())
+        self.get_env_mut().insert(raw, Value::bit_high())
     }
 
     #[inline]
     fn set_done_low(&mut self) {
         let raw = self.done_port.as_raw();
-        self.get_mut_env().insert(raw, Value::bit_low())
+        self.get_env_mut().insert(raw, Value::bit_low())
     }
 
     /// Interpret a calyx program from the root
@@ -302,10 +302,10 @@ impl Interpreter for ComponentInterpreter {
             })
     }
 
-    fn get_mut_env(&mut self) -> crate::environment::MutStateView<'_> {
+    fn get_env_mut(&mut self) -> crate::environment::MutStateView<'_> {
         match &mut self.interp {
-            StructuralOrControl::Structural(s) => s.get_mut_env(),
-            StructuralOrControl::Control(c) => c.get_mut_env(),
+            StructuralOrControl::Structural(s) => s.get_env_mut(),
+            StructuralOrControl::Control(c) => c.get_env_mut(),
             StructuralOrControl::Nothing => unreachable!(),
             StructuralOrControl::Env(e) => MutStateView::Single(e),
         }
@@ -436,7 +436,7 @@ impl Primitive for ComponentInterpreter {
             }
         }
 
-        let mut env = self.get_mut_env();
+        let mut env = self.get_env_mut();
 
         for (port, value) in input_vec {
             env.insert(port, value);

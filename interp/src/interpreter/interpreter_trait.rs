@@ -27,7 +27,7 @@ pub trait Interpreter {
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN>;
 
-    fn get_mut_env(&mut self) -> MutStateView<'_>;
+    fn get_env_mut(&mut self) -> MutStateView<'_>;
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode>;
 

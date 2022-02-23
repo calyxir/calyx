@@ -77,7 +77,7 @@ impl Interpreter for EmptyInterpreter {
         HashSet::new()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         (&mut self.env).into()
     }
 
@@ -227,7 +227,7 @@ impl Interpreter for EnableInterpreter {
         set
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         (self.interp.get_mut_env()).into()
     }
 
@@ -349,9 +349,9 @@ impl Interpreter for SeqInterpreter {
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         match &mut self.internal_state {
-            SeqFsm::Iterating(i, _) => i.get_mut_env(),
+            SeqFsm::Iterating(i, _) => i.get_env_mut(),
             SeqFsm::Done(e) => e.into(),
             SeqFsm::Err => unreachable!(),
         }
@@ -464,12 +464,12 @@ impl Interpreter for ParInterpreter {
             .collect()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         MutCompositeView::new(
             &mut self.in_state,
             self.interpreters
                 .iter_mut()
-                .map(|x| x.get_mut_env())
+                .map(|x| x.get_env_mut())
                 .collect(),
         )
         .into()
@@ -624,10 +624,10 @@ impl Interpreter for IfInterpreter {
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         match &mut self.state {
             IfFsm::Done(e) | IfFsm::Start(e) => e.into(),
-            IfFsm::Body(b) => b.get_mut_env(),
+            IfFsm::Body(b) => b.get_env_mut(),
             IfFsm::Err => unreachable!(),
         }
     }
@@ -790,11 +790,11 @@ impl Interpreter for WhileInterpreter {
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         match &mut self.state {
             WhileFsm::Err => unreachable!(),
             WhileFsm::Start(e) | WhileFsm::Done(e) => e.into(),
-            WhileFsm::Body(b) => b.get_mut_env(),
+            WhileFsm::Body(b) => b.get_env_mut(),
         }
     }
 
@@ -939,7 +939,7 @@ impl Interpreter for InvokeInterpreter {
         HashSet::new()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         self.assign_interp.get_mut_env().into()
     }
 
@@ -1051,8 +1051,8 @@ impl Interpreter for ControlInterpreter {
         control_match!(self, i, i.currently_executing_group())
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
-        control_match!(self, i, i.get_mut_env())
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
+        control_match!(self, i, i.get_env_mut())
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
@@ -1126,7 +1126,7 @@ impl Interpreter for StructuralInterpreter {
         HashSet::new()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         self.interp.get_mut_env().into()
     }
 
