@@ -95,7 +95,7 @@ impl PassManager {
             [
                 GoInsertion,
                 ComponentInterface,
-                HoleInliner,
+                WireInliner,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
