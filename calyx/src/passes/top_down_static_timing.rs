@@ -37,6 +37,7 @@ impl<'a> Schedule<'a> {
     }
 
     fn last_state(&self) -> u64 {
+        assert!(!self.transitions.is_empty(), "Transitions are empty");
         self.transitions.iter().map(|(_, e, _)| *e).max().unwrap()
     }
 
