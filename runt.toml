@@ -104,25 +104,27 @@ fud exec -s verilog.data {}.data \
 name = "correctness static timing"
 paths = [ "tests/correctness/*.futil" ]
 cmd = """
-fud exec -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
+fud exec --to jq \
+         --through dat \
          -s futil.exec './target/debug/futil' \
-         {} --to dat \
-         -q \
-         | jq .memories
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.flags ".memories" \
+         {} -q
 """
 
 [[tests]]
 name = "[frontend] systolic array correctness"
 paths = [ "tests/correctness/systolic/*.systolic" ]
 cmd = """
-fud e --from systolic --to vcd_json --through verilog \
+fud e --from systolic --to jq \
+      --through verilog \
+      --through vcd_json \
       {} \
       -s verilog.data {}.data \
       -s futil.exec './target/debug/futil' \
-      -q \
-      | jq -f {}.jq
-
+      -s jq.file {}.jq
+      -q
 """
 
 [[tests]]

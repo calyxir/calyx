@@ -1,5 +1,6 @@
 import re
 import simplejson as sjson
+from io import StringIO
 from pathlib import Path
 
 from fud.stages import Stage, SourceType, Source
@@ -128,7 +129,7 @@ class IcarusBaseStage(Stage):
         @builder.step()
         def output_json(
             simulated_output: SourceType.String, tmpdir: SourceType.Directory
-        ) -> SourceType.String:
+        ) -> SourceType.Stream:
             """
             Convert .dat files back into a json file
             """
@@ -140,7 +141,7 @@ class IcarusBaseStage(Stage):
                 "cycles": cycle_count,
                 "memories": convert2json(tmpdir.name, "out"),
             }
-            return sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True)
+            return StringIO(sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True))
 
         @builder.step()
         def cleanup(tmpdir: SourceType.Directory):

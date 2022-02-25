@@ -136,6 +136,7 @@ class Conversions:
 
     @staticmethod
     def stream_to_bytes(data: IOBase) -> bytes:
+        assert isinstance(data, IOBase), f"Data of type `{type(data)}` passed"
         assert (
             not data.closed
         ), "Closed stream. This probably means that a previous stage used this up."
