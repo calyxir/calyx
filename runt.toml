@@ -116,7 +116,7 @@ fud exec --to jq \
          -s futil.exec './target/debug/futil' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
-         -s jq.flags ".memories" \
+         -s jq.expr ".memories" \
          {} -q
 """
 
