@@ -17,15 +17,16 @@ class JqStage(Stage):
     def _define_steps(self, stream, builder, config):
         file = config.get(["stages", self.name, "file"])
         expr = config.get(["stages", self.name, "expr"])
-        assert not (file and expr), \
-            "jq does not support expr and file at the same time"
+        assert not (file and expr), "jq does not support expr and file at the same time"
 
-        cmd = " ".join([
-            config["stages", self.name, "exec"],
-            "-j",  # don't print newline
-            f"-f {file}" if file else "",
-            f"\"{expr}\"" if expr else ""
-        ])
+        cmd = " ".join(
+            [
+                config["stages", self.name, "exec"],
+                "-j",  # don't print newline
+                f"-f {file}" if file else "",
+                f'"{expr}"' if expr else "",
+            ]
+        )
 
         @builder.step(description=cmd)
         def run(inp_stream: SourceType.Stream) -> SourceType.Stream:
