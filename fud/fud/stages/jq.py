@@ -22,6 +22,7 @@ class JqStage(Stage):
 
         cmd = " ".join([
             config["stages", self.name, "exec"],
+            "-j",  # don't print newline
             f"-f {file}" if file else "",
             f"\"{expr}\"" if expr else ""
         ])
