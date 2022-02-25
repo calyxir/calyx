@@ -1,6 +1,5 @@
 import re
 import simplejson as sjson
-from io import StringIO
 from pathlib import Path
 
 from fud.stages import Stage, SourceType, Source
