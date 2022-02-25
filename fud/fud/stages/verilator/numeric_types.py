@@ -81,7 +81,7 @@ class NumericType:
     def unsigned_integer(self) -> int:
         return self.uint_repr
 
-    def base_64_encode(self) -> str:
+    def base_64_encode(self) -> bytes:
         return base64.standard_b64encode(
             int(self.string_repr).to_bytes(math.ceil(self.width / 8), "little")
         )
