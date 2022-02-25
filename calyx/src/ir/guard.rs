@@ -187,12 +187,22 @@ impl Guard {
     }
 
     pub fn or(self, rhs: Guard) -> Self {
-        if rhs == Guard::True || self == Guard::True {
-            Guard::True
-        } else if self == rhs {
-            self
-        } else {
-            Guard::Or(Box::new(self), Box::new(rhs))
+        match (self, rhs) {
+            (Guard::True, _) | (_, Guard::True) => Guard::True,
+            (Guard::Not(n), g) | (g, Guard::Not(n)) => {
+                if *n == Guard::True {
+                    g
+                } else {
+                    Guard::Or(Box::new(Guard::Not(n)), Box::new(g))
+                }
+            }
+            (l, r) => {
+                if l == r {
+                    l
+                } else {
+                    Guard::Or(Box::new(l), Box::new(r))
+                }
+            }
         }
     }
 

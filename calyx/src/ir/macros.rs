@@ -50,7 +50,7 @@ macro_rules! structure {
 /// The macro accepts two forms:
 /// ```
 /// build_assignments!(builder;
-///     group["go"] = signal_on["out"]; // no guard
+///     group["go"] = ? signal_on["out"]; // no guard
 ///     fsm["in"] = guard ? add["out"];
 /// )
 /// ```
