@@ -206,7 +206,7 @@ impl<'a> Schedule<'a> {
         // Done condition for group.
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
         let done_assign = build_assignments!(builder;
-            group["go"] = last_guard ? signal_on["out"];
+            group["done"] = last_guard ? signal_on["out"];
         );
         group.borrow_mut().assignments.extend(done_assign);
 
