@@ -42,6 +42,9 @@ impl<'a> Schedule<'a> {
 
     fn display(&self) {
         let out = &mut std::io::stdout();
+        let (uncond, cond) =
+            Self::calculate_runs(self.transitions.iter().cloned());
+
         println!("enables:");
         self.enables
             .iter()
@@ -56,59 +59,79 @@ impl<'a> Schedule<'a> {
                 })
             });
         println!("transitions:");
-        self.transitions
-            .iter()
+        cond.iter()
             .sorted_by(|(k1, k2, g1), (k3, k4, g2)| {
                 k1.cmp(k3).then_with(|| k2.cmp(k4)).then_with(|| g1.cmp(g2))
             })
             .for_each(|(i, f, g)| {
                 println!("({})->({})\n  {}", i, f, Printer::guard_str(g));
-            })
+            });
+
+        // Unconditional +1 transitions
+        let uncond_trans = uncond
+            .into_iter()
+            .map(|(s, e)| format!("({}, {})", s, e))
+            .join(", ");
+        println!("unconditional:\n{}", uncond_trans);
     }
 
     /// Returns "runs" of FSM states where transitions happen unconditionally
-    fn calculate_runs(&self) -> Vec<Range> {
-        let mut unconditional_states = self
-            .transitions
-            .iter()
-            .filter_map(|(s, e, guard)| {
-                if *e == s + 1 && guard.is_true() {
-                    Some(*s)
-                } else {
-                    None
-                }
-            })
-            .sorted();
+    fn calculate_runs<I>(
+        transitions: I,
+    ) -> (Vec<Range>, Vec<(u64, u64, ir::Guard)>)
+    where
+        I: Iterator<Item = (u64, u64, ir::Guard)>,
+    {
+        // XXX(rachit): This only works for "true" guards and fails to compress if there is any
+        // other guard. For example, if there is a sequence under a conditional branch, this will
+        // fail to compress that sequence.
+        let (unconditional, conditional): (Vec<_>, Vec<_>) = transitions
+            .partition(|(s, e, guard)| *e == s + 1 && guard.is_true());
+
+        let mut unconditional =
+            unconditional.into_iter().map(|(s, _, _)| s).sorted();
 
         let mut ranges: Vec<Range> = Vec::new();
-        if let Some(mut cur_s) = unconditional_states.next() {
+        if let Some(mut cur_s) = unconditional.next() {
             let mut start_s = cur_s;
 
             // Extract the next state
-            for nxt_s in unconditional_states {
-                eprintln!("start: {}, cur: {}, nxt: {}", start_s, cur_s, nxt_s);
+            for nxt_s in unconditional {
                 if nxt_s != cur_s + 1 {
-                    if cur_s - start_s > 1 {
-                        ranges.push((start_s, cur_s));
-                    }
+                    ranges.push((start_s, cur_s + 1));
                     start_s = cur_s;
                 }
                 cur_s = nxt_s
             }
-            if cur_s - start_s > 1 {
-                ranges.push((start_s, cur_s));
-            }
+            ranges.push((start_s, cur_s + 1));
         }
 
-        eprintln!("{:?}", ranges);
+        (ranges, conditional)
+    }
 
-        ranges
+    fn range_guard(
+        builder: &mut ir::Builder,
+        s: u64,
+        e: u64,
+        fsm_size: u64,
+        fsm: &RRC<ir::Cell>,
+    ) -> ir::Guard {
+        let lb_const = builder.add_constant(s, fsm_size);
+        let ub_const = builder.add_constant(e, fsm_size);
+        if s == 0 {
+            guard!(fsm["out"]).lt(guard!(ub_const["out"]))
+        } else {
+            guard!(fsm["out"])
+                .ge(guard!(lb_const["out"]))
+                .and(guard!(fsm["out"]).lt(guard!(ub_const["out"])))
+        }
     }
 
     fn realize_schedule(self) -> RRC<ir::Group> {
-        self.calculate_runs();
         let final_state = self.last_state();
         let builder = self.builder;
+        let (unconditional, conditional) =
+            Self::calculate_runs(self.transitions.into_iter());
         let group = builder.add_group("tdst");
         let fsm_size = get_bit_width_from(final_state + 1);
 
@@ -125,18 +148,8 @@ impl<'a> Schedule<'a> {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|((lb, ub), mut assigns)| {
-                    let lb_const = builder.add_constant(lb, fsm_size);
-                    let ub_const = builder.add_constant(ub, fsm_size);
-                    let state_guard;
-                    if lb == 0 {
-                        state_guard =
-                            guard!(fsm["out"]).lt(guard!(ub_const["out"]));
-                    } else {
-                        state_guard =
-                            guard!(fsm["out"]).ge(guard!(lb_const["out"])).and(
-                                guard!(fsm["out"]).lt(guard!(ub_const["out"])),
-                            );
-                    };
+                    let state_guard =
+                        Self::range_guard(builder, lb, ub, fsm_size, &fsm);
                     assigns.iter_mut().for_each(|assign| {
                         assign.guard.update(|g| g.and(state_guard.clone()))
                     });
@@ -144,9 +157,9 @@ impl<'a> Schedule<'a> {
                 }),
         );
 
-        // Transition assignments.
+        // Conditional Transition assignments.
         group.borrow_mut().assignments.extend(
-            self.transitions
+            conditional
                 .into_iter()
                 .sorted_by_key(|(start, _, _)| *start)
                 .flat_map(|(start, end, guard)| {
@@ -155,34 +168,46 @@ impl<'a> Schedule<'a> {
                         let end_const = constant(end, fsm_size);
                     );
 
-                    let end_borrow = end_const.borrow();
                     let transition_guard = guard!(fsm["out"])
                         .eq(guard!(start_const["out"]))
                         .and(guard);
 
-                    vec![
-                        builder.build_assignment(
-                            fsm.borrow().get("in"),
-                            end_borrow.get("out"),
-                            transition_guard.clone(),
-                        ),
-                        builder.build_assignment(
-                            fsm.borrow().get("write_en"),
-                            signal_on.borrow().get("out"),
-                            transition_guard,
-                        ),
-                    ]
+                    let assigns = build_assignments!(builder;
+                        fsm["in"] = transition_guard ? end_const["out"];
+                        fsm["write_en"] = transition_guard ? signal_on["out"];
+                    );
+                    assigns
                 }),
         );
+        // Unconditional Transitions
+        if !unconditional.is_empty() {
+            let uncond_guard: ir::Guard = unconditional.into_iter().fold(
+                ir::Guard::True.not(),
+                |g, (s, e)| {
+                    let range =
+                        Self::range_guard(builder, s, e, fsm_size, &fsm);
+                    g.or(range)
+                },
+            );
+            structure!(builder;
+                let fsm_incr = prim std_add(fsm_size);
+                let one = constant(1, fsm_size);
+            );
+            let uncond_incr = build_assignments!(builder;
+                fsm_incr["left"] = ? fsm["out"];
+                fsm_incr["right"] = ? one["out"];
+                fsm["in"] = uncond_guard ? fsm_incr["out"];
+                fsm["write_en"] = uncond_guard ? signal_on["out"];
+            );
+            group.borrow_mut().assignments.extend(uncond_incr);
+        }
 
         // Done condition for group.
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
-        let done_assign = builder.build_assignment(
-            group.borrow().get("done"),
-            signal_on.borrow().get("out"),
-            last_guard.clone(),
+        let done_assign = build_assignments!(builder;
+            group["go"] = last_guard ? signal_on["out"];
         );
-        group.borrow_mut().assignments.push(done_assign);
+        group.borrow_mut().assignments.extend(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
         let mut reset_fsm = build_assignments!(builder;
