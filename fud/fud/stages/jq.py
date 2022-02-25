@@ -1,5 +1,5 @@
 from fud.stages import Stage, SourceType
-from fud.utils import shell, unwrap_or
+from fud.utils import shell
 
 
 class JqStage(Stage):
@@ -23,7 +23,7 @@ class JqStage(Stage):
         cmd = " ".join([
             config["stages", self.name, "exec"],
             f"-f {file}" if file else "",
-            f"\"{unwrap_or(expr, '')}\""
+            f"\"{expr}\"" if expr else ""
         ])
 
         @builder.step(description=cmd)

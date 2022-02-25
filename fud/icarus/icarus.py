@@ -141,7 +141,12 @@ class IcarusBaseStage(Stage):
                 "cycles": cycle_count,
                 "memories": convert2json(tmpdir.name, "out"),
             }
-            return StringIO(sjson.dumps(data, indent=2, sort_keys=True, use_decimal=True))
+
+            # Write to a file so we can return a stream.
+            out = Path(tmpdir.name) / "output.json"
+            with out.open("w") as f:
+                sjson.dump(data, f, indent=2, sort_keys=True, use_decimal=True)
+            return out.open("rb")
 
         @builder.step()
         def cleanup(tmpdir: SourceType.Directory):

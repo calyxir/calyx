@@ -173,6 +173,8 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
     assert isinstance(cmd, str)
     log.debug(cmd)
 
+    log.debug(f"Stdin is `{type(stdin)}`")
+
     # In debug mode, let stderr stream to the terminal (and the same
     # with stdout, unless we need it for capture). Otherwise, capture
     # stderr to a temporary file for error reporting (and stdout
