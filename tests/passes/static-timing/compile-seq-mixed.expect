@@ -4,7 +4,5 @@ enables:
 [1, 2)
   incr_r1[go] = 1'd1;
 transitions:
-(0)->(1)
-  1'b1
-(1)->(2)
-  1'b1
+unconditional:
+(0, 2)
