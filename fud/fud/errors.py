@@ -68,9 +68,11 @@ class NoPathFound(FudError):
         msg = (
             f"No way to convert input in stage `{source}' to "
             + f"stage `{destination}' "
-            + f"that go through stage(s) {', '.join(through)}"
-            if len(through) > 0
-            else ""
+            + (
+                f"that go through stage(s) {', '.join(through)}"
+                if len(through) > 0
+                else ""
+            )
         )
         super().__init__(msg)
 

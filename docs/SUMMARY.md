@@ -5,7 +5,8 @@
 - [Language Tutorial](./tutorial/language-tut.md)
   - [Multi-Component Designs](./lang/multi-component.md)
   - [Passing Memories by Reference](./lang/memories-by-reference.md)
-  - [Attributes](./lang/attributes.md)
+- [Attributes](./lang/attributes.md)
+- [Undefined Behaviors](./lang/undefined.md)
 
 # Running Calyx Programs
 

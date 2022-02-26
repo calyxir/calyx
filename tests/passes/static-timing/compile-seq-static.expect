@@ -6,9 +6,5 @@ enables:
 [2, 3)
   C[go] = 1'd1;
 transitions:
-(0)->(1)
-  1'b1
-(1)->(2)
-  1'b1
-(2)->(3)
-  1'b1
+unconditional:
+(0, 3)

@@ -111,7 +111,7 @@ impl AssignmentInterpreter {
         state: InterpreterState,
         done_signal: Option<RRC<ir::Port>>,
         assigns: A,
-        cont_assigns: &Rc<Vec<ir::Assignment>>,
+        cont_assigns: Rc<Vec<ir::Assignment>>,
     ) -> Self {
         let done_port = done_signal.as_ref().map(|x| x.as_raw());
         let assigns: AssignmentHolder = assigns.into();
@@ -134,7 +134,7 @@ impl AssignmentInterpreter {
             state,
             done_port,
             assigns,
-            cont_assigns: Rc::clone(cont_assigns),
+            cont_assigns,
             cells,
             val_changed: None,
             possible_ports,
