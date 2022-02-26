@@ -102,13 +102,13 @@ impl<T: GetAttributes> WithPos for T {
     }
 }
 
-impl<S> Index<&S> for Attributes
+impl<S> Index<S> for Attributes
 where
     S: AsRef<str> + std::fmt::Display,
 {
     type Output = u64;
 
-    fn index(&self, key: &S) -> &u64 {
+    fn index(&self, key: S) -> &u64 {
         self.get(&key)
             .unwrap_or_else(|| panic!("No key `{}` in attribute map", key))
     }

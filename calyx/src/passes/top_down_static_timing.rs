@@ -390,21 +390,49 @@ impl Schedule<'_> {
             .with_pos(&con.attributes));
         }
 
-        let mut body_exit = cur_state;
+        // Compute predecessors for the body
+        let preds =
+            self.calculate_states(&con.body, cur_state, &pre_guard.clone())?;
 
-        for _ in 0..*con.attributes.get("bound").unwrap() {
-            let preds = self.calculate_states(
-                &con.body,
-                body_exit,
-                &pre_guard.clone(),
-            )?;
+        // Final state in the body
+        let body_exit = preds
+            .iter()
+            .max_by_key(|(state, _)| state)
+            .unwrap_or(&(cur_state, pre_guard.clone()))
+            .0;
 
-            body_exit = preds
-                .iter()
-                .max_by_key(|(state, _)| state)
-                .unwrap_or(&(body_exit, pre_guard.clone()))
-                .0;
-        }
+        // Loop into the body using the @bound attribute
+        let bound = con.attributes["bound"];
+        let csize = get_bit_width_from(bound + 1);
+        structure!(self.builder;
+            let lt = prim std_lt(csize);
+            let c_incr = prim std_add(csize);
+            let counter = prim std_reg(csize);
+            let bound_c = constant(bound, csize);
+            let one = constant(1, csize);
+            let signal_on = constant(1, 1);
+        );
+
+        let not_exit = guard!(lt["out"]);
+
+        // Activate counter check and update assignments in the last state.
+        let assigns = build_assignments!(self.builder;
+            lt["left"] = ? counter["out"];
+            lt["right"] = ? bound_c["out"];
+            c_incr["left"] = not_exit ? counter["out"];
+            c_incr["right"] = not_exit ? one["out"];
+            counter["in"] = not_exit ? c_incr["out"];
+            counter["write_en"] = not_exit ? signal_on["out"];
+        );
+        self.enables
+            .entry((body_exit, body_exit + 1))
+            .or_default()
+            .extend(assigns);
+
+        // Transition from end to start if not exiting
+        self.transitions.insert((body_exit, cur_state, not_exit));
+
+        // Reset counter
 
         Ok(vec![(body_exit, pre_guard.clone())])
     }
