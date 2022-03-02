@@ -61,7 +61,7 @@ pub struct Opts {
     quiet: bool,
 
     /// serializes values using base64 encoding
-    #[argh(switch, long = "--raw")]
+    #[argh(switch, long = "raw")]
     raw: bool,
 
     #[argh(subcommand)]

@@ -83,7 +83,7 @@ class NumericType:
 
     def base_64_encode(self) -> bytes:
         return base64.standard_b64encode(
-            int(self.string_repr).to_bytes(math.ceil(self.width / 8), "little")
+            self.uint_repr.to_bytes(math.ceil(self.width / 8), "little")
         )
 
     def pretty_print(self):

@@ -1,3 +1,4 @@
+import base64
 from fud.stages import Stage, SourceType, Source
 from pathlib import Path
 import simplejson as sjson
@@ -126,6 +127,16 @@ class InterpreterStage(Stage):
             )
             transparent_shell(command)
 
+        @builder.step()
+        def parse_output(
+            output: SourceType.Stream, json_path: SourceType.UnTyped
+        ) -> SourceType.String:
+            """
+            Parses a raw interpreter output
+            """
+
+            return sjson.dumps(parse_from_json(output, json_path))
+
         # schedule
         tmpdir = mktmp()
 
@@ -138,7 +149,11 @@ class InterpreterStage(Stage):
             debug(input_data, tmpdir)
         else:
             result = interpret(input_data, tmpdir)
-            return result
+
+            if "--raw" in cmd:
+                return parse_output(result, Source(data_path, SourceType.UnTyped))
+            else:
+                return result
 
 
 def convert_to_json(output_dir, data, round_float_to_fixed):
@@ -187,3 +202,54 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
 
     with out_path.open("w") as f:
         sjson.dump(output_json, f, indent=2, use_decimal=True)
+
+
+def parse_from_json(output_data_str, original_data_file_path):
+    if original_data_file_path is not None:
+        with Path(original_data_file_path).open("r") as f:
+            orig = sjson.load(f)
+    else:
+        orig = None
+
+    output_data = sjson.load(output_data_str)
+
+    output_data = output_data["memories"]
+
+    def parse_entry(target, format_details):
+        numeric_type, is_signed, width = (
+            format_details
+            if format_details is not None
+            else (
+                "bitnum",
+                False,
+                None,
+            )
+        )
+
+        if isinstance(target, list):
+            return [parse_entry(x, (numeric_type, is_signed, width)) for x in target]
+        elif isinstance(target, str):
+            num = base64.standard_b64decode(target)
+            if numeric_type == "bitnum":
+                return int.from_bytes(num, "little", signed=is_signed)
+            else:
+                assert False, f"got {numeric_type}"
+
+    processed_output_data = dict()
+
+    for component, inner_dict in output_data.items():
+        inner_dict_output = dict()
+        for key, target in inner_dict.items():
+            if orig is not None:
+                format_details = (
+                    orig[key]["format"]["numeric_type"],
+                    orig[key]["format"]["is_signed"],
+                    orig[key]["format"]["width"],
+                )
+            else:
+                format_details = None
+
+            inner_dict_output[key] = parse_entry(target, format_details)
+        processed_output_data[component] = inner_dict_output
+
+    return processed_output_data
