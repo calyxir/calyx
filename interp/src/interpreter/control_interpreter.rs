@@ -562,13 +562,12 @@ impl Interpreter for IfInterpreter {
                         &self.ctrl_if.fbranch
                     };
 
-                    let mut interp = ControlInterpreter::new(
+                    let interp = ControlInterpreter::new(
                         target.clone(),
                         env,
                         &self.info,
                     );
 
-                    interp.step()?;
                     self.state = IfFsm::Body(interp);
 
                     Ok(())
@@ -734,12 +733,12 @@ impl Interpreter for WhileInterpreter {
                     if !branch_condition {
                         self.state = WhileFsm::Done(env);
                     } else {
-                        let mut interp = ControlInterpreter::new(
+                        let interp = ControlInterpreter::new(
                             self.wh.body.clone(),
                             env,
                             &self.info,
                         );
-                        interp.step()?;
+
                         self.state = WhileFsm::Body(interp);
                     }
                     Ok(())
