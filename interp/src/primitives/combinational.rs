@@ -189,7 +189,7 @@ comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdSub[WIDTH](left: WI
     let (_,new_right) = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
-            ("right".into(), &Value::from(1, WIDTH))],
+            ("right".into(), &Value::from(1_u32, WIDTH))],
         )?
         .into_iter()
         .next()
@@ -232,7 +232,7 @@ comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdFpSub[WIDTH, INT_WI
     let new_right = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
-            ("right".into(), &Value::from(1, WIDTH))],
+            ("right".into(), &Value::from(1_u32, WIDTH))],
         )?
         .into_iter()
         .next()
