@@ -26,7 +26,6 @@ enum StructuralOrControl {
     Structural(StructuralInterpreter),
     Control(ControlInterpreter),
     Nothing, // a default variant which is only ever around transiently
-    Env(InterpreterState), // state deferring construction of control interpreter
 }
 impl Default for StructuralOrControl {
     fn default() -> Self {
@@ -137,7 +136,16 @@ impl ComponentInterpreter {
         if control_is_empty(&control) {
             interp = StructuralInterpreter::from_component(comp, env).into();
         } else {
-            interp = StructuralOrControl::Env(env);
+            interp = ControlInterpreter::new(
+                control.clone(),
+                env,
+                &ComponentInfo::new(
+                    comp.continuous_assignments.clone(),
+                    input_hash_set.clone(),
+                    qin.clone(),
+                ),
+            )
+            .into();
         };
         let full_clone = qin.as_id();
 
@@ -226,33 +234,7 @@ impl Interpreter for ComponentInterpreter {
                     Ok(())
                 }
             }
-            StructuralOrControl::Env(_) => {
-                if go {
-                    // this is needed to take direct ownership of the env
-                    let env = if let StructuralOrControl::Env(env) =
-                        std::mem::take(&mut self.interp)
-                    {
-                        env
-                    } else {
-                        unreachable!()
-                    };
 
-                    let mut control_interp = ControlInterpreter::new(
-                        self.control_ref.clone(),
-                        env,
-                        &ComponentInfo::new(
-                            self.comp_ref.continuous_assignments.clone(),
-                            self.input_hash_set.clone(),
-                            self.qual_name.clone(),
-                        ),
-                    );
-                    let result = control_interp.step();
-                    self.interp = control_interp.into();
-                    result
-                } else {
-                    Ok(())
-                }
-            }
             _ => unreachable!(),
         }
     }
@@ -261,7 +243,6 @@ impl Interpreter for ComponentInterpreter {
         match self.interp {
             StructuralOrControl::Structural(s) => s.deconstruct(),
             StructuralOrControl::Control(c) => c.deconstruct(),
-            StructuralOrControl::Env(e) => Ok(e),
             _ => unreachable!(),
         }
     }
@@ -270,7 +251,6 @@ impl Interpreter for ComponentInterpreter {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.is_done(),
             StructuralOrControl::Control(c) => c.is_done(),
-            &StructuralOrControl::Env(_) => false,
             _ => unreachable!(),
         }
     }
@@ -279,27 +259,28 @@ impl Interpreter for ComponentInterpreter {
         match &self.interp {
             StructuralOrControl::Structural(s) => s.get_env(),
             StructuralOrControl::Control(c) => c.get_env(),
-            StructuralOrControl::Env(e) => StateView::SingleView(e),
-
             _ => unreachable!(),
         }
     }
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN> {
-        let sub_comps = self.get_env().sub_component_currently_executing();
+        if self.go_is_high() {
+            let sub_comps = self.get_env().sub_component_currently_executing();
 
-        // merge the sets
-        &sub_comps
-            | &(match &self.interp {
-                StructuralOrControl::Control(c) => {
-                    c.currently_executing_group()
-                }
+            // merge the sets
+            &sub_comps
+                | &(match &self.interp {
+                    StructuralOrControl::Control(c) => {
+                        c.currently_executing_group()
+                    }
 
-                StructuralOrControl::Env(_)
-                | StructuralOrControl::Structural(_) => HashSet::new(),
+                    StructuralOrControl::Structural(_) => HashSet::new(),
 
-                _ => unreachable!(),
-            })
+                    _ => unreachable!(),
+                })
+        } else {
+            HashSet::new()
+        }
     }
 
     fn get_env_mut(&mut self) -> crate::environment::MutStateView<'_> {
@@ -307,7 +288,6 @@ impl Interpreter for ComponentInterpreter {
             StructuralOrControl::Structural(s) => s.get_env_mut(),
             StructuralOrControl::Control(c) => c.get_env_mut(),
             StructuralOrControl::Nothing => unreachable!(),
-            StructuralOrControl::Env(e) => MutStateView::Single(e),
         }
     }
 
@@ -316,7 +296,6 @@ impl Interpreter for ComponentInterpreter {
             StructuralOrControl::Structural(s) => s.converge(),
             StructuralOrControl::Control(c) => c.converge(),
             StructuralOrControl::Nothing => unreachable!(),
-            StructuralOrControl::Env(_) => Ok(()),
         }
     }
 
@@ -325,14 +304,6 @@ impl Interpreter for ComponentInterpreter {
             StructuralOrControl::Structural(s) => s.run(),
             StructuralOrControl::Control(c) => c.run(),
             StructuralOrControl::Nothing => unreachable!(),
-            StructuralOrControl::Env(_) => {
-                if self.go_is_high() {
-                    self.step()?;
-                    self.run()
-                } else {
-                    Ok(())
-                }
-            }
         }
     }
 
@@ -344,8 +315,7 @@ impl Interpreter for ComponentInterpreter {
                     vec![]
                 }
                 StructuralOrControl::Control(c) => c.get_active_tree(),
-                StructuralOrControl::Env(_) => vec![],
-                StructuralOrControl::Nothing => todo!(),
+                StructuralOrControl::Nothing => unreachable!(),
             };
 
             let env = self.get_env();
@@ -466,7 +436,16 @@ impl Primitive for ComponentInterpreter {
             }
             StructuralOrControl::Control(control) => {
                 let env = control.deconstruct()?;
-                StructuralOrControl::Env(env)
+                let mut control_interp = ControlInterpreter::new(
+                    self.control_ref.clone(),
+                    env,
+                    &ComponentInfo::new(
+                        self.comp_ref.continuous_assignments.clone(),
+                        self.input_hash_set.clone(),
+                        self.qual_name.clone(),
+                    ),
+                );
+                control_interp.into()
             }
             _ => unreachable!(),
         };
