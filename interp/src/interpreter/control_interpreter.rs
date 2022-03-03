@@ -550,7 +550,7 @@ impl Interpreter for IfInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
             IfFsm::ConditionWith(_) => {
-                if let IfFsm::ConditionWith(mut interp) =
+                if let IfFsm::ConditionWith(interp) =
                     std::mem::take(&mut self.state)
                 {
                     let branch_condition =

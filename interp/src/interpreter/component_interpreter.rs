@@ -283,7 +283,7 @@ impl Interpreter for ComponentInterpreter {
         }
     }
 
-    fn get_env_mut(&mut self) -> crate::environment::MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         match &mut self.interp {
             StructuralOrControl::Structural(s) => s.get_env_mut(),
             StructuralOrControl::Control(c) => c.get_env_mut(),
@@ -436,7 +436,7 @@ impl Primitive for ComponentInterpreter {
             }
             StructuralOrControl::Control(control) => {
                 let env = control.deconstruct()?;
-                let mut control_interp = ControlInterpreter::new(
+                let control_interp = ControlInterpreter::new(
                     self.control_ref.clone(),
                     env,
                     &ComponentInfo::new(
