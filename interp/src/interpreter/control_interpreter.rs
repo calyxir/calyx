@@ -498,8 +498,9 @@ impl Interpreter for ParInterpreter {
 }
 
 enum IfFsm {
-    Err, // transient error state
-    Start(InterpreterState),
+    Err,                              // transient error state
+    ConditionWith(EnableInterpreter), // Cond with comb group
+    ConditionPort(InterpreterState),  // cond without
     Body(ControlInterpreter),
     Done(InterpreterState),
 }
@@ -522,7 +523,20 @@ impl IfInterpreter {
         env: InterpreterState,
         info: ComponentInfo,
     ) -> Self {
-        let state = IfFsm::Start(env);
+        let state = if let Some(grp) = &ctrl_if.cond {
+            let grp_ref = grp.borrow();
+            let name = Some(grp_ref.name().clone());
+            let enable = EnableInterpreter::new(
+                grp,
+                name,
+                env,
+                info.continuous_assignments.clone(),
+                &info.qin,
+            );
+            IfFsm::ConditionWith(enable)
+        } else {
+            IfFsm::ConditionPort(env)
+        };
 
         Self {
             state,
@@ -535,26 +549,13 @@ impl IfInterpreter {
 impl Interpreter for IfInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            IfFsm::Start(_) => {
-                if let IfFsm::Start(mut env) = std::mem::take(&mut self.state) {
-                    let branch_condition;
-
-                    if let Some(cond) = &self.ctrl_if.cond {
-                        let mut interp = EnableInterpreter::new(
-                            cond,
-                            Some(cond.borrow().name().clone()),
-                            env,
-                            self.info.continuous_assignments.clone(),
-                            &self.info.qin,
-                        );
-                        interp.converge()?;
-                        branch_condition =
-                            interp.get(&self.ctrl_if.port).as_bool();
-                        env = interp.deconstruct()?;
-                    } else {
-                        branch_condition =
-                            env.get_from_port(&self.ctrl_if.port).as_bool();
-                    }
+            IfFsm::ConditionWith(_) => {
+                if let IfFsm::ConditionWith(mut interp) =
+                    std::mem::take(&mut self.state)
+                {
+                    let branch_condition =
+                        interp.get(&self.ctrl_if.port).as_bool();
+                    let env = interp.deconstruct()?;
 
                     let target = if branch_condition {
                         &self.ctrl_if.tbranch
@@ -575,8 +576,32 @@ impl Interpreter for IfInterpreter {
                     unreachable!();
                 }
             }
+            IfFsm::ConditionPort(_) => {
+                if let IfFsm::ConditionPort(env) =
+                    std::mem::take(&mut self.state)
+                {
+                    let branch_condition =
+                        env.get_from_port(&self.ctrl_if.port).as_bool();
+
+                    let target = if branch_condition {
+                        &self.ctrl_if.tbranch
+                    } else {
+                        &self.ctrl_if.fbranch
+                    };
+
+                    let interp = ControlInterpreter::new(
+                        target.clone(),
+                        env,
+                        &self.info,
+                    );
+
+                    self.state = IfFsm::Body(interp);
+                    Ok(())
+                } else {
+                    unreachable!();
+                }
+            }
             IfFsm::Body(b_interp) => {
-                b_interp.step()?;
                 if b_interp.is_done() {
                     if let IfFsm::Body(b_interp) =
                         std::mem::take(&mut self.state)
@@ -586,6 +611,8 @@ impl Interpreter for IfInterpreter {
                     } else {
                         unreachable!();
                     }
+                } else {
+                    b_interp.step()?;
                 }
                 Ok(())
             }
@@ -609,7 +636,8 @@ impl Interpreter for IfInterpreter {
 
     fn get_env(&self) -> StateView<'_> {
         match &self.state {
-            IfFsm::Done(e) | IfFsm::Start(e) => e.into(),
+            IfFsm::Done(e) | IfFsm::ConditionPort(e) => e.into(),
+            IfFsm::ConditionWith(i) => i.get_env(),
             IfFsm::Body(b) => b.get_env(),
             IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
@@ -617,7 +645,8 @@ impl Interpreter for IfInterpreter {
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         match &self.state {
-            IfFsm::Done(_) | IfFsm::Start(_) => HashSet::new(),
+            IfFsm::Done(_) | IfFsm::ConditionPort(_) => HashSet::new(),
+            IfFsm::ConditionWith(i) => i.currently_executing_group(),
             IfFsm::Body(b) => b.currently_executing_group(),
             IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
@@ -625,7 +654,8 @@ impl Interpreter for IfInterpreter {
 
     fn get_env_mut(&mut self) -> MutStateView<'_> {
         match &mut self.state {
-            IfFsm::Done(e) | IfFsm::Start(e) => e.into(),
+            IfFsm::Done(e) | IfFsm::ConditionPort(e) => e.into(),
+            IfFsm::ConditionWith(i) => i.get_env_mut(),
             IfFsm::Body(b) => b.get_env_mut(),
             IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
@@ -635,9 +665,9 @@ impl Interpreter for IfInterpreter {
         match &mut self.state {
             IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
             IfFsm::Body(b_interp) => b_interp.converge(),
-            IfFsm::Start(_) | IfFsm::Done(_) => {
+            IfFsm::ConditionPort(_) | IfFsm::Done(_) => {
                 let is_done = matches!(self.state, IfFsm::Done(_));
-                if let IfFsm::Start(env) | IfFsm::Done(env) =
+                if let IfFsm::ConditionPort(env) | IfFsm::Done(env) =
                     std::mem::take(&mut self.state)
                 {
                     let mut interp = EnableInterpreter::new(
@@ -653,19 +683,21 @@ impl Interpreter for IfInterpreter {
                     if is_done {
                         self.state = IfFsm::Done(env)
                     } else {
-                        self.state = IfFsm::Start(env)
+                        self.state = IfFsm::ConditionPort(env)
                     }
                     Ok(())
                 } else {
                     unreachable!()
                 }
             }
+            IfFsm::ConditionWith(interp) => interp.converge(),
         }
     }
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
         match &self.state {
-            IfFsm::Done(_) | IfFsm::Start(_) => Vec::new(),
+            IfFsm::Done(_) | IfFsm::ConditionPort(_) => Vec::new(),
+            IfFsm::ConditionWith(i) => i.get_active_tree(),
             IfFsm::Body(b) => b.get_active_tree(),
             IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
