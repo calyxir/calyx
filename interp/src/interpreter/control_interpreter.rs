@@ -358,10 +358,29 @@ impl Interpreter for SeqInterpreter {
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        if let SeqFsm::Iterating(i, _) = &mut self.internal_state {
-            i.converge()
-        } else {
-            Ok(())
+        match &mut self.internal_state {
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
+            SeqFsm::Iterating(i, _) => i.converge(),
+            SeqFsm::Done(_) => {
+                if let SeqFsm::Done(env) = std::mem::take(&mut self.internal_state) {
+                    let mut interp = EnableInterpreter::new(
+                        vec![],
+                        None,
+                        env,
+                        self.info.continuous_assignments.clone(),
+                        &self.info.qin
+                    );
+
+                    interp.converge()?;
+
+                    let env = interp.deconstruct()?;
+
+                    self.internal_state = SeqFsm::Done(env);
+                    Ok(())
+                } else {
+                    unreachable!()
+                }
+            },
         }
     }
 
@@ -498,9 +517,9 @@ impl Interpreter for ParInterpreter {
 }
 
 enum IfFsm {
-    Err,                              // transient error state
-    ConditionWith(EnableInterpreter), // Cond with comb group
-    ConditionPort(InterpreterState),  // cond without
+    Err,                                   // transient error state
+    ConditionWith(Box<EnableInterpreter>), // Cond with comb group
+    ConditionPort(InterpreterState),       // cond without
     Body(ControlInterpreter),
     Done(InterpreterState),
 }
@@ -533,7 +552,7 @@ impl IfInterpreter {
                 info.continuous_assignments.clone(),
                 &info.qin,
             );
-            IfFsm::ConditionWith(enable)
+            IfFsm::ConditionWith(enable.into())
         } else {
             IfFsm::ConditionPort(env)
         };
@@ -550,11 +569,13 @@ impl Interpreter for IfInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
             IfFsm::ConditionWith(_) => {
-                if let IfFsm::ConditionWith(interp) =
+                if let IfFsm::ConditionWith(mut interp) =
                     std::mem::take(&mut self.state)
                 {
+                    interp.converge()?;
                     let branch_condition =
                         interp.get(&self.ctrl_if.port).as_bool();
+
                     let env = interp.deconstruct()?;
 
                     let target = if branch_condition {
@@ -618,7 +639,7 @@ impl Interpreter for IfInterpreter {
             }
             IfFsm::Done(_) => Ok(()),
             IfFsm::Err => {
-                unimplemented!("There is an error in the If state transition. Please report this.")
+                unreachable!("There is an error in the If state transition. Please report this.")
             }
         }
     }
@@ -678,6 +699,7 @@ impl Interpreter for IfInterpreter {
                         &self.info.qin,
                     );
                     interp.converge()?;
+
                     let env = interp.deconstruct()?;
 
                     if is_done {
@@ -779,7 +801,6 @@ impl Interpreter for WhileInterpreter {
                 }
             }
             WhileFsm::Body(b) => {
-                b.step()?;
                 if b.is_done() {
                     if let WhileFsm::Body(b) = std::mem::take(&mut self.state) {
                         let env = b.deconstruct()?;
@@ -787,10 +808,12 @@ impl Interpreter for WhileInterpreter {
                     } else {
                         unreachable!()
                     }
+                } else {
+                    b.step()?;
                 }
                 Ok(())
             }
-            WhileFsm::Done(_) => Ok(()),
+            WhileFsm::Done(_) => unreachable!("This probably shouldn't happen"),
         }
     }
 
