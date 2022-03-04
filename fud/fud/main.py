@@ -131,6 +131,7 @@ def register_stages(registry):
     # Jq
     registry.register(jq.JqStage("vcd_json"))
     registry.register(jq.JqStage("dat"))
+    registry.register(jq.JqStage("interpreter-out"))
 
     # Xilinx
     registry.register(xilinx.XilinxStage())

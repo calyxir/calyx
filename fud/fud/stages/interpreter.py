@@ -129,13 +129,21 @@ class InterpreterStage(Stage):
 
         @builder.step()
         def parse_output(
-            output: SourceType.Stream, json_path: SourceType.UnTyped
-        ) -> SourceType.String:
+            output: SourceType.Stream,
+            json_path: SourceType.UnTyped,
+            tmpdir: SourceType.Directory,
+        ) -> SourceType.Stream:
             """
             Parses a raw interpreter output
             """
 
-            return sjson.dumps(parse_from_json(output, json_path))
+            out_path = Path(tmpdir.name) / "output.json"
+            output = parse_from_json(output, json_path)
+
+            with out_path.open("w") as f:
+                sjson.dump(output, f, indent=2, sort_keys=True, use_decimal=True)
+
+            return out_path.open("rb")
 
         # schedule
         tmpdir = mktmp()
@@ -151,7 +159,9 @@ class InterpreterStage(Stage):
             result = interpret(input_data, tmpdir)
 
             if "--raw" in cmd:
-                return parse_output(result, Source(data_path, SourceType.UnTyped))
+                return parse_output(
+                    result, Source(data_path, SourceType.UnTyped), tmpdir
+                )
             else:
                 return result
 
@@ -216,24 +226,43 @@ def parse_from_json(output_data_str, original_data_file_path):
     output_data = output_data["memories"]
 
     def parse_entry(target, format_details):
-        numeric_type, is_signed, width = (
+        numeric_type, is_signed, (width, frac_width) = (
             format_details
             if format_details is not None
-            else (
-                "bitnum",
-                False,
-                None,
-            )
+            else ("bitnum", False, (None, None))
         )
 
         if isinstance(target, list):
-            return [parse_entry(x, (numeric_type, is_signed, width)) for x in target]
+            return [
+                parse_entry(x, (numeric_type, is_signed, (width, frac_width)))
+                for x in target
+            ]
         elif isinstance(target, str):
             num = base64.standard_b64decode(target)
+            int_rep = int.from_bytes(num, "little", signed=is_signed)
+
+            if int_rep > 0 and (int_rep & (1 << (width - 1))) and is_signed:
+                int_rep = -(2 ** (width - 1)) + (int_rep ^ (1 << (width - 1)))
+
             if numeric_type == "bitnum":
-                return int.from_bytes(num, "little", signed=is_signed)
+                return int_rep
+            elif numeric_type == "fixed_point":
+                bin_str = bin(int.from_bytes(num, "little", signed=False))
+                bin_len = len(bin_str[2:])
+                if bin_len < width:
+                    bin_str = "0b" + ("0" * (width - bin_len)) + bin_str[2:]
+
+                assert len(bin_str) == width + 2
+
+                fp = FixedPoint(
+                    bin_str,
+                    width,
+                    width - frac_width,
+                    is_signed,
+                )
+                return fp.str_value()
             else:
-                assert False, f"got {numeric_type}"
+                return False, f"got {numeric_type}"
 
     processed_output_data = dict()
 
@@ -241,11 +270,23 @@ def parse_from_json(output_data_str, original_data_file_path):
         inner_dict_output = dict()
         for key, target in inner_dict.items():
             if orig is not None:
+                width = orig[key]["format"].get("width")
+                width = (
+                    width
+                    if width is not None
+                    else orig[key]["format"]["frac_width"]
+                    + orig[key]["format"]["int_width"]
+                )
+
                 format_details = (
                     orig[key]["format"]["numeric_type"],
                     orig[key]["format"]["is_signed"],
-                    orig[key]["format"]["width"],
+                    (
+                        width,
+                        orig[key]["format"].get("frac_width"),
+                    ),
                 )
+                assert format_details[2][0] is not None
             else:
                 format_details = None
 
