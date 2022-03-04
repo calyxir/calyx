@@ -23,7 +23,7 @@ use calyx::ir::{self, Port, RRC};
 use std::rc::Rc;
 
 enum StructuralOrControl {
-    Structural(StructuralInterpreter),
+    Structural(Box<StructuralInterpreter>),
     Control(ControlInterpreter),
     Nothing, // a default variant which is only ever around transiently
 }
@@ -45,7 +45,7 @@ impl StructuralOrControl {
 
 impl From<StructuralInterpreter> for StructuralOrControl {
     fn from(input: StructuralInterpreter) -> Self {
-        Self::Structural(input)
+        Self::Structural(input.into())
     }
 }
 
