@@ -8,6 +8,7 @@ use crate::validate;
 use crate::values::Value;
 use calyx::ir;
 use ibig::ops::RemEuclid;
+use ibig::IBig;
 
 const DECIMAL_PRINT_WIDTH: usize = 7;
 
@@ -255,7 +256,12 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 };
                 let r = if SIGNED {
                     Value::from(
-                        left.as_signed().rem_euclid(right.as_signed()),
+                        left.as_signed()
+                            - right.as_signed()
+                                * floored_division(
+                                    &left.as_signed(),
+                                    &right.as_signed(),
+                                ),
                         self.width,
                     )
                 } else {
@@ -1855,7 +1861,12 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
                             self.width,
                         ),
                         Value::from(
-                            left.as_signed().rem_euclid(right.as_signed()),
+                            left.as_signed()
+                                - right.as_signed()
+                                    * floored_division(
+                                        &left.as_signed(),
+                                        &right.as_signed(),
+                                    ),
                             self.width,
                         ),
                     )
@@ -1937,5 +1948,17 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
             (ir::Id::from("out_remainder"), self.remainder.clone()),
             (ir::Id::from("done"), Value::bit_low()),
         ])
+    }
+}
+
+fn floored_division(left: &IBig, right: &IBig) -> IBig {
+    let div = left / right;
+
+    if (div.signum() == (-1).into() || div.signum() == 0.into())
+        && (left != &(&div * right))
+    {
+        div - 1_i32
+    } else {
+        div
     }
 }
