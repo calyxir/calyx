@@ -226,15 +226,17 @@ def parse_from_json(output_data_str, original_data_file_path):
     output_data = output_data["memories"]
 
     def parse_entry(target, format_details):
-        numeric_type, is_signed, (width, frac_width) = (
+        numeric_type, is_signed, (width, int_width, frac_width) = (
             format_details
             if format_details is not None
-            else ("bitnum", False, (None, None))
+            else ("bitnum", False, (None, None, None))
         )
 
         if isinstance(target, list):
             return [
-                parse_entry(x, (numeric_type, is_signed, (width, frac_width)))
+                parse_entry(
+                    x, (numeric_type, is_signed, (width, int_width, frac_width))
+                )
                 for x in target
             ]
         elif isinstance(target, str):
@@ -257,7 +259,7 @@ def parse_from_json(output_data_str, original_data_file_path):
                 fp = FixedPoint(
                     bin_str,
                     width,
-                    width - frac_width,
+                    int_width,
                     is_signed,
                 )
                 return fp.str_value()
@@ -277,14 +279,20 @@ def parse_from_json(output_data_str, original_data_file_path):
                     else orig[key]["format"]["frac_width"]
                     + orig[key]["format"]["int_width"]
                 )
+                int_width = orig[key]["format"].get("int_width")
+                frac_width = orig[key]["format"].get("frac_width")
+
+                if int_width is None and frac_width is None:
+                    pass
+                elif int_width is None:
+                    int_width = width - frac_width
+                elif frac_width is None:
+                    frac_width = width - int_width
 
                 format_details = (
                     orig[key]["format"]["numeric_type"],
                     orig[key]["format"]["is_signed"],
-                    (
-                        width,
-                        orig[key]["format"].get("frac_width"),
-                    ),
+                    (width, int_width, frac_width),
                 )
                 assert format_details[2][0] is not None
             else:
