@@ -302,7 +302,7 @@ impl Interpreter for SeqInterpreter {
 
                     if idx < self.seq.stmts.len() {
                         let next = self.seq.stmts[idx].clone();
-                        let mut interp =
+                        let interp =
                             ControlInterpreter::new(next, env, &self.info);
                         self.internal_state =
                             SeqFsm::Iterating(interp, idx + 1);
