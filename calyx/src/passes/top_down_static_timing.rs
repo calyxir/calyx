@@ -15,12 +15,11 @@ use std::rc::Rc;
 /// A range of FSM states.
 type Range = (u64, u64);
 
-/// A schedule keeps track of two things:
+/// Represents an FSM that increments every cycle with some non-incrementing transitions. A
+/// schedule keeps track of two things:
 /// 1. `enables`: Specifies which groups are active during a range of
 ///     FSM states.
-/// 2. `transitions`: Transitions for the FSM registers. A static FSM normally
-///    transitions from `state` to `state + 1`. However, special transitions
-///    are needed for loops, conditionals, and reseting the FSM.
+/// 2. `transitions`: Non-increment transitions for the FSM.
 struct Schedule<'a> {
     enables: HashMap<Range, Vec<ir::Assignment>>,
     transitions: HashSet<(u64, u64, ir::Guard)>,
@@ -37,21 +36,19 @@ impl<'a> Schedule<'a> {
     }
 
     fn last_state(&self) -> u64 {
-        assert!(!self.transitions.is_empty(), "Transitions are empty");
-        self.transitions.iter().map(|(_, e, _)| *e).max().unwrap()
+        assert!(!self.enables.is_empty(), "Transitions are empty");
+        self.enables.keys().map(|(_, e)| *e).max().unwrap()
     }
 
     fn display(&self) {
         let out = &mut std::io::stdout();
-        let (uncond, cond) =
-            Self::calculate_runs(self.transitions.iter().cloned());
 
         println!("enables:");
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .for_each(|((start, end), assigns)| {
-                println!("[{}, {})", start, end);
+            .for_each(|((start, _), assigns)| {
+                println!("{}:", start);
                 assigns.iter().for_each(|assign| {
                     print!("  ");
                     Printer::write_assignment(assign, 0, out)
@@ -59,55 +56,20 @@ impl<'a> Schedule<'a> {
                     println!();
                 })
             });
+
         println!("transitions:");
-        cond.iter()
+        self.transitions
+            .iter()
             .sorted_by(|(k1, k2, g1), (k3, k4, g2)| {
                 k1.cmp(k3).then_with(|| k2.cmp(k4)).then_with(|| g1.cmp(g2))
             })
             .for_each(|(i, f, g)| {
-                println!("({})->({})\n  {}", i, f, Printer::guard_str(g));
+                println!("  ({}, {}):  {}", i, f, Printer::guard_str(g));
             });
 
         // Unconditional +1 transitions
-        let uncond_trans = uncond
-            .into_iter()
-            .map(|(s, e)| format!("({}, {})", s, e))
-            .join(", ");
-        println!("unconditional:\n{}", uncond_trans);
-    }
-
-    /// Returns "runs" of FSM states where transitions happen unconditionally
-    fn calculate_runs<I>(
-        transitions: I,
-    ) -> (Vec<Range>, Vec<(u64, u64, ir::Guard)>)
-    where
-        I: Iterator<Item = (u64, u64, ir::Guard)>,
-    {
-        // XXX(rachit): This only works for "true" guards and fails to compress if there is any
-        // other guard. For example, if there is a sequence under a conditional branch, this will
-        // fail to compress that sequence.
-        let (unconditional, conditional): (Vec<_>, Vec<_>) = transitions
-            .partition(|(s, e, guard)| *e == s + 1 && guard.is_true());
-
-        let mut unconditional =
-            unconditional.into_iter().map(|(s, _, _)| s).sorted();
-
-        let mut ranges: Vec<Range> = Vec::new();
-        if let Some(mut cur_s) = unconditional.next() {
-            let mut start_s = cur_s;
-
-            // Extract the next state
-            for nxt_s in unconditional {
-                if nxt_s != cur_s + 1 {
-                    ranges.push((start_s, cur_s + 1));
-                    start_s = cur_s;
-                }
-                cur_s = nxt_s
-            }
-            ranges.push((start_s, cur_s + 1));
-        }
-
-        (ranges, conditional)
+        let last_state = self.last_state();
+        println!("final_state: {}", last_state);
     }
 
     fn range_guard(
@@ -131,8 +93,6 @@ impl<'a> Schedule<'a> {
     fn realize_schedule(self) -> RRC<ir::Group> {
         let final_state = self.last_state();
         let builder = self.builder;
-        let (unconditional, conditional) =
-            Self::calculate_runs(self.transitions.into_iter());
         let group = builder.add_group("tdst");
         let fsm_size = get_bit_width_from(final_state + 1);
 
@@ -158,9 +118,36 @@ impl<'a> Schedule<'a> {
                 }),
         );
 
-        // Conditional Transition assignments.
+        // Condition for incrementing transitions. In these states, do not transition using
+        // increment.
+        let max_val = final_state;
+        let mv = builder.add_constant(max_val, fsm_size);
+        let lt_guard = guard!(fsm["out"]).lt(guard!(mv["out"]));
+        let not_transition = self
+            .transitions
+            .iter()
+            .map(|(s, _, _)| {
+                let start_const =
+                    builder.add_constant(*s, fsm_size).borrow().get("out");
+                guard!(fsm["out"]).neq(start_const.into())
+            })
+            .fold(lt_guard, |acc, g| acc & g);
+
+        structure!(builder;
+            let fsm_incr = prim std_add(fsm_size);
+            let one = constant(1, fsm_size);
+        );
+        let uncond_incr = build_assignments!(builder;
+            fsm_incr["left"] = ? fsm["out"];
+            fsm_incr["right"] = ? one["out"];
+            fsm["in"] = not_transition ? fsm_incr["out"];
+            fsm["write_en"] = not_transition ? signal_on["out"];
+        );
+        group.borrow_mut().assignments.extend(uncond_incr);
+
+        // Non-incrementing transitions
         group.borrow_mut().assignments.extend(
-            conditional
+            self.transitions
                 .into_iter()
                 .sorted_by_key(|(start, _, _)| *start)
                 .flat_map(|(start, end, guard)| {
@@ -180,28 +167,6 @@ impl<'a> Schedule<'a> {
                     assigns
                 }),
         );
-        // Unconditional Transitions
-        if !unconditional.is_empty() {
-            let uncond_guard: ir::Guard = unconditional.into_iter().fold(
-                ir::Guard::True.not(),
-                |g, (s, e)| {
-                    let range =
-                        Self::range_guard(builder, s, e, fsm_size, &fsm);
-                    g.or(range)
-                },
-            );
-            structure!(builder;
-                let fsm_incr = prim std_add(fsm_size);
-                let one = constant(1, fsm_size);
-            );
-            let uncond_incr = build_assignments!(builder;
-                fsm_incr["left"] = ? fsm["out"];
-                fsm_incr["right"] = ? one["out"];
-                fsm["in"] = uncond_guard ? fsm_incr["out"];
-                fsm["write_en"] = uncond_guard ? signal_on["out"];
-            );
-            group.borrow_mut().assignments.extend(uncond_incr);
-        }
 
         // Done condition for group.
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
@@ -224,11 +189,6 @@ impl<'a> Schedule<'a> {
     }
 }
 
-/// Represents an edge from a predeccesor to the current control node.
-/// The `u64` represents the FSM state of the predeccesor and the guard needs
-/// to be true for the predeccesor to transition to the current state.
-type PredEdge = (u64, ir::Guard);
-
 impl Schedule<'_> {
     fn calculate_states(
         &mut self,
@@ -237,7 +197,7 @@ impl Schedule<'_> {
         cur_state: u64,
         // Additional guard for this condition.
         pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
+    ) -> CalyxResult<u64> {
         match con {
         ir::Control::Enable(e) => {
             self.enable_calculate_states(e, cur_state, pre_guard)
@@ -263,47 +223,18 @@ impl Schedule<'_> {
     }
     }
 
-    /// Helper to add seqential transitions and return the next state.
-    fn seq_add_transitions(
-        &mut self,
-        preds: &[PredEdge],
-        default_pred: &PredEdge,
-    ) -> u64 {
-        // Compute the new start state from the latest predecessor.
-        let new_state = preds
-            .iter()
-            .max_by_key(|(state, _)| state)
-            .unwrap_or(default_pred)
-            .0;
-
-        // Add transitions from each predecessor to the new state.
-        self.transitions
-            .extend(preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())));
-
-        // Return the new state.
-        new_state
-    }
-
     fn seq_calculate_states(
         &mut self,
         con: &ir::Seq,
         cur_state: u64,
         pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        let mut preds = vec![];
-        let default_pred = (cur_state, pre_guard.clone());
-        for stmt in &con.stmts {
-            // Add transition(s) from last state to the new state.
-            let new_state = self.seq_add_transitions(&preds, &default_pred);
+    ) -> CalyxResult<u64> {
+        // Compute the transitions by passing along the state to each child statement.
+        let nxt_st = con.stmts.iter().try_fold(cur_state, |st, stmt| {
+            self.calculate_states(stmt, st, pre_guard)
+        })?;
 
-            // Recurse into statement and save new predecessors.
-            preds = self.calculate_states(stmt, new_state, pre_guard)?;
-        }
-
-        // Add final transition(s) from the last statement.
-        self.seq_add_transitions(&preds, &default_pred);
-
-        Ok(preds)
+        Ok(nxt_st)
     }
 
     fn par_calculate_states(
@@ -311,35 +242,16 @@ impl Schedule<'_> {
         con: &ir::Par,
         cur_state: u64,
         pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        let mut max_state = 0;
-        for stmt in &con.stmts {
-            let preds = self.calculate_states(stmt, cur_state, pre_guard)?;
-
-            // Compute the start state from the latest predecessor.
-            let inner_max_state =
-                preds.iter().max_by_key(|(state, _)| state).unwrap().0;
-
-            // Keep track of the latest predecessor state from any statement.
-            if inner_max_state > max_state {
-                max_state = inner_max_state;
-            }
-        }
-
-        // Add transitions from the cur_state up to the max_state.
-        if cur_state + 1 == max_state {
-            self.transitions
-                .insert((cur_state, max_state, pre_guard.clone()));
-        } else {
-            let starts = cur_state..max_state - 1;
-            let ends = cur_state + 1..max_state;
-            self.transitions.extend(
-                starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())),
-            );
-        }
+    ) -> CalyxResult<u64> {
+        let max_state_res: CalyxResult<u64> =
+            con.stmts.iter().try_fold(u64::MIN, |max, stmt| {
+                let st = self.calculate_states(stmt, cur_state, pre_guard)?;
+                Ok(if st > max { st } else { max })
+            });
+        let max_state = max_state_res?;
 
         // Return a single predecessor for the last state.
-        Ok(vec![(max_state, pre_guard.clone())])
+        Ok(max_state)
     }
 
     fn if_calculate_states(
@@ -347,7 +259,7 @@ impl Schedule<'_> {
         con: &ir::If,
         cur_state: u64,
         pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
+    ) -> CalyxResult<u64> {
         if con.cond.is_some() {
             return Err(Error::malformed_structure(
                 format!("{}: Found group `{}` in with position of if. This should have compiled away.",
@@ -357,23 +269,24 @@ impl Schedule<'_> {
         }
 
         let port_guard: ir::Guard = Rc::clone(&con.port).into();
-        let mut preds = vec![];
 
         // Then branch.
-        preds.extend(self.calculate_states(
+        let tr_end = self.calculate_states(
             &con.tbranch,
             cur_state,
             &pre_guard.clone().and(port_guard.clone()),
-        )?);
+        )?;
 
         // Else branch.
-        preds.extend(self.calculate_states(
+        let fal_end = self.calculate_states(
             &con.fbranch,
             cur_state,
             &pre_guard.clone().and(port_guard.not()),
-        )?);
+        )?;
 
-        Ok(preds)
+        let max = std::cmp::max(tr_end, fal_end);
+
+        Ok(max)
     }
 
     fn while_calculate_states(
@@ -381,7 +294,7 @@ impl Schedule<'_> {
         con: &ir::While,
         cur_state: u64,
         pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
+    ) -> CalyxResult<u64> {
         if con.cond.is_some() {
             return Err(Error::malformed_structure(
                 format!("{}: Found group `{}` in with position of while. This should have compiled away.",
@@ -393,20 +306,14 @@ impl Schedule<'_> {
         let mut body_exit = cur_state;
 
         for _ in 0..*con.attributes.get("bound").unwrap() {
-            let preds = self.calculate_states(
+            body_exit = self.calculate_states(
                 &con.body,
                 body_exit,
                 &pre_guard.clone(),
             )?;
-
-            body_exit = preds
-                .iter()
-                .max_by_key(|(state, _)| state)
-                .unwrap_or(&(body_exit, pre_guard.clone()))
-                .0;
         }
 
-        Ok(vec![(body_exit, pre_guard.clone())])
+        Ok(body_exit)
     }
 
     /// Compiled to:
@@ -420,7 +327,7 @@ impl Schedule<'_> {
         cur_state: u64,
         // Additional guard for this condition.
         pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
+    ) -> CalyxResult<u64> {
         let time_option = con.attributes.get("static");
         if time_option.is_none() {
             return Err(Error::pass_assumption(
@@ -443,14 +350,7 @@ impl Schedule<'_> {
         // Enable when in range of group's latency.
         self.enables.entry(range).or_default().append(&mut assigns);
 
-        // Add any necessary internal transitions. In the case time is 1 and there
-        // is a single transition, it is taken care of by the parent.
-        let starts = cur_state..cur_state + time - 1;
-        let ends = cur_state + 1..cur_state + time;
-        self.transitions
-            .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
-
-        Ok(vec![(cur_state + time, pre_guard.clone())])
+        Ok(cur_state + time)
     }
 }
 
@@ -459,8 +359,12 @@ impl Schedule<'_> {
 /// control programs nested within the overall program, replacing them with groups that implement
 /// the correct transitions.
 ///
-/// `while` control blocks can only be statically compiled when they additionally have a `@bound`
-/// annotation which mentions the expected number of times a loop will iterate.
+/// **Balancing**: The pass automatically adds dummy transitions to ensure that branches are
+/// balanced, i.e., they take exactly the same number of cycles. In some cases, this may perform
+/// worse than the dynamic FSMs generated from `tdcc`.
+///
+/// **Loops**: `while` control blocks can only be statically compiled when they additionally have a
+/// `@bound` annotation which mentions the expected number of times a loop will iterate.
 pub struct TopDownStaticTiming {
     /// Print out the FSM representation to STDOUT.
     dump_fsm: bool,
