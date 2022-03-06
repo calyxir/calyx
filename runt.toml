@@ -68,7 +68,7 @@ paths = [
 cmd = """
 fud exec -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
-         -s futil.flags ' -d top-down-st' \
+         -s futil.flags ' -d tdst' \
          -s verilog.cycle_limit 500 \
          --through verilog \
          {} --to dat \
@@ -214,7 +214,7 @@ name = "language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d top-down-st' \
+         -s futil.flags ' -d tdst' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
          --to dat -q
@@ -225,7 +225,7 @@ name = "memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d top-down-st' \
+         -s futil.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q
@@ -245,5 +245,5 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[core] futil examples"
 paths = ["examples/futil/*.futil"]
 cmd = """
-./target/debug/futil {} -m file -d top-down-st
+./target/debug/futil {} -m file -d tdst
 """

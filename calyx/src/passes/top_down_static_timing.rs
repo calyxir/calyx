@@ -387,7 +387,7 @@ impl ConstructVisitor for TopDownStaticTiming {
 
 impl Named for TopDownStaticTiming {
     fn name() -> &'static str {
-        "top-down-st"
+        "tdst"
     }
 
     fn description() -> &'static str {

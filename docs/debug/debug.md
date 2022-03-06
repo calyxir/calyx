@@ -26,9 +26,8 @@ Next, re-enable each pass by doing: `-d pre-opt -d post-opt -p <pass1> -p
 
 ## Disabling Static Timing
 
-`static-timing` is one of the two control compilation passes.
-It uses the latency information on groups to generate faster hardware.
-Disable it using the flag `-d static-timing`.
+`tdst` is one of the two control compilation passes.
+It uses the latency information on groups to generate faster hardware but may be cause of buggy compilation. Disable it using the flag `-d tdst`.
 
 ## Reducing Test Files
 
@@ -108,45 +107,56 @@ Suppose that we want to make sure that `let0` is correctly performing its
 computation.
 We can generate the control FSM for the program using:
 
-      futil <filename> -p top-down-cc
+      futil <filename> -p validate -p remove-comb-groups -p tdcc -x tdcc:dump-fsm -b none
 
-This generates a Calyx program with several new groups.
-We want to look for groups with the prefix `tdcc` which look something like
-this:
+The `-x tdcc:dump-fsm` is a special flag that tells the `tdcc` flag to print out
+the FSM for the control program. The `-b none` suppress printing of the lowered Calyx program:
 ```
-group tdcc {
-  let0[go] = !let0[done] & fsm.out == 4'd0 ? 1'd1;
-  cs_wh.in = fsm.out == 4'd1 ? le0.out;
-  cs_wh.write_en = fsm.out == 4'd1 ? 1'd1;
-  cond0[go] = fsm.out == 4'd1 ? 1'd1;
-  par[go] = !par[done] & cs_wh.out & fsm.out == 4'd2 ? 1'd1;
-  let1[go] = !let1[done] & cs_wh.out & fsm.out == 4'd3 ? 1'd1;
-  let2[go] = !let2[done] & cs_wh.out & fsm.out == 4'd4 ? 1'd1;
-  upd2[go] = !upd2[done] & cs_wh.out & fsm.out == 4'd5 ? 1'd1;
-  upd3[go] = !upd3[done] & cs_wh.out & fsm.out == 4'd6 ? 1'd1;
-  ...
-}
+======== main:tdcc =========
+0:
+  let0[go] = !let0[done] ? 1'd1;
+1:
+  cond00[go] = !cond00[done] ? 1'd1;
+2:
+  par[go] = !par[done] ? 1'd1;
+3:
+  let1[go] = !let1[done] ? 1'd1;
+4:
+  let2[go] = !let2[done] ? 1'd1;
+5:
+  upd2[go] = !upd2[done] ? 1'd1;
+6:
+  upd3[go] = !upd3[done] ? 1'd1;
+7:
+  cond00[go] = !cond00[done] ? 1'd1;
+8:
+  <end>
+transitions:
+  (0, 1): let0[done]
+  (1, 2): cond00[done] & comb_reg.out
+  (1, 8): cond00[done] & !comb_reg.out
+  (2, 3): par[done]
+  (3, 4): let1[done]
+  (4, 5): let2[done]
+  (5, 6): upd2[done]
+  (6, 7): upd3[done]
+  (7, 2): cond00[done] & comb_reg.out
+  (7, 8): cond00[done] & !comb_reg.out
 ```
 
 The assignments to `let0[go]` indicate what conditions make the `let0` group
 execute.
-In this program, we have:
-
-    let0[go] = !let0[done] & fsm.out == 4'd0 ? 1'd1;
-
-Which states that `let0` will be active when the state of the `fsm` register
-is `0` along with some other conditions.
-The remainder of the group defines how the state in the `fsm` variable changes:
+We can see that in this program, `let0[go]` is activated in FSM state `0`.
 ```
-  ...
-  fsm.in = fsm.out == 4'd0 & let0[done] ? 4'd1;
-  fsm.write_en = fsm.out == 4'd0 & let0[done] ? 1'd1;
-  fsm.in = fsm.out == 4'd1 & cond0[done] ? 4'd2;
-  fsm.write_en = fsm.out == 4'd1 & cond0[done] ? 1'd1;
-  ...
+0:
+  let0[go] = !let0[done] ? 1'd1;
 ```
-For example, we can see that when the value of the FSM is 0 and `let0[done]`
-becomes high, the FSM will take the value 1.
+
+Additionally, the `transitions` section shows us that when `let0[done]` is `1`, the FSM is going to transition to state `1`.
+```
+transitions:
+  (0, 1): let0[done]
+```
 
 Once we have this information, we can open the VCD file and look at points when
 the `fsm` register has the value 1 and check to see if the assignments in

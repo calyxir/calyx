@@ -63,7 +63,7 @@ It has two meanings:
 ### `static(n)`
 Can be attached to components, groups, and control statements. They indicate how
 many cycles a component, group, or control statement will take to run and are used
-by `-p static-timing` to generate more efficient control FSMs.
+by `-p tdst` to generate more efficient control FSMs.
 
 ### `go`, `done`, and `reset`
 These three ports are part of the interface to Calyx components.
