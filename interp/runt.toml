@@ -131,17 +131,17 @@ fud exec --to jq \
       {} -q
 """
 
-[[tests]]
-name = "[frontend] systolic array correctness"
-paths = ["../tests/correctness/systolic/*.systolic"]
-cmd = """
-fud e --from systolic --to jq \
-      --through interpreter-out \
-      -s interpreter.flags "--raw " \
-      -s verilog.data {}.data \
-      -s jq.expr ".main" \
-      {} -q
-"""
+# [[tests]]
+# name = "[frontend] systolic array correctness"
+# paths = ["../tests/correctness/systolic/*.systolic"]
+# cmd = """
+# fud e --from systolic --to jq \
+#       --through interpreter-out \
+#       -s interpreter.flags "--raw " \
+#       -s verilog.data {}.data \
+#       -s jq.expr ".main" \
+#       {} -q
+# """
 
 [[tests]]
 name = "[frontend] NTT pipeline correctness"
