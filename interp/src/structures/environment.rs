@@ -160,7 +160,7 @@ impl InterpreterState {
                 ))
             }
             // unsigned arith
-            "std_mult_pipe" | "std_mult" => {
+            "std_mult_pipe" => {
                 Box::new(stateful::StdMultPipe::<false, 2>::new(
                     params,
                     cell_qin,
