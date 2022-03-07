@@ -20,17 +20,17 @@ const DECIMAL_PRINT_WIDTH: usize = 7;
 /// The product associated with a given input will be output on the third [do_tick()].
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
-pub struct StdMultPipe<const SIGNED: bool> {
+pub struct StdMultPipe<const SIGNED: bool, const DEPTH: usize> {
     pub width: u64,
     pub product: Value,
     update: Option<(Value, Value)>,
-    queue: ShiftBuffer<Value, 2>,
+    queue: ShiftBuffer<Value, DEPTH>,
     full_name: ir::Id,
     logger: logging::Logger,
     error_on_overflow: bool,
 }
 
-impl<const SIGNED: bool> StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> StdMultPipe<SIGNED, DEPTH> {
     pub fn from_constants(
         width: u64,
         name: ir::Id,
@@ -58,13 +58,17 @@ impl<const SIGNED: bool> StdMultPipe<SIGNED> {
     }
 }
 
-impl<const SIGNED: bool> Named for StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> Named
+    for StdMultPipe<SIGNED, DEPTH>
+{
     fn get_full_name(&self) -> &ir::Id {
         &self.full_name
     }
 }
 
-impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> Primitive
+    for StdMultPipe<SIGNED, DEPTH>
+{
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         // compute the value for this cycle
         let computed = if let Some((left, right)) = self.update.take() {
@@ -1951,7 +1955,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
     }
 }
 
-fn floored_division(left: &IBig, right: &IBig) -> IBig {
+pub(crate) fn floored_division(left: &IBig, right: &IBig) -> IBig {
     let div = left / right;
 
     if (div.signum() == (-1).into() || div.signum() == 0.into())

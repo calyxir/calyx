@@ -160,22 +160,26 @@ impl InterpreterState {
                 ))
             }
             // unsigned arith
-            "std_mult_pipe" => Box::new(stateful::StdMultPipe::<false>::new(
-                params,
-                cell_qin,
-                configs.error_on_overflow,
-            )),
+            "std_mult_pipe" | "std_mult" => {
+                Box::new(stateful::StdMultPipe::<false, 2>::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
+            }
             "std_div_pipe" => Box::new(stateful::StdDivPipe::<false>::new(
                 params,
                 cell_qin,
                 configs.error_on_overflow,
             )),
             // signed arith
-            "std_smult_pipe" => Box::new(stateful::StdMultPipe::<true>::new(
-                params,
-                cell_qin,
-                configs.error_on_overflow,
-            )),
+            "std_smult_pipe" => {
+                Box::new(stateful::StdMultPipe::<true, 2>::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
+            }
             "std_sdiv_pipe" => Box::new(stateful::StdDivPipe::<true>::new(
                 params,
                 cell_qin,
@@ -295,6 +299,26 @@ impl InterpreterState {
                     prim.initialize_memory(vals)?;
                 }
                 prim
+            }
+
+            // Unsynthesizeable operators
+            "std_unsyn_mult" => {
+                Box::new(combinational::StdUnsynMult::new(params, cell_qin))
+            }
+            "std_unsyn_div" => {
+                Box::new(combinational::StdUnsynDiv::new(params, cell_qin))
+            }
+            "std_unsyn_smult" => {
+                Box::new(combinational::StdUnsynSmult::new(params, cell_qin))
+            }
+            "std_unsyn_sdiv" => {
+                Box::new(combinational::StdUnsynSdiv::new(params, cell_qin))
+            }
+            "std_unsyn_mod" => {
+                Box::new(combinational::StdUnsynMod::new(params, cell_qin))
+            }
+            "std_unsyn_smod" => {
+                Box::new(combinational::StdUnsynSmod::new(params, cell_qin))
             }
 
             p => return Err(InterpreterError::UnknownPrimitive(p.to_string())),
