@@ -10,7 +10,7 @@ use calyx::ir;
 #[test]
 fn mult_flickering_go() {
     let mut mult =
-        stfl::StdMultPipe::<false>::from_constants(32, "".into(), false);
+        stfl::StdMultPipe::<false, 2>::from_constants(32, "".into(), false);
     port_bindings![binds;
         go -> (0, 1),
         left -> (2, 32),
@@ -38,7 +38,7 @@ fn mult_flickering_go() {
 #[test]
 fn test_std_mult_pipe() {
     let mut mult =
-        stfl::StdMultPipe::<false>::from_constants(32, "".into(), false);
+        stfl::StdMultPipe::<false, 2>::from_constants(32, "".into(), false);
     port_bindings![binds;
         go -> (1, 1),
         left -> (2, 32),
@@ -1552,7 +1552,7 @@ mod property_tests {
 
         #[test]
         fn std_mult(in_left: u64, in_right: u64){
-            let mut mult = stateful::StdMultPipe::<false>::from_constants(64, "".into(), false);
+            let mut mult = stateful::StdMultPipe::<false, 2>::from_constants(64, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
@@ -1568,7 +1568,7 @@ mod property_tests {
 
         #[test]
         fn std_smult(in_left: i64, in_right: i64){
-            let mut mult = stateful::StdMultPipe::<true>::from_constants(64, "".into(), false);
+            let mut mult = stateful::StdMultPipe::<true, 2>::from_constants(64, "".into(), false);
             port_bindings![binds;
             left -> (in_left, 64),
             right -> (in_right, 64),
