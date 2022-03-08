@@ -433,7 +433,6 @@ impl Primitive for StdReg {
                 (ir::Id::from("out"), self.data[0].clone()),
                 (ir::Id::from("done"), Value::bit_low()),
             ],
-
             RegUpdate::Reset => {
                 self.data[0] = Value::zeroes(self.width);
                 vec![
@@ -1996,138 +1995,76 @@ pub(crate) fn int_sqrt(i: &UBig) -> UBig {
     lower
 }
 
-pub struct StdSqrt {
+type SqrtUpdate = RegUpdate;
+
+pub struct StdSqrt<const FP: bool> {
     pub width: u64,
     pub output: Value,
-    update: Option<Value>,
+    frac_width: u64,
+    update: SqrtUpdate,
     name: ir::Id,
 }
 
-impl StdSqrt {
+impl<const FP: bool> StdSqrt<FP> {
     pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("Missing `WIDTH` param from std_sqrt binding");
-        Self {
-            width,
-            output: Value::zeroes(width),
-            update: None,
-            name,
-        }
-    }
-}
-
-impl Named for StdSqrt {
-    fn get_full_name(&self) -> &ir::Id {
-        &self.name
-    }
-}
-
-impl Primitive for StdSqrt {
-    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let update = self.update.take();
-        if let Some(v) = update {
-            let val = int_sqrt(&v.as_unsigned());
-            let val = Value::from(val, self.width);
-            self.output = val;
-            Ok(vec![
-                ("out".into(), self.output.clone()),
-                ("done".into(), Value::bit_high()),
-            ])
+        let frac_width = if FP {
+            get_param(params, "FRAC_WIDTH")
+                .expect("Missing `FRAC_WIDTH` param from std_sqrt binding")
         } else {
-            unreachable!("Square root stepped without combinational convergence. This should never happen, please report it");
-        }
-    }
+            0
+        };
 
-    fn is_comb(&self) -> bool {
-        false
-    }
-
-    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
-        validate![inputs;
-            r#in: self.width,
-            go: 1
-        ]
-    }
-
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
-            in_val: "in",
-            go: "go"
-        ];
-
-        if go.as_bool() {
-            self.update = Some(in_val.clone())
-        } else {
-            self.update = None;
-        }
-
-        Ok(vec![])
-    }
-
-    fn reset(
-        &mut self,
-        _inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
-        Ok(vec![
-            ("out".into(), self.output.clone()),
-            ("done".into(), Value::bit_low()),
-        ])
-    }
-}
-
-pub struct StdFpSqrt {
-    pub width: u64,
-    pub int_width: u64,
-    pub frac_width: u64,
-    pub output: Value,
-    update: Option<Value>,
-    name: ir::Id,
-}
-
-impl StdFpSqrt {
-    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
-        let width = get_param(params, "WIDTH")
-            .expect("Missing `WIDTH` param from std_sqrt binding");
-        let frac_width = get_param(params, "FRAC_WIDTH")
-            .expect("Missing `FRAC_WIDTH` param from std_sqrt binding");
-        let int_width = get_param(params, "INT_WIDTH")
-            .expect("Missing `INT_WIDTH` param from std_sqrt binding");
         Self {
             width,
             frac_width,
-            int_width,
             output: Value::zeroes(width),
-            update: None,
+            update: SqrtUpdate::None,
             name,
         }
     }
 }
 
-impl Named for StdFpSqrt {
+impl<const FP: bool> Named for StdSqrt<FP> {
     fn get_full_name(&self) -> &ir::Id {
         &self.name
     }
 }
 
-impl Primitive for StdFpSqrt {
+impl<const FP: bool> Primitive for StdSqrt<FP> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let update = self.update.take();
-        if let Some(v) = update {
-            let val =
-                int_sqrt(&(v.as_unsigned() << (self.frac_width as usize)));
-            let val = Value::from(val, self.width);
-            self.output = val;
-            Ok(vec![
+        let out = match self.update.take() {
+            SqrtUpdate::None => vec![
                 ("out".into(), self.output.clone()),
-                ("done".into(), Value::bit_high()),
-            ])
-        } else {
-            unreachable!("Square root stepped without combinational convergence. This should never happen, please report it");
-        }
+                ("done".into(), Value::bit_low()),
+            ],
+            SqrtUpdate::Reset => {
+                self.output = Value::zeroes(self.width);
+                vec![
+                    ("out".into(), self.output.clone()),
+                    ("done".into(), Value::bit_low()),
+                ]
+            }
+            SqrtUpdate::Value(v) => {
+                self.output = if FP {
+                    let val = int_sqrt(
+                        &(v.as_unsigned() << (self.frac_width as usize)),
+                    );
+                    Value::from(val, self.width)
+                } else {
+                    let val = int_sqrt(&v.as_unsigned());
+                    Value::from(val, self.width)
+                };
+
+                vec![
+                    ("out".into(), self.output.clone()),
+                    ("done".into(), Value::bit_high()),
+                ]
+            }
+        };
+
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -2147,14 +2084,17 @@ impl Primitive for StdFpSqrt {
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_input![inputs;
             in_val: "in",
-            go: "go"
+            go: "go",
+            reset: "reset"
         ];
 
-        if go.as_bool() {
-            self.update = Some(in_val.clone())
+        self.update = if reset.as_bool() {
+            SqrtUpdate::Reset
+        } else if go.as_bool() {
+            SqrtUpdate::Value(in_val.clone())
         } else {
-            self.update = None;
-        }
+            SqrtUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -2163,7 +2103,7 @@ impl Primitive for StdFpSqrt {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         Ok(vec![
             ("out".into(), self.output.clone()),
             ("done".into(), Value::bit_low()),

@@ -172,8 +172,12 @@ impl InterpreterState {
                 cell_qin,
                 configs.error_on_overflow,
             )),
-            "sqrt" => Box::new(stateful::StdSqrt::new(params, cell_qin)),
-            "fp_sqrt" => Box::new(stateful::StdFpSqrt::new(params, cell_qin)),
+            "sqrt" => {
+                Box::new(stateful::StdSqrt::<false>::new(params, cell_qin))
+            }
+            "fp_sqrt" => {
+                Box::new(stateful::StdSqrt::<true>::new(params, cell_qin))
+            }
 
             // signed arith
             "std_smult_pipe" => {
