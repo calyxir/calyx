@@ -376,12 +376,27 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     }
 }
 
+enum RegUpdate {
+    None,
+    Reset,
+    Value(Value),
+}
+
+impl RegUpdate {
+    fn clear(&mut self) {
+        *self = Self::None;
+    }
+
+    fn take(&mut self) -> Self {
+        std::mem::replace(self, Self::None)
+    }
+}
+
 /// A register.
 pub struct StdReg {
     pub width: u64,
     pub data: [Value; 1],
-    update: Option<Value>,
-    write_en: bool,
+    update: RegUpdate,
     full_name: ir::Id,
 }
 
@@ -390,8 +405,7 @@ impl StdReg {
         StdReg {
             width,
             data: [Value::new(width as usize)],
-            update: None,
-            write_en: false,
+            update: RegUpdate::None,
             full_name,
         }
     }
@@ -414,25 +428,26 @@ impl Named for StdReg {
 
 impl Primitive for StdReg {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //first commit any updates
-        if let Some(val) = self.update.take() {
-            self.data[0] = val;
-        }
-        //then, based on write_en, return
-        let out = if self.write_en {
-            self.write_en = false; //we are done for this cycle
-                                   //if do_tick() is called again w/o an execute() preceeding it,
-                                   //then done will be low.
-            vec![
-                (ir::Id::from("out"), self.data[0].clone()),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            //done is low, but there is still data in this reg to return
-            vec![
+        let out = match self.update.take() {
+            RegUpdate::None => vec![
                 (ir::Id::from("out"), self.data[0].clone()),
                 (ir::Id::from("done"), Value::bit_low()),
-            ]
+            ],
+
+            RegUpdate::Reset => {
+                self.data[0] = Value::zeroes(self.width);
+                vec![
+                    (ir::Id::from("out"), self.data[0].clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            RegUpdate::Value(v) => {
+                self.data[0] = v;
+                vec![
+                    (ir::Id::from("out"), self.data[0].clone()),
+                    (ir::Id::from("done"), Value::bit_high()),
+                ]
+            }
         };
 
         Ok(out)
@@ -460,18 +475,18 @@ impl Primitive for StdReg {
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_input![inputs;
             input: "in",
-            write_en: "write_en"
+            write_en: "write_en",
+            reset: "reset"
         ];
 
-        //write the input to the register
-        if write_en.as_bool() {
-            self.update = Some((*input).clone());
-            //put cycle_count as 1! B/c do_tick() should return a high done
-            self.write_en = true;
+        self.update = if reset.as_bool() {
+            RegUpdate::Reset
+        } else if write_en.as_bool() {
+            RegUpdate::Value(input.clone())
         } else {
-            self.update = None;
-            self.write_en = false;
-        }
+            RegUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -479,11 +494,10 @@ impl Primitive for StdReg {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
-        self.write_en = false; //might be redundant, not too sure when reset is used
+        self.update.clear();
         Ok(vec![
             (ir::Id::from("out"), self.data[0].clone()),
-            (ir::Id::from("done"), Value::zeroes(1)),
+            (ir::Id::from("done"), Value::bit_low()),
         ])
     }
 
