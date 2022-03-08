@@ -169,7 +169,8 @@ fn test_std_reg_imval() {
     //returns 0, and no DONE
     port_bindings![binds;
         r#in -> (16, 6),
-        write_en -> (0, 1)
+        write_en -> (0, 1),
+        reset -> (0, 1)
     ];
     let output_vals = reg1.validate_and_execute(&binds).unwrap();
     assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
@@ -186,7 +187,8 @@ fn test_std_reg_imval() {
     //now have write_en high and see output from do_tick() is 16, 1
     port_bindings![binds;
         r#in -> (16, 6),
-        write_en -> (1, 1)
+        write_en -> (1, 1),
+        reset -> (0, 1)
     ];
     let output_vals = reg1.validate_and_execute(&binds).unwrap();
     assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
@@ -203,7 +205,8 @@ fn test_std_reg_imval() {
     //now try to overwrite but w/ write_en low, and see 16 and 0 is returned
     port_bindings![binds;
         r#in -> (16, 6),
-        write_en -> (0, 1)
+        write_en -> (0, 1),
+        reset -> (0, 1)
     ];
     let output_vals = reg1.validate_and_execute(&binds).unwrap();
     assert_eq!(0, output_vals.len()); //output_vals should be empty from execute
