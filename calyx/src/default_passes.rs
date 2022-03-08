@@ -80,7 +80,7 @@ impl PassManager {
             [
                 CompileInvoke,
                 CompileEmpty,
-                TopDownStaticTiming,
+                // TopDownStaticTiming,
                 TopDownCompileControl
             ]
         );
@@ -95,7 +95,7 @@ impl PassManager {
             [
                 GoInsertion,
                 ComponentInterface,
-                HoleInliner,
+                WireInliner,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,

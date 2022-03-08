@@ -66,14 +66,15 @@ paths = [
   "tests/correctness/*.futil",
 ]
 cmd = """
-fud exec -s verilog.data {}.data \
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
          -s futil.flags ' -d tdst' \
          -s verilog.cycle_limit 500 \
-         --through verilog \
-         {} --to dat \
-         -q \
-         | jq .memories
+         -s jq.expr ".memories" \
+         {} -q
 """
 
 [[tests]]
@@ -84,9 +85,12 @@ paths = [
   "tests/correctness/numeric-types/fixed-point/*.futil"
 ]
 cmd = """
-fud exec -s verilog.data {}.data \
+fud exec --to jq \
+         --through dat \
          --through verilog \
-         {} --to dat -q | jq .memories
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
 """
 
 [[tests]]
@@ -95,34 +99,38 @@ paths = [
   "tests/correctness/tcam/*.futil"
 ]
 cmd = """
-fud exec -s verilog.data {}.data \
-         --through verilog \
-         {} --to dat -q | jq .memories
+fud exec --to jq \
+      --through verilog \
+      --through dat \
+      -s verilog.data {}.data \
+      -s jq.expr ".memories" \
+      {} -q
 """
 
 [[tests]]
 name = "correctness static timing"
 paths = [ "tests/correctness/*.futil" ]
 cmd = """
-fud exec -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
+fud exec --to jq \
+         --through dat \
          -s futil.exec './target/debug/futil' \
-         {} --to dat \
-         -q \
-         | jq .memories
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
 """
 
 [[tests]]
 name = "[frontend] systolic array correctness"
 paths = [ "tests/correctness/systolic/*.systolic" ]
 cmd = """
-fud e --from systolic --to vcd_json --through verilog \
-      {} \
+fud e --from systolic --to jq \
+      --through verilog \
+      --through vcd_json \
       -s verilog.data {}.data \
       -s futil.exec './target/debug/futil' \
-      -q \
-      | jq -f {}.jq
-
+      -s jq.file {}.jq \
+      {} -q
 """
 
 [[tests]]
@@ -145,14 +153,22 @@ rm {}.futil;
 name = "[frontend] mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
-fud e -q {} --from mrxl --to dat --through verilog -s verilog.data {}.data | jq .memories
+fud e -q {} --from mrxl --to jq \
+            --through dat \
+            --through verilog \
+            -s verilog.data {}.data \
+            -s jq.expr ".memories"
 """
 
 [[tests]]
 name = "[frontend] relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
 cmd = """
-fud e -q {} --from relay --to dat --through verilog -s verilog.data {}.data | jq .memories
+fud e -q {} --from relay --to jq \
+            --through verilog \
+            --through dat \
+            -s verilog.data {}.data \
+            -s jq.expr ".memories"
 """
 
 ##### Backend Tests #####
