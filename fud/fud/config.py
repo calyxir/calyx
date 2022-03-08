@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Optional
 
 import appdirs  # type: ignore
 import toml
@@ -291,7 +291,7 @@ class Configuration:
             else:
                 log.error(f"No external script named `{args.name}'.")
 
-    def discover_implied_states(self, filename):
+    def discover_implied_states(self, filename, get_source) -> str:
         """
         Use the mapping from filename extensions to stages to figure out which
         states were implied.
@@ -315,7 +315,10 @@ class Configuration:
         stage = stages[0]
 
         states = self.registry.get_states(stage)
-        sources: Set[str] = set([source for (source, _) in states])
+        if get_source:
+            sources = set([source for (source, _) in states])
+        else:
+            sources = set([source for (_, source) in states])
 
         # Only able to discover state if the stage has one input
         if len(sources) > 1:
@@ -324,18 +327,25 @@ class Configuration:
         return sources.pop()
 
     def construct_path(
-        self, source=None, target=None, input_file=None, output_file=None, through=[]
+        self,
+        source: Optional[str] = None,
+        target: Optional[str] = None,
+        input_file=None,
+        output_file=None,
+        through=[]
     ) -> List[stages.Stage]:
         """
         Construct the path of stages implied by the passed arguments.
         """
         # find source
         if source is None:
-            source = self.discover_implied_states(input_file)
+            source = self.discover_implied_states(input_file, True)
+            log.debug(f"Inferred source path: {source}")
 
         # find target
         if target is None:
-            target = self.discover_implied_states(output_file)
+            target = self.discover_implied_states(output_file, False)
+            log.debug(f"Inferred target path: {target}")
 
         path = self.registry.make_path(source, target, through)
         if path is None:
