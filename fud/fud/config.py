@@ -332,7 +332,7 @@ class Configuration:
         target: Optional[str] = None,
         input_file=None,
         output_file=None,
-        through=[]
+        through=[],
     ) -> List[stages.Stage]:
         """
         Construct the path of stages implied by the passed arguments.
