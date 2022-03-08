@@ -80,7 +80,7 @@ impl PassManager {
             [
                 CompileInvoke,
                 CompileEmpty,
-                TopDownStaticTiming,
+                // TopDownStaticTiming,
                 TopDownCompileControl
             ]
         );
