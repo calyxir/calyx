@@ -39,7 +39,9 @@ class Registry:
 
         self.graph.add_edge(stage.src_state, stage.target_state, stage=stage)
 
-    def make_path(self, start, dest, through=[]) -> Optional[List[stages.Stage]]:
+    def make_path(
+        self, start: str, dest: str, through=[]
+    ) -> Optional[List[stages.Stage]]:
         """
         Compute a path from `start` to `dest` that contains all stages
         mentioned in `through`.

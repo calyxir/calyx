@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Set, Optional
 
 import appdirs  # type: ignore
 import toml
@@ -67,7 +67,6 @@ DEFAULT_CONFIGURATION = {
             "remote": None,
         },
         "xclbin": {
-            "file_extensions": [".xclbin"],
             "mode": "hw_emu",
             "device": "xilinx_u50_gen3x16_xdma_201920_3",
             "temp_location": "/tmp",
@@ -77,7 +76,6 @@ DEFAULT_CONFIGURATION = {
             "save_temps": None,
         },
         "wdb": {
-            "file_extensions": [".wdb"],
             "mode": "hw_emu",
             "ssh_host": "",
             "ssh_username": "",
@@ -291,7 +289,7 @@ class Configuration:
             else:
                 log.error(f"No external script named `{args.name}'.")
 
-    def discover_implied_states(self, filename, get_source) -> str:
+    def discover_implied_states(self, filename) -> str:
         """
         Use the mapping from filename extensions to stages to figure out which
         states were implied.
@@ -315,10 +313,7 @@ class Configuration:
         stage = stages[0]
 
         states = self.registry.get_states(stage)
-        if get_source:
-            sources = set([source for (source, _) in states])
-        else:
-            sources = set([source for (_, source) in states])
+        sources: Set[str] = set([source for (source, _) in states])
 
         # Only able to discover state if the stage has one input
         if len(sources) > 1:
@@ -339,13 +334,13 @@ class Configuration:
         """
         # find source
         if source is None:
-            source = self.discover_implied_states(input_file, True)
-            log.debug(f"Inferred source path: {source}")
+            source = self.discover_implied_states(input_file)
+            log.debug(f"Inferred source state: {source}")
 
         # find target
         if target is None:
-            target = self.discover_implied_states(output_file, False)
-            log.debug(f"Inferred target path: {target}")
+            target = self.discover_implied_states(output_file)
+            log.debug(f"Inferred target state: {target}")
 
         path = self.registry.make_path(source, target, through)
         if path is None:
