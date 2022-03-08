@@ -2064,3 +2064,95 @@ impl Primitive for StdSqrt {
         ])
     }
 }
+
+pub struct StdFpSqrt {
+    pub width: u64,
+    pub int_width: u64,
+    pub frac_width: u64,
+    pub output: Value,
+    update: Option<Value>,
+    name: ir::Id,
+}
+
+impl StdFpSqrt {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("Missing `WIDTH` param from std_sqrt binding");
+        let frac_width = get_param(params, "FRAC_WIDTH")
+            .expect("Missing `FRAC_WIDTH` param from std_sqrt binding");
+        let int_width = get_param(params, "INT_WIDTH")
+            .expect("Missing `INT_WIDTH` param from std_sqrt binding");
+        Self {
+            width,
+            frac_width,
+            int_width,
+            output: Value::zeroes(width),
+            update: None,
+            name,
+        }
+    }
+}
+
+impl Named for StdFpSqrt {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.name
+    }
+}
+
+impl Primitive for StdFpSqrt {
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        let update = self.update.take();
+        if let Some(v) = update {
+            let val =
+                int_sqrt(&(v.as_unsigned() << (self.frac_width as usize)));
+            let val = Value::from(val, self.width);
+            self.output = val;
+            Ok(vec![
+                ("out".into(), self.output.clone()),
+                ("done".into(), Value::bit_high()),
+            ])
+        } else {
+            unreachable!("Square root stepped without combinational convergence. This should never happen, please report it");
+        }
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            r#in: self.width,
+            go: 1
+        ]
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_input![inputs;
+            in_val: "in",
+            go: "go"
+        ];
+
+        if go.as_bool() {
+            self.update = Some(in_val.clone())
+        } else {
+            self.update = None;
+        }
+
+        Ok(vec![])
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.update = None;
+        Ok(vec![
+            ("out".into(), self.output.clone()),
+            ("done".into(), Value::bit_low()),
+        ])
+    }
+}
