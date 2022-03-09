@@ -1,13 +1,14 @@
-use super::prim_utils::{get_input_unwrap, get_param, ShiftBuffer};
+use super::prim_utils::{get_param, ShiftBuffer};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::logging::{self, warn};
 use crate::utils::{construct_bindings, PrintCode};
-use crate::validate;
 use crate::values::Value;
+use crate::{get_input, validate};
 use calyx::ir;
 use ibig::ops::RemEuclid;
+use ibig::{ubig, IBig, UBig};
 
 const DECIMAL_PRINT_WIDTH: usize = 7;
 
@@ -19,17 +20,17 @@ const DECIMAL_PRINT_WIDTH: usize = 7;
 /// The product associated with a given input will be output on the third [do_tick()].
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
-pub struct StdMultPipe<const SIGNED: bool> {
+pub struct StdMultPipe<const SIGNED: bool, const DEPTH: usize> {
     pub width: u64,
     pub product: Value,
     update: Option<(Value, Value)>,
-    queue: ShiftBuffer<Value, 2>,
+    queue: ShiftBuffer<Value, DEPTH>,
     full_name: ir::Id,
     logger: logging::Logger,
     error_on_overflow: bool,
 }
 
-impl<const SIGNED: bool> StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> StdMultPipe<SIGNED, DEPTH> {
     pub fn from_constants(
         width: u64,
         name: ir::Id,
@@ -57,13 +58,17 @@ impl<const SIGNED: bool> StdMultPipe<SIGNED> {
     }
 }
 
-impl<const SIGNED: bool> Named for StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> Named
+    for StdMultPipe<SIGNED, DEPTH>
+{
     fn get_full_name(&self) -> &ir::Id {
         &self.full_name
     }
 }
 
-impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> Primitive
+    for StdMultPipe<SIGNED, DEPTH>
+{
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         // compute the value for this cycle
         let computed = if let Some((left, right)) = self.update.take() {
@@ -141,10 +146,11 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments, left, right, and go
-        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
-        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
-        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
+        get_input![inputs;
+            left: "left",
+            right: "right",
+            go: "go"
+        ];
 
         //continue computation
         if go.as_bool() {
@@ -255,7 +261,12 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 };
                 let r = if SIGNED {
                     Value::from(
-                        left.as_signed().rem_euclid(right.as_signed()),
+                        left.as_signed()
+                            - right.as_signed()
+                                * floored_division(
+                                    &left.as_signed(),
+                                    &right.as_signed(),
+                                ),
                         self.width,
                     )
                 } else {
@@ -325,11 +336,12 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments, left, right, and go
-        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
-        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
-        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
-        //continue computation
+        get_input![inputs;
+            left: "left",
+            right: "right",
+            go: "go"
+        ];
+
         if go.as_bool() {
             self.update = Some(((*left).clone(), (*right).clone()));
         } else {
@@ -446,10 +458,11 @@ impl Primitive for StdReg {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
+        get_input![inputs;
+            input: "in",
+            write_en: "write_en"
+        ];
+
         //write the input to the register
         if write_en.as_bool() {
             self.update = Some((*input).clone());
@@ -566,8 +579,7 @@ impl StdMemD1 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
 
         Ok(())
@@ -656,11 +668,11 @@ impl Primitive for StdMemD1 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0"
+        ];
         let addr0 = addr0.as_u64();
         self.last_index = addr0;
         if write_en.as_bool() {
@@ -826,8 +838,7 @@ impl StdMemD2 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
         Ok(())
     }
@@ -917,16 +928,12 @@ impl Primitive for StdMemD2 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        //these come from the primitive definition in verilog
-        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0",
+            addr1: "addr1"
+        ];
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
         self.last_idx = (addr0, addr1);
@@ -1105,8 +1112,7 @@ impl StdMemD3 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
         Ok(())
     }
@@ -1207,16 +1213,13 @@ impl Primitive for StdMemD3 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        //these come from the primitive definition in verilog
-        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0",
+            addr1: "addr1",
+            addr2: "addr2"
+        ];
 
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
@@ -1426,8 +1429,7 @@ impl StdMemD4 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
 
         Ok(())
@@ -1541,17 +1543,14 @@ impl Primitive for StdMemD4 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        //these come from the primitive definition in verilog
-        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
-        let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0",
+            addr1: "addr1",
+            addr2: "addr2",
+            addr3: "addr3"
+        ];
 
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
@@ -1771,9 +1770,11 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let left = get_input_unwrap(inputs, "left");
-        let right = get_input_unwrap(inputs, "right");
-        let go = get_input_unwrap(inputs, "go");
+        get_input![inputs;
+          left: "left",
+          right: "right",
+          go: "go"
+        ];
 
         if go.as_bool() {
             self.update = Some(((*left).clone(), (*right).clone()))
@@ -1859,7 +1860,12 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
                             self.width,
                         ),
                         Value::from(
-                            left.as_signed().rem_euclid(right.as_signed()),
+                            left.as_signed()
+                                - right.as_signed()
+                                    * floored_division(
+                                        &left.as_signed(),
+                                        &right.as_signed(),
+                                    ),
                             self.width,
                         ),
                     )
@@ -1918,9 +1924,11 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let left = get_input_unwrap(inputs, "left");
-        let right = get_input_unwrap(inputs, "right");
-        let go = get_input_unwrap(inputs, "go");
+        get_input![inputs;
+            left: "left",
+            right: "right",
+            go: "go"
+        ];
 
         if go.as_bool() {
             self.update = Some(((*left).clone(), (*right).clone()));
@@ -1940,6 +1948,211 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
             (ir::Id::from("out_quotient"), self.quotient.clone()),
             (ir::Id::from("out_remainder"), self.remainder.clone()),
             (ir::Id::from("done"), Value::bit_low()),
+        ])
+    }
+}
+
+pub(crate) fn floored_division(left: &IBig, right: &IBig) -> IBig {
+    let div = left / right;
+
+    if (div.signum() == (-1).into() || div.signum() == 0.into())
+        && (left != &(&div * right))
+    {
+        div - 1_i32
+    } else {
+        div
+    }
+}
+
+/// Implementation of integer square root via a basic binary search algorithm
+/// based on wikipedia psuedocode
+pub(crate) fn int_sqrt(i: &UBig) -> UBig {
+    let mut lower: UBig = ubig!(0);
+    let mut upper: UBig = i + ubig!(1);
+    let mut temp: UBig;
+
+    while lower != (&upper - ubig!(1)) {
+        temp = (&lower + &upper) / ubig!(2);
+        if &(&temp * &temp) <= i {
+            lower = temp
+        } else {
+            upper = temp
+        }
+    }
+    lower
+}
+
+pub struct StdSqrt {
+    pub width: u64,
+    pub output: Value,
+    update: Option<Value>,
+    name: ir::Id,
+}
+
+impl StdSqrt {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("Missing `WIDTH` param from std_sqrt binding");
+        Self {
+            width,
+            output: Value::zeroes(width),
+            update: None,
+            name,
+        }
+    }
+}
+
+impl Named for StdSqrt {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.name
+    }
+}
+
+impl Primitive for StdSqrt {
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        let update = self.update.take();
+        if let Some(v) = update {
+            let val = int_sqrt(&v.as_unsigned());
+            let val = Value::from(val, self.width);
+            self.output = val;
+            Ok(vec![
+                ("out".into(), self.output.clone()),
+                ("done".into(), Value::bit_high()),
+            ])
+        } else {
+            unreachable!("Square root stepped without combinational convergence. This should never happen, please report it");
+        }
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            r#in: self.width,
+            go: 1
+        ]
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_input![inputs;
+            in_val: "in",
+            go: "go"
+        ];
+
+        if go.as_bool() {
+            self.update = Some(in_val.clone())
+        } else {
+            self.update = None;
+        }
+
+        Ok(vec![])
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.update = None;
+        Ok(vec![
+            ("out".into(), self.output.clone()),
+            ("done".into(), Value::bit_low()),
+        ])
+    }
+}
+
+pub struct StdFpSqrt {
+    pub width: u64,
+    pub int_width: u64,
+    pub frac_width: u64,
+    pub output: Value,
+    update: Option<Value>,
+    name: ir::Id,
+}
+
+impl StdFpSqrt {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("Missing `WIDTH` param from std_sqrt binding");
+        let frac_width = get_param(params, "FRAC_WIDTH")
+            .expect("Missing `FRAC_WIDTH` param from std_sqrt binding");
+        let int_width = get_param(params, "INT_WIDTH")
+            .expect("Missing `INT_WIDTH` param from std_sqrt binding");
+        Self {
+            width,
+            frac_width,
+            int_width,
+            output: Value::zeroes(width),
+            update: None,
+            name,
+        }
+    }
+}
+
+impl Named for StdFpSqrt {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.name
+    }
+}
+
+impl Primitive for StdFpSqrt {
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        let update = self.update.take();
+        if let Some(v) = update {
+            let val =
+                int_sqrt(&(v.as_unsigned() << (self.frac_width as usize)));
+            let val = Value::from(val, self.width);
+            self.output = val;
+            Ok(vec![
+                ("out".into(), self.output.clone()),
+                ("done".into(), Value::bit_high()),
+            ])
+        } else {
+            unreachable!("Square root stepped without combinational convergence. This should never happen, please report it");
+        }
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            r#in: self.width,
+            go: 1
+        ]
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_input![inputs;
+            in_val: "in",
+            go: "go"
+        ];
+
+        if go.as_bool() {
+            self.update = Some(in_val.clone())
+        } else {
+            self.update = None;
+        }
+
+        Ok(vec![])
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.update = None;
+        Ok(vec![
+            ("out".into(), self.output.clone()),
+            ("done".into(), Value::bit_low()),
         ])
     }
 }

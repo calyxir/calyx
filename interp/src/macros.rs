@@ -108,7 +108,7 @@ macro_rules! comb_primitive {
                 for (param, value) in params {
                     match param.as_ref() {
                         $( $crate::in_fix!($param) => base.$param = *value ),+,
-                        p => unreachable!(format!("Unknown parameter: {}", p)),
+                        p => unreachable!("Unknown parameter: {}", p),
                     }
                 }
                 base.logger = $crate::logging::new_sublogger(&name);
@@ -149,7 +149,7 @@ macro_rules! comb_primitive {
                 for (id, v) in inputs {
                     match id.as_ref() {
                         $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, self.$width) ),+,
-                        p => unreachable!(format!("Unknown port: {}", p)),
+                        p => unreachable!("Unknown port: {}", p),
                     }
                 }
             }
@@ -170,7 +170,7 @@ macro_rules! comb_primitive {
                 for (id, v) in inputs {
                     match id.as_ref() {
                         $( $crate::in_fix!($port) => base.$port = Some(v) ),+,
-                        p => unreachable!(format!("Unknown port: {}", p)),
+                        p => unreachable!("Unknown port: {}", p),
                     }
                 }
 
@@ -237,7 +237,7 @@ macro_rules! comb_primitive {
                 for (param, value) in params {
                     match param.as_ref() {
                         $( $crate::in_fix!($param) => base.$param = *value ),+,
-                        p => unreachable!(format!("Unknown parameter: {}", p)),
+                        p => unreachable!("Unknown parameter: {}", p),
                     }
                 }
                 base.logger = $crate::logging::new_sublogger(&name);
@@ -280,7 +280,7 @@ macro_rules! comb_primitive {
                 for (id, v) in inputs {
                     match id.as_ref() {
                         $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, self.$width) ),+,
-                        p => unreachable!(format!("Unknown port: {}", p)),
+                        p => unreachable!("Unknown port: {}", p),
                     }
                 }
             }
@@ -301,7 +301,7 @@ macro_rules! comb_primitive {
                 for (id, v) in inputs {
                     match id.as_ref() {
                         $( $crate::in_fix!($port) => base.$port = Some(v) ),+,
-                        p => unreachable!(format!("Unknown port: {}", p)),
+                        p => unreachable!("Unknown port: {}", p),
                     }
                 }
 
@@ -403,8 +403,23 @@ macro_rules! validate {
         for (id, v) in $inputs {
             match id.as_ref() {
                 $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, $width) ),+,
-                p => unreachable!(format!("Unknown port: {}", p)),
+                p => unreachable!("Unknown port: {}", p),
             }
         }
+    }
+}
+
+#[macro_export]
+macro_rules! get_input {
+    ( $inputs:ident; $( $port:ident : $id_name:expr ),+ )  => {
+        $( let mut $port = None; )+
+        for (id, v) in $inputs {
+            match id.as_ref() {
+                $($id_name => { $port =  Some(v); } ),+
+                _ => {}
+            }
+        }
+        $(let $port: &$crate::values::Value = $port.unwrap(); )+
+
     }
 }

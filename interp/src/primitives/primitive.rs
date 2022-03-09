@@ -230,7 +230,7 @@ impl Serialize for Serializeable {
                     Shape::D3(shape) => {
                         let mem = arr
                             .iter()
-                            .chunks(shape.1 * shape.0)
+                            .chunks(shape.1 * shape.2)
                             .into_iter()
                             .map(|x| {
                                 x.into_iter()

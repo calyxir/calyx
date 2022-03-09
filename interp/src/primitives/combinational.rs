@@ -1,3 +1,4 @@
+use super::stateful::floored_division;
 use super::{
     super::errors::InterpreterResult,
     prim_utils::{get_input_unwrap, get_param},
@@ -189,7 +190,7 @@ comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdSub[WIDTH](left: WI
     let (_,new_right) = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
-            ("right".into(), &Value::from(1, WIDTH))],
+            ("right".into(), &Value::from(1_u32, WIDTH))],
         )?
         .into_iter()
         .next()
@@ -232,7 +233,7 @@ comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdFpSub[WIDTH, INT_WI
     let new_right = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
-            ("right".into(), &Value::from(1, WIDTH))],
+            ("right".into(), &Value::from(1_u32, WIDTH))],
         )?
         .into_iter()
         .next()
@@ -535,4 +536,31 @@ comb_primitive!(StdSlice[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH
 });
 comb_primitive!(StdPad[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
     Ok(r#in.ext(OUT_WIDTH as usize))
+});
+
+// ===================== Unsynthesizeable Operations ======================
+comb_primitive!(StdUnsynMult[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    Ok(Value::from(left.as_unsigned() * right.as_unsigned(), WIDTH))
+});
+
+comb_primitive!(StdUnsynDiv[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    Ok(Value::from(left.as_unsigned() / right.as_unsigned(), WIDTH))
+});
+
+comb_primitive!(StdUnsynSmult[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    Ok(Value::from(left.as_signed() * right.as_signed(), WIDTH))
+});
+
+comb_primitive!(StdUnsynSdiv[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    Ok(Value::from(left.as_signed() / right.as_signed(), WIDTH))
+});
+
+comb_primitive!(StdUnsynMod[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    Ok(Value::from(left.as_unsigned() % right.as_unsigned(), WIDTH))
+});
+
+comb_primitive!(StdUnsynSmod[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    Ok(Value::from(left.as_signed() - right.as_signed() * floored_division(
+            &left.as_signed(),
+            &right.as_signed()), WIDTH))
 });

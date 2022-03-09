@@ -3,9 +3,7 @@ ver = "0.3.2"
 # Check basic functionality of the interpreter
 [[tests]]
 name = "unit"
-paths = [
-  "tests/unit/*.futil"
-]
+paths = ["tests/unit/*.futil"]
 cmd = """
   ../target/debug/interp {} | jq .memories
 """
@@ -13,9 +11,7 @@ timeout = 3
 
 [[tests]]
 name = "errors"
-paths = [
-    "tests/errors/*.futil"
-]
+paths = ["tests/errors/*.futil"]
 
 cmd = """
 ../target/debug/interp {}
@@ -24,9 +20,7 @@ timeout = 3
 
 [[tests]]
 name = "complex"
-paths = [
-    "tests/complex/*.futil"
-]
+paths = ["tests/complex/*.futil"]
 
 cmd = """
 ../target/debug/interp {}
@@ -35,9 +29,7 @@ timeout = 3
 
 [[tests]]
 name = "primitives"
-paths = [
-    "tests/primitives/*.futil"
-]
+paths = ["tests/primitives/*.futil"]
 cmd = """
 ../target/debug/interp {} -q | jq .memories
 """
@@ -45,10 +37,7 @@ timeout = 3
 
 [[tests]]
 name = "par to seq"
-paths = [
-      "tests/control/par_reg.futil",
-      "tests/control/par_mem.futil"
-]
+paths = ["tests/control/par_reg.futil", "tests/control/par_mem.futil"]
 cmd = """
 ../target/debug/futil {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories
 """
@@ -57,9 +46,9 @@ timeout = 3
 [[tests]]
 name = "control"
 paths = [
-    "tests/control/*.futil",
-    "tests/control/iteration/*.futil",
-    "tests/control/static/*.futil"
+  "tests/control/*.futil",
+  "tests/control/iteration/*.futil",
+  "tests/control/static/*.futil",
 ]
 cmd = """
 ../target/debug/interp {} -q | jq .memories
@@ -68,18 +57,14 @@ timeout = 3
 
 [[tests]]
 name = "invoke"
-paths = [
-  "tests/control/invoke/*.futil"
-  ]
+paths = ["tests/control/invoke/*.futil"]
 cmd = """
 fud e {} --to interpreter-out -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories
 """
 
 [[tests]]
 name = "invoke comp"
-paths = [
-  "tests/control/invoke/*.futil"
-  ]
+paths = ["tests/control/invoke/*.futil"]
 cmd = """
 fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories
 """
@@ -87,7 +72,7 @@ fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s interpreter.
 [[tests]]
 name = "fully structural"
 paths = [
-    "tests/control/*.futil",
+  "tests/control/*.futil",
   # Disabled iteration tests due to bug
   #    "tests/control/iteration/*.futil"
 ]
@@ -99,11 +84,97 @@ timeout = 3
 
 [[tests]]
 name = "fully structural static"
-paths = [
-  "tests/control/static*.futil"
-]
+paths = ["tests/control/static*.futil"]
 cmd = """
 ../target/debug/futil {} -d pre-opt -d post-opt  -l ../ | ../target/debug/interp | jq .memories
 """
 expect_dir = "tests/lowered/"
 timeout = 3
+
+[[tests]]
+name = "correctness dynamic"
+paths = ["../tests/correctness/*.futil"]
+cmd = """
+fud exec --to jq \
+         --through interpreter-out \
+         -s verilog.data {}.data \
+         -s interpreter.flags " --raw" \
+         -s jq.expr ".main" \
+         {} -q
+"""
+
+[[tests]]
+name = "numeric types correctness and parsing"
+paths = [
+  "../tests/correctness/numeric-types/parsing/*.futil",
+  "../tests/correctness/numeric-types/bitnum/*.futil",
+  "../tests/correctness/numeric-types/fixed-point/*.futil",
+]
+cmd = """
+fud exec --to jq \
+         --through interpreter-out \
+         -s interpreter.flags "--raw " \
+         -s verilog.data {}.data \
+         -s jq.expr ".main" \
+         {} -q
+"""
+
+[[tests]]
+name = "[frontend] tcam testing"
+paths = ["../tests/correctness/tcam/*.futil"]
+cmd = """
+fud exec --to jq \
+      --through interpreter-out \
+      -s interpreter.flags "--raw " \
+      -s verilog.data {}.data \
+      -s jq.expr ".main" \
+      {} -q
+"""
+
+# [[tests]]
+# name = "[frontend] systolic array correctness"
+# paths = ["../tests/correctness/systolic/*.systolic"]
+# cmd = """
+# fud e --from systolic --to jq \
+#       --through interpreter-out \
+#       -s interpreter.flags "--raw " \
+#       -s verilog.data {}.data \
+#       -s jq.expr ".main" \
+#       {} -q
+# """
+
+[[tests]]
+name = "[frontend] NTT pipeline correctness"
+paths = ["../tests/correctness/ntt-pipeline/*.txt"]
+cmd = """
+fud e --from ntt --to jq \
+      --through interpreter-out \
+      -s interpreter.flags "--raw " \
+      -s verilog.data {}.data \
+      -s jq.expr ".main" \
+      {} -q
+"""
+expect_dir = "tests/ntt-results/"
+
+
+[[tests]]
+name = "[frontend] mrxl correctness"
+paths = ["../frontends/mrxl/test/*.mrxl"]
+cmd = """
+fud e -q {} --from mrxl --to jq \
+            --through interpreter-out \
+            -s interpreter.flags "--raw " \
+            -s verilog.data {}.data \
+            -s jq.expr ".main"
+"""
+
+[[tests]]
+name = "[frontend] relay correctness"
+paths = ["../tests/correctness/relay/*.relay"]
+cmd = """
+fud e -q {} --from relay --to jq \
+            --through interpreter-out \
+            -s interpreter.flags "--raw " \
+            -s verilog.data {}.data \
+            -s jq.expr ".main"
+"""
