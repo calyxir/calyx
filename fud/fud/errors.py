@@ -135,8 +135,12 @@ class SourceConversion(FudError):
     Can't convert to a particular source type.
     """
 
-    def __init__(self, source_t, dst_t):
-        msg = f"Can't convert from {source_t} to {dst_t}"
+    def __init__(self, output_type, why=None):
+        msg = (
+            f"Data cannot be converted into {output_type}. "
+            "If an output stage produced it, "
+            "provide name for an output file using the `-o` flag."
+        )
         super().__init__(msg)
 
 
