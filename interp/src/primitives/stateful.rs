@@ -12,8 +12,22 @@ use ibig::{ubig, IBig, UBig};
 
 const DECIMAL_PRINT_WIDTH: usize = 7;
 
+enum BinOpUpdate {
+    None,
+    Reset,
+    Value(Value, Value),
+}
+
+impl BinOpUpdate {
+    fn clear(&mut self) {
+        *self = BinOpUpdate::None;
+    }
+    fn take(&mut self) -> Self {
+        std::mem::replace(&mut *self, BinOpUpdate::None)
+    }
+}
+
 /// Pipelined Multiplication (3 cycles)
-/// Still bounded by u64.
 /// How to use:
 /// [Primitive::execute] with the desired bindings.
 /// To capture these bindings into the internal (out) queue, [Primitive::do_tick].
@@ -21,9 +35,9 @@ const DECIMAL_PRINT_WIDTH: usize = 7;
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
 pub struct StdMultPipe<const SIGNED: bool, const DEPTH: usize> {
-    pub width: u64,
-    pub product: Value,
-    update: Option<(Value, Value)>,
+    width: u64,
+    product: Value,
+    update: BinOpUpdate,
     queue: ShiftBuffer<Value, DEPTH>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -39,7 +53,7 @@ impl<const SIGNED: bool, const DEPTH: usize> StdMultPipe<SIGNED, DEPTH> {
         StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
@@ -70,58 +84,66 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
     for StdMultPipe<SIGNED, DEPTH>
 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        // compute the value for this cycle
-        let computed = if let Some((left, right)) = self.update.take() {
-            let (value, overflow) = if SIGNED {
-                Value::from_checked(
-                    left.as_signed() * right.as_signed(),
-                    self.width,
-                )
-            } else {
-                Value::from_checked(
-                    left.as_unsigned() * right.as_unsigned(),
-                    self.width,
-                )
-            };
-
-            if overflow & self.error_on_overflow {
-                return Err(InterpreterError::OverflowError());
-            } else if overflow {
-                warn!(
-                    self.logger,
-                    "Computation under/overflowed ({} -> {})",
-                    if SIGNED {
-                        format!("{}", left.as_signed() * right.as_signed())
-                    } else {
-                        format!("{}", left.as_unsigned() * right.as_unsigned())
-                    },
-                    if SIGNED {
-                        format!("{}", value.as_signed())
-                    } else {
-                        format!("{}", value.as_unsigned())
-                    }
-                );
-            }
-
-            Some(value)
-        } else {
-            None
-        };
-
-        // shift elements through the buffer
-
-        let out = if let Some(value) = self.queue.shift(computed) {
-            self.product = value;
-            //return vec w/ out and done
-            vec![
+        let out = match self.update.take() {
+            BinOpUpdate::None => vec![
                 (ir::Id::from("out"), self.product.clone()),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out"), Value::zeroes(self.width)),
                 (ir::Id::from("done"), Value::bit_low()),
-            ]
+            ],
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (value, overflow) = if SIGNED {
+                    Value::from_checked(
+                        left.as_signed() * right.as_signed(),
+                        self.width,
+                    )
+                } else {
+                    Value::from_checked(
+                        left.as_unsigned() * right.as_unsigned(),
+                        self.width,
+                    )
+                };
+
+                if overflow & self.error_on_overflow {
+                    return Err(InterpreterError::OverflowError());
+                } else if overflow {
+                    warn!(
+                        self.logger,
+                        "Computation under/overflowed ({} -> {})",
+                        if SIGNED {
+                            format!("{}", left.as_signed() * right.as_signed())
+                        } else {
+                            format!(
+                                "{}",
+                                left.as_unsigned() * right.as_unsigned()
+                            )
+                        },
+                        if SIGNED {
+                            format!("{}", value.as_signed())
+                        } else {
+                            format!("{}", value.as_unsigned())
+                        }
+                    );
+                }
+
+                if let Some(value) = self.queue.shift(Some(value)) {
+                    self.product = value;
+                    vec![
+                        (ir::Id::from("out"), self.product.clone()),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out"), self.product.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
         };
 
         Ok(out)
@@ -149,15 +171,17 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         get_input![inputs;
             left: "left",
             right: "right",
+            reset: "reset",
             go: "go"
         ];
 
-        //continue computation
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -166,7 +190,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),

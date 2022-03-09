@@ -74,7 +74,11 @@ module std_fp_mult_pipe #(
 
   // Move the multiplication computation through the pipeline.
   always_ff @(posedge clk) begin
-    if (go) begin
+    if (reset) begin
+      rtmp <= 0;
+      ltmp <= 0;
+      out_tmp <= 0;
+    end else if (go) begin
       if (SIGNED) begin
         rtmp <= $signed(right);
         ltmp <= $signed(left);
