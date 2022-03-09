@@ -154,6 +154,7 @@ fud e --from ntt --to jq \
       -s jq.expr ".main" \
       {} -q
 """
+expect_dir = "tests/ntt-results/"
 
 
 [[tests]]

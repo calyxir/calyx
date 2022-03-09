@@ -137,7 +137,7 @@ fud e --from systolic --to jq \
 name = "[frontend] NTT pipeline correctness"
 paths = [ "tests/correctness/ntt-pipeline/*.txt" ]
 cmd = """
-fud e --from ntt {} --through verilog --through dat --to jq -s verilog.data  {}.data -s jq.expr ".memories" -q 
+fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
 """
 
 [[tests]]
