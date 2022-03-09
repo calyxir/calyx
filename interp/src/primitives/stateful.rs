@@ -223,7 +223,7 @@ pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is left, second is right
+    update: BinOpUpdate, //first is left, second is right
     queue: ShiftBuffer<(Value, Value), 2>, //invariant: always length 2
     full_name: ir::Id,
     logger: logging::Logger,
@@ -240,7 +240,7 @@ impl<const SIGNED: bool> StdDivPipe<SIGNED> {
             width,
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
@@ -270,72 +270,87 @@ impl<const SIGNED: bool> Named for StdDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            if right.as_unsigned() != 0_u32.into() {
-                let (q, overflow) = if SIGNED {
-                    Value::from_checked(
-                        left.as_signed() / right.as_signed(),
-                        self.width,
-                    )
-                } else {
-                    Value::from_checked(
-                        left.as_unsigned() / right.as_unsigned(),
-                        self.width,
-                    )
-                };
-                let r = if SIGNED {
-                    Value::from(
-                        left.as_signed()
-                            - right.as_signed()
-                                * floored_division(
-                                    &left.as_signed(),
-                                    &right.as_signed(),
-                                ),
-                        self.width,
-                    )
-                } else {
-                    Value::from(
-                        left.as_unsigned().rem_euclid(right.as_unsigned()),
-                        self.width,
-                    )
-                };
-
-                // the only way this is possible is if the division is signed and the
-                // min_val is divided by negative one as the resultant postitive value will
-                // not be representable in the desired bit width
-                if (overflow) & self.error_on_overflow {
-                    return Err(InterpreterError::OverflowError());
-                } else if overflow {
-                    warn!(
-                        self.logger,
-                        "Computation underflow ({} -> {})",
-                        left.as_signed() / right.as_signed(),
-                        q.as_signed()
-                    )
-                }
-                Some((q, r))
-            } else {
-                warn!(self.logger, "Division by zero");
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                vec![
+                    (ir::Id::from("out_quotient"), self.quotient.clone()),
+                    (ir::Id::from("out_remainder"), self.remainder.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
             }
-        } else {
-            None
-        };
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                    (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (q, r) = if right.as_unsigned() != 0_u32.into() {
+                    let (q, overflow) = if SIGNED {
+                        Value::from_checked(
+                            left.as_signed() / right.as_signed(),
+                            self.width,
+                        )
+                    } else {
+                        Value::from_checked(
+                            left.as_unsigned() / right.as_unsigned(),
+                            self.width,
+                        )
+                    };
+                    let r = if SIGNED {
+                        Value::from(
+                            left.as_signed()
+                                - right.as_signed()
+                                    * floored_division(
+                                        &left.as_signed(),
+                                        &right.as_signed(),
+                                    ),
+                            self.width,
+                        )
+                    } else {
+                        Value::from(
+                            left.as_unsigned().rem_euclid(right.as_unsigned()),
+                            self.width,
+                        )
+                    };
 
-        let out = if let Some((q, r)) = self.queue.shift(computed) {
-            self.quotient = q.clone();
-            self.remainder = r.clone();
-            vec![
-                (ir::Id::from("out_quotient"), q),
-                (ir::Id::from("out_remainder"), r),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
-                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
+                    // the only way this is possible is if the division is signed and the
+                    // min_val is divided by negative one as the resultant postitive value will
+                    // not be representable in the desired bit width
+                    if (overflow) & self.error_on_overflow {
+                        return Err(InterpreterError::OverflowError());
+                    } else if overflow {
+                        warn!(
+                            self.logger,
+                            "Computation underflow ({} -> {})",
+                            left.as_signed() / right.as_signed(),
+                            q.as_signed()
+                        )
+                    }
+                    (q, r)
+                } else {
+                    warn!(self.logger, "Division by zero");
+                    (Value::zeroes(self.width), Value::zeroes(self.width))
+                };
+
+                if let Some((q, r)) = self.queue.shift(Some((q, r))) {
+                    self.quotient = q.clone();
+                    self.remainder = r.clone();
+                    vec![
+                        (ir::Id::from("out_quotient"), q),
+                        (ir::Id::from("out_remainder"), r),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out_quotient"), self.quotient.clone()),
+                        (ir::Id::from("out_remainder"), self.remainder.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
         };
 
         Ok(out)
@@ -363,14 +378,18 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         get_input![inputs;
             left: "left",
             right: "right",
+            reset: "reset",
             go: "go"
         ];
 
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -378,7 +397,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
@@ -1817,6 +1836,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         validate![inputs;
             left: self.width,
             right: self.width,
+            reset: 1,
             go: 1
         ];
     }
@@ -1861,7 +1881,7 @@ pub struct StdFpDivPipe<const SIGNED: bool> {
     pub frac_width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is left, second is right
+    update: BinOpUpdate,
     queue: ShiftBuffer<(Value, Value), 2>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -1880,7 +1900,7 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
             frac_width,
             quotient: Value::zeroes(width),
             remainder: Value::zeroes(width),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
@@ -1907,62 +1927,79 @@ impl<const SIGNED: bool> Named for StdFpDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            if right.as_u64() != 0 {
-                let (q, r) = if SIGNED {
-                    (
-                        Value::from(
-                            (left.as_signed() << self.frac_width as usize)
-                                / right.as_signed(),
-                            self.width,
-                        ),
-                        Value::from(
-                            left.as_signed()
-                                - right.as_signed()
-                                    * floored_division(
-                                        &left.as_signed(),
-                                        &right.as_signed(),
-                                    ),
-                            self.width,
-                        ),
-                    )
-                } else {
-                    (
-                        Value::from(
-                            (left.as_unsigned() << self.frac_width as usize)
-                                / right.as_unsigned(),
-                            self.width,
-                        ),
-                        Value::from(
-                            left.as_unsigned().rem_euclid(right.as_unsigned()),
-                            self.width,
-                        ),
-                    )
-                };
-                Some((q, r))
-            } else {
-                warn!(self.logger, "Division by zero");
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                vec![
+                    (ir::Id::from("out_quotient"), self.quotient.clone()),
+                    (ir::Id::from("out_remainder"), self.remainder.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
             }
-        } else {
-            None
-        };
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                    (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (q, r) = if right.as_u64() != 0 {
+                    if SIGNED {
+                        (
+                            Value::from(
+                                (left.as_signed() << self.frac_width as usize)
+                                    / right.as_signed(),
+                                self.width,
+                            ),
+                            Value::from(
+                                left.as_signed()
+                                    - right.as_signed()
+                                        * floored_division(
+                                            &left.as_signed(),
+                                            &right.as_signed(),
+                                        ),
+                                self.width,
+                            ),
+                        )
+                    } else {
+                        (
+                            Value::from(
+                                (left.as_unsigned()
+                                    << self.frac_width as usize)
+                                    / right.as_unsigned(),
+                                self.width,
+                            ),
+                            Value::from(
+                                left.as_unsigned()
+                                    .rem_euclid(right.as_unsigned()),
+                                self.width,
+                            ),
+                        )
+                    }
+                } else {
+                    warn!(self.logger, "Division by zero");
+                    (Value::zeroes(self.width), Value::zeroes(self.width))
+                };
 
-        Ok(if let Some((q, r)) = self.queue.shift(computed) {
-            self.quotient = q.clone();
-            self.remainder = r.clone();
-            vec![
-                (ir::Id::from("out_quotient"), q),
-                (ir::Id::from("out_remainder"), r),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
-                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
-        })
+                if let Some((q, r)) = self.queue.shift(Some((q, r))) {
+                    self.quotient = q.clone();
+                    self.remainder = r.clone();
+                    vec![
+                        (ir::Id::from("out_quotient"), q),
+                        (ir::Id::from("out_remainder"), r),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out_quotient"), self.quotient.clone()),
+                        (ir::Id::from("out_remainder"), self.remainder.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
+        };
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -1973,6 +2010,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         validate![inputs;
             left: self.width,
             right: self.width,
+            reset: 1,
             go: 1
         ];
     }
@@ -1984,14 +2022,18 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         get_input![inputs;
             left: "left",
             right: "right",
+            reset: "reset",
             go: "go"
         ];
 
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -1999,7 +2041,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
