@@ -150,7 +150,10 @@ class Conversions:
 
     @staticmethod
     def bytes_to_string(data: bytes) -> str:
-        return data.decode("UTF-8")
+        try:
+            return data.decode("UTF-8")
+        except UnicodeDecodeError:
+            raise errors.SourceConversion("string")
 
     @staticmethod
     def string_to_bytes(data: str) -> bytes:
