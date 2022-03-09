@@ -159,6 +159,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
                 "left" => assert_eq!(v.len() as u64, self.width),
                 "right" => assert_eq!(v.len() as u64, self.width),
                 "go" => assert_eq!(v.len() as u64, 1),
+                "reset" => assert_eq!(v.len() as u64, 1),
                 p => unreachable!("Unknown port: {}", p),
             }
         }
@@ -366,6 +367,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 "left" => assert_eq!(v.len() as u64, self.width),
                 "right" => assert_eq!(v.len() as u64, self.width),
                 "go" => assert_eq!(v.len() as u64, 1),
+                "reset" => assert_eq!(v.len() as u64, 1),
                 p => unreachable!("Unknown port: {}", p),
             }
         }
