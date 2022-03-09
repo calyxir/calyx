@@ -1662,7 +1662,7 @@ pub struct StdFpMultPipe<const SIGNED: bool> {
     pub int_width: u64,
     pub frac_width: u64,
     pub product: Value,
-    update: Option<(Value, Value)>, // left, right
+    update: BinOpUpdate,
     queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -1681,7 +1681,7 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
             int_width,
             frac_width,
             product: Value::zeroes(width),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&full_name),
             full_name,
@@ -1708,87 +1708,105 @@ impl<const SIGNED: bool> Named for StdFpMultPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            let backing_val = if SIGNED {
-                Value::from(
-                    left.as_signed() * right.as_signed(),
-                    2 * self.width,
-                )
-            } else {
-                Value::from(
-                    left.as_unsigned() * right.as_unsigned(),
-                    2 * self.width,
-                )
-            };
+        let out = match self.update.take() {
+            BinOpUpdate::None => vec![
+                (ir::Id::from("out"), self.product.clone()),
+                (ir::Id::from("done"), Value::bit_low()),
+            ],
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let backing_val = if SIGNED {
+                    Value::from(
+                        left.as_signed() * right.as_signed(),
+                        2 * self.width,
+                    )
+                } else {
+                    Value::from(
+                        left.as_unsigned() * right.as_unsigned(),
+                        2 * self.width,
+                    )
+                };
 
-            let upper_idx = (2 * self.width) - self.int_width - 1;
-            let lower_idx = self.width - self.int_width;
+                let upper_idx = (2 * self.width) - self.int_width - 1;
+                let lower_idx = self.width - self.int_width;
 
-            if backing_val
-                .iter()
-                .rev()
-                .take((backing_val.len() - 1) - upper_idx as usize)
-                .any(|x| x)
-                && (!backing_val
+                if backing_val
                     .iter()
                     .rev()
                     .take((backing_val.len() - 1) - upper_idx as usize)
-                    .all(|x| x)
-                    | !SIGNED)
-            {
-                let out = backing_val
-                    .clone()
-                    .slice_out(upper_idx as usize, lower_idx as usize);
+                    .any(|x| x)
+                    && (!backing_val
+                        .iter()
+                        .rev()
+                        .take((backing_val.len() - 1) - upper_idx as usize)
+                        .all(|x| x)
+                        | !SIGNED)
+                {
+                    let out = backing_val
+                        .clone()
+                        .slice_out(upper_idx as usize, lower_idx as usize);
 
-                warn!(
-                    self.logger,
-                    "Computation over/underflow: {} to {}",
-                    if SIGNED {
-                        format!(
-                            "{:.fw$}",
-                            backing_val.as_sfp((self.frac_width * 2) as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    } else {
-                        format!(
-                            "{:.fw$}",
-                            backing_val.as_ufp((self.frac_width * 2) as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    },
-                    if SIGNED {
-                        format!(
-                            "{:.fw$}",
-                            out.as_sfp(self.frac_width as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    } else {
-                        format!(
-                            "{:.fw$}",
-                            out.as_ufp(self.frac_width as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    },
-                )
+                    warn!(
+                        self.logger,
+                        "Computation over/underflow: {} to {}",
+                        if SIGNED {
+                            format!(
+                                "{:.fw$}",
+                                backing_val
+                                    .as_sfp((self.frac_width * 2) as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        } else {
+                            format!(
+                                "{:.fw$}",
+                                backing_val
+                                    .as_ufp((self.frac_width * 2) as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        },
+                        if SIGNED {
+                            format!(
+                                "{:.fw$}",
+                                out.as_sfp(self.frac_width as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        } else {
+                            format!(
+                                "{:.fw$}",
+                                out.as_ufp(self.frac_width as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        },
+                    )
+                }
+
+                let computed = Some(
+                    backing_val
+                        .slice_out(upper_idx as usize, lower_idx as usize),
+                );
+
+                if let Some(out) = self.queue.shift(computed) {
+                    self.product = out.clone();
+                    vec![
+                        (ir::Id::from("out"), out),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out"), Value::zeroes(self.width)),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
             }
-
-            Some(backing_val.slice_out(upper_idx as usize, lower_idx as usize))
-        } else {
-            None
         };
 
-        Ok(if let Some(out) = self.queue.shift(computed) {
-            self.product = out.clone();
-            vec![
-                (ir::Id::from("out"), out),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
-        })
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -1808,16 +1826,18 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_input![inputs;
-          left: "left",
-          right: "right",
-          go: "go"
+            left: "left",
+            right: "right",
+            reset: "reset",
+            go: "go"
         ];
-
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()))
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -1826,7 +1846,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),
