@@ -1,4 +1,4 @@
-// -p infer-static-timing
+// -p well-formed -p infer-static-timing
 import "primitives/core.futil";
 
 component main(go: 1, clk: 1) -> (done: 1) {
@@ -8,9 +8,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
     m0 = std_mem_d1(32, 1, 1);
   }
   wires {
-    group zero_cycles {
-      zero_cycles[done] = 1'd1;
-    }
     group one_cycle {
       r0.write_en = 1'd1;
       one_cycle[done] = r0.done;
@@ -34,7 +31,6 @@ component main(go: 1, clk: 1) -> (done: 1) {
 
   control {
     seq {
-      zero_cycles;
       one_cycle;
       two_cycles;
       mem_wrt_to_done;
