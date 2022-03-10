@@ -249,6 +249,17 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Go signals of groups mentioned in other groups are considered used
+        comp.for_each_assignment(|assign| {
+            assign.for_each_port(|pr| {
+                let port = pr.borrow();
+                if port.is_hole() && port.name == "go" {
+                    self.used_groups.insert(port.get_parent_name());
+                }
+                None
+            })
+        });
+
         // Find unused groups
         let all_groups: HashSet<ir::Id> =
             comp.groups.iter().map(|g| g.clone_name()).collect();
