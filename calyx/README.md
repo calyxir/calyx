@@ -3,7 +3,7 @@
 <img src="https://calyxir.org/img/logo-text.svg" width="300">
 </p>
 <p align="center">
-<a href="https://capra.cs.cornell.edu/calyx">A Compiler Infrastructure for Accelerator Generators</a>
+<a href="https://calyxir.org">A Compiler Infrastructure for Accelerator Generators</a>
 </p>
 </h1>
 
@@ -20,8 +20,8 @@ into the intermediate representation.
 If you'd like try out the compiler infrastructure, take a look at the
 [`futil`][futil] crate instead.
 
-[site]: https://capra.cs.cornell.edu/calyx
-[docs]: https://capra.cs.cornell.edu/docs/calyx/
-[source-docs]: https://capra.cs.cornell.edu/docs/calyx/source/calyx
+[site]: https://calyxir.org
+[docs]: https://docs.calyxir.org
+[source-docs]: https://docs.calyxir.org/source/calyx/
 [paper]: https://rachitnigam.com/files/pubs/calyx.pdf
 [futil]: https://crates.io/crates/futil

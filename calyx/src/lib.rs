@@ -25,7 +25,7 @@
 //! requires no additional scheduling logic to detect aborts.
 //!
 //! [bsv-rules]: http://wiki.bluespec.com/Home/Rules
-//! [lang-tut]: https://capra.cs.cornell.edu/docs/calyx/tutorial/language-tut.html
+//! [lang-tut]: https://docs.calyxir.org/tutorial/language-tut.html
 pub mod analysis;
 pub mod default_passes;
 pub mod errors;
