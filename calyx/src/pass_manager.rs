@@ -6,6 +6,8 @@ use crate::{
     ir::traversal,
 };
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
+use tracing::debug_span;
 
 /// Top-level type for all passes that transform an [ir::Context]
 pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> CalyxResult<()>>;
@@ -159,12 +161,24 @@ impl PassManager {
         excl: &[String],
     ) -> CalyxResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl)?;
+
+        let pm_span = debug_span!("pass_manager");
+        let _ = pm_span.enter();
+
         for name in passes {
             // Pass is known to exist because create_plan validates the
             // names of passes.
             let pass = &self.passes[&name];
             if !excl_set.contains(&name) {
-                pass(ctx)?;
+                let start = Instant::now();
+                {
+                    let pass_span = debug_span!("pass", name = name.as_str());
+                    let _ = pass_span.enter();
+                    pass(ctx)?;
+                }
+                tracing::info!("{name}: {}ms", start.elapsed().as_millis());
+            } else {
+                tracing::info!("{name}: Ignored")
             }
         }
 

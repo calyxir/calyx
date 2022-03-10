@@ -60,6 +60,10 @@ pub struct Opts {
     /// list all avaliable pass options
     #[argh(switch, long = "list-passes")]
     pub list_passes: bool,
+
+    /// enable verbose printing
+    #[argh(option, long = "log", default="tracing::Level::WARN")]
+    pub log_level: tracing::Level,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {

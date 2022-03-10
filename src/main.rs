@@ -8,12 +8,20 @@ use calyx::{
 };
 use cmdline::{BackendOpt, CompileMode, Opts};
 use itertools::Itertools;
+use tracing_subscriber::FmtSubscriber;
 
 fn main() -> CalyxResult<()> {
-    let pm = PassManager::default_passes()?;
-
     // parse the command line arguments into Opts struct
     let mut opts = Opts::get_opts();
+
+    // enable tracing
+    FmtSubscriber::builder()
+        .without_time()
+        .with_writer(std::io::stderr)
+        .with_max_level(opts.log_level)
+        .init();
+
+    let pm = PassManager::default_passes()?;
 
     // list all the avaliable pass options when flag --list-passes is enabled
     if opts.list_passes {

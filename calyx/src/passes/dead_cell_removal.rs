@@ -6,6 +6,9 @@ use crate::ir::{
 use std::collections::HashSet;
 use std::iter;
 
+/// Warn if dead cell removal loops more than this number of times
+const LOOP_THRESHOLD: u64 = 5;
+
 /// Removes unused cells from components.
 #[derive(Default)]
 pub struct DeadCellRemoval {
@@ -83,6 +86,7 @@ impl Visitor for DeadCellRemoval {
         self.all_reads.insert(comp.signature.clone_name());
 
         // Add all cells that have at least one output read.
+        let mut count = 0;
         loop {
             let mut wire_reads = HashSet::new();
             comp.for_each_assignment(|assign| {
@@ -137,6 +141,12 @@ impl Visitor for DeadCellRemoval {
             if removed == 0 {
                 break;
             }
+
+            count += 1;
+        }
+
+        if count >= LOOP_THRESHOLD {
+            tracing::warn!("{} looped {count} times", Self::name());
         }
 
         Ok(Action::Stop)
