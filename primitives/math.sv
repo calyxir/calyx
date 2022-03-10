@@ -69,6 +69,9 @@ module fp_sqrt #(
       if (finished) begin
         done <= 1;
         out <= quotient_next;
+      end else if (reset) begin
+        done <= 0;
+        out <= 0;
       end else begin
         done <= 0;
         out <= out;

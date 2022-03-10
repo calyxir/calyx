@@ -12,8 +12,22 @@ use ibig::{ubig, IBig, UBig};
 
 const DECIMAL_PRINT_WIDTH: usize = 7;
 
+enum BinOpUpdate {
+    None,
+    Reset,
+    Value(Value, Value),
+}
+
+impl BinOpUpdate {
+    fn clear(&mut self) {
+        *self = BinOpUpdate::None;
+    }
+    fn take(&mut self) -> Self {
+        std::mem::replace(&mut *self, BinOpUpdate::None)
+    }
+}
+
 /// Pipelined Multiplication (3 cycles)
-/// Still bounded by u64.
 /// How to use:
 /// [Primitive::execute] with the desired bindings.
 /// To capture these bindings into the internal (out) queue, [Primitive::do_tick].
@@ -21,9 +35,9 @@ const DECIMAL_PRINT_WIDTH: usize = 7;
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
 pub struct StdMultPipe<const SIGNED: bool, const DEPTH: usize> {
-    pub width: u64,
-    pub product: Value,
-    update: Option<(Value, Value)>,
+    width: u64,
+    product: Value,
+    update: BinOpUpdate,
     queue: ShiftBuffer<Value, DEPTH>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -39,7 +53,7 @@ impl<const SIGNED: bool, const DEPTH: usize> StdMultPipe<SIGNED, DEPTH> {
         StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
@@ -70,58 +84,66 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
     for StdMultPipe<SIGNED, DEPTH>
 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        // compute the value for this cycle
-        let computed = if let Some((left, right)) = self.update.take() {
-            let (value, overflow) = if SIGNED {
-                Value::from_checked(
-                    left.as_signed() * right.as_signed(),
-                    self.width,
-                )
-            } else {
-                Value::from_checked(
-                    left.as_unsigned() * right.as_unsigned(),
-                    self.width,
-                )
-            };
-
-            if overflow & self.error_on_overflow {
-                return Err(InterpreterError::OverflowError());
-            } else if overflow {
-                warn!(
-                    self.logger,
-                    "Computation under/overflowed ({} -> {})",
-                    if SIGNED {
-                        format!("{}", left.as_signed() * right.as_signed())
-                    } else {
-                        format!("{}", left.as_unsigned() * right.as_unsigned())
-                    },
-                    if SIGNED {
-                        format!("{}", value.as_signed())
-                    } else {
-                        format!("{}", value.as_unsigned())
-                    }
-                );
-            }
-
-            Some(value)
-        } else {
-            None
-        };
-
-        // shift elements through the buffer
-
-        let out = if let Some(value) = self.queue.shift(computed) {
-            self.product = value;
-            //return vec w/ out and done
-            vec![
+        let out = match self.update.take() {
+            BinOpUpdate::None => vec![
                 (ir::Id::from("out"), self.product.clone()),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out"), Value::zeroes(self.width)),
                 (ir::Id::from("done"), Value::bit_low()),
-            ]
+            ],
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (value, overflow) = if SIGNED {
+                    Value::from_checked(
+                        left.as_signed() * right.as_signed(),
+                        self.width,
+                    )
+                } else {
+                    Value::from_checked(
+                        left.as_unsigned() * right.as_unsigned(),
+                        self.width,
+                    )
+                };
+
+                if overflow & self.error_on_overflow {
+                    return Err(InterpreterError::OverflowError());
+                } else if overflow {
+                    warn!(
+                        self.logger,
+                        "Computation under/overflowed ({} -> {})",
+                        if SIGNED {
+                            format!("{}", left.as_signed() * right.as_signed())
+                        } else {
+                            format!(
+                                "{}",
+                                left.as_unsigned() * right.as_unsigned()
+                            )
+                        },
+                        if SIGNED {
+                            format!("{}", value.as_signed())
+                        } else {
+                            format!("{}", value.as_unsigned())
+                        }
+                    );
+                }
+
+                if let Some(value) = self.queue.shift(Some(value)) {
+                    self.product = value;
+                    vec![
+                        (ir::Id::from("out"), self.product.clone()),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out"), self.product.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
         };
 
         Ok(out)
@@ -137,6 +159,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
                 "left" => assert_eq!(v.len() as u64, self.width),
                 "right" => assert_eq!(v.len() as u64, self.width),
                 "go" => assert_eq!(v.len() as u64, 1),
+                "reset" => assert_eq!(v.len() as u64, 1),
                 p => unreachable!("Unknown port: {}", p),
             }
         }
@@ -149,15 +172,17 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         get_input![inputs;
             left: "left",
             right: "right",
+            reset: "reset",
             go: "go"
         ];
 
-        //continue computation
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -166,7 +191,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),
@@ -199,7 +224,7 @@ pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is left, second is right
+    update: BinOpUpdate, //first is left, second is right
     queue: ShiftBuffer<(Value, Value), 2>, //invariant: always length 2
     full_name: ir::Id,
     logger: logging::Logger,
@@ -216,7 +241,7 @@ impl<const SIGNED: bool> StdDivPipe<SIGNED> {
             width,
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
@@ -246,72 +271,87 @@ impl<const SIGNED: bool> Named for StdDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            if right.as_unsigned() != 0_u32.into() {
-                let (q, overflow) = if SIGNED {
-                    Value::from_checked(
-                        left.as_signed() / right.as_signed(),
-                        self.width,
-                    )
-                } else {
-                    Value::from_checked(
-                        left.as_unsigned() / right.as_unsigned(),
-                        self.width,
-                    )
-                };
-                let r = if SIGNED {
-                    Value::from(
-                        left.as_signed()
-                            - right.as_signed()
-                                * floored_division(
-                                    &left.as_signed(),
-                                    &right.as_signed(),
-                                ),
-                        self.width,
-                    )
-                } else {
-                    Value::from(
-                        left.as_unsigned().rem_euclid(right.as_unsigned()),
-                        self.width,
-                    )
-                };
-
-                // the only way this is possible is if the division is signed and the
-                // min_val is divided by negative one as the resultant postitive value will
-                // not be representable in the desired bit width
-                if (overflow) & self.error_on_overflow {
-                    return Err(InterpreterError::OverflowError());
-                } else if overflow {
-                    warn!(
-                        self.logger,
-                        "Computation underflow ({} -> {})",
-                        left.as_signed() / right.as_signed(),
-                        q.as_signed()
-                    )
-                }
-                Some((q, r))
-            } else {
-                warn!(self.logger, "Division by zero");
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                vec![
+                    (ir::Id::from("out_quotient"), self.quotient.clone()),
+                    (ir::Id::from("out_remainder"), self.remainder.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
             }
-        } else {
-            None
-        };
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                    (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (q, r) = if right.as_unsigned() != 0_u32.into() {
+                    let (q, overflow) = if SIGNED {
+                        Value::from_checked(
+                            left.as_signed() / right.as_signed(),
+                            self.width,
+                        )
+                    } else {
+                        Value::from_checked(
+                            left.as_unsigned() / right.as_unsigned(),
+                            self.width,
+                        )
+                    };
+                    let r = if SIGNED {
+                        Value::from(
+                            left.as_signed()
+                                - right.as_signed()
+                                    * floored_division(
+                                        &left.as_signed(),
+                                        &right.as_signed(),
+                                    ),
+                            self.width,
+                        )
+                    } else {
+                        Value::from(
+                            left.as_unsigned().rem_euclid(right.as_unsigned()),
+                            self.width,
+                        )
+                    };
 
-        let out = if let Some((q, r)) = self.queue.shift(computed) {
-            self.quotient = q.clone();
-            self.remainder = r.clone();
-            vec![
-                (ir::Id::from("out_quotient"), q),
-                (ir::Id::from("out_remainder"), r),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
-                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
+                    // the only way this is possible is if the division is signed and the
+                    // min_val is divided by negative one as the resultant postitive value will
+                    // not be representable in the desired bit width
+                    if (overflow) & self.error_on_overflow {
+                        return Err(InterpreterError::OverflowError());
+                    } else if overflow {
+                        warn!(
+                            self.logger,
+                            "Computation underflow ({} -> {})",
+                            left.as_signed() / right.as_signed(),
+                            q.as_signed()
+                        )
+                    }
+                    (q, r)
+                } else {
+                    warn!(self.logger, "Division by zero");
+                    (Value::zeroes(self.width), Value::zeroes(self.width))
+                };
+
+                if let Some((q, r)) = self.queue.shift(Some((q, r))) {
+                    self.quotient = q.clone();
+                    self.remainder = r.clone();
+                    vec![
+                        (ir::Id::from("out_quotient"), q),
+                        (ir::Id::from("out_remainder"), r),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out_quotient"), self.quotient.clone()),
+                        (ir::Id::from("out_remainder"), self.remainder.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
         };
 
         Ok(out)
@@ -327,6 +367,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 "left" => assert_eq!(v.len() as u64, self.width),
                 "right" => assert_eq!(v.len() as u64, self.width),
                 "go" => assert_eq!(v.len() as u64, 1),
+                "reset" => assert_eq!(v.len() as u64, 1),
                 p => unreachable!("Unknown port: {}", p),
             }
         }
@@ -339,14 +380,18 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         get_input![inputs;
             left: "left",
             right: "right",
+            reset: "reset",
             go: "go"
         ];
 
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -354,7 +399,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
@@ -376,12 +421,27 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     }
 }
 
+enum RegUpdate {
+    None,
+    Reset,
+    Value(Value),
+}
+
+impl RegUpdate {
+    fn clear(&mut self) {
+        *self = Self::None;
+    }
+
+    fn take(&mut self) -> Self {
+        std::mem::replace(self, Self::None)
+    }
+}
+
 /// A register.
 pub struct StdReg {
     pub width: u64,
     pub data: [Value; 1],
-    update: Option<Value>,
-    write_en: bool,
+    update: RegUpdate,
     full_name: ir::Id,
 }
 
@@ -390,8 +450,7 @@ impl StdReg {
         StdReg {
             width,
             data: [Value::new(width as usize)],
-            update: None,
-            write_en: false,
+            update: RegUpdate::None,
             full_name,
         }
     }
@@ -414,25 +473,25 @@ impl Named for StdReg {
 
 impl Primitive for StdReg {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //first commit any updates
-        if let Some(val) = self.update.take() {
-            self.data[0] = val;
-        }
-        //then, based on write_en, return
-        let out = if self.write_en {
-            self.write_en = false; //we are done for this cycle
-                                   //if do_tick() is called again w/o an execute() preceeding it,
-                                   //then done will be low.
-            vec![
-                (ir::Id::from("out"), self.data[0].clone()),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            //done is low, but there is still data in this reg to return
-            vec![
+        let out = match self.update.take() {
+            RegUpdate::None => vec![
                 (ir::Id::from("out"), self.data[0].clone()),
                 (ir::Id::from("done"), Value::bit_low()),
-            ]
+            ],
+            RegUpdate::Reset => {
+                self.data[0] = Value::zeroes(self.width);
+                vec![
+                    (ir::Id::from("out"), self.data[0].clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            RegUpdate::Value(v) => {
+                self.data[0] = v;
+                vec![
+                    (ir::Id::from("out"), self.data[0].clone()),
+                    (ir::Id::from("done"), Value::bit_high()),
+                ]
+            }
         };
 
         Ok(out)
@@ -460,18 +519,18 @@ impl Primitive for StdReg {
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_input![inputs;
             input: "in",
-            write_en: "write_en"
+            write_en: "write_en",
+            reset: "reset"
         ];
 
-        //write the input to the register
-        if write_en.as_bool() {
-            self.update = Some((*input).clone());
-            //put cycle_count as 1! B/c do_tick() should return a high done
-            self.write_en = true;
+        self.update = if reset.as_bool() {
+            RegUpdate::Reset
+        } else if write_en.as_bool() {
+            RegUpdate::Value(input.clone())
         } else {
-            self.update = None;
-            self.write_en = false;
-        }
+            RegUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -479,11 +538,10 @@ impl Primitive for StdReg {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
-        self.write_en = false; //might be redundant, not too sure when reset is used
+        self.update.clear();
         Ok(vec![
             (ir::Id::from("out"), self.data[0].clone()),
-            (ir::Id::from("done"), Value::zeroes(1)),
+            (ir::Id::from("done"), Value::bit_low()),
         ])
     }
 
@@ -1625,7 +1683,7 @@ pub struct StdFpMultPipe<const SIGNED: bool> {
     pub int_width: u64,
     pub frac_width: u64,
     pub product: Value,
-    update: Option<(Value, Value)>, // left, right
+    update: BinOpUpdate,
     queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -1644,7 +1702,7 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
             int_width,
             frac_width,
             product: Value::zeroes(width),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&full_name),
             full_name,
@@ -1671,87 +1729,105 @@ impl<const SIGNED: bool> Named for StdFpMultPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            let backing_val = if SIGNED {
-                Value::from(
-                    left.as_signed() * right.as_signed(),
-                    2 * self.width,
-                )
-            } else {
-                Value::from(
-                    left.as_unsigned() * right.as_unsigned(),
-                    2 * self.width,
-                )
-            };
+        let out = match self.update.take() {
+            BinOpUpdate::None => vec![
+                (ir::Id::from("out"), self.product.clone()),
+                (ir::Id::from("done"), Value::bit_low()),
+            ],
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let backing_val = if SIGNED {
+                    Value::from(
+                        left.as_signed() * right.as_signed(),
+                        2 * self.width,
+                    )
+                } else {
+                    Value::from(
+                        left.as_unsigned() * right.as_unsigned(),
+                        2 * self.width,
+                    )
+                };
 
-            let upper_idx = (2 * self.width) - self.int_width - 1;
-            let lower_idx = self.width - self.int_width;
+                let upper_idx = (2 * self.width) - self.int_width - 1;
+                let lower_idx = self.width - self.int_width;
 
-            if backing_val
-                .iter()
-                .rev()
-                .take((backing_val.len() - 1) - upper_idx as usize)
-                .any(|x| x)
-                && (!backing_val
+                if backing_val
                     .iter()
                     .rev()
                     .take((backing_val.len() - 1) - upper_idx as usize)
-                    .all(|x| x)
-                    | !SIGNED)
-            {
-                let out = backing_val
-                    .clone()
-                    .slice_out(upper_idx as usize, lower_idx as usize);
+                    .any(|x| x)
+                    && (!backing_val
+                        .iter()
+                        .rev()
+                        .take((backing_val.len() - 1) - upper_idx as usize)
+                        .all(|x| x)
+                        | !SIGNED)
+                {
+                    let out = backing_val
+                        .clone()
+                        .slice_out(upper_idx as usize, lower_idx as usize);
 
-                warn!(
-                    self.logger,
-                    "Computation over/underflow: {} to {}",
-                    if SIGNED {
-                        format!(
-                            "{:.fw$}",
-                            backing_val.as_sfp((self.frac_width * 2) as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    } else {
-                        format!(
-                            "{:.fw$}",
-                            backing_val.as_ufp((self.frac_width * 2) as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    },
-                    if SIGNED {
-                        format!(
-                            "{:.fw$}",
-                            out.as_sfp(self.frac_width as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    } else {
-                        format!(
-                            "{:.fw$}",
-                            out.as_ufp(self.frac_width as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    },
-                )
+                    warn!(
+                        self.logger,
+                        "Computation over/underflow: {} to {}",
+                        if SIGNED {
+                            format!(
+                                "{:.fw$}",
+                                backing_val
+                                    .as_sfp((self.frac_width * 2) as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        } else {
+                            format!(
+                                "{:.fw$}",
+                                backing_val
+                                    .as_ufp((self.frac_width * 2) as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        },
+                        if SIGNED {
+                            format!(
+                                "{:.fw$}",
+                                out.as_sfp(self.frac_width as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        } else {
+                            format!(
+                                "{:.fw$}",
+                                out.as_ufp(self.frac_width as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        },
+                    )
+                }
+
+                let computed = Some(
+                    backing_val
+                        .slice_out(upper_idx as usize, lower_idx as usize),
+                );
+
+                if let Some(out) = self.queue.shift(computed) {
+                    self.product = out.clone();
+                    vec![
+                        (ir::Id::from("out"), out),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out"), Value::zeroes(self.width)),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
             }
-
-            Some(backing_val.slice_out(upper_idx as usize, lower_idx as usize))
-        } else {
-            None
         };
 
-        Ok(if let Some(out) = self.queue.shift(computed) {
-            self.product = out.clone();
-            vec![
-                (ir::Id::from("out"), out),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
-        })
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -1762,6 +1838,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         validate![inputs;
             left: self.width,
             right: self.width,
+            reset: 1,
             go: 1
         ];
     }
@@ -1771,16 +1848,18 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_input![inputs;
-          left: "left",
-          right: "right",
-          go: "go"
+            left: "left",
+            right: "right",
+            reset: "reset",
+            go: "go"
         ];
-
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()))
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -1789,7 +1868,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),
@@ -1804,7 +1883,7 @@ pub struct StdFpDivPipe<const SIGNED: bool> {
     pub frac_width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is left, second is right
+    update: BinOpUpdate,
     queue: ShiftBuffer<(Value, Value), 2>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -1823,7 +1902,7 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
             frac_width,
             quotient: Value::zeroes(width),
             remainder: Value::zeroes(width),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
@@ -1850,62 +1929,79 @@ impl<const SIGNED: bool> Named for StdFpDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            if right.as_u64() != 0 {
-                let (q, r) = if SIGNED {
-                    (
-                        Value::from(
-                            (left.as_signed() << self.frac_width as usize)
-                                / right.as_signed(),
-                            self.width,
-                        ),
-                        Value::from(
-                            left.as_signed()
-                                - right.as_signed()
-                                    * floored_division(
-                                        &left.as_signed(),
-                                        &right.as_signed(),
-                                    ),
-                            self.width,
-                        ),
-                    )
-                } else {
-                    (
-                        Value::from(
-                            (left.as_unsigned() << self.frac_width as usize)
-                                / right.as_unsigned(),
-                            self.width,
-                        ),
-                        Value::from(
-                            left.as_unsigned().rem_euclid(right.as_unsigned()),
-                            self.width,
-                        ),
-                    )
-                };
-                Some((q, r))
-            } else {
-                warn!(self.logger, "Division by zero");
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                vec![
+                    (ir::Id::from("out_quotient"), self.quotient.clone()),
+                    (ir::Id::from("out_remainder"), self.remainder.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
             }
-        } else {
-            None
-        };
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                    (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (q, r) = if right.as_u64() != 0 {
+                    if SIGNED {
+                        (
+                            Value::from(
+                                (left.as_signed() << self.frac_width as usize)
+                                    / right.as_signed(),
+                                self.width,
+                            ),
+                            Value::from(
+                                left.as_signed()
+                                    - right.as_signed()
+                                        * floored_division(
+                                            &left.as_signed(),
+                                            &right.as_signed(),
+                                        ),
+                                self.width,
+                            ),
+                        )
+                    } else {
+                        (
+                            Value::from(
+                                (left.as_unsigned()
+                                    << self.frac_width as usize)
+                                    / right.as_unsigned(),
+                                self.width,
+                            ),
+                            Value::from(
+                                left.as_unsigned()
+                                    .rem_euclid(right.as_unsigned()),
+                                self.width,
+                            ),
+                        )
+                    }
+                } else {
+                    warn!(self.logger, "Division by zero");
+                    (Value::zeroes(self.width), Value::zeroes(self.width))
+                };
 
-        Ok(if let Some((q, r)) = self.queue.shift(computed) {
-            self.quotient = q.clone();
-            self.remainder = r.clone();
-            vec![
-                (ir::Id::from("out_quotient"), q),
-                (ir::Id::from("out_remainder"), r),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
-                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
-        })
+                if let Some((q, r)) = self.queue.shift(Some((q, r))) {
+                    self.quotient = q.clone();
+                    self.remainder = r.clone();
+                    vec![
+                        (ir::Id::from("out_quotient"), q),
+                        (ir::Id::from("out_remainder"), r),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out_quotient"), self.quotient.clone()),
+                        (ir::Id::from("out_remainder"), self.remainder.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
+        };
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -1916,6 +2012,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         validate![inputs;
             left: self.width,
             right: self.width,
+            reset: 1,
             go: 1
         ];
     }
@@ -1927,14 +2024,18 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         get_input![inputs;
             left: "left",
             right: "right",
+            reset: "reset",
             go: "go"
         ];
 
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -1942,7 +2043,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
@@ -1982,138 +2083,76 @@ pub(crate) fn int_sqrt(i: &UBig) -> UBig {
     lower
 }
 
-pub struct StdSqrt {
+type SqrtUpdate = RegUpdate;
+
+pub struct StdSqrt<const FP: bool> {
     pub width: u64,
     pub output: Value,
-    update: Option<Value>,
+    frac_width: u64,
+    update: SqrtUpdate,
     name: ir::Id,
 }
 
-impl StdSqrt {
+impl<const FP: bool> StdSqrt<FP> {
     pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("Missing `WIDTH` param from std_sqrt binding");
-        Self {
-            width,
-            output: Value::zeroes(width),
-            update: None,
-            name,
-        }
-    }
-}
-
-impl Named for StdSqrt {
-    fn get_full_name(&self) -> &ir::Id {
-        &self.name
-    }
-}
-
-impl Primitive for StdSqrt {
-    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let update = self.update.take();
-        if let Some(v) = update {
-            let val = int_sqrt(&v.as_unsigned());
-            let val = Value::from(val, self.width);
-            self.output = val;
-            Ok(vec![
-                ("out".into(), self.output.clone()),
-                ("done".into(), Value::bit_high()),
-            ])
+        let frac_width = if FP {
+            get_param(params, "FRAC_WIDTH")
+                .expect("Missing `FRAC_WIDTH` param from std_sqrt binding")
         } else {
-            unreachable!("Square root stepped without combinational convergence. This should never happen, please report it");
-        }
-    }
+            0
+        };
 
-    fn is_comb(&self) -> bool {
-        false
-    }
-
-    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
-        validate![inputs;
-            r#in: self.width,
-            go: 1
-        ]
-    }
-
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
-            in_val: "in",
-            go: "go"
-        ];
-
-        if go.as_bool() {
-            self.update = Some(in_val.clone())
-        } else {
-            self.update = None;
-        }
-
-        Ok(vec![])
-    }
-
-    fn reset(
-        &mut self,
-        _inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
-        Ok(vec![
-            ("out".into(), self.output.clone()),
-            ("done".into(), Value::bit_low()),
-        ])
-    }
-}
-
-pub struct StdFpSqrt {
-    pub width: u64,
-    pub int_width: u64,
-    pub frac_width: u64,
-    pub output: Value,
-    update: Option<Value>,
-    name: ir::Id,
-}
-
-impl StdFpSqrt {
-    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
-        let width = get_param(params, "WIDTH")
-            .expect("Missing `WIDTH` param from std_sqrt binding");
-        let frac_width = get_param(params, "FRAC_WIDTH")
-            .expect("Missing `FRAC_WIDTH` param from std_sqrt binding");
-        let int_width = get_param(params, "INT_WIDTH")
-            .expect("Missing `INT_WIDTH` param from std_sqrt binding");
         Self {
             width,
             frac_width,
-            int_width,
             output: Value::zeroes(width),
-            update: None,
+            update: SqrtUpdate::None,
             name,
         }
     }
 }
 
-impl Named for StdFpSqrt {
+impl<const FP: bool> Named for StdSqrt<FP> {
     fn get_full_name(&self) -> &ir::Id {
         &self.name
     }
 }
 
-impl Primitive for StdFpSqrt {
+impl<const FP: bool> Primitive for StdSqrt<FP> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let update = self.update.take();
-        if let Some(v) = update {
-            let val =
-                int_sqrt(&(v.as_unsigned() << (self.frac_width as usize)));
-            let val = Value::from(val, self.width);
-            self.output = val;
-            Ok(vec![
+        let out = match self.update.take() {
+            SqrtUpdate::None => vec![
                 ("out".into(), self.output.clone()),
-                ("done".into(), Value::bit_high()),
-            ])
-        } else {
-            unreachable!("Square root stepped without combinational convergence. This should never happen, please report it");
-        }
+                ("done".into(), Value::bit_low()),
+            ],
+            SqrtUpdate::Reset => {
+                self.output = Value::zeroes(self.width);
+                vec![
+                    ("out".into(), self.output.clone()),
+                    ("done".into(), Value::bit_low()),
+                ]
+            }
+            SqrtUpdate::Value(v) => {
+                self.output = if FP {
+                    let val = int_sqrt(
+                        &(v.as_unsigned() << (self.frac_width as usize)),
+                    );
+                    Value::from(val, self.width)
+                } else {
+                    let val = int_sqrt(&v.as_unsigned());
+                    Value::from(val, self.width)
+                };
+
+                vec![
+                    ("out".into(), self.output.clone()),
+                    ("done".into(), Value::bit_high()),
+                ]
+            }
+        };
+
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -2133,14 +2172,17 @@ impl Primitive for StdFpSqrt {
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_input![inputs;
             in_val: "in",
-            go: "go"
+            go: "go",
+            reset: "reset"
         ];
 
-        if go.as_bool() {
-            self.update = Some(in_val.clone())
+        self.update = if reset.as_bool() {
+            SqrtUpdate::Reset
+        } else if go.as_bool() {
+            SqrtUpdate::Value(in_val.clone())
         } else {
-            self.update = None;
-        }
+            SqrtUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -2149,7 +2191,7 @@ impl Primitive for StdFpSqrt {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         Ok(vec![
             ("out".into(), self.output.clone()),
             ("done".into(), Value::bit_low()),

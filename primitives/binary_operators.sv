@@ -74,7 +74,11 @@ module std_fp_mult_pipe #(
 
   // Move the multiplication computation through the pipeline.
   always_ff @(posedge clk) begin
-    if (go) begin
+    if (reset) begin
+      rtmp <= 0;
+      ltmp <= 0;
+      out_tmp <= 0;
+    end else if (go) begin
       if (SIGNED) begin
         rtmp <= $signed(right);
         ltmp <= $signed(left);
@@ -155,7 +159,10 @@ module std_fp_div_pipe #(
     end
 
     always_ff @(posedge clk) begin
-      if (start) begin
+      if (reset) begin
+        out_quotient <= 0;
+        out_remainder <= 0;
+      end else if (start) begin
         out_quotient <= 0;
         out_remainder <= left;
       end else if (go == 0) begin
@@ -177,7 +184,10 @@ module std_fp_div_pipe #(
     end
 
     always_ff @(posedge clk) begin
-      if (start) begin
+      if (reset) begin
+        acc <= 0;
+        quotient <= 0;
+      end else if (start) begin
         {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
       end else begin
         acc <= acc_next;
