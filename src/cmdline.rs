@@ -62,7 +62,7 @@ pub struct Opts {
     pub list_passes: bool,
 
     /// enable verbose printing
-    #[argh(option, long = "log", default="tracing::Level::WARN")]
+    #[argh(option, long = "log", default = "tracing::Level::WARN")]
     pub log_level: tracing::Level,
 }
 
