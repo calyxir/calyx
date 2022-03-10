@@ -1,11 +1,7 @@
 mod backend;
 mod cmdline;
 
-use calyx::{
-    errors::{CalyxResult, Error},
-    frontend, ir,
-    pass_manager::PassManager,
-};
+use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
 use cmdline::{BackendOpt, CompileMode, Opts};
 use itertools::Itertools;
 use tracing_subscriber::FmtSubscriber;
