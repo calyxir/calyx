@@ -4,6 +4,7 @@ use crate::backend::{
     xilinx::XilinxXmlBackend,
 };
 use argh::FromArgs;
+use calyx::errors::Error;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 use itertools::Itertools;
 use std::path::Path;
@@ -216,14 +217,24 @@ impl Opts {
     }
 
     /// Get the current set of options from the command line invocation.
-    pub fn get_opts() -> Opts {
+    pub fn get_opts() -> CalyxResult<Opts> {
         let mut opts: Opts = argh::from_env();
+
+        if opts.compile_mode == CompileMode::File
+            && !matches!(opts.backend, BackendOpt::Calyx | BackendOpt::None)
+        {
+            return Err(Error::misc(format!(
+                "--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project",
+                opts.backend.to_string()
+            )));
+        }
 
         // argh doesn't allow us to specify a default for this so we fill it
         // in manually.
         if opts.pass.is_empty() {
             opts.pass = vec!["all".into()];
         }
-        opts
+
+        Ok(opts)
     }
 }
