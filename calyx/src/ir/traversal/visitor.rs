@@ -77,7 +77,20 @@ pub trait ConstructVisitor {
             })
             .collect();
 
-        opts.iter().map(|o| given_opts.contains(o)).collect_vec()
+        let values = opts.iter().map(|o| given_opts.contains(o)).collect_vec();
+
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "Extra options for {}: {}",
+                Self::name(),
+                opts.iter()
+                    .zip(values.iter())
+                    .map(|(o, v)| format!("{o}->{v}"))
+                    .join(", ")
+            );
+        }
+
+        values
     }
 
     /// Construct the visitor using information from the Context
