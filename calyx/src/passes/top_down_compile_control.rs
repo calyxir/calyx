@@ -149,8 +149,8 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             };
             compute_unique_ids(body, cur_state)
         }
+        ir::Control::Empty(_) => cur_state,
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
     }
 }
 
@@ -404,13 +404,21 @@ fn calculate_states_recur(
             // Previous states transitioning into false branch need the conditional
             // to be false.
             let fal_transitions = preds.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
-            let fal_prev = calculate_states_recur(
-                fbranch,
-                fal_transitions,
-                schedule,
-                builder,
-                early_transitions
-            )?;
+
+            let fal_prev = if let ir::Control::Empty(..) = **fbranch {
+                // If the false branch is empty, then all the prevs to this node will become prevs
+                // to the next node.
+                fal_transitions
+            } else {
+                calculate_states_recur(
+                    fbranch,
+                    fal_transitions,
+                    schedule,
+                    builder,
+                    early_transitions
+                )?
+            };
+
             let prevs =
                 tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
             Ok(prevs)
