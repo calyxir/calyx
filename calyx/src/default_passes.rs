@@ -79,8 +79,6 @@ impl PassManager {
             "compile",
             [
                 CompileInvoke,
-                CompileEmpty,
-                // TopDownStaticTiming,
                 TopDownCompileControl
             ]
         );
