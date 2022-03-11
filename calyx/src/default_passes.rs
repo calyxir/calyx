@@ -74,16 +74,7 @@ impl PassManager {
                 MinimizeRegs,
             ]
         );
-        register_alias!(
-            pm,
-            "compile",
-            [
-                CompileInvoke,
-                CompileEmpty,
-                // TopDownStaticTiming,
-                TopDownCompileControl
-            ]
-        );
+        register_alias!(pm, "compile", [CompileInvoke, TopDownCompileControl]);
         register_alias!(
             pm,
             "post-opt",
