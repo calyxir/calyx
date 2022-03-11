@@ -146,7 +146,7 @@ impl Visitor for DeadCellRemoval {
         }
 
         if count >= LOOP_THRESHOLD {
-            tracing::warn!("{} looped {count} times", Self::name());
+            log::warn!("{} looped {count} times", Self::name());
         }
 
         Ok(Action::Stop)

@@ -4,17 +4,16 @@ mod cmdline;
 use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
 use cmdline::{BackendOpt, CompileMode, Opts};
 use itertools::Itertools;
-use tracing_subscriber::FmtSubscriber;
 
 fn main() -> CalyxResult<()> {
     // parse the command line arguments into Opts struct
     let mut opts = Opts::get_opts()?;
 
     // enable tracing
-    FmtSubscriber::builder()
-        .without_time()
-        .with_writer(std::io::stderr)
-        .with_max_level(opts.log_level)
+    env_logger::Builder::new()
+        .format_timestamp(None)
+        .filter_level(opts.log_level)
+        .target(env_logger::Target::Stderr)
         .init();
 
     let pm = PassManager::default_passes()?;

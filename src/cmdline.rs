@@ -7,6 +7,7 @@ use argh::FromArgs;
 use calyx::errors::Error;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 use itertools::Itertools;
+use log;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -63,8 +64,8 @@ pub struct Opts {
     pub list_passes: bool,
 
     /// enable verbose printing
-    #[argh(option, long = "log", default = "tracing::Level::WARN")]
-    pub log_level: tracing::Level,
+    #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
+    pub log_level: log::LevelFilter,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
