@@ -1,0 +1,11 @@
+// -p well-formed -b verilog
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    c = std_const(36, 34359738368);
+  }
+  wires {
+    done = 1'd1;
+  }
+  control {}
+}
