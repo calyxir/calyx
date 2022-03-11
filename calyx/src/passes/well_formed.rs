@@ -156,16 +156,9 @@ impl Visitor for WellFormed {
         self.used_groups.insert(s.group.clone_name());
 
         let group = s.group.borrow();
-        let done_assign = group
-            .assignments
-            .iter()
-            .find(|assign| {
-                let dst = assign.dst.borrow();
-                dst.is_hole() && *group.name() == dst.get_parent_name()
-            })
-            .map(|asgn| {
-                asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1)
-            });
+        let asgn = group.done_cond();
+        let const_done_assign =
+            asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1);
 
         // A group with a constant done condition are not allowed.
         if group
@@ -173,7 +166,7 @@ impl Visitor for WellFormed {
             .get("static")
             .map(|v| *v == 0)
             .unwrap_or(false)
-            || done_assign.unwrap_or(false)
+            || const_done_assign
         {
             return Err(Error::malformed_structure("Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));
         }
@@ -249,6 +242,17 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Go signals of groups mentioned in other groups are considered used
+        comp.for_each_assignment(|assign| {
+            assign.for_each_port(|pr| {
+                let port = pr.borrow();
+                if port.is_hole() && port.name == "go" {
+                    self.used_groups.insert(port.get_parent_name());
+                }
+                None
+            })
+        });
+
         // Find unused groups
         let all_groups: HashSet<ir::Id> =
             comp.groups.iter().map(|g| g.clone_name()).collect();

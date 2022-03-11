@@ -6,9 +6,6 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
     m0 = std_mem_d1(32, 1, 1);
   }
   wires {
-    group zero_cycles<"static"=0> {
-      zero_cycles[done] = 1'd1;
-    }
     group one_cycle<"static"=1> {
       r0.write_en = 1'd1;
       one_cycle[done] = r0.done;
@@ -32,7 +29,6 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
 
   control {
     seq {
-      @static(0) zero_cycles;
       @static one_cycle;
       @static(2) two_cycles;
       @static mem_wrt_to_done;
