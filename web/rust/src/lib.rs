@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use calyx::{
     errors::{self, CalyxResult},
     frontend, ir,
@@ -36,8 +37,7 @@ fn compile(
     let ws = ws_from_ns(ns)?;
 
     // Build the IR representation
-    let bc = ir::BackendConf::default();
-    let mut rep = ir::from_ast::ast_to_ir(ws, bc)?;
+    let mut rep = ir::from_ast::ast_to_ir(ws)?;
 
     pm.execute_plan(&mut rep, passes, &[])?;
 
