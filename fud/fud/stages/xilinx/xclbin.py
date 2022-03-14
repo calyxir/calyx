@@ -1,11 +1,12 @@
 import logging as log
 from pathlib import Path
+import re
+import xml.etree.ElementTree as ET
 
 from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
 from fud.stages.futil import FutilStage
 from fud.utils import shell
-
 
 class XilinxStage(Stage):
     name = "xclbin"
@@ -51,6 +52,15 @@ class XilinxStage(Stage):
             / "bitstream"
             / "gen_xo.tcl"
         )
+
+        # Extract out AXI names from XML file
+        tree = ET.parse(xmlfile)
+        root = tree.getroot()
+        axi_names = ""
+        for port in root.iter('port'):
+            if re.search("_axi$", port.attrib['name']):
+                string += port.attrib['name'] + " "
+        axi_names.strip()
 
         package_cmd = (
             "cd {tmpdir} && "
