@@ -6,6 +6,7 @@ from fud.stages.remote_context import RemoteExecution, LocalSandbox
 from fud.stages.futil import FutilStage
 from fud.utils import shell
 
+
 class XilinxStage(Stage):
     name = "xclbin"
 
