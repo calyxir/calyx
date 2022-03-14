@@ -7,7 +7,6 @@ use argh::FromArgs;
 use calyx::errors::Error;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 use itertools::Itertools;
-use log;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
