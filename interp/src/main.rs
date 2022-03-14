@@ -60,6 +60,10 @@ pub struct Opts {
     #[argh(switch, short = 'q', long = "--quiet")]
     quiet: bool,
 
+    /// serializes values using base64 encoding
+    #[argh(switch, long = "raw")]
+    raw: bool,
+
     #[argh(subcommand)]
     comm: Option<Command>,
 }
@@ -87,10 +91,15 @@ struct CommandDebug {}
 #[inline]
 fn print_res(
     res: InterpreterResult<InterpreterState>,
+    raw: bool,
 ) -> InterpreterResult<()> {
     match res {
         Ok(env) => {
-            env.print_env();
+            if raw {
+                env.print_env_raw()
+            } else {
+                env.print_env()
+            };
             Ok(())
         }
         Err(InterpreterError::Exit) => Ok(()), // The exit command doesn't cause an error code
@@ -161,5 +170,5 @@ fn main() -> InterpreterResult<()> {
         }
     };
 
-    print_res(res)
+    print_res(res, opts.raw)
 }

@@ -414,6 +414,30 @@ impl Group {
         })
     }
 
+    /// Returns the index to the done assignment in the group.
+    fn find_done_cond(&self) -> usize {
+        self.assignments
+            .iter()
+            .position(|assign| {
+                let dst = assign.dst.borrow();
+                dst.is_hole() && dst.name == "done"
+            })
+            .expect("Go has no done condition")
+    }
+
+    /// Returns a reference to the assignment in the group that writes to the done condition.
+    pub fn done_cond(&self) -> &Assignment {
+        let idx = self.find_done_cond();
+        &self.assignments[idx]
+    }
+
+    /// Returns a mutable reference to the assignment in the group that writes to the done
+    /// condition.
+    pub fn done_cond_mut(&mut self) -> &mut Assignment {
+        let idx = self.find_done_cond();
+        &mut self.assignments[idx]
+    }
+
     /// The name of this group.
     #[inline]
     pub fn name(&self) -> &Id {

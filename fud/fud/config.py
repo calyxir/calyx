@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Set, Optional
 
 import appdirs  # type: ignore
 import toml
@@ -67,7 +67,6 @@ DEFAULT_CONFIGURATION = {
             "remote": None,
         },
         "xclbin": {
-            "file_extensions": [".xclbin"],
             "mode": "hw_emu",
             "device": "xilinx_u50_gen3x16_xdma_201920_3",
             "temp_location": "/tmp",
@@ -77,7 +76,6 @@ DEFAULT_CONFIGURATION = {
             "save_temps": None,
         },
         "wdb": {
-            "file_extensions": [".wdb"],
             "mode": "hw_emu",
             "ssh_host": "",
             "ssh_username": "",
@@ -291,7 +289,7 @@ class Configuration:
             else:
                 log.error(f"No external script named `{args.name}'.")
 
-    def discover_implied_states(self, filename):
+    def discover_implied_states(self, filename) -> str:
         """
         Use the mapping from filename extensions to stages to figure out which
         states were implied.
@@ -324,7 +322,12 @@ class Configuration:
         return sources.pop()
 
     def construct_path(
-        self, source=None, target=None, input_file=None, output_file=None, through=[]
+        self,
+        source: Optional[str] = None,
+        target: Optional[str] = None,
+        input_file=None,
+        output_file=None,
+        through=[],
     ) -> List[stages.Stage]:
         """
         Construct the path of stages implied by the passed arguments.
@@ -332,10 +335,12 @@ class Configuration:
         # find source
         if source is None:
             source = self.discover_implied_states(input_file)
+            log.debug(f"Inferred source state: {source}")
 
         # find target
         if target is None:
             target = self.discover_implied_states(output_file)
+            log.debug(f"Inferred target state: {target}")
 
         path = self.registry.make_path(source, target, through)
         if path is None:

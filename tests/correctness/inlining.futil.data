@@ -49,10 +49,10 @@
   },
   "out_mem": {
     "data": [
-      [
-        [0,0],
-        [0,0]
-      ]
+        0,
+        0,
+        0,
+        0
     ],
     "format": {
       "numeric_type": "bitnum",

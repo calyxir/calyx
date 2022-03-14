@@ -167,7 +167,7 @@ cmd = """
 fud e -q {} --from relay --to jq \
             --through verilog \
             --through dat \
-            -s verilog.data {}.data
+            -s verilog.data {}.data \
             -s jq.expr ".memories"
 """
 
