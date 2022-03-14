@@ -1,5 +1,5 @@
 use crate::structures::names::GroupQualifiedInstanceName;
-use std::{fmt::Write, iter::once};
+use std::{collections::HashSet, fmt::Write, iter::once};
 
 #[derive(Debug, Clone)]
 pub struct ActiveTreeNode {
@@ -67,6 +67,11 @@ impl ActiveTreeNode {
             self.children.into_iter().flat_map(Self::flatten).collect()
         }
     }
+
+    #[inline]
+    pub fn flat_set(self) -> ActiveSet {
+        self.flatten().into()
+    }
 }
 
 pub struct ActiveVec(Vec<GroupQualifiedInstanceName>);
@@ -92,5 +97,13 @@ impl IntoIterator for ActiveVec {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+pub struct ActiveSet(HashSet<String>);
+
+impl From<ActiveVec> for ActiveSet {
+    fn from(v: ActiveVec) -> Self {
+        Self(v.0.into_iter().map(|x| x.format_name()).collect())
     }
 }
