@@ -1,7 +1,7 @@
 use crate::structures::names::GroupQualifiedInstanceName;
-use std::fmt::Write;
+use std::{fmt::Write, iter::once};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActiveTreeNode {
     name: GroupQualifiedInstanceName,
     children: Vec<ActiveTreeNode>,
@@ -56,5 +56,41 @@ impl ActiveTreeNode {
         }
 
         out
+    }
+
+    pub fn flatten(self) -> ActiveVec {
+        if self.name.is_leaf() {
+            once(self.name)
+                .chain(self.children.into_iter().flat_map(Self::flatten))
+                .collect()
+        } else {
+            self.children.into_iter().flat_map(Self::flatten).collect()
+        }
+    }
+}
+
+pub struct ActiveVec(Vec<GroupQualifiedInstanceName>);
+
+impl From<Vec<GroupQualifiedInstanceName>> for ActiveVec {
+    fn from(v: Vec<GroupQualifiedInstanceName>) -> Self {
+        Self(v)
+    }
+}
+
+impl FromIterator<GroupQualifiedInstanceName> for ActiveVec {
+    fn from_iter<T: IntoIterator<Item = GroupQualifiedInstanceName>>(
+        iter: T,
+    ) -> Self {
+        Self(Vec::from_iter(iter))
+    }
+}
+
+impl IntoIterator for ActiveVec {
+    type Item = GroupQualifiedInstanceName;
+
+    type IntoIter = std::vec::IntoIter<GroupQualifiedInstanceName>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }

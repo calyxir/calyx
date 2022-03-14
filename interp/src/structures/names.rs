@@ -120,7 +120,7 @@ impl QualifiedInstanceName {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupName {
     /// An actual group
     Group(Id),
@@ -130,6 +130,7 @@ pub enum GroupName {
     None,
 }
 
+#[derive(Clone)]
 pub struct GroupQualifiedInstanceName {
     pub prefix: ComponentQualifiedInstanceName,
     pub group: GroupName,
@@ -158,6 +159,10 @@ impl GroupQualifiedInstanceName {
             prefix: comp.clone(),
             group: GroupName::None,
         }
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        !matches!(&self.group, GroupName::None)
     }
 }
 
