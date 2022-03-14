@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)]
 use calyx::{
     errors::{self, CalyxResult},
     frontend, ir,
