@@ -6,6 +6,7 @@ use crate::{
     ir::traversal,
 };
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 /// Top-level type for all passes that transform an [ir::Context]
 pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> CalyxResult<()>>;
@@ -159,12 +160,17 @@ impl PassManager {
         excl: &[String],
     ) -> CalyxResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl)?;
+
         for name in passes {
             // Pass is known to exist because create_plan validates the
             // names of passes.
             let pass = &self.passes[&name];
             if !excl_set.contains(&name) {
+                let start = Instant::now();
                 pass(ctx)?;
+                log::info!("{name}: {}ms", start.elapsed().as_millis());
+            } else {
+                log::info!("{name}: Ignored")
             }
         }
 

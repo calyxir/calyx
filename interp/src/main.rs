@@ -130,7 +130,7 @@ fn main() -> InterpreterResult<()> {
 
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
-    let mut ctx = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
+    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
     let pm = PassManager::default_passes()?;
 
     if !opts.skip_verification {
