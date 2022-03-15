@@ -1,19 +1,22 @@
 mod backend;
 mod cmdline;
 
-use calyx::{
-    errors::{CalyxResult, Error},
-    frontend, ir,
-    pass_manager::PassManager,
-};
+use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
 use cmdline::{BackendOpt, CompileMode, Opts};
 use itertools::Itertools;
 
 fn main() -> CalyxResult<()> {
-    let pm = PassManager::default_passes()?;
-
     // parse the command line arguments into Opts struct
-    let mut opts = Opts::get_opts();
+    let mut opts = Opts::get_opts()?;
+
+    // enable tracing
+    env_logger::Builder::new()
+        .format_timestamp(None)
+        .filter_level(opts.log_level)
+        .target(env_logger::Target::Stderr)
+        .init();
+
+    let pm = PassManager::default_passes()?;
 
     // list all the avaliable pass options when flag --list-passes is enabled
     if opts.list_passes {
@@ -25,26 +28,20 @@ fn main() -> CalyxResult<()> {
     let mut ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
 
     let imports = ws.original_imports.drain(..).collect_vec();
-    let bc = ir::BackendConf {
+
+    // Build the IR representation
+    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
+    // Configuration for the backend
+    ctx.bc = ir::BackendConf {
         synthesis_mode: opts.enable_synthesis,
         enable_verification: !opts.disable_verify,
         initialize_inputs: !opts.disable_init,
     };
-    // Build the IR representation
-    let mut ctx = ir::from_ast::ast_to_ir(ws, bc)?;
+    // Extra options for the passes
     ctx.extra_opts = opts.extra_opts.drain(..).collect();
 
     // Run all passes specified by the command line
     pm.execute_plan(&mut ctx, &opts.pass, &opts.disable_pass)?;
-
-    if opts.compile_mode == CompileMode::File
-        && !matches!(opts.backend, BackendOpt::Calyx | BackendOpt::None)
-    {
-        return Err(Error::misc(format!(
-            "--compile-mode=file is only valid with -b calyx. `-b {}` requires --compile-mode=project",
-            opts.backend.to_string()
-        )));
-    }
 
     // Print out the Calyx program after transformation.
     if opts.backend == BackendOpt::Calyx {
