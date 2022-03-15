@@ -1,6 +1,11 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
-use std::{fmt::Display, hash::Hash, ops::Deref, rc::Rc};
+use std::{
+    fmt::{Display, Write},
+    hash::Hash,
+    ops::Deref,
+    rc::Rc,
+};
 
 #[derive(Debug, Clone)]
 /// A portion of a qualified name representing an instance of a Calyx component.
@@ -120,7 +125,7 @@ impl QualifiedInstanceName {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupName {
     /// An actual group
     Group(Id),
@@ -130,6 +135,7 @@ pub enum GroupName {
     None,
 }
 
+#[derive(Clone)]
 pub struct GroupQualifiedInstanceName {
     pub prefix: ComponentQualifiedInstanceName,
     pub group: GroupName,
@@ -158,6 +164,20 @@ impl GroupQualifiedInstanceName {
             prefix: comp.clone(),
             group: GroupName::None,
         }
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        !matches!(&self.group, GroupName::None)
+    }
+
+    pub fn format_name(&self) -> String {
+        let mut out: String = self.prefix.as_id().to_string();
+        match &self.group {
+            GroupName::Group(g) => write!(out, "::{}", g).unwrap(),
+            GroupName::Phantom(g) => write!(out, "::<{}>", g).unwrap(),
+            GroupName::None => {}
+        }
+        out
     }
 }
 
