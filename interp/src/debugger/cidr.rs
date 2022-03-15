@@ -244,9 +244,11 @@ impl Debugger {
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC => {
                     println!(
-                        "{}",
-                        component_interpreter.get_active_tree()[0]
-                            .format_tree::<true>(2)
+                        "{:?}",
+                        component_interpreter
+                            .get_active_tree()
+                            .remove(0)
+                            .flat_set()
                     )
                 }
             }

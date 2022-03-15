@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::structures::names::GroupQualifiedInstanceName;
 use std::{collections::HashSet, fmt::Write, iter::once};
 
@@ -100,6 +102,8 @@ impl IntoIterator for ActiveVec {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(transparent)]
 pub struct ActiveSet(HashSet<String>);
 
 impl From<ActiveVec> for ActiveSet {
