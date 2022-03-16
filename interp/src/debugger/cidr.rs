@@ -72,8 +72,10 @@ impl Debugger {
             };
 
             match comm {
-                Command::Step => {
-                    component_interpreter.step()?;
+                Command::Step(n) => {
+                    for _ in 0..n {
+                        component_interpreter.step()?;
+                    }
                 }
                 Command::Continue => {
                     self.debugging_ctx.set_current_time(
