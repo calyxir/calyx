@@ -111,6 +111,22 @@ impl EnableHolder {
             EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
         }
     }
+
+    fn pos_tag(&self) -> Option<u64> {
+        match self {
+            EnableHolder::Group(g) => g
+                .borrow()
+                .get_attributes()
+                .and_then(|x| x.get("pos"))
+                .cloned(),
+            EnableHolder::CombGroup(g) => g
+                .borrow()
+                .get_attributes()
+                .and_then(|x| x.get("pos"))
+                .cloned(),
+            EnableHolder::Vec(_) => None,
+        }
+    }
 }
 
 impl From<RRC<ir::Group>> for EnableHolder {
@@ -243,7 +259,7 @@ impl Interpreter for EnableInterpreter {
             None => GroupQualifiedInstanceName::new_empty(&self.qin),
         };
 
-        vec![ActiveTreeNode::new(name)]
+        vec![ActiveTreeNode::new(name.with_tag(self.enable.pos_tag()))]
     }
 }
 
@@ -1035,7 +1051,9 @@ impl Interpreter for InvokeInterpreter {
             &(format!("invoke {}", self.invoke.comp.borrow().name()).into()),
         );
 
-        vec![ActiveTreeNode::new(name)]
+        let pos_tag = self.invoke.attributes.get("pos").cloned();
+
+        vec![ActiveTreeNode::new(name.with_tag(pos_tag))]
     }
 }
 

@@ -104,10 +104,16 @@ impl IntoIterator for ActiveVec {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(transparent)]
-pub struct ActiveSet(HashSet<String>);
+pub struct ActiveSet(HashSet<(u64, String)>);
 
 impl From<ActiveVec> for ActiveSet {
     fn from(v: ActiveVec) -> Self {
-        Self(v.0.into_iter().map(|x| x.format_name()).collect())
+        Self(
+            v.0.into_iter()
+                .filter_map(|x| {
+                    x.pos_tag.and_then(|tag| (tag, x.format_name()).into())
+                })
+                .collect(),
+        )
     }
 }
