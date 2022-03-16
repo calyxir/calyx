@@ -31,8 +31,11 @@ impl CommandParser {
         Ok(Command::Continue)
     }
 
-    fn step(_input: Node) -> ParseResult<Command> {
-        Ok(Command::Step)
+    fn step(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+            [num(n)] => Command::Step(n),
+            [] => Command::Step(1)
+        ))
     }
 
     fn display(_input: Node) -> ParseResult<Command> {

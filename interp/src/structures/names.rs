@@ -131,7 +131,7 @@ pub enum GroupName {
     Group(Id),
     /// A phantom group with a displayable name
     Phantom(Id),
-    /// No group name
+    /// No group name (this allows components to be in the tree)
     None,
 }
 
@@ -139,6 +139,7 @@ pub enum GroupName {
 pub struct GroupQualifiedInstanceName {
     pub prefix: ComponentQualifiedInstanceName,
     pub group: GroupName,
+    pub pos_tag: Option<u64>,
 }
 
 impl GroupQualifiedInstanceName {
@@ -146,6 +147,7 @@ impl GroupQualifiedInstanceName {
         Self {
             prefix: comp.clone(),
             group: GroupName::Group(name.clone()),
+            pos_tag: None,
         }
     }
 
@@ -156,6 +158,7 @@ impl GroupQualifiedInstanceName {
         Self {
             prefix: comp.clone(),
             group: GroupName::Phantom(name.clone()),
+            pos_tag: None,
         }
     }
 
@@ -163,11 +166,16 @@ impl GroupQualifiedInstanceName {
         Self {
             prefix: comp.clone(),
             group: GroupName::None,
+            pos_tag: None,
         }
     }
 
     pub fn is_leaf(&self) -> bool {
         !matches!(&self.group, GroupName::None)
+    }
+
+    pub fn has_tag(&self) -> bool {
+        self.pos_tag.is_some()
     }
 
     pub fn format_name(&self) -> String {
@@ -178,6 +186,11 @@ impl GroupQualifiedInstanceName {
             GroupName::None => {}
         }
         out
+    }
+
+    pub fn with_tag(mut self, tag: Option<u64>) -> Self {
+        self.pos_tag = tag;
+        self
     }
 }
 
