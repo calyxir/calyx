@@ -72,8 +72,10 @@ impl Debugger {
             };
 
             match comm {
-                Command::Step => {
-                    component_interpreter.step()?;
+                Command::Step(n) => {
+                    for _ in 0..n {
+                        component_interpreter.step()?;
+                    }
                 }
                 Command::Continue => {
                     self.debugging_ctx.set_current_time(
@@ -244,9 +246,11 @@ impl Debugger {
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC => {
                     println!(
-                        "{}",
-                        component_interpreter.get_active_tree()[0]
-                            .format_tree::<true>(2)
+                        "{:?}",
+                        component_interpreter
+                            .get_active_tree()
+                            .remove(0)
+                            .flat_set()
                     )
                 }
             }

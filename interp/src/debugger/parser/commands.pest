@@ -47,7 +47,7 @@ watch = {
 
 step_over = {^"step-over" ~ group }
 
-step = { (^"step" | ^"s") }
+step = { (^"step" | ^"s")  ~ num? }
 cont = {
     (^"continue" | ^"c")
 }

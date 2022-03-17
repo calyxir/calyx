@@ -21,6 +21,9 @@ use calyx::ir::{self, Assignment, Guard, RRC};
 use std::collections::HashSet;
 use std::rc::Rc;
 
+/// The key to lookup for the position tags
+const POS_TAG: &str = "pos";
+
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
     pub continuous_assignments: iir::ContinuousAssignments,
@@ -109,6 +112,22 @@ impl EnableHolder {
         match self {
             EnableHolder::Group(g) => Some(get_go_port(&g.borrow())),
             EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
+        }
+    }
+
+    fn pos_tag(&self) -> Option<u64> {
+        match self {
+            EnableHolder::Group(g) => g
+                .borrow()
+                .get_attributes()
+                .and_then(|x| x.get(POS_TAG))
+                .cloned(),
+            EnableHolder::CombGroup(g) => g
+                .borrow()
+                .get_attributes()
+                .and_then(|x| x.get(POS_TAG))
+                .cloned(),
+            EnableHolder::Vec(_) => None,
         }
     }
 }
@@ -243,7 +262,7 @@ impl Interpreter for EnableInterpreter {
             None => GroupQualifiedInstanceName::new_empty(&self.qin),
         };
 
-        vec![ActiveTreeNode::new(name)]
+        vec![ActiveTreeNode::new(name.with_tag(self.enable.pos_tag()))]
     }
 }
 
@@ -1035,7 +1054,9 @@ impl Interpreter for InvokeInterpreter {
             &(format!("invoke {}", self.invoke.comp.borrow().name()).into()),
         );
 
-        vec![ActiveTreeNode::new(name)]
+        let pos_tag = self.invoke.attributes.get(POS_TAG).cloned();
+
+        vec![ActiveTreeNode::new(name.with_tag(pos_tag))]
     }
 }
 
