@@ -58,7 +58,7 @@ class XilinxStage(Stage):
             "/scratch/opt/Xilinx/Vivado/2020.2/bin/vivado "
             "-mode batch "
             "-source gen_xo.tcl "
-            "-tclargs xclbin/kernel.xo"
+            "-tclargs xclbin/kernel.xo m0_axi"
         )
 
         @builder.step(package_cmd)
