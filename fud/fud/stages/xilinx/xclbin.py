@@ -1,4 +1,6 @@
+import re
 import logging as log
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from fud.stages import Source, SourceType, Stage
@@ -51,6 +53,23 @@ class XilinxStage(Stage):
             / "bitstream"
             / "gen_xo.tcl"
         )
+
+
+
+
+        # Locate generated kernel XML file
+        xmlfile = 'kernel.xml'
+        tree = ET.parse(xmlfile)
+        root = tree.getroot()
+        axi_str = ""
+        for port in root.iter('port'):
+            if re.search("_axi$", port.attrib['name']):
+                #print(port.attrib['name'])
+                axi_str += port.attrib['name'] + " "
+        
+        # Remove any trailing spaces
+        axi_str.strip()
+
 
         package_cmd = (
             "cd {tmpdir} && "
