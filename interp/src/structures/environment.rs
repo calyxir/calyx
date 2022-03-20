@@ -583,13 +583,12 @@ impl InterpreterState {
 
         self.sub_comp_set
             .iter()
-            .map(|x| {
+            .flat_map(|x| {
                 lookup[x]
                     .get_comp_interpreter()
                     .unwrap()
                     .currently_executing_group()
             })
-            .flatten()
             .collect()
     }
 
@@ -601,10 +600,9 @@ impl InterpreterState {
 
         self.sub_comp_set
             .iter()
-            .map(|x| {
+            .flat_map(|x| {
                 lookup[x].get_comp_interpreter().unwrap().get_active_tree()
             })
-            .flatten()
             .collect()
     }
 }

@@ -131,12 +131,11 @@ impl ComponentInterpreter {
         }
 
         let input_hash_set = Rc::new(override_set);
-        let interp;
 
-        if control_is_empty(&control) {
-            interp = StructuralInterpreter::from_component(comp, env).into();
+        let interp = if control_is_empty(&control) {
+            StructuralInterpreter::from_component(comp, env).into()
         } else {
-            interp = ControlInterpreter::new(
+            ControlInterpreter::new(
                 control.clone(),
                 env,
                 &ComponentInfo::new(
@@ -145,7 +144,7 @@ impl ComponentInterpreter {
                     qin.clone(),
                 ),
             )
-            .into();
+            .into()
         };
         let full_clone = qin.as_id();
 
