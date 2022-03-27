@@ -49,7 +49,7 @@ impl<'de> Deserialize<'de> for NamedTag {
                 let second = list.next().unwrap();
 
                 let number: u64 = first.parse().unwrap();
-                let string = second.to_string();
+                let string = second.trim().to_string();
 
                 Ok(NamedTag(number, string))
             }
@@ -77,7 +77,6 @@ impl SourceMap {
 
     pub fn from_file(path: &Option<PathBuf>) -> Result<Option<Self>, Error> {
         if let Some(path) = path {
-            dbg!("hi");
             let v = fs::read(path)?;
             let file_contents = std::str::from_utf8(&v)?;
             let map: Self = serde_json::from_str(file_contents)
