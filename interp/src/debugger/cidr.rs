@@ -254,7 +254,7 @@ impl Debugger {
                             .get_active_tree()
                             .remove(0)
                             .flat_set()
-                            .iter()
+                            .into_iter()
                         {
                             if let Some(output) = map.lookup(x) {
                                 println!("{}", output);
@@ -262,7 +262,7 @@ impl Debugger {
                         }
                     } else {
                         println!(
-                            "{:?}",
+                            "{}",
                             component_interpreter
                                 .get_active_tree()
                                 .remove(0)
