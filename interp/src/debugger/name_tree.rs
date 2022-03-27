@@ -117,3 +117,9 @@ impl From<ActiveVec> for ActiveSet {
         )
     }
 }
+
+impl ActiveSet {
+    pub fn iter(&self) -> impl Iterator<Item = &(u64, String)> {
+        self.0.iter()
+    }
+}

@@ -2,7 +2,7 @@ use calyx::errors::Error;
 use serde::{self, Deserialize};
 use std::{collections::HashMap, fs, path::PathBuf};
 
-type NamedTag = (String, u64);
+type NamedTag = (u64, String);
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(transparent)]
@@ -15,7 +15,7 @@ impl SourceMap {
     pub fn lookup(&self, key: &NamedTag) -> Option<&String> {
         self.0
             .get(key)
-            .or_else(|| self.0.get(&("".to_string(), key.1)))
+            .or_else(|| self.0.get(&(key.0, "".to_string())))
     }
 
     pub fn from_file(path: &Option<PathBuf>) -> Result<Option<Self>, Error> {
