@@ -6,6 +6,7 @@ use super::{
     interactive_errors::DebuggerError,
     io_utils::Input,
 };
+use crate::debugger::source_location::SourceMap;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
@@ -25,17 +26,20 @@ pub struct Debugger {
     _context: iir::ComponentCtx,
     main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
+    source_map: Option<SourceMap>,
 }
 
 impl Debugger {
     pub fn new(
         context: &iir::ComponentCtx,
         main_component: &Rc<iir::Component>,
+        source_map: Option<SourceMap>,
     ) -> Self {
         Self {
             _context: Rc::clone(context),
             main_component: Rc::clone(main_component),
             debugging_ctx: DebuggingContext::new(context, &main_component.name),
+            source_map,
         }
     }
 
