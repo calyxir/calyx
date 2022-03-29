@@ -157,10 +157,10 @@ impl AddressSpace {
             .collect();
 
         for meaning in &bit_meaning {
-            self.registers
+            *self
+                .registers
                 .entry(meaning.internal_register.to_string())
-                .and_modify(|size| *size += meaning.register_range.len())
-                .or_insert_with(|| meaning.register_range.len());
+                .or_default() += meaning.register_range.len();
         }
 
         self.space.push(Address {

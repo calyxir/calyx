@@ -17,6 +17,14 @@ You can set `fud` up to use either a local installation of the Xilinx tools or o
 The simplest way to use the Xilinx tools is to synthesize RTL or HLS designs to collect statistics about them.
 This route will not produce actual, runnable executables; see the next section for that.
 
+### Installing Dependencies
+
+`fud` uses extra dependencies to invoke the Xilinx toolchains.
+Run the following command to install all required dependencies:
+```
+cd fud && flit install -s --deps all
+```
+
 ### Set Up
 
 To set up to **invoke the Xilinx tools over SSH**, first tell `fud` your username and hostname for the server:
@@ -95,7 +103,7 @@ You will also need to configure the stage to point to your installations of [Vit
 The first step in the Xilinx toolchain is to generate [an `xclbin` executable file][xclbin].
 Here's an example of going all the way from a Calyx program to that:
 
-    fud e examples/futil/dot-product.futil -o foo.xclbin
+    fud e examples/futil/dot-product.futil -o foo.xclbin --to xclbin
 
 On our machines, compiling even a simple example like the above for simulation takes about 5 minutes, end to end.
 A failed run takes about 2 minutes to produce an error.

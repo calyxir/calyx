@@ -1,5 +1,6 @@
 use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
 use interp::{
+    configuration,
     debugger::Debugger,
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
@@ -59,6 +60,10 @@ pub struct Opts {
     #[argh(switch, short = 'q', long = "--quiet")]
     quiet: bool,
 
+    /// serializes values using base64 encoding
+    #[argh(switch, long = "raw")]
+    raw: bool,
+
     #[argh(subcommand)]
     comm: Option<Command>,
 }
@@ -81,19 +86,20 @@ struct CommandInterpret {}
 #[derive(FromArgs)]
 #[argh(subcommand, name = "debug")]
 /// Interpret the given program with the interactive debugger
-struct CommandDebug {
-    #[argh(switch, short = 'p', long = "pass-through")]
-    /// flag which runs the program to completion through the debugger
-    pass_through: bool,
-}
+struct CommandDebug {}
 
 #[inline]
 fn print_res(
     res: InterpreterResult<InterpreterState>,
+    raw: bool,
 ) -> InterpreterResult<()> {
     match res {
         Ok(env) => {
-            env.print_env();
+            if raw {
+                env.print_env_raw()
+            } else {
+                env.print_env()
+            };
             Ok(())
         }
         Err(InterpreterError::Exit) => Ok(()), // The exit command doesn't cause an error code
@@ -105,33 +111,26 @@ fn print_res(
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
-    {
-        // get read access to the settings
-        let mut write_lock = interp::SETTINGS.write().unwrap();
-        if opts.quiet {
-            write_lock.quiet = true;
-        }
-        if opts.allow_invalid_memory_access {
-            write_lock.allow_invalid_memory_access = true;
-        }
-        if opts.error_on_overflow {
-            write_lock.error_on_overflow = true;
-        }
-        if opts.allow_par_conflicts {
-            write_lock.allow_par_conflicts = true;
-        }
-        // release lock
-    }
+    let builder = configuration::ConfigBuilder::new();
 
-    let log = &interp::logging::ROOT_LOGGER;
+    let config = builder
+        .quiet(opts.quiet)
+        .allow_invalid_memory_access(opts.allow_invalid_memory_access)
+        .error_on_overflow(opts.error_on_overflow)
+        .allow_par_conflicts(opts.allow_par_conflicts)
+        .build();
 
-    if interp::SETTINGS.read().unwrap().allow_par_conflicts {
+    interp::logging::initialze_logger(config.quiet);
+
+    let log = interp::logging::root();
+
+    if config.allow_par_conflicts {
         warn!(log, "You have enabled Par conflicts. This is not recommended and is usually a bad idea")
     }
 
     // Construct IR
     let ws = frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
-    let mut ctx = ir::from_ast::ast_to_ir(ws, ir::BackendConf::default())?;
+    let mut ctx = ir::from_ast::ast_to_ir(ws)?;
     let pm = PassManager::default_passes()?;
 
     if !opts.skip_verification {
@@ -154,18 +153,22 @@ fn main() -> InterpreterResult<()> {
 
     let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
-    let env =
-        InterpreterState::init_top_level(&components, main_component, &mems)?;
+    let env = InterpreterState::init_top_level(
+        &components,
+        main_component,
+        &mems,
+        &config,
+    )?;
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
     {
         Command::Interpret(_) => {
             ComponentInterpreter::interpret_program(env, main_component)
         }
-        Command::Debug(CommandDebug { pass_through }) => {
+        Command::Debug(CommandDebug {}) => {
             let mut cidb = Debugger::new(&components, main_component);
-            cidb.main_loop(env, pass_through)
+            cidb.main_loop(env)
         }
     };
 
-    print_res(res)
+    print_res(res, opts.raw)
 }

@@ -17,6 +17,7 @@
 /// `StdAdd::new(bindings: ir::Params)` and `StdAdd::from_constants(ports)`
 ///
 /// TODO(rachit): $out_width is never used.
+/// (TODO: Griffin) fix the copy-paste
 #[macro_export]
 macro_rules! comb_primitive {
     ($name:ident[
@@ -26,6 +27,40 @@ macro_rules! comb_primitive {
     ) => {
         comb_primitive!(LOG; NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
     };
+
+
+    (FLAG : $flag:ident; LOG: $log:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        comb_primitive!($flag; $log; NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+    };
+
+    (LOG: $log:ident; FLAG : $flag:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        comb_primitive!($flag; $log; NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+    };
+
+    (FLAG : $flag:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        comb_primitive!($flag; LOG; NAME; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+    };
+
+    (FLAG : $flag:ident; NAME : $full_name:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        comb_primitive!($flag; LOG; $full_name; $name[$( $param ),+]($( $port : $width ),+) -> ($($out : $out_width),+ ) $execute);
+    };
+
 
     (LOG : $log:ident; $name:ident[
         $( $param:ident ),+
@@ -73,7 +108,7 @@ macro_rules! comb_primitive {
                 for (param, value) in params {
                     match param.as_ref() {
                         $( $crate::in_fix!($param) => base.$param = *value ),+,
-                        p => unreachable!(format!("Unknown parameter: {}", p)),
+                        p => unreachable!("Unknown parameter: {}", p),
                     }
                 }
                 base.logger = $crate::logging::new_sublogger(&name);
@@ -114,7 +149,7 @@ macro_rules! comb_primitive {
                 for (id, v) in inputs {
                     match id.as_ref() {
                         $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, self.$width) ),+,
-                        p => unreachable!(format!("Unknown port: {}", p)),
+                        p => unreachable!("Unknown port: {}", p),
                     }
                 }
             }
@@ -135,7 +170,7 @@ macro_rules! comb_primitive {
                 for (id, v) in inputs {
                     match id.as_ref() {
                         $( $crate::in_fix!($port) => base.$port = Some(v) ),+,
-                        p => unreachable!(format!("Unknown port: {}", p)),
+                        p => unreachable!("Unknown port: {}", p),
                     }
                 }
 
@@ -151,6 +186,138 @@ macro_rules! comb_primitive {
                         .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+,
                     &self.logger,
                     $crate::primitives::Named::get_full_name(self),
+                )?;
+
+                return Ok(vec![
+                    $( ($crate::in_fix!($out).into(), $out) ),+
+                ])
+
+            }
+
+            // Combinational components cannot be reset
+            fn reset(
+                &mut self,
+                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
+                self.execute(inputs)
+            }
+
+        }
+    };
+
+    ($flag: ident; $log:ident; $full_name:ident; $name:ident[
+        $( $param:ident ),+
+    ]( $( $port:ident : $width:ident ),+ ) ->
+     ( $( $out:ident : $out_width:ident ),+ ) $execute:block
+    ) => {
+        #[derive(Clone, Debug)]
+        #[allow(non_snake_case)]
+        pub struct $name {
+            $($param: u64),+,
+            name: calyx::ir::Id,
+            logger: $crate::logging::Logger,
+            $flag: bool
+        }
+
+        impl Default for $name {
+            fn default() -> Self {
+                Self {
+                    name: "".into(),
+                    logger: $crate::logging::new_sublogger(""),
+                    $flag: false,
+                    $($param: 0),+,
+                }
+            }
+        }
+
+
+        impl $name {
+            pub fn new(params: &calyx::ir::Binding, name: calyx::ir::Id, $flag: bool) -> Self {
+                let mut base = Self::default();
+                for (param, value) in params {
+                    match param.as_ref() {
+                        $( $crate::in_fix!($param) => base.$param = *value ),+,
+                        p => unreachable!("Unknown parameter: {}", p),
+                    }
+                }
+                base.logger = $crate::logging::new_sublogger(&name);
+                base.name = name;
+                base.$flag = $flag;
+                base
+            }
+
+            #[allow(non_snake_case)]
+            pub fn from_constants($( $param: u64 ),+, name: calyx::ir::Id, $flag: bool) -> Self {
+                $name {
+                    $($param),+,
+                    logger: $crate::logging::new_sublogger(&name),
+                    name,
+                    $flag
+                }
+            }
+        }
+
+        impl $crate::primitives::Named for $name {
+            fn get_full_name(&self) -> &calyx::ir::Id {
+                &self.name
+            }
+        }
+
+
+        impl $crate::primitives::Primitive for $name {
+
+            //null-op; comb don't use do_tick()
+            fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>>{
+                Ok(vec![])
+            }
+
+            fn is_comb(&self) -> bool { true }
+
+            fn validate(
+                &self,
+                inputs: &[(calyx::ir::Id, &$crate::values::Value)]
+            ) {
+                for (id, v) in inputs {
+                    match id.as_ref() {
+                        $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, self.$width) ),+,
+                        p => unreachable!("Unknown port: {}", p),
+                    }
+                }
+            }
+
+            #[allow(non_snake_case,unused)]
+            fn execute(
+                &mut self,
+                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
+
+                #[derive(Default)]
+                struct Ports<'a> {
+                    $( $port: Option<&'a $crate::values::Value> ),+
+                }
+
+                let mut base = Ports::default();
+
+                for (id, v) in inputs {
+                    match id.as_ref() {
+                        $( $crate::in_fix!($port) => base.$port = Some(v) ),+,
+                        p => unreachable!("Unknown port: {}", p),
+                    }
+                }
+
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $log: &$crate::logging::Logger, $full_name:&calyx::ir::Id, $flag: bool| -> $crate::errors::InterpreterResult<Value> {
+                    $execute
+                };
+
+                #[allow(unused_parens)]
+                let ($( $out ),+) = exec_func(
+                    $(self.$param),+,
+                    $( base
+                        .$port
+                        .expect(&format!("No value for port: {}", $crate::in_fix!($port)).to_string()) ),+,
+                    &self.logger,
+                    $crate::primitives::Named::get_full_name(self),
+                    self.$flag
                 )?;
 
                 return Ok(vec![
@@ -236,8 +403,23 @@ macro_rules! validate {
         for (id, v) in $inputs {
             match id.as_ref() {
                 $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, $width) ),+,
-                p => unreachable!(format!("Unknown port: {}", p)),
+                p => unreachable!("Unknown port: {}", p),
             }
         }
+    }
+}
+
+#[macro_export]
+macro_rules! get_input {
+    ( $inputs:ident; $( $port:ident : $id_name:expr ),+ )  => {
+        $( let mut $port = None; )+
+        for (id, v) in $inputs {
+            match id.as_ref() {
+                $($id_name => { $port =  Some(v); } ),+
+                _ => {}
+            }
+        }
+        $(let $port: &$crate::values::Value = $port.unwrap(); )+
+
     }
 }

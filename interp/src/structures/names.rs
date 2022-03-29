@@ -1,6 +1,11 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
-use std::{fmt::Display, hash::Hash, ops::Deref, rc::Rc};
+use std::{
+    fmt::{Display, Write},
+    hash::Hash,
+    ops::Deref,
+    rc::Rc,
+};
 
 #[derive(Debug, Clone)]
 /// A portion of a qualified name representing an instance of a Calyx component.
@@ -120,19 +125,21 @@ impl QualifiedInstanceName {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupName {
     /// An actual group
     Group(Id),
     /// A phantom group with a displayable name
     Phantom(Id),
-    /// No group name
+    /// No group name (this allows components to be in the tree)
     None,
 }
 
+#[derive(Clone)]
 pub struct GroupQualifiedInstanceName {
     pub prefix: ComponentQualifiedInstanceName,
     pub group: GroupName,
+    pub pos_tag: Option<u64>,
 }
 
 impl GroupQualifiedInstanceName {
@@ -140,6 +147,7 @@ impl GroupQualifiedInstanceName {
         Self {
             prefix: comp.clone(),
             group: GroupName::Group(name.clone()),
+            pos_tag: None,
         }
     }
 
@@ -150,6 +158,7 @@ impl GroupQualifiedInstanceName {
         Self {
             prefix: comp.clone(),
             group: GroupName::Phantom(name.clone()),
+            pos_tag: None,
         }
     }
 
@@ -157,7 +166,31 @@ impl GroupQualifiedInstanceName {
         Self {
             prefix: comp.clone(),
             group: GroupName::None,
+            pos_tag: None,
         }
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        !matches!(&self.group, GroupName::None)
+    }
+
+    pub fn has_tag(&self) -> bool {
+        self.pos_tag.is_some()
+    }
+
+    pub fn format_name(&self) -> String {
+        let mut out: String = self.prefix.as_id().to_string();
+        match &self.group {
+            GroupName::Group(g) => write!(out, "::{}", g).unwrap(),
+            GroupName::Phantom(g) => write!(out, "::<{}>", g).unwrap(),
+            GroupName::None => {}
+        }
+        out
+    }
+
+    pub fn with_tag(mut self, tag: Option<u64>) -> Self {
+        self.pos_tag = tag;
+        self
     }
 }
 

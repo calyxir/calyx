@@ -275,6 +275,13 @@ impl Printer {
         String::from_utf8_lossy(buf.as_slice()).to_string()
     }
 
+    /// Convinience method to get string representation of [ir::Control].
+    pub fn control_to_str(assign: &ir::Control) -> String {
+        let mut buf = Vec::new();
+        Self::write_control(assign, 0, &mut buf).ok();
+        String::from_utf8_lossy(buf.as_slice()).to_string()
+    }
+
     /// Format and write a combinational group.
     pub fn write_comb_group<F: io::Write>(
         group: &ir::CombGroup,

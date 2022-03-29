@@ -1,7 +1,9 @@
-use crate::structures::names::GroupQualifiedInstanceName;
-use std::fmt::Write;
+use serde::Serialize;
 
-#[derive(Debug)]
+use crate::structures::names::GroupQualifiedInstanceName;
+use std::{collections::HashSet, fmt::Write, iter::once};
+
+#[derive(Debug, Clone)]
 pub struct ActiveTreeNode {
     name: GroupQualifiedInstanceName,
     children: Vec<ActiveTreeNode>,
@@ -56,5 +58,62 @@ impl ActiveTreeNode {
         }
 
         out
+    }
+
+    pub fn flatten(self) -> ActiveVec {
+        if self.name.is_leaf() {
+            once(self.name)
+                .chain(self.children.into_iter().flat_map(Self::flatten))
+                .collect()
+        } else {
+            self.children.into_iter().flat_map(Self::flatten).collect()
+        }
+    }
+
+    #[inline]
+    pub fn flat_set(self) -> ActiveSet {
+        self.flatten().into()
+    }
+}
+
+pub struct ActiveVec(Vec<GroupQualifiedInstanceName>);
+
+impl From<Vec<GroupQualifiedInstanceName>> for ActiveVec {
+    fn from(v: Vec<GroupQualifiedInstanceName>) -> Self {
+        Self(v)
+    }
+}
+
+impl FromIterator<GroupQualifiedInstanceName> for ActiveVec {
+    fn from_iter<T: IntoIterator<Item = GroupQualifiedInstanceName>>(
+        iter: T,
+    ) -> Self {
+        Self(Vec::from_iter(iter))
+    }
+}
+
+impl IntoIterator for ActiveVec {
+    type Item = GroupQualifiedInstanceName;
+
+    type IntoIter = std::vec::IntoIter<GroupQualifiedInstanceName>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(transparent)]
+pub struct ActiveSet(HashSet<(u64, String)>);
+
+impl From<ActiveVec> for ActiveSet {
+    fn from(v: ActiveVec) -> Self {
+        Self(
+            v.0.into_iter()
+                .filter_map(|x| {
+                    x.pos_tag.and_then(|tag| (tag, x.format_name()).into())
+                })
+                .collect(),
+        )
     }
 }

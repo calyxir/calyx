@@ -20,10 +20,18 @@ argh = "0.1"
 vast = "0.3.0"
 serde = "1.0.129"
 quick-xml = { version = "0.22.0", features = ["serialize"] }
+log = "0.4.14"
+
+[dependencies.env_logger]
+version = "0.9.0"
+features = ["termcolor"]
 
 [workspace]
 members = ["calyx", "interp", "web/rust"]
 exclude = ["site"]
+
+[profile.release]
+incremental = true
 
 [dev-dependencies]
 criterion = {version = "0.3", features=["html_reports"]}

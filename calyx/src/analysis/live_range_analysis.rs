@@ -7,7 +7,6 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
     ops::{BitOr, Sub},
-    rc::Rc,
 };
 
 /// The data structure used to represent sets of ids. This is used to represent
@@ -220,6 +219,9 @@ impl Prop {
 pub struct LiveRangeAnalysis {
     /// Map from group names to the components live inside them.
     live: HashMap<ir::Id, Prop>,
+    /// Groups that have been identified as variable-like.
+    /// Mapping from group name to the name of the register.
+    variable_like: HashMap<ir::Id, Option<ir::Id>>,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -247,7 +249,7 @@ impl LiveRangeAnalysis {
 
         // add global reads to every point
         let global_reads: Prop =
-            ReadWriteSet::read_set(&comp.continuous_assignments)
+            ReadWriteSet::read_set(comp.continuous_assignments.iter())
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
                 .collect::<HashSet<_>>()
@@ -277,6 +279,16 @@ impl LiveRangeAnalysis {
             .cloned()
     }
 
+    fn variable_like(&mut self, grp: &RRC<ir::Group>) -> &Option<ir::Id> {
+        let group = grp.borrow();
+        let name = group.name();
+        if !self.variable_like.contains_key(name) {
+            let res = VariableDetection::variable_like(grp);
+            self.variable_like.insert(grp.clone_name(), res);
+        }
+        &self.variable_like[name]
+    }
+
     /// Compute the `gen` and `kill` sets for a given group definition. Because
     /// we can't always know if a group will *definitely* kill something or *definitely*
     /// read something, this function is conservative.
@@ -290,13 +302,14 @@ impl LiveRangeAnalysis {
     ///
     /// To implement this, we say that something is being read if it shows up on the rhs
     /// of any assignment in a group. Something is written if it it's guard is `1` or if it has no guard.
-    fn find_gen_kill_group(group_ref: &RRC<ir::Group>) -> (Prop, Prop) {
+    fn find_gen_kill_group(
+        &mut self,
+        group_ref: &RRC<ir::Group>,
+    ) -> (Prop, Prop) {
         let group = group_ref.borrow();
         // if the group contains what looks like a variable write,
         // then just add variable to write set
-        if let Some(variable) =
-            VariableDetection::variable_like(Rc::clone(group_ref))
-        {
+        if let Some(variable) = self.variable_like(group_ref) {
             // we don't want to read the control signal of `variable`
             let assignments = group
                 .assignments
@@ -312,25 +325,26 @@ impl LiveRangeAnalysis {
                     } else {
                         true
                     }
-                })
-                .cloned()
-                .collect::<Vec<_>>();
+                });
 
             // calculate reads, but ignore `variable`. we've already dealt with that
-            let reads: HashSet<_> = ReadWriteSet::read_set(&assignments)
+            let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
                 .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
                 .map(|c| c.clone_name())
                 .collect();
 
             let mut writes = HashSet::new();
-            writes.insert(variable);
+            writes.insert(variable.clone());
 
             (reads.into(), writes.into())
         } else {
-            let reads: HashSet<_> = ReadWriteSet::read_set(&group.assignments)
-                .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-                .map(|c| c.clone_name())
-                .collect();
+            let reads: HashSet<_> =
+                ReadWriteSet::read_set(group.assignments.iter())
+                    .filter(|c| {
+                        c.borrow().type_name() == Some(&"std_reg".into())
+                    })
+                    .map(|c| c.clone_name())
+                    .collect();
 
             // only consider write assignments where the guard is true
             let assignments = group
@@ -340,10 +354,13 @@ impl LiveRangeAnalysis {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            let writes: HashSet<_> = ReadWriteSet::write_set(&assignments)
-                .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
-                .map(|c| c.clone_name())
-                .collect();
+            let writes: HashSet<_> =
+                ReadWriteSet::write_set(assignments.iter())
+                    .filter(|c| {
+                        c.borrow().type_name() == Some(&"std_reg".into())
+                    })
+                    .map(|c| c.clone_name())
+                    .collect();
 
             (reads.into(), writes.into())
         }
@@ -398,7 +415,7 @@ fn build_live_ranges(
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {
             // XXX(sam) no reason to compute this every time
-            let (reads, writes) = LiveRangeAnalysis::find_gen_kill_group(group);
+            let (reads, writes) = lr.find_gen_kill_group(group);
 
             // compute transfer function
             let alive = alive.transfer(&reads, &writes);

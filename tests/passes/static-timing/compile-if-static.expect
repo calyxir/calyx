@@ -1,0 +1,13 @@
+enables:
+[0, 1)
+  cond0[go] = 1'd1;
+[1, 2)
+  true[go] = comb_reg.out ? 1'd1;
+  false[go] = !comb_reg.out ? 1'd1;
+transitions:
+(1)->(2)
+  comb_reg.out
+(1)->(2)
+  !comb_reg.out
+unconditional:
+(0, 1)

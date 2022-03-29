@@ -19,27 +19,26 @@ impl ReadWriteSet {
     }
 
     /// Returns [ir::Port] which are read from in the assignments.
-    pub fn port_read_set(
-        assigns: &[ir::Assignment],
-    ) -> impl Iterator<Item = RRC<ir::Port>> + '_ {
-        assigns.iter().flat_map(Self::port_reads)
+    pub fn port_read_set<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
+        assigns.flat_map(Self::port_reads)
     }
 
     /// Returns [ir::Port] which are written to in the assignments.
-    pub fn port_write_set(
-        assigns: &[ir::Assignment],
-    ) -> impl Iterator<Item = RRC<ir::Port>> + '_ {
+    pub fn port_write_set<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
         assigns
-            .iter()
             .map(|assign| Rc::clone(&assign.dst))
             .filter(|port| !port.borrow().is_hole())
     }
 
     /// Returns [ir::Cell] which are read from in the assignments.
     /// **Ignores** reads from group holes.
-    pub fn read_set(
-        assigns: &[ir::Assignment],
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + '_ {
+    pub fn read_set<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         Self::port_read_set(assigns)
             .map(|port| Rc::clone(&port.borrow().cell_parent()))
             .unique_by(|cell| cell.clone_name())
@@ -47,9 +46,9 @@ impl ReadWriteSet {
 
     /// Returns [ir::Cell] which are written to by the assignments.
     /// **Ignores** reads from group holes.
-    pub fn write_set(
-        assigns: &[ir::Assignment],
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + '_ {
+    pub fn write_set<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         Self::port_write_set(assigns)
             .map(|port| Rc::clone(&port.borrow().cell_parent()))
             .unique_by(|cell| cell.clone_name())
@@ -57,9 +56,9 @@ impl ReadWriteSet {
 
     /// Returns the register cells whose out port is read anywhere in the given
     /// assignments
-    pub fn register_reads(
-        assigns: &[ir::Assignment],
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + '_ {
+    pub fn register_reads<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         fn is_register_out(port_ref: RRC<ir::Port>) -> Option<RRC<ir::Cell>> {
             let port = port_ref.borrow();
             if let ir::PortParent::Cell(cell_wref) = &port.parent {
@@ -69,7 +68,7 @@ impl ReadWriteSet {
             }
             None
         }
-        let guard_ports = assigns.iter().flat_map(|assign| {
+        let guard_ports = assigns.clone().flat_map(|assign| {
             assign
                 .guard
                 .all_ports()
@@ -77,7 +76,6 @@ impl ReadWriteSet {
                 .filter_map(is_register_out)
         });
         assigns
-            .iter()
             .filter_map(|assign| is_register_out(Rc::clone(&assign.src)))
             .chain(guard_ports)
             .filter(|x| {
@@ -93,11 +91,10 @@ impl ReadWriteSet {
     /// Return the name of the cells that these assignments write to for writes
     /// that are guarded by true.
     /// **Ignores** writes to group holes.
-    pub fn must_write_set(
-        assigns: &[ir::Assignment],
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + '_ {
+    pub fn must_write_set<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         assigns
-            .iter()
             .filter_map(|assignment| {
                 if let ir::Guard::True = *assignment.guard {
                     let dst_ref = assignment.dst.borrow();
@@ -112,12 +109,105 @@ impl ReadWriteSet {
 
     /// Returns all uses of cells in this group. Uses constitute both reads and
     /// writes to cells.
-    pub fn uses(
-        assigns: &[ir::Assignment],
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + '_ {
-        let reads = Self::read_set(assigns);
+    pub fn uses<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
+        let reads = Self::read_set(assigns.clone());
         reads
             .chain(Self::write_set(assigns))
             .unique_by(|cell| cell.clone_name())
+    }
+}
+
+impl ReadWriteSet {
+    /// Returns the ports that are read by the given control program.
+    pub fn control_port_read_write_set(
+        con: &ir::Control,
+    ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
+        match con {
+            ir::Control::Empty(_) => (vec![], vec![]),
+            ir::Control::Enable(ir::Enable { group, .. }) => (
+                Self::port_read_set(group.borrow().assignments.iter())
+                    .collect(),
+                Self::port_write_set(group.borrow().assignments.iter())
+                    .collect(),
+            ),
+            ir::Control::Invoke(ir::Invoke {
+                inputs, comb_group, ..
+            }) => {
+                let inps = inputs.iter().map(|(_, p)| p).cloned();
+                let outs = inputs.iter().map(|(_, p)| p).cloned();
+                match comb_group {
+                    Some(cgr) => {
+                        let cg = cgr.borrow();
+                        let assigns = cg.assignments.iter();
+                        let reads = Self::port_read_set(assigns.clone());
+                        let writes = Self::port_write_set(assigns);
+                        (
+                            reads.chain(inps).collect(),
+                            writes.chain(outs).collect(),
+                        )
+                    }
+                    None => (inps.collect(), outs.collect()),
+                }
+            }
+
+            ir::Control::Seq(ir::Seq { stmts, .. })
+            | ir::Control::Par(ir::Par { stmts, .. }) => {
+                let (mut reads, mut writes) = (vec![], vec![]);
+                for stmt in stmts {
+                    let (mut read, mut write) =
+                        Self::control_port_read_write_set(stmt);
+                    reads.append(&mut read);
+                    writes.append(&mut write);
+                }
+                (reads, writes)
+            }
+            ir::Control::If(ir::If {
+                port,
+                cond,
+                tbranch,
+                fbranch,
+                ..
+            }) => {
+                let (mut reads, mut writes) = (vec![], vec![]);
+                let (mut treads, mut twrites) =
+                    Self::control_port_read_write_set(tbranch);
+                let (mut freads, mut fwrites) =
+                    Self::control_port_read_write_set(fbranch);
+                reads.append(&mut treads);
+                reads.append(&mut freads);
+                reads.push(Rc::clone(port));
+                writes.append(&mut twrites);
+                writes.append(&mut fwrites);
+
+                if let Some(cg) = cond {
+                    reads.extend(Self::port_read_set(
+                        cg.borrow().assignments.iter(),
+                    ));
+                    writes.extend(Self::port_write_set(
+                        cg.borrow().assignments.iter(),
+                    ));
+                }
+                (reads, writes)
+            }
+            ir::Control::While(ir::While {
+                port, cond, body, ..
+            }) => {
+                let (mut reads, mut writes) =
+                    Self::control_port_read_write_set(body);
+                reads.push(Rc::clone(port));
+
+                if let Some(cg) = cond {
+                    reads.extend(Self::port_read_set(
+                        cg.borrow().assignments.iter(),
+                    ));
+                    writes.extend(Self::port_write_set(
+                        cg.borrow().assignments.iter(),
+                    ));
+                }
+                (reads, writes)
+            }
+        }
     }
 }
