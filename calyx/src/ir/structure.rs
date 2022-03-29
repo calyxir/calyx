@@ -422,7 +422,9 @@ impl Group {
                 let dst = assign.dst.borrow();
                 dst.is_hole() && dst.name == "done"
             })
-            .expect("Go has no done condition")
+            .unwrap_or_else(|| {
+                panic!("Group `{}' has no done condition", self.name)
+            })
     }
 
     /// Returns a reference to the assignment in the group that writes to the done condition.
