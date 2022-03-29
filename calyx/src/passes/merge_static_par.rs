@@ -1,12 +1,11 @@
 use crate::ir::{
     self,
-    traversal::{Action, Named, VisResult, Visitor},
+    traversal::{Action, Named, VisResult, Visitor}, RRC,
 };
 use std::collections::HashMap;
 use itertools::partition;
 use crate::ir::Enable;
 use std::rc::Rc;
-use std::cell::RefCell;
 use crate::ir::Attributes;
 
 
@@ -32,15 +31,11 @@ impl Visitor for MergeStaticPar {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut static_group:HashMap<u64, Vec<ir::Group>> = HashMap::new();
-        let (e_stmts, n_stmts) = partition(&mut s.stmts, 
-            |stmt| ir::Control::Enable(_) == stmt);
+        let mut static_group:HashMap<u64, Vec<RRC<ir::Group>>> = HashMap::new();
+        let idx = partition(&mut s.stmts, 
+            |stmt| matches!(stmt, ir::Control::Enable(_)));
 
-        s.stmts = Vec::new();
-
-        for stmt in n_stmts.iter() {
-            s.stmts.push(stmt);
-        }
+        let e_stmts: Vec<_> = s.stmts.drain(0..idx).collect();
 
 
         for stmt in e_stmts.iter() {
@@ -52,29 +47,27 @@ impl Visitor for MergeStaticPar {
                 let group = &data.group;
                 let static_time: u64 =
                     *group.borrow().attributes.get("static").unwrap();
-                if !static_group.contains_key(&static_time) {
-                    static_group.insert(static_time, Vec::new());
-                }
-                let mut group_vec: Vec<ir::Group> = static_group.get(&static_time);
-                group_vec.push(*group.borrow());         
+                static_group.entry(static_time).or_default().push(Rc::clone(group));      
             }
 
             for (key, value) in static_group {
                 if value.len() != 1 {
-                    let mut builder = ir::Builder::new(_comp);
-                    let mut grp = builder.add_group();
+                    let mut builder = ir::Builder::new(_comp, _sigs);
+                    let mut grp = builder.add_group("");
                     let mut assignments : Vec<ir::Assignment> = Vec::new(); 
                     for group in value.iter() {
-                        for asmt in *group.borrow().assignments {
-                        assignments.push(asmt);
+                        for asmt in &group.borrow().assignments {
+                        assignments.push(*asmt);
                         }
                     }
 
-                    let (n_asmts, done_asmts) = partition(&mut assignments, 
-                        |x| &(x.dst.borrow()).is_hole() && x.attributes.has("done"));
+                    let idx = partition(&mut assignments, 
+                        |x| x.dst.borrow().is_hole() && x.attributes.has("done"));
+                    let done_asmts: Vec<_> = assignments.drain(0..idx).collect();
 
-                    for asmt in n_asmts.iter() {
-                        grp.assignments.push(asmt);
+                    for asmt in assignments.iter() {
+                        let grp_mut = grp.borrow_mut();
+                        grp.borrow_mut().assignments.push(*asmt);
                     } 
 
                     let mut ports: Vec<ir::Guard> = Vec::new(); 
@@ -85,24 +78,26 @@ impl Visitor for MergeStaticPar {
                     }
                 
                     let mut fin_grd: ir::Guard = ir::Guard::True;
-                    for grd in ports.iter() {
+                    for grd in ports {
                         fin_grd = fin_grd & grd;
                     }
-                
-                    let mut done_asmt = grp.done_cond_mut();
-                    *done_asmt.src = *value[0].done_cond().src;
+
+                    let grp_mut: &mut ir::Group = &mut *grp.borrow_mut();
+
+                    let mut done_asmt = grp_mut.done_cond_mut();
+                    *done_asmt.src = *value[0].borrow().done_cond().src;
                     *done_asmt.guard = Box::new(fin_grd);
                 
 
                     let enable : ir::Enable = Enable{
-                        group: Rc::new(RefCell::new(grp)),
+                        group: grp,
                         attributes: Attributes::new(),
                     };
                     s.stmts.push(ir::Control::Enable(enable));
                 }
 
                 else {
-                    s.stmts.push(stmt);
+                    s.stmts.push(*stmt);
                 }
 
             
