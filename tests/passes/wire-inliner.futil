@@ -26,6 +26,7 @@ component main() -> () {
       write_r1[go] = fsm.out == 1'b0 ? 1'b1;
       write_r2[go] = fsm.out == 1'b1 ? 1'b1;
       fsm.in = write_r1[done] ? 1'b1;
+      fsm.write_en = write_r1[done] ? 1'b1;
       seq0[done] = write_r2[done];
     }
   }

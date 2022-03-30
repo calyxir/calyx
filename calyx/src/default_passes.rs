@@ -78,14 +78,13 @@ impl PassManager {
         register_alias!(
             pm,
             "post-opt",
-            [DeadGroupRemoval, DeadCellRemoval, CombProp]
+            [DeadGroupRemoval, CombProp, DeadCellRemoval]
         );
         register_alias!(
             pm,
             "lower",
             [
                 GoInsertion,
-                ComponentInterface,
                 WireInliner,
                 ClkInsertion,
                 ResetInsertion,
