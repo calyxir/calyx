@@ -54,8 +54,9 @@ def run_fud(args, config):
     )
 
     # check if input is needed
+    inp_type = path[0].input_type
     if args.input_file is None:
-        if path[0].input_type not in [SourceType.UnTyped, SourceType.Terminal]:
+        if inp_type not in [SourceType.UnTyped, SourceType.Terminal, SourceType.Stream]:
             raise errors.NeedInputSpecified(path[0])
 
     # check if we need `-o` specified
@@ -87,7 +88,10 @@ def run_fud(args, config):
     # construct a source object for the input
     input = None
     if input_file is None:
-        input = Source(None, SourceType.UnTyped)
+        if inp_type is SourceType.Stream:
+            input = Source(sys.stdin, SourceType.Stream)
+        else:
+            input = Source(None, SourceType.UnTyped)
     else:
         input = Source.path(input_file)
 
