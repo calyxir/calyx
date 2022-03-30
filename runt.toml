@@ -144,9 +144,8 @@ fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
 name = "exp (taylor series approximation) correctness"
 paths = [ "tests/correctness/exp/*.txt" ]
 cmd = """
-python3 calyx-py/calyx/gen_exp.py {} > {}.futil; \
-fud e {}.futil --to dat --through verilog -s verilog.data {}.data -q 2>/dev/null; \
-rm {}.futil;
+python3 calyx-py/calyx/gen_exp.py {} |\
+fud e --from futil --to dat --through verilog -s verilog.data {}.data -q
 """
 
 [[tests]]
