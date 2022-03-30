@@ -1,9 +1,11 @@
 use crate::{
+    build_assignments, guard,
     ir::{self, LibrarySignatures},
     ir::{
         traversal::{Action, Named, VisResult, Visitor},
         CloneName,
     },
+    structure,
 };
 use ir::RRC;
 use itertools::Itertools;
@@ -55,6 +57,34 @@ impl Visitor for WireInliner {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let control_ref = Rc::clone(&comp.control);
+        let control = control_ref.borrow();
+        // Don't compile if the control program is empty
+        if let ir::Control::Empty(..) = &*control {
+            return Ok(Action::Stop);
+        }
+
+        if let ir::Control::Enable(data) = &*control {
+            let this = Rc::clone(&comp.signature);
+            let mut builder = ir::Builder::new(comp, sigs);
+            let group = &data.group;
+
+            structure!(builder;
+                let one = constant(1, 1);
+            );
+            let group_done = guard!(group["done"]);
+            let mut assigns = build_assignments!(builder;
+                group["go"] = ? this["go"];
+                this["done"] = group_done ? one["out"];
+            );
+            comp.continuous_assignments.append(&mut assigns);
+        } else {
+            return Err(crate::errors::Error::malformed_control(format!(
+                "{}: Structure has more than one group",
+                Self::name()
+            )));
+        }
+
         let groups = comp.groups.drain().collect_vec();
         let mut builder = ir::Builder::new(comp, sigs);
         // for each group, instantiate wires to hold its `go` and `done` signals.
