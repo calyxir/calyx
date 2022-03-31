@@ -7,6 +7,7 @@ use super::action::{Action, VisResult};
 use super::PostOrder;
 use crate::errors::CalyxResult;
 use crate::ir::{self, Component, Context, Control, LibrarySignatures};
+use std::collections::HashSet;
 use std::rc::Rc;
 
 /// Trait that describes named things. Calling [`do_pass`](Visitor::do_pass) and [`do_pass_default`](Visitor::do_pass_default).
@@ -58,6 +59,27 @@ where
 /// For passes that don't need to use the context, this trait can be automatically
 /// be derived from [Default].
 pub trait ConstructVisitor {
+    fn get_opts(opts: &[&'static str], ctx: &ir::Context) -> Vec<bool>
+    where
+        Self: Named,
+    {
+        let n = Self::name();
+        let given_opts: HashSet<_> = ctx
+            .extra_opts
+            .iter()
+            .filter_map(|opt| {
+                let mut splits = opt.split(':');
+                if splits.next() == Some(n) {
+                    splits.next()
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        opts.iter().map(|o| given_opts.contains(o)).collect_vec()
+    }
+
     /// Construct the visitor using information from the Context
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where

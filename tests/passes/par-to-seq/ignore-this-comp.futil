@@ -1,0 +1,30 @@
+// -p validate -p par-to-seq
+import "primitives/core.futil";
+component main(in: 32) -> (out1: 32, out2: 32) {
+  cells {
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group write_out1 {
+      out1 = r0.out;
+      r0.write_en = 1'd1;
+      r0.in = in;
+      write_out1[done] = r0.done;
+    }
+
+    group write_out2 {
+      out2 = r1.out;
+      r1.write_en = 1'd1;
+      r1.in = r0.out;
+      write_out2[done] = r1.done;
+    }
+  }
+  control {
+    // When sequentializing, write_out2 needs to run before.
+    par {
+      write_out1;
+      write_out2;
+    }
+  }
+}

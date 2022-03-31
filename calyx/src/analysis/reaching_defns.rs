@@ -195,10 +195,13 @@ impl ReachingDefinitionAnalysis {
     /// **NOTE:** Includes dummy "definitions" for continuous assignments and
     /// uses within groups and invoke statements. This is to ensure that all
     /// uses of a given register are rewriten with the appropriate name.
-    pub fn calculate_overlap(
-        &self,
-        continuous_assignments: &[ir::Assignment],
-    ) -> OverlapMap {
+    pub fn calculate_overlap<'a, I>(
+        &'a self,
+        continuous_assignments: I,
+    ) -> OverlapMap
+    where
+        I: Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+    {
         let continuous_regs: Vec<ir::Id> =
             ReadWriteSet::uses(continuous_assignments)
                 .filter_map(|cell| {
@@ -425,7 +428,7 @@ fn build_reaching_def(
         }
         ir::Control::Enable(en) => {
             let asgns = &en.group.borrow().assignments;
-            let writes = ReadWriteSet::must_write_set(asgns);
+            let writes = ReadWriteSet::must_write_set(asgns.iter());
             // for each write:
             // Killing all other reaching defns for that var
             // generating a new defn (Id, GROUP)
@@ -437,10 +440,11 @@ fn build_reaching_def(
                 .map(|x| x.clone_name())
                 .collect::<BTreeSet<_>>();
 
-            let read_set =
-                ReadWriteSet::register_reads(&en.group.borrow().assignments)
-                    .map(|x| x.clone_name())
-                    .collect::<BTreeSet<_>>();
+            let read_set = ReadWriteSet::register_reads(
+                en.group.borrow().assignments.iter(),
+            )
+            .map(|x| x.clone_name())
+            .collect::<BTreeSet<_>>();
             // only kill a def if the value is not read.
             let (mut cur_reach, killed) =
                 reach.kill_from_writeread(&write_set, &read_set);

@@ -601,25 +601,11 @@ impl ConstructVisitor for TopDownCompileControl {
     where
         Self: Sized + Named,
     {
-        let mut dump_fsm = false;
-        let mut early_transitions = false;
-        ctx.extra_opts.iter().for_each(|opt| {
-            let mut splits = opt.split(':');
-            if splits.next() == Some(Self::name()) {
-                match splits.next() {
-                    Some("dump-fsm") => {
-                        dump_fsm = true;
-                    }
-                    Some("early-transitions") => {
-                        early_transitions = true;
-                    }
-                    _ => (),
-                }
-            }
-        });
+        let opts = Self::get_opts(&["dump-fsm", "early-transitions"], ctx);
+
         Ok(TopDownCompileControl {
-            dump_fsm,
-            early_transitions,
+            dump_fsm: opts[0],
+            early_transitions: opts[1],
         })
     }
 

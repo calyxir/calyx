@@ -15,6 +15,7 @@ from .stages import (
     relay,
     systolic,
     vcdump,
+    jq,
     verilator,
     vivado,
     xilinx,
@@ -126,6 +127,10 @@ def register_stages(registry):
 
     # Vcdump
     registry.register(vcdump.VcdumpStage())
+
+    # Jq
+    registry.register(jq.JqStage("vcd_json"))
+    registry.register(jq.JqStage("dat"))
 
     # Xilinx
     registry.register(xilinx.XilinxStage())

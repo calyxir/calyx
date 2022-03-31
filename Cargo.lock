@@ -609,7 +609,7 @@ dependencies = [
  "fraction",
  "ibig",
  "itertools 0.10.3",
- "lazy_static",
+ "once_cell",
  "pest",
  "pest_consume",
  "pest_derive",

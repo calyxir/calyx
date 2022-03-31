@@ -1,0 +1,8 @@
+enables:
+[0, 1)
+  A[go] = 1'd1;
+  B[go] = 1'd1;
+  C[go] = 1'd1;
+transitions:
+unconditional:
+(0, 1)

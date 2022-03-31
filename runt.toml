@@ -66,13 +66,15 @@ paths = [
   "tests/correctness/*.futil",
 ]
 cmd = """
-fud exec -s verilog.data {}.data \
-         -s futil.exec './target/debug/futil' \
-         -s verilog.cycle_limit 500 \
+fud exec --to jq \
          --through verilog \
-         {} --to dat \
-         -q \
-         | jq .memories
+         --through dat \
+         -s verilog.data {}.data \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags ' -d top-down-st' \
+         -s verilog.cycle_limit 500 \
+         -s jq.expr ".memories" \
+         {} -q
 """
 
 [[tests]]
@@ -83,9 +85,12 @@ paths = [
   "tests/correctness/numeric-types/fixed-point/*.futil"
 ]
 cmd = """
-fud exec -s verilog.data {}.data \
+fud exec --to jq \
+         --through dat \
          --through verilog \
-         {} --to dat -q | jq .memories
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
 """
 
 [[tests]]
@@ -94,36 +99,38 @@ paths = [
   "tests/correctness/tcam/*.futil"
 ]
 cmd = """
-fud exec -s verilog.data {}.data \
-         --through verilog \
-         {} --to dat -q | jq .memories
+fud exec --to jq \
+      --through verilog \
+      --through dat \
+      -s verilog.data {}.data \
+      -s jq.expr ".memories" \
+      {} -q
 """
 
-## XXX: Same as correctness dynamic but runs with static-timing.
-## Currently disabled.
-# [[tests]]
-# name = "correctness static timing"
-# paths = [ "tests/correctness/*.futil" ]
-# cmd = """
-# fud exec -s verilog.cycle_limit 500 \
-         # -s verilog.data {}.data \
-         # -s futil.exec './target/debug/futil' \
-         # {} --to dat \
-         # -q \
-         # | jq .memories
-# """
+[[tests]]
+name = "correctness static timing"
+paths = [ "tests/correctness/*.futil" ]
+cmd = """
+fud exec --to jq \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
 
 [[tests]]
 name = "[frontend] systolic array correctness"
 paths = [ "tests/correctness/systolic/*.systolic" ]
 cmd = """
-fud e --from systolic --to vcd_json --through verilog \
-      {} \
+fud e --from systolic --to jq \
+      --through verilog \
+      --through vcd_json \
       -s verilog.data {}.data \
       -s futil.exec './target/debug/futil' \
-      -q \
-      | jq -f {}.jq
-
+      -s jq.file {}.jq \
+      {} -q
 """
 
 [[tests]]
@@ -146,14 +153,22 @@ rm {}.futil;
 name = "[frontend] mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 cmd = """
-fud e -q {} --from mrxl --to dat --through verilog -s verilog.data {}.data | jq .memories
+fud e -q {} --from mrxl --to jq \
+            --through dat \
+            --through verilog \
+            -s verilog.data {}.data \
+            -s jq.expr ".memories"
 """
 
 [[tests]]
 name = "[frontend] relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
 cmd = """
-fud e -q {} --from relay --to dat --through verilog -s verilog.data {}.data | jq .memories
+fud e -q {} --from relay --to jq \
+            --through verilog \
+            --through dat \
+            -s verilog.data {}.data
+            -s jq.expr ".memories"
 """
 
 ##### Backend Tests #####
@@ -215,6 +230,7 @@ name = "language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         -s futil.flags ' -d top-down-st' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
          --to dat -q
@@ -225,6 +241,7 @@ name = "memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
+         -s futil.flags ' -d top-down-st' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q
@@ -244,5 +261,5 @@ fud e {} -s verilog.cycle_limit 500 \
 name = "[core] futil examples"
 paths = ["examples/futil/*.futil"]
 cmd = """
-./target/debug/futil {} -m file
+./target/debug/futil {} -m file -d top-down-st
 """

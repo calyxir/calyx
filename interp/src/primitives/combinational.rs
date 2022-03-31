@@ -157,7 +157,7 @@ comb_primitive!(StdWire[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
 });
 
 // ===================== Unsigned binary operations ======================
-comb_primitive!(LOG: logger; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(FLAG: error_on_overflow; LOG: logger; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let a_iter = left.iter();
     let b_iter = right.iter();
     let mut c_in = false;
@@ -172,20 +172,20 @@ comb_primitive!(LOG: logger; StdAdd[WIDTH](left: WIDTH, right: WIDTH) -> (out: W
         c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
     }
     if c_in {
-        if crate::SETTINGS.read().unwrap().error_on_overflow {
+        if error_on_overflow {
             return Err(InterpreterError::OverflowError());
         }
         warn!(logger, "Computation over/underflow");
     }
     let tr: Value = sum.into();
     //as a sanity check, check tr has same width as left
-    assert_eq!(tr.width(), left.width());
+    debug_assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
-comb_primitive!(NAME: full_name; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
-    let mut adder = StdAdd::from_constants(WIDTH, full_name.clone());
+    let mut adder = StdAdd::from_constants(WIDTH, full_name.clone(), error_on_overflow);
     let (_,new_right) = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
@@ -200,7 +200,7 @@ comb_primitive!(NAME: full_name; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (ou
 });
 
 // TODO (Griffin): Make these wrappers around the normal add
-comb_primitive!(StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(FLAG: error_on_overflow; LOG: logger; StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     let a_iter = left.iter();
     let b_iter = right.iter();
     let mut c_in = false;
@@ -215,14 +215,20 @@ comb_primitive!(StdFpAdd[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH
         c_in = bi & c_in || ai & c_in || ai & bi || ai & c_in & bi;
     }
     let tr = Value::from_bv(sum);
+    if c_in {
+        if error_on_overflow {
+            return Err(InterpreterError::OverflowError());
+        }
+        warn!(logger, "Computation over/underflow");
+    }
     //as a sanity check, check tr has same width as left
-    assert_eq!(tr.width(), left.width());
+    debug_assert_eq!(tr.width(), left.width());
     Ok(tr)
 });
-comb_primitive!(NAME: NAME; StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
-    let mut adder = StdAdd::from_constants(WIDTH, NAME.clone());
+    let mut adder = StdFpAdd::from_constants(WIDTH, INT_WIDTH, FRAC_WIDTH, full_name.clone(), error_on_overflow);
     let new_right = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
