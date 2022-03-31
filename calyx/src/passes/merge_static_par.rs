@@ -91,7 +91,7 @@ impl Visitor for MergeStaticPar {
 
                     let enable : ir::Enable = Enable{
                         group: grp,
-                        attributes: Attributes::new(),
+                        attributes: Attributes::default(),
                     };
                     s.stmts.push(ir::Control::Enable(enable));
                 }
