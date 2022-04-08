@@ -1,4 +1,3 @@
-import re
 import logging as log
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -7,6 +6,22 @@ from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
 from fud.stages.futil import FutilStage
 from fud.utils import shell
+
+
+def get_ports(kernel_xml):
+    """Parse an XML file to get the names of AXI ports in a design.
+
+    The argument is the filename for a `kernel.xml` file that is also an
+    input to the Xilinx `.xo` packaging step (which describes the
+    physical ports in the design and how the logical arguments are
+    mapped onto these ports). We extract the names of all AXI master
+    ports.
+    """
+    tree = ET.parse(kernel_xml)
+    root = tree.getroot()
+    for port in root.iter('port'):
+        if port.attrib['mode'] == 'master':
+            yield port.attrib['name']
 
 
 class XilinxStage(Stage):
@@ -54,35 +69,25 @@ class XilinxStage(Stage):
             / "gen_xo.tcl"
         )
 
-
-
-
-        # Locate generated kernel XML file
-        xmlfile = 'kernel.xml'
-        tree = ET.parse(xmlfile)
-        root = tree.getroot()
-        axi_str = ""
-        for port in root.iter('port'):
-            if re.search("_axi$", port.attrib['name']):
-                #print(port.attrib['name'])
-                axi_str += port.attrib['name'] + " "
-        
-        # Remove any trailing spaces
-        axi_str.strip()
-
-
         package_cmd = (
             "cd {tmpdir} && "
             "mkdir -p xclbin && "
             "/scratch/opt/Xilinx/Vivado/2020.2/bin/vivado "
             "-mode batch "
             "-source gen_xo.tcl "
-            "-tclargs xclbin/kernel.xo m0_axi"
+            "-tclargs xclbin/kernel.xo {port_names}"
         )
 
         @builder.step(package_cmd)
         def package_xo(client: SourceType.UnTyped, tmpdir: SourceType.String):
-            self._shell(client, package_cmd.format(tmpdir=tmpdir), remote_exec)
+            # Get the AXI port names.
+            port_names = list(get_ports(os.path.join(tmpdir, 'kernel.xml')))
+
+            # Run the .xo packager Vivado script.
+            self._shell(client, package_cmd.format(
+                tmpdir=tmpdir,
+                port_names=' '.join(port_names),
+            ), remote_exec)
 
         xclbin_cmd = (
             "cd {tmpdir} && "
