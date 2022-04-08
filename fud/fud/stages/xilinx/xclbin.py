@@ -81,7 +81,7 @@ class XilinxStage(Stage):
         @builder.step(package_cmd)
         def package_xo(client: SourceType.UnTyped, tmpdir: SourceType.String):
             # Get the AXI port names.
-            port_names = list(get_ports(os.path.join(tmpdir, 'kernel.xml')))
+            port_names = list(get_ports(Path(tmpdir) / 'kernel.xml'))
 
             # Run the .xo packager Vivado script.
             self._shell(client, package_cmd.format(
