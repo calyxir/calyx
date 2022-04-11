@@ -6,8 +6,7 @@ use crate::passes::{
     InferStaticTiming, LowerGuards, MergeAssign, MinimizeRegs, Papercut,
     ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
     ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-     MergeStaticPar,
-    TopDownStaticTiming, WellFormed, WireInliner,
+    TopDownStaticTiming, WellFormed, WireInliner, MergeStaticPar,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
