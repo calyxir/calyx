@@ -1,4 +1,4 @@
-// -p remove-comb-groups -p compile-control
+// -p merge-static-par
 
 import "primitives/core.futil";
 

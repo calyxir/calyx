@@ -2,7 +2,7 @@ use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor}, RRC,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap};
 use itertools::partition;
 use crate::ir::Enable;
 use std::rc::Rc;
@@ -38,7 +38,7 @@ impl Visitor for MergeStaticPar {
         let e_stmts: Vec<_> = s.stmts.drain(0..idx).collect();
 
 
-        for stmt in e_stmts.iter() {
+        for stmt in e_stmts {
             //let mut err = std::io::stderr();
             //ir::Printer::write_control(stmt, 0, &mut err)?;
              
@@ -49,30 +49,30 @@ impl Visitor for MergeStaticPar {
                     *group.borrow().attributes.get("static").unwrap();
                 static_group.entry(static_time).or_default().push(Rc::clone(group));      
             }
+        }
 
             for (key, value) in static_group {
                 if value.len() != 1 {
                     let mut builder = ir::Builder::new(_comp, _sigs);
-                    let mut grp = builder.add_group("");
+                    let grp = builder.add_group("msp");
                     let mut assignments : Vec<ir::Assignment> = Vec::new(); 
                     for group in value.iter() {
-                        for asmt in &group.borrow().assignments {
-                        assignments.push(*asmt);
+                        for asmt in group.borrow().assignments.clone() {
+                        assignments.push(asmt);
                         }
                     }
 
                     let idx = partition(&mut assignments, 
-                        |x| x.dst.borrow().is_hole() && x.attributes.has("done"));
+                        |x| x.dst.borrow().is_hole());
                     let done_asmts: Vec<_> = assignments.drain(0..idx).collect();
 
-                    for asmt in assignments.iter() {
-                        let grp_mut = grp.borrow_mut();
-                        grp.borrow_mut().assignments.push(*asmt);
+                    for asmt in assignments {
+                        grp.borrow_mut().assignments.push(asmt);
                     } 
 
                     let mut ports: Vec<ir::Guard> = Vec::new(); 
-                    for asmt in done_asmts.iter() {
-                        let mut grd: ir::Guard = ir::Guard::Port(asmt.src);
+                    for asmt in done_asmts.clone() {
+                        let grd: ir::Guard = ir::Guard::Port(asmt.src);
                         ports.push(grd);
                         ports.push(*asmt.guard);
                     }
@@ -82,27 +82,37 @@ impl Visitor for MergeStaticPar {
                         fin_grd = fin_grd & grd;
                     }
 
-                    let grp_mut: &mut ir::Group = &mut *grp.borrow_mut();
+                    //let grp_mut: &mut ir::Group = &mut *grp.borrow_mut();
 
-                    let mut done_asmt = grp_mut.done_cond_mut();
-                    *done_asmt.src = *value[0].borrow().done_cond().src;
-                    *done_asmt.guard = Box::new(fin_grd);
+                    let cst = builder.add_constant(1, 1);
+
+                    let done_asmt = 
+                    builder.build_assignment( 
+                    grp.borrow().get("done"), 
+                    cst.borrow().get("out"),
+                    fin_grd);
+
+                    {grp.borrow_mut().assignments.push(done_asmt);}
+                    grp.borrow_mut().attributes.insert("static", key);
+                    _comp.groups.add(Rc::clone(&grp));
                 
 
                     let enable : ir::Enable = Enable{
-                        group: grp,
+                        group: Rc::clone(&grp),
                         attributes: Attributes::default(),
                     };
                     s.stmts.push(ir::Control::Enable(enable));
                 }
 
                 else {
-                    s.stmts.push(*stmt);
+                    let enable: ir::Enable = Enable { 
+                        group: Rc::clone(&value[0]), attributes: Attributes::default()};
+                    s.stmts.push(ir::Control::Enable(enable));
                 }
 
             
             } 
-        }
+        
 
         
         Ok(Action::Continue)
