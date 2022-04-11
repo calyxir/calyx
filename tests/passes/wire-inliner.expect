@@ -12,6 +12,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated seq0_done = std_wire(1);
   }
   wires {
+    seq0_go.in = go;
+    done = seq0_done.out ? 1'd1;
     r1.in = write_r1_go.out ? 32'd1;
     r1.write_en = write_r1_go.out ? 1'd1;
     write_r1_done.in = r1.done;
@@ -21,6 +23,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     write_r1_go.in = fsm.out == 1'd0 & seq0_go.out ? 1'd1;
     write_r2_go.in = fsm.out == 1'd1 & seq0_go.out ? 1'd1;
     fsm.in = write_r1_done.out & seq0_go.out ? 1'd1;
+    fsm.write_en = write_r1_done.out & seq0_go.out ? 1'd1;
     seq0_done.in = write_r2_done.out;
   }
 

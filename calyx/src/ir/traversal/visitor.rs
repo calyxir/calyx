@@ -23,34 +23,6 @@ pub trait Named {
     fn description() -> &'static str;
 }
 
-/// Implementator of trait provide various logging methods.
-pub trait Loggable {
-    /// Log output to STDERR.
-    /// `context` is the location from which the logger is being called.
-    /// Usage:
-    /// ```
-    /// self.elog("number-of-groups", groups.len());
-    /// ```
-    fn elog<S, T>(&self, context: S, msg: T)
-    where
-        S: std::fmt::Display,
-        T: std::fmt::Display;
-}
-
-/// Blanket implementation for Loggable for traits implementing Named
-impl<T> Loggable for T
-where
-    T: Named,
-{
-    fn elog<S, M>(&self, context: S, msg: M)
-    where
-        S: std::fmt::Display,
-        M: std::fmt::Display,
-    {
-        eprintln!("{}.{}: {}", T::name(), context, msg)
-    }
-}
-
 /// Trait defining method that can be used to construct a Visitor from an
 /// [ir::Context].
 /// This is useful when a pass needs to construct information using the context
@@ -77,7 +49,20 @@ pub trait ConstructVisitor {
             })
             .collect();
 
-        opts.iter().map(|o| given_opts.contains(o)).collect_vec()
+        let values = opts.iter().map(|o| given_opts.contains(o)).collect_vec();
+
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "Extra options for {}: {}",
+                Self::name(),
+                opts.iter()
+                    .zip(values.iter())
+                    .map(|(o, v)| format!("{o}->{v}"))
+                    .join(", ")
+            );
+        }
+
+        values
     }
 
     /// Construct the visitor using information from the Context

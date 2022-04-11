@@ -57,7 +57,7 @@ It has two meanings:
 1. If the `externalize` pass is enabled, the cell is turned into an "external"
    cell by exposing all its ports through the current component and rewriting
    assignments to the use the ports. See the documentation on
-   See [externalize](https://capra.cs.cornell.edu/docs/calyx/source/calyx/passes/struct.Externalize.html "Externalize Pass") for more information.
+   See [externalize](https://docs.calyxir.org/source/calyx/passes/struct.Externalize.html "Externalize Pass") for more information.
 2. If the cell is a memory and has an `external` attribute on it, the verilog backend (`-b verilog`) generates code to read `<cell_name>.dat` to initialize the memory state and dumps out its final value after execution.
 
 ### `static(n)`
@@ -158,4 +158,4 @@ This requires that when `read_data` is used then `addr0` must be driven.
 Note that each group must have exactly one output port in it.
 
 
-[builder]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/ir/struct.Builder.html
+[builder]: https://docs.calyxir.org/source/calyx/ir/struct.Builder.html

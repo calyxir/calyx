@@ -131,10 +131,10 @@ impl Display for PrintTuple {
 }
 
 pub enum Command {
-    Step,                                                      // Step execution
-    Continue, // Execute until breakpoint
-    Empty,    // Empty command, does nothing
-    Display,  // Display full environment contents
+    Step(u64), // Step execution
+    Continue,  // Execute until breakpoint
+    Empty,     // Empty command, does nothing
+    Display,   // Display full environment contents
     Print(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>), // Print something
     Break(Vec<GroupName>), // Create a breakpoint
     Help,                  // Help message

@@ -76,27 +76,17 @@ impl PassManager {
                 MinimizeRegs,
             ]
         );
-        register_alias!(
-            pm,
-            "compile",
-            [
-                CompileInvoke,
-                CompileEmpty,
-                TopDownStaticTiming,
-                TopDownCompileControl
-            ]
-        );
+        register_alias!(pm, "compile", [CompileInvoke, TopDownCompileControl]);
         register_alias!(
             pm,
             "post-opt",
-            [DeadGroupRemoval, DeadCellRemoval, CombProp]
+            [DeadGroupRemoval, CombProp, DeadCellRemoval]
         );
         register_alias!(
             pm,
             "lower",
             [
                 GoInsertion,
-                ComponentInterface,
                 WireInliner,
                 ClkInsertion,
                 ResetInsertion,

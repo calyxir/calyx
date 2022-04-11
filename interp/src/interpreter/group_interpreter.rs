@@ -165,8 +165,8 @@ impl AssignmentInterpreter {
                 .borrow_mut()
                 .get_mut(&(&cell.borrow() as &Cell as ConstCell))
             {
-                let new_vals = x.do_tick();
-                for (port, val) in new_vals? {
+                let new_vals = x.do_tick()?;
+                for (port, val) in new_vals {
                     let port_ref =
                         cell.borrow().find(&port).unwrap_or_else(|| {
                             panic!(
@@ -241,9 +241,9 @@ impl AssignmentInterpreter {
                     let new_val_ref =
                         self.state.get_from_port(&assignment.src.borrow());
                     // no need to make updates if the value has not changed
-                    let port = assignment.dst.clone(); // Rc clone
 
                     if old_val != new_val_ref {
+                        let port = assignment.dst.clone(); // Rc clone
                         let new_val = new_val_ref.clone();
 
                         if cfg!(feature = "change-based-sim") {
