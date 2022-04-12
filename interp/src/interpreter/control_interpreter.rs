@@ -337,7 +337,7 @@ impl Interpreter for SeqInterpreter {
                 Ok(())
             }
             SeqFsm::Done(_) => Ok(()),
-            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
         }
     }
 
@@ -349,7 +349,7 @@ impl Interpreter for SeqInterpreter {
         match self.internal_state {
             SeqFsm::Iterating(_, _) => Err(InterpreterError::InvalidSeqState),
             SeqFsm::Done(e) => Ok(e),
-            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
         }
     }
 
@@ -379,16 +379,18 @@ impl Interpreter for SeqInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.internal_state {
-            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
             SeqFsm::Iterating(i, _) => i.converge(),
             SeqFsm::Done(_) => {
-                if let SeqFsm::Done(env) = std::mem::take(&mut self.internal_state) {
+                if let SeqFsm::Done(env) =
+                    std::mem::take(&mut self.internal_state)
+                {
                     let mut interp = EnableInterpreter::new(
                         vec![],
                         None,
                         env,
                         self.info.continuous_assignments.clone(),
-                        &self.info.qin
+                        &self.info.qin,
                     );
 
                     interp.converge()?;
@@ -400,13 +402,13 @@ impl Interpreter for SeqInterpreter {
                 } else {
                     unreachable!()
                 }
-            },
+            }
         }
     }
 
     fn run(&mut self) -> InterpreterResult<()> {
         match &mut self.internal_state {
-            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
             SeqFsm::Iterating(_, _) => {
                 if let SeqFsm::Iterating(i, mut idx) =
                     std::mem::take(&mut self.internal_state)
@@ -658,9 +660,7 @@ impl Interpreter for IfInterpreter {
                 Ok(())
             }
             IfFsm::Done(_) => Ok(()),
-            IfFsm::Err => {
-                unreachable!("There is an error in the If state transition. Please report this.")
-            }
+            IfFsm::Err => Err(InterpreterError::InvalidIfState),
         }
     }
 
@@ -704,7 +704,7 @@ impl Interpreter for IfInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
+            IfFsm::Err => Err(InterpreterError::InvalidIfState),
             IfFsm::Body(b_interp) => b_interp.converge(),
             IfFsm::ConditionPort(_) | IfFsm::Done(_) => {
                 let is_done = matches!(self.state, IfFsm::Done(_));
@@ -867,7 +867,7 @@ impl WhileInterpreter {
 impl Interpreter for WhileInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            WhileFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
+            WhileFsm::Err => Err(InterpreterError::InvalidWhileState),
             WhileFsm::CondWith(_) => {
                 if let WhileFsm::CondWith(mut interp) =
                     std::mem::take(&mut self.state)
@@ -884,8 +884,10 @@ impl Interpreter for WhileInterpreter {
                 }
             }
             WhileFsm::CondPort(_) => {
-                if let WhileFsm::CondPort(env) = std::mem::take(&mut self.state) {
-                    let branch_condition = env.get_from_port(&self.wh.port).as_bool();
+                if let WhileFsm::CondPort(env) = std::mem::take(&mut self.state)
+                {
+                    let branch_condition =
+                        env.get_from_port(&self.wh.port).as_bool();
                     self.process_branch(branch_condition, env);
                     Ok(())
                 } else {
@@ -949,7 +951,7 @@ impl Interpreter for WhileInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
+            WhileFsm::Err => Err(InterpreterError::InvalidWhileState),
             WhileFsm::Body(b) => b.converge(),
             WhileFsm::CondWith(interp) => interp.converge(),
             WhileFsm::CondPort(_) | WhileFsm::Done(_) => {
