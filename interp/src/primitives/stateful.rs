@@ -8,7 +8,7 @@ use crate::values::Value;
 use crate::{get_input, validate};
 use calyx::ir;
 use ibig::ops::RemEuclid;
-use ibig::{ubig, IBig, UBig};
+use ibig::{ibig, ubig, IBig, UBig};
 
 const DECIMAL_PRINT_WIDTH: usize = 7;
 
@@ -85,10 +85,13 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let out = match self.update.take() {
-            BinOpUpdate::None => vec![
-                (ir::Id::from("out"), self.product.clone()),
-                (ir::Id::from("done"), Value::bit_low()),
-            ],
+            BinOpUpdate::None => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), self.product.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
             BinOpUpdate::Reset => {
                 self.queue.reset();
                 vec![
@@ -273,6 +276,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let out = match self.update.take() {
             BinOpUpdate::None => {
+                self.queue.reset();
                 vec![
                     (ir::Id::from("out_quotient"), self.quotient.clone()),
                     (ir::Id::from("out_remainder"), self.remainder.clone()),
@@ -1730,10 +1734,13 @@ impl<const SIGNED: bool> Named for StdFpMultPipe<SIGNED> {
 impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let out = match self.update.take() {
-            BinOpUpdate::None => vec![
-                (ir::Id::from("out"), self.product.clone()),
-                (ir::Id::from("done"), Value::bit_low()),
-            ],
+            BinOpUpdate::None => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), self.product.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
             BinOpUpdate::Reset => {
                 self.queue.reset();
                 vec![
@@ -1931,6 +1938,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let out = match self.update.take() {
             BinOpUpdate::None => {
+                self.queue.reset();
                 vec![
                     (ir::Id::from("out_quotient"), self.quotient.clone()),
                     (ir::Id::from("out_remainder"), self.remainder.clone()),
@@ -2056,7 +2064,9 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
 pub(crate) fn floored_division(left: &IBig, right: &IBig) -> IBig {
     let div = left / right;
 
-    if (div.signum() == (-1).into() || div.signum() == 0.into())
+    if left.signum() != ibig!(-1) && right.signum() != ibig!(-1) {
+        div
+    } else if (div.signum() == (-1).into() || div.signum() == 0.into())
         && (left != &(&div * right))
     {
         div - 1_i32

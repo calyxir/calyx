@@ -81,14 +81,14 @@ pub enum InterpreterError {
 
     #[error("{mem_dim} Memory given initialization data with invalid dimension.
     When flattened, expected {expected} entries, but the memory was supplied with {given} entries instead.
-    Please ensure that the dimensions of your input memories match their initalization data in the supplied data file")]
+    Please ensure that the dimensions of your input memories match their initialization data in the supplied data file")]
     IncorrectMemorySize {
         mem_dim: String,
         expected: u64,
         given: usize,
     },
 
-    #[error("unknown primitive - \"{0}\"")]
+    #[error("interpreter does not have an implementation of the \"{0}\" primitive. If the interpreter should have an implementation of this primitive please open a github issue or PR.")]
     UnknownPrimitive(String),
     #[error("program evaluated the truth value of a wire \"{}.{}\" which is not one bit. Wire is {} bits wide.", 0.0, 0.1, 1)]
     InvalidBoolCast((Id, Id), u64),

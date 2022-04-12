@@ -147,8 +147,7 @@ impl DebuggingContext {
         if self
             .comp_ctx
             .get(&target_name.component_name)
-            .map(|x| x.groups.find(&target_name.group_name))
-            .flatten()
+            .and_then(|x| x.groups.find(&target_name.group_name))
             .is_none()
         {
             println!(
