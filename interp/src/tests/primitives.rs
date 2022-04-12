@@ -54,27 +54,7 @@ fn test_std_mult_pipe() {
     mult.validate_and_execute(&binds).unwrap();
     let output_vals = mult.do_tick().unwrap(); //internal q: [14, N]
     assert_eq!(output_vals.len(), 2);
-    port_bindings![binds;
-        go -> (1, 1),
-        reset -> (0, 1),
-        left -> (3, 32),
-        right -> (7, 32)
-    ];
-    // I don't think that as written this works correctly. If the go "flickers" on
-    // for a portion of the cycle but does not remain high (i.e. is not high by
-    // the time do_tick is called) then the multiplier should not run.
-    // based on the above comment, b/c go is now low, nothing should be written
-    // to the queue!
-    mult.validate_and_execute(&binds).unwrap();
-    port_bindings![binds;
-        go -> (0, 1), //b/c go is low, this should not overwrite 3*7!
-        reset -> (0, 1),
-        left -> (4, 32),
-        right -> (7, 32)
-    ];
-    mult.validate_and_execute(&binds).unwrap();
-    let output_vals = mult.do_tick().unwrap(); //internal q: [N, 14]
-    assert_eq!(output_vals.len(), 2);
+
     port_bindings![binds;
         go -> (1, 1),
         reset -> (0, 1),
@@ -129,12 +109,7 @@ fn test_std_div_pipe() {
         right -> (6, 32) //20/6 = 3 r. 2
     ];
     div.validate_and_execute(&binds).unwrap();
-    port_bindings![binds;
-        go -> (0, 1), //b/c go is low, this should not overwrite 20/6!
-        reset -> (0, 1),
-        left -> (4, 32),
-        right -> (7, 32)
-    ];
+
     // I don't think that as written this works correctly. If the go "flickers" on
     // for a portion of the cycle but does not remain high (i.e. is not high by
     // the time do_tick is called) then the multiplier should not run.
@@ -152,12 +127,8 @@ fn test_std_div_pipe() {
     ];
 
     div.validate_and_execute(&binds).unwrap();
-    let output_vals = div.do_tick().unwrap();
-    assert_eq!(output_vals.len(), 3);
+    let mut output_vals = div.do_tick().unwrap().into_iter();
 
-    div.validate_and_execute(&binds).unwrap();
-    let mut output_vals = div.do_tick().unwrap().into_iter(); //should output done and out_quotient 2 and out_remainder 6
-                                                              //internal q: [(4, 0), N]
     assert_eq!(output_vals.len(), 3);
     let out_quotient = output_vals.next().unwrap();
     assert_eq!(out_quotient.0, "out_quotient");
@@ -168,6 +139,7 @@ fn test_std_div_pipe() {
     let done = output_vals.next().unwrap().1;
     assert_eq!(done.as_u64(), 1);
     //internal q: [(4, 0), N]
+    div.validate_and_execute(&binds).unwrap();
     output_vals = div.do_tick().unwrap().into_iter(); //give none
     assert_eq!(output_vals.len(), 3);
 
