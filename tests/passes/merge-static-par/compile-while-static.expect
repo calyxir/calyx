@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/passes/merge-static-par/compile-while-static.futil
+34 |    while lt_r.out with cond {
+   |                        ^^^^ Undefined combinational group name: cond

@@ -393,7 +393,6 @@ impl Group {
         }
     }
 
-
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
     where
