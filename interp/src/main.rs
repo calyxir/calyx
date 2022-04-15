@@ -169,7 +169,7 @@ fn main() -> InterpreterResult<()> {
             ComponentInterpreter::interpret_program(env, main_component)
         }
         Command::Debug(CommandDebug { source_map_file }) => {
-            let map = SourceMap::from_file_pest(&source_map_file)?;
+            let map = SourceMap::from_file(&source_map_file)?;
             let mut cidb = Debugger::new(&components, main_component, map);
             cidb.main_loop(env)
         }
