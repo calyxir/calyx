@@ -5,7 +5,7 @@ mod interactive_errors;
 mod io_utils;
 pub(crate) mod name_tree;
 pub(crate) mod parser;
-pub mod source_location;
+pub mod source;
 pub use commands::PrintCode;
 
 pub use cidr::Debugger;

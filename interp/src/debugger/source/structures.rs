@@ -2,9 +2,17 @@ use calyx::errors::Error;
 use serde::{self, de::Visitor, Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::PathBuf};
 
+use crate::errors::InterpreterResult;
+
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
 
 pub struct NamedTag(u64, String);
+
+impl NamedTag {
+    pub fn new_nameless(tag: u64) -> Self {
+        Self(tag, String::new())
+    }
+}
 
 impl From<(u64, String)> for NamedTag {
     fn from(i: (u64, String)) -> Self {
@@ -85,5 +93,25 @@ impl SourceMap {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn from_file_pest(
+        path: &Option<PathBuf>,
+    ) -> InterpreterResult<Option<Self>> {
+        if let Some(path) = path {
+            let v = fs::read(path)?;
+            let file_contents = std::str::from_utf8(&v)?;
+            let map: Self =
+                super::metadata_parser::parse_metadata(file_contents)?;
+            Ok(Some(map))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl From<HashMap<NamedTag, String>> for SourceMap {
+    fn from(i: HashMap<NamedTag, String>) -> Self {
+        Self(i)
     }
 }

@@ -1,7 +1,7 @@
 use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
 use interp::{
     configuration,
-    debugger::{source_location::SourceMap, Debugger},
+    debugger::{source::SourceMap, Debugger},
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
     interpreter::ComponentInterpreter,
@@ -169,7 +169,7 @@ fn main() -> InterpreterResult<()> {
             ComponentInterpreter::interpret_program(env, main_component)
         }
         Command::Debug(CommandDebug { source_map_file }) => {
-            let map = SourceMap::from_file(&source_map_file)?;
+            let map = SourceMap::from_file_pest(&source_map_file)?;
             let mut cidb = Debugger::new(&components, main_component, map);
             cidb.main_loop(env)
         }

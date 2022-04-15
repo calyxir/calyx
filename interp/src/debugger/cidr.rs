@@ -6,7 +6,7 @@ use super::{
     interactive_errors::DebuggerError,
     io_utils::Input,
 };
-use crate::debugger::source_location::SourceMap;
+use crate::debugger::source::SourceMap;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
