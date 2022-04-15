@@ -1,7 +1,7 @@
 use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
 use interp::{
     configuration,
-    debugger::{source_location::SourceMap, Debugger},
+    debugger::{source::SourceMap, Debugger},
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
     interpreter::ComponentInterpreter,

@@ -26,6 +26,13 @@ pub enum InterpreterError {
         pest_consume::Error<crate::debugger::parser::command_parser::Rule>,
     ),
 
+    /// Unable to parse the debugger command
+    #[error(transparent)]
+    MetadataParseError(
+        #[from]
+        pest_consume::Error<crate::debugger::source::metadata_parser::Rule>,
+    ),
+
     /// Wrapper for errors coming from the interactive CLI
     #[error(transparent)]
     ReadlineError(#[from] ReadlineError),
@@ -107,6 +114,9 @@ pub enum InterpreterError {
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]
     OverflowError(),
+
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
 }
 
 impl InterpreterError {
@@ -159,5 +169,11 @@ impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
             v1: err.1,
             v2: err.2,
         }
+    }
+}
+
+impl From<std::str::Utf8Error> for InterpreterError {
+    fn from(err: std::str::Utf8Error) -> Self {
+        Error::invalid_file(err.to_string()).into()
     }
 }

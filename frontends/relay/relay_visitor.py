@@ -139,7 +139,7 @@ class Relay2Calyx(ExprFunctor):
             tag = self.pos_count
             self.pos_count += 1
 
-            self.source_map[f"({tag}, )"] = [
+            self.source_map[tag] = [
                 x for x in str(let).splitlines() if x.startswith("let")
             ][0]
 
@@ -313,9 +313,9 @@ if __name__ == "__main__":
     calyx, metadata = emit_calyx(relay_ir)
 
     if args.write_metadata is not None:
-        import simplejson as sjson
 
         with open(args.write_metadata, "w") as f:
-            sjson.dump(metadata, f)
+            for key, val in metadata.items():
+                f.write(f'{key}: "{val}"\n')
 
     print(calyx)
