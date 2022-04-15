@@ -74,16 +74,12 @@ impl Visitor for MergeStaticPar {
 
                 grp.borrow_mut().assignments.extend(asmts);
 
-                let mut ports: Vec<ir::Guard> = Vec::new();
+                //let mut ports: Vec<ir::Guard> = Vec::new();
+                let mut fin_grd: ir::Guard = ir::Guard::True;
                 for asmt in done_asmts.clone() {
                     let grd: ir::Guard = ir::Guard::Port(asmt.src);
-                    ports.push(grd);
-                    ports.push(*asmt.guard);
-                }
-
-                let mut fin_grd: ir::Guard = ir::Guard::True;
-                for grd in ports {
                     fin_grd &= grd;
+                    fin_grd &= *asmt.guard;
                 }
 
                 let cst = builder.add_constant(1, 1);
@@ -94,9 +90,8 @@ impl Visitor for MergeStaticPar {
                     fin_grd,
                 );
 
-                {
-                    grp.borrow_mut().assignments.push(done_asmt);
-                }
+                grp.borrow_mut().assignments.push(done_asmt);
+
                 grp.borrow_mut().attributes.insert("static", key);
                 comp.groups.add(Rc::clone(&grp));
 

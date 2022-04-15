@@ -1,4 +1,4 @@
-// -p merge-static-par
+// -p validate -p merge-static-par 
 
 import "primitives/core.futil";
 

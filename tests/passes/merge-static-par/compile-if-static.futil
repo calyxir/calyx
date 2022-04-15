@@ -1,4 +1,4 @@
-// -p merge-static-par
+// -p validate -p merge-static-par
 
 import "primitives/core.futil";
 
@@ -6,7 +6,8 @@ component main() -> () {
   cells {
     t = std_reg(1);
     f = std_reg(1);
-    lt = std_lt(1);
+    a = std_reg(3);
+    adder = std_add(3);
   }
 
   wires {
@@ -22,16 +23,18 @@ component main() -> () {
       false[done] = f.done;
     }
 
-    group cond<"static"=0> {
-      lt.left = 1'b1;
-      lt.right = 1'b0;
-      cond[done] = 1'b1;
+    group add<"static"=1> {
+      adder.left = 3'b1;
+      adder.right = 3'b0;
+      a.in = adder.out;
+      a.write_en = 1'b1;
+      add[done] = a.done;
     }
   }
 
   control {
     par {
-      true; false; cond;
+      true; false; add;
     }
   }
 }
