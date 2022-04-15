@@ -11,9 +11,7 @@ named_tag = { "(" ~ num ~ "," ~ id_string ~ ")" }
 tag = { named_tag | num }
 
 inner_position_string =  {
-    (ASCII_ALPHANUMERIC
-    | "[" | "]" | "(" | ")" | "%" | "=" | "/" 
-    | "*" | ";" | "." | "_" | ":" | "," | "-" | "+")*
+    (&(!("\"")) ~ ANY)*
 }
 
 position_string = { quote ~
