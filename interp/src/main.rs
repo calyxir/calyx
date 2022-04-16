@@ -1,7 +1,7 @@
 use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
 use interp::{
     configuration,
-    debugger::Debugger,
+    debugger::{source::SourceMap, Debugger},
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
     interpreter::ComponentInterpreter,
@@ -86,7 +86,11 @@ struct CommandInterpret {}
 #[derive(FromArgs)]
 #[argh(subcommand, name = "debug")]
 /// Interpret the given program with the interactive debugger
-struct CommandDebug {}
+struct CommandDebug {
+    /// path to option source location map
+    #[argh(option, long = "source", short = 's', from_str_fn(read_path))]
+    pub source_map_file: Option<PathBuf>,
+}
 
 #[inline]
 fn print_res(
@@ -164,8 +168,9 @@ fn main() -> InterpreterResult<()> {
         Command::Interpret(_) => {
             ComponentInterpreter::interpret_program(env, main_component)
         }
-        Command::Debug(CommandDebug {}) => {
-            let mut cidb = Debugger::new(&components, main_component);
+        Command::Debug(CommandDebug { source_map_file }) => {
+            let map = SourceMap::from_file(&source_map_file)?;
+            let mut cidb = Debugger::new(&components, main_component, map);
             cidb.main_loop(env)
         }
     };

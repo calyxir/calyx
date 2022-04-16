@@ -1,0 +1,27 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+dot = _{"."}
+ident_syms = _{ "_" | "-" | "'" }
+quote = _{"\""}
+num = @{ASCII_DIGIT+}
+
+id_string = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT | "::" |".")* }
+
+named_tag = { "(" ~ num ~ "," ~ id_string ~ ")" }
+
+tag = { named_tag | num }
+
+inner_position_string =  {
+    (!("\"") ~ ANY)*
+}
+
+position_string = { quote ~
+   inner_position_string
+    ~ quote }
+
+entry = { tag ~ ":" ~ position_string}
+
+metadata = {
+    SOI ~
+    entry+ ~
+    EOI
+}
