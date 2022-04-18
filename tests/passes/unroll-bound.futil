@@ -1,0 +1,30 @@
+// -p validate -p unroll-bound
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    add = std_add(32);
+    lt = std_lt(32);
+  }
+  wires {
+    group incr_r {
+      r.write_en = 1'd1;
+      r.in = add.out;
+      add.left = r.out;
+      add.right = 32'd1;
+      incr_r[done] = r.done;
+    }
+    comb group less_than_10 {
+      lt.left = r.out;
+      lt.right = 32'd10;
+    }
+  }
+  control {
+    seq {
+      @bound(2) while lt.out with less_than_10 { incr_r; }
+      while lt.out with less_than_10 { incr_r; }
+    }
+  }
+}
+

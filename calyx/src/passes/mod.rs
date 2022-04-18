@@ -29,6 +29,7 @@ mod simplify_guards;
 mod synthesis_papercut;
 mod top_down_compile_control;
 mod top_down_static_timing;
+mod unroll_bound;
 mod well_formed;
 mod wire_inliner;
 
@@ -61,5 +62,6 @@ pub use simplify_guards::SimplifyGuards;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
 pub use top_down_static_timing::TopDownStaticTiming;
+pub use unroll_bound::UnrollBounded;
 pub use well_formed::WellFormed;
 pub use wire_inliner::WireInliner;
