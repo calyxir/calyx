@@ -45,8 +45,24 @@ impl MetadataParser {
         ))
     }
 
-    fn inner_position_string(input: Node) -> ParseResult<String> {
+    fn escaped_newline(_input: Node) -> ParseResult<char> {
+        Ok('\n')
+    }
+
+    fn string_char(input: Node) -> ParseResult<String> {
         Ok(input.as_str().to_string())
+    }
+    fn source_char(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(input.into_children();
+                [escaped_newline(e)] => e.to_string(),
+                [string_char(s)] => s
+        ))
+    }
+
+    fn inner_position_string(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(input.into_children();
+            [source_char(sc)..] => sc.collect()
+        ))
     }
 
     fn position_string(input: Node) -> ParseResult<String> {
