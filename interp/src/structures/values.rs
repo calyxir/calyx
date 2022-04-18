@@ -9,6 +9,8 @@ use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
 use serde::Serialize;
 
+pub type BitString = BitVec<u64, Lsb0>;
+
 /// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
 ///  integral and fractional bits. The width of the integral bits is described as:
 /// `total width - fractional_width`.
@@ -169,7 +171,7 @@ impl InputNumber {
         }
     }
 
-    fn as_bit_vec(&self) -> BitVec<Lsb0, u64> {
+    fn as_bit_vec(&self) -> BitString {
         match self {
             InputNumber::U8(i) => BitVec::from_element(*i as u64),
             InputNumber::U16(i) => BitVec::from_element(*i as u64),
@@ -178,7 +180,7 @@ impl InputNumber {
             InputNumber::U128(i) => {
                 let lower = (i & (u64::MAX as u128)) as u64;
                 let upper = ((i >> 64) & u64::MAX as u128) as u64;
-                BitVec::from_slice(&[lower, upper]).unwrap()
+                BitVec::from_slice(&[lower, upper])
             }
             InputNumber::I8(i) => BitVec::from_element(*i as u64),
             InputNumber::I16(i) => BitVec::from_element(*i as u64),
@@ -187,7 +189,7 @@ impl InputNumber {
             InputNumber::I128(i) => {
                 let lower = (i & (u64::MAX as i128)) as u64;
                 let upper = ((i >> 64) & u64::MAX as i128) as u64;
-                BitVec::from_slice(&[lower, upper]).unwrap()
+                BitVec::from_slice(&[lower, upper])
             }
             InputNumber::Usize(i) => BitVec::from_element(*i as u64),
             InputNumber::U(u) => {
@@ -205,7 +207,7 @@ impl InputNumber {
                     })
                     .collect();
 
-                BitVec::<Lsb0, u64>::from_slice(&bytes_64).unwrap()
+                BitString::from_slice(&bytes_64)
             }
             InputNumber::I(i) => {
                 if i.signum() == ibig!(-1) {
@@ -234,7 +236,7 @@ impl InputNumber {
                         })
                         .collect();
 
-                    let mut bv = BitVec::from_slice(&fun).unwrap();
+                    let mut bv = BitVec::from_slice(&fun);
 
                     if carry {
                         bv.push(true)
@@ -261,15 +263,15 @@ pub struct Value {
     // Lsb0 means the 0th index contains the LSB. This is useful because
     // a 7-bit bitvector and 17-bit bitvector representing the number 6 have
     // ones in the same index.
-    vec: Rc<BitVec<Lsb0, u64>>,
+    vec: Rc<BitString>,
 
     unsigned: Unsigned,
 
     signed: Signed,
 }
 
-impl From<BitVec<Lsb0, u64>> for Value {
-    fn from(bv: BitVec<Lsb0, u64>) -> Self {
+impl From<BitString> for Value {
+    fn from(bv: BitString) -> Self {
         Self {
             vec: Rc::new(bv),
             unsigned: Unsigned::default(),
@@ -279,10 +281,7 @@ impl From<BitVec<Lsb0, u64>> for Value {
 }
 
 impl Value {
-    pub fn unsigned_value_fits_in(
-        vec: &BitVec<Lsb0, u64>,
-        width: usize,
-    ) -> bool {
+    pub fn unsigned_value_fits_in(vec: &BitString, width: usize) -> bool {
         vec.len() <= width // obviously fits then
             || vec
                 .last_one() // returns an index
@@ -290,7 +289,7 @@ impl Value {
                 .unwrap_or(true) // if there is no high bit then it can fit in the given width
     }
 
-    pub fn signed_value_fits_in(vec: &BitVec<Lsb0, u64>, width: usize) -> bool {
+    pub fn signed_value_fits_in(vec: &BitString, width: usize) -> bool {
         vec.len() <= width // obviously fits then
         || (vec.ends_with(bits![0]) && Value::unsigned_value_fits_in(vec, width - 1)) // positive value (technically wastes a check)
         || (vec.ends_with(bits![1]) && ((vec.len() - vec.trailing_ones()) < width) || vec.trailing_ones() == 0)
@@ -302,14 +301,14 @@ impl Value {
     }
 
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = bool> + '_ {
-        self.vec.iter().by_val()
+        self.vec.iter().by_vals()
     }
 
-    pub fn clone_bit_vec(&self) -> BitVec<Lsb0, u64> {
+    pub fn clone_bit_vec(&self) -> BitString {
         (*self.vec).clone()
     }
 
-    pub fn bv_ref(&self) -> &BitVec<Lsb0, u64> {
+    pub fn bv_ref(&self) -> &BitString {
         &self.vec
     }
     /// Creates a Value with the specified bandwidth.
@@ -333,7 +332,7 @@ impl Value {
     pub fn zeroes<I: Into<InputNumber>>(bitwidth: I) -> Value {
         let input_num: InputNumber = bitwidth.into();
         Value {
-            vec: Rc::new(bitvec![Lsb0, u64; 0; input_num.as_usize()]),
+            vec: Rc::new(bitvec![u64, Lsb0; 0; input_num.as_usize()]),
             unsigned: Rc::new(RefCell::new(Some(0_u8.into()))),
             signed: Rc::new(RefCell::new(Some(0.into()))),
         }
@@ -392,7 +391,7 @@ impl Value {
     }
 
     #[inline]
-    pub fn from_bv(bv: BitVec<Lsb0, u64>) -> Self {
+    pub fn from_bv(bv: BitString) -> Self {
         bv.into()
     }
 
@@ -741,15 +740,6 @@ impl std::fmt::Display for Value {
     }
 }
 
-impl Serialize for Value {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        unimplemented!("Do not serialize values as bit strings")
-    }
-}
-
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         self.vec.len() == other.vec.len() && *self.vec == *other.vec
@@ -765,9 +755,9 @@ impl PartialOrd for Value {
         for (us_bit, them_bit) in self
             .vec
             .iter()
-            .by_ref()
+            .by_refs()
             .rev()
-            .zip(other.vec.iter().by_ref().rev())
+            .zip(other.vec.iter().by_refs().rev())
         {
             match (us_bit, them_bit) {
                 (true, true) | (false, false) => {} // so far equal
@@ -779,6 +769,15 @@ impl PartialOrd for Value {
     }
 }
 
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        base64::encode(self.as_unsigned().to_le_bytes()).serialize(serializer)
+    }
+}
+
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -787,7 +786,7 @@ impl<'de> Deserialize<'de> for Value {
         struct BitVecVisitor;
 
         impl<'de> Visitor<'de> for BitVecVisitor {
-            type Value = BitVec<Lsb0, u64>;
+            type Value = (UBig, usize);
 
             fn expecting(
                 &self,
@@ -800,21 +799,13 @@ impl<'de> Deserialize<'de> for Value {
             where
                 E: de::Error,
             {
-                let mut vec = BitVec::<Lsb0, u64>::new();
-                let s = String::from(value);
-                for c in s.chars() {
-                    let bit: bool = c.to_digit(2).unwrap() == 1;
-                    vec.insert(0, bit)
-                }
-                Ok(vec)
+                let s = base64::decode(value)
+                    .expect("Couldn't convert from base64");
+                Ok((UBig::from_le_bytes(&s), s.len()))
             }
         }
 
-        let val = deserializer.deserialize_str(BitVecVisitor)?;
-        Ok(crate::values::Value {
-            vec: Rc::new(val),
-            signed: Signed::default(),
-            unsigned: Unsigned::default(),
-        })
+        let (val, bytes) = deserializer.deserialize_str(BitVecVisitor)?;
+        Ok(Value::from(val, bytes * 8))
     }
 }

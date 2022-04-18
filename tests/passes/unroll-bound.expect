@@ -1,0 +1,33 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    add = std_add(32);
+    lt = std_lt(32);
+  }
+  wires {
+    group incr_r {
+      add.right = 32'd1;
+      add.left = r.out;
+      r.in = add.out;
+      r.write_en = 1'd1;
+      incr_r[done] = r.done;
+    }
+    comb group less_than_10 {
+      lt.right = 32'd10;
+      lt.left = r.out;
+    }
+  }
+
+  control {
+    seq {
+      seq {
+        incr_r;
+        incr_r;
+      }
+      while lt.out with less_than_10 {
+        incr_r;
+      }
+    }
+  }
+}

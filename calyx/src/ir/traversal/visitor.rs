@@ -7,6 +7,7 @@ use super::action::{Action, VisResult};
 use super::PostOrder;
 use crate::errors::CalyxResult;
 use crate::ir::{self, Component, Context, Control, LibrarySignatures};
+use std::collections::HashSet;
 use std::rc::Rc;
 
 /// Trait that describes named things. Calling [`do_pass`](Visitor::do_pass) and [`do_pass_default`](Visitor::do_pass_default).
@@ -22,34 +23,6 @@ pub trait Named {
     fn description() -> &'static str;
 }
 
-/// Implementator of trait provide various logging methods.
-pub trait Loggable {
-    /// Log output to STDERR.
-    /// `context` is the location from which the logger is being called.
-    /// Usage:
-    /// ```
-    /// self.elog("number-of-groups", groups.len());
-    /// ```
-    fn elog<S, T>(&self, context: S, msg: T)
-    where
-        S: std::fmt::Display,
-        T: std::fmt::Display;
-}
-
-/// Blanket implementation for Loggable for traits implementing Named
-impl<T> Loggable for T
-where
-    T: Named,
-{
-    fn elog<S, M>(&self, context: S, msg: M)
-    where
-        S: std::fmt::Display,
-        M: std::fmt::Display,
-    {
-        eprintln!("{}.{}: {}", T::name(), context, msg)
-    }
-}
-
 /// Trait defining method that can be used to construct a Visitor from an
 /// [ir::Context].
 /// This is useful when a pass needs to construct information using the context
@@ -58,6 +31,40 @@ where
 /// For passes that don't need to use the context, this trait can be automatically
 /// be derived from [Default].
 pub trait ConstructVisitor {
+    fn get_opts(opts: &[&'static str], ctx: &ir::Context) -> Vec<bool>
+    where
+        Self: Named,
+    {
+        let n = Self::name();
+        let given_opts: HashSet<_> = ctx
+            .extra_opts
+            .iter()
+            .filter_map(|opt| {
+                let mut splits = opt.split(':');
+                if splits.next() == Some(n) {
+                    splits.next()
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let values = opts.iter().map(|o| given_opts.contains(o)).collect_vec();
+
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "Extra options for {}: {}",
+                Self::name(),
+                opts.iter()
+                    .zip(values.iter())
+                    .map(|(o, v)| format!("{o}->{v}"))
+                    .join(", ")
+            );
+        }
+
+        values
+    }
+
     /// Construct the visitor using information from the Context
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where

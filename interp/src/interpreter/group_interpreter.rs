@@ -6,7 +6,7 @@ use crate::utils::{AsRaw, PortAssignment, RcOrConst};
 use crate::values::Value;
 use calyx::ir::{self, Assignment, Cell, RRC};
 use std::cell::Ref;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use super::control_interpreter::EnableHolder;
@@ -101,6 +101,7 @@ pub struct AssignmentInterpreter {
     cells: Vec<RRC<Cell>>,
     val_changed: Option<bool>,
     possible_ports: HashSet<*const ir::Port>,
+    port_lookup_map: HashMap<*const ir::Port, RRC<ir::Port>>,
 }
 
 impl AssignmentInterpreter {
@@ -110,7 +111,7 @@ impl AssignmentInterpreter {
         state: InterpreterState,
         done_signal: Option<RRC<ir::Port>>,
         assigns: A,
-        cont_assigns: &Rc<Vec<ir::Assignment>>,
+        cont_assigns: Rc<Vec<ir::Assignment>>,
     ) -> Self {
         let done_port = done_signal.as_ref().map(|x| x.as_raw());
         let assigns: AssignmentHolder = assigns.into();
@@ -118,21 +119,26 @@ impl AssignmentInterpreter {
             assigns.get_ref().iter().chain(cont_assigns.iter()),
             done_signal,
         );
+        let mut port_lookup_map = HashMap::new();
         let possible_ports: HashSet<*const ir::Port> = assigns
             .get_ref()
             .iter()
             .chain(cont_assigns.iter())
-            .map(|a| a.dst.as_raw())
+            .map(|a| {
+                port_lookup_map.insert(a.dst.as_raw(), a.dst.clone());
+                a.dst.as_raw()
+            })
             .collect();
 
         Self {
             state,
             done_port,
             assigns,
-            cont_assigns: Rc::clone(cont_assigns),
+            cont_assigns,
             cells,
             val_changed: None,
             possible_ports,
+            port_lookup_map,
         }
     }
 
@@ -159,8 +165,8 @@ impl AssignmentInterpreter {
                 .borrow_mut()
                 .get_mut(&(&cell.borrow() as &Cell as ConstCell))
             {
-                let new_vals = x.do_tick();
-                for (port, val) in new_vals? {
+                let new_vals = x.do_tick()?;
+                for (port, val) in new_vals {
                     let port_ref =
                         cell.borrow().find(&port).unwrap_or_else(|| {
                             panic!(
@@ -188,10 +194,17 @@ impl AssignmentInterpreter {
     pub fn step_convergence(&mut self) -> InterpreterResult<()> {
         self.val_changed = Some(true); // always run convergence if called
 
+        // only used when compiled with change-based-sim feature
+        let mut first_iteration = true;
+
         // this unwrap is safe
         while self.val_changed.unwrap() {
             let mut assigned_ports: HashSet<PortAssignment> = HashSet::new();
             self.val_changed = Some(false);
+
+            // for change based simulation
+            let mut cells_to_run_rrc: Vec<RRC<Cell>> = Vec::new();
+            let mut cells_to_run_set: HashSet<*const Cell> = HashSet::new();
 
             let mut updates_list = vec![];
 
@@ -228,10 +241,22 @@ impl AssignmentInterpreter {
                     let new_val_ref =
                         self.state.get_from_port(&assignment.src.borrow());
                     // no need to make updates if the value has not changed
-                    let port = assignment.dst.clone(); // Rc clone
-                    let new_val = new_val_ref.clone();
 
                     if old_val != new_val_ref {
+                        let port = assignment.dst.clone(); // Rc clone
+                        let new_val = new_val_ref.clone();
+
+                        if cfg!(feature = "change-based-sim") {
+                            let pref = port.borrow();
+
+                            if let ir::PortParent::Cell(cell) = &pref.parent {
+                                let cell_rrc = cell.upgrade();
+                                if cells_to_run_set.insert(cell_rrc.as_raw()) {
+                                    cells_to_run_rrc.push(cell_rrc)
+                                }
+                            }
+                        }
+
                         updates_list.push((port, new_val)); //no point in rewriting same value to this list
                         self.val_changed = Some(true);
                     }
@@ -257,6 +282,16 @@ impl AssignmentInterpreter {
                 let new_val = Value::from(0, old_val_width);
 
                 if old_val.as_unsigned() != 0_u32.into() {
+                    if cfg!(feature = "change-based-sim") {
+                        let port_ref = &self.port_lookup_map[&port].borrow();
+                        if let ir::PortParent::Cell(cell) = &port_ref.parent {
+                            let cell_rrc = cell.upgrade();
+                            if cells_to_run_set.insert(cell_rrc.as_raw()) {
+                                cells_to_run_rrc.push(cell_rrc)
+                            }
+                        }
+                    }
+
                     self.val_changed = Some(true);
                 }
 
@@ -269,10 +304,25 @@ impl AssignmentInterpreter {
                 self.state.insert(port, value);
             }
 
-            let changed =
-                eval_prims(&mut self.state, self.cells.iter(), false)?;
+            let changed = eval_prims(
+                &mut self.state,
+                if cfg!(feature = "change-based-sim") {
+                    if first_iteration {
+                        self.cells.iter()
+                    } else {
+                        cells_to_run_rrc.iter()
+                    }
+                } else {
+                    self.cells.iter()
+                },
+                false,
+            )?;
             if changed {
                 self.val_changed = Some(true);
+            }
+
+            if cfg!(feature = "change-based-sim") {
+                first_iteration = false;
             }
         }
         Ok(())
@@ -451,7 +501,7 @@ pub(crate) fn finish_interpretation<
 
     let cells = get_dest_cells(
         assigns.iter().copied(),
-        done_signal.as_ref().map(|x| x.get_rrc()).flatten(),
+        done_signal.as_ref().and_then(|x| x.get_rrc()),
     );
 
     if let Some(done_signal) = done_signal {

@@ -2,17 +2,28 @@ import "primitives/math.futil";
 
 component main() -> () {
   cells {
-    sqrt0 = std_sqrt(32);
+    sqrt0 = sqrt(32);
+    @external(1) result = std_reg(32);
   }
 
   wires {
     group op {
       sqrt0.in = 32'd400;
+      sqrt0.go = 1'd1;
       op[done] = sqrt0.done;
+    }
+
+    group write_result {
+      result.write_en = 1'd1;
+      result.in = sqrt0.out;
+      write_result[done] = result.done;
     }
   }
 
   control {
-    op;
+    seq {
+      op;
+      write_result;
+    }
   }
 }

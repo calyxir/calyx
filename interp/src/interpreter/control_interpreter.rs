@@ -1,8 +1,10 @@
 use super::group_interpreter::{finish_interpretation, AssignmentInterpreter};
 use super::utils::{get_done_port, get_go_port};
+use super::Interpreter;
 use crate::debugger::name_tree::ActiveTreeNode;
 use crate::errors::InterpreterError;
 use crate::interpreter_ir as iir;
+use crate::logging::{new_sublogger, warn};
 use crate::structures::names::{
     ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
 };
@@ -13,46 +15,35 @@ use crate::{
         StateView,
     },
     errors::InterpreterResult,
-    interpreter::utils::{is_signal_high, ConstPort},
+    interpreter::utils::ConstPort,
     values::Value,
 };
+use calyx::errors::WithPos;
 use calyx::ir::{self, Assignment, Guard, RRC};
 use std::collections::HashSet;
 use std::rc::Rc;
 
-// this almost certainly doesn't need to exist but it can't be a trait fn with a
-// default impl because it consumes self
-macro_rules! run_and_deconstruct {
-    ($name:ident) => {{
-        $name.run()?;
-        $name.deconstruct()
-    }};
+/// The key to lookup for the position tags
+const POS_TAG: &str = "pos";
+
+#[derive(Debug, Clone)]
+pub struct ComponentInfo {
+    pub continuous_assignments: iir::ContinuousAssignments,
+    pub input_ports: Rc<HashSet<*const ir::Port>>,
+    pub qin: ComponentQualifiedInstanceName,
 }
 
-pub trait Interpreter {
-    fn step(&mut self) -> InterpreterResult<()>;
-
-    fn converge(&mut self) -> InterpreterResult<()>;
-
-    fn run(&mut self) -> InterpreterResult<()> {
-        while !self.is_done() {
-            self.step()?;
+impl ComponentInfo {
+    pub fn new(
+        continuous_assignments: iir::ContinuousAssignments,
+        input_ports: Rc<HashSet<*const ir::Port>>,
+        qin: ComponentQualifiedInstanceName,
+    ) -> Self {
+        Self {
+            continuous_assignments,
+            input_ports,
+            qin,
         }
-        Ok(())
-    }
-
-    fn deconstruct(self) -> InterpreterResult<InterpreterState>;
-
-    fn is_done(&self) -> bool;
-
-    fn get_env(&self) -> StateView<'_>;
-
-    fn currently_executing_group(&self) -> HashSet<GroupQIN>;
-
-    fn get_mut_env(&mut self) -> MutStateView<'_>;
-
-    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        vec![]
     }
 }
 
@@ -91,12 +82,16 @@ impl Interpreter for EmptyInterpreter {
         HashSet::new()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         (&mut self.env).into()
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
         Ok(())
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        vec![]
     }
 }
 
@@ -105,6 +100,38 @@ pub enum EnableHolder {
     Group(RRC<ir::Group>),
     CombGroup(RRC<ir::CombGroup>),
     Vec(Rc<Vec<ir::Assignment>>),
+}
+
+impl EnableHolder {
+    fn done_port(&self) -> Option<RRC<ir::Port>> {
+        match self {
+            EnableHolder::Group(g) => Some(get_done_port(&g.borrow())),
+            EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
+        }
+    }
+
+    fn go_port(&self) -> Option<RRC<ir::Port>> {
+        match self {
+            EnableHolder::Group(g) => Some(get_go_port(&g.borrow())),
+            EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
+        }
+    }
+
+    fn pos_tag(&self) -> Option<u64> {
+        match self {
+            EnableHolder::Group(g) => g
+                .borrow()
+                .get_attributes()
+                .and_then(|x| x.get(POS_TAG))
+                .cloned(),
+            EnableHolder::CombGroup(g) => g
+                .borrow()
+                .get_attributes()
+                .and_then(|x| x.get(POS_TAG))
+                .cloned(),
+            EnableHolder::Vec(_) => None,
+        }
+    }
 }
 
 impl From<RRC<ir::Group>> for EnableHolder {
@@ -143,22 +170,6 @@ impl From<&iir::Enable> for EnableHolder {
     }
 }
 
-impl EnableHolder {
-    fn done_port(&self) -> Option<RRC<ir::Port>> {
-        match self {
-            EnableHolder::Group(g) => Some(get_done_port(&g.borrow())),
-            EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
-        }
-    }
-
-    fn go_port(&self) -> Option<RRC<ir::Port>> {
-        match self {
-            EnableHolder::Group(g) => Some(get_go_port(&g.borrow())),
-            EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
-        }
-    }
-}
-
 pub struct EnableInterpreter {
     enable: EnableHolder,
     group_name: Option<ir::Id>,
@@ -171,7 +182,7 @@ impl EnableInterpreter {
         enable: E,
         group_name: Option<ir::Id>,
         mut env: InterpreterState,
-        continuous: &iir::ContinuousAssignments,
+        continuous: iir::ContinuousAssignments,
         qin: &ComponentQualifiedInstanceName,
     ) -> Self
     where
@@ -203,7 +214,7 @@ impl EnableInterpreter {
 
         self.interp.reset()
     }
-    fn get<P: AsRaw<ir::Port>>(&self, port: P) -> &Value {
+    fn get(&self, port: impl AsRaw<ir::Port>) -> &Value {
         self.interp.get(port)
     }
 }
@@ -237,7 +248,7 @@ impl Interpreter for EnableInterpreter {
         set
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         (self.interp.get_mut_env()).into()
     }
 
@@ -253,190 +264,205 @@ impl Interpreter for EnableInterpreter {
             None => GroupQualifiedInstanceName::new_empty(&self.qin),
         };
 
-        vec![ActiveTreeNode::new(name)]
+        vec![ActiveTreeNode::new(name.with_tag(self.enable.pos_tag()))]
+    }
+}
+
+enum SeqFsm {
+    Err, // Transient error state
+    Iterating(ControlInterpreter, usize),
+    Done(InterpreterState),
+}
+
+impl Default for SeqFsm {
+    fn default() -> Self {
+        Self::Err
     }
 }
 
 pub struct SeqInterpreter {
-    current_interpreter: Option<ControlInterpreter>,
-    continuous_assignments: iir::ContinuousAssignments,
-    env: Option<InterpreterState>,
-    done_flag: bool,
-    input_ports: Rc<HashSet<*const ir::Port>>,
+    internal_state: SeqFsm,
+    info: ComponentInfo,
     seq: Rc<iir::Seq>,
-    seq_index: usize,
-    qin: ComponentQualifiedInstanceName,
 }
 impl SeqInterpreter {
     pub fn new(
-        seq: &Rc<iir::Seq>,
+        seq: Rc<iir::Seq>,
         env: InterpreterState,
-        continuous_assignments: &iir::ContinuousAssignments,
-        input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQualifiedInstanceName,
+        info: ComponentInfo,
     ) -> Self {
+        let internal_state = if seq.stmts.is_empty() {
+            SeqFsm::Done(env)
+        } else {
+            let first = seq.stmts[0].clone();
+            let interp = ControlInterpreter::new(first, env, &info);
+            SeqFsm::Iterating(interp, 1)
+        };
+
         Self {
-            current_interpreter: None,
-            continuous_assignments: Rc::clone(continuous_assignments),
-            env: Some(env),
-            done_flag: false,
-            input_ports,
-            seq: Rc::clone(seq),
-            seq_index: 0,
-            qin: qin.clone(),
+            seq,
+            internal_state,
+            info,
         }
     }
 }
 
 impl Interpreter for SeqInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
-        if self.current_interpreter.is_none()
-            && self.seq_index < self.seq.stmts.len()
-        // There is more to execute, make new interpreter
-        {
-            self.current_interpreter = ControlInterpreter::new(
-                &self.seq.stmts[self.seq_index],
-                self.env.take().unwrap(),
-                &self.continuous_assignments,
-                Rc::clone(&self.input_ports),
-                &self.qin,
-            )
-            .into();
-            self.seq_index += 1;
-        } else if self.current_interpreter.is_some()
-        // current interpreter can be stepped/deconstructed
-        {
-            if self.current_interpreter.as_ref().unwrap().is_done() {
-                let mut interp = self.current_interpreter.take().unwrap();
-                let res = run_and_deconstruct!(interp)?;
-                self.env = Some(res);
-            } else {
-                self.current_interpreter.as_mut().unwrap().step()?
-            }
-        } else if self.seq_index >= self.seq.stmts.len()
-        // there is nothing left to do
-        {
-            self.done_flag = true
-        }
+        match &mut self.internal_state {
+            SeqFsm::Iterating(interp, _) => {
+                // step the interpreter
+                if !interp.is_done() {
+                    interp.step()?;
+                }
+                // transition to next block or done
+                else if let SeqFsm::Iterating(interp, idx) =
+                    std::mem::take(&mut self.internal_state)
+                {
+                    let env = interp.deconstruct()?;
 
-        Ok(())
+                    if idx < self.seq.stmts.len() {
+                        let next = self.seq.stmts[idx].clone();
+                        let interp =
+                            ControlInterpreter::new(next, env, &self.info);
+                        self.internal_state =
+                            SeqFsm::Iterating(interp, idx + 1);
+                    } else {
+                        self.internal_state = SeqFsm::Done(env);
+                    }
+                } else {
+                    // this is genuinely unreachable
+                    unreachable!();
+                }
+                Ok(())
+            }
+            SeqFsm::Done(_) => Ok(()),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+        }
     }
 
     fn is_done(&self) -> bool {
-        // we don't use peek here because that requires mutable access to the
-        // iterator
-        self.current_interpreter.is_none() && self.done_flag
+        matches!(&self.internal_state, SeqFsm::Done(_))
     }
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState> {
-        self.env.ok_or(InterpreterError::InvalidSeqState)
+        match self.internal_state {
+            SeqFsm::Iterating(_, _) => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Done(e) => Ok(e),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+        }
     }
 
     fn get_env(&self) -> StateView<'_> {
-        if let Some(cur) = &self.current_interpreter {
-            cur.get_env()
-        } else if let Some(env) = &self.env {
-            env.into()
-        } else {
-            unreachable!("Invalid internal state for SeqInterpreter")
+        match &self.internal_state {
+            SeqFsm::Iterating(i, _) => i.get_env(),
+            SeqFsm::Done(e) => e.into(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN> {
-        if let Some(grp) = &self.current_interpreter {
-            grp.currently_executing_group()
-        } else {
-            HashSet::new()
+        match &self.internal_state {
+            SeqFsm::Iterating(i, _) => i.currently_executing_group(),
+            SeqFsm::Done(_) => HashSet::new(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
-        if let Some(cur) = &mut self.current_interpreter {
-            cur.get_mut_env()
-        } else if let Some(env) = &mut self.env {
-            env.into()
-        } else {
-            unreachable!("Invalid internal state for SeqInterpreter")
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
+        match &mut self.internal_state {
+            SeqFsm::Iterating(i, _) => i.get_env_mut(),
+            SeqFsm::Done(e) => e.into(),
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        if let Some(cur) = &mut self.current_interpreter {
-            cur.converge()
-        } else {
-            Ok(())
+        match &mut self.internal_state {
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Iterating(i, _) => i.converge(),
+            SeqFsm::Done(_) => {
+                if let SeqFsm::Done(env) =
+                    std::mem::take(&mut self.internal_state)
+                {
+                    let mut interp = EnableInterpreter::new(
+                        vec![],
+                        None,
+                        env,
+                        self.info.continuous_assignments.clone(),
+                        &self.info.qin,
+                    );
+
+                    interp.converge()?;
+
+                    let env = interp.deconstruct()?;
+
+                    self.internal_state = SeqFsm::Done(env);
+                    Ok(())
+                } else {
+                    unreachable!()
+                }
+            }
         }
     }
 
     fn run(&mut self) -> InterpreterResult<()> {
-        if self.env.is_some() && self.seq_index == 0 {
-            let mut env = self.env.take();
-            for stmt in self.seq.stmts.iter() {
-                let mut interp = ControlInterpreter::new(
-                    stmt,
-                    env.take().unwrap(),
-                    &self.continuous_assignments,
-                    Rc::clone(&self.input_ports),
-                    &self.qin,
-                );
-                interp.run()?;
-                env = Some(interp.deconstruct()?);
+        match &mut self.internal_state {
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Iterating(_, _) => {
+                if let SeqFsm::Iterating(i, mut idx) =
+                    std::mem::take(&mut self.internal_state)
+                {
+                    let mut env = i.run_and_deconstruct()?;
+                    while idx < self.seq.stmts.len() {
+                        let next = self.seq.stmts[idx].clone();
+                        idx += 1;
+                        env = ControlInterpreter::new(next, env, &self.info)
+                            .run_and_deconstruct()?;
+                    }
+                    self.internal_state = SeqFsm::Done(env);
+                    Ok(())
+                } else {
+                    unreachable!()
+                }
             }
-            Ok(())
-        } else {
-            while !self.is_done() {
-                self.step()?;
-            }
-            Ok(())
+            SeqFsm::Done(_) => Ok(()),
         }
     }
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        if let Some(current) = &self.current_interpreter {
-            current.get_active_tree()
-        } else {
-            vec![]
+        match &self.internal_state {
+            SeqFsm::Iterating(i, _) => i.get_active_tree(),
+            SeqFsm::Done(_) => vec![],
+            SeqFsm::Err => unreachable!("There is an error in the Seq state transition. Please report this."),
         }
     }
 }
 
 pub struct ParInterpreter {
-    _par: Rc<iir::Par>,
     interpreters: Vec<ControlInterpreter>,
     in_state: InterpreterState,
-    input_ports: Rc<HashSet<*const ir::Port>>,
-    _qin: ComponentQualifiedInstanceName,
+    info: ComponentInfo,
 }
 
 impl ParInterpreter {
     pub fn new(
-        par: &Rc<iir::Par>,
+        par: Rc<iir::Par>,
         mut env: InterpreterState,
-        continuous_assigns: &iir::ContinuousAssignments,
-        input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQualifiedInstanceName,
+        info: ComponentInfo,
     ) -> Self {
         let mut env = env.force_fork();
         let interpreters = par
             .stmts
             .iter()
-            .map(|x| {
-                ControlInterpreter::new(
-                    x,
-                    env.fork(),
-                    continuous_assigns,
-                    Rc::clone(&input_ports),
-                    qin,
-                )
-            })
+            .cloned()
+            .map(|x| ControlInterpreter::new(x, env.fork(), &info))
             .collect();
 
         Self {
             interpreters,
             in_state: env,
-            input_ports,
-            _par: Rc::clone(par),
-            _qin: qin.clone(),
+            info,
         }
     }
 }
@@ -457,7 +483,7 @@ impl Interpreter for ParInterpreter {
             .map(ControlInterpreter::deconstruct)
             .collect::<InterpreterResult<Vec<InterpreterState>>>()?;
 
-        self.in_state.merge_many(envs, &self.input_ports)
+        self.in_state.merge_many(envs, &self.info.input_ports)
     }
 
     fn is_done(&self) -> bool {
@@ -479,12 +505,12 @@ impl Interpreter for ParInterpreter {
             .collect()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         MutCompositeView::new(
             &mut self.in_state,
             self.interpreters
                 .iter_mut()
-                .map(|x| x.get_mut_env())
+                .map(|x| x.get_env_mut())
                 .collect(),
         )
         .into()
@@ -511,341 +537,457 @@ impl Interpreter for ParInterpreter {
             .collect()
     }
 }
+
+enum IfFsm {
+    Err,                                   // transient error state
+    ConditionWith(Box<EnableInterpreter>), // Cond with comb group
+    ConditionPort(InterpreterState),       // cond without
+    Body(ControlInterpreter),
+    Done(InterpreterState),
+}
+
+impl Default for IfFsm {
+    fn default() -> Self {
+        Self::Err
+    }
+}
+
 pub struct IfInterpreter {
-    port: ConstPort,
-    cond: Option<EnableInterpreter>,
-    tbranch: iir::Control,
-    fbranch: iir::Control,
-    branch_interp: Option<ControlInterpreter>,
-    continuous_assignments: iir::ContinuousAssignments,
-    input_ports: Rc<HashSet<*const ir::Port>>,
-    qin: ComponentQualifiedInstanceName,
+    state: IfFsm,
+    ctrl_if: Rc<iir::If>,
+    info: ComponentInfo,
 }
 
 impl IfInterpreter {
     pub fn new(
-        ctrl_if: &Rc<iir::If>,
+        ctrl_if: Rc<iir::If>,
         env: InterpreterState,
-        continuous_assigns: &iir::ContinuousAssignments,
-        input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQualifiedInstanceName,
+        info: ComponentInfo,
     ) -> Self {
-        let cond_port: ConstPort = ctrl_if.port.as_ptr();
-
-        let (cond, branch_interp) = if let Some(cond) = &ctrl_if.cond {
-            (
-                Some(EnableInterpreter::new(
-                    Rc::clone(cond),
-                    Some(cond.borrow().name().clone()),
-                    env,
-                    continuous_assigns,
-                    qin,
-                )),
-                None,
-            )
+        let state = if let Some(grp) = &ctrl_if.cond {
+            let grp_ref = grp.borrow();
+            let name = Some(grp_ref.name().clone());
+            let enable = EnableInterpreter::new(
+                grp,
+                name,
+                env,
+                info.continuous_assignments.clone(),
+                &info.qin,
+            );
+            IfFsm::ConditionWith(enable.into())
         } else {
-            let grp = if is_signal_high(env.get_from_port(cond_port)) {
-                &ctrl_if.tbranch
-            } else {
-                &ctrl_if.fbranch
-            };
-            (
-                None,
-                Some(ControlInterpreter::new(
-                    grp,
-                    env,
-                    continuous_assigns,
-                    input_ports.clone(),
-                    qin,
-                )),
-            )
+            IfFsm::ConditionPort(env)
         };
 
         Self {
-            port: cond_port,
-            cond,
-            tbranch: ctrl_if.tbranch.clone(),
-            fbranch: ctrl_if.fbranch.clone(),
-            branch_interp,
-            continuous_assignments: Rc::clone(continuous_assigns),
-            input_ports,
-            qin: qin.clone(),
+            state,
+            ctrl_if,
+            info,
         }
     }
 }
 
 impl Interpreter for IfInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
-        if let Some(i) = &mut self.cond {
-            if i.is_done() {
-                let i = self.cond.take().unwrap();
-                let branch;
-                #[allow(clippy::branches_sharing_code)]
-                if is_signal_high(i.get(self.port)) {
-                    let env = i.deconstruct()?;
-                    branch = ControlInterpreter::new(
-                        &self.tbranch,
-                        env,
-                        &self.continuous_assignments,
-                        Rc::clone(&self.input_ports),
-                        &self.qin,
-                    );
-                } else {
-                    let env = i.deconstruct()?;
-                    branch = ControlInterpreter::new(
-                        &self.fbranch,
-                        env,
-                        &self.continuous_assignments,
-                        Rc::clone(&self.input_ports),
-                        &self.qin,
-                    );
-                }
+        match &mut self.state {
+            IfFsm::ConditionWith(_) => {
+                if let IfFsm::ConditionWith(mut interp) =
+                    std::mem::take(&mut self.state)
+                {
+                    interp.converge()?;
+                    let branch_condition =
+                        interp.get(&self.ctrl_if.port).as_bool();
 
-                self.branch_interp = Some(branch);
-                Ok(())
-            } else {
-                i.step()
+                    let env = interp.deconstruct()?;
+
+                    let target = if branch_condition {
+                        &self.ctrl_if.tbranch
+                    } else {
+                        &self.ctrl_if.fbranch
+                    };
+
+                    let interp = ControlInterpreter::new(
+                        target.clone(),
+                        env,
+                        &self.info,
+                    );
+
+                    self.state = IfFsm::Body(interp);
+
+                    Ok(())
+                } else {
+                    unreachable!();
+                }
             }
-        } else {
-            self.branch_interp.as_mut().unwrap().step()
+            IfFsm::ConditionPort(_) => {
+                if let IfFsm::ConditionPort(env) =
+                    std::mem::take(&mut self.state)
+                {
+                    let branch_condition =
+                        env.get_from_port(&self.ctrl_if.port).as_bool();
+
+                    let target = if branch_condition {
+                        &self.ctrl_if.tbranch
+                    } else {
+                        &self.ctrl_if.fbranch
+                    };
+
+                    let interp = ControlInterpreter::new(
+                        target.clone(),
+                        env,
+                        &self.info,
+                    );
+
+                    self.state = IfFsm::Body(interp);
+                    Ok(())
+                } else {
+                    unreachable!();
+                }
+            }
+            IfFsm::Body(b_interp) => {
+                if b_interp.is_done() {
+                    if let IfFsm::Body(b_interp) =
+                        std::mem::take(&mut self.state)
+                    {
+                        let env = b_interp.deconstruct()?;
+                        self.state = IfFsm::Done(env);
+                    } else {
+                        unreachable!();
+                    }
+                } else {
+                    b_interp.step()?;
+                }
+                Ok(())
+            }
+            IfFsm::Done(_) => Ok(()),
+            IfFsm::Err => Err(InterpreterError::InvalidIfState),
         }
     }
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState> {
-        self.branch_interp
-            .ok_or(InterpreterError::InvalidIfState)?
-            .deconstruct()
+        match self.state {
+            IfFsm::Done(e) => Ok(e),
+            _ => Err(InterpreterError::InvalidIfState),
+        }
     }
 
     fn is_done(&self) -> bool {
-        self.cond.is_none()
-            && self.branch_interp.is_some()
-            && self.branch_interp.as_ref().unwrap().is_done()
+        matches!(self.state, IfFsm::Done(_))
     }
 
     fn get_env(&self) -> StateView<'_> {
-        if let Some(cond) = &self.cond {
-            cond.get_env()
-        } else if let Some(branch) = &self.branch_interp {
-            branch.get_env()
-        } else {
-            unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition.")
+        match &self.state {
+            IfFsm::Done(e) | IfFsm::ConditionPort(e) => e.into(),
+            IfFsm::ConditionWith(i) => i.get_env(),
+            IfFsm::Body(b) => b.get_env(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN> {
-        if let Some(grp) = &self.cond {
-            grp.currently_executing_group()
-        } else if let Some(branch) = &self.branch_interp {
-            branch.currently_executing_group()
-        } else {
-            HashSet::new()
+        match &self.state {
+            IfFsm::Done(_) | IfFsm::ConditionPort(_) => HashSet::new(),
+            IfFsm::ConditionWith(i) => i.currently_executing_group(),
+            IfFsm::Body(b) => b.currently_executing_group(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
-        if let Some(cond) = &mut self.cond {
-            cond.get_mut_env()
-        } else if let Some(branch) = &mut self.branch_interp {
-            branch.get_mut_env()
-        } else {
-            unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition.")
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
+        match &mut self.state {
+            IfFsm::Done(e) | IfFsm::ConditionPort(e) => e.into(),
+            IfFsm::ConditionWith(i) => i.get_env_mut(),
+            IfFsm::Body(b) => b.get_env_mut(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        match (&mut self.cond, &mut self.branch_interp) {
-            (None, Some(i)) => i.converge(),
-            (Some(i), None) => i.converge(),
-            _ => unreachable!("Invalid internal state for IfInterpreter. It is neither evaluating the conditional or the branch. This indicates an error in the internal state transition."),
+        match &mut self.state {
+            IfFsm::Err => Err(InterpreterError::InvalidIfState),
+            IfFsm::Body(b_interp) => b_interp.converge(),
+            IfFsm::ConditionPort(_) | IfFsm::Done(_) => {
+                let is_done = matches!(self.state, IfFsm::Done(_));
+                if let IfFsm::ConditionPort(env) | IfFsm::Done(env) =
+                    std::mem::take(&mut self.state)
+                {
+                    let mut interp = EnableInterpreter::new(
+                        vec![],
+                        None,
+                        env,
+                        self.info.continuous_assignments.clone(),
+                        &self.info.qin,
+                    );
+                    interp.converge()?;
+
+                    let env = interp.deconstruct()?;
+
+                    if is_done {
+                        self.state = IfFsm::Done(env)
+                    } else {
+                        self.state = IfFsm::ConditionPort(env)
+                    }
+                    Ok(())
+                } else {
+                    unreachable!()
+                }
+            }
+            IfFsm::ConditionWith(interp) => interp.converge(),
         }
     }
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        if let Some(interp) = &self.cond {
-            interp.get_active_tree()
-        } else {
-            self.branch_interp.as_ref().unwrap().get_active_tree()
+        match &self.state {
+            IfFsm::Done(_) | IfFsm::ConditionPort(_) => Vec::new(),
+            IfFsm::ConditionWith(i) => i.get_active_tree(),
+            IfFsm::Body(b) => b.get_active_tree(),
+            IfFsm::Err => unreachable!("There is an error in the If state transition. Please report this."),
         }
     }
 }
+
+enum WhileFsm {
+    Err, // transient error state
+    CondWith(Box<EnableInterpreter>),
+    CondPort(InterpreterState),
+    Body(ControlInterpreter),
+    Done(InterpreterState),
+}
+
+impl Default for WhileFsm {
+    fn default() -> Self {
+        Self::Err
+    }
+}
+
+struct BoundValidator {
+    target: u64,
+    current: u64,
+}
+
 pub struct WhileInterpreter {
-    port: ConstPort,
-    continuous_assignments: iir::ContinuousAssignments,
-    cond_interp: Option<EnableInterpreter>,
-    body_interp: Option<ControlInterpreter>,
-    input_ports: Rc<HashSet<*const ir::Port>>,
-    terminal_env: Option<InterpreterState>,
+    state: WhileFsm,
     wh: Rc<iir::While>,
-    qin: ComponentQualifiedInstanceName,
+    info: ComponentInfo,
+    bound: Option<BoundValidator>,
 }
 
 impl WhileInterpreter {
     pub fn new(
-        ctrl_while: &Rc<iir::While>,
+        ctrl_while: Rc<iir::While>,
         env: InterpreterState,
-        continuous_assignments: &iir::ContinuousAssignments,
-        input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQualifiedInstanceName,
+        info: ComponentInfo,
     ) -> Self {
-        let port: ConstPort = ctrl_while.port.as_ptr();
-        let cond_interp;
-        let body_interp;
-        let terminal_env;
+        let bound =
+            ctrl_while
+                .attributes
+                .get("bound")
+                .map(|target| BoundValidator {
+                    target: *target,
+                    current: 0,
+                });
 
-        if let Some(cond) = &ctrl_while.cond {
-            cond_interp = Some(EnableInterpreter::new(
-                cond,
-                Some(cond.borrow().name().clone()),
+        let mut out = Self {
+            info,
+            state: WhileFsm::Err,
+            wh: ctrl_while,
+            bound,
+        };
+        out.process_initial_state(env);
+        out
+    }
+
+    /// Utility method whichs handles a return to the appropriate condition state
+    fn process_initial_state(&mut self, env: InterpreterState) {
+        if let Some(cond_grp) = &self.wh.cond {
+            let grp_ref = cond_grp.borrow();
+            let name = grp_ref.name().clone();
+            let interp = EnableInterpreter::new(
+                cond_grp.clone(),
+                Some(name),
                 env,
-                continuous_assignments,
-                qin,
-            ));
-            terminal_env = None;
-            body_interp = None;
-        } else if is_signal_high(env.get_from_port(port)) {
-            body_interp = Some(ControlInterpreter::new(
-                &ctrl_while.body,
-                env,
-                continuous_assignments,
-                input_ports.clone(),
-                qin,
-            ));
-            terminal_env = None;
-            cond_interp = None;
+                self.info.continuous_assignments.clone(),
+                &self.info.qin,
+            );
+            self.state = WhileFsm::CondWith(interp.into());
         } else {
-            terminal_env = Some(env);
-            body_interp = None;
-            cond_interp = None;
+            self.state = WhileFsm::CondPort(env);
         }
+    }
 
-        Self {
-            port,
-            continuous_assignments: Rc::clone(continuous_assignments),
-            input_ports,
-            cond_interp,
-            body_interp,
-            terminal_env,
-            wh: Rc::clone(ctrl_while),
-            qin: qin.clone(),
+    /// Utility method which handles the state change from the initial states to
+    /// body / done
+    fn process_branch(
+        &mut self,
+        branch_condition: bool,
+        env: InterpreterState,
+    ) {
+        if !branch_condition {
+            self.state = WhileFsm::Done(env);
+            if let Some(bound_validator) = &mut self.bound {
+                if bound_validator.current != bound_validator.target {
+                    let logger = new_sublogger(self.info.qin.as_id());
+                    let target = bound_validator.target;
+                    let current = bound_validator.current;
+                    let line = self
+                        .wh
+                        .attributes
+                        .copy_span()
+                        .map(|x| x.show())
+                        .unwrap_or_else(|| "".to_string());
+                    warn!(logger,"While loop has violated its bounds. The annotation suggests that the body should execute {target} times, but it exited after {current} iterations. \n     {line}");
+                }
+            }
+        } else {
+            if let Some(bound_validator) = &mut self.bound {
+                bound_validator.current += 1;
+
+                if bound_validator.current > bound_validator.target {
+                    let logger = new_sublogger(self.info.qin.as_id());
+                    let target = bound_validator.target;
+                    let current = bound_validator.current;
+                    let line = self
+                        .wh
+                        .attributes
+                        .copy_span()
+                        .map(|x| x.show())
+                        .unwrap_or_else(|| "".to_string());
+                    warn!(logger,"While loop has violated its bounds. The annotation suggests that the body should execute {target} times, but it has entered its {current} iteration. \n     {line}");
+                }
+            }
+
+            let interp =
+                ControlInterpreter::new(self.wh.body.clone(), env, &self.info);
+
+            self.state = WhileFsm::Body(interp);
         }
     }
 }
 
 impl Interpreter for WhileInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
-        if let Some(ci) = &mut self.cond_interp {
-            if ci.is_done() {
-                let ci = self.cond_interp.take().unwrap();
-                if is_signal_high(ci.get(self.port)) {
-                    let body_interp = ControlInterpreter::new(
-                        &self.wh.body,
-                        ci.deconstruct()?,
-                        &self.continuous_assignments,
-                        Rc::clone(&self.input_ports),
-                        &self.qin,
-                    );
-                    self.body_interp = Some(body_interp)
-                } else {
-                    self.terminal_env = Some(ci.deconstruct()?)
-                }
-            } else {
-                ci.step()?
-            }
-        } else if let Some(bi) = &mut self.body_interp {
-            if !bi.is_done() {
-                bi.step()?
-            } else {
-                let bi = self.body_interp.take().unwrap();
-                let env = bi.deconstruct()?;
+        match &mut self.state {
+            WhileFsm::Err => Err(InterpreterError::InvalidWhileState),
+            WhileFsm::CondWith(_) => {
+                if let WhileFsm::CondWith(mut interp) =
+                    std::mem::take(&mut self.state)
+                {
+                    interp.converge()?;
+                    let branch_condition = interp.get(&self.wh.port).as_bool();
+                    let env = interp.deconstruct()?;
 
-                if let Some(cond) = &self.wh.cond {
-                    let cond_interp = EnableInterpreter::new(
-                        cond,
-                        Some(cond.borrow().name().clone()),
-                        env,
-                        &self.continuous_assignments,
-                        &self.qin,
-                    );
-                    self.cond_interp = Some(cond_interp)
-                } else if is_signal_high(env.get_from_port(self.port)) {
-                    self.body_interp = Some(ControlInterpreter::new(
-                        &self.wh.body,
-                        env,
-                        &self.continuous_assignments,
-                        Rc::clone(&self.input_ports),
-                        &self.qin,
-                    ));
+                    self.process_branch(branch_condition, env);
+
+                    Ok(())
                 } else {
-                    self.terminal_env = Some(env);
+                    unreachable!()
                 }
             }
-        } else if self.terminal_env.is_some() {
-        } else {
-            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
+            WhileFsm::CondPort(_) => {
+                if let WhileFsm::CondPort(env) = std::mem::take(&mut self.state)
+                {
+                    let branch_condition =
+                        env.get_from_port(&self.wh.port).as_bool();
+                    self.process_branch(branch_condition, env);
+                    Ok(())
+                } else {
+                    unreachable!();
+                }
+            }
+            WhileFsm::Body(b) => {
+                if b.is_done() {
+                    if let WhileFsm::Body(b) = std::mem::take(&mut self.state) {
+                        let env = b.deconstruct()?;
+                        self.process_initial_state(env);
+                    } else {
+                        unreachable!()
+                    }
+                } else {
+                    b.step()?;
+                }
+                Ok(())
+            }
+            WhileFsm::Done(_) => Ok(()),
         }
-        Ok(())
     }
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState> {
-        self.terminal_env.ok_or(InterpreterError::InvalidIfState)
+        match self.state {
+            WhileFsm::Done(e) => Ok(e),
+            _ => Err(InterpreterError::InvalidWhileState),
+        }
     }
 
     fn is_done(&self) -> bool {
-        self.terminal_env.is_some()
+        matches!(self.state, WhileFsm::Done(_))
     }
 
     fn get_env(&self) -> StateView<'_> {
-        if let Some(cond) = &self.cond_interp {
-            cond.get_env()
-        } else if let Some(body) = &self.body_interp {
-            body.get_env()
-        } else if let Some(env) = &self.terminal_env {
-            env.into()
-        } else {
-            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
+        match &self.state {
+            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
+            WhileFsm::CondPort(e) | WhileFsm::Done(e) => e.into(),
+            WhileFsm::CondWith(interp) => interp.get_env(),
+            WhileFsm::Body(b) => b.get_env(),
         }
     }
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN> {
-        if let Some(cond) = &self.cond_interp {
-            cond.currently_executing_group()
-        } else if let Some(body) = &self.body_interp {
-            body.currently_executing_group()
-        } else {
-            HashSet::new()
+        match &self.state {
+            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
+            WhileFsm::CondWith(interp) => interp.currently_executing_group(),
+            WhileFsm::CondPort(_) | WhileFsm::Done(_) => HashSet::new(),
+            WhileFsm::Body(b) => b.currently_executing_group(),
         }
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
-        if let Some(cond) = &mut self.cond_interp {
-            cond.get_mut_env()
-        } else if let Some(body) = &mut self.body_interp {
-            body.get_mut_env()
-        } else if let Some(term) = &mut self.terminal_env {
-            term.into()
-        } else {
-            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
+        match &mut self.state {
+            WhileFsm::Err => unreachable!("There is an error in the While state transition. Please report this."),
+            WhileFsm::CondPort(e) | WhileFsm::Done(e) => e.into(),
+            WhileFsm::CondWith(interp) => interp.get_env_mut(),
+            WhileFsm::Body(b) => b.get_env_mut(),
         }
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
-        if let Some(cond) = &mut self.cond_interp {
-            cond.converge()
-        } else if let Some(body) = &mut self.body_interp {
-            body.converge()
-        } else if let Some(_term) = &mut self.terminal_env {
-            Ok(())
-        } else {
-            unreachable!("Invalid internal state for WhileInterpreter. It is neither evaluating the condition, nor the body, but it is also not finished executing. This indicates an error in the internal state transition and should be reported.")
+        match &mut self.state {
+            WhileFsm::Err => Err(InterpreterError::InvalidWhileState),
+            WhileFsm::Body(b) => b.converge(),
+            WhileFsm::CondWith(interp) => interp.converge(),
+            WhileFsm::CondPort(_) | WhileFsm::Done(_) => {
+                let is_done = matches!(self.state, WhileFsm::Done(_));
+                if let WhileFsm::CondPort(env) | WhileFsm::Done(env) =
+                    std::mem::take(&mut self.state)
+                {
+                    let mut interp = EnableInterpreter::new(
+                        vec![],
+                        None,
+                        env,
+                        self.info.continuous_assignments.clone(),
+                        &self.info.qin,
+                    );
+                    interp.converge()?;
+                    let env = interp.deconstruct()?;
+
+                    if is_done {
+                        self.state = WhileFsm::Done(env)
+                    } else {
+                        self.state = WhileFsm::CondPort(env)
+                    }
+                    Ok(())
+                } else {
+                    unreachable!()
+                }
+            }
         }
     }
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        if let Some(interp) = &self.cond_interp {
-            interp.get_active_tree()
-        } else {
-            self.body_interp.as_ref().unwrap().get_active_tree()
+        match &self.state {
+            WhileFsm::Err => unreachable!("There is an error in the while state transition. Please report this."),
+            WhileFsm::CondPort(_) | WhileFsm::Done(_) => vec![],
+            WhileFsm::CondWith(interp) => interp.get_active_tree(),
+            WhileFsm::Body(b) => b.get_active_tree(),
         }
     }
 }
@@ -857,10 +999,10 @@ pub struct InvokeInterpreter {
 
 impl InvokeInterpreter {
     pub fn new(
-        invoke: &Rc<iir::Invoke>,
+        invoke: Rc<iir::Invoke>,
         mut env: InterpreterState,
-        continuous_assignments: &iir::ContinuousAssignments,
-        qin: &ComponentQualifiedInstanceName,
+        continuous_assignments: iir::ContinuousAssignments,
+        qin: ComponentQualifiedInstanceName,
     ) -> Self {
         let mut assignment_vec: Vec<Assignment> = vec![];
         let comp_cell = invoke.comp.borrow();
@@ -907,10 +1049,12 @@ impl InvokeInterpreter {
             continuous_assignments,
         );
 
+        drop(comp_cell);
+
         Self {
-            invoke: Rc::clone(invoke),
+            invoke,
             assign_interp: interp,
-            qin: qin.clone(),
+            qin,
         }
     }
 }
@@ -948,7 +1092,7 @@ impl Interpreter for InvokeInterpreter {
         HashSet::new()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         self.assign_interp.get_mut_env().into()
     }
 
@@ -962,7 +1106,9 @@ impl Interpreter for InvokeInterpreter {
             &(format!("invoke {}", self.invoke.comp.borrow().name()).into()),
         );
 
-        vec![ActiveTreeNode::new(name)]
+        let pos_tag = self.invoke.attributes.get(POS_TAG).cloned();
+
+        vec![ActiveTreeNode::new(name.with_tag(pos_tag))]
     }
 }
 
@@ -994,53 +1140,38 @@ pub enum ControlInterpreter {
 
 impl ControlInterpreter {
     pub fn new(
-        control: &iir::Control,
+        control: iir::Control,
         env: InterpreterState,
-        continuous_assignments: &iir::ContinuousAssignments,
-        input_ports: Rc<HashSet<*const ir::Port>>,
-        qin: &ComponentQualifiedInstanceName,
+        info: &ComponentInfo,
     ) -> Self {
         match control {
-            iir::Control::Seq(s) => Self::Seq(Box::new(SeqInterpreter::new(
-                s,
-                env,
-                continuous_assignments,
-                input_ports,
-                qin,
-            ))),
-            iir::Control::Par(par) => Self::Par(Box::new(ParInterpreter::new(
-                par,
-                env,
-                continuous_assignments,
-                input_ports,
-                qin,
-            ))),
-            iir::Control::If(i) => Self::If(Box::new(IfInterpreter::new(
-                i,
-                env,
-                continuous_assignments,
-                input_ports,
-                qin,
-            ))),
-            iir::Control::While(w) => {
-                Self::While(Box::new(WhileInterpreter::new(
-                    w,
+            iir::Control::Seq(s) => {
+                Self::Seq(Box::new(SeqInterpreter::new(s, env, info.clone())))
+            }
+            iir::Control::Par(par) => {
+                Self::Par(Box::new(ParInterpreter::new(par, env, info.clone())))
+            }
+            iir::Control::If(i) => {
+                Self::If(Box::new(IfInterpreter::new(i, env, info.clone())))
+            }
+            iir::Control::While(w) => Self::While(Box::new(
+                WhileInterpreter::new(w, env, info.clone()),
+            )),
+            iir::Control::Invoke(i) => {
+                Self::Invoke(Box::new(InvokeInterpreter::new(
+                    i,
                     env,
-                    continuous_assignments,
-                    input_ports,
-                    qin,
+                    info.continuous_assignments.clone(),
+                    info.qin.clone(),
                 )))
             }
-            iir::Control::Invoke(i) => Self::Invoke(Box::new(
-                InvokeInterpreter::new(i, env, continuous_assignments, qin),
-            )),
             iir::Control::Enable(e) => {
                 Self::Enable(Box::new(EnableInterpreter::new(
-                    &**e,
+                    &e.group,
                     Some(e.group.borrow().name().clone()),
                     env,
-                    continuous_assignments,
-                    qin,
+                    info.continuous_assignments.clone(),
+                    &info.qin,
                 )))
             }
             iir::Control::Empty(_) => {
@@ -1075,8 +1206,8 @@ impl Interpreter for ControlInterpreter {
         control_match!(self, i, i.currently_executing_group())
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
-        control_match!(self, i, i.get_mut_env())
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
+        control_match!(self, i, i.get_env_mut())
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
@@ -1109,7 +1240,7 @@ impl StructuralInterpreter {
             env,
             Some(done_port),
             assigns,
-            &continuous,
+            continuous.clone(),
         );
 
         Self {
@@ -1150,11 +1281,15 @@ impl Interpreter for StructuralInterpreter {
         HashSet::new()
     }
 
-    fn get_mut_env(&mut self) -> MutStateView<'_> {
+    fn get_env_mut(&mut self) -> MutStateView<'_> {
         self.interp.get_mut_env().into()
     }
 
     fn converge(&mut self) -> InterpreterResult<()> {
         self.interp.step_convergence()
+    }
+
+    fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
+        vec![]
     }
 }

@@ -264,15 +264,38 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
             let mut inst =
                 v::Instance::new(cell.name().as_ref(), ty_name.as_ref());
 
-            if let ir::CellType::Primitive { param_binding, .. } =
-                &cell.prototype
+            if let ir::CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            } = &cell.prototype
             {
-                param_binding.iter().for_each(|(name, width)| {
+                if name == "std_const" {
+                    let (wn, width) = &param_binding[0];
+                    let (vn, value) = &param_binding[1];
+                    inst.add_param(&wn.id, v::Expr::new_int(*width as i32));
+                    inst.add_param(
+                        &vn.id,
+                        v::Expr::new_ulit_dec(
+                            *width as u32,
+                            &value.to_string(),
+                        ),
+                    );
+                } else {
+                    param_binding.iter().for_each(|(name, value)| {
+                    if *value > (std::i32::MAX as u64) {
+                        panic!(
+                            "Parameter value {} for `{}` cannot be represented using 32 bits",
+                            value,
+                            name
+                        )
+                    }
                     inst.add_param(
                         name.as_ref(),
-                        v::Expr::new_int(*width as i32),
+                        v::Expr::new_int(*value as i32),
                     )
                 })
+                }
             }
 
             for port in &cell.ports {

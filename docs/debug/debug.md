@@ -156,4 +156,4 @@ the `fsm` register has the value 1 and check to see if the assignments in
 [gtkwave]: http://gtkwave.sourceforge.net/
 [wavetrace]: https://marketplace.visualstudio.com/items?itemName=wavetrace.wavetrace
 [flag-cmp]: https://github.com/cucapra/calyx/blob/master/tools/flag-compare.sh
-[dgr]: https://capra.cs.cornell.edu/docs/calyx/source/calyx/passes/struct.DeadGroupRemoval.html
+[dgr]: https://docs.calyxir.org/source/calyx/passes/struct.DeadGroupRemoval.html

@@ -68,9 +68,11 @@ class NoPathFound(FudError):
         msg = (
             f"No way to convert input in stage `{source}' to "
             + f"stage `{destination}' "
-            + f"that go through stage(s) {', '.join(through)}"
-            if len(through) > 0
-            else ""
+            + (
+                f"that go through stage(s) {', '.join(through)}"
+                if len(through) > 0
+                else ""
+            )
         )
         super().__init__(msg)
 
@@ -133,8 +135,12 @@ class SourceConversion(FudError):
     Can't convert to a particular source type.
     """
 
-    def __init__(self, source_t, dst_t):
-        msg = f"Can't convert from {source_t} to {dst_t}"
+    def __init__(self, output_type, why=None):
+        msg = (
+            f"Data cannot be converted into {output_type}. "
+            "If an output stage produced it, "
+            "provide name for an output file using the `-o` flag."
+        )
         super().__init__(msg)
 
 

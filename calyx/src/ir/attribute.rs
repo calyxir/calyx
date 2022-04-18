@@ -1,7 +1,7 @@
 use linked_hash_map::LinkedHashMap;
-use std::ops::Index;
+use std::{convert::TryFrom, ops::Index};
 
-use crate::errors::{Span, WithPos};
+use crate::errors::{CalyxResult, Span, WithPos};
 
 /// Attributes associated with a specific IR structure.
 #[derive(Debug, Clone)]
@@ -22,12 +22,20 @@ impl Default for Attributes {
     }
 }
 
-impl From<Vec<(String, u64)>> for Attributes {
-    fn from(v: Vec<(String, u64)>) -> Self {
-        Attributes {
-            attrs: v.into_iter().collect(),
-            span: None,
+impl TryFrom<Vec<(String, u64)>> for Attributes {
+    type Error = crate::errors::Error;
+
+    fn try_from(v: Vec<(String, u64)>) -> CalyxResult<Self> {
+        let mut attrs = LinkedHashMap::with_capacity(v.len());
+        for (k, v) in v {
+            if attrs.contains_key(&k) {
+                return Err(Self::Error::malformed_structure(format!(
+                    "Multiple entries for attribute: {k}"
+                )));
+            }
+            attrs.insert(k, v);
         }
+        Ok(Attributes { attrs, span: None })
     }
 }
 

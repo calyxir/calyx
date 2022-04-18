@@ -6,6 +6,7 @@ use crate::errors::{self, CalyxResult, Span};
 use crate::ir;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
+use std::convert::TryInto;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
@@ -237,10 +238,10 @@ impl CalyxParser {
         ))
     }
     fn attributes(input: Node) -> ParseResult<ir::Attributes> {
-        Ok(match_nodes!(
-            input.into_children();
-            [attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
-        ))
+        match_nodes!(
+            input.clone().into_children();
+            [attribute(kvs)..] => kvs.collect::<Vec<_>>().try_into().map_err(|e| input.error(format!("{:?}", e)))
+        )
     }
     fn name_with_attribute(
         input: Node,
@@ -248,7 +249,7 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [identifier(name), attributes(attrs)] => (name, attrs),
-            [identifier(name)] => (name, vec![].into()),
+            [identifier(name)] => (name, ir::Attributes::default()),
         ))
     }
 
@@ -268,10 +269,10 @@ impl CalyxParser {
     }
 
     fn at_attributes(input: Node) -> ParseResult<ir::Attributes> {
-        Ok(match_nodes!(
-            input.into_children();
-            [at_attribute(kvs)..] => kvs.collect::<Vec<_>>().into()
-        ))
+        match_nodes!(
+            input.clone().into_children();
+            [at_attribute(kvs)..] => kvs.collect::<Vec<_>>().try_into().map_err(|e| input.error(format!("{:?}", e)))
+        )
     }
 
     // ================ Signature =====================

@@ -1,7 +1,17 @@
-if { $::argc != 1 } {
-    puts "ERROR: Program \"$::argv0\" requires 1 argument!\n"
-    puts "Usage: $::argv0 <xoname>\n"
+if { $::argc < 1 } {
+    #puts "ERROR: Program \"$::argv0\" requires 1 argument!\n"
+    puts "ERROR: Executable name unspecified\n"
+    puts "Usage: $::argv0 <xoname> $::argv <axi_name> \n"
     exit
+}
+
+# Define a process that pops an element off of the list
+proc lvarpop {upVar {index 0}} {
+  upvar $upVar list;
+  if {![info exists list]} { return "-1" }
+  set top [lindex $list $index];
+  set list [concat [lrange $list 0 [expr $index - 1]] [lrange $list [expr $index +1] end]]
+  return $top;
 }
 
 set xoname [lindex $::argv 0]
@@ -22,7 +32,10 @@ set_property sdx_kernel_type rtl [ipx::current_core]
 
 # Declare bus interfaces.
 ipx::associate_bus_interfaces -busif s_axi_control -clock ap_clk [ipx::current_core]
-ipx::associate_bus_interfaces -busif m0_axi -clock ap_clk [ipx::current_core]
+lvarpop argv
+foreach busname $argv {
+    ipx::associate_bus_interfaces -busif $busname -clock ap_clk [ipx::current_core]
+}
 
 # Close & save the temporary project.
 ipx::update_checksums [ipx::current_core]

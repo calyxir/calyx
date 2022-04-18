@@ -15,6 +15,7 @@ from .stages import (
     relay,
     systolic,
     vcdump,
+    jq,
     verilator,
     vivado,
     xilinx,
@@ -126,6 +127,11 @@ def register_stages(registry):
 
     # Vcdump
     registry.register(vcdump.VcdumpStage())
+
+    # Jq
+    registry.register(jq.JqStage("vcd_json"))
+    registry.register(jq.JqStage("dat"))
+    registry.register(jq.JqStage("interpreter-out"))
 
     # Xilinx
     registry.register(xilinx.XilinxStage())
@@ -287,6 +293,9 @@ def main():
         elif args.command == "config":
             if args.edit:
                 os.system(f"{os.getenv('EDITOR')} '{cfg.config_file}'")
+            elif args.remove:
+                log.info(f"Removing {cfg.config_file}")
+                os.remove(cfg.config_file)
             else:
                 display_config(args, cfg)
         elif args.command == "check":
@@ -359,6 +368,14 @@ def config_config(parser):
         "-e",
         "--edit",
         help="Edit the configuration file using $EDITOR",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--remove",
+        help=(
+            "Delete the stored configuration."
+            " Next invocation of `fud` will create a fresh config."
+        ),
         action="store_true",
     )
     parser.add_argument("key", help="The key to perform an action on.", nargs="?")

@@ -23,6 +23,16 @@ jobs:
     - name: Install common Python dependencies
       run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
 
+    - name: Install calyx-py
+      run: |
+        cd calyx-py
+        flit install
+
+    - name: Install MrXL
+      run: |
+        cd frontends/mrxl
+        flit install
+
     - name: Install fud
       run: |
         cd fud
@@ -33,6 +43,8 @@ jobs:
         fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
         fud config stages.futil.exec "$(pwd)/target/debug/futil"
         fud config stages.interpreter.exec "$(pwd)/target/debug/interp"
+        fud register mrxl -p '/home/runner/work/calyx/calyx/frontends/mrxl/fud/mrxl.py'
+        fud register ntt -p '/home/runner/work/calyx/calyx/frontends/ntt-pipeline/fud/ntt.py'
         fud config
 
     - name: Install Rust stable
@@ -85,7 +97,7 @@ jobs:
     - name: Runt tests
       run: |
         # Run the remaining tests
-        runt interp -d -o fail
+        runt interp -x relay -d -o fail
 
 
   compiler:
@@ -317,15 +329,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Fud Formatting check
-        uses: RojerGS/python-black-check@master
+        uses: psf/black@stable
         with:
-          line-length: 88
-          path: 'fud'
+          options: "--line-length 88"
+          src: 'fud'
       - name: Systolic Array Formatting check
-        uses: RojerGS/python-black-check@master
+        uses: psf/black@stable
         with:
-          line-length: 88
-          path: 'frontends/systolic-lang'
+          options: "--line-length 88"
+          src: 'frontends/systolic-lang'
       - name: Fud Linting check
         uses: TrueBrain/actions-flake8@master
         with:

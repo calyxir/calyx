@@ -156,26 +156,22 @@ impl Visitor for WellFormed {
         self.used_groups.insert(s.group.clone_name());
 
         let group = s.group.borrow();
-        let done_assign = group
-            .assignments
-            .iter()
-            .find(|assign| {
-                let dst = assign.dst.borrow();
-                dst.is_hole() && *group.name() == dst.get_parent_name()
-            })
-            .map(|asgn| {
-                asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1)
-            });
+        let asgn = group.done_cond();
+        let const_done_assign =
+            asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1);
 
-        // A group with a constant done condition are not allowed.
+        if const_done_assign {
+            return Err(Error::malformed_structure("Group with constant done condition is invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));
+        }
+
+        // A group with "static"=0 annotation
         if group
             .attributes
             .get("static")
             .map(|v| *v == 0)
             .unwrap_or(false)
-            || done_assign.unwrap_or(false)
         {
-            return Err(Error::malformed_structure("Group with constant done condition are invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));
+            return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
         }
 
         Ok(Action::Continue)
@@ -188,10 +184,30 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Add cond group as a used port.
         if let Some(c) = &s.comb_group {
             self.used_comb_groups.insert(c.clone_name());
         }
+        // Only refers to ports defined in the invoked instance.
+        let cell = s.comp.borrow();
+        let ports: HashSet<_> =
+            cell.ports.iter().map(|p| p.borrow().name.clone()).collect();
+
+        s.inputs
+            .iter()
+            .chain(s.outputs.iter())
+            .try_for_each(|(port, _)| {
+                if !ports.contains(port) {
+                    Err(Error::malformed_structure(format!(
+                        "`{}` does not have port named `{}`",
+                        cell.name(),
+                        port
+                    ))
+                    .with_pos(&s.attributes))
+                } else {
+                    Ok(())
+                }
+            })?;
+
         Ok(Action::Continue)
     }
 
@@ -229,6 +245,17 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Go signals of groups mentioned in other groups are considered used
+        comp.for_each_assignment(|assign| {
+            assign.for_each_port(|pr| {
+                let port = pr.borrow();
+                if port.is_hole() && port.name == "go" {
+                    self.used_groups.insert(port.get_parent_name());
+                }
+                None
+            })
+        });
+
         // Find unused groups
         let all_groups: HashSet<ir::Id> =
             comp.groups.iter().map(|g| g.clone_name()).collect();

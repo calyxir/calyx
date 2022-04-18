@@ -106,13 +106,14 @@ impl Visitor for Papercut {
             let group = group_ref.borrow();
             // Build a map from (instance name, primitive name) to the signals being
             // read from and written to.
-            let all_writes =
-                analysis::ReadWriteSet::port_write_set(&group.assignments)
-                    .filter_map(port_information)
-                    .into_grouping_map()
-                    .collect::<HashSet<_>>();
+            let all_writes = analysis::ReadWriteSet::port_write_set(
+                group.assignments.iter(),
+            )
+            .filter_map(port_information)
+            .into_grouping_map()
+            .collect::<HashSet<_>>();
             let all_reads =
-                analysis::ReadWriteSet::port_read_set(&group.assignments)
+                analysis::ReadWriteSet::port_read_set(group.assignments.iter())
                     .filter_map(port_information)
                     .into_grouping_map()
                     .collect::<HashSet<_>>();
@@ -185,10 +186,11 @@ impl Visitor for Papercut {
         }
 
         // Compute all cells that are driven in by the continuous assignments0
-        self.cont_cells =
-            analysis::ReadWriteSet::write_set(&comp.continuous_assignments)
-                .map(|cr| cr.borrow().clone_name())
-                .collect();
+        self.cont_cells = analysis::ReadWriteSet::write_set(
+            comp.continuous_assignments.iter(),
+        )
+        .map(|cr| cr.borrow().clone_name())
+        .collect();
 
         Ok(Action::Continue)
     }

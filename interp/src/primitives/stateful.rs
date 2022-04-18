@@ -1,112 +1,152 @@
-use super::prim_utils::{get_input_unwrap, get_param, ShiftBuffer};
+use super::prim_utils::{get_param, ShiftBuffer};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializeable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::logging::{self, warn};
 use crate::utils::{construct_bindings, PrintCode};
-use crate::validate;
 use crate::values::Value;
+use crate::{get_input, validate};
 use calyx::ir;
 use ibig::ops::RemEuclid;
+use ibig::{ibig, ubig, IBig, UBig};
 
 const DECIMAL_PRINT_WIDTH: usize = 7;
 
+enum BinOpUpdate {
+    None,
+    Reset,
+    Value(Value, Value),
+}
+
+impl BinOpUpdate {
+    fn clear(&mut self) {
+        *self = BinOpUpdate::None;
+    }
+    fn take(&mut self) -> Self {
+        std::mem::replace(&mut *self, BinOpUpdate::None)
+    }
+}
+
 /// Pipelined Multiplication (3 cycles)
-/// Still bounded by u64.
 /// How to use:
 /// [Primitive::execute] with the desired bindings.
 /// To capture these bindings into the internal (out) queue, [Primitive::do_tick].
 /// The product associated with a given input will be output on the third [do_tick()].
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
 /// set of inputs prior to the [Primitve::do_tick] will be saved.
-pub struct StdMultPipe<const SIGNED: bool> {
-    pub width: u64,
-    pub product: Value,
-    update: Option<(Value, Value)>,
-    queue: ShiftBuffer<Value, 2>,
+pub struct StdMultPipe<const SIGNED: bool, const DEPTH: usize> {
+    width: u64,
+    product: Value,
+    update: BinOpUpdate,
+    queue: ShiftBuffer<Value, DEPTH>,
     full_name: ir::Id,
     logger: logging::Logger,
+    error_on_overflow: bool,
 }
 
-impl<const SIGNED: bool> StdMultPipe<SIGNED> {
-    pub fn from_constants(width: u64, name: ir::Id) -> Self {
+impl<const SIGNED: bool, const DEPTH: usize> StdMultPipe<SIGNED, DEPTH> {
+    pub fn from_constants(
+        width: u64,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         StdMultPipe {
             width,
             product: Value::zeroes(width as usize),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
+            error_on_overflow,
         }
     }
 
-    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         let width = get_param(params, "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding");
-        Self::from_constants(width, name)
+        Self::from_constants(width, name, error_on_overflow)
     }
 }
 
-impl<const SIGNED: bool> Named for StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> Named
+    for StdMultPipe<SIGNED, DEPTH>
+{
     fn get_full_name(&self) -> &ir::Id {
         &self.full_name
     }
 }
 
-impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
+impl<const SIGNED: bool, const DEPTH: usize> Primitive
+    for StdMultPipe<SIGNED, DEPTH>
+{
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        // compute the value for this cycle
-        let computed = if let Some((left, right)) = self.update.take() {
-            let (value, overflow) = if SIGNED {
-                Value::from_checked(
-                    left.as_signed() * right.as_signed(),
-                    self.width,
-                )
-            } else {
-                Value::from_checked(
-                    left.as_unsigned() * right.as_unsigned(),
-                    self.width,
-                )
-            };
-
-            if overflow & crate::SETTINGS.read().unwrap().error_on_overflow {
-                return Err(InterpreterError::OverflowError());
-            } else if overflow {
-                warn!(
-                    self.logger,
-                    "Computation under/overflowed ({} -> {})",
-                    if SIGNED {
-                        format!("{}", left.as_signed() * right.as_signed())
-                    } else {
-                        format!("{}", left.as_unsigned() * right.as_unsigned())
-                    },
-                    if SIGNED {
-                        format!("{}", value.as_signed())
-                    } else {
-                        format!("{}", value.as_unsigned())
-                    }
-                );
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), self.product.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
             }
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (value, overflow) = if SIGNED {
+                    Value::from_checked(
+                        left.as_signed() * right.as_signed(),
+                        self.width,
+                    )
+                } else {
+                    Value::from_checked(
+                        left.as_unsigned() * right.as_unsigned(),
+                        self.width,
+                    )
+                };
 
-            Some(value)
-        } else {
-            None
-        };
+                if overflow & self.error_on_overflow {
+                    return Err(InterpreterError::OverflowError());
+                } else if overflow {
+                    warn!(
+                        self.logger,
+                        "Computation under/overflowed ({} -> {})",
+                        if SIGNED {
+                            format!("{}", left.as_signed() * right.as_signed())
+                        } else {
+                            format!(
+                                "{}",
+                                left.as_unsigned() * right.as_unsigned()
+                            )
+                        },
+                        if SIGNED {
+                            format!("{}", value.as_signed())
+                        } else {
+                            format!("{}", value.as_unsigned())
+                        }
+                    );
+                }
 
-        // shift elements through the buffer
-
-        let out = if let Some(value) = self.queue.shift(computed) {
-            self.product = value;
-            //return vec w/ out and done
-            vec![
-                (ir::Id::from("out"), self.product.clone()),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
+                if let Some(value) = self.queue.shift(Some(value)) {
+                    self.product = value;
+                    vec![
+                        (ir::Id::from("out"), self.product.clone()),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out"), self.product.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
         };
 
         Ok(out)
@@ -122,6 +162,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
                 "left" => assert_eq!(v.len() as u64, self.width),
                 "right" => assert_eq!(v.len() as u64, self.width),
                 "go" => assert_eq!(v.len() as u64, 1),
+                "reset" => assert_eq!(v.len() as u64, 1),
                 p => unreachable!("Unknown port: {}", p),
             }
         }
@@ -131,17 +172,20 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments, left, right, and go
-        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
-        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
-        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
+        get_input![inputs;
+            left: "left",
+            right: "right",
+            reset: "reset",
+            go: "go"
+        ];
 
-        //continue computation
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -150,7 +194,7 @@ impl<const SIGNED: bool> Primitive for StdMultPipe<SIGNED> {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),
@@ -183,32 +227,42 @@ pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is left, second is right
+    update: BinOpUpdate, //first is left, second is right
     queue: ShiftBuffer<(Value, Value), 2>, //invariant: always length 2
     full_name: ir::Id,
     logger: logging::Logger,
+    error_on_overflow: bool,
 }
 
 impl<const SIGNED: bool> StdDivPipe<SIGNED> {
-    pub fn from_constants(width: u64, name: ir::Id) -> Self {
+    pub fn from_constants(
+        width: u64,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         StdDivPipe {
             width,
             quotient: Value::zeroes(width as usize),
             remainder: Value::zeroes(width as usize),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
+            error_on_overflow,
         }
     }
 
-    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        error_on_overflow: bool,
+    ) -> Self {
         let width = params
             .iter()
             .find(|(n, _)| n.as_ref() == "WIDTH")
             .expect("Missing `WIDTH` param from std_mult_pipe binding")
             .1;
-        Self::from_constants(width, name)
+        Self::from_constants(width, name, error_on_overflow)
     }
 }
 
@@ -220,69 +274,88 @@ impl<const SIGNED: bool> Named for StdDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            if right.as_unsigned() != 0_u32.into() {
-                let (q, overflow) = if SIGNED {
-                    Value::from_checked(
-                        left.as_signed() / right.as_signed(),
-                        self.width,
-                    )
-                } else {
-                    Value::from_checked(
-                        left.as_unsigned() / right.as_unsigned(),
-                        self.width,
-                    )
-                };
-                let r = if SIGNED {
-                    Value::from(
-                        left.as_signed().rem_euclid(right.as_signed()),
-                        self.width,
-                    )
-                } else {
-                    Value::from(
-                        left.as_unsigned().rem_euclid(right.as_unsigned()),
-                        self.width,
-                    )
-                };
-
-                // the only way this is possible is if the division is signed and the
-                // min_val is divided by negative one as the resultant postitive value will
-                // not be representable in the desired bit width
-                if (overflow)
-                    & crate::SETTINGS.read().unwrap().error_on_overflow
-                {
-                    return Err(InterpreterError::OverflowError());
-                } else if overflow {
-                    warn!(
-                        self.logger,
-                        "Computation underflow ({} -> {})",
-                        left.as_signed() / right.as_signed(),
-                        q.as_signed()
-                    )
-                }
-                Some((q, r))
-            } else {
-                warn!(self.logger, "Division by zero");
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), self.quotient.clone()),
+                    (ir::Id::from("out_remainder"), self.remainder.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
             }
-        } else {
-            None
-        };
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                    (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (q, r) = if right.as_unsigned() != 0_u32.into() {
+                    let (q, overflow) = if SIGNED {
+                        Value::from_checked(
+                            left.as_signed() / right.as_signed(),
+                            self.width,
+                        )
+                    } else {
+                        Value::from_checked(
+                            left.as_unsigned() / right.as_unsigned(),
+                            self.width,
+                        )
+                    };
+                    let r = if SIGNED {
+                        Value::from(
+                            left.as_signed()
+                                - right.as_signed()
+                                    * floored_division(
+                                        &left.as_signed(),
+                                        &right.as_signed(),
+                                    ),
+                            self.width,
+                        )
+                    } else {
+                        Value::from(
+                            left.as_unsigned().rem_euclid(right.as_unsigned()),
+                            self.width,
+                        )
+                    };
 
-        let out = if let Some((q, r)) = self.queue.shift(computed) {
-            self.quotient = q.clone();
-            self.remainder = r.clone();
-            vec![
-                (ir::Id::from("out_quotient"), q),
-                (ir::Id::from("out_remainder"), r),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
-                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
+                    // the only way this is possible is if the division is signed and the
+                    // min_val is divided by negative one as the resultant postitive value will
+                    // not be representable in the desired bit width
+                    if (overflow) & self.error_on_overflow {
+                        return Err(InterpreterError::OverflowError());
+                    } else if overflow {
+                        warn!(
+                            self.logger,
+                            "Computation underflow ({} -> {})",
+                            left.as_signed() / right.as_signed(),
+                            q.as_signed()
+                        )
+                    }
+                    (q, r)
+                } else {
+                    warn!(self.logger, "Division by zero");
+                    (Value::zeroes(self.width), Value::zeroes(self.width))
+                };
+
+                if let Some((q, r)) = self.queue.shift(Some((q, r))) {
+                    self.quotient = q.clone();
+                    self.remainder = r.clone();
+                    vec![
+                        (ir::Id::from("out_quotient"), q),
+                        (ir::Id::from("out_remainder"), r),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out_quotient"), self.quotient.clone()),
+                        (ir::Id::from("out_remainder"), self.remainder.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
         };
 
         Ok(out)
@@ -298,6 +371,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                 "left" => assert_eq!(v.len() as u64, self.width),
                 "right" => assert_eq!(v.len() as u64, self.width),
                 "go" => assert_eq!(v.len() as u64, 1),
+                "reset" => assert_eq!(v.len() as u64, 1),
                 p => unreachable!("Unknown port: {}", p),
             }
         }
@@ -307,16 +381,21 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments, left, right, and go
-        let (_, left) = inputs.iter().find(|(id, _)| id == "left").unwrap();
-        let (_, right) = inputs.iter().find(|(id, _)| id == "right").unwrap();
-        let (_, go) = inputs.iter().find(|(id, _)| id == "go").unwrap();
-        //continue computation
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        get_input![inputs;
+            left: "left",
+            right: "right",
+            reset: "reset",
+            go: "go"
+        ];
+
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -324,7 +403,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
@@ -346,12 +425,27 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     }
 }
 
+enum RegUpdate {
+    None,
+    Reset,
+    Value(Value),
+}
+
+impl RegUpdate {
+    fn clear(&mut self) {
+        *self = Self::None;
+    }
+
+    fn take(&mut self) -> Self {
+        std::mem::replace(self, Self::None)
+    }
+}
+
 /// A register.
 pub struct StdReg {
     pub width: u64,
     pub data: [Value; 1],
-    update: Option<Value>,
-    write_en: bool,
+    update: RegUpdate,
     full_name: ir::Id,
 }
 
@@ -360,8 +454,7 @@ impl StdReg {
         StdReg {
             width,
             data: [Value::new(width as usize)],
-            update: None,
-            write_en: false,
+            update: RegUpdate::None,
             full_name,
         }
     }
@@ -384,25 +477,25 @@ impl Named for StdReg {
 
 impl Primitive for StdReg {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //first commit any updates
-        if let Some(val) = self.update.take() {
-            self.data[0] = val;
-        }
-        //then, based on write_en, return
-        let out = if self.write_en {
-            self.write_en = false; //we are done for this cycle
-                                   //if do_tick() is called again w/o an execute() preceeding it,
-                                   //then done will be low.
-            vec![
-                (ir::Id::from("out"), self.data[0].clone()),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            //done is low, but there is still data in this reg to return
-            vec![
+        let out = match self.update.take() {
+            RegUpdate::None => vec![
                 (ir::Id::from("out"), self.data[0].clone()),
                 (ir::Id::from("done"), Value::bit_low()),
-            ]
+            ],
+            RegUpdate::Reset => {
+                self.data[0] = Value::zeroes(self.width);
+                vec![
+                    (ir::Id::from("out"), self.data[0].clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            RegUpdate::Value(v) => {
+                self.data[0] = v;
+                vec![
+                    (ir::Id::from("out"), self.data[0].clone()),
+                    (ir::Id::from("done"), Value::bit_high()),
+                ]
+            }
         };
 
         Ok(out)
@@ -428,19 +521,20 @@ impl Primitive for StdReg {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        let (_, input) = inputs.iter().find(|(id, _)| id == "in").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        //write the input to the register
-        if write_en.as_bool() {
-            self.update = Some((*input).clone());
-            //put cycle_count as 1! B/c do_tick() should return a high done
-            self.write_en = true;
+        get_input![inputs;
+            input: "in",
+            write_en: "write_en",
+            reset: "reset"
+        ];
+
+        self.update = if reset.as_bool() {
+            RegUpdate::Reset
+        } else if write_en.as_bool() {
+            RegUpdate::Value(input.clone())
         } else {
-            self.update = None;
-            self.write_en = false;
-        }
+            RegUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -448,11 +542,10 @@ impl Primitive for StdReg {
         &mut self,
         _: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
-        self.write_en = false; //might be redundant, not too sure when reset is used
+        self.update.clear();
         Ok(vec![
             (ir::Id::from("out"), self.data[0].clone()),
-            (ir::Id::from("done"), Value::zeroes(1)),
+            (ir::Id::from("done"), Value::bit_low()),
         ])
     }
 
@@ -490,6 +583,7 @@ pub struct StdMemD1 {
     write_en: bool,
     last_index: u64,
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD1 {
@@ -502,13 +596,17 @@ impl StdMemD1 {
         let bindings = construct_bindings(
             [("WIDTH", width), ("SIZE", size), ("IDX_SIZE", idx_size)].iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
     /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
     /// slots for memory, accepting indecies (addr0) of width [idx_size].
     /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
     /// you will not be able to access the slots near the end of the memory.
-    pub fn new(params: &ir::Binding, name: ir::Id) -> StdMemD1 {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD1 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width param for std_mem_d1");
         let size = get_param(params, "SIZE")
@@ -526,6 +624,7 @@ impl StdMemD1 {
             write_en: false,
             last_index: 0,
             full_name: name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -542,8 +641,7 @@ impl StdMemD1 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
 
         Ok(())
@@ -561,7 +659,7 @@ impl Primitive for StdMemD1 {
         //if there is an update, update and return along w/ a done
         //else this memory was used combinationally and there is nothing to tick
         if self.last_index >= self.size {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -632,11 +730,11 @@ impl Primitive for StdMemD1 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0"
+        ];
         let addr0 = addr0.as_u64();
         self.last_index = addr0;
         if write_en.as_bool() {
@@ -722,6 +820,7 @@ pub struct StdMemD2 {
     write_en: bool,
     last_idx: (u64, u64),
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD2 {
@@ -743,7 +842,7 @@ impl StdMemD2 {
             ]
             .iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
 
     #[inline]
@@ -755,7 +854,11 @@ impl StdMemD2 {
     /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
     /// [d0_idx_size] and [d1_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD2 {
+    pub fn new(
+        params: &ir::Binding,
+        full_name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD2 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d2");
         let d0_size = get_param(params, "D0_SIZE")
@@ -780,6 +883,7 @@ impl StdMemD2 {
             write_en: false,
             last_idx: (0, 0),
             full_name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -796,8 +900,7 @@ impl StdMemD2 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
         Ok(())
     }
@@ -818,7 +921,7 @@ impl Primitive for StdMemD2 {
     //null-op for now
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         if self.calc_addr(self.last_idx.0, self.last_idx.1) >= self.max_idx() {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -887,16 +990,12 @@ impl Primitive for StdMemD2 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        //these come from the primitive definition in verilog
-        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0",
+            addr1: "addr1"
+        ];
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
         self.last_idx = (addr0, addr1);
@@ -988,6 +1087,7 @@ pub struct StdMemD3 {
     write_en: bool,
     last_idx: (u64, u64, u64),
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD3 {
@@ -1014,13 +1114,17 @@ impl StdMemD3 {
             ]
             .iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
     /// Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
     /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD3 {
+    pub fn new(
+        params: &ir::Binding,
+        full_name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD3 {
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d3");
         let d0_size = get_param(params, "D0_SIZE")
@@ -1053,6 +1157,7 @@ impl StdMemD3 {
             write_en: false,
             last_idx: (0, 0, 0),
             full_name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -1069,8 +1174,7 @@ impl StdMemD3 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
         Ok(())
     }
@@ -1097,7 +1201,7 @@ impl Primitive for StdMemD3 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2) >= self.max_idx() {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -1171,16 +1275,13 @@ impl Primitive for StdMemD3 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        //these come from the primitive definition in verilog
-        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0",
+            addr1: "addr1",
+            addr2: "addr2"
+        ];
 
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
@@ -1287,6 +1388,7 @@ pub struct StdMemD4 {
     write_en: bool,
     last_idx: (u64, u64, u64, u64),
     full_name: ir::Id,
+    allow_invalid_memory_access: bool,
 }
 
 impl StdMemD4 {
@@ -1317,13 +1419,17 @@ impl StdMemD4 {
             ]
             .iter(),
         );
-        Self::new(&bindings, full_name)
+        Self::new(&bindings, full_name, false)
     }
     // Instantiates a new StdMemD3 storing data of width [width], containing
     /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
     /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
     /// Initially the memory is filled with all 0s.
-    pub fn new(params: &ir::Binding, full_name: ir::Id) -> StdMemD4 {
+    pub fn new(
+        params: &ir::Binding,
+        full_name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> StdMemD4 {
         // yes this was incredibly tedious to write. Why do you ask?
         let width = get_param(params, "WIDTH")
             .expect("Missing width parameter for std_mem_d4");
@@ -1363,6 +1469,7 @@ impl StdMemD4 {
             write_en: false,
             last_idx: (0, 0, 0, 0),
             full_name,
+            allow_invalid_memory_access,
         }
     }
 
@@ -1384,8 +1491,7 @@ impl StdMemD4 {
         }
 
         for (idx, val) in vals.iter().enumerate() {
-            assert_eq!(val.len(), self.width as usize);
-            self.data[idx] = val.clone()
+            self.data[idx] = val.truncate(self.width.try_into().unwrap())
         }
 
         Ok(())
@@ -1412,7 +1518,7 @@ impl Primitive for StdMemD4 {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         let (addr0, addr1, addr2, addr3) = self.last_idx;
         if self.calc_addr(addr0, addr1, addr2, addr3) >= self.max_idx() {
-            if crate::SETTINGS.read().unwrap().allow_invalid_memory_access {
+            if self.allow_invalid_memory_access {
                 if self.write_en {
                     return Ok(vec![
                         (ir::Id::from("read_data"), Value::zeroes(self.width)),
@@ -1499,17 +1605,14 @@ impl Primitive for StdMemD4 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //unwrap the arguments
-        //these come from the primitive definition in verilog
-        //don't need to depend on the user -- just make sure this matches primitive + calyx + verilog defs
-        let (_, input) =
-            inputs.iter().find(|(id, _)| id == "write_data").unwrap();
-        let (_, write_en) =
-            inputs.iter().find(|(id, _)| id == "write_en").unwrap();
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
-        let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
+        get_input![inputs;
+            input: "write_data",
+            write_en: "write_en",
+            addr0: "addr0",
+            addr1: "addr1",
+            addr2: "addr2",
+            addr3: "addr3"
+        ];
 
         let addr0 = addr0.as_u64();
         let addr1 = addr1.as_u64();
@@ -1584,7 +1687,7 @@ pub struct StdFpMultPipe<const SIGNED: bool> {
     pub int_width: u64,
     pub frac_width: u64,
     pub product: Value,
-    update: Option<(Value, Value)>, // left, right
+    update: BinOpUpdate,
     queue: ShiftBuffer<Value, 2>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -1603,7 +1706,7 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
             int_width,
             frac_width,
             product: Value::zeroes(width),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&full_name),
             full_name,
@@ -1630,87 +1733,108 @@ impl<const SIGNED: bool> Named for StdFpMultPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            let backing_val = if SIGNED {
-                Value::from(
-                    left.as_signed() * right.as_signed(),
-                    2 * self.width,
-                )
-            } else {
-                Value::from(
-                    left.as_unsigned() * right.as_unsigned(),
-                    2 * self.width,
-                )
-            };
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), self.product.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let backing_val = if SIGNED {
+                    Value::from(
+                        left.as_signed() * right.as_signed(),
+                        2 * self.width,
+                    )
+                } else {
+                    Value::from(
+                        left.as_unsigned() * right.as_unsigned(),
+                        2 * self.width,
+                    )
+                };
 
-            let upper_idx = (2 * self.width) - self.int_width - 1;
-            let lower_idx = self.width - self.int_width;
+                let upper_idx = (2 * self.width) - self.int_width - 1;
+                let lower_idx = self.width - self.int_width;
 
-            if backing_val
-                .iter()
-                .rev()
-                .take((backing_val.len() - 1) - upper_idx as usize)
-                .any(|x| x)
-                && (!backing_val
+                if backing_val
                     .iter()
                     .rev()
                     .take((backing_val.len() - 1) - upper_idx as usize)
-                    .all(|x| x)
-                    | !SIGNED)
-            {
-                let out = backing_val
-                    .clone()
-                    .slice_out(upper_idx as usize, lower_idx as usize);
+                    .any(|x| x)
+                    && (!backing_val
+                        .iter()
+                        .rev()
+                        .take((backing_val.len() - 1) - upper_idx as usize)
+                        .all(|x| x)
+                        | !SIGNED)
+                {
+                    let out = backing_val
+                        .clone()
+                        .slice_out(upper_idx as usize, lower_idx as usize);
 
-                warn!(
-                    self.logger,
-                    "Computation over/underflow: {} to {}",
-                    if SIGNED {
-                        format!(
-                            "{:.fw$}",
-                            backing_val.as_sfp((self.frac_width * 2) as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    } else {
-                        format!(
-                            "{:.fw$}",
-                            backing_val.as_ufp((self.frac_width * 2) as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    },
-                    if SIGNED {
-                        format!(
-                            "{:.fw$}",
-                            out.as_sfp(self.frac_width as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    } else {
-                        format!(
-                            "{:.fw$}",
-                            out.as_ufp(self.frac_width as usize),
-                            fw = DECIMAL_PRINT_WIDTH
-                        )
-                    },
-                )
+                    warn!(
+                        self.logger,
+                        "Computation over/underflow: {} to {}",
+                        if SIGNED {
+                            format!(
+                                "{:.fw$}",
+                                backing_val
+                                    .as_sfp((self.frac_width * 2) as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        } else {
+                            format!(
+                                "{:.fw$}",
+                                backing_val
+                                    .as_ufp((self.frac_width * 2) as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        },
+                        if SIGNED {
+                            format!(
+                                "{:.fw$}",
+                                out.as_sfp(self.frac_width as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        } else {
+                            format!(
+                                "{:.fw$}",
+                                out.as_ufp(self.frac_width as usize),
+                                fw = DECIMAL_PRINT_WIDTH
+                            )
+                        },
+                    )
+                }
+
+                let computed = Some(
+                    backing_val
+                        .slice_out(upper_idx as usize, lower_idx as usize),
+                );
+
+                if let Some(out) = self.queue.shift(computed) {
+                    self.product = out.clone();
+                    vec![
+                        (ir::Id::from("out"), out),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out"), Value::zeroes(self.width)),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
             }
-
-            Some(backing_val.slice_out(upper_idx as usize, lower_idx as usize))
-        } else {
-            None
         };
 
-        Ok(if let Some(out) = self.queue.shift(computed) {
-            self.product = out.clone();
-            vec![
-                (ir::Id::from("out"), out),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
-        })
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -1721,6 +1845,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         validate![inputs;
             left: self.width,
             right: self.width,
+            reset: 1,
             go: 1
         ];
     }
@@ -1729,15 +1854,19 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let left = get_input_unwrap(inputs, "left");
-        let right = get_input_unwrap(inputs, "right");
-        let go = get_input_unwrap(inputs, "go");
-
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()))
+        get_input![inputs;
+            left: "left",
+            right: "right",
+            reset: "reset",
+            go: "go"
+        ];
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
 
         Ok(vec![])
     }
@@ -1746,7 +1875,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out"), self.product.clone()),
@@ -1761,7 +1890,7 @@ pub struct StdFpDivPipe<const SIGNED: bool> {
     pub frac_width: u64,
     pub quotient: Value,
     pub remainder: Value,
-    update: Option<(Value, Value)>, //first is left, second is right
+    update: BinOpUpdate,
     queue: ShiftBuffer<(Value, Value), 2>,
     full_name: ir::Id,
     logger: logging::Logger,
@@ -1780,7 +1909,7 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
             frac_width,
             quotient: Value::zeroes(width),
             remainder: Value::zeroes(width),
-            update: None,
+            update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
             logger: logging::new_sublogger(&name),
             full_name: name,
@@ -1807,57 +1936,80 @@ impl<const SIGNED: bool> Named for StdFpDivPipe<SIGNED> {
 
 impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let computed = if let Some((left, right)) = self.update.take() {
-            if right.as_u64() != 0 {
-                let (q, r) = if SIGNED {
-                    (
-                        Value::from(
-                            (left.as_signed() << self.frac_width as usize)
-                                / right.as_signed(),
-                            self.width,
-                        ),
-                        Value::from(
-                            left.as_signed().rem_euclid(right.as_signed()),
-                            self.width,
-                        ),
-                    )
-                } else {
-                    (
-                        Value::from(
-                            (left.as_unsigned() << self.frac_width as usize)
-                                / right.as_unsigned(),
-                            self.width,
-                        ),
-                        Value::from(
-                            left.as_unsigned().rem_euclid(right.as_unsigned()),
-                            self.width,
-                        ),
-                    )
-                };
-                Some((q, r))
-            } else {
-                warn!(self.logger, "Division by zero");
-                Some((Value::zeroes(self.width), Value::zeroes(self.width)))
+        let out = match self.update.take() {
+            BinOpUpdate::None => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), self.quotient.clone()),
+                    (ir::Id::from("out_remainder"), self.remainder.clone()),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
             }
-        } else {
-            None
-        };
+            BinOpUpdate::Reset => {
+                self.queue.reset();
+                vec![
+                    (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
+                    (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
+                    (ir::Id::from("done"), Value::bit_low()),
+                ]
+            }
+            BinOpUpdate::Value(left, right) => {
+                let (q, r) = if right.as_u64() != 0 {
+                    if SIGNED {
+                        (
+                            Value::from(
+                                (left.as_signed() << self.frac_width as usize)
+                                    / right.as_signed(),
+                                self.width,
+                            ),
+                            Value::from(
+                                left.as_signed()
+                                    - right.as_signed()
+                                        * floored_division(
+                                            &left.as_signed(),
+                                            &right.as_signed(),
+                                        ),
+                                self.width,
+                            ),
+                        )
+                    } else {
+                        (
+                            Value::from(
+                                (left.as_unsigned()
+                                    << self.frac_width as usize)
+                                    / right.as_unsigned(),
+                                self.width,
+                            ),
+                            Value::from(
+                                left.as_unsigned()
+                                    .rem_euclid(right.as_unsigned()),
+                                self.width,
+                            ),
+                        )
+                    }
+                } else {
+                    warn!(self.logger, "Division by zero");
+                    (Value::zeroes(self.width), Value::zeroes(self.width))
+                };
 
-        Ok(if let Some((q, r)) = self.queue.shift(computed) {
-            self.quotient = q.clone();
-            self.remainder = r.clone();
-            vec![
-                (ir::Id::from("out_quotient"), q),
-                (ir::Id::from("out_remainder"), r),
-                (ir::Id::from("done"), Value::bit_high()),
-            ]
-        } else {
-            vec![
-                (ir::Id::from("out_quotient"), Value::zeroes(self.width)),
-                (ir::Id::from("out_remainder"), Value::zeroes(self.width)),
-                (ir::Id::from("done"), Value::bit_low()),
-            ]
-        })
+                if let Some((q, r)) = self.queue.shift(Some((q, r))) {
+                    self.quotient = q.clone();
+                    self.remainder = r.clone();
+                    vec![
+                        (ir::Id::from("out_quotient"), q),
+                        (ir::Id::from("out_remainder"), r),
+                        (ir::Id::from("done"), Value::bit_high()),
+                    ]
+                } else {
+                    vec![
+                        (ir::Id::from("out_quotient"), self.quotient.clone()),
+                        (ir::Id::from("out_remainder"), self.remainder.clone()),
+                        (ir::Id::from("done"), Value::bit_low()),
+                    ]
+                }
+            }
+        };
+        Ok(out)
     }
 
     fn is_comb(&self) -> bool {
@@ -1868,6 +2020,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         validate![inputs;
             left: self.width,
             right: self.width,
+            reset: 1,
             go: 1
         ];
     }
@@ -1876,15 +2029,21 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let left = get_input_unwrap(inputs, "left");
-        let right = get_input_unwrap(inputs, "right");
-        let go = get_input_unwrap(inputs, "go");
+        get_input![inputs;
+            left: "left",
+            right: "right",
+            reset: "reset",
+            go: "go"
+        ];
 
-        if go.as_bool() {
-            self.update = Some(((*left).clone(), (*right).clone()));
+        self.update = if reset.as_bool() {
+            BinOpUpdate::Reset
+        } else if go.as_bool() {
+            BinOpUpdate::Value(left.clone(), right.clone())
         } else {
-            self.update = None;
-        }
+            BinOpUpdate::None
+        };
+
         Ok(vec![])
     }
 
@@ -1892,12 +2051,160 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         &mut self,
         _inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        self.update = None;
+        self.update.clear();
         self.queue.reset();
         Ok(vec![
             (ir::Id::from("out_quotient"), self.quotient.clone()),
             (ir::Id::from("out_remainder"), self.remainder.clone()),
             (ir::Id::from("done"), Value::bit_low()),
+        ])
+    }
+}
+
+pub(crate) fn floored_division(left: &IBig, right: &IBig) -> IBig {
+    let div = left / right;
+
+    if left.signum() != ibig!(-1) && right.signum() != ibig!(-1) {
+        div
+    } else if (div.signum() == (-1).into() || div.signum() == 0.into())
+        && (left != &(&div * right))
+    {
+        div - 1_i32
+    } else {
+        div
+    }
+}
+
+/// Implementation of integer square root via a basic binary search algorithm
+/// based on wikipedia psuedocode
+pub(crate) fn int_sqrt(i: &UBig) -> UBig {
+    let mut lower: UBig = ubig!(0);
+    let mut upper: UBig = i + ubig!(1);
+    let mut temp: UBig;
+
+    while lower != (&upper - ubig!(1)) {
+        temp = (&lower + &upper) / ubig!(2);
+        if &(&temp * &temp) <= i {
+            lower = temp
+        } else {
+            upper = temp
+        }
+    }
+    lower
+}
+
+type SqrtUpdate = RegUpdate;
+
+pub struct StdSqrt<const FP: bool> {
+    pub width: u64,
+    pub output: Value,
+    frac_width: u64,
+    update: SqrtUpdate,
+    name: ir::Id,
+}
+
+impl<const FP: bool> StdSqrt<FP> {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("Missing `WIDTH` param from std_sqrt binding");
+        let frac_width = if FP {
+            get_param(params, "FRAC_WIDTH")
+                .expect("Missing `FRAC_WIDTH` param from std_sqrt binding")
+        } else {
+            0
+        };
+
+        Self {
+            width,
+            frac_width,
+            output: Value::zeroes(width),
+            update: SqrtUpdate::None,
+            name,
+        }
+    }
+}
+
+impl<const FP: bool> Named for StdSqrt<FP> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.name
+    }
+}
+
+impl<const FP: bool> Primitive for StdSqrt<FP> {
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        let out = match self.update.take() {
+            SqrtUpdate::None => vec![
+                ("out".into(), self.output.clone()),
+                ("done".into(), Value::bit_low()),
+            ],
+            SqrtUpdate::Reset => {
+                self.output = Value::zeroes(self.width);
+                vec![
+                    ("out".into(), self.output.clone()),
+                    ("done".into(), Value::bit_low()),
+                ]
+            }
+            SqrtUpdate::Value(v) => {
+                self.output = if FP {
+                    let val = int_sqrt(
+                        &(v.as_unsigned() << (self.frac_width as usize)),
+                    );
+                    Value::from(val, self.width)
+                } else {
+                    let val = int_sqrt(&v.as_unsigned());
+                    Value::from(val, self.width)
+                };
+
+                vec![
+                    ("out".into(), self.output.clone()),
+                    ("done".into(), Value::bit_high()),
+                ]
+            }
+        };
+
+        Ok(out)
+    }
+
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            r#in: self.width,
+            go: 1
+        ]
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_input![inputs;
+            in_val: "in",
+            go: "go",
+            reset: "reset"
+        ];
+
+        self.update = if reset.as_bool() {
+            SqrtUpdate::Reset
+        } else if go.as_bool() {
+            SqrtUpdate::Value(in_val.clone())
+        } else {
+            SqrtUpdate::None
+        };
+
+        Ok(vec![])
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.update.clear();
+        Ok(vec![
+            ("out".into(), self.output.clone()),
+            ("done".into(), Value::bit_low()),
         ])
     }
 }

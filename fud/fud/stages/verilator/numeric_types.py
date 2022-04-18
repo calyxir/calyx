@@ -1,9 +1,11 @@
+import base64
 import numpy as np
 from math import log2
 from fractions import Fraction
 from dataclasses import dataclass
 from decimal import Decimal, getcontext
 from fud.errors import InvalidNumericType
+import math
 
 
 @dataclass
@@ -78,6 +80,11 @@ class NumericType:
 
     def unsigned_integer(self) -> int:
         return self.uint_repr
+
+    def base_64_encode(self) -> bytes:
+        return base64.standard_b64encode(
+            self.uint_repr.to_bytes(math.ceil(self.width / 8), "little")
+        )
 
     def pretty_print(self):
         pass

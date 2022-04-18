@@ -5,6 +5,7 @@ use super::names::{
     QualifiedInstanceName,
 };
 use super::stk_env::Smoosher;
+use crate::configuration::Config;
 use crate::debugger::name_tree::ActiveTreeNode;
 use crate::debugger::PrintCode;
 use crate::errors::{InterpreterError, InterpreterResult};
@@ -62,6 +63,8 @@ pub struct InterpreterState {
     pub component: Rc<iir::Component>,
 
     pub sub_comp_set: Rc<HashSet<ConstCell>>,
+
+    allow_par_conflicts: bool,
 }
 
 /// Helper functions for the environment.
@@ -72,11 +75,13 @@ impl InterpreterState {
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
+        configs: &Config,
     ) -> InterpreterResult<Self> {
         // only for the main component
         let qin =
             ComponentQualifiedInstanceName::new_single(target, &target.name);
-        let (map, set) = Self::construct_cell_map(target, ctx, mems, &qin)?;
+        let (map, set) =
+            Self::construct_cell_map(target, ctx, mems, &qin, configs)?;
 
         Ok(Self {
             context: Rc::clone(ctx),
@@ -85,6 +90,7 @@ impl InterpreterState {
             cell_map: map,
             component: target.clone(),
             sub_comp_set: Rc::new(set),
+            allow_par_conflicts: configs.allow_par_conflicts,
         })
     }
 
@@ -93,8 +99,10 @@ impl InterpreterState {
         target: &Rc<iir::Component>,
         mems: &Option<MemoryMap>,
         qin: &ComponentQualifiedInstanceName,
+        configs: &Config,
     ) -> InterpreterResult<Self> {
-        let (map, set) = Self::construct_cell_map(target, ctx, mems, qin)?;
+        let (map, set) =
+            Self::construct_cell_map(target, ctx, mems, qin, configs)?;
 
         Ok(Self {
             context: Rc::clone(ctx),
@@ -103,6 +111,7 @@ impl InterpreterState {
             cell_map: map,
             component: target.clone(),
             sub_comp_set: Rc::new(set),
+            allow_par_conflicts: configs.allow_par_conflicts,
         })
     }
 
@@ -117,6 +126,7 @@ impl InterpreterState {
         cell_name: &ir::Id,
         mems: &Option<MemoryMap>,
         qin_name: &ComponentQualifiedInstanceName,
+        configs: &Config,
     ) -> InterpreterResult<Box<dyn Primitive>> {
         let cell_qin = QualifiedInstanceName::new(qin_name, cell_name).as_id();
         Ok(match prim_name.as_ref() {
@@ -124,33 +134,64 @@ impl InterpreterState {
                 Box::new(combinational::StdConst::new(params, cell_qin))
             }
             // unsigned and signed basic arith
-            "std_add" | "std_sadd" => {
-                Box::new(combinational::StdAdd::new(params, cell_qin))
-            }
-            "std_sub" | "std_ssub" => {
-                Box::new(combinational::StdSub::new(params, cell_qin))
-            }
+            "std_add" | "std_sadd" => Box::new(combinational::StdAdd::new(
+                params,
+                cell_qin,
+                configs.error_on_overflow,
+            )),
+            "std_sub" | "std_ssub" => Box::new(combinational::StdSub::new(
+                params,
+                cell_qin,
+                configs.error_on_overflow,
+            )),
             // fp basic arith
             "std_fp_sadd" | "std_fp_add" => {
-                Box::new(combinational::StdFpAdd::new(params, cell_qin))
+                Box::new(combinational::StdFpAdd::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
             }
             "std_fp_ssub" | "std_fp_sub" => {
-                Box::new(combinational::StdFpSub::new(params, cell_qin))
+                Box::new(combinational::StdFpSub::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
             }
             // unsigned arith
             "std_mult_pipe" => {
-                Box::new(stateful::StdMultPipe::<false>::new(params, cell_qin))
+                Box::new(stateful::StdMultPipe::<false, 2>::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
             }
-            "std_div_pipe" => {
-                Box::new(stateful::StdDivPipe::<false>::new(params, cell_qin))
+            "std_div_pipe" => Box::new(stateful::StdDivPipe::<false>::new(
+                params,
+                cell_qin,
+                configs.error_on_overflow,
+            )),
+            "sqrt" => {
+                Box::new(stateful::StdSqrt::<false>::new(params, cell_qin))
             }
+            "fp_sqrt" => {
+                Box::new(stateful::StdSqrt::<true>::new(params, cell_qin))
+            }
+
             // signed arith
             "std_smult_pipe" => {
-                Box::new(stateful::StdMultPipe::<true>::new(params, cell_qin))
+                Box::new(stateful::StdMultPipe::<true, 2>::new(
+                    params,
+                    cell_qin,
+                    configs.error_on_overflow,
+                ))
             }
-            "std_sdiv_pipe" => {
-                Box::new(stateful::StdDivPipe::<true>::new(params, cell_qin))
-            }
+            "std_sdiv_pipe" => Box::new(stateful::StdDivPipe::<true>::new(
+                params,
+                cell_qin,
+                configs.error_on_overflow,
+            )),
             // fp unsigned arith
             "std_fp_mult_pipe" => Box::new(
                 stateful::StdFpMultPipe::<false>::new(params, cell_qin),
@@ -211,8 +252,11 @@ impl InterpreterState {
             // State components
             "std_reg" => Box::new(stateful::StdReg::new(params, cell_qin)),
             "std_mem_d1" => {
-                let mut prim =
-                    Box::new(stateful::StdMemD1::new(params, cell_qin));
+                let mut prim = Box::new(stateful::StdMemD1::new(
+                    params,
+                    cell_qin,
+                    configs.allow_invalid_memory_access,
+                ));
 
                 let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
@@ -222,8 +266,11 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d2" => {
-                let mut prim =
-                    Box::new(stateful::StdMemD2::new(params, cell_qin));
+                let mut prim = Box::new(stateful::StdMemD2::new(
+                    params,
+                    cell_qin,
+                    configs.allow_invalid_memory_access,
+                ));
 
                 let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
@@ -233,8 +280,11 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d3" => {
-                let mut prim =
-                    Box::new(stateful::StdMemD3::new(params, cell_qin));
+                let mut prim = Box::new(stateful::StdMemD3::new(
+                    params,
+                    cell_qin,
+                    configs.allow_invalid_memory_access,
+                ));
 
                 let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
@@ -244,8 +294,11 @@ impl InterpreterState {
                 prim
             }
             "std_mem_d4" => {
-                let mut prim =
-                    Box::new(stateful::StdMemD4::new(params, cell_qin));
+                let mut prim = Box::new(stateful::StdMemD4::new(
+                    params,
+                    cell_qin,
+                    configs.allow_invalid_memory_access,
+                ));
 
                 let init = mems.as_ref().and_then(|x| x.get(cell_name));
 
@@ -253,6 +306,26 @@ impl InterpreterState {
                     prim.initialize_memory(vals)?;
                 }
                 prim
+            }
+
+            // Unsynthesizeable operators
+            "std_unsyn_mult" => {
+                Box::new(combinational::StdUnsynMult::new(params, cell_qin))
+            }
+            "std_unsyn_div" => {
+                Box::new(combinational::StdUnsynDiv::new(params, cell_qin))
+            }
+            "std_unsyn_smult" => {
+                Box::new(combinational::StdUnsynSmult::new(params, cell_qin))
+            }
+            "std_unsyn_sdiv" => {
+                Box::new(combinational::StdUnsynSdiv::new(params, cell_qin))
+            }
+            "std_unsyn_mod" => {
+                Box::new(combinational::StdUnsynMod::new(params, cell_qin))
+            }
+            "std_unsyn_smod" => {
+                Box::new(combinational::StdUnsynSmod::new(params, cell_qin))
             }
 
             p => return Err(InterpreterError::UnknownPrimitive(p.to_string())),
@@ -264,6 +337,7 @@ impl InterpreterState {
         ctx: &iir::ComponentCtx,
         mems: &Option<MemoryMap>,
         qin_name: &ComponentQualifiedInstanceName,
+        configs: &Config,
     ) -> InterpreterResult<(PrimitiveMap, HashSet<ConstCell>)> {
         let mut map = HashMap::new();
         let mut set = HashSet::new();
@@ -284,6 +358,7 @@ impl InterpreterState {
                             cl.name(),
                             mems,
                             qin_name,
+                            configs,
                         )?,
                     );
                 }
@@ -292,7 +367,7 @@ impl InterpreterState {
                         ctx.iter().find(|x| x.name == name).unwrap();
                     let qin = qin_name
                         .new_extend(InstanceName::new(inner_comp, cl.name()));
-                    let env = Self::init(ctx, inner_comp, mems, &qin)?;
+                    let env = Self::init(ctx, inner_comp, mems, &qin, configs)?;
                     let comp_interp: Box<dyn Primitive> =
                         Box::new(ComponentInterpreter::from_component(
                             inner_comp, env, qin,
@@ -372,6 +447,13 @@ impl InterpreterState {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
+    pub fn print_env_raw(&self) {
+        let sv: StateView = self.into();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&sv.gen_serialzer(true)).unwrap()
+        );
+    }
     /// A predicate that checks if the given cell points to a combinational
     /// primitive (or component?)
     pub fn cell_is_comb<C: AsRaw<ir::Cell>>(&self, cell: C) -> bool {
@@ -399,6 +481,7 @@ impl InterpreterState {
             context: Rc::clone(&self.context),
             component: self.component.clone(),
             sub_comp_set: Rc::clone(&self.sub_comp_set),
+            allow_par_conflicts: self.allow_par_conflicts,
         }
     }
     /// Creates a fork of the source environment which has the same clock and
@@ -413,6 +496,7 @@ impl InterpreterState {
             context: Rc::clone(&self.context),
             component: self.component.clone(),
             sub_comp_set: Rc::clone(&self.sub_comp_set),
+            allow_par_conflicts: self.allow_par_conflicts,
         }
     }
 
@@ -433,6 +517,7 @@ impl InterpreterState {
         let merged = port_map.merge_many(
             others.into_iter().map(|x| x.port_map).collect(),
             overlap,
+            self.allow_par_conflicts,
         );
 
         self.port_map = match merged {
@@ -498,13 +583,12 @@ impl InterpreterState {
 
         self.sub_comp_set
             .iter()
-            .map(|x| {
+            .flat_map(|x| {
                 lookup[x]
                     .get_comp_interpreter()
                     .unwrap()
                     .currently_executing_group()
             })
-            .flatten()
             .collect()
     }
 
@@ -516,10 +600,9 @@ impl InterpreterState {
 
         self.sub_comp_set
             .iter()
-            .map(|x| {
+            .flat_map(|x| {
                 lookup[x].get_comp_interpreter().unwrap().get_active_tree()
             })
-            .flatten()
             .collect()
     }
 }
@@ -530,7 +613,7 @@ impl Serialize for InterpreterState {
         S: serde::Serializer,
     {
         let sv: StateView = self.into();
-        sv.gen_serialzer().serialize(serializer)
+        sv.gen_serialzer(false).serialize(serializer)
     }
 }
 #[allow(clippy::borrowed_box)]
@@ -555,7 +638,7 @@ impl<'a> Serialize for StateView<'a> {
     where
         S: serde::Serializer,
     {
-        self.gen_serialzer().serialize(serializer)
+        self.gen_serialzer(false).serialize(serializer)
     }
 }
 
@@ -657,7 +740,7 @@ impl<'a> StateView<'a> {
     /// Returns a string representing the current state of the environment. This
     /// just serializes the environment to a string and returns that string
     pub fn state_as_str(&self) -> String {
-        serde_json::to_string_pretty(&self.gen_serialzer()).unwrap()
+        serde_json::to_string_pretty(&self.gen_serialzer(false)).unwrap()
     }
 
     pub fn get_cells<S: AsRef<str> + Clone>(
@@ -678,7 +761,7 @@ impl<'a> StateView<'a> {
         }
     }
 
-    pub fn gen_serialzer(&self) -> FullySerialize {
+    pub fn gen_serialzer(&self, raw: bool) -> FullySerialize {
         let ctx = self.get_ctx();
         let cell_prim_map = &self.get_cell_map().borrow();
 
@@ -733,7 +816,10 @@ impl<'a> StateView<'a> {
                                 if !prim.is_comb() {
                                     return Some((
                                         cell.name().clone(),
-                                        Primitive::serialize(&**prim, None), //TODO Griffin: Fix this
+                                        Primitive::serialize(
+                                            &**prim,
+                                            raw.then(|| PrintCode::Binary),
+                                        ), //TODO Griffin: Fix this
                                     ));
                                 }
                             }

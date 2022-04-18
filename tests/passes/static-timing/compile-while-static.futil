@@ -1,4 +1,4 @@
-// -p remove-comb-groups -p static-timing
+// -x top-down-st:dump-fsm -p top-down-st -b none
 
 import "primitives/core.futil";
 
@@ -6,9 +6,9 @@ component main() -> () {
   cells {
     add = std_add(32);
     add_r = std_reg(32); // to make body not combinational
+    comb_reg = std_reg(1);
 
     lt = std_lt(32);
-    lt_r = std_reg(1); // to make body not combinational
   }
 
   wires {
@@ -20,19 +20,24 @@ component main() -> () {
       do_add[done] = add_r.done;
     }
 
-    group cond<"static"=1> {
+    group cond0<"static"=1> {
       lt.right = 32'd5;
       lt.left = 32'd1;
-      lt_r.in = lt.out;
-      lt_r.write_en = 1'b1;
-      cond[done] = lt_r.out;
+      comb_reg.in = lt.out;
+      comb_reg.write_en = 1'd1;
+      cond0[done] = comb_reg.done ? 1'd1;
     }
-
   }
 
   control {
-    while lt_r.out with cond {
-      do_add;
+    @static(5) seq {
+      @static cond0;
+      @bound(2) @static(4) while comb_reg.out {
+        @static(2) seq {
+          @static do_add;
+          @static cond0;
+        }
+      }
     }
   }
 }

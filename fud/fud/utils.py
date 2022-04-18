@@ -136,6 +136,7 @@ class Conversions:
 
     @staticmethod
     def stream_to_bytes(data: IOBase) -> bytes:
+        assert isinstance(data, IOBase), f"Data of type `{type(data)}` passed"
         assert (
             not data.closed
         ), "Closed stream. This probably means that a previous stage used this up."
@@ -149,7 +150,10 @@ class Conversions:
 
     @staticmethod
     def bytes_to_string(data: bytes) -> str:
-        return data.decode("UTF-8")
+        try:
+            return data.decode("UTF-8")
+        except UnicodeDecodeError:
+            raise errors.SourceConversion("string")
 
     @staticmethod
     def string_to_bytes(data: str) -> bytes:
@@ -171,6 +175,8 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
 
     assert isinstance(cmd, str)
     log.debug(cmd)
+
+    log.debug(f"Stdin is `{type(stdin)}`")
 
     # In debug mode, let stderr stream to the terminal (and the same
     # with stdout, unless we need it for capture). Otherwise, capture

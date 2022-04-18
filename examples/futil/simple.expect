@@ -9,30 +9,42 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     reg0 = std_reg(32);
     reg1 = std_reg(32);
     @generated fsm = std_reg(2);
+    @generated add_constants_go = std_wire(1);
+    @generated add_constants_done = std_wire(1);
+    @generated multiply_constants_go = std_wire(1);
+    @generated multiply_constants_done = std_wire(1);
+    @generated tdcc_go = std_wire(1);
+    @generated tdcc_done = std_wire(1);
   }
   wires {
-    done = fsm.out == 2'd2 ? 1'd1;
-    add.left = !reg0.done & fsm.out == 2'd0 & go ? const0.out;
-    add.right = !reg0.done & fsm.out == 2'd0 & go ? const1.out;
+    done = tdcc_done.out ? 1'd1;
+    add.left = add_constants_go.out ? const0.out;
+    add.right = add_constants_go.out ? const1.out;
+    add_constants_done.in = reg0.done;
+    add_constants_go.in = !add_constants_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.in = fsm.out == 2'd0 & reg0.done & go ? 2'd1;
-    fsm.in = fsm.out == 2'd1 & reg1.done & go ? 2'd2;
+    fsm.in = fsm.out == 2'd0 & add_constants_done.out & tdcc_go.out ? 2'd1;
+    fsm.in = fsm.out == 2'd1 & multiply_constants_done.out & tdcc_go.out ? 2'd2;
     fsm.reset = reset;
-    fsm.write_en = fsm.out == 2'd0 & reg0.done & go | fsm.out == 2'd1 & reg1.done & go | fsm.out == 2'd2 ? 1'd1;
+    fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & add_constants_done.out & tdcc_go.out | fsm.out == 2'd1 & multiply_constants_done.out & tdcc_go.out ? 1'd1;
     mult.clk = clk;
-    mult.go = !mult.done & !reg1.done & fsm.out == 2'd1 & go ? 1'd1;
-    mult.left = !reg1.done & fsm.out == 2'd1 & go ? const0.out;
+    mult.go = !mult.done & multiply_constants_go.out ? 1'd1;
+    mult.left = multiply_constants_go.out ? const0.out;
     mult.reset = reset;
-    mult.right = !reg1.done & fsm.out == 2'd1 & go ? const1.out;
+    mult.right = multiply_constants_go.out ? const1.out;
+    multiply_constants_done.in = reg1.done;
+    multiply_constants_go.in = !multiply_constants_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
     reg0.clk = clk;
-    reg0.in = !reg0.done & fsm.out == 2'd0 & go ? add.out;
+    reg0.in = add_constants_go.out ? add.out;
     reg0.reset = reset;
-    reg0.write_en = !reg0.done & fsm.out == 2'd0 & go ? 1'd1;
+    reg0.write_en = add_constants_go.out ? 1'd1;
     reg1.clk = clk;
-    reg1.in = !reg1.done & fsm.out == 2'd1 & go ? mult.out;
+    reg1.in = multiply_constants_go.out ? mult.out;
     reg1.reset = reset;
-    reg1.write_en = !reg1.done & fsm.out == 2'd1 & go ? mult.done;
+    reg1.write_en = multiply_constants_go.out ? mult.done;
+    tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
+    tdcc_go.in = go;
   }
 
   control {}

@@ -1,14 +1,14 @@
 # Examples
 The easiest way to play with these examples is using the Calyx driver
-[fud](https://capra.cs.cornell.edu/docs/calyx/tools/fud.html). Provided in the documentation
+[fud](https://docs.calyxir.org/tools/fud.html). Provided in the documentation
 is a thorough guide to how to use the driver.
 
 # Extensions
 In each directory, you'll notice there are a few different types of extensions:
  - `.fuse` is the [Dahlia](https://capra.cs.cornell.edu/fuse/docs/overview/) extension.
- - `.futil` is the [Calyx](https://capra.cs.cornell.edu/docs/calyx/intro.html) extension, also referred to as Calyx.
+ - `.futil` is the [Calyx](https://docs.calyxir.org/intro.html) extension, also referred to as Calyx.
  - `.data` is an extension alias for `.json`, which is how we pre-load data into simulated memories.
- - `.expect` is used for [runt](https://capra.cs.cornell.edu/docs/calyx/tools/runt.html) to ensure
+ - `.expect` is used for [runt](https://docs.calyxir.org/tools/runt.html) to ensure
  our examples remain up-to-date.
 
  You might notice that some files share common names, but different extensions, e.g.

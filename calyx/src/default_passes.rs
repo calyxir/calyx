@@ -6,7 +6,7 @@ use crate::passes::{
     InferStaticTiming, LowerGuards, MergeAssign, MinimizeRegs, Papercut,
     ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
     ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    WellFormed, WireInliner,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -30,18 +30,20 @@ impl PassManager {
         pm.register_pass::<CompileEmpty>()?;
         pm.register_pass::<ResourceSharing>()?;
         pm.register_pass::<DeadCellRemoval>()?;
+        pm.register_pass::<DeadGroupRemoval>()?;
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<RemoveCombGroups>()?;
+        pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
         pm.register_pass::<ComponentInterface>()?;
-        pm.register_pass::<HoleInliner>()?;
+        pm.register_pass::<WireInliner>()?;
         pm.register_pass::<ClkInsertion>()?;
         pm.register_pass::<ResetInsertion>()?;
         pm.register_pass::<MergeAssign>()?;
@@ -51,13 +53,13 @@ impl PassManager {
         pm.register_pass::<Externalize>()?;
 
         // Disabled by default
-        pm.register_pass::<DeadGroupRemoval>()?;
+        pm.register_pass::<UnrollBounded>()?;
         pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GroupToInvoke>()?;
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<LowerGuards>()?;
-        pm.register_pass::<WireInliner>()?;
+        pm.register_pass::<HoleInliner>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
@@ -73,23 +75,18 @@ impl PassManager {
                 MinimizeRegs,
             ]
         );
-        register_alias!(
-            pm,
-            "compile",
-            [CompileInvoke, CompileEmpty, TopDownCompileControl]
-        );
+        register_alias!(pm, "compile", [CompileInvoke, TopDownCompileControl]);
         register_alias!(
             pm,
             "post-opt",
-            [DeadGroupRemoval, DeadCellRemoval, CombProp]
+            [DeadGroupRemoval, CombProp, DeadCellRemoval]
         );
         register_alias!(
             pm,
             "lower",
             [
                 GoInsertion,
-                ComponentInterface,
-                HoleInliner,
+                WireInliner,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,

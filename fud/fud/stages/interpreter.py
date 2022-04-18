@@ -1,3 +1,4 @@
+import base64
 from fud.stages import Stage, SourceType, Source
 from pathlib import Path
 import simplejson as sjson
@@ -74,7 +75,7 @@ class InterpreterStage(Stage):
             cmd += [
                 "debug",
                 self.debugger_flags,
-                unwrap_or(config["stages", self.name, "debugger", "flags"], ""),
+                unwrap_or(config["stages", "debugger", "flags"], ""),
             ]
 
         cmd = " ".join(cmd)
@@ -127,11 +128,22 @@ class InterpreterStage(Stage):
             transparent_shell(command)
 
         @builder.step()
-        def cleanup(tmpdir: SourceType.Directory):
+        def parse_output(
+            output: SourceType.Stream,
+            json_path: SourceType.UnTyped,
+            tmpdir: SourceType.Directory,
+        ) -> SourceType.Stream:
             """
-            Remove the temporary directory
+            Parses a raw interpreter output
             """
-            tmpdir.remove()
+
+            out_path = Path(tmpdir.name) / "output.json"
+            output = parse_from_json(output, json_path)
+
+            with out_path.open("w") as f:
+                sjson.dump(output, f, indent=2, sort_keys=True, use_decimal=True)
+
+            return out_path.open("rb")
 
         # schedule
         tmpdir = mktmp()
@@ -145,8 +157,13 @@ class InterpreterStage(Stage):
             debug(input_data, tmpdir)
         else:
             result = interpret(input_data, tmpdir)
-            cleanup(tmpdir)
-            return result
+
+            if "--raw" in cmd:
+                return parse_output(
+                    result, Source(data_path, SourceType.UnTyped), tmpdir
+                )
+            else:
+                return result
 
 
 def convert_to_json(output_dir, data, round_float_to_fixed):
@@ -174,19 +191,19 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
         shape[k]["width"] = width
 
         def convert(x):
-            with_prefix = False
+
             if not is_fp:
-                return Bitnum(x, **shape[k]).bit_string(with_prefix)
+                return Bitnum(x, **shape[k]).base_64_encode()
 
             try:
-                return FixedPoint(x, **shape[k]).bit_string(with_prefix)
+                return FixedPoint(x, **shape[k]).base_64_encode()
             except InvalidNumericType as error:
                 if round_float_to_fixed:
                     # Only round if it is not already representable.
                     fractional_width = width - int_width
                     x = float_to_fixed(float(x), fractional_width)
                     x = str(x)
-                    return FixedPoint(x, **shape[k]).bit_string(with_prefix)
+                    return FixedPoint(x, **shape[k]).base_64_encode()
                 else:
                     raise error
 
@@ -195,3 +212,93 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
 
     with out_path.open("w") as f:
         sjson.dump(output_json, f, indent=2, use_decimal=True)
+
+
+def parse_from_json(output_data_str, original_data_file_path):
+    if original_data_file_path is not None:
+        with Path(original_data_file_path).open("r") as f:
+            orig = sjson.load(f)
+    else:
+        orig = None
+
+    output_data = sjson.load(output_data_str)
+
+    output_data = output_data["memories"]
+
+    def parse_entry(target, format_details):
+        numeric_type, is_signed, (width, int_width, frac_width) = (
+            format_details
+            if format_details is not None
+            else ("bitnum", False, (None, None, None))
+        )
+
+        if isinstance(target, list):
+            return [
+                parse_entry(
+                    x, (numeric_type, is_signed, (width, int_width, frac_width))
+                )
+                for x in target
+            ]
+        elif isinstance(target, str):
+            num = base64.standard_b64decode(target)
+            int_rep = int.from_bytes(num, "little", signed=is_signed)
+
+            if int_rep > 0 and (int_rep & (1 << (width - 1))) and is_signed:
+                int_rep = -(2 ** (width - 1)) + (int_rep ^ (1 << (width - 1)))
+
+            if numeric_type == "bitnum":
+                return int_rep
+            elif numeric_type == "fixed_point":
+                bin_str = bin(int.from_bytes(num, "little", signed=False))
+                bin_len = len(bin_str[2:])
+                if bin_len < width:
+                    bin_str = "0b" + ("0" * (width - bin_len)) + bin_str[2:]
+
+                assert len(bin_str) == width + 2
+
+                fp = FixedPoint(
+                    bin_str,
+                    width,
+                    int_width,
+                    is_signed,
+                )
+                return fp.str_value()
+            else:
+                return False, f"got {numeric_type}"
+
+    processed_output_data = dict()
+
+    for component, inner_dict in output_data.items():
+        inner_dict_output = dict()
+        for key, target in inner_dict.items():
+            if orig is not None:
+                width = orig[key]["format"].get("width")
+                width = (
+                    width
+                    if width is not None
+                    else orig[key]["format"]["frac_width"]
+                    + orig[key]["format"]["int_width"]
+                )
+                int_width = orig[key]["format"].get("int_width")
+                frac_width = orig[key]["format"].get("frac_width")
+
+                if int_width is None and frac_width is None:
+                    pass
+                elif int_width is None:
+                    int_width = width - frac_width
+                elif frac_width is None:
+                    frac_width = width - int_width
+
+                format_details = (
+                    orig[key]["format"]["numeric_type"],
+                    orig[key]["format"]["is_signed"],
+                    (width, int_width, frac_width),
+                )
+                assert format_details[2][0] is not None
+            else:
+                format_details = None
+
+            inner_dict_output[key] = parse_entry(target, format_details)
+        processed_output_data[component] = inner_dict_output
+
+    return processed_output_data

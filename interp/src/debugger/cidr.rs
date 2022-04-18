@@ -1,22 +1,23 @@
-use std::cell::Ref;
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::{cell::Ref, collections::HashMap, rc::Rc};
 
-use super::commands::{Command, PrintCode, PrintMode};
-use super::context::DebuggingContext;
-use super::io_utils::Input;
+use super::{
+    commands::{Command, PrintCode, PrintMode},
+    context::DebuggingContext,
+    interactive_errors::DebuggerError,
+    io_utils::Input,
+};
+use crate::debugger::source::SourceMap;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
-use crate::interpreter::{ComponentInterpreter, Interpreter};
-use crate::interpreter_ir as iir;
-use crate::primitives::Serializeable;
+use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::utils::AsRaw;
+use crate::{interpreter_ir as iir, primitives::Serializeable};
 use calyx::ir::{self, Id, RRC};
-pub(super) const SPACING: &str = "    ";
-use super::interactive_errors::DebuggerError;
-use crate::interpreter::ConstCell;
 use std::fmt::Write;
+
+/// Constant amount of space used for debugger messages
+pub(super) const SPACING: &str = "    ";
 
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [main_loop] function while this struct holds auxilliary information used to
@@ -25,24 +26,26 @@ pub struct Debugger {
     _context: iir::ComponentCtx,
     main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
+    source_map: Option<SourceMap>,
 }
 
 impl Debugger {
     pub fn new(
         context: &iir::ComponentCtx,
         main_component: &Rc<iir::Component>,
+        source_map: Option<SourceMap>,
     ) -> Self {
         Self {
             _context: Rc::clone(context),
             main_component: Rc::clone(main_component),
             debugging_ctx: DebuggingContext::new(context, &main_component.name),
+            source_map,
         }
     }
 
     pub fn main_loop(
         &mut self,
         env: InterpreterState,
-        pass_through: bool, //flag to just evaluate the debugger version (non-interactive mode)
     ) -> InterpreterResult<InterpreterState> {
         let qin = ComponentQualifiedInstanceName::new_single(
             &self.main_component,
@@ -54,11 +57,6 @@ impl Debugger {
             qin,
         );
         component_interpreter.set_go_high();
-
-        if pass_through {
-            component_interpreter.run()?;
-            return component_interpreter.deconstruct();
-        }
 
         let mut input_stream = Input::default();
         println!("== Calyx Interactive Debugger ==");
@@ -78,8 +76,10 @@ impl Debugger {
             };
 
             match comm {
-                Command::Step => {
-                    component_interpreter.step()?;
+                Command::Step(n) => {
+                    for _ in 0..n {
+                        component_interpreter.step()?;
+                    }
                 }
                 Command::Continue => {
                     self.debugging_ctx.set_current_time(
@@ -249,11 +249,26 @@ impl Debugger {
                 }
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC => {
-                    println!(
-                        "{}",
-                        component_interpreter.get_active_tree()[0]
-                            .format_tree::<true>(2)
-                    )
+                    if let Some(map) = &self.source_map {
+                        for x in component_interpreter
+                            .get_active_tree()
+                            .remove(0)
+                            .flat_set()
+                            .into_iter()
+                        {
+                            if let Some(output) = map.lookup(x) {
+                                println!("{}", output);
+                            }
+                        }
+                    } else {
+                        println!(
+                            "{}",
+                            component_interpreter
+                                .get_active_tree()
+                                .remove(0)
+                                .format_tree::<true>(0)
+                        )
+                    }
                 }
             }
         }
