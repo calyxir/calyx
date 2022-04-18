@@ -316,6 +316,6 @@ if __name__ == "__main__":
 
         with open(args.write_metadata, "w") as f:
             for key, val in metadata.items():
-                f.write(f'{key}: "{val}"\n')
+                f.write(f"{key}: {val}\n")
 
     print(calyx)

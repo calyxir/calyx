@@ -1,4 +1,4 @@
-WHITESPACE = _{ " " | "\t" | NEWLINE }
+WHITESPACE = _{ " " | "\t" }
 dot = _{"."}
 ident_syms = _{ "_" | "-" | "'" }
 quote = _{"\""}
@@ -11,12 +11,10 @@ named_tag = { "(" ~ num ~ "," ~ id_string ~ ")" }
 tag = { named_tag | num }
 
 inner_position_string =  {
-    (!("\"") ~ ANY)*
+    (!(NEWLINE) ~ ANY)*
 }
 
-position_string = { quote ~
-   inner_position_string
-    ~ quote }
+position_string = { inner_position_string ~ NEWLINE }
 
 entry = { tag ~ ":" ~ position_string}
 
