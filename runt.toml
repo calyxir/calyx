@@ -236,6 +236,17 @@ fud e {} -s verilog.cycle_limit 500 \
 """
 
 [[tests]]
+name = "sync primitives"
+paths = ["examples/sync/*.futil"]
+cmd = """
+fud e {} -s verilog.cycle_limit 500 \
+         -s futil.flags ' -d top-down-st' \
+         --through verilog \
+         -s verilog.data {}.data \
+         --to dat -q
+"""
+
+[[tests]]
 name = "memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """

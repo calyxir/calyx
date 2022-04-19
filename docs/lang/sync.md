@@ -24,7 +24,7 @@ One way to think of this interface is as a size-1 concurrent FIFO.
 > The [following example][ex] is a part of the Calyx compiler test suite and can be
 > executed using:
 >
->       runt -i tests/correctness/sync
+>       runt -i examples/sync
 
 The synchronizing register interface is non-standard: it provides two go signals and
 two done signals to initiate parallel reads and writes.
@@ -46,7 +46,7 @@ similar to a `write_done` signal.
 The following group initiates a write operation into the synchronizing register `imm`
 from the memory `in`:
 ```
-{{#include ../../tests/correctness/sync.futil:write}}
+{{#include ../../examples/sync/sync.futil:write}}
 ```
 The group waits for the `imm.write_done` signal to be high before continuing
 execution.
@@ -56,7 +56,7 @@ stall and cause the group to take another cycle.
 The following group initiates a read the synchronizing register `imm` and saves
 the value into the `out` memory:
 ```
-{{#include ../../tests/correctness/sync.futil:read}}
+{{#include ../../examples/sync/sync.futil:read}}
 ```
 The group waits till the `imm.read_done` signal is high to write the value into
 the memory.
@@ -65,7 +65,7 @@ the group to another cycle.
 
 Finally, we can describe the control program as:
 ```
-{{#include ../../tests/correctness/sync.futil:control}}
+{{#include ../../examples/sync/sync.futil:control}}
 ```
 Note that the two groups execute in parallel which means there is no guarantee
 to their order of execution.
@@ -84,4 +84,4 @@ This capability would be useful in implementing synchronizing barriers in Calyx.
 
 [par-undef]: ./undefined.md#semantics-of-par
 [m-struct]: http://composition.al/blog/2013/09/22/some-example-mvar-ivar-and-lvar-programs-in-haskell/
-[ex]: https://github.com/cucapra/calyx/blob/master/tests/correctness/sync.futil
+[ex]: https://github.com/cucapra/calyx/blob/master/examples/sync/sync.futil
