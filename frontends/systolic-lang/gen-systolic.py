@@ -361,7 +361,9 @@ def index_update_at(row, col):
     return updates
 
 
-def generate_control(top_length, top_depth, left_length, left_depth):
+def generate_control(
+    top_length, top_depth, left_length, left_depth, gen_metadata=False
+):
     """
     Logically, control performs the following actions:
     1. Initialize all the memory indexors at the start.
@@ -427,23 +429,26 @@ def generate_control(top_length, top_depth, left_length, left_depth):
 
         # py_ast.Invoke the PEs and move the data to the next layer.
         for (r, c) in elements:
-            tag = counter()
 
-            more_control.append(
-                py_ast.Invoke(
-                    id=py_ast.CompVar(f"pe_{r}_{c}"),
-                    in_connects=[
-                        ("top", py_ast.CompPort(py_ast.CompVar(f"top_{r}_{c}"), "out")),
-                        (
-                            "left",
-                            py_ast.CompPort(py_ast.CompVar(f"left_{r}_{c}"), "out"),
-                        ),
-                    ],
-                    out_connects=[],
-                ).with_attr("pos", tag)
+            invoke = py_ast.Invoke(
+                id=py_ast.CompVar(f"pe_{r}_{c}"),
+                in_connects=[
+                    ("top", py_ast.CompPort(py_ast.CompVar(f"top_{r}_{c}"), "out")),
+                    (
+                        "left",
+                        py_ast.CompPort(py_ast.CompVar(f"left_{r}_{c}"), "out"),
+                    ),
+                ],
+                out_connects=[],
             )
 
-            source_map[tag] = f"pe_{r}_{c} running. Iteration {idx}"
+            if gen_metadata:
+                tag = counter()
+                more_control.append(invoke.with_attr("pos", tag))
+
+                source_map[tag] = f"pe_{r}_{c} running. Iteration {idx}"
+            else:
+                more_control.append(invoke)
 
         control.append(py_ast.ParComp(more_control))
 
@@ -459,7 +464,9 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     return py_ast.SeqComp(stmts=control), source_map
 
 
-def create_systolic_array(top_length, top_depth, left_length, left_depth):
+def create_systolic_array(
+    top_length, top_depth, left_length, left_depth, gen_metadata=False
+):
     """
     top_length: Number of PEs in each row.
     top_depth: Number of elements processed by each PE in a row.
@@ -515,7 +522,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             wires.append(s)
 
     control, source_map = generate_control(
-        top_length, top_depth, left_length, left_depth
+        top_length, top_depth, left_length, left_depth, gen_metadata=gen_metadata
     )
 
     main = py_ast.Component(
@@ -586,6 +593,7 @@ if __name__ == "__main__":
         top_depth=top_depth,
         left_length=left_length,
         left_depth=left_depth,
+        gen_metadata=args.write_metadata is not None,
     )
 
     if args.write_metadata is not None:
