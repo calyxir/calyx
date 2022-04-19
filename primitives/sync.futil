@@ -1,0 +1,16 @@
+extern "sync.sv" {
+  //// ANCHOR: sync_interface
+  primitive std_sync_reg[WIDTH](
+    @write_together(1) in: WIDTH,
+    read_en: 1,
+    @write_together(1) write_en: 1,
+    @clk clk: 1,
+    @reset reset: 1
+  ) -> (
+    out: WIDTH,
+    write_done: 1,
+    read_done: 1,
+    blocked: 1
+  );
+  //// ANCHOR_END: sync_interface
+}
