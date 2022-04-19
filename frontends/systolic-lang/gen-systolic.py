@@ -389,6 +389,18 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     )
     control.append(py_ast.ParComp(init_indices))
 
+    # source_pos metadata init
+    init_tag = 0
+    source_map = {}
+
+    def counter():
+        nonlocal init_tag
+        old = init_tag
+        init_tag += 1
+        return old
+
+    # end source pos init
+
     # Increment memories for PE_00 before computing with it.
     upd_pe00_mem = []
     upd_pe00_mem.append(py_ast.Enable(NAME_SCHEME["index update"].format(prefix="t0")))
@@ -415,6 +427,8 @@ def generate_control(top_length, top_depth, left_length, left_depth):
 
         # py_ast.Invoke the PEs and move the data to the next layer.
         for (r, c) in elements:
+            tag = counter()
+
             more_control.append(
                 py_ast.Invoke(
                     id=py_ast.CompVar(f"pe_{r}_{c}"),
@@ -426,8 +440,10 @@ def generate_control(top_length, top_depth, left_length, left_depth):
                         ),
                     ],
                     out_connects=[],
-                )
+                ).with_attr("pos", tag)
             )
+
+            source_map[tag] = f"pe_{r}_{c} running. Iteration {idx}"
 
         control.append(py_ast.ParComp(more_control))
 
@@ -440,7 +456,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
             )
 
     control.append(py_ast.SeqComp(mover_groups))
-    return py_ast.SeqComp(stmts=control)
+    return py_ast.SeqComp(stmts=control), source_map
 
 
 def create_systolic_array(top_length, top_depth, left_length, left_depth):
@@ -497,20 +513,28 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             # Instantiate output movement structure
             s = instantiate_output_move(row, col, top_length, out_idx_size)
             wires.append(s)
+
+    control, source_map = generate_control(
+        top_length, top_depth, left_length, left_depth
+    )
+
     main = py_ast.Component(
         name="main",
         inputs=[],
         outputs=[],
         structs=wires + cells,
-        controls=generate_control(top_length, top_depth, left_length, left_depth),
+        controls=control,
     )
 
-    return py_ast.Program(
-        imports=[
-            py_ast.Import("primitives/core.futil"),
-            py_ast.Import("primitives/binary_operators.futil"),
-        ],
-        components=[main],
+    return (
+        py_ast.Program(
+            imports=[
+                py_ast.Import("primitives/core.futil"),
+                py_ast.Import("primitives/binary_operators.futil"),
+            ],
+            components=[main],
+        ),
+        source_map,
     )
 
 
@@ -524,6 +548,15 @@ if __name__ == "__main__":
     parser.add_argument("-td", "--top-depth", type=int)
     parser.add_argument("-ll", "--left-length", type=int)
     parser.add_argument("-ld", "--left-depth", type=int)
+
+    parser.add_argument(
+        "--write-metadata",
+        type=str,
+        default=None,
+        help="the output file to write",
+        dest="write_metadata",
+        nargs="?",
+    )
 
     args = parser.parse_args()
 
@@ -548,11 +581,18 @@ if __name__ == "__main__":
             "-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
         )
 
-    program = create_systolic_array(
+    program, metadata = create_systolic_array(
         top_length=top_length,
         top_depth=top_depth,
         left_length=left_length,
         left_depth=left_depth,
     )
+
+    if args.write_metadata is not None:
+
+        with open(args.write_metadata, "w") as f:
+            for key, val in metadata.items():
+                f.write(f"{key}: {val}\n")
+
     program.emit()
     print(PE_DEF)
