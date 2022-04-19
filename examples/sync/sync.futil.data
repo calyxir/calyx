@@ -1,0 +1,18 @@
+{
+  "in": {
+    "data": [ 1, 2, 3, 4, 5 ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "out": {
+    "data": [ 0, 0, 0, 0, 0 ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
+}
