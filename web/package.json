@@ -4,7 +4,7 @@
     "license": "MIT",
     "scripts": {
         "start": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel index.html",
-        "build": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel build --public-url . index.html --log-level info; cp -R static/* dist/",
+        "build": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json; WASM_PACK_PROFILE=dev parcel build --public-url . index.html --log-level 4; cp -R static/* dist/",
         "clean": "rm -rf dist rust/pkg; cd rust; cargo clean"
     },
     "dependencies": {
@@ -14,8 +14,7 @@
         "prismjs": "^1.27.0"
     },
     "devDependencies": {
-        "@parcel/transformer-toml": "2.4.1",
-        "parcel": "^2.4.1",
+        "parcel-bundler": "^1.12.4",
         "parcel-plugin-wasm.rs": "^1.3.0"
     }
 }
