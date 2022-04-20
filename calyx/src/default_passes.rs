@@ -6,7 +6,7 @@ use crate::passes::{
     InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
     Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
     ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    TopDownStaticTiming, WellFormed, WireInliner,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -30,6 +30,7 @@ impl PassManager {
         pm.register_pass::<CompileEmpty>()?;
         pm.register_pass::<ResourceSharing>()?;
         pm.register_pass::<DeadCellRemoval>()?;
+        pm.register_pass::<DeadGroupRemoval>()?;
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
@@ -43,7 +44,7 @@ impl PassManager {
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
         pm.register_pass::<ComponentInterface>()?;
-        pm.register_pass::<HoleInliner>()?;
+        pm.register_pass::<WireInliner>()?;
         pm.register_pass::<ClkInsertion>()?;
         pm.register_pass::<ResetInsertion>()?;
         pm.register_pass::<MergeAssign>()?;
@@ -53,13 +54,13 @@ impl PassManager {
         pm.register_pass::<Externalize>()?;
 
         // Disabled by default
-        pm.register_pass::<DeadGroupRemoval>()?;
+        pm.register_pass::<UnrollBounded>()?;
         pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GroupToInvoke>()?;
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<LowerGuards>()?;
-        pm.register_pass::<WireInliner>()?;
+        pm.register_pass::<HoleInliner>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(

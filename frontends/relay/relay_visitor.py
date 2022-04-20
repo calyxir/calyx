@@ -40,6 +40,10 @@ class Relay2Calyx(ExprFunctor):
         self.controls = []
         self.wires = []
 
+        self.pos_count = 0
+
+        self.source_map: Dict[str, str] = {}
+
     def id(self, name):
         """
         Provides a unique identification for a given name.
@@ -128,10 +132,16 @@ class Relay2Calyx(ExprFunctor):
             comp_decl = CompVar(f"{comp_name}_")
             self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
 
-            self.controls.append(
-                # Append Invoke control to the `main` component.
-                emit_invoke_control(comp_decl, dest, value.args)
-            )
+            invoke = emit_invoke_control(comp_decl, dest, value.args)
+            invoke.attributes.append(("pos", self.pos_count))
+            self.controls.append(invoke)
+
+            tag = self.pos_count
+            self.pos_count += 1
+
+            self.source_map[tag] = [
+                x for x in str(let).splitlines() if x.startswith("let")
+            ][0]
 
             self.func_defs.append(
                 DahliaFuncDef(
@@ -224,25 +234,28 @@ def check_naming_convention(func_defs: List[DahliaFuncDef]):
             )
 
 
-def emit_calyx(relay_ir) -> str:
+def emit_calyx(relay_ir) -> (str, Dict):
     """Lowers a Relay function to a Calyx program."""
     relay_ir = relay_transforms(relay_ir)
     visitor = Relay2Calyx()
     main, func_defs = visitor.visit(relay_ir)
     check_naming_convention(func_defs)
 
-    return "\n".join(
-        (
-            Program(
-                imports=[
-                    Import("primitives/core.futil"),
-                    Import("primitives/binary_operators.futil"),
-                    Import("primitives/math.futil"),
-                ],
-                components=[main],
-            ).doc(),
-            emit_components(func_defs),
-        )
+    return (
+        "\n".join(
+            (
+                Program(
+                    imports=[
+                        Import("primitives/core.futil"),
+                        Import("primitives/binary_operators.futil"),
+                        Import("primitives/math.futil"),
+                    ],
+                    components=[main],
+                ).doc(),
+                emit_components(func_defs),
+            )
+        ),
+        visitor.source_map,
     )
 
 
@@ -275,6 +288,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
     parser.add_argument("file", help="Path to the Relay IR.")
+    parser.add_argument(
+        "--write-metadata",
+        type=str,
+        default=None,
+        help="the output file to write",
+        dest="write_metadata",
+        nargs="?",
+    )
 
     args = parser.parse_args()
     if args.file is None:
@@ -289,4 +310,12 @@ if __name__ == "__main__":
     ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
 
     relay_ir = relay.fromtext(relay_ir)
-    print(emit_calyx(relay_ir))
+    calyx, metadata = emit_calyx(relay_ir)
+
+    if args.write_metadata is not None:
+
+        with open(args.write_metadata, "w") as f:
+            for key, val in metadata.items():
+                f.write(f"{key}: {val}\n")
+
+    print(calyx)

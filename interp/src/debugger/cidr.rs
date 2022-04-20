@@ -6,6 +6,7 @@ use super::{
     interactive_errors::DebuggerError,
     io_utils::Input,
 };
+use crate::debugger::source::SourceMap;
 use crate::environment::{InterpreterState, PrimitiveMap, StateView};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
@@ -25,17 +26,20 @@ pub struct Debugger {
     _context: iir::ComponentCtx,
     main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
+    source_map: Option<SourceMap>,
 }
 
 impl Debugger {
     pub fn new(
         context: &iir::ComponentCtx,
         main_component: &Rc<iir::Component>,
+        source_map: Option<SourceMap>,
     ) -> Self {
         Self {
             _context: Rc::clone(context),
             main_component: Rc::clone(main_component),
             debugging_ctx: DebuggingContext::new(context, &main_component.name),
+            source_map,
         }
     }
 
@@ -245,13 +249,26 @@ impl Debugger {
                 }
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC => {
-                    println!(
-                        "{:?}",
-                        component_interpreter
+                    if let Some(map) = &self.source_map {
+                        for x in component_interpreter
                             .get_active_tree()
                             .remove(0)
                             .flat_set()
-                    )
+                            .into_iter()
+                        {
+                            if let Some(output) = map.lookup(x) {
+                                println!("{}", output);
+                            }
+                        }
+                    } else {
+                        println!(
+                            "{}",
+                            component_interpreter
+                                .get_active_tree()
+                                .remove(0)
+                                .format_tree::<true>(0)
+                        )
+                    }
                 }
             }
         }

@@ -1,15 +1,20 @@
-# Calyx Interpreter
+# Cider: Calyx Interpreter and Debugger
 
-This is the interpreter for FuTIL, implemented in Rust. Currently, it is rather limited; it can only interpret a single group and has very limited functionality. For example, it cannot interpret multi-component programs.
 
-## Usage:
-`cargo run -- -c <component name> -g <group name> <input file>`
+## Usage
+For instructions and examples on using the interpreter functionality, see
+[this page](https://docs.calyxir.org/interpreter.html) on the docs.
 
-where `component name` is an optional argument for the name of the component (default is `main`),
+For examples of using the interactive debugging mode see [the docs](https://docs.calyxir.org/debug/cider.html).
 
-`group name` is an optional argument for the name of the group (default is `main`; currently does not affect output),
+## Compilation Options
+By default cargo will compile cider with the `change-based-sim` feature enabled
+which is a slightly more optimized version of the core simulation algorithm. You
+can compile Cider with the naive simulation algorithm by disabling the default
+feature:
+```
+cargo build --no-default-features
+```
 
-and `input file` is a FuTIL program.
-
-Examples:
-`cargo run -- ./tests/simple_add.futil`
+The release build of Cider is notably faster however since it uses rust's LTO
+the compilation time takes a few minutes.

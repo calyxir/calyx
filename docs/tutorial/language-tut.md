@@ -119,6 +119,8 @@ Executing this program should print:
 
 Meaning that, after the program finished, the final value in our memory was 42.
 
+> **Note**: Icarus Verilog may report a different cycle count compared to the one above. As long as the final value in memory is correct, this does not matter.
+
 ## Add Control
 
 Let's change our program to use an execution schedule.

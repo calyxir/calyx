@@ -1,5 +1,5 @@
 from __future__ import annotations  # Used for circular dependencies.
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Union
 from calyx.utils import block
 
@@ -60,7 +60,9 @@ class Component:
         self.name = name
         self.controls = controls
         # Partition cells and wires.
-        def is_cell(x): return isinstance(x, Cell)
+        def is_cell(x):
+            return isinstance(x, Cell)
+
         self.cells = [s for s in structs if is_cell(s)]
         self.wires = [s for s in structs if not is_cell(s)]
 
@@ -297,16 +299,22 @@ class Invoke(Control):
     in_connects: List[(str, Port)]
     out_connects: List[(str, Port)]
     comb_group: CompVar = None
+    attributes: List[(str, int)] = field(default_factory=list)
 
     def doc(self) -> str:
         in_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.in_connects])
         out_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.out_connects])
-        inv = f"invoke {self.id.doc()}({in_defs})({out_defs})"
+        attrs = " ".join([f"@{tag}({val})" for tag, val in self.attributes])
+        inv = f"{attrs}invoke {self.id.doc()}({in_defs})({out_defs})"
         if self.comb_group is not None:
             inv += f" with {self.comb_group.doc()};"
         else:
             inv += ";"
         return inv
+
+    def with_attr(self, key: str, value: int) -> Invoke:
+        self.attributes.append((key, value))
+        return self
 
 
 @dataclass
@@ -319,9 +327,7 @@ class While(Control):
         cond = f"while {self.port.doc()}"
         if cond is not None:
             cond += f" with {self.cond.doc()}"
-        return block(
-            cond, self.body.doc(), sep=""
-        )
+        return block(cond, self.body.doc(), sep="")
 
 
 @dataclass
@@ -424,6 +430,5 @@ class Stdlib:
         self, op: str, width: int, int_width: int, frac_width: int, signed: bool
     ):
         return CompInst(
-            f'std_fp_{"s" if signed else ""}{op}', [
-                width, int_width, frac_width]
+            f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]
         )

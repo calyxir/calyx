@@ -1,4 +1,4 @@
-ver = "0.3.2"
+ver = "0.4.0"
 
 # Run Vivado/Vitis to produce an xclbin binary.
 # This command needs to output to a temporary file and delete it because fud
@@ -29,6 +29,6 @@ source /opt/xilinx/xrt/setup.sh > /dev/null ; \
 EMCONFIG_PATH=`pwd` \
 XCL_EMULATION_MODE=hw_emu \
 fud exec -q -s futil.exec ../../target/debug/futil \
-    {} --to fpga -s fpga.data data.json | \
+    {} --to fpga -s fpga.data {}.data | \
     grep -Ev "^INFO|^Data|RD ="'
 """

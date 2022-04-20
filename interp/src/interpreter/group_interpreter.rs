@@ -501,7 +501,7 @@ pub(crate) fn finish_interpretation<
 
     let cells = get_dest_cells(
         assigns.iter().copied(),
-        done_signal.as_ref().map(|x| x.get_rrc()).flatten(),
+        done_signal.as_ref().and_then(|x| x.get_rrc()),
     );
 
     if let Some(done_signal) = done_signal {
