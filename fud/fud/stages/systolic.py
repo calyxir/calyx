@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fud.stages import SourceType, Stage
-from fud.utils import shell
+from fud.utils import shell, unwrap_or
 
 
 class SystolicStage(Stage):
@@ -23,16 +23,16 @@ class SystolicStage(Stage):
         )
 
     def _define_steps(self, input, builder, config):
-        script = str(
+        script = (
             Path(config["global", "futil_directory"])
             / "frontends"
             / "systolic-lang"
             / "gen-systolic.py"
         )
-        cmd = " ".join([script, "{input_path}"])
 
-        @builder.step(description=cmd)
+        @builder.step(description=str(script))
         def run_systolic(input_path: SourceType.Path) -> SourceType.Stream:
-            return shell(cmd.format(input_path=str(input_path)))
+            flags = unwrap_or(config["stages", self.name, "flags"], "")
+            return shell(f"{str(script)} {str(input_path)} {flags}")
 
         return run_systolic(input)

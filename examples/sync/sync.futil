@@ -1,0 +1,67 @@
+import "primitives/core.futil";
+import "primitives/sync.futil";
+
+// Move data from one array to another with the index as a synchronized
+// register.
+component main() -> () {
+  cells {
+    @external in = std_mem_d1(32, 5, 3);
+    @external out = std_mem_d1(32, 5, 3);
+    lt = std_lt(3);
+    add = std_add(3);
+
+    // Sync register used to communicate between threads
+    imm = std_sync_reg(32);
+    // Index of the input and output memory
+    idx = std_reg(3);
+  }
+  wires {
+
+    //// ANCHOR: write
+    // Write value from `in[idx]` to sync intermediate.
+    group write_imm {
+      imm.write_en = 1'd1;
+      imm.in = in.read_data;
+      in.addr0 = idx.out;
+      write_imm[done] = imm.write_done;
+    }
+    //// ANCHOR_END: write
+
+    //// ANCHOR: read
+    // Read value from sync intermediate and write to temp.
+    group read_imm {
+      imm.read_en = 1'd1;
+      out.write_en = imm.read_done;
+      out.addr0 = idx.out;
+      out.write_data = imm.out;
+      read_imm[done] = out.done;
+    }
+    //// ANCHOR_END: read
+
+    group incr_idx {
+      add.left = 3'd1;
+      add.right = idx.out;
+      idx.in = add.out;
+      idx.write_en = 1'd1;
+      incr_idx[done] = idx.done;
+    }
+
+    comb group cmp {
+      lt.left = idx.out;
+      lt.right = 3'd5;
+    }
+  }
+  control {
+    //// ANCHOR: control
+    while lt.out with cmp {
+      seq {
+        par {
+          read_imm;
+          write_imm;
+        }
+        incr_idx;
+      }
+    }
+    //// ANCHOR_END: control
+  }
+}

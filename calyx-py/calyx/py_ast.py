@@ -312,6 +312,10 @@ class Invoke(Control):
             inv += ";"
         return inv
 
+    def with_attr(self, key: str, value: int) -> Invoke:
+        self.attributes.append((key, value))
+        return self
+
 
 @dataclass
 class While(Control):

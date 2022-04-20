@@ -1,4 +1,4 @@
-ver = "0.3.2"
+ver = "0.4.0"
 
 ##### Compilation Tests ######
 ## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file
@@ -232,6 +232,17 @@ fud e {} -s verilog.cycle_limit 500 \
          -s futil.flags ' -d top-down-st' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
+         --to dat -q
+"""
+
+[[tests]]
+name = "sync primitives"
+paths = ["examples/sync/*.futil"]
+cmd = """
+fud e {} -s verilog.cycle_limit 500 \
+         -s futil.flags ' -d top-down-st' \
+         --through verilog \
+         -s verilog.data {}.data \
          --to dat -q
 """
 
