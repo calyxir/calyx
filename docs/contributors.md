@@ -11,6 +11,7 @@ Here is a list of all the people who have worked on Calyx:
 - [Adrian Sampson](https://adriansampson.net)
 - YoungSeok Na
 - [Jan-Paul Ramos](https://jpramos.me)
+- Jiaxuan (Crystal) Hu
 
 **Previous Contributors**
 
