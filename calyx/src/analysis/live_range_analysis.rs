@@ -273,8 +273,7 @@ impl LiveRangeAnalysis {
     pub fn get_all(&self) -> impl Iterator<Item = ir::Id> + '_ {
         self.live
             .iter()
-            .map(|(_name, set)| set.set.iter())
-            .flatten()
+            .flat_map(|(_, set)| set.set.iter())
             .unique()
             .cloned()
     }
