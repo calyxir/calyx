@@ -102,7 +102,7 @@ impl ComponentInliner {
     /// 2. Using the [PortMap] to a new [Port].
     /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns(
-        assigns: &mut Vec<ir::Assignment>,
+        assigns: &mut [ir::Assignment],
         port_rewrite: &ir::Rewriter,
         new_group: Option<&RRC<ir::Group>>,
     ) {

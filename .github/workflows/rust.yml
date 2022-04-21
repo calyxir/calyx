@@ -50,7 +50,7 @@ jobs:
     - name: Install Rust stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: 1.58.0
+          toolchain: 1.60.0
           override: true
           components: rustfmt, clippy
 
@@ -276,7 +276,7 @@ jobs:
     - name: Install Rust stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: 1.58.0
+          toolchain: 1.60.0
           override: true
           components: rustfmt, clippy
     - name: Build
@@ -302,7 +302,7 @@ jobs:
     - name: Install stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: 1.58.0
+          toolchain: 1.60.0
           override: true
           components: rustfmt, clippy
     - name: Check formatting
