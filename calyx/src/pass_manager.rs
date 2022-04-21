@@ -165,12 +165,19 @@ impl PassManager {
             // Pass is known to exist because create_plan validates the
             // names of passes.
             let pass = &self.passes[&name];
-            if !excl_set.contains(&name) {
-                let start = Instant::now();
+
+            // Conditional compilation for WASM target because Instant::now
+            // is not supported.
+            if cfg!(not(target_family = "wasm")) {
+                if !excl_set.contains(&name) {
+                    let start = Instant::now();
+                    pass(ctx)?;
+                    log::info!("{name}: {}ms", start.elapsed().as_millis());
+                } else {
+                    log::info!("{name}: Ignored")
+                }
+            } else if !excl_set.contains(&name) {
                 pass(ctx)?;
-                log::info!("{name}: {}ms", start.elapsed().as_millis());
-            } else {
-                log::info!("{name}: Ignored")
             }
         }
 

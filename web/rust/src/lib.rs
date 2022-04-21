@@ -50,6 +50,7 @@ fn compile(
 
 #[wasm_bindgen]
 pub fn run(passes: &JsValue, library: &str, namespace: &str) -> String {
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     let test: Vec<String> = passes.into_serde().unwrap();
     match compile(&test, library, namespace) {
         Ok(s) => s,
