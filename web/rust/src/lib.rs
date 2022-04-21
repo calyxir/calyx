@@ -39,7 +39,7 @@ fn compile(
     // Build the IR representation
     let mut rep = ir::from_ast::ast_to_ir(ws)?;
 
-    pm.execute_plan_without_log(&mut rep, passes, &[])?;
+    pm.execute_plan(&mut rep, passes, &[])?;
 
     let mut buffer: Vec<u8> = vec![];
     for comp in &rep.components {

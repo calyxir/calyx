@@ -165,32 +165,18 @@ impl PassManager {
             // Pass is known to exist because create_plan validates the
             // names of passes.
             let pass = &self.passes[&name];
-            if !excl_set.contains(&name) {
-                let start = Instant::now();
-                pass(ctx)?;
-                log::info!("{name}: {}ms", start.elapsed().as_millis());
-            } else {
-                log::info!("{name}: Ignored")
-            }
-        }
 
-        Ok(())
-    }
-
-    /// Executes a given "plan" constructed with logging disabled
-    pub fn execute_plan_without_log(
-        &self,
-        ctx: &mut ir::Context,
-        incl: &[String],
-        excl: &[String],
-    ) -> CalyxResult<()> {
-        let (passes, excl_set) = self.create_plan(incl, excl)?;
-
-        for name in passes {
-            // Pass is known to exist because create_plan validates the
-            // names of passes.
-            let pass = &self.passes[&name];
-            if !excl_set.contains(&name) {
+            // Conditional compilation for WASM target because Instant::now
+            // is not supported.
+            if cfg!(not(target_family = "wasm")) {
+                if !excl_set.contains(&name) {
+                    let start = Instant::now();
+                    pass(ctx)?;
+                    log::info!("{name}: {}ms", start.elapsed().as_millis());
+                } else {
+                    log::info!("{name}: Ignored")
+                }
+            } else if !excl_set.contains(&name) {
                 pass(ctx)?;
             }
         }
