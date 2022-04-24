@@ -44,15 +44,23 @@ impl Visitor for MergeStaticPar {
         for stmt in e_stmts {
             if let ir::Control::Enable(data) = stmt {
                 let group = &data.group;
-                let static_time: u64 =
-                    *group.borrow().attributes.get("static").unwrap();
-                if !static_group.contains_key(&static_time) {
-                    static_group.insert(static_time, Vec::new());
+                if let Some(static_time) =
+                    group.borrow().attributes.get("static")
+                {
+                    if !static_group.contains_key(static_time) {
+                        static_group.insert(*static_time, Vec::new());
+                    }
+                    static_group
+                        .get_mut(static_time)
+                        .unwrap()
+                        .push(Rc::clone(group));
+                } else {
+                    let enable: ir::Enable = Enable {
+                        group: Rc::clone(group),
+                        attributes: Attributes::default(),
+                    };
+                    s.stmts.push(ir::Control::Enable(enable));
                 }
-                static_group
-                    .get_mut(&static_time)
-                    .unwrap()
-                    .push(Rc::clone(group));
             }
         }
 
@@ -74,7 +82,6 @@ impl Visitor for MergeStaticPar {
 
                 grp.borrow_mut().assignments.extend(asmts);
 
-                //let mut ports: Vec<ir::Guard> = Vec::new();
                 let mut fin_grd: ir::Guard = ir::Guard::True;
                 for asmt in done_asmts.clone() {
                     let grd: ir::Guard = ir::Guard::Port(asmt.src);
