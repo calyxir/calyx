@@ -10,8 +10,30 @@ use std::iter::Iterator;
 use std::mem;
 use std::rc::Rc;
 
-/// Pass to do something
 #[derive(Default)]
+/// under a par control block, if multiple groups have the same static attribute, then
+/// merge them together.
+///
+/// Running this pass removes unnecessary FSM transitions
+///
+/// #Example
+/// 1. Under a par block
+/// group A<"static"=1>{
+/// a; b;
+/// }
+/// group B<"static"=1>{
+/// c; d;
+/// }
+/// par {A; B;}
+///
+/// into
+///
+/// group msp<"static"=1>{
+/// a; b; c; d;
+/// }
+/// par {msp; }
+///
+/// note that a, b, c, d are assignments
 pub struct MergeStaticPar;
 
 impl Named for MergeStaticPar {
