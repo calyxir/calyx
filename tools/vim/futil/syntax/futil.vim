@@ -12,7 +12,7 @@ hi link futilString String
 
 " @ style attributes
 syn match futilAttr '\v\@[a-zA-Z_]+' nextgroup=futilAttrVal
-syn region futilAttrVal start=/\v\(/ end=/\v\)/ contains=futilConstant
+syn region futilAttrVal start=/\v\(/ end=/\v\)/ contains=futilConstant,futilComment
 hi link futilAttr String
 
 " Control statements
@@ -29,12 +29,12 @@ syn match futilBoundName '\v[_a-zA-Z]((\-+)?[_a-zA-Z0-9]+)*' contained nextgroup
 hi link futilBoundName Include
 
 " Parameters attached to primitives
-syn region futilParams start=/\v\[/  end=/\v\]/ contains=futilParam nextgroup=futilPorts skipwhite skipnl
+syn region futilParams start=/\v\[/  end=/\v\]/ contains=futilParam,futilComment nextgroup=futilPorts skipwhite skipnl
 syn match futilParam '\v[_a-zA-Z]((\-+)?[_a-zA-Z0-9]+)*' contained
 hi link futilParam Type
 
 " Port definitions
-syn region futilPorts start=/\v\(/  end=/\v\)/ contains=futilPortDef,futilAttr contained
+syn region futilPorts start=/\v\(/  end=/\v\)/ contains=futilPortDef,futilAttr,futilComment contained
 syn match futilPortDef '\v[_a-zA-Z]((\-+)?[_a-zA-Z0-9]+)*' contained nextgroup=futilDefColon skipwhite
 syn match futilDefColon ':' contained nextgroup=futilPortParam skipwhite
 syn match futilPortParam '\v([_a-zA-Z]((\-+)?[_a-zA-Z0-9]+)*)|([1-9][0-9]*)' contained
