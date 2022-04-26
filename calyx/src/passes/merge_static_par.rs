@@ -35,9 +35,16 @@ impl Visitor for MergeStaticPar {
         let mut static_group: LinkedHashMap<u64, Vec<RRC<ir::Group>>> =
             LinkedHashMap::new();
         let (e_stmts, n_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
-            mem::take(&mut s.stmts)
-                .into_iter()
-                .partition(|stmt| matches!(stmt, ir::Control::Enable(_)));
+            mem::take(&mut s.stmts).into_iter().partition(|stmt| {
+                if let ir::Control::Enable(en) = stmt {
+                    matches!(
+                        en.group.borrow().attributes.get("static"),
+                        Some(_)
+                    )
+                } else {
+                    false
+                }
+            });
 
         s.stmts.extend(n_stmts);
 
@@ -54,12 +61,6 @@ impl Visitor for MergeStaticPar {
                         .get_mut(static_time)
                         .unwrap()
                         .push(Rc::clone(group));
-                } else {
-                    let enable: ir::Enable = Enable {
-                        group: Rc::clone(group),
-                        attributes: Attributes::default(),
-                    };
-                    s.stmts.push(ir::Control::Enable(enable));
                 }
             }
         }
