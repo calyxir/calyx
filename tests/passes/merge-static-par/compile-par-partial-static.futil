@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d top-down-st -d post-opt -d lower -d merge-static-par -b none
+// -p validate -p merge-static-par
 
 import "primitives/core.futil";
 
@@ -10,13 +10,13 @@ component main() -> () {
   }
 
   wires {
-    group A {
+    group A<"static"=1> {
       a.in = 2'd0;
       a.write_en = 1'b1;
       A[done] = a.done;
     }
 
-    group B {
+    group B<"static"=1> {
       b.in = 2'd1;
       b.write_en = 1'b1;
       B[done] = b.done;
@@ -30,10 +30,6 @@ component main() -> () {
   }
 
   control {
-    seq {
-      A;
-      par { A; B; C; }
-      B;
-    }
+    par { A; B; C; }
   }
 }
