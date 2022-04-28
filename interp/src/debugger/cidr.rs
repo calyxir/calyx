@@ -20,8 +20,8 @@ use std::fmt::Write;
 pub(super) const SPACING: &str = "    ";
 
 /// The interactive Calyx debugger. The debugger itself is run with the
-/// [main_loop] function while this struct holds auxilliary information used to
-/// coordinate the debugging process.
+/// [Debugger::main_loop] function while this struct holds auxilliary
+/// information used to coordinate the debugging process.
 pub struct Debugger {
     _context: iir::ComponentCtx,
     main_component: Rc<iir::Component>,

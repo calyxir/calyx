@@ -408,7 +408,7 @@ impl Value {
         }
     }
 
-    /// Returns a Value truncated to length [new_size].
+    /// Returns a Value truncated to length new_size.
     ///
     /// # Example
     /// ```
@@ -425,7 +425,7 @@ impl Value {
         }
     }
 
-    /// Zero-extend the vector to length [ext].
+    /// Zero-extend the vector to length ext.
     ///
     /// # Example:
     /// ```
@@ -444,7 +444,7 @@ impl Value {
         }
     }
 
-    /// Sign-extend the vector to length [ext].
+    /// Sign-extend the vector to length ext.
     ///
     /// # Example:
     /// ```
@@ -686,7 +686,7 @@ impl Value {
         self.vec.len()
     }
 
-    /// Returns a value containing the sliced region [lower,upper], consumes the original
+    /// Returns a value containing the sliced region \[lower,upper\], consumes the original
     pub fn slice_out(self, upper_idx: usize, lower_idx: usize) -> Self {
         assert!(upper_idx >= lower_idx);
         assert!(upper_idx < self.vec.len());
@@ -699,7 +699,7 @@ impl Value {
         }
     }
 
-    /// Returns a value containing the sliced region [lower,upper]
+    /// Returns a value containing the sliced region \[lower,upper\]
     pub fn slice(self, upper_idx: usize, lower_idx: usize) -> Self {
         assert!(upper_idx >= lower_idx);
         assert!(upper_idx < self.vec.len());

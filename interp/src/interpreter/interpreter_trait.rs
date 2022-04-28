@@ -23,7 +23,7 @@ pub trait Interpreter {
     /// conditions.
     fn converge(&mut self) -> InterpreterResult<()>;
 
-    /// Advance the interpreter until [is_done] is true. This comes with a
+    /// Advance the interpreter until [Interpreter::is_done] is true. This comes with a
     /// default implementation which calls step in a while loop, however it is
     /// usually more efficient to override this with run calls to the
     /// appropriate subcomponents.
@@ -37,7 +37,7 @@ pub trait Interpreter {
     /// Consumes the interpreter and returns the concluding [InterpreterState].
     ///
     /// # Panics
-    /// If [is_done] is false
+    /// If [Interpreter::is_done] is false
     fn deconstruct(self) -> InterpreterResult<InterpreterState>;
 
     /// Return whether the interpreter has finished executing
