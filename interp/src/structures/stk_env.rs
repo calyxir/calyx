@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::hash::Hash;
 use std::mem;
 use std::rc::Rc;
 
@@ -221,15 +222,19 @@ impl<'a, T> Iterator for Iter<'a, T> {
 ///     |
 /// ```
 #[derive(Debug)]
-pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
+pub struct StackMap<K, V>
+where
+    K: Eq + Hash,
+    V: Eq,
+{
     head: HashMap<K, V>,       //mutable
     tail: List<HashMap<K, V>>, //read-only
 }
 
-impl<'a, K: Eq + std::hash::Hash, V: Eq> From<&'a Smoosher<K, V>>
+impl<'a, K: Eq + Hash, V: Eq> From<&'a StackMap<K, V>>
     for HashMap<&'a K, &'a V>
 {
-    fn from(item: &'a Smoosher<K, V>) -> Self {
+    fn from(item: &'a StackMap<K, V>) -> Self {
         //just add all bindings
         let mut tr = HashMap::new();
         //first add from head
@@ -249,22 +254,22 @@ impl<'a, K: Eq + std::hash::Hash, V: Eq> From<&'a Smoosher<K, V>>
     }
 }
 
-impl<K, V> From<HashMap<K, V>> for Smoosher<K, V>
+impl<K, V> From<HashMap<K, V>> for StackMap<K, V>
 where
-    K: Eq + std::hash::Hash,
+    K: Eq + Hash,
     V: Eq,
 {
     fn from(hm: HashMap<K, V>) -> Self {
-        let mut smoosher = Smoosher::new();
+        let mut smoosher = StackMap::new();
         smoosher.head = hm;
         smoosher
     }
 }
 
-impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
+impl<K: Eq + Hash, V: Eq> StackMap<K, V> {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Smoosher<K, V> {
-        Smoosher {
+    pub fn new() -> StackMap<K, V> {
+        StackMap {
             head: HashMap::new(),
             tail: List::new(),
         }
@@ -394,7 +399,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         let new_tail = self.tail.push(old_head);
         //update Self and create new Smoosher
         self.tail = new_tail.clone(); //will this die after the end of [fork]? no
-        Smoosher {
+        StackMap {
             head: HashMap::new(),
             tail: new_tail,
         }
@@ -448,7 +453,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     pub fn fork_from_tail(&self) -> Self {
         assert!(self.head.is_empty());
-        Smoosher {
+        StackMap {
             head: HashMap::new(),
             tail: self.tail.clone(),
         }
@@ -556,7 +561,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             for (k, v) in wr_head {
                 new_head.insert(k, v);
             }
-            Smoosher {
+            StackMap {
                 head: new_head,
                 tail: new_tail,
             }
@@ -625,7 +630,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     }
 
     /// For internal use only
-    /// Set [new] as the topmost scope of `self`
+    /// Set `new` as the topmost scope of `self`
     fn push_scope(&mut self, new: HashMap<K, V>) {
         let old_head = mem::replace(&mut self.head, new);
         self.tail = self.tail.push(old_head);
@@ -698,7 +703,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         //find shared fork point; if doesn't exist, panic
         let mut a = self;
         let mut b = other;
-        if let Some((depth_a, depth_b)) = Smoosher::shared_fork_point(&a, &b) {
+        if let Some((depth_a, depth_b)) = StackMap::shared_fork_point(&a, &b) {
             //smoosh `self` and `other` to right before that point
             a = a.smoosh(depth_a - 1);
             b = b.smoosh(depth_b - 1);
@@ -717,7 +722,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             std::mem::drop(b.tail); //b.head already consumed above
                                     //create a'
             if let (Some(a_new_head), a_new_tail) = a.tail.split() {
-                a = Smoosher {
+                a = StackMap {
                     head: a_new_head,
                     tail: a_new_tail,
                 };
@@ -839,7 +844,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         //of them as well as smoosh them all to one level above the common fork.
         for sm in other {
             if let Some((depth_a, depth_b)) =
-                Smoosher::shared_fork_point(&a, &sm)
+                StackMap::shared_fork_point(&a, &sm)
             {
                 let dp_first_ref = dp_first.get_or_insert(depth_a);
 
@@ -882,7 +887,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
 
         if let (Some(a_new_head), a_new_tail) = a.tail.split() {
-            a = Smoosher {
+            a = StackMap {
                 head: a_new_head,
                 tail: a_new_tail,
             };
@@ -1049,8 +1054,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
 
     pub fn diff_other(&self, other: &Self) -> HashMap<&K, &V> {
-        let mut self_hm = Smoosher::to_hm(self);
-        let other_hm = Smoosher::to_hm(other);
+        let mut self_hm = StackMap::to_hm(self);
+        let other_hm = StackMap::to_hm(other);
         for (&k, &v) in other_hm.iter() {
             if let Some(&v_self) = self_hm.get(k) {
                 if v_self == v {
@@ -1087,13 +1092,13 @@ mod priv_tests {
     use crate::values::Value; //this is used in the tests below
     #[test]
     fn smoosher_shared_fork_point() {
-        let mut smoosher = Smoosher::new();
+        let mut smoosher = StackMap::new();
         smoosher.set("a", 2); //for type inference
                               //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 1);
             assert_eq!(depth_b, 1)
@@ -1107,7 +1112,7 @@ mod priv_tests {
         smoosher2.new_scope();
         //now expecting (3, 2)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 3);
             assert_eq!(depth_b, 2)
@@ -1120,13 +1125,13 @@ mod priv_tests {
 
     #[test]
     fn value_shared_fork_point() {
-        let mut smoosher = Smoosher::new();
+        let mut smoosher = StackMap::new();
         smoosher.set("a", Value::from(2, 32)); //for type inference
                                                //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 1);
             assert_eq!(depth_b, 1)
@@ -1140,7 +1145,7 @@ mod priv_tests {
         smoosher2.new_scope();
         //now expecting (3, 2)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 3);
             assert_eq!(depth_b, 2)
@@ -1153,4 +1158,4 @@ mod priv_tests {
 }
 
 #[derive(Debug)]
-pub struct CollisionError<K: Eq + std::hash::Hash, V: Eq>(pub K, pub V, pub V);
+pub struct CollisionError<K: Eq + Hash, V: Eq>(pub K, pub V, pub V);

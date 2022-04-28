@@ -4,20 +4,19 @@ use super::names::{
     ComponentQualifiedInstanceName, GroupQIN, InstanceName,
     QualifiedInstanceName,
 };
-use super::stk_env::Smoosher;
+use super::stk_env::StackMap;
 use crate::configuration::Config;
-use crate::debugger::name_tree::ActiveTreeNode;
-use crate::debugger::PrintCode;
+use crate::debugger::{name_tree::ActiveTreeNode, PrintCode};
 use crate::errors::{InterpreterError, InterpreterResult};
-use crate::interpreter::ComponentInterpreter;
-use crate::interpreter::Interpreter;
+use crate::interpreter::{ComponentInterpreter, Interpreter};
 use crate::interpreter_ir as iir;
 use crate::primitives::{
     combinational, stateful, Entry, Primitive, Serializeable,
 };
-use crate::utils::AsRaw;
-use crate::utils::MemoryMap;
-use crate::values::Value;
+use crate::{
+    utils::{AsRaw, MemoryMap},
+    values::Value,
+};
 use calyx::ir::{self, RRC};
 use serde::Serialize;
 use std::cell::RefCell;
@@ -41,7 +40,7 @@ pub(crate) type PrimitiveMap =
 /// A map defining values for ports. As it is keyed by ConstPort, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
 /// than heirarchical which simplifies the access interface.
-type PortValMap = Smoosher<ConstPort, Value>;
+type PortValMap = StackMap<ConstPort, Value>;
 
 /// The environment to interpret a Calyx program.
 pub struct InterpreterState {
@@ -62,8 +61,12 @@ pub struct InterpreterState {
     /// environment state.
     pub component: Rc<iir::Component>,
 
+    /// A hash set which contains pointers to the cells which are sub-components
+    /// rather than primitives
     pub sub_comp_set: Rc<HashSet<ConstCell>>,
 
+    /// flag which tells the environment to allow certain par conflicts on
+    /// merging
     allow_par_conflicts: bool,
 }
 
@@ -94,6 +97,10 @@ impl InterpreterState {
         })
     }
 
+    /// A constructor for the interpreter-state of sub-components. The main
+    /// difference from [InterpreterState::init_top_level] is that this
+    /// constructor expects the qualified instance name of the parent component,
+    /// in addition to the other details.
     pub fn init(
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
@@ -120,6 +127,9 @@ impl InterpreterState {
         self.port_map.set(port.as_raw(), value);
     }
 
+    /// An internal helper function which is used to generate a `Box<dyn
+    /// Primitive>` from the source tree definition. This is only for creating
+    /// primitive cells.
     fn make_primitive(
         prim_name: &ir::Id,
         params: &ir::Binding,
@@ -332,6 +342,8 @@ impl InterpreterState {
         })
     }
 
+    /// An internal helper function which inflates a mapping for all cells in a
+    /// component, recursively realizing sub-components as needed.
     fn construct_cell_map(
         comp: &Rc<iir::Component>,
         ctx: &iir::ComponentCtx,
@@ -381,6 +393,9 @@ impl InterpreterState {
         Ok((Rc::new(RefCell::new(map)), set))
     }
 
+    /// A helper meathod which constructs the initial environment map from ports
+    /// to values and provides the appropriate default values for ports
+    /// depending on their parent cell.
     fn construct_port_map(comp: &iir::Component) -> PortValMap {
         let mut map = HashMap::new();
 
@@ -447,6 +462,8 @@ impl InterpreterState {
         println!("{}", serde_json::to_string_pretty(&self).unwrap());
     }
 
+    /// Serializes the full environment state with a base64 string encoding
+    /// rather than providing a numeric interpretation for values.
     pub fn print_env_raw(&self) {
         let sv: StateView = self.into();
         println!(
@@ -541,6 +558,9 @@ impl InterpreterState {
         Ok(self)
     }
 
+    /// Evaluates the truth value of a guard under the current environment. It
+    /// can error if the program checks the truth value of a port which is not
+    /// exactly one bit.
     pub fn eval_guard(&self, guard: &ir::Guard) -> InterpreterResult<bool> {
         Ok(match guard {
             ir::Guard::Or(g1, g2) => {
@@ -578,6 +598,8 @@ impl InterpreterState {
         })
     }
 
+    /// Provides a hash set containing the qualified names of the currently
+    /// active sub-components
     pub fn sub_component_currently_executing(&self) -> HashSet<GroupQIN> {
         let lookup = self.cell_map.borrow();
 
