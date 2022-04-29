@@ -118,6 +118,7 @@ def do_fuzz(prog, spec, template, iteration):
     Note: prog and spec do not need to be Calyx file, but should be convertable to Calyx using fud
     """
     try:
+        # convert received files to calyx
         original_prog = prog
         original_spec = spec
         prog_name, prog_file_type = os.path.splitext(prog)
