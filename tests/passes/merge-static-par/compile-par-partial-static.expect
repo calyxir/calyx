@@ -1,0 +1,39 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+  }
+  wires {
+    group A<"static"=1> {
+      a.write_en = 1'd1;
+      a.in = 2'd0;
+      A[done] = a.done;
+    }
+    group B<"static"=1> {
+      b.write_en = 1'd1;
+      b.in = 2'd1;
+      B[done] = b.done;
+    }
+    group C {
+      c.write_en = 1'd1;
+      c.in = 2'd2;
+      C[done] = c.done;
+    }
+    group msp<"static"=1> {
+      a.write_en = 1'd1;
+      a.in = 2'd0;
+      b.write_en = 1'd1;
+      b.in = 2'd1;
+      msp[done] = a.done & b.done ? 1'd1;
+    }
+  }
+
+  control {
+    par {
+      C;
+      @static msp;
+    }
+  }
+}

@@ -3,7 +3,7 @@ This is the Calyx driver. It is a tool that automates the process
 of calling Calyx frontends, the Calyx compiler, and any backends that may
 be needed to simulate/execute a program.
 
-The current documentation for fud lives [here](https://docs.calyxir.org/tools/fud.html).
+The current documentation for fud lives [here](https://docs.calyxir.org/fud/index.html).
 
 ## Contributing
 We use `black` as an automatic formatter and `flake8` to lint `fud`s code. Before merging

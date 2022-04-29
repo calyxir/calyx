@@ -3,8 +3,8 @@ use crate::passes::{
     Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
     CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
     DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
-    InferStaticTiming, LowerGuards, MergeAssign, MinimizeRegs, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
     ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
     TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
@@ -33,6 +33,7 @@ impl PassManager {
         pm.register_pass::<DeadGroupRemoval>()?;
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
+        pm.register_pass::<MergeStaticPar>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
@@ -70,6 +71,8 @@ impl PassManager {
                 CombProp,
                 RemoveCombGroups, // Must run before `infer-static-timing`.
                 InferStaticTiming,
+                MergeStaticPar,
+                DeadGroupRemoval,
                 CollapseControl,
                 ResourceSharing,
                 MinimizeRegs,
