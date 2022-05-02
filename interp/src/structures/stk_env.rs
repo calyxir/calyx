@@ -341,10 +341,6 @@ impl<K: Eq + Hash, V: Eq> StackMap<K, V> {
             None //do not share a fork point
         }
     }
-    // NOTE: shold be private, only public for testing!
-    pub fn drop(self) {
-        //yea
-    }
 
     /// Returns an Option of a pointer to the highest-scoped binding to \[k\],
     /// if it exists. Else None.
