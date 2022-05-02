@@ -465,7 +465,7 @@ impl InterpreterState {
         let sv: StateView = self.into();
         println!(
             "{}",
-            serde_json::to_string_pretty(&sv.gen_serialzer(true)).unwrap()
+            serde_json::to_string_pretty(&sv.gen_serializer(true)).unwrap()
         );
     }
     /// A predicate that checks if the given cell points to a combinational

@@ -467,10 +467,10 @@ impl Primitive for ComponentInterpreter {
     fn serialize(
         &self,
         _signed: Option<PrintCode>,
-    ) -> crate::primitives::Serializeable {
-        crate::primitives::Serializeable::Full(
+    ) -> crate::primitives::Serializable {
+        crate::primitives::Serializable::Full(
             self.get_env()
-                .gen_serialzer(matches!(_signed, Some(PrintCode::Binary))),
+                .gen_serializer(matches!(_signed, Some(PrintCode::Binary))),
         )
     }
 

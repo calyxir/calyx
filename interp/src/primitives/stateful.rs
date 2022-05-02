@@ -1,6 +1,6 @@
 use super::prim_utils::{get_param, ShiftBuffer};
 use super::primitive::Named;
-use super::{Entry, Primitive, Serializeable};
+use super::{Entry, Primitive, Serializable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::logging::{self, warn};
 use crate::utils::{construct_bindings, PrintCode};
@@ -202,9 +202,9 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             vec![self.product.clone()]
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -412,9 +412,9 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             //vec![self.left.clone(), self.right.clone(), self.product.clone()]
             vec![self.quotient.clone(), self.remainder.clone()]
                 .iter()
@@ -549,9 +549,9 @@ impl Primitive for StdReg {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Val(Entry::from_val_code(&self.data[0], &code))
+        Serializable::Val(Entry::from_val_code(&self.data[0], &code))
     }
 }
 
@@ -777,9 +777,9 @@ impl Primitive for StdMemD1 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -1043,9 +1043,9 @@ impl Primitive for StdMemD2 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -1333,9 +1333,9 @@ impl Primitive for StdMemD3 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -1665,9 +1665,9 @@ impl Primitive for StdMemD4 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))

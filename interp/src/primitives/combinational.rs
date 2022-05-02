@@ -77,9 +77,9 @@ impl Primitive for StdConst {
     fn serialize(
         &self,
         code: Option<crate::debugger::PrintCode>,
-    ) -> super::Serializeable {
+    ) -> super::Serializable {
         let code = code.unwrap_or(crate::debugger::PrintCode::Unsigned);
-        super::Serializeable::Val(super::Entry::from_val_code(
+        super::Serializable::Val(super::Entry::from_val_code(
             &self.value,
             &code,
         ))

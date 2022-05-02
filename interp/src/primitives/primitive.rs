@@ -54,8 +54,8 @@ pub trait Primitive: Named {
     ) -> InterpreterResult<Vec<(ir::Id, Value)>>;
 
     /// Serialize the state of this primitive, if any.
-    fn serialize(&self, _code: Option<PrintCode>) -> Serializeable {
-        Serializeable::Empty
+    fn serialize(&self, _code: Option<PrintCode>) -> Serializable {
+        Serializable::Empty
     }
 
     // more efficient to override this with true in stateful cases
@@ -175,43 +175,43 @@ impl Debug for Entry {
 }
 
 #[derive(Clone)]
-pub enum Serializeable {
+pub enum Serializable {
     Empty,
     Val(Entry),
     Array(Vec<Entry>, Shape),
     Full(FullySerialize),
 }
 
-impl Serializeable {
+impl Serializable {
     pub fn has_state(&self) -> bool {
-        !matches!(self, Serializeable::Empty)
+        !matches!(self, Serializable::Empty)
     }
 }
 
-impl Display for Serializeable {
+impl Display for Serializable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Serializeable::Empty => write!(f, ""),
-            Serializeable::Val(v) => write!(f, "{}", v),
-            Serializeable::Array(arr, shape) => {
+            Serializable::Empty => write!(f, ""),
+            Serializable::Val(v) => write!(f, "{}", v),
+            Serializable::Array(arr, shape) => {
                 write!(f, "{}", format_array(arr, shape))
             }
-            full @ Serializeable::Full(_) => {
+            full @ Serializable::Full(_) => {
                 write!(f, "{}", serde_json::to_string(full).unwrap())
             }
         }
     }
 }
 
-impl Serialize for Serializeable {
+impl Serialize for Serializable {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match self {
-            Serializeable::Empty => serializer.serialize_unit(),
-            Serializeable::Val(u) => u.serialize(serializer),
-            Serializeable::Array(arr, shape) => {
+            Serializable::Empty => serializer.serialize_unit(),
+            Serializable::Val(u) => u.serialize(serializer),
+            Serializable::Array(arr, shape) => {
                 let arr: Vec<&Entry> = arr.iter().collect();
                 if shape.is_1d() {
                     return arr.serialize(serializer);
@@ -269,7 +269,7 @@ impl Serialize for Serializeable {
                     Shape::D1(_) => unreachable!(),
                 }
             }
-            Serializeable::Full(s) => s.serialize(serializer),
+            Serializable::Full(s) => s.serialize(serializer),
         }
     }
 }

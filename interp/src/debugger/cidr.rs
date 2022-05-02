@@ -13,7 +13,7 @@ use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
-use crate::{interpreter_ir as iir, primitives::Serializeable};
+use crate::{interpreter_ir as iir, primitives::Serializable};
 use calyx::ir::{self, Id, RRC};
 use std::fmt::Write;
 
@@ -459,7 +459,7 @@ fn print_cell(
         PrintMode::State => {
             let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
             let cell_state = state.get_cell_state(&cell_ref, &code);
-            if matches!(&cell_state, &Serializeable::Empty) {
+            if matches!(&cell_state, &Serializable::Empty) {
                 format!(
                     "{} cell {} has no internal state",
                     SPACING,

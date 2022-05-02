@@ -13,7 +13,7 @@ use crate::{
     environment::{InterpreterState, PrimitiveMap},
     interpreter::ConstCell,
     interpreter_ir as iir,
-    primitives::{Entry, Primitive, Serializeable},
+    primitives::{Entry, Primitive, Serializable},
     utils::AsRaw,
     values::Value,
 };
@@ -211,19 +211,19 @@ impl<'a> StateView<'a> {
         &self,
         cell: R,
         print_code: &PrintCode,
-    ) -> Serializeable {
+    ) -> Serializable {
         let map = self.get_cell_map();
         let map_ref = map.borrow();
         map_ref
             .get(&cell.as_raw())
             .map(|x| Primitive::serialize(&**x, Some(*print_code)))
-            .unwrap_or(Serializeable::Empty)
+            .unwrap_or(Serializable::Empty)
     }
 
     /// Returns a string representing the current state of the environment. This
     /// just serializes the environment to a string and returns that string
     pub fn state_as_str(&self) -> String {
-        serde_json::to_string_pretty(&self.gen_serialzer(false)).unwrap()
+        serde_json::to_string_pretty(&self.gen_serializer(false)).unwrap()
     }
 
     pub fn get_cells<S: AsRef<str> + Clone>(
@@ -244,7 +244,7 @@ impl<'a> StateView<'a> {
         }
     }
 
-    pub fn gen_serialzer(&self, raw: bool) -> FullySerialize {
+    pub fn gen_serializer(&self, raw: bool) -> FullySerialize {
         let ctx = self.get_ctx();
         let cell_prim_map = &self.get_cell_map().borrow();
 
@@ -326,7 +326,7 @@ impl<'a> StateView<'a> {
 /// Struct to fully serialize the internal state of the environment
 pub struct FullySerialize {
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, Entry>>>,
-    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializeable>>,
+    memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializable>>,
 }
 
 impl<'a> Serialize for StateView<'a> {
@@ -334,7 +334,7 @@ impl<'a> Serialize for StateView<'a> {
     where
         S: serde::Serializer,
     {
-        self.gen_serialzer(false).serialize(serializer)
+        self.gen_serializer(false).serialize(serializer)
     }
 }
 
@@ -344,6 +344,6 @@ impl Serialize for InterpreterState {
         S: serde::Serializer,
     {
         let sv: StateView = self.into();
-        sv.gen_serialzer(false).serialize(serializer)
+        sv.gen_serializer(false).serialize(serializer)
     }
 }
