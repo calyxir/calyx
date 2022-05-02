@@ -218,6 +218,10 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
+/// A type alias for the old name to preserve the functionality of the example
+/// code. This should be removed once the docs are modified accordingly
+pub type Smoosher<K, V> = StackMap<K, V>;
+
 ///A Stack of HashMaps that supports scoping
 ///
 ///Invariants:
@@ -1190,5 +1194,9 @@ mod priv_tests {
     }
 }
 
+/// An error for when multiple children maps disagree on a value.
 #[derive(Debug)]
-pub struct CollisionError<K: Eq + Hash, V: Eq>(pub K, pub V, pub V);
+pub struct CollisionError<K, V>(pub K, pub V, pub V)
+where
+    K: Eq + Hash,
+    V: Eq;
