@@ -22,14 +22,6 @@ use serde::Serialize;
 
 use super::names::GroupQIN;
 
-/// Trait for querying the state of ports
-pub trait State {
-    /// Retrieve the value of the given port
-    fn lookup(&self, target: &*const ir::Port) -> &Value;
-    /// Render the state of the program as a string
-    fn state_as_str(&self) -> String;
-}
-
 /// A concrete type wrapping a single borrowed reference and a vector of states.
 /// The former corresponds to the root environment of a par split while the
 /// latter contains the views for each par child.
@@ -115,16 +107,6 @@ impl<'a> MutStateView<'a> {
             MutStateView::Single(s) => s.insert(port, value),
             MutStateView::Composite(c) => c.insert(port, value),
         }
-    }
-}
-
-impl<'a> State for StateView<'a> {
-    fn lookup(&self, target: &*const ir::Port) -> &Value {
-        StateView::lookup(self, *target)
-    }
-
-    fn state_as_str(&self) -> String {
-        StateView::state_as_str(self)
     }
 }
 
