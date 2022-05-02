@@ -226,14 +226,18 @@ impl<'a> StateView<'a> {
         serde_json::to_string_pretty(&self.gen_serializer(false)).unwrap()
     }
 
+    /// Return a vector RRCs for all cells (across any component) which have the given
+    /// name
     pub fn get_cells<S: AsRef<str> + Clone>(
         &self,
-        name: &S,
+        name: S,
     ) -> Vec<RRC<ir::Cell>> {
         let ctx_ref = self.get_ctx();
-        ctx_ref.iter().filter_map(|x| x.find_cell(name)).collect()
+        ctx_ref.iter().filter_map(|x| x.find_cell(&name)).collect()
     }
 
+    /// Return an RRC for the given cell if it exists within the root component
+    /// of the environment. Otherwise None
     pub fn get_cell<S: AsRef<str> + Clone>(
         &self,
         name: S,
@@ -244,6 +248,11 @@ impl<'a> StateView<'a> {
         }
     }
 
+    /// Generate a serializable representation of the environment. Used to
+    /// display the environment at the current component or to output at the end
+    /// of the program.
+    ///
+    /// Note this code is a complete nightmare and I apologize for it
     pub fn gen_serializer(&self, raw: bool) -> FullySerialize {
         let ctx = self.get_ctx();
         let cell_prim_map = &self.get_cell_map().borrow();
@@ -325,7 +334,10 @@ impl<'a> StateView<'a> {
 #[derive(Serialize, Clone)]
 /// Struct to fully serialize the internal state of the environment
 pub struct FullySerialize {
+    /// The serializable map of the port values
     ports: BTreeMap<ir::Id, BTreeMap<ir::Id, BTreeMap<ir::Id, Entry>>>,
+    /// The serializable map of the stateful cell values (generally just
+    /// memories and registers)
     memories: BTreeMap<ir::Id, BTreeMap<ir::Id, Serializable>>,
 }
 
