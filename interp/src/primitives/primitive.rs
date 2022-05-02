@@ -1,7 +1,7 @@
 use crate::{
-    environment::{FullySerialize, StateView},
     errors::InterpreterResult,
     interpreter::ComponentInterpreter,
+    structures::state_views::{FullySerialize, StateView},
     utils::PrintCode,
     values::Value,
 };

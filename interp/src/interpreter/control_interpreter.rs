@@ -10,12 +10,12 @@ use crate::structures::names::{
 };
 use crate::utils::AsRaw;
 use crate::{
-    environment::{
-        CompositeView, InterpreterState, MutCompositeView, MutStateView,
-        StateView,
-    },
+    environment::InterpreterState,
     errors::InterpreterResult,
     interpreter::utils::ConstPort,
+    structures::state_views::{
+        CompositeView, MutCompositeView, MutStateView, StateView,
+    },
     values::Value,
 };
 use calyx::errors::WithPos;

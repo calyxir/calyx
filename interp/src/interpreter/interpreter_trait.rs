@@ -2,9 +2,10 @@ use std::collections::HashSet;
 
 use crate::{
     debugger::name_tree::ActiveTreeNode,
-    environment::{InterpreterState, MutStateView, StateView},
+    environment::InterpreterState,
     errors::InterpreterResult,
     structures::names::GroupQIN,
+    structures::state_views::{MutStateView, StateView},
 };
 
 /// The core interpreter trait which defines the methods each interpretation

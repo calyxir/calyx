@@ -9,13 +9,14 @@ use super::{
 };
 use crate::{
     debugger::{name_tree::ActiveTreeNode, PrintCode},
-    environment::{InterpreterState, MutStateView, StateView},
+    environment::InterpreterState,
     errors::InterpreterResult,
     interpreter_ir as iir,
     primitives::{Named, Primitive},
     structures::names::{
         ComponentQualifiedInstanceName, GroupQIN, GroupQualifiedInstanceName,
     },
+    structures::state_views::{MutStateView, StateView},
     utils::AsRaw,
     values::Value,
 };

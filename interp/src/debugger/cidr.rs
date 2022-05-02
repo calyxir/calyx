@@ -7,10 +7,11 @@ use super::{
     io_utils::Input,
 };
 use crate::debugger::source::SourceMap;
-use crate::environment::{InterpreterState, PrimitiveMap, StateView};
+use crate::environment::{InterpreterState, PrimitiveMap};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
+use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
 use crate::{interpreter_ir as iir, primitives::Serializeable};
 use calyx::ir::{self, Id, RRC};
