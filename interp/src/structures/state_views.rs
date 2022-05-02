@@ -123,6 +123,16 @@ impl<'a> From<CompositeView<'a>> for StateView<'a> {
 }
 
 impl<'a> StateView<'a> {
+    /// Lookup the value of the given port in the current environment.
+    ///
+    /// # Panics
+    /// If there is no value for the port anywhere
+    ///
+    /// If multiple parallel arms have assigned to the port and disagree on its value
+    ///
+    /// # TODO (Griffin):
+    /// This should probably have an option/result variant to surface the
+    /// parallel disagreement more effectively and avoid erroring out
     pub fn lookup<P: AsRaw<ir::Port>>(&self, target: P) -> &Value {
         match self {
             StateView::SingleView(sv) => sv.get_from_port(target),
@@ -152,6 +162,11 @@ impl<'a> StateView<'a> {
         }
     }
 
+    /// A wrapper over [InterpreterState::sub_component_currently_executing]
+    ///
+    /// TODO (Griffin): This will need to change pending updates to the cell map
+    /// as it currently relies on the fact that the map is shared across all
+    /// forks of the environment
     pub fn sub_component_currently_executing(&self) -> HashSet<GroupQIN> {
         match self {
             StateView::SingleView(sv) => sv.sub_component_currently_executing(),
@@ -159,6 +174,7 @@ impl<'a> StateView<'a> {
         }
     }
 
+    /// A wrapper over [InterpreterState::get_ctx]
     pub fn get_ctx(&self) -> &iir::ComponentCtx {
         match self {
             StateView::SingleView(sv) => &sv.context,
@@ -166,6 +182,7 @@ impl<'a> StateView<'a> {
         }
     }
 
+    /// An accessor fo the cell map of the environment
     pub fn get_cell_map(&self) -> &PrimitiveMap {
         match self {
             StateView::SingleView(sv) => &sv.cell_map,
@@ -173,12 +190,14 @@ impl<'a> StateView<'a> {
         }
     }
 
+    /// An accessor for the component at the root of this environment
     pub fn get_comp(&self) -> &Rc<iir::Component> {
         match self {
             StateView::SingleView(c) => &c.component,
             StateView::Composite(c) => &c.0.component,
         }
     }
+    /// A wrapper over [InterpreterState::get_active_tree]
     pub fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
         match self {
             StateView::SingleView(c) => c.get_active_tree(),
@@ -186,6 +205,8 @@ impl<'a> StateView<'a> {
         }
     }
 
+    /// An accessor which looks up the representation of a the given cell's
+    /// state, defaulting to [Serializeable::Empty] if no state is present
     pub fn get_cell_state<R: AsRaw<ir::Cell>>(
         &self,
         cell: R,
