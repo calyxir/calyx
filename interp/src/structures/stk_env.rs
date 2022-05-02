@@ -4,18 +4,26 @@ use std::hash::Hash;
 use std::mem;
 use std::rc::Rc;
 
-// From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
-// https://rust-unofficial.github.io/too-many-lists/third-final.html
+/// A handle to a singly linked list
+/// From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
+/// <https://rust-unofficial.github.io/too-many-lists/third-final.html>
 #[derive(Debug)]
 pub struct List<T> {
+    /// A link to the head node for this particular list. If this link is None
+    /// then the list is empty
     head: Link<T>,
 }
 
+/// A type alias for the links between entries in the list
 type Link<T> = Option<Rc<Node<T>>>;
 
+/// A structure representing a single list node which contains some element and
+/// a link of type [Link] which may be empty.
 #[derive(Debug)]
 struct Node<T> {
+    /// The actual element stored at this node
     elem: T,
+    /// A (possibly empty) link to the following node in the list
     next: Link<T>,
 }
 
@@ -27,6 +35,7 @@ impl<T> Clone for List<T> {
     }
 }
 
+// This is necessary to avoid the recursive default constructor for the type
 impl<T> Drop for List<T> {
     fn drop(&mut self) {
         let mut head = self.head.take();
@@ -41,6 +50,10 @@ impl<T> Drop for List<T> {
 }
 
 impl<T> List<T> {
+    /// Returns the head of the list, removing it from the surrounding RC. If
+    /// there is no head node (the list is empty) or if it is not possible to
+    /// unwrap the head (there are multiple references to it) then the Err
+    /// returns the original list handle.
     fn unwrap_head(mut self) -> Result<Node<T>, Self> {
         if let Some(head) = self.head.take() {
             match Rc::try_unwrap(head) {
@@ -56,13 +69,21 @@ impl<T> List<T> {
     }
 }
 
+impl<T> Default for List<T> {
+    fn default() -> Self {
+        Self { head: None }
+    }
+}
+
 /// The underlying, functional linked list used by the Smoosher.
 /// Taken from "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5
 /// Added the [List::same_head], [List::is_empty], and [List::split] functions.
 impl<T> List<T> {
-    #[allow(clippy::new_without_default)]
+    /// Default constructor which returns the empty list of the appropriate type.
+    /// This just defers to [Default::default] for the type.
+    #[inline]
     pub fn new() -> Self {
-        List { head: None }
+        Self::default()
     }
 
     /// Tests if the nodes at the head of `self` and `other` are equal;
@@ -171,6 +192,7 @@ impl<T> List<T> {
         self.head.as_ref().map(|node| &node.elem)
     }
 
+    /// Returns an iterator of immutable references for the list
     pub fn iter(&self) -> Iter<'_, T> {
         Iter {
             next: self.head.as_deref(),
@@ -178,7 +200,10 @@ impl<T> List<T> {
     }
 }
 
+/// A wrapper struct to implement an immutable iterator for [List]
 pub struct Iter<'a, T> {
+    /// The next reference to be returned from the iterator. If this is None,
+    /// then the iterator has traversed the whole list
     next: Option<&'a Node<T>>,
 }
 
@@ -227,8 +252,10 @@ where
     K: Eq + Hash,
     V: Eq,
 {
-    head: HashMap<K, V>,       //mutable
-    tail: List<HashMap<K, V>>, //read-only
+    /// The current top of the stack and the only map which is currently mutable
+    head: HashMap<K, V>,
+    /// The remaining maps (scopes) of the stack which are all read-only
+    tail: List<HashMap<K, V>>,
 }
 
 impl<'a, K: Eq + Hash, V: Eq> From<&'a StackMap<K, V>>
@@ -266,13 +293,23 @@ where
     }
 }
 
-impl<K: Eq + Hash, V: Eq> StackMap<K, V> {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> StackMap<K, V> {
-        StackMap {
+impl<K, V> Default for StackMap<K, V>
+where
+    K: Eq + Hash,
+    V: Eq,
+{
+    fn default() -> Self {
+        Self {
             head: HashMap::new(),
             tail: List::new(),
         }
+    }
+}
+
+impl<K: Eq + Hash, V: Eq> StackMap<K, V> {
+    /// The default constructor (an empty stack and map). Defers to [Default::default]
+    pub fn new() -> StackMap<K, V> {
+        Self::default()
     }
 
     /// If `self` and `other` share a fork point, returns a pair (depth_a, depth_b)

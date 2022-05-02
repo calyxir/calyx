@@ -35,8 +35,7 @@ impl<'a, 'outer> CompositeView<'a> {
     }
 }
 
-/// An enum type wrapping the two possible concrete immutable state views. This
-/// type implements the [State] trait.
+/// An enum type wrapping the two possible concrete immutable state views.
 #[derive(Clone)]
 pub enum StateView<'inner> {
     /// Variant for a single [InterpreterState]
@@ -174,7 +173,7 @@ impl<'a> StateView<'a> {
         }
     }
 
-    /// A wrapper over [InterpreterState::get_ctx]
+    /// An accessor for the IR context
     pub fn get_ctx(&self) -> &iir::ComponentCtx {
         match self {
             StateView::SingleView(sv) => &sv.context,
@@ -206,7 +205,7 @@ impl<'a> StateView<'a> {
     }
 
     /// An accessor which looks up the representation of a the given cell's
-    /// state, defaulting to [Serializeable::Empty] if no state is present
+    /// state, defaulting to [Serializable::Empty] if no state is present
     pub fn get_cell_state<R: AsRaw<ir::Cell>>(
         &self,
         cell: R,
