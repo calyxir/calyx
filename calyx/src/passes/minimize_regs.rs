@@ -17,7 +17,7 @@ use crate::{
 /// A greedy graph coloring algorithm on the interference graph
 /// is used to assign each register a name.
 ///
-/// This pass only renames uses of registers. [DeadCellRemoval] should be run after this
+/// This pass only renames uses of registers. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the register definitions.
 #[derive(Default)]
 pub struct MinimizeRegs {

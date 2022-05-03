@@ -129,7 +129,7 @@ impl std::fmt::Display for Width {
 impl PortDef {
     /// Given a map from names of parameters to their values, attempt to
     /// resolve this definition.
-    /// Returns [Error::ParamBindingMissing] if there is no binding for a required parameter binding.
+    /// Errors if there is no binding for a required parameter binding.
     pub fn resolve(
         &self,
         binding: &LinkedHashMap<Id, u64>,

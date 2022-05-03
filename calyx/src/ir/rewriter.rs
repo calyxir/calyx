@@ -15,7 +15,7 @@ pub type PortRewriteMap = HashMap<ir::Canonical, RRC<ir::Port>>;
 /// Map name of old group to new group
 type GroupRewriteMap = HashMap<ir::Id, RRC<ir::Group>>;
 /// Map name of old combination group to new combinational group
-type CombGroupRewriteMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
+pub type CombGroupRewriteMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
 
 /// A structure to track rewrite maps for ports. Stores both cell rewrites and direct port
 /// rewrites. Attempts to apply port rewrites first before trying the cell
