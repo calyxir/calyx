@@ -1,9 +1,9 @@
 import json
 import logging
 import os
-import sys
 import random
 from deepdiff import DeepDiff
+import argparse
 
 
 def generate_data(template):
@@ -111,14 +111,15 @@ def compare_list(a, b):
     return True
 
 
-def do_fuzz(prog, spec, template, iteration):
+def do_fuzz_file(prog, spec, backend, template, iteration):
     """
-    Run data generated from input template on both input file prog and spec.
+    Compare two files. Run data generated from input template on both input file prog and spec.
     Raise exception if two files produce unequal results.
     Note: prog and spec do not need to be Calyx file, but should be convertable to Calyx using fud
     """
+
     try:
-        # convert received files to calyx
+        print("Running do_fuzz_file!")
         original_prog = prog
         original_spec = spec
         prog_name, prog_file_type = os.path.splitext(prog)
@@ -136,9 +137,47 @@ def do_fuzz(prog, spec, template, iteration):
             if os.stat(template).st_size == 0:
                 continue
             os.system(
-                f"fud e {prog} -s verilog.data {template} --to dat -q --through icarus-verilog > result1.json")
+                f"fud e {prog} -s verilog.data {template} --to dat -q --through {backend} > result1.json")
             os.system(
-                f"fud e {spec} -s verilog.data {template} --to dat -q --through icarus-verilog > result2.json")
+                f"fud e {spec} -s verilog.data {template} --to dat -q --through {backend} > result2.json")
+            with open('result1.json', 'r') as f1, open('result2.json', 'r') as f2:
+                f1_result = json.load(f1)
+                f2_result = json.load(f2)
+                obj1 = f1_result['memories']
+                obj2 = f2_result['memories']
+                diff = DeepDiff(obj1, obj2)
+                assert compare_object(obj1, obj2), f"Failed with unequal output! {diff}"
+
+
+    except Exception as e:
+        logging.error(e)
+        logging.error(f'fail unequal output for prog: {prog}, spec: {spec}')
+
+
+def do_fuzz_backend(prog, backend_1, backend_2, template, iteration):
+    """
+    Compare two backend tools. Run data generated from input template on same file using different backend tools.
+    Raise exception if two backend tools produce unequal results.
+    Note: file does not need to be Calyx file, but should be convertable to Calyx using fud. Backend tools should
+    be recognizable by fud.
+    """
+
+    try:
+        print("Running do_fuzz_backend!")
+        original_prog = prog
+        prog_name, prog_file_type = os.path.splitext(prog)
+        if prog_file_type != ".futil":
+            prog = prog_name + ".futil"
+            os.system(f"fud e {original_prog} --to futil > {prog}")
+
+        for i in range(iteration):
+            generate_data(template)
+            if os.stat(template).st_size == 0:
+                continue
+            os.system(
+                f"fud e {prog} -s verilog.data {template} --to dat -q --through {backend_1} > result1.json")
+            os.system(
+                f"fud e {prog} -s verilog.data {template} --to dat -q --through {backend_2} > result2.json")
             with open('result1.json', 'r') as f1, open('result2.json', 'r') as f2:
                 f1_result = json.load(f1)
                 f2_result = json.load(f2)
@@ -149,12 +188,20 @@ def do_fuzz(prog, spec, template, iteration):
 
     except Exception as e:
         logging.error(e)
-        logging.error(f'fail unequal output for prog: {prog}, spec: {spec}')
+        logging.error(f'fail unequal output on file: {prog} with backend tools: {backend_1} and {backend_2}')
 
 
 if __name__ == "__main__":
-    prog = sys.argv[1]
-    spec = sys.argv[2]
-    template = sys.argv[3]
-    iteration = sys.argv[4]
-    do_fuzz(prog, spec, template, int(iteration))
+    parser = argparse.ArgumentParser(description="Run fuzzing on files.")
+    parser.add_argument('--compare_backend', help='compare backend tools', nargs=5)
+    parser.add_argument('--compare_files', help='compare two files', nargs=5)
+
+    arg_lst = []
+    for _, value in parser.parse_args()._get_kwargs():
+        if value is not None:
+            arg_lst = value
+
+    if parser.parse_args().compare_files:
+        do_fuzz_file(arg_lst[0], arg_lst[1], arg_lst[2], arg_lst[3], int(arg_lst[4]))
+    elif parser.parse_args().compare_backend:
+        do_fuzz_backend(arg_lst[2], arg_lst[0], arg_lst[1], arg_lst[3], int(arg_lst[4]))
