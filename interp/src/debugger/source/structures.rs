@@ -45,6 +45,13 @@ impl SourceMap {
             Ok(None)
         }
     }
+
+    pub fn from_string<S>(input: S) -> InterpreterResult<Self>
+    where
+        S: AsRef<str>,
+    {
+        super::metadata_parser::parse_metadata(input.as_ref())
+    }
 }
 
 impl From<HashMap<NamedTag, String>> for SourceMap {
