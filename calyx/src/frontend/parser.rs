@@ -766,15 +766,42 @@ impl CalyxParser {
         ))
     }
 
+    fn externs_and_comps(
+        input: Node,
+    ) -> ParseResult<impl Iterator<Item = ExtOrComp>> {
+        Ok(match_nodes!(input.into_children();
+            [extern_or_component(e)..] => e
+        ))
+    }
+
+    fn any_char(input: Node) -> ParseResult<String> {
+        Ok(input.as_str().into())
+    }
+
+    fn metadata_char(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(input.into_children();
+            [any_char(c)] => c,
+        ))
+    }
+
+    fn metadata(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(input.into_children();
+            [metadata_char(c)..] => c.collect::<String>().trim().into()
+        ))
+    }
+
     fn file(input: Node) -> ParseResult<ast::NamespaceDef> {
         Ok(match_nodes!(
             input.into_children();
-            [imports(imports), extern_or_component(mixed).., _EOI] => {
+            // There really seems to be no straightforward way to resolve this
+            // duplication
+            [imports(imports), externs_and_comps(mixed), metadata(m), EOI(_)] => {
                 let mut namespace =
                     ast::NamespaceDef {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
+                        metadata: if m != *"" { Some(m) } else { None }
                     };
                 for m in mixed {
                     match m {
@@ -783,7 +810,24 @@ impl CalyxParser {
                     }
                 }
                 namespace
-            }
+            },
+            [imports(imports), externs_and_comps(mixed), EOI(_)] => {
+                let mut namespace =
+                    ast::NamespaceDef {
+                        imports,
+                        components: Vec::new(),
+                        externs: Vec::new(),
+                        metadata: None
+                    };
+                for m in mixed {
+                    match m {
+                        ExtOrComp::Ext(ext) => namespace.externs.push(ext),
+                        ExtOrComp::Comp(comp) => namespace.components.push(comp),
+                    }
+                }
+                namespace
+            },
+
         ))
     }
 }

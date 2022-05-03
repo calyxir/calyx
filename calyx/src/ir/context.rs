@@ -100,4 +100,6 @@ pub struct Context {
     /// Extra options provided to the command line.
     /// Interpreted by individual passes
     pub extra_opts: Vec<String>,
+    /// An optional opaque metadata string which is used by Cider
+    pub metadata: Option<String>,
 }

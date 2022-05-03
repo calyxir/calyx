@@ -42,13 +42,16 @@ comb = { "comb" }
 file = {
       SOI
       ~ imports
-      ~ extern_or_component*
+      ~ externs_and_comps
+      ~ metadata?
       ~ EOI
 }
 
 extern_or_component = {
   component | ext
 }
+
+externs_and_comps = { extern_or_component* }
 
 component = {
       "component" ~ name_with_attribute ~ signature
@@ -273,3 +276,10 @@ stmt = {
 control = {
       "control" ~ (("{" ~ "}") | block)
 }
+
+// metadata
+
+any_char = { ANY }
+metadata_char = ${ !"}#" ~ any_char }
+
+metadata = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
