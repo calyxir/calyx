@@ -98,6 +98,6 @@ pub struct Context {
     /// Configuration flags for backends.
     pub bc: BackendConf,
     /// Extra options provided to the command line.
-    /// Interperted by individual passes
+    /// Interpreted by individual passes
     pub extra_opts: Vec<String>,
 }
