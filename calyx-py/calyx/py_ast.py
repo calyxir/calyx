@@ -357,7 +357,7 @@ class If(Control):
 
 @dataclass
 class Metadata:
-    metadata_map: Dict[any, str]
+    metadata_map: dict[any, str]
 
     def doc(self) -> str:
         out = "metadata #{\n"
