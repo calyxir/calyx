@@ -290,11 +290,8 @@ if __name__ == "__main__":
     parser.add_argument("file", help="Path to the Relay IR.")
     parser.add_argument(
         "--write-metadata",
-        type=str,
-        default=None,
-        help="the output file to write",
+        action="store_true",
         dest="write_metadata",
-        nargs="?",
     )
 
     args = parser.parse_args()
@@ -312,10 +309,8 @@ if __name__ == "__main__":
     relay_ir = relay.fromtext(relay_ir)
     calyx, metadata = emit_calyx(relay_ir)
 
-    if args.write_metadata is not None:
-
-        with open(args.write_metadata, "w") as f:
-            for key, val in metadata.items():
-                f.write(f"{key}: {val}\n")
-
     print(calyx)
+
+    if args.write_metadata:
+        metadata = Metadata(metadata)
+        print(metadata.doc())
