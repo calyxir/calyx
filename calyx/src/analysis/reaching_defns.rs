@@ -156,7 +156,7 @@ type OverlapMap = BTreeMap<ir::Id, Vec<BTreeSet<(ir::Id, GroupOrInvoke)>>>;
 /// within the control structure and will provide inaccurate results if this
 /// expectation is violated.
 ///
-/// Like [LiveRangeAnalysis] par blocks are treated via a parallel CFG approach.
+/// Like [super::LiveRangeAnalysis] par blocks are treated via a parallel CFG approach.
 /// Concretely this means that after a par block executes any id that is killed
 /// by one arm is killed and all defs introduced (but not killed) by any arm are
 /// defined. Note that this assumes separate arms are not writing the same

@@ -15,10 +15,8 @@ categories = ["compilers"]
 crate-type = ["rlib"]
 
 [dependencies]
-petgraph = "0.5.0"
 atty = "0.2.14"
 derivative = "2"
-pest = "2"
 pest_derive = "2"
 pest_consume = "1"
 itertools = "0.10"
@@ -28,6 +26,16 @@ linked-hash-map = "0.5"
 smallvec = "1"
 serde = { version = "1.0", features = ["derive"] }
 
+[dependencies.pest]
+version = "2"
+default-features = false
+
+[dependencies.petgraph]
+version = "0.6"
+default-features = false
+features = ["matrix_graph"]
+
 [dependencies.log]
 version = "0.4"
+default-features = false
 features = []
