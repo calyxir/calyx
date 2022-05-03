@@ -360,7 +360,7 @@ class Metadata:
     metadata_map: Dict[any, str]
 
     def doc(self) -> str:
-        out = "METADATA #{\n"
+        out = "metadata #{\n"
         for key, val in self.metadata_map.items():
             out += f"{key}: {val}\n"
         out += "}#"
