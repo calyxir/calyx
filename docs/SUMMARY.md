@@ -24,6 +24,7 @@
 
 - [The Calyx Compiler](./compiler.md)
 - [Primitive Library](./libraries/core.md)
+- [The `calyx` Library](./compiler-as-library.md)
 - [Dataflow Analysis](./optimizations/dataflow.md)
 - [Debugging](./debug/index.md)
   - [Tips](./debug/debug.md)

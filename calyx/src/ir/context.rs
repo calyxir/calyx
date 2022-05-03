@@ -87,7 +87,8 @@ pub struct BackendConf {
     pub initialize_inputs: bool,
 }
 
-/// The IR Context
+/// The IR Context that represents an entire Calyx program with all of its
+/// imports and dependencies resolved.
 pub struct Context {
     /// The components for this program.
     pub components: Vec<Component>,

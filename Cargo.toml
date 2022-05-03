@@ -19,12 +19,13 @@ atty = "0.2.14"
 argh = "0.1"
 vast = "0.3.0"
 serde = "1.0.129"
-quick-xml = { version = "0.22.0", features = ["serialize"] }
+quick-xml = { version = "0.22.0", default-features = false, features = ["serialize"] }
 log = "0.4.14"
 
 [dependencies.env_logger]
 version = "0.9.0"
-features = ["termcolor"]
+features = ["termcolor", "atty"]
+default-features = false
 
 [workspace]
 members = ["calyx", "interp", "web/rust"]
