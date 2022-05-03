@@ -288,7 +288,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path calyx/Cargo.toml --doc
+        args: --manifest-path calyx/Cargo.toml --doc lib
 
     - name: Test
       run: |
