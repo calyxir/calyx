@@ -63,7 +63,7 @@ fn main() -> CalyxResult<()> {
             ir::Printer::write_component(comp, out)?;
             writeln!(out)?
         }
-        writeln!(out, "{}", ir::Printer::format_metadata(&ctx.metadata))?;
+        write!(out, "{}", ir::Printer::format_metadata(&ctx.metadata))?;
         Ok(())
     } else {
         opts.run_backend(ctx)
