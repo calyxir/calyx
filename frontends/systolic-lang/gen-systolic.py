@@ -590,7 +590,7 @@ if __name__ == "__main__":
         top_depth=top_depth,
         left_length=left_length,
         left_depth=left_depth,
-        gen_metadata=args.write_metadata is not None,
+        gen_metadata=args.write_metadata,
     )
 
     program.emit()
