@@ -36,7 +36,7 @@ pub(crate) type PrimitiveMap = RRC<HashMap<ConstCell, Box<dyn Primitive>>>;
 
 /// A map defining values for ports. As it is keyed by ConstPort, the lifetime of
 /// the keys is independent of the ports. However as a result it is flat, rather
-/// than heirarchical which simplifies the access interface.
+/// than hierarchical which simplifies the access interface.
 type PortValMap = StackMap<ConstPort, Value>;
 
 /// The environment to interpret a Calyx program.
