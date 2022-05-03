@@ -526,7 +526,7 @@ impl Printer {
     /// Formats the top-level metadata if present
     pub fn format_metadata(metadata: &Option<String>) -> String {
         if let Some(metadata_str) = metadata {
-            format!("METADATA #{{\n{}\n}}#\n", metadata_str)
+            format!("metadata #{{\n{}\n}}#\n", metadata_str)
         } else {
             String::new()
         }

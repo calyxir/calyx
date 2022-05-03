@@ -57,7 +57,7 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
     }
   }
 }
-METADATA #{
+metadata #{
 1:test
 2: test
 3: this is some test metadata
