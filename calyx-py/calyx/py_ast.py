@@ -355,6 +355,18 @@ class If(Control):
         return block(cond, true_branch, sep="") + false_branch
 
 
+@dataclass
+class Metadata:
+    metadata_map: dict[any, str]
+
+    def doc(self) -> str:
+        out = "metadata #{\n"
+        for key, val in self.metadata_map.items():
+            out += f"{key}: {val}\n"
+        out += "}#"
+        return out
+
+
 ### Standard Library ###
 
 
