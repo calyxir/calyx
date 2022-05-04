@@ -87,17 +87,20 @@ pub struct BackendConf {
     pub initialize_inputs: bool,
 }
 
-/// The IR Context
+/// The IR Context that represents an entire Calyx program with all of its
+/// imports and dependencies resolved.
 pub struct Context {
     /// The components for this program.
     pub components: Vec<Component>,
     /// Library definitions imported by the program.
     pub lib: LibrarySignatures,
-    // Entrypoint for the program
+    /// Entrypoint for the program
     pub entrypoint: Id,
     /// Configuration flags for backends.
     pub bc: BackendConf,
     /// Extra options provided to the command line.
-    /// Interperted by individual passes
+    /// Interpreted by individual passes
     pub extra_opts: Vec<String>,
+    /// An optional opaque metadata string which is used by Cider
+    pub metadata: Option<String>,
 }

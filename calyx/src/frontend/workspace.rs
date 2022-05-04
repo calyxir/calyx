@@ -47,6 +47,8 @@ pub struct Workspace {
     pub externs: Vec<(PathBuf, Vec<ir::Primitive>)>,
     /// Original import statements present in the top-level file.
     pub original_imports: Vec<String>,
+    /// Optional opaque metadata attached to the top-level file
+    pub metadata: Option<String>,
 }
 
 impl Workspace {
@@ -161,6 +163,10 @@ impl Workspace {
 
         // Add original imports to workspace
         workspace.original_imports = namespace.imports.clone();
+
+        // TODO (griffin): Probably not a great idea to clone the metadata
+        // string but it works for now
+        workspace.metadata = namespace.metadata.clone();
 
         // Function to merge contents of a namespace into the workspace and
         // return the dependencies that need to be parsed next.

@@ -86,11 +86,7 @@ struct CommandInterpret {}
 #[derive(FromArgs)]
 #[argh(subcommand, name = "debug")]
 /// Interpret the given program with the interactive debugger
-struct CommandDebug {
-    /// path to option source location map
-    #[argh(option, long = "source", short = 's', from_str_fn(read_path))]
-    pub source_map_file: Option<PathBuf>,
-}
+struct CommandDebug {}
 
 #[inline]
 fn print_res(
@@ -143,6 +139,8 @@ fn main() -> InterpreterResult<()> {
 
     let entry_point = ctx.entrypoint;
 
+    let metadata = ctx.metadata;
+
     let components: iir::ComponentCtx = Rc::new(
         ctx.components
             .into_iter()
@@ -168,8 +166,13 @@ fn main() -> InterpreterResult<()> {
         Command::Interpret(_) => {
             ComponentInterpreter::interpret_program(env, main_component)
         }
-        Command::Debug(CommandDebug { source_map_file }) => {
-            let map = SourceMap::from_file(&source_map_file)?;
+        Command::Debug(CommandDebug {}) => {
+            let map = metadata.map(SourceMap::from_string);
+            let map = if let Some(map_res) = map {
+                Some(map_res?)
+            } else {
+                None
+            };
             let mut cidb = Debugger::new(&components, main_component, map);
             cidb.main_loop(env)
         }

@@ -156,6 +156,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         bc: BackendConf::default(),
         entrypoint,
         extra_opts: vec![],
+        metadata: workspace.metadata,
     })
 }
 

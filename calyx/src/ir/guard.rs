@@ -3,7 +3,7 @@ use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
-/// Comparison operations that can be performed between ports by [ir::Guard::Comp].
+/// Comparison operations that can be performed between ports by [Guard::CompOp].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PortComp {
     /// p1 == p2
