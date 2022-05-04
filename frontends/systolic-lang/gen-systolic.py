@@ -558,11 +558,8 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--write-metadata",
-        type=str,
-        default=None,
-        help="the output file to write",
+        action="store_true",
         dest="write_metadata",
-        nargs="?",
     )
 
     args = parser.parse_args()
@@ -593,14 +590,12 @@ if __name__ == "__main__":
         top_depth=top_depth,
         left_length=left_length,
         left_depth=left_depth,
-        gen_metadata=args.write_metadata is not None,
+        gen_metadata=args.write_metadata,
     )
-
-    if args.write_metadata is not None:
-
-        with open(args.write_metadata, "w") as f:
-            for key, val in metadata.items():
-                f.write(f"{key}: {val}\n")
 
     program.emit()
     print(PE_DEF)
+
+    if args.write_metadata:
+        metadata = py_ast.Metadata(metadata)
+        print(metadata.doc())
