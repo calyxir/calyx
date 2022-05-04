@@ -90,6 +90,10 @@ class Executor:
 
     # Control spinner behavior
     def disable_spinner(self):
+        """
+        Stop and disable the spinner
+        """
+        self._spinner.stop()
         self._no_spinner = True
 
     def enable_spinner(self):
@@ -120,12 +124,6 @@ class Executor:
                 self._spinner.succeed(msg)
         self.ctx = None
         self._update()
-
-    def _stop(self):
-        """
-        Stops the spinner associated with this executor.
-        """
-        self._spinner.stop()
 
 
 class ContextExecutor(object):

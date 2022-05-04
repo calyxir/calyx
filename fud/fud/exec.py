@@ -64,12 +64,12 @@ def run_fud(args, config):
         if path[-1].output_type == SourceType.Directory:
             raise errors.NeedOutputSpecified(path[-1])
 
-    path = chain_stages(path, config)
+    staged = chain_stages(path, config)
 
     # if we are doing a dry run, print out stages and exit
     if args.dry_run:
         print("fud will perform the following steps:")
-        path.dry_run()
+        staged.dry_run()
         return
 
     # spinner is disabled if we are in debug mode, doing a dry_run, or are in quiet mode
@@ -97,7 +97,9 @@ def run_fud(args, config):
 
     # Execute the generated path
     with exec:
-        for step in path.get_steps(input):
+        for step in staged.get_steps(input):
+            if step.output.typ == SourceType.Terminal:
+                exec.disable_spinner()
             # Execute step within the stage
             with exec.context(step.name):
                 step()
@@ -113,7 +115,7 @@ def run_fud(args, config):
             durations = exec.durations
         output.data = utils.profile_stages(durations, args.csv)
     else:
-        output = path.output
+        output = staged.output
 
     # output the data or profiling information.
     if args.output_file is not None:
