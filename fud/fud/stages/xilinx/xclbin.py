@@ -19,9 +19,9 @@ def get_ports(kernel_xml):
     """
     tree = ET.parse(kernel_xml)
     root = tree.getroot()
-    for port in root.iter('port'):
-        if port.attrib['mode'] == 'master':
-            yield port.attrib['name']
+    for port in root.iter("port"):
+        if port.attrib["mode"] == "master":
+            yield port.attrib["name"]
 
 
 class XilinxStage(Stage):
@@ -81,13 +81,17 @@ class XilinxStage(Stage):
         @builder.step(package_cmd)
         def package_xo(client: SourceType.UnTyped, tmpdir: SourceType.String):
             # Get the AXI port names.
-            port_names = list(get_ports(Path(tmpdir) / 'kernel.xml'))
+            port_names = list(get_ports(Path(tmpdir) / "kernel.xml"))
 
             # Run the .xo packager Vivado script.
-            self._shell(client, package_cmd.format(
-                tmpdir=tmpdir,
-                port_names=' '.join(port_names),
-            ), remote_exec)
+            self._shell(
+                client,
+                package_cmd.format(
+                    tmpdir=tmpdir,
+                    port_names=" ".join(port_names),
+                ),
+                remote_exec,
+            )
 
         xclbin_cmd = (
             "cd {tmpdir} && "
