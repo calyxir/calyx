@@ -68,50 +68,7 @@ def construct_json(data_list, obj, template):
         json.dump(data, json_file)
 
 
-def compare_object(a, b):
-    """
-    Compare input objects a and b. In this case, we only expect a and b to be either dictionary or list.
-    """
-    if type(a) != type(b):
-        return False
-    elif type(a) is dict:
-        return compare_dict(a, b)
-    elif type(a) is list:
-        return compare_list(a, b)
-    else:
-        return a == b
-
-
-def compare_dict(a, b):
-    """
-    Compare input dictionaries a and b.
-    """
-    if len(a) != len(b):
-        return False
-    else:
-        for k, v in a.items():
-            if k not in b:
-                return False
-            else:
-                if not compare_object(v, b[k]):
-                    return False
-    return True
-
-
-def compare_list(a, b):
-    """
-    Compare input lists a and b.
-    """
-    if len(a) != len(b):
-        return False
-    else:
-        for i in range(len(a)):
-            if not compare_object(a[i], b[i]):
-                return False
-    return True
-
-
-def do_fuzz_file(prog, spec, backend, template, iteration):
+def do_fuzz_file(args):
     """
     Compare two files. Run data generated from input template on both input file prog and spec.
     Raise exception if two files produce unequal results.
@@ -120,41 +77,46 @@ def do_fuzz_file(prog, spec, backend, template, iteration):
 
     try:
         print("Running do_fuzz_file!")
-        original_prog = prog
-        original_spec = spec
-        prog_name, prog_file_type = os.path.splitext(prog)
-        spec_name, spec_file_type = os.path.splitext(spec)
+
+        original_prog = args.input_file_1
+        original_spec = args.input_file_2
+        prog_name, prog_file_type = os.path.splitext(original_prog)
+        spec_name, spec_file_type = os.path.splitext(original_spec)
         if prog_file_type != ".futil":
-            prog = prog_name + ".futil"
-            os.system(f"fud e {original_prog} --to futil > {prog}")
+            args.input_file_1 = prog_name + ".futil"
+            os.system(f"fud e {original_prog} --to futil > {args.input_file_1}")
 
         elif spec_file_type != ".futil":
-            spec = spec_name + ".futil"
-            os.system(f"fud e {original_spec} --to futil > {spec}")
+            args.input_file_2 = spec_name + ".futil"
+            os.system(f"fud e {original_spec} --to futil > {args.input_file_2}")
 
-        for i in range(iteration):
-            generate_data(template)
-            if os.stat(template).st_size == 0:
+        if not args.backend_tool:
+            args.backend_tool = "icarus-verilog"
+        if not args.iteration:
+            args.iteration = 1
+
+        for i in range(int(args.iteration)):
+            generate_data(args.data_file)
+            if os.stat(args.data_file).st_size == 0:
                 continue
             os.system(
-                f"fud e {prog} -s verilog.data {template} --to dat -q --through {backend} > result1.json")
+                f"fud e {args.input_file_1} -s verilog.data {args.data_file} --to dat -q --through {args.backend_tool} > result1.json")
             os.system(
-                f"fud e {spec} -s verilog.data {template} --to dat -q --through {backend} > result2.json")
+                f"fud e {args.input_file_2} -s verilog.data {args.data_file} --to dat -q --through {args.backend_tool} > result2.json")
             with open('result1.json', 'r') as f1, open('result2.json', 'r') as f2:
                 f1_result = json.load(f1)
                 f2_result = json.load(f2)
                 obj1 = f1_result['memories']
                 obj2 = f2_result['memories']
                 diff = DeepDiff(obj1, obj2)
-                assert compare_object(obj1, obj2), f"Failed with unequal output! {diff}"
-
+                assert (obj1 == obj2), f"Failed with unequal output! {diff}"
 
     except Exception as e:
         logging.error(e)
-        logging.error(f'fail unequal output for prog: {prog}, spec: {spec}')
+        logging.error(f'fail unequal output for prog: {args.input_file_1}, spec: {args.input_file_2}')
 
 
-def do_fuzz_backend(prog, backend_1, backend_2, template, iteration):
+def do_fuzz_backend(args):
     """
     Compare two backend tools. Run data generated from input template on same file using different backend tools.
     Raise exception if two backend tools produce unequal results.
@@ -164,44 +126,95 @@ def do_fuzz_backend(prog, backend_1, backend_2, template, iteration):
 
     try:
         print("Running do_fuzz_backend!")
-        original_prog = prog
-        prog_name, prog_file_type = os.path.splitext(prog)
+        original_prog = args.input_file
+        prog_name, prog_file_type = os.path.splitext(original_prog)
         if prog_file_type != ".futil":
-            prog = prog_name + ".futil"
-            os.system(f"fud e {original_prog} --to futil > {prog}")
+            args.input_file = prog_name + ".futil"
+            os.system(f"fud e {original_prog} --to futil > {args.input_file}")
 
-        for i in range(iteration):
-            generate_data(template)
-            if os.stat(template).st_size == 0:
+        if not args.backend_1:
+            args.backend_tool = "icarus-verilog"
+        if not args.iteration:
+            args.iteration = 1
+
+        for i in range(int(args.iteration)):
+            generate_data(args.data_file)
+            if os.stat(args.data_file).st_size == 0:
                 continue
             os.system(
-                f"fud e {prog} -s verilog.data {template} --to dat -q --through {backend_1} > result1.json")
+                f"fud e {args.input_file} -s verilog.data {args.data_file} --to jq --through {args.backend_1} --through dat -s "
+                f"jq.expr '.memories' > result1.json")
             os.system(
-                f"fud e {prog} -s verilog.data {template} --to dat -q --through {backend_2} > result2.json")
+                f"fud e {args.input_file} -s verilog.data {args.data_file} --to jq --through {args.backend_2} --through dat -s "
+                f"jq.expr '.memories' > result2.json")
             with open('result1.json', 'r') as f1, open('result2.json', 'r') as f2:
                 f1_result = json.load(f1)
                 f2_result = json.load(f2)
-                obj1 = f1_result['memories']
-                obj2 = f2_result['memories']
-                diff = DeepDiff(obj1, obj2)
-                assert compare_object(obj1, obj2), f"Failed with unequal output! {diff}"
+                diff = DeepDiff(f1_result, f2_result)
+                assert (f1_result == f2_result), f"Failed with unequal output! {diff}"
 
     except Exception as e:
         logging.error(e)
-        logging.error(f'fail unequal output on file: {prog} with backend tools: {backend_1} and {backend_2}')
+        logging.error(
+            f'fail unequal output on file: {args.input_file} with backend tools: {args.backend_1} and {args.backend_2}')
+
+
+def conf_check_file(parser):
+    parser.add_argument('-input_1', dest="input_file_1", help="Path to the input file 1", nargs="?")
+    parser.add_argument('-input_2', dest="input_file_2", help="Path to the input file 2", nargs="?")
+
+    parser.add_argument('-backend', dest='backend_tool', help="Receive the backend tool; use icarus0-verilog as "
+                                                              "default")
+    parser.add_argument('-dat', dest="data_file", help="Receive data file")
+
+    parser.add_argument('-itr', dest="iteration", help="Number of iterations")
+
+    parser.set_defaults(command='file')
+
+
+def conf_check_backend(parser):
+    parser.add_argument("-input", dest="input_file", help="Path to the input file", nargs="?")
+
+    parser.add_argument('-backend_1', dest='backend_1', help="Receive the first backend tool")
+    parser.add_argument('-backend_2', dest='backend_2', help="Receive the second backend tool")
+
+    parser.add_argument('-dat', dest="data_file", help="Receive data file")
+
+    parser.add_argument('-itr', dest="iteration", help="Number of iterations")
+
+    parser.set_defaults(command='backend')
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run fuzzing on files.")
-    parser.add_argument('--compare_backend', help='compare backend tools', nargs=5)
-    parser.add_argument('--compare_files', help='compare two files', nargs=5)
+    p = argparse.ArgumentParser(description="Run fuzzing on files and backends.")
+    sp = p.add_subparsers()
 
-    arg_lst = []
-    for _, value in parser.parse_args()._get_kwargs():
-        if value is not None:
-            arg_lst = value
+    conf_check_file(sp.add_parser('file', help="Run fuzz to compare two input files."))
+    conf_check_backend(sp.add_parser('backend', help="Run fuzz to compare two backend tools."))
 
-    if parser.parse_args().compare_files:
-        do_fuzz_file(arg_lst[0], arg_lst[1], arg_lst[2], arg_lst[3], int(arg_lst[4]))
-    elif parser.parse_args().compare_backend:
-        do_fuzz_backend(arg_lst[2], arg_lst[0], arg_lst[1], arg_lst[3], int(arg_lst[4]))
+    args = p.parse_args()
+
+    if "command" not in args:
+        p.print_help()
+        exit(-1)
+
+    try:
+        if args.command == 'file':
+            if not (args.input_file_1 or args.input_file_2):
+                p.error("Please provide two files to compare")
+            elif not args.data_file:
+                p.error("Please provide a data template file as reference")
+            else:
+                do_fuzz_file(args)
+        elif args.command == 'backend':
+            if not args.input_file:
+                p.error("Please provide a file as reference")
+            elif not (args.backend_1 or args.backend_2):
+                p.error("Please provide two backend tools to compare")
+            elif not args.data_file:
+                p.error("Please provide a data template file as reference")
+            else:
+                do_fuzz_backend(args)
+    except Exception as e:
+        logging.error(e)
+        exit(-1)
