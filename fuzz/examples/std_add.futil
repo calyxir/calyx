@@ -1,0 +1,43 @@
+import "primitives/core.futil";
+
+// m[2] = m[0] + m[1];
+// r0 = m[0];
+// r1 = m[1];
+// m[2] = r0 + r1;
+component main() -> () {
+  cells {
+    @external inp = std_mem_d1(32, 3, 2);
+    add0 = std_add(32);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group read_m0 {
+      inp.addr0 = 2'd0;
+      r0.in = inp.read_data;
+      r0.write_en = 1'd1;
+      read_m0[done] = r0.done;
+    }
+    group read_m1 {
+      inp.addr0 = 2'd1;
+      r1.in = inp.read_data;
+      r1.write_en = 1'd1;
+      read_m1[done] = r1.done;
+    }
+    group do_add {
+      add0.left = r0.out;
+      add0.right = r1.out;
+      inp.addr0 = 2'd2;
+      inp.write_data = add0.out;
+      inp.write_en = 1'd1;
+      do_add[done] = inp.done;
+    }
+  }
+  control {
+    seq {
+      read_m0;
+      read_m1;
+      do_add;
+    }
+  }
+}
