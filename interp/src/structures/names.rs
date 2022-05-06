@@ -199,6 +199,7 @@ impl std::fmt::Debug for GroupQualifiedInstanceName {
         f.debug_struct("GroupQualifiedInstanceName")
             .field("prefix", &self.prefix.as_id())
             .field("group", &self.group)
+            .field("tag", &self.pos_tag)
             .finish()
     }
 }

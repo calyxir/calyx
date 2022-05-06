@@ -250,6 +250,7 @@ impl Debugger {
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC => {
                     if let Some(map) = &self.source_map {
+                        let mut printed = false;
                         for x in component_interpreter
                             .get_active_tree()
                             .remove(0)
@@ -257,11 +258,23 @@ impl Debugger {
                             .into_iter()
                         {
                             if let Some(output) = map.lookup(x) {
+                                printed = true;
                                 println!("{}", output);
                             }
                         }
+
+                        if !printed {
+                            println!("Falling back to Calyx");
+                            print!(
+                                "{}",
+                                component_interpreter
+                                    .get_active_tree()
+                                    .remove(0)
+                                    .format_tree::<true>(0)
+                            )
+                        }
                     } else {
-                        println!(
+                        print!(
                             "{}",
                             component_interpreter
                                 .get_active_tree()

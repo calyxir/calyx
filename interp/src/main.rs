@@ -9,6 +9,7 @@ use interp::{
 };
 
 use argh::FromArgs;
+use rustyline::error::ReadlineError;
 use slog::warn;
 use std::{
     path::{Path, PathBuf},
@@ -102,7 +103,11 @@ fn print_res(
             };
             Ok(())
         }
-        Err(InterpreterError::Exit) => Ok(()), // The exit command doesn't cause an error code
+        Err(InterpreterError::Exit)
+        | Err(InterpreterError::ReadlineError(ReadlineError::Eof)) => {
+            println!("Exiting.");
+            Ok(())
+        } // The exit command doesn't cause an error code
         Err(e) => Err(e),
     }
 }
