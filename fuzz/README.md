@@ -1,6 +1,5 @@
 # Fuzz: Compiler & Interpreter Testing
-This is a feature for fud. It is a tool that automates the process
-of comparing either two input files, or two backend tools. 
+Automates the process of comparing either two input files, or two backend tools. 
 
 The input file should be convertible to Calyx, and any backends should be defined in fud to simulate/execute a program.
 For the compare file functionality, two input files to be compared and a data template file are mandatory, while an input for backend tool and number of iteration are optional (icarus-verilog is the default backend tool).
