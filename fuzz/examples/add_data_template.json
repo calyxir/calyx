@@ -1,0 +1,10 @@
+{
+  "inp": {
+    "data": [0, 0, 0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  }
+}

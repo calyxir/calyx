@@ -54,6 +54,7 @@ impl From<EnableHolder> for AssignmentHolder {
             EnableHolder::Group(grp) => AssignmentHolder::Group(grp),
             EnableHolder::CombGroup(cgrp) => AssignmentHolder::CombGroup(cgrp),
             EnableHolder::Vec(v) => AssignmentHolder::Vec(v),
+            EnableHolder::Enable(e) => AssignmentHolder::Group(e.group.clone()),
         }
     }
 }

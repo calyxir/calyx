@@ -97,6 +97,7 @@ impl Interpreter for EmptyInterpreter {
 
 #[derive(Clone)]
 pub enum EnableHolder {
+    Enable(Rc<iir::Enable>),
     Group(RRC<ir::Group>),
     CombGroup(RRC<ir::CombGroup>),
     Vec(Rc<Vec<ir::Assignment>>),
@@ -107,6 +108,7 @@ impl EnableHolder {
         match self {
             EnableHolder::Group(g) => Some(get_done_port(&g.borrow())),
             EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
+            EnableHolder::Enable(e) => Some(get_done_port(&e.group.borrow())),
         }
     }
 
@@ -114,22 +116,16 @@ impl EnableHolder {
         match self {
             EnableHolder::Group(g) => Some(get_go_port(&g.borrow())),
             EnableHolder::CombGroup(_) | EnableHolder::Vec(_) => None,
+            EnableHolder::Enable(e) => Some(get_go_port(&e.group.borrow())),
         }
     }
 
     fn pos_tag(&self) -> Option<u64> {
         match self {
-            EnableHolder::Group(g) => g
-                .borrow()
-                .get_attributes()
-                .and_then(|x| x.get(POS_TAG))
-                .cloned(),
-            EnableHolder::CombGroup(g) => g
-                .borrow()
-                .get_attributes()
-                .and_then(|x| x.get(POS_TAG))
-                .cloned(),
-            EnableHolder::Vec(_) => None,
+            EnableHolder::Vec(_)
+            | EnableHolder::CombGroup(_)
+            | EnableHolder::Group(_) => None,
+            EnableHolder::Enable(e) => e.attributes.get(POS_TAG).cloned(),
         }
     }
 }
@@ -164,9 +160,15 @@ impl From<Vec<ir::Assignment>> for EnableHolder {
     }
 }
 
-impl From<&iir::Enable> for EnableHolder {
-    fn from(en: &iir::Enable) -> Self {
-        (&en.group).into()
+impl From<&Rc<iir::Enable>> for EnableHolder {
+    fn from(e: &Rc<iir::Enable>) -> Self {
+        Self::Enable(e.clone())
+    }
+}
+
+impl From<Rc<iir::Enable>> for EnableHolder {
+    fn from(e: Rc<iir::Enable>) -> Self {
+        Self::Enable(e)
     }
 }
 
@@ -1166,9 +1168,10 @@ impl ControlInterpreter {
                 )))
             }
             iir::Control::Enable(e) => {
+                let name = e.group.borrow().name().clone();
                 Self::Enable(Box::new(EnableInterpreter::new(
-                    &e.group,
-                    Some(e.group.borrow().name().clone()),
+                    e,
+                    Some(name),
                     env,
                     info.continuous_assignments.clone(),
                     &info.qin,

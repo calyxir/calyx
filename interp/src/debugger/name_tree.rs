@@ -76,6 +76,7 @@ impl ActiveTreeNode {
     }
 }
 
+#[derive(Debug)]
 pub struct ActiveVec(Vec<GroupQualifiedInstanceName>);
 
 impl From<Vec<GroupQualifiedInstanceName>> for ActiveVec {

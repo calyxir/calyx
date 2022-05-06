@@ -22,8 +22,12 @@ impl Counter {
 }
 
 enum BreakPointState {
-    Enabled,  // this breakpoint is active
-    Disabled, // this breakpoint is inactive
+    /// this breakpoint is active
+    Enabled,
+    /// this breakpoint is inactive
+    Disabled,
+    /// This breakpoint has been deleted, but has yet to be cleaned up
+    Deleted,
 }
 
 impl BreakPointState {
@@ -44,6 +48,14 @@ impl BreakPoint {
 
     pub fn disable(&mut self) {
         self.state = BreakPointState::Disabled;
+    }
+
+    pub fn delete(&mut self) {
+        self.state = BreakPointState::Deleted
+    }
+
+    pub fn is_deleted(&self) -> bool {
+        matches!(self.state, BreakPointState::Deleted)
     }
 }
 
@@ -69,6 +81,7 @@ impl std::fmt::Debug for BreakPoint {
             match &self.state {
                 BreakPointState::Enabled => "enabled",
                 BreakPointState::Disabled => "disabled",
+                BreakPointState::Deleted => "deleted",
             }
         )
     }
@@ -106,6 +119,35 @@ impl<T: std::cmp::Eq + std::hash::Hash> GroupExecutionInfo<T> {
 
     fn groups_new_on(&self) -> impl Iterator<Item = &T> {
         self.current.difference(&self.previous)
+    }
+}
+
+enum BreakpointAction {
+    Enable,
+    Disable,
+    Delete,
+}
+
+impl BreakpointAction {
+    fn take_action(&self, breakpoint: &mut BreakPoint) {
+        match self {
+            BreakpointAction::Enable => breakpoint.enable(),
+            BreakpointAction::Disable => breakpoint.disable(),
+            BreakpointAction::Delete => breakpoint.delete(),
+        }
+    }
+
+    fn take_action_with_feedback(&self, breakpoint: &mut BreakPoint) {
+        self.take_action(breakpoint);
+        println!(
+            "{} '{}'",
+            match self {
+                BreakpointAction::Enable => "enabled",
+                BreakpointAction::Disable => "disabled",
+                BreakpointAction::Delete => "deleted",
+            },
+            &breakpoint.name
+        )
     }
 }
 
@@ -202,25 +244,49 @@ impl DebuggingContext {
         }
     }
 
-    pub fn remove_breakpoint(&mut self, target: &BreakPointId) {
+    fn act_breakpoint(
+        &mut self,
+        target: &BreakPointId,
+        action: BreakpointAction,
+    ) {
         match target {
-            BreakPointId::Name(name) => self.remove_breakpoint_by_name(name),
-            BreakPointId::Number(num) => self.remove_breakpoint_by_number(*num),
+            BreakPointId::Name(target) => {
+                let key = self.parse_group_name(target);
+
+                if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
+                    action.take_action_with_feedback(breakpoint);
+                } else {
+                    println!("Error: There is no breakpoint named '{}'", key)
+                };
+            }
+            BreakPointId::Number(target) => {
+                let mut found = false;
+                for x in self.breakpoints.values_mut() {
+                    if x.id == *target {
+                        action.take_action_with_feedback(x);
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    println!(
+                        "Error: There is no breakpoint numbered {}",
+                        target
+                    )
+                };
+            }
         }
     }
 
     pub fn enable_breakpoint(&mut self, target: &BreakPointId) {
-        match target {
-            BreakPointId::Name(name) => self.enable_breakpoint_by_name(name),
-            BreakPointId::Number(num) => self.enable_breakpoint_by_num(*num),
-        }
+        self.act_breakpoint(target, BreakpointAction::Enable)
     }
-
     pub fn disable_breakpoint(&mut self, target: &BreakPointId) {
-        match target {
-            BreakPointId::Name(name) => self.disable_breakpoint_by_name(name),
-            BreakPointId::Number(num) => self.disable_breakpoint_by_num(*num),
-        }
+        self.act_breakpoint(target, BreakpointAction::Disable)
+    }
+    pub fn remove_breakpoint(&mut self, target: &BreakPointId) {
+        self.act_breakpoint(target, BreakpointAction::Delete);
+        self.cleanup_deleted_breakpoints()
     }
 
     pub fn remove_watchpoint(&mut self, target: &BreakPointId) {
@@ -230,14 +296,8 @@ impl DebuggingContext {
         }
     }
 
-    fn remove_breakpoint_by_name(&mut self, target: &GroupName) {
-        let key = self.parse_group_name(target);
-
-        self.breakpoints.remove(&key);
-    }
-
-    fn remove_breakpoint_by_number(&mut self, target: u64) {
-        self.breakpoints.retain(|_k, x| x.id != target);
+    fn cleanup_deleted_breakpoints(&mut self) {
+        self.breakpoints.retain(|_k, x| !x.is_deleted());
     }
 
     fn remove_watchpoint_by_name(&mut self, target: &GroupName) {
@@ -256,42 +316,6 @@ impl DebuggingContext {
             .chain(self.watchpoints_after.values_mut())
         {
             watchpoints.1.retain(|x| x.id != target);
-        }
-    }
-
-    fn enable_breakpoint_by_name(&mut self, target: &GroupName) {
-        let key = self.parse_group_name(target);
-
-        if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
-            // add some feedback
-            breakpoint.enable()
-        }
-    }
-
-    fn enable_breakpoint_by_num(&mut self, target: u64) {
-        for (_, x) in self.breakpoints.iter_mut() {
-            if x.id == target {
-                x.enable();
-                break;
-            }
-        }
-    }
-
-    fn disable_breakpoint_by_name(&mut self, target: &GroupName) {
-        let key = self.parse_group_name(target);
-
-        if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
-            // TODO (Griffin): add some feedback
-            breakpoint.disable()
-        }
-    }
-
-    fn disable_breakpoint_by_num(&mut self, target: u64) {
-        for x in self.breakpoints.values_mut() {
-            if x.id == target {
-                x.disable();
-                break;
-            }
         }
     }
 
