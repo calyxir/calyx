@@ -7,12 +7,13 @@ use super::{
     io_utils::Input,
 };
 use crate::debugger::source::SourceMap;
-use crate::environment::{InterpreterState, PrimitiveMap, StateView};
+use crate::environment::{InterpreterState, PrimitiveMap};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
+use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
-use crate::{interpreter_ir as iir, primitives::Serializeable};
+use crate::{interpreter_ir as iir, primitives::Serializable};
 use calyx::ir::{self, Id, RRC};
 use std::fmt::Write;
 
@@ -20,8 +21,8 @@ use std::fmt::Write;
 pub(super) const SPACING: &str = "    ";
 
 /// The interactive Calyx debugger. The debugger itself is run with the
-/// [main_loop] function while this struct holds auxilliary information used to
-/// coordinate the debugging process.
+/// [Debugger::main_loop] function while this struct holds auxilliary
+/// information used to coordinate the debugging process.
 pub struct Debugger {
     _context: iir::ComponentCtx,
     main_component: Rc<iir::Component>,
@@ -471,7 +472,7 @@ fn print_cell(
         PrintMode::State => {
             let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
             let cell_state = state.get_cell_state(&cell_ref, &code);
-            if matches!(&cell_state, &Serializeable::Empty) {
+            if matches!(&cell_state, &Serializable::Empty) {
                 format!(
                     "{} cell {} has no internal state",
                     SPACING,

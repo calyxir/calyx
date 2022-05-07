@@ -1,20 +1,29 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::hash::Hash;
 use std::mem;
 use std::rc::Rc;
 
-// From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
-// https://rust-unofficial.github.io/too-many-lists/third-final.html
+/// A handle to a singly linked list
+/// From "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5:
+/// <https://rust-unofficial.github.io/too-many-lists/third-final.html>
 #[derive(Debug)]
 pub struct List<T> {
+    /// A link to the head node for this particular list. If this link is None
+    /// then the list is empty
     head: Link<T>,
 }
 
+/// A type alias for the links between entries in the list
 type Link<T> = Option<Rc<Node<T>>>;
 
+/// A structure representing a single list node which contains some element and
+/// a link of type [Link] which may be empty.
 #[derive(Debug)]
 struct Node<T> {
+    /// The actual element stored at this node
     elem: T,
+    /// A (possibly empty) link to the following node in the list
     next: Link<T>,
 }
 
@@ -26,6 +35,7 @@ impl<T> Clone for List<T> {
     }
 }
 
+// This is necessary to avoid the recursive default constructor for the type
 impl<T> Drop for List<T> {
     fn drop(&mut self) {
         let mut head = self.head.take();
@@ -40,6 +50,10 @@ impl<T> Drop for List<T> {
 }
 
 impl<T> List<T> {
+    /// Returns the head of the list, removing it from the surrounding RC. If
+    /// there is no head node (the list is empty) or if it is not possible to
+    /// unwrap the head (there are multiple references to it) then the Err
+    /// returns the original list handle.
     fn unwrap_head(mut self) -> Result<Node<T>, Self> {
         if let Some(head) = self.head.take() {
             match Rc::try_unwrap(head) {
@@ -55,16 +69,24 @@ impl<T> List<T> {
     }
 }
 
+impl<T> Default for List<T> {
+    fn default() -> Self {
+        Self { head: None }
+    }
+}
+
 /// The underlying, functional linked list used by the Smoosher.
 /// Taken from "Learning Rust with Entirely Too Many Linked Lists" (2018), Chapter 4.5
-/// Added the [same_head], [is_empty], and [split] functions.
+/// Added the [List::same_head], [List::is_empty], and [List::split] functions.
 impl<T> List<T> {
-    #[allow(clippy::new_without_default)]
+    /// Default constructor which returns the empty list of the appropriate type.
+    /// This just defers to [Default::default] for the type.
+    #[inline]
     pub fn new() -> Self {
-        List { head: None }
+        Self::default()
     }
 
-    /// Tests if the nodes at the head of [self] and [other] are equal;
+    /// Tests if the nodes at the head of `self` and `other` are equal;
     /// that is if the Rc points to the same location.
     /// # Example
     /// ```
@@ -89,7 +111,7 @@ impl<T> List<T> {
         Rc::as_ptr(self_head) == Rc::as_ptr(other_head)
     }
 
-    /// Tests if the head of [self] is [None], or [Some(nd)]
+    /// Tests if the head of `self` is [None], or [Some(nd)]
     ///
     /// # Example
     /// ```
@@ -103,7 +125,7 @@ impl<T> List<T> {
         self.head.is_none()
     }
 
-    /// Returns a list identical to [self], with [elem] pushed onto the front
+    /// Returns a list identical to `self`, with `elem` pushed onto the front
     pub fn push(&self, elem: T) -> List<T> {
         List {
             head: Some(Rc::new(Node {
@@ -113,19 +135,19 @@ impl<T> List<T> {
         }
     }
 
-    /// Returns a list identical to [self], with its head pointing to the second elem of [self]
+    /// Returns a list identical to `self`, with its head pointing to the second elem of `self`
     pub fn tail(&self) -> List<T> {
         List {
             head: self.head.as_ref().and_then(|node| node.next.clone()),
         }
     }
 
-    /// Consumes [self], returning a tuple of ([self.head : Option<T>], [self.tail : List<T>]),
-    /// where [tail] is all elements in [self] that are not [head]. If [self] is empty,
-    /// [split] will return ([None], [self])
+    /// Consumes self, returning a tuple of `(self.head : Option<T>, self.tail : List<T>)`,
+    /// where `tail` is all elements in `self` that are not `head`. If `self` is empty,
+    /// split will return (None, self)
     ///
     /// # Panics
-    /// Because [split] consumes [self], [split] panics if multiple lists exist that
+    /// Because [List::split] consumes self, split panics if multiple lists exist that
     /// share (references to the same) elements in their **tail**.
     /// # Example
     /// Good:
@@ -170,6 +192,7 @@ impl<T> List<T> {
         self.head.as_ref().map(|node| &node.elem)
     }
 
+    /// Returns an iterator of immutable references for the list
     pub fn iter(&self) -> Iter<'_, T> {
         Iter {
             next: self.head.as_deref(),
@@ -177,7 +200,10 @@ impl<T> List<T> {
     }
 }
 
+/// A wrapper struct to implement an immutable iterator for [List]
 pub struct Iter<'a, T> {
+    /// The next reference to be returned from the iterator. If this is None,
+    /// then the iterator has traversed the whole list
     next: Option<&'a Node<T>>,
 }
 
@@ -191,6 +217,10 @@ impl<'a, T> Iterator for Iter<'a, T> {
         })
     }
 }
+
+/// A type alias for the old name to preserve the functionality of the example
+/// code. This should be removed once the docs are modified accordingly
+pub type Smoosher<K, V> = StackMap<K, V>;
 
 ///A Stack of HashMaps that supports scoping
 ///
@@ -221,15 +251,21 @@ impl<'a, T> Iterator for Iter<'a, T> {
 ///     |
 /// ```
 #[derive(Debug)]
-pub struct Smoosher<K: Eq + std::hash::Hash, V: Eq> {
-    head: HashMap<K, V>,       //mutable
-    tail: List<HashMap<K, V>>, //read-only
+pub struct StackMap<K, V>
+where
+    K: Eq + Hash,
+    V: Eq,
+{
+    /// The current top of the stack and the only map which is currently mutable
+    head: HashMap<K, V>,
+    /// The remaining maps (scopes) of the stack which are all read-only
+    tail: List<HashMap<K, V>>,
 }
 
-impl<'a, K: Eq + std::hash::Hash, V: Eq> From<&'a Smoosher<K, V>>
+impl<'a, K: Eq + Hash, V: Eq> From<&'a StackMap<K, V>>
     for HashMap<&'a K, &'a V>
 {
-    fn from(item: &'a Smoosher<K, V>) -> Self {
+    fn from(item: &'a StackMap<K, V>) -> Self {
         //just add all bindings
         let mut tr = HashMap::new();
         //first add from head
@@ -249,29 +285,39 @@ impl<'a, K: Eq + std::hash::Hash, V: Eq> From<&'a Smoosher<K, V>>
     }
 }
 
-impl<K, V> From<HashMap<K, V>> for Smoosher<K, V>
+impl<K, V> From<HashMap<K, V>> for StackMap<K, V>
 where
-    K: Eq + std::hash::Hash,
+    K: Eq + Hash,
     V: Eq,
 {
     fn from(hm: HashMap<K, V>) -> Self {
-        let mut smoosher = Smoosher::new();
+        let mut smoosher = StackMap::new();
         smoosher.head = hm;
         smoosher
     }
 }
 
-impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Smoosher<K, V> {
-        Smoosher {
+impl<K, V> Default for StackMap<K, V>
+where
+    K: Eq + Hash,
+    V: Eq,
+{
+    fn default() -> Self {
+        Self {
             head: HashMap::new(),
             tail: List::new(),
         }
     }
+}
 
-    /// If [self] and [other] share a fork point, returns a pair (depth_a, depth_b)
-    /// of the depth which the fork point can be found in [self] and [other], respectively.
+impl<K: Eq + Hash, V: Eq> StackMap<K, V> {
+    /// The default constructor (an empty stack and map). Defers to [Default::default]
+    pub fn new() -> StackMap<K, V> {
+        Self::default()
+    }
+
+    /// If `self` and `other` share a fork point, returns a pair (depth_a, depth_b)
+    /// of the depth which the fork point can be found in `self` and `other`, respectively.
     /// NOTE: should be private, only public for testing!
     fn shared_fork_point(&self, other: &Self) -> Option<(u64, u64)> {
         //check head
@@ -299,12 +345,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             None //do not share a fork point
         }
     }
-    // NOTE: shold be private, only public for testing!
-    pub fn drop(self) {
-        //yea
-    }
 
-    /// Returns an Option of a pointer to the highest-scoped binding to [k],
+    /// Returns an Option of a pointer to the highest-scoped binding to \[k\],
     /// if it exists. Else None.
     ///
     /// # Example
@@ -357,8 +399,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     }
 
     /// ```text
-    /// Returns a new Smoosher and mutates [self]. The new Smoosher has a new scope
-    /// as [head] and all of (pre-mutation) [self] as [tail]. [Self] has a fresh scope pushed onto
+    /// Returns a new Smoosher and mutates `self`. The new Smoosher has a new scope
+    /// as [head] and all of (pre-mutation) `self` as [tail]. `self` has a fresh scope pushed onto
     /// it. Invariant this method enforces: you cannot mutate a scope that has children
     /// forks (you can only mutate the fresh scope applied atop it)
     /// ```
@@ -394,7 +436,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         let new_tail = self.tail.push(old_head);
         //update Self and create new Smoosher
         self.tail = new_tail.clone(); //will this die after the end of [fork]? no
-        Smoosher {
+        StackMap {
             head: HashMap::new(),
             tail: new_tail,
         }
@@ -412,7 +454,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     /// # Panics
     /// ```text
-    /// Panics if [self] has a non-empty head
+    /// Panics if `self` has a non-empty head
     ///```
     /// # Examples
     /// ## Pictorial Example
@@ -448,15 +490,15 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     pub fn fork_from_tail(&self) -> Self {
         assert!(self.head.is_empty());
-        Smoosher {
+        StackMap {
             head: HashMap::new(),
             tail: self.tail.clone(),
         }
     }
 
     ///```text
-    ///Pushes a new, empty scope onto [self]. Doing so has no effect on the
-    ///bindings in [self], until a new [set] is called
+    ///Pushes a new, empty scope onto `self`. Doing so has no effect on the
+    ///bindings in `self`, until a new [set] is called
     ///```
     /// # Example
     /// ```rust
@@ -493,12 +535,12 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     }
 
     /// ```text
-    /// Consumes [self] and returns a Smoosher with all bindings in the topmost scope transposed
+    /// Consumes `self` and returns a Smoosher with all bindings in the topmost scope transposed
     /// onto the second-newest scope, with the topmost scope then discarded, and
     /// the second-newest scope now the topmost scope. Has no visible effect on
     /// methods like [get], as identical keys in different scopes are still shadowed,
     /// with only the newest key's binding visible.
-    /// Invariant: [self] must have at least 2 scopes, and neither scope may
+    /// Invariant: `self` must have at least 2 scopes, and neither scope may
     /// be the root of any fork:
     ///* [A]   [B]
     ///   |     |
@@ -516,14 +558,14 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     /// # Panics
     /// ```text
-    /// Panics if [self] has less than two scopes, or if any of the scopes are
+    /// Panics if `self` has less than two scopes, or if any of the scopes are
     /// the roots of any existing forks
     ///```
     /// # Examples
     /// ## Pictorial Example
-    ///  [A]
-    ///   |     => [smoosh_once(A, C)] => [A U C\A]
-    ///  [C]
+    ///  \[A\]
+    ///   |     => \[smoosh_once(A, C)\] => \[A U C\A\]
+    ///  \[C\]
     /// ## Code Example
     ///```
     /// use interp::stk_env::Smoosher;
@@ -556,7 +598,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             for (k, v) in wr_head {
                 new_head.insert(k, v);
             }
-            Smoosher {
+            StackMap {
                 head: new_head,
                 tail: new_tail,
             }
@@ -566,14 +608,14 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     }
 
     /// ```text
-    /// Consumes [self] and returns a Smoosher in which
-    /// all bindings found in the top [levels] scopes of [self] to the [levels]th
+    /// Consumes `self` and returns a Smoosher in which
+    /// all bindings found in the top [levels] scopes of `self` to the [levels]th
     /// scope are merged. [smoosh(0)] has no effect, while [smoosh(1)] is equivalent to
     /// [smoosh_once].
     /// ```
     /// # Guarantees
-    ///  If [self] has **n** scopes, then
-    /// [self.get(K)] == [self.smoosh(n).get(K)] for all K bound in [self]
+    ///  If `self` has **n** scopes, then
+    /// [self.get(K)] == [self.smoosh(n).get(K)] for all K bound in `self`
     ///
     ///  # Invariant
     /// ```text
@@ -625,7 +667,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     }
 
     /// For internal use only
-    /// Set [new] as the topmost scope of [self]
+    /// Set `new` as the topmost scope of `self`
     fn push_scope(&mut self, new: HashMap<K, V>) {
         let old_head = mem::replace(&mut self.head, new);
         self.tail = self.tail.push(old_head);
@@ -644,7 +686,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
     /// # Panics
     /// ```text
-    /// Panics if [self] and [other] do not share a common fork point, or if either is [empty], or
+    /// Panics if `self` and `other` do not share a common fork point, or if either is [empty], or
     /// if their bindings above the fork point are not disjoint.
     /// ```
     /// # Examples
@@ -698,8 +740,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         //find shared fork point; if doesn't exist, panic
         let mut a = self;
         let mut b = other;
-        if let Some((depth_a, depth_b)) = Smoosher::shared_fork_point(&a, &b) {
-            //smoosh [self] and [other] to right before that point
+        if let Some((depth_a, depth_b)) = StackMap::shared_fork_point(&a, &b) {
+            //smoosh `self` and `other` to right before that point
             a = a.smoosh(depth_a - 1);
             b = b.smoosh(depth_b - 1);
 
@@ -717,12 +759,12 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
             std::mem::drop(b.tail); //b.head already consumed above
                                     //create a'
             if let (Some(a_new_head), a_new_tail) = a.tail.split() {
-                a = Smoosher {
+                a = StackMap {
                     head: a_new_head,
                     tail: a_new_tail,
                 };
             } else {
-                panic!("trying to merge, but [self] is only 1 scope deep (this is impossible)")
+                panic!("trying to merge, but `self` is only 1 scope deep (this is impossible)")
             }
             //push_scope this new merged node onto A'
             a.push_scope(a_head);
@@ -839,7 +881,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         //of them as well as smoosh them all to one level above the common fork.
         for sm in other {
             if let Some((depth_a, depth_b)) =
-                Smoosher::shared_fork_point(&a, &sm)
+                StackMap::shared_fork_point(&a, &sm)
             {
                 let dp_first_ref = dp_first.get_or_insert(depth_a);
 
@@ -882,12 +924,12 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
         }
 
         if let (Some(a_new_head), a_new_tail) = a.tail.split() {
-            a = Smoosher {
+            a = StackMap {
                 head: a_new_head,
                 tail: a_new_tail,
             };
         } else {
-            panic!("trying to merge, but [self] is only 1 scope deep (this is impossible)")
+            panic!("trying to merge, but `self` is only 1 scope deep (this is impossible)")
         }
         //push_scope this new merged node onto A'
         a.push_scope(a_head);
@@ -899,7 +941,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// top [levels] levels of the Smoosher.
     /// [self.list_bound_vars(0)] returns all keys in the topmost scope
     /// [self.list.bound_vars(1)] returns all keys in the top two scopes
-    /// Undefined behavior if levels >= (# of scopes), or [self] is empty
+    /// Undefined behavior if levels >= (# of scopes), or `self` is empty
     /// ```
     /// # Example
     /// ```
@@ -935,18 +977,18 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
 
     /// ```text
     /// Returns a HashMap of all (&K, &V) (bindings of references) found in the top
-    /// [levels] levels of the Smoosher that differ from the bindings found
-    /// in the [levels]-th level of the Smoosher and below.
+    /// LEVEL levels of the Smoosher that differ from the bindings found
+    /// in the LEVEL-th level of the Smoosher and below.
     /// ```
     ///  # Requires
-    ///  0 < [levels] < # of scopes in this smoosher
+    ///  0 < LEVEL < # of scopes in this smoosher
     /// # Examples
     /// ## Pictoral Example
     /// ```text
     /// Say our Smoosher A looked as follows:
-    /// (lvl 3) [(a, 1), (b, 2)] -> [(a, 3)] -> [(c, 4)] -> [(d, 15)] (lvl 0)
+    /// (lvl 3) \[(a, 1), (b, 2)\] -> \[(a, 3)\] -> \[(c, 4)\] -> \[(d, 15)\] (lvl 0)
     /// A.diff(3) gives the following HashMap:
-    /// [(a, 3), (c, 4), (d, 15)]
+    /// \[(a, 3), (c, 4), (d, 15)\]
     /// ```
     /// ## Code Example
     /// ```
@@ -999,7 +1041,7 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     }
 
     /// ```text
-    /// Returns a HM of all (&K, &V) (bindings of references) found in [self].
+    /// Returns a HM of all (&K, &V) (bindings of references) found in `self`.
     /// A use case would be when you want a HM representing a snapshot of the
     /// current state of the environment, which is easily iterable.
     /// ```
@@ -1023,14 +1065,14 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     }
 
     /// ```text
-    /// Returns a HM of all (&K, &V) (bindings of references) found in [self] and absent from
-    /// [other].
+    /// Returns a HM of all (&K, &V) (bindings of references) found in `self` and absent from
+    /// `other`.
     /// ```
     /// # Examples
     /// ## Text Example
     /// ```text
-    /// [self] : [(a, 1), (b, 2)], and
-    /// [other] : [(a, 1), (b, 3)], then
+    /// `self` : [(a, 1), (b, 2)], and
+    /// `other` : [(a, 1), (b, 3)], then
     /// [self.smoosher_diff(other)] produces the HM [(b, 2)].
     /// ```
     /// ## Code Example
@@ -1049,8 +1091,8 @@ impl<K: Eq + std::hash::Hash, V: Eq> Smoosher<K, V> {
     /// ```
 
     pub fn diff_other(&self, other: &Self) -> HashMap<&K, &V> {
-        let mut self_hm = Smoosher::to_hm(self);
-        let other_hm = Smoosher::to_hm(other);
+        let mut self_hm = StackMap::to_hm(self);
+        let other_hm = StackMap::to_hm(other);
         for (&k, &v) in other_hm.iter() {
             if let Some(&v_self) = self_hm.get(k) {
                 if v_self == v {
@@ -1087,13 +1129,13 @@ mod priv_tests {
     use crate::values::Value; //this is used in the tests below
     #[test]
     fn smoosher_shared_fork_point() {
-        let mut smoosher = Smoosher::new();
+        let mut smoosher = StackMap::new();
         smoosher.set("a", 2); //for type inference
                               //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 1);
             assert_eq!(depth_b, 1)
@@ -1107,7 +1149,7 @@ mod priv_tests {
         smoosher2.new_scope();
         //now expecting (3, 2)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 3);
             assert_eq!(depth_b, 2)
@@ -1120,13 +1162,13 @@ mod priv_tests {
 
     #[test]
     fn value_shared_fork_point() {
-        let mut smoosher = Smoosher::new();
+        let mut smoosher = StackMap::new();
         smoosher.set("a", Value::from(2, 32)); //for type inference
                                                //the below fork adds a new scope to [smoosher]
         let mut smoosher2 = smoosher.fork();
         //right now, shared_fork_point should give (1, 1)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 1);
             assert_eq!(depth_b, 1)
@@ -1140,7 +1182,7 @@ mod priv_tests {
         smoosher2.new_scope();
         //now expecting (3, 2)
         if let Some((depth_a, depth_b)) =
-            Smoosher::shared_fork_point(&smoosher, &smoosher2)
+            StackMap::shared_fork_point(&smoosher, &smoosher2)
         {
             assert_eq!(depth_a, 3);
             assert_eq!(depth_b, 2)
@@ -1152,5 +1194,9 @@ mod priv_tests {
     }
 }
 
+/// An error for when multiple children maps disagree on a value.
 #[derive(Debug)]
-pub struct CollisionError<K: Eq + std::hash::Hash, V: Eq>(pub K, pub V, pub V);
+pub struct CollisionError<K, V>(pub K, pub V, pub V)
+where
+    K: Eq + Hash,
+    V: Eq;

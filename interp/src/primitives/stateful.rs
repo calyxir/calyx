@@ -1,6 +1,6 @@
 use super::prim_utils::{get_param, ShiftBuffer};
 use super::primitive::Named;
-use super::{Entry, Primitive, Serializeable};
+use super::{Entry, Primitive, Serializable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::logging::{self, warn};
 use crate::utils::{construct_bindings, PrintCode};
@@ -31,9 +31,9 @@ impl BinOpUpdate {
 /// How to use:
 /// [Primitive::execute] with the desired bindings.
 /// To capture these bindings into the internal (out) queue, [Primitive::do_tick].
-/// The product associated with a given input will be output on the third [do_tick()].
+/// The product associated with a given input will be output on the third [Primitive::do_tick()].
 /// Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only the last
-/// set of inputs prior to the [Primitve::do_tick] will be saved.
+/// set of inputs prior to the [Primitive::do_tick] will be saved.
 pub struct StdMultPipe<const SIGNED: bool, const DEPTH: usize> {
     width: u64,
     product: Value,
@@ -202,9 +202,9 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             vec![self.product.clone()]
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -217,12 +217,12 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
 ///Pipelined Division (3 cycles)
 ///Still bounded by u64.
 ///How to use:
-///[execute] with the desired bindings. To capture these bindings
-///into the internal (out_quotient, out_remainder) queue, [do_tick()].
+///[Primitive::execute] with the desired bindings. To capture these bindings
+///into the internal (out_quotient, out_remainder) queue, [Primitive::do_tick].
 ///The out_quotient and out_remainder associated with a given input will
-///be output on the third [do_tick()].
-///Note: Calling [execute] multiple times before [do_tick()] has no effect; only
-///the last set of inputs prior to the [do_tick()] will be saved.
+///be output on the third [Primitive::do_tick].
+///Note: Calling [Primitive::execute] multiple times before [Primitive::do_tick] has no effect; only
+///the last set of inputs prior to the [Primitive::do_tick] will be saved.
 pub struct StdDivPipe<const SIGNED: bool> {
     pub width: u64,
     pub quotient: Value,
@@ -412,9 +412,9 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             //vec![self.left.clone(), self.right.clone(), self.product.clone()]
             vec![self.quotient.clone(), self.remainder.clone()]
                 .iter()
@@ -549,9 +549,9 @@ impl Primitive for StdReg {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Val(Entry::from_val_code(&self.data[0], &code))
+        Serializable::Val(Entry::from_val_code(&self.data[0], &code))
     }
 }
 
@@ -561,7 +561,7 @@ impl Primitive for StdReg {
 /// * SIZE - Number of slots in the memory.
 /// * IDX_SIZE - The width of the index given to the memory.
 ///
-/// To write to a memory, the [write_en] must be high.
+/// To write to a memory, the `write_en` must be high.
 /// Inputs:
 /// * addr0: IDX_SIZE - The index to be accessed or updated.
 /// * write_data: WIDTH - Data to be written to the selected memory slot.
@@ -598,10 +598,11 @@ impl StdMemD1 {
         );
         Self::new(&bindings, full_name, false)
     }
-    /// Instantiates a new StdMemD1 storing data of width [width], containing [size]
-    /// slots for memory, accepting indecies (addr0) of width [idx_size].
-    /// Note: if [idx_size] is smaller than the length of [size]'s binary representation,
-    /// you will not be able to access the slots near the end of the memory.
+    /// Instantiates a new StdMemD1 storing data of width `width`, containing
+    /// `size` slots for memory, accepting indices (addr0) of width `idx_size`.
+    /// Note: if `idx_size` is smaller than the length of `size`'s binary
+    /// representation, you will not be able to access the slots near the end of
+    /// the memory.
     pub fn new(
         params: &ir::Binding,
         name: ir::Id,
@@ -776,9 +777,9 @@ impl Primitive for StdMemD1 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -806,7 +807,7 @@ impl Primitive for StdMemD1 {
 /// write_data: WIDTH - Data to be written to the selected memory slot
 /// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0 and addr1
 /// Outputs:
-/// read_data: WIDTH - The value stored at mem[addr0][addr1]. This value is combinational with respect to addr0 and addr1.
+/// read_data: WIDTH - The value stored at mem\[addr0\]\[addr1\]. This value is combinational with respect to addr0 and addr1.
 /// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 #[derive(Clone, Debug)]
 pub struct StdMemD2 {
@@ -850,9 +851,9 @@ impl StdMemD2 {
         self.d0_size * self.d1_size
     }
 
-    /// Instantiates a new StdMemD2 storing data of width [width], containing
-    /// [d0_size] * [d1_size] slots for memory, accepting indecies [addr0][addr1] of widths
-    /// [d0_idx_size] and [d1_idx_size] respectively.
+    /// Instantiates a new StdMemD2 storing data of width `width`, containing
+    /// `d0_size` * `d1_size` slots for memory, accepting indices \[addr0\]\[addr1\] of widths
+    /// `d0_idx_size` and `d1_idx_size` respectively.
     /// Initially the memory is filled with all 0s.
     pub fn new(
         params: &ir::Binding,
@@ -1042,9 +1043,9 @@ impl Primitive for StdMemD2 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -1071,7 +1072,7 @@ impl Primitive for StdMemD2 {
 /// write_data: WIDTH - Data to be written to the selected memory slot
 /// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0, addr1, and addr2
 /// Outputs:
-/// read_data: WIDTH - The value stored at mem[addr0][addr1][addr2]. This value is combinational with respect to addr0, addr1, and addr2.
+/// read_data: WIDTH - The value stored at mem\[addr0\]\[addr1\]\[addr2\]. This value is combinational with respect to addr0, addr1, and addr2.
 /// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 #[derive(Clone, Debug)]
 pub struct StdMemD3 {
@@ -1116,9 +1117,9 @@ impl StdMemD3 {
         );
         Self::new(&bindings, full_name, false)
     }
-    /// Instantiates a new StdMemD3 storing data of width [width], containing
-    /// [d0_size] * [d1_size] * [d2_size] slots for memory, accepting indecies [addr0][addr1][addr2] of widths
-    /// [d0_idx_size], [d1_idx_size], and [d2_idx_size] respectively.
+    /// Instantiates a new StdMemD3 storing data of width `width`, containing
+    /// `d0_size` * `d1_size` * `d2_size` slots for memory, accepting indices \[addr0\]\[addr1\]\[addr2\] of widths
+    /// \[d0_idx_size\], \[d1_idx_size\], and \[d2_idx_size\] respectively.
     /// Initially the memory is filled with all 0s.
     pub fn new(
         params: &ir::Binding,
@@ -1332,9 +1333,9 @@ impl Primitive for StdMemD3 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
@@ -1370,7 +1371,7 @@ impl Primitive for StdMemD3 {
 /// write_data: WIDTH - Data to be written to the selected memory slot
 /// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0, addr1, addr2, and addr3
 /// Outputs:
-/// read_data: WIDTH - The value stored at mem[addr0][addr1][addr2][addr3]. This value is combinational with respect to addr0, addr1, addr2, and addr3.
+/// read_data: WIDTH - The value stored at mem\[addr0\]\[addr1\]\[addr2\]\[addr3\]. This value is combinational with respect to addr0, addr1, addr2, and addr3.
 /// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
 #[derive(Clone, Debug)]
 pub struct StdMemD4 {
@@ -1421,9 +1422,9 @@ impl StdMemD4 {
         );
         Self::new(&bindings, full_name, false)
     }
-    // Instantiates a new StdMemD3 storing data of width [width], containing
-    /// [d0_size] * [d1_size] * [d2_size] * [d3_size] slots for memory, accepting indecies [addr0][addr1][addr2][addr3] of widths
-    /// [d0_idx_size], [d1_idx_size], [d2_idx_size] and [d3_idx_size] respectively.
+    // Instantiates a new StdMemD3 storing data of width `width`, containing
+    /// `d0_size` * `d1_size` * `d2_size` * `d3_size` slots for memory, accepting indecies `addr0``addr1``addr2``addr3` of widths
+    /// `d0_idx_size`, `d1_idx_size`, `d2_idx_size` and `d3_idx_size` respectively.
     /// Initially the memory is filled with all 0s.
     pub fn new(
         params: &ir::Binding,
@@ -1664,9 +1665,9 @@ impl Primitive for StdMemD4 {
         ])
     }
 
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializeable {
+    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
-        Serializeable::Array(
+        Serializable::Array(
             self.data
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))

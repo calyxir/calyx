@@ -13,11 +13,11 @@
 /// });
 ///
 /// ```
-/// The macro implementes the [[Primitive]] trait for the struct as well as
-/// `StdAdd::new(bindings: ir::Params)` and `StdAdd::from_constants(ports)`
+/// The macro implements the [Primitive](crate::primitives::Primitive) trait
+/// for the struct as well as `StdAdd::new(bindings: ir::Params)` and
+/// `StdAdd::from_constants(ports)`
 ///
-/// TODO(rachit): $out_width is never used.
-/// (TODO: Griffin) fix the copy-paste
+/// TODO(rachit): $out_width is never used. (TODO: Griffin) fix the copy-paste
 #[macro_export]
 macro_rules! comb_primitive {
     ($name:ident[
