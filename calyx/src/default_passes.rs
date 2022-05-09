@@ -101,7 +101,7 @@ impl PassManager {
             "lower",
             [
                 GoInsertion,
-                WireInliner,
+                HoleInliner,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
