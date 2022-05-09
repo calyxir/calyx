@@ -81,6 +81,7 @@ impl Debugger {
                     for _ in 0..n {
                         component_interpreter.step()?;
                     }
+                    component_interpreter.converge()?;
                 }
                 Command::Continue => {
                     self.debugging_ctx.set_current_time(
@@ -130,6 +131,7 @@ impl Debugger {
                         for breakpoint in breakpoints {
                             println!("Hit breakpoint: {}", breakpoint);
                         }
+                        component_interpreter.converge()?;
                     }
                 }
                 Command::Empty => {}
