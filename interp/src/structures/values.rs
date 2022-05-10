@@ -1,6 +1,6 @@
 use std::ops::Not;
 use std::rc::Rc;
-use std::{cell::RefCell, ops::Index};
+use std::{cell::RefCell, fmt::Write, ops::Index};
 
 use bitvec::prelude::*;
 use fraction::Fraction;
@@ -734,9 +734,13 @@ impl std::fmt::Display for Value {
         &self,
         f: &mut std::fmt::Formatter<'_>,
     ) -> Result<(), std::fmt::Error> {
-        let mut vec_rev = (*self.vec).clone();
-        vec_rev.reverse();
-        write!(f, "{}", vec_rev)
+        let mut out = String::new();
+        write!(out, "[")?;
+        for bit in self.vec.iter().rev() {
+            write!(out, "{}", if *bit { 1 } else { 0 })?;
+        }
+        write!(out, "]")?;
+        write!(f, "{}", out)
     }
 }
 
