@@ -59,6 +59,8 @@ impl Debugger {
         );
         component_interpreter.set_go_high();
 
+        component_interpreter.converge()?;
+
         let mut input_stream = Input::default();
         println!("== Calyx Interactive Debugger ==");
         while !component_interpreter.is_done() {
@@ -108,13 +110,15 @@ impl Debugger {
                         ctx.advance_time(current_exec);
 
                         for watch in ctx.process_watchpoints() {
-                            if let Ok(msg) = self.do_print(
-                                watch.target(),
-                                watch.print_code(),
-                                component_interpreter.get_env(),
-                                watch.print_mode(),
-                            ) {
-                                println!("{}", msg);
+                            for target in watch.target() {
+                                if let Ok(msg) = self.do_print(
+                                    target,
+                                    watch.print_code(),
+                                    component_interpreter.get_env(),
+                                    watch.print_mode(),
+                                ) {
+                                    println!("{}", msg);
+                                }
                             }
                         }
 
@@ -139,24 +143,19 @@ impl Debugger {
                     let state = component_interpreter.get_env();
                     println!("{}", state.state_as_str());
                 }
-                Command::Print(print_lists, code) => match self.do_print(
-                    &print_lists,
-                    &code,
-                    component_interpreter.get_env(),
-                    &PrintMode::Port,
-                ) {
-                    Ok(msg) => println!("{}", msg),
-                    Err(e) => println!("{}", e),
-                },
-                Command::PrintState(print_lists, code) => match self.do_print(
-                    &print_lists,
-                    &code,
-                    component_interpreter.get_env(),
-                    &PrintMode::State,
-                ) {
-                    Ok(msg) => println!("{}", msg),
-                    Err(e) => println!("{}", e),
-                },
+                Command::Print(print_lists, code, print_mode) => {
+                    for target in print_lists {
+                        match self.do_print(
+                            &target,
+                            &code,
+                            component_interpreter.get_env(),
+                            &print_mode,
+                        ) {
+                            Ok(msg) => println!("{}", msg),
+                            Err(e) => println!("{}", e),
+                        }
+                    }
+                }
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
@@ -167,7 +166,19 @@ impl Debugger {
                     }
 
                     for target in targets {
-                        self.debugging_ctx.add_breakpoint(target)
+                        let currently_executing =
+                            component_interpreter.currently_executing_group();
+                        let target =
+                            self.debugging_ctx.concretize_group_name(target);
+
+                        if self
+                            .debugging_ctx
+                            .is_group_running(currently_executing, &target)
+                        {
+                            println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.", &target)
+                        }
+
+                        self.debugging_ctx.add_breakpoint(target);
                     }
                 }
                 Command::Exit => return Err(InterpreterError::Exit),
@@ -178,7 +189,7 @@ impl Debugger {
                         continue;
                     }
                     for t in targets {
-                        self.debugging_ctx.remove_breakpoint(&t)
+                        self.debugging_ctx.remove_breakpoint(t)
                     }
                 }
                 Command::DeleteWatch(targets) => {
@@ -187,7 +198,7 @@ impl Debugger {
                         continue;
                     }
                     for target in targets {
-                        self.debugging_ctx.remove_watchpoint(&target)
+                        self.debugging_ctx.remove_watchpoint(target)
                     }
                 }
                 Command::Disable(targets) => {
@@ -196,7 +207,7 @@ impl Debugger {
                         continue;
                     }
                     for t in targets {
-                        self.debugging_ctx.disable_breakpoint(&t)
+                        self.debugging_ctx.disable_breakpoint(t)
                     }
                 }
                 Command::Enable(targets) => {
@@ -205,12 +216,14 @@ impl Debugger {
                         continue;
                     }
                     for t in targets {
-                        self.debugging_ctx.enable_breakpoint(&t)
+                        self.debugging_ctx.enable_breakpoint(t)
                     }
                 }
                 Command::StepOver(target) => {
                     let mut current =
                         component_interpreter.currently_executing_group();
+                    let target =
+                        self.debugging_ctx.concretize_group_name(target);
 
                     if !self.debugging_ctx.is_group_running(current, &target) {
                         println!("Group is not running")
@@ -235,20 +248,29 @@ impl Debugger {
                     print_code,
                     print_mode,
                 ) => {
-                    if let Err(e) = self.do_print(
-                        &print_target,
-                        &print_code,
-                        component_interpreter.get_env(),
-                        &print_mode,
-                    ) {
-                        println!("{}", e); // print is bad
-                    } else {
-                        self.debugging_ctx.add_watchpoint(
-                            group,
-                            watch_pos,
-                            (print_target, print_code, print_mode),
-                        )
+                    let mut error_occurred = false;
+
+                    for target in print_target.iter() {
+                        if let Err(e) = self.do_print(
+                            target,
+                            &print_code,
+                            component_interpreter.get_env(),
+                            &print_mode,
+                        ) {
+                            error_occurred = true;
+                            println!("{}", e);
+                        }
                     }
+
+                    if error_occurred {
+                        continue;
+                    }
+
+                    self.debugging_ctx.add_watchpoint(
+                        group,
+                        watch_pos,
+                        (print_target, print_code, print_mode),
+                    )
                 }
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC => {
@@ -314,24 +336,20 @@ impl Debugger {
                     let state = final_env.as_state_view();
                     println!("{}", state.state_as_str());
                 }
-                Command::Print(print_lists, code) => match self.do_print(
-                    &print_lists,
-                    &code,
-                    final_env.as_state_view(),
-                    &PrintMode::Port,
-                ) {
-                    Ok(msg) => println!("{}", msg),
-                    Err(e) => println!("{}", e),
-                },
-                Command::PrintState(print_lists, code) => match self.do_print(
-                    &print_lists,
-                    &code,
-                    final_env.as_state_view(),
-                    &PrintMode::State,
-                ) {
-                    Ok(msg) => println!("{}", msg),
-                    Err(e) => println!("{}", e),
-                },
+                Command::Print(print_lists, code, print_mode) => {
+                    for target in print_lists {
+                        match self.do_print(
+                            &target,
+                            &code,
+                            final_env.as_state_view(),
+                            &print_mode,
+                        ) {
+                            Ok(msg) => println!("{}", msg),
+                            Err(e) => println!("{}", e),
+                        }
+                    }
+                }
+
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
@@ -347,117 +365,104 @@ impl Debugger {
 
     fn do_print(
         &mut self,
-        print_lists: &Option<Vec<Vec<Id>>>,
+        print_list: &[Id],
         code: &Option<PrintCode>,
         root: StateView,
         print_mode: &PrintMode,
     ) -> Result<String, DebuggerError> {
-        if print_lists.is_none() {
-            return Err(DebuggerError::RequiresTarget);
-        }
+        let orig_string = print_list
+            .iter()
+            .map(|s| s.id.clone())
+            .collect::<Vec<_>>()
+            .join(".");
 
-        for print_list in print_lists.as_ref().unwrap() {
-            let orig_string = print_list
-                .iter()
-                .map(|s| s.id.clone())
-                .collect::<Vec<_>>()
-                .join(".");
+        let mut iter = print_list.iter();
 
-            let mut iter = print_list.iter();
+        let length = if self.main_component.name == print_list[0] {
+            iter.next();
+            print_list.len() - 1
+        } else {
+            print_list.len()
+        };
 
-            let length = if self.main_component.name == print_list[0] {
-                iter.next();
-                print_list.len() - 1
-            } else {
-                print_list.len()
-            };
+        let mut current_target = CurrentTarget::Env(&root);
 
-            let mut current_target = CurrentTarget::Env(&root);
+        for (idx, target) in iter.enumerate() {
+            let current_ref = current_target.borrow();
+            let current_env = current_ref.get_env().unwrap();
 
-            for (idx, target) in iter.enumerate() {
-                let current_ref = current_target.borrow();
-                let current_env = current_ref.get_env().unwrap();
+            // lowest level
+            if idx == length - 1 {
+                // first look for cell
+                let cell = current_env.get_cell(target);
+                if let Some(cell) = cell {
+                    return Ok(print_cell(
+                        &cell,
+                        &current_env,
+                        code,
+                        print_mode,
+                    ));
+                } else if idx != 0 {
+                    let prior = &print_list[idx - 1];
 
-                // lowest level
-                if idx == length - 1 {
-                    // first look for cell
-                    let cell = current_env.get_cell(target);
-                    if let Some(cell) = cell {
-                        return Ok(print_cell(
-                            &cell,
-                            &current_env,
-                            code,
-                            print_mode,
-                        ));
-                    } else if idx != 0 {
-                        let prior = &print_list[idx - 1];
-
-                        if let Some(parent) = current_env.get_cell(&prior) {
-                            let parent_ref = parent.borrow();
-                            let pt = parent_ref
-                                .ports()
-                                .iter()
-                                .find(|x| x.borrow().name == target);
-                            if let Some(port) = pt {
-                                return Ok(print_port(
-                                    port,
-                                    &current_env,
-                                    None,
-                                    code,
-                                ));
-                            } else {
-                                return Err(DebuggerError::CannotFind(
-                                    orig_string,
-                                ));
-                                // cannot find
-                            }
-                        } else if let Some(port) = current_env
-                            .get_comp()
-                            .signature
-                            .borrow()
-                            .find(target)
-                        {
+                    if let Some(parent) = current_env.get_cell(&prior) {
+                        let parent_ref = parent.borrow();
+                        let pt = parent_ref
+                            .ports()
+                            .iter()
+                            .find(|x| x.borrow().name == target);
+                        if let Some(port) = pt {
                             return Ok(print_port(
-                                &port,
+                                port,
                                 &current_env,
-                                Some(print_list[idx - 1].clone()),
+                                None,
                                 code,
                             ));
                         } else {
-                            // cannot find
                             return Err(DebuggerError::CannotFind(orig_string));
+                            // cannot find
                         }
-                    } else {
-                        return Err(DebuggerError::CannotFind(orig_string));
-                    }
-                }
-                // still walking
-                else {
-                    let map = Rc::clone(current_env.get_cell_map());
-                    let cell = current_env.get_cell(target);
-                    if let Some(rrc_cell) = cell {
-                        // need to release these references to replace current
-                        // target
-                        if map.borrow()[&rrc_cell.as_raw()]
-                            .get_state()
-                            .is_some()
-                        {
-                            drop(current_env);
-                            drop(current_ref);
-
-                            current_target = CurrentTarget::Target {
-                                name: rrc_cell.as_raw(),
-                                map,
-                            }
-                        }
-                        // otherwise leave the same
+                    } else if let Some(port) =
+                        current_env.get_comp().signature.borrow().find(target)
+                    {
+                        return Ok(print_port(
+                            &port,
+                            &current_env,
+                            Some(print_list[idx - 1].clone()),
+                            code,
+                        ));
                     } else {
                         // cannot find
                         return Err(DebuggerError::CannotFind(orig_string));
                     }
+                } else {
+                    return Err(DebuggerError::CannotFind(orig_string));
+                }
+            }
+            // still walking
+            else {
+                let map = Rc::clone(current_env.get_cell_map());
+                let cell = current_env.get_cell(target);
+                if let Some(rrc_cell) = cell {
+                    // need to release these references to replace current
+                    // target
+                    if map.borrow()[&rrc_cell.as_raw()].get_state().is_some() {
+                        drop(current_env);
+                        drop(current_ref);
+
+                        current_target = CurrentTarget::Target {
+                            name: rrc_cell.as_raw(),
+                            map,
+                        }
+                    }
+                    // otherwise leave the same
+                } else {
+                    // cannot find
+                    return Err(DebuggerError::CannotFind(orig_string));
                 }
             }
         }
+
         unreachable!()
     }
 }

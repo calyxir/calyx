@@ -1,5 +1,7 @@
 use super::cidr::SPACING;
-use super::commands::{BreakPointId, GroupName, PrintTuple, WatchPosition};
+use super::commands::{
+    BreakPointId, ParsedGroupName, PrintTuple, WatchPosition,
+};
 
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
@@ -183,44 +185,63 @@ impl DebuggingContext {
         }
     }
 
-    pub fn add_breakpoint(&mut self, target: GroupName) {
-        let target_name = self.parse_group_name(&target);
+    pub fn add_breakpoint<N>(&mut self, target: N)
+    where
+        N: ConcretizableName,
+    {
+        let target = target.concretize(self);
+        let component_ref = self.comp_ctx.get(&target.component_name);
 
-        if self
-            .comp_ctx
-            .get(&target_name.component_name)
-            .and_then(|x| x.groups.find(&target_name.group_name))
-            .is_none()
-        {
+        if component_ref.is_none() {
             println!(
-                "{} Error: the group {} does not exit",
-                SPACING, target_name
+                "{} Error: there is no component named {}",
+                SPACING, target.component_name
             );
             return;
         }
 
+        let component_ref = component_ref.unwrap();
+
+        let group_exists = {
+            let exists =
+                component_ref.groups.find(&target.group_name).is_some();
+            // if there is no non-comb group, check comb groups
+            if !exists {
+                component_ref.comb_groups.find(&target.group_name).is_some()
+            } else {
+                true
+            }
+        };
+
+        if !group_exists {
+            println!("{} Error: the group {} does not exit", SPACING, target);
+            return;
+        }
+
         if let std::collections::hash_map::Entry::Vacant(e) =
-            self.breakpoints.entry(target_name.clone())
+            self.breakpoints.entry(target.clone())
         {
             let br = BreakPoint {
                 id: self.count.next(),
-                name: target_name,
+                name: target,
                 state: BreakPointState::Enabled,
             };
             e.insert(br);
         } else {
-            println!("A breakpoint already exists for \"{}\"", &target_name)
+            println!("A breakpoint already exists for \"{}\"", &target)
         }
     }
 
-    pub fn add_watchpoint<PT: Into<PrintTuple>>(
+    pub fn add_watchpoint<P, N>(
         &mut self,
-        target: GroupName,
+        key: N,
         position: WatchPosition,
-        print: PT,
-    ) {
-        let key = self.parse_group_name(&target);
-
+        print: P,
+    ) where
+        P: Into<PrintTuple>,
+        N: ConcretizableName,
+    {
+        let key = key.concretize(self);
         let watchpoint = WatchPoint {
             id: self.watch_count.next(),
             print_details: print.into(),
@@ -246,12 +267,12 @@ impl DebuggingContext {
 
     fn act_breakpoint(
         &mut self,
-        target: &BreakPointId,
+        target: BreakPointId,
         action: BreakpointAction,
     ) {
         match target {
             BreakPointId::Name(target) => {
-                let key = self.parse_group_name(target);
+                let key = self.concretize_group_name(target);
 
                 if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
                     action.take_action_with_feedback(breakpoint);
@@ -262,7 +283,7 @@ impl DebuggingContext {
             BreakPointId::Number(target) => {
                 let mut found = false;
                 for x in self.breakpoints.values_mut() {
-                    if x.id == *target {
+                    if x.id == target {
                         action.take_action_with_feedback(x);
                         found = true;
                         break;
@@ -278,21 +299,21 @@ impl DebuggingContext {
         }
     }
 
-    pub fn enable_breakpoint(&mut self, target: &BreakPointId) {
+    pub fn enable_breakpoint(&mut self, target: BreakPointId) {
         self.act_breakpoint(target, BreakpointAction::Enable)
     }
-    pub fn disable_breakpoint(&mut self, target: &BreakPointId) {
+    pub fn disable_breakpoint(&mut self, target: BreakPointId) {
         self.act_breakpoint(target, BreakpointAction::Disable)
     }
-    pub fn remove_breakpoint(&mut self, target: &BreakPointId) {
+    pub fn remove_breakpoint(&mut self, target: BreakPointId) {
         self.act_breakpoint(target, BreakpointAction::Delete);
         self.cleanup_deleted_breakpoints()
     }
 
-    pub fn remove_watchpoint(&mut self, target: &BreakPointId) {
+    pub fn remove_watchpoint(&mut self, target: BreakPointId) {
         match target {
             BreakPointId::Name(name) => self.remove_watchpoint_by_name(name),
-            BreakPointId::Number(num) => self.remove_watchpoint_by_number(*num),
+            BreakPointId::Number(num) => self.remove_watchpoint_by_number(num),
         }
     }
 
@@ -300,8 +321,8 @@ impl DebuggingContext {
         self.breakpoints.retain(|_k, x| !x.is_deleted());
     }
 
-    fn remove_watchpoint_by_name(&mut self, target: &GroupName) {
-        let key = self.parse_group_name(target);
+    fn remove_watchpoint_by_name(&mut self, target: ParsedGroupName) {
+        let key = self.concretize_group_name(target);
 
         self.watchpoints_before.remove(&key);
         self.watchpoints_after.remove(&key);
@@ -319,15 +340,12 @@ impl DebuggingContext {
         }
     }
 
-    fn parse_group_name(&self, target: &GroupName) -> CompGroupName {
-        match target.len() {
-            1 => CompGroupName::new(
-                target[0].clone(),
-                self.main_comp_name.clone(),
-            ),
-            2 => CompGroupName::new(target[1].clone(), target[0].clone()),
-            _ => unreachable!("Something went weird in the parser"),
-        }
+    #[inline]
+    pub fn concretize_group_name(
+        &self,
+        target: ParsedGroupName,
+    ) -> CompGroupName {
+        target.concretize(&self.main_comp_name)
     }
 
     pub fn advance_time(&mut self, current: HashSet<GroupQIN>) {
@@ -393,13 +411,12 @@ impl DebuggingContext {
     pub fn is_group_running(
         &self,
         current_executing: HashSet<GroupQIN>,
-        target: &GroupName,
+        target: &CompGroupName,
     ) -> bool {
         let current: HashSet<CompGroupName> =
             current_executing.into_iter().map(|x| x.into()).collect();
 
-        let target = self.parse_group_name(target);
-        current.contains(&target)
+        current.contains(target)
     }
 
     pub fn print_breakpoints(&self) {
@@ -431,5 +448,23 @@ impl DebuggingContext {
                 }
             }
         }
+    }
+}
+
+pub(super) trait ConcretizableName {
+    fn concretize(self, context: &DebuggingContext) -> CompGroupName;
+}
+
+impl ConcretizableName for CompGroupName {
+    #[inline]
+    fn concretize(self, _context: &DebuggingContext) -> CompGroupName {
+        self
+    }
+}
+
+impl ConcretizableName for ParsedGroupName {
+    #[inline]
+    fn concretize(self, context: &DebuggingContext) -> CompGroupName {
+        context.concretize_group_name(self)
     }
 }

@@ -24,16 +24,16 @@ print_code = { "\\" ~
         pc_un
     )
 }
-pc_fail = @{ "\\" ~ ASCII_ALPHA* }
+pc_fail = @{ "\\" ~ ASCII_ALPHANUMERIC* }
 
 print = {
-    (^"print" | ^"p") ~ (print_code | pc_fail)? ~ name+
+    (^"print" | ^"p") ~ (print_code)? ~ name+
 }
 
-print_state = {^"print-state" ~ (print_code | pc_fail)? ~ name+ }
+print_state = {^"print-state" ~ (print_code)? ~ name+ }
 
 print_fail = {
-    (^"print" | ^"p") ~ (print_code | pc_fail)?
+    (^"print-state" | ^"print" | ^"p") ~ (print_code | pc_fail)?
 }
 
 before = {^"before"}
