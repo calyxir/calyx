@@ -531,6 +531,7 @@ fn build_control(
                 outputs,
                 attributes,
                 comb_group: None,
+                external_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
                 let cg_ref = builder
