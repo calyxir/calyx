@@ -187,32 +187,38 @@ pub enum Command {
     PrintPC,
 }
 
+type Description = &'static str;
+type UsageExample = &'static str;
+type CommandName = &'static str;
+
+type HelpInfo = (Vec<CommandName>, Description, Vec<UsageExample>);
+
 impl Command {
     pub fn get_help_string() -> String {
         let mut out = String::new();
-        for (names, message) in Command::help_string() {
+        for (names, message, _) in Command::help_string() {
             writeln!(out, "    {: <20}{}", names.join(", "), message).unwrap();
         }
 
         out
     }
 
-    fn help_string() -> Vec<(Vec<&'static str>, &'static str)> {
+    fn help_string() -> Vec<HelpInfo> {
         vec![
-            (vec!["Step", "s"], "Advance the execution by a step"),
-            (vec!["Step-over"], "Advance the execution over a given group"),
-            (vec!["Continue", "c"], "Continue until the program finishes executing or hits a breakpoint"),
-            (vec!["Display"], "Display the full state"),
-            (vec!["Print", "p"], "Print target value"),
-            (vec!["Print-state"], "Print the internal state of the target cell"),
-            (vec!["Watch"], "Watch a given group with a print statement"),
-            (vec!["Help", "h"], "Print this message"),
-            (vec!["Break", "br"], "Create a breakpoint"),
-            (vec!["Info break", "ib"], "List all breakpoints"),
-            (vec!["Delete","del"], "Delete target breakpoint"),
-            (vec!["Enable"], "Enable target breakpoint"),
-            (vec!["Disable"], "Disable target breakpoint"),
-            (vec!["Exit"], "Exit the debugger")
+            (vec!["step", "s"], "Advance the execution by a step. If provided a number, it will advance by that many steps (skips breakpoints).", vec!["> s", "> s 5"]),
+            (vec!["step-over"], "Advance the execution over a given group.", vec!["> step-over this_group"]),
+            (vec!["continue", "c"], "Continue until the program finishes executing or hits a breakpoint", vec![]),
+            (vec!["display"], "Display the full state", vec![]),
+            (vec!["print", "p"], "Print target value. Takes an optional print code before the target. Valid print codes are \\u (unsigned), \\s (signed), \\u.X (unsigned fixed-point, X frac bits), \\s.X (signed fixed-point)", vec!["> p reg.write_en", "> p \\u mult1"]),
+            (vec!["print-state"], "Print the internal state of the target cell. Takes an optional print code before the target", vec!["> print-state my_register", "> print-state \\s.16 mem"]),
+            (vec!["watch"], "Watch a given group with a print statement. Takes an optional position (before/after)", vec!["> watch GROUP with p \\u reg.in", "> watch after GROUP with print-state \\s mem"] ),
+            (vec!["help", "h"], "Print this message", vec![]),
+            (vec!["break", "br"], "Create a breakpoint", vec!["> br do_add", "> br subcomp::let0"]),
+            (vec!["info break", "ib"], "List all breakpoints", vec![]),
+            (vec!["delete","del"], "Delete target breakpoint", vec!["> del 1", "> del do_add"]),
+            (vec!["enable"], "Enable target breakpoint", vec!["> enable 1", "> enable do_add"]),
+            (vec!["disable"], "Disable target breakpoint", vec!["> disable 4", "> disable do_mult"]),
+            (vec!["exit", "quit"], "Exit the debugger", vec![])
         ]
     }
 }
