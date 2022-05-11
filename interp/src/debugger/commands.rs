@@ -196,9 +196,7 @@ impl Command {
 
         out
     }
-}
 
-impl Command {
     fn help_string() -> Vec<(Vec<&'static str>, &'static str)> {
         vec![
             (vec!["Step", "s"], "Advance the execution by a step"),
