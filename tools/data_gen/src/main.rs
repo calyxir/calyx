@@ -13,18 +13,23 @@ use std::rc::Rc;
 
 lazy_static! {
     static ref SIZEMAP: HashMap<&'static str, Vec<&'static str>> = {
-        let mut m = HashMap::new();
-        m.insert("std_mem_d1", vec!["SIZE"]);
-        m.insert("std_mem_d2", vec!["D0_SIZE", "D1_SIZE"]);
-        m.insert("std_mem_d3", vec!["D0_SIZE", "D1_SIZE", "D2_SIZE"]);
-        m.insert(
-            "std_mem_d4",
-            vec!["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"],
-        );
-        m
+        vec![
+            ("std_mem_d1", vec!["SIZE"]),
+            ("std_mem_d2", vec!["D0_SIZE", "D1_SIZE"]),
+            ("std_mem_d3", vec!["D0_SIZE", "D1_SIZE", "D2_SIZE"]),
+            (
+                "std_mem_d4",
+                vec!["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"],
+            ),
+        ]
+        .into_iter()
+        .collect::<HashMap<&'static str, Vec<&'static str>>>()
     };
 }
 
+///Holds data for std_mem cells, including name of cell, width, and sizes
+///Name is the name of cell itself, not its type. Sizes is a vector
+/// that holds the dimensions of the cell (ex: for a 2 x 3 std_mem_d2 cell it would be [2,3])
 struct CellData {
     name: String,
     width: u64,
@@ -111,14 +116,23 @@ fn main() -> CalyxResult<()> {
 
 //generates a json value associated with sizes_vec and width
 fn gen_comp(sizes_vec: &mut Vec<u64>, width: u64) -> serde_json::Value {
-    let initial: SizeVec =
-        SizeVec::Single(vec![0; sizes_vec.pop().unwrap().try_into().unwrap()]);
+    let initial: SizeVec = SizeVec::Single(vec![
+        0;
+        sizes_vec
+            .pop()
+            .unwrap_or_else(|| panic!("unable to read from size_vec"))
+            .try_into()
+            .unwrap_or_else(
+                |_| panic!("unable to turn u64 into usize")
+            )
+    ]);
     sizes_vec.reverse();
     let data_vec: SizeVec =
         sizes_vec.iter().fold(initial, |acc, x| accumulate(*x, acc));
-    let data = serde_json::to_value(data_vec).unwrap();
+    let data = serde_json::to_value(data_vec)
+        .unwrap_or_else(|_| panic!("could not create data array"));
     json!({
-        "data": data.get("data").unwrap(),
+        "data": data.get("data").unwrap_or_else(|| panic!("could place data array in json value")),
         "format": {
             "numeric_type": "bitnum",
             "is_signed": false,
@@ -128,8 +142,12 @@ fn gen_comp(sizes_vec: &mut Vec<u64>, width: u64) -> serde_json::Value {
 }
 
 //creates a vector consisting of i v's.
-fn add_dimension<T: std::clone::Clone>(i: u64, v: Vec<T>) -> Vec<Vec<T>> {
-    vec![v; i.try_into().unwrap()]
+fn add_dimension<T: std::clone::Clone>(i: u64, v: T) -> Vec<T> {
+    vec![
+        v;
+        i.try_into()
+            .unwrap_or_else(|_| panic!("could not add dimension to data array"))
+    ]
 }
 
 //function to help build vectors of multiple dimensions using fold()
@@ -156,18 +174,24 @@ fn get_data(cell: &Rc<RefCell<ir::Cell>>) -> Option<CellData> {
         return None;
     }
     match &(*final_cell).prototype {
-        ir::CellType::Primitive { ref name, .. } => SIZEMAP
-            .get(&name.id.clone().as_str())
-            .and_then(|sizes_vec| {
+        ir::CellType::Primitive { ref name, .. } => {
+            SIZEMAP.get(&name.id.as_str()).and_then(|sizes_vec| {
                 Some(CellData {
                     name: final_cell.name().id.clone(),
-                    width: final_cell.get_parameter("WIDTH").unwrap(),
+                    width: final_cell.get_parameter("WIDTH").unwrap_or_else(
+                        || panic!("unable to get width of cell"),
+                    ),
                     sizes: sizes_vec
                         .iter()
-                        .map(|size| final_cell.get_parameter(size).unwrap())
+                        .map(|size| {
+                            final_cell.get_parameter(size).unwrap_or_else(
+                                || panic!("unable to get size of cell"),
+                            )
+                        })
                         .collect(),
                 })
-            }),
+            })
+        }
         _ => None,
     }
 }
