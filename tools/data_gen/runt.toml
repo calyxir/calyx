@@ -1,0 +1,13 @@
+ver = "0.4.0"
+
+##### Data_Gen Tests ######
+## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file
+[[tests]]
+name = "data gen tests"
+paths = [
+  "tests/*.futil",
+]
+# runs data_gen on the .futil files 
+cmd = """
+../../target/debug/data_gen {} -l ../../../calyx
+"""
