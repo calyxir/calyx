@@ -342,7 +342,7 @@ impl Printer {
                 outputs,
                 attributes,
                 comb_group,
-                external_cells,
+                ..
             }) => {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
@@ -357,9 +357,6 @@ impl Printer {
                         arg,
                         Self::port_to_str(&port.borrow())
                     )?;
-                }
-                if !external_cells.is_empty() {
-                    write!(f, "[]")?;
                 }
                 if inputs.is_empty() {
                     write!(f, ")(")?;

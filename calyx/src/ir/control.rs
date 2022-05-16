@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
@@ -80,7 +80,7 @@ pub struct Invoke {
     /// Optional combinational group that is active when the invoke is active.
     pub comb_group: Option<RRC<CombGroup>>,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
-    pub external_cells: CellMap,
+    pub external_cells: RRC<CellMap>,
 }
 
 /// Data for the `empty` control statement.
@@ -171,7 +171,7 @@ impl Control {
             outputs,
             attributes: Attributes::default(),
             comb_group: None,
-            external_cells: Vec::new(),
+            external_cells: Rc::new(RefCell::new(Vec::new())),
         })
     }
 
@@ -251,7 +251,7 @@ impl Control {
                 outputs,
                 attributes,
                 comb_group,
-                external_cells,
+                ..
             }) => Control::Invoke(Invoke {
                 comp: Rc::clone(comp),
                 inputs: inputs
@@ -264,10 +264,7 @@ impl Control {
                     .collect(),
                 comb_group: comb_group.clone().map(|cg| Rc::clone(&cg)),
                 attributes: attributes.clone(),
-                external_cells: external_cells
-                    .iter()
-                    .map(|(name, cell)| (name.clone(), Rc::clone(cell)))
-                    .collect(),
+                external_cells: Rc::new(RefCell::new(Vec::new())),
             }),
             Control::Enable(Enable { group, attributes }) => {
                 Control::Enable(Enable {
