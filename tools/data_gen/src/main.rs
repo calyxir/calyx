@@ -49,7 +49,7 @@ fn main() -> CalyxResult<()> {
     let p: FilePaths = argh::from_env();
 
     let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
-    let ctx: ir::Context = (ir::from_ast::ast_to_ir(ws))?;
+    let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
 
     let comp = ctx
         .components
@@ -98,11 +98,11 @@ fn gen_comp(sizes_vec: &[usize], width: u64) -> serde_json::Value {
 
 //Returns Some(CellData)) if cell is a std_mem cell, None otherwise
 fn get_data(cell: &ir::RRC<ir::Cell>) -> Option<CellData> {
-    let final_cell = &*cell.borrow();
+    let final_cell = cell.borrow();
     if !final_cell.attributes.has("external") {
         return None;
     }
-    match &(*final_cell).prototype {
+    match final_cell.prototype {
         ir::CellType::Primitive { ref name, .. } => {
             SIZEMAP.get(&name.id.as_str()).map(|sizes_vec| CellData {
                 name: final_cell.name().id.clone(),

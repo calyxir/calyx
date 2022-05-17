@@ -382,6 +382,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_gen"
+version = "0.1.0"
+dependencies = [
+ "argh",
+ "calyx",
+ "lazy_static",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "derivative"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -547,17 +558,6 @@ dependencies = [
  "quick-xml",
  "serde",
  "vast",
-]
-
-[[package]]
-name = "gen_json"
-version = "0.1.0"
-dependencies = [
- "argh",
- "calyx",
- "lazy_static",
- "serde",
- "serde_json",
 ]
 
 [[package]]
