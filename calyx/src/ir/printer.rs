@@ -342,6 +342,7 @@ impl Printer {
                 outputs,
                 attributes,
                 comb_group,
+                ..
             }) => {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
