@@ -96,13 +96,11 @@ impl Visitor for WireInliner {
                     format!("{}_go", name),
                     "std_wire",
                     &[1],
-                    false,
                 );
                 let done = builder.add_primitive(
                     format!("{}_done", name),
                     "std_wire",
                     &[1],
-                    false,
                 );
                 (name, (go, done))
             })

@@ -34,7 +34,6 @@ macro_rules! structure {
             stringify!($var),
             stringify!($comp),
             &[$($n),*],
-            false,
         );
         structure!($builder; $($tail)*)
     };

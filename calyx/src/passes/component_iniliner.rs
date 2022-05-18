@@ -82,7 +82,6 @@ impl ComponentInliner {
                 cn.clone(),
                 name,
                 &param_binding.iter().map(|(_, v)| *v).collect_vec(),
-                false,
             ),
             ir::CellType::Component { name } => builder.add_component(
                 cn.clone(),
@@ -171,12 +170,8 @@ impl ComponentInliner {
             .map(|port_ref| {
                 let port = port_ref.borrow();
                 let wire_name = format!("{}_{}", name, port.name);
-                let wire_ref = builder.add_primitive(
-                    wire_name,
-                    "std_wire",
-                    &[port.width],
-                    false,
-                );
+                let wire_ref =
+                    builder.add_primitive(wire_name, "std_wire", &[port.width]);
                 let wire = wire_ref.borrow();
                 let pn = match port.direction {
                     ir::Direction::Input => "in",

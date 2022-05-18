@@ -281,12 +281,13 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
     let proto_name = &cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
-        builder.add_primitive(
+        let c = builder.add_primitive(
             cell.name,
             proto_name,
             &cell.prototype.params,
-            cell.external,
-        )
+        );
+        c.borrow_mut().set_external(cell.external);
+        c
     } else {
         // Validator ensures that if the protoype is not a primitive, it
         // is a component.
@@ -309,8 +310,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
                 })
                 .collect::<Result<Vec<_>, _>>()
                 .expect("Failed to build component"),
-            external,
         );
+        cell.borrow_mut().set_external(external);
         builder.component.cells.add(Rc::clone(&cell));
         cell
     };

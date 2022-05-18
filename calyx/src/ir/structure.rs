@@ -185,18 +185,24 @@ impl GetAttributes for Cell {
 
 impl Cell {
     /// Construct a cell
-    pub fn new(name: Id, prototype: CellType, external: bool) -> Self {
+    pub fn new(name: Id, prototype: CellType) -> Self {
         Self {
             name,
             ports: smallvec![],
             prototype,
             attributes: Attributes::default(),
-            external,
+            external: false,
         }
     }
 
     ///Get a boolean describing whether the cell is external.
     pub fn is_external(&self) -> bool {
+        self.external
+    }
+
+    ///Set the external field
+    pub(super) fn set_external(&mut self, external: bool) -> bool {
+        self.external = external;
         self.external
     }
 

@@ -70,7 +70,6 @@ impl Component {
                     (name.as_ref().into(), w, d.reverse(), attrs)
                 })
                 .collect(),
-            false,
         );
 
         Component {
