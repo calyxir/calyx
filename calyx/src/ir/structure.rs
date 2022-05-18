@@ -185,13 +185,13 @@ impl GetAttributes for Cell {
 
 impl Cell {
     /// Construct a cell
-    pub fn new(name: Id, prototype: CellType) -> Self {
+    pub fn new(name: Id, prototype: CellType, external: bool) -> Self {
         Self {
             name,
             ports: smallvec![],
             prototype,
             attributes: Attributes::default(),
-            external: false,
+            external,
         }
     }
 

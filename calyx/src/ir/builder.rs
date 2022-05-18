@@ -130,6 +130,7 @@ impl<'a> Builder<'a> {
                 ir::Direction::Output,
                 ir::Attributes::default(),
             )],
+            false,
         );
 
         // Add constant to the Component.
@@ -153,6 +154,7 @@ impl<'a> Builder<'a> {
         prefix: Pre,
         primitive: Prim,
         param_values: &[u64],
+        external: bool,
     ) -> RRC<ir::Cell>
     where
         Pre: Into<ir::Id> + ToString + Clone,
@@ -173,6 +175,7 @@ impl<'a> Builder<'a> {
                 is_comb: prim.is_comb,
             },
             ports,
+            external,
         );
         if self.generated {
             cell.borrow_mut().add_attribute("generated", 1);
@@ -199,6 +202,7 @@ impl<'a> Builder<'a> {
                 name: component.into(),
             },
             sig,
+            false,
         );
         if self.generated {
             cell.borrow_mut().add_attribute("generated", 1);
@@ -283,8 +287,9 @@ impl<'a> Builder<'a> {
         name: ir::Id,
         typ: ir::CellType,
         ports: CellPortSig,
+        external: bool,
     ) -> RRC<ir::Cell> {
-        let cell = Rc::new(RefCell::new(ir::Cell::new(name, typ)));
+        let cell = Rc::new(RefCell::new(ir::Cell::new(name, typ, external)));
         ports
             .into_iter()
             .for_each(|(name, width, direction, attributes)| {

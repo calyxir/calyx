@@ -119,6 +119,7 @@ impl Bookkeeper {
                             format!("unshr_{}", name),
                             "std_reg",
                             &[*self.widths.get(name).unwrap()],
+                            false,
                         )
                         .borrow()
                         .name()

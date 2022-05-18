@@ -51,8 +51,12 @@ fn lower_guard(
 
             let prim = maybe_prim.unwrap();
             let prim_name = format!("std_{}", prim);
-            let prim_cell =
-                builder.add_primitive(prim, prim_name, &[l_low.borrow().width]);
+            let prim_cell = builder.add_primitive(
+                prim,
+                prim_name,
+                &[l_low.borrow().width],
+                false,
+            );
             let prim = prim_cell.borrow();
 
             assigns.push(builder.build_assignment(
@@ -71,8 +75,12 @@ fn lower_guard(
         ir::Guard::CompOp(_, l, r) => {
             let prim = maybe_prim.unwrap();
             let prim_name = format!("std_{}", prim);
-            let prim_cell =
-                builder.add_primitive(prim, prim_name, &[l.borrow().width]);
+            let prim_cell = builder.add_primitive(
+                prim,
+                prim_name,
+                &[l.borrow().width],
+                false,
+            );
             let prim = prim_cell.borrow();
 
             assigns.push(builder.build_assignment(
@@ -93,6 +101,7 @@ fn lower_guard(
                 "not",
                 "std_not",
                 &[g_low.borrow().width],
+                false,
             );
             let not = not_prim.borrow();
             assigns.push(builder.build_assignment(
