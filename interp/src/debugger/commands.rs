@@ -212,6 +212,7 @@ impl Command {
             (vec!["print", "p"], "Print target value. Takes an optional print code before the target. Valid print codes are \\u (unsigned), \\s (signed), \\u.X (unsigned fixed-point, X frac bits), \\s.X (signed fixed-point)", vec!["> p reg.write_en", "> p \\u mult1"]),
             (vec!["print-state"], "Print the internal state of the target cell. Takes an optional print code before the target", vec!["> print-state my_register", "> print-state \\s.16 mem"]),
             (vec!["watch"], "Watch a given group with a print statement. Takes an optional position (before/after)", vec!["> watch GROUP with p \\u reg.in", "> watch after GROUP with print-state \\s mem"] ),
+            (vec!["where", "pc"], "Displays the current program location using source metadata if applicable otherwise showing the calyx tree.", vec![]),
             (vec!["help", "h"], "Print this message", vec![]),
             (vec!["break", "br"], "Create a breakpoint", vec!["> br do_add", "> br subcomp::let0"]),
             (vec!["info break", "ib"], "List all breakpoints", vec![]),
