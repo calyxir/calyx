@@ -223,6 +223,9 @@ impl Printer {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
+                if cell.is_external() {
+                    write!(f, "external ")?
+                }
                 write!(f, "{} = ", cell.name().id)?;
                 writeln!(
                     f,

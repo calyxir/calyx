@@ -114,6 +114,10 @@ impl CalyxParser {
         Ok(())
     }
 
+    fn external(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
     // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
         let span = Self::get_span(&input);
@@ -375,8 +379,10 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
+            [at_attributes(attrs), external(_), identifier(id), identifier(prim), args(args)] =>
+            ast::Cell::from(id, prim, args, attrs.add_span(span),true),
             [at_attributes(attrs), identifier(id), identifier(prim), args(args)] =>
-            ast::Cell::from(id, prim, args, attrs.add_span(span))
+            ast::Cell::from(id, prim, args, attrs.add_span(span),false)
         ))
     }
 

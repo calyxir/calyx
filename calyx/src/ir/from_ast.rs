@@ -281,7 +281,13 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
     let proto_name = &cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
-        builder.add_primitive(cell.name, proto_name, &cell.prototype.params)
+        let c = builder.add_primitive(
+            cell.name,
+            proto_name,
+            &cell.prototype.params,
+        );
+        c.borrow_mut().set_external(cell.external);
+        c
     } else {
         // Validator ensures that if the protoype is not a primitive, it
         // is a component.
@@ -290,6 +296,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         let typ = CellType::Component {
             name: proto_name.clone(),
         };
+        let external = cell.external;
         // Components do not have any bindings for parameters
         let fake_binding = LinkedHashMap::with_capacity(0);
         let cell = Builder::cell_from_signature(
@@ -304,6 +311,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
                 .collect::<Result<Vec<_>, _>>()
                 .expect("Failed to build component"),
         );
+        cell.borrow_mut().set_external(external);
         builder.component.cells.add(Rc::clone(&cell));
         cell
     };

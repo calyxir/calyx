@@ -156,6 +156,8 @@ pub struct Cell {
     pub prototype: Proto,
     /// Attributes attached to this cell definition
     pub attributes: ir::Attributes,
+    /// Whether this cell is external
+    pub external: bool,
 }
 
 /// Methods for constructing the structure AST nodes.
@@ -166,6 +168,7 @@ impl Cell {
         proto: ir::Id,
         params: Vec<u64>,
         attributes: ir::Attributes,
+        external: bool,
     ) -> Cell {
         Cell {
             name,
@@ -174,6 +177,7 @@ impl Cell {
                 params,
             },
             attributes,
+            external,
         }
     }
 }

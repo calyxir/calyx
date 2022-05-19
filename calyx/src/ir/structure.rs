@@ -200,6 +200,12 @@ impl Cell {
         self.external
     }
 
+    ///Set the external field
+    pub(super) fn set_external(&mut self, external: bool) -> bool {
+        self.external = external;
+        self.external
+    }
+
     /// Get a reference to the named port if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where

@@ -39,6 +39,8 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 comb = { "comb" }
 
+external = { "external" }
+
 file = {
       SOI
       ~ imports
@@ -113,7 +115,7 @@ args = {
 }
 
 cell_without_semi = {
-      at_attributes ~ identifier ~ "=" ~ identifier ~ args
+      at_attributes ~ external? ~ identifier ~ "=" ~ identifier ~ args
 }
 
 cell = {
