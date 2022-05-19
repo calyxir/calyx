@@ -28,7 +28,7 @@ features = ["termcolor", "atty"]
 default-features = false
 
 [workspace]
-members = ["calyx", "interp", "web/rust"]
+members = ["calyx", "interp", "web/rust", "tools/data_gen"]
 exclude = ["site"]
 
 [profile.release]

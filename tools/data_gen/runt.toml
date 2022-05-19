@@ -1,0 +1,10 @@
+ver = "0.4.0"
+[[tests]]
+name = "data gen tests"
+paths = [
+  "tests/*.futil",
+]
+# runs data_gen on the .futil files 
+cmd = """
+../../target/debug/data_gen {} -l ../../../calyx
+"""
