@@ -33,7 +33,7 @@ macro_rules! structure {
         let $var = $builder.add_primitive(
             stringify!($var),
             stringify!($comp),
-            &[$($n),*],
+            &[$($n),*]
         );
         structure!($builder; $($tail)*)
     };
