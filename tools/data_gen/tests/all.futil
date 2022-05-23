@@ -1,0 +1,16 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external(1) d4_ex = std_mem_d4(32,2,3,5,2,4,4,4,4);
+    @external(1) d3_ex = std_mem_d3(32,3,2,6,4,4,4);
+    @external(1) d2_ex= std_mem_d2(32,4,2,4,4);
+    @external(1) d1_ex= std_mem_d1(32,5,4);
+    @external(1) d2_ex2= std_mem_d2(32,5,3,4,4);
+  }
+  wires {
+    
+  }
+  control {
+  }
+}
