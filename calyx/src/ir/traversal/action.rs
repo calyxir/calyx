@@ -17,7 +17,7 @@ pub enum Action {
     /// Replace the the current ast node with a new node.
     /// If performed using a start_* method, none of the newly created children
     /// will be visited.
-    Change(Control),
+    Change(Box<Control>),
 }
 
 impl Action {
@@ -34,12 +34,16 @@ impl Action {
         }
     }
 
+    pub fn change(control: Control) -> Self {
+        Action::Change(Box::new(control))
+    }
+
     /// Applies the Change action if `self` is a Change action.
     /// Otherwise passes the action through unchanged
     pub(super) fn apply_change(self, con: &mut Control) -> Action {
         match self {
             Action::Change(c) => {
-                *con = c;
+                *con = *c;
                 Action::Continue
             }
             action => action,

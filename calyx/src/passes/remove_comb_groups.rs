@@ -239,7 +239,7 @@ impl Visitor for RemoveCombGroups {
                 ir::Control::enable(Rc::clone(new_group.unwrap())),
                 invoke,
             ]);
-            Ok(Action::Change(seq))
+            Ok(Action::change(seq))
         } else {
             Ok(Action::Continue)
         }
@@ -271,7 +271,7 @@ impl Visitor for RemoveCombGroups {
             *attrs = std::mem::take(&mut s.attributes);
         }
         let cond_before_body = ir::Control::enable(Rc::clone(cond_ref));
-        Ok(Action::Change(ir::Control::seq(vec![
+        Ok(Action::change(ir::Control::seq(vec![
             cond_before_body,
             while_,
         ])))
@@ -316,7 +316,7 @@ impl Visitor for RemoveCombGroups {
             Box::new(fbranch),
         );
         let cond = ir::Control::enable(Rc::clone(cond_ref));
-        Ok(Action::Change(ir::Control::seq(vec![cond, if_])))
+        Ok(Action::change(ir::Control::seq(vec![cond, if_])))
     }
 
     fn finish(

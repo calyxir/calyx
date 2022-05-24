@@ -41,6 +41,10 @@ comb = { "comb" }
 
 external = { "external" }
 
+sq_paren_l = {"["}
+
+sq_paren_r = {"]"}
+
 file = {
       SOI
       ~ imports
@@ -231,7 +235,10 @@ enable = { at_attributes ~ identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ (port | num_lit) }
 invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
-invoke = { at_attributes ~ "invoke" ~ identifier ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
+invoke_external_arg = {identifier ~ "=" ~ identifier}
+invoke_external_args = {(invoke_external_arg ~ ("," ~ invoke_external_arg)*)?}
+ivk_extern_args_in_paren = {(sq_paren_l ~ invoke_external_args ~ sq_paren_r)?}
+invoke = { at_attributes ~ "invoke" ~ identifier ~ ivk_extern_args_in_paren ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
 
 seq = {
       at_attributes ~ "seq" ~ "{"

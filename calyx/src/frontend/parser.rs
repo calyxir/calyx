@@ -118,6 +118,14 @@ impl CalyxParser {
         Ok(())
     }
 
+    fn sq_paren_l(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn sq_paren_r(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
     // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
         let span = Self::get_span(&input);
@@ -582,26 +590,53 @@ impl CalyxParser {
         ))
     }
 
+    fn invoke_external_arg(input: Node) -> ParseResult<(ir::Id, ir::Id)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(outcell), identifier(incell)] => (outcell, incell)
+        ))
+    }
+
+    fn invoke_external_args(input: Node) -> ParseResult<Vec<(ir::Id, ir::Id)>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [invoke_external_arg(args)..] => args.collect(),
+        ))
+    }
+
+    fn ivk_extern_args_in_paren(
+        input: Node,
+    ) -> ParseResult<Option<Vec<(ir::Id, ir::Id)>>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [sq_paren_l(_), invoke_external_args(cells), sq_paren_r(_)] => Some(cells),
+            [] => None
+        ))
+    }
+
     fn invoke(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+            [at_attributes(attrs), identifier(comp), ivk_extern_args_in_paren(cells),invoke_args(inputs), invoke_args(outputs)] =>
                 ast::Control::Invoke {
                     comp,
                     inputs,
                     outputs,
                     attributes: attrs.add_span(span),
-                    comb_group: None
+                    comb_group: None,
+                    external_cells: cells
                 },
-            [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs), identifier(group)] =>
+            [at_attributes(attrs), identifier(comp), ivk_extern_args_in_paren(cells),invoke_args(inputs), invoke_args(outputs), identifier(group)] =>
                 ast::Control::Invoke {
                     comp,
                     inputs,
                     outputs,
                     attributes: attrs.add_span(span),
-                    comb_group: Some(group)
-                }
+                    comb_group: Some(group),
+                    external_cells: cells
+                },
+
         ))
     }
 

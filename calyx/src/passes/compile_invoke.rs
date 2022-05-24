@@ -83,6 +83,6 @@ impl Visitor for CompileInvoke {
             en.attributes.insert("static", *time);
         }
 
-        Ok(Action::Change(ir::Control::Enable(en)))
+        Ok(Action::change(ir::Control::Enable(en)))
     }
 }

@@ -125,6 +125,6 @@ impl Visitor for GroupToInvoke {
             }
         }
 
-        Ok(Action::Change(construct_invoke(&group.assignments, cell)))
+        Ok(Action::change(construct_invoke(&group.assignments, cell)))
     }
 }

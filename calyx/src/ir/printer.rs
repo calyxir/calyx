@@ -345,12 +345,26 @@ impl Printer {
                 outputs,
                 attributes,
                 comb_group,
-                ..
+                external_cells,
             }) => {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
-                write!(f, "invoke {}(", comp.borrow().name())?;
+                write!(f, "invoke {}", comp.borrow().name())?;
+                if let Some(cells) = external_cells {
+                    write!(f, "[")?;
+                    for (i, (outcell, incell)) in cells.iter().enumerate() {
+                        write!(
+                            f,
+                            "{}{} = {}",
+                            if i == 0 { "" } else { "," },
+                            outcell,
+                            incell.borrow().name()
+                        )?
+                    }
+                    write!(f, "]")?;
+                }
+                write!(f, "(")?;
                 for (i, (arg, port)) in inputs.iter().enumerate() {
                     write!(
                         f,

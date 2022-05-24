@@ -519,7 +519,7 @@ impl Visitor for TopDownStaticTiming {
         // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule();
 
-        Ok(Action::Change(ir::Control::enable(group)))
+        Ok(Action::change(ir::Control::enable(group)))
     }
 
     fn start_par(
@@ -549,7 +549,7 @@ impl Visitor for TopDownStaticTiming {
         // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule();
 
-        Ok(Action::Change(ir::Control::enable(group)))
+        Ok(Action::change(ir::Control::enable(group)))
     }
 
     fn start_while(
@@ -580,7 +580,7 @@ impl Visitor for TopDownStaticTiming {
         // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule();
 
-        Ok(Action::Change(ir::Control::enable(group)))
+        Ok(Action::change(ir::Control::enable(group)))
     }
 
     fn start_if(
@@ -610,6 +610,6 @@ impl Visitor for TopDownStaticTiming {
         // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule();
 
-        Ok(Action::Change(ir::Control::enable(group)))
+        Ok(Action::change(ir::Control::enable(group)))
     }
 }
