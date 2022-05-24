@@ -1,26 +1,60 @@
 use calyx::ir::Id;
 use itertools::{self, Itertools};
 use std::fmt::{Display, Write};
-use std::ops::Deref;
 
-#[derive(Debug, Default)]
-pub struct GroupName(pub Vec<calyx::ir::Id>);
+use crate::structures::names::CompGroupName;
 
-impl Deref for GroupName {
-    type Target = Vec<calyx::ir::Id>;
+#[derive(Debug)]
+pub struct ParsedGroupName {
+    component: Option<calyx::ir::Id>,
+    group: calyx::ir::Id,
+}
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl ParsedGroupName {
+    pub fn from_group_name(group: calyx::ir::Id) -> Self {
+        Self {
+            component: None,
+            group,
+        }
+    }
+
+    pub fn from_comp_and_group(
+        component: calyx::ir::Id,
+        group: calyx::ir::Id,
+    ) -> Self {
+        Self {
+            component: Some(component),
+            group,
+        }
+    }
+
+    pub fn is_concrete(&self) -> bool {
+        self.component.is_some()
+    }
+
+    pub fn unwrap_concrete(self) -> CompGroupName {
+        CompGroupName::new(self.group, self.component.unwrap())
+    }
+
+    pub fn concretize(
+        mut self,
+        main_comp_name: &calyx::ir::Id,
+    ) -> CompGroupName {
+        if !self.is_concrete() {
+            self.component = Some(main_comp_name.clone());
+        }
+
+        self.unwrap_concrete()
     }
 }
 
 pub enum BreakPointId {
-    Name(GroupName),
+    Name(ParsedGroupName),
     Number(u64),
 }
 
-impl From<GroupName> for BreakPointId {
-    fn from(grp: GroupName) -> Self {
+impl From<ParsedGroupName> for BreakPointId {
+    fn from(grp: ParsedGroupName) -> Self {
         Self::Name(grp)
     }
 }
@@ -79,10 +113,10 @@ pub enum PrintMode {
     Port,
 }
 #[derive(Debug)]
-pub struct PrintTuple(Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode);
+pub struct PrintTuple(Vec<Vec<Id>>, Option<PrintCode>, PrintMode);
 
 impl PrintTuple {
-    pub fn target(&self) -> &Option<Vec<Vec<Id>>> {
+    pub fn target(&self) -> &Vec<Vec<Id>> {
         &self.0
     }
 
@@ -95,8 +129,8 @@ impl PrintTuple {
     }
 }
 
-impl From<(Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)> for PrintTuple {
-    fn from(val: (Option<Vec<Vec<Id>>>, Option<PrintCode>, PrintMode)) -> Self {
+impl From<(Vec<Vec<Id>>, Option<PrintCode>, PrintMode)> for PrintTuple {
+    fn from(val: (Vec<Vec<Id>>, Option<PrintCode>, PrintMode)) -> Self {
         PrintTuple(val.0, val.1, val.2)
     }
 }
@@ -122,10 +156,7 @@ impl Display for PrintTuple {
         write!(
             f,
             " {}",
-            match &self.0 {
-                Some(v) => v.iter().map(|x| x.iter().join(".")).join(" "),
-                None => "".to_string(),
-            }
+            &self.0.iter().map(|x| x.iter().join(".")).join(" "),
         )
     }
 }
@@ -135,56 +166,60 @@ pub enum Command {
     Continue,  // Execute until breakpoint
     Empty,     // Empty command, does nothing
     Display,   // Display full environment contents
-    Print(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>), // Print something
-    Break(Vec<GroupName>), // Create a breakpoint
-    Help,                  // Help message
-    Exit,                  // Exit the debugger
-    InfoBreak,             // List breakpoints
+    Print(Vec<Vec<calyx::ir::Id>>, Option<PrintCode>, PrintMode), // Print something
+    Break(Vec<ParsedGroupName>), // Create a breakpoint
+    Help,                        // Help message
+    Exit,                        // Exit the debugger
+    InfoBreak,                   // List breakpoints
     InfoWatch,
     Disable(Vec<BreakPointId>),
     Enable(Vec<BreakPointId>),
     Delete(Vec<BreakPointId>),
     DeleteWatch(Vec<BreakPointId>),
-    StepOver(GroupName),
-    PrintState(Option<Vec<Vec<calyx::ir::Id>>>, Option<PrintCode>),
+    StepOver(ParsedGroupName),
     Watch(
-        GroupName,
+        ParsedGroupName,
         WatchPosition,
-        Option<Vec<Vec<calyx::ir::Id>>>,
+        Vec<Vec<calyx::ir::Id>>,
         Option<PrintCode>,
         PrintMode,
     ),
     PrintPC,
 }
 
+type Description = &'static str;
+type UsageExample = &'static str;
+type CommandName = &'static str;
+
+type HelpInfo = (Vec<CommandName>, Description, Vec<UsageExample>);
+
 impl Command {
     pub fn get_help_string() -> String {
         let mut out = String::new();
-        for (names, message) in Command::help_string() {
+        for (names, message, _) in Command::help_string() {
             writeln!(out, "    {: <20}{}", names.join(", "), message).unwrap();
         }
 
         out
     }
-}
 
-impl Command {
-    fn help_string() -> Vec<(Vec<&'static str>, &'static str)> {
+    fn help_string() -> Vec<HelpInfo> {
         vec![
-            (vec!["Step", "s"], "Advance the execution by a step"),
-            (vec!["Step-over"], "Advance the execution over a given group"),
-            (vec!["Continue", "c"], "Continue until the program finishes executing or hits a breakpoint"),
-            (vec!["Display"], "Display the full state"),
-            (vec!["Print", "p"], "Print target value"),
-            (vec!["Print-state"], "Print the internal state of the target cell"),
-            (vec!["Watch"], "Watch a given group with a print statement"),
-            (vec!["Help", "h"], "Print this message"),
-            (vec!["Break", "br"], "Create a breakpoint"),
-            (vec!["Info break", "ib"], "List all breakpoints"),
-            (vec!["Delete","del"], "Delete target breakpoint"),
-            (vec!["Enable"], "Enable target breakpoint"),
-            (vec!["Disable"], "Disable target breakpoint"),
-            (vec!["Exit"], "Exit the debugger")
+            (vec!["step", "s"], "Advance the execution by a step. If provided a number, it will advance by that many steps (skips breakpoints).", vec!["> s", "> s 5"]),
+            (vec!["step-over"], "Advance the execution over a given group.", vec!["> step-over this_group"]),
+            (vec!["continue", "c"], "Continue until the program finishes executing or hits a breakpoint", vec![]),
+            (vec!["display"], "Display the full state", vec![]),
+            (vec!["print", "p"], "Print target value. Takes an optional print code before the target. Valid print codes are \\u (unsigned), \\s (signed), \\u.X (unsigned fixed-point, X frac bits), \\s.X (signed fixed-point)", vec!["> p reg.write_en", "> p \\u mult1"]),
+            (vec!["print-state"], "Print the internal state of the target cell. Takes an optional print code before the target", vec!["> print-state my_register", "> print-state \\s.16 mem"]),
+            (vec!["watch"], "Watch a given group with a print statement. Takes an optional position (before/after)", vec!["> watch GROUP with p \\u reg.in", "> watch after GROUP with print-state \\s mem"] ),
+            (vec!["where", "pc"], "Displays the current program location using source metadata if applicable otherwise showing the calyx tree.", vec![]),
+            (vec!["help", "h"], "Print this message", vec![]),
+            (vec!["break", "br"], "Create a breakpoint", vec!["> br do_add", "> br subcomp::let0"]),
+            (vec!["info break", "ib"], "List all breakpoints", vec![]),
+            (vec!["delete","del"], "Delete target breakpoint", vec!["> del 1", "> del do_add"]),
+            (vec!["enable"], "Enable target breakpoint", vec!["> enable 1", "> enable do_add"]),
+            (vec!["disable"], "Disable target breakpoint", vec!["> disable 4", "> disable do_mult"]),
+            (vec!["exit", "quit"], "Exit the debugger", vec![])
         ]
     }
 }

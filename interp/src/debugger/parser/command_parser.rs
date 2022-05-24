@@ -1,4 +1,4 @@
-use super::super::commands::{BreakPointId, Command, GroupName};
+use super::super::commands::{BreakPointId, Command, ParsedGroupName};
 use calyx::ir::Id;
 use pest_consume::{match_nodes, Error, Parser};
 
@@ -112,9 +112,10 @@ impl CommandParser {
         Ok(Id::new(input.as_str(), None))
     }
 
-    fn group(input: Node) -> ParseResult<GroupName> {
+    fn group(input: Node) -> ParseResult<ParsedGroupName> {
         Ok(match_nodes!(input.into_children();
-            [identifier(ident)..] => GroupName(ident.collect::<Vec<_>>())
+            [identifier(i)] => ParsedGroupName::from_group_name(i),
+            [identifier(comp), identifier(group)] => ParsedGroupName::from_comp_and_group(comp, group)
         ))
     }
 
@@ -146,24 +147,24 @@ impl CommandParser {
 
     fn print(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [print_code(pc), name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), Some(pc)),
-            [name(ident)..] => Command::Print(Some(ident.collect::<Vec<_>>()), None),
-            [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
-            [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
+            [print_code(pc), name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), Some(pc), PrintMode::Port),
+            [name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), None, PrintMode::Port),
         ))
     }
 
     fn print_state(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-            [print_code(pc), name(ident)..] => Command::PrintState(Some(ident.collect::<Vec<_>>()), Some(pc)),
-            [name(ident)..] => Command::PrintState(Some(ident.collect::<Vec<_>>()), None),
-            [pc_fail(n)] => return Err(n.error("Invalid formatting code")),
-            [pc_fail(n), _] => return Err(n.error("Invalid formatting code"))
+            [print_code(pc), name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), Some(pc), PrintMode::State),
+            [name(ident)..] => Command::Print(ident.collect::<Vec<_>>(), None, PrintMode::State),
         ))
     }
 
-    fn print_fail(_input: Node) -> ParseResult<()> {
-        Ok(())
+    fn print_fail(input: Node) -> ParseResult<Error<Rule>> {
+        Ok(match_nodes!(input.children();
+            [print_code(_)] => input.error("Command requires a target"),
+            [pc_fail(n)] => n.error("Invalid formatting code"),
+            [] => input.error("Command requires a target")
+        ))
     }
 
     fn step_over(input: Node) -> ParseResult<Command> {
@@ -198,29 +199,29 @@ impl CommandParser {
 
     fn watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
-        [watch_position(wp), group(g),  print_state(p)] => {
-            if let Command::PrintState(target, code) = p {
+        [watch_position(wp), group(g), print_state(p)] => {
+            if let Command::Print(target, code, _) = p {
                 Command::Watch(g, wp, target, code, PrintMode::State)
             } else {
                 unreachable!("Parse produced wrong command?")
             }
             },
-        [watch_position(wp), group(g),  print(p)] => {
-                if let Command::Print(target, code) = p {
+        [watch_position(wp), group(g), print(p)] => {
+                if let Command::Print(target, code, _) = p {
                     Command::Watch(g, wp, target, code, PrintMode::Port)
                 } else {
                     unreachable!("Parse produced wrong command?")
                 }
             },
         [group(g), print_state(p)] => {
-            if let Command::PrintState(target, code) = p {
+            if let Command::Print(target, code, _) = p {
                 Command::Watch(g, WatchPosition::default(), target, code, PrintMode::State)
             } else {
                 unreachable!("Parse produced wrong command?")
             }
             },
         [group(g), print(p)] => {
-                if let Command::Print(target, code) = p {
+                if let Command::Print(target, code, _) = p {
                     Command::Watch(g, WatchPosition::default(), target, code, PrintMode::Port)
                 } else {
                     unreachable!("Parse produced wrong command?")
@@ -234,7 +235,7 @@ impl CommandParser {
             [watch(w), EOI(_)] => w,
             [print_state(p), EOI(_)] => p,
             [print(p), EOI(_)] => p,
-            [print_fail(_), EOI(_)] => Command::Print(None, None),
+            [print_fail(err), EOI(_)] => ParseResult::Err(err)?,
             [step_over(s), EOI(_)] => s,
             [step(s), EOI(_)] => s,
             [cont(c), EOI(_)] => c,
