@@ -272,7 +272,7 @@ pub enum Control {
         /// Combinational group that may execute with this invoke.
         comb_group: Option<ir::Id>,
         /// External cells that may execute with this invoke.
-        external_cells: Option<Vec<(ir::Id, ir::Id)>>,
+        external_cells: Vec<(ir::Id, ir::Id)>,
     },
     /// Control statement that does nothing.
     Empty {},

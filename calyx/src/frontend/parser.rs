@@ -606,11 +606,11 @@ impl CalyxParser {
 
     fn ivk_extern_args_in_paren(
         input: Node,
-    ) -> ParseResult<Option<Vec<(ir::Id, ir::Id)>>> {
+    ) -> ParseResult<Vec<(ir::Id, ir::Id)>> {
         Ok(match_nodes!(
             input.into_children();
-            [sq_paren_l(_), invoke_external_args(cells), sq_paren_r(_)] => Some(cells),
-            [] => None
+            [sq_paren_l(_), invoke_external_args(cells), sq_paren_r(_)] => cells,
+            [] => Vec::new()
         ))
     }
 

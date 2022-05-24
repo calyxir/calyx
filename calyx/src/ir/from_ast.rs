@@ -540,7 +540,7 @@ fn build_control(
                 outputs,
                 attributes,
                 comb_group: None,
-                external_cells: None,
+                external_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
                 let cg_ref = builder
@@ -554,9 +554,9 @@ fn build_control(
                     })?;
                 inv.comb_group = Some(cg_ref);
             }
-            if let Some(cells) = external_cells {
+            if !external_cells.is_empty() {
                 let mut ext_cell_tuples = Vec::new();
-                for (outcell, incell) in cells {
+                for (outcell, incell) in external_cells {
                     let ext_cell_ref = builder
                         .component
                         .find_cell(&incell)
@@ -565,7 +565,7 @@ fn build_control(
                         })?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
                 }
-                inv.external_cells = Some(ext_cell_tuples);
+                inv.external_cells = ext_cell_tuples;
             }
             Control::Invoke(inv)
         }

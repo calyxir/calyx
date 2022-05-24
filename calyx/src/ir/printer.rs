@@ -351,9 +351,11 @@ impl Printer {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 write!(f, "invoke {}", comp.borrow().name())?;
-                if let Some(cells) = external_cells {
+                if !external_cells.is_empty() {
                     write!(f, "[")?;
-                    for (i, (outcell, incell)) in cells.iter().enumerate() {
+                    for (i, (outcell, incell)) in
+                        external_cells.iter().enumerate()
+                    {
                         write!(
                             f,
                             "{}{} = {}",
