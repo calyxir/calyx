@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use crate::ir::{
     self,
-    traversal::{Action, VisResult, Visitor},
+    traversal::{Action, ConstructVisitor, VisResult, Visitor},
     RRC,
 };
 
@@ -124,12 +124,27 @@ impl std::fmt::Debug for WireRewriter {
 /// w2.in = c;
 /// r.in = c;
 /// ```
-#[derive(Default)]
 pub struct CombProp {
     /// Disable automatic removal of some dead assignments needed for correctness and instead mark
     /// them with @dead.
-    /// NOTE: if this is disabled, the pass will not remove obviously conflicting assignments.
+    /// NOTE: if this is enabled, the pass will not remove obviously conflicting assignments.
     do_not_eliminate: bool,
+}
+
+impl ConstructVisitor for CombProp {
+    fn from(ctx: &ir::Context) -> crate::errors::CalyxResult<Self>
+    where
+        Self: Sized,
+    {
+        let opts = Self::get_opts(&["no-eliminate"], ctx);
+        Ok(CombProp {
+            do_not_eliminate: opts[0],
+        })
+    }
+
+    fn clear_data(&mut self) {
+        /* do nothing */
+    }
 }
 
 impl ir::traversal::Named for CombProp {
