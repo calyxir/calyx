@@ -70,7 +70,7 @@ impl Visitor for CompileEmpty {
             }
         };
 
-        Ok(Action::Change(Control::enable(Rc::clone(&group_ref))))
+        Ok(Action::change(Control::enable(Rc::clone(&group_ref))))
     }
 
     fn finish(

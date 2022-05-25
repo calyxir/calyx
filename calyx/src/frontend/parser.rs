@@ -582,26 +582,44 @@ impl CalyxParser {
         ))
     }
 
+    fn invoke_external_arg(input: Node) -> ParseResult<(ir::Id, ir::Id)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [identifier(outcell), identifier(incell)] => (outcell, incell)
+        ))
+    }
+
+    fn invoke_external_args(input: Node) -> ParseResult<Vec<(ir::Id, ir::Id)>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [invoke_external_arg(args)..] => args.collect(),
+            [] => Vec::new()
+        ))
+    }
+
     fn invoke(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs)] =>
+            [at_attributes(attrs), identifier(comp), invoke_external_args(cells),invoke_args(inputs), invoke_args(outputs)] =>
                 ast::Control::Invoke {
                     comp,
                     inputs,
                     outputs,
                     attributes: attrs.add_span(span),
-                    comb_group: None
+                    comb_group: None,
+                    external_cells: cells
                 },
-            [at_attributes(attrs), identifier(comp), invoke_args(inputs), invoke_args(outputs), identifier(group)] =>
+            [at_attributes(attrs), identifier(comp), invoke_external_args(cells),invoke_args(inputs), invoke_args(outputs), identifier(group)] =>
                 ast::Control::Invoke {
                     comp,
                     inputs,
                     outputs,
                     attributes: attrs.add_span(span),
-                    comb_group: Some(group)
-                }
+                    comb_group: Some(group),
+                    external_cells: cells
+                },
+
         ))
     }
 

@@ -132,6 +132,6 @@ impl Visitor for WireInliner {
         comp.continuous_assignments.append(&mut group_assigns);
 
         // remove group from control
-        Ok(Action::Change(ir::Control::empty()))
+        Ok(Action::change(ir::Control::empty()))
     }
 }

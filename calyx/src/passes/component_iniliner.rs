@@ -457,7 +457,7 @@ impl Visitor for ComponentInliner {
         // its control program.
         let cell = s.comp.borrow();
         if let Some(con) = self.control_map.get(cell.name()) {
-            Ok(Action::Change(ir::Control::clone(con)))
+            Ok(Action::change(ir::Control::clone(con)))
         } else {
             Ok(Action::Continue)
         }

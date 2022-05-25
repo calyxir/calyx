@@ -222,6 +222,6 @@ impl Visitor for HoleInliner {
         comp.groups.clear();
 
         // remove group from control
-        Ok(Action::Change(ir::Control::empty()))
+        Ok(Action::change(ir::Control::empty()))
     }
 }

@@ -511,6 +511,7 @@ fn build_control(
             outputs,
             attributes,
             comb_group,
+            external_cells,
         } => {
             let cell = Rc::clone(
                 &builder.component.find_cell(&component).ok_or_else(|| {
@@ -539,7 +540,7 @@ fn build_control(
                 outputs,
                 attributes,
                 comb_group: None,
-                external_cells: Rc::new(RefCell::new(Vec::new())),
+                external_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
                 let cg_ref = builder
@@ -552,6 +553,19 @@ fn build_control(
                         )
                     })?;
                 inv.comb_group = Some(cg_ref);
+            }
+            if !external_cells.is_empty() {
+                let mut ext_cell_tuples = Vec::new();
+                for (outcell, incell) in external_cells {
+                    let ext_cell_ref = builder
+                        .component
+                        .find_cell(&incell)
+                        .ok_or_else(|| {
+                            Error::undefined(incell.clone(), "cell".to_string())
+                        })?;
+                    ext_cell_tuples.push((outcell, ext_cell_ref));
+                }
+                inv.external_cells = ext_cell_tuples;
             }
             Control::Invoke(inv)
         }

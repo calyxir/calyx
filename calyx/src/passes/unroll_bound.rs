@@ -34,7 +34,7 @@ impl Visitor for UnrollBounded {
                     .map(|_| ir::Control::clone(&body))
                     .collect(),
             );
-            Ok(Action::Change(nb))
+            Ok(Action::change(nb))
         } else {
             Ok(Action::Continue)
         }

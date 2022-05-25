@@ -52,10 +52,10 @@ impl Visitor for CollapseControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ir::Control::empty()));
+            return Ok(Action::change(ir::Control::empty()));
         }
         if s.stmts.len() == 1 {
-            return Ok(Action::Change(s.stmts.pop().unwrap()));
+            return Ok(Action::change(s.stmts.pop().unwrap()));
         }
         let mut seqs: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {
@@ -79,10 +79,10 @@ impl Visitor for CollapseControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         if s.stmts.is_empty() {
-            return Ok(Action::Change(ir::Control::empty()));
+            return Ok(Action::change(ir::Control::empty()));
         }
         if s.stmts.len() == 1 {
-            return Ok(Action::Change(s.stmts.pop().unwrap()));
+            return Ok(Action::change(s.stmts.pop().unwrap()));
         }
         let mut pars: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {

@@ -752,7 +752,7 @@ impl Visitor for TopDownCompileControl {
         let node_id = s.attributes.get(NODE_ID).unwrap();
         en.get_mut_attributes().unwrap().insert(NODE_ID, *node_id);
 
-        Ok(Action::Change(en))
+        Ok(Action::change(en))
     }
 
     fn finish(
@@ -780,6 +780,6 @@ impl Visitor for TopDownCompileControl {
         }
         let comp_group = schedule.realize_schedule(group, &mut builder);
 
-        Ok(Action::Change(ir::Control::enable(comp_group)))
+        Ok(Action::change(ir::Control::enable(comp_group)))
     }
 }
