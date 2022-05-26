@@ -6,15 +6,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
   }
   wires {
     group b {
-      r.write_en = r.out;
+      r.write_en = r.out ? 1'd1;
       r.in = r.out;
-      b[done] = r.done;
+      b[done] = r.done ? 1'd1;
     }
     comb group c {
-      r.write_en = r.out;
+      r.write_en = r.out ? 1'd1;
       r.in = r.out;
     }
-    r.write_en = r.out;
+    r.write_en = r.out ? 1'd1;
     r.in = r.out;
   }
 
