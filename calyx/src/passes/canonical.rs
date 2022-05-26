@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 use crate::analysis;
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::Guard;
@@ -53,21 +51,6 @@ impl Named for Canonicalize {
     }
 }
 
-fn update_assign(mut assign: ir::Assignment) -> ir::Assignment {
-    if let Guard::Port(p) = &(*assign.guard) {
-        // 1'd1 ? r1.done
-        if p.borrow().is_constant(1, 1) {
-            assign.guard = Guard::True.into()
-        }
-        // r1.done ? 1'd1
-        else if assign.src.borrow().is_constant(1, 1) {
-            assign.src = p.clone(); //rc clone
-            assign.guard = Guard::True.into();
-        }
-    }
-    assign
-}
-
 impl Visitor for Canonicalize {
     fn start(
         &mut self,
@@ -75,29 +58,24 @@ impl Visitor for Canonicalize {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        comp.for_each_assignment(|assign| {
+            if let Guard::Port(p) = &(*assign.guard) {
+                // 1'd1 ? r1.done
+                if p.borrow().is_constant(1, 1) {
+                    assign.guard = Guard::True.into()
+                }
+            }
+        });
+
         for gr in comp.groups.iter() {
-            let assigns = gr
-                .borrow_mut()
-                .assignments
-                .drain(..)
-                .map(update_assign)
-                .collect_vec();
+            let assigns = std::mem::take(&mut gr.borrow_mut().assignments);
             gr.borrow_mut().assignments = self.order.dataflow_sort(assigns)?;
         }
         for cgr in comp.comb_groups.iter() {
-            let assigns = cgr
-                .borrow_mut()
-                .assignments
-                .drain(..)
-                .map(update_assign)
-                .collect_vec();
+            let assigns = std::mem::take(&mut cgr.borrow_mut().assignments);
             cgr.borrow_mut().assignments = self.order.dataflow_sort(assigns)?;
         }
-        let cont_assigns = comp
-            .continuous_assignments
-            .drain(..)
-            .map(update_assign)
-            .collect_vec();
+        let cont_assigns = std::mem::take(&mut comp.continuous_assignments);
         comp.continuous_assignments = self.order.dataflow_sort(cont_assigns)?;
 
         Ok(Action::Stop)
