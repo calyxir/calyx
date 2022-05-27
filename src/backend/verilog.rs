@@ -299,10 +299,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
             }
 
             for port in &cell.ports {
-                inst.connect(
-                    port.borrow().name.as_ref(),
-                    port_to_ref(Rc::clone(port)),
-                );
+                inst.connect(port.borrow().name.as_ref(), port_to_ref(port));
             }
             Some(inst)
         }
@@ -365,15 +362,32 @@ fn emit_assignment(
 ) -> v::Parallel {
     let dst = dst_ref.borrow();
     let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
-    let rhs = assignments.iter().rfold(init, |acc, e| {
-        let guard = guard_to_expr(&e.guard);
-        let asgn = port_to_ref(Rc::clone(&e.src));
-        v::Expr::new_mux(guard, asgn, acc)
-    });
-    v::Parallel::ParAssign(port_to_ref(Rc::clone(dst_ref)), rhs)
+
+    // Flatten the mux expression if there is exactly one assignment with a true guard.
+    let rhs = if assignments.len() == 1 {
+        let assign = assignments[0];
+        if assign.guard.is_true() {
+            port_to_ref(&assign.src)
+        } else if assign.src.borrow().is_constant(1, 1) {
+            guard_to_expr(&assign.guard)
+        } else {
+            v::Expr::new_mux(
+                guard_to_expr(&assign.guard),
+                port_to_ref(&assign.src),
+                init,
+            )
+        }
+    } else {
+        assignments.iter().rfold(init, |acc, e| {
+            let guard = guard_to_expr(&e.guard);
+            let asgn = port_to_ref(&e.src);
+            v::Expr::new_mux(guard, asgn, acc)
+        })
+    };
+    v::Parallel::ParAssign(port_to_ref(dst_ref), rhs)
 }
 
-fn port_to_ref(port_ref: RRC<ir::Port>) -> v::Expr {
+fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
     let port = port_ref.borrow();
     match &port.parent {
         ir::PortParent::Cell(cell) => {
@@ -414,11 +428,9 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
         Guard::And(l, r) | Guard::Or(l, r) => {
             op(guard)(guard_to_expr(l), guard_to_expr(r))
         }
-        Guard::CompOp(_, l, r) => {
-            op(guard)(port_to_ref(Rc::clone(l)), port_to_ref(Rc::clone(r)))
-        }
+        Guard::CompOp(_, l, r) => op(guard)(port_to_ref(l), port_to_ref(r)),
         Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
-        Guard::Port(p) => port_to_ref(Rc::clone(p)),
+        Guard::Port(p) => port_to_ref(p),
         Guard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
     }
 }
