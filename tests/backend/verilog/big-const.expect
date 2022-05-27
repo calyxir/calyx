@@ -469,7 +469,6 @@ module main (
     ) c (
         .out(c_out)
     );
-    assign done =
-     1'b1 ? 1'd1 : 1'd0;
+    assign done = 1'd1;
     
 endmodule
