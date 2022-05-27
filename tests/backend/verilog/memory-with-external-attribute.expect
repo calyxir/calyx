@@ -510,11 +510,8 @@ module main (
         .write_data(m1_write_data),
         .write_en(m1_write_en)
     );
-    assign done =
-     1'b1 ? m1_done : 1'd0;
-    assign m0_clk =
-     1'b1 ? clk : 1'd0;
-    assign m1_clk =
-     1'b1 ? clk : 1'd0;
+    assign done = m1_done;
+    assign m0_clk = clk;
+    assign m1_clk = clk;
     
 endmodule
