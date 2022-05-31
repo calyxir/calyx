@@ -1,13 +1,14 @@
-use itertools::Itertools;
-use smallvec::SmallVec;
-
 use crate::errors::{CalyxResult, Error, WithPos};
+use crate::ir::traversal::ConstructVisitor;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
-    self, CloneName, Component, LibrarySignatures, RESERVED_NAMES, CellType,
+    self, CellType, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
 };
-use std::collections::HashSet;
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
+use smallvec::SmallVec;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 /// Pass to check if the program is well-formed.
 ///
@@ -22,18 +23,51 @@ pub struct WellFormed {
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
     used_comb_groups: HashSet<ir::Id>,
+    /// external cell types of components used in the control.
+    external_cell_types: HashMap<ir::Id, LinkedHashMap<ir::Id, CellType>>,
 }
 
-impl Default for WellFormed {
-    fn default() -> Self {
+impl ConstructVisitor for WellFormed {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized,
+    {
         let reserved_names =
             RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
 
-        WellFormed {
+        let mut e_c_t = HashMap::new();
+        for comp in ctx.components.iter() {
+            let mut cellmap: LinkedHashMap<ir::Id, CellType> =
+                LinkedHashMap::new();
+            for cell in comp.cells.iter() {
+                if cell.borrow().is_external() {
+                    if comp.name.eq(&"main") {
+                        return Err(Error::malformed_structure(
+                            "external cell not allowed for main component",
+                        )
+                        .with_pos(cell.borrow().name()));
+                    }
+                    cellmap.insert(
+                        cell.clone_name(),
+                        cell.borrow().prototype.clone(),
+                    );
+                }
+            }
+            e_c_t.insert(comp.name.clone(), cellmap);
+        }
+
+        let w_f = WellFormed {
             reserved_names,
             used_groups: HashSet::new(),
             used_comb_groups: HashSet::new(),
-        }
+            external_cell_types: e_c_t,
+        };
+
+        Ok(w_f)
+    }
+
+    fn clear_data(&mut self) {
+        // Data is shared between components
     }
 }
 
@@ -80,36 +114,72 @@ where
     Ok(())
 }
 
-fn same_binding(binding_out: &SmallVec<[(ir::Id, u64); 5]>, binding_in:&SmallVec<[(ir::Id, u64); 5]>) -> bool {
+fn same_binding(
+    binding_out: &SmallVec<[(ir::Id, u64); 5]>,
+    binding_in: &SmallVec<[(ir::Id, u64); 5]>,
+) -> CalyxResult<()> {
     if (*binding_out).len() != (*binding_in).len() {
-        return false;
+        return Err(Error::malformed_control(
+            "unmatching binding sizes".to_string(),
+        ));
     }
 
-    //println!("{}",(*binding_out).len());
-
-    for i in 0 .. (*binding_out).len() {
-        let (k_out, v_out) = (*binding_out).get(i).unwrap();
-        let (k_in, v_in) = (*binding_in).get(i).unwrap();
-        if !k_in.eq(k_out) {return false;}
-        if v_in != v_out {return false;}
-    }
-     true
+    binding_out
+        .iter()
+        .zip(binding_in.iter())
+        .map(|((k_out, v_out), (k_in, v_in))| {
+            if k_out.eq(k_in) && (v_out == v_in) {
+                Ok(())
+            } else {
+                Err(Error::malformed_control(
+                    "unmatching binding values for fed_in external cell"
+                        .to_string(),
+                )
+                .with_pos(k_in))
+            }
+        })
+        .collect::<CalyxResult<_>>()
 }
 
-fn same_type(proto_out: &CellType, proto_in: &CellType) -> bool {
-    match proto_out {
-        CellType::Primitive { name, param_binding,..} => {
-            if let CellType::Primitive { name: id, param_binding: p, .. } = proto_in {
-                id.eq(name) && same_binding(param_binding, p)
-                }
-            else { false }
+fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
+    match (proto_out, proto_in) {
+        (
+            CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            },
+            CellType::Primitive {
+                name: name_in,
+                param_binding: param_binding_in,
+                ..
+            },
+        ) => {
+            if name_in.eq(name) {
+                same_binding(param_binding, param_binding_in)
+            } else {
+                Err(Error::malformed_control(format!(
+                    "type mismatch, expected {}, got {}",
+                    name, name_in
+                ))
+                .with_pos(name))
+            }
         }
-        CellType::Component { name } => {
-            matches!(proto_in, CellType::Component { name:name_in } if name_in.eq(&name)) 
+        (
+            CellType::Component { name },
+            CellType::Component { name: name_in },
+        ) => {
+            if name.eq(name_in) {
+                Ok(())
+            } else {
+                Err(Error::malformed_control("type mismatch: cell type not component or incorrect component name". to_string()).with_pos(name))
+            }
         }
-        _ => false
+        _ => Err(Error::malformed_control(
+            "type mismatch: unallowed type".to_string(),
+        )),
     }
-} 
+}
 
 impl Visitor for WellFormed {
     fn start(
@@ -126,13 +196,18 @@ impl Visitor for WellFormed {
                     .with_pos(cell.name()));
             }
             if cell.is_external() {
-                if matches!(&cell.prototype, CellType::Primitive {name: id, ..} if id.eq("std_const")) {
-                    return Err(Error::unallowed_type("constant not allowed for external cells".to_string())
+                if cell.is_primitive(Some("std_const")) {
+                    return Err(Error::malformed_structure(
+                        "constant not allowed for external cells".to_string(),
+                    )
                     .with_pos(cell.name()));
                 }
                 if matches!(cell.prototype, CellType::ThisComponent) {
-                    return Err(Error::unallowed_type("the current component not allowed for external cells". to_string())
-                    .with_pos(cell.name()))
+                    return Err(Error::malformed_structure(
+                        "the current component not allowed for external cells"
+                            .to_string(),
+                    )
+                    .with_pos(cell.name()));
                 }
             }
         }
@@ -220,13 +295,12 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
-
     fn invoke(
         &mut self,
         s: &mut ir::Invoke,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-        comps: &[ir::Component],
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(c) = &s.comb_group {
             self.used_comb_groups.insert(c.clone_name());
@@ -253,38 +327,26 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let mut cellmap:LinkedHashMap<ir::Id, CellType> = LinkedHashMap::new();
-            for comp in comps.iter(){
-                if comp.name.eq(id) {
-                    for cell in comp.cells.iter() {
-                        if cell.borrow().is_external() {
-                            cellmap.insert(cell.clone_name(), cell.borrow().prototype.clone());
-                        }
-                    }
-                    break;
-                }
-            }
+            let mut cellmap = self.external_cell_types.get(id).unwrap().clone();
             for (outcell, incell) in s.external_cells.iter() {
                 if let Some(t) = cellmap.get(&(*outcell)) {
                     let proto = incell.borrow().prototype.clone();
-                    if !same_type(t, &proto) {
-                        return Err(Error::malformed_control
-                            ("type of fed-in external cell does not match original type"
-                        .to_string())
-                        .with_pos(incell.borrow().name()));
-                    }
+                    same_type(t, &proto)?;
                     cellmap.remove(&(*outcell));
-                }
-                else {
-                    return Err(Error::malformed_control(format!("{} does not have external cell named {}",
-                    id,
-                    *outcell))
+                } else {
+                    return Err(Error::malformed_control(format!(
+                        "{} does not have external cell named {}",
+                        id, *outcell
+                    ))
                     .with_pos(outcell));
                 }
             }
             if cellmap.keys().len() != 0 {
-                return Err(Error::malformed_control(format!("unmentioned external cell: {}",
-            cellmap.keys().next().unwrap())).with_pos(s.comp.borrow().name()))
+                return Err(Error::malformed_control(format!(
+                    "unmentioned external cell: {}",
+                    cellmap.keys().next().unwrap()
+                ))
+                .with_pos(s.comp.borrow().name()));
             }
         }
 

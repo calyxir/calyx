@@ -140,13 +140,6 @@ impl Error {
         }
     }
 
-    pub fn unallowed_type(msg: String) -> Self {
-        Self { 
-            kind: ErrorKind::UnallowedType(msg), 
-            pos: None, 
-            post_msg: None,
-        }
-    }
     pub fn reserved_name(name: ir::Id) -> Self {
         Self {
             kind: ErrorKind::ReservedName(name),
@@ -235,9 +228,6 @@ pub enum ErrorKind {
     /// Using a reserved keyword as a program identifier.
     ReservedName(ir::Id),
 
-    /// Prototype not allowed for external cells.
-    UnallowedType(String),
-
     /// The control program is malformed.
     MalformedControl(String),
     /// The connections are malformed.
@@ -310,7 +300,6 @@ impl std::fmt::Display for ErrorKind {
             InvalidFile(msg) | WriteError(msg) | Misc(msg) => {
                 write!(f, "{msg}")
             }
-            UnallowedType(msg) => {write!(f, "Type Not Allowed: {msg}")}
         }
     }
 }

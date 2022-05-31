@@ -1,6 +1,6 @@
 ---CODE---
 1
 ---STDERR---
-Error: tests/passes/well-formed/external-type-mismatch.futil
-24 |    k1 = std_reg(16);
-   |    ^^ Malformed Control: type of fed-in external cell does not match original type
+Error: /Users/paili/Desktop/capra/calyx/primitives/core.futil
+28 |  primitive std_reg<"static"=1>[WIDTH](
+   |                                ^^^^^ Malformed Control: unmatching binding values for fed_in external cell

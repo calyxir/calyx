@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/passes/well-formed/constant-external-cell.futil
-7 |    external m = std_const(2,1);
-  |             ^ Type Not Allowed: constant not allowed for external cells
+8 |    external m2 = std_const(2, 1);
+  |             ^^ Malformed Structure: constant not allowed for external cells
