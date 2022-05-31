@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/passes/well-formed/external-invoke-unmentioned.futil
+23 |    f = foo();
+   |    ^ Malformed Control: unmentioned external cell: m
