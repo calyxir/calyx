@@ -124,10 +124,8 @@ fn same_binding(
         ));
     }
 
-    binding_out
-        .iter()
-        .zip(binding_in.iter())
-        .map(|((k_out, v_out), (k_in, v_in))| {
+    binding_out.iter().zip(binding_in.iter()).try_for_each(
+        |((k_out, v_out), (k_in, v_in))| {
             if k_out.eq(k_in) && (v_out == v_in) {
                 Ok(())
             } else {
@@ -137,8 +135,8 @@ fn same_binding(
                 )
                 .with_pos(k_in))
             }
-        })
-        .collect::<CalyxResult<_>>()
+        },
+    )
 }
 
 fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
@@ -327,12 +325,13 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let mut cellmap = self.external_cell_types.get(id).unwrap().clone();
+            let cellmap = self.external_cell_types.get(id).unwrap();
+            let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.external_cells.iter() {
                 if let Some(t) = cellmap.get(&(*outcell)) {
                     let proto = incell.borrow().prototype.clone();
                     same_type(t, &proto)?;
-                    cellmap.remove(&(*outcell));
+                    mentioned_cells.insert(&(*outcell));
                 } else {
                     return Err(Error::malformed_control(format!(
                         "{} does not have external cell named {}",
@@ -341,12 +340,14 @@ impl Visitor for WellFormed {
                     .with_pos(outcell));
                 }
             }
-            if cellmap.keys().len() != 0 {
-                return Err(Error::malformed_control(format!(
-                    "unmentioned external cell: {}",
-                    cellmap.keys().next().unwrap()
-                ))
-                .with_pos(s.comp.borrow().name()));
+            for id in cellmap.keys() {
+                if mentioned_cells.get(id).is_none() {
+                    return Err(Error::malformed_control(format!(
+                        "unmentioned external cell: {}",
+                        id
+                    ))
+                    .with_pos(s.comp.borrow().name()));
+                }
             }
         }
 
