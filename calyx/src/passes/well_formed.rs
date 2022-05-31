@@ -132,8 +132,7 @@ fn same_binding(
                 Err(Error::malformed_control(
                     "unmatching binding values for fed_in external cell"
                         .to_string(),
-                )
-                .with_pos(k_in))
+                ))
             }
         },
     )

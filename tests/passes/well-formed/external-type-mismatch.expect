@@ -1,6 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: /Users/paili/Desktop/capra/calyx/primitives/core.futil
-28 |  primitive std_reg<"static"=1>[WIDTH](
-   |                                ^^^^^ Malformed Control: unmatching binding values for fed_in external cell
+Error: Malformed Control: unmatching binding values for fed_in external cell
