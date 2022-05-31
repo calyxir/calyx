@@ -268,6 +268,18 @@ module std_mem_d1 #(
       done <= 1'd1;
     end else done <= 1'd0;
   end
+
+  // Check for out of bounds access
+  `ifdef VERILATOR
+    always_comb begin
+      if (addr0 >= SIZE)
+        $error(
+          "std_mem_d1: Out of bounds access\n",
+          "addr0: %0d\n", addr0,
+          "SIZE: %0d", SIZE
+        );
+    end
+  `endif
 endmodule
 
 module std_mem_d2 #(
@@ -296,6 +308,24 @@ module std_mem_d2 #(
       done <= 1'd1;
     end else done <= 1'd0;
   end
+
+  // Check for out of bounds access
+  `ifdef VERILATOR
+    always_comb begin
+      if (addr0 >= D0_SIZE)
+        $error(
+          "std_mem_d2: Out of bounds access\n",
+          "addr0: %0d\n", addr0,
+          "D0_SIZE: %0d", D0_SIZE
+        );
+      if (addr1 >= D1_SIZE)
+        $error(
+          "std_mem_d2: Out of bounds access\n",
+          "addr1: %0d\n", addr1,
+          "D1_SIZE: %0d", D1_SIZE
+        );
+    end
+  `endif
 endmodule
 
 module std_mem_d3 #(
@@ -327,6 +357,30 @@ module std_mem_d3 #(
       done <= 1'd1;
     end else done <= 1'd0;
   end
+
+  // Check for out of bounds access
+  `ifdef VERILATOR
+    always_comb begin
+      if (addr0 >= D0_SIZE)
+        $error(
+          "std_mem_d3: Out of bounds access\n",
+          "addr0: %0d\n", addr0,
+          "D0_SIZE: %0d", D0_SIZE
+        );
+      if (addr1 >= D1_SIZE)
+        $error(
+          "std_mem_d3: Out of bounds access\n",
+          "addr1: %0d\n", addr1,
+          "D1_SIZE: %0d", D1_SIZE
+        );
+      if (addr2 >= D2_SIZE)
+        $error(
+          "std_mem_d3: Out of bounds access\n",
+          "addr2: %0d\n", addr2,
+          "D2_SIZE: %0d", D2_SIZE
+        );
+    end
+  `endif
 endmodule
 
 module std_mem_d4 #(
@@ -361,6 +415,36 @@ module std_mem_d4 #(
       done <= 1'd1;
     end else done <= 1'd0;
   end
+
+  // Check for out of bounds access
+  `ifdef VERILATOR
+    always_comb begin
+      if (addr0 >= D0_SIZE)
+        $error(
+          "std_mem_d4: Out of bounds access\n",
+          "addr0: %0d\n", addr0,
+          "D0_SIZE: %0d", D0_SIZE
+        );
+      if (addr1 >= D1_SIZE)
+        $error(
+          "std_mem_d4: Out of bounds access\n",
+          "addr1: %0d\n", addr1,
+          "D1_SIZE: %0d", D1_SIZE
+        );
+      if (addr2 >= D2_SIZE)
+        $error(
+          "std_mem_d4: Out of bounds access\n",
+          "addr2: %0d\n", addr2,
+          "D2_SIZE: %0d", D2_SIZE
+        );
+      if (addr3 >= D3_SIZE)
+        $error(
+          "std_mem_d4: Out of bounds access\n",
+          "addr3: %0d\n", addr3,
+          "D3_SIZE: %0d", D3_SIZE
+        );
+    end
+  `endif
 endmodule
 
 `default_nettype wire
@@ -385,7 +469,6 @@ module main (
     ) c (
         .out(c_out)
     );
-    assign done =
-     1'b1 ? 1'd1 : 1'd0;
+    assign done = 1'd1;
     
 endmodule

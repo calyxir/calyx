@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/errors/multiple-done.futil
+11 |      do_r[done] = !r.done ? 1'd1;
+   |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: Group `do_r` has multiple done conditions

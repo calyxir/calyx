@@ -51,6 +51,14 @@ pub trait ConstructVisitor {
 
         let values = opts.iter().map(|o| given_opts.contains(o)).collect_vec();
 
+        if let Some(unknown) = given_opts.iter().find(|o| !opts.contains(o)) {
+            log::warn!(
+                "Ignoring unknown option for pass `{}`: {}",
+                Self::name(),
+                unknown
+            );
+        }
+
         if log::log_enabled!(log::Level::Debug) {
             log::debug!(
                 "Extra options for {}: {}",
