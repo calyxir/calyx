@@ -133,8 +133,7 @@ fn same_binding(
                 Ok(())
             } else {
                 Err(Error::malformed_control(
-                    format!("unmatching binding values for fed_in external cell, expected {} to be
-                    {}, instead got {}", id_out, value_out, value_in),
+                    format!("unmatching binding values for fed_in external cell, expected {id_out} to be {value_out}, instead got {value_in}"),
                 ))
             }
         },
