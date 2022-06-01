@@ -61,7 +61,7 @@ impl ConstructVisitor for WellFormed {
             reserved_names,
             used_groups: HashSet::new(),
             used_comb_groups: HashSet::new(),
-            external_cell_types: external_cell_types,
+            external_cell_types,
         };
 
         Ok(w_f)
