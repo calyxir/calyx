@@ -154,14 +154,13 @@ fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
                 ..
             },
         ) => {
-            if name_in.eq(name) {
+            if name_in == name {
                 same_binding(param_binding, param_binding_in)
             } else {
                 Err(Error::malformed_control(format!(
                     "type mismatch, expected {}, got {}",
                     name, name_in
-                ))
-                .with_pos(name))
+                )))
             }
         }
         (
@@ -334,12 +333,13 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.external_cell_types[&id];
+            let cellmap = &self.external_cell_types[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.external_cells.iter() {
-                if let Some(t) = cellmap.get(&outcell) {
+                if let Some(t) = cellmap.get(outcell) {
                     let proto = incell.borrow().prototype.clone();
-                    same_type(t, &proto).map_err(|err| err.with_pos(incell.borrow().name()))?;
+                    same_type(t, &proto)
+                        .map_err(|err| err.with_pos(&s.attributes))?;
                     mentioned_cells.insert(outcell.clone());
                 } else {
                     return Err(Error::malformed_control(format!(
@@ -355,7 +355,7 @@ impl Visitor for WellFormed {
                         "unmentioned external cell: {}",
                         id
                     ))
-                    .with_pos(s.comp.borrow().name()));
+                    .with_pos(&s.attributes));
                 }
             }
         }

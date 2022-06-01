@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/passes/well-formed/external-invoke-unmentioned.futil
-23 |    f = foo();
-   |    ^ Malformed Control: unmentioned external cell: m
+32 |      invoke f()();
+   |      ^^^^^^^^^^^^^ Malformed Control: unmentioned external cell: m
