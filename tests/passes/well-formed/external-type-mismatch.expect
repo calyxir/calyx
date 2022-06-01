@@ -1,4 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Malformed Control: unmatching binding values for fed_in external cell
+Error: tests/passes/well-formed/external-type-mismatch.futil
+24 |    k1 = std_reg(16);
+   |    ^^ Malformed Control: unmatching binding values for fed_in external cell, expected WIDTH to be
+                    32, instead got 16

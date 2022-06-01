@@ -6,7 +6,6 @@ use crate::ir::{
 };
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -35,32 +34,34 @@ impl ConstructVisitor for WellFormed {
         let reserved_names =
             RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
 
-        let mut e_c_t = HashMap::new();
+        let mut external_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
-            let mut cellmap: LinkedHashMap<ir::Id, CellType> =
-                LinkedHashMap::new();
-            for cell in comp.cells.iter() {
-                if cell.borrow().is_external() {
-                    if comp.name.eq(&"main") {
+            if comp.name == ctx.entrypoint {
+                for cell in comp.cells.iter() {
+                    if cell.borrow().is_external() {
                         return Err(Error::malformed_structure(
                             "external cell not allowed for main component",
                         )
                         .with_pos(cell.borrow().name()));
                     }
-                    cellmap.insert(
-                        cell.clone_name(),
-                        cell.borrow().prototype.clone(),
-                    );
                 }
             }
-            e_c_t.insert(comp.name.clone(), cellmap);
+            let cellmap: LinkedHashMap<ir::Id, CellType> = comp
+                .cells
+                .iter()
+                .filter(|cell| cell.borrow().is_external())
+                .map(|cell| {
+                    (cell.clone_name(), cell.borrow().prototype.clone())
+                })
+                .collect();
+            external_cell_types.insert(comp.name.clone(), cellmap);
         }
 
         let w_f = WellFormed {
             reserved_names,
             used_groups: HashSet::new(),
             used_comb_groups: HashSet::new(),
-            external_cell_types: e_c_t,
+            external_cell_types: external_cell_types,
         };
 
         Ok(w_f)
@@ -115,23 +116,25 @@ where
 }
 
 fn same_binding(
-    binding_out: &SmallVec<[(ir::Id, u64); 5]>,
-    binding_in: &SmallVec<[(ir::Id, u64); 5]>,
+    binding_out: &ir::Binding,
+    binding_in: &ir::Binding,
 ) -> CalyxResult<()> {
-    if (*binding_out).len() != (*binding_in).len() {
-        return Err(Error::malformed_control(
-            "unmatching binding sizes".to_string(),
-        ));
+    if binding_out.len() != binding_in.len() {
+        return Err(Error::malformed_control(format!(
+            "unmatching binding sizes, expected {}, provided {}",
+            binding_out.len(),
+            binding_in.len()
+        )));
     }
 
     binding_out.iter().zip(binding_in.iter()).try_for_each(
-        |((k_out, v_out), (k_in, v_in))| {
-            if k_out.eq(k_in) && (v_out == v_in) {
+        |((id_out, value_out), (id_in, value_in))| {
+            if id_out == id_in && value_out == value_in {
                 Ok(())
             } else {
                 Err(Error::malformed_control(
-                    "unmatching binding values for fed_in external cell"
-                        .to_string(),
+                    format!("unmatching binding values for fed_in external cell, expected {} to be
+                    {}, instead got {}", id_out, value_out, value_in),
                 ))
             }
         },
@@ -166,7 +169,7 @@ fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
             CellType::Component { name },
             CellType::Component { name: name_in },
         ) => {
-            if name.eq(name_in) {
+            if name == name_in {
                 Ok(())
             } else {
                 Err(Error::malformed_control("type mismatch: cell type not component or incorrect component name". to_string()).with_pos(name))
@@ -200,11 +203,10 @@ impl Visitor for WellFormed {
                     .with_pos(cell.name()));
                 }
                 if matches!(cell.prototype, CellType::ThisComponent) {
-                    return Err(Error::malformed_structure(
+                    unreachable!(
                         "the current component not allowed for external cells"
-                            .to_string(),
-                    )
-                    .with_pos(cell.name()));
+                            .to_string()
+                    );
                 }
             }
         }
@@ -333,17 +335,17 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = self.external_cell_types.get(id).unwrap();
+            let cellmap = &self.external_cell_types[&id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.external_cells.iter() {
-                if let Some(t) = cellmap.get(&(*outcell)) {
+                if let Some(t) = cellmap.get(&outcell) {
                     let proto = incell.borrow().prototype.clone();
-                    same_type(t, &proto)?;
-                    mentioned_cells.insert(&(*outcell));
+                    same_type(t, &proto).map_err(|err| err.with_pos(incell.borrow().name()))?;
+                    mentioned_cells.insert(outcell.clone());
                 } else {
                     return Err(Error::malformed_control(format!(
                         "{} does not have external cell named {}",
-                        id, *outcell
+                        id, outcell
                     ))
                     .with_pos(outcell));
                 }
