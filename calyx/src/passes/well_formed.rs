@@ -116,6 +116,7 @@ where
 }
 
 fn same_binding(
+    name_out: &ir::Id,
     binding_out: &ir::Binding,
     binding_in: &ir::Binding,
 ) -> CalyxResult<()> {
@@ -133,7 +134,7 @@ fn same_binding(
                 Ok(())
             } else {
                 Err(Error::malformed_control(
-                    format!("unmatching binding values for fed_in external cell, expected {id_out} to be {value_out}, instead got {value_in}"),
+                    format!("unmatching binding values for {name_out}, expected {id_out} to be {value_out}, instead got {value_in}"),
                 ))
             }
         },
@@ -155,7 +156,7 @@ fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
             },
         ) => {
             if name_in == name {
-                same_binding(param_binding, param_binding_in)
+                same_binding(name, param_binding, param_binding_in)
             } else {
                 Err(Error::malformed_control(format!(
                     "type mismatch, expected {}, got {}",

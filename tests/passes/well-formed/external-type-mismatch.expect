@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/passes/well-formed/external-type-mismatch.futil
 32 |      invoke f[m = k1]()();
-   |      ^^^^^^^^^^^^^^^^^^^^^ Malformed Control: unmatching binding values for fed_in external cell, expected WIDTH to be 32, instead got 16
+   |      ^^^^^^^^^^^^^^^^^^^^^ Malformed Control: unmatching binding values for std_reg, expected WIDTH to be 32, instead got 16
