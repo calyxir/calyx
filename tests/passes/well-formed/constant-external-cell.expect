@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/passes/well-formed/constant-external-cell.futil
+8 |    external m2 = std_const(2, 1);
+  |             ^^ Malformed Structure: constant not allowed for external cells

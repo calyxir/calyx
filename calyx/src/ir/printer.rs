@@ -247,6 +247,9 @@ impl Printer {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
+                if cell.is_external() {
+                    write!(f, "external ")?
+                }
                 writeln!(f, "{} = {}();", cell.name().id, name)
             }
             ir::CellType::Constant { .. } => Ok(()),

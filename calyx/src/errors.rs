@@ -139,6 +139,7 @@ impl Error {
             post_msg: None,
         }
     }
+
     pub fn reserved_name(name: ir::Id) -> Self {
         Self {
             kind: ErrorKind::ReservedName(name),
