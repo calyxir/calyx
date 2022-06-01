@@ -203,7 +203,6 @@ impl Visitor for WellFormed {
                 if matches!(cell.prototype, CellType::ThisComponent) {
                     unreachable!(
                         "the current component not allowed for external cells"
-                            .to_string()
                     );
                 }
             }
