@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName, LibrarySignatures, WRC};
 
@@ -53,6 +55,10 @@ fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
 }
 
 impl Visitor for Externalize {
+    fn require_postorder() -> bool {
+        true
+    }
+
     fn start(
         &mut self,
         comp: &mut ir::Component,
@@ -63,7 +69,7 @@ impl Visitor for Externalize {
         let (ext_cells, cells): (Vec<_>, Vec<_>) =
             comp.cells.drain().partition(|cr| {
                 let cell = cr.borrow();
-                cell.get_attribute("external").is_some()
+                cell.get_attribute("external").is_some() || cell.is_external()
             });
 
         // Re-add non-external cells.
@@ -91,7 +97,34 @@ impl Visitor for Externalize {
             }
         }
 
-        // Stop traversal, we don't need to traverse over control ast
-        Ok(Action::Stop)
+        Ok(Action::Continue)
+    }
+
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        for (id, cell) in s.external_cells.drain(..) {
+            for port in cell.borrow().ports.iter() {
+                if matches!(port.borrow().direction, ir::Direction::Input) {
+                    s.outputs.push((
+                        format_port_name(&id, &port.borrow().name.clone()),
+                        Rc::clone(port),
+                    ));
+                } else if matches!(
+                    port.borrow().direction,
+                    ir::Direction::Output
+                ) {
+                    s.inputs.push((
+                        format_port_name(&id, &port.borrow().name.clone()),
+                        Rc::clone(port),
+                    ));
+                }
+            }
+        }
+        Ok(Action::Continue)
     }
 }

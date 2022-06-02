@@ -15,6 +15,10 @@ use std::collections::HashSet;
 /// 1. Programs that don't use a defined group or combinational group.
 /// 2. Groups that don't write to their done signal.
 /// 3. Groups that write to another group's done signal.
+/// 4. External cells that have unallowed types.
+/// 5. Invoking components with unmentioned external cells.
+/// 6. Invoking components with wrong external cell name.
+/// 7. Invoking components with impatible fed-in cell type for external cells.
 pub struct WellFormed {
     /// Reserved names
     reserved_names: HashSet<String>,
