@@ -15,7 +15,6 @@ use crate::ir::{
 ///
 /// # Example
 /// ```
-/// a[done] = 1'd1 ? r1.done -> a[done] = r1.done
 /// a[done] = r1.done ? 1'd1 -> a[done] = r1.done
 /// ```
 ///
