@@ -90,11 +90,28 @@ pub struct PortDef<W> {
     pub attributes: Attributes,
 }
 
-impl From<(Id, u64, Direction)> for PortDef<Width> {
-    fn from(port: (Id, u64, Direction)) -> Self {
+impl<I> From<(I, u64, Direction)> for PortDef<Width>
+where
+    I: Into<Id>,
+{
+    fn from(port: (I, u64, Direction)) -> Self {
         PortDef {
-            name: port.0,
+            name: port.0.into(),
             width: Width::Const { value: port.1 },
+            direction: port.2,
+            attributes: Attributes::default(),
+        }
+    }
+}
+
+impl<I> From<(I, u64, Direction)> for PortDef<u64>
+where
+    I: Into<Id>,
+{
+    fn from(port: (I, u64, Direction)) -> Self {
+        PortDef {
+            name: port.0.into(),
+            width: port.1,
             direction: port.2,
             attributes: Attributes::default(),
         }
