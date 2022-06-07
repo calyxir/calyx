@@ -1,5 +1,6 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 use super::{Attributes, GetAttributes, Guard, Id, PortDef, RRC, WRC};
+use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -235,7 +236,14 @@ impl Cell {
         S: std::fmt::Display + Clone + AsRef<str>,
     {
         self.find(&name).unwrap_or_else(|| {
-            panic!("Port `{name}' not found on cell `{}'", self.name,)
+            panic!(
+                "Port `{name}' not found on cell `{}'. Known ports are: {}",
+                self.name,
+                self.ports
+                    .iter()
+                    .map(|p| p.borrow().name.to_string())
+                    .join(",")
+            )
         })
     }
 

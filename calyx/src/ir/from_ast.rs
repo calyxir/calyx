@@ -9,7 +9,6 @@ use crate::{
     ir::PortComp,
     utils::NameGenerator,
 };
-use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -112,7 +111,7 @@ fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
-pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
+pub fn ast_to_ir(workspace: frontend::Workspace) -> CalyxResult<Context> {
     let mut all_names: HashSet<&Id> = HashSet::with_capacity(
         workspace.components.len() + workspace.externs.len(),
     );
@@ -139,12 +138,8 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         ..Default::default()
     };
 
-    // Add declarations and components to context
-    for comp in workspace
-        .declarations
-        .iter_mut()
-        .chain(workspace.components.iter_mut())
-    {
+    // Add declarations to context
+    for comp in workspace.declarations {
         let mut sig = check_signature(comp.signature.clone())?;
         // extend the signature
         extend_signature(&mut sig);
@@ -154,7 +149,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
     let comps: Vec<Component> = workspace
         .components
         .into_iter()
-        .map(|comp| build_component(comp, &sig_ctx))
+        .map(|comp| build_component(comp, &mut sig_ctx))
         .collect::<Result<_, _>>()?;
 
     // Find the entrypoint for the program.
@@ -241,20 +236,18 @@ fn validate_component(
 /// Build an `ir::component::Component` using an `frontend::ast::ComponentDef`.
 fn build_component(
     comp: ast::ComponentDef,
-    sig_ctx: &SigCtx,
+    sig_ctx: &mut SigCtx,
 ) -> CalyxResult<Component> {
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
     // Components don't have any parameter information.
-    let fake_binding = LinkedHashMap::default();
-    let mut ir_component = Component::new(
-        comp.name,
-        comp.signature
-            .into_iter()
-            .map(|pd| pd.resolve(&fake_binding))
-            .collect::<Result<_, _>>()?,
-    );
+    let mut sig = check_signature(comp.signature)?;
+    extend_signature(&mut sig);
+    // Add signature to the context
+    sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
+
+    let mut ir_component = Component::new(comp.name, sig);
     let mut builder =
         Builder::new(&mut ir_component, &sig_ctx.lib).not_generated();
 
