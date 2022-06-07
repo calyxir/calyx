@@ -19,45 +19,67 @@ use std::rc::Rc;
 #[derive(Default)]
 struct SigCtx {
     /// Mapping from component names to signatures
-    comp_sigs: HashMap<Id, Vec<PortDef>>,
+    comp_sigs: HashMap<Id, Vec<PortDef<u64>>>,
 
     /// Mapping from library functions to signatures
     lib: LibrarySignatures,
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(sig: &[PortDef]) -> CalyxResult<()> {
-    let mut inputs: HashSet<&Id> = HashSet::new();
-    let mut outputs: HashSet<&Id> = HashSet::new();
-    for pd in sig {
-        // check for uniqueness
-        match pd.direction {
-            Direction::Input => {
-                if !inputs.contains(&pd.name) {
-                    inputs.insert(&pd.name);
-                } else {
-                    return Err(Error::already_bound(
-                        pd.name.clone(),
-                        "component".to_string(),
-                    ));
+fn check_signature(sig: Vec<PortDef<Width>>) -> CalyxResult<Vec<PortDef<u64>>> {
+    let mut inputs: HashSet<Id> = HashSet::new();
+    let mut outputs: HashSet<Id> = HashSet::new();
+    sig.into_iter()
+        .map(
+            |PortDef {
+                 name,
+                 width,
+                 direction,
+                 attributes,
+             }| {
+                // check for uniqueness
+                match &direction {
+                    Direction::Input => {
+                        if !inputs.contains(&name) {
+                            inputs.insert(name.clone());
+                        } else {
+                            return Err(Error::already_bound(
+                                name,
+                                "component".to_string(),
+                            ));
+                        }
+                    }
+                    Direction::Output => {
+                        if !outputs.contains(&name) {
+                            outputs.insert(name.clone());
+                        } else {
+                            return Err(Error::already_bound(
+                                name,
+                                "component".to_string(),
+                            ));
+                        }
+                    }
+                    Direction::Inout => {
+                        panic!("Components shouldn't have inout ports.")
+                    }
                 }
-            }
-            Direction::Output => {
-                if !outputs.contains(&pd.name) {
-                    outputs.insert(&pd.name);
-                } else {
-                    return Err(Error::already_bound(
-                        pd.name.clone(),
-                        "component".to_string(),
-                    ));
-                }
-            }
-            Direction::Inout => {
-                panic!("Components shouldn't have inout ports.")
-            }
-        }
-    }
-    Ok(())
+                let width = match width {
+                    Width::Const { value } => value,
+                    Width::Param { .. } => {
+                        return Err(Error::malformed_structure(
+                            "Component port uses abstract parameter",
+                        ))
+                    }
+                };
+                Ok(PortDef {
+                    name,
+                    width,
+                    direction,
+                    attributes,
+                })
+            },
+        )
+        .collect::<CalyxResult<_>>()
 }
 
 /// Definition of special interface ports.
@@ -69,7 +91,7 @@ const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
 ];
 
 /// Extend the signature with magical ports.
-fn extend_signature(sig: &mut Vec<PortDef>) {
+fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
     let port_names: HashSet<_> =
         sig.iter().map(|pd| pd.name.to_string()).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
@@ -81,7 +103,7 @@ fn extend_signature(sig: &mut Vec<PortDef>) {
             attributes.insert(name, 1);
             sig.push(PortDef {
                 name: namegen.gen_name(name.to_string()),
-                width: Width::Const { value: *width },
+                width: *width,
                 direction: direction.clone(),
                 attributes,
             });
@@ -117,25 +139,18 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         ..Default::default()
     };
 
-    // Add declarations to context
-    for comp in &mut workspace.declarations {
-        check_signature(&comp.signature)?;
+    // Add declarations and components to context
+    for comp in workspace
+        .declarations
+        .iter_mut()
+        .chain(workspace.components.iter_mut())
+    {
+        let mut sig = check_signature(comp.signature.clone())?;
         // extend the signature
-        extend_signature(&mut comp.signature);
-        sig_ctx
-            .comp_sigs
-            .insert(comp.name.clone(), comp.signature.clone());
+        extend_signature(&mut sig);
+        sig_ctx.comp_sigs.insert(comp.name.clone(), sig);
     }
 
-    // Add components to context
-    for comp in &mut workspace.components {
-        check_signature(&comp.signature)?;
-        // extend the signature
-        extend_signature(&mut comp.signature);
-        sig_ctx
-            .comp_sigs
-            .insert(comp.name.clone(), comp.signature.clone());
-    }
     let comps: Vec<Component> = workspace
         .components
         .into_iter()
@@ -232,15 +247,12 @@ fn build_component(
     validate_component(&comp, sig_ctx)?;
 
     // Components don't have any parameter information.
-    let fake_binding = LinkedHashMap::with_capacity(0);
+    let fake_binding = LinkedHashMap::default();
     let mut ir_component = Component::new(
         comp.name,
         comp.signature
             .into_iter()
-            .map(|pd| {
-                pd.resolve(&fake_binding)
-                    .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
-            })
+            .map(|pd| pd.resolve(&fake_binding))
             .collect::<Result<_, _>>()?,
     );
     let mut builder =
@@ -298,19 +310,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         };
         let external = cell.external;
         // Components do not have any bindings for parameters
-        let fake_binding = LinkedHashMap::with_capacity(0);
-        let cell = Builder::cell_from_signature(
-            name,
-            typ,
-            sig.iter()
-                .cloned()
-                .map(|pd| {
-                    pd.resolve(&fake_binding)
-                        .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .expect("Failed to build component"),
-        );
+        let cell = Builder::cell_from_signature(name, typ, sig.clone());
         cell.borrow_mut().set_external(external);
         builder.component.cells.add(Rc::clone(&cell));
         cell

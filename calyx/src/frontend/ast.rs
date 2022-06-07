@@ -44,7 +44,7 @@ pub struct ComponentDef {
     /// Name of the component.
     pub name: ir::Id,
     /// Defines input and output ports along with their attributes.
-    pub signature: Vec<ir::PortDef>,
+    pub signature: Vec<ir::PortDef<ir::Width>>,
     /// List of instantiated sub-components
     pub cells: Vec<Cell>,
     /// List of groups
@@ -55,6 +55,23 @@ pub struct ComponentDef {
     pub control: Control,
     /// Attributes attached to this component
     pub attributes: ir::Attributes,
+}
+
+impl ComponentDef {
+    pub fn new<S>(name: S, signature: Vec<ir::PortDef<ir::Width>>) -> Self
+    where
+        S: Into<ir::Id>,
+    {
+        Self {
+            name: name.into(),
+            signature,
+            cells: Vec::new(),
+            groups: Vec::new(),
+            continuous_assignments: Vec::new(),
+            control: Control::Empty {},
+            attributes: ir::Attributes::default(),
+        }
+    }
 }
 
 /// Statement that refers to a port on a subcomponent.

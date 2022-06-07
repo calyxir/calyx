@@ -13,6 +13,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
+type PortDef = ir::PortDef<ir::Width>;
 
 /// Data associated with parsing the file.
 #[derive(Clone)]
@@ -307,7 +308,7 @@ impl CalyxParser {
         ))
     }
 
-    fn inputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+    fn inputs(input: Node) -> ParseResult<Vec<PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             [io_port(ins)..] => {
@@ -318,7 +319,7 @@ impl CalyxParser {
         ))
     }
 
-    fn outputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+    fn outputs(input: Node) -> ParseResult<Vec<PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             [io_port(outs)..] => {
@@ -329,12 +330,12 @@ impl CalyxParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+    fn signature(input: Node) -> ParseResult<Vec<PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             // NOTE(rachit): We expect the signature to be extended to have `go`,
-            // `done`, and `clk`.
-            [] => Vec::with_capacity(3),
+            // `done`, `reset,`, and `clk`.
+            [] => Vec::with_capacity(4),
             [inputs(ins)] =>  ins ,
             [outputs(outs)] =>  outs ,
             [inputs(ins), outputs(outs)] => {
@@ -346,7 +347,7 @@ impl CalyxParser {
     // ==============Primitives=====================
     fn sig_with_params(
         input: Node,
-    ) -> ParseResult<(Vec<ir::Id>, Vec<ir::PortDef>)> {
+    ) -> ParseResult<(Vec<ir::Id>, Vec<PortDef>)> {
         Ok(match_nodes!(
             input.into_children();
             [params(p), signature(s)] => (p, s),

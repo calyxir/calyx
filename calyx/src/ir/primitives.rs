@@ -23,7 +23,7 @@ pub struct Primitive {
     /// Paramters for this primitive.
     pub params: Vec<Id>,
     /// The input/output signature for this primitive.
-    pub signature: Vec<PortDef>,
+    pub signature: Vec<PortDef<Width>>,
     /// Key-value attributes for this primitive.
     pub attributes: Attributes,
     /// True iff this is a combinational primitive
@@ -37,10 +37,7 @@ impl Primitive {
     pub fn resolve(
         &self,
         parameters: &[u64],
-    ) -> CalyxResult<(
-        SmallVec<[(Id, u64); 5]>,
-        Vec<(Id, u64, Direction, Attributes)>,
-    )> {
+    ) -> CalyxResult<(SmallVec<[(Id, u64); 5]>, Vec<PortDef<u64>>)> {
         if self.params.len() != parameters.len() {
             let msg = format!(
                "Invalid parameter binding for primitive `{}`. Requires {} parameters but provided with {}.",
@@ -61,17 +58,14 @@ impl Primitive {
             .signature
             .iter()
             .cloned()
-            .map(|pd| {
-                pd.resolve(&bindings)
-                    .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
-            })
+            .map(|pd| pd.resolve(&bindings))
             .collect::<Result<_, _>>()?;
 
         Ok((bindings.into_iter().collect(), ports))
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr<S>(&self, attr: S) -> Vec<&PortDef>
+    pub fn find_all_with_attr<S>(&self, attr: S) -> Vec<&PortDef<Width>>
     where
         S: AsRef<str>,
     {
@@ -84,12 +78,11 @@ impl Primitive {
 
 /// Definition of a port.
 #[derive(Clone, Debug)]
-pub struct PortDef {
+pub struct PortDef<W> {
     /// The name of the port.
     pub name: Id,
-    /// The width of the port. Can be either a number ([`Width::Const`]) or
-    /// a parameter ([`Width::Param`]).
-    pub width: Width,
+    /// The width of the port. .
+    pub width: W,
     /// The direction of the port. Only allowed to be [`Direction::Input`]
     /// or [`Direction::Output`].
     pub direction: Direction,
@@ -97,7 +90,7 @@ pub struct PortDef {
     pub attributes: Attributes,
 }
 
-impl From<(Id, u64, Direction)> for PortDef {
+impl From<(Id, u64, Direction)> for PortDef<Width> {
     fn from(port: (Id, u64, Direction)) -> Self {
         PortDef {
             name: port.0,
@@ -126,22 +119,28 @@ impl std::fmt::Display for Width {
     }
 }
 
-impl PortDef {
+impl PortDef<Width> {
     /// Given a map from names of parameters to their values, attempt to
     /// resolve this definition.
     /// Errors if there is no binding for a required parameter binding.
     pub fn resolve(
-        &self,
+        self,
         binding: &LinkedHashMap<Id, u64>,
-    ) -> CalyxResult<(Id, u64, Attributes)> {
+    ) -> CalyxResult<PortDef<u64>> {
         match &self.width {
-            Width::Const { value } => {
-                Ok((self.name.clone(), *value, self.attributes.clone()))
-            }
+            Width::Const { value } => Ok(PortDef {
+                name: self.name,
+                width: *value,
+                attributes: self.attributes,
+                direction: self.direction,
+            }),
             Width::Param { value } => match binding.get(value) {
-                Some(width) => {
-                    Ok((self.name.clone(), *width, self.attributes.clone()))
-                }
+                Some(width) => Ok(PortDef {
+                    name: self.name,
+                    width: *width,
+                    attributes: self.attributes,
+                    direction: self.direction,
+                }),
                 None => {
                     let param_name = &self.name;
                     let msg = format!("Failed to resolve: {param_name}");
