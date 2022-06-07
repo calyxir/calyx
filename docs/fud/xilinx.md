@@ -112,9 +112,36 @@ By default, the Xilinx tools run in a temporary directory that is deleted when `
 To instead keep the sandbox directory, use `-s xclbin.save_temps true`.
 You can then find the results in a directory named `fud-out-N` for some number `N`.
 
+### Execute
+
+Now that you have an `xclbin`, the next step is to run it.
+Roughly speaking, the command you need is just a `fud` invocation that goes from the `xclbin` stage to the `fpga` stage:
+
+    fud e foo.xclbin --to fpga -s fpga.data examples/tutorial/data.json
+
+Contrary to the name, the `fpga` stage works for both emulation and on-FPGA execution---fud's `mode` config option for this stage chooses which to use.
+The `fpga.data` config option provides a normal fud-style JSON data input file for the run.
+
+Currently, you will need to have a bunch of environment variables set up to point to the Xilinx tools *before running this fud command*.
+For example, on our group's havarti server, you can do this:
+
+    source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh
+    source /opt/xilinx/xrt/setup.sh
+    export EMCONFIG_PATH=`pwd`
+    export XCL_EMULATION_MODE=hw_emu
+
+That is, you'll source the setup scripts for both [Vitis][] and [XRT][];
+you need to set a special `EMCONFIG_PATH` to your current directory so that fud can generate a [special JSON configuration file for Xilinx emulation][emconfig.json];
+and you need to tell XRT whether you want `hw_emu` (emulation) or `hw` (actual on-device execution) mode.
+Of course, it would be better if all this could come from fud's configuration itself instead of requiring you to set it up ahead of time;
+[issue #872](https://github.com/cucapra/calyx/issues/872) covers this work.
+
+[emconfig.json]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/emconfigutil-Utility
+
 ### Emulate
 
-You can also execute compiled designs through Xilinx hardware emulation.
+There is also a separate, vestigial path just for doing hardware emulation (i.e., like the `hw_emu` mode referenced above).
+It is probably a bad idea to use this when the `fpga` stage exists, but it is still available.
 Use the `wdb` state as your `fud` target:
 
     fud e -vv foo.xclbin -s wdb.save_temps true -o out.wdb
