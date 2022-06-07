@@ -117,7 +117,7 @@ You can then find the results in a directory named `fud-out-N` for some number `
 Now that you have an `xclbin`, the next step is to run it.
 Roughly speaking, the command you need is just a `fud` invocation that goes from the `xclbin` stage to the `fpga` stage:
 
-    fud e foo.xclbin --to fpga -s fpga.data examples/tutorial/data.json
+    fud e foo.xclbin --from xclbin --to fpga -s fpga.data examples/dahlia/dot-product.fuse.data
 
 Contrary to the name, the `fpga` stage works for both emulation and on-FPGA execution---fud's `mode` config option for this stage chooses which to use.
 The `fpga.data` config option provides a normal fud-style JSON data input file for the run.
