@@ -63,7 +63,7 @@ impl Visitor for ParSeqToSeqPar {
             let mut num_cycles = 0;
 
             all_seqs_iterated = true;
-            (*s.stmts).into_iter().for_each(|x| match x {
+            (*s.stmts).iter().for_each(|x| match x {
                 ir::Control::Seq(seq) => {
                     match seq.stmts.get(n) {
                         Some(stmt) => {
@@ -108,9 +108,9 @@ impl Visitor for ParSeqToSeqPar {
         }
 
         if transformation_ok {
-            return Ok(Action::Change(Box::new(ir::Control::Seq(new_seq))));
+            Ok(Action::Change(Box::new(ir::Control::Seq(new_seq))))
         } else {
-            return Ok(Action::Continue);
+            Ok(Action::Continue)
         }
     }
 }
