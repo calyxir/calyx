@@ -127,8 +127,10 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
     {
         let sig = &mut comp.signature;
         check_signature(&*sig)?;
-        // extend the signature
-        extend_signature(sig);
+        // extend the signature if the component does not have the @nointerface attribute.
+        if !comp.attributes.has("nointerface") {
+            extend_signature(sig);
+        }
         sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
     }
 
