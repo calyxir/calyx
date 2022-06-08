@@ -4,9 +4,10 @@ use crate::passes::{
     CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
     DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
     InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
-    ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
+    Papercut, ParSeqToSeqPar, ParToSeq, RegisterUnsharing, RemoveCombGroups,
+    ResetInsertion, ResourceSharing, SimplifyGuards, SynthesisPapercut,
+    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
+    WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -34,6 +35,7 @@ impl PassManager {
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
+        pm.register_pass::<ParSeqToSeqPar>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
