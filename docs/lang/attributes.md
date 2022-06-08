@@ -53,11 +53,12 @@ compiler errors out.
 
 ### `go`, `done`, `clk` and `reset`
 These four ports are part of the interface to Calyx components.
+These are automatically added by the parser if they are missing from the component definition.
 `go` and `done` provide the mechanism for how an "outer" component invokes an "inner" cell that it contains.
 `clk` and `reset` thread through the global clock and resetting signal in a design.
 
 ### `nointerface`
-By default, interface ports are automatically added to a component if they are missing.
+By default, interface ports are automatically added to a component by the parser if they are missing.
 Adding this attribute disables this behavior.
 
 ### `external`

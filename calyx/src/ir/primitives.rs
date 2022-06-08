@@ -76,15 +76,17 @@ impl Primitive {
     }
 }
 
-/// Definition of a port.
+/// Definition of a port parameterized by a width type.
+/// Ports on Primitives can be parameteris and use [Width].
+/// Ports on Components cannot be parameterized and therefore use `u64`.
 #[derive(Clone, Debug)]
 pub struct PortDef<W> {
     /// The name of the port.
     pub name: Id,
     /// The width of the port. .
     pub width: W,
-    /// The direction of the port. Only allowed to be [`Direction::Input`]
-    /// or [`Direction::Output`].
+    /// The direction of the port. Only allowed to be [Direction::Input]
+    /// or [Direction::Output].
     pub direction: Direction,
     /// Attributes attached to this port definition
     pub attributes: Attributes,
