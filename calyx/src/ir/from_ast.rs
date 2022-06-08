@@ -1,7 +1,7 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, Canonical, CellType,
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
-    LibrarySignatures, Port, PortDef, Width, RESERVED_NAMES, RRC,
+    LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
 };
 use crate::{
     errors::{CalyxResult, Error, WithPos},
@@ -25,60 +25,41 @@ struct SigCtx {
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(sig: Vec<PortDef<Width>>) -> CalyxResult<Vec<PortDef<u64>>> {
-    let mut inputs: HashSet<Id> = HashSet::new();
-    let mut outputs: HashSet<Id> = HashSet::new();
-    sig.into_iter()
-        .map(
-            |PortDef {
-                 name,
-                 width,
-                 direction,
-                 attributes,
-             }| {
-                // check for uniqueness
-                match &direction {
-                    Direction::Input => {
-                        if !inputs.contains(&name) {
-                            inputs.insert(name.clone());
-                        } else {
-                            return Err(Error::already_bound(
-                                name,
-                                "component".to_string(),
-                            ));
-                        }
-                    }
-                    Direction::Output => {
-                        if !outputs.contains(&name) {
-                            outputs.insert(name.clone());
-                        } else {
-                            return Err(Error::already_bound(
-                                name,
-                                "component".to_string(),
-                            ));
-                        }
-                    }
-                    Direction::Inout => {
-                        panic!("Components shouldn't have inout ports.")
-                    }
+fn check_signature(ports: &Vec<PortDef<u64>>) -> CalyxResult<()> {
+    let mut inputs: HashSet<&Id> = HashSet::new();
+    let mut outputs: HashSet<&Id> = HashSet::new();
+    for PortDef {
+        name, direction, ..
+    } in ports
+    {
+        // check for uniqueness
+        match &direction {
+            Direction::Input => {
+                if !inputs.contains(&name) {
+                    inputs.insert(name);
+                } else {
+                    return Err(Error::already_bound(
+                        name.clone(),
+                        "component".to_string(),
+                    ));
                 }
-                let width = match width {
-                    Width::Const { value } => value,
-                    Width::Param { .. } => {
-                        return Err(Error::malformed_structure(
-                            "Component port uses abstract parameter",
-                        ))
-                    }
-                };
-                Ok(PortDef {
-                    name,
-                    width,
-                    direction,
-                    attributes,
-                })
-            },
-        )
-        .collect::<CalyxResult<_>>()
+            }
+            Direction::Output => {
+                if !outputs.contains(&name) {
+                    outputs.insert(name);
+                } else {
+                    return Err(Error::already_bound(
+                        name.clone(),
+                        "component".to_string(),
+                    ));
+                }
+            }
+            Direction::Inout => {
+                panic!("Components shouldn't have inout ports.")
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Definition of special interface ports.
@@ -111,7 +92,7 @@ fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
 }
 
 /// Construct an IR representation using a parsed AST and command line options.
-pub fn ast_to_ir(workspace: frontend::Workspace) -> CalyxResult<Context> {
+pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
     let mut all_names: HashSet<&Id> = HashSet::with_capacity(
         workspace.components.len() + workspace.externs.len(),
     );
@@ -139,11 +120,16 @@ pub fn ast_to_ir(workspace: frontend::Workspace) -> CalyxResult<Context> {
     };
 
     // Add declarations to context
-    for comp in workspace.declarations {
-        let mut sig = check_signature(comp.signature.clone())?;
+    for comp in workspace
+        .declarations
+        .iter_mut()
+        .chain(workspace.components.iter_mut())
+    {
+        let sig = &mut comp.signature;
+        check_signature(&*sig)?;
         // extend the signature
-        extend_signature(&mut sig);
-        sig_ctx.comp_sigs.insert(comp.name.clone(), sig);
+        extend_signature(sig);
+        sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
     }
 
     let comps: Vec<Component> = workspace
@@ -241,13 +227,7 @@ fn build_component(
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
-    // Components don't have any parameter information.
-    let mut sig = check_signature(comp.signature)?;
-    extend_signature(&mut sig);
-    // Add signature to the context
-    sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
-
-    let mut ir_component = Component::new(comp.name, sig);
+    let mut ir_component = Component::new(comp.name, comp.signature);
     let mut builder =
         Builder::new(&mut ir_component, &sig_ctx.lib).not_generated();
 
