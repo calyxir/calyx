@@ -71,10 +71,11 @@ impl Visitor for StaticParConv {
         }
 
         //make sure only have seq stmts
-        if !(*s).stmts.iter().all(|x| match x {
-            ir::Control::Seq(_seq) => true,
-            _ => false,
-        }) {
+        if !(*s)
+            .stmts
+            .iter()
+            .all(|x| matches!(x, ir::Control::Seq(_seq)))
+        {
             return Ok(Action::Continue);
         }
 
@@ -125,20 +126,15 @@ impl Visitor for StaticParConv {
         for con in s.stmts.drain(..) {
             match con {
                 ir::Control::Seq(mut seq) => {
-                    let mut counter = 0;
-                    for stmt in seq.stmts.drain(..) {
+                    for (counter, stmt) in seq.stmts.drain(..).enumerate() {
                         new_seq_stmts[counter].push(stmt);
-                        counter += 1;
                     }
                 }
                 _ => panic!("Encountered non sequences"),
             }
         }
 
-        let par_vec = new_seq_stmts
-            .into_iter()
-            .map(|vec| ir::Control::par(vec))
-            .collect();
+        let par_vec = new_seq_stmts.into_iter().map(ir::Control::par).collect();
 
         Ok(Action::Change(Box::new(ir::Control::seq(par_vec))))
     }
