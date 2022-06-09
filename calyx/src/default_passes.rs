@@ -4,8 +4,8 @@ use crate::passes::{
     CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
     DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
     InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
-    Papercut, ParSeqToSeqPar, ParToSeq, RegisterUnsharing, RemoveCombGroups,
-    ResetInsertion, ResourceSharing, SimplifyGuards, SynthesisPapercut,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    ResourceSharing, SimplifyGuards, StaticParConv, SynthesisPapercut,
     TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
     WireInliner,
 };
@@ -35,7 +35,7 @@ impl PassManager {
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
-        pm.register_pass::<ParSeqToSeqPar>()?;
+        pm.register_pass::<StaticParConv>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;

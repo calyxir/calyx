@@ -1,4 +1,4 @@
-// -p parseq-to-seqpar
+// -p static-par-conv
 
 component main() -> () {
   cells {
