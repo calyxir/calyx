@@ -9,7 +9,7 @@
 #[macro_export]
 macro_rules! guard {
     ($node:ident[$port:expr]) => {
-        crate::ir::Guard::from($node.borrow().get($port))
+        $crate::ir::Guard::from($node.borrow().get($port))
     };
 }
 
@@ -63,7 +63,7 @@ macro_rules! build_assignments {
         $builder.build_assignment(
             $dst_node.borrow().get($dst_port),
             $src_node.borrow().get($src_port),
-            crate::ir::Guard::True)
+            $crate::ir::Guard::True)
     };
 
     // Guarded assignment.
