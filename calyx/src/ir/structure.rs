@@ -1,5 +1,6 @@
 //! Representation for structure (wires and cells) in a Calyx program.
-use super::{Attributes, GetAttributes, Guard, Id, RRC, WRC};
+use super::{Attributes, GetAttributes, Guard, Id, PortDef, RRC, WRC};
+use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -235,7 +236,14 @@ impl Cell {
         S: std::fmt::Display + Clone + AsRef<str>,
     {
         self.find(&name).unwrap_or_else(|| {
-            panic!("Port `{name}' not found on cell `{}'", self.name,)
+            panic!(
+                "Port `{name}' not found on cell `{}'. Known ports are: {}",
+                self.name,
+                self.ports
+                    .iter()
+                    .map(|p| p.borrow().name.to_string())
+                    .join(",")
+            )
         })
     }
 
@@ -333,17 +341,17 @@ impl Cell {
     }
 
     // Get the signature of this cell as a vector. Each element corresponds to a port in the Cell.
-    pub fn get_signature(&self) -> Vec<(Id, u64, Direction, Attributes)> {
+    pub fn get_signature(&self) -> Vec<PortDef<u64>> {
         self.ports
             .iter()
             .map(|port_ref| {
                 let port = port_ref.borrow();
-                (
-                    port.name.clone(),
-                    port.width,
-                    port.direction.clone(),
-                    port.attributes.clone(),
-                )
+                PortDef {
+                    name: port.name.clone(),
+                    width: port.width,
+                    direction: port.direction.clone(),
+                    attributes: port.attributes.clone(),
+                }
             })
             .collect()
     }

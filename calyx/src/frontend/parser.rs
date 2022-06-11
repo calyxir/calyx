@@ -13,6 +13,8 @@ use std::path::Path;
 use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
+type PortDef = ir::PortDef<ir::Width>;
+type ComponentDef = ast::ComponentDef;
 
 /// Data associated with parsing the file.
 #[derive(Clone)]
@@ -97,7 +99,7 @@ impl CalyxParser {
 #[allow(clippy::large_enum_variant)]
 enum ExtOrComp {
     Ext((String, Vec<ir::Primitive>)),
-    Comp(ast::ComponentDef),
+    Comp(ComponentDef),
 }
 
 #[pest_consume::parser]
@@ -307,7 +309,7 @@ impl CalyxParser {
         ))
     }
 
-    fn inputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+    fn inputs(input: Node) -> ParseResult<Vec<PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             [io_port(ins)..] => {
@@ -318,7 +320,7 @@ impl CalyxParser {
         ))
     }
 
-    fn outputs(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+    fn outputs(input: Node) -> ParseResult<Vec<PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             [io_port(outs)..] => {
@@ -329,12 +331,12 @@ impl CalyxParser {
         ))
     }
 
-    fn signature(input: Node) -> ParseResult<Vec<ir::PortDef>> {
+    fn signature(input: Node) -> ParseResult<Vec<PortDef>> {
         Ok(match_nodes!(
             input.into_children();
             // NOTE(rachit): We expect the signature to be extended to have `go`,
-            // `done`, and `clk`.
-            [] => Vec::with_capacity(3),
+            // `done`, `reset,`, and `clk`.
+            [] => Vec::with_capacity(4),
             [inputs(ins)] =>  ins ,
             [outputs(outs)] =>  outs ,
             [inputs(ins), outputs(outs)] => {
@@ -346,7 +348,7 @@ impl CalyxParser {
     // ==============Primitives=====================
     fn sig_with_params(
         input: Node,
-    ) -> ParseResult<(Vec<ir::Id>, Vec<ir::PortDef>)> {
+    ) -> ParseResult<(Vec<ir::Id>, Vec<PortDef>)> {
         Ok(match_nodes!(
             input.into_children();
             [params(p), signature(s)] => (p, s),
@@ -744,10 +746,10 @@ impl CalyxParser {
         ))
     }
 
-    fn component(input: Node) -> ParseResult<ast::ComponentDef> {
+    fn component(input: Node) -> ParseResult<ComponentDef> {
         let span = Self::get_span(&input);
-        Ok(match_nodes!(
-            input.into_children();
+        match_nodes!(
+            input.clone().into_children();
             [
                 name_with_attribute((name, attributes)),
                 signature(sig),
@@ -756,7 +758,19 @@ impl CalyxParser {
                 control(control)
             ] => {
                 let (continuous_assignments, groups) = connections;
-                ast::ComponentDef {
+                let sig = sig.into_iter().map(|ir::PortDef { name, width, direction, attributes }| {
+                    if let ir::Width::Const { value } = width {
+                        Ok(ir::PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
                     name,
                     signature: sig,
                     cells,
@@ -764,8 +778,8 @@ impl CalyxParser {
                     continuous_assignments,
                     control,
                     attributes: attributes.add_span(span),
-                }
-        }))
+                })
+        })
     }
 
     fn imports(input: Node) -> ParseResult<Vec<String>> {

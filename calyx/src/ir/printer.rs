@@ -82,7 +82,9 @@ impl Printer {
         writeln!(f, "}}")
     }
 
-    fn format_port_def(port_defs: &[&ir::PortDef]) -> String {
+    fn format_port_def<W: std::fmt::Display>(
+        port_defs: &[&ir::PortDef<W>],
+    ) -> String {
         port_defs
             .iter()
             .map(|pd| {
