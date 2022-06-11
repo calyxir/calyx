@@ -5,8 +5,9 @@ use crate::passes::{
     DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
     InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
     Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
-    ResourceSharing, SimplifyGuards, SynthesisPapercut, TopDownCompileControl,
-    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
+    ResourceSharing, SimplifyGuards, StaticParConv, SynthesisPapercut,
+    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
+    WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -34,6 +35,7 @@ impl PassManager {
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
+        pm.register_pass::<StaticParConv>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
@@ -73,6 +75,7 @@ impl PassManager {
                 InferStaticTiming,
                 MergeStaticPar,
                 DeadGroupRemoval,
+                StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
                 ResourceSharing,
                 MinimizeRegs,

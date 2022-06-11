@@ -1,0 +1,35 @@
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+    group A0 {
+    }
+    group A1 {
+    }
+    group A2 {
+    }
+    group B0 {
+    }
+    group B1 {
+    }
+    group B2 {
+    }
+  }
+
+  control {
+    @static(6) seq {
+      @static(2) par {
+        @static(2) A0;
+        @static(2) B0;
+      }
+      @static(3) par {
+        @static(3) A1;
+        @static(3) B1;
+      }
+      @static par {
+        @static A2;
+        @static B2;
+      }
+    }
+  }
+}
