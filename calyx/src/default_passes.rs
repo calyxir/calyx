@@ -75,6 +75,7 @@ impl PassManager {
                 InferStaticTiming,
                 MergeStaticPar,
                 DeadGroupRemoval,
+                StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
                 ResourceSharing,
                 MinimizeRegs,
