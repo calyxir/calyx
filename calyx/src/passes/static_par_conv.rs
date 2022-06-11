@@ -123,22 +123,19 @@ impl Visitor for StaticParConv {
             let cycles_val = cycles_vec
                 .iter()
                 .find(|x| matches!(x, StaticAttr::StaticVal(_v)));
-            match cycles_val {
-                Some(&StaticAttr::StaticVal(v)) => {
-                    if cycles_vec.into_iter().all(|static_attr| {
-                        match static_attr {
-                            StaticAttr::StaticVal(x) => x == v,
-                            StaticAttr::NoStmt => true,
-                            StaticAttr::NoAttr => false,
-                        }
-                    }) {
-                        new_pars_static.push(v);
-                    } else {
-                        return Ok(Action::Continue);
-                    }
+            if let Some(&StaticAttr::StaticVal(v)) = cycles_val {
+                if cycles_vec.into_iter().all(|static_attr| match static_attr {
+                    StaticAttr::StaticVal(x) => x == v,
+                    StaticAttr::NoStmt => true,
+                    StaticAttr::NoAttr => false,
+                }) {
+                    new_pars_static.push(v);
+                } else {
+                    return Ok(Action::Continue);
                 }
-                _ => return Ok(Action::Continue),
-            };
+            } else {
+                return Ok(Action::Continue);
+            }
         }
 
         let mut new_pars_stmts = Vec::new();
