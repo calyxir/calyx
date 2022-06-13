@@ -5,10 +5,9 @@ use crate::passes::{
     DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
     HoleInliner, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
     MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
-    ResetInsertion, ResourceSharing, SimplifyGuards, SynthesisPapercut,
-     StaticParConv,
-    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
-    WireInliner,
+    ResetInsertion, ResourceSharing, SimplifyGuards, StaticParConv,
+    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
+    UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
