@@ -1,19 +1,12 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
-<<<<<<< HEAD
     CompileExternal, CompileInvoke, ComponentInliner, ComponentInterface,
     DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
     HoleInliner, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
     MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
     ResetInsertion, ResourceSharing, SimplifyGuards, SynthesisPapercut,
-=======
-    CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
-    DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
-    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
-    ResourceSharing, SimplifyGuards, StaticParConv, SynthesisPapercut,
->>>>>>> master
+     StaticParConv,
     TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
     WireInliner,
 };
