@@ -1,0 +1,46 @@
+{
+  "A0": {
+    "data": [
+      27,
+      48,
+      88,
+      69,
+      9,
+      44,
+      3,
+      73
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "B0": {
+    "data": [
+      95,
+      68,
+      79,
+      39,
+      33,
+      88,
+      51,
+      99
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "v0": {
+    "data": [
+      0
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  }
+}

@@ -1,9 +1,10 @@
-use std::rc::Rc;
-
+use super::dump_ports;
+use crate::errors::CalyxResult;
+use crate::ir::traversal::ConstructVisitor;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, CloneName, LibrarySignatures, WRC};
+use crate::ir::{self, LibrarySignatures, RRC};
+use std::collections::HashMap;
 
-#[derive(Default)]
 /// Externalize input/output ports for cells marked with the `@external(1)` attribute.
 /// The ports of these cells are exposed through the ports of the parent
 /// component.
@@ -37,7 +38,25 @@ use crate::ir::{self, CloneName, LibrarySignatures, WRC};
 ///     }
 /// }
 /// ```
-pub struct Externalize;
+pub struct Externalize {
+    port_names: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
+}
+
+impl ConstructVisitor for Externalize {
+    fn from(_ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized,
+    {
+        let externalize = Externalize {
+            port_names: HashMap::new(),
+        };
+        Ok(externalize)
+    }
+
+    fn clear_data(&mut self) {
+        //data is shared between components
+    }
+}
 
 impl Named for Externalize {
     fn name() -> &'static str {
@@ -49,9 +68,9 @@ impl Named for Externalize {
     }
 }
 
-/// Generate a string given the name of the component and the port.
-fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
-    format!("{}_{}", comp.id, port.id).into()
+fn has_external_attribute(cr: &RRC<ir::Cell>) -> bool {
+    let cell = cr.borrow();
+    cell.get_attribute("external").is_some()
 }
 
 impl Visitor for Externalize {
@@ -65,66 +84,12 @@ impl Visitor for Externalize {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Extract external cells.
-        let (ext_cells, cells): (Vec<_>, Vec<_>) =
-            comp.cells.drain().partition(|cr| {
-                let cell = cr.borrow();
-                cell.get_attribute("external").is_some() || cell.is_external()
-            });
+        dump_ports::dump_ports_to_signature(
+            comp,
+            has_external_attribute,
+            &mut self.port_names,
+        );
 
-        // Re-add non-external cells.
-        comp.cells.append(cells.into_iter());
-
-        // Detach the port from the component's cell and attach it to the
-        // component's signature.
-        // By doing this, we don't need to change the assignments since they
-        // refer to this port. All we have done is change the port's parent
-        // which automatically changes the assignments.
-        for cell_ref in ext_cells {
-            let mut cell = cell_ref.borrow_mut();
-            let name = cell.clone_name();
-            for port_ref in cell.ports.drain(..) {
-                let port_name = port_ref.borrow().name.clone();
-                // Change the name and the parent of this port.
-                port_ref.borrow_mut().name =
-                    format_port_name(&name, &port_name);
-                // Point to the signature cell as its parent
-                port_ref.borrow_mut().parent =
-                    ir::PortParent::Cell(WRC::from(&comp.signature));
-                // Remove any attributes from this cell port.
-                port_ref.borrow_mut().attributes = ir::Attributes::default();
-                comp.signature.borrow_mut().ports.push(port_ref);
-            }
-        }
-
-        Ok(Action::Continue)
-    }
-
-    fn invoke(
-        &mut self,
-        s: &mut ir::Invoke,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        for (id, cell) in s.external_cells.drain(..) {
-            for port in cell.borrow().ports.iter() {
-                if matches!(port.borrow().direction, ir::Direction::Input) {
-                    s.outputs.push((
-                        format_port_name(&id, &port.borrow().name.clone()),
-                        Rc::clone(port),
-                    ));
-                } else if matches!(
-                    port.borrow().direction,
-                    ir::Direction::Output
-                ) {
-                    s.inputs.push((
-                        format_port_name(&id, &port.borrow().name.clone()),
-                        Rc::clone(port),
-                    ));
-                }
-            }
-        }
         Ok(Action::Continue)
     }
 }

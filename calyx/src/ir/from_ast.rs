@@ -25,7 +25,7 @@ struct SigCtx {
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(ports: &Vec<PortDef<u64>>) -> CalyxResult<()> {
+fn check_signature(ports: &[PortDef<u64>]) -> CalyxResult<()> {
     let mut inputs: HashSet<&Id> = HashSet::new();
     let mut outputs: HashSet<&Id> = HashSet::new();
     for PortDef {

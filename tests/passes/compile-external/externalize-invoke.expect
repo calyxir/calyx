@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component foo(@go go: 1, @clk clk: 1, @reset reset: 1, m_out: 32, m_done: 1) -> (@done done: 1, m_in: 32, m_write_en: 1, m_clk: 1, m_reset: 1) {
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1, m_out: 32, m_done: 1) -> (@done done: 1, m_in: 32, m_write_en: 1) {
   cells {
     r = std_reg(32);
   }
@@ -32,18 +32,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         m_done = k1.done
       )(
         m_in = k1.in,
-        m_write_en = k1.write_en,
-        m_clk = k1.clk,
-        m_reset = k1.reset
+        m_write_en = k1.write_en
       );
       invoke f(
         m_out = k2.out,
         m_done = k2.done
       )(
         m_in = k2.in,
-        m_write_en = k2.write_en,
-        m_clk = k2.clk,
-        m_reset = k2.reset
+        m_write_en = k2.write_en
       );
     }
   }
