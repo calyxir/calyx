@@ -1,11 +1,19 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
+<<<<<<< HEAD
     CompileExternal, CompileInvoke, ComponentInliner, ComponentInterface,
     DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
     HoleInliner, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
     MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
     ResetInsertion, ResourceSharing, SimplifyGuards, SynthesisPapercut,
+=======
+    CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
+    DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
+    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    ResourceSharing, SimplifyGuards, StaticParConv, SynthesisPapercut,
+>>>>>>> master
     TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
     WireInliner,
 };
@@ -35,6 +43,7 @@ impl PassManager {
         pm.register_pass::<MinimizeRegs>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
+        pm.register_pass::<StaticParConv>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
@@ -75,6 +84,7 @@ impl PassManager {
                 InferStaticTiming,
                 MergeStaticPar,
                 DeadGroupRemoval,
+                StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
                 CompileExternal, //Must run before 'resource-sharing'.
                 ResourceSharing,
