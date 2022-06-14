@@ -44,7 +44,7 @@ class HwEmulationStage(Stage):
         )
 
         host_cpp = config["stages", self.name, "host"]
-        save_temps = bool(config["stages", self.name, "save_temps"])
+        save_temps = bool(config["stages", self.name, "save_temps"]) and config["stages", self.name, "save_temps"] == "true"
         xrt = (
             Path(config["global", "futil_directory"]) / "fud" / "bitstream" / "xrt.ini"
         )
