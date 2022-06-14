@@ -174,7 +174,7 @@ pub struct Cell {
     /// Attributes attached to this cell definition
     pub attributes: ir::Attributes,
     /// Whether this cell is external
-    pub external: bool,
+    pub reference: bool,
 }
 
 /// Methods for constructing the structure AST nodes.
@@ -185,7 +185,7 @@ impl Cell {
         proto: ir::Id,
         params: Vec<u64>,
         attributes: ir::Attributes,
-        external: bool,
+        reference: bool,
     ) -> Cell {
         Cell {
             name,
@@ -194,7 +194,7 @@ impl Cell {
                 params,
             },
             attributes,
-            external,
+            reference,
         }
     }
 }
@@ -289,7 +289,7 @@ pub enum Control {
         /// Combinational group that may execute with this invoke.
         comb_group: Option<ir::Id>,
         /// External cells that may execute with this invoke.
-        external_cells: Vec<(ir::Id, ir::Id)>,
+        ref_cells: Vec<(ir::Id, ir::Id)>,
     },
     /// Control statement that does nothing.
     Empty {},

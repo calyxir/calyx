@@ -10,16 +10,16 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub struct CompileExternal {
+pub struct CompileRef {
     port_names: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
 }
 
-impl ConstructVisitor for CompileExternal {
+impl ConstructVisitor for CompileRef {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized,
     {
-        let compile_external = CompileExternal {
+        let compile_external = CompileRef {
             port_names: HashMap::new(),
         };
         Ok(compile_external)
@@ -31,20 +31,20 @@ impl ConstructVisitor for CompileExternal {
 }
 
 fn is_external_cell(cr: &RRC<ir::Cell>) -> bool {
-    cr.borrow().is_external()
+    cr.borrow().is_reference()
 }
 
-impl Named for CompileExternal {
+impl Named for CompileRef {
     fn name() -> &'static str {
-        "compile-external"
+        "compile-ref"
     }
 
     fn description() -> &'static str {
-        "Inline the ports of external cells to component signature"
+        "Inline the ports of reference cells to component signature"
     }
 }
 
-impl Visitor for CompileExternal {
+impl Visitor for CompileRef {
     fn require_postorder() -> bool {
         true
     }

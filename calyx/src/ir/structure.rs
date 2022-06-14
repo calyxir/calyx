@@ -171,7 +171,7 @@ pub struct Cell {
     /// Attributes for this group.
     pub attributes: Attributes,
     /// Whether the cell is external
-    external: bool,
+    reference: bool,
 }
 
 impl GetAttributes for Cell {
@@ -192,19 +192,19 @@ impl Cell {
             ports: smallvec![],
             prototype,
             attributes: Attributes::default(),
-            external: false,
+            reference: false,
         }
     }
 
     ///Get a boolean describing whether the cell is external.
-    pub fn is_external(&self) -> bool {
-        self.external
+    pub fn is_reference(&self) -> bool {
+        self.reference
     }
 
     ///Set the external field
-    pub(super) fn set_external(&mut self, external: bool) -> bool {
-        self.external = external;
-        self.external
+    pub(super) fn set_reference(&mut self, reference: bool) -> bool {
+        self.reference = reference;
+        self.reference
     }
 
     /// Get a reference to the named port if it exists.

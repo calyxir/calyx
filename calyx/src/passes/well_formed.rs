@@ -42,7 +42,7 @@ impl ConstructVisitor for WellFormed {
         for comp in ctx.components.iter() {
             if comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
-                    if cell.borrow().is_external() {
+                    if cell.borrow().is_reference() {
                         return Err(Error::malformed_structure(
                             "external cell not allowed for main component",
                         )
@@ -53,7 +53,7 @@ impl ConstructVisitor for WellFormed {
             let cellmap: LinkedHashMap<ir::Id, CellType> = comp
                 .cells
                 .iter()
-                .filter(|cell| cell.borrow().is_external())
+                .filter(|cell| cell.borrow().is_reference())
                 .map(|cell| {
                     (cell.clone_name(), cell.borrow().prototype.clone())
                 })
@@ -199,7 +199,7 @@ impl Visitor for WellFormed {
                 return Err(Error::reserved_name(cell.clone_name())
                     .with_pos(cell.name()));
             }
-            if cell.is_external() {
+            if cell.is_reference() {
                 if cell.is_primitive(Some("std_const")) {
                     return Err(Error::malformed_structure(
                         "constant not allowed for external cells".to_string(),

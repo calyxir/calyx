@@ -49,13 +49,13 @@ component main() -> () {
 
 component in_par() -> () {
   cells {
-    external A_read = std_reg(32);
-    external B_read = std_reg(32);
-    external A = std_mem_d1(32,8,4);
-    external B = std_mem_d1(32,8,4);
-    external i0 = std_reg(4);
-    external bin_read = std_reg(32);
-    external mult_pipe = std_mult_pipe(32);
+    ref A_read = std_reg(32);
+    ref B_read = std_reg(32);
+    ref A = std_mem_d1(32,8,4);
+    ref B = std_mem_d1(32,8,4);
+    ref i0 = std_reg(4);
+    ref bin_read = std_reg(32);
+    ref mult_pipe = std_mult_pipe(32);
   }
 
   wires {
@@ -94,12 +94,12 @@ component in_par() -> () {
 
 component after_par() -> () {
   cells {
-    external dot = std_reg(32);
-    external v = std_mem_d1(32,1,1);
-    external adder0 = std_add(32);
-    external i = std_reg(4);
-    external adder1 = std_add(4);
-    external bin_read = std_reg(32);
+    ref dot = std_reg(32);
+    ref v = std_mem_d1(32,1,1);
+    ref adder0 = std_add(32);
+    ref i = std_reg(4);
+    ref adder1 = std_add(4);
+    ref bin_read = std_reg(32);
     const2 = std_const(1,0);
     const3 = std_const(4,1);
   }

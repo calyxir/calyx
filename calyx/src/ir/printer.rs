@@ -225,8 +225,8 @@ impl Printer {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
-                if cell.is_external() {
-                    write!(f, "external ")?
+                if cell.is_reference() {
+                    write!(f, "ref ")?
                 }
                 write!(f, "{} = ", cell.name().id)?;
                 writeln!(
@@ -249,8 +249,8 @@ impl Printer {
                         Self::format_at_attributes(&cell.attributes)
                     )?
                 }
-                if cell.is_external() {
-                    write!(f, "external ")?
+                if cell.is_reference() {
+                    write!(f, "ref ")?
                 }
                 writeln!(f, "{} = {}();", cell.name().id, name)
             }

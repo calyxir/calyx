@@ -6,7 +6,7 @@ component add_one() -> () {
   cells {
     add = std_add(32);
     r = std_reg(32);
-    external out = std_mem_d1(32, 1, 1);
+    ref out = std_mem_d1(32, 1, 1);
   }
 
   wires {

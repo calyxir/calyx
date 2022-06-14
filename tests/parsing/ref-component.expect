@@ -3,7 +3,7 @@ import "primitives/binary_operators.futil";
 component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
-    external m = std_reg(32);
+    ref m = std_reg(32);
   }
   wires {
     group upd_m {
@@ -22,7 +22,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     f = foo();
     k1 = std_reg(32);
     k2 = std_reg(32);
-    external fo = foo();
+    ref fo = foo();
   }
   wires {
   }

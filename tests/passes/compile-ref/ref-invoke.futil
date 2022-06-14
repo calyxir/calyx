@@ -1,10 +1,10 @@
-// -p compile-external
+// -p compile-ref
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
-    external m = std_reg(32);
+    ref m = std_reg(32);
   }
   wires {
     group upd_m {
