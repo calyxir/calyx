@@ -23,8 +23,10 @@ component main() -> () {
 
   control {
     par { 
-        seq{@static(2)A0; @static(3)A1; }
-        seq{@static(2)B0; @static(3)B1; @static(1)B2;}
+        seq{}
+        seq{}
+        seq{}
+        A0;
     } 
   }
 }
