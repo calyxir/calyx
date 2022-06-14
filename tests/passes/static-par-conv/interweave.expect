@@ -28,19 +28,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 
   control {
     par {
-      seq {
-        @static(2) D0;
-        @static(5) D1;
-      }
       @static(9) seq {
         @static(2) par {
-          @static E0;
           @static(2) C0;
+          @static E0;
           @static(2) A0;
         }
         @static(3) par {
-          @static(2) E1;
           @static(3) B0;
+          @static(2) E1;
           @static(3) A1;
         }
         @static(4) par {
@@ -48,6 +44,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           @static(4) C1;
           @static(4) A2;
         }
+      }
+      seq {
+        @static(2) D0;
+        @static(5) D1;
       }
     }
   }

@@ -1,6 +1,7 @@
 use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::GetAttributes;
+use std::cmp::Ordering;
 
 #[derive(Default)]
 /// Transforms a par of seq blocks into a seq of par blocks. It will sometimes only
@@ -35,6 +36,12 @@ impl Named for StaticParConv {
     }
 }
 
+// given a stmt, returns Some(&val) where val is the values of the "static"
+// attribute of stmt. Returns None if no "static" attribute exists.
+fn get_static_attr(stmt: &ir::Control) -> Option<&u64> {
+    stmt.get_attributes().and_then(|atts| atts.get("static"))
+}
+
 // Takes in two seqs, longer and shorter. longer should be at least as long as
 // shorter. Returns Some(vec) if there exists arrangement of shorter and longer
 // such that each statement in shorter can be paired with a statement in longer,
@@ -57,10 +64,7 @@ fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
     let mut counter = 0;
 
     while let (Some(c1), Some(c2)) = (long_val, short_val) {
-        match (
-            c1.get_attributes().and_then(|atts| atts.get("static")),
-            c2.get_attributes().and_then(|atts| atts.get("static")),
-        ) {
+        match (get_static_attr(c1), get_static_attr(c2)) {
             (Some(x1), Some(x2)) => {
                 if x2 <= x1 {
                     long_val = long_iter.next();
@@ -88,6 +92,18 @@ fn attribute_with_static(v: u64) -> ir::Attributes {
     atts
 }
 
+//returns the Some(sum), where sum is the sum of the static attribute for each
+//stmt in seq. None if there is at least one statement that does not have a
+// static attribute
+fn get_static_sum(seq: &ir::Seq) -> Option<u64> {
+    let static_vals = seq
+        .stmts
+        .iter()
+        .map(get_static_attr)
+        .collect::<Option<Vec<&u64>>>();
+    static_vals.map(|v| v.into_iter().sum())
+}
+
 impl Visitor for StaticParConv {
     fn finish_par(
         &mut self,
@@ -101,117 +117,121 @@ impl Visitor for StaticParConv {
             return Ok(Action::Continue);
         }
 
-        // non_compatible holds everything that will NOT be turned into a
-        // seq of pars
-        let (mut seqs, mut non_compatible) = (Vec::new(), Vec::new());
+        let (mut to_be_partitioned, mut has_been_partitioned) =
+            (Vec::new(), Vec::new());
         for con in s.stmts.drain(..) {
             match con {
-                ir::Control::Seq(seq) => seqs.push(seq),
-                x => non_compatible.push(x),
+                ir::Control::Seq(seq) => to_be_partitioned.push(seq),
+                x => has_been_partitioned.push(x),
             }
         }
 
-        if seqs.is_empty() {
-            return Ok(Action::Change(Box::new(ir::Control::par(
-                non_compatible,
-            ))));
-        }
-
-        //is there a more idiomatic way to take ownership of just the longest seq
-        //but not the others?
-        let max_seq_len = seqs
-            .iter()
-            .map(|seq| seq.stmts.len())
-            .max()
-            .unwrap_or_else(|| unreachable!("no seqs"));
-        let longest_seq;
-        if let Some(p) =
-            seqs.iter().position(|seq| seq.stmts.len() == max_seq_len)
-        {
-            longest_seq = seqs.swap_remove(p);
-        } else {
-            unreachable!("no seq that has length max_seq_len")
-        }
-
-        let mut indexed_seqs = vec![];
-
-        //organizing seqs into those that are compatible w/ longest_seq
-        //and those that are not
-        for seq in seqs.drain(..) {
-            if let Some(index_vec) = is_compatible(&longest_seq, &seq) {
-                indexed_seqs.push((seq, index_vec));
-            } else {
-                non_compatible.push(ir::Control::Seq(seq));
+        //sort from longest seq to shortes
+        to_be_partitioned.sort_by(|s1, s2| {
+            let len1 = s1.stmts.len();
+            let static1 = get_static_sum(s1);
+            let len2 = s2.stmts.len();
+            let static2 = get_static_sum(s2);
+            match len2.cmp(&len1) {
+                Ordering::Equal => static2.cmp(&static1),
+                x => x,
             }
-        }
-
-        if indexed_seqs.is_empty() {
-            non_compatible.push(ir::Control::Seq(longest_seq));
-            return Ok(Action::Change(Box::new(ir::Control::par(
-                non_compatible,
-            ))));
-        }
-
-        indexed_seqs.push((longest_seq, (0..max_seq_len).collect()));
-
-        let mut new_pars_stmts = Vec::new();
-        for _n in 0..max_seq_len {
-            new_pars_stmts.push(Vec::new());
-        }
-
-        for (seq, indices) in indexed_seqs.drain(..) {
-            let mut labeled_stmts: Vec<(ir::Control, usize)> =
-                seq.stmts.into_iter().zip(indices.into_iter()).collect();
-            for (stmt, index) in labeled_stmts.drain(..) {
-                new_pars_stmts[index].push(stmt);
-            }
-        }
-
-        let new_pars_static = match new_pars_stmts
-            .iter()
-            .map(|vec| {
-                vec
-                    .iter()
-                    .map(|stmt| {
-                        match stmt
-                            .get_attributes()
-                            .and_then(|atts| atts.get("static"))
-                        {
-                            Some(&x1) => x1,
-                            None => unreachable!("every statement in the new par blocks should have a static attribute"),
-                        }
-                    })
-                    .max()
-            })
-            .collect::<Option<Vec<u64>>>()
-        {
-            Some(vec) => vec,
-            None => unreachable!("none of the par blocks should be empty"),
-        };
-
-        let new_seq_static = new_pars_static.iter().sum();
-
-        let new_pars: Vec<ir::Control> = new_pars_stmts
-            .into_iter()
-            .zip(new_pars_static.into_iter())
-            .map(|(stmts_vec, static_attr)| {
-                ir::Control::Par(ir::Par {
-                    stmts: stmts_vec,
-                    attributes: attribute_with_static(static_attr),
-                })
-            })
-            .collect();
-
-        let new_seq = ir::Control::Seq(ir::Seq {
-            stmts: new_pars,
-            attributes: attribute_with_static(new_seq_static),
         });
 
-        if non_compatible.is_empty() {
-            return Ok(Action::Change(Box::new(new_seq)));
+        while !to_be_partitioned.is_empty() {
+            let longest_seq = to_be_partitioned.remove(0);
+            let max_seq_len = longest_seq.stmts.len();
+
+            //group to hold seqs compatible w/ longest_seq as well as
+            //the respective indices in which each stmt should be inserted
+            let mut partition_group: Vec<(ir::Seq, Vec<usize>)> = vec![];
+
+            //organizing seqs into those that are compatible w/ longest_seq
+            //and those that are not
+            let mut i = 0;
+            while i != to_be_partitioned.len() {
+                if let Some(index_vec) =
+                    is_compatible(&longest_seq, &to_be_partitioned[i])
+                {
+                    let seq = to_be_partitioned.remove(i);
+                    partition_group.push((seq, index_vec));
+                } else {
+                    i += 1;
+                }
+            }
+
+            if partition_group.is_empty() {
+                has_been_partitioned.push(ir::Control::Seq(longest_seq));
+                continue;
+            };
+
+            partition_group.push((longest_seq, (0..max_seq_len).collect()));
+
+            let mut new_pars_stmts = Vec::new();
+            for _n in 0..max_seq_len {
+                new_pars_stmts.push(Vec::new());
+            }
+
+            for (seq, indices) in partition_group.drain(..) {
+                if seq.stmts.len() != indices.len() {
+                    panic!("seq should be same len as indices")
+                }
+                let mut labeled_stmts: Vec<(ir::Control, usize)> =
+                    seq.stmts.into_iter().zip(indices.into_iter()).collect();
+                for (stmt, index) in labeled_stmts.drain(..) {
+                    new_pars_stmts[index].push(stmt);
+                }
+            }
+
+            let new_pars_static = match new_pars_stmts
+                .iter()
+                .map(|vec| {
+                    vec
+                        .iter()
+                        .map(|stmt| {
+                            match get_static_attr(stmt)
+                            {
+                                Some(&x1) => x1,
+                                None => unreachable!("every statement in the new par blocks should have a static attribute"),
+                            }
+                        })
+                        .max()
+                })
+                .collect::<Option<Vec<u64>>>()
+            {
+                Some(vec) => vec,
+                None => unreachable!("none of the par blocks should be empty"),
+            };
+
+            let new_seq_static = new_pars_static.iter().sum();
+
+            let new_pars: Vec<ir::Control> = new_pars_stmts
+                .into_iter()
+                .zip(new_pars_static.into_iter())
+                .map(|(stmts_vec, static_attr)| {
+                    ir::Control::Par(ir::Par {
+                        stmts: stmts_vec,
+                        attributes: attribute_with_static(static_attr),
+                    })
+                })
+                .collect();
+
+            let new_seq = ir::Control::Seq(ir::Seq {
+                stmts: new_pars,
+                attributes: attribute_with_static(new_seq_static),
+            });
+
+            has_been_partitioned.push(new_seq);
         }
 
-        non_compatible.push(new_seq);
-        Ok(Action::Change(Box::new(ir::Control::par(non_compatible))))
+        if has_been_partitioned.len() == 1 {
+            if let ir::Control::Seq(seq) = has_been_partitioned.remove(0) {
+                return Ok(Action::Change(Box::new(ir::Control::Seq(seq))));
+            }
+        }
+
+        Ok(Action::Change(Box::new(ir::Control::par(
+            has_been_partitioned,
+        ))))
     }
 }

@@ -17,7 +17,17 @@ component main() -> () {
     }
     group B2 {
     }
-    group C{
+    group E{
+    }
+    group C0{
+    }
+    group C1{
+    }
+    group C2{
+    }
+    group D0{
+    }
+    group D1 {
     }
   }
 
@@ -25,7 +35,9 @@ component main() -> () {
     par { 
           seq{@static(2)A0; @static(3)A1; @static(1)A2;}
           seq{@static(2)B0; @static(3)B1; @static(1)B2;}
-          @static(6) C;
+          seq{@static(1)C0; @static(5)C1; @static(7)C2;}
+          seq{@static(1)D0; @static(6)D1;}
+          @static(6) E;
     }
   }
   

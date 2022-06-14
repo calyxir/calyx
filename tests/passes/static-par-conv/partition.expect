@@ -14,13 +14,36 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     group B2 {
     }
-    group C {
+    group E {
+    }
+    group C0 {
+    }
+    group C1 {
+    }
+    group C2 {
+    }
+    group D0 {
+    }
+    group D1 {
     }
   }
 
   control {
     par {
-      @static(6) C;
+      @static(6) E;
+      @static(13) seq {
+        @static par {
+          @static D0;
+          @static C0;
+        }
+        @static(5) par {
+          @static(5) C1;
+        }
+        @static(7) par {
+          @static(6) D1;
+          @static(7) C2;
+        }
+      }
       @static(6) seq {
         @static(2) par {
           @static(2) B0;
