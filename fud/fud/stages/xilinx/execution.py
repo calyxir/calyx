@@ -26,11 +26,8 @@ class HwExecutionStage(Stage):
     def _define_steps(self, input, builder, config):
         data_path = config["stages", self.name, "data"]
         
-        # Has same problem as emulation.py: any input of form
-        # '-s fpga.save_temps <any non-empty string>' is True
         save_wdb = bool(config["stages", self.name, "waveform"]) and config["stages", self.name, "waveform"] == "true"
         
-        # TODO: delete print("\ncwd is: " + os.getcwd())    
         @builder.step()
         def import_libs():
             """Import optional libraries"""
@@ -48,7 +45,6 @@ class HwExecutionStage(Stage):
             if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
 
-            #TODO: delete print("cwd2 is: " + os.getcwd())    
             data = sjson.load(open(data_path), use_decimal=True)
             xclbin_source = xclbin.open("rb").read()
 
@@ -138,37 +134,4 @@ class HwExecutionStage(Stage):
         import_libs()
         res = run(input)
         return res
-
-#        # cleanup fud_out if flagged
-#        # TODO: fix this, at the moment runs too soon and is not capable
-#        # of cleaning anything up
-#        if(save_wdb):
-#            
-#            print(self._latest_dir(os.getcwd()))
-#            entries = os.scandir(self._latest_dir(os.getcwd()))
-#            for entry in entries:
-#                print(entry.name)
-#                # if(not ".wdb" in entry.path or not ".wcfg" in entry.path):
-#                #     if entry.is_dir():
-#                #         rmtree(entry.path)
-#                #     else:
-#                #         print("here")
-#                #         os.remove(entry.path)
-#        return res
-#
-#
-#    # returns path of most recent directory created by
-#    # FreshDir() (see fud/fud/utils.py)
-#    def _latest_dir(self, cwd):
-#        
-#        i = 0
-#        file_convention = "fud-out-{}"
-#        name = file_convention.format(i + 1)
-#        path = os.path.join(cwd, name)
-#        while os.path.exists(path):
-#            i += 1
-#            name = file_convention.format(i + 1)
-#            path = os.path.join(cwd,name)
-#        name = file_convention.format(i)
-#        return os.path.join(cwd, name)    
 
