@@ -142,6 +142,10 @@ impl Visitor for StaticParConv {
             let longest_seq = to_be_partitioned.remove(0);
             let max_seq_len = longest_seq.stmts.len();
 
+            if max_seq_len == 0 {
+                break;
+            }
+
             //group to hold seqs compatible w/ longest_seq as well as
             //the respective indices in which each stmt should be inserted
             let mut partition_group: Vec<(ir::Seq, Vec<usize>)> = vec![];
@@ -225,8 +229,11 @@ impl Visitor for StaticParConv {
         }
 
         if has_been_partitioned.len() == 1 {
-            if let ir::Control::Seq(seq) = has_been_partitioned.remove(0) {
-                return Ok(Action::Change(Box::new(ir::Control::Seq(seq))));
+            match has_been_partitioned.remove(0) {
+                ir::Control::Seq(seq) => {
+                    return Ok(Action::Change(Box::new(ir::Control::Seq(seq))))
+                }
+                x => has_been_partitioned.push(x),
             }
         }
 
