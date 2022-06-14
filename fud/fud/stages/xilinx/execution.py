@@ -8,7 +8,6 @@ import simplejson as sjson
 from fud import errors
 from fud.stages import SourceType, Stage
 from fud.utils import FreshDir, TmpDir
-from shutil import rmtree
 
 
 class HwExecutionStage(Stage):
