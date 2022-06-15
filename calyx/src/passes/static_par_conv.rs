@@ -183,12 +183,8 @@ impl Visitor for StaticParConv {
             };
 
             //adding longest_seq to partition_group
-            let longest_len_vec: Vec<usize> = (0..max_seq_len).collect();
-            let longest_seq_indexed = longest_seq
-                .stmts
-                .into_iter()
-                .zip(longest_len_vec.into_iter())
-                .collect();
+            let longest_seq_indexed =
+                longest_seq.stmts.into_iter().zip(0..max_seq_len).collect();
             partition_group.push(longest_seq_indexed);
 
             //now we start the process of creating a seq of pars
