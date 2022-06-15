@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 #[derive(Default)]
 /// Transforms a par of seq blocks into a seq of par blocks. It will sometimes only
 /// apply this transformation to a subset of seq blocks in the par block.
-/// This transformation should never increase the number of cycles the par
+/// Regardless, this transformation should never increase the number of cycles the par
 /// block takes to execute.
 ///
 /// #Example
@@ -45,15 +45,14 @@ fn get_static_attr(stmt: &ir::Control) -> Option<&u64> {
 // Takes two seqs, longer and shorter. longer should be at least as long as
 // shorter. Returns Some(vec) if there exists arrangement of shorter and longer
 // such that each statement in shorter can be paired with a statement in longer,
-// such that executing these pairs in as a seq of pars will respect dependencies and
-// the number of cycles it takes will remain the same (i.e., the same as longer)
+// such that executing these pairs as a seq of pars will respect dependencies and
+// the number of cycles it takes will remain the same. If no such vec exists, returns None.
 // The vec it returns contains which indices of longer each element in shorter
 // should be paired with. So, if we represent the vecs by the static attribute of their
-// statements, and longer = [4,1,5] and shorter [4,5] then vec would be
+// statements, and longer = [4,1,5] and shorter = [4,5] then vec would be
 // [0,2], since the 4 in shorter can be paired with the 4 in longer (@ index 0)
 // and the 5 in shorter can be paired with the 5 in longer (@ index 2).
 // A consequence of this is that vec should always be the same length as shorter.
-// If no such vec exists, returns None.
 fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
     let mut long_iter = (*longer).stmts.iter();
     let mut short_iter = (*shorter).stmts.iter();
@@ -68,12 +67,10 @@ fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
         match (get_static_attr(c1), get_static_attr(c2)) {
             (Some(x1), Some(x2)) => {
                 if x2 <= x1 {
-                    long_val = long_iter.next();
                     short_val = short_iter.next();
                     index_counter.push(counter);
-                } else {
-                    long_val = long_iter.next();
                 }
+                long_val = long_iter.next();
             }
             _ => return None,
         }
@@ -95,7 +92,7 @@ fn attribute_with_static(v: u64) -> ir::Attributes {
 
 // Returns the Some(sum), where sum is the sum of the static attribute for each
 // stmt in seq. Returns None if there is at least one statement in seq
-// that does not have astatic attribute
+// that does not have a static attribute
 fn get_static_sum(seq: &ir::Seq) -> Option<u64> {
     let static_vals = seq
         .stmts
@@ -150,7 +147,7 @@ impl Visitor for StaticParConv {
 
             //the stmts in this vec of vecs will eventually be transformed into a
             //seq of pars. The usize is used to determine which par block
-            //its respective statement will eventually be put in.
+            //the respective statement will eventually be put in.
             let mut partition_group: Vec<Vec<(ir::Control, usize)>> = vec![];
 
             //looking for seqs that are compatible with longest_seq
@@ -202,8 +199,8 @@ impl Visitor for StaticParConv {
             //getting the static attribute for each of the par blocks we will build
             let new_pars_static = match new_pars_stmts
                 .iter()
-                .map(|vec| {
-                    vec
+                .map(|stmts| {
+                    stmts
                         .iter()
                         .map(|stmt| {
                             match get_static_attr(stmt)
@@ -241,13 +238,11 @@ impl Visitor for StaticParConv {
             has_been_partitioned.push(new_seq);
         }
 
+        //no need for a par block if the par block will only contain one control statement
         if has_been_partitioned.len() == 1 {
-            match has_been_partitioned.remove(0) {
-                ir::Control::Seq(seq) => {
-                    return Ok(Action::Change(Box::new(ir::Control::Seq(seq))))
-                }
-                x => has_been_partitioned.push(x),
-            }
+            return Ok(Action::Change(Box::new(
+                has_been_partitioned.remove(0),
+            )));
         }
 
         Ok(Action::Change(Box::new(ir::Control::par(
