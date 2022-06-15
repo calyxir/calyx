@@ -36,23 +36,24 @@ impl Named for StaticParConv {
     }
 }
 
-// given a stmt, returns Some(&val) where val is the values of the "static"
+// given a stmt, returns Some(&val) where val is the value of the "static"
 // attribute of stmt. Returns None if no "static" attribute exists.
 fn get_static_attr(stmt: &ir::Control) -> Option<&u64> {
     stmt.get_attributes().and_then(|atts| atts.get("static"))
 }
 
-// Takes in two seqs, longer and shorter. longer should be at least as long as
+// Takes two seqs, longer and shorter. longer should be at least as long as
 // shorter. Returns Some(vec) if there exists arrangement of shorter and longer
 // such that each statement in shorter can be paired with a statement in longer,
 // such that executing these pairs in as a seq of pars will respect dependencies and
-// the number of cycles it takes will remaine the same (i.e., the same as longer)/
-// The vec it returns the indices that each element of shorter should be paired
-// with longer. So, if we represent the vecs by the static attribute of their
-// statements, if longer = [4,1,5] and shorter [4,5] then vec would be
-// [0,2], since the 4 in shorter lines up with the 4 in longer (@ index 0)
-// and the 5 in shorter lines up with 5 in longer (@ index 2). A consequence of this is
-// that vec should always be the same length as shorter.
+// the number of cycles it takes will remain the same (i.e., the same as longer)
+// The vec it returns contains which indices of longer each element in shorter
+// should be paired with. So, if we represent the vecs by the static attribute of their
+// statements, and longer = [4,1,5] and shorter [4,5] then vec would be
+// [0,2], since the 4 in shorter can be paired with the 4 in longer (@ index 0)
+// and the 5 in shorter can be paired with the 5 in longer (@ index 2).
+// A consequence of this is that vec should always be the same length as shorter.
+// If no such vec exists, returns None.
 fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
     let mut long_iter = (*longer).stmts.iter();
     let mut short_iter = (*shorter).stmts.iter();
@@ -85,16 +86,16 @@ fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
     }
 }
 
-// returns a default Attribute with "static" set to v
+// Returns a default Attribute with "static" set to v
 fn attribute_with_static(v: u64) -> ir::Attributes {
     let mut atts = ir::Attributes::default();
     atts.insert("static", v);
     atts
 }
 
-//returns the Some(sum), where sum is the sum of the static attribute for each
-//stmt in seq. None if there is at least one statement that does not have a
-// static attribute
+// Returns the Some(sum), where sum is the sum of the static attribute for each
+// stmt in seq. Returns None if there is at least one statement in seq
+// that does not have astatic attribute
 fn get_static_sum(seq: &ir::Seq) -> Option<u64> {
     let static_vals = seq
         .stmts
@@ -126,7 +127,7 @@ impl Visitor for StaticParConv {
             }
         }
 
-        //sort from longest seq to shortes
+        //sort from longest seq to shortest
         to_be_partitioned.sort_by(|s1, s2| {
             let len1 = s1.stmts.len();
             let static1 = get_static_sum(s1);
@@ -142,51 +143,67 @@ impl Visitor for StaticParConv {
             let longest_seq = to_be_partitioned.remove(0);
             let max_seq_len = longest_seq.stmts.len();
 
+            //if we just have a bunch of empty seqs
             if max_seq_len == 0 {
                 break;
             }
 
-            //group to hold seqs compatible w/ longest_seq as well as
-            //the respective indices in which each stmt should be inserted
-            let mut partition_group: Vec<(ir::Seq, Vec<usize>)> = vec![];
+            //the stmts in this vec of vecs will eventually be transformed into a
+            //seq of pars. The usize is used to determine which par block
+            //its respective statement will eventually be put in.
+            let mut partition_group: Vec<Vec<(ir::Control, usize)>> = vec![];
 
-            //organizing seqs into those that are compatible w/ longest_seq
-            //and those that are not
+            //looking for seqs that are compatible with longest_seq
             let mut i = 0;
             while i != to_be_partitioned.len() {
                 if let Some(index_vec) =
                     is_compatible(&longest_seq, &to_be_partitioned[i])
                 {
                     let seq = to_be_partitioned.remove(i);
-                    partition_group.push((seq, index_vec));
+                    if seq.stmts.len() != index_vec.len() {
+                        unreachable!("seq should be same len as indices")
+                    }
+                    let indexed_stmts: Vec<(ir::Control, usize)> = seq
+                        .stmts
+                        .into_iter()
+                        .zip(index_vec.into_iter())
+                        .collect();
+                    partition_group.push(indexed_stmts);
                 } else {
                     i += 1;
                 }
             }
 
+            //if there are no seqs compatible w/ longest_seq, then
+            //there is no point in making a seq of pars since we just
+            //have a single seq (namely longest_seq)
             if partition_group.is_empty() {
                 has_been_partitioned.push(ir::Control::Seq(longest_seq));
                 continue;
             };
 
-            partition_group.push((longest_seq, (0..max_seq_len).collect()));
+            //adding longest_seq to partition_group
+            let longest_len_vec: Vec<usize> = (0..max_seq_len).collect();
+            let longest_seq_indexed = longest_seq
+                .stmts
+                .into_iter()
+                .zip(longest_len_vec.into_iter())
+                .collect();
+            partition_group.push(longest_seq_indexed);
 
+            //now we start the process of creating a seq of pars
             let mut new_pars_stmts = Vec::new();
             for _n in 0..max_seq_len {
                 new_pars_stmts.push(Vec::new());
             }
 
-            for (seq, indices) in partition_group.drain(..) {
-                if seq.stmts.len() != indices.len() {
-                    panic!("seq should be same len as indices")
-                }
-                let mut labeled_stmts: Vec<(ir::Control, usize)> =
-                    seq.stmts.into_iter().zip(indices.into_iter()).collect();
-                for (stmt, index) in labeled_stmts.drain(..) {
+            for mut v in partition_group.drain(..) {
+                for (stmt, index) in v.drain(..) {
                     new_pars_stmts[index].push(stmt);
                 }
             }
 
+            //getting the static attribute for each of the par blocks we will build
             let new_pars_static = match new_pars_stmts
                 .iter()
                 .map(|vec| {
