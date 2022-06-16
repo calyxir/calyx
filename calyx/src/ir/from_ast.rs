@@ -1,7 +1,7 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, Canonical, CellType,
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
-    LibrarySignatures, Port, PortDef, Width, RESERVED_NAMES, RRC,
+    LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
 };
 use crate::{
     errors::{CalyxResult, Error, WithPos},
@@ -9,7 +9,6 @@ use crate::{
     ir::PortComp,
     utils::NameGenerator,
 };
-use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -19,35 +18,38 @@ use std::rc::Rc;
 #[derive(Default)]
 struct SigCtx {
     /// Mapping from component names to signatures
-    comp_sigs: HashMap<Id, Vec<PortDef>>,
+    comp_sigs: HashMap<Id, Vec<PortDef<u64>>>,
 
     /// Mapping from library functions to signatures
     lib: LibrarySignatures,
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(sig: &[PortDef]) -> CalyxResult<()> {
+fn check_signature(ports: &Vec<PortDef<u64>>) -> CalyxResult<()> {
     let mut inputs: HashSet<&Id> = HashSet::new();
     let mut outputs: HashSet<&Id> = HashSet::new();
-    for pd in sig {
+    for PortDef {
+        name, direction, ..
+    } in ports
+    {
         // check for uniqueness
-        match pd.direction {
+        match &direction {
             Direction::Input => {
-                if !inputs.contains(&pd.name) {
-                    inputs.insert(&pd.name);
+                if !inputs.contains(&name) {
+                    inputs.insert(name);
                 } else {
                     return Err(Error::already_bound(
-                        pd.name.clone(),
+                        name.clone(),
                         "component".to_string(),
                     ));
                 }
             }
             Direction::Output => {
-                if !outputs.contains(&pd.name) {
-                    outputs.insert(&pd.name);
+                if !outputs.contains(&name) {
+                    outputs.insert(name);
                 } else {
                     return Err(Error::already_bound(
-                        pd.name.clone(),
+                        name.clone(),
                         "component".to_string(),
                     ));
                 }
@@ -69,7 +71,7 @@ const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
 ];
 
 /// Extend the signature with magical ports.
-fn extend_signature(sig: &mut Vec<PortDef>) {
+fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
     let port_names: HashSet<_> =
         sig.iter().map(|pd| pd.name.to_string()).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
@@ -81,7 +83,7 @@ fn extend_signature(sig: &mut Vec<PortDef>) {
             attributes.insert(name, 1);
             sig.push(PortDef {
                 name: namegen.gen_name(name.to_string()),
-                width: Width::Const { value: *width },
+                width: *width,
                 direction: direction.clone(),
                 attributes,
             });
@@ -118,28 +120,24 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
     };
 
     // Add declarations to context
-    for comp in &mut workspace.declarations {
-        check_signature(&comp.signature)?;
-        // extend the signature
-        extend_signature(&mut comp.signature);
-        sig_ctx
-            .comp_sigs
-            .insert(comp.name.clone(), comp.signature.clone());
+    for comp in workspace
+        .declarations
+        .iter_mut()
+        .chain(workspace.components.iter_mut())
+    {
+        let sig = &mut comp.signature;
+        check_signature(&*sig)?;
+        // extend the signature if the component does not have the @nointerface attribute.
+        if !comp.attributes.has("nointerface") {
+            extend_signature(sig);
+        }
+        sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
     }
 
-    // Add components to context
-    for comp in &mut workspace.components {
-        check_signature(&comp.signature)?;
-        // extend the signature
-        extend_signature(&mut comp.signature);
-        sig_ctx
-            .comp_sigs
-            .insert(comp.name.clone(), comp.signature.clone());
-    }
     let comps: Vec<Component> = workspace
         .components
         .into_iter()
-        .map(|comp| build_component(comp, &sig_ctx))
+        .map(|comp| build_component(comp, &mut sig_ctx))
         .collect::<Result<_, _>>()?;
 
     // Find the entrypoint for the program.
@@ -226,23 +224,12 @@ fn validate_component(
 /// Build an `ir::component::Component` using an `frontend::ast::ComponentDef`.
 fn build_component(
     comp: ast::ComponentDef,
-    sig_ctx: &SigCtx,
+    sig_ctx: &mut SigCtx,
 ) -> CalyxResult<Component> {
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
-    // Components don't have any parameter information.
-    let fake_binding = LinkedHashMap::with_capacity(0);
-    let mut ir_component = Component::new(
-        comp.name,
-        comp.signature
-            .into_iter()
-            .map(|pd| {
-                pd.resolve(&fake_binding)
-                    .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
-            })
-            .collect::<Result<_, _>>()?,
-    );
+    let mut ir_component = Component::new(comp.name, comp.signature);
     let mut builder =
         Builder::new(&mut ir_component, &sig_ctx.lib).not_generated();
 
@@ -298,19 +285,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         };
         let external = cell.external;
         // Components do not have any bindings for parameters
-        let fake_binding = LinkedHashMap::with_capacity(0);
-        let cell = Builder::cell_from_signature(
-            name,
-            typ,
-            sig.iter()
-                .cloned()
-                .map(|pd| {
-                    pd.resolve(&fake_binding)
-                        .map(|(n, w, attrs)| (n, w, pd.direction, attrs))
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .expect("Failed to build component"),
-        );
+        let cell = Builder::cell_from_signature(name, typ, sig.clone());
         cell.borrow_mut().set_external(external);
         builder.component.cells.add(Rc::clone(&cell));
         cell
