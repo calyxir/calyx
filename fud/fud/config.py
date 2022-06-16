@@ -85,7 +85,10 @@ DEFAULT_CONFIGURATION = {
             "xilinx_location": "/scratch/opt/Xilinx/Vitis/2020.2",
             "xrt_location": "/opt/xilinx/xrt",
         },
-        "fpga": {"data": None},
+        "fpga": {
+            "data": None,
+            "waveform" : None,
+            },
     },
 }
 
