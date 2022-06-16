@@ -32,32 +32,32 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @static(6) seq {
       @static par {
         @static par {
-          @static A0;
-          @static B0;
+          @static D0;
+          @static C0;
         }
         @static par {
-          @static C0;
-          @static D0;
+          @static B0;
+          @static A0;
         }
       }
       @static(2) par {
         @static(2) par {
-          @static(2) A1;
-          @static(2) B1;
+          @static(2) D1;
+          @static(2) C1;
         }
         @static(2) par {
-          @static(2) C1;
-          @static(2) D1;
+          @static(2) B1;
+          @static(2) A1;
         }
       }
       @static(3) par {
         @static(3) par {
-          @static(3) A2;
-          @static(3) B2;
+          @static(3) D2;
+          @static(3) C2;
         }
         @static(3) par {
-          @static(3) C2;
-          @static(3) D2;
+          @static(3) B2;
+          @static(3) A2;
         }
       }
     }
