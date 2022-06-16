@@ -1,6 +1,6 @@
 use super::{
     Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
-    Control, Direction, GetName, Group, Id, RRC,
+    Control, GetName, Group, Id, PortDef, RRC,
 };
 use crate::utils;
 use itertools::Itertools;
@@ -47,17 +47,13 @@ pub struct Component {
 ///   name.
 impl Component {
     /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S, N>(
-        name: S,
-        ports: Vec<(N, u64, Direction, Attributes)>,
-    ) -> Self
+    pub fn new<S>(name: S, ports: Vec<PortDef<u64>>) -> Self
     where
         S: AsRef<str>,
-        N: AsRef<str>,
     {
         let prev_names: HashSet<_> = ports
             .iter()
-            .map(|(name, _, _, _)| name.as_ref().to_string())
+            .map(|pd| pd.name.as_ref().to_string())
             .collect();
 
         let this_sig = Builder::cell_from_signature(
@@ -66,8 +62,9 @@ impl Component {
             ports
                 .into_iter()
                 // Reverse the port directions inside the component.
-                .map(|(name, w, d, attrs)| {
-                    (name.as_ref().into(), w, d.reverse(), attrs)
+                .map(|pd| PortDef {
+                    direction: pd.direction.reverse(),
+                    ..pd
                 })
                 .collect(),
         );
