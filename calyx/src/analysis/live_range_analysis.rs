@@ -234,14 +234,6 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
-fn debug(c: &RRC<ir::Cell>) {
-    if (c.borrow.type_name() == Some(&"std_reg".into()))
-        != (c.borrow().attributes.get("state_share" == Some(&1)))
-    {
-        println!("here");
-    }
-}
-
 impl LiveRangeAnalysis {
     /// Construct a live range analysis.
     pub fn new(comp: &ir::Component, control: &ir::Control) -> Self {
