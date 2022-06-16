@@ -15,10 +15,10 @@ use std::collections::HashSet;
 /// 1. Programs that don't use a defined group or combinational group.
 /// 2. Groups that don't write to their done signal.
 /// 3. Groups that write to another group's done signal.
-/// 4. External cells that have unallowed types.
-/// 5. Invoking components with unmentioned external cells.
-/// 6. Invoking components with wrong external cell name.
-/// 7. Invoking components with impatible fed-in cell type for external cells.
+/// 4. Ref cells that have unallowed types.
+/// 5. Invoking components with unmentioned ref cells.
+/// 6. Invoking components with wrong ref cell name.
+/// 7. Invoking components with impatible fed-in cell type for ref cells.
 pub struct WellFormed {
     /// Reserved names
     reserved_names: HashSet<String>,
@@ -26,8 +26,8 @@ pub struct WellFormed {
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
     used_comb_groups: HashSet<ir::Id>,
-    /// external cell types of components used in the control.
-    external_cell_types: HashMap<ir::Id, LinkedHashMap<ir::Id, CellType>>,
+    /// ref cell types of components used in the control.
+    ref_cell_types: HashMap<ir::Id, LinkedHashMap<ir::Id, CellType>>,
 }
 
 impl ConstructVisitor for WellFormed {
@@ -38,13 +38,13 @@ impl ConstructVisitor for WellFormed {
         let reserved_names =
             RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
 
-        let mut external_cell_types = HashMap::new();
+        let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
             if comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
                     if cell.borrow().is_reference() {
                         return Err(Error::malformed_structure(
-                            "external cell not allowed for main component",
+                            "ref cell not allowed for main component",
                         )
                         .with_pos(cell.borrow().name()));
                     }
@@ -58,14 +58,14 @@ impl ConstructVisitor for WellFormed {
                     (cell.clone_name(), cell.borrow().prototype.clone())
                 })
                 .collect();
-            external_cell_types.insert(comp.name.clone(), cellmap);
+            ref_cell_types.insert(comp.name.clone(), cellmap);
         }
 
         let w_f = WellFormed {
             reserved_names,
             used_groups: HashSet::new(),
             used_comb_groups: HashSet::new(),
-            external_cell_types,
+            ref_cell_types,
         };
 
         Ok(w_f)
@@ -202,13 +202,13 @@ impl Visitor for WellFormed {
             if cell.is_reference() {
                 if cell.is_primitive(Some("std_const")) {
                     return Err(Error::malformed_structure(
-                        "constant not allowed for external cells".to_string(),
+                        "constant not allowed for ref cells".to_string(),
                     )
                     .with_pos(cell.name()));
                 }
                 if matches!(cell.prototype, CellType::ThisComponent) {
                     unreachable!(
-                        "the current component not allowed for external cells"
+                        "the current component not allowed for ref cells"
                     );
                 }
             }
@@ -338,9 +338,9 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.external_cell_types[id];
+            let cellmap = &self.ref_cell_types[id];
             let mut mentioned_cells = HashSet::new();
-            for (outcell, incell) in s.external_cells.iter() {
+            for (outcell, incell) in s.ref_cells.iter() {
                 if let Some(t) = cellmap.get(outcell) {
                     let proto = incell.borrow().prototype.clone();
                     same_type(t, &proto)
@@ -348,7 +348,7 @@ impl Visitor for WellFormed {
                     mentioned_cells.insert(outcell.clone());
                 } else {
                     return Err(Error::malformed_control(format!(
-                        "{} does not have external cell named {}",
+                        "{} does not have ref cell named {}",
                         id, outcell
                     ))
                     .with_pos(outcell));
@@ -357,7 +357,7 @@ impl Visitor for WellFormed {
             for id in cellmap.keys() {
                 if mentioned_cells.get(id).is_none() {
                     return Err(Error::malformed_control(format!(
-                        "unmentioned external cell: {}",
+                        "unmentioned ref cell: {}",
                         id
                     ))
                     .with_pos(&s.attributes));

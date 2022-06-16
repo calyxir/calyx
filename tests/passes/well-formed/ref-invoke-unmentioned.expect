@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/passes/well-formed/ref-invoke-unmentioned.futil
 32 |      invoke f()();
-   |      ^^^^^^^^^^^^^ Malformed Control: unmentioned external cell: m
+   |      ^^^^^^^^^^^^^ Malformed Control: unmentioned ref cell: m

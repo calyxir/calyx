@@ -515,7 +515,7 @@ fn build_control(
                 outputs,
                 attributes,
                 comb_group: None,
-                external_cells: Vec::new(),
+                ref_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
                 let cg_ref = builder
@@ -540,7 +540,7 @@ fn build_control(
                         })?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
                 }
-                inv.external_cells = ext_cell_tuples;
+                inv.ref_cells = ext_cell_tuples;
             }
             Control::Invoke(inv)
         }

@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/passes/well-formed/ref-incorrect-name.futil
 32 |      invoke f[m1 = k1]()();
-   |               ^^ Malformed Control: foo does not have external cell named m1
+   |               ^^ Malformed Control: foo does not have ref cell named m1

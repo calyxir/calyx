@@ -32,7 +32,6 @@ component main() -> () {
      
   }
   control {
-  // ANCHOR: control
     seq {
       let0;
       while le0.out with cond0 {
@@ -43,7 +42,6 @@ component main() -> () {
         }
       }
     }
-  // ANCHOR_END: control
   }
 }
 

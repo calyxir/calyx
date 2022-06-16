@@ -2,11 +2,15 @@ use std::collections::HashMap;
 
 use crate::ir::{self, RRC, WRC};
 
-pub fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
+/// Formats name of a port given the id of the cell and the port
+pub(super) fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
     format!("{}_{}", comp.id, port.id).into()
 }
 
-pub fn dump_ports_to_signature(
+/// Remove all the cells matching the given criterion(f evaluates to true) from
+/// the component and inline all the ports of the removed cells to the component
+/// signature
+pub(super) fn dump_ports_to_signature(
     component: &mut ir::Component,
     f: fn(&RRC<ir::Cell>) -> bool,
     port_names: &mut HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
@@ -26,6 +30,9 @@ pub fn dump_ports_to_signature(
                 p.attributes.get("clk").is_none()
                     && p.attributes.get("reset").is_none()
             });
+        // If we do not eliminate the @clk and @reset ports, we may
+        // get signals conflicting the original @clk and @reset signals of
+        // the component, see https://github.com/cucapra/calyx/issues/1034
         for port_ref in ports_inline.into_iter() {
             let port_name = port_ref.borrow().name.clone();
             // Change the name and the parent of this port.

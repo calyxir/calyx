@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/passes/well-formed/constant-ref-cell.futil
 8 |    ref m2 = std_const(2, 1);
-  |        ^^ Malformed Structure: constant not allowed for external cells
+  |        ^^ Malformed Structure: constant not allowed for ref cells

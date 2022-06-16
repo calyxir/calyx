@@ -350,17 +350,15 @@ impl Printer {
                 outputs,
                 attributes,
                 comb_group,
-                external_cells,
+                ref_cells,
             }) => {
                 if !attributes.is_empty() {
                     write!(f, "{} ", Self::format_at_attributes(attributes))?
                 }
                 write!(f, "invoke {}", comp.borrow().name())?;
-                if !external_cells.is_empty() {
+                if !ref_cells.is_empty() {
                     write!(f, "[")?;
-                    for (i, (outcell, incell)) in
-                        external_cells.iter().enumerate()
-                    {
+                    for (i, (outcell, incell)) in ref_cells.iter().enumerate() {
                         write!(
                             f,
                             "{}{} = {}",

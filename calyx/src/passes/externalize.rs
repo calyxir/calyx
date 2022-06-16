@@ -38,18 +38,14 @@ use std::collections::HashMap;
 ///     }
 /// }
 /// ```
-pub struct Externalize {
-    port_names: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
-}
+pub struct Externalize;
 
 impl ConstructVisitor for Externalize {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where
         Self: Sized,
     {
-        let externalize = Externalize {
-            port_names: HashMap::new(),
-        };
+        let externalize = Externalize;
         Ok(externalize)
     }
 
@@ -74,20 +70,17 @@ fn has_external_attribute(cr: &RRC<ir::Cell>) -> bool {
 }
 
 impl Visitor for Externalize {
-    fn require_postorder() -> bool {
-        true
-    }
-
     fn start(
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let mut _port_names = HashMap::new();
         dump_ports::dump_ports_to_signature(
             comp,
             has_external_attribute,
-            &mut self.port_names,
+            &mut _port_names,
         );
 
         Ok(Action::Continue)
