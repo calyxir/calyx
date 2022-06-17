@@ -236,7 +236,7 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
-//given a set of state_shareable and a cell, determines whether cell's
+//given a set of shareable and a cell, determines whether cell's
 //type is shareable or not
 fn is_shareable_component(
     shareable: &HashSet<ir::Id>,
@@ -269,13 +269,45 @@ impl LiveRangeAnalysis {
             &mut ranges,
         );
 
+        comp.groups.iter().for_each(|group| {
+            let group_uses: Prop =
+                ReadWriteSet::uses(group.borrow().assignments.iter())
+                    .filter(|cell| is_shareable_component(&shareable, &cell))
+                    .map(|cell| cell.clone_name())
+                    .collect::<HashSet<_>>()
+                    .into();
+            match ranges.live.get_mut(group.borrow().name()) {
+                None => {
+                    unreachable!(
+                        "don't have live range for {}",
+                        group.borrow().name()
+                    )
+                }
+                Some(prop) => *prop = &*prop | &group_uses,
+            }
+        });
+        comp.comb_groups.iter().for_each(|group| {
+            let group_uses: Prop =
+                ReadWriteSet::uses(group.borrow().assignments.iter())
+                    .filter(|cell| is_shareable_component(&shareable, &cell))
+                    .map(|cell| cell.clone_name())
+                    .collect::<HashSet<_>>()
+                    .into();
+            match ranges.live.get_mut(group.borrow().name()) {
+                None => {
+                    unreachable!(
+                        "don't have live range for {}",
+                        group.borrow().name()
+                    )
+                }
+                Some(prop) => *prop = &*prop | &group_uses,
+            }
+        });
+
         // add global reads to every point
         let global_reads: Prop =
             ReadWriteSet::read_set(comp.continuous_assignments.iter())
-                .filter(|c| {
-                    is_shareable_component(&ranges.state_share, &c)
-                        || is_shareable_component(&shareable, &c)
-                })
+                .filter(|c| is_shareable_component(&ranges.state_share, &c))
                 .map(|c| c.clone_name())
                 .collect::<HashSet<_>>()
                 .into();

@@ -1,0 +1,48 @@
+// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    x = std_reg(32);
+    y = std_reg(32);
+    @external add_x = std_add(32);
+    @external add_y = std_add(32);
+  }
+
+  wires {
+    group wr_x {
+      x.in = 32'd2;
+      x.write_en = 1'd1;
+      wr_x[done] = x.done;
+    }
+
+    group rd_x {
+      add_x.left = x.out;
+      add_x.right = x.out;
+      rd_x[done] = x.done; // XXX: This is functionally wrong
+    }
+
+    group wr_y {
+      y.in = 32'd4;
+      y.write_en = 1'd1;
+      wr_y[done] = y.done;
+    }
+
+    group rd_y {
+      add_y.left = y.out;
+      add_y.right = y.out;
+      rd_y[done] = y.done; // XXX: This is functionally wrong
+    }
+  }
+
+  control {
+    seq {
+      par {
+        // thread local use of x
+        seq { wr_x; rd_x; }
+        // this should stay y
+        seq { wr_y; rd_y; }
+      }
+    }
+  }
+}

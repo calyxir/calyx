@@ -1,0 +1,17 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(32);
+  }
+  wires {
+    done = r0.done;
+    add1.left = r0.out;
+    add0.left = r0.out;
+  }
+
+  control {}
+}

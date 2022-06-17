@@ -1,8 +1,8 @@
 use super::sharing_components::ShareComponents;
 use crate::errors::CalyxResult;
 use crate::{
-    analysis::{LiveRangeAnalysis, ReadWriteSet},
-    ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
+    analysis::LiveRangeAnalysis,
+    ir::{self, traversal::ConstructVisitor, traversal::Named},
 };
 use std::collections::{HashMap, HashSet};
 
@@ -24,9 +24,6 @@ pub struct MinimizeRegs {
     rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
     /// Set of state shareable components (as type names)
     state_shareable: HashSet<ir::Id>,
-
-    /// Mapping from the name of a group to the cells that it uses.
-    used_cells_map: HashMap<ir::Id, Vec<ir::Id>>,
 
     /// Set of shareable components.
     shareable: HashSet<ir::Id>,
@@ -65,7 +62,6 @@ impl ConstructVisitor for MinimizeRegs {
             live: LiveRangeAnalysis::default(),
             rewrites: HashMap::new(),
             state_shareable,
-            used_cells_map: HashMap::new(),
             shareable,
         })
     }
@@ -73,18 +69,6 @@ impl ConstructVisitor for MinimizeRegs {
     fn clear_data(&mut self) {
         self.rewrites = HashMap::new();
         self.live = LiveRangeAnalysis::default();
-        self.used_cells_map = HashMap::new();
-    }
-}
-
-//Given cell, cont_cell, and shareable_components, returns true if
-//cell is shareable (as determined by shareable_components) and is not
-//a continuous cell
-fn share_filter(cell: &ir::Cell, shareable: &HashSet<ir::Id>) -> bool {
-    if let Some(type_name) = cell.type_name() {
-        shareable.contains(type_name)
-    } else {
-        false
     }
 }
 
@@ -100,49 +84,10 @@ impl ShareComponents for MinimizeRegs {
             self.state_shareable.clone(),
             self.shareable.clone(),
         );
-
-        //Following code is from resource_sharing pass
-        let group_uses = comp.groups.iter().map(|group| {
-            (
-                group.clone_name(),
-                ReadWriteSet::uses(group.borrow().assignments.iter())
-                    .filter(|cell| {
-                        share_filter(&cell.borrow(), &self.shareable)
-                    })
-                    .map(|cell| cell.clone_name())
-                    .collect::<Vec<_>>(),
-            )
-        });
-        let cg_uses = comp.comb_groups.iter().map(|cg| {
-            (
-                cg.clone_name(),
-                ReadWriteSet::uses(cg.borrow().assignments.iter())
-                    .filter(|cell| {
-                        share_filter(&cell.borrow(), &self.shareable)
-                    })
-                    .map(|cell| cell.clone_name())
-                    .collect::<Vec<_>>(),
-            )
-        });
-        self.used_cells_map = group_uses.chain(cg_uses).collect();
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        let mut state_shareable: Vec<ir::Id> =
-            self.live.get(group_name).iter().cloned().collect();
-
-        //resource-sharing code
-        let shareable = self
-            .used_cells_map
-            .get(group_name)
-            .unwrap_or_else(|| {
-                panic!("Missing used cells for group: {}", group_name)
-            })
-            .clone();
-
-        state_shareable.extend(shareable);
-
-        state_shareable
+        self.live.get(group_name).iter().cloned().collect()
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
@@ -160,11 +105,6 @@ impl ShareComponents for MinimizeRegs {
         for group in comp.groups.iter() {
             let conflicts = self.live.get(group.borrow().name());
             add_conflicts(conflicts.iter().cloned().collect());
-        }
-
-        //resource-sharing code
-        for used in self.used_cells_map.values() {
-            add_conflicts(used.clone())
         }
     }
 
