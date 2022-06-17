@@ -1,8 +1,8 @@
 use super::sharing_components::ShareComponents;
 use crate::errors::CalyxResult;
 use crate::{
-    analysis::LiveRangeAnalysis,
-    ir::{self, traversal::ConstructVisitor, traversal::Named},
+    analysis::{LiveRangeAnalysis, ReadWriteSet},
+    ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
 };
 use std::collections::{HashMap, HashSet};
 
@@ -25,8 +25,11 @@ pub struct MinimizeRegs {
     /// Set of state shareable components (as type names)
     state_shareable: HashSet<ir::Id>,
 
-    /// Set of shareable components.
+    /// Set of shareable components (as type names)
     shareable: HashSet<ir::Id>,
+
+    /// Cell active in continuous assignments
+    cont_cells: HashSet<ir::Id>,
 }
 
 impl Named for MinimizeRegs {
@@ -61,6 +64,7 @@ impl ConstructVisitor for MinimizeRegs {
         Ok(MinimizeRegs {
             live: LiveRangeAnalysis::default(),
             rewrites: HashMap::new(),
+            cont_cells: HashSet::new(),
             state_shareable,
             shareable,
         })
@@ -69,6 +73,7 @@ impl ConstructVisitor for MinimizeRegs {
     fn clear_data(&mut self) {
         self.rewrites = HashMap::new();
         self.live = LiveRangeAnalysis::default();
+        self.cont_cells = HashSet::new();
     }
 }
 
@@ -78,6 +83,11 @@ impl ShareComponents for MinimizeRegs {
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
+        self.cont_cells =
+            ReadWriteSet::uses(comp.continuous_assignments.iter())
+                .map(|cr| cr.borrow().clone_name())
+                .collect();
+
         self.live = LiveRangeAnalysis::new(
             comp,
             &*comp.control.borrow(),
@@ -87,10 +97,19 @@ impl ShareComponents for MinimizeRegs {
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
-        self.live.get(group_name).iter().cloned().collect()
+        self.live
+            .get(group_name)
+            .iter()
+            .filter(|cell_name| !self.cont_cells.contains(cell_name))
+            .cloned()
+            .collect()
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
+        // Cells used in continuous assignments cannot be shared.
+        if self.cont_cells.contains(cell.name()) {
+            return false;
+        }
         if let Some(name) = cell.type_name() {
             self.state_shareable.contains(name) || self.shareable.contains(name)
         } else {
@@ -104,7 +123,13 @@ impl ShareComponents for MinimizeRegs {
     {
         for group in comp.groups.iter() {
             let conflicts = self.live.get(group.borrow().name());
-            add_conflicts(conflicts.iter().cloned().collect());
+            add_conflicts(
+                conflicts
+                    .iter()
+                    .filter(|cell_name| !self.cont_cells.contains(cell_name))
+                    .cloned()
+                    .collect(),
+            );
         }
     }
 

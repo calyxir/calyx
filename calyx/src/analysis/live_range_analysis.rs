@@ -269,6 +269,7 @@ impl LiveRangeAnalysis {
             &mut ranges,
         );
 
+        //adds (non-state) shareable cells as live in the group they're contained in
         comp.groups.iter().for_each(|group| {
             let group_uses: Prop =
                 ReadWriteSet::uses(group.borrow().assignments.iter())
@@ -304,16 +305,6 @@ impl LiveRangeAnalysis {
             }
         });
 
-        // add global reads to every point
-        let global_reads: Prop =
-            ReadWriteSet::read_set(comp.continuous_assignments.iter())
-                .filter(|c| is_shareable_component(&ranges.state_share, &c))
-                .map(|c| c.clone_name())
-                .collect::<HashSet<_>>()
-                .into();
-        for (_, prop) in ranges.live.iter_mut() {
-            *prop = &*prop | &global_reads;
-        }
         ranges
     }
     /// Look up the set of things live at a group definition.
@@ -421,11 +412,11 @@ impl LiveRangeAnalysis {
 
     fn port_to_cell_name(
         port: &RRC<ir::Port>,
-        state_share: &HashSet<ir::Id>,
+        shareable_components: &HashSet<ir::Id>,
     ) -> Option<ir::Id> {
         if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
             let cell = cell_wref.upgrade();
-            if is_shareable_component(state_share, &cell) {
+            if is_shareable_component(shareable_components, &cell) {
                 return Some(cell.borrow().clone_name());
             }
         }
@@ -435,19 +426,23 @@ impl LiveRangeAnalysis {
     /// Returns (reads, writes) that occur in the [ir::Invoke] statement.
     fn find_gen_kill_invoke(
         invoke: &ir::Invoke,
-        state_share: &HashSet<ir::Id>,
+        shareable_components: &HashSet<ir::Id>,
     ) -> (Prop, Prop) {
         let reads: Prop = invoke
             .inputs
             .iter()
-            .filter_map(|(_, src)| Self::port_to_cell_name(src, state_share))
+            .filter_map(|(_, src)| {
+                Self::port_to_cell_name(src, shareable_components)
+            })
             .collect::<HashSet<ir::Id>>()
             .into();
 
         let writes: Prop = invoke
             .outputs
             .iter()
-            .filter_map(|(_, src)| Self::port_to_cell_name(src, state_share))
+            .filter_map(|(_, src)| {
+                Self::port_to_cell_name(src, shareable_components)
+            })
             .collect::<HashSet<ir::Id>>()
             .into();
 
