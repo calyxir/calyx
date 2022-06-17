@@ -249,6 +249,27 @@ fn is_shareable_component(
     }
 }
 
+//Given assignments, looks for each use of a shareable cell. Then, add them as live
+//in ranges, in the group indicated by name.
+fn add_shareable_ranges(
+    assignments: &[ir::Assignment],
+    shareable: &HashSet<ir::Id>,
+    name: &ir::Id,
+    ranges: &mut LiveRangeAnalysis,
+) {
+    let group_uses: Prop = ReadWriteSet::uses(assignments.iter())
+        .filter(|cell| is_shareable_component(shareable, cell))
+        .map(|cell| cell.clone_name())
+        .collect::<HashSet<_>>()
+        .into();
+    match ranges.live.get_mut(name) {
+        None => {
+            unreachable!("don't have live range for {}", name)
+        }
+        Some(prop) => *prop = &*prop | &group_uses,
+    }
+}
+
 impl LiveRangeAnalysis {
     /// Construct a live range analysis.
     pub fn new(
@@ -257,9 +278,10 @@ impl LiveRangeAnalysis {
         state_share: HashSet<ir::Id>,
         shareable: HashSet<ir::Id>,
     ) -> Self {
-        let mut ranges = LiveRangeAnalysis::default();
-
-        ranges.state_share = state_share;
+        let mut ranges = LiveRangeAnalysis {
+            state_share,
+            ..Default::default()
+        };
 
         build_live_ranges(
             control,
@@ -271,38 +293,20 @@ impl LiveRangeAnalysis {
 
         //adds (non-state) shareable cells as live in the group they're contained in
         comp.groups.iter().for_each(|group| {
-            let group_uses: Prop =
-                ReadWriteSet::uses(group.borrow().assignments.iter())
-                    .filter(|cell| is_shareable_component(&shareable, &cell))
-                    .map(|cell| cell.clone_name())
-                    .collect::<HashSet<_>>()
-                    .into();
-            match ranges.live.get_mut(group.borrow().name()) {
-                None => {
-                    unreachable!(
-                        "don't have live range for {}",
-                        group.borrow().name()
-                    )
-                }
-                Some(prop) => *prop = &*prop | &group_uses,
-            }
+            add_shareable_ranges(
+                &group.borrow().assignments,
+                &shareable,
+                group.borrow().name(),
+                &mut ranges,
+            )
         });
         comp.comb_groups.iter().for_each(|group| {
-            let group_uses: Prop =
-                ReadWriteSet::uses(group.borrow().assignments.iter())
-                    .filter(|cell| is_shareable_component(&shareable, &cell))
-                    .map(|cell| cell.clone_name())
-                    .collect::<HashSet<_>>()
-                    .into();
-            match ranges.live.get_mut(group.borrow().name()) {
-                None => {
-                    unreachable!(
-                        "don't have live range for {}",
-                        group.borrow().name()
-                    )
-                }
-                Some(prop) => *prop = &*prop | &group_uses,
-            }
+            add_shareable_ranges(
+                &group.borrow().assignments,
+                &shareable,
+                group.borrow().name(),
+                &mut ranges,
+            )
         });
 
         ranges
@@ -377,7 +381,7 @@ impl LiveRangeAnalysis {
 
             // calculate reads, but ignore `variable`. we've already dealt with that
             let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
-                .filter(|c| is_shareable_component(&sc_clone, &c))
+                .filter(|c| is_shareable_component(&sc_clone, c))
                 .map(|c| c.clone_name())
                 .collect();
 
@@ -388,7 +392,7 @@ impl LiveRangeAnalysis {
         } else {
             let reads: HashSet<_> =
                 ReadWriteSet::read_set(group.assignments.iter())
-                    .filter(|c| is_shareable_component(&sc_clone, &c))
+                    .filter(|c| is_shareable_component(&sc_clone, c))
                     .map(|c| c.clone_name())
                     .collect();
 
@@ -402,7 +406,7 @@ impl LiveRangeAnalysis {
 
             let writes: HashSet<_> =
                 ReadWriteSet::write_set(assignments.iter())
-                    .filter(|c| is_shareable_component(&sc_clone, &c))
+                    .filter(|c| is_shareable_component(&sc_clone, c))
                     .map(|c| c.clone_name())
                     .collect();
 
