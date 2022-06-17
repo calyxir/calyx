@@ -25,7 +25,7 @@ struct SigCtx {
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(ports: &Vec<PortDef<u64>>) -> CalyxResult<()> {
+fn check_signature(ports: &[PortDef<u64>]) -> CalyxResult<()> {
     let mut inputs: HashSet<&Id> = HashSet::new();
     let mut outputs: HashSet<&Id> = HashSet::new();
     for PortDef {
@@ -273,7 +273,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
             proto_name,
             &cell.prototype.params,
         );
-        c.borrow_mut().set_external(cell.external);
+        c.borrow_mut().set_reference(cell.reference);
         c
     } else {
         // Validator ensures that if the protoype is not a primitive, it
@@ -283,10 +283,10 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         let typ = CellType::Component {
             name: proto_name.clone(),
         };
-        let external = cell.external;
+        let reference = cell.reference;
         // Components do not have any bindings for parameters
         let cell = Builder::cell_from_signature(name, typ, sig.clone());
-        cell.borrow_mut().set_external(external);
+        cell.borrow_mut().set_reference(reference);
         builder.component.cells.add(Rc::clone(&cell));
         cell
     };
@@ -486,7 +486,7 @@ fn build_control(
             outputs,
             attributes,
             comb_group,
-            external_cells,
+            ref_cells,
         } => {
             let cell = Rc::clone(
                 &builder.component.find_cell(&component).ok_or_else(|| {
@@ -515,7 +515,7 @@ fn build_control(
                 outputs,
                 attributes,
                 comb_group: None,
-                external_cells: Vec::new(),
+                ref_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
                 let cg_ref = builder
@@ -529,9 +529,9 @@ fn build_control(
                     })?;
                 inv.comb_group = Some(cg_ref);
             }
-            if !external_cells.is_empty() {
+            if !ref_cells.is_empty() {
                 let mut ext_cell_tuples = Vec::new();
-                for (outcell, incell) in external_cells {
+                for (outcell, incell) in ref_cells {
                     let ext_cell_ref = builder
                         .component
                         .find_cell(&incell)
@@ -540,7 +540,7 @@ fn build_control(
                         })?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
                 }
-                inv.external_cells = ext_cell_tuples;
+                inv.ref_cells = ext_cell_tuples;
             }
             Control::Invoke(inv)
         }
