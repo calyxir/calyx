@@ -10,19 +10,24 @@ use std::cmp::Ordering;
 /// block takes to execute.
 ///
 /// #Example
+///
+/// ```
 /// par {
 ///    seq { @static(M) A0; @static(N) B0; @static(P) C0; }
 ///    seq { @static(M) A1; @static(N) B1; @static(P) C1; }
 ///    seq { @static(M) A2; @static(N) B2; @static(P) C2; }
 ///}
+/// ```
 ///
 /// into
 ///
+/// ```
 /// @static(M + N + P) seq {
 ///     @static(M) par{ @static(M) A0; @static(M) A1; @static(M) A2;}
 ///     @static(N) par{ @static(N) B0; @static(N) B1; @static(N) B2;}
 ///     @static(P) par{ @static(P) C0; @static(P) C1; @static(P) C2;}
 /// }
+/// ```
 
 pub struct StaticParConv;
 
@@ -197,7 +202,7 @@ impl Visitor for StaticParConv {
             }
 
             //getting the static attribute for each of the par blocks we will build
-            let new_pars_static = match new_pars_stmts
+            let new_pars_static = new_pars_stmts
                 .iter()
                 .map(|stmts| {
                     stmts
@@ -211,11 +216,7 @@ impl Visitor for StaticParConv {
                         })
                         .max()
                 })
-                .collect::<Option<Vec<u64>>>()
-            {
-                Some(vec) => vec,
-                None => unreachable!("none of the par blocks should be empty"),
-            };
+                .collect::<Option<Vec<u64>>>().unwrap_or_else(|| unreachable!("none of the par blocks should be empty"));
 
             let new_seq_static = new_pars_static.iter().sum();
 

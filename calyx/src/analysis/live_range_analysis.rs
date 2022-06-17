@@ -222,6 +222,8 @@ pub struct LiveRangeAnalysis {
     /// Groups that have been identified as variable-like.
     /// Mapping from group name to the name of the register.
     variable_like: HashMap<ir::Id, Option<ir::Id>>,
+    /// Set of shareable components (as type names)
+    shareable_components: HashSet<ir::Id>,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -234,10 +236,29 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
+//given a set of shareable_components and a cell, determines whether cell's
+//type is shareable or not
+fn is_shareable_component(
+    shareable_components: &HashSet<ir::Id>,
+    cell: &RRC<ir::Cell>,
+) -> bool {
+    if let Some(type_name) = cell.borrow().type_name() {
+        shareable_components.contains(type_name)
+    } else {
+        false
+    }
+}
+
 impl LiveRangeAnalysis {
     /// Construct a live range analysis.
-    pub fn new(comp: &ir::Component, control: &ir::Control) -> Self {
+    pub fn new(
+        comp: &ir::Component,
+        control: &ir::Control,
+        shareable_components: HashSet<ir::Id>,
+    ) -> Self {
         let mut ranges = LiveRangeAnalysis::default();
+
+        ranges.shareable_components = shareable_components;
 
         build_live_ranges(
             control,
@@ -250,14 +271,15 @@ impl LiveRangeAnalysis {
         // add global reads to every point
         let global_reads: Prop =
             ReadWriteSet::read_set(comp.continuous_assignments.iter())
-                .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
+                .filter(|c| {
+                    is_shareable_component(&ranges.shareable_components, &c)
+                })
                 .map(|c| c.clone_name())
                 .collect::<HashSet<_>>()
                 .into();
         for (_, prop) in ranges.live.iter_mut() {
             *prop = &*prop | &global_reads;
         }
-
         ranges
     }
     /// Look up the set of things live at a group definition.
@@ -305,6 +327,8 @@ impl LiveRangeAnalysis {
         &mut self,
         group_ref: &RRC<ir::Group>,
     ) -> (Prop, Prop) {
+        let sc_clone = self.shareable_components.clone();
+
         let group = group_ref.borrow();
         // if the group contains what looks like a variable write,
         // then just add variable to write set
@@ -328,7 +352,7 @@ impl LiveRangeAnalysis {
 
             // calculate reads, but ignore `variable`. we've already dealt with that
             let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
-                .filter(|c| c.borrow().type_name() == Some(&"std_reg".into()))
+                .filter(|c| is_shareable_component(&sc_clone, &c))
                 .map(|c| c.clone_name())
                 .collect();
 
@@ -339,9 +363,7 @@ impl LiveRangeAnalysis {
         } else {
             let reads: HashSet<_> =
                 ReadWriteSet::read_set(group.assignments.iter())
-                    .filter(|c| {
-                        c.borrow().type_name() == Some(&"std_reg".into())
-                    })
+                    .filter(|c| is_shareable_component(&sc_clone, &c))
                     .map(|c| c.clone_name())
                     .collect();
 
@@ -355,9 +377,7 @@ impl LiveRangeAnalysis {
 
             let writes: HashSet<_> =
                 ReadWriteSet::write_set(assignments.iter())
-                    .filter(|c| {
-                        c.borrow().type_name() == Some(&"std_reg".into())
-                    })
+                    .filter(|c| is_shareable_component(&sc_clone, &c))
                     .map(|c| c.clone_name())
                     .collect();
 
@@ -365,10 +385,13 @@ impl LiveRangeAnalysis {
         }
     }
 
-    fn port_to_cell_name(port: &RRC<ir::Port>) -> Option<ir::Id> {
+    fn port_to_cell_name(
+        port: &RRC<ir::Port>,
+        shareable_components: &HashSet<ir::Id>,
+    ) -> Option<ir::Id> {
         if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
             let cell = cell_wref.upgrade();
-            if cell.borrow().type_name() == Some(&"std_reg".into()) {
+            if is_shareable_component(shareable_components, &cell) {
                 return Some(cell.borrow().clone_name());
             }
         }
@@ -376,18 +399,25 @@ impl LiveRangeAnalysis {
     }
 
     /// Returns (reads, writes) that occur in the [ir::Invoke] statement.
-    fn find_gen_kill_invoke(invoke: &ir::Invoke) -> (Prop, Prop) {
+    fn find_gen_kill_invoke(
+        invoke: &ir::Invoke,
+        shareable_components: &HashSet<ir::Id>,
+    ) -> (Prop, Prop) {
         let reads: Prop = invoke
             .inputs
             .iter()
-            .filter_map(|(_, src)| Self::port_to_cell_name(src))
+            .filter_map(|(_, src)| {
+                Self::port_to_cell_name(src, shareable_components)
+            })
             .collect::<HashSet<ir::Id>>()
             .into();
 
         let writes: Prop = invoke
             .outputs
             .iter()
-            .filter_map(|(_, src)| Self::port_to_cell_name(src))
+            .filter_map(|(_, src)| {
+                Self::port_to_cell_name(src, shareable_components)
+            })
             .collect::<HashSet<ir::Id>>()
             .into();
 
@@ -407,8 +437,10 @@ fn build_live_ranges(
     match c {
         ir::Control::Empty(_) => (alive, gens, kills),
         ir::Control::Invoke(invoke) => {
-            let (reads, writes) =
-                LiveRangeAnalysis::find_gen_kill_invoke(invoke);
+            let (reads, writes) = LiveRangeAnalysis::find_gen_kill_invoke(
+                invoke,
+                &lr.shareable_components,
+            );
             let alive = alive.transfer(&reads, &writes);
             (alive, &gens | &reads, &kills | &writes)
         }
@@ -453,7 +485,10 @@ fn build_live_ranges(
             let kills = &t_kills | &f_kills;
 
             // feed to condition to compute
-            if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(port) {
+            if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(
+                port,
+                &lr.shareable_components,
+            ) {
                 alive.insert(cell)
             }
             (alive, gens, kills)
@@ -488,7 +523,10 @@ fn build_live_ranges(
         ir::Control::While(ir::While { body, port, .. }) => {
             let (mut alive, gens, kills) =
                 build_live_ranges(body, alive, gens, kills, lr);
-            if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(port) {
+            if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(
+                port,
+                &lr.shareable_components,
+            ) {
                 alive.insert(cell)
             }
             build_live_ranges(body, alive, gens, kills, lr)

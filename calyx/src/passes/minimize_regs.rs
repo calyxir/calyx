@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-
 use super::sharing_components::ShareComponents;
+use crate::errors::CalyxResult;
 use crate::{
     analysis::LiveRangeAnalysis,
-    ir::{self, traversal::Named},
+    ir::{self, traversal::ConstructVisitor, traversal::Named},
 };
+use std::collections::{HashMap, HashSet};
 
 /// Given a [LiveRangeAnalysis] that specifies the registers alive at each
 /// group, minimize the registers used for each component.
@@ -19,10 +19,11 @@ use crate::{
 ///
 /// This pass only renames uses of registers. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the register definitions.
-#[derive(Default)]
 pub struct MinimizeRegs {
     live: LiveRangeAnalysis,
     rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
+    /// Set of shareable components (as type names)
+    shareable_components: HashSet<ir::Id>,
 }
 
 impl Named for MinimizeRegs {
@@ -34,13 +35,40 @@ impl Named for MinimizeRegs {
     }
 }
 
+impl ConstructVisitor for MinimizeRegs {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
+        let mut shareable_components = HashSet::new();
+        // add state_share=1 primitives to the shareable_components set
+        for prim in ctx.lib.signatures() {
+            if let Some(&1) = prim.attributes.get("state_share") {
+                shareable_components.insert(prim.name.clone());
+            }
+        }
+
+        Ok(MinimizeRegs {
+            live: LiveRangeAnalysis::default(),
+            rewrites: HashMap::new(),
+            shareable_components,
+        })
+    }
+
+    fn clear_data(&mut self) {
+        self.rewrites = HashMap::new();
+        self.live = LiveRangeAnalysis::default();
+    }
+}
+
 impl ShareComponents for MinimizeRegs {
     fn initialize(
         &mut self,
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
-        self.live = LiveRangeAnalysis::new(comp, &*comp.control.borrow());
+        self.live = LiveRangeAnalysis::new(
+            comp,
+            &*comp.control.borrow(),
+            self.shareable_components.clone(),
+        );
     }
 
     fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
@@ -49,7 +77,7 @@ impl ShareComponents for MinimizeRegs {
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
         if let Some(name) = cell.type_name() {
-            name == "std_reg"
+            self.shareable_components.contains(name)
         } else {
             false
         }

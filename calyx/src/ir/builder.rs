@@ -4,7 +4,7 @@ use crate::ir::{self, LibrarySignatures, RRC, WRC};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::CellType;
+use super::{CellType, PortDef};
 
 /// IR builder.
 /// Uses internal references to the component to construct and validate
@@ -24,9 +24,6 @@ pub struct Builder<'a> {
     /// Cells added are generated during a compiler pass.
     generated: bool,
 }
-
-/// Signature of [Port]s for a [Cell].
-type CellPortSig = Vec<(ir::Id, u64, ir::Direction, ir::Attributes)>;
 
 impl<'a> Builder<'a> {
     /// Instantiate a new builder using for a component.
@@ -124,12 +121,12 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Constant { val, width },
-            vec![(
-                "out".into(),
+            vec![ir::PortDef {
+                name: "out".into(),
                 width,
-                ir::Direction::Output,
-                ir::Attributes::default(),
-            )],
+                direction: ir::Direction::Output,
+                attributes: ir::Attributes::default(),
+            }],
         );
 
         // Add constant to the Component.
@@ -187,7 +184,7 @@ impl<'a> Builder<'a> {
         &mut self,
         prefix: Pre,
         component: Pre,
-        sig: CellPortSig,
+        sig: Vec<PortDef<u64>>,
     ) -> RRC<ir::Cell>
     where
         Pre: Into<ir::Id> + ToString + Clone,
@@ -282,12 +279,16 @@ impl<'a> Builder<'a> {
     pub(super) fn cell_from_signature(
         name: ir::Id,
         typ: ir::CellType,
-        ports: CellPortSig,
+        ports: Vec<ir::PortDef<u64>>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell::new(name, typ)));
-        ports
-            .into_iter()
-            .for_each(|(name, width, direction, attributes)| {
+        ports.into_iter().for_each(
+            |PortDef {
+                 name,
+                 width,
+                 direction,
+                 attributes,
+             }| {
                 let port = Rc::new(RefCell::new(ir::Port {
                     name,
                     width,
@@ -296,7 +297,8 @@ impl<'a> Builder<'a> {
                     attributes,
                 }));
                 cell.borrow_mut().ports.push(port);
-            });
+            },
+        );
         cell
     }
 }

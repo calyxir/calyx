@@ -51,6 +51,16 @@ The entrypoint for the Calyx program. If no component has this attribute, then
 the compiler looks for a component named `main`. If neither is found, the
 compiler errors out.
 
+### `go`, `done`, `clk` and `reset`
+These four ports are part of the interface to Calyx components.
+These are automatically added by the parser if they are missing from the component definition.
+`go` and `done` provide the mechanism for how an "outer" component invokes an "inner" cell that it contains.
+`clk` and `reset` thread through the global clock and resetting signal in a design.
+
+### `nointerface`
+By default, interface ports are automatically added to a component by the parser if they are missing.
+Adding this attribute disables this behavior.
+
 ### `external`
 The `external` attribute has meaning when it is attached to a cell.
 It has two meanings:
@@ -64,10 +74,6 @@ It has two meanings:
 Can be attached to components, groups, and control statements. They indicate how
 many cycles a component, group, or control statement will take to run and are used
 by `-p static-timing` to generate more efficient control FSMs.
-
-### `go`, `done`, and `reset`
-These three ports are part of the interface to Calyx components.
-They are the mechanism for how an "outer" component invokes an "inner" cell that it contains.
 
 The `go` and `done` attributes are, in particular, used by the `infer-static-timing` pass to configure which ports are used like
 `go` and `done` signals.

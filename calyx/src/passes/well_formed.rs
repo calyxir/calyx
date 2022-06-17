@@ -68,7 +68,8 @@ impl ConstructVisitor for WellFormed {
     }
 
     fn clear_data(&mut self) {
-        // Data is shared between components
+        self.used_groups = HashSet::default();
+        self.used_comb_groups = HashSet::default();
     }
 }
 
