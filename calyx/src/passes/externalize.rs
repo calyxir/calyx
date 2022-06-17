@@ -76,11 +76,11 @@ impl Visitor for Externalize {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut _port_names = HashMap::new();
+        let mut port_names = HashMap::new();
         dump_ports::dump_ports_to_signature(
             comp,
             has_external_attribute,
-            &mut _port_names,
+            &mut port_names,
         );
 
         Ok(Action::Continue)
