@@ -53,11 +53,21 @@ impl ConstructVisitor for WellFormed {
             let cellmap: LinkedHashMap<ir::Id, CellType> = comp
                 .cells
                 .iter()
-                .filter(|cell| cell.borrow().is_reference())
-                .map(|cell| {
-                    (cell.clone_name(), cell.borrow().prototype.clone())
+                .filter_map(|cr| {
+                    let cell = cr.borrow();
+                    // Make sure @external cells are not defined in non-entrypoint components
+                    println!("cell: {}", cell.name());
+                    if cell.attributes.has("external")
+                        && comp.name != ctx.entrypoint
+                    {
+                        Some(Err(Error::malformed_structure("Cell cannot be marked `@external` in non-entrypoint component").with_pos(&cell.attributes)))
+                    } else if cell.is_reference() {
+                        Some(Ok((cell.clone_name(), cell.prototype.clone())))
+                    } else {
+                        None
+                    }
                 })
-                .collect();
+                .collect::<CalyxResult<_>>()?;
             ref_cell_types.insert(comp.name.clone(), cellmap);
         }
 
@@ -139,13 +149,14 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Check if any of the cells use a reserved name.
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
+            // Check if any of the cells use a reserved name.
             if self.reserved_names.contains(&cell.name().id) {
                 return Err(Error::reserved_name(cell.clone_name())
                     .with_pos(cell.name()));
             }
+            // Check if a `ref` cell is invalid
             if cell.is_reference() {
                 if cell.is_primitive(Some("std_const")) {
                     return Err(Error::malformed_structure(
