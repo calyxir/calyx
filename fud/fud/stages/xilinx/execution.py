@@ -25,7 +25,8 @@ class HwExecutionStage(Stage):
     def _define_steps(self, input, builder, config):
         data_path = config["stages", self.name, "data"]
         
-        save_wdb = bool(config["stages", self.name, "waveform"]) and config["stages", self.name, "waveform"] == "true"
+        save_temps = bool(config["stages", self.name, "save_temps"])
+        gen_wdb = bool(config["stages", self.name, "waveform"])
         
         @builder.step()
         def import_libs():
@@ -51,7 +52,7 @@ class HwExecutionStage(Stage):
             # the runtime log to a file so that we can control how it's printed.
             # This is hacky, but it's the only way to do it. (The `xrt.ini`
             # file we currently have in `fud/bitstream` is not used here.)
-            new_dir = FreshDir() if save_wdb else TmpDir()
+            new_dir = FreshDir() if save_temps else TmpDir()
             os.chdir(new_dir.name)
 
             xrt_output_logname = "output.log"
@@ -62,7 +63,7 @@ class HwExecutionStage(Stage):
                     "[Emulation]\n",
                     "print_infos_in_console=false\n",
                 ]
-               if save_wdb:
+               if gen_wdb:
                    xrt_ini_config.append("debug_mode=batch\n")
 
                f.writelines(xrt_ini_config)
