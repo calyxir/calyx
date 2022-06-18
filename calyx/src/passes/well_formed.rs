@@ -56,7 +56,6 @@ impl ConstructVisitor for WellFormed {
                 .filter_map(|cr| {
                     let cell = cr.borrow();
                     // Make sure @external cells are not defined in non-entrypoint components
-                    println!("cell: {}", cell.name());
                     if cell.attributes.has("external")
                         && comp.name != ctx.entrypoint
                     {
