@@ -18,7 +18,6 @@
   - [Multiple Paths](./fud/multiple-paths.md)
   - [CIRCT](./fud/circt.md)
 - [The Calyx Interpreter](./interpreter.md)
-  - [Interactive Debugger](./debug/cider.md)
 
 # The Calyx Compiler
 
@@ -27,7 +26,8 @@
 - [The `calyx` Library](./compiler-as-library.md)
 - [Dataflow Analysis](./optimizations/dataflow.md)
 - [Debugging](./debug/index.md)
-  - [Tips](./debug/debug.md)
+  - [Logical Bugs](./debug/cider.md)
+  - [Compilation Bugs](./debug/debug.md)
 
 # Generating Calyx
 
