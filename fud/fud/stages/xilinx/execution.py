@@ -27,6 +27,12 @@ class HwExecutionStage(Stage):
         
         save_temps = bool(config["stages", self.name, "save_temps"])
         gen_wdb = bool(config["stages", self.name, "waveform"])
+        if gen_wdb and not save_temps:
+            log.warn(
+                f"{self.name}.waveform is enabled, but {self.name}.save_temps "
+                f"is not. This will generate a WDB file but then immediately "
+                f"delete it. Consider adding `-s {self.name}.save_temps true`."
+            )
         
         @builder.step()
         def import_libs():
