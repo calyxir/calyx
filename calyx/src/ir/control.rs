@@ -80,7 +80,7 @@ pub struct Invoke {
     /// Optional combinational group that is active when the invoke is active.
     pub comb_group: Option<RRC<CombGroup>>,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
-    pub external_cells: CellMap,
+    pub ref_cells: CellMap,
 }
 
 /// Data for the `empty` control statement.
@@ -171,7 +171,7 @@ impl Control {
             outputs,
             attributes: Attributes::default(),
             comb_group: None,
-            external_cells: Vec::new(),
+            ref_cells: Vec::new(),
         })
     }
 
@@ -251,7 +251,7 @@ impl Control {
                 outputs,
                 attributes,
                 comb_group,
-                external_cells,
+                ref_cells,
             }) => Control::Invoke(Invoke {
                 comp: Rc::clone(comp),
                 inputs: inputs
@@ -264,7 +264,7 @@ impl Control {
                     .collect(),
                 comb_group: comb_group.clone().map(|cg| Rc::clone(&cg)),
                 attributes: attributes.clone(),
-                external_cells: external_cells
+                ref_cells: ref_cells
                     .iter()
                     .map(|(outcell, incell)| {
                         (outcell.clone(), Rc::clone(incell))

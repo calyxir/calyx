@@ -64,6 +64,7 @@ fud exec -s futil.exec './target/debug/futil' \
 name = "correctness dynamic"
 paths = [
   "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
 ]
 cmd = """
 fud exec --to jq \
@@ -109,7 +110,7 @@ fud exec --to jq \
 
 [[tests]]
 name = "correctness static timing"
-paths = [ "tests/correctness/*.futil" ]
+paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil" ]
 cmd = """
 fud exec --to jq \
          --through dat \

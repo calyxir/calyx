@@ -39,7 +39,7 @@ bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
 
 comb = { "comb" }
 
-external = { "external" }
+reference = { "ref" }
 
 file = {
       SOI
@@ -115,7 +115,7 @@ args = {
 }
 
 cell_without_semi = {
-      at_attributes ~ external? ~ identifier ~ "=" ~ identifier ~ args
+      at_attributes ~ reference? ~ identifier ~ "=" ~ identifier ~ args
 }
 
 cell = {
@@ -231,9 +231,9 @@ enable = { at_attributes ~ identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ (port | num_lit) }
 invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
-invoke_external_arg = {identifier ~ "=" ~ identifier}
-invoke_external_args = {("[" ~ (invoke_external_arg ~ ("," ~ invoke_external_arg)*)? ~ "]")?}
-invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_external_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
+invoke_ref_arg = {identifier ~ "=" ~ identifier}
+invoke_ref_args = {("[" ~ (invoke_ref_arg ~ ("," ~ invoke_ref_arg)*)? ~ "]")?}
+invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
 
 seq = {
       at_attributes ~ "seq" ~ "{"

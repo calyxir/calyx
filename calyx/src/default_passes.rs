@@ -1,13 +1,13 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
-    CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
-    DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
-    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, MinimizeRegs,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
-    ResourceSharing, SimplifyGuards, StaticParConv, SynthesisPapercut,
-    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
-    WireInliner,
+    CompileInvoke, CompileRef, ComponentInliner, ComponentInterface,
+    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
+    HoleInliner, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
+    MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
+    ResetInsertion, ResourceSharing, SimplifyGuards, StaticParConv,
+    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
+    UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -42,6 +42,7 @@ impl PassManager {
         pm.register_pass::<RemoveCombGroups>()?;
         pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
+        pm.register_pass::<CompileRef>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -77,6 +78,7 @@ impl PassManager {
                 DeadGroupRemoval,
                 StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
+                CompileRef, //Must run before 'resource-sharing'.
                 ResourceSharing,
                 MinimizeRegs,
             ]
