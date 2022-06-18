@@ -1,34 +1,33 @@
-# Debugging Tips
-Debugging Calyx programs that run to completion and generate the wrong value
-can be challenging.
-We can first try to eliminate some common causes of problems.
+# Debugging Compilation Bugs
+
+These tips are directed towards *compilation bugs*. Before trying these, make sure your program
+produces the correct values with the [Calyx Interpreter](../interpreter.md)
 
 ## Disabling Optimizations
 
-The first step is disabling optimization passes.
-The Calyx compiler refers to bundles of optimizations using two *aliases*:
-`pre-opt` and `post-opt`.
-`pre-opt` passes run before the main compilation passes that remove the control
-program while `post-opt` passes run after.
+The first step is disabling optimization passes and running the bare bones compilation pipeline.
 
-To disable the passes, add the flag `-d pre-opt -d post-opt` to compiler invocation:
-1. For the compiler: `futil <filename> -d pre-opt -d post-opt`.
-2. For `fud`: `fud ... -s futil.flags "-d pre-opt -d post-opt"`.
+To disable the passes, add the flag `-p no-opt` to compiler invocation:
+1. For the compiler: `futil <filename> -p no-opt`.
+2. For `fud`: `fud ... -s futil.flags " -p no-opt"`.
+
+If the output is still incorrect then one of the core compilation passes is incorrect.
+Our best bet at this point is to reduce the test file such that the output from the
+interpreter and the Calyx compiler still disagree and [report the
+bug](https://github.com/cucapra/calyx/issues/new). We can use the [waveform
+debugging](#waveform-debugging) to figure out which part of the compilation pipeline generates the
+incorrect result.
 
 If the execution generates the right result, then one of the optimizations
 passes is incorrect.
 To identify which optimization pass is wrong, add back individual passes and see
 when the execution fails.
-To do so, first run `futil --list-passes` to see the names of the passes that make
-up the `pre-opt` and `post-opt` aliases.
-Next, re-enable each pass by doing: `-d pre-opt -d post-opt -p <pass1> -p
-<pass2>` and so on.
+The `calyx/src/default_passes.rs` file defines the compilation pipeline. Start by incrementally
+adding passes to this flag invocation:
+```
+-p validate -p remove-comb-groups -p <PASS 1> ... -p <PASS N> -p compile -p lower
+```
 
-## Disabling Static Timing
-
-`static-timing` is one of the two control compilation passes.
-It uses the latency information on groups to generate faster hardware.
-Disable it using the flag `-d static-timing`.
 
 ## Reducing Test Files
 

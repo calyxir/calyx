@@ -108,6 +108,13 @@ impl PassManager {
             ["validate", "pre-opt", "compile", "post-opt", "lower",]
         );
 
+        // Compilation flow with no optimizations enables
+        register_alias!(
+            pm,
+            "no-opt",
+            ["validate", RemoveCombGroups, "compile", "lower"]
+        );
+
         register_alias!(
             pm,
             "external",
