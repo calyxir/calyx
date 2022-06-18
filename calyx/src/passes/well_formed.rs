@@ -120,68 +120,15 @@ where
     Ok(())
 }
 
-fn same_binding(
-    name_out: &ir::Id,
-    binding_out: &ir::Binding,
-    binding_in: &ir::Binding,
-) -> CalyxResult<()> {
-    if binding_out.len() != binding_in.len() {
-        return Err(Error::malformed_control(format!(
-            "unmatching binding sizes, expected {}, provided {}",
-            binding_out.len(),
-            binding_in.len()
-        )));
-    }
-
-    binding_out.iter().zip(binding_in.iter()).try_for_each(
-        |((id_out, value_out), (id_in, value_in))| {
-            if id_out == id_in && value_out == value_in {
-                Ok(())
-            } else {
-                Err(Error::malformed_control(
-                    format!("unmatching binding values for {name_out}, expected {id_out} to be {value_out}, instead got {value_in}"),
-                ))
-            }
-        },
-    )
-}
-
 fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
-    match (proto_out, proto_in) {
-        (
-            CellType::Primitive {
-                name,
-                param_binding,
-                ..
-            },
-            CellType::Primitive {
-                name: name_in,
-                param_binding: param_binding_in,
-                ..
-            },
-        ) => {
-            if name_in == name {
-                same_binding(name, param_binding, param_binding_in)
-            } else {
-                Err(Error::malformed_control(format!(
-                    "type mismatch, expected {}, got {}",
-                    name, name_in
-                )))
-            }
-        }
-        (
-            CellType::Component { name },
-            CellType::Component { name: name_in },
-        ) => {
-            if name == name_in {
-                Ok(())
-            } else {
-                Err(Error::malformed_control("type mismatch: cell type not component or incorrect component name". to_string()).with_pos(name))
-            }
-        }
-        _ => Err(Error::malformed_control(
-            "type mismatch: unallowed type".to_string(),
-        )),
+    if proto_out != proto_in {
+        Err(Error::malformed_control(format!(
+            "Unexpected type for ref cell. Expected `{}`, received `{}`",
+            proto_out.surface_name().unwrap(),
+            proto_in.surface_name().unwrap(),
+        )))
+    } else {
+        Ok(())
     }
 }
 
