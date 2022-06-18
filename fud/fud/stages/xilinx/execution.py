@@ -47,23 +47,22 @@ class HwExecutionStage(Stage):
             data = sjson.load(open(data_path), use_decimal=True)
             xclbin_source = xclbin.open("rb").read()
 
-            # create a temporary directory with an xrt.ini file that redirects
+            # Create a temporary directory with an xrt.ini file that redirects
             # the runtime log to a file so that we can control how it's printed.
-            # This is hacky, but it's the only way to do it
-            # As a result the xrt.init in fud/bitstream is ignored
-
+            # This is hacky, but it's the only way to do it. (The `xrt.ini`
+            # file we currently have in `fud/bitstream` is not used here.)
             new_dir = FreshDir() if save_wdb else TmpDir()
             os.chdir(new_dir.name)
 
             xrt_output_logname = "output.log"
             with open("xrt.ini", "w") as f:
                xrt_ini_config = [
-                                    "[Runtime]\n",
-                                    f"runtime_log={xrt_output_logname}\n",
-                                    "[Emulation]\n",
-                                    "print_infos_in_console=false\n"
-                                ]
-               if(save_wdb):
+                    "[Runtime]\n",
+                    f"runtime_log={xrt_output_logname}\n",
+                    "[Emulation]\n",
+                    "print_infos_in_console=false\n",
+                ]
+               if save_wdb:
                    xrt_ini_config.append("debug_mode=batch\n")
 
                f.writelines(xrt_ini_config)
@@ -125,8 +124,6 @@ class HwExecutionStage(Stage):
                 with open(emu_log, "r") as f:
                     for line in f.readlines():
                         log.debug(line.strip())
-
-
 
             return sjson.dumps(output, indent=2, use_decimal=True)
 
