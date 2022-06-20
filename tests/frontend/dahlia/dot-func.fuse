@@ -1,0 +1,11 @@
+def dot(A: ubit<32>[4], B: ubit<32>[4], out: ubit<32>[4]) = {
+  for (let i: ubit<3> = 0..4) {
+    out[i] := A[i] * B[i];
+  }
+}
+
+decl A: ubit<32>[4];
+decl B: ubit<32>[4];
+decl out: ubit<32>[4];
+
+dot(A, B, out);

@@ -19,23 +19,23 @@ component main() -> () {
     group upd0<"static"=1> {
       A0.addr0 = const1.out;
       A0.write_en = 1'd1;
-      A0.write_data = 1'd1 ? const0.out;
-      upd0[done] = A0.done ? 1'd1;
+      A0.write_data = const0.out;
+      upd0[done] = A0.done;
     }
     group upd1<"static"=1> {
       B0_0.addr1 = const4.out;
       B0_0.addr0 = const3.out;
       B0_0.write_en = 1'd1;
-      B0_0.write_data = 1'd1 ? const2.out;
-      upd1[done] = B0_0.done ? 1'd1;
+      B0_0.write_data = const2.out;
+      upd1[done] = B0_0.done;
     }
     group upd2<"static"=1> {
       C0_0_0.addr2 = const8.out;
       C0_0_0.addr1 = const7.out;
       C0_0_0.addr0 = const6.out;
       C0_0_0.write_en = 1'd1;
-      C0_0_0.write_data = 1'd1 ? const5.out;
-      upd2[done] = C0_0_0.done ? 1'd1;
+      C0_0_0.write_data = const5.out;
+      upd2[done] = C0_0_0.done;
     }
   }
   control {
