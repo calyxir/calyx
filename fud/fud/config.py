@@ -87,8 +87,9 @@ DEFAULT_CONFIGURATION = {
         },
         "fpga": {
             "data": None,
-            "waveform" : None,
-            },
+            "save_temps": None,
+            "waveform": None,
+        },
     },
 }
 
