@@ -1,6 +1,6 @@
 # Passing Memories by Reference
 
-One question that may arise when using Calyx as a backend is how to 
+One question that may arise when using Calyx as a backend is how to
 pass a memory "by reference" between components. In C++, this might look like:
 ```
 #include <array>
@@ -15,13 +15,58 @@ int main() {
   std::array<uint32_t, 1> x = { 0 };
   add_one(x); // The value at x[0] is now 1.
 }
-``` 
+```
 
-In the code above, we've constructed an "l-value reference" to the array,
-which essentially means we can both read and write from `x` in the
-function `add_one`.
+There are two steps to passing a memory by reference in Calyx:
+1. Define the component in a manner such that it can accept a memory by reference.
+2. Pass the desired memory by reference.
 
-Now, let's allow similar functionality at the Calyx IR level. 
+The language provides two ways to doing this.
+
+## The Easy Way
+
+Calyx uses the `ref` keyword to describe cells that are passed in by-reference:
+
+```
+component add_one() -> () {
+  cells {
+    ref mem = std_mem_d1(32, 4, 3); // A memory passed in by refernece.
+    ...
+  }
+  ...
+}
+```
+
+This component define `mem` as a memory that is passed in by reference to the component.
+Inside the component we can use the cell like any other cell in the program.
+
+Next, to pass the memory to the component, we can use the `invoke` syntax:
+```
+component add_one() -> () { ... }
+component main() -> () {
+  cells {
+    A = std_mem_d1(32, 4, 3); // A memory passed in by refernece.
+    one = add_one();
+    ...
+  }
+  wires { ... }
+  control {
+    invoke one[mem = A]()(); // pass A as the `mem` for this invocation
+  }
+}
+```
+
+The Calyx compiler will correctly lower the `add_one` component and the `invoke` call such that the memory is passed in by-reference.
+In fact, any cell can be passed in by-reference in a Calyx program.
+Read the next section if you're curious about how this process is implemented.
+
+## The Hard Way
+
+In the C++ code above, we've constructed an "l-value reference" to the array,
+which essentially means we can both read and write from `x` in the function
+`add_one`.
+
+Now, let's allow similar functionality at the Calyx IR level.
 We define a new component named `add_one` which represents the function
 above. However, we also need to include the correct ports to both read
 and write to `x`:
@@ -33,7 +78,7 @@ and write to `x`:
 |                | write_en      |
 |                | address ports |
 
-Since we're both reading and writing from `x`, we'll 
+Since we're both reading and writing from `x`, we'll
 include the union of the columns above:
 ```
 {{#include ../../examples/futil/memory-by-reference/memory-by-reference.futil:component_ports}}
@@ -49,7 +94,7 @@ so those are used as output ports.
 We then simply use the given ports to both read and write to the memory passed
 by reference. Note that we've split up the read and write to memory `x` in separate groups,
 to ensure we can schedule them sequentially in the execution flow.
-We're also using the exposed ports of the memory through the component interface rather than, 
+We're also using the exposed ports of the memory through the component interface rather than,
 say, `x.write_data`.
 ```
 {{#include ../../examples/futil/memory-by-reference/memory-by-reference.futil:wires}}
