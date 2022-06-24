@@ -1,4 +1,4 @@
-// -p all -d infer-static-timing -d well-formed -d papercut -d resource-sharing -p simplify-guards
+// -p all -d infer-static-timing -d well-formed -d papercut -d cell-share -p simplify-guards
 import "primitives/core.futil";
 
 component main() -> () {

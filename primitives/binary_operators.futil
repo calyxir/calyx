@@ -8,7 +8,7 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH)->(out: WIDTH);
 
-  primitive std_fp_mult_pipe<"static"=3>[
+  primitive std_fp_mult_pipe<"static"=3, "state_share" = 1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
@@ -21,7 +21,7 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_fp_div_pipe[
+  primitive std_fp_div_pipe<"state_share" = 1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
@@ -48,7 +48,7 @@ extern "binary_operators.sv" {
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive std_fp_smult_pipe<"static"=3>[
+  primitive std_fp_smult_pipe<"static"=3, "state_share"=1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
@@ -61,7 +61,7 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_fp_sdiv_pipe[
+  primitive std_fp_sdiv_pipe<"state_share" = 1>[
     WIDTH, INT_WIDTH, FRAC_WIDTH
   ](
     @clk clk: 1,
@@ -87,7 +87,7 @@ extern "binary_operators.sv" {
   /// Other unsigned bitnum primitives are found in the core library,
   /// since they're required for FSM encoding.
 
-  primitive std_mult_pipe<"static"=3>[WIDTH](
+  primitive std_mult_pipe<"static"=3, "state_share"=1>[WIDTH](
     @clk clk: 1,
     @reset reset: 1,
     @write_together(1) @go go: 1,
@@ -98,7 +98,7 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
-  primitive std_div_pipe[WIDTH](
+  primitive std_div_pipe[WIDTH]<"state_share" = 1>(
     @clk clk: 1,
     @reset reset: 1,
     @write_together(1) @go go: 1,
@@ -114,7 +114,7 @@ extern "binary_operators.sv" {
   comb primitive std_sadd<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
   comb primitive std_ssub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
-  primitive std_smult_pipe<"static"=3>[WIDTH](
+  primitive std_smult_pipe<"static"=3, "state_share"=1>[WIDTH](
     @clk clk: 1,
     @reset reset: 1,
     @write_together(1) @go go: 1,

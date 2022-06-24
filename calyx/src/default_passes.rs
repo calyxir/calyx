@@ -1,13 +1,13 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
-    CompileInvoke, CompileRef, ComponentInliner, ComponentInterface,
+    Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
+    CompileEmpty, CompileInvoke, ComponentInliner, ComponentInterface,
     DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
-    HoleInliner, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
-    MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
-    ResetInsertion, ResourceSharing, SimplifyGuards, StaticParConv,
-    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner,
+    HoleInliner, InferShare, InferStaticTiming, LowerGuards, MergeAssign,
+    MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
+    ResetInsertion, SimplifyGuards, StaticParConv, SynthesisPapercut,
+    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
+    WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -29,10 +29,10 @@ impl PassManager {
         pm.register_pass::<ComponentInliner>()?;
         pm.register_pass::<CollapseControl>()?;
         pm.register_pass::<CompileEmpty>()?;
-        pm.register_pass::<ResourceSharing>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;
-        pm.register_pass::<MinimizeRegs>()?;
+        pm.register_pass::<InferShare>()?;
+        pm.register_pass::<CellShare>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<StaticParConv>()?;
@@ -67,22 +67,26 @@ impl PassManager {
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
-            pm,
-            "pre-opt",
-            [
-                ComponentInliner,
-                CombProp,
-                RemoveCombGroups, // Must run before `infer-static-timing`.
-                InferStaticTiming,
-                MergeStaticPar,
-                DeadGroupRemoval,
-                StaticParConv, // Must be before `collapse-control`
-                CollapseControl,
-                CompileRef, //Must run before 'resource-sharing'.
-                ResourceSharing,
-                MinimizeRegs,
-            ]
-        );
+                    pm,
+                    "pre-opt",
+                    [
+                        ComponentInliner,
+                        CombProp,
+                        RemoveCombGroups, // Must run before `infer-static-timing`.
+                        InferStaticTiming,
+                        MergeStaticPar,
+                        DeadGroupRemoval,
+                        StaticParConv, // Must be before `collapse-control`
+                        CollapseControl,
+        <<<<<<< Updated upstream
+                        CompileRef, //Must run before 'resource-sharing'.
+                        ResourceSharing,
+                        MinimizeRegs,
+        =======
+                        CellShare,
+        >>>>>>> Stashed changes
+                    ]
+                );
         register_alias!(pm, "compile", [CompileInvoke, TopDownCompileControl]);
         register_alias!(
             pm,

@@ -1,4 +1,4 @@
-// -p well-formed -p remove-comb-groups -p minimize-regs -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p cell-share -p dead-cell-removal
 import "primitives/core.futil";
 component main() -> (x_out: 32) {
   cells {
@@ -16,9 +16,10 @@ component main() -> (x_out: 32) {
       y_0.write_en = 1'd1;
       let1[done] = y_0.done;
     }
+    x_out = x_0.out;
   }
   control {
-    par {
+    seq {
       let0;
       let1;
     }

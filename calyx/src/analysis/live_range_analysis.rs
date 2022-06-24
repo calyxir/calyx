@@ -223,7 +223,7 @@ pub struct LiveRangeAnalysis {
     /// Mapping from group name to the name of the register.
     variable_like: HashMap<ir::Id, Option<ir::Id>>,
     /// Set of state shareable components (as type names)
-    state_share: HashSet<ir::Id>,
+    state_share: ShareSet,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -236,37 +236,23 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
-//given a set of shareable and a cell, determines whether cell's
-//type is shareable or not
-fn is_shareable_component(
-    shareable: &HashSet<ir::Id>,
-    cell: &RRC<ir::Cell>,
-) -> bool {
-    if let Some(type_name) = cell.borrow().type_name() {
-        shareable.contains(type_name)
-    } else {
-        false
-    }
+#[derive(Default, Clone)]
+struct ShareSet {
+    shareable: HashSet<ir::Id>,
 }
 
-//Given assignments, looks for each use of a shareable cell. Then, add them as live
-//in ranges, in the group indicated by name.
-fn add_shareable_ranges(
-    assignments: &[ir::Assignment],
-    shareable: &HashSet<ir::Id>,
-    name: &ir::Id,
-    ranges: &mut LiveRangeAnalysis,
-) {
-    let group_uses: Prop = ReadWriteSet::uses(assignments.iter())
-        .filter(|cell| is_shareable_component(shareable, cell))
-        .map(|cell| cell.clone_name())
-        .collect::<HashSet<_>>()
-        .into();
-    match ranges.live.get_mut(name) {
-        None => {
-            unreachable!("don't have live range for {}", name)
+impl ShareSet {
+    fn new(set: HashSet<ir::Id>) -> ShareSet {
+        ShareSet { shareable: set }
+    }
+    //given a set of shareable and a cell, determines whether cell's
+    //type is shareable or not
+    fn is_shareable_component(&self, cell: &RRC<ir::Cell>) -> bool {
+        if let Some(type_name) = cell.borrow().type_name() {
+            self.shareable.contains(type_name)
+        } else {
+            false
         }
-        Some(prop) => *prop = &*prop | &group_uses,
     }
 }
 
@@ -279,7 +265,7 @@ impl LiveRangeAnalysis {
         shareable: HashSet<ir::Id>,
     ) -> Self {
         let mut ranges = LiveRangeAnalysis {
-            state_share,
+            state_share: ShareSet::new(state_share),
             ..Default::default()
         };
 
@@ -291,26 +277,47 @@ impl LiveRangeAnalysis {
             &mut ranges,
         );
 
+        let share_set = ShareSet::new(shareable);
+
         //adds (non-state) shareable cells as live in the group they're contained in
         comp.groups.iter().for_each(|group| {
-            add_shareable_ranges(
+            ranges.add_shareable_ranges(
                 &group.borrow().assignments,
-                &shareable,
+                &share_set,
                 group.borrow().name(),
-                &mut ranges,
             )
         });
         comp.comb_groups.iter().for_each(|group| {
-            add_shareable_ranges(
+            ranges.add_shareable_ranges(
                 &group.borrow().assignments,
-                &shareable,
+                &share_set,
                 group.borrow().name(),
-                &mut ranges,
             )
         });
 
         ranges
     }
+
+    //For each cell used in assignments, adds it as part of the group_name's live range
+    fn add_shareable_ranges(
+        &mut self,
+        assignments: &[ir::Assignment],
+        shareable: &ShareSet,
+        group_name: &ir::Id,
+    ) {
+        let group_uses: Prop = ReadWriteSet::uses(assignments.iter())
+            .filter(|cell| shareable.is_shareable_component(cell))
+            .map(|cell| cell.clone_name())
+            .collect::<HashSet<_>>()
+            .into();
+        match self.live.get_mut(group_name) {
+            None => {
+                unreachable!("don't have live range for {}", group_name)
+            }
+            Some(prop) => *prop = &*prop | &group_uses,
+        }
+    }
+
     /// Look up the set of things live at a group definition.
     pub fn get(&self, group: &ir::Id) -> &HashSet<ir::Id> {
         &self
@@ -381,7 +388,7 @@ impl LiveRangeAnalysis {
 
             // calculate reads, but ignore `variable`. we've already dealt with that
             let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
-                .filter(|c| is_shareable_component(&sc_clone, c))
+                .filter(|c| sc_clone.is_shareable_component(c))
                 .map(|c| c.clone_name())
                 .collect();
 
@@ -392,7 +399,7 @@ impl LiveRangeAnalysis {
         } else {
             let reads: HashSet<_> =
                 ReadWriteSet::read_set(group.assignments.iter())
-                    .filter(|c| is_shareable_component(&sc_clone, c))
+                    .filter(|c| sc_clone.is_shareable_component(c))
                     .map(|c| c.clone_name())
                     .collect();
 
@@ -406,7 +413,7 @@ impl LiveRangeAnalysis {
 
             let writes: HashSet<_> =
                 ReadWriteSet::write_set(assignments.iter())
-                    .filter(|c| is_shareable_component(&sc_clone, c))
+                    .filter(|c| sc_clone.is_shareable_component(c))
                     .map(|c| c.clone_name())
                     .collect();
 
@@ -416,11 +423,11 @@ impl LiveRangeAnalysis {
 
     fn port_to_cell_name(
         port: &RRC<ir::Port>,
-        shareable_components: &HashSet<ir::Id>,
+        shareable_components: &ShareSet,
     ) -> Option<ir::Id> {
         if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
             let cell = cell_wref.upgrade();
-            if is_shareable_component(shareable_components, &cell) {
+            if shareable_components.is_shareable_component(&cell) {
                 return Some(cell.borrow().clone_name());
             }
         }
@@ -430,7 +437,7 @@ impl LiveRangeAnalysis {
     /// Returns (reads, writes) that occur in the [ir::Invoke] statement.
     fn find_gen_kill_invoke(
         invoke: &ir::Invoke,
-        shareable_components: &HashSet<ir::Id>,
+        shareable_components: &ShareSet,
     ) -> (Prop, Prop) {
         let reads: Prop = invoke
             .inputs

@@ -1,4 +1,4 @@
-// -p minimize-regs
+// -p cell-share
 
 import "primitives/core.futil";
 component main() -> () {

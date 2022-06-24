@@ -32,7 +32,7 @@ pub struct If {
     /// Control for the true branch.
     pub tbranch: Box<Control>,
 
-    /// Control for the true branch.
+    /// Control for the false branch.
     pub fbranch: Box<Control>,
 
     /// Attributes attached to this control statement.
@@ -87,8 +87,8 @@ pub struct Invoke {
 #[derive(Debug)]
 pub struct Empty {}
 
-/// Control AST nodes.
 #[derive(Debug)]
+/// Control AST nodes.
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq(Seq),

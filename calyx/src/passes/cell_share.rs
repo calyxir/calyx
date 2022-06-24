@@ -6,20 +6,20 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-/// Given a [LiveRangeAnalysis] that specifies the registers alive at each
-/// group, minimize the registers used for each component.
+/// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
+/// alive at each group, minimizes the cells used for each component.
 ///
-/// This works by constructing an interference graph for each alive register.
-/// If two registers are ever alive at the same time, then there is an edge
-/// between them in the interference graph. Additionally, if two registers
-/// are different sizes, then there is an edge between them.
+/// This works by constructing an interference graph for each alive "state_share" cell.
+/// If two cells are ever alive at the same time, then there is an edge
+/// between them in the interference graph. Additionally, if two cells
+/// are different prototypes, then there is an edge between them.
 ///
 /// A greedy graph coloring algorithm on the interference graph
-/// is used to assign each register a name.
+/// is used to assign each cell a name.
 ///
-/// This pass only renames uses of registers. [crate::passes::DeadCellRemoval] should be run after this
-/// to actually remove the register definitions.
-pub struct MinimizeRegs {
+/// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
+/// to actually remove the definitions.
+pub struct CellShare {
     live: LiveRangeAnalysis,
     rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
     /// Set of state shareable components (as type names)
@@ -32,24 +32,24 @@ pub struct MinimizeRegs {
     cont_cells: HashSet<ir::Id>,
 }
 
-impl Named for MinimizeRegs {
+impl Named for CellShare {
     fn name() -> &'static str {
-        "minimize-regs"
+        "cell-share"
     }
     fn description() -> &'static str {
-        "use the fewest possible registers"
+        "use the fewest possible cells"
     }
 }
 
-impl ConstructVisitor for MinimizeRegs {
+impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut state_shareable = HashSet::new();
         let mut shareable = HashSet::new();
         // add state_share=1 primitives to the state_shareable set
         for prim in ctx.lib.signatures() {
-            if let Some(&1) = prim.attributes.get("share") {
+            if prim.attributes.has("share") {
                 shareable.insert(prim.name.clone());
-            } else if let Some(&1) = prim.attributes.get("state_share") {
+            } else if prim.attributes.has("state_share") {
                 state_shareable.insert(prim.name.clone());
             }
         }
@@ -61,7 +61,7 @@ impl ConstructVisitor for MinimizeRegs {
             }
         }
 
-        Ok(MinimizeRegs {
+        Ok(CellShare {
             live: LiveRangeAnalysis::default(),
             rewrites: HashMap::new(),
             cont_cells: HashSet::new(),
@@ -77,7 +77,7 @@ impl ConstructVisitor for MinimizeRegs {
     }
 }
 
-impl ShareComponents for MinimizeRegs {
+impl ShareComponents for CellShare {
     fn initialize(
         &mut self,
         comp: &ir::Component,
