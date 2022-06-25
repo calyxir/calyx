@@ -7,6 +7,7 @@ from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.utils import shell, TmpDir, unwrap_or, transparent_shell
+from fud import config as cfg
 
 # A local constant used only within this file largely for organizational
 # purposes and to avoid magic strings
@@ -65,7 +66,7 @@ class InterpreterStage(Stage):
             self.flags,
             unwrap_or(config["stages", self.name, "flags"], ""),
             "-l",
-            config["global", "futil_directory"],
+            config["global", cfg.ROOT],
             "--data" if data_path else "",
             "{data_file}" if data_path else "",
             "{target}",
