@@ -1,4 +1,5 @@
 from fud.stages import SourceType, Stage
+from fud import config as cfg
 
 from ..utils import shell, unwrap_or
 
@@ -26,7 +27,7 @@ class FutilStage(Stage):
             [
                 calyx_exec,
                 "-l",
-                config["global", "futil_directory"],
+                config["global", cfg.ROOT],
                 self.flags,
                 unwrap_or(config["stages", self.name, "flags"], ""),
             ]
