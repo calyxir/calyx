@@ -12,10 +12,13 @@ from . import stages
 from .utils import eprint
 from . import errors, external, registry
 
+# Key for the root folder
+ROOT = "futil_directory"
+
 # keys to prompt the user for
 WIZARD_DATA = {
     "global": {
-        "futil_directory": "Root Directory of Calyx repository",
+        ROOT: "Root Directory of Calyx repository",
     }
 }
 
@@ -212,8 +215,8 @@ class Configuration:
         self.config = DynamicDict(toml.load(self.config_file))
         self.wizard_data = DynamicDict(WIZARD_DATA)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
-        if ("global", "futil_directory") not in self.config:
-            log.warn("global.futil_directory is not set in the configuration")
+        if ("global", ROOT) not in self.config:
+            log.warn(f"global.{ROOT} is not set in the configuration")
 
     def commit(self):
         """

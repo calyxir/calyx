@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fud.stages import SourceType, Stage
 from fud.utils import shell, unwrap_or
+from fud import config as cfg
 
 
 class RelayStage(Stage):
@@ -22,7 +23,7 @@ class RelayStage(Stage):
 
     def _define_steps(self, input, builder, config):
         script = (
-            Path(config["global", "futil_directory"])
+            Path(config["global", cfg.ROOT])
             / "frontends"
             / "relay"
             / "relay_visitor.py"
