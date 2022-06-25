@@ -161,9 +161,9 @@ impl Error {
             post_msg: None,
         }
     }
-    pub fn pass_assumption(pass: String, msg: String) -> Self {
+    pub fn pass_assumption<S: ToString>(pass: S, msg: String) -> Self {
         Self {
-            kind: ErrorKind::PassAssumption(pass, msg),
+            kind: ErrorKind::PassAssumption(pass.to_string(), msg),
             pos: None,
             post_msg: None,
         }
