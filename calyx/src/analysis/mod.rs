@@ -6,7 +6,6 @@
 mod control_order;
 mod control_ports;
 mod dataflow_order;
-mod dominator_map;
 mod graph;
 mod graph_coloring;
 mod live_range_analysis;
@@ -19,7 +18,6 @@ mod variable_detection;
 pub use control_order::ControlOrder;
 pub use control_ports::ControlPorts;
 pub use dataflow_order::DataflowOrder;
-pub use dominator_map::DominatorMap;
 pub use graph::GraphAnalysis;
 pub use graph_coloring::GraphColoring;
 pub use live_range_analysis::LiveRangeAnalysis;
