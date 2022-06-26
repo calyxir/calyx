@@ -1,0 +1,29 @@
+// -p infer-share
+import "primitives/core.futil";
+component example() -> () {
+  cells {
+  }
+  wires {
+    
+  }
+  control {
+    
+  }
+}
+
+
+component main() -> () {
+  cells {
+    e = example();
+  }
+
+  wires {
+  }
+
+  control {
+    par { 
+        invoke e() (); 
+    }
+  }
+  
+}

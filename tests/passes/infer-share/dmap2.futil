@@ -1,0 +1,86 @@
+// -p infer-share
+import "primitives/core.futil";
+component example() -> () {
+  cells {
+    lt = std_lt(4); 
+  }
+  wires {
+    group P0{
+    }
+    group P1{
+    }
+    group P2{
+    }
+    group A{
+    }
+    group L{
+    }
+    group M{
+    }
+    group O{
+    }
+    group Q {
+    }
+    group R {
+    }
+    group X {
+    }
+    group Y {
+    }
+    group Z {
+    }
+    group A0 {
+    }
+    group B0 {
+    }
+    comb group less_than {
+      lt.left = 4'd3;
+      lt.right = 4'd2;
+    }
+  }
+  control {
+    seq{
+      P0;
+      P1;
+      P2;
+      if lt.out with less_than{
+        while lt.out with less_than{
+          seq{
+            par {A0;B0;}
+            if lt.out with less_than{
+              seq{
+                A;
+                par{L;M;}
+              }
+            }
+            else{
+              par {O;Q;R;}
+            }
+          }
+        }
+      }
+      else{
+        par {X;Y;Z;}
+      }
+      Z;
+    } 
+  }
+ 
+}
+
+
+component main() -> () {
+  cells {
+    e = example();
+  }
+
+  wires {
+  }
+
+  control {
+    par { 
+        invoke e() (); 
+    }
+  }
+  
+}

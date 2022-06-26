@@ -1,0 +1,161 @@
+Domination Map {
+group: 1
+1
+group: 2
+1
+2
+group: 3
+1
+2
+3
+group: 5
+1
+2
+3
+5
+group: 7
+1
+2
+3
+5
+7
+group: 9
+1
+2
+3
+5
+9
+group: 10
+1
+2
+3
+5
+9
+10
+group: 11
+1
+2
+3
+5
+9
+10
+11
+group: 13
+1
+2
+3
+5
+13
+group: 14
+1
+2
+3
+5
+14
+group: 15
+1
+2
+3
+5
+15
+group: 16
+1
+2
+3
+16
+group: 17
+1
+2
+3
+17
+group: 18
+1
+2
+3
+5
+15
+16
+17
+18
+}
+Domination Map {
+group: 1
+1
+}
+import "primitives/core.futil";
+component example(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    group P0 {
+    }
+    group P1 {
+    }
+    group P2 {
+    }
+    group A {
+    }
+    group L {
+    }
+    group M {
+    }
+    group O {
+    }
+    group Q {
+    }
+    group R {
+    }
+    group X {
+    }
+    group Y {
+    }
+    group Z {
+    }
+    comb group less_than {
+      lt.left = 4'd3;
+      lt.right = 4'd2;
+    }
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID P0;
+      @NODE_ID(2) P1;
+      @NODE_ID(3) P2;
+      @NODE_ID(4) par {
+        @BEGIN_ID(5) @END_ID(15) if lt.out with less_than {
+          @NODE_ID(6) par {
+            @NODE_ID(7) A;
+            @NODE_ID(8) seq {
+              @NODE_ID(9) L;
+              @NODE_ID(10) M;
+              @NODE_ID(11) O;
+            }
+          }
+        } else {
+          @NODE_ID(12) par {
+            @NODE_ID(13) Q;
+            @NODE_ID(14) R;
+          }
+        }
+        @NODE_ID(16) X;
+        @NODE_ID(17) Y;
+      }
+      @NODE_ID(18) Z;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    @NODE_ID(0) par {
+      @NODE_ID invoke e()();
+    }
+  }
+}

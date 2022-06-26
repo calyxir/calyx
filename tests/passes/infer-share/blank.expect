@@ -1,0 +1,28 @@
+Domination Map {
+}
+Domination Map {
+group: 1
+1
+}
+import "primitives/core.futil";
+component example(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    @NODE_ID(0) par {
+      @NODE_ID invoke e()();
+    }
+  }
+}
