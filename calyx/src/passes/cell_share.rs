@@ -28,10 +28,8 @@ pub struct CellShare {
     /// Set of shareable components (as type names)
     shareable: HashSet<ir::Id>,
 
-    /// Cell active in continuous assignments
-    cont_cells: HashSet<ir::Id>,
-    //Ref cells
-    ref_cells: HashSet<ir::Id>,
+    /// Cell active in continuous assignments, or ref cells (we want to ignore both)
+    cont_ref_cells: HashSet<ir::Id>,
 }
 
 impl Named for CellShare {
@@ -56,18 +54,18 @@ impl ConstructVisitor for CellShare {
             }
         }
 
-        // add share=1 user defined components to the shareable_components set
+        // add state_share=1 user defined components to the state_shareable set
         for comp in &ctx.components {
-            if let Some(&1) = comp.attributes.get("state_share") {
+            if comp.attributes.has("state_share") {
                 state_shareable.insert(comp.name.clone());
             }
+            //it seems like we never want to have a "share" user-defined components
         }
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
             rewrites: HashMap::new(),
-            cont_cells: HashSet::new(),
-            ref_cells: HashSet::new(),
+            cont_ref_cells: HashSet::new(),
             state_shareable,
             shareable,
         })
@@ -76,8 +74,7 @@ impl ConstructVisitor for CellShare {
     fn clear_data(&mut self) {
         self.rewrites = HashMap::new();
         self.live = LiveRangeAnalysis::default();
-        self.cont_cells = HashSet::new();
-        self.ref_cells = HashSet::new();
+        self.cont_ref_cells = HashSet::new();
     }
 }
 
@@ -87,16 +84,18 @@ impl ShareComponents for CellShare {
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
-        self.cont_cells =
+        //add cont cells
+        self.cont_ref_cells =
             ReadWriteSet::uses(comp.continuous_assignments.iter())
                 .map(|cr| cr.borrow().clone_name())
                 .collect();
-        self.ref_cells = comp
-            .cells
-            .iter()
-            .filter(|cell| cell.borrow().is_reference())
-            .map(|cell| cell.borrow().clone_name())
-            .collect();
+        //add ref cells
+        self.cont_ref_cells.extend(
+            comp.cells
+                .iter()
+                .filter(|cell| cell.borrow().is_reference())
+                .map(|cell| cell.borrow().clone_name()),
+        );
 
         self.live = LiveRangeAnalysis::new(
             comp,
@@ -110,19 +109,14 @@ impl ShareComponents for CellShare {
         self.live
             .get(group_name)
             .iter()
-            .filter(|cell_name| {
-                !(self.cont_cells.contains(cell_name)
-                    || self.ref_cells.contains(cell_name))
-            })
+            .filter(|cell_name| !self.cont_ref_cells.contains(cell_name))
             .cloned()
             .collect()
     }
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
         // Cells used in continuous assignments cannot be shared.
-        if self.cont_cells.contains(cell.name())
-            || self.ref_cells.contains(cell.name())
-        {
+        if self.cont_ref_cells.contains(cell.name()) {
             return false;
         }
         if let Some(name) = cell.type_name() {
@@ -142,8 +136,7 @@ impl ShareComponents for CellShare {
                 conflicts
                     .iter()
                     .filter(|cell_name| {
-                        !(self.cont_cells.contains(cell_name)
-                            || self.ref_cells.contains(cell_name))
+                        !self.cont_ref_cells.contains(cell_name)
                     })
                     .cloned()
                     .collect(),
