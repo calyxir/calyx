@@ -44,15 +44,15 @@ component main() -> () {
       a0_0_read0_0.write_en = 1'd1;
       a0_00_0.addr1 = j0.out;
       a0_00_0.addr0 = i0.out;
-      a0_0_read0_0.in = 1'd1 ? a0_00_0.read_data;
-      upd0[done] = a0_0_read0_0.done ? 1'd1;
+      a0_0_read0_0.in = a0_00_0.read_data;
+      upd0[done] = a0_0_read0_0.done;
     }
     group upd1<"static"=1> {
       b0_0_read0_0.write_en = 1'd1;
       b0_00_0.addr1 = j0.out;
       b0_00_0.addr0 = i0.out;
-      b0_0_read0_0.in = 1'd1 ? b0_00_0.read_data;
-      upd1[done] = b0_0_read0_0.done ? 1'd1;
+      b0_0_read0_0.in = b0_00_0.read_data;
+      upd1[done] = b0_0_read0_0.done;
     }
     group upd2<"static"=1> {
       result0_00_0.addr1 = j0.out;
@@ -60,22 +60,22 @@ component main() -> () {
       result0_00_0.write_en = 1'd1;
       add0.left = a0_0_read0_0.out;
       add0.right = b0_0_read0_0.out;
-      result0_00_0.write_data = 1'd1 ? add0.out;
-      upd2[done] = result0_00_0.done ? 1'd1;
+      result0_00_0.write_data = add0.out;
+      upd2[done] = result0_00_0.done;
     }
     group upd3<"static"=1> {
       j0.write_en = 1'd1;
       add1.left = j0.out;
       add1.right = const4.out;
-      j0.in = 1'd1 ? add1.out;
-      upd3[done] = j0.done ? 1'd1;
+      j0.in = add1.out;
+      upd3[done] = j0.done;
     }
     group upd4<"static"=1> {
       i0.write_en = 1'd1;
       add2.left = i0.out;
       add2.right = const5.out;
-      i0.in = 1'd1 ? add2.out;
-      upd4[done] = i0.done ? 1'd1;
+      i0.in = add2.out;
+      upd4[done] = i0.done;
     }
   }
   control {

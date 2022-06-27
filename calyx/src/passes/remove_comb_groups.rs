@@ -328,7 +328,7 @@ impl Visitor for RemoveCombGroups {
         if comp.attributes.get("static").is_some() {
             let msg =
                 format!("Component {} has both a top-level \"static\" annotations and combinational groups which is not supported", comp.name);
-            return Err(Error::pass_assumption(Self::name().to_string(), msg)
+            return Err(Error::pass_assumption(Self::name(), msg)
                 .with_pos(&comp.attributes));
         }
         Ok(Action::Continue)

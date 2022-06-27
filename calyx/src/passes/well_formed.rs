@@ -53,11 +53,20 @@ impl ConstructVisitor for WellFormed {
             let cellmap: LinkedHashMap<ir::Id, CellType> = comp
                 .cells
                 .iter()
-                .filter(|cell| cell.borrow().is_reference())
-                .map(|cell| {
-                    (cell.clone_name(), cell.borrow().prototype.clone())
+                .filter_map(|cr| {
+                    let cell = cr.borrow();
+                    // Make sure @external cells are not defined in non-entrypoint components
+                    if cell.attributes.has("external")
+                        && comp.name != ctx.entrypoint
+                    {
+                        Some(Err(Error::malformed_structure("Cell cannot be marked `@external` in non-entrypoint component").with_pos(&cell.attributes)))
+                    } else if cell.is_reference() {
+                        Some(Ok((cell.clone_name(), cell.prototype.clone())))
+                    } else {
+                        None
+                    }
                 })
-                .collect();
+                .collect::<CalyxResult<_>>()?;
             ref_cell_types.insert(comp.name.clone(), cellmap);
         }
 
@@ -120,68 +129,15 @@ where
     Ok(())
 }
 
-fn same_binding(
-    name_out: &ir::Id,
-    binding_out: &ir::Binding,
-    binding_in: &ir::Binding,
-) -> CalyxResult<()> {
-    if binding_out.len() != binding_in.len() {
-        return Err(Error::malformed_control(format!(
-            "unmatching binding sizes, expected {}, provided {}",
-            binding_out.len(),
-            binding_in.len()
-        )));
-    }
-
-    binding_out.iter().zip(binding_in.iter()).try_for_each(
-        |((id_out, value_out), (id_in, value_in))| {
-            if id_out == id_in && value_out == value_in {
-                Ok(())
-            } else {
-                Err(Error::malformed_control(
-                    format!("unmatching binding values for {name_out}, expected {id_out} to be {value_out}, instead got {value_in}"),
-                ))
-            }
-        },
-    )
-}
-
 fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
-    match (proto_out, proto_in) {
-        (
-            CellType::Primitive {
-                name,
-                param_binding,
-                ..
-            },
-            CellType::Primitive {
-                name: name_in,
-                param_binding: param_binding_in,
-                ..
-            },
-        ) => {
-            if name_in == name {
-                same_binding(name, param_binding, param_binding_in)
-            } else {
-                Err(Error::malformed_control(format!(
-                    "type mismatch, expected {}, got {}",
-                    name, name_in
-                )))
-            }
-        }
-        (
-            CellType::Component { name },
-            CellType::Component { name: name_in },
-        ) => {
-            if name == name_in {
-                Ok(())
-            } else {
-                Err(Error::malformed_control("type mismatch: cell type not component or incorrect component name". to_string()).with_pos(name))
-            }
-        }
-        _ => Err(Error::malformed_control(
-            "type mismatch: unallowed type".to_string(),
-        )),
+    if proto_out != proto_in {
+        Err(Error::malformed_control(format!(
+            "Unexpected type for ref cell. Expected `{}`, received `{}`",
+            proto_out.surface_name().unwrap(),
+            proto_in.surface_name().unwrap(),
+        )))
+    } else {
+        Ok(())
     }
 }
 
@@ -192,13 +148,14 @@ impl Visitor for WellFormed {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Check if any of the cells use a reserved name.
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
+            // Check if any of the cells use a reserved name.
             if self.reserved_names.contains(&cell.name().id) {
                 return Err(Error::reserved_name(cell.clone_name())
                     .with_pos(cell.name()));
             }
+            // Check if a `ref` cell is invalid
             if cell.is_reference() {
                 if cell.is_primitive(Some("std_const")) {
                     return Err(Error::malformed_structure(

@@ -1,0 +1,17 @@
+import "primitives/core.futil";
+
+component foo() -> () {
+  cells {
+    @external r = std_reg(32);
+  }
+  wires {}
+  control {}
+}
+
+component main() -> () {
+  cells {
+    f = foo();
+  }
+  wires {}
+  control {}
+}
