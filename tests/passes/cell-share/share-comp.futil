@@ -1,0 +1,48 @@
+// -p cell-share
+
+import "primitives/core.futil";
+component add_5<"state_share"=1>(in:32) -> (out: 32) {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    group add_group{
+      add.left = 32'd5; 
+      add.right = in; 
+      r.write_en = 1'd1; 
+      r.in = add.out; 
+      add_group[done] = r.done;
+    }
+    out = r.out; 
+  }
+  control {
+    add_group; 
+  }
+}
+
+component main() -> () {
+  cells {
+    add0 = add_5();
+    add1 = add_5();
+    x_0 = std_reg(32);
+  }
+  wires {
+    group upd0 {
+      add0.go = 1'd1; 
+      add0.in = 32'd5;
+      upd0[done] = add0.done;
+    }
+    group upd1 {
+      add1.go = 1'd1; 
+      add1.in = 32'd8;
+      upd1[done] = add1.done;
+    }
+  }
+  control {
+    seq {
+      upd0;
+      upd1;
+    }
+  }
+}

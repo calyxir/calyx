@@ -237,7 +237,7 @@ impl Debug for LiveRangeAnalysis {
 }
 
 #[derive(Default, Clone)]
-struct ShareSet {
+pub struct ShareSet {
     shareable: HashSet<ir::Id>,
 }
 
@@ -247,7 +247,7 @@ impl ShareSet {
     }
     //given a set of shareable and a cell, determines whether cell's
     //type is shareable or not
-    fn is_shareable_component(&self, cell: &RRC<ir::Cell>) -> bool {
+    pub fn is_shareable_component(&self, cell: &RRC<ir::Cell>) -> bool {
         if let Some(type_name) = cell.borrow().type_name() {
             self.shareable.contains(type_name)
         } else {
@@ -340,7 +340,7 @@ impl LiveRangeAnalysis {
         let group = grp.borrow();
         let name = group.name();
         if !self.variable_like.contains_key(name) {
-            let res = VariableDetection::variable_like(grp);
+            let res = VariableDetection::variable_like(grp, &self.state_share);
             self.variable_like.insert(grp.clone_name(), res);
         }
         &self.variable_like[name]

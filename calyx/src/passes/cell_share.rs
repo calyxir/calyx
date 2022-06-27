@@ -131,11 +131,13 @@ impl ShareComponents for CellShare {
         F: FnMut(Vec<ir::Id>),
     {
         for group in comp.groups.iter() {
+            //println!("group name: {}: ", group.borrow().name().id.clone());
             let conflicts = self.live.get(group.borrow().name());
             add_conflicts(
                 conflicts
                     .iter()
                     .filter(|cell_name| {
+                        //println!("{}", cell_name);
                         !self.cont_ref_cells.contains(cell_name)
                     })
                     .cloned()

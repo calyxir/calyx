@@ -1,4 +1,5 @@
 use super::{GraphAnalysis, ReadWriteSet};
+use crate::analysis::live_range_analysis::ShareSet;
 use crate::ir;
 use ir::{CloneName, RRC};
 
@@ -7,16 +8,19 @@ pub struct VariableDetection;
 
 impl VariableDetection {
     /// A group is variable like if it:
-    ///  - only uses single register
-    ///  - has `write_en = 1'd1`
-    ///  - has `g[done] = reg.done`
+    ///  - only writes to a single cell that has type state_share
+    ///  - has `@go` port equal to `1'd1`
+    ///  - has `g[done] = cell.done`
     /// Returns the name of the register if such a group is detected,
     /// otherwise returns `None`.
-    pub fn variable_like(group_ref: &RRC<ir::Group>) -> Option<ir::Id> {
+    pub fn variable_like(
+        group_ref: &RRC<ir::Group>,
+        state_share: &ShareSet,
+    ) -> Option<ir::Id> {
         let group = group_ref.borrow();
 
         let writes = ReadWriteSet::write_set(group.assignments.iter())
-            .filter(|cell| cell.borrow().type_name() == Some(&"std_reg".into()))
+            .filter(|cell| state_share.is_shareable_component(cell))
             .collect::<Vec<_>>();
 
         if writes.len() != 1 {
@@ -25,12 +29,20 @@ impl VariableDetection {
         }
 
         let cell = writes[0].borrow();
-        // check if 1 is being written into write_en. This also checks
+
+        // check if 1 is being written into go port. This also checks
         // if guard is empty, because if it isn't this would show up as
         // a write
         let graph = GraphAnalysis::from(&*group);
         let activation = graph
-            .writes_to(&cell.get("write_en").borrow())
+            .writes_to(
+                &cell
+                    .ports
+                    .iter()
+                    .find(|port| port.borrow().attributes.has("go"))
+                    .unwrap_or_else(|| unreachable!("no go port on cell"))
+                    .borrow(),
+            )
             .map(|src| src.borrow().is_constant(1, 1))
             .collect::<Vec<_>>();
         if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
