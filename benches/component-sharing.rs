@@ -48,4 +48,4 @@ criterion_group! {
     config = Criterion::default().sample_size(20);
     targets = cell_share_bench
 }
-criterion_main!(CellShare);
+criterion_main!(cell_share);
