@@ -5,6 +5,7 @@ from pathlib import Path
 from fud import errors
 from fud.stages import Source, SourceType, Stage
 from fud.utils import TmpDir, shell, unwrap_or
+from fud import config as cfg
 
 from .json_to_dat import convert2dat, convert2json
 
@@ -30,7 +31,7 @@ class VerilatorStage(Stage):
 
         testbench_files = [
             str(
-                Path(config["global", "futil_directory"])
+                Path(config["global", cfg.ROOT])
                 / "fud"
                 / "sim"
                 / "testbench.cpp"

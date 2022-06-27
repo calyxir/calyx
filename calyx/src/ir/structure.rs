@@ -159,6 +159,35 @@ pub enum CellType {
     },
 }
 
+impl CellType {
+    /// Return the name associated with this CellType is present
+    pub fn get_name(&self) -> Option<&Id> {
+        match self {
+            CellType::Primitive { name, .. } | CellType::Component { name } => {
+                Some(name)
+            }
+            CellType::ThisComponent | CellType::Constant { .. } => None,
+        }
+    }
+
+    /// Generate string representation of CellType appropriate for error messages.
+    pub fn surface_name(&self) -> Option<String> {
+        match self {
+            CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            } => Some(format!(
+                "{}({})",
+                name,
+                param_binding.iter().map(|(_, v)| v.to_string()).join(", ")
+            )),
+            CellType::Component { name } => Some(name.to_string()),
+            CellType::ThisComponent | CellType::Constant { .. } => None,
+        }
+    }
+}
+
 /// Represents an instantiated cell.
 #[derive(Debug)]
 pub struct Cell {
@@ -283,13 +312,7 @@ impl Cell {
 
     /// Returns the name of the component that is this cells type.
     pub fn type_name(&self) -> Option<&Id> {
-        match &self.prototype {
-            CellType::Primitive { name, .. } | CellType::Component { name } => {
-                Some(name)
-            }
-            CellType::ThisComponent => Some(&self.name),
-            CellType::Constant { .. } => None,
-        }
+        self.prototype.get_name()
     }
 
     /// Get parameter binding from the prototype used to build this cell.

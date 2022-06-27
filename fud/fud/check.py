@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from packaging import version
 import sys
+from fud import config
 
 # Dictionary that defines how to check the version for different tools.
 # Maps names of stage to the command needed to check the tool.
@@ -115,7 +116,7 @@ def check(cfg):
     cfg.launch_wizard()
 
     # check global
-    futil_root = Path(cfg["global", "futil_directory"])
+    futil_root = Path(cfg["global", config.ROOT])
     futil_str = colored(str(futil_root), "yellow")
     cprint("global:", attrs=["bold"])
     if futil_root.exists():

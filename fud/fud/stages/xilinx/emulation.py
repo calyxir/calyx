@@ -6,6 +6,7 @@ from fud.stages import Stage, SourceType, Source
 from fud import errors
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
 from fud.utils import shell
+from fud import config as cfg
 
 
 class HwEmulationStage(Stage):
@@ -46,10 +47,10 @@ class HwEmulationStage(Stage):
         host_cpp = config["stages", self.name, "host"]
         save_temps = bool(config["stages", self.name, "save_temps"]) and config["stages", self.name, "save_temps"] == "true"
         xrt = (
-            Path(config["global", "futil_directory"]) / "fud" / "bitstream" / "xrt.ini"
+            Path(config["global", cfg.ROOT]) / "fud" / "bitstream" / "xrt.ini"
         )
         sim_script = (
-            Path(config["global", "futil_directory"])
+            Path(config["global", cfg.ROOT])
             / "fud"
             / "bitstream"
             / "sim_script.tcl"

@@ -6,6 +6,7 @@ from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
 from fud.stages.futil import FutilStage
 from fud.utils import shell
+from fud import config as cfg
 
 
 def get_ports(kernel_xml):
@@ -63,7 +64,7 @@ class XilinxStage(Stage):
 
         # tcl files
         self.gen_xo_tcl = (
-            Path(config["global", "futil_directory"])
+            Path(config["global", cfg.ROOT])
             / "fud"
             / "bitstream"
             / "gen_xo.tcl"
