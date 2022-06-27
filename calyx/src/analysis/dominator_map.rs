@@ -17,7 +17,7 @@ const END_ID: &str = "END_ID";
 #[derive(Default)]
 pub struct DominatorMap {
     /// Map from group names to the name of groups that dominate it
-    map: HashMap<u64, HashSet<u64>>,
+    pub map: HashMap<u64, HashSet<u64>>,
 }
 
 impl Debug for DominatorMap {
@@ -165,7 +165,7 @@ impl DominatorMap {
 
     //given a control c and a pointer, finds the control statement within c, if
     // it exists. If it doesn't return None.
-    fn get_control(id: u64, c: &ir::Control) -> Option<&ir::Control> {
+    pub fn get_control(id: u64, c: &ir::Control) -> Option<&ir::Control> {
         if matches!(c, ir::Control::Empty(_)) {
             return None;
         }
@@ -353,7 +353,8 @@ impl DominatorMap {
                 //node in the while body are either a) in the while loop, in
                 //which case we know it won't be a dominator of the while guard,
                 //or b) are outside the while loop, in which case we know they
-                //dominate at least one of the other predecessors of the while guard.
+                //dominate at least one of the other predecessors of the while guard,
+                //since all paths into the while loop must go through the while guard
                 DominatorMap::update_node(pred, cur_id, d_map);
 
                 //updating the while body
