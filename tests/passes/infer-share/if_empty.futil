@@ -1,4 +1,4 @@
-// -p infer-share
+// -p infer-share -x infer-share:print_dmap
 import "primitives/core.futil";
 component example() -> () {
   cells {
@@ -26,6 +26,8 @@ component example() -> () {
           par{A0;A1;}
         }
       }
+      seq{}
+      par{}
       Z;
     }    
   }

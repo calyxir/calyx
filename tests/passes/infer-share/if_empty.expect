@@ -27,11 +27,11 @@ group: 8
 1
 2
 8
-group: 9
+group: 11
 1
 2
 8
-9
+11
 }
 Domination Map {
 group: 1
@@ -68,7 +68,11 @@ component example(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           }
         }
       }
-      @NODE_ID(9) Z;
+      @NODE_ID(9) seq {
+      }
+      @NODE_ID(10) par {
+      }
+      @NODE_ID(11) Z;
     }
   }
 }

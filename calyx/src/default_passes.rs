@@ -74,6 +74,7 @@ impl PassManager {
                 CombProp,
                 RemoveCombGroups, // Must run before `infer-static-timing`.
                 InferStaticTiming,
+                InferShare,
                 MergeStaticPar,
                 DeadGroupRemoval,
                 StaticParConv, // Must be before `collapse-control`
