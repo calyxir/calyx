@@ -87,8 +87,8 @@ pub struct Invoke {
 #[derive(Debug)]
 pub struct Empty {}
 
-#[derive(Debug)]
 /// Control AST nodes.
+#[derive(Debug)]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq(Seq),
