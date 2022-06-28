@@ -49,7 +49,7 @@ class VivadoBaseStage(Stage):
             cmd = f"{self.remote_exec} {self.flags}"
 
         # Steps and schedule
-        local_tmpdir = self.setup_environment(verilog_path, config)
+        local_tmpdir = self.setup_environment(verilog_path, builder, config)
         if use_ssh:
             remote_exec = RemoteExecution(builder, self, config)
             remote_exec.import_libs()
