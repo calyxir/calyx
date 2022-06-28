@@ -97,6 +97,8 @@ impl ShareComponents for CellShare {
                 .map(|cell| cell.borrow().clone_name()),
         );
 
+        // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
+        // cells.
         self.live = LiveRangeAnalysis::new(
             comp,
             &*comp.control.borrow(),
@@ -105,12 +107,13 @@ impl ShareComponents for CellShare {
         );
     }
 
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id> {
+    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<&ir::Id> {
         self.live
             .get(group_name)
             .iter()
+            // TODO(rachit): Once we make the above change and LiveRangeAnalysis ignores
+            // cont_ref_cells during construction, we do not need this filter call.
             .filter(|cell_name| !self.cont_ref_cells.contains(cell_name))
-            .cloned()
             .collect()
     }
 

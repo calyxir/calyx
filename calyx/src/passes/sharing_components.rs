@@ -46,7 +46,7 @@ pub trait ShareComponents {
     /// Return a vector of conflicting cell names for a the group `group_name`.
     /// These are the names of the cells that conflict if their groups are
     /// run in parallel.
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<ir::Id>;
+    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<&ir::Id>;
 
     /// Given a cell and the library signatures, this function decides if
     /// this cell is relevant to the current sharing pass or not. This
@@ -121,7 +121,7 @@ impl<T: ShareComponents> Visitor for T {
                     for conflict in
                         self.lookup_group_conflicts(&conflicted_group)
                     {
-                        acc.entry(id_to_type[&conflict].clone())
+                        acc.entry(id_to_type[conflict].clone())
                             .or_default()
                             .push(conflict.clone())
                     }
@@ -133,11 +133,11 @@ impl<T: ShareComponents> Visitor for T {
             .into_iter()
             .for_each(|(group, conflict_group_b)| {
                 for a in self.lookup_group_conflicts(&group) {
-                    let g = graphs_by_type.get_mut(&id_to_type[&a]).unwrap();
-                    if let Some(confs) = conflict_group_b.get(&id_to_type[&a]) {
+                    let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
+                    if let Some(confs) = conflict_group_b.get(&id_to_type[a]) {
                         for b in confs {
                             if a != b {
-                                g.insert_conflict(&a, b);
+                                g.insert_conflict(a, b);
                             }
                         }
                     }
