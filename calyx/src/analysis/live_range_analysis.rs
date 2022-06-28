@@ -236,6 +236,7 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
+/// The type names of all components and primitives marked with "state_share".
 #[derive(Default)]
 pub struct ShareSet {
     shareable: HashSet<ir::Id>,
