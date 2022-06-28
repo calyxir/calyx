@@ -313,7 +313,7 @@ impl LiveRangeAnalysis {
             .into();
         match self.live.get_mut(group_name) {
             None => {
-                unreachable!("don't have live range for {}", group_name)
+                unreachable!("Missing live range for {}. This might happen if a group is not used int the control program", group_name)
             }
             Some(prop) => *prop = &*prop | &group_uses,
         }
