@@ -236,7 +236,7 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct ShareSet {
     shareable: HashSet<ir::Id>,
 }
@@ -363,12 +363,12 @@ impl LiveRangeAnalysis {
         &mut self,
         group_ref: &RRC<ir::Group>,
     ) -> (Prop, Prop) {
-        let sc_clone = self.state_share.clone();
-
         let group = group_ref.borrow();
+        let maybe_var = self.variable_like(group_ref).clone();
+        let sc_clone = &self.state_share;
         // if the group contains what looks like a variable write,
         // then just add variable to write set
-        if let Some(variable) = self.variable_like(group_ref) {
+        if let Some(variable) = maybe_var {
             // we don't want to read the control signal of `variable`
             let assignments = group
                 .assignments
