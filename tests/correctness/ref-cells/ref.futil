@@ -1,0 +1,69 @@
+// -p well-formed -p compile-external
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component add_one() -> () {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+    ref out = std_mem_d1(32, 1, 1);
+  }
+
+  wires {
+    group add_1 {
+      add.left = 32'd1;
+      add.right = 32'd1;
+      r.in = add.out;
+      r.write_en = 1'd1;
+      add_1[done] = r.done;
+    }
+    group reg_to_mem {
+      out.write_data = r.out;
+      out.addr0 = 1'd0;
+      out.write_en = 1'd1;
+      reg_to_mem[done] = out.done;
+    }
+  }
+
+  control {
+    seq {
+      add_1;
+      reg_to_mem;
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    adder = add_one();
+    @external mem = std_mem_d1(32, 1, 1);
+    add = std_add(32);
+    r = std_reg(32);
+  }
+
+  wires {
+    group add_1 {
+      add.left = mem.read_data;
+      mem.addr0 = 1'd0;
+      add.right = 32'd1;
+      r.in = add.out;
+      r.write_en = 1'd1;
+      add_1[done] = r.done;
+    }
+
+    group reg_to_mem {
+      mem.addr0 = 1'd0;
+      mem.write_data = r.out;
+      mem.write_en = 1'd1;
+      reg_to_mem[done] = mem.done;
+    }
+  }
+
+  control {
+    seq {
+      invoke adder[out = mem]()();
+      add_1;
+      reg_to_mem;
+    }
+  }
+}

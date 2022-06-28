@@ -1,9 +1,12 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
-    CompileInvoke, ComponentInliner, ComponentInterface, DeadCellRemoval,
+    CompileInvoke,  CompileRef, ComponentInliner, ComponentInterface, DeadCellRemoval,
     DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, HoleInliner,
     InferShare, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
+    CompileInvoke, CompileRef, ComponentInliner, ComponentInterface,
+    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
+    HoleInliner, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
     MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
     ResetInsertion, ResourceSharing, SimplifyGuards, StaticParConv,
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
@@ -43,6 +46,7 @@ impl PassManager {
         pm.register_pass::<RemoveCombGroups>()?;
         pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
+        pm.register_pass::<CompileRef>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -79,6 +83,7 @@ impl PassManager {
                 DeadGroupRemoval,
                 StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
+                CompileRef, //Must run before 'resource-sharing'.
                 ResourceSharing,
                 MinimizeRegs,
             ]
@@ -106,6 +111,13 @@ impl PassManager {
             pm,
             "all",
             ["validate", "pre-opt", "compile", "post-opt", "lower",]
+        );
+
+        // Compilation flow with no optimizations enables
+        register_alias!(
+            pm,
+            "no-opt",
+            ["validate", RemoveCombGroups, "compile", "lower"]
         );
 
         register_alias!(

@@ -1,0 +1,39 @@
+// -p well-formed 
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    ref m1 = std_reg(32);
+    ref m2 = std_const(2, 1);
+  }
+  wires {
+    group upd_m {
+      m1.in = 32'd10;
+      m1.write_en = 1'd1;
+      upd_m[done] = m1.done;
+    }
+  }
+
+  control {
+    upd_m;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    f = foo();
+    k1 = std_reg(32);
+    k2 = std_reg(32);
+    c1 = std_const(2, 1);
+    c2 = std_const(2, 1);
+  }
+  wires {
+  }
+
+  control {
+    seq {
+      invoke f[m1 = k1, m2 = c1]()();
+      invoke f[m1 = k2, m2 = c2]()();
+    }
+  }
+}

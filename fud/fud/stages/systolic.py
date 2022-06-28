@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from fud import config as cfg
 from fud.stages import SourceType, Stage
 from fud.utils import shell, unwrap_or
 
@@ -24,7 +25,7 @@ class SystolicStage(Stage):
 
     def _define_steps(self, input, builder, config):
         script = (
-            Path(config["global", "futil_directory"])
+            Path(config["global", cfg.ROOT])
             / "frontends"
             / "systolic-lang"
             / "gen-systolic.py"

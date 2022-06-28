@@ -1,0 +1,135 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external(1) A0 = std_mem_d1(32,8,4);
+    A_read0_0 = std_reg(32);
+    @external(1) B0 = std_mem_d1(32,8,4);
+    B_read0_0 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(4);
+    bin_read0_0 = std_reg(32);
+    const0 = std_const(4,0);
+    const1 = std_const(4,7);
+    dot_0 = std_reg(32);
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    mult_pipe0 = std_mult_pipe(32);
+    @external(1) v0 = std_mem_d1(32,1,1);
+    inpar = in_par();
+    afterpar = after_par();
+  }
+  wires {
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+     
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          invoke inpar[A_read = A_read0_0, B_read = B_read0_0, A = A0, B = B0, i0 = i0, bin_read = bin_read0_0, mult_pipe = mult_pipe0]()();
+          invoke afterpar[dot = dot_0, v = v0, adder0 = add0,
+          i = i0, adder1 = add1, bin_read=bin_read0_0]()();
+        }
+      }
+    }
+  }
+}
+
+component in_par() -> () {
+  cells {
+    ref A_read = std_reg(32);
+    ref B_read = std_reg(32);
+    ref A = std_mem_d1(32,8,4);
+    ref B = std_mem_d1(32,8,4);
+    ref i0 = std_reg(4);
+    ref bin_read = std_reg(32);
+    ref mult_pipe = std_mult_pipe(32);
+  }
+
+  wires {
+    group upd0<"static"=1> {
+      A_read.write_en = 1'd1;
+      A.addr0 = i0.out;
+      A_read.in = 1'd1 ? A.read_data;
+      upd0[done] = A_read.done ? 1'd1;
+    }
+    group upd1<"static"=1> {
+      B_read.write_en = 1'd1;
+      B.addr0 = i0.out;
+      B_read.in = 1'd1 ? B.read_data;
+      upd1[done] = B_read.done ? 1'd1;
+    }
+    group let1<"static"=4> {
+      bin_read.in = mult_pipe.out;
+      bin_read.write_en = mult_pipe.done;
+      let1[done] = bin_read.done;
+      mult_pipe.left = A_read.out;
+      mult_pipe.right = B_read.out;
+      mult_pipe.go = !mult_pipe.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq{
+    par {
+      upd0;
+      upd1;
+    }
+    let1;
+    }
+  }
+}
+
+component after_par() -> () {
+  cells {
+    ref dot = std_reg(32);
+    ref v = std_mem_d1(32,1,1);
+    ref adder0 = std_add(32);
+    ref i = std_reg(4);
+    ref adder1 = std_add(4);
+    ref bin_read = std_reg(32);
+    const2 = std_const(1,0);
+    const3 = std_const(4,1);
+  }
+
+  wires {
+    group let2<"static"=1> {
+      dot.in = bin_read.out;
+      dot.write_en = 1'd1;
+      let2[done] = dot.done;
+    }
+    group upd2<"static"=1> {
+      v.write_en = 1'd1;
+      adder0.left = v.read_data;
+      adder0.right = dot.out;
+      v.addr0 = const2.out;
+      v.write_data = 1'd1 ? adder0.out;
+      upd2[done] = v.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i.write_en = 1'd1;
+      adder1.left = i.out;
+      adder1.right = const3.out;
+      i.in = 1'd1 ? adder1.out;
+      upd3[done] = i.done ? 1'd1;
+    }
+  }
+
+  control {
+    seq{
+      let2;
+      upd2;
+      upd3;
+    }
+  }
+}

@@ -424,7 +424,7 @@ impl Schedule<'_> {
         let time_option = con.attributes.get("static");
         if time_option.is_none() {
             return Err(Error::pass_assumption(
-            TopDownStaticTiming::name().to_string(),
+            TopDownStaticTiming::name(),
             "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
         )
         .with_pos(&con.attributes));
