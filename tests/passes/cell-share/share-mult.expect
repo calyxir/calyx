@@ -1,0 +1,99 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external A0 = std_mem_d1(32, 2, 2);
+    A_read0_0 = std_reg(32);
+    A_read1_0 = std_reg(32);
+    @external B0 = std_mem_d1(32, 2, 2);
+    B_read0_0 = std_reg(32);
+    B_read1_0 = std_reg(32);
+    bin_read0_0 = std_reg(32);
+    bin_read1_0 = std_reg(32);
+    const0 = std_const(2, 0);
+    const1 = std_const(2, 0);
+    const2 = std_const(2, 0);
+    const3 = std_const(2, 0);
+    mult_pipe0 = std_mult_pipe(32);
+    mult_pipe1 = std_mult_pipe(32);
+    x_0 = std_reg(32);
+    y_0 = std_reg(32);
+  }
+  wires {
+    group prelet0 {
+      mult_pipe0.left = A_read0_0.out;
+      mult_pipe0.right = B_read0_0.out;
+      mult_pipe0.go = 1'd1;
+      prelet0[done] = mult_pipe0.done;
+    }
+    group let0 {
+      A_read0_0.in = mult_pipe0.out;
+      A_read0_0.write_en = 1'd1;
+      let0[done] = A_read0_0.done;
+    }
+    group let1<"static"=1> {
+      B_read0_0.in = A_read0_0.out;
+      B_read0_0.write_en = 1'd1;
+      let1[done] = B_read0_0.done;
+    }
+    group prelet2 {
+      mult_pipe0.left = A_read0_0.out;
+      mult_pipe0.right = B_read0_0.out;
+      mult_pipe0.go = 1'd1;
+      prelet2[done] = mult_pipe0.done;
+    }
+    group let2 {
+      A_read0_0.in = mult_pipe0.out;
+      A_read0_0.write_en = 1'd1;
+      let2[done] = A_read0_0.done;
+    }
+    group let3<"static"=1> {
+      B_read0_0.in = A_read0_0.out;
+      B_read0_0.write_en = 1'd1;
+      let3[done] = B_read0_0.done;
+    }
+    group upd0<"static"=1> {
+      A_read0_0.write_en = 1'd1;
+      A0.addr0 = const0.out;
+      A_read0_0.in = A0.read_data;
+      upd0[done] = A_read0_0.done;
+    }
+    group upd1<"static"=1> {
+      B_read0_0.write_en = 1'd1;
+      B0.addr0 = const1.out;
+      B_read0_0.in = B0.read_data;
+      upd1[done] = B_read0_0.done;
+    }
+    group upd2<"static"=1> {
+      A_read0_0.write_en = 1'd1;
+      A0.addr0 = const0.out;
+      A_read0_0.in = A0.read_data;
+      upd2[done] = A_read0_0.done;
+    }
+    group upd3<"static"=1> {
+      B_read0_0.write_en = 1'd1;
+      B0.addr0 = const1.out;
+      B_read0_0.in = B0.read_data;
+      upd3[done] = B_read0_0.done;
+    }
+  }
+
+  control {
+    seq {
+      par {
+        upd0;
+        upd1;
+      }
+      prelet0;
+      let0;
+      let1;
+      par {
+        upd2;
+        upd3;
+      }
+      prelet2;
+      let2;
+      let3;
+    }
+  }
+}

@@ -1,11 +1,11 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    Canonicalize, ClkInsertion, CollapseControl, CombProp, CompileEmpty,
-    CompileInvoke, CompileRef, ComponentInliner, ComponentInterface,
-    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
-    HoleInliner, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
-    MinimizeRegs, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
-    ResetInsertion, ResourceSharing, SimplifyGuards, StaticParConv,
+    Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
+    CompileEmpty, CompileInvoke, CompileRef, ComponentInliner,
+    ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
+    GoInsertion, GroupToInvoke, HoleInliner, InferStaticTiming, LowerGuards,
+    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
+    RemoveCombGroups, ResetInsertion, SimplifyGuards, StaticParConv,
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
     UnrollBounded, WellFormed, WireInliner,
 };
@@ -29,10 +29,9 @@ impl PassManager {
         pm.register_pass::<ComponentInliner>()?;
         pm.register_pass::<CollapseControl>()?;
         pm.register_pass::<CompileEmpty>()?;
-        pm.register_pass::<ResourceSharing>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;
-        pm.register_pass::<MinimizeRegs>()?;
+        pm.register_pass::<CellShare>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<StaticParConv>()?;
@@ -79,8 +78,7 @@ impl PassManager {
                 StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.
-                ResourceSharing,
-                MinimizeRegs,
+                CellShare,
             ]
         );
         register_alias!(pm, "compile", [CompileInvoke, TopDownCompileControl]);

@@ -32,7 +32,7 @@ pub struct If {
     /// Control for the true branch.
     pub tbranch: Box<Control>,
 
-    /// Control for the true branch.
+    /// Control for the false branch.
     pub fbranch: Box<Control>,
 
     /// Attributes attached to this control statement.
