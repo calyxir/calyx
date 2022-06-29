@@ -11,7 +11,7 @@ component mac_pe(top: 32, left: 32) -> (down: 32, right: 32) {
     mul_reg = std_reg(32);
     // Computation
     add = std_add(32);
-    mul = std_mult(32);
+    mul = std_mult_pipe(32);
   }
 
   wires {
