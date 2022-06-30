@@ -7,12 +7,77 @@ const NODE_ID: &str = "NODE_ID";
 const BEGIN_ID: &str = "BEGIN_ID";
 const END_ID: &str = "END_ID";
 
-/// Builds a Domination Map for the control program. It maps control statement
-/// ids to sets of control statement ids. In the context of the domination map,
-/// the id of a while loop refers to the guard condition. The begin and end id
-/// of an if statement refer to the guard and "end node" of the if statement.
-/// The id of invokes and enables refer to the invoke and enable statements themselves.
-/// The ids of seqs and pars should not be included in the map.
+/// Builds a Domination Map for the control program.
+///
+/// Note about NODE_ID, BEGIN_ID, and END_ID
+/// These are attributes that are attached to control statements, so that we can
+/// easily identify them. In a given Calyx component, we attach
+/// a unique NODE_ID to each Seq, Par, While, Enable, and Invoke,
+/// and we attach a BEGIN_ID and END_ID to each if control statement. There
+/// should be no repeats among ids, even between BEGIN_ID, END_ID, and NODE_ID.
+/// In other words, if some control stmt in a component gets NODE_ID = 10, then
+/// no other control statement in the component can have NODE_ID, BEGIN_ID, or
+/// END_ID equal to 10. We assign IDs by recursively going through the control of a
+/// program, making sure to attach a unique id to each (non-empty) control
+/// statement in the program.
+///
+/// In the context of the domination_map, which maps u64s (ID of a control stmt)
+/// to sets of u64s (IDs of the control stmts that dominate it), the ids represent
+/// what would be the nodes of the CFG. For this reason, the ids of seqs and pars
+/// should never make it into the domination map (they are used, however, to help
+/// build the domination map). Furthermore, the NODE_ID of a while statement
+/// refers to the while guard, not the body. So if the NODE_ID corresponding to
+/// some while statement dominates a node, we are only saying that the guard
+/// dominates it, not the entire body of the while. Similarly, the BEGIN_ID
+/// of an if stmt, refers to the if guard, not either of its branches.  
+/// The END_ID of an if statement refers to a node that occurs after
+/// the if stmt finishes executing; there is no actual Calyx code that END_ID
+/// is referring to. The NODE_ID of an invoke refers to the execution of the
+/// invoke stmt itself, and the NODE_ID of an enable refers to the execution
+/// of the group.
+///
+/// We build the domination map through the following algorithm:
+/// 1) The map starts out mapping each node to the empty set.
+/// 2) We run the `update_map` method, which visits each node, gets its predecessors,
+/// and takes the union of the dominators of each predecessor, plus itself, and
+/// updates this set as the dominators. In other words: at each node,  
+/// `dom(node) = (U {dom(p) | p are all predecessors of node}) U {node}`
+/// 3)Run `update_map` until the map stops changing.
+///
+/// The reason why we can take the union is that we know that all of the predecessors
+/// of each node are guaranteed to be executed before each node. This is the reason
+/// we added an "end node" to if statements, since we can think of this "end node"
+/// of an if statmeent as guaranteed to be executed.
+/// You may be thinking that there are actually predecessors of some nodes that
+/// are not guaranteed to be executed. This happens in two cases: The
+/// "end node" of if stmts and the "while guard". Let's first talk about the
+/// while guard. It is true that the "while guard" has predecessor(s)-- the last
+/// statement(s) in the while body-- that is not guaranteed to execute.
+///
+/// We can think of the while guard's predecessors in two camps: the "body predecessors"
+/// that are not guaranteed to be executed before the while guard and the
+/// "outside predecessors" that are outside the body of the while loop and are guaranteed
+/// to be executed before the while loop guard. Since there is now a set of predecessors
+/// that may *not* be executed before the while guard, you may
+/// be tempted to take U(dom(outside preds)) intersect U(dom(body preds))  
+/// plus the while guard itself, to get the dominators of the while guard.
+/// This is indeed a correct way to calculate the dominators of the while guard.
+/// However, we know that any dominators of the "outside predeecessors" must also
+/// dominate "body predecessors", since in order to get to the body of a while loop
+/// you must go through the while guard. Therefore, we know U dom(other preds) is a subset
+/// of U dom(body preds). Therefore, taking the intersection will just yield U(dom(outside preds)).
+/// Therefore, we can simply ignore the last statement(s) in the while body as predecessors
+/// of the while guard when doing our calculations.
+/// Similar logic applies for why we can ignore the last statment(s) of the true/false branches
+/// of the if statement as predecessors of the "end node" of the if statemetn,
+/// and just take the dominators of the if guard
+/// plus the end node itself as the dominators of the end node of an if statement.
+/// We know that every dominator of the if guard must also dominate the last statement(s)
+/// of the true and false branches of the if statement. Also, we know that these
+/// dominators will be the *only* common dominators of the last statement(s) of the
+/// true/false branches: all the other dominators will be in either the true of false
+/// branches themselves, in which case there is no overlap.
+
 #[derive(Default)]
 pub struct DominatorMap {
     /// Map from group names to the name of groups that dominate it
@@ -380,14 +445,6 @@ impl DominatorMap {
                 }
             }
             ir::Control::While(ir::While { body, .. }) => {
-                //when we update the guard of the while loop, we can ignore one
-                //predecessor: the last node in the body of the while loop.
-                //While this is a predecessor, since the dominators of the last
-                //node in the while body are either a) in the while loop, in
-                //which case we know it won't be a dominator of the while guard,
-                //or b) are outside the while loop, in which case we know they
-                //dominate at least one of the other predecessors of the while guard,
-                //since all paths into the while loop must go through the while guard
                 Self::update_node(pred, cur_id, d_map);
 
                 //updating the while body
@@ -415,10 +472,6 @@ impl DominatorMap {
                     Self::update_map(main_c, f_id, &if_guard_set, d_map);
                 }
 
-                //Similar logic to while: we can ignore anything
-                //inside either the tbranch or fbranch when calculatign the dominators
-                //and just take the
-                //predecessors of the if guard to build the dominators of end_id
                 let end_id = Self::get_guaranteed_attribute(c, END_ID);
                 Self::update_node(&if_guard_set, end_id, d_map)
             }

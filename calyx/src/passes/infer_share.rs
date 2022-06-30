@@ -33,7 +33,20 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
         _ => true,
     }
 }
-
+/// Conservatively adds attribute "state_share" to user defined state shareable components.
+/// Here is the procedure used to determine whether or not a user-defined component
+/// is state-shareable or not.
+/// If the component contains any ref cells or instances of any non-state-shareable
+/// components, then we know to *not* add the state_share attribute.
+/// We look at each read from a state shareable component. If each read from a
+/// state shareable component is dominated by a write to that component, then we know
+/// that the component is state shareable.
+/// A few notes:
+/// We look for possible reads and guaranteed writes in order to be sure that
+/// each read is dominated by a write. Also, a read and write in the same invoke
+/// or group does *not* count as the read being dominated by a write, since
+/// we do not know the actual order and we want to be conservative about adding
+/// the state_share pass.
 pub struct InferShare {
     print_dmap: bool,
     state_shareable: ShareSet,
@@ -121,14 +134,14 @@ impl Visitor for InferShare {
                 DominatorMap::get_control(*node, &comp.control.borrow())
             {
                 //as long as node does not refer to the end node of an if stmt (because
-                //then the reads should just be an empty set), then add reads.
+                //then the reads should just be an empty set), then try to add reads.
                 if not_end_id(c, *node) {
                     reads.get_reads_from_control(c, &self.state_shareable);
                 }
             }
 
-            //if read and write occur in same group/invoke, then we cannot label it
-            //shareable. So we remove node from its dominators
+            //Read/Write occuring in the same group.invoke does *not* count as
+            //a read dominating a write. So we remove node from dominators.
             dominators.remove(node);
             for cell_name in reads.reads.clone() {
                 let key = NameSearch::new(cell_name);

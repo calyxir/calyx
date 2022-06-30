@@ -35,7 +35,6 @@ impl ShareSet {
                 shareable.insert(prim.name.clone());
             }
         }
-        // add state_share=1 user defined components to the state_shareable set
         for comp in &ctx.components {
             if comp.attributes.has(keyword) {
                 shareable.insert(comp.name.clone());
