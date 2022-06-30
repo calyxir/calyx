@@ -1,5 +1,5 @@
 use crate::{
-    analysis::{ReadWriteSet, VariableDetection},
+    analysis::{ReadWriteSet, ShareSet, VariableDetection},
     ir::{self, CloneName, RRC},
 };
 use itertools::Itertools;
@@ -233,27 +233,6 @@ impl Debug for LiveRangeAnalysis {
             writeln!(f, "  {}: {:?}", k.id, v)?;
         }
         write!(f, "}}")
-    }
-}
-
-/// The type names of all components and primitives marked with "state_share".
-#[derive(Default)]
-pub struct ShareSet {
-    shareable: HashSet<ir::Id>,
-}
-
-impl ShareSet {
-    fn new(set: HashSet<ir::Id>) -> ShareSet {
-        ShareSet { shareable: set }
-    }
-    //given a set of shareable and a cell, determines whether cell's
-    //type is shareable or not
-    pub fn is_shareable_component(&self, cell: &RRC<ir::Cell>) -> bool {
-        if let Some(type_name) = cell.borrow().type_name() {
-            self.shareable.contains(type_name)
-        } else {
-            false
-        }
     }
 }
 

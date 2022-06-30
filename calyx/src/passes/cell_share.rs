@@ -59,7 +59,7 @@ impl ConstructVisitor for CellShare {
             if comp.attributes.has("state_share") {
                 state_shareable.insert(comp.name.clone());
             }
-            //it seems like we never want to have a "share" user-defined components
+            //it seems like we never want to have "share" user-defined components
         }
 
         Ok(CellShare {

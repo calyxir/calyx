@@ -114,8 +114,24 @@ frontend.
 
 ### `share`
 Can be attached to a component and indicates that a component can be shared
-across groups. This is used by the `-p resource-sharing` to decide which components
+across groups. This is used by the `-p cell-share` to decide which components
 can be shared.
+
+### `state_share`
+Can be attached to a component and indicates that a component can be shared
+across groups. Different than `share` since `state_share` components can have
+internal state.  
+This is used by `-p cell-share` to decide which components can be shared.
+Specifically, a component is state shareable if each write to 
+that component makes any previous writes to the component irrelevant. 
+The definition of a "write to a component" is an activiation of 
+the component's "go" port.  
+For `c1` and `c2`, instances of a state_shareable component:
+instantiate `c1`                        instantiate `c2`
+*any write to `c1`*                     *any write to `c2`*   
+*write value `v` to port `p` in `c1`*   *write value `v` to port `p` in `c2`*   
+`c1` and `c2` should be equal.  
+
 
 ### `bound(n)`
 Used in `infer-static-timing` and `static-timing` when the number of iterations

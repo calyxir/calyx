@@ -3,11 +3,11 @@ use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, ComponentInliner,
     ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GroupToInvoke, HoleInliner, InferStaticTiming, LowerGuards,
-    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveCombGroups, ResetInsertion, SimplifyGuards, StaticParConv,
-    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner,
+    GoInsertion, GroupToInvoke, HoleInliner, InferShare, InferStaticTiming,
+    LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
+    RegisterUnsharing, RemoveCombGroups, ResetInsertion, SimplifyGuards,
+    StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -31,6 +31,7 @@ impl PassManager {
         pm.register_pass::<CompileEmpty>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;
+        pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
@@ -78,6 +79,7 @@ impl PassManager {
                 StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.
+                InferShare,
                 CellShare,
             ]
         );
