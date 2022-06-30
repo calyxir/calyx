@@ -68,7 +68,8 @@ impl Prop {
 
 /// This analysis implements a parallel version of a classic liveness analysis.
 /// For each group, it returns a list of the registers that are "alive" during
-/// an execution of a group.
+/// an execution of a group or invoke statement (we identify an invoke statement
+/// by the cell that is being invoked). 
 ///
 /// ## Parallel Analog to a CFG
 /// The `par` statement introduces a new kind of control branching that can
@@ -440,24 +441,31 @@ impl LiveRangeAnalysis {
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
     ) -> (Prop, Prop) {
-        let reads: Prop = invoke
+        let mut read_set = invoke
             .inputs
             .iter()
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<HashSet<ir::Id>>()
-            .into();
+            .collect::<HashSet<ir::Id>>();
+        if !invoke.outputs.is_empty(){
+            read_set.insert(invoke.comp.borrow().name().clone());
+        }
+        let reads:Prop = read_set.into();
+            
 
-        let writes: Prop = invoke
+        let mut write_set = invoke
             .outputs
             .iter()
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<HashSet<ir::Id>>()
-            .into();
-
+            .collect::<HashSet<ir::Id>>();
+        if !invoke.inputs.is_empty(){
+            write_set.insert(invoke.comp.borrow().name().clone());
+        }
+        let writes :Prop = write_set.into();
+        
         (reads, writes)
     }
 }
@@ -479,6 +487,9 @@ fn build_live_ranges(
                 &lr.state_share,
             );
             let alive = alive.transfer(&reads, &writes);
+            // set the live set of this node to be the things live on the
+            // output of this node plus the things written to in this invoke
+            lr.live.insert(invoke.comp.borrow().name().clone(), &alive | &writes);
             (alive, &gens | &reads, &kills | &writes)
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {

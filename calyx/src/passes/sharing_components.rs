@@ -25,7 +25,7 @@ use std::collections::HashMap;
 ///
 /// The algorithm that runs is:
 ///  - instantiate conflict graph using all component cells that satisfy `cell_filter`
-///  - use [ScheduleConflicts] to find groups that run in parallel with each other
+///  - use [ScheduleConflicts] to find groups/invokes that run in parallel with each other
 ///  - for each group, `G` that runs in parallel with another group `H`, add edges between each
 ///  cell in the sets `lookup_group_conflicts(G)` and `lookup_group_conflicts(H)`.
 ///  - add conflicts between cells where for `c0 != c1`
