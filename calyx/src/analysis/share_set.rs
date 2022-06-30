@@ -20,8 +20,8 @@ impl ShareSet {
 
     ///Constructs a shareset from the context. Looks for "state_share" types if 
     ///is_state_share is true, and "share" types otherwise. 
-    pub fn from_context(ctx: &ir::Context, is_state_share: bool) -> Self {
-        let keyword = if is_state_share{
+    pub fn from_context<const IS_STATE_SHARE: bool>(ctx: &ir::Context) -> Self {
+        let keyword = if IS_STATE_SHARE{
             "state_share"
         }
         else{
@@ -40,7 +40,7 @@ impl ShareSet {
             }
         }
         ShareSet {
-            shareable, is_state_share
+            shareable, is_state_share: IS_STATE_SHARE
         }
     }
 
