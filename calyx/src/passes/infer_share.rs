@@ -71,17 +71,11 @@ impl ConstructVisitor for InferShare {
     {
         let opts = Self::get_opts(&["print_dmap"], ctx);
 
-        let mut state_shareable = HashSet::new();
-        // add state_share=1 primitives to the state_shareable set
-        for prim in ctx.lib.signatures() {
-            if prim.attributes.has("state_share") {
-                state_shareable.insert(prim.name.clone());
-            }
-        }
+        let state_shareable = ShareSet::from_context(ctx, true); 
 
         Ok(InferShare {
             print_dmap: opts[0],
-            state_shareable: ShareSet::new(state_shareable),
+            state_shareable,
             no_share: HashSet::new(),
             main: ctx.entrypoint.clone(),
         })
