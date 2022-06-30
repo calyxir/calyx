@@ -136,12 +136,20 @@ and you need to tell XRT whether you want `hw_emu` (emulation) or `hw` (actual o
 Of course, it would be better if all this could come from fud's configuration itself instead of requiring you to set it up ahead of time;
 [issue #872](https://github.com/cucapra/calyx/issues/872) covers this work.
 
-In emulation mode, this stage can produce a waveform trace in Xilinx's proprietary [WDB][] file format.
-Use `-s fpga.waveform true -s fpga.save_temps true` to collect a WDB.
-The first option instructs XRT to use [the `batch` debug mode][xrt-debug], and the second asks fud not to delete the directory where the WDB file will appear.
+#### Waveform Debugging
+
+In emulation mode, this stage can produce a waveform trace in Xilinx's proprietary [WDB][] file format as well as a standard [VCD][] file.
+
+Use the fud options `-s fpga.waveform true -s fpga.save_temps true` when emulating your program.
+The first option instructs XRT to use [the `batch` debug mode][xrt-debug] and to dump a VCD, and the second asks fud not to delete the directory where the waveform files will appear.
+
+Then, look in the resulting directory, which will be named `fud-out-*` for some `*`.
+In there, the Xilinx trace files you want are named `*.wdb` and `*.wcfg`.
+The VCD file is at `.run/*/hw_em/device0/binary_0/behav_waveform/xsim/dump.vcd` or similar.
 
 [emconfig.json]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/emconfigutil-Utility
 [xrt-debug]: https://xilinx.github.io/Vitis_Accel_Examples/2021.1/html/debug_profile.html
+[vcd]: https://en.wikipedia.org/wiki/Value_change_dump
 
 ### Emulate
 
