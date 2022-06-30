@@ -118,7 +118,7 @@ fn get_attr(stmt: &ir::Control, s: &str) -> Option<u64> {
 
 /// Caleb Note: This is a copy+ paste from the tdcc pass that I edited slightly.
 /// We should unify at some point.
-/// Adds the @NODE_ID attribute to all control stmts except emtpy ones.
+/// Adds a unique @NODE_ID attribute to all control stmts except emtpy ones.
 /// Also, for If stmts, instead of an @NODE_ID, it gets a beginning and end
 /// id.
 ///
