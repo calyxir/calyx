@@ -425,7 +425,7 @@ impl LiveRangeAnalysis {
                 Self::port_to_cell_name(src, shareable_components)
             })
             .collect::<HashSet<ir::Id>>();
-        if !invoke.outputs.is_empty(){
+        if !invoke.outputs.is_empty() && shareable_components.is_shareable_component(&invoke.comp){
             read_set.insert(invoke.comp.borrow().name().clone());
         }
         let reads:Prop = read_set.into();
@@ -438,7 +438,7 @@ impl LiveRangeAnalysis {
                 Self::port_to_cell_name(src, shareable_components)
             })
             .collect::<HashSet<ir::Id>>();
-        if !invoke.inputs.is_empty(){
+        if !invoke.inputs.is_empty() && shareable_components.is_shareable_component(&invoke.comp){
             write_set.insert(invoke.comp.borrow().name().clone());
         }
         let writes :Prop = write_set.into();
