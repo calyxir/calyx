@@ -241,11 +241,11 @@ impl LiveRangeAnalysis {
     pub fn new(
         comp: &ir::Component,
         control: &ir::Control,
-        state_share: HashSet<ir::Id>,
-        shareable: HashSet<ir::Id>,
+        state_share: ShareSet,
+        shareable: ShareSet,
     ) -> Self {
         let mut ranges = LiveRangeAnalysis {
-            state_share: ShareSet::new(state_share),
+            state_share,
             ..Default::default()
         };
 
@@ -257,20 +257,18 @@ impl LiveRangeAnalysis {
             &mut ranges,
         );
 
-        let share_set = ShareSet::new(shareable);
-
         //adds (non-state) shareable cells as live in the group they're contained in
         comp.groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
-                &share_set,
+                &shareable,
                 group.borrow().name(),
             )
         });
         comp.comb_groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
-                &share_set,
+                &shareable,
                 group.borrow().name(),
             )
         });

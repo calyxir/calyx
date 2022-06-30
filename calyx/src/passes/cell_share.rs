@@ -1,7 +1,7 @@
 use super::sharing_components::ShareComponents;
 use crate::errors::CalyxResult;
 use crate::{
-    analysis::{LiveRangeAnalysis, ReadWriteSet},
+    analysis::{LiveRangeAnalysis, ReadWriteSet, ShareSet},
     ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
 };
 use std::collections::{HashMap, HashSet};
@@ -23,10 +23,10 @@ pub struct CellShare {
     live: LiveRangeAnalysis,
     rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
     /// Set of state shareable components (as type names)
-    state_shareable: HashSet<ir::Id>,
+    state_shareable: ShareSet,
 
     /// Set of shareable components (as type names)
-    shareable: HashSet<ir::Id>,
+    shareable: ShareSet,
 
     /// Cell active in continuous assignments, or ref cells (we want to ignore both)
     cont_ref_cells: HashSet<ir::Id>,
@@ -43,24 +43,8 @@ impl Named for CellShare {
 
 impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
-        let mut state_shareable = HashSet::new();
-        let mut shareable = HashSet::new();
-        // add state_share=1 primitives to the state_shareable set
-        for prim in ctx.lib.signatures() {
-            if prim.attributes.has("share") {
-                shareable.insert(prim.name.clone());
-            } else if prim.attributes.has("state_share") {
-                state_shareable.insert(prim.name.clone());
-            }
-        }
-
-        // add state_share=1 user defined components to the state_shareable set
-        for comp in &ctx.components {
-            if comp.attributes.has("state_share") {
-                state_shareable.insert(comp.name.clone());
-            }
-            //it seems like we never want to have "share" user-defined components
-        }
+        let state_shareable = ShareSet::from_context(ctx, true);
+        let shareable = ShareSet::from_context(ctx, false);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
