@@ -11,17 +11,6 @@ use std::{rc::Rc};
 const BEGIN_ID: &str = "BEGIN_ID";
 const END_ID: &str = "END_ID";
 
-//given an RRC of a cell, determines if cell is a std_mem_cell. There may be an 
-//easier way to do this.
-fn is_std_mem(cell: &ir::Cell) -> bool{
-    match &cell.prototype{
-        ir::CellType::Primitive {name, ..}=> { 
-            let cell_name = name.id.clone();
-            cell_name == "std_mem_d1" || cell_name == "std_mem_d2" || cell_name == "std_mem_d3" || cell_name == "std_mem_d4"}
-        _ => false
-    }
-}
-
 //Inputs are a control statement c and a u64 id. If control is an if statment, then 
 //the id should refer to either the begin or end id of stmt c. Returns true if id refers 
 // to the begin id and false if it refers to the end id. If it is not an if statement, behavior
@@ -73,10 +62,14 @@ impl ConstructVisitor for InferShare {
 
         let state_shareable = ShareSet::from_context::<true>(ctx); 
 
+        let mem_cells = HashSet::from([ir::Id::new("std_mem_d1",
+         None), ir::Id::new("std_mem_d2", None), ir::Id::new("std_mem_d3",None), 
+         ir::Id::new("std_mem_d4", None)]);
+
         Ok(InferShare {
             print_dmap: opts[0],
             state_shareable,
-            no_share: HashSet::new(),
+            no_share: mem_cells,
             main: ctx.entrypoint.clone(),
         })
     }
@@ -107,7 +100,6 @@ impl Visitor for InferShare {
                     Some(name) => self.no_share.contains(name),
                     None => false,
                 }
-                || is_std_mem(&cell_ref)
         }) {
             self.no_share.insert(comp.name.clone());
             return Ok(Action::Continue);
