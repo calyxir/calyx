@@ -17,6 +17,12 @@ const END_ID: &str = "END_ID";
 pub struct DominatorMap {
     /// Map from group names to the name of groups that dominate it
     pub map: HashMap<u64, HashSet<u64>>,
+    /// Maps ids of control stmts, to the "last" control stmts in them. One *very* 
+    /// important thing to note is that this does *not* map control stmt ids to 
+    /// their predecessors. It maps control stmt ids to the statement that *will*
+    /// be the predecessors to the stmt directly following it. For invokes and enables, 
+    /// this is just itself. But for seqs, for example, this will be the final invokes/enables
+    /// in the seq. This is a bit confusing... so it may be wise to change the name. 
     pub pred_map: HashMap<u64, HashSet<u64>>,
 }
 
@@ -235,6 +241,9 @@ impl DominatorMap {
         }
     }
 
+    //Builds the "predecessor map" of c. Read documentation on what this is actually 
+    //building. This is *not* building a map of control stmt ids to their predecessors. 
+    //We do that "on the fly" in the "update_map" method. 
     fn build_predecessor_map(
         c: &ir::Control,
         final_map: &mut HashMap<u64, HashSet<u64>>,
