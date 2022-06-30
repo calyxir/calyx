@@ -153,8 +153,8 @@ impl Visitor for InferShare {
     }
 }
 
-///Containing the ids of all the cells that are read from in a given "node" in
-/// the domination map graph
+///Contains the ids of all the cells that are read from in a given "node" in
+///the domination map graph
 #[derive(Default)]
 struct ReadSet {
     pub reads: HashSet<ir::Id>,
@@ -177,21 +177,21 @@ impl ReadSet {
     //if the assignment reads only dones, return true. This is used so that we 
     //can ignore reads of "done" cells. 
     fn reads_only_dones(assignment: &ir::Assignment) -> bool {
-        Self::is_done_port(&assignment.src) || Self::guard_only_dones(&assignment.guard)
+        Self::is_done_port(&assignment.src) && Self::guard_only_dones(&assignment.guard)
     }
 
-    //returns true if port is a "done" port
+    //returns true if port is a "done" port or is a constant
     fn is_done_port(port: &ir::RRC<ir::Port>) -> bool{
-        port.borrow().name.id == "done"
+        port.borrow().name.id == "done" || port.borrow().is_constant(1,1)
     }
 
-    //returns true if guard only contains dones
+    //returns true if guard only contains dones, or is true
     fn guard_only_dones(guard: &ir::Guard) -> bool{
         match guard{
             ir::Guard::Or(g1, g2) | ir::Guard::And(g1, g2) => {
                 Self::guard_only_dones(g1) && Self::guard_only_dones(g2)}, 
             ir::Guard::Not(g) => Self::guard_only_dones(g), 
-            ir::Guard::True => false, 
+            ir::Guard::True => true, 
             ir::Guard::CompOp(_, p1, p2)=> Self::is_done_port(p1) && Self::is_done_port(p2), 
             ir::Guard::Port(p) => Self::is_done_port(p),
         }
@@ -199,7 +199,7 @@ impl ReadSet {
     }
 
     //Adds the ids of any state_shareable cells that are read from in assignments, 
-    //excluding reads where the only read is from the "done" port. 
+    //excluding reads where the only reads are from "done" ports. 
     fn add_assignment_reads(
         &mut self,
         share: &ShareSet,
@@ -217,6 +217,7 @@ impl ReadSet {
     }
 
     //Given a control statement c, adds all of the reads of shareable cells from c. 
+    //For while loops and if stmts, the control refers only to the guard, not the body.
     fn get_reads_from_control(
         &mut self,
         c: &ir::Control,
