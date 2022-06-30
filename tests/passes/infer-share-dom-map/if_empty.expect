@@ -1,0 +1,83 @@
+Domination Map {
+group: 1
+1
+group: 2
+1
+2
+group: 3
+1
+2
+3
+group: 5
+1
+2
+3
+5
+group: 6
+1
+2
+3
+6
+group: 7
+1
+2
+3
+7
+group: 8
+1
+2
+8
+group: 9
+1
+2
+8
+9
+}
+import "primitives/core.futil";
+component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    group A0 {
+    }
+    group A1 {
+    }
+    group B {
+    }
+    group Z {
+    }
+    comb group less_than {
+      lt.left = 4'd3;
+      lt.right = 4'd2;
+    }
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID B;
+      @BEGIN_ID(2) @END_ID(8) if lt.out with less_than {
+        @BEGIN_ID(3) @END_ID(7) if lt.out with less_than {
+          @NODE_ID(4) par {
+            @NODE_ID(5) A0;
+            @NODE_ID(6) A1;
+          }
+        }
+      }
+      @NODE_ID(9) Z;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    par {
+      invoke e()();
+    }
+  }
+}

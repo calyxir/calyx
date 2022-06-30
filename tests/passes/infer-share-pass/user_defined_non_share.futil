@@ -1,0 +1,69 @@
+//-p infer-share
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component count(in: 32) -> (out: 32) {
+  cells {
+    r = std_reg(32);
+    add_32 = std_add(32);
+  }
+  wires {
+    group A {
+      add_32.left = r.out; 
+      add_32.right = 32'd1; 
+      r.in = add_32.out;
+      r.write_en = 1'd1;
+      A[done] = r.done;
+    }
+    out = r.out;
+  }
+  control {
+    A;
+  }
+}
+
+component uses_mem(in: 32) -> (out: 32) {
+  cells {
+    @external(1) B = std_mem_d2(32,3,2,4,4);
+    a = std_reg(32);
+  }
+  wires {
+    group A {
+      a.in = 32'd5;
+      a.write_en = 1'd1; 
+      A[done] = a.done; 
+    }
+    out = a.out;
+  }
+  control {
+    A;
+  }
+}
+
+component add_count(in: 32) -> (out: 32) {
+  cells {
+    c = count();
+  }
+  wires {
+    group A {
+      c.go = 1'd1; 
+      c.in = 32'd10; 
+      A[done] = c.done; 
+
+    }
+    out = c.out;
+  }
+  control {
+    A;
+  }
+}
+
+component main() -> () {
+  cells {
+  }
+  wires {
+  }
+  control {
+  }
+}

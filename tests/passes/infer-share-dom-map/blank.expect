@@ -1,0 +1,24 @@
+Domination Map {
+}
+import "primitives/core.futil";
+component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    par {
+      invoke e()();
+    }
+  }
+}

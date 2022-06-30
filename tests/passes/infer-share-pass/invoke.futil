@@ -1,0 +1,93 @@
+//-p infer-share
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component share(in: 32) -> (out: 32) {
+  cells {
+    r = std_reg(32);
+    add_32 = std_add(32);
+  }
+  wires {
+    group A {
+      add_32.left = in; 
+      add_32.right = 32'd5; 
+      r.in = add_32.out;
+      r.write_en = 1'd1;
+      A[done] = r.done;
+    }
+    out = r.out;
+  }
+  control {
+    A;
+  }
+}
+
+component share2(in: 32) -> (out: 32) {
+  cells {
+    s = share();
+    r = std_reg(32);
+    q = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+    group readS {
+      r.write_en = 1'd1; 
+      r.in = s.out; 
+      readS[done] = r.done; 
+    }
+    out = r.out; 
+  }
+  control {
+    seq{
+      invoke s(in = 32'd10)();
+      readS;
+    }
+  }
+}
+
+component non_share(in: 32) -> (out: 32) {
+  cells {
+    s = share();
+    r = std_reg(32);
+    q = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+    group wrR {
+      r.write_en = 1'd1; 
+      r.in = in; 
+      wrR[done] = r.done; 
+    }
+    group wrQ{
+      q.write_en = 1'd1; 
+      q.in = r.out; 
+      wrQ[done] = q.done; 
+    }
+    group wrS{
+      add.left = r.out; 
+      add.right = q.out; 
+      s.go = 1'd1; 
+      s.in = add.out; 
+      wrQ[done] = q.done; 
+    }
+    out = s.out;
+  }
+  control {
+    seq{
+      invoke s(in = r.out)();
+      wrR;
+      wrQ; 
+      wrS;
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+  }
+  wires {
+  }
+  control {
+  }
+}
