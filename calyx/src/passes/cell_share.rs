@@ -161,7 +161,6 @@ fn get_invokes(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
         ir::Control::Empty(_) | ir::Control::Enable(_) => (),
         ir::Control::Invoke(invoke) => {
             hs.insert(invoke.comp.borrow().name().clone());
-            ()
         }
         ir::Control::Par(ir::Par { stmts, .. })
         | ir::Control::Seq(ir::Seq { stmts, .. }) => {
