@@ -107,9 +107,9 @@ impl ShareComponents for CellShare {
         );
     }
 
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<&ir::Id> {
+    fn lookup_node_conflicts(&self, node_name: &ir::Id) -> Vec<&ir::Id> {
         self.live
-            .get(group_name)
+            .get(node_name)
             .iter()
             // TODO(rachit): Once we make the above change and LiveRangeAnalysis ignores
             // cont_ref_cells during construction, we do not need this filter call.
@@ -133,8 +133,23 @@ impl ShareComponents for CellShare {
     where
         F: FnMut(Vec<ir::Id>),
     {
+        
         for group in comp.groups.iter() {
             let conflicts = self.live.get(group.borrow().name());
+            add_conflicts(
+                conflicts
+                    .iter()
+                    .filter(|cell_name| {
+                        !self.cont_ref_cells.contains(cell_name)
+                    })
+                    .cloned()
+                    .collect(),
+            );
+        }
+        let mut invokes = HashSet::new();
+        get_invokes(&comp.control.borrow(), & mut invokes);
+        for invoke in invokes.iter(){
+            let conflicts = self.live.get(invoke);
             add_conflicts(
                 conflicts
                     .iter()
@@ -153,5 +168,24 @@ impl ShareComponents for CellShare {
 
     fn get_rewrites(&self) -> &HashMap<ir::Id, ir::RRC<ir::Cell>> {
         &self.rewrites
+    }
+}
+
+fn get_invokes(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
+    match c {
+        ir::Control::Empty(_) | ir::Control::Enable(_) => (),
+        ir::Control::Invoke(invoke) => {hs.insert(invoke.comp.borrow().name().clone()); ()}, 
+        ir::Control::Par(ir::Par{stmts, ..}) | ir::Control::Seq(ir::Seq{stmts,..}) => {
+            for stmt in stmts{
+                get_invokes(stmt, hs);
+            }
+        }
+        ir::Control::If(ir::If{tbranch, fbranch, ..}) => {
+            get_invokes(tbranch, hs);
+            get_invokes(fbranch, hs);
+        }
+        ir::Control::While(ir::While{body, ..}) => {
+            get_invokes(body, hs);
+        }
     }
 }
