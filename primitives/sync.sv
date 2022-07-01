@@ -22,23 +22,22 @@ module std_sync_reg #(
 
   logic is_full;
   logic [WIDTH - 1:0] state;
-  logic one_hot;
   logic arbiter;
-  logic write_en;
 
   // States
-  logic READ_ST, WRITE_ST;
+  logic READ_ST, WRITE_ST, WRITE_ONE_HOT, WRITE_MULT;
 
-  assign write_en = write_en_0 || write_en_1;
   assign READ_ST = is_full && read_en;
-  assign WRITE_ST = !is_full && write_en;
-  assign one_hot = !(write_en_0 && write_en_1);
+  assign WRITE_ONE_HOT = !is_full && (write_en_0 ^ write_en_1);
+  assign WRITE_MULT = !is_full && (write_en_0 && write_en_1);
 
   // State transitions
   always_ff @(posedge clk) begin
     if (reset)
       is_full <= 0;
-    else if (WRITE_ST)
+    else if (WRITE_ONE_HOT)
+      is_full <= 1;
+    else if (WRITE_MULT)
       is_full <= 1;
     else if (READ_ST)
       is_full <= 0;
@@ -47,17 +46,17 @@ module std_sync_reg #(
   end
 
   // Value of arbiter.
+  // The arbiter is round robin: if in the current cycle it is 0, the next cycle
+  // it is set to 1 and vice versa.
+  // If the arbiter is not used to decide which value to write in for the current
+  // cycle, then in the next cycle its value does not change.
   always_ff @(posedge clk) begin
     if (reset) 
       arbiter <= 0;
-    else if (WRITE_ST) begin
-      if (one_hot)
-        arbiter <= arbiter;
-      else if (arbiter == 0)
-        arbiter <= 1;
-      else 
-        arbiter <= 0;
-      end
+    else if (WRITE_MULT && arbiter == 0)
+      arbiter <= 1;
+    else if (WRITE_MULT && arbiter == 1)
+      arbiter <= 0;
     else 
       arbiter <= arbiter;
     end
@@ -76,21 +75,20 @@ module std_sync_reg #(
   end
 
   // Writing values
+  // If only one writer is active, we write the active value in
+  // If multiple writers are active at the same time, the arbiter decides which 
+  // writer's input to take
   always_ff @(posedge clk) begin
     if (reset)
       state <= 0;
-    else if (WRITE_ST) begin
-      if (one_hot) begin
-        if (write_en_0) 
-          state <= in_0;
-        else 
-          state <= in_1;
-      end
-      else if (arbiter == 0)
-        state <= in_0;
-      else 
-        state <= in_1;
-    end
+    else if (WRITE_ONE_HOT && write_en_0 == 1)
+      state <= in_0;
+    else if (WRITE_ONE_HOT && write_en_1 == 1)
+      state <= in_1;
+    else if (WRITE_MULT && arbiter == 0)
+      state <= in_0;
+    else if (WRITE_MULT && arbiter == 1)
+      state <= in_1;
     else if (READ_ST)
       state <= 'x;  // This could've been a latch but explicitly make it undefined.
     else
@@ -98,33 +96,33 @@ module std_sync_reg #(
   end
 
   // Done signal for write_0 commital
+  // Two scenarios that write_done_0 is set to 1:
+  // 1. in_0 is the only writer for the current cycle
+  // 2. Two writers are active at the same time, and the arbiter chooses
+  //    in_0 to write into the register
   always_ff @(posedge clk) begin
     if (reset)
       write_done_0 <= 0;
-    else if (WRITE_ST) begin
-      if (one_hot && write_en_0 == 1) 
-        write_done_0 <= 1;
-      else if (arbiter == 0)
-        write_done_0 <= 1;
-      else 
-        write_done_0 <= 0;
-    end
+    else if (WRITE_ONE_HOT && write_en_0 == 1)
+      write_done_0 <= 1;
+    else if (WRITE_MULT && arbiter == 0)
+      write_done_0 <= 1;
     else
       write_done_0 <= 0;
   end
 
   //Done signal for write_1 commital
+  // Two scenarios that write_done_1 is set to 1:
+  // 1. in_1 is the only writer for the current cycle
+  // 2. Two writers are active at the same time, and the arbiter chooses
+  //    in_1 to write into the register
   always_ff @(posedge clk) begin
     if (reset)
+      write_done_1 <= 0;
+    else if (WRITE_ONE_HOT && write_en_1 == 1)
       write_done_1 <= 1;
-    else if (WRITE_ST) begin
-      if (one_hot && write_en_1 == 1)
-        write_done_1 <= 1;
-      else if (arbiter == 1)
-        write_done_1 <= 1;
-      else 
-        write_done_1 <= 0;
-    end
+    else if (WRITE_MULT && arbiter == 1)
+      write_done_1 <= 1;
     else
       write_done_1 <= 0;
     end
