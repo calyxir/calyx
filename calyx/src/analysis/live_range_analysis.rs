@@ -228,7 +228,7 @@ pub struct LiveRangeAnalysis {
     /// Set of state shareable components (as type names)
     state_share: ShareSet,
     ///Set of shareable components (as type names)
-    share: ShareSet, 
+    share: ShareSet,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -251,7 +251,7 @@ impl LiveRangeAnalysis {
     ) -> Self {
         let mut ranges = LiveRangeAnalysis {
             state_share,
-            share, 
+            share,
             ..Default::default()
         };
 
@@ -264,8 +264,8 @@ impl LiveRangeAnalysis {
         );
 
         //adds (non-state) shareable cells as live in the group they're contained in
-        //we already added (non-state) shareable cells as live in hte invoke 
-        //they're contained in in build_live_ranges(). 
+        //we already added (non-state) shareable cells as live in hte invoke
+        //they're contained in in build_live_ranges().
         comp.groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
@@ -474,14 +474,14 @@ fn build_live_ranges(
             // set the live set of this node to be the things live on the
             // output of this node plus the things written to in this invoke
             // plus all shareable components used
-            let (reads_share, writes_share) = LiveRangeAnalysis::find_gen_kill_invoke(
-                invoke,
-                &lr.share,
-            );
+            let (reads_share, writes_share) =
+                LiveRangeAnalysis::find_gen_kill_invoke(invoke, &lr.share);
             let uses_share = &reads_share | &writes_share;
-            let alive_writes = &alive | &writes; 
-            lr.live
-                .insert(invoke.comp.borrow().name().clone(), &alive_writes | &uses_share);
+            let alive_writes = &alive | &writes;
+            lr.live.insert(
+                invoke.comp.borrow().name().clone(),
+                &alive_writes | &uses_share,
+            );
             (alive, &gens | &reads, &kills | &writes)
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {

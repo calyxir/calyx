@@ -117,7 +117,6 @@ impl ShareComponents for CellShare {
     where
         F: FnMut(Vec<ir::Id>),
     {
-        
         for group in comp.groups.iter() {
             let conflicts = self.live.get(group.borrow().name());
             add_conflicts(
@@ -131,8 +130,8 @@ impl ShareComponents for CellShare {
             );
         }
         let mut invokes = HashSet::new();
-        get_invokes(&comp.control.borrow(), & mut invokes);
-        for invoke in invokes.iter(){
+        get_invokes(&comp.control.borrow(), &mut invokes);
+        for invoke in invokes.iter() {
             let conflicts = self.live.get(invoke);
             add_conflicts(
                 conflicts
@@ -158,17 +157,23 @@ impl ShareComponents for CellShare {
 fn get_invokes(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
     match c {
         ir::Control::Empty(_) | ir::Control::Enable(_) => (),
-        ir::Control::Invoke(invoke) => {hs.insert(invoke.comp.borrow().name().clone()); ()}, 
-        ir::Control::Par(ir::Par{stmts, ..}) | ir::Control::Seq(ir::Seq{stmts,..}) => {
-            for stmt in stmts{
+        ir::Control::Invoke(invoke) => {
+            hs.insert(invoke.comp.borrow().name().clone());
+            ()
+        }
+        ir::Control::Par(ir::Par { stmts, .. })
+        | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            for stmt in stmts {
                 get_invokes(stmt, hs);
             }
         }
-        ir::Control::If(ir::If{tbranch, fbranch, ..}) => {
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
             get_invokes(tbranch, hs);
             get_invokes(fbranch, hs);
         }
-        ir::Control::While(ir::While{body, ..}) => {
+        ir::Control::While(ir::While { body, .. }) => {
             get_invokes(body, hs);
         }
     }

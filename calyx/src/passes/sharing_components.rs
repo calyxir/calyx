@@ -118,8 +118,7 @@ impl<T: ShareComponents> Visitor for T {
                 |mut acc: HashMap<ir::CellType, Vec<ir::Id>>,
                  _,
                  (_, conflicted_node)| {
-                    for conflict in
-                        self.lookup_node_conflicts(&conflicted_node)
+                    for conflict in self.lookup_node_conflicts(&conflicted_node)
                     {
                         acc.entry(id_to_type[conflict].clone())
                             .or_default()
