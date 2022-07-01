@@ -117,9 +117,9 @@ impl<T: ShareComponents> Visitor for T {
                 HashMap::new(),
                 |mut acc: HashMap<ir::CellType, Vec<ir::Id>>,
                  _,
-                 (_, conflicted_group)| {
+                 (_, conflicted_node)| {
                     for conflict in
-                        self.lookup_node_conflicts(&conflicted_group)
+                        self.lookup_node_conflicts(&conflicted_node)
                     {
                         acc.entry(id_to_type[conflict].clone())
                             .or_default()
@@ -131,10 +131,10 @@ impl<T: ShareComponents> Visitor for T {
 
         node_conflicts
             .into_iter()
-            .for_each(|(node, conflict_group_b)| {
+            .for_each(|(node, conflict_node_b)| {
                 for a in self.lookup_node_conflicts(&node) {
                     let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
-                    if let Some(confs) = conflict_group_b.get(&id_to_type[a]) {
+                    if let Some(confs) = conflict_node_b.get(&id_to_type[a]) {
                         for b in confs {
                             if a != b {
                                 g.insert_conflict(a, b);
