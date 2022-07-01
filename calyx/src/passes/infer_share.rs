@@ -6,24 +6,28 @@ use crate::ir::traversal::{
 };
 use crate::ir::CloneName;
 use std::collections::HashSet;
-use std::{rc::Rc};
+use std::rc::Rc;
 
 const BEGIN_ID: &str = "BEGIN_ID";
 const END_ID: &str = "END_ID";
 
-//given an RRC of a cell, determines if cell is a std_mem_cell. There may be an 
+//given an RRC of a cell, determines if cell is a std_mem_cell. There may be an
 //easier way to do this.
-fn is_std_mem(cell: &ir::Cell) -> bool{
-    match &cell.prototype{
-        ir::CellType::Primitive {name, ..}=> { 
+fn is_std_mem(cell: &ir::Cell) -> bool {
+    match &cell.prototype {
+        ir::CellType::Primitive { name, .. } => {
             let cell_name = name.id.clone();
-            cell_name == "std_mem_d1" || cell_name == "std_mem_d2" || cell_name == "std_mem_d3" || cell_name == "std_mem_d4"}
-        _ => false
+            cell_name == "std_mem_d1"
+                || cell_name == "std_mem_d2"
+                || cell_name == "std_mem_d3"
+                || cell_name == "std_mem_d4"
+        }
+        _ => false,
     }
 }
 
-//Inputs are a control statement c and a u64 id. If control is an if statment, then 
-//the id should refer to either the begin or end id of stmt c. Returns true if id refers 
+//Inputs are a control statement c and a u64 id. If control is an if statment, then
+//the id should refer to either the begin or end id of stmt c. Returns true if id refers
 // to the begin id and false if it refers to the end id. If it is not an if statement, behavior
 // is unspecified.
 fn is_begin_id(c: &ir::Control, id: u64) -> bool {
@@ -48,7 +52,7 @@ fn is_begin_id(c: &ir::Control, id: u64) -> bool {
 pub struct InferShare {
     print_dmap: bool,
     state_shareable: ShareSet,
-    //nonshareable component names 
+    //nonshareable component names
     no_share: HashSet<ir::Id>,
     //name of main (so we can skip it)
     main: ir::Id,
@@ -71,7 +75,7 @@ impl ConstructVisitor for InferShare {
     {
         let opts = Self::get_opts(&["print_dmap"], ctx);
 
-        let state_shareable = ShareSet::from_context(ctx, true); 
+        let state_shareable = ShareSet::from_context(ctx, true);
 
         Ok(InferShare {
             print_dmap: opts[0],
@@ -114,7 +118,7 @@ impl Visitor for InferShare {
         }
 
         //build the domination map
-        let mut dmap = DominatorMap::new(&mut comp.control.borrow_mut());
+        let mut dmap = DominatorMap::new(&mut comp.control.borrow_mut(), &comp);
         if self.print_dmap {
             println!("{dmap:?}");
         }
@@ -137,11 +141,7 @@ impl Visitor for InferShare {
             dominators.remove(node);
             for cell_name in reads.reads.clone() {
                 let key = NameSearch::new(cell_name);
-                if !key.is_written(
-                    dominators,
-                    comp,
-                    &self.state_shareable,
-                ) {
+                if !key.is_written(dominators, comp, &self.state_shareable) {
                     self.no_share.insert(comp.name.clone());
                     return Ok(Action::Continue);
                 }
@@ -174,32 +174,35 @@ impl ReadSet {
         }
     }
 
-    //if the assignment reads only dones, return true. This is used so that we 
-    //can ignore reads of "done" cells. 
+    //if the assignment reads only dones, return true. This is used so that we
+    //can ignore reads of "done" cells.
     fn reads_only_dones(assignment: &ir::Assignment) -> bool {
-        Self::is_done_port(&assignment.src) && Self::guard_only_dones(&assignment.guard)
+        Self::is_done_port(&assignment.src)
+            && Self::guard_only_dones(&assignment.guard)
     }
 
     //returns true if port is a "done" port or is a constant
-    fn is_done_port(port: &ir::RRC<ir::Port>) -> bool{
-        port.borrow().name.id == "done" || port.borrow().is_constant(1,1)
+    fn is_done_port(port: &ir::RRC<ir::Port>) -> bool {
+        port.borrow().name.id == "done" || port.borrow().is_constant(1, 1)
     }
 
     //returns true if guard only contains dones, or is true
-    fn guard_only_dones(guard: &ir::Guard) -> bool{
-        match guard{
+    fn guard_only_dones(guard: &ir::Guard) -> bool {
+        match guard {
             ir::Guard::Or(g1, g2) | ir::Guard::And(g1, g2) => {
-                Self::guard_only_dones(g1) && Self::guard_only_dones(g2)}, 
-            ir::Guard::Not(g) => Self::guard_only_dones(g), 
-            ir::Guard::True => true, 
-            ir::Guard::CompOp(_, p1, p2)=> Self::is_done_port(p1) && Self::is_done_port(p2), 
+                Self::guard_only_dones(g1) && Self::guard_only_dones(g2)
+            }
+            ir::Guard::Not(g) => Self::guard_only_dones(g),
+            ir::Guard::True => true,
+            ir::Guard::CompOp(_, p1, p2) => {
+                Self::is_done_port(p1) && Self::is_done_port(p2)
+            }
             ir::Guard::Port(p) => Self::is_done_port(p),
         }
-
     }
 
-    //Adds the ids of any state_shareable cells that are read from in assignments, 
-    //excluding reads where the only reads are from "done" ports. 
+    //Adds the ids of any state_shareable cells that are read from in assignments,
+    //excluding reads where the only reads are from "done" ports.
     fn add_assignment_reads(
         &mut self,
         share: &ShareSet,
@@ -216,7 +219,7 @@ impl ReadSet {
         }
     }
 
-    //Given a control statement c, adds all of the reads of shareable cells from c. 
+    //Given a control statement c, adds all of the reads of shareable cells from c.
     //For while loops and if stmts, the control refers only to the guard, not the body.
     fn get_reads_from_control(
         &mut self,
@@ -275,15 +278,15 @@ impl ReadSet {
     }
 }
 
-///Contains the name of a cell. The methods in this struct are used to search to 
-///see if there was a write to the cell name. 
-struct NameSearch{
+///Contains the name of a cell. The methods in this struct are used to search to
+///see if there was a write to the cell name.
+struct NameSearch {
     name: ir::Id,
 }
 
-impl NameSearch{
-    fn new(name: ir::Id) -> Self{
-        NameSearch{name}
+impl NameSearch {
+    fn new(name: ir::Id) -> Self {
+        NameSearch { name }
     }
 
     //returns true if the port's parent's name matches name, false otherwise
@@ -294,28 +297,31 @@ impl NameSearch{
             }
         }
         false
-    } 
+    }
 
-    //returns Some(cell) if the assignment is to cell's go port and is guaranteed 
-    //to be activated. To check this guarantee, we check if the assignment guard 
-    //is true and assignment src is 1'd1. 
+    //returns Some(cell) if the assignment is to cell's go port and is guaranteed
+    //to be activated. To check this guarantee, we check if the assignment guard
+    //is true and assignment src is 1'd1.
     fn guaranteed_go(assign: &ir::Assignment) -> Option<ir::RRC<ir::Cell>> {
         let dst_ref = assign.dst.borrow();
-        if dst_ref.attributes.has("go") &&  Self::guard_true(&assign.guard) && Self::src_const(&assign.src) {
+        if dst_ref.attributes.has("go")
+            && Self::guard_true(&assign.guard)
+            && Self::src_const(&assign.src)
+        {
             if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
-                    return Some(Rc::clone(&cell_wref.upgrade()));
+                return Some(Rc::clone(&cell_wref.upgrade()));
             }
-        } 
+        }
         None
     }
-    
+
     //returns true if port is 1'd1
-    fn src_const(port: &ir::RRC<ir::Port>) -> bool{
-        port.borrow().is_constant(1,1)
+    fn src_const(port: &ir::RRC<ir::Port>) -> bool {
+        port.borrow().is_constant(1, 1)
     }
-    
-    //returns true if guard is True 
-    fn guard_true(guard: &ir::Guard) -> bool{
+
+    //returns true if guard is True
+    fn guard_true(guard: &ir::Guard) -> bool {
         matches!(guard, ir::Guard::True)
     }
 
@@ -330,8 +336,8 @@ impl NameSearch{
         false
     }
 
-    //Returns true if any of the control statements in dominators write to a cell 
-    //with self's name. 
+    //Returns true if any of the control statements in dominators write to a cell
+    //with self's name.
     fn is_written(
         &self,
         dominators: &HashSet<u64>,
@@ -351,12 +357,13 @@ impl NameSearch{
                         )
                     }
                     ir::Control::Enable(ir::Enable { group, .. }) => {
-                        if self.search_assignments(&group.borrow().assignments) {
+                        if self.search_assignments(&group.borrow().assignments)
+                        {
                             return true;
                         }
                     }
                     //You can't have a write to a stateful component in a
-                    //combinational group. 
+                    //combinational group.
                     ir::Control::While(_) | ir::Control::If(_) => (),
                     ir::Control::Invoke(ir::Invoke {
                         comp,
@@ -382,7 +389,4 @@ impl NameSearch{
         }
         false
     }
-
-
 }
-

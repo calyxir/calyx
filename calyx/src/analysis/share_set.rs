@@ -2,9 +2,9 @@ use crate::ir;
 use crate::ir::RRC;
 use std::collections::HashSet;
 
-/// Stores a Hashset that contains the type names of all components and primitives 
-/// marked with either "share" or "state_share",depending on what the user wants. 
-/// Methods implemented by this struct can 
+/// Stores a Hashset that contains the type names of all components and primitives
+/// marked with either "share" or "state_share",depending on what the user wants.
+/// Methods implemented by this struct can
 /// be used to determine whether a given cell is shareable or not
 /// Used by `live_range_analysis.rs`, `cell_share.rs`, and `infer_share.rs`
 #[derive(Default, Clone)]
@@ -15,16 +15,18 @@ pub struct ShareSet {
 
 impl ShareSet {
     pub fn new(shareable: HashSet<ir::Id>, is_state_share: bool) -> Self {
-        ShareSet { shareable, is_state_share  }
+        ShareSet {
+            shareable,
+            is_state_share,
+        }
     }
 
-    ///Constructs a shareset from the context. Looks for "state_share" types if 
-    ///is_state_share is true, and "share" types otherwise. 
+    ///Constructs a shareset from the context. Looks for "state_share" types if
+    ///is_state_share is true, and "share" types otherwise.
     pub fn from_context(ctx: &ir::Context, is_state_share: bool) -> Self {
-        let keyword = if is_state_share{
+        let keyword = if is_state_share {
             "state_share"
-        }
-        else{
+        } else {
             "share"
         };
         let mut shareable = HashSet::new();
@@ -40,7 +42,8 @@ impl ShareSet {
             }
         }
         ShareSet {
-            shareable, is_state_share
+            shareable,
+            is_state_share,
         }
     }
 
@@ -49,13 +52,13 @@ impl ShareSet {
         self.shareable.insert(id);
     }
 
-    ///Checks if id contains self 
-    pub fn contains(& self, id: &ir::Id) -> bool{
+    ///Checks if id contains self
+    pub fn contains(&self, id: &ir::Id) -> bool {
         self.shareable.contains(id)
     }
 
     ///Returns whether or not this instance is state_share
-    pub fn is_state_share(&self) -> bool{
+    pub fn is_state_share(&self) -> bool {
         self.is_state_share
     }
 

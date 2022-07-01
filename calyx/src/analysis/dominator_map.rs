@@ -11,35 +11,42 @@ const END_ID: &str = "END_ID";
 /// ids to sets of control statement ids. In the context of the domination map,
 /// the id of a while loop refers to the guard condition. The begin and end id
 /// of an if statement refer to the guard and "end node" of the if statement.
-/// The id of invokes and enables refer to the invoke and enable statements themselves. 
+/// The id of invokes and enables refer to the invoke and enable statements themselves.
 /// The ids of seqs and pars should not be included in the map.
 #[derive(Default)]
 pub struct DominatorMap {
     /// Map from group names to the name of groups that dominate it
     pub map: HashMap<u64, HashSet<u64>>,
-    /// Maps ids of control stmts, to the "last" control stmts in them. One *very* 
-    /// important thing to note is that this does *not* map control stmt ids to 
+    /// Maps ids of control stmts, to the "last" control stmts in them. One *very*
+    /// important thing to note is that this does *not* map control stmt ids to
     /// their predecessors. It maps control stmt ids to the statement that *will*
-    /// be the predecessors to the stmt directly following it. For invokes and enables, 
+    /// be the predecessors to the stmt directly following it. For invokes and enables,
     /// this is just itself. But for seqs, for example, this will be the final invokes/enables
-    /// in the seq. This is a bit confusing... so it may be wise to change the name. 
+    /// in the seq. This is a bit confusing... so it may be wise to change the name.
     pub pred_map: HashMap<u64, HashSet<u64>>,
+    pub component_name: String,
 }
 
 impl Debug for DominatorMap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         //must sort the hashmap and hashsets in order to get consistent ordering
-        writeln!(f, "Domination Map {{")?;
+        writeln!(
+            f,
+            "The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes that are attached to each non-empty control statement when the domination map is built. To see which ID's refer to which control statement, look at the Calyx Program, which should be printed along with the map when it is printed."
+        )?;
+        writeln!(
+            f,
+            "Domination Map for component \"{}\"  {{",
+            self.component_name
+        )?;
         let map = self.map.clone();
         let mut vec1: Vec<(u64, HashSet<u64>)> = map.into_iter().collect();
         vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
         for (k, hs) in vec1.into_iter() {
-            writeln!(f, "group: {:?}", k)?;
+            write!(f, "Group: {:?} --", k)?;
             let mut vec = hs.into_iter().collect::<Vec<_>>();
             vec.sort_unstable();
-            for v in vec.iter() {
-                writeln!(f, "{:?}", v)?;
-            }
+            writeln!(f, " Dominators: {:?}", vec)?;
         }
         write!(f, "}}")
     }
@@ -61,7 +68,7 @@ fn get_attr(stmt: &ir::Control, s: &str) -> Option<u64> {
 /// ```
 /// seq { A; if cond {X} else{Y}; par { C; D; }; E }
 /// ```
-/// 
+///
 /// gets the labels:
 ///
 /// ```
@@ -130,13 +137,14 @@ fn compute_unique_ids(con: &mut ir::Control, mut cur_state: u64) -> u64 {
 
 impl DominatorMap {
     /// Construct a domination map.
-    pub fn new(control: &mut ir::Control) -> Self {
+    pub fn new(control: &mut ir::Control, comp: &ir::Component) -> Self {
         compute_unique_ids(control, 0);
         let mut pred_map = HashMap::new();
         Self::build_predecessor_map(control, &mut pred_map);
         let mut map = DominatorMap {
             map: HashMap::new(),
             pred_map,
+            component_name: comp.name.id.clone(),
         };
         Self::build_map(control, &mut map);
         map
@@ -241,9 +249,9 @@ impl DominatorMap {
         }
     }
 
-    //Builds the "predecessor map" of c. Read documentation on what this is actually 
-    //building. This is *not* building a map of control stmt ids to their predecessors. 
-    //We do that "on the fly" in the "update_map" method. 
+    //Builds the "predecessor map" of c. Read documentation on what this is actually
+    //building. This is *not* building a map of control stmt ids to their predecessors.
+    //We do that "on the fly" in the "update_map" method.
     fn build_predecessor_map(
         c: &ir::Control,
         final_map: &mut HashMap<u64, HashSet<u64>>,
@@ -347,14 +355,28 @@ impl DominatorMap {
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 //Could try to think a way of doing it w/o this first stuff
                 let mut first = true;
-                let mut prev_id = cur_id; 
+                let mut prev_id = cur_id;
                 for stmt in stmts {
                     let id = Self::get_id(stmt, true);
                     if first {
                         Self::update_map(main_c, id, pred, d_map);
                         first = false;
                     } else {
-                        Self::update_map(main_c, id, &d_map.pred_map.get(&prev_id).unwrap_or_else(|| unreachable!("pred map does not have value for {}", prev_id)).clone(), d_map);
+                        Self::update_map(
+                            main_c,
+                            id,
+                            &d_map
+                                .pred_map
+                                .get(&prev_id)
+                                .unwrap_or_else(|| {
+                                    unreachable!(
+                                        "pred map does not have value for {}",
+                                        prev_id
+                                    )
+                                })
+                                .clone(),
+                            d_map,
+                        );
                     }
                     prev_id = Self::get_id(stmt, false);
                 }
