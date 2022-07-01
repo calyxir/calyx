@@ -35,6 +35,9 @@ component main() -> () {
        invoke d1(in= 32'd2)(out1 = add1.left, out2= add1.right);
        invoke d2(in= add1.out)(out1 = add2.left, out2= add2.right);
       }
+      par{
+       invoke d2(in= add1.out)(out1 = add2.left, out2= add2.right);
+      }
      
     }
     

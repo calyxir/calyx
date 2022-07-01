@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component identity<"static"=1, "state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component identity<"static"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
     @generated save_go = std_wire(1);
