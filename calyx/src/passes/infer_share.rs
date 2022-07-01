@@ -12,8 +12,8 @@ const BEGIN_ID: &str = "BEGIN_ID";
 const END_ID: &str = "END_ID";
 
 //Inputs are a control statement c and a u64 id. If control is an if statment, then
-//the id should refer to either the begin or end id of stmt c. Returns true if id refers
-// to the begin id and false if it refers to the end id. If it is not an if statement
+//the id should refer to either the begin or end id of c. Returns true if id refers
+// to the begin id and false if it refers to the end id. If it is not an if statement,
 //returns true by default.
 fn not_end_id(c: &ir::Control, id: u64) -> bool {
     match c {
@@ -140,7 +140,7 @@ impl Visitor for InferShare {
                 }
             }
 
-            //Read/Write occuring in the same group.invoke does *not* count as
+            //Read/Write occuring in the same group. Invoke does *not* count as
             //a read dominating a write. So we remove node from dominators.
             dominators.remove(node);
             for cell_name in reads.reads.clone() {

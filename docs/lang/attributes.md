@@ -125,7 +125,9 @@ This is used by `-p cell-share` to decide which components can be shared.
 Specifically, a component is state shareable if each write to 
 that component makes any previous writes to the component irrelevant. 
 The definition of a "write to a component" is an activiation of 
-the component's "go" port.  
+the component's "go" port, followed by a read of the component's "done" port (in 
+other words, the read of a "done" port still counts as part of a "write" to the 
+component).
 For `c1` and `c2`, instances of a state_shareable component:
 instantiate `c1`                        instantiate `c2`
 *any write to `c1`*                     *any write to `c2`*   
