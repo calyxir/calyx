@@ -1,28 +1,28 @@
-The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes
-             that are attached to each non-empty control statement when the domination map is built. 
-             To see which ID's refer to which control statement, look at the Calyx Program, which should
-              be printed along with the map when it is printed.
+The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes 
+that are attached to each non-empty control statement when the domination map is built. 
+To see which ID's refer to which control statement, look at the Calyx Program, which should 
+be printed along with the map when it is printed.
 Domination Map for component "example"  {
-Group: 1 -- Dominators: [1]
-Group: 2 -- Dominators: [1, 2]
-Group: 3 -- Dominators: [1, 2, 3]
-Group: 4 -- Dominators: [1, 2, 3, 4]
-Group: 5 -- Dominators: [1, 2, 3, 4, 5]
-Group: 8 -- Dominators: [1, 2, 3, 4, 5, 8]
-Group: 9 -- Dominators: [1, 2, 3, 4, 5, 9]
-Group: 10 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10]
-Group: 12 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12]
-Group: 14 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12, 14]
-Group: 15 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12, 15]
-Group: 17 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 17]
-Group: 18 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 18]
-Group: 19 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 19]
-Group: 20 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 20]
-Group: 22 -- Dominators: [1, 2, 3, 4, 22]
-Group: 23 -- Dominators: [1, 2, 3, 4, 23]
-Group: 24 -- Dominators: [1, 2, 3, 4, 24]
-Group: 25 -- Dominators: [1, 2, 3, 4, 25]
-Group: 26 -- Dominators: [1, 2, 3, 4, 25, 26]
+Node: 1 -- Dominators: [1]
+Node: 2 -- Dominators: [1, 2]
+Node: 3 -- Dominators: [1, 2, 3]
+Node: 4 -- Dominators: [1, 2, 3, 4]
+Node: 5 -- Dominators: [1, 2, 3, 4, 5]
+Node: 8 -- Dominators: [1, 2, 3, 4, 5, 8]
+Node: 9 -- Dominators: [1, 2, 3, 4, 5, 9]
+Node: 10 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10]
+Node: 12 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12]
+Node: 14 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12, 14]
+Node: 15 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12, 15]
+Node: 17 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 17]
+Node: 18 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 18]
+Node: 19 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 19]
+Node: 20 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 20]
+Node: 22 -- Dominators: [1, 2, 3, 4, 22]
+Node: 23 -- Dominators: [1, 2, 3, 4, 23]
+Node: 24 -- Dominators: [1, 2, 3, 4, 24]
+Node: 25 -- Dominators: [1, 2, 3, 4, 25]
+Node: 26 -- Dominators: [1, 2, 3, 4, 25, 26]
 }
 import "primitives/core.futil";
 component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {

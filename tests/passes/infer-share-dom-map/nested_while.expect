@@ -1,17 +1,17 @@
-The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes
-             that are attached to each non-empty control statement when the domination map is built. 
-             To see which ID's refer to which control statement, look at the Calyx Program, which should
-              be printed along with the map when it is printed.
+The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes 
+that are attached to each non-empty control statement when the domination map is built. 
+To see which ID's refer to which control statement, look at the Calyx Program, which should 
+be printed along with the map when it is printed.
 Domination Map for component "example"  {
-Group: 0 -- Dominators: [0]
-Group: 1 -- Dominators: [0, 1]
-Group: 2 -- Dominators: [0, 1, 2]
-Group: 4 -- Dominators: [0, 1, 2, 4]
-Group: 5 -- Dominators: [0, 1, 2, 4, 5]
-Group: 7 -- Dominators: [0, 1, 2, 4, 5, 7]
-Group: 8 -- Dominators: [0, 1, 2, 4, 5, 7, 8]
-Group: 9 -- Dominators: [0, 1, 2, 4, 5, 9]
-Group: 10 -- Dominators: [0, 1, 2, 4, 5, 9, 10]
+Node: 0 -- Dominators: [0]
+Node: 1 -- Dominators: [0, 1]
+Node: 2 -- Dominators: [0, 1, 2]
+Node: 4 -- Dominators: [0, 1, 2, 4]
+Node: 5 -- Dominators: [0, 1, 2, 4, 5]
+Node: 7 -- Dominators: [0, 1, 2, 4, 5, 7]
+Node: 8 -- Dominators: [0, 1, 2, 4, 5, 7, 8]
+Node: 9 -- Dominators: [0, 1, 2, 4, 5, 9]
+Node: 10 -- Dominators: [0, 1, 2, 4, 5, 9, 10]
 }
 import "primitives/core.futil";
 component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {

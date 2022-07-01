@@ -32,10 +32,7 @@ impl Debug for DominatorMap {
         //must sort the hashmap and hashsets in order to get consistent ordering
         writeln!(
             f,
-            "The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes
-             that are attached to each non-empty control statement when the domination map is built. 
-             To see which ID's refer to which control statement, look at the Calyx Program, which should
-              be printed along with the map when it is printed."
+            "The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes \nthat are attached to each non-empty control statement when the domination map is built. \nTo see which ID's refer to which control statement, look at the Calyx Program, which should \nbe printed along with the map when it is printed."
         )?;
         writeln!(
             f,
@@ -46,7 +43,7 @@ impl Debug for DominatorMap {
         let mut vec1: Vec<(u64, HashSet<u64>)> = map.into_iter().collect();
         vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
         for (k, hs) in vec1.into_iter() {
-            write!(f, "Group: {:?} --", k)?;
+            write!(f, "Node: {:?} --", k)?;
             let mut vec = hs.into_iter().collect::<Vec<_>>();
             vec.sort_unstable();
             writeln!(f, " Dominators: {:?}", vec)?;
