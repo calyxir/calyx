@@ -32,7 +32,10 @@ impl Debug for DominatorMap {
         //must sort the hashmap and hashsets in order to get consistent ordering
         writeln!(
             f,
-            "The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes that are attached to each non-empty control statement when the domination map is built. To see which ID's refer to which control statement, look at the Calyx Program, which should be printed along with the map when it is printed."
+            "The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes
+             that are attached to each non-empty control statement when the domination map is built. 
+             To see which ID's refer to which control statement, look at the Calyx Program, which should
+              be printed along with the map when it is printed."
         )?;
         writeln!(
             f,
