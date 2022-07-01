@@ -1,5 +1,5 @@
 use crate::{
-    analysis::{ReadWriteSet, VariableDetection},
+    analysis::{ReadWriteSet, ShareSet, VariableDetection},
     ir::{self, CloneName, RRC},
 };
 use itertools::Itertools;
@@ -241,27 +241,6 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
-/// The type names of all components and primitives marked with "state_share".
-#[derive(Default)]
-pub struct ShareSet {
-    shareable: HashSet<ir::Id>,
-}
-
-impl ShareSet {
-    fn new(set: HashSet<ir::Id>) -> ShareSet {
-        ShareSet { shareable: set }
-    }
-    //given a set of shareable and a cell, determines whether cell's
-    //type is shareable or not
-    pub fn is_shareable_component(&self, cell: &RRC<ir::Cell>) -> bool {
-        if let Some(type_name) = cell.borrow().type_name() {
-            self.shareable.contains(type_name)
-        } else {
-            false
-        }
-    }
-}
-
 impl LiveRangeAnalysis {
     /// Construct a live range analysis.
     pub fn new(
@@ -284,10 +263,8 @@ impl LiveRangeAnalysis {
             &mut ranges,
         );
 
-        let share_set = ShareSet::new(shareable);
-
         //adds (non-state) shareable cells as live in the group they're contained in
-        //we already added (non-state) shareable cells as live in hte invoke
+        //we already added (non-state) shareable cells as live in the invoke
         //they're contained in in build_live_ranges().
         comp.groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
@@ -501,9 +478,12 @@ fn build_live_ranges(
             // set the live set of this node to be the things live on the
             // output of this node plus the things written to in this invoke
             // plus all shareable components used
+
+            //get the shareable components used in the invoke stmt
             let (reads_share, writes_share) =
                 LiveRangeAnalysis::find_gen_kill_invoke(invoke, &lr.share);
             let uses_share = &reads_share | &writes_share;
+
             let alive_writes = &alive | &writes;
             lr.live.insert(
                 invoke.comp.borrow().name().clone(),

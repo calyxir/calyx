@@ -1,7 +1,7 @@
 use super::sharing_components::ShareComponents;
 use crate::errors::CalyxResult;
 use crate::{
-    analysis::{LiveRangeAnalysis, ReadWriteSet},
+    analysis::{LiveRangeAnalysis, ReadWriteSet, ShareSet},
     ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
 };
 use std::collections::{HashMap, HashSet};
@@ -23,10 +23,10 @@ pub struct CellShare {
     live: LiveRangeAnalysis,
     rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
     /// Set of state shareable components (as type names)
-    state_shareable: HashSet<ir::Id>,
+    state_shareable: ShareSet,
 
     /// Set of shareable components (as type names)
-    shareable: HashSet<ir::Id>,
+    shareable: ShareSet,
 
     /// Cell active in continuous assignments, or ref cells (we want to ignore both)
     cont_ref_cells: HashSet<ir::Id>,
@@ -43,24 +43,8 @@ impl Named for CellShare {
 
 impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
-        let mut state_shareable = HashSet::new();
-        let mut shareable = HashSet::new();
-        // add state_share=1 primitives to the state_shareable set
-        for prim in ctx.lib.signatures() {
-            if prim.attributes.has("share") {
-                shareable.insert(prim.name.clone());
-            } else if prim.attributes.has("state_share") {
-                state_shareable.insert(prim.name.clone());
-            }
-        }
-
-        // add state_share=1 user defined components to the state_shareable set
-        for comp in &ctx.components {
-            if comp.attributes.has("state_share") {
-                state_shareable.insert(comp.name.clone());
-            }
-            //it seems like we never want to have a "share" user-defined components
-        }
+        let state_shareable = ShareSet::from_context::<true>(ctx);
+        let shareable = ShareSet::from_context::<false>(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -133,7 +117,6 @@ impl ShareComponents for CellShare {
     where
         F: FnMut(Vec<ir::Id>),
     {
-        
         for group in comp.groups.iter() {
             let conflicts = self.live.get(group.borrow().name());
             add_conflicts(
@@ -147,8 +130,8 @@ impl ShareComponents for CellShare {
             );
         }
         let mut invokes = HashSet::new();
-        get_invokes(&comp.control.borrow(), & mut invokes);
-        for invoke in invokes.iter(){
+        get_invokes(&comp.control.borrow(), &mut invokes);
+        for invoke in invokes.iter() {
             let conflicts = self.live.get(invoke);
             add_conflicts(
                 conflicts
@@ -171,20 +154,28 @@ impl ShareComponents for CellShare {
     }
 }
 
+//Gets the names of all the cells invoked (using an invoke control statement)
+//in control c, and adds them to hs.
 fn get_invokes(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
     match c {
         ir::Control::Empty(_) | ir::Control::Enable(_) => (),
-        ir::Control::Invoke(invoke) => {hs.insert(invoke.comp.borrow().name().clone()); ()}, 
-        ir::Control::Par(ir::Par{stmts, ..}) | ir::Control::Seq(ir::Seq{stmts,..}) => {
-            for stmt in stmts{
+        ir::Control::Invoke(invoke) => {
+            hs.insert(invoke.comp.borrow().name().clone());
+            ()
+        }
+        ir::Control::Par(ir::Par { stmts, .. })
+        | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            for stmt in stmts {
                 get_invokes(stmt, hs);
             }
         }
-        ir::Control::If(ir::If{tbranch, fbranch, ..}) => {
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
             get_invokes(tbranch, hs);
             get_invokes(fbranch, hs);
         }
-        ir::Control::While(ir::While{body, ..}) => {
+        ir::Control::While(ir::While { body, .. }) => {
             get_invokes(body, hs);
         }
     }
