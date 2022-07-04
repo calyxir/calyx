@@ -15,11 +15,16 @@ jobs:
         with:
           cache: yarn
           cache-dependency-path: web/yarn.lock
-      - name: Build
+      - name: Install wasm-pack
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: wasm-pack wasm-bindgen-cli
+          args: wasm-pack
+      - name: Install wasm-bindgen-cli
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --version 0.2.80 -f wasm-bindgen-cli
       - run: yarn
         working-directory: ./web
       - run: yarn build

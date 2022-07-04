@@ -20,7 +20,7 @@ endmodule
 module std_wire #(
   parameter WIDTH = 32
 ) (
-  input logic [WIDTH - 1:0] in,
+  input wire logic [WIDTH - 1:0] in,
   output logic [WIDTH - 1:0] out
 );
   assign out = in;
