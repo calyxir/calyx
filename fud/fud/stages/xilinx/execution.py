@@ -26,8 +26,8 @@ class HwExecutionStage(Stage):
         data_path = config["stages", self.name, "data"]
         
         save_temps = bool(config["stages", self.name, "save_temps"])
-        gen_wdb = bool(config["stages", self.name, "waveform"])
-        if gen_wdb and not save_temps:
+        waveform = bool(config["stages", self.name, "waveform"])
+        if waveform and not save_temps:
             log.warn(
                 f"{self.name}.waveform is enabled, but {self.name}.save_temps "
                 f"is not. This will generate a WDB file but then immediately "
@@ -63,16 +63,29 @@ class HwExecutionStage(Stage):
 
             xrt_output_logname = "output.log"
             with open("xrt.ini", "w") as f:
-               xrt_ini_config = [
+                xrt_ini_config = [
                     "[Runtime]\n",
                     f"runtime_log={xrt_output_logname}\n",
                     "[Emulation]\n",
                     "print_infos_in_console=false\n",
                 ]
-               if gen_wdb:
-                   xrt_ini_config.append("debug_mode=batch\n")
+                if waveform:
+                    xrt_ini_config.append("debug_mode=batch\n")
+                    xrt_ini_config.append(f"user_pre_sim_script={new_dir.name}/pre_sim.tcl\n")
+                    xrt_ini_config.append(f"user_post_sim_script={new_dir.name}/pre_sim.tcl\n")
+                f.writelines(xrt_ini_config)
 
-               f.writelines(xrt_ini_config)
+            # Extra Tcl scripts to produce a VCD waveform dump.
+            if waveform:
+                with open("pre_sim.tcl", "w") as f:
+                    f.writelines([
+                        "open_vcd\n",
+                        "log_vcd *\n",
+                    ])
+                with open("post_sim.tcl", "w") as f:
+                    f.writelines([
+                        "close_vcd\n",
+                    ])
 
             ctx = self.cl.create_some_context(0)
             dev = ctx.devices[0]
