@@ -410,9 +410,6 @@ pub fn bram(data_width: u64, size: u64, addr_width: u64) -> v::Module {
         v::Expr::new_index_expr("ram_core", "ADDR"),
     ));
     //add a simple assign <String1> = <String2>
-    module.add_stmt(v::Parallel::Assign(
-            "Done".into(),
-            "done_reg".into(),
-     ));
+    module.add_stmt(v::Parallel::Assign("Done".into(), "done_reg".into()));
     module
 }
