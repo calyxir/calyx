@@ -117,22 +117,10 @@ impl ShareComponents for CellShare {
     where
         F: FnMut(Vec<ir::Id>),
     {
-        for group in comp.groups.iter() {
-            let conflicts = self.live.get(group.borrow().name());
-            add_conflicts(
-                conflicts
-                    .iter()
-                    .filter(|cell_name| {
-                        !self.cont_ref_cells.contains(cell_name)
-                    })
-                    .cloned()
-                    .collect(),
-            );
-        }
-        let mut invokes = HashSet::new();
-        get_invokes(&comp.control.borrow(), &mut invokes);
-        for invoke in invokes.iter() {
-            let conflicts = self.live.get(invoke);
+        let mut invokes_enables = HashSet::new();
+        get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
+        for invoke_enable in invokes_enables.iter() {
+            let conflicts = self.live.get(invoke_enable);
             add_conflicts(
                 conflicts
                     .iter()
@@ -156,26 +144,29 @@ impl ShareComponents for CellShare {
 
 //Gets the names of all the cells invoked (using an invoke control statement)
 //in control c, and adds them to hs.
-fn get_invokes(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
+fn get_invokes_enables(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
     match c {
-        ir::Control::Empty(_) | ir::Control::Enable(_) => (),
-        ir::Control::Invoke(invoke) => {
-            hs.insert(invoke.comp.borrow().name().clone());
+        ir::Control::Empty(_) => (),
+        ir::Control::Enable(ir::Enable { group, .. }) => {
+            hs.insert(group.borrow().name().clone());
+        }
+        ir::Control::Invoke(ir::Invoke { comp, .. }) => {
+            hs.insert(comp.borrow().name().clone());
         }
         ir::Control::Par(ir::Par { stmts, .. })
         | ir::Control::Seq(ir::Seq { stmts, .. }) => {
             for stmt in stmts {
-                get_invokes(stmt, hs);
+                get_invokes_enables(stmt, hs);
             }
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
-            get_invokes(tbranch, hs);
-            get_invokes(fbranch, hs);
+            get_invokes_enables(tbranch, hs);
+            get_invokes_enables(fbranch, hs);
         }
         ir::Control::While(ir::While { body, .. }) => {
-            get_invokes(body, hs);
+            get_invokes_enables(body, hs);
         }
     }
 }
