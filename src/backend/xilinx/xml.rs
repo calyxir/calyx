@@ -150,7 +150,7 @@ impl Backend for XilinxXmlBackend {
                 name: axi_name,
                 mode: "master",
                 range: "0xFFFFFFFFFFFFFFFF",
-                data_width: 64,
+                data_width: 512, //matches actual hardware width
                 port_type: "addressable",
                 base: "0x0",
             });
