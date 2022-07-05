@@ -1,5 +1,11 @@
 /**
 * Synchronization primitives for Calyx
+* Requirements: 
+* 1. write_en_* signals should remain 1 until the 
+*    corresponding done_* signals are set to 1 once they are set to 1.
+* 2. in_* should remain the same value once their corresponding write_en_* signals
+*    are set high until their corresponding done_* signals are set to 1.
+* 3. read_en signal should remain 1 until the read_done signal is set to 1. 
 */
 
 // M-structure: Register primitive that blocks writes until a read happens.
@@ -35,9 +41,7 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       is_full <= 0;
-    else if (WRITE_ONE_HOT)
-      is_full <= 1;
-    else if (WRITE_MULT)
+    else if (WRITE_ONE_HOT || WRITE_MULT)
       is_full <= 1;
     else if (READ_ST)
       is_full <= 0;
