@@ -1,12 +1,12 @@
 use crate::analysis::{ReadWriteSet, ShareSet};
-use crate::ir::RRC;
+use crate::ir::{traversal::VisResult, RRC};
 
 #[derive(Default)]
 /// Description goes here
 
 pub struct GroupToSeq {
     go_done_map: HashMap<(ir::Id, ir::Id)>,
-    go_constants: HashSet<(ir::Id)>,
+    cells_of_interest: HashSet<ir::Id>,
     last: Option<ir::Id>,
     share: ShareSet,
     state_share: ShareSet,
@@ -29,7 +29,7 @@ impl ConstructVisitor for GroupToSeq {
 
         Ok(GroupToSeq {
             go_done_map: HashMap::new(),
-            go_constants: HashSet::new(),
+            cells_of_interest: HashSet::new(),
             last: None,
             state_shareable,
             shareable,
@@ -38,130 +38,83 @@ impl ConstructVisitor for GroupToSeq {
 
     fn clear_data(&mut self) {
         self.go_done_map = HashMap::new();
-        self.go_constants = HashSet::new();
+        self.cells_of_interest = HashSet::new();
         self.last = None;
     }
 }
 
 impl GroupToSeq {
+    fn is_stateful(&self, cell: &ir::RRC<ir::Cell>) -> bool {
+        match cell.borrow().prototype {
+            ir::CellType::Primitive { name, .. }
+            | ir::CellType::Component { name } => {
+                !self.shareable.contains(name)
+            }
+            _ => false,
+        }
+    }
+    fn cells_of_iterest(&mut self, asmts: &Vec) {
+        self.cells_of_interest = ReadWriteSet::uses(asmts)
+            .filter(|cell| self.is_stateful(cell))
+            .map(|cell| cell.borrow().name().clone())
+            .collect()
+    }
+    fn is_cell_of_interest(&self, cell: &ir::RRC<ir::Cell>) -> bool {
+        self.cells_of_interest.contains(cell.borrow().name())
+    }
     fn update(&mut self, src: &ir::Port, dst: &ir::Port) -> bool {
         match (&src.parent, &dst.parent) {
+            //src's done writes to dst's go
             (
                 ir::PortParent::Cell(src_cell),
                 ir::PortParent::Cell(dst_cell),
             ) => {
-                match (
-                    &dst_cell.upgrade().borrow().prototype,
-                    &src_cell.upgrade().borrow().prototype,
-                ) {
-                    (
-                        ir::CellType::Primitive {
-                            name: dst_cell_prim_type,
-                            ..
-                        },
-                        ir::CellType::Primitive {
-                            name: src_cell_prim_type,
-                            ..
-                        },
-                    )
-                    | (
-                        ir::CellType::Primitive {
-                            name: dst_cell_prim_type,
-                            ..
-                        },
-                        ir::CellType::Component {
-                            name: src_cell_prim_type,
-                            ..
-                        },
-                    )
-                    | (
-                        ir::CellType::Component {
-                            name: dst_cell_prim_type,
-                            ..
-                        },
-                        ir::CellType::Primitive {
-                            name: src_cell_prim_type,
-                            ..
-                        },
-                    )
-                    | (
-                        ir::CellType::Component {
-                            name: dst_cell_prim_type,
-                            ..
-                        },
-                        ir::CellType::Component {
-                            name: src_cell_prim_type,
-                            ..
-                        },
-                    ) => {
-                        if !(self.shareable.contains(dst_cell_prim_type)
-                            || self.shareable.contains(src_cell_prim_type))
-                            && (dst.attributes.has("go")
-                                && src.clone_name() == "done")
-                        {
+                if self.is_cell_of_interest(&src_cell.upgrade())
+                    && self.is_cell_of_interest(&dst_cell.upgrade())
+                    && src.name == "done"
+                    && dst.attributes.has("go")
+                {
+                    match self
+                        .go_done_map
+                        .get(src_cell.upgrade().borrow().clone_name())
+                    {
+                        None => {
                             self.go_done_map.insert(
-                                dst_cell.upgrade().borrow().clone_name(),
                                 src_cell.upgrade().borrow().clone_name(),
-                            );
-                        }
-                    }
-                    (
-                        ir::CellType::Component {
-                            name: dst_cell_prim_type,
-                            ..
-                        },
-                        ir::CellType::Constant { .. },
-                    )
-                    | (
-                        ir::CellType::Primitive {
-                            name: dst_cell_prim_type,
-                            ..
-                        },
-                        ir::CellType::Constant { .. },
-                    ) => {
-                        if !self.shareable.contains(dst_cell_prim_type)
-                            && dst.attributes.has("go")
-                        {
-                            self.go_constants.insert(
                                 dst_cell.upgrade().borrow().clone_name(),
                             );
                         }
-                    }
-                }
-            }
-
-            // Something is written to a group: to be added to the graph, this needs to be a "done" port.
-            (ir::PortParent::Cell(src_wref), ir::PortParent::Group(_)) => {
-                if dst.name == "done" {
-                    match src_wref.upgrade().borrow().prototype {
-                        ir::CellType::Primitive {
-                            name: cell_type, ..
-                        }
-                        | ir::CellType::Component { name: cell_type } => {
-                            if !self.shareable.contains(cell_type) {
-                                self.last = Some(
-                                    src_wref.upgrade().borrow().clone_name(),
-                                );
+                        Some(name) => {
+                            if name != dst_cell.upgrade().borrow().clone_name()
+                            {
+                                return false;
                             }
                         }
                     }
                 }
             }
-            // If we encounter anything else, no need to add it to the graph.
+            // src_cell's done writes to group's done
+            (ir::PortParent::Cell(src_cell), ir::PortParent::Group(_)) => {
+                if dst.name == "done"
+                    && self.is_cell_of_interest(&src_cell.upgrade())
+                    && src.name == "done"
+                {
+                    self.last = Some(src_cell.upgrade().clone_name());
+                }
+            }
+            // If we encounter anything else not of interest to us
             _ => (),
         }
+        true
     }
-    fn get_cell_names(&self, asmts: &Vec<ir::Assignment>) -> Vec<ir::Id> {
-        ReadWriteSet::uses(asmts)
-            .filter(|cell| !self.shareable.is_shareable_component(cell))
-            .map(|cell| cell.borrow().clone_name())
-            .collect()
-    }
-    fn is_splittable(&mut self, asmts: &Vec<ir::Assignment>) -> bool {
-        if !self.build_maps(asmts) {
-            return false;
+    fn get_connector(&self, name: &ir::Id) -> Option<ir::Id> {
+        if let Some((dst, _)) =
+            self.go_done_map.iter().find(|(_, src)| src == name)
+        {
+            Some(dst)
+        } else {
+            None
         }
-        let list = self.get_cell_names(asmts);
     }
 }
 
@@ -172,12 +125,21 @@ impl Visitor for GroupToSeq {
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
-    ) -> ir::traversal::VisResult {
+    ) -> VisResult {
         let asmts = s.group.borrow().assignments;
+        self.cells_of_interest(asmts);
         for asmt in asmts {
             let src = asmt.src;
             let dst = asmt.dst;
-            self.update(&src, &dst);
+            if !self.update(&src, &dst) {
+                return Ok(Action::Continue);
+            }
+        }
+        let mut ordering: Vec<ir::Id> = Vec::new();
+        if let Some(last_cell) = self.last {
+            vec.push(last_cell);
+        } else {
+            return Ok(Action::Continue);
         }
     }
 }
