@@ -66,7 +66,7 @@ impl GroupToSeq {
         match (&src.parent, &dst.parent) {
             //src's done writes to dst's go
             (
-                ir::PortParent::Cell(src_cell),
+                ir::PortParent::Cell(src_cell), a
                 ir::PortParent::Cell(dst_cell),
             ) => {
                 if self.is_cell_of_interest(&src_cell.upgrade())
