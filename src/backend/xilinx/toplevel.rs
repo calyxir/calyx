@@ -95,7 +95,7 @@ fn top_level(
     data_width: u64,
     memories: &[String],
 ) -> v::Module {
-    assert!(memories.len() >= 1); // At least 1 memory should exist within the toplevel
+    assert!(!memories.is_empty()); // At least 1 memory should exist within the toplevel
     let mut module = v::Module::new("Toplevel");
 
     // add system signals
