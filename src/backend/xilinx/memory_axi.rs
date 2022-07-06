@@ -249,14 +249,14 @@ impl MemoryInterface for AxiInterface {
         concat.add_expr("bram_read_data");
         concat.add_expr(v::Expr::new_repeat(
             (bus_data_width / data_width) - 1,
-            "bram_read_data",
+            v::Expr::new_ulit_bin(32, "0"),
         ));
         module.add_stmt(axi4.write_data.assign("DATA", concat));
         let mut concat = v::ExprConcat::default();
         concat.add_expr(v::Expr::new_ulit_hex(4, "F"));
         concat.add_expr(v::Expr::new_repeat(
             (bus_data_width / (8 * 4)) - 1,
-            v::Expr::new_ulit_hex(4, "F"),
+            v::Expr::new_ulit_hex(4, "0"),
         ));
         module.add_stmt(axi4.write_data.assign("STRB", concat));
         module.add_stmt(axi4.write_data.assign("LAST", 1));
