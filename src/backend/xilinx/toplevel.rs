@@ -246,13 +246,7 @@ fn top_level(
     // done signal
     module.add_stmt(v::Parallel::Assign(
         "ap_done".into(),
-        v::Expr::new_logical_or(
-            v::Expr::new_gt("counter", "timeout"),
-            v::Expr::new_eq(
-                "memories_sent",
-                v::Expr::new_ulit_bin(memories.len() as u32, "1"),
-            ),
-        ),
+        "memories_sent".into(),
     ));
 
     module
