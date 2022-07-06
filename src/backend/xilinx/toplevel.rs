@@ -95,6 +95,7 @@ fn top_level(
     data_width: u64,
     memories: &[String],
 ) -> v::Module {
+    assert!(memories.len() >= 1); // At least 1 memory should exist within the toplevel
     let mut module = v::Module::new("Toplevel");
 
     // add system signals
@@ -291,24 +292,18 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
 
     let mut parallel = v::ParallelProcess::new_always();
     parallel.set_event(v::Sequential::new_posedge("ap_clk"));
-    let mut ifelse = v::SequentialIfElse::new(fsm.state_is("send"));
 
-    if memories.len() == 1 {
-        ifelse.add_seq(v::Sequential::new_nonblk_assign(
-            "memories_sent",
-            format!("{}_send_done", memories[0]),
-        ));
-    } else {
-        ifelse.add_seq(v::Sequential::new_nonblk_assign(
-            "memories_sent",
-            memories[1..].iter().fold(
-                format!("{}_send_done", memories[0]).into(),
-                |acc, elem| {
-                    v::Expr::new_bit_and(acc, format!("{}_send_done", elem))
-                },
-            ),
-        ));
-    }
+    let mut ifelse = v::SequentialIfElse::new(fsm.state_is("send"));
+    ifelse.add_seq(v::Sequential::new_nonblk_assign(
+        "memories_sent",
+        memories[1..].iter().fold(
+            format!("{}_send_done", memories[0]).into(),
+            |acc, elem| {
+                v::Expr::new_bit_and(acc, format!("{}_send_done", elem))
+            },
+        ),
+    ));
+
     ifelse.set_else(v::Sequential::new_nonblk_assign("memories_sent", 0));
     parallel.add_seq(ifelse);
     module.add_stmt(parallel);
