@@ -299,7 +299,6 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
             format!("{}_send_done", memories[0]),
         ));
     } else {
-        //TODO: DOES NOT WORK
         ifelse.add_seq(v::Sequential::new_nonblk_assign(
             "memories_sent",
             memories[1..].iter().fold(
@@ -309,13 +308,6 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
                 },
             ),
         ));
-
-        // for (idx, mem) in memories.iter().enumerate() {
-        //     ifelse.add_seq(v::Sequential::new_nonblk_assign(
-        //         v::Expr::new_index_bit("memories_sent", idx as i32),
-        //         format!("{}_send_done", mem),
-        //     ));
-        // }
     }
     ifelse.set_else(v::Sequential::new_nonblk_assign("memories_sent", 0));
     parallel.add_seq(ifelse);
