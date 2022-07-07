@@ -454,13 +454,6 @@ module main (
     input logic reset,
     output logic done
 );
-    string DATA;
-    int CODE;
-    initial begin
-        CODE = $value$plusargs("DATA=%s", DATA);
-        $display("DATA (path to meminit files): %s", DATA);
-    end
-    
     logic [35:0] c_out;
     
     std_const # (
