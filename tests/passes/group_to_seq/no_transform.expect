@@ -1,8 +1,6 @@
-// -p group-to-seq
-
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main<"state_share"=1>(in:32) -> () {
+component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     add = std_add(32);
     bin_read0_0 = std_reg(32);
@@ -14,25 +12,25 @@ component main<"state_share"=1>(in:32) -> () {
     x_0 = std_reg(32);
   }
   wires {
-    group writeAB{
-      A.write_en = 1'd1; 
-      A.in = 32'd5; 
-      B.write_en = A.done; 
-      B.in = 32'd4; 
-      C.write_en = A.done; 
+    group writeAB {
+      A.write_en = 1'd1;
+      A.in = 32'd5;
+      B.write_en = A.done;
+      B.in = 32'd4;
+      C.write_en = A.done;
       C.in = 32'd5;
-      writeAB[done] = B.done & C.done ? 1'd1; 
+      writeAB[done] = B.done & C.done ? 1'd1;
     }
     group chain2 {
-      A.write_en = 1'd1; 
-      A.in = 32'd5; 
-      B.write_en = A.done; 
-      B.in = 32'd4; 
-      C.write_en = 1'd1; 
+      A.write_en = 1'd1;
+      A.in = 32'd5;
+      B.write_en = A.done;
+      B.in = 32'd4;
+      C.write_en = 1'd1;
       C.in = 32'd5;
-      D.write_en = C.done; 
-      D.in = 32'd9; 
-      chain2[done] = D.done; 
+      D.write_en = C.done;
+      D.in = 32'd9;
+      chain2[done] = D.done;
     }
     group chain {
       add.left = 32'd2;
@@ -43,14 +41,15 @@ component main<"state_share"=1>(in:32) -> () {
       bin_read0_0.write_en = 1'd1;
       chain[done] = x_0.done;
     }
-    group write_r{
-      r.write_en = 1'd1; 
-      r.in = 32'd4; 
+    group write_r {
+      r.write_en = 1'd1;
+      r.in = 32'd4;
       write_r[done] = r.done;
     }
   }
+
   control {
-    seq{
+    seq {
       writeAB;
       chain;
       chain2;

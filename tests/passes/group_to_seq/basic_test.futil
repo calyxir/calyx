@@ -36,7 +36,7 @@ component main<"state_share"=1>(in:32) -> () {
       mult_pipe0.go = A.done; 
       mult_pipe0.left = A.out; 
       mult_pipe0.right = 32'd4;
-      two[done] = mult_pipe0.done; 
+      two[done] = mult_pipe0.done ? 1'd1; 
     }
     group add_group{
       add.left = 32'd5; 
