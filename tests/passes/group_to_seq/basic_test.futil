@@ -1,0 +1,57 @@
+// -p group-to-seq
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main<"state_share"=1>(in:32) -> () {
+  cells {
+    add = std_add(32);
+    bin_read0_0 = std_reg(32);
+    r = std_reg(32);
+    A = std_reg(32);
+    B = std_reg(32);
+    mult_pipe0 = std_mult_pipe(32);
+    x_0 = std_reg(32);
+  }
+  wires {
+    group writeAB{
+      A.write_en = 1'd1; 
+      A.in = 32'd5; 
+      B.write_en = 1'd1; 
+      B.in = 32'd7; 
+      writeAB[done]= A.done & B.done? 1'd1;
+    }
+    group chain {
+      x_0.write_en = bin_read0_0.done;
+      x_0.in = bin_read0_0.out;
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      chain[done] = x_0.done;
+      mult_pipe0.left = A.out;
+      mult_pipe0.right = B.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group two {
+      A.write_en = 1'd1; 
+      A.in = 32'd4; 
+      mult_pipe0.go = A.done; 
+      mult_pipe0.left = A.out; 
+      mult_pipe0.right = 32'd4;
+      two[done] = mult_pipe0.done; 
+    }
+    group add_group{
+      add.left = 32'd5; 
+      add.right = in; 
+      r.write_en = 1'd1; 
+      r.in = add.out; 
+      add_group[done] = r.done;
+    }
+  }
+  control {
+    seq{
+      writeAB;
+      chain;
+      two;
+      add_group;
+    }
+  }
+}

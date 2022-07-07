@@ -1,0 +1,34 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    add = std_add(32);
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+  }
+  wires {
+    
+    group let1<"static"=4> {
+      add.left = b.out; 
+      add.right = 32'd9;
+      a.write_en =  1'd1; 
+      a.in = add.out; 
+      b.write_en = a.done; 
+      b.in = add.out; 
+      c.write_en = b.done; 
+      c.in = add.out; 
+      let1[done] = c.done; 
+    }
+    
+    
+    
+  }
+  control {
+  // ANCHOR: control
+    seq {
+      let1;
+    }
+  // ANCHOR_END: control
+  }
+}
