@@ -30,10 +30,10 @@ component main() -> () {
     //// ANCHOR: read
     // Read value from sync intermediate and write to temp.
     group read_imm {
-      imm.read_en = 1'd1;
-      out.write_en = imm.read_done;
+      imm.read_en_0 = 1'd1;
+      out.write_en = imm.read_done_0;
       out.addr0 = idx.out;
-      out.write_data = imm.out;
+      out.write_data = imm.out_0;
       read_imm[done] = out.done;
     }
     //// ANCHOR_END: read
