@@ -88,13 +88,10 @@ impl OrderAnalysis {
                     } else {
                         //checking for a.done ? 1'd1
                         if src.is_constant(1, 1) {
-                            match &*asmt.guard {
-                                ir::Guard::Port(port) => {
-                                    if port.borrow().name == "done" {
-                                        self.last = Some(get_parent_name(&port))
-                                    }
+                            if let ir::Guard::Port(port) = &*asmt.guard {
+                                if port.borrow().name == "done" {
+                                    self.last = Some(get_parent_name(port))
                                 }
-                                _ => (),
                             }
                         }
                     }
@@ -151,11 +148,9 @@ impl OrderAnalysis {
                 ordering.insert(0, new_pred.clone());
                 cur_pred = new_pred.clone();
             }
-            let all_stateful_cells: Vec<ir::RRC<ir::Cell>> =
-                ReadWriteSet::write_set(asmts.iter())
-                    .filter(|cell| self.is_stateful(cell))
-                    .collect();
-            if ordering.len() == all_stateful_cells.len() {
+            let all_stateful_cells = ReadWriteSet::write_set(asmts.iter())
+                .filter(|cell| self.is_stateful(cell));
+            if ordering.len() == all_stateful_cells.count() {
                 Some(ordering)
             } else {
                 None
