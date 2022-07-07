@@ -312,7 +312,9 @@ impl LiveRangeAnalysis {
             .collect::<HashSet<_>>()
             .into();
         match self.live.get_mut(group_name) {
-            None => (),
+            None => {
+                unreachable!("Missing live range for {}. This might happen if a group is not used in the control program", group_name)
+            }
             Some(prop) => *prop = &*prop | &group_uses,
         }
     }
