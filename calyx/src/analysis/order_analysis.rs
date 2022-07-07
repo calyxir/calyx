@@ -1,6 +1,6 @@
 use crate::analysis::ReadWriteSet;
 use crate::ir;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Default)]
 ///Primarily used to help determine the order cells are executed within
@@ -8,12 +8,8 @@ use std::collections::{HashMap, HashSet};
 pub struct OrderAnalysis {
     ///Map w/ entries (b,a) for all assignments of form a.go = b.done,
     go_done_map: HashMap<ir::Id, ir::Id>,
-    ///Names of all the cells that are either primitive
-    cells_of_interest: HashSet<ir::Id>,
     ///For group[done] = a.done or group[done] = a.done ? 1'd1,
     last: Option<ir::Id>,
-    ///Order that each cell is executed in the group
-    pub ordering: Vec<ir::Id>,
 }
 
 impl OrderAnalysis {
@@ -24,19 +20,6 @@ impl OrderAnalysis {
             ir::CellType::Component { .. } => true,
             _ => false,
         }
-    }
-    //Adds the names of all cells of interest to self.cells_of_interest. A "cell of interest"
-    //is one that is written to in asmts, and returns true in the
-    // `is_stateful` function, meaning it is a component or non-combinational primitive
-    fn get_cells_of_interest(&mut self, asmts: &[ir::Assignment]) {
-        self.cells_of_interest = ReadWriteSet::write_set(asmts.iter())
-            .filter(|cell| self.is_stateful(cell))
-            .map(|cell| cell.borrow().name().clone())
-            .collect()
-    }
-    //Returns whether cell is in self.cells_of_interest
-    fn is_cell_of_interest(&self, cell: &ir::RRC<ir::Cell>) -> bool {
-        self.cells_of_interest.contains(cell.borrow().name())
     }
     //Returns whether the given assignment is a go done assignment from two cells of interest
     //i.e. cell1.go = cell2.done.
@@ -49,8 +32,8 @@ impl OrderAnalysis {
                 ir::PortParent::Cell(dst_cell),
             ) => {
                 //the first two checks may be unnecessary
-                self.is_cell_of_interest(&src_cell.upgrade())
-                    && self.is_cell_of_interest(&dst_cell.upgrade())
+                self.is_stateful(&src_cell.upgrade())
+                    && self.is_stateful(&dst_cell.upgrade())
                     && src.name == "done"
                     && dst.attributes.has("go")
             }
@@ -70,8 +53,8 @@ impl OrderAnalysis {
                 ir::PortParent::Cell(dst_cell),
             ) => {
                 //first two checks may be unnecessary
-                if self.is_cell_of_interest(&src_cell.upgrade())
-                    && self.is_cell_of_interest(&dst_cell.upgrade())
+                if self.is_stateful(&src_cell.upgrade())
+                    && self.is_stateful(&dst_cell.upgrade())
                     && src.name == "done"
                     && dst.attributes.has("go")
                 {
@@ -133,15 +116,14 @@ impl OrderAnalysis {
             None
         }
     }
+
+    //The assignment must write to a stateful component, *or* be a write
+    //to the group's done port.
     //In order to perform the transformation to the group, all assignments in the group
     //must return true on this method.
-    //The assignment must write to a self.cell_of_interest, *or* be a write
-    //to the group's done port.
     pub fn is_orderable_assignment(&self, asmt: &ir::Assignment) -> bool {
         match &asmt.dst.borrow().parent {
-            ir::PortParent::Cell(cell) => {
-                self.is_cell_of_interest(&cell.upgrade())
-            }
+            ir::PortParent::Cell(cell) => self.is_stateful(&cell.upgrade()),
             ir::PortParent::Group(_) => asmt.dst.borrow().name == "done",
         }
     }
@@ -151,8 +133,6 @@ impl OrderAnalysis {
         &mut self,
         asmts: &Vec<ir::Assignment>,
     ) -> Option<Vec<ir::Id>> {
-        //sets order_analysis.cells_of_interest to the set of cell_names that we're interested in
-        self.get_cells_of_interest(asmts);
         //Update self.go_done_map and self.last for each asmt in the group.
         //The only time self.update() returns
         //false is when it discovers that group has one cell's done port triggering
@@ -166,12 +146,16 @@ impl OrderAnalysis {
         let mut ordering: Vec<ir::Id> = Vec::new();
         if let Some(last_cell) = self.last.clone() {
             ordering.push(last_cell.clone());
-            let mut cur = last_cell;
-            while let Some(new_cell) = self.get_pred(&cur) {
-                ordering.insert(0, new_cell.clone());
-                cur = new_cell.clone();
+            let mut cur_pred = last_cell;
+            while let Some(new_pred) = self.get_pred(&cur_pred) {
+                ordering.insert(0, new_pred.clone());
+                cur_pred = new_pred.clone();
             }
-            if ordering.len() == self.cells_of_interest.len() {
+            let all_stateful_cells: Vec<ir::RRC<ir::Cell>> =
+                ReadWriteSet::write_set(asmts.iter())
+                    .filter(|cell| self.is_stateful(cell))
+                    .collect();
+            if ordering.len() == all_stateful_cells.len() {
                 Some(ordering)
             } else {
                 None

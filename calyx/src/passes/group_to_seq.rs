@@ -9,7 +9,7 @@ use std::rc::Rc;
 /// Transforms a group into a seq of smaller groups, if possible.
 /// Currently, in order for a group to be transformed, must a) consist of only
 /// writes to non-combination cells or the group's done port, and b) there must be a clear,linear ordering of
-/// the execution of each cell by looking at go-done assignments and c) group[done] = cell.done for
+/// the execution of each cell in the group by looking at go-done assignments and c) group[done] = cell.done for
 /// some cell.
 pub struct GroupToSeq;
 
@@ -23,7 +23,7 @@ impl Named for GroupToSeq {
     }
 }
 
-//If asmt is a write to a cell named name returne Some(name).
+//If asmt is a write to a cell named name returns Some(name).
 //If asmt is a write to a group port, returns None.
 fn is_write_to(asmt: &ir::Assignment) -> Option<ir::Id> {
     match &asmt.dst.borrow().parent {
@@ -103,7 +103,7 @@ impl Visitor for GroupToSeq {
         let mut group = s.group.borrow_mut();
 
         //builds ordering. If it cannot build a complete, linear, valid ordering,
-        //then returns false, and we stop.
+        //then returns None, and we stop.
         let ordering = match order_analysis.get_ordering(&group.assignments) {
             None => return Ok(Action::Continue),
             Some(order) => order,
@@ -190,7 +190,7 @@ impl Visitor for GroupToSeq {
                         group.borrow_mut().assignments.push(group_done);
                         begin_asmt.push(cell_go);
                     } else {
-                        //This is the last assignment
+                        //This branch should only be reached for the last assignment
                         if group_done.len() == 1 {
                             let new_assign = rename_group_done(
                                 &mut builder,
@@ -199,7 +199,9 @@ impl Visitor for GroupToSeq {
                             );
                             group.borrow_mut().assignments.push(new_assign);
                         } else {
-                            unreachable!("shouldn't happen")
+                            unreachable!(
+                                "Should only be 1 done write in the group"
+                            )
                         }
                     }
                     seq_vec.push(ir::Control::enable(group));
