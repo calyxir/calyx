@@ -75,11 +75,11 @@ impl PassManager {
                 RemoveCombGroups, // Must run before `infer-static-timing`.
                 InferStaticTiming,
                 MergeStaticPar,
-                DeadGroupRemoval,
                 StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.
                 GroupToSeq,
+                DeadGroupRemoval, //Run after group_to_seq and before any pass that uses LiveRangeAnalysis
                 CellShare,
             ]
         );
