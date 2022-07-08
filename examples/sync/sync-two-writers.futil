@@ -1,0 +1,94 @@
+import "primitives/core.futil";
+import "primitives/sync.futil";
+
+// Sum up all values from two arrays.
+// Expected resolution order for arbitration:
+// below we denote 1 is written to the synchronized register as 1W, and 
+// 6 is read from the synchronized register as 6R.
+// 1W 1R 6W 6R 5W 5R 2W 2R 3W 3R 4W 4R 3W 3R 4W 4R 5W 5R 2W 2R 1W 1R 6W 6R
+component main() -> () {
+  cells {
+    @external in_0 = std_mem_d1(32, 6, 3);
+    @external in_1 = std_mem_d1(32, 6, 3);
+    @external out = std_mem_d1(32, 1, 3);
+    lt = std_lt(3);
+    sum = std_add(32);
+    add = std_add(3);
+
+    // Sync register used to communicate between threads
+    imm = std_sync_reg(32);
+    // Index of the input and output memory
+    idx = std_reg(3);
+    // temporary storage for partial sum
+    temp = std_reg(32);
+  }
+  wires {
+    group reg_init {
+      temp.in = 32'd0;
+      temp.write_en = 1'd1;
+      reg_init[done] = temp.done;
+    }
+
+    // Write value from `in[idx]` to sync intermediate.
+    group write_imm_0 {
+      imm.write_en_0 = 1'd1;
+      imm.in_0 = in_0.read_data;
+      in_0.addr0 = idx.out;
+      write_imm_0[done] = imm.write_done_0;
+    }
+    
+    group write_imm_1 {
+      imm.write_en_1 = 1'd1;
+      imm.in_1 = in_1.read_data;
+      in_1.addr0 = idx.out;
+      write_imm_1[done] = imm.write_done_1;
+    }
+
+    // Read value from sync intermediate and write to temp.
+    group read_imm {
+      imm.read_en = 1'd1;
+      sum.left = imm.read_done? imm.out;
+      sum.right = temp.out;
+      temp.in = imm.read_done? sum.out;
+      temp.write_en =  imm.read_done? 1'd1;
+      read_imm[done] = temp.done;
+    }
+
+    group incr_idx {
+      add.left = 3'd1;
+      add.right = idx.out;
+      idx.in = add.out;
+      idx.write_en = 1'd1;
+      incr_idx[done] = idx.done;
+    }
+
+    group reg_to_mem {
+      out.write_en = 1'd1;
+      out.write_data = temp.out;
+      out.addr0 = 3'd0;
+      reg_to_mem[done] = out.done;
+    }
+
+    comb group cmp {
+      lt.left = idx.out;
+      lt.right = 3'd6;
+    }
+  }
+  control {
+    seq {
+      reg_init;
+      while lt.out with cmp {
+        seq {
+          par {
+            read_imm;
+            write_imm_0;
+            write_imm_1;
+          }
+          read_imm;
+          incr_idx;
+        }
+      }
+    reg_to_mem;
+    }
+  }
+}
