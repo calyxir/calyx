@@ -58,7 +58,7 @@ impl ConstructVisitor for InferShare {
     where
         Self: Sized + Named,
     {
-        let opts = Self::get_opts(&["print_dmap"], ctx);
+        let opts = Self::get_opts(&["print-dmap"], ctx);
 
         let state_shareable = ShareSet::from_context::<true>(ctx);
 

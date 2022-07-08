@@ -38,32 +38,47 @@ const END_ID: &str = "END_ID";
 ///
 /// 1) The While Guard
 /// The last node(s) in the while body are predecessor(s) of the while guard but
-/// are not guaranteed to be executed. So, We can think of the while guard's
-/// predecessors in two camps: the "body predecessors" that are not guaranteed to
+/// are not guaranteed to be executed. So, we can think of the while guard's
+/// predecessors as being split in two groups: the "body predecessors" that are not guaranteed to
 /// be executed before the while guard and the "outside predecessors" that are
 /// outside the body of the while loop and are guaranteed to be executed before
-/// the while loop guard. Since there is now a set of predecessors that may *not*
-/// be executed before the while guard, you may be tempted to take
-/// dom(while guard) = [U(dom(outside preds)) intersect U(dom(body preds))] U {while guard}.
-/// This is indeed a correct way to calculate the dominators of the while guard.
-/// However, we know that any dominators of the "outside predecessors" must also
-/// dominate "body predecessors", since in order to get to the body of a while loop
-/// you must go through the while guard. Therefore, we know U dom(other preds) is a subset
-/// of U dom(body preds). Therefore, taking the intersection will just yield U(dom(outside preds)),
-/// which is what the code actually uses.
+/// the while loop guard.
+/// Here we take:
+/// dom(while guard) = U(dom(outside preds)) U {while guard}
+///
+/// Justification:
+/// dom(while guard) is a subset of U(dom(outside preds)) U {while guard}
+/// Suppose n dominates the while guard. Every path to the while guard must end in
+/// 1) outside pred -> while guard OR 2) body pred -> while guard. But for choice 2)
+/// we know the path was really something like outside pred -> while guard -> body
+/// -> while guard... body -> while guard. Since n dominates the while guard
+/// we know that it *cannot* be in the while body. Therefore, since every path to the
+/// while guard is in the form outside pred -> [possibly while guard + some other
+/// while body statements] -> while guard, we know that n must either dominate
+/// outside pred or be the while guard itself.
+///
+/// dom(outside preds) U {while guard} is a subset of dom(while guard)
+/// Suppose n dominates outside preds. Since we already established that every
+/// path to the while guard involves going through otuside preds, we know that
+/// n dominates the while guard.
 ///
 /// 2) "End Node" of If Statements
 /// In this case, *neither* of the predecessor sets (the set in the tbranch or
 /// the set in the fbranch) are guaranteed to be executed.
-/// Here we set
-/// dom(end node) = dom(if guard) U {end node}.
+/// Here we take:
+/// dom(end node) = dom(if guard) U {end node}. Why these two sets are equivalent.
+///
+/// Justification:
+/// dom(end node) is a subset of dom(if guard) U {end node}.
 /// If n dominates the end node, then it either a) is the end node itself, or b) must
-/// dominate the if guard. Every possible path to the if guard must be followed by
+/// dominate the if guard. Justification for b)
+/// Every possible path to the if guard must be followed by
 /// if guard -> tbranch/fbranch -> end node. We also know that n must exist
 /// outside the tbranch/fbranch (if it was inside either branch, it wouldn't
-/// dominate the end node). Therefore, since we know that n must have appeared sometime
-/// on this path, we know n dominates the if guard.
+/// dominate the end node). Therefore, since we know that n must have appeared somewhere
+/// before if_guard on the path to end node, we know n dominates the if guard.
 ///
+/// dom(if guard) U {end node} is a subset of dom(end node)
 /// If n dominates the if guard or is itself the end node, then it is very easy to
 /// see how it will dominate the end node.
 #[derive(Default)]
