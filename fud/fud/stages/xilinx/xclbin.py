@@ -122,7 +122,7 @@ class XilinxStage(Stage):
         xilinx_stage = FutilStage("xilinx-verilog", "-b xilinx", "")
         xml_futil = FutilStage("xilinx-verilog", "-b xilinx-xml", "")
         kernel_futil = FutilStage(
-            "xilinx-verilog", "-b verilog --synthesis -p external", ""
+            "xilinx-verilog", "-b verilog --synthesis -p external --disable-init", ""
         )
 
         if remote_exec.use_ssh:
