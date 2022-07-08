@@ -6,6 +6,7 @@
 * 2. in_* should remain the same value once their corresponding write_en_* signals
 *    are set high until their corresponding done_* signals are set to 1.
 * 3. read_en_* signals should remain 1 until the read_done_* signal is set to 1. 
+* 4. read_en_* signals should be set to 0 once the read_done_*signals are high.
 */
 
 // M-structure: Register primitive that blocks writes until a read happens.
