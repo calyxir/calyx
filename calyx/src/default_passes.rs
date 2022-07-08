@@ -35,7 +35,6 @@ impl PassManager {
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<StaticParConv>()?;
-        pm.register_pass::<GroupToSeq>()?;
 
         // Compilation passes
         pm.register_pass::<CompileInvoke>()?;
@@ -64,6 +63,7 @@ impl PassManager {
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<HoleInliner>()?;
+        pm.register_pass::<GroupToSeq>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
@@ -77,9 +77,8 @@ impl PassManager {
                 MergeStaticPar,
                 StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
-                CompileRef, //Must run before 'resource-sharing'.
-                GroupToSeq,
-                DeadGroupRemoval, //Run after group_to_seq and before any pass that uses LiveRangeAnalysis
+                CompileRef,       //Must run before 'resource-sharing'.
+                DeadGroupRemoval, //Run after group_to_seq (if group_to_seq is default pass) and before any pass that uses LiveRangeAnalysis
                 CellShare,
             ]
         );
