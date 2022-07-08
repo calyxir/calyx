@@ -43,8 +43,8 @@ impl Named for CellShare {
 
 impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
-        let state_shareable = ShareSet::from_context(ctx, true);
-        let shareable = ShareSet::from_context(ctx, false);
+        let state_shareable = ShareSet::from_context::<true>(ctx);
+        let shareable = ShareSet::from_context::<false>(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
