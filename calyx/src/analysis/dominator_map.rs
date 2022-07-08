@@ -7,12 +7,65 @@ const NODE_ID: &str = "NODE_ID";
 const BEGIN_ID: &str = "BEGIN_ID";
 const END_ID: &str = "END_ID";
 
-/// Builds a Domination Map for the control program. It maps control statement
-/// ids to sets of control statement ids. In the context of the domination map,
-/// the id of a while loop refers to the guard condition. The begin and end id
-/// of an if statement refer to the guard and "end node" of the if statement.
-/// The id of invokes and enables refer to the invoke and enable statements themselves.
-/// The ids of seqs and pars should not be included in the map.
+/// Builds a Domination Map for the control program. It maps nodes to sets of
+/// nodes. Here is what is included as a "node" in the domination map:
+/// - Invokes
+/// - Enables
+/// - While Guards
+/// - If Guards
+/// - "End" If nodes, representing the place we're at in the program after the if
+/// statement has just finished. This doesn't correspond to any actual Calyx code, but is
+/// just a conceptualization we use to reason about domination.
+/// Note that seqs and pars will *not* be included in the domination map.
+///
+/// Here is the algorithm we use to build the domination map.
+/// - Start with an emtpy map.
+/// - Visit each node n in the control program:
+/// - dom(n) = {U dom(p) for each predecessor p of n} U {n}. In other words, take the
+/// dominators of each predecessor of n, and union them together. Then add n to
+/// this set, and set this set as the dominators of n.
+/// - (Another clarification): by "predecessors" of node n we mean the set of nodes
+/// that could be the most recent node executed when n begins to execute.
+/// - If we visit every node of the control program and the map has not changed,
+/// then we are done. If it has changed, then we visit each node again to repeat
+/// the process.
+///
+/// The reason why we can take the union (rather than intersection) of the
+/// dominators of each predecessor is because we know each predecessor of each
+/// node must (rather than may) be executed.
+/// There are two exceptions to this general rule, and we have special cases in
+/// our algorithm to deal with them.
+///
+/// 1) The While Guard
+/// The last node(s) in the while body are predecessor(s) of the while guard but
+/// are not guaranteed to be executed. So, We can think of the while guard's
+/// predecessors in two camps: the "body predecessors" that are not guaranteed to
+/// be executed before the while guard and the "outside predecessors" that are
+/// outside the body of the while loop and are guaranteed to be executed before
+/// the while loop guard. Since there is now a set of predecessors that may *not*
+/// be executed before the while guard, you may be tempted to take
+/// dom(while guard) = [U(dom(outside preds)) intersect U(dom(body preds))] U {while guard}.
+/// This is indeed a correct way to calculate the dominators of the while guard.
+/// However, we know that any dominators of the "outside predecessors" must also
+/// dominate "body predecessors", since in order to get to the body of a while loop
+/// you must go through the while guard. Therefore, we know U dom(other preds) is a subset
+/// of U dom(body preds). Therefore, taking the intersection will just yield U(dom(outside preds)),
+/// which is what the code actually uses.
+///
+/// 2) "End Node" of If Statements
+/// In this case, *neither* of the predecessor sets (the set in the tbranch or
+/// the set in the fbranch) are guaranteed to be executed.
+/// Here we set
+/// dom(end node) = dom(if guard) U {end node}.
+/// If n dominates the end node, then it either a) is the end node itself, or b) must
+/// dominate the if guard. Every possible path to the if guard must be followed by
+/// if guard -> tbranch/fbranch -> end node. We also know that n must exist
+/// outside the tbranch/fbranch (if it was inside either branch, it wouldn't
+/// dominate the end node). Therefore, since we know that n must have appeared sometime
+/// on this path, we know n dominates the if guard.
+///
+/// If n dominates the if guard or is itself the end node, then it is very easy to
+/// see how it will dominate the end node.
 #[derive(Default)]
 pub struct DominatorMap {
     /// Map from group names to the name of groups that dominate it
