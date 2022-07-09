@@ -20,7 +20,7 @@ endmodule
 module std_wire #(
   parameter WIDTH = 32
 ) (
-  input logic [WIDTH - 1:0] in,
+  input wire logic [WIDTH - 1:0] in,
   output logic [WIDTH - 1:0] out
 );
   assign out = in;
@@ -454,13 +454,6 @@ module main (
     input logic reset,
     output logic done
 );
-    string DATA;
-    int CODE;
-    initial begin
-        CODE = $value$plusargs("DATA=%s", DATA);
-        $display("DATA (path to meminit files): %s", DATA);
-    end
-    
     logic [35:0] c_out;
     
     std_const # (

@@ -80,6 +80,7 @@ impl Visitor for Externalize {
         dump_ports::dump_ports_to_signature(
             comp,
             has_external_attribute,
+            false,
             &mut port_names,
         );
 

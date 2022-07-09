@@ -25,6 +25,7 @@ extern "core.sv" {
   comb primitive std_mux<"share"=1>[WIDTH](cond: 1, tru: WIDTH, fal: WIDTH) -> (out: WIDTH);
 
   /// Memories
+  // ANCHOR: std_reg_def
   primitive std_reg<"state_share"=1,"static"=1>[WIDTH](
     @write_together(1) in: WIDTH,
     @write_together(1) @go write_en: 1,
@@ -34,6 +35,7 @@ extern "core.sv" {
     @stable out: WIDTH,
     @done done: 1
   );
+  // ANCHOR_END: std_reg_def
 
   primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
     @read_together(1) addr0: IDX_SIZE,

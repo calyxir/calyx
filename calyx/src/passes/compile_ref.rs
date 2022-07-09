@@ -61,6 +61,7 @@ impl Visitor for CompileRef {
         dump_ports::dump_ports_to_signature(
             comp,
             is_external_cell,
+            true,
             &mut self.port_names,
         );
         Ok(Action::Continue)

@@ -150,7 +150,10 @@ impl Backend for XilinxXmlBackend {
                 name: axi_name,
                 mode: "master",
                 range: "0xFFFFFFFFFFFFFFFF",
-                data_width: 64,
+                // Width should match the bus data width of memory modules
+                // described in hardware, for example see
+                // https://github.com/cucapra/calyx/blob/c2b12a0fe6b1ee3aaaae0c66e7c4619ee6c82614/src/backend/xilinx/toplevel.rs#L58
+                data_width: 512,
                 port_type: "addressable",
                 base: "0x0",
             });
