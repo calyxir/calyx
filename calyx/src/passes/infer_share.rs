@@ -109,7 +109,7 @@ impl Visitor for InferShare {
         }
 
         //build the domination map
-        let mut dmap = DominatorMap::new(&mut comp.control.borrow_mut(), &comp);
+        let mut dmap = DominatorMap::new(&mut comp.control.borrow_mut(), comp);
         if self.print_dmap {
             println!("{dmap:?}");
         }
