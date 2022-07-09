@@ -1,4 +1,4 @@
-// -p infer-share -x infer-share:print_dmap
+// -p infer-share -x infer-share:print-dmap
 import "primitives/core.futil";
 component example() -> () {
   cells {
