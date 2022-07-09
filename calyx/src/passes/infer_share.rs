@@ -11,8 +11,8 @@ use std::rc::Rc;
 const BEGIN_ID: &str = "BEGIN_ID";
 const END_ID: &str = "END_ID";
 
-//Inputs are a control statement c and a u64 id. If control is an if statment, then
-//the id should refer to either the begin or end id of stmt c. Returns true if id refers
+// Inputs are a control statement c and a u64 id. If control is an if statment, then
+// the id should refer to either the begin or end id of stmt c. Returns true if id refers
 // to the begin id and false if it refers to the end id. If it is not an if statement, behavior
 // is unspecified.
 fn is_begin_id(c: &ir::Control, id: u64) -> bool {
@@ -109,7 +109,10 @@ impl Visitor for InferShare {
         }
 
         //build the domination map
-        let mut dmap = DominatorMap::new(&mut comp.control.borrow_mut(), comp);
+        let mut dmap = DominatorMap::new(
+            &mut comp.control.borrow_mut(),
+            comp.name.id.clone(),
+        );
         if self.print_dmap {
             println!("{dmap:?}");
         }

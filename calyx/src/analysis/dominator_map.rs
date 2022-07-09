@@ -20,7 +20,7 @@ const END_ID: &str = "END_ID";
 ///
 /// Here is the algorithm we use to build the domination map.
 /// - Start with an emtpy map.
-/// - Visit each node n in the control program:
+/// - Visit each node n in the control program, and set:
 /// - dom(n) = {U dom(p) for each predecessor p of n} U {n}. In other words, take the
 /// dominators of each predecessor of n, and union them together. Then add n to
 /// this set, and set this set as the dominators of n.
@@ -66,7 +66,7 @@ const END_ID: &str = "END_ID";
 /// In this case, *neither* of the predecessor sets (the set in the tbranch or
 /// the set in the fbranch) are guaranteed to be executed.
 /// Here we take:
-/// dom(end node) = dom(if guard) U {end node}. Why these two sets are equivalent.
+/// dom(end node) = dom(if guard) U {end node}.
 ///
 /// Justification:
 /// dom(end node) is a subset of dom(if guard) U {end node}.
@@ -85,13 +85,12 @@ const END_ID: &str = "END_ID";
 pub struct DominatorMap {
     /// Map from group names to the name of groups that dominate it
     pub map: HashMap<u64, HashSet<u64>>,
-    /// Maps ids of control stmts, to the "last" control stmts in them. One *very*
-    /// important thing to note is that this does *not* map control stmt ids to
-    /// their predecessors. It maps control stmt ids to the statement that *will*
-    /// be the predecessors to the stmt directly following it. For invokes and enables,
-    /// this is just itself. But for seqs, for example, this will be the final invokes/enables
-    /// in the seq. This is a bit confusing... so it may be wise to change the name.
-    pub pred_map: HashMap<u64, HashSet<u64>>,
+    /// Maps ids of control stmts, to the "last" nodes in them. By "last" is meant
+    /// the final node that will be executed in them. For invokes and enables, it
+    /// will be themselves, for while statements it will be the while guard,
+    /// and for if statements it will be the "if" nods. For pars in seqs, you
+    /// have to look inside the children to see what their "last" nodes are.  
+    pub exits_map: HashMap<u64, HashSet<u64>>,
     pub component_name: String,
 }
 
@@ -205,14 +204,14 @@ fn compute_unique_ids(con: &mut ir::Control, mut cur_state: u64) -> u64 {
 
 impl DominatorMap {
     /// Construct a domination map.
-    pub fn new(control: &mut ir::Control, comp: &ir::Component) -> Self {
+    pub fn new(control: &mut ir::Control, component_name: String) -> Self {
         compute_unique_ids(control, 0);
-        let mut pred_map = HashMap::new();
-        Self::build_predecessor_map(control, &mut pred_map);
+        let mut exits_map = HashMap::new();
+        Self::build_exit_map(control, &mut exits_map);
         let mut map = DominatorMap {
             map: HashMap::new(),
-            pred_map,
-            component_name: comp.name.id.clone(),
+            exits_map,
+            component_name,
         };
         Self::build_map(control, &mut map);
         map
@@ -231,7 +230,7 @@ impl DominatorMap {
     }
 
     //Given a control, gets its associated id. For if statments, gets the
-    //beginning id if begin_id is true and end_if if begin_id is false.
+    //beginning id if begin_id is true and end_id if begin_id is false.
     //Should not be called on empty control
     //statements or any other statements that don't have an id numbering.
     fn get_id(c: &ir::Control, begin_id: bool) -> u64 {
@@ -317,10 +316,9 @@ impl DominatorMap {
         }
     }
 
-    //Builds the "predecessor map" of c. Read documentation on what this is actually
-    //building. This is *not* building a map of control stmt ids to their predecessors.
-    //We do that "on the fly" in the "update_map" method.
-    fn build_predecessor_map(
+    //Builds the "exit map" of c. This is getting what will be the final "node"
+    //executed in c.
+    fn build_exit_map(
         c: &ir::Control,
         final_map: &mut HashMap<u64, HashSet<u64>>,
     ) {
@@ -333,7 +331,7 @@ impl DominatorMap {
             ir::Control::While(ir::While { body, .. }) => {
                 let id = Self::get_guaranteed_attribute(c, NODE_ID);
                 final_map.insert(id, HashSet::from([id]));
-                Self::build_predecessor_map(body, final_map);
+                Self::build_exit_map(body, final_map);
             }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
@@ -342,13 +340,13 @@ impl DominatorMap {
                 let end_id = Self::get_guaranteed_attribute(c, END_ID);
                 final_map.insert(begin_id, HashSet::from([end_id]));
                 final_map.insert(end_id, HashSet::from([end_id]));
-                Self::build_predecessor_map(tbranch, final_map);
-                Self::build_predecessor_map(fbranch, final_map);
+                Self::build_exit_map(tbranch, final_map);
+                Self::build_exit_map(fbranch, final_map);
             }
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 for stmt in stmts {
-                    Self::build_predecessor_map(stmt, final_map);
+                    Self::build_exit_map(stmt, final_map);
                 }
                 let id = Self::get_guaranteed_attribute(c, NODE_ID);
                 final_map.insert(id, Self::get_final(c));
@@ -434,11 +432,11 @@ impl DominatorMap {
                             main_c,
                             id,
                             &d_map
-                                .pred_map
+                                .exits_map
                                 .get(&prev_id)
                                 .unwrap_or_else(|| {
                                     unreachable!(
-                                        "pred map does not have value for {}",
+                                        "exit node map does not have value for {}",
                                         prev_id
                                     )
                                 })
@@ -456,14 +454,6 @@ impl DominatorMap {
                 }
             }
             ir::Control::While(ir::While { body, .. }) => {
-                //when we update the guard of the while loop, we can ignore one
-                //predecessor: the last node in the body of the while loop.
-                //While this is a predecessor, since the dominators of the last
-                //node in the while body are either a) in the while loop, in
-                //which case we know it won't be a dominator of the while guard,
-                //or b) are outside the while loop, in which case we know they
-                //dominate at least one of the other predecessors of the while guard,
-                //since all paths into the while loop must go through the while guard
                 Self::update_node(pred, cur_id, d_map);
 
                 //updating the while body
@@ -491,10 +481,6 @@ impl DominatorMap {
                     Self::update_map(main_c, f_id, &if_guard_set, d_map);
                 }
 
-                //Similar logic to while: we can ignore anything
-                //inside either the tbranch or fbranch when calculatign the dominators
-                //and just take the
-                //predecessors of the if guard to build the dominators of end_id
                 let end_id = Self::get_guaranteed_attribute(c, END_ID);
                 Self::update_node(&if_guard_set, end_id, d_map)
             }
