@@ -14,7 +14,11 @@ pub(crate) struct Flags {
     clear_on_read: Option<(AxiChannel, String)>,
     /// Clear the internal register when there is a successful
     /// handshake on this channel.
+    // nate: might not be a good name? used for things that aren't just
+    // handshakes
     clear_on_handshake: Option<String>,
+    ///Clear the internal register when the signal is read
+    /// String holds name of signal
     /// This register can be written to with the interface.
     write: bool,
 }
@@ -266,10 +270,12 @@ impl AddressSpace {
         ));
 
         // XXX(sam) this is a hack to avoid iterating through the bit meanings again
+        // only happens for writes
         let mut writes_exist: bool = false;
         for meaning in addr.bit_meaning.iter().filter(|m| m.flags.write) {
+            // this part is only the assignment itself?? underneath the ARESET of the if branch
             if_stmt.add_seq(v::Sequential::new_nonblk_assign(
-                self.slice(meaning),
+                self.slice(meaning), //gets name of register
                 v::Expr::new_int(0),
             ));
             else_br.add_seq(v::Sequential::new_nonblk_assign(
@@ -294,8 +300,12 @@ impl AddressSpace {
         }
 
         // port writes to internal register logic
+        // reads only
+        // Why does this need to be seperate from the above write logic?
+        // Seems basically the same to me?
         for meaning in &addr.bit_meaning {
             if let Some(port) = &meaning.flags.read {
+                //Takes in read string of Read option and assigns it to 1233
                 let mut branches = vec![
                     (Some("ARESET".into()), 0.into()),
                     (Some(port.as_str().into()), 1.into()),
@@ -308,6 +318,7 @@ impl AddressSpace {
                     );
                     branches.push((Some(cond), 0.into()));
                 }
+                if let Some((channel, addr_reg)) = &meaning.flags.
                 let always = super::utils::cond_non_blk_assign(
                     "ACLK",
                     self.slice(meaning),
