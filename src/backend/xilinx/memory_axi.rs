@@ -193,19 +193,25 @@ impl MemoryInterface for AxiInterface {
         let burst_size: i32 = utils::math::bits_needed_for(32 / 8) as i32;
 
         module.add_stmt(axi4.read_address.assign("ID", 0));
+
+        //add reg to store value of shift to circumvent order of operations
+        //issue on bit shift
+        let copy_shift = "copy_shift";
+        module.add_decl(v::Decl::new_wire(copy_shift, bus_addr_width));
         let mut concat = v::ExprConcat::default();
         concat.add_expr("copy_addr_offset");
         concat.add_expr(v::Expr::new_repeat(
             bus_addr_width - offset_size_bits,
             v::Expr::new_ulit_bin(1, "0"),
         ));
-        module.add_stmt(axi4.read_address.assign(
-            "ADDR",
-            v::Expr::new_add(
-                "BASE_ADDRESS",
-                v::Expr::new_shift_left(concat, shift_by),
-            ),
+        module.add_stmt(v::Parallel::Assign(
+            copy_shift.into(),
+            v::Expr::new_shift_left(concat, shift_by),
         ));
+        module.add_stmt(
+            axi4.read_address
+                .assign("ADDR", v::Expr::new_add("BASE_ADDRESS", copy_shift)),
+        );
         module.add_stmt(axi4.read_address.assign("LEN", 0));
         module.add_stmt(axi4.read_address.assign("SIZE", burst_size));
 
@@ -227,19 +233,24 @@ impl MemoryInterface for AxiInterface {
         );
 
         module.add_stmt(axi4.write_address.assign("ID", 0));
+        // assign shift to a wire to circumvent vast order of operations issues
+        let send_shift = "send_shift";
+        module.add_decl(v::Decl::new_wire(send_shift, bus_addr_width));
         let mut concat = v::ExprConcat::default();
         concat.add_expr("send_addr_offset");
         concat.add_expr(v::Expr::new_repeat(
             bus_addr_width - offset_size_bits,
             v::Expr::new_ulit_bin(1, "0"),
         ));
-        module.add_stmt(axi4.write_address.assign(
-            "ADDR",
-            v::Expr::new_add(
-                "BASE_ADDRESS",
-                v::Expr::new_shift_left(concat, shift_by),
-            ),
+        module.add_stmt(v::Parallel::Assign(
+            send_shift.into(),
+            v::Expr::new_shift_left(concat, shift_by),
         ));
+
+        module.add_stmt(
+            axi4.write_address
+                .assign("ADDR", v::Expr::new_add("BASE_ADDRESS", send_shift)),
+        );
         module.add_stmt(axi4.write_address.assign("LEN", 0));
         module.add_stmt(axi4.write_address.assign("SIZE", burst_size));
 
