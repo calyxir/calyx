@@ -62,56 +62,20 @@ fn construct_invoke(
     };
 
     for assign in assigns {
-        let mut maybe_wire_out = None;
-        if !assign.guard.is_true()
-            && (cell_is_parent(&assign.src.borrow())
-                || cell_is_parent(&assign.dst.borrow()))
-        {
-            let width = assign.dst.borrow().width;
-            let wire = builder.add_primitive("w", "std_wire", &[width]);
-            let wire_in = ir::Port {
-                name: ir::Id::new("in", None),
-                width: width,
-                direction: ir::Direction::Input,
-                parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
-                attributes: ir::Attributes::default(),
-            };
-            let wire_in_rrc = Rc::new(RefCell::new(wire_in));
-            let asmt_src = if cell_is_parent(&assign.src.borrow()){
-                assign.dst.clone()
-            }
-            else{
-                assign.src.clone()
-            };
-            let asmt = builder.build_assignment(
-                wire_in_rrc,
-                assign.src.clone(),
-                *assign.guard.clone(),
-            );
-            comb_assigns.push(asmt);
-            let wire_out = ir::Port {
-                name: ir::Id::new("out", None),
-                width: width,
-                direction: ir::Direction::Output,
-                parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
-                attributes: ir::Attributes::default(),
-            };
-            let wire_out_rrc = Rc::new(RefCell::new(wire_out));
-            maybe_wire_out = Some(wire_out_rrc);
-        }
         // If the cell's port is being used as a source, add the dst to
         // outputs
         if cell_is_parent(&assign.src.borrow())
             && assign.src != comp.borrow().get_with_attr("done")
         {
             let name = assign.src.borrow().name.clone();
-            match maybe_wire_out {
-                None => outputs.push((name, Rc::clone(&assign.dst))),
-                Some(wire_out) => outputs.push((name, wire_out)),
+            if assign.guard.is_true() {
+                outputs.push((name, Rc::clone(&assign.dst)));
+            } else {
+                unreachable!("non-true guard when reading from cell")
             }
         }
         // If a combinational component's port is being used as a dest, add
-        // it to comb_assigns (this else if makes sure for things like
+        // it to comb_assigns (the else if makes sure for things like
         // add.right = cell.out, that we *don't* put this assign in comb_group)
         else if comb_is_parent(&assign.dst.borrow()) {
             let asmt = assign.clone();
@@ -124,18 +88,42 @@ fn construct_invoke(
             && assign.dst != comp.borrow().get_with_attr("go")
         {
             let name = assign.dst.borrow().name.clone();
-            match maybe_wire_out{
-                None => inputs.push((name, Rc::clone(&assign.src))), 
-                Some()
+            if assign.guard.is_true() {
+                inputs.push((name, Rc::clone(&assign.src)));
+            } else {
+                let width = assign.dst.borrow().width;
+                let wire = builder.add_primitive("w", "std_wire", &[width]);
+                let wire_in = ir::Port {
+                    name: ir::Id::new("in", None),
+                    width: width,
+                    direction: ir::Direction::Input,
+                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
+                    attributes: ir::Attributes::default(),
+                };
+                let wire_in_rrc = Rc::new(RefCell::new(wire_in));
+                let asmt = builder.build_assignment(
+                    wire_in_rrc,
+                    assign.src.clone(),
+                    *assign.guard.clone(),
+                );
+                comb_assigns.push(asmt);
+                let wire_out = ir::Port {
+                    name: ir::Id::new("out", None),
+                    width: width,
+                    direction: ir::Direction::Output,
+                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
+                    attributes: ir::Attributes::default(),
+                };
+                let wire_out_rrc = Rc::new(RefCell::new(wire_out));
+                inputs.push((name, wire_out_rrc));
             }
-            
         }
     }
 
     let comb_group = if comb_assigns.is_empty() {
         None
     } else {
-        let comb_group_ref = builder.add_comb_group("comb_invoke_");
+        let comb_group_ref = builder.add_comb_group("comb_invoke");
         comb_group_ref
             .borrow_mut()
             .assignments
@@ -191,6 +179,11 @@ impl Visitor for GroupToInvoke {
         let done_port = maybe_done_port.unwrap();
         let mut done_multi_write = false;
         for assign in &group.assignments {
+            if !assign.guard.is_true()
+                && port_matches_cell(&assign.src.borrow(), &cell)
+            {
+                return Ok(Action::Continue);
+            }
             // @go port should have exactly one write and the src should be 1.
             if assign.dst == go_port {
                 if go_multi_write {
@@ -229,5 +222,13 @@ impl Visitor for GroupToInvoke {
             cell,
             &mut builder,
         )))
+    }
+}
+
+fn port_matches_cell(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
+    if let ir::PortParent::Cell(cell_wref) = &port.parent {
+        Rc::ptr_eq(&cell_wref.upgrade(), cell)
+    } else {
+        false
     }
 }
