@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use itertools::Itertools;
@@ -61,27 +62,73 @@ fn construct_invoke(
     };
 
     for assign in assigns {
+        let mut maybe_wire_out = None;
+        if !assign.guard.is_true()
+            && (cell_is_parent(&assign.src.borrow())
+                || cell_is_parent(&assign.dst.borrow()))
+        {
+            let width = assign.dst.borrow().width;
+            let wire = builder.add_primitive("w", "std_wire", &[width]);
+            let wire_in = ir::Port {
+                name: ir::Id::new("in", None),
+                width: width,
+                direction: ir::Direction::Input,
+                parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
+                attributes: ir::Attributes::default(),
+            };
+            let wire_in_rrc = Rc::new(RefCell::new(wire_in));
+            let asmt_src = if cell_is_parent(&assign.src.borrow()){
+                assign.dst.clone()
+            }
+            else{
+                assign.src.clone()
+            };
+            let asmt = builder.build_assignment(
+                wire_in_rrc,
+                assign.src.clone(),
+                *assign.guard.clone(),
+            );
+            comb_assigns.push(asmt);
+            let wire_out = ir::Port {
+                name: ir::Id::new("out", None),
+                width: width,
+                direction: ir::Direction::Output,
+                parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
+                attributes: ir::Attributes::default(),
+            };
+            let wire_out_rrc = Rc::new(RefCell::new(wire_out));
+            maybe_wire_out = Some(wire_out_rrc);
+        }
         // If the cell's port is being used as a source, add the dst to
         // outputs
         if cell_is_parent(&assign.src.borrow())
             && assign.src != comp.borrow().get_with_attr("done")
         {
             let name = assign.src.borrow().name.clone();
-            outputs.push((name, Rc::clone(&assign.dst)));
+            match maybe_wire_out {
+                None => outputs.push((name, Rc::clone(&assign.dst))),
+                Some(wire_out) => outputs.push((name, wire_out)),
+            }
         }
+        // If a combinational component's port is being used as a dest, add
+        // it to comb_assigns (this else if makes sure for things like
+        // add.right = cell.out, that we *don't* put this assign in comb_group)
+        else if comb_is_parent(&assign.dst.borrow()) {
+            let asmt = assign.clone();
+            comb_assigns.push(asmt);
+        }
+
         // If the cell's port is being used as a dest, add the source to
         // inputs
         if cell_is_parent(&assign.dst.borrow())
             && assign.dst != comp.borrow().get_with_attr("go")
         {
             let name = assign.dst.borrow().name.clone();
-            inputs.push((name, Rc::clone(&assign.src)));
-        }
-        // If a combinational component's port is being used as a dest, add
-        // it to comb_assigns
-        else if comb_is_parent(&assign.dst.borrow()) {
-            let asmt = assign.clone();
-            comb_assigns.push(asmt);
+            match maybe_wire_out{
+                None => inputs.push((name, Rc::clone(&assign.src))), 
+                Some()
+            }
+            
         }
     }
 
@@ -144,18 +191,19 @@ impl Visitor for GroupToInvoke {
         let done_port = maybe_done_port.unwrap();
         let mut done_multi_write = false;
         for assign in &group.assignments {
-            // All assignments should be unguarded.
-            if !assign.guard.is_true() {
-                return Ok(Action::Continue);
-            }
-
             // @go port should have exactly one write and the src should be 1.
             if assign.dst == go_port {
                 if go_multi_write {
                     return Ok(Action::Continue);
                 }
                 if !go_multi_write && assign.src.borrow().is_constant(1, 1) {
-                    go_multi_write = true;
+                    //guard must be true
+                    if assign.guard.is_true() {
+                        go_multi_write = true;
+                    } else {
+                        //if go port's guard is not true, then continue
+                        return Ok(Action::Continue);
+                    }
                 }
             }
             // @done port should have exactly one read and the dst should be
@@ -165,7 +213,13 @@ impl Visitor for GroupToInvoke {
                     return Ok(Action::Continue);
                 }
                 if !done_multi_write && assign.dst == group.get("done") {
-                    done_multi_write = true;
+                    //Guard must be true
+                    if assign.guard.is_true() {
+                        done_multi_write = true;
+                    } else {
+                        //If done port's guard is not true, then Continue
+                        return Ok(Action::Continue);
+                    }
                 }
             }
         }

@@ -78,6 +78,7 @@ impl PassManager {
                 StaticParConv, // Must be before `collapse-control`
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.
+                GroupToInvoke,
                 CellShare,
             ]
         );
