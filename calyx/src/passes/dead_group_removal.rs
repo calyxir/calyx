@@ -8,7 +8,7 @@ use std::collections::HashSet;
 /// Removes unused groups and combinational groups from components.
 /// A group is considered in use when it shows up in an [ir::Enable].
 /// A combinational group is considered in use when it is a part of an
-/// [ir::If] or [ir::While].
+/// [ir::If] or [ir::While] or [ir::Invoke].
 #[derive(Default)]
 pub struct DeadGroupRemoval {
     used_groups: HashSet<ir::Id>,
@@ -45,6 +45,19 @@ impl Visitor for DeadGroupRemoval {
         _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(cg) = &s.cond {
+            self.used_comb_groups.insert(cg.borrow().clone_name());
+        }
+        Ok(Action::Continue)
+    }
+
+    fn invoke(
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if let Some(cg) = &s.comb_group {
             self.used_comb_groups.insert(cg.borrow().clone_name());
         }
         Ok(Action::Continue)

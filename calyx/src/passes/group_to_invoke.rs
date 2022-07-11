@@ -14,7 +14,7 @@ use crate::ir::{
 ///
 /// For a group to meet the requirements of this pass, it must
 /// 1. Only use unguarded assignments
-/// 2. Only assign to input ports of one component
+/// 2. Only assign to input ports of one non-combinational component
 /// 3. Assign `1'd1` to the @go port of the component, and
 /// 4. Depend directly on the @done port of the component for its done
 ///    condition.
@@ -35,13 +35,26 @@ impl Named for GroupToInvoke {
 fn construct_invoke(
     assigns: &[ir::Assignment],
     comp: RRC<ir::Cell>,
+    builder: &mut ir::Builder,
 ) -> ir::Control {
     let mut inputs = Vec::new();
     let mut outputs = Vec::new();
+    let mut comb_assigns = Vec::new();
 
     let cell_is_parent = |port: &ir::Port| -> bool {
         if let ir::PortParent::Cell(cell_wref) = &port.parent {
             Rc::ptr_eq(&cell_wref.upgrade(), &comp)
+        } else {
+            false
+        }
+    };
+
+    let comb_is_parent = |port: &ir::Port| -> bool {
+        if let ir::PortParent::Cell(cell_wref) = &port.parent {
+            match cell_wref.upgrade().borrow().prototype {
+                ir::CellType::Primitive { is_comb, .. } => is_comb,
+                _ => false,
+            }
         } else {
             false
         }
@@ -64,25 +77,56 @@ fn construct_invoke(
             let name = assign.dst.borrow().name.clone();
             inputs.push((name, Rc::clone(&assign.src)));
         }
+        // If a combinational component's port is being used as a dest, add
+        // it to comb_assigns
+        else if comb_is_parent(&assign.dst.borrow()) {
+            let asmt = assign.clone();
+            comb_assigns.push(asmt);
+        }
     }
 
-    ir::Control::invoke(comp, inputs, outputs)
+    let comb_group = if comb_assigns.is_empty() {
+        None
+    } else {
+        let comb_group_ref = builder.add_comb_group("comb_invoke_");
+        comb_group_ref
+            .borrow_mut()
+            .assignments
+            .append(&mut comb_assigns);
+        Some(comb_group_ref)
+    };
+
+    ir::Control::Invoke(ir::Invoke {
+        comp: comp,
+        inputs: inputs,
+        outputs: outputs,
+        comb_group: comb_group,
+        attributes: ir::Attributes::default(),
+        ref_cells: Vec::new(),
+    })
 }
 
 impl Visitor for GroupToInvoke {
     fn enable(
         &mut self,
         s: &mut ir::Enable,
-        _comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
+        comp: &mut ir::Component,
+        sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let mut builder = ir::Builder::new(comp, sigs);
+
         let group = s.group.borrow();
 
-        // There should be exactly one component being written to in the
+        // There should be exactly one non-combinational component being written to in the
         // group.
-        let mut writes =
-            ReadWriteSet::write_set(group.assignments.iter()).collect_vec();
+        let mut writes: Vec<ir::RRC<ir::Cell>> =
+            ReadWriteSet::write_set(group.assignments.iter())
+                .filter(|cell| match cell.borrow().prototype {
+                    ir::CellType::Primitive { is_comb, .. } => !is_comb,
+                    _ => true,
+                })
+                .collect_vec();
         if writes.len() != 1 {
             return Ok(Action::Continue);
         }
@@ -100,10 +144,11 @@ impl Visitor for GroupToInvoke {
         let done_port = maybe_done_port.unwrap();
         let mut done_multi_write = false;
         for assign in &group.assignments {
-            // All assignments should be unguaraded.
+            // All assignments should be unguarded.
             if !assign.guard.is_true() {
                 return Ok(Action::Continue);
             }
+
             // @go port should have exactly one write and the src should be 1.
             if assign.dst == go_port {
                 if go_multi_write {
@@ -125,6 +170,10 @@ impl Visitor for GroupToInvoke {
             }
         }
 
-        Ok(Action::change(construct_invoke(&group.assignments, cell)))
+        Ok(Action::change(construct_invoke(
+            &group.assignments,
+            cell,
+            &mut builder,
+        )))
     }
 }

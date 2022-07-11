@@ -3,6 +3,7 @@ import "primitives/core.futil";
 component main() -> () {
   cells {
     r = std_reg(32);
+    add = std_add(32);
   }
   wires {
     group write_r {
@@ -10,8 +11,18 @@ component main() -> () {
       r.write_en = 1'd1;
       write_r[done] = r.done;
     }
+    group add_write_r{
+      r.in = add.out; 
+      r.write_en = 1'd1; 
+      write_r[done] = r.done; 
+      add.left = 32'd2; 
+      add.right = 32'd3; 
+    }
   }
   control {
-    write_r;
+    seq{
+      write_r;
+      add_write_r;
+    }
   }
 }
