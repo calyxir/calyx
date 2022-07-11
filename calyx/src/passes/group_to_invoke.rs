@@ -71,7 +71,31 @@ fn construct_invoke(
             if assign.guard.is_true() {
                 outputs.push((name, Rc::clone(&assign.dst)));
             } else {
-                unreachable!("non-true guard when reading from cell")
+                let width = assign.dst.borrow().width;
+                let wire = builder.add_primitive("w", "std_wire", &[width]);
+                let wire_out = ir::Port {
+                    name: ir::Id::new("out", None),
+                    width: width,
+                    direction: ir::Direction::Output,
+                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
+                    attributes: ir::Attributes::default(),
+                };
+                let wire_out_rrc = Rc::new(RefCell::new(wire_out));
+                let asmt = builder.build_assignment(
+                    assign.dst.clone(),
+                    wire_out_rrc,
+                    *assign.guard.clone(),
+                );
+                comb_assigns.push(asmt);
+                let wire_in = ir::Port {
+                    name: ir::Id::new("in", None),
+                    width: width,
+                    direction: ir::Direction::Input,
+                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
+                    attributes: ir::Attributes::default(),
+                };
+                let wire_in_rrc = Rc::new(RefCell::new(wire_in));
+                outputs.push((name, wire_in_rrc));
             }
         }
         // If a combinational component's port is being used as a dest, add
@@ -179,11 +203,6 @@ impl Visitor for GroupToInvoke {
         let done_port = maybe_done_port.unwrap();
         let mut done_multi_write = false;
         for assign in &group.assignments {
-            if !assign.guard.is_true()
-                && port_matches_cell(&assign.src.borrow(), &cell)
-            {
-                return Ok(Action::Continue);
-            }
             // @go port should have exactly one write and the src should be 1.
             if assign.dst == go_port {
                 if go_multi_write {
@@ -222,13 +241,5 @@ impl Visitor for GroupToInvoke {
             cell,
             &mut builder,
         )))
-    }
-}
-
-fn port_matches_cell(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
-    if let ir::PortParent::Cell(cell_wref) = &port.parent {
-        Rc::ptr_eq(&cell_wref.upgrade(), cell)
-    } else {
-        false
     }
 }

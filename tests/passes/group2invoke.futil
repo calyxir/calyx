@@ -25,13 +25,23 @@ component main() -> () {
       r.write_en = 1'd1; 
       r.in = lt.out ? 32'd2; 
       exp[done] = r.done; 
-}
+    }
+    group guard2{
+      lt.left = 32'd5; 
+      lt.right = 32'd4;
+      add.left = 32'd2; 
+      add.right = lt.out ? r.out; 
+      r.write_en = 1'd1; 
+      r.in = 32'd2; 
+      guard2[done] = r.done; 
+    }
   }
   control {
     seq{
       write_r;
       add_write_r;
       exp;
+      guard2;
     }
   }
 }
