@@ -50,6 +50,27 @@ impl Named for Canonicalize {
     }
 }
 
+fn matches_not_signal(assign: &ir::Assignment, signal: &ir::Port) -> bool {
+    //checks whether guard matches signal
+    let port_matches_signal = |guard: &ir::Guard| -> bool {
+        match guard {
+            ir::Guard::Port(port) => port.borrow().clone() == *signal,
+            _ => false,
+        }
+    };
+
+    //checks whether guard is !signal
+    let guard_not_signal = |guard: &ir::Guard| -> bool {
+        match guard {
+            ir::Guard::Not(g) => port_matches_signal(&*g),
+            _ => false,
+        }
+    };
+
+    //checks !signal
+    guard_not_signal(&*assign.guard)
+}
+
 impl Visitor for Canonicalize {
     fn start(
         &mut self,
@@ -67,7 +88,16 @@ impl Visitor for Canonicalize {
         });
 
         for g in comp.groups.iter() {
-            let group = g.borrow_mut();
+            let mut group = g.borrow_mut();
+            let done_assignment = group.done_cond();
+            if done_assignment.guard.is_true() {
+                let done_src = done_assignment.src.clone();
+                for assign in group.assignments.iter_mut() {
+                    if matches_not_signal(assign, &done_src.borrow()) {
+                        assign.guard = Guard::True.into();
+                    }
+                }
+            }
         }
 
         for gr in comp.groups.iter() {

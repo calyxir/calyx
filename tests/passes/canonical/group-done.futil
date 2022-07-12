@@ -1,0 +1,22 @@
+// -p canonicalize
+
+import "primitives/core.futil";
+component main() -> (out: 1) {
+  cells {
+    r = std_reg(1);
+    a = std_reg(1);
+  }
+  wires {
+    group write_a {
+      a.in = 1'd1; 
+      a.write_en = !a.done? 1'd1; 
+      write_a[done] = a.done;
+    }
+    group write_r {
+      r.in = 1'd0; 
+      r.write_en = !r.done ? 1'd1; 
+      write_r[done] = r.done; 
+    }
+  }
+  control { }
+}
