@@ -12,49 +12,33 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
   }
   wires {
     group writeAB {
-      A.write_en = 1'd1;
-      A.in = 32'd5;
-      B.write_en = 1'd1;
       B.in = 32'd7;
+      B.write_en = 1'd1;
+      A.in = 32'd5;
+      A.write_en = 1'd1;
       writeAB[done] = A.done & B.done ? 1'd1;
-    }
-    group chain {
     }
     group two {
     }
-    group add_group {
-      add.left = 32'd5;
-      add.right = in;
-      r.write_en = 1'd1;
-      r.in = add.out;
-      add_group[done] = r.done;
-    }
-    group split_chain {
-      mult_pipe0.left = A.out;
-      mult_pipe0.right = B.out;
-      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
-      split_chain[done] = mult_pipe0.done;
-    }
-    group split_chain0 {
-      bin_read0_0.write_en = 1'd1;
-      bin_read0_0.in = mult_pipe0.out;
-      split_chain0[done] = bin_read0_0.done;
-    }
-    group split_chain1 {
-      x_0.write_en = 1'd1;
+    group chain_plus_adders {
+      bin_read0_0.write_en = !bin_read0_0.done ? 1'd1;
       x_0.in = bin_read0_0.out;
-      split_chain1[done] = x_0.done;
+      x_0.write_en = bin_read0_0.done;
+      add.right = 32'd4;
+      add.left = 32'd2;
+      bin_read0_0.in = add.out;
+      chain_plus_adders[done] = x_0.done;
     }
-    group split_two {
+    group begin_split_two {
       A.write_en = 1'd1;
       A.in = 32'd4;
-      split_two[done] = A.done;
+      begin_split_two[done] = A.done;
     }
-    group split_two0 {
+    group end_split_two {
       mult_pipe0.go = 1'd1;
-      mult_pipe0.left = A.out;
       mult_pipe0.right = 32'd4;
-      split_two0[done] = mult_pipe0.done ? 1'd1;
+      mult_pipe0.left = A.out;
+      end_split_two[done] = mult_pipe0.done;
     }
   }
 
@@ -62,15 +46,10 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
     seq {
       writeAB;
       seq {
-        split_chain;
-        split_chain0;
-        split_chain1;
+        begin_split_two;
+        end_split_two;
       }
-      seq {
-        split_two;
-        split_two0;
-      }
-      add_group;
+      chain_plus_adders;
     }
   }
 }

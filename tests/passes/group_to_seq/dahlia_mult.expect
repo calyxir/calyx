@@ -58,27 +58,27 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       B_read1_0.in = B0.read_data;
       upd3[done] = B_read1_0.done;
     }
-    group split_let0 {
+    group begin_split_let0 {
+      mult_pipe0.go = 1'd1;
       mult_pipe0.left = A_read0_0.out;
       mult_pipe0.right = B_read0_0.out;
-      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
-      split_let0[done] = mult_pipe0.done;
+      begin_split_let0[done] = mult_pipe0.done;
     }
-    group split_let00 {
+    group end_split_let0 {
       bin_read0_0.write_en = 1'd1;
       bin_read0_0.in = mult_pipe0.out;
-      split_let00[done] = bin_read0_0.done;
+      end_split_let0[done] = bin_read0_0.done;
     }
-    group split_let2 {
+    group begin_split_let2 {
+      mult_pipe1.go = 1'd1;
       mult_pipe1.left = A_read1_0.out;
       mult_pipe1.right = B_read1_0.out;
-      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
-      split_let2[done] = mult_pipe1.done;
+      begin_split_let2[done] = mult_pipe1.done;
     }
-    group split_let20 {
+    group end_split_let2 {
       bin_read1_0.write_en = 1'd1;
       bin_read1_0.in = mult_pipe1.out;
-      split_let20[done] = bin_read1_0.done;
+      end_split_let2[done] = bin_read1_0.done;
     }
   }
 
@@ -89,8 +89,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         upd1;
       }
       seq {
-        split_let0;
-        split_let00;
+        begin_split_let0;
+        end_split_let0;
       }
       let1;
       par {
@@ -98,8 +98,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         upd3;
       }
       seq {
-        split_let2;
-        split_let20;
+        begin_split_let2;
+        end_split_let2;
       }
       let3;
     }

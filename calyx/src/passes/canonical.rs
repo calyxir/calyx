@@ -59,7 +59,15 @@ impl Visitor for Canonicalize {
     ) -> VisResult {
         comp.for_each_assignment(|assign| {
             if let Guard::Port(p) = &(*assign.guard) {
+                /* Trying to cover r1.done? 1'd1.
+                if p.borrow().name == "done"
+                    && assign.src.borrow().clone().is_constant(1, 1)
+                {
+                    assign.src = p.clone();
+                    assign.guard = Guard::True.into()
+                }
                 // 1'd1 ? r1.done
+                else*/
                 if p.borrow().is_constant(1, 1) {
                     assign.guard = Guard::True.into()
                 }

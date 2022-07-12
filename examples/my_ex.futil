@@ -1,0 +1,35 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    r= std_reg(32);
+    add = std_add(32);
+    
+  }
+  wires {
+    group let0{
+      add.left = r.out; 
+      add.right = 32'd5; 
+      r.write_en = 1'd1; 
+      r.in = add.out; 
+      let0[done] = r.done;
+    }
+    group let1{
+      add.left = r.out; 
+      add.right = 32'd5; 
+      r.write_en = 1'd1; 
+      r.in = add.out; 
+      let1[done] = r.done;
+    }
+    comb group cg{
+      add.right = 32'd10;
+    }
+  }
+  control {
+    seq{
+      let0;
+      let1;
+      invoke r(in = add.out)(out = add.left) with cg;
+    }
+  }
+}
