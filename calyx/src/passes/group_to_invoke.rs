@@ -34,7 +34,7 @@ impl Named for GroupToInvoke {
 // Returns true if port's parent is cell
 fn cell_is_parent(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
     if let ir::PortParent::Cell(cell_wref) = &port.parent {
-        Rc::ptr_eq(&cell_wref.upgrade(), &cell)
+        Rc::ptr_eq(&cell_wref.upgrade(), cell)
     } else {
         false
     }
@@ -97,7 +97,7 @@ fn construct_invoke(
                 comb_assigns.push(asmt);
                 let wire_out = ir::Port {
                     name: ir::Id::new("out", None),
-                    width: width,
+                    width,
                     direction: ir::Direction::Output,
                     parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
                     attributes: ir::Attributes::default(),
@@ -120,10 +120,10 @@ fn construct_invoke(
     };
 
     ir::Control::Invoke(ir::Invoke {
-        comp: comp,
+        comp,
         inputs: inputs,
         outputs: Vec::new(),
-        comb_group: comb_group,
+        comb_group,
         attributes: ir::Attributes::default(),
         ref_cells: Vec::new(),
     })
