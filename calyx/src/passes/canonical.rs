@@ -66,6 +66,10 @@ impl Visitor for Canonicalize {
             }
         });
 
+        for g in comp.groups.iter() {
+            let group = g.borrow_mut();
+        }
+
         for gr in comp.groups.iter() {
             let assigns = std::mem::take(&mut gr.borrow_mut().assignments);
             gr.borrow_mut().assignments = self.order.dataflow_sort(assigns)?;
