@@ -1,4 +1,4 @@
-// -p cell-share
+//-p cell-share
 
 import "primitives/core.futil";
 component main() -> () {

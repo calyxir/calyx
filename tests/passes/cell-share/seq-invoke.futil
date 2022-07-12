@@ -1,0 +1,36 @@
+//-p cell-share
+import "primitives/core.futil";
+
+component dbg<"state_share"=1>(in: 32, prefix: 32, length: 5) -> (out: 32) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    group A {
+      r.write_en = 1'd1; 
+      r.in = in;
+      A[done] = r.done;
+    }
+    out = r.out;
+  }
+
+  control {
+    A;
+  }
+}
+
+component main() -> () {
+  cells {
+    d1 = dbg();
+    d2 = dbg();
+  }
+  wires {
+  }
+  control {
+    seq{
+       invoke d1(in=32'd5, prefix=32'd7, length=5'd5)();
+       invoke d2(in=32'd6, prefix=32'd8, length=5'd6)();
+    }
+  }
+}
+
