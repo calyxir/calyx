@@ -156,6 +156,10 @@ impl Visitor for GroupToInvoke {
 
         // Component must define a @go/@done interface
         let cell = writes.pop().unwrap();
+        if matches!(cell.borrow().prototype, ir::CellType::ThisComponent) {
+            return Ok(Action::Continue);
+        }
+
         let maybe_go_port = cell.borrow().find_with_attr("go");
         let maybe_done_port = cell.borrow().find_with_attr("done");
         if maybe_go_port.is_none() || maybe_done_port.is_none() {
