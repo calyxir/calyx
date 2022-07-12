@@ -14,7 +14,7 @@ pub struct OrderAnalysis {
 impl OrderAnalysis {
     //Returns whether the given assignment is a go done assignment from two cells of interest
     //i.e. cell1.go = cell2.done.
-    pub fn is_go_done(&self, asmt: &ir::Assignment) -> bool {
+    pub fn is_go_done(asmt: &ir::Assignment) -> bool {
         let src = asmt.src.borrow();
         let dst = asmt.dst.borrow();
         match (&src.parent, &dst.parent) {
@@ -23,8 +23,8 @@ impl OrderAnalysis {
                 ir::PortParent::Cell(dst_cell),
             ) => {
                 //the first two checks may be unnecessary
-                self.is_stateful(&src_cell.upgrade())
-                    && self.is_stateful(&dst_cell.upgrade())
+                Self::is_stateful(&src_cell.upgrade())
+                    && Self::is_stateful(&dst_cell.upgrade())
                     && src.name == "done"
                     && dst.attributes.has("go")
             }
@@ -33,7 +33,8 @@ impl OrderAnalysis {
     }
     //Returns whether the given assignment writes to the go assignment of cell
     //in the form cell.go = !cell.done? 1'd1.
-    pub fn writes_to_go(&self, asmt: &ir::Assignment, cell: &ir::Id) -> bool {
+    pub fn is_specific_go(asmt: &ir::Assignment, cell: &ir::Id) -> bool {
+        //checks whether guard is cell.done
         let guard_is_done = |guard: &ir::Guard| -> bool {
             match guard {
                 ir::Guard::Port(port) => {
@@ -49,6 +50,7 @@ impl OrderAnalysis {
             }
         };
 
+        //checks whether guard is !cell.done
         let guard_not_done = |guard: &ir::Guard| -> bool {
             match guard {
                 ir::Guard::Not(g) => guard_is_done(&*g),
@@ -59,24 +61,38 @@ impl OrderAnalysis {
         let dst = asmt.dst.borrow();
         match &dst.parent {
             ir::PortParent::Cell(dst_cell) => {
-                //the first two checks may be unnecessary
+                //checks cell.go =
                 dst_cell.upgrade().borrow().name() == cell
-                    && guard_not_done(&*asmt.guard)
-                    && asmt.src.borrow().is_constant(1, 1)
-                    && self.is_stateful(&dst_cell.upgrade())
                     && dst.attributes.has("go")
+                    //checks !cell.done ?
+                    && guard_not_done(&*asmt.guard)
+                    //checks 1'd1
+                    && asmt.src.borrow().is_constant(1, 1)
             }
             _ => false,
         }
     }
+
+    //The assignment must write to a stateful component, *or* be a write
+    //to the group's done port.
+    //In order to perform the transformation to the group, all assignments in the group
+    //must return true on this method.
+    pub fn is_orderable_assignment(asmt: &ir::Assignment) -> bool {
+        match &asmt.dst.borrow().parent {
+            ir::PortParent::Cell(cell) => Self::is_stateful(&cell.upgrade()),
+            ir::PortParent::Group(_) => asmt.dst.borrow().name == "done",
+        }
+    }
+
     //Returns true if the cell is a component or a non-combinational primitive
-    fn is_stateful(&self, cell: &ir::RRC<ir::Cell>) -> bool {
+    fn is_stateful(cell: &ir::RRC<ir::Cell>) -> bool {
         match &cell.borrow().prototype {
             ir::CellType::Primitive { is_comb, .. } => !*is_comb,
             ir::CellType::Component { .. } => true,
             _ => false,
         }
     }
+
     //For a given asmt, if asmt is a.go = b.done, then we add (b,a) to self.go_done_map.
     //If we find that b is already a key in self.go_done_map, we return false to signal
     //that the same done signal is triggering two different go's.
@@ -90,8 +106,8 @@ impl OrderAnalysis {
                 ir::PortParent::Cell(dst_cell),
             ) => {
                 //first two checks may be unnecessary
-                if self.is_stateful(&src_cell.upgrade())
-                    && self.is_stateful(&dst_cell.upgrade())
+                if Self::is_stateful(&src_cell.upgrade())
+                    && Self::is_stateful(&dst_cell.upgrade())
                     && src.name == "done"
                     && dst.attributes.has("go")
                 {
@@ -121,17 +137,6 @@ impl OrderAnalysis {
         }
     }
 
-    //The assignment must write to a stateful component, *or* be a write
-    //to the group's done port.
-    //In order to perform the transformation to the group, all assignments in the group
-    //must return true on this method.
-    pub fn is_orderable_assignment(&self, asmt: &ir::Assignment) -> bool {
-        match &asmt.dst.borrow().parent {
-            ir::PortParent::Cell(cell) => self.is_stateful(&cell.upgrade()),
-            ir::PortParent::Group(_) => asmt.dst.borrow().name == "done",
-        }
-    }
-
     //builds ordering for self. Returns true if this is a complete, valid, linear ordering, false otherwise
     pub fn get_ordering(
         &mut self,
@@ -146,7 +151,7 @@ impl OrderAnalysis {
             (self.last.clone(), self.done_go.clone())
         {
             let all_stateful_writes = ReadWriteSet::write_set(asmts.iter())
-                .filter(|cell| self.is_stateful(cell));
+                .filter(|cell| Self::is_stateful(cell));
             if go == last && all_stateful_writes.count() == 2 {
                 Some((done, go))
             } else {

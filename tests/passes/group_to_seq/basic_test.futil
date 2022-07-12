@@ -37,12 +37,30 @@ component main<"state_share"=1>(in:32) -> () {
       bin_read0_0.write_en = !bin_read0_0.done? 1'd1;
       chain_plus_adders[done] = x_0.done;
     }
+
+    group write_a{
+      A.in = 32'd2; 
+      A.write_en = 1'd1; 
+      write_a[done] = A.done; 
+    }
+    group write_bmult{
+      B.in = 32'd2; 
+      B.write_en = A.done & !B.done ? 1'd1; 
+      mult_pipe0.go = B.done; 
+      mult_pipe0.left = B.out; 
+      mult_pipe0.right = B.out; 
+      write_bmult[done] = mult_pipe0.done;
+    }
   }
   control {
     seq{
       writeAB;
       two;
       chain_plus_adders;
+      par{
+        write_a;
+        write_bmult;
+      }
     }
   }
 }
