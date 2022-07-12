@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d top-down-st -d post-opt -d lower -d merge-static-par -b none
+// -x tdcc:dump-fsm -d top-down-st -d comb-prop -d dead-cell-removal -d lower -d merge-static-par -b none
 
 import "primitives/core.futil";
 

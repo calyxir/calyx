@@ -69,6 +69,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
+                GroupToInvoke,
                 ComponentInliner,
                 CombProp,
                 RemoveCombGroups, // Must run before `infer-static-timing`.

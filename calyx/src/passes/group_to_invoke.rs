@@ -47,7 +47,6 @@ fn construct_invoke(
     builder: &mut ir::Builder,
 ) -> ir::Control {
     let mut inputs = Vec::new();
-    let mut outputs = Vec::new();
     let mut comb_assigns = Vec::new();
 
     let comb_is_parent = |port: &ir::Port| -> bool {
@@ -63,54 +62,16 @@ fn construct_invoke(
 
     for assign in assigns {
         // If a combinational component's port is being used as a dest, add
-        // it to comb_assigns (the else if makes sure for things like
-        // add.right = cell.out, that we *don't* put this assign in comb_group)
+        // it to comb_assigns
         if comb_is_parent(&assign.dst.borrow()) {
             let asmt = assign.clone();
             comb_assigns.push(asmt);
         }
-        // If the cell's port is being used as a source, add the dst to
-        // outputs
-        else if cell_is_parent(&assign.src.borrow(), &comp)
-            && assign.src != comp.borrow().get_with_attr("done")
-        {
-            unreachable!("should never write from cell, unless it is writing to primitive");
-            let name = assign.src.borrow().name.clone();
-            if assign.guard.is_true() {
-                outputs.push((name, Rc::clone(&assign.dst)));
-            } else {
-                let width = assign.dst.borrow().width;
-                let wire =
-                    builder.add_primitive("std_wire", "std_wire", &[width]);
-                let wire_out = ir::Port {
-                    name: ir::Id::new("out", None),
-                    width: width,
-                    direction: ir::Direction::Output,
-                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
-                    attributes: ir::Attributes::default(),
-                };
-                let wire_out_rrc = Rc::new(RefCell::new(wire_out));
-                let asmt = builder.build_assignment(
-                    assign.dst.clone(),
-                    wire_out_rrc,
-                    *assign.guard.clone(),
-                );
-                comb_assigns.push(asmt);
-                let wire_in = ir::Port {
-                    name: ir::Id::new("in", None),
-                    width: width,
-                    direction: ir::Direction::Input,
-                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
-                    attributes: ir::Attributes::default(),
-                };
-                let wire_in_rrc = Rc::new(RefCell::new(wire_in));
-                outputs.push((name, wire_in_rrc));
-            }
-        }
-
         // If the cell's port is being used as a dest, add the source to
-        // inputs
-        if cell_is_parent(&assign.dst.borrow(), &comp)
+        // inputs.
+        // We know that all assignments in this group should write to either a)
+        // a combinational component or b) comp or c) the group's done port
+        else if cell_is_parent(&assign.dst.borrow(), &comp)
             && assign.dst != comp.borrow().get_with_attr("go")
         {
             let name = assign.dst.borrow().name.clone();
@@ -161,7 +122,7 @@ fn construct_invoke(
     ir::Control::Invoke(ir::Invoke {
         comp: comp,
         inputs: inputs,
-        outputs: outputs,
+        outputs: Vec::new(),
         comb_group: comb_group,
         attributes: ir::Attributes::default(),
         ref_cells: Vec::new(),
