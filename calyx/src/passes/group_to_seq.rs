@@ -244,6 +244,7 @@ impl Visitor for GroupToSeq {
         comp.groups.append(filtered_groups.into_iter());
         Ok(Action::Continue)
     }
+
     fn enable(
         &mut self,
         s: &mut ir::Enable,
