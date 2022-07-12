@@ -130,7 +130,7 @@ impl Visitor for GroupToSeq {
             if !group
                 .assignments
                 .iter()
-                .all(|asmt| OrderAnalysis::is_orderable_assignment(asmt))
+                .all(OrderAnalysis::is_orderable_assignment)
             {
                 continue;
             }
@@ -233,15 +233,9 @@ impl Visitor for GroupToSeq {
             self.group_seq_map.insert(group_name, seq);
         }
 
-        //filter out empty groups
-        let filtered_groups: Vec<ir::RRC<ir::Group>> = groups
-            .into_iter()
-            .filter(|group: &ir::RRC<ir::Group>| {
-                !group.borrow().assignments.is_empty()
-            })
-            .collect();
-
-        comp.groups.append(filtered_groups.into_iter());
+        comp.groups.append(groups.into_iter().filter(
+            |group: &ir::RRC<ir::Group>| !group.borrow().assignments.is_empty(),
+        ));
         Ok(Action::Continue)
     }
 

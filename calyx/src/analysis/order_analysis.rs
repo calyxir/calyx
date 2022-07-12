@@ -150,8 +150,8 @@ impl OrderAnalysis {
         if let (Some(last), Some((done, go))) =
             (self.last.clone(), self.done_go.clone())
         {
-            let all_stateful_writes = ReadWriteSet::write_set(asmts.iter())
-                .filter(|cell| Self::is_stateful(cell));
+            let all_stateful_writes =
+                ReadWriteSet::write_set(asmts.iter()).filter(Self::is_stateful);
             if go == last && all_stateful_writes.count() == 2 {
                 Some((done, go))
             } else {
