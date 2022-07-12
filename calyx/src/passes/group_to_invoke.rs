@@ -167,6 +167,9 @@ impl Visitor for GroupToInvoke {
         let done_port = maybe_done_port.unwrap();
         let mut done_multi_write = false;
         for assign in &group.assignments {
+            // If reading and writing to cell in same assignment, then don't transform
+            // It may actually be ok to transform in this scenario though, so this
+            // check may be unnecessary
             if cell_is_parent(&assign.dst.borrow(), &cell)
                 && cell_is_parent(&assign.src.borrow(), &cell)
             {
