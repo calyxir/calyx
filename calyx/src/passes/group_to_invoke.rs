@@ -14,10 +14,9 @@ use crate::ir::{
 /// [ir::Invoke] statements.
 ///
 /// For a group to meet the requirements of this pass, it must
-/// 1. Only use unguarded assignments
-/// 2. Only assign to input ports of one non-combinational component
-/// 3. Assign `1'd1` to the @go port of the component, and
-/// 4. Depend directly on the @done port of the component for its done
+/// 1. Only assign to input ports of one non-combinational component
+/// 2. Assign `1'd1` to the @go port of the component, and
+/// 3. Depend directly on the @done port of the component for its done
 ///    condition.
 #[derive(Default)]
 pub struct GroupToInvoke;
@@ -32,6 +31,15 @@ impl Named for GroupToInvoke {
     }
 }
 
+// Returns true if port's parent is cell
+fn cell_is_parent(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
+    if let ir::PortParent::Cell(cell_wref) = &port.parent {
+        Rc::ptr_eq(&cell_wref.upgrade(), &cell)
+    } else {
+        false
+    }
+}
+
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
     assigns: &[ir::Assignment],
@@ -41,14 +49,6 @@ fn construct_invoke(
     let mut inputs = Vec::new();
     let mut outputs = Vec::new();
     let mut comb_assigns = Vec::new();
-
-    let cell_is_parent = |port: &ir::Port| -> bool {
-        if let ir::PortParent::Cell(cell_wref) = &port.parent {
-            Rc::ptr_eq(&cell_wref.upgrade(), &comp)
-        } else {
-            false
-        }
-    };
 
     let comb_is_parent = |port: &ir::Port| -> bool {
         if let ir::PortParent::Cell(cell_wref) = &port.parent {
@@ -62,17 +62,26 @@ fn construct_invoke(
     };
 
     for assign in assigns {
+        // If a combinational component's port is being used as a dest, add
+        // it to comb_assigns (the else if makes sure for things like
+        // add.right = cell.out, that we *don't* put this assign in comb_group)
+        if comb_is_parent(&assign.dst.borrow()) {
+            let asmt = assign.clone();
+            comb_assigns.push(asmt);
+        }
         // If the cell's port is being used as a source, add the dst to
         // outputs
-        if cell_is_parent(&assign.src.borrow())
+        else if cell_is_parent(&assign.src.borrow(), &comp)
             && assign.src != comp.borrow().get_with_attr("done")
         {
+            unreachable!("should never write from cell, unless it is writing to primitive");
             let name = assign.src.borrow().name.clone();
             if assign.guard.is_true() {
                 outputs.push((name, Rc::clone(&assign.dst)));
             } else {
                 let width = assign.dst.borrow().width;
-                let wire = builder.add_primitive("w", "std_wire", &[width]);
+                let wire =
+                    builder.add_primitive("std_wire", "std_wire", &[width]);
                 let wire_out = ir::Port {
                     name: ir::Id::new("out", None),
                     width: width,
@@ -98,17 +107,10 @@ fn construct_invoke(
                 outputs.push((name, wire_in_rrc));
             }
         }
-        // If a combinational component's port is being used as a dest, add
-        // it to comb_assigns (the else if makes sure for things like
-        // add.right = cell.out, that we *don't* put this assign in comb_group)
-        else if comb_is_parent(&assign.dst.borrow()) {
-            let asmt = assign.clone();
-            comb_assigns.push(asmt);
-        }
 
         // If the cell's port is being used as a dest, add the source to
         // inputs
-        if cell_is_parent(&assign.dst.borrow())
+        if cell_is_parent(&assign.dst.borrow(), &comp)
             && assign.dst != comp.borrow().get_with_attr("go")
         {
             let name = assign.dst.borrow().name.clone();
@@ -116,7 +118,8 @@ fn construct_invoke(
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
                 let width = assign.dst.borrow().width;
-                let wire = builder.add_primitive("w", "std_wire", &[width]);
+                let wire =
+                    builder.add_primitive("std_wire", "std_wire", &[width]);
                 let wire_in = ir::Port {
                     name: ir::Id::new("in", None),
                     width: width,
@@ -203,6 +206,12 @@ impl Visitor for GroupToInvoke {
         let done_port = maybe_done_port.unwrap();
         let mut done_multi_write = false;
         for assign in &group.assignments {
+            if cell_is_parent(&assign.dst.borrow(), &cell)
+                && cell_is_parent(&assign.src.borrow(), &cell)
+            {
+                return Ok(Action::Continue);
+            }
+
             // @go port should have exactly one write and the src should be 1.
             if assign.dst == go_port {
                 if go_multi_write {

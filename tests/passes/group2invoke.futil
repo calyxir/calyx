@@ -15,25 +15,31 @@ component main() -> () {
     group add_write_r{
       r.in = add.out; 
       r.write_en = 1'd1; 
-      write_r[done] = r.done; 
+      add_write_r[done] = r.done; 
       add.left = 32'd2; 
       add.right = 32'd3; 
     }
     group exp{
-      lt.left = 32'd5; 
+      lt.left = 32'd2; 
       lt.right = 32'd4; 
       r.write_en = 1'd1; 
-      r.in = lt.out ? 32'd2; 
+      r.in = lt.out ? 32'd19; 
       exp[done] = r.done; 
     }
     group guard2{
-      lt.left = 32'd5; 
+      lt.left = 32'd2; 
       lt.right = 32'd4;
       add.left = 32'd2; 
       add.right = lt.out ? r.out; 
       r.write_en = 1'd1; 
-      r.in = 32'd2; 
+      r.in = add.out; 
       guard2[done] = r.done; 
+    }
+
+    group no_transform{
+      r.write_en = 1'd1; 
+      r.in = r.out; 
+      no_transform[done] = r.done; 
     }
   }
   control {
@@ -42,6 +48,7 @@ component main() -> () {
       add_write_r;
       exp;
       guard2;
+      no_transform;
     }
   }
 }
