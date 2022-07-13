@@ -1,8 +1,3 @@
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
-
 use super::{
     ast::{ComponentDef, NamespaceDef},
     parser,
@@ -10,6 +5,11 @@ use super::{
 use crate::{
     errors::{CalyxResult, Error},
     ir,
+};
+use linked_hash_map::LinkedHashMap;
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
 };
 
 /// A Workspace represents all Calyx files transitively discovered while trying to compile a
@@ -44,7 +44,7 @@ pub struct Workspace {
     /// compilation mode.
     pub declarations: Vec<ComponentDef>,
     /// Absolute path to extern definitions and primitives defined by them.
-    pub externs: Vec<(PathBuf, Vec<ir::Primitive>)>,
+    pub externs: LinkedHashMap<PathBuf, Vec<ir::Primitive>>,
     /// Original import statements present in the top-level file.
     pub original_imports: Vec<String>,
     /// Optional opaque metadata attached to the top-level file
@@ -175,15 +175,14 @@ impl Workspace {
                                  shallow: bool|
          -> CalyxResult<Vec<PathBuf>> {
             // Canonicalize the extern paths and add them
-            workspace.externs.append(
-                &mut ns
+            for (path, mut exts) in ns.externs {
+                let abs_path = Self::canonicalize_extern(path, parent)?;
+                workspace
                     .externs
-                    .into_iter()
-                    .map(|(p, e)| {
-                        Self::canonicalize_extern(p, parent).map(|p| (p, e))
-                    })
-                    .collect::<CalyxResult<_>>()?,
-            );
+                    .entry(abs_path)
+                    .or_default()
+                    .append(&mut exts);
+            }
 
             // Add components defined by this namespace to either components or
             // declarations
