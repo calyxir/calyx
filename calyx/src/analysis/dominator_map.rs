@@ -202,64 +202,236 @@ fn compute_unique_ids(con: &mut ir::Control, mut cur_state: u64) -> u64 {
     }
 }
 
+// Given a control, gets its associated id. For if statments, gets the
+// beginning id if begin_id is true and end_id if begin_id is false.
+// Should not be called on empty control
+// statements or any other statements that don't have an id numbering.
+fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
+    let v = match c {
+        ir::Control::If(_) => {
+            if BEGIN {
+                get_attr(c, BEGIN_ID)
+            } else {
+                get_attr(c, END_ID)
+            }
+        }
+        _ => get_attr(c, NODE_ID),
+    };
+    v.unwrap_or_else(|| unreachable!(
+            "get_id() shouldn't be called on control stmts that don't have id numbering"
+        ))
+}
+
+//given a control stmt c and a key, returns true if c matches key, false
+//otherwise. For if stmts return true if key matches either begin or end id.
+fn matches_key(c: &ir::Control, key: u64) -> bool {
+    if get_id::<true>(c) == key {
+        return true;
+    }
+    //could match the end id of an if statement as well
+    if let Some(end) = get_attr(c, END_ID) {
+        key == end
+    } else {
+        false
+    }
+}
+
+// Gets attribute s from c, panics otherwise. Should be used when you know
+// that c has attribute s.
+fn get_guaranteed_attribute(c: &ir::Control, s: &str) -> u64 {
+    get_attr(c,s).unwrap_or_else(||unreachable!(
+            "called get_guaranteed_attribute, meaning we had to be sure it had the id"
+        ))
+}
+
+// Gets the "final" nodes in control c. Used to build exits_map.
+fn get_final(c: &ir::Control) -> HashSet<u64> {
+    let mut hs = HashSet::new();
+    match c {
+        ir::Control::Empty(_) => (),
+        ir::Control::Invoke(_)
+        | ir::Control::Enable(_)
+        | ir::Control::While(_) => {
+            hs.insert(get_guaranteed_attribute(c, NODE_ID));
+        }
+        ir::Control::If(_) => {
+            hs.insert(get_guaranteed_attribute(c, END_ID));
+        }
+        ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            get_final((&stmts[..]).last().unwrap_or_else(|| {
+                panic!("error: empty Seq block. Run collapse-control pass.")
+            }));
+        }
+        ir::Control::Par(ir::Par { stmts, .. }) => {
+            for stmt in stmts {
+                let stmt_final = get_final(stmt);
+                hs = hs.union(&stmt_final).copied().collect()
+            }
+        }
+    }
+    hs
+}
+
 impl DominatorMap {
     /// Construct a domination map.
     pub fn new(control: &mut ir::Control, component_name: String) -> Self {
         compute_unique_ids(control, 0);
-        let mut exits_map = HashMap::new();
-        Self::build_exit_map(control, &mut exits_map);
         let mut map = DominatorMap {
             map: HashMap::new(),
-            exits_map,
+            exits_map: HashMap::new(),
             component_name,
         };
-        Self::build_map(control, &mut map);
+        map.build_exit_map(control);
+        map.build_map(control);
         map
     }
 
-    //Builds the domination map by running update_map() until the map
-    //stops changing.
-    fn build_map(main_c: &ir::Control, d_map: &mut DominatorMap) {
-        let mut og_map = d_map.map.clone();
-        let empty_set: HashSet<u64> = HashSet::new();
-        Self::update_map(main_c, 0, &empty_set, d_map);
-        while og_map != d_map.map {
-            og_map = d_map.map.clone();
-            Self::update_map(main_c, 0, &empty_set, d_map);
+    // Builds the "exit map" of c. This is getting what will be the final "node"
+    // executed in c.
+    fn build_exit_map(&mut self, c: &ir::Control) {
+        match c {
+            ir::Control::Empty(_) => (),
+            ir::Control::Invoke(_) | ir::Control::Enable(_) => {
+                let id = get_guaranteed_attribute(c, NODE_ID);
+                self.exits_map.insert(id, HashSet::from([id]));
+            }
+            ir::Control::While(ir::While { body, .. }) => {
+                let id = get_guaranteed_attribute(c, NODE_ID);
+                self.exits_map.insert(id, HashSet::from([id]));
+                self.build_exit_map(body);
+            }
+            ir::Control::If(ir::If {
+                tbranch, fbranch, ..
+            }) => {
+                let begin_id = get_guaranteed_attribute(c, BEGIN_ID);
+                let end_id = get_guaranteed_attribute(c, END_ID);
+                self.exits_map.insert(begin_id, HashSet::from([end_id]));
+                self.exits_map.insert(end_id, HashSet::from([end_id]));
+                self.build_exit_map(tbranch);
+                self.build_exit_map(fbranch);
+            }
+            ir::Control::Seq(ir::Seq { stmts, .. })
+            | ir::Control::Par(ir::Par { stmts, .. }) => {
+                for stmt in stmts {
+                    self.build_exit_map(stmt);
+                }
+                let id = get_guaranteed_attribute(c, NODE_ID);
+                self.exits_map.insert(id, get_final(c));
+            }
         }
     }
 
-    // Given a control, gets its associated id. For if statments, gets the
-    // beginning id if begin_id is true and end_id if begin_id is false.
-    // Should not be called on empty control
-    // statements or any other statements that don't have an id numbering.
-    fn get_id(c: &ir::Control, begin_id: bool) -> u64 {
-        if let Some(v) = match c {
-            ir::Control::If(_) => {
-                if begin_id {
-                    get_attr(c, BEGIN_ID)
-                } else {
-                    get_attr(c, END_ID)
+    // Builds the domination map by running update_map() until the map
+    // stops changing.
+    fn build_map(&mut self, main_c: &ir::Control) {
+        let mut og_map = self.map.clone();
+        let empty_set: HashSet<u64> = HashSet::new();
+        self.update_map(main_c, 0, &empty_set);
+        while og_map != self.map {
+            og_map = self.map.clone();
+            self.update_map(main_c, 0, &empty_set);
+        }
+    }
+
+    // Given an id and its predecessors pred, and a domination map d_map, updates
+    // d_map accordingly (i.e. the union of all dominators of the predecessors
+    // plus itself).
+    fn update_node(&mut self, pred: &HashSet<u64>, id: u64) {
+        let mut union: HashSet<u64> = HashSet::new();
+        for id in pred.iter() {
+            if let Some(dominators) = self.map.get(id) {
+                union = union.union(dominators).copied().collect();
+            }
+        }
+        union.insert(id);
+        self.map.insert(id, union);
+    }
+
+    // Looks through each "node" in the "graph" and updates the dominators accordingly
+    fn update_map(
+        &mut self,
+        main_c: &ir::Control,
+        cur_id: u64,
+        pred: &HashSet<u64>,
+    ) {
+        let c = match Self::get_control(cur_id, main_c) {
+            Some(control) => control,
+            None => return,
+        };
+        match c {
+            ir::Control::Empty(_) => {
+                unreachable!(
+                    "should not pattern match agaisnt empty in update_map()"
+                )
+            }
+            ir::Control::Invoke(_) | ir::Control::Enable(_) => {
+                self.update_node(pred, cur_id);
+            }
+            ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                //Could try to think a way of doing it w/o this first stuff
+                let mut first = true;
+                let mut prev_id = cur_id;
+                for stmt in stmts {
+                    let id = get_id::<true>(stmt);
+                    if first {
+                        self.update_map(main_c, id, pred);
+                        first = false;
+                    } else {
+                        self.update_map(
+                            main_c,
+                            id,
+                            &self
+                                .exits_map
+                                .get(&prev_id)
+                                .unwrap_or_else(|| {
+                                    unreachable!(
+                                       "{}", "exit node map does not have value for {prev_id}",
+                                    )
+                                })
+                                .clone(),
+                        );
+                    }
+                    prev_id = get_id::<false>(stmt);
                 }
             }
-            _ => get_attr(c, NODE_ID),
-        } {
-            v
-        } else {
-            unreachable!(
-                "get_id() shouldn't be called on control stmts that don't have id numbering"
-            )
-        }
-    }
+            ir::Control::Par(ir::Par { stmts, .. }) => {
+                for stmt in stmts {
+                    let id = get_id::<true>(stmt);
+                    self.update_map(main_c, id, pred);
+                }
+            }
+            ir::Control::While(ir::While { body, .. }) => {
+                self.update_node(pred, cur_id);
 
-    //given a control stmt c and a key, returns true if c matches key, false
-    //otherwise. For if stmts return true if key matches either begin or end id.
-    fn matches_key(c: &ir::Control, key: u64) -> bool {
-        let mut ids = vec![Self::get_id(c, true)];
-        if let Some(end) = get_attr(c, END_ID) {
-            ids.push(end);
-        }
-        ids.contains(&key)
+                //updating the while body
+                let body_id = get_id::<true>(body);
+                let mut while_guard_set = HashSet::new();
+                while_guard_set.insert(cur_id);
+                self.update_map(main_c, body_id, &while_guard_set);
+            }
+            ir::Control::If(ir::If {
+                tbranch, fbranch, ..
+            }) => {
+                //updating the if guard
+                self.update_node(pred, cur_id);
+
+                //building a set w/ just the if_guard id in it
+                let mut if_guard_set = HashSet::new();
+                if_guard_set.insert(cur_id);
+
+                //updating the tbranch
+                let t_id = get_id::<true>(tbranch);
+                self.update_map(main_c, t_id, &if_guard_set);
+
+                if !matches!(**fbranch, ir::Control::Empty(_)) {
+                    let f_id = get_id::<true>(fbranch);
+                    self.update_map(main_c, f_id, &if_guard_set);
+                }
+
+                let end_id = get_guaranteed_attribute(c, END_ID);
+                self.update_node(&if_guard_set, end_id)
+            }
+        };
     }
 
     /// Given a control c and an id, finds the control statement within c that
@@ -268,7 +440,7 @@ impl DominatorMap {
         if matches!(c, ir::Control::Empty(_)) {
             return None;
         }
-        if Self::matches_key(c, id) {
+        if matches_key(c, id) {
             return Some(c);
         }
         match c {
@@ -305,188 +477,9 @@ impl DominatorMap {
         }
     }
 
-    //gets attribute s from c, panics otherwise. Should be used when you know
-    //that c has attribute s.
-    fn get_guaranteed_attribute(c: &ir::Control, s: &str) -> u64 {
-        match get_attr(c, s) {
-            Some(v) => v,
-            None => unreachable!(
-                "called get_guaranteed_attribute, meaning we had to be sure it had the id"
-            ),
-        }
-    }
-
-    //Builds the "exit map" of c. This is getting what will be the final "node"
-    //executed in c.
-    fn build_exit_map(
-        c: &ir::Control,
-        final_map: &mut HashMap<u64, HashSet<u64>>,
-    ) {
-        match c {
-            ir::Control::Empty(_) => (),
-            ir::Control::Invoke(_) | ir::Control::Enable(_) => {
-                let id = Self::get_guaranteed_attribute(c, NODE_ID);
-                final_map.insert(id, HashSet::from([id]));
-            }
-            ir::Control::While(ir::While { body, .. }) => {
-                let id = Self::get_guaranteed_attribute(c, NODE_ID);
-                final_map.insert(id, HashSet::from([id]));
-                Self::build_exit_map(body, final_map);
-            }
-            ir::Control::If(ir::If {
-                tbranch, fbranch, ..
-            }) => {
-                let begin_id = Self::get_guaranteed_attribute(c, BEGIN_ID);
-                let end_id = Self::get_guaranteed_attribute(c, END_ID);
-                final_map.insert(begin_id, HashSet::from([end_id]));
-                final_map.insert(end_id, HashSet::from([end_id]));
-                Self::build_exit_map(tbranch, final_map);
-                Self::build_exit_map(fbranch, final_map);
-            }
-            ir::Control::Seq(ir::Seq { stmts, .. })
-            | ir::Control::Par(ir::Par { stmts, .. }) => {
-                for stmt in stmts {
-                    Self::build_exit_map(stmt, final_map);
-                }
-                let id = Self::get_guaranteed_attribute(c, NODE_ID);
-                final_map.insert(id, Self::get_final(c));
-            }
-        }
-    }
-
-    //Gets the "final" nodes in control c. This useful for getting
-    //what will be the predecessors of the next node in the control sequence.
-    fn get_final(c: &ir::Control) -> HashSet<u64> {
-        let mut hs = HashSet::new();
-        match c {
-            ir::Control::Empty(_) => panic!("To Do: deal w/ empty controls"),
-            ir::Control::Invoke(_)
-            | ir::Control::Enable(_)
-            | ir::Control::While(_) => {
-                hs.insert(Self::get_guaranteed_attribute(c, NODE_ID));
-            }
-            ir::Control::If(_) => {
-                hs.insert(Self::get_guaranteed_attribute(c, END_ID));
-            }
-            ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                match (&stmts[..]).last() {
-                    None => panic!("error: empty Seq block. Run ___ "),
-                    Some(control) => return Self::get_final(control),
-                }
-            }
-            ir::Control::Par(ir::Par { stmts, .. }) => {
-                for stmt in stmts {
-                    let stmt_final = Self::get_final(stmt);
-                    hs = hs.union(&stmt_final).copied().collect()
-                }
-            }
-        }
-        hs
-    }
-
-    //Given an id and its predecessors pred, and a domination map d_map, updates
-    //d_map accordingly (i.e. the union of all dominators of the predecessors
-    //plus itself).
-    fn update_node(pred: &HashSet<u64>, id: u64, d_map: &mut DominatorMap) {
-        let mut union: HashSet<u64> = HashSet::new();
-        for id in pred.iter() {
-            if let Some(dominators) = d_map.map.get(id) {
-                union = union.union(dominators).copied().collect();
-            }
-        }
-        union.insert(id);
-        d_map.map.insert(id, union);
-    }
-
-    //Looks through each "node" in the "graph" and updates the dominators accordingly
-    fn update_map(
-        main_c: &ir::Control,
-        cur_id: u64,
-        pred: &HashSet<u64>,
-        d_map: &mut DominatorMap,
-    ) {
-        let c = match Self::get_control(cur_id, main_c) {
-            Some(control) => control,
-            None => return,
-        };
-        match c {
-            ir::Control::Empty(_) => {
-                unreachable!(
-                    "should not pattern match agaisnt empty in update_map()"
-                )
-            }
-            ir::Control::Invoke(_) | ir::Control::Enable(_) => {
-                Self::update_node(pred, cur_id, d_map);
-            }
-            ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                //Could try to think a way of doing it w/o this first stuff
-                let mut first = true;
-                let mut prev_id = cur_id;
-                for stmt in stmts {
-                    let id = Self::get_id(stmt, true);
-                    if first {
-                        Self::update_map(main_c, id, pred, d_map);
-                        first = false;
-                    } else {
-                        Self::update_map(
-                            main_c,
-                            id,
-                            &d_map
-                                .exits_map
-                                .get(&prev_id)
-                                .unwrap_or_else(|| {
-                                    unreachable!(
-                                        "exit node map does not have value for {}",
-                                        prev_id
-                                    )
-                                })
-                                .clone(),
-                            d_map,
-                        );
-                    }
-                    prev_id = Self::get_id(stmt, false);
-                }
-            }
-            ir::Control::Par(ir::Par { stmts, .. }) => {
-                for stmt in stmts {
-                    let id = Self::get_id(stmt, true);
-                    Self::update_map(main_c, id, pred, d_map);
-                }
-            }
-            ir::Control::While(ir::While { body, .. }) => {
-                Self::update_node(pred, cur_id, d_map);
-
-                //updating the while body
-                let body_id = Self::get_id(body, true);
-                let mut while_guard_set = HashSet::new();
-                while_guard_set.insert(cur_id);
-                Self::update_map(main_c, body_id, &while_guard_set, d_map);
-            }
-            ir::Control::If(ir::If {
-                tbranch, fbranch, ..
-            }) => {
-                //updating the if guard
-                Self::update_node(pred, cur_id, d_map);
-
-                //building a set w/ just the if_guard id in it
-                let mut if_guard_set = HashSet::new();
-                if_guard_set.insert(cur_id);
-
-                //updating the tbranch
-                let t_id = Self::get_id(tbranch, true);
-                Self::update_map(main_c, t_id, &if_guard_set, d_map);
-
-                if !matches!(**fbranch, ir::Control::Empty(_)) {
-                    let f_id = Self::get_id(fbranch, true);
-                    Self::update_map(main_c, f_id, &if_guard_set, d_map);
-                }
-
-                let end_id = Self::get_guaranteed_attribute(c, END_ID);
-                Self::update_node(&if_guard_set, end_id, d_map)
-            }
-        };
-    }
-
+    // Given a set of nodes, gets the control in main_control that corresponds
+    // to the node. If there is a node in the set not corresponding to a control
+    // statement in main_control, then it gives an unreachable! error.
     pub fn get_control_nodes<'a>(
         nodes: &HashSet<u64>,
         main_control: &'a ir::Control,
