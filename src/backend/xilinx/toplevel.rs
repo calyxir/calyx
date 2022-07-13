@@ -113,7 +113,7 @@ fn external_memories_cells(
         .filter(|cell_ref| {
             matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
         })
-        .map(|cell_ref| cell_ref.clone())
+        .cloned()
         .collect()
 }
 
