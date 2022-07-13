@@ -47,12 +47,9 @@ impl Backend for XilinxInterfaceBackend {
         }
 
         let mem_info = get_mem_info(toplevel);
-        // let widths = get_mem_widths(toplevel);
-        // let sizes = get_mem_sizes(toplevel);
-        // let idx_sizes = get_mem_idx_sizes(toplevel);
 
         let mut modules = vec![
-            // XXX(nathanielnrn) what defines top_level data_width and addr_width?
+            // XXX(nathanielnrn) what defines top_level address_width and data_width?
             top_level(12, 32, &memories),
         ];
         for (i, _mem) in memories.iter().enumerate() {
@@ -64,11 +61,9 @@ impl Backend for XilinxInterfaceBackend {
             ))
         }
 
-        // Possible to have this parameterized for every memory and then
-        // have as many bram modules as there are memories. <- this is current method
-
         modules.push(axi::AxiInterface::control_module(
             "Control_axi",
+            // XXX(nathanielnrn) these match numbers above, unclear where they're from
             12,
             32,
             &memories,
@@ -221,7 +216,7 @@ fn top_level(
         let done = format!("{}_done", mem);
         module.add_decl(v::Decl::new_wire(&write_data, data_width));
         module.add_decl(v::Decl::new_wire(&read_data, data_width));
-        module.add_decl(v::Decl::new_wire(&addr0, 5)); //width should match memory width in calyx
+        module.add_decl(v::Decl::new_wire(&addr0, address_width));
         module.add_decl(v::Decl::new_wire(&write_en, 1));
         module.add_decl(v::Decl::new_wire(&done, 1));
 

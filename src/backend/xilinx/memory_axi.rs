@@ -201,6 +201,8 @@ impl MemoryInterface for AxiInterface {
 
         // addresses are byte addressed which means addresses are computed as
         // base + (offset << shift_by)
+        // TODO(nathanielnrn): Fix the burst size and shifting values based on
+        // pynq(?) input? Or memory size? unclear.
         let shift_by = 2;
         let burst_size: i32 = utils::math::bits_needed_for(32 / 8) as i32;
 
@@ -367,7 +369,7 @@ fn bram_logic(
     let copy_data: v::Expr = v::Expr::new_index_slice(
         &axi4.read_data.get("DATA"),
         v::Expr::new_mul(txn_count, 32),
-        32, /* bram data width */
+        data_width.try_into().unwrap(), /* bram data width */
     );
     let bram_data: v::Expr = "WRITE_DATA".into();
     let mux_data = v::Expr::new_mux(
