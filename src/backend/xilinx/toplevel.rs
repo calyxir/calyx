@@ -46,28 +46,27 @@ impl Backend for XilinxInterfaceBackend {
                     " Please make sure that at least one memory is marked as @external."));
         }
 
-        let widths = get_mem_widths(toplevel);
-        let sizes = get_mem_sizes(toplevel);
-        let idx_sizes = get_mem_idx_sizes(toplevel);
+        let mem_info = get_mem_info(toplevel);
+        // let widths = get_mem_widths(toplevel);
+        // let sizes = get_mem_sizes(toplevel);
+        // let idx_sizes = get_mem_idx_sizes(toplevel);
 
         let mut modules = vec![
-            // what defines top_level data_width and addr_width?
+            // XXX(nathanielnrn) what defines top_level data_width and addr_width?
             top_level(12, 32, &memories),
         ];
         for (i, _mem) in memories.iter().enumerate() {
             modules.push(bram(
                 &format!("SINGLE_PORT_BRAM_{}", i),
-                widths[i],
-                sizes[i],
-                idx_sizes[i],
+                mem_info[i].0,
+                mem_info[i].1,
+                mem_info[i].2,
             ))
         }
 
         // Possible to have this parameterized for every memory and then
         // have as many bram modules as there are memories. <- this is current method
 
-        //July 11 2022: replaced by for loop above
-        //bram(32, 32, 5),
         modules.push(axi::AxiInterface::control_module(
             "Control_axi",
             12,
@@ -80,9 +79,9 @@ impl Backend for XilinxInterfaceBackend {
                 i as u64, // is this safe?
                 512,
                 64,
-                widths[i],
-                sizes[i],
-                idx_sizes[i],
+                mem_info[i].0,
+                mem_info[i].1,
+                mem_info[i].2,
             ))
         }
 
@@ -104,51 +103,39 @@ impl Backend for XilinxInterfaceBackend {
     }
 }
 
-////I __think__ this should always be in the same order because
-//of IdList being in the same order
-//should this be a macro?
+// XXX(nathanielnrn) I __think__ this should always be in the same order because
+// of IdList being in the same order
+// also, should this be a macro?
 fn external_memories_cells(
     comp: &ir::Component,
-) -> Vec<std::rc::Rc<std::cell::RefCell<ir::Cell>>> {
+) -> Vec<calyx::ir::RRC<ir::Cell>> {
     comp.cells
         .iter()
-        .filter(|cell_ref| {
-            matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
-        })
+        // find external memories
+        .filter(|cell_ref| cell_ref.borrow().attributes.has("external"))
         .cloned()
         .collect()
 }
 
-//returns vector of memory widths from a component
-fn get_mem_widths(comp: &ir::Component) -> Vec<u64> {
+// Returns a vector of tuples containing external memory info of form:
+// (WIDTH, SIZE, IDX_SIZE)
+fn get_mem_info(comp: &ir::Component) -> Vec<(u64, u64, u64)> {
     external_memories_cells(comp)
         .iter()
-        .map(|cell_ref| cell_ref.borrow().get_parameter("WIDTH").unwrap())
-        .collect()
-}
-
-fn get_mem_sizes(comp: &ir::Component) -> Vec<u64> {
-    external_memories_cells(comp)
-        .iter()
-        .map(|cell_ref| cell_ref.borrow().get_parameter("SIZE").unwrap())
-        .collect()
-}
-
-fn get_mem_idx_sizes(comp: &ir::Component) -> Vec<u64> {
-    external_memories_cells(comp)
-        .iter()
-        .map(|cell_ref| cell_ref.borrow().get_parameter("IDX_SIZE").unwrap())
+        .map(|cell_ref| {
+            (
+                cell_ref.borrow().get_parameter("WIDTH").unwrap(),
+                cell_ref.borrow().get_parameter("SIZE").unwrap(),
+                cell_ref.borrow().get_parameter("IDX_SIZE").unwrap(),
+            )
+        })
         .collect()
 }
 
 // Returns Vec<String> of memory names
 fn external_memories(comp: &ir::Component) -> Vec<String> {
-    // find external memories
-    comp.cells
+    external_memories_cells(comp)
         .iter()
-        .filter(|cell_ref| {
-            matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
-        })
         .map(|cell_ref| cell_ref.borrow().name().to_string())
         .collect()
 }

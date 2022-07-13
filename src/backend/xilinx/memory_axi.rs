@@ -331,7 +331,7 @@ fn bram_logic(
     module.add_stmt(v::Parallel::Assign("DONE".into(), "bram_done".into()));
 
     // bram address logic
-    let copy_address = v::Expr::new_slice("copy_addr_offset", 4, 0); // does this need to use parameterization?
+    let copy_address = v::Expr::new_slice("copy_addr_offset", 4, 0); // XXX(nathanielnrn) does this need to use parameterization?
     let bram_address: v::Expr = "ADDR".into();
     let send_address = v::Expr::new_slice("send_addr_offset", 4, 0); // same here
     let mux_address = v::Expr::new_mux(
