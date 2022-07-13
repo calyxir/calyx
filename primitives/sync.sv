@@ -27,7 +27,8 @@ module std_sync_reg #(
    output logic               write_done_0,
    output logic               write_done_1,
    output logic               read_done_0,
-   output logic               read_done_1
+   output logic               read_done_1,
+   output logic [WIDTH - 1:0] peek
 );
 
   logic is_full;
@@ -135,6 +136,20 @@ module std_sync_reg #(
       state <= 'x;  // This could've been a latch but explicitly make it undefined.
     else
       state <= state;
+  end
+
+  //Value of the "peek" port.
+  // If the register is full, peek holds the same value as the state of the register.
+  // If the register is empty, peek holds the most recent valid state of the register.
+  always_ff @(posedge clk) begin
+    if (reset)
+      peek <= 0;
+    else if (WRITE_0)
+      peek <= in_0;
+    else if (WRITE_1)
+      peek <= in_1;
+    else
+      peek <= peek;
   end
 
   // Done signal for write_0 commital

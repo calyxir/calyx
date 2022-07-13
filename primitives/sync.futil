@@ -15,7 +15,8 @@ extern "sync.sv" {
     write_done_0: 1,
     write_done_1: 1,
     read_done_0: 1,
-    read_done_1: 1
+    read_done_1: 1,
+    peek: WIDTH
   );
   //// ANCHOR_END: sync_interface
 }
