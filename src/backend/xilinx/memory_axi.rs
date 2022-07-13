@@ -16,10 +16,12 @@ pub trait MemoryInterface {
         prefix: &str,
     ) -> Self;
     fn memory_module(
-        name: &str,
+        index: u64, //index of memory modules in toplevel
         bus_data_width: u64,
         bus_addr_width: u64,
         data_width: u64,
+        memory_size: u64,
+        addr_width: u64,
     ) -> v::Module;
 }
 
@@ -95,14 +97,16 @@ impl MemoryInterface for AxiInterface {
     }
 
     fn memory_module(
-        name: &str,
+        index: u64,
         bus_data_width: u64,
         bus_addr_width: u64,
         // address_width: u64,
         data_width: u64,
+        memory_size: u64,
+        addr_width: u64,
     ) -> v::Module {
+        let name = &format!("Memory_controller_axi_{}", index);
         let mut module = v::Module::new(name);
-        let memory_size = 32;
         let memory_size_bits: u64 = utils::math::bits_needed_for(memory_size); // TODO make memory size parametric
 
         module.add_input("ACLK", 1);
@@ -121,7 +125,7 @@ impl MemoryInterface for AxiInterface {
         // BRAM interface
         module.add_input("WRITE_DATA", data_width);
         module.add_output("READ_DATA", data_width);
-        module.add_input("ADDR", memory_size_bits);
+        module.add_input("ADDR", addr_width);
         module.add_input("WE", 1);
         module.add_output("DONE", 1);
 
@@ -162,7 +166,15 @@ impl MemoryInterface for AxiInterface {
         ));
 
         // bram reading / writing logic
-        bram_logic(&axi4, &mut module, &mode_fsm, "read_txn_count".into());
+        bram_logic(
+            index,
+            &axi4,
+            &mut module,
+            &mode_fsm,
+            "read_txn_count".into(),
+            data_width,
+            addr_width,
+        );
         module.add_stmt(v::Parallel::Assign(
             "READ_DATA".into(),
             "bram_read_data".into(),
@@ -293,18 +305,22 @@ fn module_mode_fsm(module: &mut v::Module) -> fsm::LinearFsm {
 }
 
 fn bram_logic(
+    index: u64,
     axi4: &AxiInterface,
     module: &mut v::Module,
     mode_fsm: &fsm::LinearFsm,
     txn_count: v::Expr,
+    data_width: u64,
+    addr_width: u64,
 ) {
-    module.add_decl(v::Decl::new_wire("bram_addr", 5));
-    module.add_decl(v::Decl::new_wire("bram_write_data", 32));
+    module.add_decl(v::Decl::new_wire("bram_addr", addr_width));
+    module.add_decl(v::Decl::new_wire("bram_write_data", data_width));
     module.add_decl(v::Decl::new_wire("bram_we", 1));
-    module.add_decl(v::Decl::new_wire("bram_read_data", 32));
+    module.add_decl(v::Decl::new_wire("bram_read_data", data_width));
     module.add_decl(v::Decl::new_wire("bram_done", 1));
 
-    let mut ram_instance = v::Instance::new("bram", "SINGLE_PORT_BRAM");
+    let name = &format!("SINGLE_PORT_BRAM_{}", index);
+    let mut ram_instance = v::Instance::new("bram", name);
     ram_instance.connect_ref("ACLK", "ACLK");
     ram_instance.connect_ref("ADDR", "bram_addr");
     ram_instance.connect_ref("Din", "bram_write_data");
@@ -315,9 +331,9 @@ fn bram_logic(
     module.add_stmt(v::Parallel::Assign("DONE".into(), "bram_done".into()));
 
     // bram address logic
-    let copy_address = v::Expr::new_slice("copy_addr_offset", 4, 0);
+    let copy_address = v::Expr::new_slice("copy_addr_offset", 4, 0); // does this need to use parameterization?
     let bram_address: v::Expr = "ADDR".into();
-    let send_address = v::Expr::new_slice("send_addr_offset", 4, 0);
+    let send_address = v::Expr::new_slice("send_addr_offset", 4, 0); // same here
     let mux_address = v::Expr::new_mux(
         v::Expr::new_logical_and(
             axi4.read_data.handshake(),
