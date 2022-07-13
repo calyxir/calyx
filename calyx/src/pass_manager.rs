@@ -6,6 +6,7 @@ use crate::{
     ir::traversal,
 };
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use std::time::Instant;
 
 /// Top-level type for all passes that transform an [ir::Context]
@@ -91,8 +92,7 @@ impl PassManager {
         pass_names.sort();
         ret.push_str("Passes:\n");
         pass_names.iter().for_each(|pass| {
-            ret.push_str(&format!("- {}", pass));
-            ret.push('\n');
+            writeln!(ret, "- {}", pass).unwrap();
         });
 
         // Push all aliases
@@ -105,8 +105,7 @@ impl PassManager {
                 .map(|p| p.to_string())
                 .collect::<Vec<String>>()
                 .join(", ");
-            ret.push_str(&format!("- {}: {}", alias, pass_str));
-            ret.push('\n');
+            writeln!(ret, "- {}: {}", alias, pass_str).unwrap();
         });
         ret
     }

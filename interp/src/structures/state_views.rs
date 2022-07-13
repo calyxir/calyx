@@ -28,7 +28,7 @@ use super::names::GroupQIN;
 #[derive(Clone)]
 pub struct CompositeView<'a>(&'a InterpreterState, Vec<StateView<'a>>);
 
-impl<'a, 'outer> CompositeView<'a> {
+impl<'a> CompositeView<'a> {
     /// Basic constructor for the struct
     pub fn new(state: &'a InterpreterState, vec: Vec<StateView<'a>>) -> Self {
         Self(state, vec)
@@ -109,7 +109,7 @@ impl<'a> MutStateView<'a> {
     }
 }
 
-impl<'a, 'outer> From<&'a InterpreterState> for StateView<'a> {
+impl<'a> From<&'a InterpreterState> for StateView<'a> {
     fn from(env: &'a InterpreterState) -> Self {
         Self::SingleView(env)
     }
