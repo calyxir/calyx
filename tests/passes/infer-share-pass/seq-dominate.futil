@@ -1,5 +1,10 @@
 //-p infer-share
 
+// share checks for the situation when there are writes to registers, but 
+// each time they are dominated by a read. 
+// non_share checks the same the same situation, except this time there is one read, 
+// in group wrC, that is not dominated by a write and is therefore not shareable. 
+
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 
@@ -39,7 +44,6 @@ component share(in: 32) -> (out1: 32, out2: 32) {
       wrB;
       wrC;
       wrA;
-      
     }
   }
 }

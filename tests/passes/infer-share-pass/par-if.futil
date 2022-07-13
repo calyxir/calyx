@@ -1,5 +1,10 @@
 //-p infer-share
 
+// noshare should not be shared since the if statement means that 
+// the write to b may not dominate the read from b 
+// share should be shared. It makes sure that it treats pars as "definitely" 
+// occuring, so that it sees par {wrB wrC} and knows both will occur. 
+
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 

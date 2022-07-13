@@ -229,10 +229,10 @@ impl DominatorMap {
         }
     }
 
-    //Given a control, gets its associated id. For if statments, gets the
-    //beginning id if begin_id is true and end_id if begin_id is false.
-    //Should not be called on empty control
-    //statements or any other statements that don't have an id numbering.
+    // Given a control, gets its associated id. For if statments, gets the
+    // beginning id if begin_id is true and end_id if begin_id is false.
+    // Should not be called on empty control
+    // statements or any other statements that don't have an id numbering.
     fn get_id(c: &ir::Control, begin_id: bool) -> u64 {
         if let Some(v) = match c {
             ir::Control::If(_) => {
@@ -485,5 +485,20 @@ impl DominatorMap {
                 Self::update_node(&if_guard_set, end_id, d_map)
             }
         };
+    }
+
+    pub fn get_control_nodes<'a>(
+        nodes: &HashSet<u64>,
+        main_control: &'a ir::Control,
+    ) -> Vec<&'a ir::Control> {
+        let mut controls: Vec<&ir::Control> = Vec::new();
+        for node in nodes {
+            let c =
+                Self::get_control(*node, main_control).unwrap_or_else(|| {
+                    unreachable!("{}", "No control statement for ID {node}")
+                });
+            controls.push(c);
+        }
+        controls
     }
 }
