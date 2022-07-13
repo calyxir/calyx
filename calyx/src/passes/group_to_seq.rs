@@ -1,9 +1,8 @@
 use crate::analysis::OrderAnalysis;
-use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use std::cell::RefCell;
+use crate::ir::{self, CloneName};
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::env;
 
 #[derive(Default)]
 /// Transforms a group into a seq of 2 smaller groups, if possible.
@@ -19,7 +18,7 @@ pub struct GroupToSeq {
 
 impl Named for GroupToSeq {
     fn name() -> &'static str {
-        "group-to-seq"
+        "group2seq"
     }
 
     fn description() -> &'static str {
@@ -32,75 +31,10 @@ impl Named for GroupToSeq {
 fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::Id> {
     match &asmt.dst.borrow().parent {
         ir::PortParent::Cell(cell) => {
-            Some(cell.upgrade().borrow().name().clone())
+            Some(cell.upgrade().borrow().clone_name())
         }
         ir::PortParent::Group(_) => None,
     }
-}
-
-//Given asmt a.go = b.done, return (a1, a2), where a1 is group[done] = b.done,
-//and a2 is a.go = 1'd1.
-fn split_go_done(
-    builder: &mut ir::Builder,
-    asmt: ir::Assignment,
-    group: ir::WRC<ir::Group>,
-) -> (ir::Assignment, ir::Assignment) {
-    let con = builder.add_constant(1, 1);
-    let src = ir::Port {
-        name: ir::Id::new("const 1", None),
-        width: 1,
-        direction: ir::Direction::Output,
-        parent: ir::PortParent::Cell(ir::WRC::from(&con)),
-        attributes: ir::Attributes::default(),
-    };
-    let src_ref = Rc::new(RefCell::new(src));
-
-    let dst = ir::Port {
-        name: ir::Id::new("done", None),
-        width: 1,
-        direction: ir::Direction::Input,
-        parent: ir::PortParent::Group(group),
-        attributes: ir::Attributes::default(),
-    };
-    let dst_ref = Rc::new(RefCell::new(dst));
-    (
-        builder.build_assignment(dst_ref, asmt.src, ir::Guard::True),
-        builder.build_assignment(asmt.dst, src_ref, ir::Guard::True),
-    )
-}
-
-//Given asmt old_group[done] = guard? a.done, returns group[done] = guard? a.done.
-fn rename_group_done(
-    builder: &mut ir::Builder,
-    asmt: ir::Assignment,
-    group: ir::WRC<ir::Group>,
-) -> ir::Assignment {
-    let dst = ir::Port {
-        name: ir::Id::new("done", None),
-        width: 1,
-        direction: ir::Direction::Input,
-        parent: ir::PortParent::Group(group),
-        attributes: ir::Attributes::default(),
-    };
-    let dst_ref = Rc::new(RefCell::new(dst));
-    builder.build_assignment(dst_ref, asmt.src, *asmt.guard)
-}
-
-//Given asmt a.go = !a.done ? 1'd1 returns a.go = 1'd1.
-fn make_go_const(
-    builder: &mut ir::Builder,
-    asmt: ir::Assignment,
-) -> ir::Assignment {
-    let con = builder.add_constant(1, 1);
-    let src = ir::Port {
-        name: ir::Id::new("const 1", None),
-        width: 1,
-        direction: ir::Direction::Output,
-        parent: ir::PortParent::Cell(ir::WRC::from(&con)),
-        attributes: ir::Attributes::default(),
-    };
-    let src_ref = Rc::new(RefCell::new(src));
-    builder.build_assignment(asmt.dst, src_ref, ir::Guard::True)
 }
 
 impl Visitor for GroupToSeq {
@@ -110,11 +44,12 @@ impl Visitor for GroupToSeq {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        env::set_var("RUST_BACKTRACE", "1");
         let groups: Vec<ir::RRC<ir::Group>> = comp.groups.drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
             let mut group = g.borrow_mut();
-            let group_name = group.name().clone();
+            let group_name = group.clone_name();
 
             //builds ordering. If it cannot build a valid linear ordering of length 2,
             //then returns None, and we stop.
@@ -185,46 +120,63 @@ impl Visitor for GroupToSeq {
             match first_go_asmt {
                 None => (),
                 Some(go_asmt) => {
-                    let new_go_asmt = make_go_const(&mut builder, go_asmt);
+                    let con = builder.add_constant(1, 1);
+                    let src_ref = con.borrow().get("out");
+                    let new_go_asmt = builder.build_assignment(
+                        go_asmt.dst,
+                        src_ref,
+                        ir::Guard::True,
+                    );
                     first_group.borrow_mut().assignments.push(new_go_asmt);
                 }
             }
 
             first_group.borrow_mut().assignments.append(&mut fst_asmts);
 
-            //spliitng a.go = b.done into group[done] = b.done and a.go = 1'd1.
-            let (group_done, cell_go) = split_go_done(
-                &mut builder,
-                go_done_asmt.unwrap_or_else(|| {
-                    unreachable!(
-                        "couldn't find a go-done assignment in {}",
-                        group_name
-                    )
-                }),
-                ir::WRC::from(&first_group),
+            let go_done = go_done_asmt.unwrap_or_else(|| {
+                unreachable!(
+                    "couldn't find a go-done assignment in {}",
+                    group_name
+                )
+            });
+
+            let first_done_assignment = builder.build_assignment(
+                first_group.borrow().get("done"),
+                go_done.src,
+                ir::Guard::True,
             );
-            first_group.borrow_mut().assignments.push(group_done);
+            first_group
+                .borrow_mut()
+                .assignments
+                .push(first_done_assignment);
 
             //building second group
             let mut prefix = String::from("end_split_");
             prefix.push_str(&group_name.id);
             let second_group = builder.add_group(prefix);
-            //pushing the a.go = 1'd1 that we made in split_go_done
+            //pushing the a.go = 1'd1
+            let con = builder.add_constant(1, 1);
+            let src_ref = con.borrow().get("out");
+            let cell_go =
+                builder.build_assignment(go_done.dst, src_ref, ir::Guard::True);
             second_group.borrow_mut().assignments.push(cell_go);
             second_group.borrow_mut().assignments.append(&mut snd_asmts);
 
-            //renaming old_group[done] = ... to new_group[done] = ...
-            let new_done = rename_group_done(
-                &mut builder,
-                group_done_asmt.unwrap_or_else(|| {
-                    unreachable!(
-                        "Couldn't find a group[done] = _.done assignment in {}",
-                        group_name
-                    )
-                }),
-                ir::WRC::from(&second_group),
+            let group_done = group_done_asmt.unwrap_or_else(|| {
+                unreachable!(
+                    "Couldn't find a group[done] = _.done assignment in {}",
+                    group_name
+                )
+            });
+            let second_done_assignment = builder.build_assignment(
+                second_group.borrow().get("done"),
+                group_done.src,
+                *group_done.guard,
             );
-            second_group.borrow_mut().assignments.push(new_done);
+            second_group
+                .borrow_mut()
+                .assignments
+                .push(second_done_assignment);
 
             //creating seq and inserting it into group_seq_map.
             seq_vec.push(ir::Control::enable(first_group));
@@ -246,10 +198,7 @@ impl Visitor for GroupToSeq {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let group = s.group.borrow();
-        let group_name = group.name().clone();
-
-        //The only way I could think of doing this uses cloning
+        let group_name = s.group.borrow().clone_name();
         match self.group_seq_map.get(&group_name) {
             None => Ok(Action::Continue),
             Some(seq) => Ok(Action::Change(Box::new(ir::Control::clone(seq)))),

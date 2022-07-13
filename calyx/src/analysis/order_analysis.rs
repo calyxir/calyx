@@ -1,5 +1,5 @@
 use crate::analysis::ReadWriteSet;
-use crate::ir;
+use crate::ir::{self, CloneName};
 
 #[derive(Default)]
 ///Primarily used to help determine the order cells are executed within
@@ -11,6 +11,30 @@ pub struct OrderAnalysis {
     last: Option<ir::Id>,
 }
 
+// returns false if assign reads from name and the port it reads from is
+// not either stable or done.
+fn read_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
+    let src = assign.src.borrow();
+    if let ir::PortParent::Cell(cell) = &src.parent {
+        if cell.upgrade().borrow().name() == name {
+            src.attributes.has("stable") || src.attributes.has("done")
+        } else {
+            true
+        }
+    } else {
+        true
+    }
+}
+
+//Returns true if the cell is a component or a non-combinational primitive
+fn is_stateful(cell: &ir::RRC<ir::Cell>) -> bool {
+    match &cell.borrow().prototype {
+        ir::CellType::Primitive { is_comb, .. } => !*is_comb,
+        ir::CellType::Component { .. } => true,
+        _ => false,
+    }
+}
+
 impl OrderAnalysis {
     //Returns whether the given assignment is a go done assignment from two cells of interest
     //i.e. cell1.go = cell2.done.
@@ -18,15 +42,8 @@ impl OrderAnalysis {
         let src = asmt.src.borrow();
         let dst = asmt.dst.borrow();
         match (&src.parent, &dst.parent) {
-            (
-                ir::PortParent::Cell(src_cell),
-                ir::PortParent::Cell(dst_cell),
-            ) => {
-                //the first two checks may be unnecessary
-                Self::is_stateful(&src_cell.upgrade())
-                    && Self::is_stateful(&dst_cell.upgrade())
-                    && src.name == "done"
-                    && dst.attributes.has("go")
+            (ir::PortParent::Cell(_), ir::PortParent::Cell(_)) => {
+                src.attributes.has("done") && dst.attributes.has("go")
             }
             _ => false,
         }
@@ -38,7 +55,7 @@ impl OrderAnalysis {
         let guard_is_done = |guard: &ir::Guard| -> bool {
             match guard {
                 ir::Guard::Port(port) => {
-                    port.borrow().name == "done"
+                    port.borrow().attributes.has("done")
                         && match &port.borrow().parent {
                             ir::PortParent::Cell(cell_wref) => {
                                 cell_wref.upgrade().borrow().name() == cell
@@ -79,17 +96,8 @@ impl OrderAnalysis {
     //must return true on this method.
     pub fn is_orderable_assignment(asmt: &ir::Assignment) -> bool {
         match &asmt.dst.borrow().parent {
-            ir::PortParent::Cell(cell) => Self::is_stateful(&cell.upgrade()),
+            ir::PortParent::Cell(cell) => is_stateful(&cell.upgrade()),
             ir::PortParent::Group(_) => asmt.dst.borrow().name == "done",
-        }
-    }
-
-    //Returns true if the cell is a component or a non-combinational primitive
-    fn is_stateful(cell: &ir::RRC<ir::Cell>) -> bool {
-        match &cell.borrow().prototype {
-            ir::CellType::Primitive { is_comb, .. } => !*is_comb,
-            ir::CellType::Component { .. } => true,
-            _ => false,
         }
     }
 
@@ -105,31 +113,17 @@ impl OrderAnalysis {
                 ir::PortParent::Cell(src_cell),
                 ir::PortParent::Cell(dst_cell),
             ) => {
-                //first two checks may be unnecessary
-                if Self::is_stateful(&src_cell.upgrade())
-                    && Self::is_stateful(&dst_cell.upgrade())
-                    && src.name == "done"
-                    && dst.attributes.has("go")
-                {
-                    match self.done_go {
-                        None => {
-                            self.done_go = Some((
-                                src_cell.upgrade().borrow().name().clone(),
-                                dst_cell.upgrade().borrow().name().clone(),
-                            ));
-                        }
-                        Some(_) => (),
-                    }
+                if src.attributes.has("done") && dst.attributes.has("go") {
+                    self.done_go = Some((
+                        src_cell.upgrade().borrow().clone_name(),
+                        dst_cell.upgrade().borrow().clone_name(),
+                    ));
                 }
             }
             // src_cell's done writes to group's done
             (ir::PortParent::Cell(src_cell), ir::PortParent::Group(_)) => {
-                if dst.name == "done" {
-                    //checking for a.done
-                    if src.name == "done" {
-                        self.last =
-                            Some(src_cell.upgrade().borrow().name().clone())
-                    }
+                if dst.name == "done" && src.attributes.has("done") {
+                    self.last = Some(src_cell.upgrade().borrow().clone_name())
                 }
             }
             // If we encounter anything else, then not of interest to us
@@ -147,13 +141,18 @@ impl OrderAnalysis {
             self.update(asmt);
         }
         //Build ordering of cells, based on self.done_go and self.last.
-        if let (Some(last), Some((done, go))) =
+        if let (Some(last), Some((maybe_first, maybe_last))) =
             (self.last.clone(), self.done_go.clone())
         {
             let all_stateful_writes =
-                ReadWriteSet::write_set(asmts.iter()).filter(Self::is_stateful);
-            if go == last && all_stateful_writes.count() == 2 {
-                Some((done, go))
+                ReadWriteSet::write_set(asmts.iter()).filter(is_stateful);
+            if maybe_last == last
+                && all_stateful_writes.count() == 2
+                && asmts
+                    .iter()
+                    .all(|assign| read_stable_or_done(assign, &maybe_first))
+            {
+                Some((maybe_first, maybe_last))
             } else {
                 None
             }

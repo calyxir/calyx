@@ -1,4 +1,4 @@
-// -p group-to-seq
+// -p group2seq
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";

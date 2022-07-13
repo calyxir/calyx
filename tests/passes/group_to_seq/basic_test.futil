@@ -1,4 +1,4 @@
-//-p canonicalize -p group-to-seq
+//-p canonicalize -p group2seq
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
