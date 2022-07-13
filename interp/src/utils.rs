@@ -28,7 +28,7 @@ impl<'a> PartialEq for PortAssignment<'a> {
 
 impl<'a> Eq for PortAssignment<'a> {}
 
-impl<'a, 'b> PortAssignment<'a> {
+impl<'a> PortAssignment<'a> {
     /// Construct a new PortAssignment.
     pub fn new(a_ref: &'a Assignment) -> Self {
         Self(a_ref.dst.as_raw(), a_ref)

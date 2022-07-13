@@ -1,0 +1,41 @@
+//-p well-formed -p cell-share
+import "primitives/core.futil";
+
+component dbg<"state_share"=1>(in: 32) -> (out1: 32, out2: 32) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    group A {
+      r.write_en = 1'd1; 
+      r.in = in;
+      A[done] = r.done;
+    }
+    out1 = r.out;
+    out2 = r.out; 
+  }
+
+  control {
+    A;
+  }
+}
+
+component main() -> () {
+  cells {
+    d1 = dbg();
+    d2 = dbg();
+    add1 = std_add(32);
+    add2 = std_add(32);
+  }
+  wires {
+  }
+  control {
+    seq{
+      par{
+       invoke d1(in= 32'd2)(out1 = add1.left, out2= add1.right);
+       invoke d2(in= add1.out)(out1 = add2.left, out2= add2.right);
+      }
+      invoke d2(in= add1.out)(out1 = add2.left, out2= add2.right);
+    }
+  }
+}
