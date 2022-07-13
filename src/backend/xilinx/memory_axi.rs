@@ -16,7 +16,7 @@ pub trait MemoryInterface {
         prefix: &str,
     ) -> Self;
     fn memory_module(
-        index: u64, //index of memory modules in toplevel
+        name: &str,
         bus_data_width: u64,
         bus_addr_width: u64,
         data_width: u64,
@@ -97,7 +97,7 @@ impl MemoryInterface for AxiInterface {
     }
 
     fn memory_module(
-        index: u64,
+        name: &str,
         bus_data_width: u64,
         bus_addr_width: u64,
         // address_width: u64,
@@ -105,7 +105,6 @@ impl MemoryInterface for AxiInterface {
         memory_size: u64,
         addr_width: u64,
     ) -> v::Module {
-        let name = &format!("Memory_controller_axi_{}", index);
         let mut module = v::Module::new(name);
         let memory_size_bits: u64 = utils::math::bits_needed_for(memory_size); // TODO make memory size parametric
 
@@ -166,8 +165,9 @@ impl MemoryInterface for AxiInterface {
         ));
 
         // bram reading / writing logic
+        // TODO(nathanielnrn) fix this
         bram_logic(
-            index,
+            name, // name
             &axi4,
             &mut module,
             &mode_fsm,
@@ -180,7 +180,7 @@ impl MemoryInterface for AxiInterface {
             "bram_read_data".into(),
         ));
 
-        let offset_size_bits = memory_size_bits + 1;
+        let offset_size_bits = memory_size_bits + 1; //TODO(nathanielnrn) change this to use width?
 
         // synchronise channels
         let read_controller = axi4
@@ -305,7 +305,7 @@ fn module_mode_fsm(module: &mut v::Module) -> fsm::LinearFsm {
 }
 
 fn bram_logic(
-    index: u64,
+    name: &str, //assumed to be of form [Memory_controller_axi_<suffix>]
     axi4: &AxiInterface,
     module: &mut v::Module,
     mode_fsm: &fsm::LinearFsm,
@@ -319,8 +319,10 @@ fn bram_logic(
     module.add_decl(v::Decl::new_wire("bram_read_data", data_width));
     module.add_decl(v::Decl::new_wire("bram_done", 1));
 
-    let name = &format!("SINGLE_PORT_BRAM_{}", index);
-    let mut ram_instance = v::Instance::new("bram", name);
+    let suffix_idx = "Memory_controller_axi_".len();
+    let suffix = &name[suffix_idx..];
+    let mut ram_instance =
+        v::Instance::new("bram", &format!("SINGLE_PORT_BRAM_{}", suffix));
     ram_instance.connect_ref("ACLK", "ACLK");
     ram_instance.connect_ref("ADDR", "bram_addr");
     ram_instance.connect_ref("Din", "bram_write_data");

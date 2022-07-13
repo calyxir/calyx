@@ -76,7 +76,7 @@ impl Backend for XilinxInterfaceBackend {
 
         for (i, _mem) in memories.iter().enumerate() {
             modules.push(axi::AxiInterface::memory_module(
-                i as u64, // is this safe?
+                &format!("Memory_controller_axi_{}", i),
                 512,
                 64,
                 mem_info[i].0,
