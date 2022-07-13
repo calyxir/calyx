@@ -387,8 +387,13 @@ fn incr_addr(
     module.add_stmt(always);
 }
 
-pub fn bram(data_width: u64, size: u64, addr_width: u64) -> v::Module {
-    let mut module = v::Module::new("SINGLE_PORT_BRAM");
+pub fn bram(
+    name: &str,
+    data_width: u64,
+    size: u64,
+    addr_width: u64,
+) -> v::Module {
+    let mut module = v::Module::new(name);
     module.add_input("ACLK", 1);
     module.add_input("ADDR", addr_width);
     module.add_input("Din", data_width);
