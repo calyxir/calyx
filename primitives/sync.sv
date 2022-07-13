@@ -6,7 +6,7 @@
 * 2. in_* should remain the same value once their corresponding write_en_* signals
 *    are set high until their corresponding done_* signals are set to 1.
 * 3. read_en_* signals should remain 1 until the read_done_* signal is set to 1. 
-* 4. read_en_* signals should be set to 0 once the read_done_*signals are high.
+* 4. read_en_* signals should be set to 0 once the read_done_* signals are high.
 */
 
 // M-structure: Register primitive that blocks writes until a read happens.
@@ -36,12 +36,16 @@ module std_sync_reg #(
   logic arbiter_r;
 
   // States
-  logic READ_ONE_HOT, READ_MULT, WRITE_ONE_HOT, WRITE_MULT;
+  logic READ_ONE_HOT, READ_MULT, WRITE_ONE_HOT, WRITE_MULT, WRITE_0, WRITE_1, READ_0, READ_1;
 
   assign READ_ONE_HOT = is_full && (read_en_0 ^ read_en_1);
   assign READ_MULT = is_full && (read_en_0 && read_en_1);
   assign WRITE_ONE_HOT = !is_full && (write_en_0 ^ write_en_1);
   assign WRITE_MULT = !is_full && (write_en_0 && write_en_1);
+  assign WRITE_0 = (WRITE_ONE_HOT && write_en_0 == 1) || (WRITE_MULT && arbiter_w == 0);
+  assign WRITE_1 = (WRITE_ONE_HOT && write_en_1 == 1) || (WRITE_MULT && arbiter_w == 1);
+  assign READ_0 = (READ_ONE_HOT && read_en_0 == 1) || (READ_MULT && arbiter_r == 0);
+  assign READ_1 = (READ_ONE_HOT && read_en_1 == 1) || (READ_MULT && arbiter_r == 1);
 
   // State transitions
   always_ff @(posedge clk) begin
@@ -96,9 +100,7 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       out_0 <= 0;
-    else if (READ_ONE_HOT && read_en_0 == 1)
-      out_0 <= state;
-    else if (READ_MULT && arbiter_r == 0)
+    else if (READ_0)
       out_0 <= state;
     else
       out_0 <= 'x; // This could've been a latch but we explicitly define the output as undefined.
@@ -112,9 +114,7 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       out_1 <= 0;
-    else if (READ_ONE_HOT && read_en_1 == 1)
-      out_1 <= state;
-    else if (READ_MULT && arbiter_r == 1)
+    else if (READ_1)
       out_1 <= state;
     else
       out_1 <= 'x; // This could've been a latch but we explicitly define the output as undefined.
@@ -127,13 +127,9 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       state <= 0;
-    else if (WRITE_ONE_HOT && write_en_0 == 1)
+    else if (WRITE_0)
       state <= in_0;
-    else if (WRITE_ONE_HOT && write_en_1 == 1)
-      state <= in_1;
-    else if (WRITE_MULT && arbiter_w == 0)
-      state <= in_0;
-    else if (WRITE_MULT && arbiter_w == 1)
+    else if (WRITE_1)
       state <= in_1;
     else if (READ_ONE_HOT || READ_MULT)
       state <= 'x;  // This could've been a latch but explicitly make it undefined.
@@ -149,9 +145,7 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       write_done_0 <= 0;
-    else if (WRITE_ONE_HOT && write_en_0 == 1)
-      write_done_0 <= 1;
-    else if (WRITE_MULT && arbiter_w == 0)
+    else if (WRITE_0)
       write_done_0 <= 1;
     else
       write_done_0 <= 0;
@@ -165,9 +159,7 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       write_done_1 <= 0;
-    else if (WRITE_ONE_HOT && write_en_1 == 1)
-      write_done_1 <= 1;
-    else if (WRITE_MULT && arbiter_w == 1)
+    else if (WRITE_1)
       write_done_1 <= 1;
     else
       write_done_1 <= 0;
@@ -177,9 +169,7 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       read_done_0 <= 0;
-    else if (READ_ONE_HOT && read_en_0 == 1)
-      read_done_0 <= 1;
-    else if (READ_MULT && arbiter_r == 0)
+    else if (READ_0)
       read_done_0 <= 1;
     else
       read_done_0 <= 0;
@@ -189,13 +179,26 @@ module std_sync_reg #(
   always_ff @(posedge clk) begin
     if (reset)
       read_done_1 <= 0;
-    else if (READ_ONE_HOT && read_en_1 == 1)
-      read_done_1 <= 1;
-    else if (READ_MULT && arbiter_r == 1)
+    else if (READ_1)
       read_done_1 <= 1;
     else
       read_done_1 <= 0;
   end
-  
+
+  //Simulation self test against overlapping of mutually exclusive states
+  `ifdef VERILATOR
+    always @(posedge clk) begin
+      if (READ_0 && READ_1) 
+        $error(
+          "\nstd_sync_reg: overlapping of mutually exclusive states!\n",
+          "can be at only one of READ_0 and READ_1", 
+        );
+      else if (WRITE_0 && WRITE_1)
+        $error(
+          "\nstd_sync_reg: overlapping of mutually exclusive states!\n",
+          "can be at only one of WRITE_0 and WRITE_1", 
+        );
+    end
+  `endif
 
 endmodule
