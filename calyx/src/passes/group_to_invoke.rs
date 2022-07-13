@@ -40,6 +40,19 @@ fn cell_is_parent(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
     }
 }
 
+// Returns true if cell refereneces a std_mem cell
+fn is_std_mem(cell: &ir::RRC<ir::Cell>) -> bool {
+    match &cell.borrow().prototype {
+        ir::CellType::Primitive { name, .. } => {
+            name == "std_mem_d1"
+                || name == "std_mem_d2"
+                || name == "std_mem_d3"
+                || name == "std_mem_d4"
+        }
+        _ => false,
+    }
+}
+
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
     assigns: &[ir::Assignment],
@@ -156,7 +169,10 @@ impl Visitor for GroupToInvoke {
 
         // Component must define a @go/@done interface
         let cell = writes.pop().unwrap();
-        if matches!(cell.borrow().prototype, ir::CellType::ThisComponent) {
+        if matches!(cell.borrow().prototype, ir::CellType::ThisComponent)
+            || cell.borrow().is_reference()
+            || is_std_mem(&cell)
+        {
             return Ok(Action::Continue);
         }
 
