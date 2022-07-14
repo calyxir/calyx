@@ -48,11 +48,7 @@ fn axi_address_space(
                     2..3,
                     "int_ap_idle",
                     0..1,
-                    Flags::default().
-                    read("ap_done")., //TODO: Could use clear_on_handshake(ap_start)
-                                                      // to have it cleared as in the fixed src code
-                                                      //however, clear_on_handshake only works on write
-                                                      //signals? unclear
+                    Flags::default().read("ap_done").idle(),
                 ),
             ],
         )
