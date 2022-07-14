@@ -13,7 +13,7 @@ pub struct OrderAnalysis {
 
 // If assignment's source is name, returns whether source port is either stable
 // or done. Otherwise, returns true.
-fn read_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
+fn if_matches_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
     let src = assign.src.borrow();
     if let ir::PortParent::Cell(cell) = &src.parent {
         if cell.upgrade().borrow().name() == name {
@@ -36,7 +36,7 @@ fn is_stateful(cell: &ir::RRC<ir::Cell>) -> bool {
 }
 
 impl OrderAnalysis {
-    //Returns whether the given assignment is a go done assignment from two cells of interest
+    //Returns whether the given assignment is a go done assignment from two cells
     //i.e. cell1.go = cell2.done.
     pub fn is_go_done(asmt: &ir::Assignment) -> bool {
         let src = asmt.src.borrow();
@@ -94,7 +94,7 @@ impl OrderAnalysis {
     //to the group's done port.
     //In order to perform the transformation to the group, all assignments in the group
     //must return true on this method.
-    pub fn is_orderable_assignment(asmt: &ir::Assignment) -> bool {
+    pub fn writes_stateful_group(asmt: &ir::Assignment) -> bool {
         match &asmt.dst.borrow().parent {
             ir::PortParent::Cell(cell) => is_stateful(&cell.upgrade()),
             ir::PortParent::Group(_) => asmt.dst.borrow().name == "done",
@@ -146,9 +146,9 @@ impl OrderAnalysis {
                 ReadWriteSet::write_set(asmts.iter()).filter(is_stateful);
             if maybe_last == last
                 && all_stateful_writes.count() == 2
-                && asmts
-                    .iter()
-                    .all(|assign| read_stable_or_done(assign, &maybe_first))
+                && asmts.iter().all(|assign| {
+                    if_matches_stable_or_done(assign, &maybe_first)
+                })
             {
                 Some((maybe_first, maybe_last))
             } else {

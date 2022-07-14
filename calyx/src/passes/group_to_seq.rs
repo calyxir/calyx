@@ -63,7 +63,7 @@ impl Visitor for GroupToSeq {
             if !group
                 .assignments
                 .iter()
-                .all(OrderAnalysis::is_orderable_assignment)
+                .all(OrderAnalysis::writes_stateful_group)
             {
                 continue;
             }
