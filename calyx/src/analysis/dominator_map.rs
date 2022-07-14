@@ -368,7 +368,6 @@ impl DominatorMap {
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 //Could try to think a way of doing it w/o this first stuff
-                let mut prev_id = cur_id;
                 let mut p = pred;
                 let mut nxt: HashSet<u64>;
                 for stmt in stmts {
@@ -376,14 +375,13 @@ impl DominatorMap {
                     self.update_map(main_c, id, p);
                     nxt = self
                         .exits_map
-                        .get(&prev_id)
+                        .get(&id)
                         .unwrap_or_else(|| {
                             unreachable!(
                                 "{}", "exit node map does not have value for {prev_id}",
                             )
                         }).clone();
                     p = &nxt;
-                    prev_id = get_id::<false>(stmt);
                 }
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {
