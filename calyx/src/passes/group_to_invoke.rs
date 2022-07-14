@@ -59,6 +59,9 @@ fn construct_invoke(
     };
 
     for assign in assigns {
+        // We know that all assignments in this group should write to either a)
+        // a combinational component or b) comp or c) the group's done port
+
         // If a combinational component's port is being used as a dest, add
         // it to comb_assigns
         if comb_is_parent(&assign.dst.borrow()) {
@@ -67,8 +70,6 @@ fn construct_invoke(
         }
         // If the cell's port is being used as a dest, add the source to
         // inputs.
-        // We know that all assignments in this group should write to either a)
-        // a combinational component or b) comp or c) the group's done port
         else if cell_is_parent(&assign.dst.borrow(), &comp)
             && assign.dst != comp.borrow().get_with_attr("go")
         {
@@ -76,6 +77,7 @@ fn construct_invoke(
             if assign.guard.is_true() {
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
+                // comp has a guarded assignment, need a wire
                 let width = assign.dst.borrow().width;
                 let wire =
                     builder.add_primitive("std_wire", "std_wire", &[width]);
@@ -138,7 +140,7 @@ impl Visitor for GroupToInvoke {
             return Ok(Action::Continue);
         }
 
-        // Component shouldn't be ThisComponent, Reference, or External (giving me errors)
+        // If component is ThisComponent, Reference, or External, don't turn into invoke
         let cell = writes.pop().unwrap();
         if matches!(cell.borrow().prototype, ir::CellType::ThisComponent)
             || cell.borrow().is_reference()
@@ -197,7 +199,9 @@ impl Visitor for GroupToInvoke {
                         return Ok(Action::Continue);
                     }
                 }
-            } else if assign.dst == group.get("done")
+            }
+            //handling case for when group[done] = comp.done ? 1'd1;
+            else if assign.dst == group.get("done")
                 && assign.src.borrow().is_constant(1, 1)
                 && match &*assign.guard {
                     ir::Guard::Port(port) => Rc::ptr_eq(port, &done_port),
@@ -210,8 +214,7 @@ impl Visitor for GroupToInvoke {
                 done_multi_write = true;
             }
         }
-        // To check that group[done] = cell.done. if cell.done is the guard of an assignment
-        // then done_multi_write could potentially be false
+        // Making sure we saw at least one read of the done port
         if !done_multi_write {
             return Ok(Action::Continue);
         }
