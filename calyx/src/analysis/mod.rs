@@ -6,7 +6,7 @@
 mod control_order;
 mod control_ports;
 mod dataflow_order;
-pub mod domination_analysis;
+mod domination_analysis;
 mod graph;
 mod graph_coloring;
 mod live_range_analysis;

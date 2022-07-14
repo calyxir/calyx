@@ -1,6 +1,8 @@
-use crate::analysis::domination_analysis::{NodeReads, NodeSearch};
+use crate::analysis::domination_analysis::node_analysis::{
+    NodeReads, NodeSearch,
+};
 use crate::analysis::ShareSet;
-use crate::ir::{self, GetAttributes};
+use crate::ir::{self};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -190,17 +192,10 @@ fn compute_unique_ids(con: &mut ir::Control, mut cur_state: u64) -> u64 {
         }) => {
             attributes.insert(NODE_ID, cur_state);
             cur_state += 1;
-            cur_state = compute_unique_ids(body, cur_state);
-            cur_state
+            compute_unique_ids(body, cur_state)
         }
         ir::Control::Empty(_) => cur_state,
     }
-}
-
-// Given a control stmt, returns Some(val) where val is the value of attribute s
-// of stmt. Returns None if no s attribute exists.
-fn get_attr(stmt: &ir::Control, s: &str) -> Option<u64> {
-    stmt.get_attributes().and_then(|atts| atts.get(s)).copied()
 }
 
 // Given a control, gets its associated id. For if statments, gets the
@@ -212,14 +207,14 @@ fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
     let v = match c {
         ir::Control::If(_) => {
             if BEGIN {
-                get_attr(c, BEGIN_ID)
+                c.get_attribute(BEGIN_ID)
             } else {
-                get_attr(c, END_ID)
+                c.get_attribute(END_ID)
             }
         }
-        _ => get_attr(c, NODE_ID),
+        _ => c.get_attribute(NODE_ID),
     };
-    v.unwrap_or_else(|| unreachable!(
+    *v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
     ))
 }
@@ -231,7 +226,7 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
         return true;
     }
     //could match the end id of an if statement as well
-    if let Some(end) = get_attr(c, END_ID) {
+    if let Some(&end) = c.get_attribute(END_ID) {
         key == end
     } else {
         false
@@ -241,7 +236,7 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
 // Gets attribute s from c, panics otherwise. Should be used when you know
 // that c has attribute s.
 fn get_guaranteed_attribute(c: &ir::Control, s: &str) -> u64 {
-    get_attr(c,s).unwrap_or_else(||unreachable!(
+    *c.get_attribute(s).unwrap_or_else(||unreachable!(
             "called get_guaranteed_attribute, meaning we had to be sure it had the id"
         ))
 }
@@ -397,7 +392,7 @@ impl DominatorMap {
             // or if statement, the control statement refers to the "guard",
             // which includes their combinational group and the conditional port
             // So (for example) if a while loop has NODE_ID = 10, then "node 10"
-            // refers to the while guard and not the body.
+            // refers to the while guard-- comb group and conditional port-- but not the body.
             ir::Control::While(ir::While { body, .. }) => {
                 self.update_node(pred, cur_id);
                 // updating the while body
@@ -490,6 +485,9 @@ impl DominatorMap {
         controls
     }
 
+    // Gets the reads of shareable cells in node
+    // Assumes the control statements in comp have been given NODE_IDs in the same
+    // style of the domination map NODE_ID stuff.
     pub fn get_node_reads(
         node: &u64,
         comp: &mut ir::Component,
@@ -498,6 +496,9 @@ impl DominatorMap {
         NodeReads::get_reads_of_node(node, comp, shareset)
     }
 
+    // Returns whether key is guaranteed to be written in at least one of nodes
+    // Assumes the control statements in comp have been given NODE_IDs in the same
+    // style of the domination map NODE_ID stuff.
     pub fn key_written_guaranteed(
         key: ir::Id,
         nodes: &HashSet<u64>,
