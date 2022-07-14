@@ -119,12 +119,6 @@ impl Debug for DominatorMap {
     }
 }
 
-// Given a control stmt, returns Some(val) where val is the value of attribute s
-// of stmt. Returns None if no s attribute exists.
-fn get_attr(stmt: &ir::Control, s: &str) -> Option<u64> {
-    stmt.get_attributes().and_then(|atts| atts.get(s)).copied()
-}
-
 /// Caleb Note: This is a copy+ paste from the tdcc pass that I edited slightly.
 /// We should unify at some point.
 /// Adds the @NODE_ID attribute to all control stmts except emtpy ones.
@@ -202,6 +196,12 @@ fn compute_unique_ids(con: &mut ir::Control, mut cur_state: u64) -> u64 {
     }
 }
 
+// Given a control stmt, returns Some(val) where val is the value of attribute s
+// of stmt. Returns None if no s attribute exists.
+fn get_attr(stmt: &ir::Control, s: &str) -> Option<u64> {
+    stmt.get_attributes().and_then(|atts| atts.get(s)).copied()
+}
+
 // Given a control, gets its associated id. For if statments, gets the
 // beginning id if begin_id is true and end_id if begin_id is false.
 // Should not be called on empty control
@@ -222,8 +222,8 @@ fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
         ))
 }
 
-//given a control stmt c and a key, returns true if c matches key, false
-//otherwise. For if stmts return true if key matches either begin or end id.
+// Given a control stmt c and a key, returns true if c matches key, false
+// otherwise. For if stmts return true if key matches either begin or end id.
 fn matches_key(c: &ir::Control, key: u64) -> bool {
     if get_id::<true>(c) == key {
         return true;
@@ -400,6 +400,12 @@ impl DominatorMap {
                     self.update_map(main_c, id, pred);
                 }
             }
+            // Keep in mind that NODE_IDs attached to while loops/if statements
+            // refer to the while/if guard, and as we pattern match against a while
+            // or if statement, the control statement refers to the "guard",
+            // which includes their combinational group and the conditional port
+            // So (for example) if a while loop has NODE_ID = 10, then "node 10"
+            // refers to the while guard and not the body.
             ir::Control::While(ir::While { body, .. }) => {
                 self.update_node(pred, cur_id);
 

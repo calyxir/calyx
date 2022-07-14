@@ -38,8 +38,7 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
 //if the assignment reads only dones, return true. This is used so that we
 //can ignore reads of "done" cells.
 fn reads_only_dones(assignment: &ir::Assignment) -> bool {
-    done_or_const(&assignment.src)
-        && assignment.guard.all_ports().iter().all(done_or_const)
+    ReadWriteSet::port_reads(assignment).all(|port| done_or_const(&port))
 }
 
 // Returns true if port is a "done" port or is a constant
