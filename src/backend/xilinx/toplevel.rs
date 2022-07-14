@@ -98,9 +98,6 @@ impl Backend for XilinxInterfaceBackend {
     }
 }
 
-// XXX(nathanielnrn) I __think__ this should always be in the same order because
-// of IdList being in the same order
-// also, should this be a macro?
 fn external_memories_cells(
     comp: &ir::Component,
 ) -> Vec<calyx::ir::RRC<ir::Cell>> {

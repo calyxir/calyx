@@ -100,7 +100,6 @@ impl MemoryInterface for AxiInterface {
         name: &str,
         bus_data_width: u64,
         bus_addr_width: u64,
-        // address_width: u64,
         data_width: u64,
         memory_size: u64,
         addr_width: u64,
@@ -165,9 +164,8 @@ impl MemoryInterface for AxiInterface {
         ));
 
         // bram reading / writing logic
-        // TODO(nathanielnrn) fix this
         bram_logic(
-            name, // name
+            name,
             &axi4,
             &mut module,
             &mode_fsm,
@@ -180,7 +178,8 @@ impl MemoryInterface for AxiInterface {
             "bram_read_data".into(),
         ));
 
-        let offset_size_bits = memory_size_bits + 1; //TODO(nathanielnrn) change this to use width?
+        //TODO(nathanielnrn) change this to use addr_width? In `x_done` assignment fix
+        let offset_size_bits = memory_size_bits + 1;
 
         // synchronise channels
         let read_controller = axi4
@@ -247,7 +246,7 @@ impl MemoryInterface for AxiInterface {
         );
 
         module.add_stmt(axi4.write_address.assign("ID", 0));
-        // assign shift to a wire to circumvent vast order of operations issues
+        // assign shift to a wire to circumvent `vast` order of operations issues
         let send_shift = "send_shift";
         module.add_decl(v::Decl::new_wire(send_shift, bus_addr_width));
         let mut concat = v::ExprConcat::default();
@@ -320,7 +319,6 @@ fn bram_logic(
     module.add_decl(v::Decl::new_wire("bram_we", 1));
     module.add_decl(v::Decl::new_wire("bram_read_data", data_width));
     module.add_decl(v::Decl::new_wire("bram_done", 1));
-
     let suffix_idx = "Memory_controller_axi_".len();
     let suffix = &name[suffix_idx..];
     let mut ram_instance =
@@ -369,7 +367,7 @@ fn bram_logic(
     let copy_data: v::Expr = v::Expr::new_index_slice(
         &axi4.read_data.get("DATA"),
         v::Expr::new_mul(txn_count, 32),
-        data_width.try_into().unwrap(), /* bram data width */
+        data_width as u32, // bram data width
     );
     let bram_data: v::Expr = "WRITE_DATA".into();
     let mux_data = v::Expr::new_mux(
@@ -445,7 +443,7 @@ pub fn bram(
         "Dout".into(),
         v::Expr::new_index_expr("ram_core", "ADDR"),
     ));
-    //add a simple assign <String1> = <String2>
+    //add a simple assign Done = done_reg
     module.add_stmt(v::Parallel::Assign("Done".into(), "done_reg".into()));
     module
 }
