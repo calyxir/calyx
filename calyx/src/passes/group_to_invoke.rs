@@ -107,7 +107,7 @@ fn construct_invoke(
 
     ir::Control::Invoke(ir::Invoke {
         comp,
-        inputs: inputs,
+        inputs,
         outputs: Vec::new(),
         comb_group,
         attributes: ir::Attributes::default(),
