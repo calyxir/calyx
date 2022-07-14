@@ -150,13 +150,13 @@ impl NodeReads {
 
 ///Contains the name of a cell. The methods in this struct are used to search to
 ///see if there was a write to the cell name given a set of nodes.
-pub struct CellSearch {
+pub struct NodeSearch {
     name: ir::Id,
 }
 
-impl CellSearch {
+impl NodeSearch {
     pub fn new(name: ir::Id) -> Self {
-        CellSearch { name }
+        NodeSearch { name }
     }
 
     // Given a vec of assignments, return true if the go port of self.name

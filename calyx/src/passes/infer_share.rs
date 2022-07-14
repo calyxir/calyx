@@ -1,4 +1,4 @@
-use crate::analysis::{CellSearch, DominatorMap, NodeReads, ShareSet};
+use crate::analysis::{DominatorMap, NodeReads, NodeSearch, ShareSet};
 use crate::errors::CalyxResult;
 use crate::ir;
 use crate::ir::traversal::{
@@ -108,7 +108,7 @@ impl Visitor for InferShare {
             //shareable. So we remove node from its dominators
             dominators.remove(node);
             for cell_name in reads.reads {
-                let key = CellSearch::new(cell_name);
+                let key = NodeSearch::new(cell_name);
                 if !key.is_written_guaranteed(dominators, comp) {
                     return Ok(Action::Stop);
                 }
