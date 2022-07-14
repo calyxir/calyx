@@ -105,7 +105,6 @@ impl MemoryInterface for AxiInterface {
         addr_width: u64,
     ) -> v::Module {
         let mut module = v::Module::new(name);
-        let memory_size_bits: u64 = utils::math::bits_needed_for(memory_size); // TODO make memory size parametric
 
         module.add_input("ACLK", 1);
         module.add_input("ARESET", 1);
@@ -178,8 +177,8 @@ impl MemoryInterface for AxiInterface {
             "bram_read_data".into(),
         ));
 
-        //TODO(nathanielnrn) change this to use addr_width? In `x_done` assignment fix
-        let offset_size_bits = memory_size_bits + 1;
+        // add 1 so offset can count up to memory size inclusively
+        let offset_width = utils::math::bits_needed_for(memory_size) + 1;
 
         // synchronise channels
         let read_controller = axi4
@@ -190,7 +189,7 @@ impl MemoryInterface for AxiInterface {
         read_controller.emit(&mut module);
 
         // increment copy address offset
-        module.add_decl(v::Decl::new_reg("copy_addr_offset", offset_size_bits));
+        module.add_decl(v::Decl::new_reg("copy_addr_offset", offset_width));
         incr_addr(
             &mut module,
             mode_fsm.state_is("copy"),
@@ -214,7 +213,7 @@ impl MemoryInterface for AxiInterface {
         let mut concat = v::ExprConcat::default();
         concat.add_expr("copy_addr_offset");
         concat.add_expr(v::Expr::new_repeat(
-            bus_addr_width - offset_size_bits,
+            bus_addr_width - offset_width,
             v::Expr::new_ulit_bin(1, "0"),
         ));
         module.add_stmt(v::Parallel::Assign(
@@ -237,7 +236,7 @@ impl MemoryInterface for AxiInterface {
         write_controller.emit(&mut module);
 
         // increment send address offset
-        module.add_decl(v::Decl::new_reg("send_addr_offset", offset_size_bits));
+        module.add_decl(v::Decl::new_reg("send_addr_offset", offset_width));
         incr_addr(
             &mut module,
             mode_fsm.state_is("send"),
@@ -247,12 +246,13 @@ impl MemoryInterface for AxiInterface {
 
         module.add_stmt(axi4.write_address.assign("ID", 0));
         // assign shift to a wire to circumvent `vast` order of operations issues
+        //we shift to convert offset to byte length
         let send_shift = "send_shift";
         module.add_decl(v::Decl::new_wire(send_shift, bus_addr_width));
         let mut concat = v::ExprConcat::default();
         concat.add_expr("send_addr_offset");
         concat.add_expr(v::Expr::new_repeat(
-            bus_addr_width - offset_size_bits,
+            bus_addr_width - offset_width,
             v::Expr::new_ulit_bin(1, "0"),
         ));
         module.add_stmt(v::Parallel::Assign(
@@ -333,9 +333,11 @@ fn bram_logic(
     module.add_stmt(v::Parallel::Assign("DONE".into(), "bram_done".into()));
 
     // bram address logic
-    let copy_address = v::Expr::new_slice("copy_addr_offset", 4, 0); // XXX(nathanielnrn) does this need to use parameterization?
+    let copy_address =
+        v::Expr::new_slice("copy_addr_offset", (addr_width - 1) as i32, 0);
     let bram_address: v::Expr = "ADDR".into();
-    let send_address = v::Expr::new_slice("send_addr_offset", 4, 0); // same here
+    let send_address =
+        v::Expr::new_slice("send_addr_offset", (addr_width - 1) as i32, 0);
     let mux_address = v::Expr::new_mux(
         v::Expr::new_logical_and(
             axi4.read_data.handshake(),
@@ -408,7 +410,7 @@ fn incr_addr(
 pub fn bram(
     name: &str,
     data_width: u64,
-    size: u64,
+    memory_size: u64,
     addr_width: u64,
 ) -> v::Module {
     let mut module = v::Module::new(name);
@@ -423,7 +425,7 @@ pub fn bram(
     attr.add_stmt("ram_style", "block");
     module.add_decl(v::Decl::AttributeDecl(
         attr,
-        Rc::new(v::Decl::new_array("ram_core", data_width, size)),
+        Rc::new(v::Decl::new_array("ram_core", data_width, memory_size)),
     ));
 
     module.add_stmt(super::utils::cond_non_blk_assign(
