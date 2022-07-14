@@ -1,5 +1,4 @@
-use crate::ir::GetAttributes;
-use crate::ir::{self};
+use crate::ir::{self, GetAttributes};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -89,7 +88,7 @@ pub struct DominatorMap {
     /// the final node that will be executed in them. For invokes and enables, it
     /// will be themselves, for while statements it will be the while guard,
     /// and for if statements it will be the "if" nods. For pars in seqs, you
-    /// have to look inside the children to see what their "last" nodes are.  
+    /// have to look inside the children to see what their "last" nodes are.
     pub exits_map: HashMap<u64, HashSet<u64>>,
     pub component_name: String,
 }
@@ -206,6 +205,7 @@ fn get_attr(stmt: &ir::Control, s: &str) -> Option<u64> {
 // beginning id if begin_id is true and end_id if begin_id is false.
 // Should not be called on empty control
 // statements or any other statements that don't have an id numbering.
+#[inline]
 fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
     let v = match c {
         ir::Control::If(_) => {
@@ -219,7 +219,7 @@ fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
     };
     v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
-        ))
+    ))
 }
 
 // Given a control stmt c and a key, returns true if c matches key, false
@@ -325,11 +325,10 @@ impl DominatorMap {
     // stops changing.
     fn build_map(&mut self, main_c: &ir::Control) {
         let mut og_map = self.map.clone();
-        let empty_set: HashSet<u64> = HashSet::new();
-        self.update_map(main_c, 0, &empty_set);
+        self.update_map(main_c, 0, &HashSet::new());
         while og_map != self.map {
             og_map = self.map.clone();
-            self.update_map(main_c, 0, &empty_set);
+            self.update_map(main_c, 0, &HashSet::new());
         }
     }
 
@@ -369,28 +368,21 @@ impl DominatorMap {
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 //Could try to think a way of doing it w/o this first stuff
-                let mut first = true;
                 let mut prev_id = cur_id;
+                let mut p = pred;
+                let mut nxt: HashSet<u64>;
                 for stmt in stmts {
                     let id = get_id::<true>(stmt);
-                    if first {
-                        self.update_map(main_c, id, pred);
-                        first = false;
-                    } else {
-                        self.update_map(
-                            main_c,
-                            id,
-                            &self
-                                .exits_map
-                                .get(&prev_id)
-                                .unwrap_or_else(|| {
-                                    unreachable!(
-                                       "{}", "exit node map does not have value for {prev_id}",
-                                    )
-                                })
-                                .clone(),
-                        );
-                    }
+                    self.update_map(main_c, id, p);
+                    nxt = self
+                        .exits_map
+                        .get(&prev_id)
+                        .unwrap_or_else(|| {
+                            unreachable!(
+                                "{}", "exit node map does not have value for {prev_id}",
+                            )
+                        }).clone();
+                    p = &nxt;
                     prev_id = get_id::<false>(stmt);
                 }
             }
@@ -408,12 +400,9 @@ impl DominatorMap {
             // refers to the while guard and not the body.
             ir::Control::While(ir::While { body, .. }) => {
                 self.update_node(pred, cur_id);
-
-                //updating the while body
+                // updating the while body
                 let body_id = get_id::<true>(body);
-                let mut while_guard_set = HashSet::new();
-                while_guard_set.insert(cur_id);
-                self.update_map(main_c, body_id, &while_guard_set);
+                self.update_map(main_c, body_id, &HashSet::from([cur_id]));
             }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
@@ -422,13 +411,13 @@ impl DominatorMap {
                 self.update_node(pred, cur_id);
 
                 //building a set w/ just the if_guard id in it
-                let mut if_guard_set = HashSet::new();
-                if_guard_set.insert(cur_id);
+                let if_guard_set = HashSet::from([cur_id]);
 
                 //updating the tbranch
                 let t_id = get_id::<true>(tbranch);
                 self.update_map(main_c, t_id, &if_guard_set);
 
+                // If the false branch is present, update the map
                 if !matches!(**fbranch, ir::Control::Empty(_)) {
                     let f_id = get_id::<true>(fbranch);
                     self.update_map(main_c, f_id, &if_guard_set);
