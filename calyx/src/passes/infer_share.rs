@@ -66,12 +66,10 @@ impl Visitor for InferShare {
 
         // closure to determine if cell is type ThisComponent or Constant
         let const_or_this = |cell: &ir::RRC<ir::Cell>| -> bool {
-            match cell.borrow().prototype {
-                ir::CellType::ThisComponent | ir::CellType::Constant { .. } => {
-                    true
-                }
-                _ => false,
-            }
+            matches!(
+                cell.borrow().prototype,
+                ir::CellType::ThisComponent | ir::CellType::Constant { .. }
+            )
         };
 
         // returns true if cell is shareble, state_shareable, Constant, or This component
@@ -108,9 +106,7 @@ impl Visitor for InferShare {
             dominators.remove(node);
             for cell_name in reads {
                 if !DominatorMap::key_written_guaranteed(
-                    cell_name,
-                    &dominators,
-                    comp,
+                    cell_name, dominators, comp,
                 ) {
                     return Ok(Action::Stop);
                 }
