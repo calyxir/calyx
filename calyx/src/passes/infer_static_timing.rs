@@ -5,8 +5,7 @@ use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use crate::ir::{self, LibrarySignatures};
-use crate::ir::{GetAttributes, RRC};
+use crate::ir::{self, LibrarySignatures, RRC};
 use itertools::Itertools;
 use std::{cmp, ops::Add, rc::Rc};
 
@@ -76,10 +75,7 @@ where
 {
     stmts
         .iter()
-        .map(|con| {
-            con.get_attributes()
-                .and_then(|attr| attr.get("static").copied())
-        })
+        .map(|con| con.get_attribute("static").copied())
         .fold_options(start, acc)
 }
 
@@ -396,7 +392,7 @@ impl Visitor for InferStaticTiming {
     ) -> VisResult {
         if let (Some(bound), Some(body_time)) = (
             s.attributes.get("bound").cloned(),
-            s.body.get_attributes().and_then(|attr| attr.get("static")),
+            s.body.get_attribute("static"),
         ) {
             s.attributes.insert("static", bound * body_time);
         }
@@ -411,12 +407,8 @@ impl Visitor for InferStaticTiming {
         _comps: &[ir::Component],
     ) -> VisResult {
         if let (Some(ttime), Some(ftime)) = (
-            s.tbranch
-                .get_attributes()
-                .and_then(|attr| attr.get("static")),
-            s.fbranch
-                .get_attributes()
-                .and_then(|attr| attr.get("static")),
+            s.tbranch.get_attribute("static"),
+            s.fbranch.get_attribute("static"),
         ) {
             s.attributes.insert("static", 1 + cmp::max(ttime, ftime));
         }
@@ -490,12 +482,7 @@ impl Visitor for InferStaticTiming {
         _lib: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(time) = comp
-            .control
-            .borrow()
-            .get_attributes()
-            .and_then(|attrs| attrs.get("static"))
-        {
+        if let Some(time) = comp.control.borrow().get_attribute("static") {
             comp.attributes.insert("static", *time);
             self.comp_latency.insert(comp.name.clone(), *time);
         }
