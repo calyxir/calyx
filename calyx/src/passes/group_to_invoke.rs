@@ -1,14 +1,11 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use itertools::Itertools;
-
 use crate::analysis::ReadWriteSet;
 use crate::ir::RRC;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
+use itertools::Itertools;
+use std::rc::Rc;
 
 /// Transform groups that are structurally invoking components into equivalent
 /// [ir::Invoke] statements.
@@ -40,19 +37,6 @@ fn cell_is_parent(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
     }
 }
 
-// Returns true if cell refereneces a std_mem cell
-fn is_std_mem(cell: &ir::RRC<ir::Cell>) -> bool {
-    match &cell.borrow().prototype {
-        ir::CellType::Primitive { name, .. } => {
-            name == "std_mem_d1"
-                || name == "std_mem_d2"
-                || name == "std_mem_d3"
-                || name == "std_mem_d4"
-        }
-        _ => false,
-    }
-}
-
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
     assigns: &[ir::Assignment],
@@ -62,6 +46,7 @@ fn construct_invoke(
     let mut inputs = Vec::new();
     let mut comb_assigns = Vec::new();
 
+    // Check if port's parent is a combinational primitive
     let comb_is_parent = |port: &ir::Port| -> bool {
         if let ir::PortParent::Cell(cell_wref) = &port.parent {
             match cell_wref.upgrade().borrow().prototype {
@@ -94,28 +79,14 @@ fn construct_invoke(
                 let width = assign.dst.borrow().width;
                 let wire =
                     builder.add_primitive("std_wire", "std_wire", &[width]);
-                let wire_in = ir::Port {
-                    name: ir::Id::new("in", None),
-                    width: width,
-                    direction: ir::Direction::Input,
-                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
-                    attributes: ir::Attributes::default(),
-                };
-                let wire_in_rrc = Rc::new(RefCell::new(wire_in));
+                let wire_in_rrc = wire.borrow().get("in");
                 let asmt = builder.build_assignment(
                     wire_in_rrc,
-                    assign.src.clone(),
+                    Rc::clone(&assign.src),
                     *assign.guard.clone(),
                 );
                 comb_assigns.push(asmt);
-                let wire_out = ir::Port {
-                    name: ir::Id::new("out", None),
-                    width,
-                    direction: ir::Direction::Output,
-                    parent: ir::PortParent::Cell(ir::WRC::from(&wire)),
-                    attributes: ir::Attributes::default(),
-                };
-                let wire_out_rrc = Rc::new(RefCell::new(wire_out));
+                let wire_out_rrc = wire.borrow().get("out");
                 inputs.push((name, wire_out_rrc));
             }
         }
@@ -167,15 +138,16 @@ impl Visitor for GroupToInvoke {
             return Ok(Action::Continue);
         }
 
-        // Component must define a @go/@done interface
+        // Component shouldn't be ThisComponent, Reference, or External (giving me errors)
         let cell = writes.pop().unwrap();
         if matches!(cell.borrow().prototype, ir::CellType::ThisComponent)
             || cell.borrow().is_reference()
-            || is_std_mem(&cell)
+            || matches!(cell.borrow().get_attribute("external"), Some(_))
         {
             return Ok(Action::Continue);
         }
 
+        // Component must define a @go/@done interface
         let maybe_go_port = cell.borrow().find_with_attr("go");
         let maybe_done_port = cell.borrow().find_with_attr("done");
         if maybe_go_port.is_none() || maybe_done_port.is_none() {
@@ -188,10 +160,9 @@ impl Visitor for GroupToInvoke {
         let mut done_multi_write = false;
         for assign in &group.assignments {
             // If reading and writing to cell in same assignment, then don't transform
-            // It may actually be ok to transform in this scenario though, so this
-            // check may be unnecessary
             if cell_is_parent(&assign.dst.borrow(), &cell)
-                && cell_is_parent(&assign.src.borrow(), &cell)
+                && ReadWriteSet::port_reads(assign)
+                    .any(|port| cell_is_parent(&port.borrow(), &cell))
             {
                 return Ok(Action::Continue);
             }
@@ -226,7 +197,23 @@ impl Visitor for GroupToInvoke {
                         return Ok(Action::Continue);
                     }
                 }
+            } else if assign.dst == group.get("done")
+                && assign.src.borrow().is_constant(1, 1)
+                && match &*assign.guard {
+                    ir::Guard::Port(port) => Rc::ptr_eq(port, &done_port),
+                    _ => false,
+                }
+            {
+                if done_multi_write {
+                    return Ok(Action::Continue);
+                }
+                done_multi_write = true;
             }
+        }
+        // To check that group[done] = cell.done. if cell.done is the guard of an assignment
+        // then done_multi_write could potentially be false
+        if !done_multi_write {
+            return Ok(Action::Continue);
         }
 
         Ok(Action::change(construct_invoke(
