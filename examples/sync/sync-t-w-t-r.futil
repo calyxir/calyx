@@ -1,16 +1,16 @@
 import "primitives/core.futil";
 import "primitives/sync.futil";
 
-// Sum up all values from two arrays.
+// Sum up values of same indices from two arrays of equal length.
 // Expected resolution order for arbitration:
-// below we denote 1 is written to the synchronized register as 1W, and 
-// 6 is read from the synchronized register as 6R.
-// 1W 1R 6W 6R 5W 5R 2W 2R 3W 3R 4W 4R 3W 3R 4W 4R 5W 5R 2W 2R 1W 1R 6W 6R
+// below we denote 1 is written to the synchronized register by writer_0 as 1W0, and 
+// 6 is read from the synchronized register by reader_1 as 6R1.
+// 1W0 1R0 6W1 6R1 5W1 5R1 2W0 2R0 3W0 3R0 4W1 4R1 3W1 3R1 4W0 4R0 5W0 5R0 2W1 2R1 1W0 1R0 6W1 6R1
 component main() -> () {
   cells {
     @external in_0 = std_mem_d1(32, 6, 3);
     @external in_1 = std_mem_d1(32, 6, 3);
-    @external out = std_mem_d1(32, 1, 3);
+    @external out = std_mem_d1(32, 6, 3);
     lt = std_lt(3);
     sum = std_add(32);
     add = std_add(3);
@@ -19,16 +19,12 @@ component main() -> () {
     imm = std_sync_reg(32);
     // Index of the input and output memory
     idx = std_reg(3);
-    // temporary storage for partial sum
-    temp = std_reg(32);
+    // temporary storage
+    temp_0 = std_reg(32);
+    temp_1 = std_reg(32);
+    sum_0 = std_reg(32);
   }
   wires {
-    group reg_init {
-      temp.in = 32'd0;
-      temp.write_en = 1'd1;
-      reg_init[done] = temp.done;
-    }
-
     // Write value from `in[idx]` to sync intermediate.
     group write_imm_0 {
       imm.write_en_0 = 1'd1;
@@ -45,13 +41,18 @@ component main() -> () {
     }
 
     // Read value from sync intermediate and write to temp.
-    group read_imm {
+    group read_imm_0 {
       imm.read_en_0 = 1'd1;
-      sum.left = imm.read_done_0 ? imm.out_0;
-      sum.right = temp.out;
-      temp.in = imm.read_done_0? sum.out;
-      temp.write_en =  imm.read_done_0? 1'd1;
-      read_imm[done] = temp.done;
+      temp_0.in = imm.read_done_0? imm.out_0;
+      temp_0.write_en = imm.read_done_0? 1'd1;
+      read_imm_0[done] = temp_0.done;
+    }
+
+    group read_imm_1 {
+      imm.read_en_1 = 1'd1;
+      temp_1.in = imm.read_done_1? imm.out_1;
+      temp_1.write_en = imm.read_done_1? 1'd1;
+      read_imm_1[done] = temp_1.done;
     }
 
     group incr_idx {
@@ -62,10 +63,18 @@ component main() -> () {
       incr_idx[done] = idx.done;
     }
 
+    group sum_up {
+      sum.left = temp_0.out;
+      sum.right = temp_1.out;
+      sum_0.in = sum.out;
+      sum_0.write_en = 1'd1;
+      sum_up[done] = sum_0.done;
+    }
+
     group reg_to_mem {
       out.write_en = 1'd1;
-      out.write_data = temp.out;
-      out.addr0 = 3'd0;
+      out.write_data = sum_0.out;
+      out.addr0 = idx.out;
       reg_to_mem[done] = out.done;
     }
 
@@ -76,19 +85,19 @@ component main() -> () {
   }
   control {
     seq {
-      reg_init;
       while lt.out with cmp {
         seq {
           par {
-            read_imm;
+            read_imm_0;
+            read_imm_1;
             write_imm_0;
             write_imm_1;
           }
-          read_imm;
+          sum_up;
+          reg_to_mem;
           incr_idx;
         }
       }
-    reg_to_mem;
     }
   }
 }
