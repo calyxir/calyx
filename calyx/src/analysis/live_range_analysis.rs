@@ -1,5 +1,5 @@
 use crate::{
-    analysis::{ReadWriteSet, VariableDetection},
+    analysis::{ReadWriteSet, ShareSet, VariableDetection},
     ir::{self, CloneName, RRC},
 };
 use itertools::Itertools;
@@ -67,8 +67,10 @@ impl Prop {
 }
 
 /// This analysis implements a parallel version of a classic liveness analysis.
-/// For each group, it returns a list of the registers that are "alive" during
-/// an execution of a group.
+/// For each group or invoke, it returns a list of the state shareable cells
+/// that are "alive" during an execution of a group or invoke statement (we
+/// identify an invoke statement by the cell that is being invoked, and groups
+/// by the name of the group).
 ///
 /// ## Parallel Analog to a CFG
 /// The `par` statement introduces a new kind of control branching that can
@@ -192,7 +194,7 @@ impl Prop {
 /// ## Definition of Liveness
 /// Now we finally come to the definition of "liveness" and how we use the pCFG to compute this.
 ///
-/// We say a register `x` is "live" at a node `p` in the CFG if there is a write to `x` ordered before
+/// We say a cell `x` is "live" at a node `p` in the CFG if there is a write to `x` ordered before
 /// `p` (such that there are no more writes to `x` at a point between that and `p`) and if there is a read
 /// of `x` ordered after `p` (such that there are no writes between that and `p`).
 ///
@@ -217,13 +219,16 @@ impl Prop {
 /// information of the threads.
 #[derive(Default)]
 pub struct LiveRangeAnalysis {
-    /// Map from group names to the components live inside them.
+    /// Map from node (i.e., group enables or invokes) names
+    ///  to the components live inside them.
     live: HashMap<ir::Id, Prop>,
     /// Groups that have been identified as variable-like.
     /// Mapping from group name to the name of the register.
     variable_like: HashMap<ir::Id, Option<ir::Id>>,
     /// Set of state shareable components (as type names)
     state_share: ShareSet,
+    ///Set of shareable components (as type names)
+    share: ShareSet,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -236,37 +241,17 @@ impl Debug for LiveRangeAnalysis {
     }
 }
 
-/// The type names of all components and primitives marked with "state_share".
-#[derive(Default)]
-pub struct ShareSet {
-    shareable: HashSet<ir::Id>,
-}
-
-impl ShareSet {
-    fn new(set: HashSet<ir::Id>) -> ShareSet {
-        ShareSet { shareable: set }
-    }
-    //given a set of shareable and a cell, determines whether cell's
-    //type is shareable or not
-    pub fn is_shareable_component(&self, cell: &RRC<ir::Cell>) -> bool {
-        if let Some(type_name) = cell.borrow().type_name() {
-            self.shareable.contains(type_name)
-        } else {
-            false
-        }
-    }
-}
-
 impl LiveRangeAnalysis {
     /// Construct a live range analysis.
     pub fn new(
         comp: &ir::Component,
         control: &ir::Control,
-        state_share: HashSet<ir::Id>,
-        shareable: HashSet<ir::Id>,
+        state_share: ShareSet,
+        share: ShareSet,
     ) -> Self {
         let mut ranges = LiveRangeAnalysis {
-            state_share: ShareSet::new(state_share),
+            state_share,
+            share,
             ..Default::default()
         };
 
@@ -278,20 +263,18 @@ impl LiveRangeAnalysis {
             &mut ranges,
         );
 
-        let share_set = ShareSet::new(shareable);
-
         //adds (non-state) shareable cells as live in the group they're contained in
+        //we already added (non-state) shareable cells as live in the invoke
+        //they're contained in in build_live_ranges().
         comp.groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
-                &share_set,
                 group.borrow().name(),
             )
         });
         comp.comb_groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
-                &share_set,
                 group.borrow().name(),
             )
         });
@@ -303,11 +286,10 @@ impl LiveRangeAnalysis {
     fn add_shareable_ranges(
         &mut self,
         assignments: &[ir::Assignment],
-        shareable: &ShareSet,
         group_name: &ir::Id,
     ) {
         let group_uses: Prop = ReadWriteSet::uses(assignments.iter())
-            .filter(|cell| shareable.is_shareable_component(cell))
+            .filter(|cell| self.share.is_shareable_component(cell))
             .map(|cell| cell.clone_name())
             .collect::<HashSet<_>>()
             .into();
@@ -319,16 +301,16 @@ impl LiveRangeAnalysis {
         }
     }
 
-    /// Look up the set of things live at a group definition.
-    pub fn get(&self, group: &ir::Id) -> &HashSet<ir::Id> {
+    /// Look up the set of things live at a node (i.e. group or invoke) definition.
+    pub fn get(&self, node: &ir::Id) -> &HashSet<ir::Id> {
         &self
             .live
-            .get(group)
-            .unwrap_or_else(|| panic!("Live set missing for {}", group))
+            .get(node)
+            .unwrap_or_else(|| panic!("Live set missing for {}", node))
             .set
     }
 
-    /// Get a unique list of all live registers in `component`.
+    /// Get a unique list of all live cells in `component`.
     pub fn get_all(&self) -> impl Iterator<Item = ir::Id> + '_ {
         self.live
             .iter()
@@ -440,23 +422,37 @@ impl LiveRangeAnalysis {
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
     ) -> (Prop, Prop) {
-        let reads: Prop = invoke
+        //The reads of the invoke include its inputs plus the cell itself, if the
+        //outputs are not empty.
+        let mut read_set = invoke
             .inputs
             .iter()
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<HashSet<ir::Id>>()
-            .into();
+            .collect::<HashSet<ir::Id>>();
+        if !invoke.outputs.is_empty()
+            && shareable_components.is_shareable_component(&invoke.comp)
+        {
+            read_set.insert(invoke.comp.borrow().name().clone());
+        }
+        let reads: Prop = read_set.into();
 
-        let writes: Prop = invoke
+        //The writes of the invoke include its outpus plus the cell itself, if the
+        //inputs are not empty.
+        let mut write_set = invoke
             .outputs
             .iter()
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<HashSet<ir::Id>>()
-            .into();
+            .collect::<HashSet<ir::Id>>();
+        if !invoke.inputs.is_empty()
+            && shareable_components.is_shareable_component(&invoke.comp)
+        {
+            write_set.insert(invoke.comp.borrow().name().clone());
+        }
+        let writes: Prop = write_set.into();
 
         (reads, writes)
     }
@@ -479,6 +475,20 @@ fn build_live_ranges(
                 &lr.state_share,
             );
             let alive = alive.transfer(&reads, &writes);
+            // set the live set of this node to be the things live on the
+            // output of this node plus the things written to in this invoke
+            // plus all shareable components used
+
+            //get the shareable components used in the invoke stmt
+            let (reads_share, writes_share) =
+                LiveRangeAnalysis::find_gen_kill_invoke(invoke, &lr.share);
+            let uses_share = &reads_share | &writes_share;
+
+            let alive_writes = &alive | &writes;
+            lr.live.insert(
+                invoke.comp.borrow().name().clone(),
+                &alive_writes | &uses_share,
+            );
             (alive, &gens | &reads, &kills | &writes)
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {

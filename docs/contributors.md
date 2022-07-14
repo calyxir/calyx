@@ -12,6 +12,7 @@ Here is a list of all the people who have worked on Calyx:
 - YoungSeok Na
 - [Jan-Paul Ramos](https://jpramos.me)
 - Jiaxuan (Crystal) Hu
+- Pai Li
 
 **Previous Contributors**
 

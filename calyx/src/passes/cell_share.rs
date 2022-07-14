@@ -1,7 +1,7 @@
 use super::sharing_components::ShareComponents;
 use crate::errors::CalyxResult;
 use crate::{
-    analysis::{LiveRangeAnalysis, ReadWriteSet},
+    analysis::{LiveRangeAnalysis, ReadWriteSet, ShareSet},
     ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
 };
 use std::collections::{HashMap, HashSet};
@@ -23,10 +23,10 @@ pub struct CellShare {
     live: LiveRangeAnalysis,
     rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
     /// Set of state shareable components (as type names)
-    state_shareable: HashSet<ir::Id>,
+    state_shareable: ShareSet,
 
     /// Set of shareable components (as type names)
-    shareable: HashSet<ir::Id>,
+    shareable: ShareSet,
 
     /// Cell active in continuous assignments, or ref cells (we want to ignore both)
     cont_ref_cells: HashSet<ir::Id>,
@@ -43,24 +43,8 @@ impl Named for CellShare {
 
 impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
-        let mut state_shareable = HashSet::new();
-        let mut shareable = HashSet::new();
-        // add state_share=1 primitives to the state_shareable set
-        for prim in ctx.lib.signatures() {
-            if prim.attributes.has("share") {
-                shareable.insert(prim.name.clone());
-            } else if prim.attributes.has("state_share") {
-                state_shareable.insert(prim.name.clone());
-            }
-        }
-
-        // add state_share=1 user defined components to the state_shareable set
-        for comp in &ctx.components {
-            if comp.attributes.has("state_share") {
-                state_shareable.insert(comp.name.clone());
-            }
-            //it seems like we never want to have a "share" user-defined components
-        }
+        let state_shareable = ShareSet::from_context::<true>(ctx);
+        let shareable = ShareSet::from_context::<false>(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -107,9 +91,9 @@ impl ShareComponents for CellShare {
         );
     }
 
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<&ir::Id> {
+    fn lookup_node_conflicts(&self, node_name: &ir::Id) -> Vec<&ir::Id> {
         self.live
-            .get(group_name)
+            .get(node_name)
             .iter()
             // TODO(rachit): Once we make the above change and LiveRangeAnalysis ignores
             // cont_ref_cells during construction, we do not need this filter call.
@@ -133,8 +117,10 @@ impl ShareComponents for CellShare {
     where
         F: FnMut(Vec<ir::Id>),
     {
-        for group in comp.groups.iter() {
-            let conflicts = self.live.get(group.borrow().name());
+        let mut invokes_enables = HashSet::new();
+        get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
+        for invoke_enable in invokes_enables.iter() {
+            let conflicts = self.live.get(invoke_enable);
             add_conflicts(
                 conflicts
                     .iter()
@@ -153,5 +139,34 @@ impl ShareComponents for CellShare {
 
     fn get_rewrites(&self) -> &HashMap<ir::Id, ir::RRC<ir::Cell>> {
         &self.rewrites
+    }
+}
+
+//Gets the names of all the cells invoked (using an invoke control statement)
+//in control c, and adds them to hs.
+fn get_invokes_enables(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
+    match c {
+        ir::Control::Empty(_) => (),
+        ir::Control::Enable(ir::Enable { group, .. }) => {
+            hs.insert(group.borrow().name().clone());
+        }
+        ir::Control::Invoke(ir::Invoke { comp, .. }) => {
+            hs.insert(comp.borrow().name().clone());
+        }
+        ir::Control::Par(ir::Par { stmts, .. })
+        | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            for stmt in stmts {
+                get_invokes_enables(stmt, hs);
+            }
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            get_invokes_enables(tbranch, hs);
+            get_invokes_enables(fbranch, hs);
+        }
+        ir::Control::While(ir::While { body, .. }) => {
+            get_invokes_enables(body, hs);
+        }
     }
 }
