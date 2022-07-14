@@ -11,8 +11,8 @@ pub struct OrderAnalysis {
     last: Option<ir::Id>,
 }
 
-// returns false if assign reads from name and the port it reads from is
-// not either stable or done.
+// If assignment's source is name, returns whether source port is either stable
+// or done. Otherwise, returns true.
 fn read_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
     let src = assign.src.borrow();
     if let ir::PortParent::Cell(cell) = &src.parent {
@@ -26,7 +26,7 @@ fn read_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
     }
 }
 
-//Returns true if the cell is a component or a non-combinational primitive
+// Returns true if the cell is a component or a non-combinational primitive
 fn is_stateful(cell: &ir::RRC<ir::Cell>) -> bool {
     match &cell.borrow().prototype {
         ir::CellType::Primitive { is_comb, .. } => !*is_comb,
@@ -102,8 +102,6 @@ impl OrderAnalysis {
     }
 
     //For a given asmt, if asmt is a.go = b.done, then we add (b,a) to self.go_done_map.
-    //If we find that b is already a key in self.go_done_map, we return false to signal
-    //that the same done signal is triggering two different go's.
     //Also if asmt is group[done] = cell.done, sets self.last to Some(cell).
     fn update(&mut self, asmt: &ir::Assignment) {
         let src = asmt.src.borrow();

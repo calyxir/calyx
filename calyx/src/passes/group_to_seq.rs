@@ -2,7 +2,6 @@ use crate::analysis::OrderAnalysis;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName};
 use std::collections::BTreeMap;
-use std::env;
 
 #[derive(Default)]
 /// Transforms a group into a seq of 2 smaller groups, if possible.
@@ -44,7 +43,6 @@ impl Visitor for GroupToSeq {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        env::set_var("RUST_BACKTRACE", "1");
         let groups: Vec<ir::RRC<ir::Group>> = comp.groups.drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
