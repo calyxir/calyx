@@ -1,3 +1,5 @@
+use crate::analysis::domination_analysis::{NodeReads, NodeSearch};
+use crate::analysis::ShareSet;
 use crate::ir::{self, GetAttributes};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -486,5 +488,22 @@ impl DominatorMap {
             controls.push(c);
         }
         controls
+    }
+
+    pub fn get_node_reads(
+        node: &u64,
+        comp: &mut ir::Component,
+        shareset: &ShareSet,
+    ) -> HashSet<ir::Id> {
+        NodeReads::get_reads_of_node(node, comp, shareset)
+    }
+
+    pub fn key_written_guaranteed(
+        key: ir::Id,
+        nodes: &HashSet<u64>,
+        comp: &mut ir::Component,
+    ) -> bool {
+        let search_struct = NodeSearch::new(key);
+        search_struct.is_written_guaranteed(nodes, comp)
     }
 }

@@ -1,4 +1,4 @@
-use crate::analysis::{DominatorMap, NodeReads, NodeSearch, ShareSet};
+use crate::analysis::{DominatorMap, ShareSet};
 use crate::errors::CalyxResult;
 use crate::ir;
 use crate::ir::traversal::{
@@ -100,16 +100,18 @@ impl Visitor for InferShare {
 
         for (node, dominators) in dmap.map.iter_mut() {
             //get the reads
-            let mut reads: NodeReads = NodeReads::default();
-
-            reads.get_reads_of_node(node, comp, &self.state_shareable);
+            let reads =
+                DominatorMap::get_node_reads(node, comp, &self.state_shareable);
 
             //if read and write occur in same group/invoke, then we cannot label it
             //shareable. So we remove node from its dominators
             dominators.remove(node);
-            for cell_name in reads.reads {
-                let key = NodeSearch::new(cell_name);
-                if !key.is_written_guaranteed(dominators, comp) {
+            for cell_name in reads {
+                if !DominatorMap::key_written_guaranteed(
+                    cell_name,
+                    &dominators,
+                    comp,
+                ) {
                     return Ok(Action::Stop);
                 }
             }

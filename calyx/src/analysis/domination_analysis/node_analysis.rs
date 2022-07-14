@@ -46,52 +46,50 @@ fn done_or_const(port: &ir::RRC<ir::Port>) -> bool {
     port.borrow().attributes.has("done") || port.borrow().is_constant(1, 1)
 }
 
-///Contains the ids of all the cells that are read from in a given "node".
-#[derive(Default)]
-pub struct NodeReads {
-    pub reads: HashSet<ir::Id>,
+//Adds the ids of any state_shareable cells that are read from in assignments,
+//excluding reads where the only reads are from "done" ports.
+fn add_assignment_reads(
+    reads: &mut HashSet<ir::Id>,
+    share: &ShareSet,
+    assignments: &[ir::Assignment],
+) {
+    for cell in ReadWriteSet::read_set(
+        assignments
+            .iter()
+            .filter(|assign| !reads_only_dones(assign)),
+    ) {
+        if share.is_shareable_component(&cell) {
+            reads.insert(cell.borrow().clone_name());
+        }
+    }
 }
+
+//given a port, insert the port's parent's id if the parent the port's parent
+//is shareable
+fn add_parent_if_shareable(
+    reads: &mut HashSet<ir::Id>,
+    share: &ShareSet,
+    port: &ir::RRC<ir::Port>,
+) {
+    if let ir::PortParent::Cell(cell) = &port.borrow().parent {
+        if share.is_shareable_component(&cell.upgrade()) {
+            reads.insert(cell.upgrade().borrow().clone_name());
+        }
+    }
+}
+
+///Contains the ids of all the cells that are read from in a given "node".
+pub struct NodeReads;
+
 impl NodeReads {
-    //given a port, insert the port's parent's id if the parent the port's parent
-    //is shareable
-    fn add_parent_if_shareable(
-        &mut self,
-        share: &ShareSet,
-        port: &ir::RRC<ir::Port>,
-    ) {
-        if let ir::PortParent::Cell(cell) = &port.borrow().parent {
-            if share.is_shareable_component(&cell.upgrade()) {
-                self.reads.insert(cell.upgrade().borrow().clone_name());
-            }
-        }
-    }
-
-    //Adds the ids of any state_shareable cells that are read from in assignments,
-    //excluding reads where the only reads are from "done" ports.
-    fn add_assignment_reads(
-        &mut self,
-        share: &ShareSet,
-        assignments: &[ir::Assignment],
-    ) {
-        for cell in ReadWriteSet::read_set(
-            assignments
-                .iter()
-                .filter(|assign| !reads_only_dones(assign)),
-        ) {
-            if share.is_shareable_component(&cell) {
-                self.reads.insert(cell.borrow().clone_name());
-            }
-        }
-    }
-
     // Given a node n, gets the reads of shareable components that occur in n,
     // excluding reads of the done port
     pub fn get_reads_of_node(
-        &mut self,
         node: &u64,
         comp: &mut ir::Component,
         state_shareable: &ShareSet,
-    ) {
+    ) -> HashSet<ir::Id> {
+        let mut reads: HashSet<ir::Id> = HashSet::new();
         if let Some(c) =
             DominatorMap::get_control(*node, &comp.control.borrow())
         {
@@ -106,9 +104,14 @@ impl NodeReads {
                 ir::Control::If(ir::If { port, cond, .. })
                 | ir::Control::While(ir::While { port, cond, .. }) => {
                     if not_end_id(c, *node) {
-                        self.add_parent_if_shareable(state_shareable, port);
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
                         if let Some(group) = cond {
-                            self.add_assignment_reads(
+                            add_assignment_reads(
+                                &mut reads,
                                 state_shareable,
                                 &group.borrow().assignments,
                             );
@@ -116,7 +119,8 @@ impl NodeReads {
                     }
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {
-                    self.add_assignment_reads(
+                    add_assignment_reads(
+                        &mut reads,
                         state_shareable,
                         &group.borrow().assignments,
                     );
@@ -129,15 +133,20 @@ impl NodeReads {
                     ..
                 }) => {
                     for (_, port) in inputs.iter() {
-                        self.add_parent_if_shareable(state_shareable, port);
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
                     }
                     if !outputs.is_empty()
                         && state_shareable.is_shareable_component(comp)
                     {
-                        self.reads.insert(comp.clone_name());
+                        reads.insert(comp.clone_name());
                     }
                     if let Some(group) = comb_group {
-                        self.add_assignment_reads(
+                        add_assignment_reads(
+                            &mut reads,
                             state_shareable,
                             &group.borrow().assignments,
                         );
@@ -145,6 +154,7 @@ impl NodeReads {
                 }
             }
         }
+        reads
     }
 }
 
