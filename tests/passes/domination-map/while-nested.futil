@@ -51,9 +51,7 @@ component main() -> () {
   }
 
   control {
-    par { 
-        invoke e() (); 
-    }
+    invoke e() (); 
   }
   
 }

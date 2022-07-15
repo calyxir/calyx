@@ -5,11 +5,27 @@ component example() -> () {
     lt = std_lt(4); 
   }
   wires {
-    group A0{
+    group P0{
     }
-    group A1{
+    group P1{
     }
-    group B{
+    group P2{
+    }
+    group A{
+    }
+    group L{
+    }
+    group M{
+    }
+    group O{
+    }
+    group Q {
+    }
+    group R {
+    }
+    group X {
+    }
+    group Y {
     }
     group Z {
     }
@@ -20,14 +36,27 @@ component example() -> () {
   }
   control {
     seq{
-      B;
-      if lt.out with less_than{
+      P0;
+      P1;
+      P2;
+      par{
         if lt.out with less_than{
-          par{A0;A1;}
+          par{
+            A;
+            seq{L;M;O;}
+          }
         }
+        else{
+          par{
+            Q;
+            R;
+          }
+        }
+        X;
+        Y;
       }
       Z;
-    }    
+    }
   }
 }
 
@@ -41,9 +70,6 @@ component main() -> () {
   }
 
   control {
-    par { 
-        invoke e() (); 
-    }
+    invoke e() (); 
   }
-  
 }
