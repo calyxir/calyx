@@ -12,9 +12,10 @@ use std::rc::Rc;
 ///
 /// For a group to meet the requirements of this pass, it must
 /// 1. Only assign to input ports of one non-combinational component
-/// 2. Assign `1'd1` to the @go port of the component, and
-/// 3. Depend directly on the @done port of the component for its done
-///    condition.
+/// 2. That component is not read from and written to in the same assignemnt
+/// 3. Assign `1'd1` to the @go port of the component, and
+/// 4. Depend directly on the @done port of the component for its done
+///    condition-- either component.done or component.done ? 1'd1
 #[derive(Default)]
 pub struct GroupToInvoke;
 
