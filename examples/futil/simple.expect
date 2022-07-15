@@ -43,8 +43,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     reg0.in = add_constants_go.out ? add.out;
     reg0.in = end_split_multiply_constants_go.out ? mult.out;
     reg0.reset = reset;
-    reg0.write_en = end_split_multiply_constants_go.out ? 1'd1;
-    reg0.write_en = add_constants_go.out ? 1'd1;
+    reg0.write_en = end_split_multiply_constants_go.out | add_constants_go.out ? 1'd1;
     tdcc_done.in = fsm.out == 2'd3 ? 1'd1;
     tdcc_go.in = go;
   }
