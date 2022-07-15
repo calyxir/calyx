@@ -58,12 +58,12 @@ impl Visitor for GroupToSeq {
                     Some(order) => order,
                 };
 
-            //If not all assignments either a) write to a non-combinational cell or
-            //b) write to group[done], then stops.
+            // If not all assignments either a) write to component/ non-combinational primitive
+            // or b) write to group[done], then stops.
             if !group
                 .assignments
                 .iter()
-                .all(OrderAnalysis::writes_stateful_group)
+                .all(OrderAnalysis::is_expected_write)
             {
                 continue;
             }
@@ -119,10 +119,10 @@ impl Visitor for GroupToSeq {
                 None => (),
                 Some(go_asmt) => {
                     let con = builder.add_constant(1, 1);
-                    let src_ref = con.borrow().get("out");
+                    let con_ref = con.borrow().get("out");
                     let new_go_asmt = builder.build_assignment(
                         go_asmt.dst,
-                        src_ref,
+                        con_ref,
                         ir::Guard::True,
                     );
                     first_group.borrow_mut().assignments.push(new_go_asmt);
@@ -138,6 +138,7 @@ impl Visitor for GroupToSeq {
                 )
             });
 
+            // building grpu[done] = first.done
             let first_done_assignment = builder.build_assignment(
                 first_group.borrow().get("done"),
                 go_done.src,
@@ -152,12 +153,13 @@ impl Visitor for GroupToSeq {
             let mut prefix = String::from("end_split_");
             prefix.push_str(&group_name.id);
             let second_group = builder.add_group(prefix);
-            //pushing the a.go = 1'd1
+            //pushing the second.go = 1'd1
             let con = builder.add_constant(1, 1);
             let src_ref = con.borrow().get("out");
             let cell_go =
                 builder.build_assignment(go_done.dst, src_ref, ir::Guard::True);
             second_group.borrow_mut().assignments.push(cell_go);
+            //pushing the other writes to second
             second_group.borrow_mut().assignments.append(&mut snd_asmts);
 
             let group_done = group_done_asmt.unwrap_or_else(|| {
@@ -183,6 +185,8 @@ impl Visitor for GroupToSeq {
             self.group_seq_map.insert(group_name, seq);
         }
 
+        // Remove empty groups that have been split into smaller groups, and
+        // add back the groups we drained at the beginning of this method
         comp.groups.append(groups.into_iter().filter(
             |group: &ir::RRC<ir::Group>| !group.borrow().assignments.is_empty(),
         ));

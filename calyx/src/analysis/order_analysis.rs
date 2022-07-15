@@ -11,23 +11,22 @@ pub struct OrderAnalysis {
     last: Option<ir::Id>,
 }
 
-// If assignment's source is name, returns whether source port is either stable
-// or done. Otherwise, returns true.
-fn if_matches_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
-    let src = assign.src.borrow();
-    if let ir::PortParent::Cell(cell) = &src.parent {
-        if cell.upgrade().borrow().name() == name {
-            src.attributes.has("stable") || src.attributes.has("done")
+// If assignment reads from name, returns whether source port is either stable
+// or done. If assignment's source is something else, returns true.
+fn if_name_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
+    let mut reads = ReadWriteSet::port_reads(assign);
+    reads.all(|port_ref| {
+        let port = port_ref.borrow();
+        if port.get_parent_name() == name {
+            port.attributes.has("stable") || port.attributes.has("done")
         } else {
             true
         }
-    } else {
-        true
-    }
+    })
 }
 
 // Returns true if the cell is a component or a non-combinational primitive
-fn is_stateful(cell: &ir::RRC<ir::Cell>) -> bool {
+fn comp_or_non_comb(cell: &ir::RRC<ir::Cell>) -> bool {
     match &cell.borrow().prototype {
         ir::CellType::Primitive { is_comb, .. } => !*is_comb,
         ir::CellType::Component { .. } => true,
@@ -56,12 +55,7 @@ impl OrderAnalysis {
             match guard {
                 ir::Guard::Port(port) => {
                     port.borrow().attributes.has("done")
-                        && match &port.borrow().parent {
-                            ir::PortParent::Cell(cell_wref) => {
-                                cell_wref.upgrade().borrow().name() == cell
-                            }
-                            _ => false,
-                        }
+                        && port.borrow().get_parent_name() == cell
                 }
                 _ => false,
             }
@@ -76,33 +70,25 @@ impl OrderAnalysis {
         };
 
         let dst = asmt.dst.borrow();
-        match &dst.parent {
-            ir::PortParent::Cell(dst_cell) => {
-                //checks cell.go =
-                dst_cell.upgrade().borrow().name() == cell
-                    && dst.attributes.has("go")
-                    //checks !cell.done ?
-                    && guard_not_done(&*asmt.guard)
-                    //checks 1'd1
-                    && asmt.src.borrow().is_constant(1, 1)
-            }
-            _ => false,
-        }
+        // checks cell.go =
+        dst.get_parent_name() == cell  && dst.attributes.has("go")
+        // checks !cell.done ?
+        && guard_not_done(&*asmt.guard)
+        // checks 1'd1
+        && asmt.src.borrow().is_constant(1, 1)
     }
 
-    //The assignment must write to a stateful component, *or* be a write
-    //to the group's done port.
-    //In order to perform the transformation to the group, all assignments in the group
-    //must return true on this method.
-    pub fn writes_stateful_group(asmt: &ir::Assignment) -> bool {
+    /// Wheters whether amt writes to a component or non-combinational primitive,
+    /// *or* writes to the group's done port.
+    pub fn is_expected_write(asmt: &ir::Assignment) -> bool {
         match &asmt.dst.borrow().parent {
-            ir::PortParent::Cell(cell) => is_stateful(&cell.upgrade()),
+            ir::PortParent::Cell(cell) => comp_or_non_comb(&cell.upgrade()),
             ir::PortParent::Group(_) => asmt.dst.borrow().name == "done",
         }
     }
 
-    //For a given asmt, if asmt is a.go = b.done, then we add (b,a) to self.go_done_map.
-    //Also if asmt is group[done] = cell.done, sets self.last to Some(cell).
+    // For a given asmt, if asmt is a.go = b.done, then we add (b,a) to self.go_done_map.
+    // Also if asmt is group[done] = cell.done, sets self.last to Some(cell).
     fn update(&mut self, asmt: &ir::Assignment) {
         let src = asmt.src.borrow();
         let dst = asmt.dst.borrow();
@@ -129,7 +115,9 @@ impl OrderAnalysis {
         }
     }
 
-    //builds ordering for self. Returns true if this is a complete, valid, linear ordering, false otherwise
+    // Builds ordering for self. Returns true if this is a complete, valid,
+    // linear ordering in which all reads from the fist cell are from a
+    // stable port, false otherwise.
     pub fn get_ordering(
         &mut self,
         asmts: &Vec<ir::Assignment>,
@@ -143,11 +131,13 @@ impl OrderAnalysis {
             (self.last.clone(), self.done_go.clone())
         {
             let all_stateful_writes =
-                ReadWriteSet::write_set(asmts.iter()).filter(is_stateful);
+                ReadWriteSet::write_set(asmts.iter()).filter(comp_or_non_comb);
             if maybe_last == last
+                // making sure maybe_fist and maybe_last are the only 2 cells written to 
                 && all_stateful_writes.count() == 2
+                // making sure that all reads of the first cell are from stable ports 
                 && asmts.iter().all(|assign| {
-                    if_matches_stable_or_done(assign, &maybe_first)
+                    if_name_stable_or_done(assign, &maybe_first)
                 })
             {
                 Some((maybe_first, maybe_last))
