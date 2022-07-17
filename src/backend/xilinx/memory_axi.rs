@@ -20,6 +20,8 @@ pub trait MemoryInterface {
         bus_data_width: u64,
         bus_addr_width: u64,
         data_width: u64,
+        memory_size: u64,
+        addr_width: u64,
     ) -> v::Module;
 }
 
@@ -98,12 +100,11 @@ impl MemoryInterface for AxiInterface {
         name: &str,
         bus_data_width: u64,
         bus_addr_width: u64,
-        // address_width: u64,
         data_width: u64,
+        memory_size: u64,
+        addr_width: u64,
     ) -> v::Module {
         let mut module = v::Module::new(name);
-        let memory_size = 32;
-        let memory_size_bits: u64 = utils::math::bits_needed_for(memory_size); // TODO make memory size parametric
 
         module.add_input("ACLK", 1);
         module.add_input("ARESET", 1);
@@ -121,7 +122,7 @@ impl MemoryInterface for AxiInterface {
         // BRAM interface
         module.add_input("WRITE_DATA", data_width);
         module.add_output("READ_DATA", data_width);
-        module.add_input("ADDR", memory_size_bits);
+        module.add_input("ADDR", addr_width);
         module.add_input("WE", 1);
         module.add_output("DONE", 1);
 
@@ -162,13 +163,22 @@ impl MemoryInterface for AxiInterface {
         ));
 
         // bram reading / writing logic
-        bram_logic(&axi4, &mut module, &mode_fsm, "read_txn_count".into());
+        bram_logic(
+            name,
+            &axi4,
+            &mut module,
+            &mode_fsm,
+            "read_txn_count".into(),
+            data_width,
+            addr_width,
+        );
         module.add_stmt(v::Parallel::Assign(
             "READ_DATA".into(),
             "bram_read_data".into(),
         ));
 
-        let offset_size_bits = memory_size_bits + 1;
+        // add 1 so offset can count up to memory size inclusively
+        let offset_width = utils::math::bits_needed_for(memory_size) + 1;
 
         // synchronise channels
         let read_controller = axi4
@@ -179,7 +189,7 @@ impl MemoryInterface for AxiInterface {
         read_controller.emit(&mut module);
 
         // increment copy address offset
-        module.add_decl(v::Decl::new_reg("copy_addr_offset", offset_size_bits));
+        module.add_decl(v::Decl::new_reg("copy_addr_offset", offset_width));
         incr_addr(
             &mut module,
             mode_fsm.state_is("copy"),
@@ -189,6 +199,8 @@ impl MemoryInterface for AxiInterface {
 
         // addresses are byte addressed which means addresses are computed as
         // base + (offset << shift_by)
+        // TODO(nathanielnrn): Fix the burst size and shifting values based on
+        // pynq(?) input? Or memory size? unclear.
         let shift_by = 2;
         let burst_size: i32 = utils::math::bits_needed_for(32 / 8) as i32;
 
@@ -201,7 +213,7 @@ impl MemoryInterface for AxiInterface {
         let mut concat = v::ExprConcat::default();
         concat.add_expr("copy_addr_offset");
         concat.add_expr(v::Expr::new_repeat(
-            bus_addr_width - offset_size_bits,
+            bus_addr_width - offset_width,
             v::Expr::new_ulit_bin(1, "0"),
         ));
         module.add_stmt(v::Parallel::Assign(
@@ -224,7 +236,7 @@ impl MemoryInterface for AxiInterface {
         write_controller.emit(&mut module);
 
         // increment send address offset
-        module.add_decl(v::Decl::new_reg("send_addr_offset", offset_size_bits));
+        module.add_decl(v::Decl::new_reg("send_addr_offset", offset_width));
         incr_addr(
             &mut module,
             mode_fsm.state_is("send"),
@@ -233,13 +245,14 @@ impl MemoryInterface for AxiInterface {
         );
 
         module.add_stmt(axi4.write_address.assign("ID", 0));
-        // assign shift to a wire to circumvent vast order of operations issues
+        // assign shift to a wire to circumvent `vast` order of operations issues
+        //we shift to convert offset to byte length
         let send_shift = "send_shift";
         module.add_decl(v::Decl::new_wire(send_shift, bus_addr_width));
         let mut concat = v::ExprConcat::default();
         concat.add_expr("send_addr_offset");
         concat.add_expr(v::Expr::new_repeat(
-            bus_addr_width - offset_size_bits,
+            bus_addr_width - offset_width,
             v::Expr::new_ulit_bin(1, "0"),
         ));
         module.add_stmt(v::Parallel::Assign(
@@ -293,18 +306,23 @@ fn module_mode_fsm(module: &mut v::Module) -> fsm::LinearFsm {
 }
 
 fn bram_logic(
+    name: &str, //assumed to be of form [Memory_controller_axi_<suffix>]
     axi4: &AxiInterface,
     module: &mut v::Module,
     mode_fsm: &fsm::LinearFsm,
     txn_count: v::Expr,
+    data_width: u64,
+    addr_width: u64,
 ) {
-    module.add_decl(v::Decl::new_wire("bram_addr", 5));
-    module.add_decl(v::Decl::new_wire("bram_write_data", 32));
+    module.add_decl(v::Decl::new_wire("bram_addr", addr_width));
+    module.add_decl(v::Decl::new_wire("bram_write_data", data_width));
     module.add_decl(v::Decl::new_wire("bram_we", 1));
-    module.add_decl(v::Decl::new_wire("bram_read_data", 32));
+    module.add_decl(v::Decl::new_wire("bram_read_data", data_width));
     module.add_decl(v::Decl::new_wire("bram_done", 1));
-
-    let mut ram_instance = v::Instance::new("bram", "SINGLE_PORT_BRAM");
+    let suffix_idx = "Memory_controller_axi_".len();
+    let suffix = &name[suffix_idx..];
+    let mut ram_instance =
+        v::Instance::new("bram", &format!("SINGLE_PORT_BRAM_{}", suffix));
     ram_instance.connect_ref("ACLK", "ACLK");
     ram_instance.connect_ref("ADDR", "bram_addr");
     ram_instance.connect_ref("Din", "bram_write_data");
@@ -315,9 +333,11 @@ fn bram_logic(
     module.add_stmt(v::Parallel::Assign("DONE".into(), "bram_done".into()));
 
     // bram address logic
-    let copy_address = v::Expr::new_slice("copy_addr_offset", 4, 0);
+    let copy_address =
+        v::Expr::new_slice("copy_addr_offset", (addr_width - 1) as i32, 0);
     let bram_address: v::Expr = "ADDR".into();
-    let send_address = v::Expr::new_slice("send_addr_offset", 4, 0);
+    let send_address =
+        v::Expr::new_slice("send_addr_offset", (addr_width - 1) as i32, 0);
     let mux_address = v::Expr::new_mux(
         v::Expr::new_logical_and(
             axi4.read_data.handshake(),
@@ -349,7 +369,7 @@ fn bram_logic(
     let copy_data: v::Expr = v::Expr::new_index_slice(
         &axi4.read_data.get("DATA"),
         v::Expr::new_mul(txn_count, 32),
-        32, /* bram data width */
+        data_width as u32, // bram data width
     );
     let bram_data: v::Expr = "WRITE_DATA".into();
     let mux_data = v::Expr::new_mux(
@@ -387,8 +407,13 @@ fn incr_addr(
     module.add_stmt(always);
 }
 
-pub fn bram(data_width: u64, size: u64, addr_width: u64) -> v::Module {
-    let mut module = v::Module::new("SINGLE_PORT_BRAM");
+pub fn bram(
+    name: &str,
+    data_width: u64,
+    memory_size: u64,
+    addr_width: u64,
+) -> v::Module {
+    let mut module = v::Module::new(name);
     module.add_input("ACLK", 1);
     module.add_input("ADDR", addr_width);
     module.add_input("Din", data_width);
@@ -400,7 +425,7 @@ pub fn bram(data_width: u64, size: u64, addr_width: u64) -> v::Module {
     attr.add_stmt("ram_style", "block");
     module.add_decl(v::Decl::AttributeDecl(
         attr,
-        Rc::new(v::Decl::new_array("ram_core", data_width, size)),
+        Rc::new(v::Decl::new_array("ram_core", data_width, memory_size)),
     ));
 
     module.add_stmt(super::utils::cond_non_blk_assign(
@@ -420,7 +445,7 @@ pub fn bram(data_width: u64, size: u64, addr_width: u64) -> v::Module {
         "Dout".into(),
         v::Expr::new_index_expr("ram_core", "ADDR"),
     ));
-    //add a simple assign <String1> = <String2>
+    //add a simple assign Done = done_reg
     module.add_stmt(v::Parallel::Assign("Done".into(), "done_reg".into()));
     module
 }
