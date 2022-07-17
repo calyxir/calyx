@@ -1,0 +1,128 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component noshare(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    r = std_reg(32);
+    c = std_reg(32);
+    b = std_reg(32);
+    a = std_reg(32);
+    lt = std_lt(32);
+  }
+  wires {
+    group wrR {
+      r.write_en = 1'd1;
+      r.in = 32'd4;
+      wrR[done] = r.done;
+    }
+    group readB {
+      a.write_en = 1'd1;
+      a.in = b.out;
+      readB[done] = a.done;
+    }
+    group wrB {
+      b.write_en = 1'd1;
+      b.in = 32'd2;
+      wrB[done] = b.done;
+    }
+    group wrC {
+      c.write_en = 1'd1;
+      c.in = 32'd2;
+      wrC[done] = c.done;
+    }
+    group readC {
+      a.write_en = 1'd1;
+      a.in = c.out;
+      wrC[done] = a.done;
+    }
+    comb group rlt10 {
+      lt.left = r.out;
+      lt.right = 32'd5;
+    }
+    out = a.out;
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID wrR;
+      @BEGIN_ID(2) @END_ID(4) if lt.out with rlt10 {
+        @NODE_ID(3) wrB;
+      }
+      @NODE_ID(5) par {
+        @NODE_ID(6) readB;
+        @NODE_ID(7) wrC;
+      }
+      @NODE_ID(8) readC;
+    }
+  }
+}
+component share<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    r = std_reg(32);
+    c = std_reg(32);
+    b = std_reg(32);
+    a = std_reg(32);
+    lt = std_lt(32);
+  }
+  wires {
+    group wrR {
+      r.write_en = 1'd1;
+      r.in = 32'd4;
+      wrR[done] = r.done;
+    }
+    group readB {
+      a.write_en = 1'd1;
+      a.in = b.out;
+      readB[done] = a.done;
+    }
+    group wrB {
+      b.write_en = 1'd1;
+      b.in = 32'd2;
+      wrB[done] = b.done;
+    }
+    group wrC {
+      c.write_en = 1'd1;
+      c.in = 32'd2;
+      wrC[done] = c.done;
+    }
+    group rdR {
+      a.write_en = 1'd1;
+      a.in = r.out;
+      wrC[done] = a.done;
+    }
+    group readC {
+      a.write_en = 1'd1;
+      a.in = c.out;
+      wrC[done] = a.done;
+    }
+    comb group rlt10 {
+      lt.left = r.out;
+      lt.right = 32'd5;
+    }
+    out = a.out;
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID wrR;
+      @BEGIN_ID(2) @END_ID(9) if lt.out with rlt10 {
+        @NODE_ID(3) seq {
+          @NODE_ID(4) par {
+            @NODE_ID(5) wrB;
+            @NODE_ID(6) wrC;
+          }
+          @NODE_ID(7) readB;
+          @NODE_ID(8) readC;
+        }
+      }
+      @NODE_ID(10) rdR;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}

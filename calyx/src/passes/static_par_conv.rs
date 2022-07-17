@@ -1,6 +1,5 @@
 use crate::ir;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::GetAttributes;
 use std::cmp::Ordering;
 
 #[derive(Default)]
@@ -41,12 +40,6 @@ impl Named for StaticParConv {
     }
 }
 
-// given a stmt, returns Some(&val) where val is the value of the "static"
-// attribute of stmt. Returns None if no "static" attribute exists.
-fn get_static_attr(stmt: &ir::Control) -> Option<&u64> {
-    stmt.get_attributes().and_then(|atts| atts.get("static"))
-}
-
 // Takes two seqs, longer and shorter. longer should be at least as long as
 // shorter. Returns Some(vec) if there exists arrangement of shorter and longer
 // such that each statement in shorter can be paired with a statement in longer,
@@ -69,7 +62,7 @@ fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
     let mut counter = 0;
 
     while let (Some(c1), Some(c2)) = (long_val, short_val) {
-        match (get_static_attr(c1), get_static_attr(c2)) {
+        match (c1.get_attribute("static"), c2.get_attribute("static")) {
             (Some(x1), Some(x2)) => {
                 if x2 <= x1 {
                     short_val = short_iter.next();
@@ -102,9 +95,10 @@ fn get_static_sum(seq: &ir::Seq) -> Option<u64> {
     let static_vals = seq
         .stmts
         .iter()
-        .map(get_static_attr)
-        .collect::<Option<Vec<&u64>>>();
-    static_vals.map(|v| v.into_iter().sum())
+        .map(|c| c.get_attribute("static"))
+        .collect::<Option<Vec<&u64>>>()?;
+
+    Some(static_vals.into_iter().sum())
 }
 
 impl Visitor for StaticParConv {
@@ -208,7 +202,7 @@ impl Visitor for StaticParConv {
                     stmts
                         .iter()
                         .map(|stmt| {
-                            match get_static_attr(stmt)
+                            match stmt.get_attribute("static")
                             {
                                 Some(&x1) => x1,
                                 None => unreachable!("every statement in the new par blocks should have a static attribute"),

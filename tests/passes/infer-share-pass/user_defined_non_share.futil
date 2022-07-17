@@ -1,0 +1,46 @@
+//-p infer-share
+
+// no_share uses std_mem so it should not be shared. 
+// uses_no_share uses no_share so it should not be shared. 
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component no_share(in: 32) -> (out: 32) {
+  cells {
+    r = std_reg(32);
+    add_32 = std_add(32);
+     @external(1) B = std_mem_d2(32,2,2,4,4);
+  }
+  wires {
+    out = r.out;
+  }
+  control {
+  }
+}
+
+component uses_no_share(in: 32) -> (out: 32) {
+  cells {
+    c = no_share();
+  }
+  wires {
+    group A {
+      c.go = 1'd1; 
+      c.in = 32'd10; 
+      A[done] = c.done; 
+    }
+    out = c.out;
+  }
+  control {
+    A;
+  }
+}
+
+component main() -> () {
+  cells {
+  }
+  wires {
+  }
+  control {
+  }
+}
