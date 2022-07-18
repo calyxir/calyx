@@ -430,7 +430,10 @@ pub fn bram(
 
     module.add_stmt(super::utils::cond_non_blk_assign(
         "ACLK",
-        v::Expr::new_index_expr("ram_core", "ADDR"),
+        match memory_size {
+            1 => "ram_core".into(),
+            _ => v::Expr::new_index_expr("ram_core", "ADDR"),
+        },
         vec![(Some("WE".into()), "Din".into())],
     ));
 
@@ -443,7 +446,10 @@ pub fn bram(
 
     module.add_stmt(v::Parallel::Assign(
         "Dout".into(),
-        v::Expr::new_index_expr("ram_core", "ADDR"),
+        match memory_size {
+            1 => "ram_core".into(),
+            _ => v::Expr::new_index_expr("ram_core", "ADDR"),
+        },
     ));
     //add a simple assign Done = done_reg
     module.add_stmt(v::Parallel::Assign("Done".into(), "done_reg".into()));
