@@ -20,27 +20,27 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     y_0 = std_reg(32);
   }
   wires {
-    group begin_split_let0 {
-      mult_pipe0.go = 1'd1;
+    group beg_spl_let0 {
       mult_pipe0.left = A_read0_0.out;
       mult_pipe0.right = B_read0_0.out;
-      begin_split_let0[done] = mult_pipe0.done;
+      mult_pipe0.go = 1'd1;
+      beg_spl_let0[done] = mult_pipe0.done;
     }
-    group end_split_let0 {
-      bin_read0_0.write_en = 1'd1;
+    group end_spl_let0 {
       bin_read0_0.in = mult_pipe0.out;
-      end_split_let0[done] = bin_read0_0.done;
+      bin_read0_0.write_en = 1'd1;
+      end_spl_let0[done] = bin_read0_0.done;
     }
-    group begin_split_let2 {
-      mult_pipe1.go = 1'd1;
+    group beg_spl_let2 {
       mult_pipe1.left = A_read1_0.out;
       mult_pipe1.right = B_read1_0.out;
-      begin_split_let2[done] = mult_pipe1.done;
+      mult_pipe1.go = 1'd1;
+      beg_spl_let2[done] = mult_pipe1.done;
     }
-    group end_split_let2 {
-      bin_read1_0.write_en = 1'd1;
+    group end_spl_let2 {
       bin_read1_0.in = mult_pipe1.out;
-      end_split_let2[done] = bin_read1_0.done;
+      bin_read1_0.write_en = 1'd1;
+      end_spl_let2[done] = bin_read1_0.done;
     }
     group let1<"static"=1> {
       x_0.in = bin_read0_0.out;
@@ -85,8 +85,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         upd1;
       }
       seq {
-        begin_split_let0;
-        end_split_let0;
+        beg_spl_let0;
+        end_spl_let0;
       }
       let1;
       par {
@@ -94,8 +94,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         upd3;
       }
       seq {
-        begin_split_let2;
-        end_split_let2;
+        beg_spl_let2;
+        end_spl_let2;
       }
       let3;
     }

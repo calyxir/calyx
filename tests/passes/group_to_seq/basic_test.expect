@@ -11,27 +11,27 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
     x_0 = std_reg(32);
   }
   wires {
-    group begin_split_two {
-      A.write_en = 1'd1;
+    group beg_spl_two {
       A.in = 32'd4;
-      begin_split_two[done] = A.done;
+      A.write_en = 1'd1;
+      beg_spl_two[done] = A.done;
     }
-    group end_split_two {
-      mult_pipe0.go = 1'd1;
+    group end_spl_two {
       mult_pipe0.right = 32'd4;
       mult_pipe0.left = A.out;
-      end_split_two[done] = mult_pipe0.done;
+      mult_pipe0.go = 1'd1;
+      end_spl_two[done] = mult_pipe0.done;
     }
-    group begin_split_write_bmult {
+    group beg_spl_write_bmult {
       B.write_en = A.done & !B.done ? 1'd1;
       B.in = 32'd2;
-      begin_split_write_bmult[done] = B.done;
+      beg_spl_write_bmult[done] = B.done;
     }
-    group end_split_write_bmult {
-      mult_pipe0.go = 1'd1;
+    group end_spl_write_bmult {
       mult_pipe0.right = B.out;
       mult_pipe0.left = B.out;
-      end_split_write_bmult[done] = mult_pipe0.done;
+      mult_pipe0.go = 1'd1;
+      end_spl_write_bmult[done] = mult_pipe0.done;
     }
     group writeAB {
       B.in = 32'd7;
@@ -60,15 +60,15 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
     seq {
       writeAB;
       seq {
-        begin_split_two;
-        end_split_two;
+        beg_spl_two;
+        end_spl_two;
       }
       chain_plus_adders;
       par {
         write_a;
         seq {
-          begin_split_write_bmult;
-          end_split_write_bmult;
+          beg_spl_write_bmult;
+          end_spl_write_bmult;
         }
       }
     }
