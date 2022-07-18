@@ -75,7 +75,7 @@ impl PassManager {
                 RemoveCombGroups, // Must run before `infer-static-timing`.
                 InferStaticTiming,
                 MergeStaticPar,
-                DeadGroupRemoval, //MergeStaticPar potentialy creates dead groups
+                DeadGroupRemoval, // Sincce MergeStaticPar potentialy creates dead groups
                 StaticParConv,    // Must be before `collapse-control`
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.

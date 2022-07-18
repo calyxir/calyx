@@ -140,12 +140,9 @@ impl OrderAnalysis {
                     if_name_stable_or_done(assign, &maybe_first)
                 })
             {
-                Some((maybe_first, maybe_last))
-            } else {
-                None
+                return Some((maybe_first, maybe_last));
             }
-        } else {
-            None
         }
+        None
     }
 }
