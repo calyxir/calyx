@@ -1,0 +1,27 @@
+// -p infer-share -x infer-share:print-dmap
+import "primitives/core.futil";
+component example() -> () {
+  cells {
+  }
+  wires {
+    
+  }
+  control {
+    
+  }
+}
+
+
+component main() -> () {
+  cells {
+    e = example();
+  }
+
+  wires {
+  }
+
+  control {
+    invoke e() (); 
+  }
+  
+}
