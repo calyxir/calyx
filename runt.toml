@@ -189,7 +189,7 @@ paths = [
   "tests/xilinx/vectorized-add.futil"
 ]
 cmd = """
-cargo run -- -b xilinx {}
+target/debug/futil {} -b xilinx
 """
 
 ##### Frontend Tests #####
