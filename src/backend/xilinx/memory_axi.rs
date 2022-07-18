@@ -275,14 +275,25 @@ impl MemoryInterface for AxiInterface {
             (bus_data_width / data_width) - 1,
             v::Expr::new_ulit_bin(32, "0"),
         ));
-        module.add_stmt(axi4.write_data.assign("DATA", concat));
+        // used for alignment issues where host reads from WDATA at offset if
+        // AWADDR is not alligned with data-bus-width
+        let wdata = v::Expr::new_shift_left(
+            concat,
+            v::Expr::new_mul("send_addr_offset", data_width as i32),
+        );
+        module.add_stmt(axi4.write_data.assign("DATA", wdata));
         let mut concat = v::ExprConcat::default();
         concat.add_expr(v::Expr::new_ulit_hex(4, "F"));
         concat.add_expr(v::Expr::new_repeat(
             (bus_data_width / (8 * 4)) - 1,
             v::Expr::new_ulit_hex(4, "0"),
         ));
-        module.add_stmt(axi4.write_data.assign("STRB", concat));
+        let wstrb = v::Expr::new_shift_left(
+            concat,
+            //divided by 8 because WSTRB bits refer to entire bytes
+            v::Expr::new_mul("send_addr_offset", (data_width / 8) as i32),
+        );
+        module.add_stmt(axi4.write_data.assign("STRB", wstrb));
         module.add_stmt(axi4.write_data.assign("LAST", 1));
 
         module
