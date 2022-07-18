@@ -162,6 +162,8 @@ impl Backend for XilinxXmlBackend {
                 address_qualifier: 1,
                 id: (i + 1) as u64,
                 port: axi_name,
+                //XXX(nathanielnrn): This should probably be assigned dynamically and not
+                //hardcoded, need to figure out where this comes from
                 size: "0x8",
                 offset: &offsets[i],
                 typ: "int*",
