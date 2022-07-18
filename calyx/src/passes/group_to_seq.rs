@@ -36,7 +36,7 @@ impl Visitor for GroupToSeq {
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
             let mut group = g.borrow_mut();
-            match OrderAnalysis::get_split(
+            match SplitAnalysis::get_split(
                 &group.assignments.drain(..).collect::<Vec<ir::Assignment>>(),
                 group.clone_name(),
                 &mut builder,
@@ -112,7 +112,7 @@ fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::Id> {
 #[derive(Default)]
 ///Primarily used to help determine the order cells are executed within
 ///the group, and if possible, to transform a group into a seq of two smaller groups
-pub struct OrderAnalysis {
+pub struct SplitAnalysis {
     // First 2 fields help determine if transformation can be applied. Remaining
     // fields help to apply the transformation.
     ///Holds, (b,a) for assignment of form a.go = b.done,
@@ -137,7 +137,7 @@ pub struct OrderAnalysis {
     snd_asmts: Vec<ir::Assignment>,
 }
 
-impl OrderAnalysis {
+impl SplitAnalysis {
     /// Based on assigns, returns Ok(group1, group2), where (group1,group2) are
     /// the groups that can be made by splitting assigns. If it is not possible to split
     /// assigns into two groups, then just regurn Err(assigns).
@@ -156,35 +156,35 @@ impl OrderAnalysis {
 
         // Builds ordering. If it cannot build a valid linear ordering of length 2,
         // then returns None, and we stop.
-        let mut order_analysis = OrderAnalysis::default();
-        let (first, second) = match order_analysis.possible_split(assigns) {
+        let mut split_analysis = SplitAnalysis::default();
+        let (first, second) = match split_analysis.possible_split(assigns) {
             None => return Err(assigns.to_vec()),
             Some(order) => order,
         };
 
         // Sets the first_go_asmt, fst_asmts, snd_asmts group_done_asmt, go_done_asmt
-        // fields for order_analysis
-        order_analysis.organize_assignments(assigns, &first, &second);
+        // fields for split_analysis
+        split_analysis.organize_assignments(assigns, &first, &second);
 
         // If there is assignment in the form first.go = !first.done ? 1'd1,
         // turn this into first.go = 1'd1.
-        if let Some(go_asmt) = order_analysis.first_go_asmt {
+        if let Some(go_asmt) = split_analysis.first_go_asmt {
             let new_go_asmt = builder.build_assignment(
                 go_asmt.dst,
                 signal_on.borrow().get("out"),
                 ir::Guard::True,
             );
-            order_analysis.fst_asmts.push(new_go_asmt);
+            split_analysis.fst_asmts.push(new_go_asmt);
         }
 
-        let go_done = order_analysis.go_done_asmt.unwrap_or_else(|| {
+        let go_done = split_analysis.go_done_asmt.unwrap_or_else(|| {
             unreachable!("couldn't find a go-done assignment in {}", group_name)
         });
 
         let first_group = Self::make_group(
             go_done.src,
             ir::Guard::True,
-            order_analysis.fst_asmts,
+            split_analysis.fst_asmts,
             builder,
             format!("beg_spl_{}", group_name.id),
         );
@@ -195,9 +195,9 @@ impl OrderAnalysis {
             signal_on.borrow().get("out"),
             ir::Guard::True,
         );
-        order_analysis.snd_asmts.push(cell_go);
+        split_analysis.snd_asmts.push(cell_go);
 
-        let group_done = order_analysis.group_done_asmt.unwrap_or_else(|| {
+        let group_done = split_analysis.group_done_asmt.unwrap_or_else(|| {
             unreachable!(
                 "Couldn't find a group[done] = _.done assignment in {}",
                 group_name
@@ -207,7 +207,7 @@ impl OrderAnalysis {
         let second_group = Self::make_group(
             group_done.src,
             *group_done.guard,
-            order_analysis.snd_asmts,
+            split_analysis.snd_asmts,
             builder,
             format!("end_spl_{}", group_name.id),
         );
