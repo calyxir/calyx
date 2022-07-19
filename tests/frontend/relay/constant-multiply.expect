@@ -13,7 +13,7 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0)invoke multiply_1_(x0_read_data=x.read_data, x1=x1.out, x20_done=x2.done, x20_read_data=x2.read_data)(x0_addr0=x.addr0, x20_write_data=x2.write_data, x20_write_en=x2.write_en, x20_addr0=x2.addr0);
+      @pos(0) invoke multiply_1_[x0=x, x1=x1, x20=x2]()();
     }
   }
 }

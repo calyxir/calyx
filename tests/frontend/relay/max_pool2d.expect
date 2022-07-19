@@ -12,7 +12,7 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0)invoke max_pool2d_2x2x2x2_(data0_0_0_0_read_data=data.read_data, result0_0_0_0_done=result.done, result0_0_0_0_read_data=result.read_data)(data0_0_0_0_addr0=data.addr0, data0_0_0_0_addr1=data.addr1, data0_0_0_0_addr2=data.addr2, data0_0_0_0_addr3=data.addr3, result0_0_0_0_write_data=result.write_data, result0_0_0_0_write_en=result.write_en, result0_0_0_0_addr0=result.addr0, result0_0_0_0_addr1=result.addr1, result0_0_0_0_addr2=result.addr2, result0_0_0_0_addr3=result.addr3);
+      @pos(0) invoke max_pool2d_2x2x2x2_[data0_0_0_0=data, result0_0_0_0=result]()();
     }
   }
 }

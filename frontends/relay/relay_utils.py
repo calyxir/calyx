@@ -75,53 +75,22 @@ def get_addr_ports(c: CompInst):
 
 def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
     """Returns the Invoke control."""
-    in_connects = []
-    out_connects = []
+    ref_cells = []
 
-    def get_connects(c: Cell, is_destination: bool):
-        # Hooks up correct ports for invocation, depending on whether
-        # `c` is an argument or a destination memory.
-        comp = c.comp
+    def get_arg(cell):
+        comp = cell.comp
         assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
-        param = f"{c.id.name}{DahliaSuffix[comp.id]}"
-        arg = CompVar(c.id.name)
+        param = f"{cell.id.name}{DahliaSuffix[comp.id]}"
+        arg = CompVar(cell.id.name)
 
-        if any(p in comp.id for p in ["reg", "const"]):
-            # If this is a constant or a register.
-            return [(f"{param}", CompPort(arg, "out"))], []
-
-        # Otherwise, its an N-dimensional memory.
-        in_, out = [], []
-        if is_destination:
-            # If the memory is being written to, hook up write ports.
-            in_.append((f"{param}_done", CompPort(arg, "done")))
-            out.extend(
-                [
-                    (f"{param}_write_data", CompPort(arg, "write_data")),
-                    (f"{param}_write_en", CompPort(arg, "write_en")),
-                ]
-            )
-
-        # Reads allowed in either case.
-        in_.append((f"{param}_read_data", CompPort(arg, "read_data")))
-
-        # Hook up address ports.
-        addr_ports = [port for port, _ in get_addr_ports(comp)]
-        out.extend(
-            [(f"{param}_{port}", CompPort(arg, f"{port}")) for port in addr_ports]
-        )
-
-        return in_, out
+        return (param, arg)
 
     for cell in args:
-        # Don't connect write ports for arguments.
-        in_, out = get_connects(cell, is_destination=False)
-        in_connects.extend(in_)
-        out_connects.extend(out)
+        ref_cells.append(get_arg(cell))
 
-    dest_in, dest_out = get_connects(dest, is_destination=True)
+    ref_cells.append(get_arg(dest))
 
-    return Invoke(decl, in_connects + dest_in, out_connects + dest_out)
+    return Invoke(decl, [], [], ref_cells)
 
 
 def get_dahlia_data_type(relay_type) -> str:

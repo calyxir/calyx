@@ -292,18 +292,35 @@ class Invoke(Control):
     id: CompVar
     in_connects: List[Tuple[str, Port]]
     out_connects: List[Tuple[str, Port]]
+    ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
     comb_group: Optional[CompVar] = None
     attributes: List[Tuple[str, int]] = field(default_factory=list)
 
     def doc(self) -> str:
+        inv = f"invoke {self.id.doc()}"
+
+        # Add attributes if present
+        if len(self.attributes) > 0:
+            attrs = " ".join(
+                [f"@{tag}({val})" for tag, val in self.attributes])
+            inv = f"{attrs} {inv}"
+
+        # Add ref cells if present
+        if len(self.ref_cells) > 0:
+            rcs = ", ".join(
+                [f"{n}={arg.doc()}" for (n, arg) in self.ref_cells])
+            inv += f"[{rcs}]"
+
+        # Inputs and outputs
         in_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.in_connects])
         out_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.out_connects])
-        attrs = " ".join([f"@{tag}({val})" for tag, val in self.attributes])
-        inv = f"{attrs} invoke {self.id.doc()}({in_defs})({out_defs})"
+        inv += f"({in_defs})({out_defs})"
+
+        # Combinational group if present
         if self.comb_group is not None:
-            inv += f" with {self.comb_group.doc()};"
-        else:
-            inv += ";"
+            inv += f" with {self.comb_group.doc()}"
+        inv += ";"
+
         return inv
 
     def with_attr(self, key: str, value: int) -> Invoke:
