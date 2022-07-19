@@ -180,6 +180,17 @@ flags=$(head -n 1 {} | cut -c 3-)
 ./target/debug/futil {} $flags
 """
 
+##### Xilinx Tests ######
+[[tests]]
+name = "AXI generation"
+paths = [
+  "tests/xilinx/dot-product.futil",
+  "tests/xilinx/language-tutorial-iterate.futil",
+  "tests/xilinx/vectorized-add.futil"
+]
+cmd = """
+target/debug/futil {} -b xilinx
+"""
 
 ##### Frontend Tests #####
 [[tests]]

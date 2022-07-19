@@ -114,7 +114,7 @@ frontend.
 
 ### `share`
 Can be attached to a component and indicates that a component can be shared
-across groups. This is used by the `-p resource-sharing` to decide which components
+across groups. This is used by the `-p cell-share` to decide which components
 can be shared.
 
 ### `state_share`

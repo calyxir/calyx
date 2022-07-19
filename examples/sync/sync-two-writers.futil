@@ -46,11 +46,11 @@ component main() -> () {
 
     // Read value from sync intermediate and write to temp.
     group read_imm {
-      imm.read_en = 1'd1;
-      sum.left = imm.read_done? imm.out;
+      imm.read_en_0 = 1'd1;
+      sum.left = imm.read_done_0 ? imm.out_0;
       sum.right = temp.out;
-      temp.in = imm.read_done? sum.out;
-      temp.write_en =  imm.read_done? 1'd1;
+      temp.in = imm.read_done_0? sum.out;
+      temp.write_en =  imm.read_done_0? 1'd1;
       read_imm[done] = temp.done;
     }
 

@@ -1,0 +1,119 @@
+The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes 
+that are attached to each non-empty control statement when the domination map is built. 
+To see which ID's refer to which control statement, look at the Calyx Program, which should 
+be printed along with the map when it is printed.
+Domination Map for component "example"  {
+Node: 1 -- Dominators: [1]
+Node: 2 -- Dominators: [1, 2]
+Node: 3 -- Dominators: [1, 2, 3]
+Node: 4 -- Dominators: [1, 2, 3, 4]
+Node: 5 -- Dominators: [1, 2, 3, 4, 5]
+Node: 8 -- Dominators: [1, 2, 3, 4, 5, 8]
+Node: 9 -- Dominators: [1, 2, 3, 4, 5, 9]
+Node: 10 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10]
+Node: 12 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12]
+Node: 14 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12, 14]
+Node: 15 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 12, 15]
+Node: 17 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 17]
+Node: 18 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 18]
+Node: 19 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 19]
+Node: 20 -- Dominators: [1, 2, 3, 4, 5, 8, 9, 10, 20]
+Node: 22 -- Dominators: [1, 2, 3, 4, 22]
+Node: 23 -- Dominators: [1, 2, 3, 4, 23]
+Node: 24 -- Dominators: [1, 2, 3, 4, 24]
+Node: 25 -- Dominators: [1, 2, 3, 4, 25]
+Node: 26 -- Dominators: [1, 2, 3, 4, 25, 26]
+}
+import "primitives/core.futil";
+component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    group P0 {
+    }
+    group P1 {
+    }
+    group P2 {
+    }
+    group A {
+    }
+    group L {
+    }
+    group M {
+    }
+    group O {
+    }
+    group Q {
+    }
+    group R {
+    }
+    group X {
+    }
+    group Y {
+    }
+    group Z {
+    }
+    group A0 {
+    }
+    group B0 {
+    }
+    comb group less_than {
+      lt.left = 4'd3;
+      lt.right = 4'd2;
+    }
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID P0;
+      @NODE_ID(2) P1;
+      @NODE_ID(3) P2;
+      @BEGIN_ID(4) @END_ID(25) if lt.out with less_than {
+        @NODE_ID(5) while lt.out with less_than {
+          @NODE_ID(6) seq {
+            @NODE_ID(7) par {
+              @NODE_ID(8) A0;
+              @NODE_ID(9) B0;
+            }
+            @BEGIN_ID(10) @END_ID(20) if lt.out with less_than {
+              @NODE_ID(11) seq {
+                @NODE_ID(12) A;
+                @NODE_ID(13) par {
+                  @NODE_ID(14) L;
+                  @NODE_ID(15) M;
+                }
+              }
+            } else {
+              @NODE_ID(16) par {
+                @NODE_ID(17) O;
+                @NODE_ID(18) Q;
+                @NODE_ID(19) R;
+              }
+            }
+          }
+        }
+      } else {
+        @NODE_ID(21) par {
+          @NODE_ID(22) X;
+          @NODE_ID(23) Y;
+          @NODE_ID(24) Z;
+        }
+      }
+      @NODE_ID(26) Z;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    par {
+      invoke e()();
+    }
+  }
+}
