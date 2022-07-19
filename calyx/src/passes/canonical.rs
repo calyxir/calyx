@@ -50,27 +50,6 @@ impl Named for Canonicalize {
     }
 }
 
-fn matches_not_signal(assign: &ir::Assignment, signal: &ir::Port) -> bool {
-    //checks whether guard matches signal
-    let port_matches_signal = |guard: &ir::Guard| -> bool {
-        match guard {
-            ir::Guard::Port(port) => port.borrow().clone() == *signal,
-            _ => false,
-        }
-    };
-
-    //checks whether guard is !signal
-    let guard_not_signal = |guard: &ir::Guard| -> bool {
-        match guard {
-            ir::Guard::Not(g) => port_matches_signal(&*g),
-            _ => false,
-        }
-    };
-
-    //checks !signal
-    guard_not_signal(&*assign.guard)
-}
-
 impl Visitor for Canonicalize {
     fn start(
         &mut self,
@@ -87,22 +66,18 @@ impl Visitor for Canonicalize {
             }
         });
 
-        for g in comp.groups.iter() {
-            let mut group = g.borrow_mut();
-            let done_assignment = group.done_cond();
-            if done_assignment.guard.is_true() {
-                let done_src = done_assignment.src.clone();
-                for assign in group.assignments.iter_mut() {
-                    if matches_not_signal(assign, &done_src.borrow()) {
-                        assign.guard = Guard::True.into();
-                    }
+        for gr in comp.groups.iter() {
+            // Handles group[done] = a ? 1'd1 -> group[done] = a
+            let mut group = gr.borrow_mut();
+            let done_assign = group.done_cond_mut();
+            if let Guard::Port(p) = &(*done_assign.guard) {
+                if done_assign.src.borrow().is_constant(1, 1) {
+                    done_assign.src = p.clone(); //rc clone
+                    done_assign.guard = Guard::True.into();
                 }
             }
-        }
-
-        for gr in comp.groups.iter() {
-            let assigns = std::mem::take(&mut gr.borrow_mut().assignments);
-            gr.borrow_mut().assignments = self.order.dataflow_sort(assigns)?;
+            let assigns = std::mem::take(&mut group.assignments);
+            group.assignments = self.order.dataflow_sort(assigns)?;
         }
         for cgr in comp.comb_groups.iter() {
             let assigns = std::mem::take(&mut cgr.borrow_mut().assignments);
