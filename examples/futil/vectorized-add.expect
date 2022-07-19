@@ -75,13 +75,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     le0.right = cond00_go.out ? const1.out;
     let0_done.in = i0.done;
     let0_go.in = !let0_done.out & fsm.out == 3'd0 & tdcc_go.out ? 1'd1;
-    msp_done.in = 1'b1 & A_read0_0.done & 1'b1 & B_read0_0.done ? 1'd1;
+    msp_done.in = A_read0_0.done & B_read0_0.done ? 1'd1;
     msp_go.in = !msp_done.out & fsm.out == 3'd2 & tdcc_go.out ? 1'd1;
     tdcc_done.in = fsm.out == 3'd6 ? 1'd1;
     tdcc_go.in = go;
-    upd2_done.in = Sum0.done ? 1'd1;
+    upd2_done.in = Sum0.done;
     upd2_go.in = !upd2_done.out & fsm.out == 3'd3 & tdcc_go.out ? 1'd1;
-    upd3_done.in = i0.done ? 1'd1;
+    upd3_done.in = i0.done;
     upd3_go.in = !upd3_done.out & fsm.out == 3'd4 & tdcc_go.out ? 1'd1;
   }
 
