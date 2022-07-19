@@ -76,6 +76,7 @@ impl Visitor for Canonicalize {
                     done_assign.guard = Guard::True.into();
                 }
             }
+            // Deals with aassignment ordering
             let assigns = std::mem::take(&mut group.assignments);
             group.assignments = self.order.dataflow_sort(assigns)?;
         }
