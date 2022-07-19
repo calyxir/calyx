@@ -23,29 +23,31 @@ intermediate representation.
         mkdir build && cd build
         cp ../cmake/config.cmake .
 
-4. Build TVM:
+3. Build TVM:
 
         cmake -G Ninja .. && ninja
 
-5. Install the `tvm` Python package by building a [wheel][]:
+4. Install the `tvm` Python package by building a [wheel][]:
 
         cd ../python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
 
-6. Install the accompanying `topi` Python package:
+   > If you get an error with `shutil`, try deleting the `python/` directory, restoring it, and rerunning the above command: `cd .. && rm -rf python && git checkout -- python`
+
+5. Install the accompanying `topi` Python package:
 
         cd ../topi/python && python3 setup.py bdist_wheel
         pip3 install --user dist/topi-*.whl
 
-7. Install ANTLR v4.7.2 (required for the Relay text format parser):
+6. Install ANTLR v4.7.2 (required for the Relay text format parser):
 
         pip3 install -Iv antlr4-python3-runtime==4.7.2
 
-8. To run the [MLP net][] and [VGG net][] examples, install `pytest`:
+7. To run the [MLP net][] and [VGG net][] examples, install `pytest`:
 
         pip3 install pytest
 
-9. Install [Dahlia][], which is used when lowering Relay call nodes to Calyx.
+8. Install [Dahlia][], which is used when lowering Relay call nodes to Calyx.
 
 10. Install the [calyx-py](../calyx-py.md) library.
 
@@ -71,23 +73,23 @@ for ONNX simulation and image pre-processing:
     pip3 install opencv-python Pillow mxnet onnx simplejson
 
 For example, we can simulate the LeNet ONNX model found [here][lenet] using the following command:
-    
-    python3 frontends/relay/onnx_to_calyx.py \ 
-    -n "lenet" \ 
-    -d "MNIST" \ 
+
+    python3 frontends/relay/onnx_to_calyx.py \
+    -n "lenet" \
+    -d "MNIST" \
     -i "/path/to/image.png" \
-    -onnx "/path/to/model.onnx" \ 
+    -onnx "/path/to/model.onnx" \
     -o calyx
 
 - `-n`: The name of the input net. This is mostly used for naming the output files.
-- `-d`: The dataset for which the input will be classified against. This is necessary to 
+- `-d`: The dataset for which the input will be classified against. This is necessary to
 determine what preprocessing should be done on the image. e.g. `"mnist"` or `"imagenet"`.
 - `-i`: The file path to the input image which you want classified.
 - `-onnx`: The file path to the ONNX model.
-- `-o`: The type of output. 
-    1. `tvm`: Executes the ONNX model using the TVM executor. Prints the final softmax value 
+- `-o`: The type of output.
+    1. `tvm`: Executes the ONNX model using the TVM executor. Prints the final softmax value
     to console. No postprocessing is conducted.
-    2. `relay`: Output a file with the corresponding Relay program. `<net_name>.relay` 
+    2. `relay`: Output a file with the corresponding Relay program. `<net_name>.relay`
     3. `calyx`: Output a `.data` file and Calyx program for simulation. `<net_name>.futil`, `<net_name>.data`
     4. `all`: All the above.
 
