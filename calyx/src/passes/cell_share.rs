@@ -4,7 +4,9 @@ use crate::{
     analysis::{LiveRangeAnalysis, ReadWriteSet, ShareSet},
     ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
 };
-use std::collections::{HashMap, HashSet};
+use itertools::Itertools;
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::time::Instant;
 
 /// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
 /// alive at each group, minimizes the cells used for each component.
@@ -68,6 +70,8 @@ impl ShareComponents for CellShare {
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
+        let start = Instant::now();
+        log::info!("start initialize(): {}ms", start.elapsed().as_millis());
         //add cont cells
         self.cont_ref_cells =
             ReadWriteSet::uses(comp.continuous_assignments.iter())
@@ -81,6 +85,8 @@ impl ShareComponents for CellShare {
                 .map(|cell| cell.borrow().clone_name()),
         );
 
+        log::info!("initialize check1: {}ms", start.elapsed().as_millis());
+
         // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
         // cells.
         self.live = LiveRangeAnalysis::new(
@@ -89,6 +95,8 @@ impl ShareComponents for CellShare {
             self.state_shareable.clone(),
             self.shareable.clone(),
         );
+
+        log::info!("initialize check2: {}ms", start.elapsed().as_millis());
     }
 
     fn lookup_node_conflicts(&self, node_name: &ir::Id) -> Vec<&ir::Id> {
@@ -115,11 +123,11 @@ impl ShareComponents for CellShare {
 
     fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
     where
-        F: FnMut(Vec<ir::Id>),
+        F: FnMut(Vec<&BTreeSet<ir::Id>>),
     {
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
-        for invoke_enable in invokes_enables.iter() {
+        /*for invoke_enable in invokes_enables.iter() {
             let conflicts = self.live.get(invoke_enable);
             add_conflicts(
                 conflicts
@@ -130,7 +138,14 @@ impl ShareComponents for CellShare {
                     .cloned()
                     .collect(),
             );
-        }
+        }*/
+        add_conflicts(
+            invokes_enables
+                .iter()
+                .map(|node| self.live.get(node))
+                .unique()
+                .collect_vec(),
+        )
     }
 
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>) {
