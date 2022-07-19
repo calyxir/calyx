@@ -12,8 +12,17 @@ from collections import defaultdict
 from typing import List, Dict
 
 import relay_utils as ru
-from calyx.py_ast import Cell, CompVar, CompInst, Metadata, Import, Program, \
-        SeqComp, Stdlib, Component
+from calyx.py_ast import (
+    Cell,
+    CompVar,
+    CompInst,
+    Metadata,
+    Import,
+    Program,
+    SeqComp,
+    Stdlib,
+    Component,
+)
 from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
 from dahlia_impl import emit_components
@@ -121,7 +130,7 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1:]
+                func_name = func_name[prefix + 1 :]
 
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
