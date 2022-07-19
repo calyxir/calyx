@@ -76,21 +76,25 @@ def get_addr_ports(c: CompInst):
 def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
     """Returns the Invoke control."""
     ref_cells = []
+    inputs = []
 
-    def get_arg(cell):
+    def add_arg(cell):
         comp = cell.comp
         assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
         param = f"{cell.id.name}{DahliaSuffix[comp.id]}"
         arg = CompVar(cell.id.name)
 
-        return (param, arg)
+        # If this is a constant or a register, connect the ports
+        if any(p in comp.id for p in ["reg", "const"]):
+            inputs.append((f"{param}", CompPort(arg, "out")))
+        else:
+            ref_cells.append((param, arg))
 
     for cell in args:
-        ref_cells.append(get_arg(cell))
+        add_arg(cell)
+    add_arg(dest)
 
-    ref_cells.append(get_arg(dest))
-
-    return Invoke(decl, [], [], ref_cells)
+    return Invoke(decl, inputs, [], ref_cells)
 
 
 def get_dahlia_data_type(relay_type) -> str:

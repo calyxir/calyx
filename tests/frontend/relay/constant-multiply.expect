@@ -13,7 +13,7 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0) invoke multiply_1_[x0=x, x1=x1, x20=x2]()();
+      @pos(0) invoke multiply_1_[x0=x, x20=x2](x1=x1.out)();
     }
   }
 }
