@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
+# type: ignore
+from typing import Tuple
 
 import numpy as np
-from tvm import relay, ir
+import tvm
+from tvm import relay
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
 
 from collections import defaultdict
 from typing import List, Dict
 
-from relay_utils import *
-from calyx.py_ast import *
+import relay_utils as ru
+from calyx.py_ast import Cell, CompVar, CompInst, Metadata, Import, Program, \
+        SeqComp, Stdlib, Component
 from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
 from dahlia_impl import emit_components
@@ -34,7 +38,7 @@ class Relay2Calyx(ExprFunctor):
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
         # to Calyx as a stand-alone component.
-        self.func_defs: List[DahliaFuncDef] = []
+        self.func_defs: List[ru.DahliaFuncDef] = []
 
         # Controls, wires of the main component.
         self.controls = []
@@ -71,7 +75,7 @@ class Relay2Calyx(ExprFunctor):
         """
         var_id = self.id(var.name_hint)
 
-        cell = get_memory(var_id, var.type_annotation)
+        cell = ru.get_memory(var_id, var.type_annotation)
 
         if var.type_annotation.concrete_shape:
             # Only add the given variable if it is a tensor.
@@ -93,7 +97,7 @@ class Relay2Calyx(ExprFunctor):
             # Generates a constant primitive.
             # This is done here since we need
             # both the variable id and the value.
-            width = get_bitwidth(value.data)
+            width = ru.get_bitwidth(value.data)
 
             if "float" in value.data.dtype:
                 # Convert to fixed point.
@@ -117,10 +121,10 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1 :]
+                func_name = func_name[prefix + 1:]
 
             # Append arity to Calyx component name.
-            dims = "x".join([str(i) for i in get_dimension_sizes(dest.comp)])
+            dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
 
             # Given functions with the same operator and arity,
             # append a unique identifier to the preceding. Eventually,
@@ -132,7 +136,7 @@ class Relay2Calyx(ExprFunctor):
             comp_decl = CompVar(f"{comp_name}_")
             self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
 
-            invoke = emit_invoke_control(comp_decl, dest, value.args)
+            invoke = ru.emit_invoke_control(comp_decl, dest, value.args)
             invoke.attributes.append(("pos", self.pos_count))
             self.controls.append(invoke)
 
@@ -144,13 +148,13 @@ class Relay2Calyx(ExprFunctor):
             ][0]
 
             self.func_defs.append(
-                DahliaFuncDef(
+                ru.DahliaFuncDef(
                     function_id=func_name,
                     component_name=comp_name,
                     dest=dest,
                     args=value.args,
                     attributes=value.attrs,
-                    data_type=get_dahlia_data_type(let.var.type_annotation),
+                    data_type=ru.get_dahlia_data_type(let.var.type_annotation),
                 )
             )
         else:
@@ -212,7 +216,7 @@ def relay_transforms(mod) -> Function:
     return mod["main"]
 
 
-def check_naming_convention(func_defs: List[DahliaFuncDef]):
+def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
     """Names that begin with the prefix `__` are reserved for
     the Dahlia programs that are created to implement the
     respective Relay call nodes. For example, `__x` is

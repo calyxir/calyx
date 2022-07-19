@@ -1,6 +1,7 @@
+# type: ignore
 import tvm
 from tvm import relay
-from calyx.py_ast import *
+from calyx.py_ast import CompVar, Stdlib, CompInst, Cell, Invoke, CompPort
 from calyx.utils import bits_needed
 from typing import List
 from dataclasses import dataclass
