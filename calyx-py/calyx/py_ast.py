@@ -1,6 +1,6 @@
 from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List, Union, Any, Tuple, Optional
 from calyx.utils import block
 
 
@@ -13,9 +13,7 @@ class Emittable:
         print(self.doc())
 
 
-### Program ###
-
-
+# Program
 @dataclass
 class Import(Emittable):
     filename: str
@@ -35,9 +33,7 @@ class Program(Emittable):
         return f"{imports}\n{components}"
 
 
-### Component ###
-
-
+# Component
 @dataclass
 class Component:
     name: str
@@ -60,6 +56,7 @@ class Component:
         self.name = name
         self.controls = controls
         # Partition cells and wires.
+
         def is_cell(x):
             return isinstance(x, Cell)
 
@@ -76,9 +73,7 @@ class Component:
         return block(signature, [cells, wires, controls])
 
 
-### Ports ###
-
-
+# Ports
 @dataclass
 class Port(Emittable):
     pass
@@ -142,7 +137,7 @@ class PortDef(Emittable):
         return f"{self.id.doc()}: {self.width}"
 
 
-### Structure ###
+# Structure
 @dataclass
 class Structure(Emittable):
     pass
@@ -163,7 +158,7 @@ class Cell(Structure):
 class Connect(Structure):
     src: Port
     dest: Port
-    guard: GuardExpr = None
+    guard: Optional[GuardExpr] = None
 
     def doc(self) -> str:
         source = (
@@ -178,11 +173,12 @@ class Connect(Structure):
 class Group(Structure):
     id: CompVar
     connections: list[Connect]
-    static_delay: int = None
+    static_delay: Optional[int] = None
 
     def doc(self) -> str:
         static_delay_attr = (
-            "" if self.static_delay is None else f'<"static"={self.static_delay}>'
+            "" if self.static_delay is None
+            else f'<"static"={self.static_delay}>'
         )
         return block(
             f"group {self.id.doc()}{static_delay_attr}",
@@ -212,7 +208,7 @@ class CompInst(Emittable):
         return f"{self.id}({args})"
 
 
-### Guard Expressions ###
+# Guard Expressions
 @dataclass
 class GuardExpr(Emittable):
     pass
@@ -252,9 +248,7 @@ class Or(GuardExpr):
         return f"{self.left.doc()} | {self.right.doc()}"
 
 
-### Control ###
-
-
+# Control
 @dataclass
 class Control(Emittable):
     pass
@@ -296,16 +290,16 @@ class ParComp(Control):
 @dataclass
 class Invoke(Control):
     id: CompVar
-    in_connects: List[(str, Port)]
-    out_connects: List[(str, Port)]
-    comb_group: CompVar = None
-    attributes: List[(str, int)] = field(default_factory=list)
+    in_connects: List[Tuple[str, Port]]
+    out_connects: List[Tuple[str, Port]]
+    comb_group: Optional[CompVar] = None
+    attributes: List[Tuple[str, int]] = field(default_factory=list)
 
     def doc(self) -> str:
         in_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.in_connects])
         out_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.out_connects])
         attrs = " ".join([f"@{tag}({val})" for tag, val in self.attributes])
-        inv = f"{attrs}invoke {self.id.doc()}({in_defs})({out_defs})"
+        inv = f"{attrs} invoke {self.id.doc()}({in_defs})({out_defs})"
         if self.comb_group is not None:
             inv += f" with {self.comb_group.doc()};"
         else:
@@ -357,7 +351,7 @@ class If(Control):
 
 @dataclass
 class Metadata:
-    metadata_map: dict[any, str]
+    metadata_map: dict[Any, str]
 
     def doc(self) -> str:
         out = "metadata #{\n"
@@ -367,9 +361,7 @@ class Metadata:
         return out
 
 
-### Standard Library ###
-
-
+# Standard Library
 @dataclass
 class Stdlib:
     def register(self, bitwidth: int):
@@ -391,9 +383,13 @@ class Stdlib:
         return CompInst("std_mem_d1", [bitwidth, size, idx_size])
 
     def mem_d2(
-        self, bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int
+        self, bitwidth: int, size0: int, size1: int, idx_size0: int,
+        idx_size1: int
     ):
-        return CompInst("std_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
+        return CompInst(
+            "std_mem_d2",
+            [bitwidth, size0, size1, idx_size0, idx_size1]
+        )
 
     def mem_d3(
         self,
@@ -437,10 +433,12 @@ class Stdlib:
             ],
         )
 
-    ### Extended Fixed Point AST ###
+    # Extended Fixed Point AST
     def fixed_point_op(
-        self, op: str, width: int, int_width: int, frac_width: int, signed: bool
+        self, op: str, width: int, int_width: int, frac_width: int,
+        signed: bool
     ):
         return CompInst(
-            f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]
+            f'std_fp_{"s" if signed else ""}{op}', [
+                width, int_width, frac_width]
         )
