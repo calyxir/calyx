@@ -1,6 +1,6 @@
 from __future__ import annotations  # Used for circular dependencies.
 from dataclasses import dataclass, field
-from typing import List, Union, Any, Tuple, Optional
+from typing import List, Any, Tuple, Optional
 from calyx.utils import block
 
 
@@ -26,11 +26,19 @@ class Import(Emittable):
 class Program(Emittable):
     imports: List[Import]
     components: List[Component]
+    meta: dict[Any, str] = field(default_factory=dict)
 
     def doc(self) -> str:
-        imports = "\n".join([i.doc() for i in self.imports])
-        components = "\n".join([c.doc() for c in self.components])
-        return f"{imports}\n{components}"
+        out = "\n".join([i.doc() for i in self.imports])
+        if len(self.imports) > 0:
+            out += "\n"
+        out += "\n".join([c.doc() for c in self.components])
+        if len(self.meta) > 0:
+            out += "\nmetadata #{\n"
+            for key, val in self.meta.items():
+                out += f"{key}: {val}\n"
+            out += "}#"
+        return out
 
 
 # Component
@@ -255,7 +263,7 @@ class Control(Emittable):
 
 
 @dataclass
-class Enable(Emittable):
+class Enable(Control):
     stmt: str
 
     def doc(self) -> str:
@@ -263,17 +271,8 @@ class Enable(Emittable):
 
 
 @dataclass
-class ControlOrEnable(Emittable):
-    ControlOrEnableType = Union[Control, Enable]
-    stmt: ControlOrEnableType
-
-    def doc(self) -> str:
-        return self.doc()
-
-
-@dataclass
 class SeqComp(Control):
-    stmts: list[ControlOrEnable]
+    stmts: list[Control]
 
     def doc(self) -> str:
         return block("seq", [s.doc() for s in self.stmts])
@@ -281,7 +280,7 @@ class SeqComp(Control):
 
 @dataclass
 class ParComp(Control):
-    stmts: list[ControlOrEnable]
+    stmts: list[Control]
 
     def doc(self) -> str:
         return block("par", [s.doc() for s in self.stmts])
@@ -364,18 +363,6 @@ class If(Control):
         else:
             false_branch = block(" else", self.false_branch.doc(), sep="")
         return block(cond, true_branch, sep="") + false_branch
-
-
-@dataclass
-class Metadata:
-    metadata_map: dict[Any, str]
-
-    def doc(self) -> str:
-        out = "metadata #{\n"
-        for key, val in self.metadata_map.items():
-            out += f"{key}: {val}\n"
-        out += "}#"
-        return out
 
 
 # Standard Library

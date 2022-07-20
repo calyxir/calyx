@@ -1,22 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) x = std_mem_d2(32, 1, 4096, 1, 13);
-    @external(1) y = std_mem_d2(32, 10, 4096, 4, 13);
-    @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
-    dense_1x10_ = dense_1x10();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke dense_1x10_[x0_0=x, y0_0=y, x10_0=x1]()();
-    }
-  }
-}
 component dense_1x10() -> () {
   cells {
     ref x0_0 = std_mem_d2(32,1,4096,1,13);
@@ -247,3 +231,22 @@ component dense_1x10() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d2(32, 1, 4096, 1, 13);
+    @external(1) y = std_mem_d2(32, 10, 4096, 4, 13);
+    @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
+    dense_1x10_ = dense_1x10();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke dense_1x10_[x0_0=x, y0_0=y, x10_0=x1]()();
+    }
+  }
+}
+metadata #{
+0: let %x1: Tensor[(1, 10), int32] = nn.dense(%x, %y, units=10) /* ty=Tensor[(1, 10), int32] */;
+}#

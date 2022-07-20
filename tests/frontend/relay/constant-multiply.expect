@@ -1,22 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) x = std_mem_d1(32, 1, 1);
-    x1 = std_const(32, 0);
-    @external(1) x2 = std_mem_d1(32, 1, 1);
-    multiply_1_ = multiply_1();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke multiply_1_[x0=x, x20=x2](x1=x1.out)();
-    }
-  }
-}
 component multiply_1(x1: 32) -> () {
   cells {
     ref x0 = std_mem_d1(32,1,1);
@@ -84,3 +68,22 @@ component multiply_1(x1: 32) -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d1(32, 1, 1);
+    x1 = std_const(32, 0);
+    @external(1) x2 = std_mem_d1(32, 1, 1);
+    multiply_1_ = multiply_1();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke multiply_1_[x0=x, x20=x2](x1=x1.out)();
+    }
+  }
+}
+metadata #{
+0: let %x2: Tensor[(1), int32] = multiply(%x, %x1) /* ty=Tensor[(1), int32] */;
+}#

@@ -1,22 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) x = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    @external(1) bias = std_mem_d1(32, 64, 7);
-    @external(1) x1 = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    bias_add_1x64x512x256_ = bias_add_1x64x512x256();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke bias_add_1x64x512x256_[x0_0_0_0=x, bias0=bias, x10_0_0_0=x1]()();
-    }
-  }
-}
 component bias_add_1x64x512x256() -> () {
   cells {
     ref x0_0_0_0 = std_mem_d4(32,1,64,512,256,1,7,10,9);
@@ -177,3 +161,22 @@ component bias_add_1x64x512x256() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external(1) bias = std_mem_d1(32, 64, 7);
+    @external(1) x1 = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    bias_add_1x64x512x256_ = bias_add_1x64x512x256();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke bias_add_1x64x512x256_[x0_0_0_0=x, bias0=bias, x10_0_0_0=x1]()();
+    }
+  }
+}
+metadata #{
+0: let %x1: Tensor[(1, 64, 512, 256), float32] = nn.bias_add(%x, %bias) /* ty=Tensor[(1, 64, 512, 256), float32] */;
+}#
