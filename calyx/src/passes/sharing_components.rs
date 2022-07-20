@@ -66,7 +66,7 @@ pub trait ShareComponents {
     /// before graph coloring is performed.
     fn custom_conflicts<F>(&self, _comp: &ir::Component, _add_conflicts: F)
     where
-        F: FnMut(Vec<BTreeSet<&ir::Id>>),
+        F: FnMut(Vec<(ir::Id, BTreeSet<&ir::Id>)>),
     {
     }
 
@@ -164,18 +164,22 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt4: {}ms", start.elapsed().as_millis());
 
         // add custom conflicts
-        self.custom_conflicts(comp, |confs: Vec<BTreeSet<&ir::Id>>| {
-            for conf in confs {
-                for (a, b) in conf.iter().tuple_combinations() {
-                    if id_to_type[a] == id_to_type[b] {
-                        if let Some(g) = graphs_by_type.get_mut(&id_to_type[a])
-                        {
-                            g.insert_conflict(a, b)
+        self.custom_conflicts(
+            comp,
+            |confs: Vec<(ir::Id, BTreeSet<&ir::Id>)>| {
+                for (_, conf) in confs {
+                    for (a, b) in conf.iter().tuple_combinations() {
+                        if id_to_type[a] == id_to_type[b] {
+                            if let Some(g) =
+                                graphs_by_type.get_mut(&id_to_type[a])
+                            {
+                                g.insert_conflict(a, b)
+                            }
                         }
                     }
                 }
-            }
-        });
+            },
+        );
 
         log::info!("checkpt5: {}ms", start.elapsed().as_millis());
 
