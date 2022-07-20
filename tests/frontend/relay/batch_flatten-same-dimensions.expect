@@ -1,21 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) x = std_mem_d2(32, 2, 4096, 2, 13);
-    @external(1) x1 = std_mem_d2(32, 2, 4096, 2, 13);
-    batch_flatten_2x4096_ = batch_flatten_2x4096();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke batch_flatten_2x4096_[x0_0=x, x10_0=x1]()();
-    }
-  }
-}
 component batch_flatten_2x4096() -> () {
   cells {
     ref x0_0 = std_mem_d2(32,2,4096,2,13);
@@ -120,3 +105,21 @@ component batch_flatten_2x4096() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d2(32, 2, 4096, 2, 13);
+    @external(1) x1 = std_mem_d2(32, 2, 4096, 2, 13);
+    batch_flatten_2x4096_ = batch_flatten_2x4096();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke batch_flatten_2x4096_[x0_0=x, x10_0=x1]()();
+    }
+  }
+}
+metadata #{
+0: let %x1: Tensor[(2, 4096), int32] = nn.batch_flatten(%x) /* ty=Tensor[(2, 4096), int32] */;
+}#

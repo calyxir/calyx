@@ -129,7 +129,7 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1 :]
+                func_name = func_name[prefix + 1:]
 
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
@@ -246,7 +246,7 @@ def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
             )
 
 
-def emit_calyx(relay_ir) -> str:
+def emit_calyx(relay_ir) -> (str, Program):
     """Lowers a Relay function to a Calyx program."""
     relay_ir = relay_transforms(relay_ir)
     visitor = Relay2Calyx()
@@ -254,19 +254,16 @@ def emit_calyx(relay_ir) -> str:
     check_naming_convention(func_defs)
 
     return (
-        "\n".join(
-            (
-                emit_components(func_defs),
-                Program(
-                    imports=[
-                        Import("primitives/core.futil"),
-                        Import("primitives/binary_operators.futil"),
-                        Import("primitives/math.futil"),
-                    ],
-                    components=[main],
-                    meta=visitor.source_map
-                ).doc(),
-            )
+        (
+            emit_components(func_defs),
+            Program(
+                imports=[
+                    # Manually printed because we need to print the Dahlia
+                    # function definitions
+                ],
+                components=[main],
+                meta=visitor.source_map
+            ),
         )
     )
 
@@ -314,4 +311,13 @@ if __name__ == "__main__":
     ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
 
     relay_ir = relay.fromtext(relay_ir)
-    print(emit_calyx(relay_ir))
+    imports = [
+        Import("primitives/core.futil"),
+        Import("primitives/binary_operators.futil"),
+        Import("primitives/math.futil"),
+    ]
+    (dahlia_defs, prog) = emit_calyx(relay_ir)
+    for imp in imports:
+        print(imp.doc())
+    print(dahlia_defs)
+    print(prog.doc())

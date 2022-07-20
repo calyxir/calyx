@@ -1,21 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) data = std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
-    @external(1) result = std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
-    max_pool2d_2x2x2x2_ = max_pool2d_2x2x2x2();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke max_pool2d_2x2x2x2_[data0_0_0_0=data, result0_0_0_0=result]()();
-    }
-  }
-}
 component max_pool2d_2x2x2x2() -> () {
   cells {
     ref data0_0_0_0 = std_mem_d4(32,2,2,4,4,2,2,3,3);
@@ -332,3 +317,21 @@ component max_pool2d_2x2x2x2() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) data = std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
+    @external(1) result = std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
+    max_pool2d_2x2x2x2_ = max_pool2d_2x2x2x2();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke max_pool2d_2x2x2x2_[data0_0_0_0=data, result0_0_0_0=result]()();
+    }
+  }
+}
+metadata #{
+0: let %result: Tensor[(2, 2, 2, 2), int32] = nn.max_pool2d(%data, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 0, 0]) /* ty=Tensor[(2, 2, 2, 2), int32] */;
+}#

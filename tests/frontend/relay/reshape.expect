@@ -1,21 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) x = std_mem_d4(32, 1, 2, 2, 2, 1, 2, 2, 2);
-    @external(1) x1 = std_mem_d2(32, 1, 8, 1, 4);
-    reshape_1x8_ = reshape_1x8();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke reshape_1x8_[x0_0_0_0=x, x10_0=x1]()();
-    }
-  }
-}
 component reshape_1x8() -> () {
   cells {
     ref x0_0_0_0 = std_mem_d4(32,1,2,2,2,1,2,2,2);
@@ -179,3 +164,21 @@ component reshape_1x8() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d4(32, 1, 2, 2, 2, 1, 2, 2, 2);
+    @external(1) x1 = std_mem_d2(32, 1, 8, 1, 4);
+    reshape_1x8_ = reshape_1x8();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke reshape_1x8_[x0_0_0_0=x, x10_0=x1]()();
+    }
+  }
+}
+metadata #{
+0: let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape=[-1, 8]) /* ty=Tensor[(1, 8), float32] */;
+}#
