@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import pynq
 import numpy as np
-from typing import Mapping, Any
+from typing import Mapping, Any, Dict
 from pathlib import Path
-from fud.stages.json_to_dat import parse_fp_widths, float_to_fixed
+from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.errors import InvalidNumericType
 
 
 # XXX(nathanielnrn): Should xclbin typing only be pathlib.Path, or also accept strings?
-def run(xclbin_path: Path, data: Mapping[str, Any]) -> None:
+def run(xclbin_path: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
     """Takes in a json data output and runs pynq using the data provided
     returns a dictionary that can be converted into json
 
