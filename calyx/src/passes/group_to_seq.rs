@@ -6,10 +6,10 @@ use std::collections::BTreeMap;
 #[derive(Default)]
 /// Transforms a group into a seq of 2 smaller groups, if possible.
 /// Currently, in order for a group to be transformed must
-/// a) consist of only writes to 2 different non-combination cells (let's
-/// call them cell1 and cell2) or the group's done port
-/// b) have cell2.go = cell1.done assignment
-/// c) have group[done] = cell2.done
+/// 1) Group must write to exactly 2 cells -- let's call them cell1 and cell2
+/// 2) cell1 and cell2 must be either non-combinational primitives or components
+/// 3) Must have group[done] = cell2.done and cell2.go = cell1.done;
+/// 4) All reads of cell1 must be a stable port or cell1.done.
 pub struct GroupToSeq {
     ///Maps names of group to the sequences that will replace them
     group_seq_map: BTreeMap<ir::Id, ir::Control>,
@@ -101,26 +101,15 @@ fn comp_or_non_comb(cell: &ir::RRC<ir::Cell>) -> bool {
 //If asmt is a write to a cell named name returns Some(name).
 //If asmt is a write to a group port, returns None.
 fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::Id> {
-    match &asmt.dst.borrow().parent {
-        ir::PortParent::Cell(cell) => {
-            Some(cell.upgrade().borrow().clone_name())
-        }
-        ir::PortParent::Group(_) => None,
-    }
+    ReadWriteSet::write_set(std::iter::once(asmt))
+        .next()
+        .map(|cell| cell.borrow().clone_name())
 }
 
 #[derive(Default)]
 ///Primarily used to help determine the order cells are executed within
 ///the group, and if possible, to transform a group into a seq of two smaller groups
-pub struct SplitAnalysis {
-    // First 2 fields help determine if transformation can be applied. Remaining
-    // fields help to apply the transformation.
-    ///Holds, (b,a) for assignment of form a.go = b.done,
-    done_go: Option<(ir::Id, ir::Id)>,
-
-    ///Holds a for assignment of form group[done] = a.done
-    last: Option<ir::Id>,
-
+struct SplitAnalysis {
     /// Holds the go-done assignment, i.e. a.go = b.done
     go_done_asmt: Option<ir::Assignment>,
 
@@ -141,7 +130,8 @@ impl SplitAnalysis {
     /// Based on assigns, returns Ok(group1, group2), where (group1,group2) are
     /// the groups that can be made by splitting assigns. If it is not possible to split
     /// assigns into two groups, then just regurn Err(assigns).
-    /// Criteria for being able to split assigns into two groups:
+    /// Criteria for being able to split assigns into two groups (this criteria
+    /// is already specified in group2seq's description as well):
     /// 1) Group must write to exactly 2 cells -- let's call them cell1 and cell2
     /// 2) cell1 and cell2 must be either non-combinational primitives or components
     /// 3) Must have group[done] = cell2.done and cell2.go = cell1.done;
@@ -156,14 +146,14 @@ impl SplitAnalysis {
 
         // Builds ordering. If it cannot build a valid linear ordering of length 2,
         // then returns None, and we stop.
-        let mut split_analysis = SplitAnalysis::default();
-        let (first, second) = match split_analysis.possible_split(&assigns) {
+        let (first, second) = match SplitAnalysis::possible_split(&assigns) {
             None => return Err(assigns),
             Some(order) => order,
         };
 
         // Sets the first_go_asmt, fst_asmts, snd_asmts group_done_asmt, go_done_asmt
         // fields for split_analysis
+        let mut split_analysis = SplitAnalysis::default();
         split_analysis.organize_assignments(assigns, &first, &second);
 
         // If there is assignment in the form first.go = !first.done ? 1'd1,
@@ -245,11 +235,10 @@ impl SplitAnalysis {
         }
     }
 
-    // Builds ordering for self. Returns true if this is a complete, valid,
-    // linear ordering in which all reads from the fist cell are from a
-    // stable port, false otherwise.
+    // Builds ordering for self. If there is a possible ordering of asmts that
+    // satisfy group2seq's criteria, then return the ordering in the form of
+    // Some(cell1, cell2). Otherwise return None.
     pub fn possible_split(
-        &mut self,
         asmts: &[ir::Assignment],
     ) -> Option<(ir::Id, ir::Id)> {
         let v = ReadWriteSet::write_set(asmts.iter())
@@ -257,61 +246,67 @@ impl SplitAnalysis {
             .collect::<Vec<ir::Id>>();
 
         if v.len() == 2 {
-            //Update self.go_done_map and self.last for each asmt in the group.
-            for asmt in asmts {
-                self.update(asmt);
-            }
-            if let (Some(last), Some((maybe_first, maybe_last))) =
-                (self.last.clone(), self.done_go.clone())
-            {
-                if maybe_last == last
-                // making sure maybe_fist and maybe_last are the only 2 cells written to 
+            let (maybe_first, maybe_last, last) =
+                Self::look_for_assigns(asmts)?;
+            if maybe_last == last
+                // making sure maybe_first and maybe_last are the only 2 cells written to 
                 && v.contains(&maybe_first)
                 && v.contains(&maybe_last)
                 // making sure that all reads of the first cell are from stable ports 
                 && asmts.iter().all(|assign| {
                     if_name_stable_or_done(assign, &maybe_first)
-                }) {
-                    return Some((maybe_first, maybe_last));
-                }
+                })
+            {
+                return Some((maybe_first, maybe_last));
             }
         }
         None
     }
 
-    // For a given asmt, if asmt is a.go = b.done, then we add (b,a) to self.go_done_map.
-    // Also if asmt is group[done] = cell.done, sets self.last to Some(cell).
-    fn update(&mut self, asmt: &ir::Assignment) {
-        let src = asmt.src.borrow();
-        let dst = asmt.dst.borrow();
-        match (&src.parent, &dst.parent) {
-            (
-                ir::PortParent::Cell(src_cell),
-                ir::PortParent::Cell(dst_cell),
-            ) => {
-                if src.attributes.has("done")
-                    && dst.attributes.has("go")
-                    && comp_or_non_comb(&src_cell.upgrade())
-                    && comp_or_non_comb(&dst_cell.upgrade())
-                {
-                    self.done_go = Some((
-                        src_cell.upgrade().clone_name(),
-                        dst_cell.upgrade().clone_name(),
-                    ));
+    // Searches thru asmts for an a.go = b.done, or a group[done] = c.done assignment.
+    // If we can find examples of such assignments, returns Some(b,a,c).
+    // Otherwise returns None.
+    fn look_for_assigns(
+        asmts: &[ir::Assignment],
+    ) -> Option<(ir::Id, ir::Id, ir::Id)> {
+        let mut done_go: Option<(ir::Id, ir::Id)> = None;
+        let mut last: Option<ir::Id> = None;
+        for asmt in asmts {
+            let src = asmt.src.borrow();
+            let dst = asmt.dst.borrow();
+            match (&src.parent, &dst.parent) {
+                (
+                    ir::PortParent::Cell(src_cell),
+                    ir::PortParent::Cell(dst_cell),
+                ) => {
+                    // a.go = b.done case
+                    if src.attributes.has("done")
+                        && dst.attributes.has("go")
+                        && comp_or_non_comb(&src_cell.upgrade())
+                        && comp_or_non_comb(&dst_cell.upgrade())
+                    {
+                        done_go = Some((
+                            src_cell.upgrade().clone_name(),
+                            dst_cell.upgrade().clone_name(),
+                        ));
+                    }
                 }
-            }
-            // src_cell's done writes to group's done
-            (ir::PortParent::Cell(src_cell), ir::PortParent::Group(_)) => {
-                if dst.name == "done"
-                    && src.attributes.has("done")
-                    && comp_or_non_comb(&src_cell.upgrade())
-                {
-                    self.last = Some(src_cell.upgrade().borrow().clone_name())
+                (ir::PortParent::Cell(src_cell), ir::PortParent::Group(_)) => {
+                    // group[done] = c.done case
+                    if dst.name == "done"
+                        && src.attributes.has("done")
+                        && comp_or_non_comb(&src_cell.upgrade())
+                    {
+                        last = Some(src_cell.upgrade().borrow().clone_name())
+                    }
                 }
+                // If we encounter anything else, then not of interest to us
+                _ => (),
             }
-            // If we encounter anything else, then not of interest to us
-            _ => (),
         }
+        let (done, go) = done_go?;
+        let last_val = last?;
+        Some((done, go, last_val))
     }
     //Returns whether the given assignment is a go-done assignment
     //i.e. cell1.go = cell2.done.
@@ -329,23 +324,15 @@ impl SplitAnalysis {
     //Returns whether the given assignment writes to the go assignment of cell
     //in the form cell.go = !cell.done? 1'd1.
     pub fn is_specific_go(asmt: &ir::Assignment, cell: &ir::Id) -> bool {
-        //checks whether guard is cell.done
-        let guard_is_done = |guard: &ir::Guard| -> bool {
-            match guard {
-                ir::Guard::Port(port) => {
-                    port.borrow().attributes.has("done")
-                        && port.borrow().get_parent_name() == cell
-                }
-                _ => false,
-            }
-        };
-
         //checks whether guard is !cell.done
         let guard_not_done = |guard: &ir::Guard| -> bool {
-            match guard {
-                ir::Guard::Not(g) => guard_is_done(&*g),
-                _ => false,
+            if let ir::Guard::Not(g) = guard {
+                if let ir::Guard::Port(port) = &(**g) {
+                    return port.borrow().attributes.has("done")
+                        && port.borrow().get_parent_name() == cell;
+                }
             }
+            false
         };
 
         let dst = asmt.dst.borrow();

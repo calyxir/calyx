@@ -70,6 +70,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
+                GroupToSeq,
                 ComponentInliner,
                 CombProp,
                 RemoveCombGroups, // Must run before `infer-static-timing`.
@@ -79,7 +80,6 @@ impl PassManager {
                 StaticParConv,    // Must be before `collapse-control`
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.
-                GroupToSeq,
                 CellShare,
             ]
         );
