@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import pynq
 import numpy as np
+import simplejson as sjson
 from typing import Mapping, Any
-from fud.stages.json_to_dat import parse_fp_widths
+from fud.stages.json_to_dat import parse_fp_widths, float_to_fixed
+from fud.errors import InvalidNumericType
 
 
-def run(xclbin: data: Mapping[str, Any]) -> None:
+def run(data: Mapping[str, Any]) -> None:
     """Takes in the output of simplejson.loads() and runs pynq using the data provided
 
     Assumes that data is a properly formatted calyx data file.
@@ -14,12 +16,11 @@ def run(xclbin: data: Mapping[str, Any]) -> None:
     """
 
     # TODO: find xclbin file name/path
-    xclbin = 
+    xclbin = ""
     ol = pynq.Overlay(xclbin)
 
     buffers = []
     for mem in data.keys():
-        print(f"{mem} is " + str(mem))
         ndarray = np.array(data[mem]["data"], dtype=_dtype(mem, data))
         shape = ndarray.shape
         buffer = pynq.allocate(shape, dtype=ndarray.dtype)
@@ -37,18 +38,31 @@ def run(xclbin: data: Mapping[str, Any]) -> None:
     timeout = 1000
     kernel.call(timeout, *buffers)
 
-    for buffer in buffers:
-        buffer.sync_from_device()
+    output = {"memories": {}}
+    # converts needed data from buffers and adds to json output
     for i, mem in enumerate(data.keys()):
+        buffers[i].sync_from_device()
         # converts int representation into fixed point
         if data[mem]["format"]["numeric_type"] == "fixed_point":
             width, int_width = parse_fp_widths(data[mem]["format"])
             frac_width = width - int_width
-            convert_to_fp = lambda e: e / (2**frac_width)  # noqa : E731
+
+            def convert_to_fp(value: float):
+                float_to_fixed(float(value), frac_width)
+
             convert_to_fp(buffers[i])
-        # TODO: what to do with arrays? convert back to json? for now prints
-        # clean up
-        del mem
+            output["memories"][mem] = list((buffers[i]))
+        elif data[mem]["format"]["numeric_type"] == "bitnum":
+            output["memories"][mem] = list(map(lambda e: int(e), buffers[i]))
+
+        else:
+            raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
+
+    json_output = sjson.dumps(output, indent=2, use_decimal=True)
+    print(json_output)
+
+    # PYNQ recommends deleting buffers and freeing overlay
+    del buffers
     ol.free()
 
 
