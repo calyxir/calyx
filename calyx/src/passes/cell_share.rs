@@ -4,8 +4,7 @@ use crate::{
     analysis::{LiveRangeAnalysis, ReadWriteSet, ShareSet},
     ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
 };
-use itertools::Itertools;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 /// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
@@ -127,26 +126,7 @@ impl ShareComponents for CellShare {
     {
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
-        add_conflicts(
-            invokes_enables, /*.iter()
-                              .map(|node| {
-                                 (
-                                     node.clone(),
-                                     self.live
-                                         .get(node)
-                                         .iter()
-                                         // TODO(rachit): Once we make the above change and LiveRangeAnalysis ignores
-                                         // cont_ref_cells during construction, we do not need this filter call.
-                                         .filter(|cell_name| {
-                                             !self.cont_ref_cells.contains(cell_name)
-                                         })
-                                         .collect::<BTreeSet<&ir::Id>>()
-                                         .clone(),
-                                 )
-                             })
-                             .unique_by(|(_, b)| b.clone())
-                             .collect_vec()*/
-        )
+        add_conflicts(invokes_enables)
     }
 
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>) {

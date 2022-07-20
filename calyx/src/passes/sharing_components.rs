@@ -125,28 +125,32 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt2: {}ms", start.elapsed().as_millis());
 
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
-        let mut node_conflicts = par_conflicts
-            .all_conflicts()
-            .into_grouping_map_by(|(g1, _)| g1.clone())
-            .fold(
-                HashMap::<&ir::CellType, BTreeSet<&ir::Id>>::new(),
-                |mut acc, _, (_, conflicted_group)| {
-                    for conflict in
-                        self.lookup_node_conflicts(&conflicted_group)
-                    {
-                        acc.entry(&id_to_type[conflict])
-                            .or_default()
-                            .insert(conflict);
-                    }
-                    acc
-                },
-            );
+
+        let i = par_conflicts.all_conflicts();
+
+        log::info!("checkpt2.4: {}ms", start.elapsed().as_millis());
+
+        let j = i.into_grouping_map_by(|(g1, _)| g1.clone());
+
+        log::info!("checkpt2.6: {}ms", start.elapsed().as_millis());
+
+        let mut node_conflicts = j.fold(
+            HashMap::<&ir::CellType, BTreeSet<&ir::Id>>::new(),
+            |mut acc, _, (_, conflicted_group)| {
+                for conflict in self.lookup_node_conflicts(&conflicted_group) {
+                    acc.entry(&id_to_type[conflict])
+                        .or_default()
+                        .insert(conflict);
+                }
+                acc
+            },
+        );
 
         log::info!("checkpt3: {}ms", start.elapsed().as_millis());
 
         // add custom conflicts
-        self.custom_conflicts(comp, |confs: HashSet<ir::Id>| {
-            for node_name in confs {
+        self.custom_conflicts(comp, |nodes: HashSet<ir::Id>| {
+            for node_name in nodes {
                 let mut emtpy_map = HashMap::new();
                 let conflict_map = match node_conflicts.get_mut(&node_name) {
                     None => &mut emtpy_map,
@@ -154,15 +158,14 @@ impl<T: ShareComponents> Visitor for T {
                 };
                 for a in self.lookup_node_conflicts(&node_name) {
                     let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
-                    if let Some(par_confs) =
-                        conflict_map.get_mut(&id_to_type[a])
+                    if let Some(b_confs) = conflict_map.get_mut(&id_to_type[a])
                     {
-                        for &b in par_confs.iter() {
+                        for &b in b_confs.iter() {
                             if a != b {
                                 g.insert_conflict(a, b);
                             }
                         }
-                        par_confs.insert(a);
+                        b_confs.insert(a);
                     } else {
                         conflict_map
                             .insert(&id_to_type[a], BTreeSet::from([a]));
