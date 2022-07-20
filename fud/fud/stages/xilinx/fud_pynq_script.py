@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 import pynq
 import numpy as np
-import simplejson as sjson
 from typing import Mapping, Any
+from pathlib import Path
 from fud.stages.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.errors import InvalidNumericType
 
 
-def run(data: Mapping[str, Any]) -> None:
-    """Takes in the output of simplejson.loads() and runs pynq using the data provided
+# XXX(nathanielnrn): Should xclbin typing only be pathlib.Path, or also accept strings?
+def run(xclbin_path: Path, data: Mapping[str, Any]) -> None:
+    """Takes in a json data output and runs pynq using the data provided
+    returns a dictionary that can be converted into json
 
+    `xclbin` is path to relevant xclbin file.
     Assumes that data is a properly formatted calyx data file.
     Data file order must match the expected call signature in terms of order
-    Also assume that the Any type is a valid json-type equivalent
+    Also assume that the data Mapping values type are valid json-type equivalents
     """
 
-    # TODO: find xclbin file name/path
-    xclbin = ""
-    ol = pynq.Overlay(xclbin)
+    # pynq.Overlay expects a str
+    # Raises FileNotFoundError if xclbin file does not exist
+    ol = pynq.Overlay(xclbin_path.resolve(strict=True))
 
     buffers = []
     for mem in data.keys():
@@ -58,12 +61,10 @@ def run(data: Mapping[str, Any]) -> None:
         else:
             raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
 
-    json_output = sjson.dumps(output, indent=2, use_decimal=True)
-    print(json_output)
-
     # PYNQ recommends deleting buffers and freeing overlay
     del buffers
     ol.free()
+    return output
 
 
 def _dtype(mem: str, data: Mapping[str, Any]) -> np.dtype:
