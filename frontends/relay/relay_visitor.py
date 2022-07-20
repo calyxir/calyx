@@ -16,7 +16,6 @@ from calyx.py_ast import (
     Cell,
     CompVar,
     CompInst,
-    Metadata,
     Import,
     Program,
     SeqComp,
@@ -247,7 +246,7 @@ def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
             )
 
 
-def emit_calyx(relay_ir) -> (str, Dict):
+def emit_calyx(relay_ir) -> str:
     """Lowers a Relay function to a Calyx program."""
     relay_ir = relay_transforms(relay_ir)
     visitor = Relay2Calyx()
@@ -257,6 +256,7 @@ def emit_calyx(relay_ir) -> (str, Dict):
     return (
         "\n".join(
             (
+                emit_components(func_defs),
                 Program(
                     imports=[
                         Import("primitives/core.futil"),
@@ -264,11 +264,10 @@ def emit_calyx(relay_ir) -> (str, Dict):
                         Import("primitives/math.futil"),
                     ],
                     components=[main],
+                    meta=visitor.source_map
                 ).doc(),
-                emit_components(func_defs),
             )
-        ),
-        visitor.source_map,
+        )
     )
 
 
@@ -301,11 +300,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
     parser.add_argument("file", help="Path to the Relay IR.")
-    parser.add_argument(
-        "--write-metadata",
-        action="store_true",
-        dest="write_metadata",
-    )
 
     args = parser.parse_args()
     if args.file is None:
@@ -320,10 +314,4 @@ if __name__ == "__main__":
     ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
 
     relay_ir = relay.fromtext(relay_ir)
-    calyx, metadata = emit_calyx(relay_ir)
-
-    print(calyx)
-
-    if args.write_metadata:
-        metadata = Metadata(metadata)
-        print(metadata.doc())
+    print(emit_calyx(relay_ir))
