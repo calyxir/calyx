@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import pynq
 import numpy as np
+from typing import Mapping, Any
 from fud.stages.json_to_dat import parse_fp_widths
 
 
-def run(data: Mapping[str, Any]) -> None:
+def run(xclbin: data: Mapping[str, Any]) -> None:
     """Takes in the output of simplejson.loads() and runs pynq using the data provided
 
     Assumes that data is a properly formatted calyx data file.
@@ -13,13 +14,17 @@ def run(data: Mapping[str, Any]) -> None:
     """
 
     # TODO: find xclbin file name/path
-    xclbin = None
+    xclbin = 
     ol = pynq.Overlay(xclbin)
 
     buffers = []
     for mem in data.keys():
-        ndarray = np.array(data[mem]["data"], dtype=_data_type(mem, data))
-        buffers.append(pynq.allocate(ndarray.shape, dtype=dtype))
+        print(f"{mem} is " + str(mem))
+        ndarray = np.array(data[mem]["data"], dtype=_dtype(mem, data))
+        shape = ndarray.shape
+        buffer = pynq.allocate(shape, dtype=ndarray.dtype)
+        buffer[:] = ndarray[:]
+        buffers.append(buffer)
 
     for buffer in buffers:
         buffer.sync_to_device()
@@ -35,25 +40,22 @@ def run(data: Mapping[str, Any]) -> None:
     for buffer in buffers:
         buffer.sync_from_device()
     for i, mem in enumerate(data.keys()):
-        if data[mem]["numeric_type"] == "fixed_point":
+        # converts int representation into fixed point
+        if data[mem]["format"]["numeric_type"] == "fixed_point":
             width, int_width = parse_fp_widths(data[mem]["format"])
             frac_width = width - int_width
             convert_to_fp = lambda e: e / (2**frac_width)  # noqa : E731
             convert_to_fp(buffers[i])
-        # TODO: what to do with arrays? convert back to json?
+        # TODO: what to do with arrays? convert back to json? for now prints
         # clean up
         del mem
     ol.free()
 
 
-def _dtype(mem: str, data: Mapping[str:, Any]) -> numpy.dtype:
+def _dtype(mem: str, data: Mapping[str, Any]) -> np.dtype:
     # See https://numpy.org/doc/stable/reference/arrays.dtypes.html for typing
     # details
-    type_string = "i" if data[mem]["is_signed"] else "u"
-    # XXX(nathanielnrn): numpy does not have an unsigned floating point
-    # also, you cannot set arbitrary width floating points like you can in
-    # calyx programs
-    # assumes width is exactly divisible by 8
+    type_string = "i" if data[mem]["format"]["is_signed"] else "u"
     byte_size = int(data[mem]["format"]["width"] / 8)
     type_string = type_string + str(byte_size)
-    return numpy.dtype(type_string)
+    return np.dtype(type_string)
