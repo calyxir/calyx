@@ -92,6 +92,7 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt .5: {}ms", start.elapsed().as_millis());
 
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells
+            .clone()
             .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
@@ -99,17 +100,17 @@ impl<T: ShareComponents> Visitor for T {
         // component's name is used.
 
         // Mapping from type to all cells of that type.
-        let cells_by_type: HashMap<&ir::CellType, Vec<&ir::Id>> =
-            id_to_type.iter().map(|(k, v)| (v, k)).into_group_map();
+        /*let cells_by_type: HashMap<&ir::CellType, Vec<&ir::Id>> =
+        id_to_type.iter().map(|(k, v)| (v, k)).into_group_map();*/
 
-        /*let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
+        let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
             HashMap::new();
         for cell in cells {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
                 .or_default()
                 .push(cell.clone_name())
-        }*/
+        }
 
         log::info!("checkpt1: {}ms", start.elapsed().as_millis());
 
@@ -117,17 +118,14 @@ impl<T: ShareComponents> Visitor for T {
             cells_by_type
                 .into_iter()
                 .map(|(key, cell_names)| {
-                    (
-                        key.clone(),
-                        GraphColoring::from(cell_names.into_iter().cloned()),
-                    )
+                    (key, GraphColoring::from(cell_names.into_iter()))
                 })
                 .collect();
 
         log::info!("checkpt2: {}ms", start.elapsed().as_millis());
 
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
-        let node_conflicts = par_conflicts
+        let mut node_conflicts = par_conflicts
             .all_conflicts()
             .into_grouping_map_by(|(g1, _)| g1.clone())
             .fold(
@@ -146,7 +144,7 @@ impl<T: ShareComponents> Visitor for T {
 
         log::info!("checkpt3: {}ms", start.elapsed().as_millis());
 
-        node_conflicts
+        /*node_conflicts
             .into_iter()
             .for_each(|(node, conflict_group_b)| {
                 for a in self.lookup_node_conflicts(&node) {
@@ -161,22 +159,48 @@ impl<T: ShareComponents> Visitor for T {
                 }
             });
 
-        log::info!("checkpt4: {}ms", start.elapsed().as_millis());
+        log::info!("checkpt4: {}ms", start.elapsed().as_millis());*/
 
         // add custom conflicts
         self.custom_conflicts(
             comp,
             |confs: Vec<(ir::Id, BTreeSet<&ir::Id>)>| {
-                for (_, conf) in confs {
-                    for (a, b) in conf.iter().tuple_combinations() {
-                        if id_to_type[a] == id_to_type[b] {
-                            if let Some(g) =
-                                graphs_by_type.get_mut(&id_to_type[a])
-                            {
-                                g.insert_conflict(a, b)
+                for (node_name, conf) in confs {
+                    match node_conflicts.get_mut(&node_name) {
+                        None => {
+                            for (a, b) in conf.iter().tuple_combinations() {
+                                if id_to_type[a] == id_to_type[b] {
+                                    if let Some(g) =
+                                        graphs_by_type.get_mut(&id_to_type[a])
+                                    {
+                                        g.insert_conflict(a, b)
+                                    }
+                                }
                             }
                         }
-                    }
+                        Some(conflict_map) => {
+                            for a in self.lookup_node_conflicts(&node_name) {
+                                let g = graphs_by_type
+                                    .get_mut(&id_to_type[a])
+                                    .unwrap();
+                                if let Some(confs) =
+                                    conflict_map.get_mut(&id_to_type[a])
+                                {
+                                    for b in confs.iter() {
+                                        if a != b {
+                                            g.insert_conflict(a, b);
+                                        }
+                                    }
+                                    confs.insert(a);
+                                } else {
+                                    conflict_map.insert(
+                                        &id_to_type[a],
+                                        BTreeSet::from([a]),
+                                    );
+                                }
+                            }
+                        }
+                    };
                 }
             },
         );
