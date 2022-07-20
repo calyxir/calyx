@@ -1,22 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
-    @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    conv2d_5x512x14x14_ = conv2d_5x512x14x14();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke conv2d_5x512x14x14_[data0_0_0_0=data, weight0_0_0_0=weight, x0_0_0_0=x]()();
-    }
-  }
-}
 component conv2d_5x512x14x14() -> () {
   cells {
     ref data0_0_0_0 = std_mem_d4(32,5,512,14,14,3,10,4,4);
@@ -363,3 +347,22 @@ component conv2d_5x512x14x14() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
+    @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    conv2d_5x512x14x14_ = conv2d_5x512x14x14();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke conv2d_5x512x14x14_[data0_0_0_0=data, weight0_0_0_0=weight, x0_0_0_0=x]()();
+    }
+  }
+}
+metadata #{
+0: let %x: Tensor[(5, 512, 14, 14), int32] = nn.conv2d(%data, %weight, padding=[1, 1, 1, 1], channels=512, kernel_size=[3, 3]) /* ty=Tensor[(5, 512, 14, 14), int32] */;
+}#

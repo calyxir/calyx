@@ -1,21 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) x = std_mem_d1(32, 4, 3);
-    @external(1) x1 = std_mem_d1(32, 4, 3);
-    negative_4_ = negative_4();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke negative_4_[x0=x, x10=x1]()();
-    }
-  }
-}
 component negative_4() -> () {
   cells {
     ref x0 = std_mem_d1(32,4,3);
@@ -76,3 +61,21 @@ component negative_4() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) x = std_mem_d1(32, 4, 3);
+    @external(1) x1 = std_mem_d1(32, 4, 3);
+    negative_4_ = negative_4();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke negative_4_[x0=x, x10=x1]()();
+    }
+  }
+}
+metadata #{
+0: let %x1: Tensor[(4), int32] = negative(%x) /* ty=Tensor[(4), int32] */;
+}#

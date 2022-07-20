@@ -1,22 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
-  cells {
-    @external(1) a = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external(1) b = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external(1) x = std_mem_d3(32, 4, 7, 7, 3, 3, 3);
-    batch_matmul_4x7x7_ = batch_matmul_4x7x7();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      @pos(0) invoke batch_matmul_4x7x7_[a0_0_0=a, b0_0_0=b, x0_0_0=x]()();
-    }
-  }
-}
 component batch_matmul_4x7x7() -> () {
   cells {
     ref a0_0_0 = std_mem_d3(32,4,7,5,3,3,3);
@@ -309,3 +293,22 @@ component batch_matmul_4x7x7() -> () {
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) a = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external(1) b = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external(1) x = std_mem_d3(32, 4, 7, 7, 3, 3, 3);
+    batch_matmul_4x7x7_ = batch_matmul_4x7x7();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke batch_matmul_4x7x7_[a0_0_0=a, b0_0_0=b, x0_0_0=x]()();
+    }
+  }
+}
+metadata #{
+0: let %x: Tensor[(4, 7, 7), int32] = nn.batch_matmul(%a, %b) /* ty=Tensor[(4, 7, 7), int32] */;
+}#
