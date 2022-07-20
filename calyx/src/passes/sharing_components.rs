@@ -168,13 +168,28 @@ impl<T: ShareComponents> Visitor for T {
                 for (node_name, conf) in confs {
                     match node_conflicts.get_mut(&node_name) {
                         None => {
-                            for (a, b) in conf.iter().tuple_combinations() {
-                                if id_to_type[a] == id_to_type[b] {
-                                    if let Some(g) =
-                                        graphs_by_type.get_mut(&id_to_type[a])
-                                    {
-                                        g.insert_conflict(a, b)
+                            let mut conflict_map: HashMap<
+                                &ir::CellType,
+                                BTreeSet<&ir::Id>,
+                            > = HashMap::new();
+                            for a in conf {
+                                let g = graphs_by_type
+                                    .get_mut(&id_to_type[a])
+                                    .unwrap();
+                                if let Some(confs) =
+                                    conflict_map.get_mut(&id_to_type[a])
+                                {
+                                    for b in confs.iter() {
+                                        if a != b {
+                                            g.insert_conflict(a, b);
+                                        }
                                     }
+                                    confs.insert(a);
+                                } else {
+                                    conflict_map.insert(
+                                        &id_to_type[a],
+                                        BTreeSet::from([a]),
+                                    );
                                 }
                             }
                         }
@@ -186,7 +201,7 @@ impl<T: ShareComponents> Visitor for T {
                                 if let Some(confs) =
                                     conflict_map.get_mut(&id_to_type[a])
                                 {
-                                    for b in confs.iter() {
+                                    for &b in confs.iter() {
                                         if a != b {
                                             g.insert_conflict(a, b);
                                         }
