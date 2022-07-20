@@ -20,7 +20,7 @@ def run(xclbin_path: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
 
     # pynq.Overlay expects a str
     # Raises FileNotFoundError if xclbin file does not exist
-    ol = pynq.Overlay(xclbin_path.resolve(strict=True))
+    ol = pynq.Overlay(str(xclbin_path.resolve(strict=True)))
 
     buffers = []
     for mem in data.keys():

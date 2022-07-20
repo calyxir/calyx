@@ -9,6 +9,7 @@ from fud import errors
 from fud.stages import SourceType, Stage
 from fud.utils import FreshDir, TmpDir
 from fud.stages.xilinx import fud_pynq_script
+from pathlib import Path
 
 
 class HwExecutionStage(Stage):
@@ -35,21 +36,14 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
-        # @builder.step()
-        # def import_libs():
-        #    """Import optional libraries"""
-        #    try:
-        #        import pynq  # type: ignore
-
-        #    except ImportError:
-        #        raise errors.RemoteLibsNotInstalled
-
         @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
             """Run the xclbin with datafile"""
 
             if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
+            abs_data_path = Path(data_path).resolve()
+            abs_xclbin_path = xclbin.resolve()
 
             # Create a temporary directory with an xrt.ini file that redirects
             # the runtime log to a file so that we can control how it's printed.
@@ -92,49 +86,14 @@ class HwExecutionStage(Stage):
                         ]
                     )
 
-            #            ctx = self.cl.create_some_context(0)
-            #            dev = ctx.devices[0]
-            #            cmds = self.cl.CommandQueue(ctx, dev)
-            #            prg = self.cl.Program(ctx, [dev], [xclbin_source])
-            #
-            #            prg.build()
-            #
-            #            # Work around an intermittent PyOpenCL bug. Using prg.Toplevel
-            #            # internally accesses prg._source, expecting it to be a normal
-            #            # attribute instead of a kernel name.
-            #            kern = self.cl.Kernel(prg, "Toplevel")
-            #
-            #            buffers = {}
-            #            for mem in data.keys():
-            #                # allocate memory on the device
-            #                buf = self.cl.Buffer(
-            #                    ctx,
-            #                    self.cl.mem_flags.READ_WRITE | self.cl.mem_flags.COPY_HOST_PTR,
-            #                    # TODO: use real type information
-            #                    hostbuf=np.array(data[mem]["data"]).astype(np.uint32),
-            #                )
-            #                # TODO: use real type information
-            #                buffers[mem] = buf
-
-            data = sjson.load(open(data_path), use_decimal=True)
+            data = sjson.load(open(abs_data_path), use_decimal=True)
             start_time = time.time()
             # Note that this is the call on v++. This uses global USER_ENV variables
             # EMCONFIG_PATH=`pwd`
             # XCL_EMULATION_MODE=hw_emu
-            kernel_output = fud_pynq_script.run(xclbin, data)
+            kernel_output = fud_pynq_script.run(abs_xclbin_path, data)
             end_time = time.time()
             log.debug(f"Emulation time: {end_time - start_time} sec")
-
-            # read the result
-            # output = {"memories": {}}
-            # for name, buf in buffers.items():
-            #    out_buf = np.zeros_like(data[name]["data"]).astype(np.uint32)
-            #    self.cl.enqueue_copy(cmds, out_buf, buf)
-            #    buf.release()
-            #    output["memories"][name] = list(map(lambda x: int(x), out_buf))
-
-            # cleanup
-            # del ctx
 
             # Add xrt log output to our debug output.
             if os.path.exists(xrt_output_logname):
