@@ -123,30 +123,29 @@ impl ShareComponents for CellShare {
 
     fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
     where
-        F: FnMut(Vec<(ir::Id, BTreeSet<&ir::Id>)>),
+        F: FnMut(HashSet<ir::Id>),
     {
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
         add_conflicts(
-            invokes_enables
-                .iter()
-                .map(|node| {
-                    (
-                        node.clone(),
-                        self.live
-                            .get(node)
-                            .iter()
-                            // TODO(rachit): Once we make the above change and LiveRangeAnalysis ignores
-                            // cont_ref_cells during construction, we do not need this filter call.
-                            .filter(|cell_name| {
-                                !self.cont_ref_cells.contains(cell_name)
-                            })
-                            .collect::<BTreeSet<&ir::Id>>()
-                            .clone(),
-                    )
-                })
-                .unique_by(|(_, b)| b.clone())
-                .collect_vec(),
+            invokes_enables, /*.iter()
+                              .map(|node| {
+                                 (
+                                     node.clone(),
+                                     self.live
+                                         .get(node)
+                                         .iter()
+                                         // TODO(rachit): Once we make the above change and LiveRangeAnalysis ignores
+                                         // cont_ref_cells during construction, we do not need this filter call.
+                                         .filter(|cell_name| {
+                                             !self.cont_ref_cells.contains(cell_name)
+                                         })
+                                         .collect::<BTreeSet<&ir::Id>>()
+                                         .clone(),
+                                 )
+                             })
+                             .unique_by(|(_, b)| b.clone())
+                             .collect_vec()*/
         )
     }
 

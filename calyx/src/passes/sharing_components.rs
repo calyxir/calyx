@@ -8,7 +8,7 @@ use ir::{
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::time::Instant;
 
 /// A trait for implementing passes that want to share components
@@ -66,7 +66,7 @@ pub trait ShareComponents {
     /// before graph coloring is performed.
     fn custom_conflicts<F>(&self, _comp: &ir::Component, _add_conflicts: F)
     where
-        F: FnMut(Vec<(ir::Id, BTreeSet<&ir::Id>)>),
+        F: FnMut(HashSet<ir::Id>),
     {
     }
 
@@ -145,35 +145,31 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt3: {}ms", start.elapsed().as_millis());
 
         // add custom conflicts
-        self.custom_conflicts(
-            comp,
-            |confs: Vec<(ir::Id, BTreeSet<&ir::Id>)>| {
-                for (node_name, _) in confs {
-                    let mut emtpy_map = HashMap::new();
-                    let conflict_map = match node_conflicts.get_mut(&node_name)
+        self.custom_conflicts(comp, |confs: HashSet<ir::Id>| {
+            for node_name in confs {
+                let mut emtpy_map = HashMap::new();
+                let conflict_map = match node_conflicts.get_mut(&node_name) {
+                    None => &mut emtpy_map,
+                    Some(cmap) => cmap,
+                };
+                for a in self.lookup_node_conflicts(&node_name) {
+                    let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
+                    if let Some(par_confs) =
+                        conflict_map.get_mut(&id_to_type[a])
                     {
-                        None => &mut emtpy_map,
-                        Some(cmap) => cmap,
-                    };
-                    for a in self.lookup_node_conflicts(&node_name) {
-                        let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
-                        if let Some(confs) =
-                            conflict_map.get_mut(&id_to_type[a])
-                        {
-                            for &b in confs.iter() {
-                                if a != b {
-                                    g.insert_conflict(a, b);
-                                }
+                        for &b in par_confs.iter() {
+                            if a != b {
+                                g.insert_conflict(a, b);
                             }
-                            confs.insert(a);
-                        } else {
-                            conflict_map
-                                .insert(&id_to_type[a], BTreeSet::from([a]));
                         }
+                        par_confs.insert(a);
+                    } else {
+                        conflict_map
+                            .insert(&id_to_type[a], BTreeSet::from([a]));
                     }
                 }
-            },
-        );
+            }
+        });
 
         log::info!("checkpt 4+5: {}ms", start.elapsed().as_millis());
 
