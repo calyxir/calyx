@@ -73,13 +73,13 @@ impl PassManager {
                 GroupToSeq,
                 ComponentInliner,
                 CombProp,
-                RemoveCombGroups, // Must run before `infer-static-timing`.
+                RemoveCombGroups, // Must run before `infer-static-timing` and `cell-share`.
                 InferStaticTiming,
                 MergeStaticPar,
-                DeadGroupRemoval, // Sincce MergeStaticPar potentialy creates dead groups
+                DeadGroupRemoval, // Since MergeStaticPar potentialy creates dead groups
                 StaticParConv,    // Must be before `collapse-control`
                 CollapseControl,
-                CompileRef, //Must run before 'resource-sharing'.
+                CompileRef, //Must run before 'cell-share'.
                 CellShare,
             ]
         );
