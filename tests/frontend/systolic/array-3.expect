@@ -1,5 +1,31 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
+
+component mac_pe(top: 32, left: 32) -> (out: 32) {
+  cells {
+    // Storage
+    acc = std_reg(32);
+    // Computation
+    add = std_add(32);
+    mul = std_mult_pipe(32);
+  }
+  wires {
+    group do_add {
+      add.left = acc.out;
+      add.right = mul.out;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_add[done] = acc.done;
+    }
+    out = acc.out;
+  }
+  control {
+    seq {
+        invoke mul(left = top, right = left)();
+        do_add;
+    }
+  }
+}
 component main() -> () {
   cells {
     t0_idx = std_reg(2);
@@ -296,7 +322,7 @@ component main() -> () {
         l0_idx_update;
         t1_idx_update;
         l1_idx_update;
-        invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
+        @pos(0) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
       }
       par {
         t0_move;
@@ -313,9 +339,9 @@ component main() -> () {
         t2_idx_update;
         l1_idx_update;
         l2_idx_update;
-        invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
-        invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
-        invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
+        @pos(1) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
+        @pos(2) invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
+        @pos(3) invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
       }
       par {
         t0_move;
@@ -336,12 +362,12 @@ component main() -> () {
         t2_idx_update;
         l1_idx_update;
         l2_idx_update;
-        invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
-        invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
-        invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
-        invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
-        invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
-        invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
+        @pos(4) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
+        @pos(5) invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
+        @pos(6) invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
+        @pos(7) invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
+        @pos(8) invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
+        @pos(9) invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
       }
       par {
         t1_move;
@@ -362,13 +388,13 @@ component main() -> () {
       par {
         t2_idx_update;
         l2_idx_update;
-        invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
-        invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
-        invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
-        invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
-        invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
-        invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
-        invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
+        @pos(10) invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
+        @pos(11) invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
+        @pos(12) invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
+        @pos(13) invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
+        @pos(14) invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
+        @pos(15) invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
+        @pos(16) invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
       }
       par {
         t2_move;
@@ -385,12 +411,12 @@ component main() -> () {
         pe_2_1_right_move;
       }
       par {
-        invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
-        invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
-        invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
-        invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
-        invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
-        invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
+        @pos(17) invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
+        @pos(18) invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
+        @pos(19) invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
+        @pos(20) invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
+        @pos(21) invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
+        @pos(22) invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
       }
       par {
         pe_0_2_down_move;
@@ -401,16 +427,16 @@ component main() -> () {
         pe_2_1_right_move;
       }
       par {
-        invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
-        invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
-        invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
+        @pos(23) invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
+        @pos(24) invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
+        @pos(25) invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
       }
       par {
         pe_1_2_down_move;
         pe_2_1_right_move;
       }
       par {
-        invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
+        @pos(26) invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
       }
       seq {
         pe_0_0_out_write;
@@ -426,29 +452,32 @@ component main() -> () {
     }
   }
 }
-
-component mac_pe(top: 32, left: 32) -> (out: 32) {
-  cells {
-    // Storage
-    acc = std_reg(32);
-    // Computation
-    add = std_add(32);
-    mul = std_mult_pipe(32);
-  }
-  wires {
-    group do_add {
-      add.left = acc.out;
-      add.right = mul.out;
-      acc.in = add.out;
-      acc.write_en = 1'd1;
-      do_add[done] = acc.done;
-    }
-    out = acc.out;
-  }
-  control {
-    seq {
-        invoke mul(left = top, right = left)();
-        do_add;
-    }
-  }
-}
+metadata #{
+0: pe_0_0 running. Iteration 0
+1: pe_0_0 running. Iteration 1
+2: pe_0_1 running. Iteration 1
+3: pe_1_0 running. Iteration 1
+4: pe_0_0 running. Iteration 2
+5: pe_0_1 running. Iteration 2
+6: pe_0_2 running. Iteration 2
+7: pe_1_0 running. Iteration 2
+8: pe_1_1 running. Iteration 2
+9: pe_2_0 running. Iteration 2
+10: pe_0_1 running. Iteration 3
+11: pe_0_2 running. Iteration 3
+12: pe_1_0 running. Iteration 3
+13: pe_1_1 running. Iteration 3
+14: pe_1_2 running. Iteration 3
+15: pe_2_0 running. Iteration 3
+16: pe_2_1 running. Iteration 3
+17: pe_0_2 running. Iteration 4
+18: pe_1_1 running. Iteration 4
+19: pe_1_2 running. Iteration 4
+20: pe_2_0 running. Iteration 4
+21: pe_2_1 running. Iteration 4
+22: pe_2_2 running. Iteration 4
+23: pe_1_2 running. Iteration 5
+24: pe_2_1 running. Iteration 5
+25: pe_2_2 running. Iteration 5
+26: pe_2_2 running. Iteration 6
+}#
