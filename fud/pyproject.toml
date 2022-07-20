@@ -19,7 +19,8 @@ requires = [
   "packaging",
   "numpy",
   "simplejson",
-  "networkx>=2.6"
+  "networkx>=2.6",
+  "pynq"
 ]
 
 [tool.flit.metadata.requires-extra]
