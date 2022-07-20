@@ -123,7 +123,7 @@ impl ShareComponents for CellShare {
 
     fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
     where
-        F: FnMut(Vec<HashSet<&ir::Id>>),
+        F: FnMut(Vec<BTreeSet<&ir::Id>>),
     {
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
@@ -139,10 +139,10 @@ impl ShareComponents for CellShare {
                         .filter(|cell_name| {
                             !self.cont_ref_cells.contains(cell_name)
                         })
-                        .collect::<HashSet<&ir::Id>>()
+                        .collect::<BTreeSet<&ir::Id>>()
                         .clone()
                 })
-                //.unique()
+                .unique()
                 .collect_vec(),
         )
     }

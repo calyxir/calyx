@@ -8,7 +8,7 @@ use ir::{
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::time::Instant;
 
 /// A trait for implementing passes that want to share components
@@ -66,7 +66,7 @@ pub trait ShareComponents {
     /// before graph coloring is performed.
     fn custom_conflicts<F>(&self, _comp: &ir::Component, _add_conflicts: F)
     where
-        F: FnMut(Vec<HashSet<&ir::Id>>),
+        F: FnMut(Vec<BTreeSet<&ir::Id>>),
     {
     }
 
@@ -92,21 +92,24 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt .5: {}ms", start.elapsed().as_millis());
 
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells
-            .clone()
             .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
-        /*// Mapping from type to all cells of that type.
+        // These two options produce different ordering, which affects which
+        // component's name is used.
+
+        // Mapping from type to all cells of that type.
         let cells_by_type: HashMap<&ir::CellType, Vec<&ir::Id>> =
-            id_to_type.iter().map(|(k, v)| (v, k)).into_group_map();*/
-        let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
+            id_to_type.iter().map(|(k, v)| (v, k)).into_group_map();
+
+        /*let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
             HashMap::new();
         for cell in cells {
             cells_by_type
                 .entry(cell.borrow().prototype.clone())
                 .or_default()
                 .push(cell.clone_name())
-        }
+        }*/
 
         log::info!("checkpt1: {}ms", start.elapsed().as_millis());
 
@@ -114,7 +117,10 @@ impl<T: ShareComponents> Visitor for T {
             cells_by_type
                 .into_iter()
                 .map(|(key, cell_names)| {
-                    (key, GraphColoring::from(cell_names.into_iter()))
+                    (
+                        key.clone(),
+                        GraphColoring::from(cell_names.into_iter().cloned()),
+                    )
                 })
                 .collect();
 
@@ -125,7 +131,7 @@ impl<T: ShareComponents> Visitor for T {
             .all_conflicts()
             .into_grouping_map_by(|(g1, _)| g1.clone())
             .fold(
-                HashMap::<&ir::CellType, HashSet<&ir::Id>>::new(),
+                HashMap::<&ir::CellType, BTreeSet<&ir::Id>>::new(),
                 |mut acc, _, (_, conflicted_group)| {
                     for conflict in
                         self.lookup_node_conflicts(&conflicted_group)
@@ -158,7 +164,7 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt4: {}ms", start.elapsed().as_millis());
 
         // add custom conflicts
-        self.custom_conflicts(comp, |confs: Vec<HashSet<&ir::Id>>| {
+        self.custom_conflicts(comp, |confs: Vec<BTreeSet<&ir::Id>>| {
             for conf in confs {
                 for (a, b) in conf.iter().tuple_combinations() {
                     if id_to_type[a] == id_to_type[b] {

@@ -4,7 +4,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     fmt::Debug,
     ops::{BitOr, Sub},
     time::Instant,
@@ -64,10 +64,6 @@ impl Prop {
     /// Add an element to Prop.
     fn insert(&mut self, id: ir::Id) {
         self.set.insert(id);
-    }
-
-    fn remove_cont_ref(&mut self, cont_ref: &HashSet<ir::Id>) {
-        self.set.retain(|name| !cont_ref.contains(name));
     }
 }
 
