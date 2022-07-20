@@ -527,8 +527,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
 
     return py_ast.Program(
         imports=[
-            py_ast.Import("primitives/core.futil"),
-            py_ast.Import("primitives/binary_operators.futil"),
+            # Manually emitted becase we need to print out the PE definition
         ],
         components=[main],
         meta=source_map
@@ -576,5 +575,11 @@ if __name__ == "__main__":
         left_depth=left_depth,
     )
 
+    imports = [
+        py_ast.Import("primitives/core.futil"),
+        py_ast.Import("primitives/binary_operators.futil"),
+    ]
+    for imp in imports:
+        print(imp.doc())
     print(PE_DEF)
     program.emit()
