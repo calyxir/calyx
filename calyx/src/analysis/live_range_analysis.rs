@@ -4,7 +4,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap, HashSet},
     fmt::Debug,
     ops::{BitOr, Sub},
     time::Instant,
@@ -14,11 +14,11 @@ use std::{
 /// the `live`, `gen`, and `kill` sets.
 #[derive(Default, Clone)]
 pub struct Prop {
-    set: BTreeSet<ir::Id>,
+    set: HashSet<ir::Id>,
 }
 
-/// Conversion to Prop from things that can be converted to BTreeSet<ir::Id>.
-impl<T: Into<BTreeSet<ir::Id>>> From<T> for Prop {
+/// Conversion to Prop from things that can be converted to HashSet<ir::Id>.
+impl<T: Into<HashSet<ir::Id>>> From<T> for Prop {
     fn from(t: T) -> Self {
         Prop { set: t.into() }
     }
@@ -64,6 +64,10 @@ impl Prop {
     /// Add an element to Prop.
     fn insert(&mut self, id: ir::Id) {
         self.set.insert(id);
+    }
+
+    fn remove_cont_ref(&mut self, cont_ref: &HashSet<ir::Id>) {
+        self.set.retain(|name| !cont_ref.contains(name));
     }
 }
 
@@ -300,7 +304,7 @@ impl LiveRangeAnalysis {
         let group_uses: Prop = ReadWriteSet::uses(assignments.iter())
             .filter(|cell| self.share.is_shareable_component(cell))
             .map(|cell| cell.clone_name())
-            .collect::<BTreeSet<_>>()
+            .collect::<HashSet<_>>()
             .into();
         match self.live.get_mut(group_name) {
             None => {
@@ -311,7 +315,7 @@ impl LiveRangeAnalysis {
     }
 
     /// Look up the set of things live at a node (i.e. group or invoke) definition.
-    pub fn get(&self, node: &ir::Id) -> &BTreeSet<ir::Id> {
+    pub fn get(&self, node: &ir::Id) -> &HashSet<ir::Id> {
         &self
             .live
             .get(node)
@@ -379,17 +383,17 @@ impl LiveRangeAnalysis {
                 });
 
             // calculate reads, but ignore `variable`. we've already dealt with that
-            let reads: BTreeSet<_> = ReadWriteSet::read_set(assignments)
+            let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
                 .filter(|c| sc_clone.is_shareable_component(c))
                 .map(|c| c.clone_name())
                 .collect();
 
-            let mut writes = BTreeSet::new();
+            let mut writes = HashSet::new();
             writes.insert(variable.clone());
 
             (reads.into(), writes.into())
         } else {
-            let reads: BTreeSet<_> =
+            let reads: HashSet<_> =
                 ReadWriteSet::read_set(group.assignments.iter())
                     .filter(|c| sc_clone.is_shareable_component(c))
                     .map(|c| c.clone_name())
@@ -403,7 +407,7 @@ impl LiveRangeAnalysis {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            let writes: BTreeSet<_> =
+            let writes: HashSet<_> =
                 ReadWriteSet::write_set(assignments.iter())
                     .filter(|c| sc_clone.is_shareable_component(c))
                     .map(|c| c.clone_name())
@@ -439,7 +443,7 @@ impl LiveRangeAnalysis {
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<BTreeSet<ir::Id>>();
+            .collect::<HashSet<ir::Id>>();
         if !invoke.outputs.is_empty()
             && shareable_components.is_shareable_component(&invoke.comp)
         {
@@ -455,7 +459,7 @@ impl LiveRangeAnalysis {
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<BTreeSet<ir::Id>>();
+            .collect::<HashSet<ir::Id>>();
         if !invoke.inputs.is_empty()
             && shareable_components.is_shareable_component(&invoke.comp)
         {
@@ -467,7 +471,7 @@ impl LiveRangeAnalysis {
     }
 }
 
-/// Implements the parallel dataflow analysis that computes the liveness of every register
+/// Implements the parallel dataflow analysis that computes the liveness of every state shareable component
 /// at every point in the program.
 fn build_live_ranges(
     c: &ir::Control,

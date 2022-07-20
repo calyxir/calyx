@@ -123,27 +123,26 @@ impl ShareComponents for CellShare {
 
     fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
     where
-        F: FnMut(Vec<&BTreeSet<ir::Id>>),
+        F: FnMut(Vec<HashSet<&ir::Id>>),
     {
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
-        /*for invoke_enable in invokes_enables.iter() {
-            let conflicts = self.live.get(invoke_enable);
-            add_conflicts(
-                conflicts
-                    .iter()
-                    .filter(|cell_name| {
-                        !self.cont_ref_cells.contains(cell_name)
-                    })
-                    .cloned()
-                    .collect(),
-            );
-        }*/
         add_conflicts(
             invokes_enables
                 .iter()
-                .map(|node| self.live.get(node))
-                .unique()
+                .map(|node| {
+                    self.live
+                        .get(node)
+                        .iter()
+                        // TODO(rachit): Once we make the above change and LiveRangeAnalysis ignores
+                        // cont_ref_cells during construction, we do not need this filter call.
+                        .filter(|cell_name| {
+                            !self.cont_ref_cells.contains(cell_name)
+                        })
+                        .collect::<HashSet<&ir::Id>>()
+                        .clone()
+                })
+                //.unique()
                 .collect_vec(),
         )
     }
