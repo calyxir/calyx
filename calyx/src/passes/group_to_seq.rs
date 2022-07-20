@@ -37,7 +37,7 @@ impl Visitor for GroupToSeq {
         for g in groups.iter() {
             let mut group = g.borrow_mut();
             match SplitAnalysis::get_split(
-                &group.assignments.drain(..).collect::<Vec<ir::Assignment>>(),
+                group.assignments.drain(..).collect::<Vec<ir::Assignment>>(),
                 group.clone_name(),
                 &mut builder,
             ) {
@@ -147,7 +147,7 @@ impl SplitAnalysis {
     /// 3) Must have group[done] = cell2.done and cell2.go = cell1.done;
     /// 4) All reads of cell1 must be a stable port or cell1.done.
     pub fn get_split(
-        assigns: &[ir::Assignment],
+        assigns: Vec<ir::Assignment>,
         group_name: ir::Id,
         builder: &mut ir::Builder,
     ) -> Result<(ir::RRC<ir::Group>, ir::RRC<ir::Group>), Vec<ir::Assignment>>
@@ -157,8 +157,8 @@ impl SplitAnalysis {
         // Builds ordering. If it cannot build a valid linear ordering of length 2,
         // then returns None, and we stop.
         let mut split_analysis = SplitAnalysis::default();
-        let (first, second) = match split_analysis.possible_split(assigns) {
-            None => return Err(assigns.to_vec()),
+        let (first, second) = match split_analysis.possible_split(&assigns) {
+            None => return Err(assigns),
             Some(order) => order,
         };
 
@@ -219,11 +219,11 @@ impl SplitAnalysis {
     // first_go_asmt, fst_asmts, snd_asmts, and group_done_asmt.
     fn organize_assignments(
         &mut self,
-        assigns: &[ir::Assignment],
+        mut assigns: Vec<ir::Assignment>,
         first_cell_name: &ir::Id,
         second_cell_name: &ir::Id,
     ) {
-        for asmt in assigns.to_vec().drain(..) {
+        for asmt in assigns.drain(..) {
             match writes_to_cell(&asmt) {
                 Some(cell_name) => {
                     if Self::is_go_done(&asmt) {
