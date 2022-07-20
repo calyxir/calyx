@@ -20,6 +20,7 @@ requires = [
   "numpy",
   "simplejson",
   "networkx>=2.6"
+  "pynq"
 ]
 
 [tool.flit.metadata.requires-extra]
