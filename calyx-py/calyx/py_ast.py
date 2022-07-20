@@ -29,11 +29,12 @@ class Program(Emittable):
     meta: dict[Any, str] = field(default_factory=dict)
 
     def doc(self) -> str:
-        out = ""
-        out += "\n".join([i.doc() for i in self.imports])
+        out = "\n".join([i.doc() for i in self.imports])
+        if len(self.imports) > 0:
+            out += "\n"
         out += "\n".join([c.doc() for c in self.components])
         if len(self.meta) > 0:
-            out = "\nmetadata #{\n"
+            out += "\nmetadata #{\n"
             for key, val in self.meta.items():
                 out += f"{key}: {val}\n"
             out += "}#"
