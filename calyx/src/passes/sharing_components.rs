@@ -9,7 +9,6 @@ use ir::{
 };
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
-use std::time::Instant;
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -61,15 +60,6 @@ pub trait ShareComponents {
         cell0.prototype == cell1.prototype
     }
 
-    /// Called after the initial conflict graph is constructed.
-    /// This function lets you add custom conflicts to the graph
-    /// before graph coloring is performed.
-    fn custom_conflicts<F>(&self, _comp: &ir::Component, _add_conflicts: F)
-    where
-        F: FnMut(HashSet<ir::Id>),
-    {
-    }
-
     /// Set the list of rewrites.
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, RRC<ir::Cell>>);
 
@@ -84,12 +74,9 @@ impl<T: ShareComponents> Visitor for T {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let start = Instant::now();
         self.initialize(comp, sigs);
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
-
-        log::info!("checkpt .5: {}ms", start.elapsed().as_millis());
 
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells
             .clone()
@@ -112,8 +99,6 @@ impl<T: ShareComponents> Visitor for T {
                 .push(cell.clone_name())
         }
 
-        log::info!("checkpt1: {}ms", start.elapsed().as_millis());
-
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
             cells_by_type
                 .into_iter()
@@ -122,23 +107,15 @@ impl<T: ShareComponents> Visitor for T {
                 })
                 .collect();
 
-        log::info!("checkpt2: {}ms", start.elapsed().as_millis());
-
-        let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
-
-        let i = par_conflicts.all_conflicts();
-
-        log::info!("checkpt2.4: {}ms", start.elapsed().as_millis());
-
-        let j = i.into_grouping_map_by(|(g1, _)| g1.clone());
-
-        log::info!("checkpt2.6: {}ms", start.elapsed().as_millis());
-
+        // build a HashMap: (node, map). node is an invoke/enable. The map is
+        // holds the name of all the cells live at that node, organized by
+        // Cell Type. All nodes should be accounted for in this map.
         let mut node_by_type_map: HashMap<
             ir::Id,
             HashMap<&ir::CellType, HashSet<&ir::Id>>,
         > = HashMap::new();
 
+        // get all of the invokes and enables.
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
 
@@ -165,24 +142,26 @@ impl<T: ShareComponents> Visitor for T {
                 })
             };
 
-        log::info!("checkpt2.8: {}ms", start.elapsed().as_millis());
+        let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
 
-        let mut node_conflicts = j.fold(
-            HashMap::<&ir::CellType, HashSet<&ir::Id>>::new(),
-            |mut acc, _, (_, conflicted_group)| {
-                let new_conflicts = lookup_conflicts_by_type(&conflicted_group);
-                acc.extend(
-                    new_conflicts
-                        .into_iter()
-                        .map(|(k, v)| (k.clone(), v.clone())),
-                );
-                acc
-            },
-        );
+        let mut node_conflicts = par_conflicts
+            .all_conflicts()
+            .into_grouping_map_by(|(g1, _)| g1.clone())
+            .fold(
+                HashMap::<&ir::CellType, HashSet<&ir::Id>>::new(),
+                |mut acc, _, (_, conflicted_group)| {
+                    let new_conflicts =
+                        lookup_conflicts_by_type(&conflicted_group);
+                    acc.extend(
+                        new_conflicts
+                            .into_iter()
+                            .map(|(k, v)| (k.clone(), v.clone())),
+                    );
+                    acc
+                },
+            );
 
-        log::info!("checkpt3: {}ms", start.elapsed().as_millis());
-
-        // add custom conflicts
+        // add conflicts
         for node_name in &invokes_enables {
             let mut emtpy_map = HashMap::new();
             let conflict_map = match node_conflicts.get_mut(&node_name) {
@@ -198,15 +177,15 @@ impl<T: ShareComponents> Visitor for T {
                                 g.insert_conflict(a, b);
                             }
                         }
+                        // so that there are conflicts between cells in the same group/enable
                         b_confs.insert(a);
                     } else {
+                        // so that there are conflicts between cells in the same group/enable
                         conflict_map.insert(&cell_type, HashSet::from([a]));
                     }
                 }
             }
         }
-
-        log::info!("checkpt 4+5: {}ms", start.elapsed().as_millis());
 
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
         for graph in graphs_by_type.values() {
@@ -220,8 +199,6 @@ impl<T: ShareComponents> Visitor for T {
             }
         }
 
-        log::info!("checkpt6: {}ms", start.elapsed().as_millis());
-
         // Rewrite assignments using the coloring generated.
         let empty_map: ir::rewriter::PortRewriteMap = HashMap::new();
         let rewriter = ir::Rewriter::new(&coloring, &empty_map);
@@ -229,16 +206,12 @@ impl<T: ShareComponents> Visitor for T {
             assign.for_each_port(|port| rewriter.get(port));
         });
 
-        log::info!("checkpt7: {}ms", start.elapsed().as_millis());
-
         // Rewrite control uses of ports
         rewriter.rewrite_control(
             &mut *comp.control.borrow_mut(),
             &HashMap::new(),
             &HashMap::new(),
         );
-
-        log::info!("checkpt8: {}ms", start.elapsed().as_millis());
 
         Ok(Action::Stop)
     }

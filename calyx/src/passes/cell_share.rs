@@ -5,7 +5,6 @@ use crate::{
     ir::{self, traversal::ConstructVisitor, traversal::Named, CloneName},
 };
 use std::collections::{HashMap, HashSet};
-use std::time::Instant;
 
 /// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
 /// alive at each group, minimizes the cells used for each component.
@@ -69,8 +68,6 @@ impl ShareComponents for CellShare {
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
     ) {
-        let start = Instant::now();
-        log::info!("start initialize(): {}ms", start.elapsed().as_millis());
         //add cont cells
         self.cont_ref_cells =
             ReadWriteSet::uses(comp.continuous_assignments.iter())
@@ -84,8 +81,6 @@ impl ShareComponents for CellShare {
                 .map(|cell| cell.borrow().clone_name()),
         );
 
-        log::info!("initialize check1: {}ms", start.elapsed().as_millis());
-
         // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
         // cells.
         self.live = LiveRangeAnalysis::new(
@@ -94,8 +89,6 @@ impl ShareComponents for CellShare {
             self.state_shareable.clone(),
             self.shareable.clone(),
         );
-
-        log::info!("initialize check2: {}ms", start.elapsed().as_millis());
     }
 
     fn lookup_node_conflicts(&self, node_name: &ir::Id) -> Vec<&ir::Id> {
@@ -120,49 +113,11 @@ impl ShareComponents for CellShare {
         }
     }
 
-    fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
-    where
-        F: FnMut(HashSet<ir::Id>),
-    {
-        let mut invokes_enables = HashSet::new();
-        get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
-        add_conflicts(invokes_enables)
-    }
-
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>) {
         self.rewrites = rewrites;
     }
 
     fn get_rewrites(&self) -> &HashMap<ir::Id, ir::RRC<ir::Cell>> {
         &self.rewrites
-    }
-}
-
-//Gets the names of all the cells invoked (using an invoke control statement)
-//in control c, and adds them to hs.
-fn get_invokes_enables(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
-    match c {
-        ir::Control::Empty(_) => (),
-        ir::Control::Enable(ir::Enable { group, .. }) => {
-            hs.insert(group.borrow().name().clone());
-        }
-        ir::Control::Invoke(ir::Invoke { comp, .. }) => {
-            hs.insert(comp.borrow().name().clone());
-        }
-        ir::Control::Par(ir::Par { stmts, .. })
-        | ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            for stmt in stmts {
-                get_invokes_enables(stmt, hs);
-            }
-        }
-        ir::Control::If(ir::If {
-            tbranch, fbranch, ..
-        }) => {
-            get_invokes_enables(tbranch, hs);
-            get_invokes_enables(fbranch, hs);
-        }
-        ir::Control::While(ir::While { body, .. }) => {
-            get_invokes_enables(body, hs);
-        }
     }
 }
