@@ -1,6 +1,7 @@
 use crate::analysis::ReadWriteSet;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName};
+use std::cell::RefMut;
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -35,30 +36,24 @@ impl Visitor for GroupToSeq {
         let groups: Vec<ir::RRC<ir::Group>> = comp.groups.drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
-            let mut group = g.borrow_mut();
-            match SplitAnalysis::get_split(
-                group.assignments.drain(..).collect::<Vec<ir::Assignment>>(),
-                group.clone_name(),
-                &mut builder,
-            ) {
-                Ok((group1, group2)) => {
-                    let seq = ir::Control::seq(vec![
-                        ir::Control::enable(group1),
-                        ir::Control::enable(group2),
-                    ]);
-                    self.group_seq_map.insert(group.clone_name(), seq);
-                }
-                // If we don't do the transformation, just add back the assignemnts
-                // we just drained back into group
-                Err(mut assigns) => group.assignments.append(&mut assigns),
+            if let Some((group1, group2)) =
+                SplitAnalysis::get_split(g, &mut builder)
+            {
+                let seq = ir::Control::seq(vec![
+                    ir::Control::enable(group1),
+                    ir::Control::enable(group2),
+                ]);
+                self.group_seq_map.insert(g.clone_name(), seq);
             }
         }
 
         // Add back the groups we drained at the beginning of this method, but
         // filter out the empty groups that were split into smaller groups
-        comp.groups.append(groups.into_iter().filter(
-            |group: &ir::RRC<ir::Group>| !group.borrow().assignments.is_empty(),
-        ));
+        comp.groups.append(
+            groups
+                .into_iter()
+                .filter(|group| !group.borrow().assignments.is_empty()),
+        );
         Ok(Action::Continue)
     }
 
@@ -103,7 +98,7 @@ fn comp_or_non_comb(cell: &ir::RRC<ir::Cell>) -> bool {
 fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::Id> {
     ReadWriteSet::write_set(std::iter::once(asmt))
         .next()
-        .map(|cell| cell.borrow().clone_name())
+        .map(|cell| cell.clone_name())
 }
 
 #[derive(Default)]
@@ -137,24 +132,22 @@ impl SplitAnalysis {
     /// 3) Must have group[done] = cell2.done and cell2.go = cell1.done;
     /// 4) All reads of cell1 must be a stable port or cell1.done.
     pub fn get_split(
-        assigns: Vec<ir::Assignment>,
-        group_name: ir::Id,
+        group_ref: &ir::RRC<ir::Group>,
         builder: &mut ir::Builder,
-    ) -> Result<(ir::RRC<ir::Group>, ir::RRC<ir::Group>), Vec<ir::Assignment>>
-    {
+    ) -> Option<(ir::RRC<ir::Group>, ir::RRC<ir::Group>)> {
+        let group = group_ref.borrow_mut();
+        let group_name = group.clone_name();
         let signal_on = builder.add_constant(1, 1);
 
         // Builds ordering. If it cannot build a valid linear ordering of length 2,
         // then returns None, and we stop.
-        let (first, second) = match SplitAnalysis::possible_split(&assigns) {
-            None => return Err(assigns),
-            Some(order) => order,
-        };
+        let (first, second) =
+            SplitAnalysis::possible_split(&group.assignments)?;
 
         // Sets the first_go_asmt, fst_asmts, snd_asmts group_done_asmt, go_done_asmt
         // fields for split_analysis
         let mut split_analysis = SplitAnalysis::default();
-        split_analysis.organize_assignments(assigns, &first, &second);
+        split_analysis.organize_assignments(group, &first, &second);
 
         // If there is assignment in the form first.go = !first.done ? 1'd1,
         // turn this into first.go = 1'd1.
@@ -202,18 +195,18 @@ impl SplitAnalysis {
             format!("end_spl_{}", group_name.id),
         );
 
-        Ok((first_group, second_group))
+        Some((first_group, second_group))
     }
 
     // Goes through assignments, and properly fills in the fields go_done_asmt,
     // first_go_asmt, fst_asmts, snd_asmts, and group_done_asmt.
     fn organize_assignments(
         &mut self,
-        mut assigns: Vec<ir::Assignment>,
+        mut group: RefMut<ir::Group>,
         first_cell_name: &ir::Id,
         second_cell_name: &ir::Id,
     ) {
-        for asmt in assigns.drain(..) {
+        for asmt in group.assignments.drain(..) {
             match writes_to_cell(&asmt) {
                 Some(cell_name) => {
                     if Self::is_go_done(&asmt) {

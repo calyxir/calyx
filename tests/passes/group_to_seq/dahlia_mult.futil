@@ -1,4 +1,4 @@
-// -p group2seq
+// -p validate -p group2seq
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
