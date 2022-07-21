@@ -20,7 +20,6 @@ requires = [
   "numpy",
   "simplejson",
   "networkx>=2.6",
-  "pynq"
 ]
 
 [tool.flit.metadata.requires-extra]
@@ -29,7 +28,7 @@ remote = [
        "scp"
 ]
 fpga = [
-  "pyopencl==2021.2.8"
+  "pynq"
 ]
 
 [tool.flit.scripts]

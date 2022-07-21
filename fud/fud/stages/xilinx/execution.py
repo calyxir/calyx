@@ -8,7 +8,6 @@ import simplejson as sjson
 from fud import errors
 from fud.stages import SourceType, Stage
 from fud.utils import FreshDir, TmpDir
-from fud.stages.xilinx import fud_pynq_script
 from pathlib import Path
 
 
@@ -35,6 +34,17 @@ class HwExecutionStage(Stage):
                 f"is not. This will generate a WDB file but then immediately "
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
+
+
+        @builder.step()
+        def import_libs():
+            """Import optional libraries"""
+            try:
+                from fud.stages.xilinx import fud_pynq_script
+
+                self.pynq_script = fud_pynq_script
+            except ImportError:
+                raise errors.RemoteLibsNotInstalled
 
         @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
@@ -91,7 +101,7 @@ class HwExecutionStage(Stage):
             # Note that this is the call on v++. This uses global USER_ENV variables
             # EMCONFIG_PATH=`pwd`
             # XCL_EMULATION_MODE=hw_emu
-            kernel_output = fud_pynq_script.run(abs_xclbin_path, data)
+            kernel_output = pynq_script.run(abs_xclbin_path, data)
             end_time = time.time()
             log.debug(f"Emulation time: {end_time - start_time} sec")
 
