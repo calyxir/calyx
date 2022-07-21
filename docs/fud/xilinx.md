@@ -130,9 +130,11 @@ For example, on our group's havarti server, you can do this:
     export EMCONFIG_PATH=`pwd`
 
 To run an xclbin compiled for hardware emulation run:
+
     export XCL_EMULATION_MODE=hw_emu
 
 The `XCL_EMULATION_MODE` environment variable must be unset to actually run on hardware:
+    
     unset XCL_EMULATION_MODE
 
 That is, you'll source the setup scripts for both [Vitis][] and [XRT][];
