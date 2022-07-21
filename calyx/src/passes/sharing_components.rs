@@ -8,7 +8,7 @@ use ir::{
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 /// A trait for implementing passes that want to share components
@@ -136,7 +136,7 @@ impl<T: ShareComponents> Visitor for T {
 
         let mut node_by_type_map: HashMap<
             ir::Id,
-            HashMap<&ir::CellType, BTreeSet<&ir::Id>>,
+            HashMap<&ir::CellType, HashSet<&ir::Id>>,
         > = HashMap::new();
 
         let mut invokes_enables = HashSet::new();
@@ -159,7 +159,7 @@ impl<T: ShareComponents> Visitor for T {
         }
 
         let lookup_conflicts_by_type =
-            |node: &ir::Id| -> &HashMap<&ir::CellType, BTreeSet<&ir::Id>> {
+            |node: &ir::Id| -> &HashMap<&ir::CellType, HashSet<&ir::Id>> {
                 node_by_type_map.get(&node).unwrap_or_else(|| {
                     unreachable!("no node conflict map for {}", node)
                 })
@@ -168,7 +168,7 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt2.8: {}ms", start.elapsed().as_millis());
 
         let mut node_conflicts = j.fold(
-            HashMap::<&ir::CellType, BTreeSet<&ir::Id>>::new(),
+            HashMap::<&ir::CellType, HashSet<&ir::Id>>::new(),
             |mut acc, _, (_, conflicted_group)| {
                 let new_conflicts = lookup_conflicts_by_type(&conflicted_group);
                 acc.extend(
@@ -200,7 +200,7 @@ impl<T: ShareComponents> Visitor for T {
                         }
                         b_confs.insert(a);
                     } else {
-                        conflict_map.insert(&cell_type, BTreeSet::from([a]));
+                        conflict_map.insert(&cell_type, HashSet::from([a]));
                     }
                 }
             }
