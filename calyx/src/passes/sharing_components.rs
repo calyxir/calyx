@@ -87,8 +87,6 @@ impl<T: ShareComponents> Visitor for T {
         // component's name is used.
 
         // Mapping from type to all cells of that type.
-        /*let cells_by_type: HashMap<&ir::CellType, Vec<&ir::Id>> =
-        id_to_type.iter().map(|(k, v)| (v, k)).into_group_map();*/
 
         let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
             HashMap::new();
@@ -107,8 +105,8 @@ impl<T: ShareComponents> Visitor for T {
                 })
                 .collect();
 
-        // build a HashMap: (node, map). node is an invoke/enable. The map is
-        // holds the name of all the cells live at that node, organized by
+        // Maps node to map. node is an invoke/enable. map holds
+        // the name of all the cells live at that node, organized by
         // Cell Type. All nodes should be accounted for in this map.
         let mut node_by_type_map: HashMap<
             ir::Id,
@@ -122,6 +120,7 @@ impl<T: ShareComponents> Visitor for T {
         for node in &invokes_enables {
             let node_conflicts = self.lookup_node_conflicts(&node);
             if node_conflicts.is_empty() {
+                // If node has no live cells, add an empty entry
                 node_by_type_map.insert(node.clone(), HashMap::new());
             } else {
                 for conflict in node_conflicts {

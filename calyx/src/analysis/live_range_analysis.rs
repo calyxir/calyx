@@ -7,7 +7,6 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
     ops::{BitOr, Sub},
-    time::Instant,
 };
 
 /// The data structure used to represent sets of ids. This is used to represent
@@ -221,7 +220,7 @@ impl Prop {
 #[derive(Default)]
 pub struct LiveRangeAnalysis {
     /// Map from node (i.e., group enables or invokes) names
-    ///  to the components live inside them.
+    /// to the components live inside them.
     live: HashMap<ir::Id, Prop>,
     /// Groups that have been identified as variable-like.
     /// Mapping from group name to the name of the register.
@@ -250,8 +249,6 @@ impl LiveRangeAnalysis {
         state_share: ShareSet,
         share: ShareSet,
     ) -> Self {
-        let start = Instant::now();
-        log::info!("start LRA.new(): {}ms", start.elapsed().as_millis());
         let mut ranges = LiveRangeAnalysis {
             state_share,
             share,
@@ -265,7 +262,6 @@ impl LiveRangeAnalysis {
             Prop::default(),
             &mut ranges,
         );
-        log::info!("build_live_ranges: {}ms", start.elapsed().as_millis());
 
         //adds (non-state) shareable cells as live in the group they're contained in
         //we already added (non-state) shareable cells as live in the invoke
@@ -276,7 +272,6 @@ impl LiveRangeAnalysis {
                 group.borrow().name(),
             );
         });
-        log::info!("comp groups: {}ms", start.elapsed().as_millis());
 
         // Caleb: Right now we run remove-comb-groups before this is used so this code
         // doesn't do anything. Eventually, though, we want to be able to make
