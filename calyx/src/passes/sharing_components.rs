@@ -78,16 +78,13 @@ impl<T: ShareComponents> Visitor for T {
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
+        // Mapping from Cell names (the ir::Id's) to Cell Types
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells
             .clone()
             .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
-        // These two options produce different ordering, which affects which
-        // component's name is used.
-
         // Mapping from type to all cells of that type.
-
         let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
             HashMap::new();
         for cell in cells {
@@ -97,6 +94,7 @@ impl<T: ShareComponents> Visitor for T {
                 .push(cell.clone_name())
         }
 
+        // Maps CellType to Conflict Graph
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
             cells_by_type
                 .into_iter()
@@ -105,22 +103,24 @@ impl<T: ShareComponents> Visitor for T {
                 })
                 .collect();
 
+        // get all of the invokes and enables.
+        let mut invokes_enables = HashSet::new();
+        get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
+
         // Maps node to map. node is an invoke/enable. map holds
-        // the name of all the cells live at that node, organized by
+        // the name of all the cells live at node, organized by
         // Cell Type. All nodes should be accounted for in this map.
         let mut node_by_type_map: HashMap<
             ir::Id,
             HashMap<&ir::CellType, HashSet<&ir::Id>>,
         > = HashMap::new();
 
-        // get all of the invokes and enables.
-        let mut invokes_enables = HashSet::new();
-        get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
-
+        // Build node_by_type_map.
         for node in &invokes_enables {
             let node_conflicts = self.lookup_node_conflicts(&node);
             if node_conflicts.is_empty() {
-                // If node has no live cells, add an empty entry
+                // If node has no live cells, add an empty Map as its entry,
+                // since we want to have *all* invokes/enables accounted for.
                 node_by_type_map.insert(node.clone(), HashMap::new());
             } else {
                 for conflict in node_conflicts {
@@ -134,6 +134,9 @@ impl<T: ShareComponents> Visitor for T {
             }
         }
 
+        // Closure so that we can take a node, and get all of the cells live
+        // at that node, but *organized by type* in the form of a HashMap.
+        // This is faster than just
         let lookup_conflicts_by_type =
             |node: &ir::Id| -> &HashMap<&ir::CellType, HashSet<&ir::Id>> {
                 node_by_type_map.get(&node).unwrap_or_else(|| {
@@ -141,8 +144,10 @@ impl<T: ShareComponents> Visitor for T {
                 })
             };
 
+        // conflict (a,b) is in par_conflicts if a and b run in parallel w/ each other
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
 
+        // Building node_conflicts
         let mut node_conflicts = par_conflicts
             .all_conflicts()
             .into_grouping_map_by(|(g1, _)| g1.clone())
