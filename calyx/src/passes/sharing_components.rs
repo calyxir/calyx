@@ -134,14 +134,54 @@ impl<T: ShareComponents> Visitor for T {
 
         log::info!("checkpt2.6: {}ms", start.elapsed().as_millis());
 
+        let mut node_live_map: HashMap<ir::Id, Vec<&ir::Id>> = HashMap::new();
+        let mut node_by_type_map: HashMap<
+            ir::Id,
+            HashMap<&ir::CellType, BTreeSet<&ir::Id>>,
+        > = HashMap::new();
+
+        let mut invokes_enables = HashSet::new();
+        get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
+
+        for node in invokes_enables {
+            let node_conflicts = self.lookup_node_conflicts(&node);
+            node_live_map
+                .insert(node.clone(), self.lookup_node_conflicts(&node));
+
+            for conflict in node_conflicts {
+                node_by_type_map
+                    .entry(node.clone())
+                    .or_default()
+                    .entry(&id_to_type[conflict])
+                    .or_default()
+                    .insert(conflict);
+            }
+        }
+
+        let lookup_conflicts = |node: &ir::Id| -> &Vec<&ir::Id> {
+            node_live_map.get(&node).unwrap_or_else(|| {
+                unreachable!("do not have node_live_map entry for {}", node)
+            })
+        };
+
+        let lookup_conflicts_by_type =
+            |node: &ir::Id| -> &HashMap<&ir::CellType, BTreeSet<&ir::Id>> {
+                node_by_type_map.get(&node).unwrap_or_else(|| {
+                    unreachable!("do not have node_live_map entry for {}", node)
+                })
+            };
+
+        log::info!("checkpt2.8: {}ms", start.elapsed().as_millis());
+
         let mut node_conflicts = j.fold(
             HashMap::<&ir::CellType, BTreeSet<&ir::Id>>::new(),
             |mut acc, _, (_, conflicted_group)| {
-                for conflict in self.lookup_node_conflicts(&conflicted_group) {
-                    acc.entry(&id_to_type[conflict])
-                        .or_default()
-                        .insert(conflict);
-                }
+                let new_conflicts = lookup_conflicts_by_type(&conflicted_group);
+                acc.extend(
+                    new_conflicts
+                        .into_iter()
+                        .map(|(k, v)| (k.clone(), v.clone())),
+                );
                 acc
             },
         );
@@ -156,7 +196,7 @@ impl<T: ShareComponents> Visitor for T {
                     None => &mut emtpy_map,
                     Some(cmap) => cmap,
                 };
-                for a in self.lookup_node_conflicts(&node_name) {
+                for &a in lookup_conflicts(&node_name) {
                     let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
                     if let Some(b_confs) = conflict_map.get_mut(&id_to_type[a])
                     {
@@ -209,5 +249,34 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt8: {}ms", start.elapsed().as_millis());
 
         Ok(Action::Stop)
+    }
+}
+
+//Gets the names of all the cells invoked (using an invoke control statement)
+//in control c, and adds them to hs.
+fn get_invokes_enables(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
+    match c {
+        ir::Control::Empty(_) => (),
+        ir::Control::Enable(ir::Enable { group, .. }) => {
+            hs.insert(group.borrow().name().clone());
+        }
+        ir::Control::Invoke(ir::Invoke { comp, .. }) => {
+            hs.insert(comp.borrow().name().clone());
+        }
+        ir::Control::Par(ir::Par { stmts, .. })
+        | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+            for stmt in stmts {
+                get_invokes_enables(stmt, hs);
+            }
+        }
+        ir::Control::If(ir::If {
+            tbranch, fbranch, ..
+        }) => {
+            get_invokes_enables(tbranch, hs);
+            get_invokes_enables(fbranch, hs);
+        }
+        ir::Control::While(ir::While { body, .. }) => {
+            get_invokes_enables(body, hs);
+        }
     }
 }
