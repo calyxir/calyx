@@ -1,5 +1,5 @@
 use super::{GraphAnalysis, ReadWriteSet};
-use crate::analysis::live_range_analysis::ShareSet;
+use crate::analysis::ShareSet;
 use crate::ir;
 use ir::{CloneName, RRC};
 

@@ -150,7 +150,10 @@ impl Backend for XilinxXmlBackend {
                 name: axi_name,
                 mode: "master",
                 range: "0xFFFFFFFFFFFFFFFF",
-                data_width: 64,
+                // Width should match the bus data width of memory modules
+                // described in hardware, for example see
+                // https://github.com/cucapra/calyx/blob/c2b12a0fe6b1ee3aaaae0c66e7c4619ee6c82614/src/backend/xilinx/toplevel.rs#L58
+                data_width: 512,
                 port_type: "addressable",
                 base: "0x0",
             });
@@ -159,6 +162,9 @@ impl Backend for XilinxXmlBackend {
                 address_qualifier: 1,
                 id: (i + 1) as u64,
                 port: axi_name,
+                // XXX(nathanielnrn): This should probably be assigned dynamically
+                // and not hardcoded, need to figure out where this comes from
+                // One theory: this is an 8-byte pointer to our argument arrays
                 size: "0x8",
                 offset: &offsets[i],
                 typ: "int*",

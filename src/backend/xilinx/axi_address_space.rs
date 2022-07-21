@@ -14,7 +14,12 @@ pub(crate) struct Flags {
     clear_on_read: Option<(AxiChannel, String)>,
     /// Clear the internal register when there is a successful
     /// handshake on this channel.
+    // XXX(nathanielnrn): might not be a good name? used for things that aren't just
+    // handshakes
     clear_on_handshake: Option<String>,
+    /// Clear the internal register when ap_start is asserted
+    /// and invert `ARESET` logic (idle is high when reset)
+    idle: bool,
     /// This register can be written to with the interface.
     write: bool,
 }
@@ -51,6 +56,11 @@ impl Flags {
         self
     }
 
+    /// Builder style function for setting the `idle` flag.
+    pub(crate) fn idle(mut self) -> Self {
+        self.idle = true;
+        self
+    }
     /// Builder style function for setting the `write` flag.
     pub(crate) fn write(mut self) -> Self {
         self.write = true;
@@ -266,10 +276,12 @@ impl AddressSpace {
         ));
 
         // XXX(sam) this is a hack to avoid iterating through the bit meanings again
+        // only happens for writes
         let mut writes_exist: bool = false;
         for meaning in addr.bit_meaning.iter().filter(|m| m.flags.write) {
+            // this part is only the assignment itself?? underneath the ARESET of the if branch
             if_stmt.add_seq(v::Sequential::new_nonblk_assign(
-                self.slice(meaning),
+                self.slice(meaning), //gets name of register
                 v::Expr::new_int(0),
             ));
             else_br.add_seq(v::Sequential::new_nonblk_assign(
@@ -294,8 +306,12 @@ impl AddressSpace {
         }
 
         // port writes to internal register logic
+        // reads only
+        // XXX(nathanielnrn) Why does this need to be seperate from the above write logic?
+        // Seems basically the same to me?
         for meaning in &addr.bit_meaning {
             if let Some(port) = &meaning.flags.read {
+                //Takes in read string of Read option and assigns it to `port`
                 let mut branches = vec![
                     (Some("ARESET".into()), 0.into()),
                     (Some(port.as_str().into()), 1.into()),
@@ -307,6 +323,11 @@ impl AddressSpace {
                         v::Expr::new_eq(addr_reg.as_str(), addr.address as i32),
                     );
                     branches.push((Some(cond), 0.into()));
+                }
+                if meaning.flags.idle {
+                    branches[0] = (Some("ARESET".into()), 1.into());
+                    let if_ap_start = v::Expr::new_ref("ap_start");
+                    branches.push((Some(if_ap_start), 0.into()));
                 }
                 let always = super::utils::cond_non_blk_assign(
                     "ACLK",

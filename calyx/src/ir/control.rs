@@ -204,6 +204,24 @@ impl Control {
             attributes: Attributes::default(),
         })
     }
+
+    /// Returns the value of an attribute if present
+    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    where
+        S: std::fmt::Display + AsRef<str>,
+    {
+        self.get_attributes().and_then(|attrs| attrs.get(attr))
+    }
+
+    /// Returns true if the node has a specific attribute
+    pub fn has_attribute<S>(&self, attr: S) -> bool
+    where
+        S: std::fmt::Display + AsRef<str>,
+    {
+        self.get_attributes()
+            .map(|attrs| attrs.has(attr))
+            .unwrap_or(false)
+    }
 }
 
 impl Control {

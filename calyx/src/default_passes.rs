@@ -31,6 +31,7 @@ impl PassManager {
         pm.register_pass::<CompileEmpty>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;
+        pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
@@ -79,7 +80,8 @@ impl PassManager {
                 DeadGroupRemoval, // Since MergeStaticPar potentialy creates dead groups
                 StaticParConv,    // Must be before `collapse-control`
                 CollapseControl,
-                CompileRef, //Must run before 'cell-share'.
+                CompileRef, //Must run before 'resource-sharing'.
+                InferShare,
                 CellShare,
             ]
         );

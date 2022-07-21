@@ -15,7 +15,7 @@ use std::collections::HashMap;
 /// to minimize the number of used components.
 ///
 /// You must implement the functions:
-///  - [ShareComponents::lookup_group_conflicts]
+///  - [ShareComponents::lookup_node_conflicts]
 ///  - [ShareComponents::cell_filter]
 ///  - [ShareComponents::set_rewrites]
 ///  - [ShareComponents::get_rewrites]
@@ -25,9 +25,9 @@ use std::collections::HashMap;
 ///
 /// The algorithm that runs is:
 ///  - instantiate conflict graph using all component cells that satisfy `cell_filter`
-///  - use [ScheduleConflicts] to find groups that run in parallel with each other
-///  - for each group, `G` that runs in parallel with another group `H`, add edges between each
-///  cell in the sets `lookup_group_conflicts(G)` and `lookup_group_conflicts(H)`.
+///  - use [ScheduleConflicts] to find groups/invokes that run in parallel with each other
+///  - for each group/invoke, `G` that runs in parallel with another group/invoke `H`, add edges between each
+///  cell in the sets `lookup_node_conflicts(G)` and `lookup_node_conflicts(H)`.
 ///  - add conflicts between cells where for `c0 != c1`
 ///  - call `custom_conflicts` to insert pass specific conflict edges
 ///  - perform graph coloring using `self.ordering` to define the order of the greedy coloring
@@ -46,7 +46,7 @@ pub trait ShareComponents {
     /// Return a vector of conflicting cell names for a the group `group_name`.
     /// These are the names of the cells that conflict if their groups are
     /// run in parallel.
-    fn lookup_group_conflicts(&self, group_name: &ir::Id) -> Vec<&ir::Id>;
+    fn lookup_node_conflicts(&self, node_name: &ir::Id) -> Vec<&ir::Id>;
 
     /// Given a cell and the library signatures, this function decides if
     /// this cell is relevant to the current sharing pass or not. This
@@ -110,7 +110,7 @@ impl<T: ShareComponents> Visitor for T {
                 .collect();
 
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
-        let group_conflicts = par_conflicts
+        let node_conflicts = par_conflicts
             .all_conflicts()
             .into_grouping_map_by(|(g1, _)| g1.clone())
             .fold(
@@ -119,7 +119,7 @@ impl<T: ShareComponents> Visitor for T {
                  _,
                  (_, conflicted_group)| {
                     for conflict in
-                        self.lookup_group_conflicts(&conflicted_group)
+                        self.lookup_node_conflicts(&conflicted_group)
                     {
                         acc.entry(id_to_type[conflict].clone())
                             .or_default()
@@ -129,10 +129,10 @@ impl<T: ShareComponents> Visitor for T {
                 },
             );
 
-        group_conflicts
+        node_conflicts
             .into_iter()
-            .for_each(|(group, conflict_group_b)| {
-                for a in self.lookup_group_conflicts(&group) {
+            .for_each(|(node, conflict_group_b)| {
+                for a in self.lookup_node_conflicts(&node) {
                     let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
                     if let Some(confs) = conflict_group_b.get(&id_to_type[a]) {
                         for b in confs {

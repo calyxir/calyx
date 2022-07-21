@@ -8,7 +8,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
     group b {
       r.write_en = r.out ? 1'd1;
       r.in = r.out;
-      b[done] = r.done ? 1'd1;
+      b[done] = r.done;
     }
     comb group c {
       r.write_en = r.out ? 1'd1;

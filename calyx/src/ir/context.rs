@@ -64,8 +64,11 @@ impl LibrarySignatures {
     }
 }
 
-impl From<Vec<(PathBuf, Vec<Primitive>)>> for LibrarySignatures {
-    fn from(externs: Vec<(PathBuf, Vec<Primitive>)>) -> Self {
+impl<I> From<I> for LibrarySignatures
+where
+    I: IntoIterator<Item = (PathBuf, Vec<Primitive>)>,
+{
+    fn from(externs: I) -> Self {
         let mut lib = LibrarySignatures::default();
         for (path, prims) in externs {
             let map: LinkedHashMap<_, _> =

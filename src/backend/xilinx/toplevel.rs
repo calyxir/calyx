@@ -46,18 +46,37 @@ impl Backend for XilinxInterfaceBackend {
                     " Please make sure that at least one memory is marked as @external."));
         }
 
+        let mem_info = get_mem_info(toplevel);
+
         let mut modules = vec![
+            // XXX(nathanielnrn) what defines top_level address_width and data_width?
             top_level(12, 32, &memories),
-            bram(32, 32, 5),
-            axi::AxiInterface::control_module("Control_axi", 12, 32, &memories),
         ];
+        for (i, _mem) in memories.iter().enumerate() {
+            modules.push(bram(
+                &format!("SINGLE_PORT_BRAM_{}", i),
+                mem_info[i].0,
+                mem_info[i].1,
+                mem_info[i].2,
+            ))
+        }
+
+        modules.push(axi::AxiInterface::control_module(
+            "Control_axi",
+            // XXX(nathanielnrn) these match numbers above, unclear where they're from
+            12,
+            32,
+            &memories,
+        ));
 
         for (i, _mem) in memories.iter().enumerate() {
             modules.push(axi::AxiInterface::memory_module(
                 &format!("Memory_controller_axi_{}", i),
                 512,
                 64,
-                32,
+                mem_info[i].0,
+                mem_info[i].1,
+                mem_info[i].2,
             ))
         }
 
@@ -79,13 +98,36 @@ impl Backend for XilinxInterfaceBackend {
     }
 }
 
-fn external_memories(comp: &ir::Component) -> Vec<String> {
-    // find external memories
+fn external_memories_cells(
+    comp: &ir::Component,
+) -> Vec<calyx::ir::RRC<ir::Cell>> {
     comp.cells
         .iter()
-        .filter(|cell_ref| {
-            matches!(cell_ref.borrow().get_attribute("external"), Some(&1))
+        // find external memories
+        .filter(|cell_ref| cell_ref.borrow().attributes.has("external"))
+        .cloned()
+        .collect()
+}
+
+// Returns a vector of tuples containing external memory info of form:
+// (WIDTH, SIZE, IDX_SIZE)
+fn get_mem_info(comp: &ir::Component) -> Vec<(u64, u64, u64)> {
+    external_memories_cells(comp)
+        .iter()
+        .map(|cell_ref| {
+            (
+                cell_ref.borrow().get_parameter("WIDTH").unwrap(),
+                cell_ref.borrow().get_parameter("SIZE").unwrap(),
+                cell_ref.borrow().get_parameter("IDX_SIZE").unwrap(),
+            )
         })
+        .collect()
+}
+
+// Returns Vec<String> of memory names
+fn external_memories(comp: &ir::Component) -> Vec<String> {
+    external_memories_cells(comp)
+        .iter()
         .map(|cell_ref| cell_ref.borrow().name().to_string())
         .collect()
 }
@@ -95,6 +137,7 @@ fn top_level(
     data_width: u64,
     memories: &[String],
 ) -> v::Module {
+    assert!(!memories.is_empty()); // At least 1 memory should exist within the toplevel
     let mut module = v::Module::new("Toplevel");
 
     // add system signals
@@ -170,7 +213,7 @@ fn top_level(
         let done = format!("{}_done", mem);
         module.add_decl(v::Decl::new_wire(&write_data, data_width));
         module.add_decl(v::Decl::new_wire(&read_data, data_width));
-        module.add_decl(v::Decl::new_wire(&addr0, 5));
+        module.add_decl(v::Decl::new_wire(&addr0, address_width));
         module.add_decl(v::Decl::new_wire(&write_en, 1));
         module.add_decl(v::Decl::new_wire(&done, 1));
 
@@ -245,13 +288,7 @@ fn top_level(
     // done signal
     module.add_stmt(v::Parallel::Assign(
         "ap_done".into(),
-        v::Expr::new_logical_or(
-            v::Expr::new_gt("counter", "timeout"),
-            v::Expr::new_eq(
-                "memories_sent",
-                v::Expr::new_ulit_bin(memories.len() as u32, "1"),
-            ),
-        ),
+        "memories_sent".into(),
     ));
 
     module
@@ -259,7 +296,7 @@ fn top_level(
 
 fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
     module.add_decl(v::Decl::new_wire("memories_copied", 1));
-    module.add_decl(v::Decl::new_reg("memories_sent", memories.len() as u64));
+    module.add_decl(v::Decl::new_reg("memories_sent", 1));
     module.add_stmt(v::Parallel::Assign(
         "memories_copied".into(),
         if memories.is_empty() {
@@ -291,20 +328,18 @@ fn host_transfer_fsm(module: &mut v::Module, memories: &[String]) {
 
     let mut parallel = v::ParallelProcess::new_always();
     parallel.set_event(v::Sequential::new_posedge("ap_clk"));
+
     let mut ifelse = v::SequentialIfElse::new(fsm.state_is("send"));
-    if memories.len() == 1 {
-        ifelse.add_seq(v::Sequential::new_nonblk_assign(
-            "memories_sent",
-            format!("{}_send_done", memories[0]),
-        ));
-    } else {
-        for (idx, mem) in memories.iter().enumerate() {
-            ifelse.add_seq(v::Sequential::new_nonblk_assign(
-                v::Expr::new_index_bit("memories_sent", idx as i32),
-                format!("{}_send_done", mem),
-            ));
-        }
-    }
+    ifelse.add_seq(v::Sequential::new_nonblk_assign(
+        "memories_sent",
+        memories[1..].iter().fold(
+            format!("{}_send_done", memories[0]).into(),
+            |acc, elem| {
+                v::Expr::new_bit_and(acc, format!("{}_send_done", elem))
+            },
+        ),
+    ));
+
     ifelse.set_else(v::Sequential::new_nonblk_assign("memories_sent", 0));
     parallel.add_seq(ifelse);
     module.add_stmt(parallel);
