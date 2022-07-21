@@ -129,17 +129,17 @@ For example, on our group's havarti server, you can do this:
     source /opt/xilinx/xrt/setup.sh
     export EMCONFIG_PATH=`pwd`
 
-To run an xclbin compiled for hardware emulation run:
+To prepare for hardware emulation of an xclbin compiled appropriately, run :
 
     export XCL_EMULATION_MODE=hw_emu
 
-The `XCL_EMULATION_MODE` environment variable must be unset to actually run on hardware:
+To prepare for actual hardware execution the `XCL_EMULATION_MODE` environment variable must be unset:
     
     unset XCL_EMULATION_MODE
 
-That is, you'll source the setup scripts for both [Vitis][] and [XRT][];
+This is sourcing the setup scripts for both [Vitis][] and [XRT][];
 you need to set a special `EMCONFIG_PATH` to your current directory so that fud can generate a [special JSON configuration file for Xilinx emulation][emconfig.json];
-and you need to tell PYNQ whether you want `hw_emu` (emulation) or the default actual on-device execution mode.
+and you need to tell PYNQ whether you want `hw_emu` (emulation) or the default on-device execution to occur by exporting or unsetting the `XCL_EMULATION_MODE` environment variable.
 Of course, it would be better if all this could come from fud's configuration itself instead of requiring you to set it up ahead of time;
 [issue #872](https://github.com/cucapra/calyx/issues/872) covers this work.
 
