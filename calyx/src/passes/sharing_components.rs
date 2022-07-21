@@ -134,7 +134,6 @@ impl<T: ShareComponents> Visitor for T {
 
         log::info!("checkpt2.6: {}ms", start.elapsed().as_millis());
 
-        let mut node_live_map: HashMap<ir::Id, Vec<&ir::Id>> = HashMap::new();
         let mut node_by_type_map: HashMap<
             ir::Id,
             HashMap<&ir::CellType, BTreeSet<&ir::Id>>,
@@ -143,31 +142,26 @@ impl<T: ShareComponents> Visitor for T {
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
 
-        for node in invokes_enables {
+        for node in &invokes_enables {
             let node_conflicts = self.lookup_node_conflicts(&node);
-            node_live_map
-                .insert(node.clone(), self.lookup_node_conflicts(&node));
-
-            for conflict in node_conflicts {
-                node_by_type_map
-                    .entry(node.clone())
-                    .or_default()
-                    .entry(&id_to_type[conflict])
-                    .or_default()
-                    .insert(conflict);
+            if node_conflicts.is_empty() {
+                node_by_type_map.insert(node.clone(), HashMap::new());
+            } else {
+                for conflict in node_conflicts {
+                    node_by_type_map
+                        .entry(node.clone())
+                        .or_default()
+                        .entry(&id_to_type[conflict])
+                        .or_default()
+                        .insert(conflict);
+                }
             }
         }
-
-        let lookup_conflicts = |node: &ir::Id| -> &Vec<&ir::Id> {
-            node_live_map.get(&node).unwrap_or_else(|| {
-                unreachable!("do not have node_live_map entry for {}", node)
-            })
-        };
 
         let lookup_conflicts_by_type =
             |node: &ir::Id| -> &HashMap<&ir::CellType, BTreeSet<&ir::Id>> {
                 node_by_type_map.get(&node).unwrap_or_else(|| {
-                    unreachable!("do not have node_live_map entry for {}", node)
+                    unreachable!("no node conflict map for {}", node)
                 })
             };
 
@@ -189,17 +183,16 @@ impl<T: ShareComponents> Visitor for T {
         log::info!("checkpt3: {}ms", start.elapsed().as_millis());
 
         // add custom conflicts
-        self.custom_conflicts(comp, |nodes: HashSet<ir::Id>| {
-            for node_name in nodes {
-                let mut emtpy_map = HashMap::new();
-                let conflict_map = match node_conflicts.get_mut(&node_name) {
-                    None => &mut emtpy_map,
-                    Some(cmap) => cmap,
-                };
-                for &a in lookup_conflicts(&node_name) {
-                    let g = graphs_by_type.get_mut(&id_to_type[a]).unwrap();
-                    if let Some(b_confs) = conflict_map.get_mut(&id_to_type[a])
-                    {
+        for node_name in &invokes_enables {
+            let mut emtpy_map = HashMap::new();
+            let conflict_map = match node_conflicts.get_mut(&node_name) {
+                None => &mut emtpy_map,
+                Some(cmap) => cmap,
+            };
+            for (cell_type, a_confs) in lookup_conflicts_by_type(&node_name) {
+                for &a in a_confs {
+                    let g = graphs_by_type.get_mut(&cell_type).unwrap();
+                    if let Some(b_confs) = conflict_map.get_mut(cell_type) {
                         for &b in b_confs.iter() {
                             if a != b {
                                 g.insert_conflict(a, b);
@@ -207,12 +200,11 @@ impl<T: ShareComponents> Visitor for T {
                         }
                         b_confs.insert(a);
                     } else {
-                        conflict_map
-                            .insert(&id_to_type[a], BTreeSet::from([a]));
+                        conflict_map.insert(&cell_type, BTreeSet::from([a]));
                     }
                 }
             }
-        });
+        }
 
         log::info!("checkpt 4+5: {}ms", start.elapsed().as_millis());
 
