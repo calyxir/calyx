@@ -97,7 +97,7 @@ class HwExecutionStage(Stage):
             # Note that this is the call on v++. This uses global USER_ENV variables
             # EMCONFIG_PATH=`pwd`
             # XCL_EMULATION_MODE=hw_emu
-            kernel_output = pynq_script.run(abs_xclbin_path, data)
+            kernel_output = self.pynq_script.run(abs_xclbin_path, data)
             end_time = time.time()
             log.debug(f"Emulation time: {end_time - start_time} sec")
 
