@@ -28,7 +28,7 @@ remote = [
        "scp"
 ]
 fpga = [
-  "pyopencl==2021.2.8"
+  "pynq"
 ]
 
 [tool.flit.scripts]
