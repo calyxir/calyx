@@ -1,0 +1,36 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    add = std_add(32);
+    bin_read0_0 = std_reg(32);
+    A = std_reg(32);
+    B = std_reg(32);
+    x_0 = std_reg(32);
+  }
+  wires {
+    group writeAB {
+      B.in = 32'd7;
+      B.write_en = 1'd1;
+      A.in = 32'd5;
+      A.write_en = 1'd1;
+      writeAB[done] = A.done & B.done ? 1'd1;
+    }
+    group chain_plus_adders {
+      bin_read0_0.write_en = !bin_read0_0.done ? 1'd1;
+      x_0.in = bin_read0_0.out;
+      x_0.write_en = bin_read0_0.done;
+      add.right = 32'd4;
+      add.left = 32'd2;
+      bin_read0_0.in = add.out;
+      chain_plus_adders[done] = x_0.done;
+    }
+  }
+
+  control {
+    seq {
+      writeAB;
+      chain_plus_adders;
+    }
+  }
+}
