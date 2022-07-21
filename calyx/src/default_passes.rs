@@ -3,10 +3,10 @@ use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, ComponentInliner,
     ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferStaticTiming,
-    LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
-    RegisterUnsharing, RemoveCombGroups, ResetInsertion, SimplifyGuards,
-    StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
+    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
+    ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    SimplifyGuards, StaticParConv, SynthesisPapercut, TopDownCompileControl,
     TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
