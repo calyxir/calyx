@@ -117,7 +117,7 @@ impl<T: ShareComponents> Visitor for T {
 
         // Build node_by_type_map.
         for node in &invokes_enables {
-            let node_conflicts = self.lookup_node_conflicts(&node);
+            let node_conflicts = self.lookup_node_conflicts(node);
             if node_conflicts.is_empty() {
                 // If node has no live cells, add an empty Map as its entry,
                 // since we want to have *all* invokes/enables accounted for.
@@ -139,7 +139,7 @@ impl<T: ShareComponents> Visitor for T {
         // This is faster than just
         let lookup_conflicts_by_type =
             |node: &ir::Id| -> &HashMap<&ir::CellType, HashSet<&ir::Id>> {
-                node_by_type_map.get(&node).unwrap_or_else(|| {
+                node_by_type_map.get(node).unwrap_or_else(|| {
                     unreachable!("no node conflict map for {}", node)
                 })
             };
@@ -168,13 +168,13 @@ impl<T: ShareComponents> Visitor for T {
         // add conflicts
         for node_name in &invokes_enables {
             let mut emtpy_map = HashMap::new();
-            let conflict_map = match node_conflicts.get_mut(&node_name) {
+            let conflict_map = match node_conflicts.get_mut(node_name) {
                 None => &mut emtpy_map,
                 Some(cmap) => cmap,
             };
-            for (cell_type, a_confs) in lookup_conflicts_by_type(&node_name) {
+            for (cell_type, a_confs) in lookup_conflicts_by_type(node_name) {
                 for &a in a_confs {
-                    let g = graphs_by_type.get_mut(&cell_type).unwrap();
+                    let g = graphs_by_type.get_mut(cell_type).unwrap();
                     if let Some(b_confs) = conflict_map.get_mut(cell_type) {
                         for &b in b_confs.iter() {
                             if a != b {
@@ -185,7 +185,7 @@ impl<T: ShareComponents> Visitor for T {
                         b_confs.insert(a);
                     } else {
                         // so that there are conflicts between cells in the same group/enable
-                        conflict_map.insert(&cell_type, HashSet::from([a]));
+                        conflict_map.insert(cell_type, HashSet::from([a]));
                     }
                 }
             }
