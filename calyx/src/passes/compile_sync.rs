@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::RRC;
 use crate::ir::{self, GetAttributes};
-use std::collections::HashMap;
+use linked_hash_map::LinkedHashMap;
 
 #[derive(Default)]
 /// 1. loop through all control statements under "par" block to find # barriers
@@ -37,7 +39,7 @@ impl Named for CompileSync {
     }
 }
 
-fn count_barriers(s: &ir::Control, map: &mut HashMap<u64, u64>) -> () {
+fn count_barriers(s: &ir::Control, map: &mut LinkedHashMap<u64, u64>) {
     match s {
         ir::Control::Seq(seq) => {
             for stmt in seq.stmts.iter() {
@@ -74,7 +76,7 @@ fn add_shared_primitive(
     prefix: &'static str,
     barrier_idx: &u64,
     primitive: &str,
-    parameters: &Vec<u64>,
+    parameters: &[u64],
     map: &mut HashMap<ir::Id, ir::Id>,
 ) -> RRC<ir::Cell> {
     let prim = builder.add_primitive(
@@ -95,7 +97,7 @@ fn add_ind_primitive(
     barrier_idx: &u64,
     member_idx: &u64,
     primitive: &str,
-    parameters: &Vec<u64>,
+    parameters: &[u64],
     map: &mut HashMap<ir::Id, ir::Id>,
 ) -> RRC<ir::Cell> {
     let prim = builder.add_primitive(
@@ -181,7 +183,7 @@ fn build_incr_barrier(
     // barrier_*.read_en_0 = 1'd1;
     let dst = find_port(
         builder.component,
-        &fmt_shared_name(&"barrier", barrier_idx),
+        &fmt_shared_name("barrier", barrier_idx),
         &format!("read_en_{}", member_idx),
         map,
     );
@@ -191,19 +193,19 @@ fn build_incr_barrier(
     //incr_*_*.left = barrier_*.read_done_*?barrier_*.out_*;
     let dst = find_port(
         builder.component,
-        &fmt_ind_name(&"incr", barrier_idx, member_idx),
+        &fmt_ind_name("incr", barrier_idx, member_idx),
         "left",
         map,
     );
     let src = find_port(
         builder.component,
-        &fmt_shared_name(&"barrier", barrier_idx),
+        &fmt_shared_name("barrier", barrier_idx),
         &format!("out_{}", member_idx),
         map,
     );
     let guard = ir::Guard::Port(find_port(
         builder.component,
-        &fmt_shared_name(&"barrier", barrier_idx),
+        &fmt_shared_name("barrier", barrier_idx),
         &format!("read_done_{}", member_idx),
         map,
     ));
@@ -211,14 +213,14 @@ fn build_incr_barrier(
     // incr_*_*.right = barrier_*.read_done_*?32'd1;
     let dst = find_port(
         builder.component,
-        &fmt_ind_name(&"incr", barrier_idx, member_idx),
+        &fmt_ind_name("incr", barrier_idx, member_idx),
         "right",
         map,
     );
     let src = builder.add_constant(1, 32).borrow().get("out");
     let guard = ir::Guard::Port(find_port(
         builder.component,
-        &fmt_shared_name(&"barrier", barrier_idx),
+        &fmt_shared_name("barrier", barrier_idx),
         &format!("read_done_{}", member_idx),
         map,
     ));
@@ -246,7 +248,7 @@ fn build_incr_barrier(
     // save_*_*.write_en = barrier_*.read_done_*;
     let dst = find_port(
         builder.component,
-        &fmt_ind_name(&"save", barrier_idx, member_idx),
+        &fmt_ind_name("save", barrier_idx, member_idx),
         "write_en",
         map,
     );
@@ -556,7 +558,7 @@ fn build_member(
 fn insert_control(
     s: &mut ir::Control,
     builder: &mut ir::Builder,
-    barrier_count: &mut HashMap<u64, u64>,
+    barrier_count: &mut LinkedHashMap<u64, u64>,
     group_name_map: &mut HashMap<ir::Id, ir::Id>,
 ) {
     match s {
@@ -621,13 +623,18 @@ impl Visitor for CompileSync {
         _comps: &[ir::Component],
     ) -> VisResult {
         // count # barriers and # members for each barrier
-        let mut barriers: HashMap<u64, u64> = HashMap::new();
-        let mut barrier_count: HashMap<u64, u64> = HashMap::new();
+        let mut barriers: LinkedHashMap<u64, u64> = LinkedHashMap::new();
+        let mut barrier_count: LinkedHashMap<u64, u64> = LinkedHashMap::new();
         let mut cell_name_map: HashMap<ir::Id, ir::Id> = HashMap::new();
         let mut group_name_map: HashMap<ir::Id, ir::Id> = HashMap::new();
         for stmt in s.stmts.iter() {
             count_barriers(stmt, &mut barriers);
         }
+
+        if barriers.is_empty() {
+            return Ok(Action::Continue);
+        }
+
         let mut builder = ir::Builder::new(comp, sigs);
 
         // for each barrier, add cells needed for implementation
@@ -642,53 +649,53 @@ impl Visitor for CompileSync {
             let v_1: Vec<u64> = vec![1];
             add_shared_primitive(
                 &mut builder,
-                &"barrier",
-                &idx,
-                &"std_sync_reg",
+                "barrier",
+                idx,
+                "std_sync_reg",
                 &v_32,
                 &mut cell_name_map,
             );
             add_shared_primitive(
                 &mut builder,
-                &"eq",
-                &idx,
-                &"std_eq",
+                "eq",
+                idx,
+                "std_eq",
                 &v_32,
                 &mut cell_name_map,
             );
             add_shared_primitive(
                 &mut builder,
-                &"wait_restore_reg",
-                &idx,
-                &"std_reg",
+                "wait_restore_reg",
+                idx,
+                "std_reg",
                 &v_1,
                 &mut cell_name_map,
             );
             for n_member in 0..*n_members {
                 add_ind_primitive(
                     &mut builder,
-                    &"save",
-                    &idx,
+                    "save",
+                    idx,
                     &n_member,
-                    &"std_reg",
+                    "std_reg",
                     &v_32,
                     &mut cell_name_map,
                 );
                 add_ind_primitive(
                     &mut builder,
-                    &"wait_reg",
-                    &idx,
+                    "wait_reg",
+                    idx,
                     &n_member,
-                    &"std_reg",
+                    "std_reg",
                     &v_1,
                     &mut cell_name_map,
                 );
                 add_ind_primitive(
                     &mut builder,
-                    &"incr",
-                    &idx,
+                    "incr",
+                    idx,
                     &n_member,
-                    &"std_add",
+                    "std_add",
                     &v_32,
                     &mut cell_name_map,
                 );
@@ -706,32 +713,26 @@ impl Visitor for CompileSync {
             for n_member in 0..*n_members {
                 let incr_barrier = add_ind_group(
                     &mut builder,
-                    &"incr_barrier",
-                    &idx,
+                    "incr_barrier",
+                    idx,
                     &n_member,
                     &mut group_name_map,
                 );
                 let write_barrier = add_ind_group(
                     &mut builder,
-                    &"write_barrier",
-                    &idx,
+                    "write_barrier",
+                    idx,
                     &n_member,
                     &mut group_name_map,
                 );
                 let wait = add_ind_group(
                     &mut builder,
                     "wait",
-                    &idx,
+                    idx,
                     &n_member,
                     &mut group_name_map,
                 );
-                build_wait(
-                    &mut builder,
-                    &wait,
-                    &idx,
-                    &n_member,
-                    &cell_name_map,
-                );
+                build_wait(&mut builder, &wait, idx, &n_member, &cell_name_map);
                 build_incr_barrier(
                     &mut builder,
                     &incr_barrier,
@@ -845,10 +846,11 @@ impl Visitor for CompileSync {
                 &group_name_map,
             )));
         }
-        let mut changed_sequence: Vec<ir::Control> = Vec::new();
-        changed_sequence.push(ir::Control::par(init_barriers));
+
+        let mut changed_sequence: Vec<ir::Control> =
+            vec![ir::Control::par(init_barriers)];
         let mut copied_par_stmts: Vec<ir::Control> = Vec::new();
-        for con in s.stmts.drain(..).into_iter() {
+        for con in s.stmts.drain(..) {
             copied_par_stmts.push(con);
         }
         changed_sequence.push(ir::Control::par(copied_par_stmts));

@@ -173,8 +173,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   control {
     seq {
       par {
-        restore_2;
         restore_1;
+        restore_2;
       }
       par {
         while lt.out with cmp {
