@@ -156,11 +156,11 @@ impl<T: ShareComponents> Visitor for T {
                 |mut acc, _, (_, conflicted_group)| {
                     let new_conflicts =
                         lookup_conflicts_by_type(&conflicted_group);
-                    acc.extend(
-                        new_conflicts
-                            .into_iter()
-                            .map(|(k, v)| (k.clone(), v.clone())),
-                    );
+
+                    for (cell_type, nodes) in new_conflicts {
+                        acc.entry(cell_type).or_default().extend(nodes);
+                    }
+
                     acc
                 },
             );

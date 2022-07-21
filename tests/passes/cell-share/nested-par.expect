@@ -2,7 +2,7 @@ import "primitives/core.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     b0 = std_reg(32);
-    x0 = std_reg(4);
+    before0 = std_reg(4);
     @external read_x0 = std_add(4);
     b1 = std_reg(32);
     before1 = std_reg(4);
@@ -10,14 +10,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     group wr_before0<"static"=1> {
-      x0.in = 4'd1;
-      x0.write_en = 1'd1;
-      wr_before0[done] = x0.done;
+      before0.in = 4'd1;
+      before0.write_en = 1'd1;
+      wr_before0[done] = before0.done;
     }
     group wr_x0<"static"=1> {
-      x0.in = 4'd1;
-      x0.write_en = 1'd1;
-      wr_x0[done] = x0.done;
+      before0.in = 4'd1;
+      before0.write_en = 1'd1;
+      wr_x0[done] = before0.done;
     }
     group wr_b0<"static"=1> {
       b0.in = 32'd1;
@@ -25,9 +25,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       wr_b0[done] = b0.done;
     }
     group rd_x0 {
-      read_x0.right = x0.out;
-      read_x0.left = x0.out;
-      rd_x0[done] = x0.done;
+      read_x0.right = before0.out;
+      read_x0.left = before0.out;
+      rd_x0[done] = before0.done;
     }
     group wr_before1<"static"=1> {
       before1.in = 4'd1;
