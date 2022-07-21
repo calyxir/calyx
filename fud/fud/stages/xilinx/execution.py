@@ -35,7 +35,6 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
-
         @builder.step()
         def import_libs():
             """Import optional libraries"""
@@ -117,7 +116,7 @@ class HwExecutionStage(Stage):
                         log.debug(line.strip())
 
             return sjson.dumps(kernel_output, indent=2, use_decimal=True)
-        
+
         import_libs()
         res = run(input)
         return res
