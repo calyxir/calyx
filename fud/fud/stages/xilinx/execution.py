@@ -83,18 +83,14 @@ class HwExecutionStage(Stage):
             # Extra Tcl scripts to produce a VCD waveform dump.
             if waveform:
                 with open("pre_sim.tcl", "w") as f:
-                    f.writelines(
-                        [
-                            "open_vcd\n",
-                            "log_vcd *\n",
-                        ]
-                    )
+                    f.writelines([
+                        "open_vcd\n",
+                        "log_vcd *\n",
+                    ])
                 with open("post_sim.tcl", "w") as f:
-                    f.writelines(
-                        [
-                            "close_vcd\n",
-                        ]
-                    )
+                    f.writelines([
+                        "close_vcd\n",
+                    ])
 
             data = sjson.load(open(abs_data_path), use_decimal=True)
             start_time = time.time()
