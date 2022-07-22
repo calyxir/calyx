@@ -67,7 +67,7 @@ There is also an `hls-files` state for the raw results of Vivado HLS.
 ## Emulation and Execution
 
 `fud` can also compile Calyx programs for actual execution, either in the Xilinx toolchain's emulation modes or for running on a physical FPGA.
-This route involves generating an [AXI][] interface wrapper for the Calyx program and invoking it using [XRT][]'s OpenCL interface.
+This route involves generating an [AXI][] interface wrapper for the Calyx program and invoking it using Xilinx's [PYNQ][] interface.
 
 ### Set Up
 
@@ -128,11 +128,18 @@ For example, on our group's havarti server, you can do this:
     source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh
     source /opt/xilinx/xrt/setup.sh
     export EMCONFIG_PATH=`pwd`
+
+To prepare for hardware emulation of an xclbin compiled appropriately, run:
+
     export XCL_EMULATION_MODE=hw_emu
 
-That is, you'll source the setup scripts for both [Vitis][] and [XRT][];
-you need to set a special `EMCONFIG_PATH` to your current directory so that fud can generate a [special JSON configuration file for Xilinx emulation][emconfig.json];
-and you need to tell XRT whether you want `hw_emu` (emulation) or `hw` (actual on-device execution) mode.
+If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable must be unset:
+    
+    unset XCL_EMULATION_MODE
+
+These steps source the setup scripts for both [Vitis][] and [XRT][],
+and set a special `EMCONFIG_PATH` to your current directory so that fud can generate a [special JSON configuration file for Xilinx emulation][emconfig.json].
+You also need to tell PYNQ whether you want `hw_emu` (emulation) or the default on-device execution to occur by exporting or unsetting the `XCL_EMULATION_MODE` environment variable.
 Of course, it would be better if all this could come from fud's configuration itself instead of requiring you to set it up ahead of time;
 [issue #872](https://github.com/cucapra/calyx/issues/872) covers this work.
 
@@ -252,3 +259,4 @@ Fortunately, the `v++` tool doesn't need any Tcl to drive it; all the action hap
 [duh]: https://github.com/sifive/duh
 [package_kernel]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.1/Hardware_Acceleration/Feature_Tutorials/01-rtl_kernel_workflow/reference-files/scripts/package_kernel.tcl
 [package_xo]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/package_xo-Command
+[pynq]: https://github.com/Xilinx/PYNQ

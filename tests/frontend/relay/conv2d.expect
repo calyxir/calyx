@@ -1,24 +1,11 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
-component main() -> () {
+component conv2d_5x512x14x14() -> () {
   cells {
-    @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
-    @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    conv2d_5x512x14x14_ = conv2d_5x512x14x14();
-  }
-  wires {
-
-  }
-  control {
-    seq {
-      invoke conv2d_5x512x14x14_(data0_0_0_0_read_data=data.read_data, weight0_0_0_0_read_data=weight.read_data, x0_0_0_0_done=x.done, x0_0_0_0_read_data=x.read_data)(data0_0_0_0_addr0=data.addr0, data0_0_0_0_addr1=data.addr1, data0_0_0_0_addr2=data.addr2, data0_0_0_0_addr3=data.addr3, weight0_0_0_0_addr0=weight.addr0, weight0_0_0_0_addr1=weight.addr1, weight0_0_0_0_addr2=weight.addr2, weight0_0_0_0_addr3=weight.addr3, x0_0_0_0_write_data=x.write_data, x0_0_0_0_write_en=x.write_en, x0_0_0_0_addr0=x.addr0, x0_0_0_0_addr1=x.addr1, x0_0_0_0_addr2=x.addr2, x0_0_0_0_addr3=x.addr3);
-    }
-  }
-}
-component conv2d_5x512x14x14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, weight0_0_0_0_read_data: 32, weight0_0_0_0_done: 1, x0_0_0_0_read_data: 32, x0_0_0_0_done: 1) -> (data0_0_0_0_write_data: 32, data0_0_0_0_write_en: 1, data0_0_0_0_addr0: 3, data0_0_0_0_addr1: 10, data0_0_0_0_addr2: 4, data0_0_0_0_addr3: 4, weight0_0_0_0_write_data: 32, weight0_0_0_0_write_en: 1, weight0_0_0_0_addr0: 10, weight0_0_0_0_addr1: 10, weight0_0_0_0_addr2: 2, weight0_0_0_0_addr3: 2, x0_0_0_0_write_data: 32, x0_0_0_0_write_en: 1, x0_0_0_0_addr0: 3, x0_0_0_0_addr1: 10, x0_0_0_0_addr2: 4, x0_0_0_0_addr3: 4) {
-  cells {
+    ref data0_0_0_0 = std_mem_d4(32,5,512,14,14,3,10,4,4);
+    ref weight0_0_0_0 = std_mem_d4(32,512,512,3,3,10,10,2,2);
+    ref x0_0_0_0 = std_mem_d4(32,5,512,14,14,3,10,4,4);
     __b0 = std_reg(32);
     __c0 = std_reg(32);
     __dx0 = std_reg(32);
@@ -200,98 +187,98 @@ component conv2d_5x512x14x14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, wei
     }
     group upd0<"static"=1> {
       data_read0_0.write_en = 1'd1;
-      data0_0_0_0_addr3 = slice3.out;
+      data0_0_0_0.addr3 = slice3.out;
       slice3.in = __kernel_x_0.out;
-      data0_0_0_0_addr2 = slice2.out;
+      data0_0_0_0.addr2 = slice2.out;
       slice2.in = __kernel_y_0.out;
-      data0_0_0_0_addr1 = slice1.out;
+      data0_0_0_0.addr1 = slice1.out;
       slice1.in = __k0.out;
-      data0_0_0_0_addr0 = slice0.out;
+      data0_0_0_0.addr0 = slice0.out;
       slice0.in = __b0.out;
-      data_read0_0.in = 1'd1 ? data0_0_0_0_read_data;
-      upd0[done] = data_read0_0.done ? 1'd1;
+      data_read0_0.in = data0_0_0_0.read_data;
+      upd0[done] = data_read0_0.done;
     }
     group upd1<"static"=1> {
       weight_read0_0.write_en = 1'd1;
-      weight0_0_0_0_addr3 = slice7.out;
+      weight0_0_0_0.addr3 = slice7.out;
       slice7.in = __dx0.out;
-      weight0_0_0_0_addr2 = slice6.out;
+      weight0_0_0_0.addr2 = slice6.out;
       slice6.in = __dy0.out;
-      weight0_0_0_0_addr1 = slice5.out;
+      weight0_0_0_0.addr1 = slice5.out;
       slice5.in = __k0.out;
-      weight0_0_0_0_addr0 = slice4.out;
+      weight0_0_0_0.addr0 = slice4.out;
       slice4.in = __c0.out;
-      weight_read0_0.in = 1'd1 ? weight0_0_0_0_read_data;
-      upd1[done] = weight_read0_0.done ? 1'd1;
+      weight_read0_0.in = weight0_0_0_0.read_data;
+      upd1[done] = weight_read0_0.done;
     }
     group upd10<"static"=1> {
       __b0.write_en = 1'd1;
       add9.left = __b0.out;
       add9.right = const23.out;
-      __b0.in = 1'd1 ? add9.out;
-      upd10[done] = __b0.done ? 1'd1;
+      __b0.in = add9.out;
+      upd10[done] = __b0.done;
     }
     group upd2<"static"=1> {
       __sum_0.write_en = 1'd1;
       add2.left = __sum_0.out;
       add2.right = bin_read2_0.out;
-      __sum_0.in = 1'd1 ? add2.out;
-      upd2[done] = __sum_0.done ? 1'd1;
+      __sum_0.in = add2.out;
+      upd2[done] = __sum_0.done;
     }
     group upd3<"static"=1> {
       __dx0.write_en = 1'd1;
       add3.left = __dx0.out;
       add3.right = const17.out;
-      __dx0.in = 1'd1 ? add3.out;
-      upd3[done] = __dx0.done ? 1'd1;
+      __dx0.in = add3.out;
+      upd3[done] = __dx0.done;
     }
     group upd4<"static"=1> {
       __dy0.write_en = 1'd1;
       add4.left = __dy0.out;
       add4.right = const18.out;
-      __dy0.in = 1'd1 ? add4.out;
-      upd4[done] = __dy0.done ? 1'd1;
+      __dy0.in = add4.out;
+      upd4[done] = __dy0.done;
     }
     group upd5<"static"=1> {
       __k0.write_en = 1'd1;
       add5.left = __k0.out;
       add5.right = const19.out;
-      __k0.in = 1'd1 ? add5.out;
-      upd5[done] = __k0.done ? 1'd1;
+      __k0.in = add5.out;
+      upd5[done] = __k0.done;
     }
     group upd6<"static"=1> {
-      x0_0_0_0_addr3 = slice11.out;
+      x0_0_0_0.addr3 = slice11.out;
       slice11.in = __x0.out;
-      x0_0_0_0_addr2 = slice10.out;
+      x0_0_0_0.addr2 = slice10.out;
       slice10.in = __y0.out;
-      x0_0_0_0_addr1 = slice9.out;
+      x0_0_0_0.addr1 = slice9.out;
       slice9.in = __c0.out;
-      x0_0_0_0_addr0 = slice8.out;
+      x0_0_0_0.addr0 = slice8.out;
       slice8.in = __b0.out;
-      x0_0_0_0_write_en = 1'd1;
-      x0_0_0_0_write_data = 1'd1 ? __sum_0.out;
-      upd6[done] = x0_0_0_0_done ? 1'd1;
+      x0_0_0_0.write_en = 1'd1;
+      x0_0_0_0.write_data = __sum_0.out;
+      upd6[done] = x0_0_0_0.done;
     }
     group upd7<"static"=1> {
       __x0.write_en = 1'd1;
       add6.left = __x0.out;
       add6.right = const20.out;
-      __x0.in = 1'd1 ? add6.out;
-      upd7[done] = __x0.done ? 1'd1;
+      __x0.in = add6.out;
+      upd7[done] = __x0.done;
     }
     group upd8<"static"=1> {
       __y0.write_en = 1'd1;
       add7.left = __y0.out;
       add7.right = const21.out;
-      __y0.in = 1'd1 ? add7.out;
-      upd8[done] = __y0.done ? 1'd1;
+      __y0.in = add7.out;
+      upd8[done] = __y0.done;
     }
     group upd9<"static"=1> {
       __c0.write_en = 1'd1;
       add8.left = __c0.out;
       add8.right = const22.out;
-      __c0.in = 1'd1 ? add8.out;
-      upd9[done] = __c0.done ? 1'd1;
+      __c0.in = add8.out;
+      upd9[done] = __c0.done;
     }
   }
   control {
@@ -360,3 +347,22 @@ component conv2d_5x512x14x14(data0_0_0_0_read_data: 32, data0_0_0_0_done: 1, wei
   }
 }
 
+component main() -> () {
+  cells {
+    @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
+    @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    conv2d_5x512x14x14_ = conv2d_5x512x14x14();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      @pos(0) invoke conv2d_5x512x14x14_[data0_0_0_0=data, weight0_0_0_0=weight, x0_0_0_0=x]()();
+    }
+  }
+}
+metadata #{
+0: let %x: Tensor[(5, 512, 14, 14), int32] = nn.conv2d(%data, %weight, padding=[1, 1, 1, 1], channels=512, kernel_size=[3, 3]) /* ty=Tensor[(5, 512, 14, 14), int32] */;
+}#
