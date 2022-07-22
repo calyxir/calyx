@@ -8,10 +8,7 @@ use ir::{
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::{
-    collections::{HashMap, HashSet},
-    time::Instant,
-};
+use std::collections::{HashMap, HashSet};
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -77,8 +74,6 @@ impl<T: ShareComponents> Visitor for T {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let start = Instant::now();
-
         self.initialize(comp, sigs);
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
@@ -107,8 +102,6 @@ impl<T: ShareComponents> Visitor for T {
                     (key, GraphColoring::from(cell_names.into_iter()))
                 })
                 .collect();
-
-        log::info!("checkpt1: {} ms", start.elapsed().as_millis());
 
         // get all of the invokes and enables.
         let mut invokes_enables = HashSet::new();
@@ -143,8 +136,8 @@ impl<T: ShareComponents> Visitor for T {
             }
         }
 
-        // Closure so that we can take a node, and get all of the cells live
-        // at that node, *organized by type* in the form of a HashMap.
+        // Closure so that we can take a group/invoke, and get all of the cells live
+        // at that group/invoke, *organized by type* in the form of a HashMap.
         let lookup_conflicts_by_type =
             |node: &ir::Id| -> &HashMap<&ir::CellType, HashSet<&ir::Id>> {
                 node_by_type_map.get(node).unwrap_or_else(|| {
@@ -152,12 +145,12 @@ impl<T: ShareComponents> Visitor for T {
                 })
             };
 
-        log::info!("checkpt2: {} ms", start.elapsed().as_millis());
-
         // conflict (a,b) is in par_conflicts if a and b run in parallel w/ each other
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
 
-        // Building node_conflicts
+        // Building node_conflicts,which is a map from nodes to another map.
+        // nodes are inovkes/enables. maps are the cells live at nodes that may be run in
+        // parrallel with node, and these cells are again organized by cell type.
         let mut node_conflicts = par_conflicts
             .all_conflicts()
             .into_grouping_map_by(|(g1, _)| g1.clone())
@@ -166,44 +159,61 @@ impl<T: ShareComponents> Visitor for T {
                 |mut acc, _, (_, conflicted_group)| {
                     let new_conflicts =
                         lookup_conflicts_by_type(&conflicted_group);
-
                     for (cell_type, nodes) in new_conflicts {
                         acc.entry(cell_type).or_default().extend(nodes);
                     }
-
                     acc
                 },
             );
 
-        log::info!("checkpt3: {} ms", start.elapsed().as_millis());
-
         // add conflicts
         for node_name in &invokes_enables {
-            let mut emtpy_map = HashMap::new();
-            let conflict_map = match node_conflicts.get_mut(node_name) {
-                None => &mut emtpy_map,
-                Some(cmap) => cmap,
-            };
-            for (cell_type, a_confs) in lookup_conflicts_by_type(node_name) {
-                for &a in a_confs {
-                    let g = graphs_by_type.get_mut(cell_type).unwrap();
-                    if let Some(b_confs) = conflict_map.get_mut(cell_type) {
-                        for &b in b_confs.iter() {
-                            if a != b {
-                                g.insert_conflict(a, b);
+            let node_confs_by_type = lookup_conflicts_by_type(node_name);
+            match node_conflicts.get_mut(node_name) {
+                None => {
+                    // There are no nodes running in parallel to node_name. In
+                    // this case, all we have to do is add conflicts within node_name
+                    for (cell_type, confs) in node_confs_by_type {
+                        let g = graphs_by_type.get_mut(cell_type).unwrap();
+                        // notice how we only perform tuple_combinations on cells that we
+                        // know are the same type. This is faster than creating
+                        // tuple_combinations, and then checking whether they're the
+                        // same type.
+                        for (a, b) in confs.iter().tuple_combinations() {
+                            g.insert_conflict(a, b)
+                        }
+                    }
+                }
+                Some(conflict_map) => {
+                    // There are some cells that are live in parallel to node_name
+                    for (cell_type, a_confs) in node_confs_by_type {
+                        let g = graphs_by_type.get_mut(cell_type).unwrap();
+                        if let Some(b_confs) = conflict_map.get_mut(cell_type) {
+                            // Since we know a and b are the same type, we can add conflicts w/o
+                            // checking type.
+                            for &a in a_confs {
+                                for &b in b_confs.iter() {
+                                    if a != b {
+                                        g.insert_conflict(a, b);
+                                    }
+                                }
+                                // so that there are conflicts between each cell
+                                // in a_confs. We do this instead of doing
+                                // tuple_combinations() on a_confs.
+                                b_confs.insert(a);
+                            }
+                        } else {
+                            // If there are no cells of type cell_type that coudl be run in parallel
+                            // with node_name, then all we have to do is add conflicts
+                            // within a_confs
+                            for (a, b) in a_confs.iter().tuple_combinations() {
+                                g.insert_conflict(a, b)
                             }
                         }
-                        // so that there are conflicts between cells in the same group/enable
-                        b_confs.insert(a);
-                    } else {
-                        // so that there are conflicts between cells in the same group/enable
-                        conflict_map.insert(cell_type, HashSet::from([a]));
                     }
                 }
             }
         }
-
-        log::info!("checkpt4: {} ms", start.elapsed().as_millis());
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
@@ -231,8 +241,6 @@ impl<T: ShareComponents> Visitor for T {
             &HashMap::new(),
             &HashMap::new(),
         );
-
-        log::info!("checkpt5: {} ms", start.elapsed().as_millis());
 
         Ok(Action::Stop)
     }
