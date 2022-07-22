@@ -74,7 +74,7 @@ fn construct_invoke(
             if assign.guard.is_true() {
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
-                // comp has a guarded assignment, need a wire
+                // assign has a guard condition,so need a wire
                 let width = assign.dst.borrow().width;
                 let wire =
                     builder.add_primitive("std_wire", "std_wire", &[width]);
@@ -171,14 +171,15 @@ impl Visitor for GroupToInvoke {
                 if go_multi_write {
                     return Ok(Action::Continue);
                 }
-                if !go_multi_write && assign.src.borrow().is_constant(1, 1) {
-                    //guard must be true
-                    if assign.guard.is_true() {
-                        go_multi_write = true;
-                    } else {
-                        //if go port's guard is not true, then continue
-                        return Ok(Action::Continue);
-                    }
+                if !go_multi_write
+                    && assign.src.borrow().is_constant(1, 1)
+                    && assign.guard.is_true()
+                {
+                    go_multi_write = true;
+                } else {
+                    // if go port's guard is not true, src is not (1,1), then
+                    // Continue
+                    return Ok(Action::Continue);
                 }
             }
             // @done port should have exactly one read and the dst should be
@@ -187,20 +188,17 @@ impl Visitor for GroupToInvoke {
                 if done_multi_write {
                     return Ok(Action::Continue);
                 }
-                if !done_multi_write && assign.dst == group.get("done") {
-                    //Guard must be true
-                    if assign.guard.is_true() {
-                        done_multi_write = true;
-                    } else {
-                        //If done port's guard is not true, then Continue
-                        return Ok(Action::Continue);
-                    }
+                if !done_multi_write
+                    && assign.dst == group.get("done")
+                    && assign.guard.is_true()
+                {
+                    done_multi_write = true;
+                } else {
+                    // If done port's guard is not true and does not write to group's done
+                    // then Continue
+                    return Ok(Action::Continue);
                 }
             }
-        }
-        // Making sure we saw at least one read of the done port
-        if !done_multi_write {
-            return Ok(Action::Continue);
         }
 
         Ok(Action::change(construct_invoke(
