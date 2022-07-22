@@ -8,7 +8,10 @@ use ir::{
     CloneName, RRC,
 };
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -74,17 +77,19 @@ impl<T: ShareComponents> Visitor for T {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let start = Instant::now();
+
         self.initialize(comp, sigs);
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
-        // Mapping from Cell names (the ir::Id's) to Cell Types
+        // Mapping from cell names (the ir::Id's) to cell types
         let id_to_type: HashMap<ir::Id, ir::CellType> = cells
             .clone()
             .map(|cell| (cell.clone_name(), cell.borrow().prototype.clone()))
             .collect();
 
-        // Mapping from type to all cells of that type.
+        // Mapping from cell type to names of all cells of that type.
         let mut cells_by_type: HashMap<ir::CellType, Vec<ir::Id>> =
             HashMap::new();
         for cell in cells {
@@ -94,7 +99,7 @@ impl<T: ShareComponents> Visitor for T {
                 .push(cell.clone_name())
         }
 
-        // Maps CellType to Conflict Graph
+        // Maps cell type to conflict graph (will be used to perform coloring)
         let mut graphs_by_type: HashMap<ir::CellType, GraphColoring<ir::Id>> =
             cells_by_type
                 .into_iter()
@@ -103,13 +108,17 @@ impl<T: ShareComponents> Visitor for T {
                 })
                 .collect();
 
+        log::info!("checkpt1: {} ms", start.elapsed().as_millis());
+
         // get all of the invokes and enables.
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
 
         // Maps node to map. node is an invoke/enable. map holds
         // the name of all the cells live at node, organized by
-        // Cell Type. All nodes should be accounted for in this map.
+        // cell type. All nodes should be accounted for in this map.
+        // Ex: if std_reg(32) r and std_add(32) a are alive at group G,
+        // then the map would have entry: G: {std_reg(32): r, std_add(32): a}
         let mut node_by_type_map: HashMap<
             ir::Id,
             HashMap<&ir::CellType, HashSet<&ir::Id>>,
@@ -120,13 +129,13 @@ impl<T: ShareComponents> Visitor for T {
             let node_conflicts = self.lookup_node_conflicts(node);
             if node_conflicts.is_empty() {
                 // If node has no live cells, add an empty Map as its entry,
-                // since we want to have *all* invokes/enables accounted for.
+                // since we want to have all invokes/enables accounted for.
                 node_by_type_map.insert(node.clone(), HashMap::new());
             } else {
+                let live_at_node =
+                    node_by_type_map.entry(node.clone()).or_default();
                 for conflict in node_conflicts {
-                    node_by_type_map
-                        .entry(node.clone())
-                        .or_default()
+                    live_at_node
                         .entry(&id_to_type[conflict])
                         .or_default()
                         .insert(conflict);
@@ -135,14 +144,15 @@ impl<T: ShareComponents> Visitor for T {
         }
 
         // Closure so that we can take a node, and get all of the cells live
-        // at that node, but *organized by type* in the form of a HashMap.
-        // This is faster than just
+        // at that node, *organized by type* in the form of a HashMap.
         let lookup_conflicts_by_type =
             |node: &ir::Id| -> &HashMap<&ir::CellType, HashSet<&ir::Id>> {
                 node_by_type_map.get(node).unwrap_or_else(|| {
                     unreachable!("no node conflict map for {}", node)
                 })
             };
+
+        log::info!("checkpt2: {} ms", start.elapsed().as_millis());
 
         // conflict (a,b) is in par_conflicts if a and b run in parallel w/ each other
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
@@ -164,6 +174,8 @@ impl<T: ShareComponents> Visitor for T {
                     acc
                 },
             );
+
+        log::info!("checkpt3: {} ms", start.elapsed().as_millis());
 
         // add conflicts
         for node_name in &invokes_enables {
@@ -191,6 +203,9 @@ impl<T: ShareComponents> Visitor for T {
             }
         }
 
+        log::info!("checkpt4: {} ms", start.elapsed().as_millis());
+
+        // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
         for graph in graphs_by_type.values() {
             if graph.has_nodes() {
@@ -216,6 +231,8 @@ impl<T: ShareComponents> Visitor for T {
             &HashMap::new(),
             &HashMap::new(),
         );
+
+        log::info!("checkpt5: {} ms", start.elapsed().as_millis());
 
         Ok(Action::Stop)
     }
