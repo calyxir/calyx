@@ -215,7 +215,7 @@ impl InferStaticTiming {
 
     /// Returns true if `graph` contains writes to "done" ports
     /// that could have dynamic latencies, false otherwise.
-    fn contains_dyn_writes(&self, graph: GraphAnalysis) -> bool {
+    fn contains_dyn_writes(&self, graph: &GraphAnalysis) -> bool {
         for port in &graph.ports() {
             match &port.borrow().parent {
                 ir::PortParent::Cell(cell) => {
@@ -257,7 +257,7 @@ impl InferStaticTiming {
     }
 
     /// Returns true if `graph` contains any nodes with degree > 1.
-    fn contains_node_deg_gt_one(graph: GraphAnalysis) -> bool {
+    fn contains_node_deg_gt_one(graph: &GraphAnalysis) -> bool {
         for port in graph.ports() {
             if graph.writes_to(&*port.borrow()).count() > 1 {
                 return true;
@@ -292,8 +292,7 @@ impl InferStaticTiming {
         // a.done -> g1[done]
         // ```
         let graph_unprocessed = GraphAnalysis::from(group);
-        // XXX(rachit): Why does this graph need to be cloned?
-        if self.contains_dyn_writes(graph_unprocessed.clone()) {
+        if self.contains_dyn_writes(&graph_unprocessed) {
             return None;
         }
 
@@ -304,7 +303,7 @@ impl InferStaticTiming {
             .remove_isolated_vertices();
 
         // Give up if a port has multiple writes to it.
-        if Self::contains_node_deg_gt_one(graph.clone()) {
+        if Self::contains_node_deg_gt_one(&graph) {
             return None;
         }
 
