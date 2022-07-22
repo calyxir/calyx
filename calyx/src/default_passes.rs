@@ -3,11 +3,11 @@ use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, ComponentInliner,
     ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GroupToInvoke, HoleInliner, InferStaticTiming, LowerGuards,
-    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveCombGroups, ResetInsertion, SimplifyGuards, StaticParConv,
-    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner,
+    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
+    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
+    ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    SimplifyGuards, StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -31,6 +31,7 @@ impl PassManager {
         pm.register_pass::<CompileEmpty>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;
+        pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
         pm.register_pass::<InferStaticTiming>()?;
         pm.register_pass::<MergeStaticPar>()?;
@@ -63,23 +64,26 @@ impl PassManager {
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<HoleInliner>()?;
+        pm.register_pass::<GroupToSeq>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
             pm,
             "pre-opt",
             [
+                GroupToSeq,
                 GroupToInvoke,
                 DeadGroupRemoval,
                 ComponentInliner,
                 CombProp,
-                RemoveCombGroups, // Must run before `infer-static-timing`.
+                RemoveCombGroups, // Must run before `infer-static-timing` and `cell-share`.
                 InferStaticTiming,
                 MergeStaticPar,
-                DeadGroupRemoval,
-                StaticParConv, // Must be before `collapse-control`
+                DeadGroupRemoval, // Since MergeStaticPar potentialy creates dead groups
+                StaticParConv,    // Must be before `collapse-control`
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.
+                InferShare,
                 CellShare,
             ]
         );
