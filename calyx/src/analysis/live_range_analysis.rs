@@ -276,12 +276,12 @@ impl LiveRangeAnalysis {
         // Caleb: Right now we run remove-comb-groups before this is used so this code
         // doesn't do anything. Eventually, though, we want to be able to make
         // remove-comb-groups optional so I will keep this code.
-        /*comp.comb_groups.iter().for_each(|group| {
+        comp.comb_groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
                 group.borrow().name(),
             )
-        });*/
+        });
 
         ranges
     }
