@@ -11,11 +11,10 @@ use std::rc::Rc;
 /// [ir::Invoke] statements.
 ///
 /// For a group to meet the requirements of this pass, it must
-/// 1. Only assign to input ports of one non-combinational component
-/// 2. That component is not read from and written to in the same assignemnt
-/// 3. Assign `1'd1` to the @go port of the component, and
-/// 4. Depend directly on the @done port of the component for its done
-///    condition-- either component.done or component.done ? 1'd1
+/// 1. Only write to one non-combinational component
+/// 2. That component is never read from and written to in the same assignemnt
+/// 3. Assign component.go = 1'd1
+/// 4. Assign group[done] = component.done
 #[derive(Default)]
 pub struct GroupToInvoke;
 
@@ -29,13 +28,10 @@ impl Named for GroupToInvoke {
     }
 }
 
-// Returns true if port's parent is cell
+// Returns true if port's parent is cell. We can do this by checking if they
+// have the same name.
 fn cell_is_parent(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
-    if let ir::PortParent::Cell(cell_wref) = &port.parent {
-        Rc::ptr_eq(&cell_wref.upgrade(), cell)
-    } else {
-        false
-    }
+    port.get_parent_name() == cell.borrow().name()
 }
 
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
@@ -66,11 +62,11 @@ fn construct_invoke(
         // If a combinational component's port is being used as a dest, add
         // it to comb_assigns
         if comb_is_parent(&assign.dst.borrow()) {
-            let asmt = assign.clone();
-            comb_assigns.push(asmt);
+            comb_assigns.push(assign.clone());
         }
         // If the cell's port is being used as a dest, add the source to
-        // inputs.
+        // inputs. we can ignore the cell.go assignment, since that is not
+        // part of the `invoke`.
         else if cell_is_parent(&assign.dst.borrow(), &comp)
             && assign.dst != comp.borrow().get_with_attr("go")
         {
