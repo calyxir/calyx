@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import pynq
+import argparse
+import json
 import numpy as np
 from typing import Mapping, Any, Dict
 from pathlib import Path
@@ -74,3 +76,22 @@ def _dtype(mem: str, data: Mapping[str, Any]) -> np.dtype:
     byte_size = int(data[mem]["format"]["width"] / 8)
     type_string = type_string + str(byte_size)
     return np.dtype(type_string)
+
+
+def pynq_exec():
+    """Command-line entry point for running xclbin files.
+    """
+    parser = argparse.ArgumentParser(description='Run an xclbin program.')
+    parser.add_argument('xclbin', type=str, metavar='XCLBIN',
+                        help='Xilinx compiled binary file')
+    parser.add_argument('data', type=str, metavar='JSON',
+                        help='JSON input data file')
+    args = parser.parse_args()
+
+    with open(args.data) as f:
+        data = json.load(f)
+    run(Path(args.xclbin), data)
+
+
+if __name__ == '__main__':
+    pynq_exec()
