@@ -201,19 +201,6 @@ impl Visitor for GroupToInvoke {
                     }
                 }
             }
-            //handling case for when group[done] = comp.done ? 1'd1;
-            else if assign.dst == group.get("done")
-                && assign.src.borrow().is_constant(1, 1)
-                && match &*assign.guard {
-                    ir::Guard::Port(port) => Rc::ptr_eq(port, &done_port),
-                    _ => false,
-                }
-            {
-                if done_multi_write {
-                    return Ok(Action::Continue);
-                }
-                done_multi_write = true;
-            }
         }
         // Making sure we saw at least one read of the done port
         if !done_multi_write {
