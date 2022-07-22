@@ -7,11 +7,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated std_wire = std_wire(32);
   }
   wires {
-    group no_transform {
-      r.write_en = 1'd1;
-      r.in = r.out;
-      no_transform[done] = r.done;
-    }
     comb group comb_invoke {
       add.left = 32'd2;
       add.right = 32'd3;
@@ -43,7 +38,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       invoke r(
         in = add.out
       )()with comb_invoke1;
-      no_transform;
     }
   }
 }
