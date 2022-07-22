@@ -7,7 +7,7 @@ use crate::ir::traversal::{
 };
 use crate::ir::{self, LibrarySignatures, RRC};
 use itertools::Itertools;
-use std::{cmp, ops::Add, rc::Rc};
+use std::{cmp, ops::Add};
 
 /// Infer "static" annotation for groups and add "@static" annotation when
 /// (conservatively) possible.
@@ -19,8 +19,8 @@ use std::{cmp, ops::Add, rc::Rc};
 /// pass will throw an error. If a group's `done` signal relies on signals
 /// that are not only `done` signals, this pass will ignore that group.
 pub struct InferStaticTiming {
-    /// primitive name -> (go signal, done signal, latency)
-    latency_data: HashMap<ir::Id, (ir::Id, ir::Id, u64)>,
+    /// primitive name -> vec<(go signal, done signal, latency)>
+    latency_data: HashMap<ir::Id, Vec<(ir::Id, ir::Id, u64)>>,
     /// static timing information for components
     comp_latency: HashMap<ir::Id, u64>,
 }
@@ -33,22 +33,28 @@ impl ConstructVisitor for InferStaticTiming {
         let mut comp_latency = HashMap::new();
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
-            if let Some(time) = prim.attributes.get("static") {
-                let mut go_port = None;
-                let mut done_port = None;
-                for port in &prim.signature {
-                    if port.attributes.has("go") {
-                        go_port = Some(port.name.clone());
-                    }
-                    if port.attributes.has("done") {
-                        done_port = Some(port.name.clone());
-                    }
-                }
-                if let (Some(go), Some(done)) = (go_port, done_port) {
-                    latency_data.insert(prim.name.clone(), (go, done, *time));
-                    comp_latency.insert(prim.name.clone(), *time);
-                }
+            let done_ports: HashMap<_, _> = prim
+                .find_all_with_attr("done")
+                .map(|pd| (pd.attributes[&"done"], pd.name.clone()))
+                .collect();
+
+            let go_ports = prim
+                .find_all_with_attr("go")
+                .filter_map(|pd| {
+                    pd.attributes.get("static").and_then(|st| {
+                        done_ports.get(&pd.attributes[&"go"]).map(|done_port| {
+                            (pd.name.clone(), done_port.clone(), *st)
+                        })
+                    })
+                })
+                .collect_vec();
+
+            // If this primitive has exactly one (go, done, static) pair, we
+            // can infer the latency of its invokes.
+            if go_ports.len() == 1 {
+                comp_latency.insert(prim.name.clone(), go_ports[0].2);
             }
+            latency_data.insert(prim.name.clone(), go_ports);
         }
         Ok(InferStaticTiming {
             latency_data,
@@ -115,12 +121,15 @@ impl InferStaticTiming {
                 ) {
                     let data_dst = self.latency_data.get(dst_cell_prim_type);
                     let data_src = self.latency_data.get(src_cell_prim_type);
-                    if let (Some((go_dst, _, _)), Some((_, done_src, _))) =
+                    if let (Some(src_ports), Some(dst_ports)) =
                         (data_dst, data_src)
                     {
-                        if dst.name == *go_dst && src.name == *done_src {
-                            return true;
-                        }
+                        return src_ports
+                            .iter()
+                            .any(|(_, done, _)| src.name == done)
+                            && dst_ports
+                                .iter()
+                                .any(|(go, _, _)| dst.name == go);
                     }
                 }
 
@@ -135,11 +144,10 @@ impl InferStaticTiming {
                     &dst_cell.upgrade().borrow().prototype,
                     &src_cell.upgrade().borrow().prototype,
                 ) {
-                    let data = self.latency_data.get(dst_cell_prim_type);
-                    if let Some((go, _, _)) = data {
-                        if dst.name == *go {
-                            return true;
-                        }
+                    if let Some(ports) =
+                        self.latency_data.get(dst_cell_prim_type)
+                    {
+                        return ports.iter().any(|(go, _, _)| dst.name == go);
                     }
                 }
 
@@ -162,21 +170,19 @@ impl InferStaticTiming {
     ) -> Vec<(RRC<ir::Port>, RRC<ir::Port>)> {
         let rw_set = ReadWriteSet::uses(group.assignments.iter());
         let mut go_done_edges: Vec<(RRC<ir::Port>, RRC<ir::Port>)> = Vec::new();
+
         for cell_ref in rw_set {
             let cell = cell_ref.borrow();
             if let ir::CellType::Primitive {
                 name: cell_type, ..
             } = &cell.prototype
             {
-                if let Some((go, done, _)) = self.latency_data.get(cell_type) {
-                    let go_port =
-                        &cell.ports.iter().find(|p| p.borrow().name == *go);
-                    let done_port =
-                        &cell.ports.iter().find(|p| p.borrow().name == *done);
-
-                    if let (Some(g), Some(d)) = (go_port, done_port) {
-                        go_done_edges.push((Rc::clone(g), Rc::clone(d)));
-                    }
+                if let Some(ports) = self.latency_data.get(cell_type) {
+                    go_done_edges.extend(
+                        ports.iter().map(|(go, done, _)| {
+                            (cell.get(go), cell.get(done))
+                        }),
+                    )
                 }
             }
         }
@@ -191,10 +197,8 @@ impl InferStaticTiming {
                 name: cell_type, ..
             } = &cell.upgrade().borrow().prototype
             {
-                if let Some((_, done, _)) = self.latency_data.get(cell_type) {
-                    if port.name == *done {
-                        return true;
-                    }
+                if let Some(ports) = self.latency_data.get(cell_type) {
+                    return ports.iter().any(|(_, done, _)| port.name == done);
                 }
             }
 
@@ -219,10 +223,9 @@ impl InferStaticTiming {
                         name: cell_type, ..
                     } = &cell.upgrade().borrow().prototype
                     {
-                        if let Some((go, _, _)) =
-                            self.latency_data.get(cell_type)
-                        {
-                            if port.borrow().name == *go {
+                        if let Some(ports) = self.latency_data.get(cell_type) {
+                            let name = &port.borrow().name;
+                            if ports.iter().any(|(go, _, _)| name == go) {
                                 for write_port in
                                     graph.writes_to(&*port.borrow())
                                 {
@@ -289,6 +292,7 @@ impl InferStaticTiming {
         // a.done -> g1[done]
         // ```
         let graph_unprocessed = GraphAnalysis::from(group);
+        // XXX(rachit): Why does this graph need to be cloned?
         if self.contains_dyn_writes(graph_unprocessed.clone()) {
             return None;
         }
@@ -322,9 +326,11 @@ impl InferStaticTiming {
                 if let ir::CellType::Primitive { name, .. } =
                     &cell.upgrade().borrow().prototype
                 {
-                    if let Some((go, _, latency)) = self.latency_data.get(name)
-                    {
-                        if port.borrow().name == go {
+                    if let Some(ports) = self.latency_data.get(name) {
+                        let name = &port.borrow().name;
+                        if let Some((_, _, latency)) =
+                            ports.iter().find(|(go, _, _)| name == go)
+                        {
                             latency_sum += latency;
                         }
                     }
