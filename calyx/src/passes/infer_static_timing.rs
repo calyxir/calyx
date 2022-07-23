@@ -60,7 +60,7 @@ pub struct InferStaticTiming {
     /// primitive name -> vec<(go signal, done signal, latency)>
     latency_data: HashMap<ir::Id, GoDone>,
     /// static timing information for invokable components and primitives
-    comp_latency: HashMap<ir::Id, u64>,
+    invoke_latency: HashMap<ir::Id, u64>,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -96,7 +96,7 @@ impl ConstructVisitor for InferStaticTiming {
         }
         Ok(InferStaticTiming {
             latency_data,
-            comp_latency,
+            invoke_latency: comp_latency,
         })
     }
 
@@ -507,7 +507,7 @@ impl Visitor for InferStaticTiming {
             .comp
             .borrow()
             .type_name()
-            .and_then(|name| self.comp_latency.get(name))
+            .and_then(|name| self.invoke_latency.get(name))
         {
             s.attributes.insert("static", **time);
         }
@@ -522,7 +522,7 @@ impl Visitor for InferStaticTiming {
     ) -> VisResult {
         if let Some(time) = comp.control.borrow().get_attribute("static") {
             comp.attributes.insert("static", *time);
-            self.comp_latency.insert(comp.name.clone(), *time);
+            self.invoke_latency.insert(comp.name.clone(), *time);
         }
         Ok(Action::Continue)
     }
