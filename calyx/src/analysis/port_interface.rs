@@ -28,7 +28,6 @@ impl PortInterface {
         for prim in primitives {
             let writes: Vec<HashSet<ir::Id>> = prim
                 .find_all_with_attr("write_together")
-                .into_iter()
                 .map(|pd| {
                     (
                         pd.attributes.get("write_together").unwrap(),
@@ -57,7 +56,6 @@ impl PortInterface {
     ) -> CalyxResult<Vec<ReadTogether>> {
         prim
                 .find_all_with_attr("read_together")
-                .into_iter()
                 .map(|pd| (pd.attributes.get("read_together").unwrap(), pd))
                 .into_group_map()
                 .into_values()
