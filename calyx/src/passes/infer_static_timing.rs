@@ -521,7 +521,16 @@ impl Visitor for InferStaticTiming {
         _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(time) = comp.control.borrow().get_attribute("static") {
-            comp.attributes.insert("static", *time);
+            let go_port =
+                comp.signature.borrow().find_with_attr("go").ok_or_else(
+                    || {
+                        Error::malformed_structure(format!(
+                            "Component {} does not have a @go port",
+                            comp.name
+                        ))
+                    },
+                )?;
+            go_port.borrow_mut().attributes.insert("static", *time);
             self.invoke_latency.insert(comp.name.clone(), *time);
         }
         Ok(Action::Continue)

@@ -40,16 +40,19 @@ impl ConstructVisitor for WellFormed {
 
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
+            // Main component cannot use `ref` cells
             if comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
                     if cell.borrow().is_reference() {
                         return Err(Error::malformed_structure(
-                            "ref cell not allowed for main component",
+                            "ref cells are not allowed for main component",
                         )
                         .with_pos(cell.borrow().name()));
                     }
                 }
             }
+
+            // Non-main components cannot use @external attribute
             let cellmap: LinkedHashMap<ir::Id, CellType> = comp
                 .cells
                 .iter()
