@@ -157,6 +157,16 @@ class RemoteLibsNotInstalled(FudError):
         super().__init__(msg)
 
 
+class LibNotInstalled(FudError):
+    """
+    Some required library is not installed.
+    """
+
+    def __init__(self, lib_name):
+        msg = f"The Python library `{lib_name}` is required for this feature."
+        super().__init__(msg)
+
+
 class MissingFile(FudError):
     """
     A stage expected a file to exist that didn't exist.

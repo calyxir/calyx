@@ -43,7 +43,7 @@ class HwExecutionStage(Stage):
 
                 self.pynq_script = fud_pynq_script
             except ImportError:
-                raise errors.RemoteLibsNotInstalled
+                raise errors.LibNotInstalled('pynq')
 
         @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
