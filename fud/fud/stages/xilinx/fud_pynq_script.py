@@ -126,12 +126,21 @@ def pynq_exec():
                         help='Xilinx Vitis installation directory')
     parser.add_argument('--xrt', type=str, metavar='DIR',
                         help='XRT installation directory')
+    parser.add_argument('--emu', action='store_true',
+                        help='use hardware emulation mode')
     args = parser.parse_args()
 
     if args.vitis:
         os.environ.update(vitis_env(args.vitis))
     if args.xrt:
         os.environ.update(xrt_env(args.xrt))
+
+    # Set the emulation mode, if we're emulating; otherwise, make sure the
+    # variable is unset.
+    if args.emu:
+        os.environ['XCL_EMULATION_MODE'] = 'hw_emu'
+    elif 'XCL_EMULATION_MODE' in os.environ:
+        del os.environ['XCL_EMULATION_MODE']
 
     # Parse the data and run.
     with open(args.data) as f:
