@@ -89,10 +89,10 @@ def _get_env(script: str, vars: List[str]) -> Dict[str, str]:
     their values in a dictionary.
     """
     cmd_parts = [f'source {shlex.quote(script)}'] + \
-        [f" ; printf '%s\\0' \"${v}\"" for v in vars]
+        [f" ; printf '\\0%s' \"${v}\"" for v in vars]
     cmd = ''.join(cmd_parts)
     proc = subprocess.run(['bash', '-c', cmd], capture_output=True, check=True)
-    values = proc.stdout.split(b'\0')[:-1]
+    values = proc.stdout.split(b'\0')[1:]
     return {k: v.decode() for k, v in zip(vars, values)}
 
 
