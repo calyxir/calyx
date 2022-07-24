@@ -39,11 +39,12 @@ class HwExecutionStage(Stage):
         def import_libs():
             """Import optional libraries"""
             try:
-                from fud.stages.xilinx import fud_pynq_script
-
-                self.pynq_script = fud_pynq_script
+                import pynq
             except ImportError:
                 raise errors.LibNotInstalled('pynq')
+
+            from fud.stages.xilinx import fud_pynq_script
+            self.pynq_script = fud_pynq_script
 
         @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:

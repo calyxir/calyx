@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-import pynq
 import argparse
 import json
 import numpy as np
-from typing import Mapping, Any, Dict
+import shlex
+import subprocess
+import os
+from typing import Mapping, Any, Dict, List
 from pathlib import Path
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.errors import InvalidNumericType
@@ -19,6 +21,7 @@ def run(xclbin_path: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
     Data file order must match the expected call signature in terms of order
     Also assume that the data Mapping values type are valid json-type equivalents
     """
+    import pynq
 
     # pynq.Overlay expects a str
     # Raises FileNotFoundError if xclbin file does not exist
@@ -78,6 +81,39 @@ def _dtype(mem: str, data: Mapping[str, Any]) -> np.dtype:
     return np.dtype(type_string)
 
 
+def _get_env(script: str, vars: List[str]) -> Dict[str, str]:
+    """Run a bash script and collect resulting environment variables.
+
+    `script` should be a path to a bash script we'll `source` to set some
+    environment variables. Then, we collect all the named `vars` and return
+    their values in a dictionary.
+    """
+    cmd_parts = [f'source {shlex.quote(script)}'] + \
+        [f" ; printf '%s\\0' \"${v}\"" for v in vars]
+    cmd = ''.join(cmd_parts)
+    proc = subprocess.run(['bash', '-c', cmd], capture_output=True, check=True)
+    values = proc.stdout.split(b'\0')[:-1]
+    return {k: v.decode() for k, v in zip(vars, values)}
+
+
+def vitis_env(path: str):
+    """Load the environment for Xilinx Vitis."""
+    setup_script = os.path.join(path, 'settings64.sh')
+    return _get_env(setup_script, [
+        'XILINX_VIVADO',
+        'XILINX_HLS',
+        'XILINX_VITIS',
+    ])
+
+
+def xrt_env(path: str):
+    """Load the environment for XRT."""
+    setup_script = os.path.join(path, 'setup.sh')
+    return _get_env(setup_script, [
+        'XILINX_XRT',
+    ])
+
+
 def pynq_exec():
     """Command-line entry point for running xclbin files.
     """
@@ -86,8 +122,18 @@ def pynq_exec():
                         help='Xilinx compiled binary file')
     parser.add_argument('data', type=str, metavar='JSON',
                         help='JSON input data file')
+    parser.add_argument('--vitis', type=str, metavar='DIR',
+                        help='Xilinx Vitis installation directory')
+    parser.add_argument('--xrt', type=str, metavar='DIR',
+                        help='XRT installation directory')
     args = parser.parse_args()
 
+    if args.vitis:
+        os.environ.update(vitis_env(args.vitis))
+    if args.xrt:
+        os.environ.update(xrt_env(args.xrt))
+
+    # Parse the data and run.
     with open(args.data) as f:
         data = json.load(f)
     run(Path(args.xclbin), data)
