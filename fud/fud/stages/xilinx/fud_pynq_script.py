@@ -103,6 +103,7 @@ def vitis_env(path: str):
         'XILINX_VIVADO',
         'XILINX_HLS',
         'XILINX_VITIS',
+        'PATH',
     ])
 
 
@@ -111,6 +112,7 @@ def xrt_env(path: str):
     setup_script = os.path.join(path, 'setup.sh')
     return _get_env(setup_script, [
         'XILINX_XRT',
+        'LD_LIBRARY_PATH',
     ])
 
 
@@ -130,6 +132,10 @@ def pynq_exec():
                         help='use hardware emulation mode')
     args = parser.parse_args()
 
+    # Source the Xilinx tool setup scripts. The idea is to simulate the effect
+    # of doing `source whatever.sh` but after our Python process is already
+    # running, so we don't have to require the user to have done this already
+    # before launching us.
     if args.vitis:
         os.environ.update(vitis_env(args.vitis))
     if args.xrt:
