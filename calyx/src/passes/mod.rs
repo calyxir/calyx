@@ -65,7 +65,6 @@ pub use par_to_seq::ParToSeq;
 pub use register_unsharing::RegisterUnsharing;
 pub use remove_comb_groups::RemoveCombGroups;
 pub use reset_insertion::ResetInsertion;
-pub use sharing_components::ShareComponents;
 pub use simplify_guards::SimplifyGuards;
 pub use static_par_conv::StaticParConv;
 pub use synthesis_papercut::SynthesisPapercut;
