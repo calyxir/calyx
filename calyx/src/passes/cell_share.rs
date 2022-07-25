@@ -113,60 +113,11 @@ impl ShareComponents for CellShare {
         }
     }
 
-    fn custom_conflicts<F>(&self, comp: &ir::Component, mut add_conflicts: F)
-    where
-        F: FnMut(Vec<ir::Id>),
-    {
-        let mut invokes_enables = HashSet::new();
-        get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
-        for invoke_enable in invokes_enables.iter() {
-            let conflicts = self.live.get(invoke_enable);
-            add_conflicts(
-                conflicts
-                    .iter()
-                    .filter(|cell_name| {
-                        !self.cont_ref_cells.contains(cell_name)
-                    })
-                    .cloned()
-                    .collect(),
-            );
-        }
-    }
-
     fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>) {
         self.rewrites = rewrites;
     }
 
     fn get_rewrites(&self) -> &HashMap<ir::Id, ir::RRC<ir::Cell>> {
         &self.rewrites
-    }
-}
-
-//Gets the names of all the cells invoked (using an invoke control statement)
-//in control c, and adds them to hs.
-fn get_invokes_enables(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
-    match c {
-        ir::Control::Empty(_) => (),
-        ir::Control::Enable(ir::Enable { group, .. }) => {
-            hs.insert(group.borrow().name().clone());
-        }
-        ir::Control::Invoke(ir::Invoke { comp, .. }) => {
-            hs.insert(comp.borrow().name().clone());
-        }
-        ir::Control::Par(ir::Par { stmts, .. })
-        | ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            for stmt in stmts {
-                get_invokes_enables(stmt, hs);
-            }
-        }
-        ir::Control::If(ir::If {
-            tbranch, fbranch, ..
-        }) => {
-            get_invokes_enables(tbranch, hs);
-            get_invokes_enables(fbranch, hs);
-        }
-        ir::Control::While(ir::While { body, .. }) => {
-            get_invokes_enables(body, hs);
-        }
     }
 }
