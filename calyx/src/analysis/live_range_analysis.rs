@@ -13,13 +13,13 @@ use std::{
 /// the `live`, `gen`, and `kill` sets.
 #[derive(Default, Clone)]
 pub struct Prop {
-    set: HashSet<ir::Id>,
+    map: HashMap<ir::CellType, HashSet<ir::Id>>,
 }
 
 /// Conversion to Prop from things that can be converted to HashSet<ir::Id>.
-impl<T: Into<HashSet<ir::Id>>> From<T> for Prop {
+impl<T: Into<HashMap<ir::CellType, HashSet<ir::Id>>>> From<T> for Prop {
     fn from(t: T) -> Self {
-        Prop { set: t.into() }
+        Prop { map: t.into() }
     }
 }
 
@@ -27,18 +27,26 @@ impl<T: Into<HashSet<ir::Id>>> From<T> for Prop {
 impl BitOr<&Prop> for &Prop {
     type Output = Prop;
     fn bitor(self, rhs: &Prop) -> Self::Output {
-        Prop {
-            set: &self.set | &rhs.set,
+        let mut map: HashMap<_, HashSet<_>> = self.map.clone();
+        for (cell_type, cell_names) in &rhs.map {
+            map.entry(cell_type.clone())
+                .or_default()
+                .extend(cell_names.clone());
         }
+        Prop { map }
     }
 }
 
 impl Sub<&Prop> for &Prop {
     type Output = Prop;
     fn sub(self, rhs: &Prop) -> Self::Output {
-        Prop {
-            set: &self.set - &rhs.set,
+        let mut map: HashMap<_, HashSet<_>> = self.map.clone();
+        for (cell_type, cell_names) in &rhs.map {
+            map.entry(cell_type.clone())
+                .or_default()
+                .retain(|name| !cell_names.clone().contains(name));
         }
+        Prop { map }
     }
 }
 
@@ -46,7 +54,7 @@ impl Sub<&Prop> for &Prop {
 impl Debug for Prop {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
-        let names = self.set.iter().map(|id| &id.id).join(", ");
+        let names = self.map.iter().map(|(_, ids)| ids).flatten().join(", ");
         write!(f, "{}", names)?;
         write!(f, "}}")
     }
@@ -61,8 +69,11 @@ impl Prop {
     }
 
     /// Add an element to Prop.
-    fn insert(&mut self, id: ir::Id) {
-        self.set.insert(id);
+    fn insert(&mut self, (cell_type, cell_name): (ir::CellType, ir::Id)) {
+        self.map
+            .entry(cell_type)
+            .or_default()
+            .insert(cell_name.clone());
     }
 }
 
@@ -224,7 +235,7 @@ pub struct LiveRangeAnalysis {
     live: HashMap<ir::Id, Prop>,
     /// Groups that have been identified as variable-like.
     /// Mapping from group name to the name of the register.
-    variable_like: HashMap<ir::Id, Option<ir::Id>>,
+    variable_like: HashMap<ir::Id, Option<(ir::CellType, ir::Id)>>,
     /// Set of state shareable components (as type names)
     state_share: ShareSet,
     ///Set of shareable components (as type names)
@@ -294,8 +305,11 @@ impl LiveRangeAnalysis {
     ) {
         let group_uses: Prop = ReadWriteSet::uses(assignments.iter())
             .filter(|cell| self.share.is_shareable_component(cell))
-            .map(|cell| cell.clone_name())
-            .collect::<HashSet<_>>()
+            .into_grouping_map_by(|c| (c.borrow().prototype.clone()))
+            .fold(HashSet::new(), |mut acc, _, cell| {
+                acc.insert(cell.clone_name());
+                acc
+            })
             .into();
         match self.live.get_mut(group_name) {
             None => {
@@ -306,24 +320,35 @@ impl LiveRangeAnalysis {
     }
 
     /// Look up the set of things live at a node (i.e. group or invoke) definition.
-    pub fn get(&self, node: &ir::Id) -> &HashSet<ir::Id> {
+    pub fn get(
+        &self,
+        node: &ir::Id,
+    ) -> &HashMap<ir::CellType, HashSet<ir::Id>> {
         &self
             .live
             .get(node)
             .unwrap_or_else(|| panic!("Live set missing for {}", node))
-            .set
+            .map
     }
 
     /// Get a unique list of all live cells in `component`.
     pub fn get_all(&self) -> impl Iterator<Item = ir::Id> + '_ {
         self.live
             .iter()
-            .flat_map(|(_, set)| set.set.iter())
+            .flat_map(|(_, set)| {
+                set.map.iter().fold(HashSet::new(), |mut acc, (_, set)| {
+                    acc.extend(set);
+                    acc
+                })
+            })
             .unique()
             .cloned()
     }
 
-    fn variable_like(&mut self, grp: &RRC<ir::Group>) -> &Option<ir::Id> {
+    fn variable_like(
+        &mut self,
+        grp: &RRC<ir::Group>,
+    ) -> &Option<(ir::CellType, ir::Id)> {
         let group = grp.borrow();
         let name = group.name();
         if !self.variable_like.contains_key(name) {
@@ -355,7 +380,7 @@ impl LiveRangeAnalysis {
         let sc_clone = &self.state_share;
         // if the group contains what looks like a variable write,
         // then just add variable to write set
-        if let Some(variable) = maybe_var {
+        if let Some((cell_type, variable)) = maybe_var {
             // we don't want to read the control signal of `variable`
             let assignments = group
                 .assignments
@@ -374,21 +399,28 @@ impl LiveRangeAnalysis {
                 });
 
             // calculate reads, but ignore `variable`. we've already dealt with that
-            let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
-                .filter(|c| sc_clone.is_shareable_component(c))
-                .map(|c| c.clone_name())
-                .collect();
+            let reads: HashMap<ir::CellType, HashSet<ir::Id>> =
+                ReadWriteSet::read_set(assignments)
+                    .filter(|c| sc_clone.is_shareable_component(c))
+                    .into_grouping_map_by(|c| (c.borrow().prototype.clone()))
+                    .fold(HashSet::new(), |mut acc, _, cell| {
+                        acc.insert(cell.clone_name());
+                        acc
+                    });
 
-            let mut writes = HashSet::new();
-            writes.insert(variable.clone());
+            let mut writes = HashMap::new();
+            writes.insert(cell_type, HashSet::from([variable]));
 
             (reads.into(), writes.into())
         } else {
-            let reads: HashSet<_> =
+            let reads: HashMap<ir::CellType, HashSet<ir::Id>> =
                 ReadWriteSet::read_set(group.assignments.iter())
                     .filter(|c| sc_clone.is_shareable_component(c))
-                    .map(|c| c.clone_name())
-                    .collect();
+                    .into_grouping_map_by(|c| (c.borrow().prototype.clone()))
+                    .fold(HashSet::new(), |mut acc, _, cell| {
+                        acc.insert(cell.clone_name());
+                        acc
+                    });
 
             // only consider write assignments where the guard is true
             let assignments = group
@@ -398,11 +430,14 @@ impl LiveRangeAnalysis {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            let writes: HashSet<_> =
+            let writes: HashMap<ir::CellType, HashSet<ir::Id>> =
                 ReadWriteSet::write_set(assignments.iter())
                     .filter(|c| sc_clone.is_shareable_component(c))
-                    .map(|c| c.clone_name())
-                    .collect();
+                    .into_grouping_map_by(|c| (c.borrow().prototype.clone()))
+                    .fold(HashSet::new(), |mut acc, _, cell| {
+                        acc.insert(cell.clone_name());
+                        acc
+                    });
 
             (reads.into(), writes.into())
         }
@@ -411,11 +446,14 @@ impl LiveRangeAnalysis {
     fn port_to_cell_name(
         port: &RRC<ir::Port>,
         shareable_components: &ShareSet,
-    ) -> Option<ir::Id> {
+    ) -> Option<(ir::CellType, ir::Id)> {
         if let ir::PortParent::Cell(cell_wref) = &port.borrow().parent {
             let cell = cell_wref.upgrade();
             if shareable_components.is_shareable_component(&cell) {
-                return Some(cell.borrow().clone_name());
+                return Some((
+                    cell.borrow().prototype.clone(),
+                    cell.borrow().clone_name(),
+                ));
             }
         }
         None
@@ -428,17 +466,24 @@ impl LiveRangeAnalysis {
     ) -> (Prop, Prop) {
         //The reads of the invoke include its inputs plus the cell itself, if the
         //outputs are not empty.
-        let mut read_set = invoke
+        let mut read_set: HashMap<ir::CellType, HashSet<ir::Id>> = invoke
             .inputs
             .iter()
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<HashSet<ir::Id>>();
+            .into_grouping_map_by(|(ct, _)| ct.clone())
+            .fold(HashSet::new(), |mut acc, _, (_, id)| {
+                acc.insert(id);
+                acc
+            });
         if !invoke.outputs.is_empty()
             && shareable_components.is_shareable_component(&invoke.comp)
         {
-            read_set.insert(invoke.comp.borrow().name().clone());
+            read_set
+                .entry(invoke.comp.borrow().prototype.clone())
+                .or_default()
+                .insert(invoke.comp.borrow().clone_name());
         }
         let reads: Prop = read_set.into();
 
@@ -450,11 +495,18 @@ impl LiveRangeAnalysis {
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect::<HashSet<ir::Id>>();
+            .into_grouping_map_by(|(ct, _)| ct.clone())
+            .fold(HashSet::new(), |mut acc, _, (_, id)| {
+                acc.insert(id);
+                acc
+            });
         if !invoke.inputs.is_empty()
             && shareable_components.is_shareable_component(&invoke.comp)
         {
-            write_set.insert(invoke.comp.borrow().name().clone());
+            write_set
+                .entry(invoke.comp.borrow().prototype.clone())
+                .or_default()
+                .insert(invoke.comp.borrow().clone_name());
         }
         let writes: Prop = write_set.into();
 
@@ -539,7 +591,7 @@ fn build_live_ranges(
             if let Some(cell) =
                 LiveRangeAnalysis::port_to_cell_name(port, &lr.state_share)
             {
-                alive.insert(cell)
+                alive.insert(cell);
             }
             (alive, gens, kills)
         }

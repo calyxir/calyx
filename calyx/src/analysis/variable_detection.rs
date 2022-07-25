@@ -16,7 +16,7 @@ impl VariableDetection {
     pub fn variable_like(
         group_ref: &RRC<ir::Group>,
         state_share: &ShareSet,
-    ) -> Option<ir::Id> {
+    ) -> Option<(ir::CellType, ir::Id)> {
         let group = group_ref.borrow();
 
         let writes = ReadWriteSet::write_set(group.assignments.iter())
@@ -56,6 +56,6 @@ impl VariableDetection {
             return None;
         }
 
-        Some(cell.clone_name())
+        Some((cell.prototype.clone(), cell.clone_name()))
     }
 }
