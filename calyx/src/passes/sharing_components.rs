@@ -4,7 +4,10 @@ use ir::{
     traversal::{Action, VisResult, Visitor},
     CloneName, RRC,
 };
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 /// A trait for implementing passes that want to share components
 /// by building a conflict graph and performing graph coloring
@@ -80,7 +83,9 @@ impl<T: ShareComponents> Visitor for T {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let start = Instant::now();
         self.initialize(comp, sigs);
+        log::info!("{} ms", start.elapsed().as_millis());
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
