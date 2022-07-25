@@ -37,7 +37,12 @@ impl Named for GroupToInvoke {
 // Returns true if port's parent is cell. We can do this by checking if they
 // have the same name.
 fn cell_is_parent(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
-    port.get_parent_name() == cell.borrow().name()
+    match &port.parent {
+        ir::PortParent::Cell(cell_wref) => {
+            Rc::ptr_eq(&cell_wref.upgrade(), cell)
+        }
+        _ => false,
+    }
 }
 
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
@@ -63,7 +68,8 @@ fn construct_invoke(
 
     for assign in assigns {
         // We know that all assignments in this group should write to either a)
-        // a combinational component or b) comp or c) the group's done port
+        // a combinational component or b) comp or c) the group's done port-- we
+        // should have checked for this condition before calling this function
 
         // If a combinational component's port is being used as a dest, add
         // it to comb_assigns
@@ -82,8 +88,11 @@ fn construct_invoke(
             } else {
                 // assign has a guard condition,so need a wire
                 let width = assign.dst.borrow().width;
-                let wire =
-                    builder.add_primitive("std_wire", "std_wire", &[width]);
+                let wire = builder.add_primitive(
+                    name.clone().id + "_guarded_wire",
+                    "std_wire",
+                    &[width],
+                );
                 let wire_in_rrc = wire.borrow().get("in");
                 let asmt = builder.build_assignment(
                     wire_in_rrc,
@@ -127,7 +136,7 @@ impl Visitor for GroupToInvoke {
     ) -> VisResult {
         let groups: Vec<ir::RRC<ir::Group>> = comp.groups.drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
-        for g in groups.iter() {
+        for g in &groups {
             let group = g.borrow();
             let mut writes: Vec<ir::RRC<ir::Cell>> =
                 ReadWriteSet::write_set(group.assignments.iter())
@@ -136,7 +145,8 @@ impl Visitor for GroupToInvoke {
                         _ => true,
                     })
                     .collect_vec();
-            // should only have one write to a non-combinational component
+            // Excluding writes to combinational components, should write to exactly
+            // one cell
             if writes.len() != 1 {
                 continue;
             }
