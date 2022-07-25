@@ -75,7 +75,7 @@ class HwExecutionStage(Stage):
                         f"user_pre_sim_script={new_dir.name}/pre_sim.tcl\n"
                     )
                     xrt_ini_config.append(
-                        f"user_post_sim_script={new_dir.name}/pre_sim.tcl\n"
+                        f"user_post_sim_script={new_dir.name}/post_sim.tcl\n"
                     )
                 f.writelines(xrt_ini_config)
 
