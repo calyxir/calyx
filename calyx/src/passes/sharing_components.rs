@@ -1,13 +1,9 @@
 //! Defines common traits for methods that attempt to share components.
-use crate::{
-    analysis::{GraphColoring, ScheduleConflicts},
-    ir,
-};
+use crate::{analysis::GraphColoring, ir};
 use ir::{
     traversal::{Action, VisResult, Visitor},
     CloneName, RRC,
 };
-use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
 /// A trait for implementing passes that want to share components
@@ -65,6 +61,16 @@ pub trait ShareComponents {
 
     /// Get the list of rewrites.
     fn get_rewrites(&self) -> &HashMap<ir::Id, RRC<ir::Cell>>;
+
+    fn set_id_to_type(&mut self, id_to_type: HashMap<ir::Id, ir::CellType>);
+
+    ///
+    fn build_conflict_graph(
+        &self,
+        graphs_by_type: &mut HashMap<ir::CellType, GraphColoring<ir::Id>>,
+        c: &ir::Control,
+        is_in_par: bool,
+    ) -> HashMap<&ir::CellType, HashSet<&ir::Id>>;
 }
 
 impl<T: ShareComponents> Visitor for T {
@@ -103,7 +109,7 @@ impl<T: ShareComponents> Visitor for T {
                 })
                 .collect();
 
-        // get all of the invokes and enables.
+        /*// get all of the invokes and enables.
         let mut invokes_enables = HashSet::new();
         get_invokes_enables(&comp.control.borrow(), &mut invokes_enables);
 
@@ -213,7 +219,15 @@ impl<T: ShareComponents> Visitor for T {
                     }
                 }
             }
-        }
+        }*/
+
+        self.set_id_to_type(id_to_type);
+
+        self.build_conflict_graph(
+            &mut graphs_by_type,
+            &*comp.control.borrow(),
+            false,
+        );
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
@@ -246,7 +260,7 @@ impl<T: ShareComponents> Visitor for T {
     }
 }
 
-//Gets the names of all the cells invoked (using an invoke control statement)
+/*//Gets the names of all the cells invoked (using an invoke control statement)
 //in control c, and adds them to hs.
 fn get_invokes_enables(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
     match c {
@@ -273,4 +287,4 @@ fn get_invokes_enables(c: &ir::Control, hs: &mut HashSet<ir::Id>) {
             get_invokes_enables(body, hs);
         }
     }
-}
+}*/
