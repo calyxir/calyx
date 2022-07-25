@@ -1,22 +1,28 @@
 use crate::analysis::ReadWriteSet;
-use crate::ir::RRC;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
+use crate::ir::{CloneName, RRC};
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Transform groups that are structurally invoking components into equivalent
 /// [ir::Invoke] statements.
 ///
 /// For a group to meet the requirements of this pass, it must
-/// 1. Only write to one non-combinational component
-/// 2. That component is never read from and written to in the same assignemnt
+/// 1. Only write to one non-combinational component (all other writes must be
+/// to combinational primitives)
+/// 2. That component is *not* a ref cell, nor does it have the external attribute,
+/// nor is it This Component
 /// 3. Assign component.go = 1'd1
 /// 4. Assign group[done] = component.done
 #[derive(Default)]
-pub struct GroupToInvoke;
+pub struct GroupToInvoke {
+    ///Maps names of group to the invokes that will replace them
+    group_invoke_map: HashMap<ir::Id, ir::Control>,
+}
 
 impl Named for GroupToInvoke {
     fn name() -> &'static str {
@@ -45,14 +51,14 @@ fn construct_invoke(
 
     // Check if port's parent is a combinational primitive
     let comb_is_parent = |port: &ir::Port| -> bool {
-        if let ir::PortParent::Cell(cell_wref) = &port.parent {
-            match cell_wref.upgrade().borrow().prototype {
-                ir::CellType::Primitive { is_comb, .. } => is_comb,
-                _ => false,
+        if !port.is_hole() {
+            if let ir::CellType::Primitive { is_comb, .. } =
+                port.cell_parent().borrow().prototype
+            {
+                return is_comb;
             }
-        } else {
-            false
         }
+        false
     };
 
     for assign in assigns {
@@ -66,7 +72,7 @@ fn construct_invoke(
         }
         // If the cell's port is being used as a dest, add the source to
         // inputs. we can ignore the cell.go assignment, since that is not
-        // part of the `invoke`.
+        // going to be part of the `invoke`.
         else if cell_is_parent(&assign.dst.borrow(), &comp)
             && assign.dst != comp.borrow().get_with_attr("go")
         {
@@ -113,98 +119,105 @@ fn construct_invoke(
 }
 
 impl Visitor for GroupToInvoke {
-    fn enable(
+    fn start(
         &mut self,
-        s: &mut ir::Enable,
         comp: &mut ir::Component,
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let groups: Vec<ir::RRC<ir::Group>> = comp.groups.drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
+        for g in groups.iter() {
+            let group = g.borrow();
+            let mut writes: Vec<ir::RRC<ir::Cell>> =
+                ReadWriteSet::write_set(group.assignments.iter())
+                    .filter(|cell| match cell.borrow().prototype {
+                        ir::CellType::Primitive { is_comb, .. } => !is_comb,
+                        _ => true,
+                    })
+                    .collect_vec();
+            // should only have one write to a non-combinational component
+            if writes.len() != 1 {
+                continue;
+            }
 
-        let group = s.group.borrow();
-
-        // There should be exactly one non-combinational component being written to in the
-        // group.
-        let mut writes: Vec<ir::RRC<ir::Cell>> =
-            ReadWriteSet::write_set(group.assignments.iter())
-                .filter(|cell| match cell.borrow().prototype {
-                    ir::CellType::Primitive { is_comb, .. } => !is_comb,
-                    _ => true,
-                })
-                .collect_vec();
-        if writes.len() != 1 {
-            return Ok(Action::Continue);
-        }
-
-        // If component is ThisComponent, Reference, or External, don't turn into invoke
-        let cell = writes.pop().unwrap();
-        if matches!(cell.borrow().prototype, ir::CellType::ThisComponent)
-            || cell.borrow().is_reference()
-            || matches!(cell.borrow().get_attribute("external"), Some(_))
-        {
-            return Ok(Action::Continue);
-        }
-
-        // Component must define a @go/@done interface
-        let maybe_go_port = cell.borrow().find_with_attr("go");
-        let maybe_done_port = cell.borrow().find_with_attr("done");
-        if maybe_go_port.is_none() || maybe_done_port.is_none() {
-            return Ok(Action::Continue);
-        }
-
-        let go_port = maybe_go_port.unwrap();
-        let mut go_multi_write = false;
-        let done_port = maybe_done_port.unwrap();
-        let mut done_multi_write = false;
-        for assign in &group.assignments {
-            // If reading and writing to cell in same assignment, then don't transform
-            if cell_is_parent(&assign.dst.borrow(), &cell)
-                && ReadWriteSet::port_reads(assign)
-                    .any(|port| cell_is_parent(&port.borrow(), &cell))
+            // If component is ThisComponent, Reference, or External, don't turn into invoke
+            let cell = writes.pop().unwrap();
+            if matches!(cell.borrow().prototype, ir::CellType::ThisComponent)
+                || cell.borrow().is_reference()
+                || matches!(cell.borrow().get_attribute("external"), Some(_))
             {
-                return Ok(Action::Continue);
+                continue;
             }
 
-            // @go port should have exactly one write and the src should be 1.
-            if assign.dst == go_port {
-                if go_multi_write {
-                    return Ok(Action::Continue);
+            // Component must define a @go/@done interface
+            let maybe_go_port = cell.borrow().find_with_attr("go");
+            let maybe_done_port = cell.borrow().find_with_attr("done");
+            if maybe_go_port.is_none() || maybe_done_port.is_none() {
+                continue;
+            }
+
+            let go_port = maybe_go_port.unwrap();
+            let mut go_multi_write = false;
+            let done_port = maybe_done_port.unwrap();
+            let mut done_multi_write = false;
+            for assign in &group.assignments {
+                // @go port should have exactly one write and the src should be 1.
+                if assign.dst == go_port {
+                    if go_multi_write {
+                        return Ok(Action::Continue);
+                    }
+                    if !go_multi_write
+                        && assign.src.borrow().is_constant(1, 1)
+                        && assign.guard.is_true()
+                    {
+                        go_multi_write = true;
+                    } else {
+                        // if go port's guard is not true, src is not (1,1), then
+                        // Continue
+                        continue;
+                    }
                 }
-                if !go_multi_write
-                    && assign.src.borrow().is_constant(1, 1)
-                    && assign.guard.is_true()
-                {
-                    go_multi_write = true;
-                } else {
-                    // if go port's guard is not true, src is not (1,1), then
-                    // Continue
-                    return Ok(Action::Continue);
+                // @done port should have exactly one read and the dst should be
+                // group's done signal.
+                if assign.src == done_port {
+                    if done_multi_write {
+                        return Ok(Action::Continue);
+                    }
+                    if !done_multi_write
+                        && assign.dst == group.get("done")
+                        && assign.guard.is_true()
+                    {
+                        done_multi_write = true;
+                    } else {
+                        // If done port's guard is not true and does not write to group's done
+                        // then Continue
+                        continue;
+                    }
                 }
             }
-            // @done port should have exactly one read and the dst should be
-            // group's done signal.
-            if assign.src == done_port {
-                if done_multi_write {
-                    return Ok(Action::Continue);
-                }
-                if !done_multi_write
-                    && assign.dst == group.get("done")
-                    && assign.guard.is_true()
-                {
-                    done_multi_write = true;
-                } else {
-                    // If done port's guard is not true and does not write to group's done
-                    // then Continue
-                    return Ok(Action::Continue);
-                }
+            self.group_invoke_map.insert(
+                g.clone_name(),
+                construct_invoke(&group.assignments, cell, &mut builder),
+            );
+        }
+        comp.groups.append(groups.into_iter());
+
+        Ok(Action::Continue)
+    }
+
+    fn enable(
+        &mut self,
+        s: &mut ir::Enable,
+        _comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        match self.group_invoke_map.get(s.group.borrow().name()) {
+            None => Ok(Action::Continue),
+            Some(invoke) => {
+                Ok(Action::Change(Box::new(ir::Control::clone(invoke))))
             }
         }
-
-        Ok(Action::change(construct_invoke(
-            &group.assignments,
-            cell,
-            &mut builder,
-        )))
     }
 }

@@ -5,11 +5,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     a = std_reg(32);
   }
   wires {
-    group no_transform {
-      r.write_en = 1'd1;
-      r.in = r.out;
-      no_transform[done] = r.done;
-    }
     group chain {
       r.write_en = !r.done ? 1'd1;
       r.in = 32'd2;
@@ -20,9 +15,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    seq {
-      no_transform;
-      chain;
-    }
+    chain;
   }
 }
