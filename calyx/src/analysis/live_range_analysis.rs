@@ -220,7 +220,7 @@ impl Prop {
 #[derive(Default)]
 pub struct LiveRangeAnalysis {
     /// Map from node (i.e., group enables or invokes) names
-    ///  to the components live inside them.
+    /// to the components live inside them.
     live: HashMap<ir::Id, Prop>,
     /// Groups that have been identified as variable-like.
     /// Mapping from group name to the name of the register.
@@ -270,8 +270,12 @@ impl LiveRangeAnalysis {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
                 group.borrow().name(),
-            )
+            );
         });
+
+        // Caleb: Right now we run remove-comb-groups before this is used so this code
+        // doesn't do anything. Eventually, though, we want to be able to make
+        // remove-comb-groups optional so I will keep this code.
         comp.comb_groups.iter().for_each(|group| {
             ranges.add_shareable_ranges(
                 &group.borrow().assignments,
@@ -458,7 +462,7 @@ impl LiveRangeAnalysis {
     }
 }
 
-/// Implements the parallel dataflow analysis that computes the liveness of every register
+/// Implements the parallel dataflow analysis that computes the liveness of every state shareable component
 /// at every point in the program.
 fn build_live_ranges(
     c: &ir::Control,
