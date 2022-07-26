@@ -31,6 +31,8 @@ use linked_hash_map::LinkedHashMap;
 
 pub struct CompileSync;
 
+type BarrierMap = LinkedHashMap<u64, (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Group>>)>;
+
 impl Named for CompileSync {
     fn name() -> &'static str {
         "compile-sync"
@@ -44,7 +46,7 @@ impl Named for CompileSync {
 fn count_barriers(
     builder: &mut ir::Builder,
     s: &mut ir::Control,
-    map: &mut LinkedHashMap<u64, (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Group>>)>,
+    map: &mut BarrierMap,
     count: &mut HashMap<u64, u64>,
 ) {
     match s {
@@ -52,10 +54,10 @@ fn count_barriers(
             let mut stmts_new: Vec<ir::Control> = Vec::new();
             for stmt in seq.stmts.drain(..) {
                 if let Some(n) = stmt.get_attributes().unwrap().get("sync") {
-                    if let None = map.get(n) {
-                        add_shared_structure(builder, &n, map);
+                    if map.get(n).is_none() {
+                        add_shared_structure(builder, n, map);
                     }
-                    let (cells, groups) = map.get(&n).unwrap();
+                    let (cells, groups) = map.get(n).unwrap();
                     let barrier = Rc::clone(&cells[0]);
                     let eq = Rc::clone(&cells[1]);
                     let wait_restore = Rc::clone(&groups[0]);
@@ -101,8 +103,7 @@ fn count_barriers(
                             restore,
                         ));
                     }
-                }
-                else {
+                } else {
                     stmts_new.push(stmt);
                 }
             }
@@ -288,7 +289,7 @@ fn build_member(
 fn add_shared_structure(
     builder: &mut ir::Builder,
     barrier_idx: &u64,
-    map: &mut LinkedHashMap<u64, (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Group>>)>,
+    map: &mut BarrierMap,
 ) {
     structure!(builder;
             let barrier = prim std_sync_reg(32);
@@ -315,10 +316,7 @@ impl Visitor for CompileSync {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut barriers: LinkedHashMap<
-            u64,
-            (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Group>>),
-        > = LinkedHashMap::new();
+        let mut barriers: BarrierMap = LinkedHashMap::new();
         let mut builder = ir::Builder::new(comp, sigs);
         let mut barrier_count: HashMap<u64, u64> = HashMap::new();
         for stmt in s.stmts.iter_mut() {
