@@ -34,28 +34,14 @@ impl Named for GroupToInvoke {
     }
 }
 
-// Returns true if port's parent is cell. We can do this by checking if they
-// have the same name.
-fn cell_is_parent(port: &ir::Port, cell: &ir::RRC<ir::Cell>) -> bool {
-    match &port.parent {
-        ir::PortParent::Cell(cell_wref) => {
-            Rc::ptr_eq(&cell_wref.upgrade(), cell)
-        }
-        _ => false,
-    }
-}
-
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
     assigns: &[ir::Assignment],
     comp: RRC<ir::Cell>,
     builder: &mut ir::Builder,
 ) -> ir::Control {
-    let mut inputs = Vec::new();
-    let mut comb_assigns = Vec::new();
-
     // Check if port's parent is a combinational primitive
-    let comb_is_parent = |port: &ir::Port| -> bool {
+    let parent_is_comb = |port: &ir::Port| -> bool {
         if !port.is_hole() {
             if let ir::CellType::Primitive { is_comb, .. } =
                 port.cell_parent().borrow().prototype
@@ -66,6 +52,18 @@ fn construct_invoke(
         false
     };
 
+    let parent_is_cell = |port: &ir::Port| -> bool {
+        match &port.parent {
+            ir::PortParent::Cell(cell_wref) => {
+                Rc::ptr_eq(&cell_wref.upgrade(), &comp)
+            }
+            _ => false,
+        }
+    };
+
+    let mut inputs = Vec::new();
+    let mut comb_assigns = Vec::new();
+
     for assign in assigns {
         // We know that all assignments in this group should write to either a)
         // a combinational component or b) comp or c) the group's done port-- we
@@ -73,13 +71,13 @@ fn construct_invoke(
 
         // If a combinational component's port is being used as a dest, add
         // it to comb_assigns
-        if comb_is_parent(&assign.dst.borrow()) {
+        if parent_is_comb(&assign.dst.borrow()) {
             comb_assigns.push(assign.clone());
         }
         // If the cell's port is being used as a dest, add the source to
         // inputs. we can ignore the cell.go assignment, since that is not
         // going to be part of the `invoke`.
-        else if cell_is_parent(&assign.dst.borrow(), &comp)
+        else if parent_is_cell(&assign.dst.borrow())
             && assign.dst != comp.borrow().get_with_attr("go")
         {
             let name = assign.dst.borrow().name.clone();
@@ -89,19 +87,19 @@ fn construct_invoke(
                 // assign has a guard condition,so need a wire
                 let width = assign.dst.borrow().width;
                 let wire = builder.add_primitive(
-                    name.clone().id + "_guarded_wire",
+                    format!("{}_guarded_wire", name),
                     "std_wire",
                     &[width],
                 );
-                let wire_in_rrc = wire.borrow().get("in");
+                let wire_in = wire.borrow().get("in");
                 let asmt = builder.build_assignment(
-                    wire_in_rrc,
+                    wire_in,
                     Rc::clone(&assign.src),
                     *assign.guard.clone(),
                 );
                 comb_assigns.push(asmt);
-                let wire_out_rrc = wire.borrow().get("out");
-                inputs.push((name, wire_out_rrc));
+                let wire_out = wire.borrow().get("out");
+                inputs.push((name, wire_out));
             }
         }
     }
@@ -134,17 +132,16 @@ impl Visitor for GroupToInvoke {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let groups: Vec<ir::RRC<ir::Group>> = comp.groups.drain().collect();
+        let groups = comp.groups.drain().collect_vec();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in &groups {
             let group = g.borrow();
-            let mut writes: Vec<ir::RRC<ir::Cell>> =
-                ReadWriteSet::write_set(group.assignments.iter())
-                    .filter(|cell| match cell.borrow().prototype {
-                        ir::CellType::Primitive { is_comb, .. } => !is_comb,
-                        _ => true,
-                    })
-                    .collect_vec();
+            let mut writes = ReadWriteSet::write_set(group.assignments.iter())
+                .filter(|cell| match cell.borrow().prototype {
+                    ir::CellType::Primitive { is_comb, .. } => !is_comb,
+                    _ => true,
+                })
+                .collect_vec();
             // Excluding writes to combinational components, should write to exactly
             // one cell
             if writes.len() != 1 {
