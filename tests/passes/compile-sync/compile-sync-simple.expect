@@ -6,15 +6,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     val = std_reg(32);
     add_0 = std_add(32);
     no_use = std_reg(32);
-    @generated barrier_1 = std_sync_reg(32);
-    @generated eq_1 = std_eq(32);
-    @generated wait_restore_reg_1 = std_reg(1);
-    @generated save_1_0 = std_reg(32);
-    @generated wait_reg_1_0 = std_reg(1);
-    @generated incr_1_0 = std_add(32);
-    @generated save_1_1 = std_reg(32);
-    @generated wait_reg_1_1 = std_reg(1);
-    @generated incr_1_1 = std_add(32);
+    @generated barrier = std_sync_reg(32);
+    @generated eq = std_eq(32);
+    @generated wait_restore_reg = std_reg(1);
+    @generated save = std_reg(32);
+    @generated incr = std_add(32);
+    @generated wait_reg = std_reg(1);
+    @generated save0 = std_reg(32);
+    @generated incr0 = std_add(32);
+    @generated wait_reg0 = std_reg(1);
   }
   wires {
     group no_op {
@@ -35,84 +35,84 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       out.write_en = 1'd1;
       reg_to_mem[done] = out.done;
     }
-    group incr_barrier_1_0 {
-      barrier_1.read_en_0 = 1'd1;
-      save_1_0.write_en = barrier_1.read_done_0;
-      incr_1_0.right = barrier_1.read_done_0 ? 32'd1;
-      incr_1_0.left = barrier_1.read_done_0 ? barrier_1.out_0;
-      save_1_0.in = barrier_1.read_done_0 ? incr_1_0.out;
-      incr_barrier_1_0[done] = save_1_0.done;
+    group wait_restore {
+      wait_restore_reg.write_en = !eq.out ? 1'd1;
+      wait_restore_reg.in = !eq.out ? 1'd1;
+      wait_restore[done] = wait_restore_reg.done;
     }
-    group write_barrier_1_0 {
-      barrier_1.in_0 = save_1_0.out;
-      barrier_1.write_en_0 = 1'd1;
-      write_barrier_1_0[done] = barrier_1.write_done_0;
+    group restore {
+      barrier.in_0 = 32'd0;
+      barrier.write_en_0 = 1'd1;
+      restore[done] = barrier.write_done_0;
     }
-    group wait_1_0 {
-      wait_reg_1_0.write_en = eq_1.out ? 1'd1;
-      wait_reg_1_0.in = eq_1.out;
-      wait_1_0[done] = wait_reg_1_0.done;
+    group clear_barrier {
+      barrier.read_en_0 = 1'd1;
+      clear_barrier[done] = barrier.read_done_0;
     }
-    group incr_barrier_1_1 {
-      barrier_1.read_en_1 = 1'd1;
-      save_1_1.write_en = barrier_1.read_done_1;
-      incr_1_1.right = barrier_1.read_done_1 ? 32'd1;
-      incr_1_1.left = barrier_1.read_done_1 ? barrier_1.out_1;
-      save_1_1.in = barrier_1.read_done_1 ? incr_1_1.out;
-      incr_barrier_1_1[done] = save_1_1.done;
+    group incr_barrier {
+      barrier.read_en_0 = 1'd1;
+      save.write_en = barrier.read_done_0;
+      incr.right = barrier.read_done_0 ? 32'd1;
+      incr.left = barrier.read_done_0 ? barrier.out_0;
+      save.in = barrier.read_done_0 ? incr.out;
+      incr_barrier[done] = save.done;
     }
-    group write_barrier_1_1 {
-      barrier_1.in_1 = save_1_1.out;
-      barrier_1.write_en_1 = 1'd1;
-      write_barrier_1_1[done] = barrier_1.write_done_1;
+    group write_barrier {
+      barrier.in_0 = save.out;
+      barrier.write_en_0 = 1'd1;
+      write_barrier[done] = barrier.write_done_0;
     }
-    group wait_1_1 {
-      wait_reg_1_1.write_en = eq_1.out ? 1'd1;
-      wait_reg_1_1.in = eq_1.out;
-      wait_1_1[done] = wait_reg_1_1.done;
+    group wait {
+      wait_reg.write_en = eq.out ? 1'd1;
+      wait_reg.in = eq.out;
+      wait[done] = wait_reg.done;
     }
-    group restore_1 {
-      barrier_1.in_0 = 32'd0;
-      barrier_1.write_en_0 = 1'd1;
-      restore_1[done] = barrier_1.write_done_0;
+    group incr_barrier0 {
+      barrier.read_en_1 = 1'd1;
+      save0.write_en = barrier.read_done_1;
+      incr0.right = barrier.read_done_1 ? 32'd1;
+      incr0.left = barrier.read_done_1 ? barrier.out_1;
+      save0.in = barrier.read_done_1 ? incr0.out;
+      incr_barrier0[done] = save0.done;
     }
-    group clear_barrier_1 {
-      barrier_1.read_en_0 = 1'd1;
-      clear_barrier_1[done] = barrier_1.read_done_0;
+    group write_barrier0 {
+      barrier.in_1 = save0.out;
+      barrier.write_en_1 = 1'd1;
+      write_barrier0[done] = barrier.write_done_1;
     }
-    group wait_restore_1 {
-      wait_restore_reg_1.write_en = !eq_1.out ? 1'd1;
-      wait_restore_reg_1.in = !eq_1.out ? 1'd1;
-      wait_restore_1[done] = wait_restore_reg_1.done;
+    group wait0 {
+      wait_reg0.write_en = eq.out ? 1'd1;
+      wait_reg0.in = eq.out;
+      wait0[done] = wait_reg0.done;
     }
-    eq_1.right = 32'd2;
-    eq_1.left = barrier_1.peek;
+    eq.right = 32'd2;
+    eq.left = barrier.peek;
   }
 
   control {
     seq {
       par {
-        restore_1;
+        restore;
       }
       par {
         seq {
           seq {
             no_op;
-            incr_barrier_1_0;
-            write_barrier_1_0;
-            wait_1_0;
-            clear_barrier_1;
-            restore_1;
+            incr_barrier;
+            write_barrier;
+            wait;
+            wait_restore;
           }
           reg_to_mem;
         }
         seq {
           seq {
             calc_val;
-            incr_barrier_1_1;
-            write_barrier_1_1;
-            wait_1_1;
-            wait_restore_1;
+            incr_barrier0;
+            write_barrier0;
+            wait0;
+            clear_barrier;
+            restore;
           }
         }
       }
