@@ -31,6 +31,7 @@ use linked_hash_map::LinkedHashMap;
 
 pub struct CompileSync;
 
+/// the structure used to store cells and groups shared by one barrier
 type BarrierMap = LinkedHashMap<u64, (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Group>>)>;
 
 impl Named for CompileSync {
@@ -43,7 +44,7 @@ impl Named for CompileSync {
     }
 }
 
-fn count_barriers(
+fn build_barriers(
     builder: &mut ir::Builder,
     s: &mut ir::Control,
     map: &mut BarrierMap,
@@ -51,6 +52,15 @@ fn count_barriers(
 ) {
     match s {
         ir::Control::Seq(seq) => {
+            // go through each control statement
+            // if @sync
+            // see if we already have the set of shared primitives and groups
+            // initialized
+            // True -> generate the inidividual groups and buikld the seq stmt
+            // False -> generate the shared groups, cells
+            //          put the shared groups in the barriermap
+            //          generate the individual groups
+            //          build the seq stmt
             let mut stmts_new: Vec<ir::Control> = Vec::new();
             for stmt in seq.stmts.drain(..) {
                 if let Some(n) = stmt.get_attributes().unwrap().get("sync") {
@@ -110,11 +120,11 @@ fn count_barriers(
             seq.stmts = stmts_new;
         }
         ir::Control::While(w) => {
-            count_barriers(builder, &mut w.body, map, count);
+            build_barriers(builder, &mut w.body, map, count);
         }
         ir::Control::If(i) => {
-            count_barriers(builder, &mut i.tbranch, map, count);
-            count_barriers(builder, &mut i.fbranch, map, count);
+            build_barriers(builder, &mut i.tbranch, map, count);
+            build_barriers(builder, &mut i.fbranch, map, count);
         }
         _ => {}
     }
@@ -320,7 +330,7 @@ impl Visitor for CompileSync {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut barrier_count: HashMap<u64, u64> = HashMap::new();
         for stmt in s.stmts.iter_mut() {
-            count_barriers(
+            build_barriers(
                 &mut builder,
                 stmt,
                 &mut barriers,
@@ -356,6 +366,7 @@ impl Visitor for CompileSync {
             init_barriers.push(ir::Control::enable(restore));
         }
 
+        // wrap the par stmt in a seq stmt so that barriers are initialized
         let mut changed_sequence: Vec<ir::Control> =
             vec![ir::Control::par(init_barriers)];
         let mut copied_par_stmts: Vec<ir::Control> = Vec::new();
