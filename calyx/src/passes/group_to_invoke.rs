@@ -52,6 +52,7 @@ fn construct_invoke(
         false
     };
 
+    // Check if port's parent is equal to comp
     let parent_is_cell = |port: &ir::Port| -> bool {
         match &port.parent {
             ir::PortParent::Cell(cell_wref) => {
