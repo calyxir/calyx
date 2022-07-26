@@ -1,6 +1,5 @@
 use itertools::Itertools;
 
-use super::sharing_components::ShareComponents;
 use crate::analysis::GraphColoring;
 use crate::errors::CalyxResult;
 use crate::{
@@ -69,8 +68,8 @@ impl ConstructVisitor for CellShare {
     }
 }
 
-impl ShareComponents for CellShare {
-    fn initialize(
+impl CellShare {
+    pub fn initialize(
         &mut self,
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
@@ -121,7 +120,7 @@ impl ShareComponents for CellShare {
             .collect()
     }
 
-    fn cell_filter(&self, cell: &ir::Cell) -> bool {
+    pub fn cell_filter(&self, cell: &ir::Cell) -> bool {
         // Cells used in continuous assignments cannot be shared.
         if self.cont_ref_cells.contains(cell.name()) {
             return false;
@@ -133,19 +132,14 @@ impl ShareComponents for CellShare {
         }
     }
 
-    fn set_rewrites(&mut self, rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>) {
-        self.rewrites = rewrites;
-    }
-
-    fn get_rewrites(&self) -> &HashMap<ir::Id, ir::RRC<ir::Cell>> {
-        &self.rewrites
-    }
-
-    fn set_id_to_type(&mut self, id_to_type: HashMap<ir::Id, ir::CellType>) {
+    pub fn set_id_to_type(
+        &mut self,
+        id_to_type: HashMap<ir::Id, ir::CellType>,
+    ) {
         self.id_to_type = id_to_type;
     }
 
-    fn build_conflict_graph(
+    pub fn add_conflicts(
         &self,
         graphs_by_type: &mut HashMap<ir::CellType, GraphColoring<ir::Id>>,
         c: &ir::Control,
@@ -185,11 +179,8 @@ impl ShareComponents for CellShare {
                 let mut acc: HashMap<&ir::CellType, HashSet<&ir::Id>> =
                     HashMap::new();
                 for stmt in stmts {
-                    let new_confs = self.build_conflict_graph(
-                        graphs_by_type,
-                        stmt,
-                        is_in_par,
-                    );
+                    let new_confs =
+                        self.add_conflicts(graphs_by_type, stmt, is_in_par);
                     if is_in_par {
                         for (cell_type, nodes) in new_confs {
                             acc.entry(cell_type).or_default().extend(nodes);
@@ -202,16 +193,10 @@ impl ShareComponents for CellShare {
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
             }) => {
-                let mut tbranch_confs = self.build_conflict_graph(
-                    graphs_by_type,
-                    &*tbranch,
-                    is_in_par,
-                );
-                let fbranch_confs = self.build_conflict_graph(
-                    graphs_by_type,
-                    &*fbranch,
-                    is_in_par,
-                );
+                let mut tbranch_confs =
+                    self.add_conflicts(graphs_by_type, &*tbranch, is_in_par);
+                let fbranch_confs =
+                    self.add_conflicts(graphs_by_type, &*fbranch, is_in_par);
                 if is_in_par {
                     for (cell_type, nodes) in fbranch_confs {
                         tbranch_confs
@@ -223,14 +208,14 @@ impl ShareComponents for CellShare {
                 tbranch_confs
             }
             ir::Control::While(ir::While { body, .. }) => {
-                self.build_conflict_graph(graphs_by_type, &*body, is_in_par)
+                self.add_conflicts(graphs_by_type, &*body, is_in_par)
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {
                 let mut acc: HashMap<&ir::CellType, HashSet<&ir::Id>> =
                     HashMap::new();
                 for stmt in stmts {
                     let new_confs =
-                        self.build_conflict_graph(graphs_by_type, stmt, true);
+                        self.add_conflicts(graphs_by_type, stmt, true);
                     for (cell_type, live_cells) in new_confs {
                         let g = graphs_by_type.get_mut(cell_type).unwrap();
                         if let Some(conflicting_cells) = acc.get_mut(cell_type)
