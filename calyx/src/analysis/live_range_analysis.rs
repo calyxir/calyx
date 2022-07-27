@@ -329,6 +329,24 @@ impl LiveRangeAnalysis {
         ranges
     }
 
+    pub fn reverse_map(
+        &mut self,
+    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<&ir::Id>>> {
+        let mut rev_map: HashMap<
+            ir::CellType,
+            HashMap<ir::Id, HashSet<&ir::Id>>,
+        > = HashMap::new();
+        for (group_name, prop) in &self.live {
+            for (cell_type, cell_list) in &prop.map {
+                let entry = rev_map.entry(cell_type.clone()).or_default();
+                for cell in cell_list {
+                    entry.entry(cell.clone()).or_default().insert(group_name);
+                }
+            }
+        }
+        rev_map
+    }
+
     //For each cell used in assignments, adds it as part of the group_name's live range
     fn add_shareable_ranges(
         &mut self,

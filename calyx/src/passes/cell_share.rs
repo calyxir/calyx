@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 use crate::analysis::GraphColoring;
 use crate::errors::CalyxResult;
 use crate::{
@@ -22,7 +20,7 @@ use std::collections::{HashMap, HashSet};
 /// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the definitions.
 pub struct CellShare {
-    live: LiveRangeAnalysis,
+    pub live: LiveRangeAnalysis,
     rewrites: HashMap<ir::Id, ir::RRC<ir::Cell>>,
     /// Set of state shareable components (as type names)
     state_shareable: ShareSet,
@@ -34,6 +32,10 @@ pub struct CellShare {
     cont_ref_cells: HashSet<ir::Id>,
 
     id_to_type: HashMap<ir::Id, ir::CellType>,
+
+    rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<ir::Id>>>,
+
+    par_conflicts_map: HashMap<ir::Id, Vec<ir::Id>>,
 }
 
 impl Named for CellShare {
@@ -55,6 +57,8 @@ impl ConstructVisitor for CellShare {
             rewrites: HashMap::new(),
             cont_ref_cells: HashSet::new(),
             id_to_type: HashMap::new(),
+            rev_map: HashMap::new(),
+            par_conflicts_map: HashMap::new(),
             state_shareable,
             shareable,
         })
@@ -65,6 +69,8 @@ impl ConstructVisitor for CellShare {
         self.live = LiveRangeAnalysis::default();
         self.cont_ref_cells = HashSet::new();
         self.id_to_type = HashMap::new();
+        self.rev_map = HashMap::new();
+        self.par_conflicts_map = HashMap::new();
     }
 }
 
@@ -97,7 +103,7 @@ impl CellShare {
         );
     }
 
-    fn lookup_node_conflicts(
+    pub fn lookup_node_conflicts(
         &self,
         node_name: &ir::Id,
     ) -> HashMap<&ir::CellType, HashSet<&ir::Id>> {
@@ -139,6 +145,20 @@ impl CellShare {
         self.id_to_type = id_to_type;
     }
 
+    pub fn set_rev_map(
+        &mut self,
+        rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<ir::Id>>>,
+    ) {
+        self.rev_map = rev_map;
+    }
+
+    pub fn set_par_conflicts_map(
+        &mut self,
+        par_conflicts_map: HashMap<ir::Id, Vec<ir::Id>>,
+    ) {
+        self.par_conflicts_map = par_conflicts_map;
+    }
+
     pub fn add_conflicts(
         &self,
         graphs_by_type: &mut HashMap<ir::CellType, GraphColoring<ir::Id>>,
@@ -148,32 +168,10 @@ impl CellShare {
         match c {
             ir::Control::Empty(_) => HashMap::new(),
             ir::Control::Invoke(ir::Invoke { comp, .. }) => {
-                let live_by_type: HashMap<&ir::CellType, HashSet<&ir::Id>> =
-                    self.lookup_node_conflicts(&comp.clone_name());
-                for (cell_type, confs) in live_by_type.iter() {
-                    if confs.is_empty() {
-                        continue;
-                    }
-                    let g = graphs_by_type.get_mut(cell_type).unwrap();
-                    for (a, b) in confs.iter().tuple_combinations() {
-                        g.insert_conflict(a, b)
-                    }
-                }
-                live_by_type
+                self.lookup_node_conflicts(&comp.clone_name())
             }
             ir::Control::Enable(ir::Enable { group, .. }) => {
-                let live_by_type: HashMap<&ir::CellType, HashSet<&ir::Id>> =
-                    self.lookup_node_conflicts(&group.clone_name());
-                for (cell_type, confs) in live_by_type.iter() {
-                    if confs.is_empty() {
-                        continue;
-                    }
-                    let g = graphs_by_type.get_mut(cell_type).unwrap();
-                    for (a, b) in confs.iter().tuple_combinations() {
-                        g.insert_conflict(a, b)
-                    }
-                }
-                live_by_type
+                self.lookup_node_conflicts(&group.clone_name())
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 let mut acc: HashMap<&ir::CellType, HashSet<&ir::Id>> =
@@ -213,6 +211,9 @@ impl CellShare {
             ir::Control::Par(ir::Par { stmts, .. }) => {
                 let mut acc: HashMap<&ir::CellType, HashSet<&ir::Id>> =
                     HashMap::new();
+                // if stmts = {1;2;3;4}, then we want to add conflicts between
+                // 1-2, 1-3, 1-4, 2-3, 2-4, and 3-4. We calculate these conflicts
+                // while creating acc.
                 for stmt in stmts {
                     let new_confs =
                         self.add_conflicts(graphs_by_type, stmt, true);
@@ -227,6 +228,9 @@ impl CellShare {
                                     }
                                 }
                             }
+                            // so that cells in the next stmts will conflict w/
+                            // live_cells plus all of the cells we've already
+                            // iterated over
                             conflicting_cells.extend(live_cells);
                         } else {
                             acc.insert(cell_type, live_cells);
