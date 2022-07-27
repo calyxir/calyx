@@ -29,9 +29,7 @@ impl Visitor for CellShare {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let start = std::time::Instant::now();
         self.initialize(comp, sigs);
-        log::info!("checkpoint 1: {} ms", start.elapsed().as_millis());
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
 
@@ -62,9 +60,9 @@ impl Visitor for CellShare {
         // conflict (a,b) is in par_conflicts if a and b run in parallel w/ each other
         let par_conflicts = ScheduleConflicts::from(&*comp.control.borrow());
 
-        log::info!("checkpoint 1.5: {} ms", start.elapsed().as_millis());
-
         // building map to get par_conflicts
+        // maps nodes (enables/invokes) to the set of nodes that run in parallel
+        // with it
         let mut par_conflicts_map: HashMap<ir::Id, HashSet<&ir::Id>> =
             HashMap::new();
         for node in invokes_enables {
@@ -72,25 +70,32 @@ impl Visitor for CellShare {
                 .insert(node.clone(), par_conflicts.conflicts_with(&node));
         }
 
-        let rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<&ir::Id>>> =
-            self.live.reverse_map();
-
-        log::info!("checkpoint 2: {} ms", start.elapsed().as_millis());
+        // Map from cell type to map, which itself maps cell names to the nodes (groups
+        // invokes) which are live at the given cell.
+        let live_cell_map: HashMap<
+            ir::CellType,
+            HashMap<ir::Id, HashSet<&ir::Id>>,
+        > = self.live.get_reverse();
 
         for (cell_type, cells) in cells_by_type {
             let g = graphs_by_type.get_mut(&cell_type).unwrap();
-            let rev_entry = if let Some(map) = rev_map.get(&cell_type) {
-                map
-            } else {
-                continue;
-            };
+            // This assumes that there are no dead cells. If dead cells exist,
+            // this unwrap() could return an error
+            // cell_to_nodes is a map from cells of type cell_type to the nodes (groups/invokes)
+            // in which each cell is live
+            let cell_to_nodes = live_cell_map.get(&cell_type).unwrap();
+            // Going through all possible cell conflicts
             for (a, b) in cells.iter().tuple_combinations() {
-                let a_live: &HashSet<&ir::Id> = rev_entry.get(a).unwrap();
-                let b_live: &HashSet<&ir::Id> = rev_entry.get(b).unwrap();
+                // First check if a and b are ever alive at the same node (i.e. group or invoke)
+                let a_live: &HashSet<&ir::Id> = cell_to_nodes.get(a).unwrap();
+                let b_live: &HashSet<&ir::Id> = cell_to_nodes.get(b).unwrap();
                 if !a_live.is_disjoint(b_live) {
                     g.insert_conflict(a, b);
                     continue;
                 }
+                // Check if b is alive at any nodes (groups/invokes)
+                // running in parallel to the nodes in which a is live, or vice versa.
+                // The if statement is there for efficiency.
                 if a_live.len() <= b_live.len() {
                     for a_group in a_live {
                         let par_confs = par_conflicts_map.get(a_group).unwrap();
@@ -110,16 +115,6 @@ impl Visitor for CellShare {
                 }
             }
         }
-
-        /*self.set_id_to_type(id_to_type);
-        self.set_par_conflicts_map(par_conflicts_map);
-        self.set_rev_map(rev_map.clone());
-
-        log::info!("checkpoint 3: {} ms", start.elapsed().as_millis());
-
-        self.add_conflicts(&mut graphs_by_type, &*comp.control.borrow(), false);*/
-
-        log::info!("checkpoint 4: {} ms", start.elapsed().as_millis());
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();

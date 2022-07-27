@@ -82,6 +82,7 @@ impl PassManager {
                 CollapseControl,
                 CompileRef, //Must run before 'resource-sharing'.
                 InferShare,
+                DeadCellRemoval,
                 CellShare,
             ]
         );

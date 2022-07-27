@@ -68,6 +68,8 @@ impl Prop {
         &(&self - kill) | gen
     }
 
+    /// Defines the data_flow transfer function. `(alive - kill) + gen`.
+    /// However, this is for when gen and kill are sets, whereas self holds a map.
     fn transfer_set(
         self,
         gen: &HashSet<(ir::CellType, ir::Id)>,
@@ -329,24 +331,6 @@ impl LiveRangeAnalysis {
         ranges
     }
 
-    pub fn reverse_map(
-        &mut self,
-    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<&ir::Id>>> {
-        let mut rev_map: HashMap<
-            ir::CellType,
-            HashMap<ir::Id, HashSet<&ir::Id>>,
-        > = HashMap::new();
-        for (group_name, prop) in &self.live {
-            for (cell_type, cell_list) in &prop.map {
-                let entry = rev_map.entry(cell_type.clone()).or_default();
-                for cell in cell_list {
-                    entry.entry(cell.clone()).or_default().insert(group_name);
-                }
-            }
-        }
-        rev_map
-    }
-
     //For each cell used in assignments, adds it as part of the group_name's live range
     fn add_shareable_ranges(
         &mut self,
@@ -363,6 +347,28 @@ impl LiveRangeAnalysis {
             }
             Some(prop) => *prop = prop.or_set(&group_uses),
         }
+    }
+
+    /// Returns a map from cell_type to map. maps each cell of type cell_type
+    /// to the nodes (groups/invokes) at which cell is live.
+    /// Essentially, this method allows us to go from a groups/invokes to cells mapping
+    /// to a cells to groups/invokes mapping
+    pub fn get_reverse(
+        &mut self,
+    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<&ir::Id>>> {
+        let mut rev_map: HashMap<
+            ir::CellType,
+            HashMap<ir::Id, HashSet<&ir::Id>>,
+        > = HashMap::new();
+        for (group_name, prop) in &self.live {
+            for (cell_type, cell_list) in &prop.map {
+                let map = rev_map.entry(cell_type.clone()).or_default();
+                for cell in cell_list {
+                    map.entry(cell.clone()).or_default().insert(group_name);
+                }
+            }
+        }
+        rev_map
     }
 
     /// Look up the set of things live at a node (i.e. group or invoke) definition.
@@ -562,10 +568,10 @@ fn build_live_ranges(
                 invoke,
                 &lr.state_share,
             );
-            let alive = alive.transfer_set(&reads, &writes);
             // set the live set of this node to be the things live on the
             // output of this node plus the things written to in this invoke
             // plus all shareable components used
+            let alive = alive.transfer_set(&reads, &writes);
 
             //get the shareable components used in the invoke stmt
             let (reads_share, writes_share) =
@@ -574,7 +580,7 @@ fn build_live_ranges(
 
             let alive_writes = alive.or_set(&writes);
             lr.live.insert(
-                invoke.comp.borrow().name().clone(),
+                invoke.comp.clone_name(),
                 alive_writes.or_set(&uses_share),
             );
             (alive, gens.or_set(&reads), kills.or_set(&writes))
@@ -645,6 +651,7 @@ fn build_live_ranges(
                     |(mut acc_alive, mut acc_gen, mut acc_kill),
                      (alive, gen, kill)| {
                         (
+                            // Doing in place operations saves time
                             {
                                 acc_alive.or_in_place(alive);
                                 acc_alive
