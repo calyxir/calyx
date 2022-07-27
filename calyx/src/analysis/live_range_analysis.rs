@@ -9,6 +9,8 @@ use std::{
     ops::{BitOr, Sub},
 };
 
+type LiveCellRepresentation = HashSet<(ir::CellType, ir::Id)>;
+
 /// The data structure used to represent sets of ids. This is used to represent
 /// the `live`, `gen`, and `kill` sets.
 #[derive(Default, Clone)]
@@ -54,7 +56,7 @@ impl Sub<&Prop> for &Prop {
 impl Debug for Prop {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
-        let names = self.map.iter().map(|(_, ids)| ids).flatten().join(", ");
+        let names = self.map.iter().flat_map(|(_, ids)| ids).join(", ");
         write!(f, "{}", names)?;
         write!(f, "}}")
     }
@@ -72,21 +74,18 @@ impl Prop {
     /// However, this is for when gen and kill are sets, whereas self holds a map.
     fn transfer_set(
         self,
-        gen: &HashSet<(ir::CellType, ir::Id)>,
-        kill: &HashSet<(ir::CellType, ir::Id)>,
+        gen: &LiveCellRepresentation,
+        kill: &LiveCellRepresentation,
     ) -> Self {
         (self.sub_set(kill)).or_set(gen)
     }
 
     /// Add an element to Prop.
     fn insert(&mut self, (cell_type, cell_name): (ir::CellType, ir::Id)) {
-        self.map
-            .entry(cell_type)
-            .or_default()
-            .insert(cell_name.clone());
+        self.map.entry(cell_type).or_default().insert(cell_name);
     }
 
-    fn or_set(&self, rhs: &HashSet<(ir::CellType, ir::Id)>) -> Self {
+    fn or_set(&self, rhs: &LiveCellRepresentation) -> Self {
         let mut map: HashMap<_, HashSet<_>> = self.map.clone();
         for (cell_type, cell_name) in rhs {
             map.entry(cell_type.clone())
@@ -96,7 +95,7 @@ impl Prop {
         Prop { map }
     }
 
-    fn sub_set(&self, rhs: &HashSet<(ir::CellType, ir::Id)>) -> Self {
+    fn sub_set(&self, rhs: &LiveCellRepresentation) -> Self {
         let mut map: HashMap<_, HashSet<_>> = self.map.clone();
         for (cell_type, cell_name) in rhs {
             map.entry(cell_type.clone()).or_default().remove(cell_name);
@@ -426,10 +425,7 @@ impl LiveRangeAnalysis {
     fn find_gen_kill_group(
         &mut self,
         group_ref: &RRC<ir::Group>,
-    ) -> (
-        HashSet<(ir::CellType, ir::Id)>,
-        HashSet<(ir::CellType, ir::Id)>,
-    ) {
+    ) -> (LiveCellRepresentation, LiveCellRepresentation) {
         let group = group_ref.borrow();
         let maybe_var = self.variable_like(group_ref).clone();
         let sc_clone = &self.state_share;
@@ -508,13 +504,10 @@ impl LiveRangeAnalysis {
     fn find_gen_kill_invoke(
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
-    ) -> (
-        HashSet<(ir::CellType, ir::Id)>,
-        HashSet<(ir::CellType, ir::Id)>,
-    ) {
+    ) -> (LiveCellRepresentation, LiveCellRepresentation) {
         //The reads of the invoke include its inputs plus the cell itself, if the
         //outputs are not empty.
-        let mut read_set: HashSet<(ir::CellType, ir::Id)> = invoke
+        let mut read_set: LiveCellRepresentation = invoke
             .inputs
             .iter()
             .filter_map(|(_, src)| {
@@ -532,7 +525,7 @@ impl LiveRangeAnalysis {
 
         //The writes of the invoke include its outpus plus the cell itself, if the
         //inputs are not empty.
-        let mut write_set: HashSet<(ir::CellType, ir::Id)> = invoke
+        let mut write_set: LiveCellRepresentation = invoke
             .outputs
             .iter()
             .filter_map(|(_, src)| {
