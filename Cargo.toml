@@ -33,7 +33,6 @@ exclude = ["site"]
 
 [profile.release]
 lto = true
-debug = true
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
