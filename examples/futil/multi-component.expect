@@ -18,7 +18,7 @@ component identity<"state_share"=1>(in: 32, @go @static go: 1, @clk clk: 1, @res
 
   control {}
 }
-component main<"static"=2>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     id = identity();
     current_value = std_reg(32);
