@@ -76,34 +76,68 @@ impl Visitor for CellShare {
             false,
         );
 
-        // maps celltype to a map. map contains all cells of type celltype
-        // that appear in live_once_map, mapped to all of the control stmts that are
-        // direct children of pars in which the cell is live. In other words,
-        // it restructures the data in live_once_map.
+        // maps celltype to a map. The map contains all cells of type celltype
+        // that appear in live_once_map, mapped to all of the direct children
+        // of pars in which the cell is live. In other words, it restructures the
+        // data in live_once_map.
         let mut live_once_cellmap =
             LiveRangeAnalysis::get_cell_to_control(live_once_map);
 
         // Essentially makes sure that all cells in the component are represented
         // in live_once_cellmap. Certain cells may not be located within a par block
-        // and therefore not represented in live_once_map. In this case, we just map
+        // and therefore not represented live_once_map. In this case, we just map
         // this cell to an empty HashSet.
-        for (cell_type, cell_names) in cells_by_type {
+        /*for (cell_type, cell_names) in cells_by_type {
             let name_to_live = live_once_cellmap.entry(cell_type).or_default();
             for name in cell_names {
                 if matches!(name_to_live.get(&name), None) {
                     name_to_live.insert(name, HashSet::new());
                 }
             }
-        }
+        }*/
 
-        // Maps celltype to map that maps cells of type celltype to groups/invokes
-        // in which the cell is live.
+        // Maps celltype to map, which maps cells to groups/invokes in which the cell is live.
         let live_cell_map: HashMap<
             ir::CellType,
             HashMap<ir::Id, HashSet<&ir::Id>>,
         > = self.live.get_reverse();
 
-        for (cell_type, cell_map) in &live_once_cellmap {
+        for (cell_type, cells) in &cells_by_type {
+            // Run remove_dead_cells before this cell-share pass.
+            let g = graphs_by_type.get_mut(&cell_type).unwrap();
+            let cell_to_nodes = live_cell_map.get(&cell_type).unwrap();
+            let live_once_map =
+                live_once_cellmap.entry(cell_type.clone()).or_default();
+            for (a, b) in cells.iter().tuple_combinations() {
+                // nodes (groups/invokes) in which a is live
+                let a_live: &HashSet<&ir::Id> = cell_to_nodes.get(a).unwrap();
+                // nodes (groups/invokes) in which b is live
+                let b_live: &HashSet<&ir::Id> = cell_to_nodes.get(b).unwrap();
+                if !a_live.is_disjoint(b_live) {
+                    g.insert_conflict(a, b);
+                    continue;
+                }
+                if let Some(live_once_a) = live_once_map.get(a) {
+                    if let Some(live_once_b) = live_once_map.get(b) {
+                        'outer: for live_a in live_once_a {
+                            for live_b in live_once_b {
+                                // a and b were live within the same par block but not within
+                                // the same child, then insert conflict.
+                                if live_a != live_b
+                                    && par_thread_map.get(live_a).unwrap()
+                                        == par_thread_map.get(live_b).unwrap()
+                                {
+                                    g.insert_conflict(a, b);
+                                    break 'outer;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /*for (cell_type, cell_map) in &live_once_cellmap {
             // Run remove_dead_cells before this cell-share pass.
             let g = graphs_by_type.get_mut(&cell_type).unwrap();
             let cell_to_nodes = live_cell_map.get(&cell_type).unwrap();
@@ -134,7 +168,7 @@ impl Visitor for CellShare {
                     }
                 }
             }
-        }
+        }*/
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();

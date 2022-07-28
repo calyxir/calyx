@@ -274,6 +274,8 @@ pub struct LiveRangeAnalysis {
     state_share: ShareSet,
     ///Set of shareable components (as type names)
     share: ShareSet,
+    /// Set of all continuous or reference cells
+    cont_ref_cells: HashSet<ir::Id>,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -293,10 +295,12 @@ impl LiveRangeAnalysis {
         control: &ir::Control,
         state_share: ShareSet,
         share: ShareSet,
+        cont_ref_cells: &HashSet<ir::Id>,
     ) -> Self {
         let mut ranges = LiveRangeAnalysis {
             state_share,
             share,
+            cont_ref_cells: cont_ref_cells.clone(),
             ..Default::default()
         };
 
@@ -364,7 +368,9 @@ impl LiveRangeAnalysis {
             for (cell_type, cell_list) in &prop.map {
                 let map = rev_map.entry(cell_type.clone()).or_default();
                 for cell in cell_list {
-                    map.entry(cell.clone()).or_default().insert(group_name);
+                    if !self.cont_ref_cells.contains(cell) {
+                        map.entry(cell.clone()).or_default().insert(group_name);
+                    }
                 }
             }
         }
@@ -520,24 +526,32 @@ impl LiveRangeAnalysis {
             ir::Control::Enable(ir::Enable { group, .. }) => {
                 if is_in_par {
                     let id = Self::get_guaranteed_id(c);
-                    let live_set =
-                        &self.live.get(&group.clone_name()).unwrap().map;
+                    let mut live_set =
+                        self.live.get(&group.clone_name()).unwrap().map.clone();
+                    for (_, cells) in live_set.iter_mut() {
+                        cells
+                            .retain(|cell| !self.cont_ref_cells.contains(cell));
+                    }
                     if child_of_par {
                         live_once_map.insert(id, live_set.clone());
                     }
-                    return live_set.clone();
+                    return live_set;
                 }
                 HashMap::new()
             }
             ir::Control::Invoke(ir::Invoke { comp, .. }) => {
                 if is_in_par {
                     let id = Self::get_guaranteed_id(c);
-                    let live_set =
-                        &self.live.get(&comp.clone_name()).unwrap().map;
+                    let mut live_set =
+                        self.live.get(&comp.clone_name()).unwrap().map.clone();
+                    for (_, cells) in live_set.iter_mut() {
+                        cells
+                            .retain(|cell| !self.cont_ref_cells.contains(cell));
+                    }
                     if child_of_par {
                         live_once_map.insert(id, live_set.clone());
                     }
-                    return live_set.clone();
+                    return live_set;
                 }
                 HashMap::new()
             }
