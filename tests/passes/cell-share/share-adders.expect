@@ -23,9 +23,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    seq {
-      upd0;
-      upd1;
+    @NODE_ID(0) seq {
+      @NODE_ID upd0;
+      @NODE_ID(2) upd1;
     }
   }
 }

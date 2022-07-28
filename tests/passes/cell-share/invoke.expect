@@ -15,8 +15,8 @@ component add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (
   }
 
   control {
-    seq {
-      do_add;
+    @NODE_ID(0) seq {
+      @NODE_ID do_add;
     }
   }
 }
@@ -45,11 +45,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    seq {
-      wr_x;
-      rd_x;
-      wr_y;
-      invoke my_add(
+    @NODE_ID(0) seq {
+      @NODE_ID wr_x;
+      @NODE_ID(2) rd_x;
+      @NODE_ID(3) wr_y;
+      @NODE_ID(4) invoke my_add(
         left = x.out,
         right = x.out
       )();

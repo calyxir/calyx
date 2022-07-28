@@ -79,21 +79,21 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    seq {
-      par {
-        upd0;
-        upd1;
+    @NODE_ID(0) seq {
+      @NODE_ID par {
+        @NODE_ID(2) upd0;
+        @NODE_ID(3) upd1;
       }
-      prelet0;
-      let0;
-      let1;
-      par {
-        upd2;
-        upd3;
+      @NODE_ID(4) prelet0;
+      @NODE_ID(5) let0;
+      @NODE_ID(6) let1;
+      @NODE_ID(7) par {
+        @NODE_ID(8) upd2;
+        @NODE_ID(9) upd3;
       }
-      prelet2;
-      let2;
-      let3;
+      @NODE_ID(10) prelet2;
+      @NODE_ID(11) let2;
+      @NODE_ID(12) let3;
     }
   }
 }

@@ -19,9 +19,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (x_out: 32, @done don
   }
 
   control {
-    seq {
-      let0;
-      let1;
+    @NODE_ID(0) seq {
+      @NODE_ID let0;
+      @NODE_ID(2) let1;
     }
   }
 }

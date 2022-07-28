@@ -10,6 +10,7 @@ use std::{
 };
 
 type LiveCellRepresentation = HashSet<(ir::CellType, ir::Id)>;
+const NODE_ID: &str = "NODE_ID";
 
 /// The data structure used to represent sets of ids. This is used to represent
 /// the `live`, `gen`, and `kill` sets.
@@ -370,6 +371,187 @@ impl LiveRangeAnalysis {
         rev_map
     }
 
+    /// Given live_once_map, which maps control statement ids to maps of celltypes
+    /// to cell_names, reorganizes the data by returning a map from
+    /// celltypes to maps of cell_names to control statement ids.
+    pub fn get_cell_to_control(
+        live_once_map: HashMap<u64, HashMap<ir::CellType, HashSet<ir::Id>>>,
+    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>> {
+        let mut rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>> =
+            HashMap::new();
+        for (control_id, cell_type_map) in live_once_map {
+            for (cell_type, cell_list) in cell_type_map {
+                let cell_type_entry =
+                    rev_map.entry(cell_type.clone()).or_default();
+                for cell in cell_list {
+                    cell_type_entry.entry(cell).or_default().insert(control_id);
+                }
+            }
+        }
+        rev_map
+    }
+
+    /// Updates live_once_map and par_thread_map.
+    /// child_of_par indicates whether c is a direct child of a par block.
+    /// is_in_par indecates whether c is nested within the par block, at any
+    /// depth.
+    /// live_once_map should only include control statements which are direct
+    /// children of par blocks.
+    /// if is_in_par is true, returns all of the cells live at some point within
+    /// c. if it's false, behavior is unspecified.
+    pub fn get_live_once_data(
+        &self,
+        live_once_map: &mut HashMap<
+            u64,
+            HashMap<ir::CellType, HashSet<ir::Id>>,
+        >,
+        par_thread_map: &mut HashMap<u64, u64>,
+        c: &ir::Control,
+        is_in_par: bool,
+        child_of_par: bool,
+    ) -> HashMap<ir::CellType, HashSet<ir::Id>> {
+        match c {
+            ir::Control::Empty(_) => HashMap::new(),
+            ir::Control::Par(ir::Par { stmts, .. }) => {
+                let parent_id = Self::get_guaranteed_id(c);
+                let mut acc = HashMap::new();
+                for stmt in stmts {
+                    let live = self.get_live_once_data(
+                        live_once_map,
+                        par_thread_map,
+                        stmt,
+                        true,
+                        true,
+                    );
+                    par_thread_map
+                        .insert(Self::get_guaranteed_id(stmt), parent_id);
+                    extend_hashmap(&mut acc, live);
+                }
+                if child_of_par {
+                    live_once_map.insert(parent_id, acc.clone());
+                }
+                acc
+            }
+            ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                let mut acc = HashMap::new();
+                for stmt in stmts {
+                    let live = self.get_live_once_data(
+                        live_once_map,
+                        par_thread_map,
+                        stmt,
+                        is_in_par,
+                        false,
+                    );
+                    if is_in_par {
+                        extend_hashmap(&mut acc, live);
+                    }
+                }
+                let id = Self::get_guaranteed_id(c);
+                if child_of_par {
+                    live_once_map.insert(id, acc.clone());
+                }
+                acc
+            }
+            ir::Control::If(ir::If {
+                tbranch,
+                fbranch,
+                port,
+                ..
+            }) => {
+                let mut tbranch = self.get_live_once_data(
+                    live_once_map,
+                    par_thread_map,
+                    tbranch,
+                    is_in_par,
+                    false,
+                );
+                let fbranch = self.get_live_once_data(
+                    live_once_map,
+                    par_thread_map,
+                    fbranch,
+                    is_in_par,
+                    false,
+                );
+                if is_in_par {
+                    let id = Self::get_guaranteed_id(c);
+                    extend_hashmap(&mut tbranch, fbranch);
+                    if let Some((cell_type, cell_name)) =
+                        LiveRangeAnalysis::port_to_cell_name(
+                            port,
+                            &self.state_share,
+                        )
+                    {
+                        tbranch.entry(cell_type).or_default().insert(cell_name);
+                    }
+                    if child_of_par {
+                        live_once_map.insert(id, tbranch.clone());
+                    }
+                    tbranch
+                } else {
+                    HashMap::new()
+                }
+            }
+            ir::Control::While(ir::While { body, port, .. }) => {
+                let mut body = self.get_live_once_data(
+                    live_once_map,
+                    par_thread_map,
+                    body,
+                    is_in_par,
+                    false,
+                );
+                if is_in_par {
+                    let id = Self::get_guaranteed_id(c);
+                    if let Some((cell_type, cell_name)) =
+                        LiveRangeAnalysis::port_to_cell_name(
+                            port,
+                            &self.state_share,
+                        )
+                    {
+                        body.entry(cell_type).or_default().insert(cell_name);
+                    }
+                    if child_of_par {
+                        live_once_map.insert(id, body.clone());
+                    }
+                    body
+                } else {
+                    HashMap::new()
+                }
+            }
+            ir::Control::Enable(ir::Enable { group, .. }) => {
+                if is_in_par {
+                    let id = Self::get_guaranteed_id(c);
+                    let live_set =
+                        &self.live.get(&group.clone_name()).unwrap().map;
+                    if child_of_par {
+                        live_once_map.insert(id, live_set.clone());
+                    }
+                    return live_set.clone();
+                }
+                HashMap::new()
+            }
+            ir::Control::Invoke(ir::Invoke { comp, .. }) => {
+                if is_in_par {
+                    let id = Self::get_guaranteed_id(c);
+                    let live_set =
+                        &self.live.get(&comp.clone_name()).unwrap().map;
+                    if child_of_par {
+                        live_once_map.insert(id, live_set.clone());
+                    }
+                    return live_set.clone();
+                }
+                HashMap::new()
+            }
+        }
+    }
+
+    // Gets attribute s from c, panics otherwise. Should be used when you know
+    // that c has attribute s. Potentially refactor (from domination map).
+    fn get_guaranteed_id(c: &ir::Control) -> u64 {
+        *c.get_attribute(NODE_ID).unwrap_or_else(||unreachable!(
+            "called get_guaranteed_attribute, meaning we had to be sure it had the id"
+        ))
+    }
+
     /// Look up the set of things live at a node (i.e. group or invoke) definition.
     pub fn get(
         &self,
@@ -674,5 +856,15 @@ fn build_live_ranges(
             }
             build_live_ranges(body, alive, gens, kills, lr)
         }
+    }
+}
+
+// given map, "extends" it to include data from rhs.
+fn extend_hashmap(
+    map: &mut HashMap<ir::CellType, HashSet<ir::Id>>,
+    rhs: HashMap<ir::CellType, HashSet<ir::Id>>,
+) {
+    for (k, v) in rhs {
+        map.entry(k).or_default().extend(v);
     }
 }
