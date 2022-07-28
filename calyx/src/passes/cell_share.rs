@@ -87,7 +87,6 @@ impl CellShare {
             &*comp.control.borrow(),
             self.state_shareable.clone(),
             self.shareable.clone(),
-            &self.cont_ref_cells,
         );
     }
 

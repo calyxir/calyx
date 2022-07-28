@@ -66,13 +66,13 @@ impl Debug for Prop {
 impl Prop {
     /// Defines the dataflow transfer function.
     /// We use the standard definition for liveness:
-    ///   `(alive - kill) + gen`
+    /// `(alive - kill) + gen`
     fn transfer(self, gen: &Prop, kill: &Prop) -> Self {
         &(&self - kill) | gen
     }
 
     /// Defines the data_flow transfer function. `(alive - kill) + gen`.
-    /// However, this is for when gen and kill are sets, whereas self holds a map.
+    /// However, this is for when gen and kill are sets, and self is a map.
     fn transfer_set(
         self,
         gen: &LiveCellRepresentation,
@@ -86,6 +86,7 @@ impl Prop {
         self.map.entry(cell_type).or_default().insert(cell_name);
     }
 
+    // The or operation, but when the self is a map and rhs is a set of tuples.
     fn or_set(&self, rhs: &LiveCellRepresentation) -> Self {
         let mut map: HashMap<_, HashSet<_>> = self.map.clone();
         for (cell_type, cell_name) in rhs {
@@ -96,6 +97,7 @@ impl Prop {
         Prop { map }
     }
 
+    // The sub operation, but when the self is a map and rhs is a set of tuples.
     fn sub_set(&self, rhs: &LiveCellRepresentation) -> Self {
         let mut map: HashMap<_, HashSet<_>> = self.map.clone();
         for (cell_type, cell_name) in rhs {
@@ -104,6 +106,8 @@ impl Prop {
         Prop { map }
     }
 
+    // edits self to equal self | rhs. Faster than self | rhs  but must take rhs
+    // ownership and not &rhs.
     fn or_in_place(&mut self, rhs: Prop) {
         for (cell_type, cell_names) in rhs.map {
             self.map.entry(cell_type).or_default().extend(cell_names);
@@ -274,8 +278,6 @@ pub struct LiveRangeAnalysis {
     state_share: ShareSet,
     ///Set of shareable components (as type names)
     share: ShareSet,
-    /// Set of all continuous or reference cells
-    cont_ref_cells: HashSet<ir::Id>,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -295,12 +297,10 @@ impl LiveRangeAnalysis {
         control: &ir::Control,
         state_share: ShareSet,
         share: ShareSet,
-        cont_ref_cells: &HashSet<ir::Id>,
     ) -> Self {
         let mut ranges = LiveRangeAnalysis {
             state_share,
             share,
-            cont_ref_cells: cont_ref_cells.clone(),
             ..Default::default()
         };
 
@@ -353,10 +353,10 @@ impl LiveRangeAnalysis {
         }
     }
 
-    /// Returns a map from cell_type to map. maps each cell of type cell_type
+    /// Returns a map from cell_type to map that maps each cell of type cell_type
     /// to the nodes (groups/invokes) at which cell is live.
-    /// Essentially, this method allows us to go from a groups/invokes to cells mapping
-    /// to a cells to groups/invokes mapping
+    /// Essentially, this method allows us to go from a mapping of groups/invokes to cells
+    /// to a mapping of cells to groups/invokes.
     pub fn get_reverse(
         &mut self,
     ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<&ir::Id>>> {
@@ -368,29 +368,7 @@ impl LiveRangeAnalysis {
             for (cell_type, cell_list) in &prop.map {
                 let map = rev_map.entry(cell_type.clone()).or_default();
                 for cell in cell_list {
-                    if !self.cont_ref_cells.contains(cell) {
-                        map.entry(cell.clone()).or_default().insert(group_name);
-                    }
-                }
-            }
-        }
-        rev_map
-    }
-
-    /// Given live_once_map, which maps control statement ids to maps of celltypes
-    /// to cell_names, reorganizes the data by returning a map from
-    /// celltypes to maps of cell_names to control statement ids.
-    pub fn get_cell_to_control(
-        live_once_map: HashMap<u64, HashMap<ir::CellType, HashSet<ir::Id>>>,
-    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>> {
-        let mut rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>> =
-            HashMap::new();
-        for (control_id, cell_type_map) in live_once_map {
-            for (cell_type, cell_list) in cell_type_map {
-                let cell_type_entry =
-                    rev_map.entry(cell_type.clone()).or_default();
-                for cell in cell_list {
-                    cell_type_entry.entry(cell).or_default().insert(control_id);
+                    map.entry(cell.clone()).or_default().insert(group_name);
                 }
             }
         }
@@ -398,13 +376,16 @@ impl LiveRangeAnalysis {
     }
 
     /// Updates live_once_map and par_thread_map.
-    /// child_of_par indicates whether c is a direct child of a par block.
-    /// is_in_par indecates whether c is nested within the par block, at any
-    /// depth.
     /// live_once_map should only include control statements which are direct
-    /// children of par blocks.
+    /// children of par blocks, and map these control statements to the cells live
+    /// "at least once" within it (and the cells are organized by cell type).
+    /// par_thread_map should map every direct child of a par block to its parent, which
+    /// is a par thread.
+    /// child_of_par indicates whether c is a direct child of a par block.
+    /// is_in_par indicates whether c is nested within the par block, at any
+    /// depth.
     /// if is_in_par is true, returns all of the cells live at some point within
-    /// c. if it's false, behavior is unspecified.
+    /// c. if it's false, return value is unspecified.
     pub fn get_live_once_data(
         &self,
         live_once_map: &mut HashMap<
@@ -422,6 +403,10 @@ impl LiveRangeAnalysis {
                 let parent_id = Self::get_guaranteed_id(c);
                 let mut acc = HashMap::new();
                 for stmt in stmts {
+                    // map child of par to its parent par statement
+                    par_thread_map
+                        .insert(Self::get_guaranteed_id(stmt), parent_id);
+                    // get everything live at laest once stmt in stmt
                     let live = self.get_live_once_data(
                         live_once_map,
                         par_thread_map,
@@ -429,11 +414,15 @@ impl LiveRangeAnalysis {
                         true,
                         true,
                     );
-                    par_thread_map
-                        .insert(Self::get_guaranteed_id(stmt), parent_id);
-                    extend_hashmap(&mut acc, live);
+                    if is_in_par {
+                        // we only build acc if this statement is itself in a par
+                        // statement. If not, then we don't care about the return value.
+                        extend_hashmap(&mut acc, live);
+                    }
                 }
                 if child_of_par {
+                    // only add to live_once_map if this statement is a direct
+                    // child of a par stmt
                     live_once_map.insert(parent_id, acc.clone());
                 }
                 acc
@@ -452,8 +441,8 @@ impl LiveRangeAnalysis {
                         extend_hashmap(&mut acc, live);
                     }
                 }
-                let id = Self::get_guaranteed_id(c);
                 if child_of_par {
+                    let id = Self::get_guaranteed_id(c);
                     live_once_map.insert(id, acc.clone());
                 }
                 acc
@@ -479,7 +468,7 @@ impl LiveRangeAnalysis {
                     false,
                 );
                 if is_in_par {
-                    let id = Self::get_guaranteed_id(c);
+                    // only need to give a meaningful return value if is_in_par is true
                     extend_hashmap(&mut tbranch, fbranch);
                     if let Some((cell_type, cell_name)) =
                         LiveRangeAnalysis::port_to_cell_name(
@@ -490,6 +479,7 @@ impl LiveRangeAnalysis {
                         tbranch.entry(cell_type).or_default().insert(cell_name);
                     }
                     if child_of_par {
+                        let id = Self::get_guaranteed_id(c);
                         live_once_map.insert(id, tbranch.clone());
                     }
                     tbranch
@@ -506,7 +496,7 @@ impl LiveRangeAnalysis {
                     false,
                 );
                 if is_in_par {
-                    let id = Self::get_guaranteed_id(c);
+                    // only need to give a meaningful return if is_in_par is true
                     if let Some((cell_type, cell_name)) =
                         LiveRangeAnalysis::port_to_cell_name(
                             port,
@@ -516,6 +506,7 @@ impl LiveRangeAnalysis {
                         body.entry(cell_type).or_default().insert(cell_name);
                     }
                     if child_of_par {
+                        let id = Self::get_guaranteed_id(c);
                         live_once_map.insert(id, body.clone());
                     }
                     body
@@ -526,12 +517,8 @@ impl LiveRangeAnalysis {
             ir::Control::Enable(ir::Enable { group, .. }) => {
                 if is_in_par {
                     let id = Self::get_guaranteed_id(c);
-                    let mut live_set =
+                    let live_set =
                         self.live.get(&group.clone_name()).unwrap().map.clone();
-                    for (_, cells) in live_set.iter_mut() {
-                        cells
-                            .retain(|cell| !self.cont_ref_cells.contains(cell));
-                    }
                     if child_of_par {
                         live_once_map.insert(id, live_set.clone());
                     }
@@ -542,12 +529,8 @@ impl LiveRangeAnalysis {
             ir::Control::Invoke(ir::Invoke { comp, .. }) => {
                 if is_in_par {
                     let id = Self::get_guaranteed_id(c);
-                    let mut live_set =
+                    let live_set =
                         self.live.get(&comp.clone_name()).unwrap().map.clone();
-                    for (_, cells) in live_set.iter_mut() {
-                        cells
-                            .retain(|cell| !self.cont_ref_cells.contains(cell));
-                    }
                     if child_of_par {
                         live_once_map.insert(id, live_set.clone());
                     }
@@ -556,6 +539,28 @@ impl LiveRangeAnalysis {
                 HashMap::new()
             }
         }
+    }
+
+    /// Given live_once_map, which maps control statement ids to maps of celltypes
+    /// to cell_names, reorganizes the data by returning a map from
+    /// celltypes to maps of cell_names to control statement ids.
+    /// Essentially, goes from a mapping control statement to cell_names to
+    /// a mapping of cell_names to control statements
+    pub fn get_cell_to_control(
+        live_once_map: HashMap<u64, HashMap<ir::CellType, HashSet<ir::Id>>>,
+    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>> {
+        let mut rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>> =
+            HashMap::new();
+        for (control_id, cell_type_map) in live_once_map {
+            for (cell_type, cell_list) in cell_type_map {
+                let cell_type_entry =
+                    rev_map.entry(cell_type.clone()).or_default();
+                for cell in cell_list {
+                    cell_type_entry.entry(cell).or_default().insert(control_id);
+                }
+            }
+        }
+        rev_map
     }
 
     // Gets attribute s from c, panics otherwise. Should be used when you know
