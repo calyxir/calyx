@@ -83,8 +83,7 @@ impl CellShare {
         // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
         // cells.
         self.live = LiveRangeAnalysis::new(
-            comp,
-            &*comp.control.borrow(),
+            &mut *comp.control.borrow_mut(),
             self.state_shareable.clone(),
             self.shareable.clone(),
         );

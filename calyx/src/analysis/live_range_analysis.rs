@@ -1,56 +1,20 @@
 use crate::{
-    analysis::{ReadWriteSet, ShareSet, VariableDetection},
+    analysis::{ControlId, ReadWriteSet, ShareSet, VariableDetection},
     ir::{self, CloneName, RRC},
 };
 use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
-    ops::{BitOr, Sub},
 };
 
 type LiveCellRepresentation = HashSet<(ir::CellType, ir::Id)>;
-const NODE_ID: &str = "NODE_ID";
 
 /// The data structure used to represent sets of ids. This is used to represent
 /// the `live`, `gen`, and `kill` sets.
 #[derive(Default, Clone)]
 pub struct Prop {
     map: HashMap<ir::CellType, HashSet<ir::Id>>,
-}
-
-/// Conversion to Prop from things that can be converted to HashSet<ir::Id>.
-impl<T: Into<HashMap<ir::CellType, HashSet<ir::Id>>>> From<T> for Prop {
-    fn from(t: T) -> Self {
-        Prop { map: t.into() }
-    }
-}
-
-/// Implement convenience math operators for Prop
-impl BitOr<&Prop> for &Prop {
-    type Output = Prop;
-    fn bitor(self, rhs: &Prop) -> Self::Output {
-        let mut map: HashMap<_, HashSet<_>> = self.map.clone();
-        for (cell_type, cell_names) in &rhs.map {
-            map.entry(cell_type.clone())
-                .or_default()
-                .extend(cell_names.clone());
-        }
-        Prop { map }
-    }
-}
-
-impl Sub<&Prop> for &Prop {
-    type Output = Prop;
-    fn sub(self, rhs: &Prop) -> Self::Output {
-        let mut map: HashMap<_, HashSet<_>> = self.map.clone();
-        for (cell_type, cell_names) in &rhs.map {
-            map.entry(cell_type.clone())
-                .or_default()
-                .retain(|name| !cell_names.clone().contains(name));
-        }
-        Prop { map }
-    }
 }
 
 /// Implement nice printing for prop for debugging purposes.
@@ -67,18 +31,20 @@ impl Prop {
     /// Defines the dataflow transfer function.
     /// We use the standard definition for liveness:
     /// `(alive - kill) + gen`
-    fn transfer(self, gen: &Prop, kill: &Prop) -> Self {
-        &(&self - kill) | gen
+    fn transfer_in_place(&mut self, gen: Prop, kill: Prop) {
+        self.sub_in_place(kill);
+        self.or_in_place(gen);
     }
 
     /// Defines the data_flow transfer function. `(alive - kill) + gen`.
     /// However, this is for when gen and kill are sets, and self is a map.
-    fn transfer_set(
-        self,
-        gen: &LiveCellRepresentation,
-        kill: &LiveCellRepresentation,
-    ) -> Self {
-        (self.sub_set(kill)).or_set(gen)
+    fn transfer_set_in_place(
+        &mut self,
+        gen: LiveCellRepresentation,
+        kill: LiveCellRepresentation,
+    ) {
+        self.sub_set_in_place(kill);
+        self.or_set_in_place(gen);
     }
 
     /// Add an element to Prop.
@@ -87,23 +53,17 @@ impl Prop {
     }
 
     // The or operation, but when the self is a map and rhs is a set of tuples.
-    fn or_set(&self, rhs: &LiveCellRepresentation) -> Self {
-        let mut map: HashMap<_, HashSet<_>> = self.map.clone();
+    fn or_set_in_place(&mut self, rhs: LiveCellRepresentation) {
         for (cell_type, cell_name) in rhs {
-            map.entry(cell_type.clone())
-                .or_default()
-                .insert(cell_name.clone());
+            self.map.entry(cell_type).or_default().insert(cell_name);
         }
-        Prop { map }
     }
 
     // The sub operation, but when the self is a map and rhs is a set of tuples.
-    fn sub_set(&self, rhs: &LiveCellRepresentation) -> Self {
-        let mut map: HashMap<_, HashSet<_>> = self.map.clone();
+    fn sub_set_in_place(&mut self, rhs: LiveCellRepresentation) {
         for (cell_type, cell_name) in rhs {
-            map.entry(cell_type.clone()).or_default().remove(cell_name);
+            self.map.entry(cell_type).or_default().remove(&cell_name);
         }
-        Prop { map }
     }
 
     // edits self to equal self | rhs. Faster than self | rhs  but must take rhs
@@ -111,6 +71,17 @@ impl Prop {
     fn or_in_place(&mut self, rhs: Prop) {
         for (cell_type, cell_names) in rhs.map {
             self.map.entry(cell_type).or_default().extend(cell_names);
+        }
+    }
+
+    // edits self to equal self | rhs. Faster than self | rhs  but must take rhs
+    // ownership and not &rhs.
+    fn sub_in_place(&mut self, rhs: Prop) {
+        for (cell_type, cell_names) in rhs.map {
+            self.map
+                .entry(cell_type)
+                .or_default()
+                .retain(|cell| !cell_names.contains(cell));
         }
     }
 }
@@ -268,9 +239,9 @@ impl Prop {
 /// information of the threads.
 #[derive(Default)]
 pub struct LiveRangeAnalysis {
-    /// Map from node (i.e., group enables or invokes) names
+    /// Map from node ids (i.e., group enables or invokes) names
     /// to the components live inside them.
-    live: HashMap<ir::Id, Prop>,
+    live: HashMap<u64, Prop>,
     /// Groups that have been identified as variable-like.
     /// Mapping from group name to the name of the register.
     variable_like: HashMap<ir::Id, Option<(ir::CellType, ir::Id)>>,
@@ -278,13 +249,15 @@ pub struct LiveRangeAnalysis {
     state_share: ShareSet,
     ///Set of shareable components (as type names)
     share: ShareSet,
+
+    invokes_enables_map: HashMap<u64, HashSet<(ir::CellType, ir::Id)>>,
 }
 
 impl Debug for LiveRangeAnalysis {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Live variables {{")?;
         for (k, v) in self.live.iter() {
-            writeln!(f, "  {}: {:?}", k.id, v)?;
+            writeln!(f, "  {}: {:?}", k, v)?;
         }
         write!(f, "}}")
     }
@@ -293,8 +266,7 @@ impl Debug for LiveRangeAnalysis {
 impl LiveRangeAnalysis {
     /// Construct a live range analysis.
     pub fn new(
-        comp: &ir::Component,
-        control: &ir::Control,
+        control: &mut ir::Control,
         state_share: ShareSet,
         share: ShareSet,
     ) -> Self {
@@ -304,53 +276,27 @@ impl LiveRangeAnalysis {
             ..Default::default()
         };
 
-        build_live_ranges(
+        // Give each control statement a unique "NODE_ID" attribute.
+        ControlId::compute_unique_ids(control, 0, false);
+
+        ranges.build_live_ranges(
             control,
             Prop::default(),
             Prop::default(),
             Prop::default(),
-            &mut ranges,
         );
 
-        //adds (non-state) shareable cells as live in the group they're contained in
-        //we already added (non-state) shareable cells as live in the invoke
-        //they're contained in in build_live_ranges().
-        comp.groups.iter().for_each(|group| {
-            ranges.add_shareable_ranges(
-                &group.borrow().assignments,
-                group.borrow().name(),
-            );
-        });
+        for (node, cells_by_type) in &ranges.invokes_enables_map {
+            if let Some(prop) = ranges.live.get_mut(&node) {
+                prop.or_set_in_place(cells_by_type.clone());
+            }
+        }
 
         // Caleb: Right now we run remove-comb-groups before this is used so this code
         // doesn't do anything. Eventually, though, we want to be able to make
-        // remove-comb-groups optional so I will keep this code.
-        comp.comb_groups.iter().for_each(|group| {
-            ranges.add_shareable_ranges(
-                &group.borrow().assignments,
-                group.borrow().name(),
-            )
-        });
+        // remove-comb-groups optional.
 
         ranges
-    }
-
-    //For each cell used in assignments, adds it as part of the group_name's live range
-    fn add_shareable_ranges(
-        &mut self,
-        assignments: &[ir::Assignment],
-        group_name: &ir::Id,
-    ) {
-        let group_uses = ReadWriteSet::uses(assignments.iter())
-            .filter(|cell| self.share.is_shareable_component(cell))
-            .map(|cell| (cell.borrow().prototype.clone(), cell.clone_name()))
-            .collect::<HashSet<_>>();
-        match self.live.get_mut(group_name) {
-            None => {
-                unreachable!("Missing live range for {}. This might happen if a group is not used in the control program", group_name)
-            }
-            Some(prop) => *prop = prop.or_set(&group_uses),
-        }
     }
 
     /// Returns a map from cell_type to map that maps each cell of type cell_type
@@ -359,11 +305,9 @@ impl LiveRangeAnalysis {
     /// to a mapping of cells to groups/invokes.
     pub fn get_reverse(
         &mut self,
-    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<&ir::Id>>> {
-        let mut rev_map: HashMap<
-            ir::CellType,
-            HashMap<ir::Id, HashSet<&ir::Id>>,
-        > = HashMap::new();
+    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<&u64>>> {
+        let mut rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<&u64>>> =
+            HashMap::new();
         for (group_name, prop) in &self.live {
             for (cell_type, cell_list) in &prop.map {
                 let map = rev_map.entry(cell_type.clone()).or_default();
@@ -395,11 +339,11 @@ impl LiveRangeAnalysis {
         match c {
             ir::Control::Empty(_) => (),
             ir::Control::Par(ir::Par { stmts, .. }) => {
-                let parent_id = Self::get_guaranteed_id(c);
+                let parent_id = ControlId::get_guaranteed_id(c);
                 let mut new_parents = parents.clone();
                 for stmt in stmts {
                     // building par_thread_map
-                    let child_id = Self::get_guaranteed_id(stmt);
+                    let child_id = ControlId::get_guaranteed_id(stmt);
                     par_thread_map.insert(child_id, parent_id);
 
                     // building live_once_map by adding child_id to parents when
@@ -483,27 +427,14 @@ impl LiveRangeAnalysis {
                     }
                 }
             }
-            ir::Control::Enable(ir::Enable { group, .. }) => {
+            ir::Control::Enable(_) | ir::Control::Invoke(_) => {
                 if !parents.is_empty() {
-                    let live_set =
-                        self.live.get(&group.clone_name()).unwrap().map.clone();
-                    for (cell_type, live_cells) in live_set {
-                        let cell_to_control =
-                            live_once_map.entry(cell_type).or_default();
-                        for cell in live_cells {
-                            cell_to_control
-                                .entry(cell)
-                                .or_default()
-                                .extend(parents);
-                        }
-                    }
-                }
-            }
-            ir::Control::Invoke(ir::Invoke { comp, .. }) => {
-                // very similar to Enable code
-                if !parents.is_empty() {
-                    let live_set =
-                        self.live.get(&comp.clone_name()).unwrap().map.clone();
+                    let live_set = self
+                        .live
+                        .get(&ControlId::get_guaranteed_id(c))
+                        .unwrap()
+                        .map
+                        .clone();
                     for (cell_type, live_cells) in live_set {
                         let cell_to_control =
                             live_once_map.entry(cell_type).or_default();
@@ -519,19 +450,8 @@ impl LiveRangeAnalysis {
         }
     }
 
-    // Gets attribute s from c, panics otherwise. Should be used when you know
-    // that c has attribute s. Potentially refactor (from domination map).
-    fn get_guaranteed_id(c: &ir::Control) -> u64 {
-        *c.get_attribute(NODE_ID).unwrap_or_else(||unreachable!(
-            "called get_guaranteed_attribute, meaning we had to be sure it had the id"
-        ))
-    }
-
     /// Look up the set of things live at a node (i.e. group or invoke) definition.
-    pub fn get(
-        &self,
-        node: &ir::Id,
-    ) -> &HashMap<ir::CellType, HashSet<ir::Id>> {
+    pub fn get(&self, node: &u64) -> &HashMap<ir::CellType, HashSet<ir::Id>> {
         &self
             .live
             .get(node)
@@ -641,6 +561,17 @@ impl LiveRangeAnalysis {
         }
     }
 
+    fn find_uses_group(
+        group_ref: &RRC<ir::Group>,
+        shareable_components: &ShareSet,
+    ) -> LiveCellRepresentation {
+        let group = group_ref.borrow();
+        ReadWriteSet::uses(group.assignments.iter())
+            .filter(|cell| shareable_components.is_shareable_component(cell))
+            .map(|cell| (cell.borrow().prototype.clone(), cell.clone_name()))
+            .collect::<HashSet<_>>()
+    }
+
     fn port_to_cell_name(
         port: &RRC<ir::Port>,
         shareable_components: &ShareSet,
@@ -700,136 +631,184 @@ impl LiveRangeAnalysis {
 
         (read_set, write_set)
     }
-}
 
-/// Implements the parallel dataflow analysis that computes the liveness of every state shareable component
-/// at every point in the program.
-fn build_live_ranges(
-    c: &ir::Control,
-    alive: Prop,
-    gens: Prop,
-    kills: Prop,
-    lr: &mut LiveRangeAnalysis,
-) -> (Prop, Prop, Prop) {
-    match c {
-        ir::Control::Empty(_) => (alive, gens, kills),
-        ir::Control::Invoke(invoke) => {
-            let (reads, writes) = LiveRangeAnalysis::find_gen_kill_invoke(
-                invoke,
-                &lr.state_share,
-            );
-            // set the live set of this node to be the things live on the
-            // output of this node plus the things written to in this invoke
-            // plus all shareable components used
-            let alive = alive.transfer_set(&reads, &writes);
+    fn find_uses_invoke(
+        invoke: &ir::Invoke,
+        shareable_components: &ShareSet,
+    ) -> LiveCellRepresentation {
+        invoke
+            .inputs
+            .iter()
+            .chain(invoke.outputs.iter())
+            .filter_map(|(_, src)| {
+                Self::port_to_cell_name(src, shareable_components)
+            })
+            .collect()
+    }
 
-            //get the shareable components used in the invoke stmt
-            let (reads_share, writes_share) =
-                LiveRangeAnalysis::find_gen_kill_invoke(invoke, &lr.share);
-            let uses_share = &reads_share | &writes_share;
+    /// Implements the parallel dataflow analysis that computes the liveness of every state shareable component
+    /// at every point in the program.
+    fn build_live_ranges(
+        &mut self,
+        c: &ir::Control,
+        mut alive: Prop,
+        mut gens: Prop,
+        mut kills: Prop,
+    ) -> (Prop, Prop, Prop) {
+        match c {
+            ir::Control::Empty(_) => (alive, gens, kills),
+            ir::Control::Invoke(invoke) => {
+                //get the shareable components used in the invoke stmt
+                let uses_share =
+                    LiveRangeAnalysis::find_uses_invoke(invoke, &self.share);
+                self.invokes_enables_map
+                    .entry(ControlId::get_guaranteed_id(c))
+                    .or_default()
+                    .extend(uses_share);
 
-            let alive_writes = alive.or_set(&writes);
-            lr.live.insert(
-                invoke.comp.clone_name(),
-                alive_writes.or_set(&uses_share),
-            );
-            (alive, gens.or_set(&reads), kills.or_set(&writes))
-        }
-        ir::Control::Enable(ir::Enable { group, .. }) => {
-            // XXX(sam) no reason to compute this every time
-            let (reads, writes) = lr.find_gen_kill_group(group);
-
-            // compute transfer function
-            let alive = alive.transfer_set(&reads, &writes);
-
-            // set the live set of this node to be the things live on the
-            // output of this node plus the things written to in this group
-            lr.live.insert(group.clone_name(), alive.or_set(&writes));
-            (alive, gens.or_set(&reads), kills.or_set(&writes))
-        }
-        ir::Control::Seq(ir::Seq { stmts, .. }) => stmts.iter().rev().fold(
-            (alive, gens, kills),
-            |(alive, gens, kills), e| {
-                build_live_ranges(e, alive, gens, kills, lr)
-            },
-        ),
-        ir::Control::If(ir::If {
-            tbranch,
-            fbranch,
-            port,
-            ..
-        }) => {
-            // compute each branch
-            let (mut t_alive, mut t_gens, mut t_kills) = build_live_ranges(
-                tbranch,
-                alive.clone(),
-                gens.clone(),
-                kills.clone(),
-                lr,
-            );
-            let (f_alive, f_gens, f_kills) =
-                build_live_ranges(fbranch, alive, gens, kills, lr);
-
-            // take union
-            t_alive.or_in_place(f_alive);
-            t_gens.or_in_place(f_gens);
-            t_kills.or_in_place(f_kills);
-
-            // feed to condition to compute
-            if let Some(cell_info) =
-                LiveRangeAnalysis::port_to_cell_name(port, &lr.state_share)
-            {
-                t_alive.insert(cell_info);
-            }
-            (t_alive, t_gens, t_kills)
-        }
-        ir::Control::Par(ir::Par { stmts, .. }) => {
-            let (alive, gens, kills) = stmts
-                .iter()
-                .rev()
-                .map(|e| {
-                    build_live_ranges(
-                        e,
-                        alive.clone(),
-                        Prop::default(),
-                        Prop::default(),
-                        lr,
-                    )
-                })
-                .fold(
-                    (Prop::default(), Prop::default(), Prop::default()),
-                    |(mut acc_alive, mut acc_gen, mut acc_kill),
-                     (alive, gen, kill)| {
-                        (
-                            // Doing in place operations saves time
-                            {
-                                acc_alive.or_in_place(alive);
-                                acc_alive
-                            },
-                            {
-                                acc_gen.or_in_place(gen);
-                                acc_gen
-                            },
-                            {
-                                acc_kill.or_in_place(kill);
-                                acc_kill
-                            },
-                        )
-                    },
+                let (reads, writes) = LiveRangeAnalysis::find_gen_kill_invoke(
+                    invoke,
+                    &self.state_share,
                 );
 
-            let alive = alive.transfer(&gens, &kills);
-            (alive, gens, kills)
-        }
-        ir::Control::While(ir::While { body, port, .. }) => {
-            let (mut alive, gens, kills) =
-                build_live_ranges(body, alive, gens, kills, lr);
-            if let Some(cell) =
-                LiveRangeAnalysis::port_to_cell_name(port, &lr.state_share)
-            {
-                alive.insert(cell)
+                alive.transfer_set_in_place(reads.clone(), writes.clone());
+                let alive_out = alive.clone();
+
+                // set the live set of this node to be the things live on the
+                // output of this node plus the things written to in this invoke
+                // plus all shareable components used
+                self.live.insert(ControlId::get_guaranteed_id(c), {
+                    alive.or_set_in_place(writes.clone());
+                    alive
+                });
+                (
+                    alive_out,
+                    {
+                        gens.or_set_in_place(reads);
+                        gens
+                    },
+                    {
+                        kills.or_set_in_place(writes);
+                        kills
+                    },
+                )
             }
-            build_live_ranges(body, alive, gens, kills, lr)
+            ir::Control::Enable(ir::Enable { group, .. }) => {
+                let uses_share =
+                    LiveRangeAnalysis::find_uses_group(group, &self.share);
+                self.invokes_enables_map
+                    .entry(ControlId::get_guaranteed_id(c))
+                    .or_default()
+                    .extend(uses_share);
+                // XXX(sam) no reason to compute this every time
+                let (reads, writes) = self.find_gen_kill_group(group);
+
+                // compute transfer function
+                alive.transfer_set_in_place(reads.clone(), writes.clone());
+                let alive_out = alive.clone();
+
+                // set the live set of this node to be the things live on the
+                // output of this node plus the things written to in this group
+                self.live.insert(ControlId::get_guaranteed_id(c), {
+                    alive.or_set_in_place(writes.clone());
+                    alive
+                });
+                (
+                    alive_out,
+                    {
+                        gens.or_set_in_place(reads);
+                        gens
+                    },
+                    {
+                        kills.or_set_in_place(writes);
+                        kills
+                    },
+                )
+            }
+            ir::Control::Seq(ir::Seq { stmts, .. }) => stmts.iter().rev().fold(
+                (alive, gens, kills),
+                |(alive, gens, kills), e| {
+                    self.build_live_ranges(e, alive, gens, kills)
+                },
+            ),
+            ir::Control::If(ir::If {
+                tbranch,
+                fbranch,
+                port,
+                ..
+            }) => {
+                // compute each branch
+                let (mut t_alive, mut t_gens, mut t_kills) = self
+                    .build_live_ranges(
+                        tbranch,
+                        alive.clone(),
+                        gens.clone(),
+                        kills.clone(),
+                    );
+                let (f_alive, f_gens, f_kills) =
+                    self.build_live_ranges(fbranch, alive, gens, kills);
+
+                // take union
+                t_alive.or_in_place(f_alive);
+                t_gens.or_in_place(f_gens);
+                t_kills.or_in_place(f_kills);
+
+                // feed to condition to compute
+                if let Some(cell_info) = LiveRangeAnalysis::port_to_cell_name(
+                    port,
+                    &self.state_share,
+                ) {
+                    t_alive.insert(cell_info);
+                }
+                (t_alive, t_gens, t_kills)
+            }
+            ir::Control::Par(ir::Par { stmts, .. }) => {
+                let (mut alive, gens, kills) = stmts
+                    .iter()
+                    .rev()
+                    .map(|e| {
+                        self.build_live_ranges(
+                            e,
+                            alive.clone(),
+                            Prop::default(),
+                            Prop::default(),
+                        )
+                    })
+                    .fold(
+                        (Prop::default(), Prop::default(), Prop::default()),
+                        |(mut acc_alive, mut acc_gen, mut acc_kill),
+                         (alive, gen, kill)| {
+                            (
+                                // Doing in place operations saves time
+                                {
+                                    acc_alive.or_in_place(alive);
+                                    acc_alive
+                                },
+                                {
+                                    acc_gen.or_in_place(gen);
+                                    acc_gen
+                                },
+                                {
+                                    acc_kill.or_in_place(kill);
+                                    acc_kill
+                                },
+                            )
+                        },
+                    );
+                alive.transfer_in_place(gens.clone(), kills.clone());
+                (alive, gens, kills)
+            }
+            ir::Control::While(ir::While { body, port, .. }) => {
+                let (mut alive, gens, kills) =
+                    self.build_live_ranges(body, alive, gens, kills);
+                if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(
+                    port,
+                    &self.state_share,
+                ) {
+                    alive.insert(cell)
+                }
+                self.build_live_ranges(body, alive, gens, kills)
+            }
         }
     }
 }

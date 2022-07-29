@@ -8,8 +8,6 @@ use itertools::Itertools;
 
 use std::collections::{HashMap, HashSet};
 
-const NODE_ID: &str = "NODE_ID";
-
 /// The algorithm that runs is:
 ///  - instantiate conflict graph using all component cells that satisfy `cell_filter`
 ///  - use [ScheduleConflicts] to find groups/invokes that run in parallel with each other
@@ -52,8 +50,7 @@ impl Visitor for CellShare {
                 })
                 .collect();
 
-        // Give each control statement a unique "NODE_ID" attribute.
-        compute_unique_ids(&mut comp.control.borrow_mut(), 0);
+        // We assume unique ids have already been computed by LiveRangeAnalysis
 
         // live_once_map maps celltypes to maps that map cells to control statements
         // in which the cell was live for at least one group/invoke. Furthermore,
@@ -74,7 +71,7 @@ impl Visitor for CellShare {
         // Maps celltype to map that maps cells to groups/invokes in which the cell is live.
         let live_cell_map: HashMap<
             ir::CellType,
-            HashMap<ir::Id, HashSet<&ir::Id>>,
+            HashMap<ir::Id, HashSet<&u64>>,
         > = self.live.get_reverse();
 
         // Adding the conflicts
@@ -95,9 +92,9 @@ impl Visitor for CellShare {
 
                 // checking if live ranges overlap
                 // nodes (groups/invokes) in which a is live
-                let a_live: &HashSet<&ir::Id> = cell_to_nodes.get(a).unwrap();
+                let a_live: &HashSet<&u64> = cell_to_nodes.get(a).unwrap();
                 // nodes (groups/invokes) in which b is live
-                let b_live: &HashSet<&ir::Id> = cell_to_nodes.get(b).unwrap();
+                let b_live: &HashSet<&u64> = cell_to_nodes.get(b).unwrap();
                 if !a_live.is_disjoint(b_live) {
                     g.insert_conflict(a, b);
                     continue;
@@ -154,50 +151,5 @@ impl Visitor for CellShare {
         );
 
         Ok(Action::Stop)
-    }
-}
-
-// Very similar to the domination map one-- should reuse code, instead of copy+paste
-fn compute_unique_ids(con: &mut ir::Control, mut cur_state: u64) -> u64 {
-    match con {
-        ir::Control::Enable(ir::Enable { attributes, .. })
-        | ir::Control::Invoke(ir::Invoke { attributes, .. }) => {
-            attributes.insert(NODE_ID, cur_state);
-            cur_state + 1
-        }
-        ir::Control::Par(ir::Par {
-            stmts, attributes, ..
-        })
-        | ir::Control::Seq(ir::Seq {
-            stmts, attributes, ..
-        }) => {
-            attributes.insert(NODE_ID, cur_state);
-            cur_state += 1;
-            stmts.iter_mut().for_each(|stmt| {
-                let new_state = compute_unique_ids(stmt, cur_state);
-                cur_state = new_state;
-            });
-            cur_state
-        }
-        ir::Control::If(ir::If {
-            tbranch,
-            fbranch,
-            attributes,
-            ..
-        }) => {
-            attributes.insert(NODE_ID, cur_state);
-            cur_state += 1;
-            cur_state = compute_unique_ids(tbranch, cur_state);
-            cur_state = compute_unique_ids(fbranch, cur_state);
-            cur_state + 1
-        }
-        ir::Control::While(ir::While {
-            body, attributes, ..
-        }) => {
-            attributes.insert(NODE_ID, cur_state);
-            cur_state += 1;
-            compute_unique_ids(body, cur_state)
-        }
-        ir::Control::Empty(_) => cur_state,
     }
 }
