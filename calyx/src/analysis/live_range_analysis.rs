@@ -8,13 +8,14 @@ use std::{
     fmt::Debug,
 };
 
-type LiveCellRepresentation = HashSet<(ir::CellType, ir::Id)>;
+type TypeNameSet = HashSet<(ir::CellType, ir::Id)>;
+type CellsByType = HashMap<ir::CellType, HashSet<ir::Id>>;
 
 /// The data structure used to represent sets of ids. This is used to represent
 /// the `live`, `gen`, and `kill` sets.
 #[derive(Default, Clone)]
 pub struct Prop {
-    map: HashMap<ir::CellType, HashSet<ir::Id>>,
+    map: CellsByType,
 }
 
 /// Implement nice printing for prop for debugging purposes.
@@ -38,11 +39,7 @@ impl Prop {
 
     /// Defines the data_flow transfer function. `(alive - kill) + gen`.
     /// However, this is for when gen and kill are sets, and self is a map.
-    fn transfer_set_in_place(
-        &mut self,
-        gen: LiveCellRepresentation,
-        kill: LiveCellRepresentation,
-    ) {
+    fn transfer_set_in_place(&mut self, gen: TypeNameSet, kill: TypeNameSet) {
         self.sub_set_in_place(kill);
         self.or_set_in_place(gen);
     }
@@ -53,14 +50,14 @@ impl Prop {
     }
 
     // The or operation, but when the self is a map and rhs is a set of tuples.
-    fn or_set_in_place(&mut self, rhs: LiveCellRepresentation) {
+    fn or_set_in_place(&mut self, rhs: TypeNameSet) {
         for (cell_type, cell_name) in rhs {
             self.map.entry(cell_type).or_default().insert(cell_name);
         }
     }
 
     // The sub operation, but when the self is a map and rhs is a set of tuples.
-    fn sub_set_in_place(&mut self, rhs: LiveCellRepresentation) {
+    fn sub_set_in_place(&mut self, rhs: TypeNameSet) {
         for (cell_type, cell_name) in rhs {
             self.map.entry(cell_type).or_default().remove(&cell_name);
         }
@@ -249,8 +246,8 @@ pub struct LiveRangeAnalysis {
     state_share: ShareSet,
     ///Set of shareable components (as type names)
     share: ShareSet,
-
-    invokes_enables_map: HashMap<u64, HashSet<(ir::CellType, ir::Id)>>,
+    ///maps invokes/enable ids to the cells live in them, organized by type
+    invokes_enables_map: HashMap<u64, TypeNameSet>,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -287,7 +284,7 @@ impl LiveRangeAnalysis {
         );
 
         for (node, cells_by_type) in &ranges.invokes_enables_map {
-            if let Some(prop) = ranges.live.get_mut(&node) {
+            if let Some(prop) = ranges.live.get_mut(node) {
                 prop.or_set_in_place(cells_by_type.clone());
             }
         }
@@ -451,7 +448,7 @@ impl LiveRangeAnalysis {
     }
 
     /// Look up the set of things live at a node (i.e. group or invoke) definition.
-    pub fn get(&self, node: &u64) -> &HashMap<ir::CellType, HashSet<ir::Id>> {
+    pub fn get(&self, node: &u64) -> &CellsByType {
         &self
             .live
             .get(node)
@@ -502,7 +499,7 @@ impl LiveRangeAnalysis {
     fn find_gen_kill_group(
         &mut self,
         group_ref: &RRC<ir::Group>,
-    ) -> (LiveCellRepresentation, LiveCellRepresentation) {
+    ) -> (TypeNameSet, TypeNameSet) {
         let group = group_ref.borrow();
         let maybe_var = self.variable_like(group_ref).clone();
         let sc_clone = &self.state_share;
@@ -564,7 +561,7 @@ impl LiveRangeAnalysis {
     fn find_uses_group(
         group_ref: &RRC<ir::Group>,
         shareable_components: &ShareSet,
-    ) -> LiveCellRepresentation {
+    ) -> TypeNameSet {
         let group = group_ref.borrow();
         ReadWriteSet::uses(group.assignments.iter())
             .filter(|cell| shareable_components.is_shareable_component(cell))
@@ -592,10 +589,10 @@ impl LiveRangeAnalysis {
     fn find_gen_kill_invoke(
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
-    ) -> (LiveCellRepresentation, LiveCellRepresentation) {
+    ) -> (TypeNameSet, TypeNameSet) {
         //The reads of the invoke include its inputs plus the cell itself, if the
         //outputs are not empty.
-        let mut read_set: LiveCellRepresentation = invoke
+        let mut read_set: TypeNameSet = invoke
             .inputs
             .iter()
             .filter_map(|(_, src)| {
@@ -613,7 +610,7 @@ impl LiveRangeAnalysis {
 
         //The writes of the invoke include its outpus plus the cell itself, if the
         //inputs are not empty.
-        let mut write_set: LiveCellRepresentation = invoke
+        let mut write_set: TypeNameSet = invoke
             .outputs
             .iter()
             .filter_map(|(_, src)| {
@@ -635,7 +632,7 @@ impl LiveRangeAnalysis {
     fn find_uses_invoke(
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
-    ) -> LiveCellRepresentation {
+    ) -> TypeNameSet {
         invoke
             .inputs
             .iter()
