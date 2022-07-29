@@ -1,9 +1,5 @@
 //! Defines common traits for methods that attempt to share components.
-use crate::{
-    analysis::{GraphColoring, LiveRangeAnalysis},
-    ir,
-    passes::CellShare,
-};
+use crate::{analysis::GraphColoring, ir, passes::CellShare};
 use ir::{
     traversal::{Action, VisResult, Visitor},
     CloneName,
@@ -59,49 +55,45 @@ impl Visitor for CellShare {
         // Give each control statement a unique "NODE_ID" attribute.
         compute_unique_ids(&mut comp.control.borrow_mut(), 0);
 
-        // live_once_map maps control statement ids to all cells that were
-        // live at least once within the control statement. The cells are organized
-        // by cell type. Furthermore, only control statements that are direct
-        // children of par blocks are included in this map.
+        // live_once_map maps celltypes to maps that map cells to control statements
+        // in which the cell was live for at least one group/invoke. Furthermore,
+        // only control statements that are direct children of par blocks
+        // are included in this map.
         let mut live_once_map = HashMap::new();
         // Maps every control statement that is a direct child of a par block to
         // its parent par block. (maps id number to id number)
         let mut par_thread_map = HashMap::new();
         // build live_once_map and par_thread_map
-        self.live.get_live_once_data(
+        self.live.get_live_control_data(
             &mut live_once_map,
             &mut par_thread_map,
+            &HashSet::new(),
             &*comp.control.borrow(),
-            false,
-            false,
         );
 
-        // maps celltype to a map. The map contains all cells of type celltype
-        // (that appear in live_once_map), mapped to the control statements (that apper
-        // in live_once_map) in which the cell is live. In other words, it restructures
-        // live once map from a mapping of control statements to live cells to
-        // a mapping of live cells to control statements
-        let mut live_once_cellmap =
-            LiveRangeAnalysis::get_cell_to_control(live_once_map);
-
-        // Maps celltype to map, which maps cells to groups/invokes in which the cell is live.
+        // Maps celltype to map that maps cells to groups/invokes in which the cell is live.
         let live_cell_map: HashMap<
             ir::CellType,
             HashMap<ir::Id, HashSet<&ir::Id>>,
         > = self.live.get_reverse();
 
+        // Adding the conflicts
         for (cell_type, cells) in &cells_by_type {
             // Run remove_dead_cells before this cell-share pass. I think this
-            // unwrap() may raise an error if we don't.
+            // unwrap() may raise an error if we don't. Or we can change the code
+            // to just skip this iteration if we get None.
             let g = graphs_by_type.get_mut(cell_type).unwrap();
             // mapping of cells to nodes (groups/invokes) in which cell is live
             let cell_to_nodes = live_cell_map.get(cell_type).unwrap();
             // mapping of cell names to the control statements in which it is live
-            // at least once. We are only interested in control statements that
-            // are direct children of par blocks.
-            let live_once_map =
-                live_once_cellmap.entry(cell_type.clone()).or_default();
+            // at least once. Only control statements that are direct children of
+            // par blocks are included
+            let cell_to_control =
+                live_once_map.entry(cell_type.clone()).or_default();
             for (a, b) in cells.iter().tuple_combinations() {
+                // Both these unwrap() statements depend on no dead cells I believe
+
+                // checking if live ranges overlap
                 // nodes (groups/invokes) in which a is live
                 let a_live: &HashSet<&ir::Id> = cell_to_nodes.get(a).unwrap();
                 // nodes (groups/invokes) in which b is live
@@ -110,14 +102,16 @@ impl Visitor for CellShare {
                     g.insert_conflict(a, b);
                     continue;
                 }
-                //get the par children in which a was alive "at least once"
-                if let Some(live_once_a) = live_once_map.get(a) {
-                    // get the par children in which b was alive "at least once"
-                    if let Some(live_once_b) = live_once_map.get(b) {
+                // checking if b is live at any groups/invokes running in parallel
+                // to groups/invokes live at a
+                // get the children of pars in which a was alive "at least once"
+                if let Some(live_once_a) = cell_to_control.get(a) {
+                    // get the children of pars in which b was alive "at least once"
+                    if let Some(live_once_b) = cell_to_control.get(b) {
                         'outer: for live_a in live_once_a {
                             for live_b in live_once_b {
                                 // a and b are live within the same par block but not within
-                                // the same thread, then insert conflict.
+                                // the same child thread, then insert conflict.
                                 if live_a != live_b
                                     && par_thread_map.get(live_a).unwrap()
                                         == par_thread_map.get(live_b).unwrap()
