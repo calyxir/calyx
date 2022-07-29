@@ -30,7 +30,8 @@ pub struct GroupToInvoke {
 impl ConstructVisitor for GroupToInvoke {
     fn from(ctx: &ir::Context) -> CalyxResult<Self>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         // Construct list of primitives that have multiple go-done signals
         let blacklist = ctx
             .lib
@@ -38,7 +39,7 @@ impl ConstructVisitor for GroupToInvoke {
             .filter(|p| p.find_all_with_attr("go").count() > 1)
             .map(|p| p.name.clone())
             .collect();
-    
+
         Ok(Self {
             blacklist,
             group_invoke_map: HashMap::new(),
@@ -179,17 +180,16 @@ impl Visitor for GroupToInvoke {
             let cr = writes.pop().unwrap();
             let cell = cr.borrow();
             match &cell.prototype {
-                ir::CellType::Primitive { name, .. } => {
-                    if self.blacklist.contains(&name) {
-                        continue;
-                    }
-                },
-                ir::CellType::ThisComponent => { continue },
-                _ => {
-                    if cell.is_reference() || cell.attributes.has("external") {
-                        continue;
-                    }
+                ir::CellType::Primitive { name, .. }
+                    if self.blacklist.contains(name) =>
+                {
+                    continue;
                 }
+                ir::CellType::ThisComponent => continue,
+                _ => {}
+            }
+            if cell.is_reference() || cell.attributes.has("external") {
+                continue;
             }
 
             // Component must define a @go/@done interface
