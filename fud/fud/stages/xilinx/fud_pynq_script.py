@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import pynq
 import numpy as np
+import os
 from typing import Mapping, Any, Dict
 from pathlib import Path
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
@@ -18,6 +19,8 @@ def run(xclbin_path: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
     Also assume that the data Mapping values type are valid json-type equivalents
     """
 
+    # TODO: does not work 
+    os.environ["XRT_INI_PATH"] = "/scratch/nrn25/data/calyx_fpga/calyx/fpga/pynq/self-made-pynq/vadd_build/fud-out-3/xrt.ini"
     # pynq.Overlay expects a str
     # Raises FileNotFoundError if xclbin file does not exist
     ol = pynq.Overlay(str(xclbin_path.resolve(strict=True)))
