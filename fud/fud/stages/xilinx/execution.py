@@ -59,13 +59,6 @@ class HwExecutionStage(Stage):
             # file we currently have in `fud/bitstream` is not used here.)
             new_dir = FreshDir() if save_temps else TmpDir()
             os.chdir(new_dir.name)
-            # Import optional libraries
-            os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini" 
-            try:
-                from fud.stages.xilinx import fud_pynq_script
-                self.pynq_script = fud_pynq_script
-            except ImportError:
-                raise errors.RemoteLibsNotInstalled
 
             xrt_output_logname = "output.log"
             with open("xrt.ini", "w") as f:
@@ -84,15 +77,15 @@ class HwExecutionStage(Stage):
                         f"user_post_sim_script={new_dir.name}/post_sim.tcl\n"
                     )
                 f.writelines(xrt_ini_config)
-            # allows us to use custom xrt.ini path for execution
-            #shell(f"echo 'this is a test' && export XRT_INI_PATH={new_dir.name}/xrt.ini && echo 'another test' && echo $XRT_INI_PATH")
-            #old_path = ""
-            #if "XRT_INI_PATH" in os.environ:
-            #    old_path = os.environ["XRT_INI_PATH"]
-            #os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini"
-            #transparent_shell(f"echo this is a test")       
-            #transparent_shell(f"export XRT_INI_PATH={new_dir.name}/xrt.ini")
-            #transparent_shell(f"echo $XRT_INI_PATH")
+            
+            # Import optional libraries
+            os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini" 
+            try:
+                from fud.stages.xilinx import fud_pynq_script
+                self.pynq_script = fud_pynq_script
+            except ImportError:
+                raise errors.RemoteLibsNotInstalled
+            
             # Extra Tcl scripts to produce a VCD waveform dump.
             if waveform:
                 with open("pre_sim.tcl", "w") as f:
@@ -104,6 +97,7 @@ class HwExecutionStage(Stage):
                     f.writelines([
                         "close_vcd\n",
                     ])
+            
             data = sjson.load(open(abs_data_path), use_decimal=True)
             start_time = time.time()
             # Note that this is the call on v++. This uses global USER_ENV variables
@@ -128,8 +122,6 @@ class HwExecutionStage(Stage):
                     for line in f.readlines():
                         log.debug(line.strip())
 
-            #shell("unset XRT_INI_PATH")
-            #os.environ["XRT_INI_PATH"] = old_path
 
             return sjson.dumps(kernel_output, indent=2, use_decimal=True)
 
