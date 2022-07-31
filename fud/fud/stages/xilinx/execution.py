@@ -7,7 +7,7 @@ import simplejson as sjson
 
 from fud import errors
 from fud.stages import SourceType, Stage
-from fud.utils import FreshDir, TmpDir, transparent_shell
+from fud.utils import FreshDir, TmpDir
 from pathlib import Path
 
 
@@ -36,22 +36,8 @@ class HwExecutionStage(Stage):
             )
 
         @builder.step()
-        def import_libs():
-            """Import optional libraries"""
-            try:
-                from fud.stages.xilinx import fud_pynq_script
-                self.pynq_script = fud_pynq_script
-            except ImportError:
-                raise errors.RemoteLibsNotInstalled#
-
-        @builder.step()
-        def run(xclbin: SourceType.Path) -> SourceType.String:
-            """Run the xclbin with datafile"""
-
-            if data_path is None:
-                raise errors.MissingDynamicConfiguration("fpga.data")
-            abs_data_path = Path(data_path).resolve()
-            abs_xclbin_path = xclbin.resolve()
+        def configure():
+            """Create config files based on fud arguments"""
 
             # Create a temporary directory with an xrt.ini file that redirects
             # the runtime log to a file so that we can control how it's printed.
@@ -60,11 +46,11 @@ class HwExecutionStage(Stage):
             new_dir = FreshDir() if save_temps else TmpDir()
             os.chdir(new_dir.name)
 
-            xrt_output_logname = "output.log"
+            self.xrt_output_logname = "output.log"
             with open("xrt.ini", "w") as f:
                 xrt_ini_config = [
                     "[Runtime]\n",
-                    f"runtime_log={xrt_output_logname}\n",
+                    f"runtime_log={self.xrt_output_logname}\n",
                     "[Emulation]\n",
                     "print_infos_in_console=false\n",
                 ]
@@ -77,27 +63,54 @@ class HwExecutionStage(Stage):
                         f"user_post_sim_script={new_dir.name}/post_sim.tcl\n"
                     )
                 f.writelines(xrt_ini_config)
-            
-            # Import optional libraries
-            os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini" 
-            try:
-                from fud.stages.xilinx import fud_pynq_script
-                self.pynq_script = fud_pynq_script
-            except ImportError:
-                raise errors.RemoteLibsNotInstalled
-            
+
             # Extra Tcl scripts to produce a VCD waveform dump.
             if waveform:
                 with open("pre_sim.tcl", "w") as f:
-                    f.writelines([
-                        "open_vcd\n",
-                        "log_vcd *\n",
-                    ])
+                    f.writelines(
+                        [
+                            "open_vcd\n",
+                            "log_vcd *\n",
+                        ]
+                    )
                 with open("post_sim.tcl", "w") as f:
-                    f.writelines([
-                        "close_vcd\n",
-                    ])
-            
+                    f.writelines(
+                        [
+                            "close_vcd\n",
+                        ]
+                    )
+
+            os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini"
+
+        @builder.step()
+        def import_libs():
+            """Import optional libraries"""
+            try:
+                from fud.stages.xilinx import fud_pynq_script
+
+                self.pynq_script = fud_pynq_script
+            except ImportError:
+                raise errors.RemoteLibsNotInstalled
+
+        @builder.step()
+        def run(xclbin: SourceType.Path) -> SourceType.String:
+            """Run the xclbin with datafile"""
+
+            if data_path is None:
+                raise errors.MissingDynamicConfiguration("fpga.data")
+            # Go up a directory due to config going down
+            abs_data_path = Path("../" + data_path).resolve()
+            xclbin = Path("..") / xclbin
+            abs_xclbin_path = xclbin.resolve()
+
+            # Import optional libraries
+            try:
+                from fud.stages.xilinx import fud_pynq_script
+
+                self.pynq_script = fud_pynq_script
+            except ImportError:
+                raise errors.RemoteLibsNotInstalled
+
             data = sjson.load(open(abs_data_path), use_decimal=True)
             start_time = time.time()
             # Note that this is the call on v++. This uses global USER_ENV variables
@@ -108,9 +121,9 @@ class HwExecutionStage(Stage):
             log.debug(f"Emulation time: {end_time - start_time} sec")
 
             # Add xrt log output to our debug output.
-            if os.path.exists(xrt_output_logname):
+            if os.path.exists(self.xrt_output_logname):
                 log.debug("XRT log:")
-                with open(xrt_output_logname, "r") as f:
+                with open(self.xrt_output_logname, "r") as f:
                     for line in f.readlines():
                         log.debug(line.strip())
 
@@ -122,9 +135,9 @@ class HwExecutionStage(Stage):
                     for line in f.readlines():
                         log.debug(line.strip())
 
-
             return sjson.dumps(kernel_output, indent=2, use_decimal=True)
 
-        #import_libs()
+        configure()
+        import_libs()
         res = run(input)
         return res
