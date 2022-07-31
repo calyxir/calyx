@@ -25,12 +25,23 @@
 		"toplevel-keywords": {
 			"patterns": [
 				{
-					"name": "support.class",
-					"match": "component"
+					"match": "\\b(component|primitive)\\b\\s+\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+					"captures": {
+						"1": {
+							"name": "keyword.other"
+						},
+						"2": {
+							"name": "support.class"
+						}
+					}
 				},
 				{
 					"name": "keyword.control.import",
 					"match": "import"
+				},
+				{
+					"name": "keyword.control.import",
+					"match": "extern"
 				}
 			]
 		},
@@ -46,7 +57,11 @@
 			"patterns": [
 				{
 					"name": "keyword.control.calyx",
-					"match": "\\b(if|while|else|with|group)\\b"
+					"match": "\\b(seq|par|if|while|else|with|group|invoke)\\b"
+				},
+				{
+					"name": "keyword.operator",
+					"match": "ref"
 				}
 			]
 		},
@@ -90,6 +105,15 @@
 				{
 					"name": "comment.line.double-slash.calyx",
 					"match": "//.*\n"
+				},
+				{
+					"name": "comment.block",
+					"begin": "/\\*",
+					"end": "\\*/"
+				},
+				{
+					"name": "entity.other.attribute-name",
+					"match": "@[a-zA-Z_][a-zA-Z0-9_]*\\b"
 				}
 			]
 		}
