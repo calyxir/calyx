@@ -90,13 +90,6 @@ You can also set the Xilinx mode and target device:
 The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
 The device string above is for the [Alveo U50][u50] card, which we have at Cornell. The installed Xilinx card would typically be found under the directory `/opt/xilinx/platforms`, where one would be able to find a device name of interest.
 
-To use hardware emulation, you will also need to configure the `wdb` stage.
-It has similar `ssh_host`, `ssh_username`, and `remote` options to the `xclbin` stage.
-You will also need to configure the stage to point to your installations of [Vitis][] and [XRT][], like this:
-
-    [stages.wdb]
-    xilinx_location: /scratch/opt/Xilinx/Vitis/2020.2
-    xrt_location: /opt/xilinx/xrt
 
 ### Compile
 
@@ -133,7 +126,7 @@ To prepare for hardware emulation of an xclbin compiled appropriately, run:
 
     export XCL_EMULATION_MODE=hw_emu
 
-If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable must be unset:
+If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable is unset:
     
     unset XCL_EMULATION_MODE
 
@@ -157,21 +150,6 @@ The VCD file is at `.run/*/hw_em/device0/binary_0/behav_waveform/xsim/dump.vcd` 
 [emconfig.json]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/emconfigutil-Utility
 [xrt-debug]: https://xilinx.github.io/Vitis_Accel_Examples/2021.1/html/debug_profile.html
 [vcd]: https://en.wikipedia.org/wiki/Value_change_dump
-
-### Emulate
-
-There is also a separate, vestigial path just for doing hardware emulation (i.e., like the `hw_emu` mode referenced above).
-It is probably a bad idea to use this when the `fpga` stage exists, but it is still available.
-Use the `wdb` state as your `fud` target:
-
-    fud e -vv foo.xclbin -s wdb.save_temps true -o out.wdb
-
-This stage produces a Vivado [waveform database (WDB) file][wdb]
-Through the magic of `fud`, you can also go all the way from a Calyx program to a `wdb` file in the same way.
-There is also a `wdb.save_temps` option, as with the `xclbin` stage.
-
-You also need to provide a host C++ program via the `wdb.host` parameter, but I don't know much about that yet, so documentation about that will have to wait.
-Similarly, I don't yet know what you're supposed to *do* with a WDB file; maybe we should figure out how to produce a VCD instead.
 
 ### How it Works
 
