@@ -72,6 +72,7 @@ impl PassManager {
             "pre-opt",
             [
                 GroupToSeq,
+                GroupToInvoke, // Creates Dead Groups potentially
                 ComponentInliner,
                 CombProp,
                 RemoveCombGroups, // Must run before `infer-static-timing` and `cell-share`.
