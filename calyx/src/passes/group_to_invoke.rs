@@ -1,11 +1,13 @@
 use crate::analysis::ReadWriteSet;
+use crate::errors::CalyxResult;
+use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
 use crate::ir::{CloneName, RRC};
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// Transform groups that are structurally invoking components into equivalent
@@ -18,10 +20,35 @@ use std::rc::Rc;
 /// nor is it This Component
 /// 3. Assign component.go = 1'd1
 /// 4. Assign group[done] = component.done
-#[derive(Default)]
 pub struct GroupToInvoke {
-    ///Maps names of group to the invokes that will replace them
+    /// Primitives that have multiple @go-@done signals
+    blacklist: HashSet<ir::Id>,
+    /// Maps names of group to the invokes that will replace them
     group_invoke_map: HashMap<ir::Id, ir::Control>,
+}
+
+impl ConstructVisitor for GroupToInvoke {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized,
+    {
+        // Construct list of primitives that have multiple go-done signals
+        let blacklist = ctx
+            .lib
+            .signatures()
+            .filter(|p| p.find_all_with_attr("go").count() > 1)
+            .map(|p| p.name.clone())
+            .collect();
+
+        Ok(Self {
+            blacklist,
+            group_invoke_map: HashMap::new(),
+        })
+    }
+
+    fn clear_data(&mut self) {
+        self.group_invoke_map = HashMap::new();
+    }
 }
 
 impl Named for GroupToInvoke {
@@ -150,17 +177,24 @@ impl Visitor for GroupToInvoke {
             }
 
             // If component is ThisComponent, Reference, or External, don't turn into invoke
-            let cell = writes.pop().unwrap();
-            if matches!(cell.borrow().prototype, ir::CellType::ThisComponent)
-                || cell.borrow().is_reference()
-                || matches!(cell.borrow().get_attribute("external"), Some(_))
-            {
+            let cr = writes.pop().unwrap();
+            let cell = cr.borrow();
+            match &cell.prototype {
+                ir::CellType::Primitive { name, .. }
+                    if self.blacklist.contains(name) =>
+                {
+                    continue;
+                }
+                ir::CellType::ThisComponent => continue,
+                _ => {}
+            }
+            if cell.is_reference() || cell.attributes.has("external") {
                 continue;
             }
 
             // Component must define a @go/@done interface
-            let maybe_go_port = cell.borrow().find_with_attr("go");
-            let maybe_done_port = cell.borrow().find_with_attr("done");
+            let maybe_go_port = cell.find_with_attr("go");
+            let maybe_done_port = cell.find_with_attr("done");
             if maybe_go_port.is_none() || maybe_done_port.is_none() {
                 continue;
             }
@@ -204,9 +238,10 @@ impl Visitor for GroupToInvoke {
                     }
                 }
             }
+            drop(cell);
             self.group_invoke_map.insert(
                 g.clone_name(),
-                construct_invoke(&group.assignments, cell, &mut builder),
+                construct_invoke(&group.assignments, cr, &mut builder),
             );
         }
         comp.groups.append(groups.into_iter());

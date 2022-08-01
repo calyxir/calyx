@@ -7,7 +7,45 @@ use crate::ir::traversal::{
 };
 use crate::ir::{self, LibrarySignatures, RRC};
 use itertools::Itertools;
-use std::{cmp, ops::Add, rc::Rc};
+use std::{cmp, ops::Add};
+
+/// Struct to store information about the go-done interfaces defined by a primitive.
+#[derive(Default)]
+struct GoDone {
+    ports: Vec<(ir::Id, ir::Id, u64)>,
+}
+
+impl GoDone {
+    pub fn new(ports: Vec<(ir::Id, ir::Id, u64)>) -> Self {
+        Self { ports }
+    }
+
+    /// Returns true if this is @go port
+    pub fn is_go(&self, name: &ir::Id) -> bool {
+        self.ports.iter().any(|(go, _, _)| name == go)
+    }
+
+    /// Returns true if this is a @done port
+    pub fn is_done(&self, name: &ir::Id) -> bool {
+        self.ports.iter().any(|(_, done, _)| name == done)
+    }
+
+    /// Returns the latency associated with the provided @go port if present
+    pub fn get_latency(&self, go_port: &ir::Id) -> Option<u64> {
+        self.ports.iter().find_map(|(go, _, lat)| {
+            if go == go_port {
+                Some(*lat)
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Iterate over the defined ports
+    pub fn iter(&self) -> impl Iterator<Item = &(ir::Id, ir::Id, u64)> {
+        self.ports.iter()
+    }
+}
 
 /// Infer "static" annotation for groups and add "@static" annotation when
 /// (conservatively) possible.
@@ -19,10 +57,10 @@ use std::{cmp, ops::Add, rc::Rc};
 /// pass will throw an error. If a group's `done` signal relies on signals
 /// that are not only `done` signals, this pass will ignore that group.
 pub struct InferStaticTiming {
-    /// primitive name -> (go signal, done signal, latency)
-    latency_data: HashMap<ir::Id, (ir::Id, ir::Id, u64)>,
-    /// static timing information for components
-    comp_latency: HashMap<ir::Id, u64>,
+    /// primitive name -> vec<(go signal, done signal, latency)>
+    latency_data: HashMap<ir::Id, GoDone>,
+    /// static timing information for invokable components and primitives
+    invoke_latency: HashMap<ir::Id, u64>,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -33,26 +71,32 @@ impl ConstructVisitor for InferStaticTiming {
         let mut comp_latency = HashMap::new();
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
-            if let Some(time) = prim.attributes.get("static") {
-                let mut go_port = None;
-                let mut done_port = None;
-                for port in &prim.signature {
-                    if port.attributes.has("go") {
-                        go_port = Some(port.name.clone());
-                    }
-                    if port.attributes.has("done") {
-                        done_port = Some(port.name.clone());
-                    }
-                }
-                if let (Some(go), Some(done)) = (go_port, done_port) {
-                    latency_data.insert(prim.name.clone(), (go, done, *time));
-                    comp_latency.insert(prim.name.clone(), *time);
-                }
+            let done_ports: HashMap<_, _> = prim
+                .find_all_with_attr("done")
+                .map(|pd| (pd.attributes[&"done"], pd.name.clone()))
+                .collect();
+
+            let go_ports = prim
+                .find_all_with_attr("go")
+                .filter_map(|pd| {
+                    pd.attributes.get("static").and_then(|st| {
+                        done_ports.get(&pd.attributes[&"go"]).map(|done_port| {
+                            (pd.name.clone(), done_port.clone(), *st)
+                        })
+                    })
+                })
+                .collect_vec();
+
+            // If this primitive has exactly one (go, done, static) pair, we
+            // can infer the latency of its invokes.
+            if go_ports.len() == 1 {
+                comp_latency.insert(prim.name.clone(), go_ports[0].2);
             }
+            latency_data.insert(prim.name.clone(), GoDone::new(go_ports));
         }
         Ok(InferStaticTiming {
             latency_data,
-            comp_latency,
+            invoke_latency: comp_latency,
         })
     }
 
@@ -115,12 +159,11 @@ impl InferStaticTiming {
                 ) {
                     let data_dst = self.latency_data.get(dst_cell_prim_type);
                     let data_src = self.latency_data.get(src_cell_prim_type);
-                    if let (Some((go_dst, _, _)), Some((_, done_src, _))) =
+                    if let (Some(src_ports), Some(dst_ports)) =
                         (data_dst, data_src)
                     {
-                        if dst.name == *go_dst && src.name == *done_src {
-                            return true;
-                        }
+                        return src_ports.is_done(&src.name)
+                            && dst_ports.is_go(&dst.name);
                     }
                 }
 
@@ -135,11 +178,10 @@ impl InferStaticTiming {
                     &dst_cell.upgrade().borrow().prototype,
                     &src_cell.upgrade().borrow().prototype,
                 ) {
-                    let data = self.latency_data.get(dst_cell_prim_type);
-                    if let Some((go, _, _)) = data {
-                        if dst.name == *go {
-                            return true;
-                        }
+                    if let Some(ports) =
+                        self.latency_data.get(dst_cell_prim_type)
+                    {
+                        return ports.is_go(&dst.name);
                     }
                 }
 
@@ -162,21 +204,19 @@ impl InferStaticTiming {
     ) -> Vec<(RRC<ir::Port>, RRC<ir::Port>)> {
         let rw_set = ReadWriteSet::uses(group.assignments.iter());
         let mut go_done_edges: Vec<(RRC<ir::Port>, RRC<ir::Port>)> = Vec::new();
+
         for cell_ref in rw_set {
             let cell = cell_ref.borrow();
             if let ir::CellType::Primitive {
                 name: cell_type, ..
             } = &cell.prototype
             {
-                if let Some((go, done, _)) = self.latency_data.get(cell_type) {
-                    let go_port =
-                        &cell.ports.iter().find(|p| p.borrow().name == *go);
-                    let done_port =
-                        &cell.ports.iter().find(|p| p.borrow().name == *done);
-
-                    if let (Some(g), Some(d)) = (go_port, done_port) {
-                        go_done_edges.push((Rc::clone(g), Rc::clone(d)));
-                    }
+                if let Some(ports) = self.latency_data.get(cell_type) {
+                    go_done_edges.extend(
+                        ports.iter().map(|(go, done, _)| {
+                            (cell.get(go), cell.get(done))
+                        }),
+                    )
                 }
             }
         }
@@ -191,10 +231,8 @@ impl InferStaticTiming {
                 name: cell_type, ..
             } = &cell.upgrade().borrow().prototype
             {
-                if let Some((_, done, _)) = self.latency_data.get(cell_type) {
-                    if port.name == *done {
-                        return true;
-                    }
+                if let Some(ports) = self.latency_data.get(cell_type) {
+                    return ports.is_done(&port.name);
                 }
             }
 
@@ -211,7 +249,7 @@ impl InferStaticTiming {
 
     /// Returns true if `graph` contains writes to "done" ports
     /// that could have dynamic latencies, false otherwise.
-    fn contains_dyn_writes(&self, graph: GraphAnalysis) -> bool {
+    fn contains_dyn_writes(&self, graph: &GraphAnalysis) -> bool {
         for port in &graph.ports() {
             match &port.borrow().parent {
                 ir::PortParent::Cell(cell) => {
@@ -219,10 +257,9 @@ impl InferStaticTiming {
                         name: cell_type, ..
                     } = &cell.upgrade().borrow().prototype
                     {
-                        if let Some((go, _, _)) =
-                            self.latency_data.get(cell_type)
-                        {
-                            if port.borrow().name == *go {
+                        if let Some(ports) = self.latency_data.get(cell_type) {
+                            let name = &port.borrow().name;
+                            if ports.is_go(name) {
                                 for write_port in
                                     graph.writes_to(&*port.borrow())
                                 {
@@ -254,7 +291,7 @@ impl InferStaticTiming {
     }
 
     /// Returns true if `graph` contains any nodes with degree > 1.
-    fn contains_node_deg_gt_one(graph: GraphAnalysis) -> bool {
+    fn contains_node_deg_gt_one(graph: &GraphAnalysis) -> bool {
         for port in graph.ports() {
             if graph.writes_to(&*port.borrow()).count() > 1 {
                 return true;
@@ -289,7 +326,7 @@ impl InferStaticTiming {
         // a.done -> g1[done]
         // ```
         let graph_unprocessed = GraphAnalysis::from(group);
-        if self.contains_dyn_writes(graph_unprocessed.clone()) {
+        if self.contains_dyn_writes(&graph_unprocessed) {
             return None;
         }
 
@@ -300,7 +337,7 @@ impl InferStaticTiming {
             .remove_isolated_vertices();
 
         // Give up if a port has multiple writes to it.
-        if Self::contains_node_deg_gt_one(graph.clone()) {
+        if Self::contains_node_deg_gt_one(&graph) {
             return None;
         }
 
@@ -322,9 +359,10 @@ impl InferStaticTiming {
                 if let ir::CellType::Primitive { name, .. } =
                     &cell.upgrade().borrow().prototype
                 {
-                    if let Some((go, _, latency)) = self.latency_data.get(name)
-                    {
-                        if port.borrow().name == go {
+                    if let Some(ports) = self.latency_data.get(name) {
+                        if let Some(latency) =
+                            ports.get_latency(&port.borrow().name)
+                        {
                             latency_sum += latency;
                         }
                     }
@@ -469,7 +507,7 @@ impl Visitor for InferStaticTiming {
             .comp
             .borrow()
             .type_name()
-            .and_then(|name| self.comp_latency.get(name))
+            .and_then(|name| self.invoke_latency.get(name))
         {
             s.attributes.insert("static", **time);
         }
@@ -483,8 +521,17 @@ impl Visitor for InferStaticTiming {
         _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(time) = comp.control.borrow().get_attribute("static") {
-            comp.attributes.insert("static", *time);
-            self.comp_latency.insert(comp.name.clone(), *time);
+            let go_port =
+                comp.signature.borrow().find_with_attr("go").ok_or_else(
+                    || {
+                        Error::malformed_structure(format!(
+                            "Component {} does not have a @go port",
+                            comp.name
+                        ))
+                    },
+                )?;
+            go_port.borrow_mut().attributes.insert("static", *time);
+            self.invoke_latency.insert(comp.name.clone(), *time);
         }
         Ok(Action::Continue)
     }
