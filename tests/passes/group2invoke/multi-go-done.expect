@@ -1,0 +1,23 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    mem = real_mem();
+  }
+  wires {
+    group write_mem {
+      mem.write_en = 1'd1;
+      write_mem[done] = mem.write_done;
+    }
+    group read_mem {
+      mem.read_en = 1'd1;
+      read_mem[done] = mem.read_done;
+    }
+  }
+
+  control {
+    seq {
+      read_mem;
+      write_mem;
+    }
+  }
+}

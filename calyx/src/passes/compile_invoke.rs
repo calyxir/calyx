@@ -2,6 +2,7 @@ use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Attributes, LibrarySignatures};
 use crate::structure;
+use itertools::Itertools;
 
 /// Compiles [`ir::Invoke`](crate::ir::Invoke) statements into an [`ir::Enable`](crate::ir::Enable)
 /// that runs the invoked component.
@@ -37,19 +38,33 @@ impl Visitor for CompileInvoke {
         );
 
         let cell = s.comp.borrow();
-        let go_port = cell
-            .find_with_attr("go")
-            .ok_or_else(|| Error::malformed_control(format!("Invoked component `{}` does not have a port with attribute @go", cell.name())))?;
-        let done_port = cell.find_with_attr("done")
-            .ok_or_else(|| Error::malformed_control(format!("Invoked component `{}` does not have a port with attribute @done", cell.name())))?;
+        let name = cell.name();
+
+        // Get the go port
+        let mut go_ports = cell.find_all_with_attr("go").collect_vec();
+        if go_ports.len() > 1 {
+            return Err(Error::malformed_control(format!("Invoked component `{name}` defines multiple @go signals. Cannot compile the invoke")));
+        } else if go_ports.is_empty() {
+            return Err(Error::malformed_control(format!("Invoked component `{name}` does not define a @go signal. Cannot compile the invoke")));
+        }
+
+        // Get the done ports
+        let mut done_ports = cell.find_all_with_attr("done").collect_vec();
+        if done_ports.len() > 1 {
+            return Err(Error::malformed_control(format!("Invoked component `{name}` defines multiple @done signals. Cannot compile the invoke")));
+        } else if done_ports.is_empty() {
+            return Err(Error::malformed_control(format!("Invoked component `{name}` does not define a @done signal. Cannot compile the invoke")));
+        }
+
+        // Build assignemnts
         let go_assign = builder.build_assignment(
-            go_port,
+            go_ports.pop().unwrap(),
             one.borrow().get("out"),
             ir::Guard::True,
         );
         let done_assign = builder.build_assignment(
             invoke_group.borrow().get("done"),
-            done_port,
+            done_ports.pop().unwrap(),
             ir::Guard::True,
         );
         let mut enable_assignments = vec![go_assign, done_assign];
