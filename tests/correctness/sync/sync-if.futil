@@ -1,3 +1,8 @@
+// test case for one thread with if branches
+// thread 1:
+// w(1);  sync; w(4); sync; w(5); sync; w(8); sync; w(9); sync; w(12); sync;
+// thread 2:
+// no-op; sync; r(1); sync; r(4); sync; r(5); sync; r(8); sync; r(9);  sync; r(12);
 import "primitives/core.futil";
 import "primitives/sync.futil";
 
@@ -76,6 +81,7 @@ component main () -> () {
 
   control {
     par {
+      // thread 1
       while lt.out with comp {
         if eq.out with st_0 {
           seq {
@@ -91,6 +97,7 @@ component main () -> () {
         }
       }
 
+      // thread 2
       while lt.out with comp {
         seq {
           @sync(1) no_op;

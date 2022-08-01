@@ -1,9 +1,17 @@
+// test barrier for while loops
+// expected resolution order:
+// thread 1:
+// no-op;   sync;   r(1);   w(2);   sync;   no-op;          sync;  r (3); w(4);
+// sync;    no-op;        sync;  r(5); w(6); sync;
+// thread 2:
+// w(1);    sync;   no-op;          sync;   r(2);    w(3);  sync;  no-op;     
+// sync;    r(4);  w(5);  sync;  no-op;      sync;   r(6);
 import "primitives/core.futil";
 import "primitives/sync.futil";
 
 component main() -> () {
   cells {
-    @external out = std_mem_d1(32, 5, 3);
+    @external out = std_mem_d1(32, 6, 3);
     val = std_reg(32);
     add_0 = std_add(32);
     addr = std_reg(3);
@@ -51,24 +59,29 @@ component main() -> () {
 
     comb group cmp {
       lt.left = addr.out;
-      lt.right = 3'd5;
+      lt.right = 3'd6;
     }
   }
 
   control {
     par {
+      // thread 1
       while lt.out with cmp {
         seq {
           @sync(1) no_op_1;
           reg_to_mem;
-          @sync(2) incr_idx;
+          incr_idx;
+          @sync(2) incr_val;
         }
       }
 
+      // thread 2
       while lt.out with cmp {
         seq {
           @sync(1) incr_val;
           @sync(2) no_op_2;
+          reg_to_mem;
+          incr_idx;
         }
       }
     }

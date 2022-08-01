@@ -1,3 +1,12 @@
+// a test case for two threads both with if branches, and alternating between
+// the role of producer and consumer
+// expected resolution order:
+// thread 1:
+// w(1);  sync; no-op;       sync; r(4); w(8); sync; no-op;      sync; r(9); w(12);
+// sync; 
+// thread 2:
+// no-op; sync; r(1);  w(4); sync; no-op;      sync; r(8); w(9); sync; no-op;  
+// sync; r(12); 
 import "primitives/core.futil";
 import "primitives/sync.futil";
 
@@ -80,13 +89,14 @@ component main () -> () {
         if eq.out with st_0 {
           seq {
             @sync(1) prod_0;
-            switch_to_st_1;
+            @sync(3) switch_to_st_1;
           }
         }
         else {
           seq {
-            prod_1;
-            switch_to_st_0;
+            @sync(2) no_op;
+            reg_to_mem;
+            @sync(4) incr_idx;
           }
         }
       }
@@ -96,7 +106,13 @@ component main () -> () {
           seq {
             @sync(1) no_op;
             reg_to_mem;
-            incr_idx;
+            @sync(3) incr_idx;
+          }
+        }
+        else {
+          seq {
+            @sync(2) prod_1;
+            @sync(4) switch_to_st_0;
           }
         }
       }
