@@ -29,7 +29,6 @@ mod register_unsharing;
 mod remove_comb_groups;
 mod remove_ids;
 mod reset_insertion;
-mod sharing_components;
 mod simplify_guards;
 mod static_par_conv;
 mod synthesis_papercut;
