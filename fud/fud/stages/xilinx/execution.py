@@ -35,12 +35,6 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
-        orig_dir = os.getcwd()
-        # Create a temporary directory (used in configure()) with an xrt.ini
-        # file that redirects the runtime log to a file so that we can control
-        # how it's printed. This is hacky, but it's the only way to do it.
-        # (The `xrt.ini`file we currently have in `fud/bitstream` is not used here.)
-        new_dir = FreshDir() if save_temps else TmpDir()
 
         @builder.step()
         def configure():
@@ -130,6 +124,13 @@ class HwExecutionStage(Stage):
                         log.debug(line.strip())
 
             return sjson.dumps(kernel_output, indent=2, use_decimal=True)
+
+        orig_dir = os.getcwd()
+        # Create a temporary directory (used in configure()) with an xrt.ini
+        # file that redirects the runtime log to a file so that we can control
+        # how it's printed. This is hacky, but it's the only way to do it.
+        # (The `xrt.ini`file we currently have in `fud/bitstream` is not used here.)
+        new_dir = FreshDir() if save_temps else TmpDir()
 
         configure()
         import_libs()
