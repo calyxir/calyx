@@ -1,7 +1,7 @@
 use crate::ir::{self, CloneName};
 use crate::utils::{Idx, WeightGraph};
 use petgraph::visit::IntoEdgeReferences;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
 /// A conflict graph that describes which nodes (i.e. groups/invokes) are being run in parallel
@@ -20,10 +20,7 @@ type Conflict = (ir::Id, ir::Id);
 
 impl ScheduleConflicts {
     /// Return a vector of all nodes that conflict with this nodes.
-    pub fn conflicts_with(
-        &self,
-        node: &ir::Id,
-    ) -> std::collections::HashSet<&ir::Id> {
+    pub fn conflicts_with(&self, node: &ir::Id) -> HashSet<&ir::Id> {
         self.graph
             .graph
             .neighbors(self.graph.index_map[node])
