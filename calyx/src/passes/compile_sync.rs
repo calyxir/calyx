@@ -29,7 +29,9 @@ use linked_hash_map::LinkedHashMap;
 ///       wait_restore_*;
 ///     }
 
-pub struct CompileSync;
+pub struct CompileSync {
+    barriers: BarrierMap,
+}
 
 /// the structure used to store cells and groups shared by one barrier
 type BarrierMap = LinkedHashMap<u64, ([RRC<ir::Cell>; 2], [RRC<ir::Group>; 3])>;
@@ -64,53 +66,75 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
     }
 }
 
-fn build_barriers(
-    builder: &mut ir::Builder,
-    s: &mut ir::Control,
-    map: &mut BarrierMap,
-    count: &mut HashMap<u64, u64>,
-) {
-    match s {
-        ir::Control::Seq(seq) => {
-            // go through each control statement
-            // if @sync
-            // see if we already have the set of shared primitives and groups
-            // initialized
-            // True -> generate the inidividual groups and buikld the seq stmt
-            // False -> generate the shared groups, cells
-            //          put the shared groups in the barriermap
-            //          generate the individual groups
-            //          build the seq stmt
-            let mut stmts_new: Vec<ir::Control> = Vec::new();
-            for stmt in seq.stmts.drain(..) {
-                if let Some(n) = stmt.get_attributes().unwrap().get("sync") {
-                    if map.get(n).is_none() {
-                        add_shared_structure(builder, n, map);
+impl CompileSync {
+    fn build_barriers(
+        &mut self,
+        builder: &mut ir::Builder,
+        s: &mut ir::Control,
+        count: &mut HashMap<u64, u64>,
+    ) {
+        match s {
+            ir::Control::Seq(seq) => {
+                // go through each control statement
+                // if @sync
+                // see if we already have the set of shared primitives and groups
+                // initialized
+                // True -> generate the inidividual groups and buikld the seq stmt
+                // False -> generate the shared groups, cells
+                //          put the shared groups in the barriermap
+                //          generate the individual groups
+                //          build the seq stmt
+                let mut stmts_new: Vec<ir::Control> = Vec::new();
+                for stmt in seq.stmts.drain(..) {
+                    if let Some(n) = stmt.get_attributes().unwrap().get("sync")
+                    {
+                        if self.barriers.get(n).is_none() {
+                            self.add_shared_structure(builder, n);
+                        }
+                        let (cells, groups) = &self.barriers[n];
+                        let member_idx = count[n];
+
+                        stmts_new.push(build_member(
+                            builder,
+                            &stmt,
+                            cells,
+                            groups,
+                            &member_idx,
+                        ));
+                    } else {
+                        stmts_new.push(stmt);
                     }
-                    let (cells, groups) = map.get(n).unwrap();
-                    let member_idx = count[n];
-                    
-                    stmts_new.push(build_member(
-                        builder,
-                        &stmt,
-                        cells,
-                        groups, 
-                        &member_idx
-                    ));
-                } else {
-                    stmts_new.push(stmt);
                 }
+                seq.stmts = stmts_new;
             }
-            seq.stmts = stmts_new;
+            ir::Control::While(w) => {
+                self.build_barriers(builder, &mut w.body, count);
+            }
+            ir::Control::If(i) => {
+                self.build_barriers(builder, &mut i.tbranch, count);
+                self.build_barriers(builder, &mut i.fbranch, count);
+            }
+            _ => {}
         }
-        ir::Control::While(w) => {
-            build_barriers(builder, &mut w.body, map, count);
-        }
-        ir::Control::If(i) => {
-            build_barriers(builder, &mut i.tbranch, map, count);
-            build_barriers(builder, &mut i.fbranch, map, count);
-        }
-        _ => {}
+    }
+
+    fn add_shared_structure(
+        &mut self,
+        builder: &mut ir::Builder,
+        barrier_idx: &u64,
+    ) {
+        structure!(builder;
+                let barrier = prim std_sync_reg(32);
+                let eq = prim std_eq(32);
+        );
+        let restore = build_restore(builder, &barrier);
+        let wait_restore = build_wait_restore(builder, &eq);
+        let clear_barrier = build_clear_barrier(builder, &barrier);
+        let shared_cells: [RRC<ir::Cell>; 2] = [barrier, eq];
+        let shared_groups: [RRC<ir::Group>; 3] =
+            [wait_restore, restore, clear_barrier];
+        let info = (shared_cells, shared_groups);
+        self.barriers.insert(*barrier_idx, info);
     }
 }
 
@@ -268,18 +292,10 @@ fn build_member(
 
     structure!(builder;
         let save = prim std_reg(32););
-    let incr_barrier = build_incr_barrier(
-    builder,
-    &barrier,
-    &save,
-    &(member_idx - 1),
-    );
-    let write_barrier = build_write_barrier(
-    builder,
-    &barrier,
-    &save,
-    &(member_idx - 1),
-    );
+    let incr_barrier =
+        build_incr_barrier(builder, &barrier, &save, &(member_idx - 1));
+    let write_barrier =
+        build_write_barrier(builder, &barrier, &save, &(member_idx - 1));
     let wait = build_wait(builder, &eq);
 
     stmts.push(copy);
@@ -295,25 +311,6 @@ fn build_member(
     ir::Control::seq(stmts)
 }
 
-fn add_shared_structure(
-    builder: &mut ir::Builder,
-    barrier_idx: &u64,
-    map: &mut BarrierMap,
-) {
-    structure!(builder;
-            let barrier = prim std_sync_reg(32);
-            let eq = prim std_eq(32);
-    );
-    let restore = build_restore(builder, &barrier);
-    let wait_restore = build_wait_restore(builder, &eq);
-    let clear_barrier = build_clear_barrier(builder, &barrier);
-    let shared_cells: [RRC<ir::Cell>; 2] = [barrier, eq];
-    let shared_groups: [RRC<ir::Group>; 3] =
-        [wait_restore, restore, clear_barrier];
-    let info = (shared_cells, shared_groups);
-    map.insert(*barrier_idx, info);
-}
-
 impl Visitor for CompileSync {
     fn finish_par(
         &mut self,
@@ -322,7 +319,6 @@ impl Visitor for CompileSync {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut barriers: BarrierMap = LinkedHashMap::new();
         let mut builder = ir::Builder::new(comp, sigs);
         let mut barrier_count: HashMap<u64, u64> = HashMap::new();
         for stmt in s.stmts.iter_mut() {
@@ -334,20 +330,15 @@ impl Visitor for CompileSync {
                     .and_modify(|count| *count += 1)
                     .or_insert(1);
             }
-            build_barriers(
-                &mut builder,
-                stmt,
-                &mut barriers,
-                &mut barrier_count,
-            );
+            self.build_barriers(&mut builder, stmt, &mut barrier_count);
         }
 
-        if barriers.is_empty() {
+        if self.barriers.is_empty() {
             return Ok(Action::Continue);
         }
 
         let mut init_barriers: Vec<ir::Control> = Vec::new();
-        for (n, (cells, groups)) in barriers.iter() {
+        for (n, (cells, groups)) in self.barriers.iter() {
             let barrier = Rc::clone(&cells[0]);
             let eq = Rc::clone(&cells[1]);
             let restore = Rc::clone(&groups[1]);

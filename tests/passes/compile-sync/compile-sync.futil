@@ -1,4 +1,4 @@
-// -p compile-sync -p validate
+// -p validate -p compile-sync 
 
 import "primitives/core.futil";
 import "primitives/sync.futil";
