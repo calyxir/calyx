@@ -85,6 +85,7 @@ component main () -> () {
 
   control {
     par {
+      // thread 1
       while lt.out with comp {
         if eq.out with st_0 {
           seq {
@@ -100,7 +101,8 @@ component main () -> () {
           }
         }
       }
-
+      
+      // thread 2
       while lt.out with comp {
         if eq.out with st_0 {
           seq {
