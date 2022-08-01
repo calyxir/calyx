@@ -35,15 +35,17 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
+        orig_dir = os.getcwd()
+        # Create a temporary directory (used in configure()) with an xrt.ini
+        # file that redirects the runtime log to a file so that we can control
+        # how it's printed. This is hacky, but it's the only way to do it.
+        # (The `xrt.ini`file we currently have in `fud/bitstream` is not used here.)
+        new_dir = FreshDir() if save_temps else TmpDir()
+
         @builder.step()
         def configure():
             """Create config files based on fud arguments"""
 
-            # Create a temporary directory with an xrt.ini file that redirects
-            # the runtime log to a file so that we can control how it's printed.
-            # This is hacky, but it's the only way to do it. (The `xrt.ini`
-            # file we currently have in `fud/bitstream` is not used here.)
-            new_dir = FreshDir() if save_temps else TmpDir()
             os.chdir(new_dir.name)
 
             self.xrt_output_logname = "output.log"
@@ -98,18 +100,12 @@ class HwExecutionStage(Stage):
 
             if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
-            # Go up a directory due to config going down
-            abs_data_path = Path("../" + data_path).resolve()
-            xclbin = Path("..") / xclbin
+            # Solves relative path messiness
+            os.chdir(orig_dir)
+            abs_data_path = Path(data_path).resolve()
             abs_xclbin_path = xclbin.resolve()
 
-            # Import optional libraries
-            try:
-                from fud.stages.xilinx import fud_pynq_script
-
-                self.pynq_script = fud_pynq_script
-            except ImportError:
-                raise errors.RemoteLibsNotInstalled
+            os.chdir(new_dir.name)
 
             data = sjson.load(open(abs_data_path), use_decimal=True)
             start_time = time.time()
