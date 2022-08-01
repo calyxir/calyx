@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
@@ -32,7 +32,7 @@ use linked_hash_map::LinkedHashMap;
 pub struct CompileSync;
 
 /// the structure used to store cells and groups shared by one barrier
-type BarrierMap = LinkedHashMap<u64, (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Group>>)>;
+type BarrierMap = LinkedHashMap<u64, ([RRC<ir::Cell>; 2], [RRC<ir::Group>; 3])>;
 
 impl Named for CompileSync {
     fn name() -> &'static str {
@@ -41,6 +41,26 @@ impl Named for CompileSync {
 
     fn description() -> &'static str {
         "Implement barriers for statements marked with @sync attribute"
+    }
+}
+
+fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
+    match s {
+        ir::Control::Seq(seq) => {
+            for stmt in seq.stmts.iter() {
+                if let Some(&n) = stmt.get_attributes().unwrap().get("sync") {
+                    count.insert(n);
+                }
+            }
+        }
+        ir::Control::While(w) => {
+            count_barriers(&w.body, count);
+        }
+        ir::Control::If(i) => {
+            count_barriers(&i.tbranch, count);
+            count_barriers(&i.fbranch, count);
+        }
+        _ => {}
     }
 }
 
@@ -68,51 +88,15 @@ fn build_barriers(
                         add_shared_structure(builder, n, map);
                     }
                     let (cells, groups) = map.get(n).unwrap();
-                    let barrier = Rc::clone(&cells[0]);
-                    let eq = Rc::clone(&cells[1]);
-                    let wait_restore = Rc::clone(&groups[0]);
-                    let restore = Rc::clone(&groups[1]);
-                    let clear_barrier = Rc::clone(&groups[2]);
-                    let n_new = *(count.entry(*n).or_insert(0)) + 1;
-                    count.insert(*n, n_new);
-                    structure!(builder;
-                            let save = prim std_reg(32););
-                    let incr_barrier = builder.add_group("incr_barrier");
-                    build_incr_barrier(
+                    let member_idx = count[n];
+                    
+                    stmts_new.push(build_member(
                         builder,
-                        &incr_barrier,
-                        &barrier,
-                        &save,
-                        &(&n_new - 1),
-                    );
-                    let write_barrier = builder.add_group("write_barrier");
-                    build_write_barrier(
-                        builder,
-                        &write_barrier,
-                        &barrier,
-                        &save,
-                        &(&n_new - 1),
-                    );
-                    let wait = builder.add_group("wait");
-                    build_wait(builder, &wait, &eq);
-                    if n_new == 1 {
-                        stmts_new.push(build_member(
-                            &stmt,
-                            incr_barrier,
-                            write_barrier,
-                            wait,
-                            wait_restore,
-                        ));
-                    } else {
-                        stmts_new.push(build_member_0(
-                            &stmt,
-                            incr_barrier,
-                            write_barrier,
-                            wait,
-                            clear_barrier,
-                            restore,
-                        ));
-                    }
+                        &stmt,
+                        cells,
+                        groups, 
+                        &member_idx
+                    ));
                 } else {
                     stmts_new.push(stmt);
                 }
@@ -130,13 +114,14 @@ fn build_barriers(
     }
 }
 
+//put together the group to read and increment the barrier
 fn build_incr_barrier(
     builder: &mut ir::Builder,
-    group: &RRC<ir::Group>,
     barrier: &RRC<ir::Cell>,
     save: &RRC<ir::Cell>,
     member_idx: &u64,
-) {
+) -> RRC<ir::Group> {
+    let group = builder.add_group("incr_barrier");
     structure!(builder;
         let incr = prim std_add(32);
         let cst_1 = constant(1, 1);
@@ -145,10 +130,10 @@ fn build_incr_barrier(
     let mut assigns = build_assignments!(builder;
         // barrier_*.read_en_0 = 1'd1;
         barrier[format!("read_en_{member_idx}")] = ?cst_1["out"];
-        //incr_*_*.left = barrier_*.read_done_*?barrier_*.out_*;
-        incr["left"] = read_done_guard? barrier[format!("out_{member_idx}")];
-        // incr_*_*.right = barrier_*.read_done_*?32'd1;
-        incr["right"] = read_done_guard? cst_2["out"];
+        //incr_*_*.left = barrier_*.out_*;
+        incr["left"] = ? barrier[format!("out_{member_idx}")];
+        // incr_*_*.right = 32'd1;
+        incr["right"] = ? cst_2["out"];
         // save_*_*.in = barrier_*.read_done_*? incr_1.out;
         save["in"] = read_done_guard? incr["out"];
         // save_*_*.write_en = barrier_*.read_done_*;
@@ -158,15 +143,17 @@ fn build_incr_barrier(
     );
 
     group.borrow_mut().assignments.append(&mut assigns);
+    group
 }
 
+// put together the group to write to the barrier after incrementing
 fn build_write_barrier(
     builder: &mut ir::Builder,
-    group: &RRC<ir::Group>,
     barrier: &RRC<ir::Cell>,
     save: &RRC<ir::Cell>,
     member_idx: &u64,
-) {
+) -> RRC<ir::Group> {
+    let group = builder.add_group("write_barrier");
     structure!(builder;
     let cst_1 = constant(1, 1););
     let mut assigns = build_assignments!(builder;
@@ -178,13 +165,12 @@ fn build_write_barrier(
         group["done"] = ?barrier[format!("write_done_{member_idx}")];
     );
     group.borrow_mut().assignments.append(&mut assigns);
+    group
 }
 
-fn build_wait(
-    builder: &mut ir::Builder,
-    group: &RRC<ir::Group>,
-    eq: &RRC<ir::Cell>,
-) {
+// put together the group to wait until the peek value reaches capacity
+fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
+    let group = builder.add_group("wait");
     structure!(builder;
     let wait_reg = prim std_reg(1);
     let cst_1 = constant(1, 1););
@@ -197,13 +183,15 @@ fn build_wait(
         // wait_*[done] = wait_reg_*.done;
         group["done"] = ?wait_reg["done"];);
     group.borrow_mut().assignments.append(&mut assigns);
+    group
 }
 
+// put together the group to empty out the sync reg before resetting it to 0
 fn build_clear_barrier(
     builder: &mut ir::Builder,
-    group: &RRC<ir::Group>,
     barrier: &RRC<ir::Cell>,
-) {
+) -> RRC<ir::Group> {
+    let group = builder.add_group("clear_barrier");
     structure!(builder;
     let cst_1 = constant(1, 1););
     let mut assigns = build_assignments!(builder;
@@ -213,13 +201,15 @@ fn build_clear_barrier(
     group["done"] = ?barrier["read_done_0"];
     );
     group.borrow_mut().assignments.append(&mut assigns);
+    group
 }
 
+// put together the group to restore the barrier to 0
 fn build_restore(
     builder: &mut ir::Builder,
-    group: &RRC<ir::Group>,
     barrier: &RRC<ir::Cell>,
-) {
+) -> RRC<ir::Group> {
+    let group = builder.add_group("restore");
     structure!(builder;
     let cst_1 = constant(1,1);
     let cst_2 = constant(0, 32););
@@ -232,13 +222,15 @@ fn build_restore(
         group["done"] = ?barrier["write_done_0"];
     );
     group.borrow_mut().assignments.append(&mut assigns);
+    group
 }
 
+// put together the group to wait for restorer to finish
 fn build_wait_restore(
     builder: &mut ir::Builder,
-    group: &RRC<ir::Group>,
     eq: &RRC<ir::Cell>,
-) {
+) -> RRC<ir::Group> {
+    let group = builder.add_group("wait_restore");
     structure!(builder;
     let wait_restore_reg = prim std_reg(1);
     let cst_1 = constant(1, 1););
@@ -252,47 +244,54 @@ fn build_wait_restore(
     group["done"] = ?wait_restore_reg["done"];
     );
     group.borrow_mut().assignments.append(&mut assigns);
+    group
 }
 
-fn build_member_0(
-    original: &ir::Control,
-    incr_barrier: RRC<ir::Group>,
-    write_barrier: RRC<ir::Group>,
-    wait: RRC<ir::Group>,
-    clear_barrier: RRC<ir::Group>,
-    restore: RRC<ir::Group>,
-) -> ir::Control {
-    let mut stmts: Vec<ir::Control> = Vec::new();
-    let mut copy = ir::Control::clone(original);
-
-    copy.get_mut_attributes().unwrap().remove("sync");
-
-    stmts.push(copy);
-    stmts.push(ir::Control::enable(incr_barrier));
-    stmts.push(ir::Control::enable(write_barrier));
-    stmts.push(ir::Control::enable(wait));
-    stmts.push(ir::Control::enable(clear_barrier));
-    stmts.push(ir::Control::enable(restore));
-    ir::Control::seq(stmts)
-}
-
+// put together the sequence of groups that a barrier member requires
 fn build_member(
+    builder: &mut ir::Builder,
     original: &ir::Control,
-    incr_barrier: RRC<ir::Group>,
-    write_barrier: RRC<ir::Group>,
-    wait: RRC<ir::Group>,
-    wait_restore: RRC<ir::Group>,
+    cells: &[RRC<ir::Cell>; 2],
+    groups: &[RRC<ir::Group>; 3],
+    member_idx: &u64,
 ) -> ir::Control {
     let mut stmts: Vec<ir::Control> = Vec::new();
     let mut copy = ir::Control::clone(original);
 
     copy.get_mut_attributes().unwrap().remove("sync");
 
+    let barrier = Rc::clone(&cells[0]);
+    let eq = Rc::clone(&cells[1]);
+    let wait_restore = Rc::clone(&groups[0]);
+    let restore = Rc::clone(&groups[1]);
+    let clear_barrier = Rc::clone(&groups[2]);
+
+    structure!(builder;
+        let save = prim std_reg(32););
+    let incr_barrier = build_incr_barrier(
+    builder,
+    &barrier,
+    &save,
+    &(member_idx - 1),
+    );
+    let write_barrier = build_write_barrier(
+    builder,
+    &barrier,
+    &save,
+    &(member_idx - 1),
+    );
+    let wait = build_wait(builder, &eq);
+
     stmts.push(copy);
     stmts.push(ir::Control::enable(incr_barrier));
     stmts.push(ir::Control::enable(write_barrier));
     stmts.push(ir::Control::enable(wait));
-    stmts.push(ir::Control::enable(wait_restore));
+    if member_idx == &1 {
+        stmts.push(ir::Control::enable(clear_barrier));
+        stmts.push(ir::Control::enable(restore));
+    } else {
+        stmts.push(ir::Control::enable(wait_restore));
+    }
     ir::Control::seq(stmts)
 }
 
@@ -305,15 +304,12 @@ fn add_shared_structure(
             let barrier = prim std_sync_reg(32);
             let eq = prim std_eq(32);
     );
-    let wait_restore = builder.add_group("wait_restore");
-    let restore = builder.add_group("restore");
-    let clear_barrier = builder.add_group("clear_barrier");
-    build_restore(builder, &restore, &barrier);
-    build_wait_restore(builder, &wait_restore, &eq);
-    build_clear_barrier(builder, &clear_barrier, &barrier);
-    let shared_cells: Vec<RRC<ir::Cell>> = vec![barrier, eq];
-    let shared_groups: Vec<RRC<ir::Group>> =
-        vec![wait_restore, restore, clear_barrier];
+    let restore = build_restore(builder, &barrier);
+    let wait_restore = build_wait_restore(builder, &eq);
+    let clear_barrier = build_clear_barrier(builder, &barrier);
+    let shared_cells: [RRC<ir::Cell>; 2] = [barrier, eq];
+    let shared_groups: [RRC<ir::Group>; 3] =
+        [wait_restore, restore, clear_barrier];
     let info = (shared_cells, shared_groups);
     map.insert(*barrier_idx, info);
 }
@@ -330,6 +326,14 @@ impl Visitor for CompileSync {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut barrier_count: HashMap<u64, u64> = HashMap::new();
         for stmt in s.stmts.iter_mut() {
+            let mut cnt: HashSet<u64> = HashSet::new();
+            count_barriers(stmt, &mut cnt);
+            for barrier in cnt {
+                barrier_count
+                    .entry(barrier)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
+            }
             build_barriers(
                 &mut builder,
                 stmt,
