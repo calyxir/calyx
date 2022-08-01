@@ -38,18 +38,32 @@ impl ConstructVisitor for WellFormed {
         let reserved_names =
             RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
 
+        for prim in ctx.lib.signatures() {
+            if prim.attributes.has("static") {
+                return Err(Error::malformed_structure(format!("Primitive `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", prim.name)));
+            }
+        }
+
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
+            // Defining @static on the component is meaningless
+            if comp.attributes.has("static") {
+                return Err(Error::malformed_structure(format!("Component `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", comp.name)));
+            }
+
+            // Main component cannot use `ref` cells
             if comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
                     if cell.borrow().is_reference() {
                         return Err(Error::malformed_structure(
-                            "ref cell not allowed for main component",
+                            "ref cells are not allowed for main component",
                         )
                         .with_pos(cell.borrow().name()));
                     }
                 }
             }
+
+            // Non-main components cannot use @external attribute
             let cellmap: LinkedHashMap<ir::Id, CellType> = comp
                 .cells
                 .iter()

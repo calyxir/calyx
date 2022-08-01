@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/passes/well-formed/main-ref-cell.futil
 7 |    ref m = std_const(2,1);
-  |        ^ Malformed Structure: ref cell not allowed for main component
+  |        ^ Malformed Structure: ref cells are not allowed for main component
