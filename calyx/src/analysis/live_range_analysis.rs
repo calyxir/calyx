@@ -246,7 +246,7 @@ pub struct LiveRangeAnalysis {
     state_share: ShareSet,
     ///Set of shareable components (as type names)
     share: ShareSet,
-    ///maps invokes/enable ids to the cells live in them, organized by type
+    ///maps invokes/enable ids to the cell types/names live in them
     invokes_enables_map: HashMap<u64, TypeNameSet>,
 }
 
