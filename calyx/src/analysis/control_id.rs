@@ -4,38 +4,38 @@ const NODE_ID: &str = "NODE_ID";
 const BEGIN_ID: &str = "BEGIN_ID";
 const END_ID: &str = "END_ID";
 
-/// Adding "NODE_ID" attribute to control statement
+/// Adding "NODE_ID", "BEGIN_ID", and "END_ID" attribute to control statement
 pub struct ControlId;
 
-/// Adds the @NODE_ID attribute to all control stmts except emtpy ones.
-/// Also, for If stmts, if TWO_IF_IDS is true, instead of an @NODE_ID, it
-/// gets a beginning and end id.
-///
-/// ## Example:
-/// ```
-/// seq { A; if cond {X} else{Y}; par { C; D; }; E }
-/// ```
-///
-/// gets the labels:
-///
-/// ```
-/// @NODE_ID(0)seq {
-///   @NODE_ID(1) A;
-///   @BEGIN_ID(2) @END_ID(5) if cond {
-///     @NODE_ID(3) X
-///   }
-///   else{
-///     @NODE_ID(4) Y
-///   }
-///   @NODE_ID(6) par {
-///     @NODE_ID(7) C;
-///     @NODE_ID(8) D;
-///   }
-///   @NODE_ID(9) E;
-/// }
-///
 impl ControlId {
-    // Very similar to the domination map one-- should reuse code, instead of copy+paste
+    /// Adds the @NODE_ID attribute to all control stmts except emtpy ones.
+    /// If two_if_ids is true, then if statements get a BEGIN_ID and END_ID instead
+    /// of a NODE_ID
+    ///
+    /// ## Example:
+    /// ```
+    /// seq { A; if cond {X} else{Y}; par { C; D; }; E }
+    /// ```
+    ///
+    /// gets the labels (if two_if_ids is):
+    ///
+    /// ```
+    /// @NODE_ID(0)seq {
+    ///   @NODE_ID(1) A;
+    ///   @BEGIN_ID(2) @END_ID(5) if cond {
+    ///     @NODE_ID(3) X
+    ///   }
+    ///   else{
+    ///     @NODE_ID(4) Y
+    ///   }
+    ///   @NODE_ID(6) par {
+    ///     @NODE_ID(7) C;
+    ///     @NODE_ID(8) D;
+    ///   }
+    ///   @NODE_ID(9) E;
+    /// }
+    /// ```
+    /// if two_if_ids were false, the if statement would just get a single NODE_ID
     pub fn compute_unique_ids(
         con: &mut ir::Control,
         mut cur_state: u64,
