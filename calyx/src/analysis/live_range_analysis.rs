@@ -296,26 +296,6 @@ impl LiveRangeAnalysis {
         ranges
     }
 
-    /// Returns a map from cell_type to map that maps each cell of type cell_type
-    /// to the nodes (groups/invokes) at which cell is live.
-    /// Essentially, this method allows us to go from a mapping of groups/invokes to cells
-    /// to a mapping of cells to groups/invokes.
-    pub fn get_reverse(
-        &mut self,
-    ) -> HashMap<ir::CellType, HashMap<ir::Id, HashSet<&u64>>> {
-        let mut rev_map: HashMap<ir::CellType, HashMap<ir::Id, HashSet<&u64>>> =
-            HashMap::new();
-        for (group_name, prop) in &self.live {
-            for (cell_type, cell_list) in &prop.map {
-                let map = rev_map.entry(cell_type.clone()).or_default();
-                for cell in cell_list {
-                    map.entry(cell.clone()).or_default().insert(group_name);
-                }
-            }
-        }
-        rev_map
-    }
-
     /// Updates live_once_map and par_thread_map.
     /// live_once_map should map celltypes to a map, which should map cells of
     /// celltype to control statements in which it is live for at least one group
@@ -330,6 +310,10 @@ impl LiveRangeAnalysis {
             HashMap<ir::Id, HashSet<u64>>,
         >,
         par_thread_map: &mut HashMap<u64, u64>,
+        live_cell_map: &mut HashMap<
+            ir::CellType,
+            HashMap<ir::Id, HashSet<u64>>,
+        >,
         parents: &HashSet<u64>,
         c: &ir::Control,
     ) {
@@ -349,6 +333,7 @@ impl LiveRangeAnalysis {
                     self.get_live_control_data(
                         live_once_map,
                         par_thread_map,
+                        live_cell_map,
                         &new_parents,
                         stmt,
                     );
@@ -360,6 +345,7 @@ impl LiveRangeAnalysis {
                     self.get_live_control_data(
                         live_once_map,
                         par_thread_map,
+                        live_cell_map,
                         parents,
                         stmt,
                     );
@@ -374,12 +360,14 @@ impl LiveRangeAnalysis {
                 self.get_live_control_data(
                     live_once_map,
                     par_thread_map,
+                    live_cell_map,
                     parents,
                     tbranch,
                 );
                 self.get_live_control_data(
                     live_once_map,
                     par_thread_map,
+                    live_cell_map,
                     parents,
                     fbranch,
                 );
@@ -404,6 +392,7 @@ impl LiveRangeAnalysis {
                 self.get_live_control_data(
                     live_once_map,
                     par_thread_map,
+                    live_cell_map,
                     parents,
                     body,
                 );
@@ -425,22 +414,22 @@ impl LiveRangeAnalysis {
                 }
             }
             ir::Control::Enable(_) | ir::Control::Invoke(_) => {
-                if !parents.is_empty() {
-                    let live_set = self
-                        .live
-                        .get(&ControlId::get_guaranteed_id(c))
-                        .unwrap()
-                        .map
-                        .clone();
-                    for (cell_type, live_cells) in live_set {
-                        let cell_to_control =
-                            live_once_map.entry(cell_type).or_default();
-                        for cell in live_cells {
-                            cell_to_control
-                                .entry(cell)
-                                .or_default()
-                                .extend(parents);
-                        }
+                let id = ControlId::get_guaranteed_id(c);
+                let live_set = self.live.get(&id).unwrap().map.clone();
+                for (cell_type, live_cells) in live_set {
+                    let cell_to_node =
+                        live_cell_map.entry(cell_type.clone()).or_default();
+                    let cell_to_control =
+                        live_once_map.entry(cell_type).or_default();
+                    for cell in live_cells {
+                        cell_to_node
+                            .entry(cell.clone())
+                            .or_default()
+                            .insert(id);
+                        cell_to_control
+                            .entry(cell)
+                            .or_default()
+                            .extend(parents);
                     }
                 }
             }

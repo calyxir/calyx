@@ -160,44 +160,40 @@ impl Visitor for CellShare {
         // Maps every control statement that is a direct child of a par block to
         // its parent par block. (maps id number to id number)
         let mut par_thread_map = HashMap::new();
+        // Maps celltype to map that maps cells to groups/invokes in which the cell is live.
+        let mut live_cell_map = HashMap::new();
         // build live_once_map and par_thread_map
         self.live.get_live_control_data(
             &mut live_once_map,
             &mut par_thread_map,
+            &mut live_cell_map,
             &HashSet::new(),
             &*comp.control.borrow(),
         );
 
-        // Maps celltype to map that maps cells to groups/invokes in which the cell is live.
-        let live_cell_map: HashMap<
-            ir::CellType,
-            HashMap<ir::Id, HashSet<&u64>>,
-        > = self.live.get_reverse();
-
         // Adding the conflicts
         for (cell_type, cells) in &cells_by_type {
-            // Run remove_dead_cells before this cell-share pass. I think this
-            // unwrap() may raise an error if we don't. Or we can change the code
-            // to just skip this iteration if we get None.
+            // Run remove_dead_cells before this cell-share pass.
             let g = graphs_by_type.get_mut(cell_type).unwrap();
-            // mapping of cells to nodes (groups/invokes) in which cell is live
-            let cell_to_nodes = live_cell_map.get(cell_type).unwrap();
+
+            // mapping from cell names to the enables/invokes in which it is live
+            let cell_to_nodes =
+                live_cell_map.entry(cell_type.clone()).or_default();
             // mapping of cell names to the control statements in which it is live
             // at least once. Only control statements that are direct children of
             // par blocks are included
             let cell_to_control =
                 live_once_map.entry(cell_type.clone()).or_default();
             for (a, b) in cells.iter().tuple_combinations() {
-                // Both these unwrap() statements depend on no dead cells I believe
-
                 // checking if live ranges overlap
                 // nodes (groups/invokes) in which a is live
-                let a_live: &HashSet<&u64> = cell_to_nodes.get(a).unwrap();
-                // nodes (groups/invokes) in which b is live
-                let b_live: &HashSet<&u64> = cell_to_nodes.get(b).unwrap();
-                if !a_live.is_disjoint(b_live) {
-                    g.insert_conflict(a, b);
-                    continue;
+                if let Some(live_a) = cell_to_nodes.get(a) {
+                    if let Some(live_b) = cell_to_nodes.get(b) {
+                        if !live_a.is_disjoint(live_b) {
+                            g.insert_conflict(a, b);
+                            continue;
+                        }
+                    }
                 }
                 // checking if b is live at any groups/invokes running in parallel
                 // to groups/invokes live at a
