@@ -101,11 +101,9 @@ class HwExecutionStage(Stage):
             if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
             # Solves relative path messiness
-            os.chdir(orig_dir)
-            abs_data_path = Path(data_path).resolve()
-            abs_xclbin_path = xclbin.resolve()
-
-            os.chdir(new_dir.name)
+            orig_dir_path = Path(orig_dir)
+            abs_data_path = orig_dir_path.joinpath(Path(data_path)).resolve()
+            abs_xclbin_path = orig_dir_path.joinpath(xclbin).resolve()
 
             data = sjson.load(open(abs_data_path), use_decimal=True)
             start_time = time.time()
