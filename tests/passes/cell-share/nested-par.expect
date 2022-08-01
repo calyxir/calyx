@@ -52,22 +52,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) par {
-      @NODE_ID seq {
-        @NODE_ID(2) wr_before0;
-        @NODE_ID(3) par {
-          @NODE_ID(4) wr_x0;
-          @NODE_ID(5) wr_b0;
+    par {
+      seq {
+        wr_before0;
+        par {
+          wr_x0;
+          wr_b0;
         }
-        @NODE_ID(6) rd_x0;
+        rd_x0;
       }
-      @NODE_ID(7) seq {
-        @NODE_ID(8) wr_before1;
-        @NODE_ID(9) par {
-          @NODE_ID(10) wr_x1;
-          @NODE_ID(11) wr_b1;
+      seq {
+        wr_before1;
+        par {
+          wr_x1;
+          wr_b1;
         }
-        @NODE_ID(12) rd_x1;
+        rd_x1;
       }
     }
   }

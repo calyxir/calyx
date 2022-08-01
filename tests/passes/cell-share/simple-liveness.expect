@@ -29,13 +29,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID wr_before;
-      @NODE_ID(2) par {
-        @NODE_ID(3) wr_x;
-        @NODE_ID(4) wr_b;
+    seq {
+      wr_before;
+      par {
+        wr_x;
+        wr_b;
       }
-      @NODE_ID(5) rd_x;
+      rd_x;
     }
   }
 }

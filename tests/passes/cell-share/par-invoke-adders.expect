@@ -14,7 +14,7 @@ component dbg<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) 
   }
 
   control {
-    @NODE_ID(0) A;
+    A;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
@@ -28,22 +28,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID par {
-        @NODE_ID(2) invoke d1(
+    seq {
+      par {
+        invoke d1(
           in = 32'd2
         )(
           out1 = add1.left,
           out2 = add1.right
         );
-        @NODE_ID(3) invoke d2(
+        invoke d2(
           in = add1.out
         )(
           out1 = add2.left,
           out2 = add2.right
         );
       }
-      @NODE_ID(4) invoke d2(
+      invoke d2(
         in = add1.out
       )(
         out1 = add2.left,

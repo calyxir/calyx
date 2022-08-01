@@ -89,36 +89,36 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID let0;
-      @NODE_ID(2) seq {
-        @NODE_ID(3) cond00;
-        @NODE_ID(4) while comb_reg.out {
-          @NODE_ID(5) seq {
-            @NODE_ID(6) seq {
-              @NODE_ID(7) upd0;
-              @NODE_ID(8) par {
-                @NODE_ID(9) upd1;
-                @NODE_ID(10) upd2;
+    seq {
+      let0;
+      seq {
+        cond00;
+        while comb_reg.out {
+          seq {
+            seq {
+              upd0;
+              par {
+                upd1;
+                upd2;
               }
-              @NODE_ID(11) upd3;
-              @NODE_ID(12) upd4;
+              upd3;
+              upd4;
             }
-            @NODE_ID(13) cond00;
+            cond00;
           }
         }
       }
-      @NODE_ID(14) let1;
-      @NODE_ID(15) seq {
-        @NODE_ID(16) cond10;
-        @NODE_ID(17) while comb_reg.out {
-          @NODE_ID(18) seq {
-            @NODE_ID(19) seq {
-              @NODE_ID(20) upd5;
-              @NODE_ID(21) upd6;
-              @NODE_ID(22) upd7;
+      let1;
+      seq {
+        cond10;
+        while comb_reg.out {
+          seq {
+            seq {
+              upd5;
+              upd6;
+              upd7;
             }
-            @NODE_ID(23) cond10;
+            cond10;
           }
         }
       }

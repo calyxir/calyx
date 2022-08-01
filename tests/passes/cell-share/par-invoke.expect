@@ -13,7 +13,7 @@ component dbg<"state_share"=1>(in: 32, prefix: 32, length: 5, @go go: 1, @clk cl
   }
 
   control {
-    @NODE_ID(0) A;
+    A;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
@@ -25,13 +25,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) par {
-      @NODE_ID invoke d1(
+    par {
+      invoke d1(
         in = 32'd5,
         prefix = 32'd7,
         length = 5'd5
       )();
-      @NODE_ID(2) invoke d2(
+      invoke d2(
         in = 32'd6,
         prefix = 32'd8,
         length = 5'd6

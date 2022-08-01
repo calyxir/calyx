@@ -16,7 +16,7 @@ component add_5<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1
   }
 
   control {
-    @NODE_ID(0) add_group;
+    add_group;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
@@ -38,9 +38,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID upd0;
-      @NODE_ID(2) upd1;
+    seq {
+      upd0;
+      upd1;
     }
   }
 }

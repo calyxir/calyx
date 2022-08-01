@@ -21,11 +21,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID wr_x;
-      @NODE_ID(2) wr_y;
-      @NODE_ID(3) if x.out {
-        @NODE_ID(4) rd_y;
+    seq {
+      wr_x;
+      wr_y;
+      if x.out {
+        rd_y;
       }
     }
   }

@@ -18,9 +18,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) par {
-      @NODE_ID wr_x;
-      @NODE_ID(2) wr_y;
+    par {
+      wr_x;
+      wr_y;
     }
   }
 }

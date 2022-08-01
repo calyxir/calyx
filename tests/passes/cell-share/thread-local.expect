@@ -30,15 +30,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID par {
-        @NODE_ID(2) seq {
-          @NODE_ID(3) wr_x;
-          @NODE_ID(4) rd_x;
+    seq {
+      par {
+        seq {
+          wr_x;
+          rd_x;
         }
-        @NODE_ID(5) seq {
-          @NODE_ID(6) wr_y;
-          @NODE_ID(7) rd_y;
+        seq {
+          wr_y;
+          rd_y;
         }
       }
     }

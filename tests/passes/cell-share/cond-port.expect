@@ -35,13 +35,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID let0;
-      @NODE_ID(2) let1;
-      @NODE_ID(3) seq {
-        @NODE_ID(4) cond00;
-        @NODE_ID(5) if y_0.out {
-          @NODE_ID(6) upd0;
+    seq {
+      let0;
+      let1;
+      seq {
+        cond00;
+        if y_0.out {
+          upd0;
         }
       }
     }

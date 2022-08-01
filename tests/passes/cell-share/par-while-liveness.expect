@@ -121,52 +121,52 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    @NODE_ID(0) seq {
-      @NODE_ID par {
-        @NODE_ID(2) seq {
-          @NODE_ID(3) let0;
-          @NODE_ID(4) seq {
-            @NODE_ID(5) cond00;
-            @NODE_ID(6) while comb_reg.out {
-              @NODE_ID(7) seq {
-                @NODE_ID(8) seq {
-                  @NODE_ID(9) upd0;
-                  @NODE_ID(10) upd1;
-                  @NODE_ID(11) upd2;
+    seq {
+      par {
+        seq {
+          let0;
+          seq {
+            cond00;
+            while comb_reg.out {
+              seq {
+                seq {
+                  upd0;
+                  upd1;
+                  upd2;
                 }
-                @NODE_ID(12) cond00;
+                cond00;
               }
             }
           }
         }
-        @NODE_ID(13) seq {
-          @NODE_ID(14) let1;
-          @NODE_ID(15) seq {
-            @NODE_ID(16) cond10;
-            @NODE_ID(17) while comb_reg0.out {
-              @NODE_ID(18) seq {
-                @NODE_ID(19) seq {
-                  @NODE_ID(20) upd3;
-                  @NODE_ID(21) upd4;
-                  @NODE_ID(22) upd5;
+        seq {
+          let1;
+          seq {
+            cond10;
+            while comb_reg0.out {
+              seq {
+                seq {
+                  upd3;
+                  upd4;
+                  upd5;
                 }
-                @NODE_ID(23) cond10;
+                cond10;
               }
             }
           }
         }
       }
-      @NODE_ID(24) let2;
-      @NODE_ID(25) seq {
-        @NODE_ID(26) cond20;
-        @NODE_ID(27) while comb_reg.out {
-          @NODE_ID(28) seq {
-            @NODE_ID(29) seq {
-              @NODE_ID(30) upd6;
-              @NODE_ID(31) upd7;
-              @NODE_ID(32) upd8;
+      let2;
+      seq {
+        cond20;
+        while comb_reg.out {
+          seq {
+            seq {
+              upd6;
+              upd7;
+              upd8;
             }
-            @NODE_ID(33) cond20;
+            cond20;
           }
         }
       }
