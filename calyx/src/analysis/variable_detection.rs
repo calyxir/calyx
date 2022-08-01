@@ -8,10 +8,10 @@ pub struct VariableDetection;
 
 impl VariableDetection {
     /// A group is variable like if it:
-    ///  - only writes to a single cell that has type state_share
+    ///  - among write to state_shareable components, there is only one write
     ///  - has `@go` port equal to `1'd1`
     ///  - has `g[done] = cell.done`
-    /// Returns the name of the register if such a group is detected,
+    /// Returns the name of the cell if such a group is detected,
     /// otherwise returns `None`.
     pub fn variable_like(
         group_ref: &RRC<ir::Group>,
