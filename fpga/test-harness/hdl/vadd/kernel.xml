@@ -2,7 +2,9 @@
 <root versionMajor="1" versionMinor="6">
   <kernel name="Toplevel" language="ip_c" vlnv="capra.cs.cornell.edu:kernel:Toplevel:1.0" preferredWorkGroupSizeMultiple="0" workGroupSize="1" interrupt="false" hwControlProtocol="ap_ctrl_hs">
     <ports>
-      <port name="s_axi_control" mode="slave" range="0x1000" dataWidth="32" portType="addressable" base="0x0"/><port name="m0_axi" mode="master" range="0xFFFFFFFFFFFFFFFF" dataWidth="512" portType="addressable" base="0x0"/><port name="m1_axi" mode="master" range="0xFFFFFFFFFFFFFFFF" dataWidth="512" portType="addressable" base="0x0"/>
+      <port name="s_axi_control" mode="slave" range="0x1000" dataWidth="32" portType="addressable" base="0x0"/>
+      <port name="m0_axi" mode="master" range="0xFFFFFFFFFFFFFFFF" dataWidth="512" portType="addressable" base="0x0"/>
+      <port name="m1_axi" mode="master" range="0xFFFFFFFFFFFFFFFF" dataWidth="512" portType="addressable" base="0x0"/>
       <port name="m2_axi" mode="master" range="0xFFFFFFFFFFFFFFFF" dataWidth="512" portType="addressable" base="0x0"/>
 </ports>
 <args>

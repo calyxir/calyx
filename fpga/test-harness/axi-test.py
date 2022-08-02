@@ -63,7 +63,7 @@ class VectorAddTB:
     def model(self, a: List[int], b: List[int]) -> List[int]:
         """Describes the computation we expect the kernel to perform"""
         # assumes a and b are of same length for now
-        assert len(a) == len(b), "a and b must be of same lengh"
+        assert len(a) == len(b), "a and b must be of same length"
         return [a[i] + b[i] for i in range(len(a))]
 
     def _mem_size(self, mem: str, data):
