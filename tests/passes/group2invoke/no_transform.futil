@@ -1,0 +1,20 @@
+// -p group2invoke -p dead-group-removal
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    a = std_reg(32);
+  }
+  wires {
+    group chain{
+      r.write_en = !r.done ? 1'd1; 
+      r.in = 32'd2; 
+      a.in = 32'd7; 
+      a.write_en = r.done; 
+      chain[done] = a.done; 
+    }
+  }
+  control {
+    chain;
+  }
+}

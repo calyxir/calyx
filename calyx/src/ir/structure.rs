@@ -258,6 +258,20 @@ impl Cell {
             .map(Rc::clone)
     }
 
+    /// Return all ports that have the attribute `attr`.
+    pub fn find_all_with_attr<'a, S>(
+        &'a self,
+        attr: S,
+    ) -> impl Iterator<Item = RRC<Port>> + 'a
+    where
+        S: AsRef<str> + 'a,
+    {
+        self.ports
+            .iter()
+            .filter(move |&p| p.borrow().attributes.has(attr.as_ref()))
+            .map(Rc::clone)
+    }
+
     /// Get a reference to the named port and throw an error if it doesn't
     /// exist.
     pub fn get<S>(&self, name: S) -> RRC<Port>

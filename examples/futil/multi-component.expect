@@ -1,57 +1,57 @@
 import "primitives/core.futil";
-component identity<"static"=1, "state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component identity<"state_share"=1>(in: 32, @go @static go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
-    @generated save_go = std_wire(1);
-    @generated save_done = std_wire(1);
+    @generated invoke_go = std_wire(1);
+    @generated invoke_done = std_wire(1);
   }
   wires {
-    done = save_done.out ? 1'd1;
+    done = invoke_done.out ? 1'd1;
     out = r.out;
+    invoke_done.in = r.done;
+    invoke_go.in = go;
     r.clk = clk;
-    r.in = save_go.out ? in;
+    r.in = invoke_go.out ? in;
     r.reset = reset;
-    r.write_en = save_go.out ? 1'd1;
-    save_done.in = r.done;
-    save_go.in = go;
+    r.write_en = invoke_go.out ? 1'd1;
   }
 
   control {}
 }
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     id = identity();
     current_value = std_reg(32);
     @generated fsm = std_reg(2);
-    @generated run_id_go = std_wire(1);
-    @generated run_id_done = std_wire(1);
-    @generated use_id_go = std_wire(1);
-    @generated use_id_done = std_wire(1);
+    @generated invoke_go = std_wire(1);
+    @generated invoke_done = std_wire(1);
+    @generated invoke0_go = std_wire(1);
+    @generated invoke0_done = std_wire(1);
     @generated tdcc_go = std_wire(1);
     @generated tdcc_done = std_wire(1);
   }
   wires {
     done = tdcc_done.out ? 1'd1;
     current_value.clk = clk;
-    current_value.in = use_id_go.out ? id.out;
+    current_value.in = invoke0_go.out ? id.out;
     current_value.reset = reset;
-    current_value.write_en = use_id_go.out ? 1'd1;
+    current_value.write_en = invoke0_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.in = fsm.out == 2'd0 & run_id_done.out & tdcc_go.out ? 2'd1;
-    fsm.in = fsm.out == 2'd1 & use_id_done.out & tdcc_go.out ? 2'd2;
+    fsm.in = fsm.out == 2'd0 & invoke_done.out & tdcc_go.out ? 2'd1;
+    fsm.in = fsm.out == 2'd1 & invoke0_done.out & tdcc_go.out ? 2'd2;
     fsm.reset = reset;
-    fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & run_id_done.out & tdcc_go.out | fsm.out == 2'd1 & use_id_done.out & tdcc_go.out ? 1'd1;
+    fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & invoke_done.out & tdcc_go.out | fsm.out == 2'd1 & invoke0_done.out & tdcc_go.out ? 1'd1;
     id.clk = clk;
-    id.go = run_id_go.out ? 1'd1;
-    id.in = run_id_go.out ? 32'd10;
+    id.go = invoke_go.out ? 1'd1;
+    id.in = invoke_go.out ? 32'd10;
     id.reset = reset;
-    run_id_done.in = id.done;
-    run_id_go.in = !run_id_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
+    invoke0_done.in = current_value.done;
+    invoke0_go.in = !invoke0_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
+    invoke_done.in = id.done;
+    invoke_go.in = !invoke_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
     tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
     tdcc_go.in = go;
-    use_id_done.in = current_value.done;
-    use_id_go.in = !use_id_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
   }
 
   control {}
