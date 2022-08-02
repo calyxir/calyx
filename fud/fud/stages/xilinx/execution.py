@@ -75,7 +75,8 @@ class HwExecutionStage(Stage):
                             "close_vcd\n",
                         ]
                     )
-
+            # NOTE(nathanielnrn): It seems like this must come after writing
+            # the xrt.ini file in order to work
             os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini"
 
         @builder.step()
