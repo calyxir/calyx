@@ -20,6 +20,7 @@ class VectorAddTB:
     async def setup_rams(self, toplevel, data: Mapping[str, Any]):
         # Create cocotb AxiRams
         rams = {}
+        addr = int('0x0000', 0)
         for i, mem in enumerate(data.keys()):
             # vectorized add should only use 1 dimensional list
             assert not isinstance(data[mem]["data"][0], list)
@@ -35,7 +36,11 @@ class VectorAddTB:
             # can attempt to convert with
             # (list(map(labmda e: int(e).to_bytes(byte_length:int, byteorder:str,*, signed=False)
             # or look into cocotb.BinaryValue
-            # TODO: define addr correctly
+            # TODO: check if this addr definition is correct and works
+
+            # This corresponds with waveform form of numbers, in practice,
+            # Each address is +4096 from last
+            addr = addr + int('0x1000', 0)
             rams[mem].write(addr, bytes(data[mem]["data"]))
         self.rams = rams
 
@@ -56,6 +61,7 @@ class VectorAddTB:
         # We assume last memory is the output
         length = self._mem_size(mems[-1], data)
         #TODO: Define addr correctly
+        addr = (len(self.rams) - 1) * int('0x1000', 0)
         sum_out = self.rams[mems[-1]].read(addr, length)
         # assumes first two mems are inputs
         assert self.model(data[mems[0]], data[mems[1]]) == sum_out
