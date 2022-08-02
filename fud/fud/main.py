@@ -135,7 +135,6 @@ def register_stages(registry):
 
     # Xilinx
     registry.register(xilinx.XilinxStage())
-    registry.register(xilinx.HwEmulationStage())
     registry.register(xilinx.HwExecutionStage())
 
     # Interpreter
