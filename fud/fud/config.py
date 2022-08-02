@@ -78,16 +78,6 @@ DEFAULT_CONFIGURATION = {
             "remote": None,
             "save_temps": None,
         },
-        "wdb": {
-            "mode": "hw_emu",
-            "ssh_host": "",
-            "ssh_username": "",
-            "remote": None,
-            "host": None,
-            "save_temps": None,
-            "xilinx_location": "/scratch/opt/Xilinx/Vitis/2020.2",
-            "xrt_location": "/opt/xilinx/xrt",
-        },
         "fpga": {
             "data": None,
             "save_temps": None,

@@ -20,7 +20,7 @@ class HwExecutionStage(Stage):
             target_state="fpga",
             input_type=SourceType.Path,
             output_type=SourceType.String,
-            description="Run an xclbin on an fpga",
+            description="Run an xclbin on an fpga, or emulate hardware execution",
         )
 
     def _define_steps(self, input, builder, config):
