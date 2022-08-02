@@ -35,7 +35,6 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
-
         @builder.step()
         def configure():
             """Create config files based on fud arguments"""
