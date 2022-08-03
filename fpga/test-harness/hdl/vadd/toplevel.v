@@ -47,6 +47,10 @@ module Toplevel (
     output wire m0_axi_BREADY,
     input wire [7:0] m0_axi_BID,
     input wire [1:0] m0_axi_BRESP,
+    //ADDED SIGNALS TO GET COCOTB TO WORK
+    input wire [1:0]  m0_axi_AWBURST,
+    input wire [1:0]  m0_axi_ARBURST,
+    //GENERATED CODE
     input wire m1_axi_ARREADY,
     output wire m1_axi_ARVALID,
     output wire [7:0] m1_axi_ARID,
@@ -75,6 +79,10 @@ module Toplevel (
     output wire m1_axi_BREADY,
     input wire [7:0] m1_axi_BID,
     input wire [1:0] m1_axi_BRESP,
+    //ADDED SIGNALS TO GET COCOTB TO WORK
+    input wire [1:0]  m1_axi_AWBURST,
+    input wire [1:0]  m1_axi_ARBURST,
+    //GENERATED CODE
     input wire m2_axi_ARREADY,
     output wire m2_axi_ARVALID,
     output wire [7:0] m2_axi_ARID,
@@ -102,7 +110,11 @@ module Toplevel (
     input wire m2_axi_BVALID,
     output wire m2_axi_BREADY,
     input wire [7:0] m2_axi_BID,
-    input wire [1:0] m2_axi_BRESP
+    input wire [1:0] m2_axi_BRESP,
+    //ADDED SIGNALS TO GET COCOTB TO WORK
+    input wire [1:0]  m2_axi_AWBURST,
+    input wire [1:0]  m2_axi_ARBURST
+    //GENERATED CODE
 );
     wire ap_start;
     wire ap_done;
