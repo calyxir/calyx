@@ -25,21 +25,7 @@ Run the following command to install all required dependencies:
 cd fud && flit install -s --deps all
 ```
 
-### Set Up
-
-To set up to **invoke the Xilinx tools over SSH**, first tell `fud` your username and hostname for the server:
-
-    # Vivado
-    fud config stages.synth-verilog.ssh_host <hostname>
-    fud config stages.synth-verilog.ssh_username <username>
-    fud config stages.synth-verilog.remote true
-
-    # Vivado HLS
-    fud config stages.vivado-hls.ssh_host <hostname>
-    fud config stages.vivado-hls.ssh_username <username>
-    fud config stages.vivado-hls.remote true
-
-The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
+### Seting up Local Tools
 
 To instead **invoke the Xilinx tools locally**, just let `fud` run the `vivado` and `vivado_hls` commands.
 You can optionally tell `fud` where these commands exist on your machine:
@@ -47,7 +33,33 @@ You can optionally tell `fud` where these commands exist on your machine:
     fud config stages.synth-verilog.exec <path> # update vivado path
     fud config stages.vivado-hls.exec <path> # update vivado_hls path
 
-Leave the `remote` option unset to use local execution and these `exec` paths (which are ignored for remote execution).
+Setting the `remote` option for the stages to `0` ensure that `fud` will always try to run the commands locally.
+
+    fud config stages.synth-verilog.remote 0
+    fud config stages.vivado-hls.remote 0
+
+### Setting up Remote Tools
+
+> Follow these instructions if you're attempting to run `vivado` or `vivado-hls` on a server from your local machine. If you are working directly on a server with these tools, skip to the [run instructions](#run).
+
+To set up to **invoke the Xilinx tools over SSH**, first tell `fud` your username and hostname for the server:
+
+    # Vivado
+    fud config stages.synth-verilog.ssh_host <hostname>
+    fud config stages.synth-verilog.ssh_username <username>
+
+    # Vivado HLS
+    fud config stages.vivado-hls.ssh_host <hostname>
+    fud config stages.vivado-hls.ssh_username <username>
+
+The following commands enable remote usage of `vivado` and `vivado-hls` by default:
+
+    fud config stages.synth-verilog.remote 1
+    fud config stages.vivado-hls.remote 1
+
+The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
+
+If you'd like to switch back to local usage, override the `remote` option by passing `fud e ... -s stages.synth-verilog.remote 0`
 
 ### Run
 
@@ -77,7 +89,7 @@ To set up SSH execution, you can edit your `config.toml` to add settings like th
     [stages.xclbin]
     ssh_host = "havarti"
     ssh_username = "als485"
-    remote = true
+    remote = 1
 
 To use local execution, just leave off the `remote = true` line.
 
@@ -90,13 +102,6 @@ You can also set the Xilinx mode and target device:
 The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
 The device string above is for the [Alveo U50][u50] card, which we have at Cornell. The installed Xilinx card would typically be found under the directory `/opt/xilinx/platforms`, where one would be able to find a device name of interest.
 
-To use hardware emulation, you will also need to configure the `wdb` stage.
-It has similar `ssh_host`, `ssh_username`, and `remote` options to the `xclbin` stage.
-You will also need to configure the stage to point to your installations of [Vitis][] and [XRT][], like this:
-
-    [stages.wdb]
-    xilinx_location: /scratch/opt/Xilinx/Vitis/2020.2
-    xrt_location: /opt/xilinx/xrt
 
 ### Compile
 
@@ -133,7 +138,7 @@ To prepare for hardware emulation of an xclbin compiled appropriately, run:
 
     export XCL_EMULATION_MODE=hw_emu
 
-If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable must be unset:
+If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable is unset:
     
     unset XCL_EMULATION_MODE
 
@@ -157,21 +162,6 @@ The VCD file is at `.run/*/hw_em/device0/binary_0/behav_waveform/xsim/dump.vcd` 
 [emconfig.json]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/emconfigutil-Utility
 [xrt-debug]: https://xilinx.github.io/Vitis_Accel_Examples/2021.1/html/debug_profile.html
 [vcd]: https://en.wikipedia.org/wiki/Value_change_dump
-
-### Emulate
-
-There is also a separate, vestigial path just for doing hardware emulation (i.e., like the `hw_emu` mode referenced above).
-It is probably a bad idea to use this when the `fpga` stage exists, but it is still available.
-Use the `wdb` state as your `fud` target:
-
-    fud e -vv foo.xclbin -s wdb.save_temps true -o out.wdb
-
-This stage produces a Vivado [waveform database (WDB) file][wdb]
-Through the magic of `fud`, you can also go all the way from a Calyx program to a `wdb` file in the same way.
-There is also a `wdb.save_temps` option, as with the `xclbin` stage.
-
-You also need to provide a host C++ program via the `wdb.host` parameter, but I don't know much about that yet, so documentation about that will have to wait.
-Similarly, I don't yet know what you're supposed to *do* with a WDB file; maybe we should figure out how to produce a VCD instead.
 
 ### How it Works
 

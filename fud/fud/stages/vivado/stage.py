@@ -57,7 +57,7 @@ class VivadoBaseStage(Stage):
             client, remote_tmpdir = remote_exec.open_and_send(
                 {
                     verilog_path: self.target_name,
-                    **{p: os.path.basename(p) for p in self.device_files()},
+                    **{p: os.path.basename(p) for p in self.device_files(config)},
                 }
             )
             remote_exec.execute(client, remote_tmpdir, cmd)
