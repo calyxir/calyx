@@ -10,6 +10,8 @@ use std::{
 
 type TypeNameSet = HashSet<(ir::CellType, ir::Id)>;
 type CellsByType = HashMap<ir::CellType, HashSet<ir::Id>>;
+// maps cell type to maps that map cell name to control statement
+type LiveMapByType = HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>>;
 
 /// The data structure used to represent sets of ids. This is used to represent
 /// the `live`, `gen`, and `kill` sets.
@@ -32,16 +34,16 @@ impl Prop {
     /// Defines the dataflow transfer function.
     /// We use the standard definition for liveness:
     /// `(alive - kill) + gen`
-    fn transfer_in_place(&mut self, gen: Prop, kill: Prop) {
-        self.sub_in_place(kill);
-        self.or_in_place(gen);
+    fn transfer(&mut self, gen: Prop, kill: Prop) {
+        self.sub(kill);
+        self.or(gen);
     }
 
     /// Defines the data_flow transfer function. `(alive - kill) + gen`.
     /// However, this is for when gen and kill are sets, and self is a map.
-    fn transfer_set_in_place(&mut self, gen: TypeNameSet, kill: TypeNameSet) {
-        self.sub_set_in_place(kill);
-        self.or_set_in_place(gen);
+    fn transfer_set(&mut self, gen: TypeNameSet, kill: TypeNameSet) {
+        self.sub_set(kill);
+        self.or_set(gen);
     }
 
     /// Add an element to Prop.
@@ -50,14 +52,14 @@ impl Prop {
     }
 
     // The or operation, but when the self is a map and rhs is a set of tuples.
-    fn or_set_in_place(&mut self, rhs: TypeNameSet) {
+    fn or_set(&mut self, rhs: TypeNameSet) {
         for (cell_type, cell_name) in rhs {
             self.map.entry(cell_type).or_default().insert(cell_name);
         }
     }
 
     // The sub operation, but when the self is a map and rhs is a set of tuples.
-    fn sub_set_in_place(&mut self, rhs: TypeNameSet) {
+    fn sub_set(&mut self, rhs: TypeNameSet) {
         for (cell_type, cell_name) in rhs {
             self.map.entry(cell_type).or_default().remove(&cell_name);
         }
@@ -65,7 +67,7 @@ impl Prop {
 
     // edits self to equal self | rhs. Faster than self | rhs  but must take rhs
     // ownership and not &rhs.
-    fn or_in_place(&mut self, rhs: Prop) {
+    fn or(&mut self, rhs: Prop) {
         for (cell_type, cell_names) in rhs.map {
             self.map.entry(cell_type).or_default().extend(cell_names);
         }
@@ -73,7 +75,7 @@ impl Prop {
 
     // edits self to equal self | rhs. Faster than self | rhs  but must take rhs
     // ownership and not &rhs.
-    fn sub_in_place(&mut self, rhs: Prop) {
+    fn sub(&mut self, rhs: Prop) {
         for (cell_type, cell_names) in rhs.map {
             self.map
                 .entry(cell_type)
@@ -240,7 +242,8 @@ pub struct LiveRangeAnalysis {
     /// to the components live inside them.
     live: HashMap<u64, Prop>,
     /// Groups that have been identified as variable-like.
-    /// Mapping from group name to the name of the register.
+    /// Mapping from group name to Some(type, name) where type is the cell type and
+    /// name is the cell name. If group is not variable like, maps to None.
     variable_like: HashMap<ir::Id, Option<(ir::CellType, ir::Id)>>,
     /// Set of state shareable components (as type names)
     state_share: ShareSet,
@@ -285,12 +288,11 @@ impl LiveRangeAnalysis {
 
         for (node, cells_by_type) in &ranges.invokes_enables_map {
             if let Some(prop) = ranges.live.get_mut(node) {
-                prop.or_set_in_place(cells_by_type.clone());
+                prop.or_set(cells_by_type.clone());
             }
         }
 
-        // Caleb: Right now we run remove-comb-groups before this is used so this code
-        // doesn't do anything. Eventually, though, we want to be able to make
+        // We do not handle comb groups currently. Eventually, we want to and make
         // remove-comb-groups optional.
 
         ranges
@@ -305,15 +307,9 @@ impl LiveRangeAnalysis {
     /// of par blocks) that are parents (at any level of neesting) of c.
     pub fn get_live_control_data(
         &self,
-        live_once_map: &mut HashMap<
-            ir::CellType,
-            HashMap<ir::Id, HashSet<u64>>,
-        >,
+        live_once_map: &mut LiveMapByType,
         par_thread_map: &mut HashMap<u64, u64>,
-        live_cell_map: &mut HashMap<
-            ir::CellType,
-            HashMap<ir::Id, HashSet<u64>>,
-        >,
+        live_cell_map: &mut LiveMapByType,
         parents: &HashSet<u64>,
         c: &ir::Control,
     ) {
@@ -657,24 +653,24 @@ impl LiveRangeAnalysis {
                     &self.state_share,
                 );
 
-                alive.transfer_set_in_place(reads.clone(), writes.clone());
+                alive.transfer_set(reads.clone(), writes.clone());
                 let alive_out = alive.clone();
 
                 // set the live set of this node to be the things live on the
                 // output of this node plus the things written to in this invoke
                 // plus all shareable components used
                 self.live.insert(ControlId::get_guaranteed_id(c), {
-                    alive.or_set_in_place(writes.clone());
+                    alive.or_set(writes.clone());
                     alive
                 });
                 (
                     alive_out,
                     {
-                        gens.or_set_in_place(reads);
+                        gens.or_set(reads);
                         gens
                     },
                     {
-                        kills.or_set_in_place(writes);
+                        kills.or_set(writes);
                         kills
                     },
                 )
@@ -690,23 +686,23 @@ impl LiveRangeAnalysis {
                 let (reads, writes) = self.find_gen_kill_group(group);
 
                 // compute transfer function
-                alive.transfer_set_in_place(reads.clone(), writes.clone());
+                alive.transfer_set(reads.clone(), writes.clone());
                 let alive_out = alive.clone();
 
                 // set the live set of this node to be the things live on the
                 // output of this node plus the things written to in this group
                 self.live.insert(ControlId::get_guaranteed_id(c), {
-                    alive.or_set_in_place(writes.clone());
+                    alive.or_set(writes.clone());
                     alive
                 });
                 (
                     alive_out,
                     {
-                        gens.or_set_in_place(reads);
+                        gens.or_set(reads);
                         gens
                     },
                     {
-                        kills.or_set_in_place(writes);
+                        kills.or_set(writes);
                         kills
                     },
                 )
@@ -735,9 +731,9 @@ impl LiveRangeAnalysis {
                     self.build_live_ranges(fbranch, alive, gens, kills);
 
                 // take union
-                t_alive.or_in_place(f_alive);
-                t_gens.or_in_place(f_gens);
-                t_kills.or_in_place(f_kills);
+                t_alive.or(f_alive);
+                t_gens.or(f_gens);
+                t_kills.or(f_kills);
 
                 // feed to condition to compute
                 if let Some(cell_info) = LiveRangeAnalysis::port_to_cell_name(
@@ -767,21 +763,21 @@ impl LiveRangeAnalysis {
                             (
                                 // Doing in place operations saves time
                                 {
-                                    acc_alive.or_in_place(alive);
+                                    acc_alive.or(alive);
                                     acc_alive
                                 },
                                 {
-                                    acc_gen.or_in_place(gen);
+                                    acc_gen.or(gen);
                                     acc_gen
                                 },
                                 {
-                                    acc_kill.or_in_place(kill);
+                                    acc_kill.or(kill);
                                     acc_kill
                                 },
                             )
                         },
                     );
-                alive.transfer_in_place(gens.clone(), kills.clone());
+                alive.transfer(gens.clone(), kills.clone());
                 (alive, gens, kills)
             }
             ir::Control::While(ir::While { body, port, .. }) => {

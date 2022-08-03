@@ -68,7 +68,7 @@ impl ConstructVisitor for CellShare {
 }
 
 impl CellShare {
-    pub fn initialize(
+    fn initialize(
         &mut self,
         comp: &ir::Component,
         _sigs: &ir::LibrarySignatures,
@@ -95,7 +95,7 @@ impl CellShare {
         );
     }
 
-    pub fn cell_filter(&self, cell: &ir::Cell) -> bool {
+    fn cell_filter(&self, cell: &ir::Cell) -> bool {
         // Cells used in continuous assignments cannot be shared, nor can ref cells.
         if self.cont_ref_cells.contains(cell.name()) {
             return false;
