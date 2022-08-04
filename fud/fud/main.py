@@ -193,11 +193,12 @@ def display_config(args, cfg):
             else:
                 print(res)
         else:
+            val = int(args.value) if args.value.isdigit() else args.value
             # create configuration if it doesn't exist
             if path not in cfg:
-                cfg[path] = args.value
+                cfg[path] = val
             elif not isinstance(cfg[path], list):
-                cfg[path] = args.value
+                cfg[path] = val
             else:
                 raise Exception(
                     "NYI: supporting updating lists. " + "Manually edit the file."
