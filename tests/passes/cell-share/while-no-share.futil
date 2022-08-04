@@ -1,0 +1,46 @@
+// -p cell-share -p remove-ids
+import "primitives/core.futil";
+
+// testing that r1 and r2 don't get shared.
+component main() -> () {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    x = std_reg(32);
+  }
+  wires {
+    group wr_r1{
+      r1.write_en = 1'd1;
+      r1.in = 32'd0; 
+      wr_r1[done] = r1.done; 
+    }
+    group rd_r1{
+      x.write_en = 1'd1; 
+      x.in = r1.out; 
+      rd_r1[done] = x.done;
+    }
+    group wr_r2{
+      r2.write_en = 1'd1;
+      r2.in = 32'd7; 
+      wr_r2[done] = r2.done; 
+    }
+    group rd_r2{
+      x.write_en = 1'd1; 
+      x.in = r2.out; 
+      rd_r2[done] = x.done; 
+    }
+  }
+  control {
+    seq {
+      wr_r1; 
+      while x.out {
+        seq{
+          rd_r1;
+          wr_r1;
+          wr_r2;
+          rd_r2;
+        }
+      }
+    }
+  }
+}
