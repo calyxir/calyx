@@ -781,15 +781,23 @@ impl LiveRangeAnalysis {
                 (alive, gens, kills)
             }
             ir::Control::While(ir::While { body, port, .. }) => {
-                let (mut alive, gens, kills) =
+                if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(
+                    port,
+                    &self.state_share,
+                ) {
+                    alive.insert(cell.clone());
+                    gens.insert(cell);
+                }
+                let (mut alive, mut gens, kills) =
                     self.build_live_ranges(body, alive, gens, kills);
                 if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(
                     port,
                     &self.state_share,
                 ) {
-                    alive.insert(cell)
+                    alive.insert(cell.clone());
+                    gens.insert(cell);
                 }
-                self.build_live_ranges(body, alive, gens, kills)
+                (alive, gens, kills)
             }
         }
     }
