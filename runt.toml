@@ -109,6 +109,7 @@ name = "correctness dynamic"
 paths = [
   "tests/correctness/*.futil",
   "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil"
 ]
 cmd = """
 fud exec --to jq \
@@ -154,7 +155,7 @@ fud exec --to jq \
 
 [[tests]]
 name = "correctness static timing"
-paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil" ]
+paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil", "tests/correctness/sync/*.futil" ]
 cmd = """
 fud exec --to jq \
          --through dat \

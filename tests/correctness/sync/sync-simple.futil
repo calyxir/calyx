@@ -1,0 +1,48 @@
+// -p compile-sync -p validate
+
+import "primitives/core.futil";
+import "primitives/sync.futil";
+
+component main() -> () {
+  cells {
+    @external out = std_mem_d1(32, 1, 3);
+    val = std_reg(32);
+    add_0 = std_add(32);
+    no_use = std_reg(32);
+  }
+
+  wires {
+    group no_op {
+      no_use.in = 32'd0;
+      no_use.write_en = 1'd1;
+      no_op[done] = no_use.done;
+    }
+
+    group calc_val {
+      add_0.left = 32'd2;
+      add_0.right = 32'd1;
+      val.in = add_0.out;
+      val.write_en = 1'd1;
+      calc_val[done] = val.done;
+    }
+
+    group reg_to_mem {
+      out.write_en = 1'd1;
+      out.write_data = val.out;
+      out.addr0 = 3'd0;
+      reg_to_mem[done] = out.done;
+    }
+  }
+
+  control {
+    par {
+        seq {
+          @sync(1) no_op;
+          reg_to_mem;
+        }
+        seq {
+          @sync(1) calc_val;
+        }
+    }
+  }
+}
