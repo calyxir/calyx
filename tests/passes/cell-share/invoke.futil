@@ -1,4 +1,4 @@
-// -p well-formed -p remove-comb-groups -p cell-share -p dead-cell-removal
+// -p well-formed -p remove-comb-groups -p cell-share -p dead-cell-removal -p remove-ids
 import "primitives/core.futil";
 
 component add(left: 32, right: 32) -> (out: 32) {

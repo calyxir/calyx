@@ -1,4 +1,4 @@
-//-p cell-share
+//-p cell-share -p remove-ids
 import "primitives/core.futil";
 
 component dbg<"state_share"=1>(in: 32, prefix: 32, length: 5) -> (out: 32) {

@@ -1,4 +1,4 @@
-//-p cell-share
+//-p cell-share -p remove-ids
 
 import "primitives/core.futil";
 component add_5<"state_share"=1>(in:32) -> (out: 32) {
@@ -25,7 +25,7 @@ component main() -> () {
   cells {
     add0 = add_5();
     add1 = add_5();
-    x_0 = std_reg(32);
+    r0 = std_reg(32);
   }
   wires {
     group upd0 {
