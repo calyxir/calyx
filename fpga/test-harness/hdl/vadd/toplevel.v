@@ -262,7 +262,7 @@ module Toplevel (
     );
     wire [31:0] B0_write_data;
     wire [31:0] B0_read_data;
-    wire [11:0] B0_addr0;
+    wire [11:0] B0_addr0; //XXX (nathanielnrn): Why is this 11? Last 2bytes are zs throughout simulation
     wire B0_write_en;
     wire B0_done;
     Memory_controller_axi_1 inst_mem_controller_axi_1 (
@@ -309,7 +309,7 @@ module Toplevel (
     );
     wire [31:0] Sum0_write_data;
     wire [31:0] Sum0_read_data;
-    wire [11:0] Sum0_addr0;
+    wire [11:0] Sum0_addr0; //XXX (nathanielnrn): Why is this 11? Last 2bytes are zs throughout simulation
     wire Sum0_write_en;
     wire Sum0_done;
     Memory_controller_axi_2 inst_mem_controller_axi_2 (

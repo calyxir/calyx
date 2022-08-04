@@ -12,10 +12,6 @@ class VectorAddTB:
     def __init__(self, toplevel):
         self.toplevel = toplevel
 
-    # set up clock of 2ns period, simulator default timestep is 1ps
-    async def generate_clock(self):
-        return Clock(self.toplevel.ap_clk, 2, units="ns").start()
-
     async def setup_rams(self, data: Mapping[str, Any]):
         # Create cocotb AxiRams
         rams = {}
@@ -34,12 +30,15 @@ class VectorAddTB:
             # TODO: need to fix toplevel.ap_rst_n
             rams[mem] = AxiRam(
                 AxiBus.from_prefix(self.toplevel, f"m{i}_axi"),
+                self.toplevel.ap_clk,
                 # self.toplevel.ap_rst_n,
-                mem_size,
+                size=mem_size,
             )
             # TODO(nathanielnrn): bytes can only handle integers up to 256
             # can attempt to convert with
-            # (list(map(labmda e: int(e).to_bytes(byte_length:int, byteorder:str,*, signed=False)
+            # (list(map(
+            # labmda e: int(e).to_bytes(byte_length:int, byteorder:str,*, signed=False
+            # )
             # or look into cocotb.BinaryValue
 
             # TODO: check if this addr definition is correct and works
@@ -55,9 +54,10 @@ class VectorAddTB:
             # TODO: This is now 0 every time?? Because the rams created are
             # not big enough? Even though size of bram in wave is also shrunk?
 
+            # TODO: remove 3 lines
             # addr = addr + 0x1000
-            in_ram = [b for b in rams[mem].read(addr, mem_size)]
-            print(f"{mem} ram currently is: {in_ram}")
+            # in_ram = [b for b in rams[mem].read(addr, mem_size)]
+            # print(f"{mem} ram currently is: {in_ram}")
         self.rams = rams
 
     def model(self, a: List[int], b: List[int]) -> List[int]:
@@ -80,22 +80,7 @@ class VectorAddTB:
             width += 1
         return width
 
-    def decode(self, b: bytes, width: int, byteorder="big", signed=False):
-        """Return the list of `ints` corresponding to value in `b` based on
-        encoding of `width` bytes
-        For example, `decode('b\x00\x00\x00\04', 4)` returns `[4]`
-        """
-        assert len(bytes) % width == 0, "Mismatch between bytes length and width"
-        to_return = []
-        for i in range(len(b) // width):
-            to_return.append(
-                int.from_bytes(
-                    b[i * width : (i + 1) * width], byteorder=byteorder, signed=signed
-                )
-            )
-        return to_return
-
-    def rams(self):
+    def get_rams(self):
         return self.rams
 
 
@@ -110,19 +95,41 @@ async def run_vadd_test(toplevel):
     assert data is not None
     vadd_tb = VectorAddTB(toplevel)
 
-    await cocotb.start_soon(vadd_tb.generate_clock())
+    # set up clock of 2ns period, simulator default timestep is 1ps
+    cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
     await vadd_tb.setup_rams(data)
-    await Timer(30, units="us")
-
+    # await Timer(0.0001,"us")
+    await Timer(30, "us")
     await FallingEdge(toplevel.ap_clk)
 
-    mems: list[str] = data.keys()
+    mems: list[str] = list(data.keys())
     # We assume last memory is the output
     mem_length = vadd_tb.mem_size(mems[-1], data)
     # TODO: Make sure this is correct
-    rams = vadd_tb.rams()
-    addr = (len(rams) - 1) * int("0x1000", 0)
+    rams = vadd_tb.get_rams()
+    # Find correct value of addr
+    addr = 0x000
+    # addr = (len(rams) - 1) * int("0x1000", 0)
+
+    # byte literal form
     sum_out = rams[mems[-1]].read(addr, mem_length)
-    print(sum_out)
+    sum_out = decode(sum_out, vadd_tb.data_width("Sum0", data))
+    print(f"sum_out is {sum_out}")
     # assumes first two mems are inputs
-    assert vadd_tb.model(data[mems[0]], data[mems[1]]) == sum_out
+    assert vadd_tb.model(data[mems[0]]["data"], data[mems[1]]["data"]) == sum_out
+
+
+def decode(b: bytes, width: int, byteorder="big", signed=False):
+    """Return the list of `ints` corresponding to value in `b` based on
+    encoding of `width` bytes
+    For example, `decode('b\x00\x00\x00\04', 4)` returns `[4]`
+    """
+    assert len(b) % width == 0, "Mismatch between bytes length and width"
+    to_return = []
+    for i in range(len(b) // width):
+        to_return.append(
+            int.from_bytes(
+                b[i * width:(i + 1) * width], byteorder=byteorder, signed=signed
+            )
+        )
+    return to_return
