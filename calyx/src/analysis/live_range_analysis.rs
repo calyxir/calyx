@@ -292,7 +292,7 @@ impl LiveRangeAnalysis {
             }
         }
 
-        // We do not handle comb groups currently. Eventually, we want to and make
+        // LivRangeAnalysis does not handle comb groups currently. Eventually, we want to and make
         // remove-comb-groups optional.
 
         ranges

@@ -126,6 +126,12 @@ impl Visitor for CellShare {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        if !comp.comb_groups.is_empty() {
+            unreachable!(
+                "`comb groups` should have been compiled away. Please run {} before this pass.",
+                crate::passes::RemoveCombGroups::name()
+            )
+        }
         self.initialize(comp, sigs);
 
         let cells = comp.cells.iter().filter(|c| self.cell_filter(&c.borrow()));
