@@ -215,7 +215,7 @@ module Toplevel (
     end
     wire [31:0] A0_write_data;
     wire [31:0] A0_read_data;
-    wire [11:0] A0_addr0;
+    wire [11:0] A0_addr0; //XXX (nathanielnrn): Why is this 11? Last 2bytes are zs throughout simulation
     wire A0_write_en;
     wire A0_done;
     Memory_controller_axi_0 inst_mem_controller_axi_0 (
