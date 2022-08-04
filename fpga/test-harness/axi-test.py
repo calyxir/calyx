@@ -24,15 +24,17 @@ class VectorAddTB:
             # vectorized add should only use 1 dimensional list
             assert not isinstance(data[mem]["data"][0], list)
             mem_size = self.mem_size(mem, data)
+            width = self.data_width(mem, data)
             # from_prefix assumes signals of form dut.<prefix>_<signal> i.e m0_axi_RDATA
             # therefore these prefixes have to match verilog code, see kernel.xml <args>
             # and ports assigned within that.
-            # In general, the index of `m<idx>_axi` just increments by 1 in fud axi generation
+            # In general, the index of `m<idx>_axi` just
+            # increments by 1 in fud axi generation
 
             # TODO: need to fix toplevel.ap_rst_n
             rams[mem] = AxiRam(
                 AxiBus.from_prefix(self.toplevel, f"m{i}_axi"),
-                #self.toplevel.ap_rst_n,
+                # self.toplevel.ap_rst_n,
                 mem_size,
             )
             # TODO(nathanielnrn): bytes can only handle integers up to 256
@@ -44,9 +46,18 @@ class VectorAddTB:
 
             # This corresponds with waveform of numbers, in practice,
             # Each address is +4096 from last
-            rams[mem].write(addr, bytes(data[mem]["data"]))
-            #TODO: This is now 0 every time?? Because the rams created are not big enough? Even though size of bram in wave is also shrunk down?? HUh???
-            #addr = addr + 0x1000
+
+            data_in_bytes = [
+                i.to_bytes(width, byteorder="big") for i in data[mem]["data"]
+            ]
+            data_in_bytes = b"".join(data_in_bytes)
+            rams[mem].write(addr, data_in_bytes)
+            # TODO: This is now 0 every time?? Because the rams created are
+            # not big enough? Even though size of bram in wave is also shrunk?
+
+            # addr = addr + 0x1000
+            in_ram = [b for b in rams[mem].read(addr, mem_size)]
+            print(f"{mem} ram currently is: {in_ram}")
         self.rams = rams
 
     def model(self, a: List[int], b: List[int]) -> List[int]:
@@ -57,15 +68,34 @@ class VectorAddTB:
 
     def mem_size(self, mem: str, data):
         """Returns size of memory within data in bytes"""
+        width = self.data_width(mem, data)
+        length = len(data[mem]["data"]) * width
+        return length
+
+    def data_width(self, mem: str, data):
+        """Returns data width of mem in bytes"""
         assert mem in data, "mem must be a key in data"
         width = data[mem]["format"]["width"] // 8
         if data[mem]["format"]["width"] % 8 != 0:
             width += 1
+        return width
 
-        length = len(data[mem]["data"]) * width
-        return length
+    def decode(self, b: bytes, width: int, byteorder="big", signed=False):
+        """Return the list of `ints` corresponding to value in `b` based on
+        encoding of `width` bytes
+        For example, `decode('b\x00\x00\x00\04', 4)` returns `[4]`
+        """
+        assert len(bytes) % width == 0, "Mismatch between bytes length and width"
+        to_return = []
+        for i in range(len(b) // width):
+            to_return.append(
+                int.from_bytes(
+                    b[i * width : (i + 1) * width], byteorder=byteorder, signed=signed
+                )
+            )
+        return to_return
 
-    def rams():
+    def rams(self):
         return self.rams
 
 
@@ -93,5 +123,6 @@ async def run_vadd_test(toplevel):
     rams = vadd_tb.rams()
     addr = (len(rams) - 1) * int("0x1000", 0)
     sum_out = rams[mems[-1]].read(addr, mem_length)
+    print(sum_out)
     # assumes first two mems are inputs
     assert vadd_tb.model(data[mems[0]], data[mems[1]]) == sum_out
