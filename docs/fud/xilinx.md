@@ -25,21 +25,7 @@ Run the following command to install all required dependencies:
 cd fud && flit install -s --deps all
 ```
 
-### Set Up
-
-To set up to **invoke the Xilinx tools over SSH**, first tell `fud` your username and hostname for the server:
-
-    # Vivado
-    fud config stages.synth-verilog.ssh_host <hostname>
-    fud config stages.synth-verilog.ssh_username <username>
-    fud config stages.synth-verilog.remote true
-
-    # Vivado HLS
-    fud config stages.vivado-hls.ssh_host <hostname>
-    fud config stages.vivado-hls.ssh_username <username>
-    fud config stages.vivado-hls.remote true
-
-The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
+### Seting up Local Tools
 
 To instead **invoke the Xilinx tools locally**, just let `fud` run the `vivado` and `vivado_hls` commands.
 You can optionally tell `fud` where these commands exist on your machine:
@@ -47,7 +33,33 @@ You can optionally tell `fud` where these commands exist on your machine:
     fud config stages.synth-verilog.exec <path> # update vivado path
     fud config stages.vivado-hls.exec <path> # update vivado_hls path
 
-Leave the `remote` option unset to use local execution and these `exec` paths (which are ignored for remote execution).
+Setting the `remote` option for the stages to `0` ensure that `fud` will always try to run the commands locally.
+
+    fud config stages.synth-verilog.remote 0
+    fud config stages.vivado-hls.remote 0
+
+### Setting up Remote Tools
+
+> Follow these instructions if you're attempting to run `vivado` or `vivado-hls` on a server from your local machine. If you are working directly on a server with these tools, skip to the [run instructions](#run).
+
+To set up to **invoke the Xilinx tools over SSH**, first tell `fud` your username and hostname for the server:
+
+    # Vivado
+    fud config stages.synth-verilog.ssh_host <hostname>
+    fud config stages.synth-verilog.ssh_username <username>
+
+    # Vivado HLS
+    fud config stages.vivado-hls.ssh_host <hostname>
+    fud config stages.vivado-hls.ssh_username <username>
+
+The following commands enable remote usage of `vivado` and `vivado-hls` by default:
+
+    fud config stages.synth-verilog.remote 1
+    fud config stages.vivado-hls.remote 1
+
+The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
+
+If you'd like to switch back to local usage, override the `remote` option by passing `fud e ... -s stages.synth-verilog.remote 0`
 
 ### Run
 
@@ -77,7 +89,7 @@ To set up SSH execution, you can edit your `config.toml` to add settings like th
     [stages.xclbin]
     ssh_host = "havarti"
     ssh_username = "als485"
-    remote = true
+    remote = 1
 
 To use local execution, just leave off the `remote = true` line.
 

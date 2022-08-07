@@ -3,6 +3,7 @@
 //! The analyses construct data-structures that make answering certain queries
 //! about Calyx programs easier.
 
+mod control_id;
 mod control_order;
 mod control_ports;
 mod dataflow_order;
@@ -17,6 +18,7 @@ mod schedule_conflicts;
 mod share_set;
 mod variable_detection;
 
+pub use control_id::ControlId;
 pub use control_order::ControlOrder;
 pub use control_ports::ControlPorts;
 pub use dataflow_order::DataflowOrder;

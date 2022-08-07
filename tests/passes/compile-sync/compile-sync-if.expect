@@ -1,0 +1,198 @@
+import "primitives/core.futil";
+import "primitives/sync.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    in_0 = std_mem_d1(32, 6, 3);
+    in_1 = std_mem_d1(32, 6, 3);
+    out = std_mem_d1(32, 6, 3);
+    idx = std_reg(3);
+    prod = std_reg(32);
+    st = std_reg(1);
+    lt = std_lt(3);
+    eq = std_eq(1);
+    add = std_add(3);
+    no_use = std_reg(1);
+    @generated barrier = std_sync_reg(32);
+    @generated eq0 = std_eq(32);
+    @generated wait_restore_reg = std_reg(1);
+    @generated save = std_reg(32);
+    @generated incr = std_add(32);
+    @generated wait_reg = std_reg(1);
+    @generated save0 = std_reg(32);
+    @generated incr0 = std_add(32);
+    @generated wait_reg0 = std_reg(1);
+    @generated save1 = std_reg(32);
+    @generated incr1 = std_add(32);
+    @generated wait_reg1 = std_reg(1);
+  }
+  wires {
+    group no_op {
+      no_use.write_en = 1'd1;
+      no_use.in = 1'd0;
+      no_op[done] = no_use.done;
+    }
+    group prod_0 {
+      in_0.addr0 = idx.out;
+      prod.write_en = 1'd1;
+      prod.in = in_0.read_data;
+      prod_0[done] = prod.done;
+    }
+    group prod_1 {
+      in_1.addr0 = idx.out;
+      prod.write_en = 1'd1;
+      prod.in = in_1.read_data;
+      prod_1[done] = prod.done;
+    }
+    group reg_to_mem {
+      out.addr0 = idx.out;
+      out.write_en = 1'd1;
+      out.write_data = prod.out;
+      reg_to_mem[done] = out.done;
+    }
+    group incr_idx {
+      idx.write_en = 1'd1;
+      add.right = 3'd1;
+      add.left = idx.out;
+      idx.in = add.out;
+      incr_idx[done] = idx.done;
+    }
+    group switch_to_st_0 {
+      st.write_en = 1'd1;
+      st.in = 1'd0;
+      switch_to_st_0[done] = st.done;
+    }
+    group switch_to_st_1 {
+      st.write_en = 1'd1;
+      st.in = 1'd1;
+      switch_to_st_1[done] = st.done;
+    }
+    group restore {
+      barrier.write_en_0 = 1'd1;
+      barrier.in_0 = 32'd0;
+      restore[done] = barrier.write_done_0;
+    }
+    group wait_restore {
+      wait_restore_reg.in = !eq0.out ? 1'd1;
+      wait_restore_reg.write_en = !eq0.out ? 1'd1;
+      wait_restore[done] = wait_restore_reg.done;
+    }
+    group clear_barrier {
+      barrier.read_en_0 = 1'd1;
+      clear_barrier[done] = barrier.read_done_0;
+    }
+    group incr_barrier {
+      barrier.read_en_0 = 1'd1;
+      incr.left = barrier.out_0;
+      incr.right = 32'd1;
+      save.in = barrier.read_done_0 ? incr.out;
+      save.write_en = barrier.read_done_0;
+      incr_barrier[done] = save.done;
+    }
+    group write_barrier {
+      barrier.write_en_0 = 1'd1;
+      barrier.in_0 = save.out;
+      write_barrier[done] = barrier.write_done_0;
+    }
+    group wait {
+      wait_reg.in = eq0.out;
+      wait_reg.write_en = eq0.out ? 1'd1;
+      wait[done] = wait_reg.done;
+    }
+    group incr_barrier0 {
+      barrier.read_en_0 = 1'd1;
+      incr0.left = barrier.out_0;
+      incr0.right = 32'd1;
+      save0.in = barrier.read_done_0 ? incr0.out;
+      save0.write_en = barrier.read_done_0;
+      incr_barrier0[done] = save0.done;
+    }
+    group write_barrier0 {
+      barrier.write_en_0 = 1'd1;
+      barrier.in_0 = save0.out;
+      write_barrier0[done] = barrier.write_done_0;
+    }
+    group wait0 {
+      wait_reg0.in = eq0.out;
+      wait_reg0.write_en = eq0.out ? 1'd1;
+      wait0[done] = wait_reg0.done;
+    }
+    group incr_barrier1 {
+      barrier.read_en_1 = 1'd1;
+      incr1.left = barrier.out_1;
+      incr1.right = 32'd1;
+      save1.in = barrier.read_done_1 ? incr1.out;
+      save1.write_en = barrier.read_done_1;
+      incr_barrier1[done] = save1.done;
+    }
+    group write_barrier1 {
+      barrier.write_en_1 = 1'd1;
+      barrier.in_1 = save1.out;
+      write_barrier1[done] = barrier.write_done_1;
+    }
+    group wait1 {
+      wait_reg1.in = eq0.out;
+      wait_reg1.write_en = eq0.out ? 1'd1;
+      wait1[done] = wait_reg1.done;
+    }
+    comb group comp {
+      lt.right = 3'd6;
+      lt.left = idx.out;
+    }
+    comb group st_0 {
+      eq.right = 1'd0;
+      eq.left = st.out;
+    }
+    eq0.left = barrier.peek;
+    eq0.right = 32'd2;
+  }
+
+  control {
+    seq {
+      par {
+        restore;
+      }
+      par {
+        while lt.out with comp {
+          if eq.out with st_0 {
+            seq {
+              seq {
+                prod_0;
+                incr_barrier;
+                write_barrier;
+                wait;
+                clear_barrier;
+                restore;
+              }
+              switch_to_st_1;
+            }
+          } else {
+            seq {
+              seq {
+                prod_1;
+                incr_barrier0;
+                write_barrier0;
+                wait0;
+                clear_barrier;
+                restore;
+              }
+              switch_to_st_0;
+            }
+          }
+        }
+        while lt.out with comp {
+          seq {
+            seq {
+              no_op;
+              incr_barrier1;
+              write_barrier1;
+              wait1;
+              wait_restore;
+            }
+            reg_to_mem;
+            incr_idx;
+          }
+        }
+      }
+    }
+  }
+}
