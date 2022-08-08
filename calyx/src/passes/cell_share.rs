@@ -35,6 +35,10 @@ pub struct CellShare {
 
     /// Cell active in continuous assignments, or ref cells (we want to ignore both)
     cont_ref_cells: HashSet<ir::Id>,
+
+    /// The number of times a given class of cell can be shared. bounds should be
+    /// length 3 to hold the 3 classes: comb cells, registers, and everything else
+    pub bounds: Vec<u64>,
 }
 
 impl Named for CellShare {
@@ -50,6 +54,7 @@ impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let state_shareable = ShareSet::from_context::<true>(ctx);
         let shareable = ShareSet::from_context::<false>(ctx);
+        let bounds = Self::get_bounds(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -57,6 +62,7 @@ impl ConstructVisitor for CellShare {
             cont_ref_cells: HashSet::new(),
             state_shareable,
             shareable,
+            bounds,
         })
     }
 
@@ -104,6 +110,63 @@ impl CellShare {
             self.state_shareable.contains(name) || self.shareable.contains(name)
         } else {
             false
+        }
+    }
+
+    // given a ctx, gets the bounds. For example, if "-x cell-share:bounds=2,3,4"
+    // is passed in the cmd line, we should return [2,3,4]. If no such argument
+    // is given, return the default, which is currently set rather
+    // arbitrarily at [4,6,18].
+    fn get_bounds(ctx: &ir::Context) -> Vec<u64>
+    where
+        Self: Named,
+    {
+        let n = Self::name();
+        // getting the givne opts for -x cell-share:__
+        let given_opts: HashSet<_> = ctx
+            .extra_opts
+            .iter()
+            .filter_map(|opt| {
+                let mut splits = opt.split(':');
+                if splits.next() == Some(n) {
+                    splits.next()
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // searching for -x cell-share:bounds=x,y,z and getting back "x,y,z"
+        let bounds_arg = given_opts.into_iter().find_map(|arg| {
+            let split: Vec<&str> = arg.split('=').collect();
+            if let Some(str) = split.get(0) {
+                if str == &"bounds" && split.len() == 2 {
+                    return Some(split[1]);
+                }
+            }
+            None
+        });
+
+        let mut bounds = Vec::new();
+        let mut set_default = false;
+
+        // if bounds_arg = "x,y,z", set bounds to [x,y,z]
+        if let Some(s) = bounds_arg {
+            bounds = s
+                .split(',')
+                .map(|s| s.parse::<u64>().unwrap_or(0))
+                .collect();
+        } else {
+            set_default = true;
+        }
+        if bounds.len() != 3 || bounds.contains(&0) {
+            set_default = true;
+        }
+
+        if set_default {
+            vec![4, 6, 18]
+        } else {
+            bounds
         }
     }
 }
@@ -227,11 +290,22 @@ impl Visitor for CellShare {
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
-        for graph in graphs_by_type.values() {
+        for (cell_type, graph) in graphs_by_type {
+            let bound = if let Some(name) = cell_type.get_name() {
+                if self.shareable.contains(name) {
+                    self.bounds[0]
+                } else if name == "std_reg" {
+                    self.bounds[1]
+                } else {
+                    self.bounds[2]
+                }
+            } else {
+                self.bounds[2]
+            };
             if graph.has_nodes() {
                 coloring.extend(
                     graph
-                        .color_greedy()
+                        .color_greedy(bound)
                         .iter()
                         .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
                 );
