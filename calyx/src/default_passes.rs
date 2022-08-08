@@ -73,6 +73,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
+                CompileSync,
                 GroupToSeq,
                 GroupToInvoke, // Creates Dead Groups potentially
                 ComponentInliner,
