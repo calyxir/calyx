@@ -362,26 +362,29 @@ impl LiveRangeAnalysis {
                     parents,
                     fbranch,
                 );
-                if !parents.is_empty() {
-                    let id = ControlId::get_guaranteed_id(c);
-                    if let Some(comb_group_uses) = self
-                        .cgroup_uses_map
-                        .get(&ControlId::get_guaranteed_id(c))
-                    {
-                        for (cell_type, cell_name) in comb_group_uses {
+                let id = ControlId::get_guaranteed_id(c);
+                // Examining all the cells used at the comb group of the if stmt
+                if let Some(comb_group_uses) = self.cgroup_uses_map.get(&id) {
+                    for (cell_type, cell_name) in comb_group_uses {
+                        // add cells as live within whichever direct children of
+                        // par blocks they're located within
+                        if !parents.is_empty() {
                             live_once_map
                                 .entry(cell_type.clone())
                                 .or_default()
                                 .entry(cell_name.clone())
                                 .or_default()
                                 .extend(parents);
-                            live_cell_map
-                                .entry(cell_type.clone())
-                                .or_default()
-                                .entry(cell_name.clone())
-                                .or_default()
-                                .insert(id);
                         }
+                        // mark cell as live in the control id of the if statement.
+                        // What this really means, though, is that the cell is live
+                        // at the comb group/port guard of the if statement
+                        live_cell_map
+                            .entry(cell_type.clone())
+                            .or_default()
+                            .entry(cell_name.clone())
+                            .or_default()
+                            .insert(id);
                     }
                 }
             }
@@ -393,26 +396,23 @@ impl LiveRangeAnalysis {
                     parents,
                     body,
                 );
-                if !parents.is_empty() {
-                    let id = ControlId::get_guaranteed_id(c);
-                    if let Some(comb_group_uses) = self
-                        .cgroup_uses_map
-                        .get(&ControlId::get_guaranteed_id(c))
-                    {
-                        for (cell_type, cell_name) in comb_group_uses {
+                let id = ControlId::get_guaranteed_id(c);
+                if let Some(comb_group_uses) = self.cgroup_uses_map.get(&id) {
+                    for (cell_type, cell_name) in comb_group_uses {
+                        if !parents.is_empty() {
                             live_once_map
                                 .entry(cell_type.clone())
                                 .or_default()
                                 .entry(cell_name.clone())
                                 .or_default()
                                 .extend(parents);
-                            live_cell_map
-                                .entry(cell_type.clone())
-                                .or_default()
-                                .entry(cell_name.clone())
-                                .or_default()
-                                .insert(id);
                         }
+                        live_cell_map
+                            .entry(cell_type.clone())
+                            .or_default()
+                            .entry(cell_name.clone())
+                            .or_default()
+                            .insert(id);
                     }
                 }
             }
@@ -791,7 +791,11 @@ impl LiveRangeAnalysis {
 
                 let id = ControlId::get_guaranteed_id(c);
 
+                // reads from state shareable components in the comb group
+                // These should get "passed on" as live/gens as we go up the
+                // control flow of the program
                 let mut cgroup_reads: TypeNameSet = HashSet::new();
+                // Any uses of any shareable components in the comb group.
                 let mut shareable_uses: TypeNameSet = HashSet::new();
 
                 if let Some(comb_group) = cond {
@@ -804,19 +808,22 @@ impl LiveRangeAnalysis {
                     cgroup_reads = state_reads;
                 }
 
-                // feed to condition to compute
                 if let Some(cell_info) = LiveRangeAnalysis::port_to_cell_name(
                     port,
                     &self.state_share,
                 ) {
+                    // If we read from a state shareable component (like a register)
+                    // in the port, then we add it to cgroup_reads.
                     cgroup_reads.insert(cell_info);
                 }
                 if !cgroup_reads.is_empty() || !shareable_uses.is_empty() {
                     let mut all_uses = cgroup_reads.clone();
                     all_uses.extend(shareable_uses);
+                    // add all uses of both shareable and state-shareable components
+                    // in the cgroup_uses_map.
                     self.cgroup_uses_map.insert(id, all_uses);
                 }
-                //setting reads from comb group and port as live on output of if stmt
+                // adding cgroup_reads as live on output of if stmt
                 t_alive.or_set(cgroup_reads.clone());
                 t_gens.or_set(cgroup_reads);
                 (t_alive, t_gens, t_kills)
@@ -861,16 +868,22 @@ impl LiveRangeAnalysis {
                 body, port, cond, ..
             }) => {
                 let id = ControlId::get_guaranteed_id(c);
+                // need this info twice, so just pre-calculate whether port is
+                // a state shareable component.
                 let port_if_shareable: Option<(ir::CellType, ir::Id)> =
                     LiveRangeAnalysis::port_to_cell_name(
                         port,
                         &self.state_share,
                     );
+                // all reads from state shareable components in the comb group or port
                 let mut cgroup_reads: TypeNameSet = HashSet::new();
+                // all uses of shareable components in the comb group or port
                 let mut shareable_uses: TypeNameSet = HashSet::new();
+                // Go through while body and while port + comb group once
                 let (mut alive, mut gens, kills) =
                     self.build_live_ranges(body, alive, gens, kills);
                 if let Some(cell_info) = port_if_shareable {
+                    // adds port to cgroup_reads if state_shareable.
                     cgroup_reads.insert(cell_info);
                 }
                 if let Some(comb_group) = cond {
@@ -882,14 +895,20 @@ impl LiveRangeAnalysis {
                     shareable_uses = share_uses;
                     cgroup_reads.extend(state_reads);
                 }
+                // setting alive and gens appropriately based on the updated info
+                // from the comb group + port.
+                alive.or_set(cgroup_reads.clone());
+                gens.or_set(cgroup_reads.clone());
+
                 if !cgroup_reads.is_empty() || !shareable_uses.is_empty() {
+                    // add all uses of shareable and non-shareable components into
+                    // cgroup_uses_map
                     let mut all_uses = cgroup_reads.clone();
                     all_uses.extend(shareable_uses);
                     self.cgroup_uses_map.insert(id, all_uses);
                 }
-                alive.or_set(cgroup_reads.clone());
-                gens.or_set(cgroup_reads.clone());
 
+                // Going through the while body and guard + port once again
                 let (mut alive, mut gens, kills) =
                     self.build_live_ranges(body, alive, gens, kills);
                 alive.or_set(cgroup_reads.clone());
