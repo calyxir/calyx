@@ -46,9 +46,12 @@ where
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
-    pub fn color_greedy(&self, bound: u64) -> HashMap<T, T> {
+    pub fn color_greedy(&self, bound: Option<&u64>) -> HashMap<T, T> {
         let mut all_colors: BTreeMap<Idx, u64> = BTreeMap::new();
         let mut coloring: HashMap<Idx, Idx> = HashMap::new();
+        let always_share = bound.is_none();
+        // if we always_share is true, then we don't care about bound
+        let bound_if_exists = if always_share { 0 } else { *bound.unwrap() };
 
         // get strongly get components of graph
         let sccs = algo::tarjan_scc(&self.graph.graph);
@@ -67,21 +70,23 @@ where
                     .cloned()
                     .collect_vec();
 
-                // every node with need a different color
+                // every node will need a different color
                 for nidx in scc.into_iter().sorted() {
                     if !available_colors.is_empty() {
                         let c = available_colors.remove(0);
                         coloring.insert(nidx, c);
-                        if let Some(num_used) = all_colors.get_mut(&c) {
-                            *num_used += 1;
-                            if *num_used == bound {
-                                all_colors.remove(&c);
+                        if !always_share {
+                            if let Some(num_used) = all_colors.get_mut(&c) {
+                                *num_used += 1;
+                                if *num_used == bound_if_exists {
+                                    all_colors.remove(&c);
+                                }
                             }
                         }
                     } else {
                         all_colors.insert(nidx, 1);
                         coloring.insert(nidx, nidx);
-                        if bound == 1 {
+                        if !always_share && bound_if_exists == 1 {
                             all_colors.remove(&nidx);
                         }
                     }
@@ -102,10 +107,12 @@ where
                     match color {
                         Some((c, _)) => {
                             coloring.insert(nidx, *c);
-                            if let Some(num_used) = all_colors.get_mut(c) {
-                                *num_used += 1;
-                                if *num_used == bound {
-                                    all_colors.remove(c);
+                            if !always_share {
+                                if let Some(num_used) = all_colors.get_mut(c) {
+                                    *num_used += 1;
+                                    if *num_used == bound_if_exists {
+                                        all_colors.remove(c);
+                                    }
                                 }
                             }
                         }
@@ -113,7 +120,7 @@ where
                             // use self as color if nothing else
                             all_colors.insert(nidx, 1);
                             coloring.insert(nidx, nidx);
-                            if bound == 1 {
+                            if !always_share && bound_if_exists == 1 {
                                 all_colors.remove(&nidx);
                             }
                         }
