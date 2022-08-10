@@ -618,17 +618,17 @@ impl LiveRangeAnalysis {
                 invoke.comp.borrow().clone_name(),
             ));
         }
+
         if let Some(comb_group) = &invoke.comb_group {
-            let comb_reads: TypeNameSet =
+            read_set.extend(
                 ReadWriteSet::read_set(comb_group.borrow().assignments.iter())
                     .filter(|cell| {
                         shareable_components.is_shareable_component(cell)
                     })
                     .map(|cell| {
                         (cell.borrow().prototype.clone(), cell.clone_name())
-                    })
-                    .collect();
-            read_set.extend(comb_reads)
+                    }),
+            );
         }
 
         //The writes of the invoke include its outpus plus the cell itself, if the
@@ -656,19 +656,7 @@ impl LiveRangeAnalysis {
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
-        let comb_group_uses: TypeNameSet =
-            if let Some(comb_group) = &invoke.comb_group {
-                ReadWriteSet::uses(comb_group.borrow().assignments.iter())
-                    .filter(|cell| {
-                        shareable_components.is_shareable_component(cell)
-                    })
-                    .map(|cell| {
-                        (cell.borrow().prototype.clone(), cell.clone_name())
-                    })
-                    .collect()
-            } else {
-                HashSet::new()
-            };
+        // uses of shareable components in the invoke statement
         let mut invoke_uses: TypeNameSet = invoke
             .inputs
             .iter()
@@ -677,7 +665,18 @@ impl LiveRangeAnalysis {
                 Self::port_to_cell_name(src, shareable_components)
             })
             .collect();
-        invoke_uses.extend(comb_group_uses);
+        // uses of shareable components in the comb group (if it exists)
+        if let Some(comb_group) = &invoke.comb_group {
+            invoke_uses.extend(
+                ReadWriteSet::uses(comb_group.borrow().assignments.iter())
+                    .filter(|cell| {
+                        shareable_components.is_shareable_component(cell)
+                    })
+                    .map(|cell| {
+                        (cell.borrow().prototype.clone(), cell.clone_name())
+                    }),
+            );
+        }
         invoke_uses
     }
 
