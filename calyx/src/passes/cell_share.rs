@@ -36,7 +36,7 @@ use std::collections::{HashMap, HashSet};
 /// The exact command line syntax to use: if we had a file, "x.futil" and ran:
 /// `cargo run x.futil -x cell-share:bounds=2,4,8", then we would only share a
 /// given combinational component at most twice, a given register at most 4 times,
-/// and all other components at most 8 times. If you wanted to do something with
+/// and all other components at most 8 times. If you wanted to do somethign with
 /// fud then run `fud e ... -s futil.flags " -x cell-share:bounds=2,3,4"`.
 /// Note: *The no spaces are important.*
 /// Passing "-x cell-share:always-share" will always share a given cell and
@@ -320,21 +320,19 @@ impl Visitor for CellShare {
             let bound = {
                 if self.bounds.is_none() {
                     None
-                } else {
-                    if let Some(name) = cell_type.get_name() {
-                        let comb_bound = self.bounds.as_ref().unwrap().get(0);
-                        let reg_bound = self.bounds.as_ref().unwrap().get(1);
-                        let other_bound = self.bounds.as_ref().unwrap().get(2);
-                        if self.shareable.contains(name) {
-                            comb_bound
-                        } else if name == "std_reg" {
-                            reg_bound
-                        } else {
-                            other_bound
-                        }
+                } else if let Some(name) = cell_type.get_name() {
+                    let comb_bound = self.bounds.as_ref().unwrap().get(0);
+                    let reg_bound = self.bounds.as_ref().unwrap().get(1);
+                    let other_bound = self.bounds.as_ref().unwrap().get(2);
+                    if self.shareable.contains(name) {
+                        comb_bound
+                    } else if name == "std_reg" {
+                        reg_bound
                     } else {
-                        None
+                        other_bound
                     }
+                } else {
+                    None
                 }
             };
             if graph.has_nodes() {
