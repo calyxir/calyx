@@ -1,0 +1,51 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+  }
+  wires {
+    group A<"static"=1> {
+      a.in = 32'd1; 
+      a.write_en = 1'd1; 
+      A[done] = a.done; 
+    }
+    group B {
+      b.in = 32'd1; 
+      b.write_en = 1'd1; 
+      B[done] = b.done; 
+    }
+    group C<"static"=1> {
+      c.in = 32'd1; 
+      c.write_en = 1'd1; 
+      C[done] = c.done; 
+    }
+    group D<"static"=1> {
+      c.in = 32'd1; 
+      c.write_en = 1'd1; 
+      C[done] = c.done; 
+    }
+    group E<"static"=1> {
+      c.in = 32'd1; 
+      c.write_en = 1'd1; 
+      C[done] = c.done; 
+    }
+  }
+  control {
+  // ANCHOR: control
+    @static(10) par {
+      @static(10) seq{@static(8) A; @static(2) B;}
+      @bound(2) while c.out {
+        @static(5) seq{
+          @static(1) C; 
+          @static(1) D;
+          @static(3) E;
+        }
+      }
+      
+    }
+  // ANCHOR_END: control
+  }
+}
