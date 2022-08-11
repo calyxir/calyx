@@ -58,7 +58,7 @@ pub struct CellShare {
 
     /// The number of times a given class of cell can be shared. bounds should be
     /// length 3 to hold the 3 classes: comb cells, registers, and everything else
-    pub bounds: Option<Vec<u64>>,
+    bounds: Option<Vec<u64>>,
 }
 
 impl Named for CellShare {
