@@ -1,8 +1,8 @@
 import json
 import cocotb
 from cocotb.clock import Clock
-from cocotbext.axi import AxiBus, AxiRam
-from cocotb.triggers import Timer, FallingEdge
+from cocotbext.axi import AxiBus, AxiRam, AxiLiteMaster, AxiLiteBus, AxiLiteRam
+from cocotb.triggers import Timer, FallingEdge, RisingEdge
 from typing import Mapping, List, Any
 from pathlib import Path
 import os
@@ -83,8 +83,57 @@ class VectorAddTB:
     def get_rams(self):
         return self.rams
 
+    def drive_controls(self):
+        tl = self.toplevel
+        addr_signal = 16
+        wdata_signal = 0
 
-@cocotb.test()
+        while True:
+            tl.s_axi_control_AWADDR = addr_signal
+            if tl.s_axi_control_AWVALID.value & tl.s_axi_control_AWREADY.value:
+                addr_signal += 4
+
+
+    async def reset(self):
+        await Timer(100, "ns")
+        self.toplevel.ap_rst_n.value = 0
+        await Timer(100, "ns")
+        self.toplevel.ap_rst_n.value = 1
+        await Timer(100, "ns")
+
+    def get_control(self):
+        return AxiLiteMaster(
+            AxiLiteBus.from_prefix(self.toplevel, "s_axi_control"), self.toplevel.ap_clk
+        )
+
+    def get_mem(self, prefix : str):
+        return AxiMaster(
+            AxiBus.from_prefix(self.toplevel, f"{prefix}_axi", self.toplevel.ap_clk)
+        )
+
+
+@cocotb.test(skip=True)
+async def one_transaction(toplevel):
+    cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
+    vadd_tb = VectorAddTB(toplevel)
+    control = vadd_tb.get_control()
+    data = bytes([1])
+    addr = 0x0000
+
+    await Timer(1, "us")
+    toplevel.ap_rst_n.value = 0
+    await Timer(1, "us")
+    toplevel.ap_rst_n.value = 1
+    await Timer(1, "us")
+    await control.write(addr, data)
+    await Timer(10, "ns")
+    
+    out = await control.read(addr,1)
+    print(out)
+    assert int.from_bytes(out[1], byteorder='big') == 1
+
+
+@cocotb.test(skip=True)
 async def run_vadd_test(toplevel):
     data_path = Path("../../examples/dahlia/vectorized-add.fuse.data")
     assert os.path.isfile(data_path), "data_path must be a data path to a valid file"
@@ -118,6 +167,88 @@ async def run_vadd_test(toplevel):
     # assumes first two mems are inputs
     assert vadd_tb.model(data[mems[0]]["data"], data[mems[1]]["data"]) == sum_out
 
+@cocotb.test()
+async def manual_vadd(toplevel):
+
+    vadd_tb = VectorAddTB(toplevel)
+    cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
+    #m0 = vadd_tb.get_mem("m0")
+
+    await vadd_tb.reset()
+    toplevel.ap_start.value = 1
+
+    A0 = [1,3,7,15,31,63,127,255]
+    B0 = [1,1,1,1,1,1,1,1]
+    Sum0 = [0,0,0,0,0,0,0,0]
+
+    m0 = toplevel.inst_mem_controller_axi_0
+    m1 = toplevel.inst_mem_controller_axi_1
+    m2 = toplevel.inst_mem_controller_axi_2
+
+    data_width = 32
+    elements = len(Sum0)
+    mem_size = data_width * elements // 8
+    #TODO: remove
+    mem_size = 1024
+    ram = AxiLiteRam(AxiLiteBus.from_prefix(toplevel, "m2_axi"),toplevel.ap_clk, size=mem_size)
+    sum0_in_bytes = [i.to_bytes(32 // 8, byteorder="big") for i in Sum0]
+    sum0_in_bytes = b"".join(sum0_in_bytes)
+    ram.write(0, sum0_in_bytes)
+
+    async def write_to_bram(data : list[int], mem):
+        await Timer(200,"ns")
+        while mem.copy_done.value != 1 and mem.read_txn_count.value != 8:
+            #TODO: make dynamic using vadd_tb.data_width(mem, data)
+            data_width = 32
+            mem.RDATA.value = data[mem.read_txn_count.value] * 2 ** (mem.read_txn_count.value * data_width)
+            mem.RVALID.value = 1
+            await RisingEdge(toplevel.ap_clk)
+            mem.ARREADY.value = 1
+
+    async def read_from_bram(addr: int, mem):
+        mem.SEND_TO_HOST.value = 1
+        #while mem.send_done.value != 1:
+        #    #AW
+        #    mem.AWREADY.value = 1
+        #    #W
+        #    mem.WREADY.value = 1
+        #    #B
+        #    mem.BVALID.value = 1
+        #    await RisingEdge(toplevel.ap_clk)
+        
+
+    
+    #TODO: Why does this need an await?
+    #We must copy __all__ memories for kernel to correctly recognize it has finished
+    #copying all 
+    await cocotb.start(write_to_bram(A0, m0))
+    await cocotb.start(write_to_bram(B0, m1))
+    await cocotb.start(write_to_bram(Sum0, m2))
+
+    await Timer(500, 'ns')
+    await cocotb.start(read_from_bram(0, m2))
+
+   # await Timer(200,"ns")
+   # #while copying from host to internal bram
+   # while m0.copy_done.value != 1:
+   #     #TODO: make dynamic using vadd_tb.data_width(mem, data)
+   #     data_width = 32
+   #     #Equivalent to bit shifted value in A0
+   #     m0.RDATA.value = A0[m0.read_txn_count.value] * 2 ** (m0.read_txn_count.value * data_width)
+   #     m0.RVALID.value = 1
+   #     await RisingEdge(toplevel.ap_clk)
+   #     #m0.RREADY.value = 1
+
+   #     m0.ARREADY.value = 1
+    await Timer(5,"us")
+
+    #out = [int(str(n),2) for n in m0.bram.ram_core.value]
+    out = m0.bram.ram_core.value
+    addr = 0
+    length = 8 * 4
+    print(decode(ram.read(addr, length),4, byteorder='little'))
+    assert False
+
 
 def decode(b: bytes, width: int, byteorder="big", signed=False):
     """Return the list of `ints` corresponding to value in `b` based on
@@ -129,7 +260,13 @@ def decode(b: bytes, width: int, byteorder="big", signed=False):
     for i in range(len(b) // width):
         to_return.append(
             int.from_bytes(
-                b[i * width:(i + 1) * width], byteorder=byteorder, signed=signed
+                b[i * width : (i + 1) * width], byteorder=byteorder, signed=signed
             )
         )
     return to_return
+
+def encode(lst:list[int], width, byteorder="big"):
+    """Return the `width`-wide byte representation of lst with byteorder"""
+    return [i.to_bytes(width, byteorder) for i in lst]
+
+
