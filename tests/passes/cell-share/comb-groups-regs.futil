@@ -1,0 +1,76 @@
+// -p cell-share -p remove-ids
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    r3 = std_reg(32);
+    x = std_reg(32);
+    lt = std_lt(32);
+  }
+  wires {
+    comb group rd_r0{
+      lt.left = r0.out;
+      lt.right = 32'd5; 
+    }
+    comb group rd_r2{
+      lt.left = r2.out; 
+      lt.right = 32'd5;
+    }
+    group wr_r0{
+      r0.write_en = 1'd1; 
+      r0.in = 32'd22; 
+      wr_r0[done] = r0.done; 
+    }
+    group wr_r1{
+      r1.write_en = 1'd1; 
+      r1.in = 32'd22; 
+      wr_r1[done] = r1.done; 
+    }
+    group rd_r1{
+      x.write_en = 1'd1; 
+      x.in = r1.out; 
+      rd_r1[done] = x.done; 
+    }
+    group wr_x{
+      x.write_en = 1'd1; 
+      x.in = 32'd2; 
+      wr_x[done] = x.done; 
+    }
+    group wr_r2{
+      r2.write_en = 1'd1; 
+      r2.in = 32'd22; 
+      wr_r2[done] = r2.done; 
+    }
+    group wr_r3{
+      r3.write_en = 1'd1; 
+      r3.in = 32'd22; 
+      wr_r3[done] = r3.done; 
+    }
+    group rd_r3{
+      x.write_en = 1'd1; 
+      x.in = r3.out; 
+      rd_r3[done] = x.done; 
+    }
+    
+  }
+  control {
+    seq{
+      wr_r0; 
+      wr_r1; 
+      rd_r1; 
+      if lt.out with rd_r0{
+        wr_x;
+      }
+      wr_r2;
+      while lt.out with rd_r2{
+        seq{
+          wr_r2; 
+          wr_r3; 
+          rd_r3; 
+        }
+      }
+    }
+  }
+}
