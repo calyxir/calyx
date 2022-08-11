@@ -46,11 +46,6 @@ impl Prop {
         self.or_set(gen);
     }
 
-    /// Add an element to Prop.
-    fn insert(&mut self, (cell_type, cell_name): (ir::CellType, ir::Id)) {
-        self.map.entry(cell_type).or_default().insert(cell_name);
-    }
-
     // The or operation, but when the self is a map and rhs is a set of tuples.
     fn or_set(&mut self, rhs: TypeNameSet) {
         for (cell_type, cell_name) in rhs {
@@ -247,10 +242,13 @@ pub struct LiveRangeAnalysis {
     variable_like: HashMap<ir::Id, Option<(ir::CellType, ir::Id)>>,
     /// Set of state shareable components (as type names)
     state_share: ShareSet,
-    ///Set of shareable components (as type names)
+    /// Set of shareable components (as type names)
     share: ShareSet,
-    ///maps invokes/enable ids to the cell types/names live in them
+    /// maps invokes/enable ids to the shareable cell types/names live in them
     invokes_enables_map: HashMap<u64, TypeNameSet>,
+    /// maps comb groups of if/while statements to the cell types/
+    /// names used in them
+    cgroup_uses_map: HashMap<u64, TypeNameSet>,
 }
 
 impl Debug for LiveRangeAnalysis {
@@ -348,10 +346,7 @@ impl LiveRangeAnalysis {
                 }
             }
             ir::Control::If(ir::If {
-                tbranch,
-                fbranch,
-                port,
-                ..
+                tbranch, fbranch, ..
             }) => {
                 self.get_live_control_data(
                     live_once_map,
@@ -367,24 +362,33 @@ impl LiveRangeAnalysis {
                     parents,
                     fbranch,
                 );
-                if !parents.is_empty() {
-                    // potentially adding the port cell as live
-                    if let Some((cell_type, cell_name)) =
-                        LiveRangeAnalysis::port_to_cell_name(
-                            port,
-                            &self.state_share,
-                        )
-                    {
-                        live_once_map
-                            .entry(cell_type)
+                let id = ControlId::get_guaranteed_id(c);
+                // Examining all the cells used at the comb group of the if stmt
+                if let Some(comb_group_uses) = self.cgroup_uses_map.get(&id) {
+                    for (cell_type, cell_name) in comb_group_uses {
+                        // add cells as live within whichever direct children of
+                        // par blocks they're located within
+                        if !parents.is_empty() {
+                            live_once_map
+                                .entry(cell_type.clone())
+                                .or_default()
+                                .entry(cell_name.clone())
+                                .or_default()
+                                .extend(parents);
+                        }
+                        // mark cell as live in the control id of the if statement.
+                        // What this really means, though, is that the cell is live
+                        // at the comb group/port guard of the if statement
+                        live_cell_map
+                            .entry(cell_type.clone())
                             .or_default()
-                            .entry(cell_name)
+                            .entry(cell_name.clone())
                             .or_default()
-                            .extend(parents);
+                            .insert(id);
                     }
                 }
             }
-            ir::Control::While(ir::While { body, port, .. }) => {
+            ir::Control::While(ir::While { body, .. }) => {
                 self.get_live_control_data(
                     live_once_map,
                     par_thread_map,
@@ -392,20 +396,23 @@ impl LiveRangeAnalysis {
                     parents,
                     body,
                 );
-                if !parents.is_empty() {
-                    // potentially adding the port cell as live
-                    if let Some((cell_type, cell_name)) =
-                        LiveRangeAnalysis::port_to_cell_name(
-                            port,
-                            &self.state_share,
-                        )
-                    {
-                        live_once_map
-                            .entry(cell_type)
+                let id = ControlId::get_guaranteed_id(c);
+                if let Some(comb_group_uses) = self.cgroup_uses_map.get(&id) {
+                    for (cell_type, cell_name) in comb_group_uses {
+                        if !parents.is_empty() {
+                            live_once_map
+                                .entry(cell_type.clone())
+                                .or_default()
+                                .entry(cell_name.clone())
+                                .or_default()
+                                .extend(parents);
+                        }
+                        live_cell_map
+                            .entry(cell_type.clone())
                             .or_default()
-                            .entry(cell_name)
+                            .entry(cell_name.clone())
                             .or_default()
-                            .extend(parents);
+                            .insert(id);
                     }
                 }
             }
@@ -554,6 +561,25 @@ impl LiveRangeAnalysis {
             .collect::<HashSet<_>>()
     }
 
+    // returns (share_uses, state_reads), which are the uses of shareable components
+    // and reads of state shareable components
+    fn uses_reads_cgroup(
+        group_ref: &RRC<ir::CombGroup>,
+        shareable: &ShareSet,
+        state_shareable: &ShareSet,
+    ) -> (TypeNameSet, TypeNameSet) {
+        let group = group_ref.borrow();
+        let share_uses = ReadWriteSet::uses(group.assignments.iter())
+            .filter(|cell| shareable.is_shareable_component(cell))
+            .map(|cell| (cell.borrow().prototype.clone(), cell.clone_name()))
+            .collect::<HashSet<_>>();
+        let state_reads = ReadWriteSet::read_set(group.assignments.iter())
+            .filter(|cell| state_shareable.is_shareable_component(cell))
+            .map(|cell| (cell.borrow().prototype.clone(), cell.clone_name()))
+            .collect::<HashSet<_>>();
+        (share_uses, state_reads)
+    }
+
     fn port_to_cell_name(
         port: &RRC<ir::Port>,
         shareable_components: &ShareSet,
@@ -593,6 +619,18 @@ impl LiveRangeAnalysis {
             ));
         }
 
+        if let Some(comb_group) = &invoke.comb_group {
+            read_set.extend(
+                ReadWriteSet::read_set(comb_group.borrow().assignments.iter())
+                    .filter(|cell| {
+                        shareable_components.is_shareable_component(cell)
+                    })
+                    .map(|cell| {
+                        (cell.borrow().prototype.clone(), cell.clone_name())
+                    }),
+            );
+        }
+
         //The writes of the invoke include its outpus plus the cell itself, if the
         //inputs are not empty.
         let mut write_set: TypeNameSet = invoke
@@ -618,14 +656,28 @@ impl LiveRangeAnalysis {
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
-        invoke
+        // uses of shareable components in the invoke statement
+        let mut invoke_uses: TypeNameSet = invoke
             .inputs
             .iter()
             .chain(invoke.outputs.iter())
             .filter_map(|(_, src)| {
                 Self::port_to_cell_name(src, shareable_components)
             })
-            .collect()
+            .collect();
+        // uses of shareable components in the comb group (if it exists)
+        if let Some(comb_group) = &invoke.comb_group {
+            invoke_uses.extend(
+                ReadWriteSet::uses(comb_group.borrow().assignments.iter())
+                    .filter(|cell| {
+                        shareable_components.is_shareable_component(cell)
+                    })
+                    .map(|cell| {
+                        (cell.borrow().prototype.clone(), cell.clone_name())
+                    }),
+            );
+        }
+        invoke_uses
     }
 
     /// Implements the parallel dataflow analysis that computes the liveness of every state shareable component
@@ -717,6 +769,7 @@ impl LiveRangeAnalysis {
                 tbranch,
                 fbranch,
                 port,
+                cond,
                 ..
             }) => {
                 // compute each branch
@@ -735,13 +788,43 @@ impl LiveRangeAnalysis {
                 t_gens.or(f_gens);
                 t_kills.or(f_kills);
 
-                // feed to condition to compute
+                let id = ControlId::get_guaranteed_id(c);
+
+                // reads from state shareable components in the comb group
+                // These should get "passed on" as live/gens as we go up the
+                // control flow of the program
+                let mut cgroup_reads: TypeNameSet = HashSet::new();
+                // Any uses of any shareable components in the comb group.
+                let mut shareable_uses: TypeNameSet = HashSet::new();
+
+                if let Some(comb_group) = cond {
+                    let (share_uses, state_reads) = Self::uses_reads_cgroup(
+                        comb_group,
+                        &self.share,
+                        &self.state_share,
+                    );
+                    shareable_uses = share_uses;
+                    cgroup_reads = state_reads;
+                }
+
                 if let Some(cell_info) = LiveRangeAnalysis::port_to_cell_name(
                     port,
                     &self.state_share,
                 ) {
-                    t_alive.insert(cell_info);
+                    // If we read from a state shareable component (like a register)
+                    // in the port, then we add it to cgroup_reads.
+                    cgroup_reads.insert(cell_info);
                 }
+                if !cgroup_reads.is_empty() || !shareable_uses.is_empty() {
+                    let mut all_uses = cgroup_reads.clone();
+                    all_uses.extend(shareable_uses);
+                    // add all uses of both shareable and state-shareable components
+                    // in the cgroup_uses_map.
+                    self.cgroup_uses_map.insert(id, all_uses);
+                }
+                // adding cgroup_reads as live on output of if stmt
+                t_alive.or_set(cgroup_reads.clone());
+                t_gens.or_set(cgroup_reads);
                 (t_alive, t_gens, t_kills)
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {
@@ -780,25 +863,55 @@ impl LiveRangeAnalysis {
                 alive.transfer(gens.clone(), kills.clone());
                 (alive, gens, kills)
             }
-            ir::Control::While(ir::While { body, port, .. }) => {
+            ir::Control::While(ir::While {
+                body, port, cond, ..
+            }) => {
+                let id = ControlId::get_guaranteed_id(c);
+                // need this info twice, so just pre-calculate whether port is
+                // a state shareable component.
+                let port_if_shareable: Option<(ir::CellType, ir::Id)> =
+                    LiveRangeAnalysis::port_to_cell_name(
+                        port,
+                        &self.state_share,
+                    );
+                // all reads from state shareable components in the comb group or port
+                let mut cgroup_reads: TypeNameSet = HashSet::new();
+                // all uses of shareable components in the comb group or port
+                let mut shareable_uses: TypeNameSet = HashSet::new();
+                // Go through while body and while port + comb group once
                 let (mut alive, mut gens, kills) =
                     self.build_live_ranges(body, alive, gens, kills);
-                if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(
-                    port,
-                    &self.state_share,
-                ) {
-                    alive.insert(cell.clone());
-                    gens.insert(cell);
+                if let Some(cell_info) = port_if_shareable {
+                    // adds port to cgroup_reads if state_shareable.
+                    cgroup_reads.insert(cell_info);
                 }
+                if let Some(comb_group) = cond {
+                    let (share_uses, state_reads) = Self::uses_reads_cgroup(
+                        comb_group,
+                        &self.share,
+                        &self.state_share,
+                    );
+                    shareable_uses = share_uses;
+                    cgroup_reads.extend(state_reads);
+                }
+                // setting alive and gens appropriately based on the updated info
+                // from the comb group + port.
+                alive.or_set(cgroup_reads.clone());
+                gens.or_set(cgroup_reads.clone());
+
+                if !cgroup_reads.is_empty() || !shareable_uses.is_empty() {
+                    // add all uses of shareable and non-shareable components into
+                    // cgroup_uses_map
+                    let mut all_uses = cgroup_reads.clone();
+                    all_uses.extend(shareable_uses);
+                    self.cgroup_uses_map.insert(id, all_uses);
+                }
+
+                // Going through the while body and guard + port once again
                 let (mut alive, mut gens, kills) =
                     self.build_live_ranges(body, alive, gens, kills);
-                if let Some(cell) = LiveRangeAnalysis::port_to_cell_name(
-                    port,
-                    &self.state_share,
-                ) {
-                    alive.insert(cell.clone());
-                    gens.insert(cell);
-                }
+                alive.or_set(cgroup_reads.clone());
+                gens.or_set(cgroup_reads);
                 (alive, gens, kills)
             }
         }

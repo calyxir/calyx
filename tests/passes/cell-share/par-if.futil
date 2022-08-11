@@ -1,0 +1,46 @@
+// -p cell-share -p remove-ids
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    add0 = std_add(32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    lt1 = std_lt(32);
+    lt2 = std_lt(32);
+    r = std_reg(32);
+  }
+  wires {
+    comb group cg1{
+      add0.left = 32'd2; 
+      add0.right = 32'd4; 
+      add1.left = 32'd4; 
+      add1.right = 32'd6; 
+      lt1.left = add0.out; 
+      lt1.left = add1.out; 
+    }
+    comb group cg2{
+      add2.left = 32'd2; 
+      add2.right = 32'd4; 
+      add3.left = 32'd4; 
+      add3.right = 32'd6; 
+      lt2.left = add2.out; 
+      lt2.left = add3.out; 
+    }
+    group A{
+      r.write_en = 1'd1; 
+      r.in = 32'd2; 
+      A[done] = r.done; 
+    }
+  }
+  control {
+    par {
+      if lt1.out with cg1{
+        A;
+      }
+      if lt2.out with cg2{
+        A;
+      }
+    }
+  }
+}
