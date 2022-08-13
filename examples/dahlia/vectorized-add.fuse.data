@@ -8,7 +8,7 @@
       31,
       63,
       127,
-      254
+      255
     ],
     "format": {
       "numeric_type": "bitnum",
