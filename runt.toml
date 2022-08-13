@@ -279,9 +279,9 @@ fud e {} -s verilog.cycle_limit 500 \
 [[tests]]
 name = "AXI generation"
 paths = [
-  "tests/xilinx/dot-product.futil",
-  "tests/xilinx/language-tutorial-iterate.futil",
-  "tests/xilinx/vectorized-add.futil"
+  "tests/xilinx/compile/dot-product.futil",
+  "tests/xilinx/compile/language-tutorial-iterate.futil",
+  "tests/xilinx/compile/vectorized-add.futil"
 ]
 cmd = """
 target/debug/futil {} -b xilinx
