@@ -1,8 +1,9 @@
+use std::iter;
+use itertools::Itertools;
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Attributes, LibrarySignatures};
 use crate::structure;
-use itertools::Itertools;
 
 /// Compiles [`ir::Invoke`](crate::ir::Invoke) statements into an [`ir::Enable`](crate::ir::Enable)
 /// that runs the invoked component.
@@ -29,14 +30,6 @@ impl Visitor for CompileInvoke {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, ctx);
 
-        let invoke_group = builder.add_group("invoke");
-
-        // comp.go = 1'd1;
-        // invoke[done] = comp.done;
-        structure!(builder;
-            let one = constant(1, 1);
-        );
-
         let cell = s.comp.borrow();
         let name = cell.name();
 
@@ -56,18 +49,20 @@ impl Visitor for CompileInvoke {
             return Err(Error::malformed_control(format!("Invoked component `{name}` does not define a @done signal. Cannot compile the invoke")));
         }
 
+
+        // comp.go = 1'd1;
+        // invoke[done] = comp.done;
+        structure!(builder;
+            let one = constant(1, 1);
+        );
+        let invoke_group = builder.add_group("invoke", done_ports.pop().unwrap());
+
         // Build assignemnts
         let go_assign = builder.build_assignment(
             go_ports.pop().unwrap(),
             one.borrow().get("out"),
             ir::Guard::True,
         );
-        let done_assign = builder.build_assignment(
-            invoke_group.borrow().get("done"),
-            done_ports.pop().unwrap(),
-            ir::Guard::True,
-        );
-        let mut enable_assignments = vec![go_assign, done_assign];
 
         // Generate argument assignments
         let cell = &*s.comp.borrow();
@@ -81,7 +76,7 @@ impl Visitor for CompileInvoke {
             .chain(s.outputs.drain(..).into_iter().map(|(out, p)| {
                 builder.build_assignment(p, cell.get(out), ir::Guard::True)
             }))
-            .chain(enable_assignments.drain(..))
+            .chain(iter::once(go_assign))
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 

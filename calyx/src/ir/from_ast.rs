@@ -307,7 +307,30 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
         ir_group.borrow_mut().attributes = group.attributes;
         ir_group.borrow_mut().assignments = assigns;
     } else {
-        let ir_group = builder.add_group(group.name);
+        // Find the done condition for the group
+        let done_conds = group.wires.iter().filter(|wire| {
+            if let ast::Port::Hole { group: gr, name } = wire.dest {
+                gr == group.name && name == "done"
+            } else {
+                false
+            }
+        });
+
+        // Throw error if multiple done conditions are found
+        let ast::Wire { src, dest, .. } = done_conds.next().unwrap();
+        if let Some(g) = src.guard {
+            return Err(Error::malformed_structure(
+                "Done condition for group cannot have a guard",
+            ));
+        }
+        let dc = atom_to_port(src.expr, builder)?;
+        if let Some(wire) = done_conds.next() {
+            return Err(Error::malformed_structure(
+                "Group has multiple done conditions",
+            ));
+        }
+
+        let ir_group = builder.add_group(group.name, dc);
         let assigns = build_assignments(group.wires, builder)?;
 
         ir_group.borrow_mut().attributes = group.attributes;

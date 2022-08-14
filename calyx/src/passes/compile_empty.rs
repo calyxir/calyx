@@ -47,19 +47,20 @@ impl Visitor for CompileEmpty {
             None => {
                 let mut builder = ir::Builder::new(comp, sigs);
 
-                // Build the new group
-                let empty_group = builder.add_group("_empty");
-                empty_group.borrow_mut().attributes.insert("static", 1);
-
                 // Add this signal empty_group[done] = 1'd1;
                 structure!(builder;
                     let signal_on = constant(1, 1);
                     let empty_reg = prim std_reg(1);
                 );
+
+                // Build the new group
+                let empty_group =
+                    builder.add_group("_empty", empty_reg.borrow().get("done"));
+                empty_group.borrow_mut().attributes.insert("static", 1);
+
                 let mut assigns: Vec<_> = build_assignments!(builder;
                     empty_reg["write_en"] = ? signal_on["out"];
                     empty_reg["in"] = ? signal_on["out"];
-                    empty_group["done"] = ? empty_reg["done"];
                 );
                 empty_group.borrow_mut().assignments.append(&mut assigns);
 

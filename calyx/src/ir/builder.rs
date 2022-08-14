@@ -55,7 +55,7 @@ impl<'a> Builder<'a> {
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_group<S>(&mut self, prefix: S) -> RRC<ir::Group>
+    pub fn add_group<S>(&mut self, prefix: S, done_cond: RRC<ir::Port>) -> RRC<ir::Group>
     where
         S: Into<ir::Id> + ToString + Clone + AsRef<str>,
     {
@@ -79,6 +79,11 @@ impl<'a> Builder<'a> {
             }));
             group.borrow_mut().holes.push(hole);
         }
+
+        // Add the done condition for the group.
+        let done_hole = group.borrow().get("done");
+        let assign = self.build_assignment(done_hole, done_cond, ir::Guard::True);
+        group.borrow_mut().assignments.push(assign);
 
         // Add the group to the component.
         self.component.groups.add(Rc::clone(&group));
