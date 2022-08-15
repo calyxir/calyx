@@ -62,7 +62,7 @@ impl MemoryInterface for AxiInterface {
             prefix: format!("{}AW", prefix),
             direction: ChannelDirection::Send,
             state: vec![],
-            data_ports: addr_data_ports.clone(),
+            data_ports: addr_data_ports,
         };
         let write_data = AxiChannel {
             prefix: format!("{}W", prefix),
@@ -274,8 +274,8 @@ impl MemoryInterface for AxiInterface {
         );
         // Currently we do not utilize burst capabilities, therefore AxLEN is 0
         module.add_stmt(axi4.write_address.assign("LEN", 0));
-        module.add_stmt(axi4.write_address.assign("SIZE", burst_size.clone()));
-        module.add_stmt(axi4.write_address.assign("BURST", burst_type.clone()));
+        module.add_stmt(axi4.write_address.assign("SIZE", burst_size));
+        module.add_stmt(axi4.write_address.assign("BURST", burst_type));
 
         // write data channel
         module.add_stmt(axi4.write_data.assign("ID", 0));
