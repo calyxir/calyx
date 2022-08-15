@@ -36,7 +36,7 @@ impl MemoryInterface for AxiInterface {
             ("ADDR".to_string(), address_width),
             ("LEN".to_string(), 8),
             ("SIZE".to_string(), 3),
-            ("BURST".to_string(), 3),
+            ("BURST".to_string(), 2),
         ];
         // read channels
         let read_address = AxiChannel {
