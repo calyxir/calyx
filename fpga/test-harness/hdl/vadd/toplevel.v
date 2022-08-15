@@ -48,8 +48,8 @@ module Toplevel (
     input wire [7:0] m0_axi_BID,
     input wire [1:0] m0_axi_BRESP,
     //ADDED SIGNALS TO GET COCOTB TO WORK
-    input wire [1:0]  m0_axi_AWBURST,
-    input wire [1:0]  m0_axi_ARBURST,
+    output wire [1:0]  m0_axi_AWBURST,
+    output wire [1:0]  m0_axi_ARBURST,
     //GENERATED CODE
     input wire m1_axi_ARREADY,
     output wire m1_axi_ARVALID,
@@ -80,8 +80,8 @@ module Toplevel (
     input wire [7:0] m1_axi_BID,
     input wire [1:0] m1_axi_BRESP,
     //ADDED SIGNALS TO GET COCOTB TO WORK
-    input wire [1:0]  m1_axi_AWBURST,
-    input wire [1:0]  m1_axi_ARBURST,
+    output wire [1:0]  m1_axi_AWBURST,
+    output wire [1:0]  m1_axi_ARBURST,
     //GENERATED CODE
     input wire m2_axi_ARREADY,
     output wire m2_axi_ARVALID,
@@ -112,10 +112,18 @@ module Toplevel (
     input wire [7:0] m2_axi_BID,
     input wire [1:0] m2_axi_BRESP,
     //ADDED SIGNALS TO GET COCOTB TO WORK
-    input wire [1:0]  m2_axi_AWBURST,
-    input wire [1:0]  m2_axi_ARBURST
+    output wire [1:0]  m2_axi_AWBURST,
+    output wire [1:0]  m2_axi_ARBURST
     //GENERATED CODE
 );
+    //ADDED TO GET COTOB TO WORK
+    assign m0_axi_ARBURST = 2'b01;
+    assign m1_axi_ARBURST = 2'b01;
+    assign m2_axi_ARBURST = 2'b01;
+    assign m0_axi_AWBURST = 2'b01;
+    assign m1_axi_AWBURST = 2'b01;
+    assign m2_axi_AWBURST = 2'b01;
+    //GENERATED CODE
     wire ap_start;
     wire ap_done;
     wire [31:0] timeout;
@@ -215,12 +223,12 @@ module Toplevel (
     end
     wire [31:0] A0_write_data;
     wire [31:0] A0_read_data;
-    wire [11:0] A0_addr0; //XXX (nathanielnrn): Why is this 11? Last 2bytes are zs throughout simulation
+    wire [11:0] A0_addr0; //XXX (nathanielnrn): Why is this 12 wide? Last 2bytes are zs throughout simulation
     wire A0_write_en;
     wire A0_done;
     Memory_controller_axi_0 inst_mem_controller_axi_0 (
         .ACLK(ap_clk),
-        .ADDR(A0_addr0),
+        .ADDR(A0_addr0), //input, A0_addr0 is output from compute kernel
         .ARADDR(m0_axi_ARADDR),
         .ARESET(reset || memories_sent),
         .ARID(m0_axi_ARID),
@@ -239,8 +247,8 @@ module Toplevel (
         .BREADY(m0_axi_BREADY),
         .BRESP(m0_axi_BRESP),
         .BVALID(m0_axi_BVALID),
-        .COPY_FROM_HOST(A0_copy),
-        .COPY_FROM_HOST_DONE(A0_copy_done),
+        .COPY_FROM_HOST(A0_copy), //input, A0_copy from host_txn_state
+        .COPY_FROM_HOST_DONE(A0_copy_done), //output, also from host_txn_state
         .DONE(A0_done),
         .RDATA(m0_axi_RDATA),
         .READ_DATA(A0_read_data),
@@ -256,13 +264,13 @@ module Toplevel (
         .WID(m0_axi_WID),
         .WLAST(m0_axi_WLAST),
         .WREADY(m0_axi_WREADY),
-        .WRITE_DATA(A0_write_data),
+        .WRITE_DATA(A0_write_data), //x_write_data is output of main, not used, WRITE_DATA is input
         .WSTRB(m0_axi_WSTRB),
         .WVALID(m0_axi_WVALID)
     );
     wire [31:0] B0_write_data;
     wire [31:0] B0_read_data;
-    wire [11:0] B0_addr0; //XXX (nathanielnrn): Why is this 11? Last 2bytes are zs throughout simulation
+    wire [11:0] B0_addr0; //XXX (nathanielnrn): Why is this 12 wide? Last 2bytes are zs throughout simulation
     wire B0_write_en;
     wire B0_done;
     Memory_controller_axi_1 inst_mem_controller_axi_1 (
@@ -309,7 +317,7 @@ module Toplevel (
     );
     wire [31:0] Sum0_write_data;
     wire [31:0] Sum0_read_data;
-    wire [11:0] Sum0_addr0; //XXX (nathanielnrn): Why is this 11? Last 2bytes are zs throughout simulation
+    wire [11:0] Sum0_addr0; //XXX (nathanielnrn): Why is this 12 wide? Last 2bytes are zs throughout simulation
     wire Sum0_write_en;
     wire Sum0_done;
     Memory_controller_axi_2 inst_mem_controller_axi_2 (
@@ -357,24 +365,24 @@ module Toplevel (
     wire kernel_start;
     wire kernel_done;
     main kernel_inst (
-        .A0_addr0(A0_addr0),
+        .A0_addr0(A0_addr0), //output
         .A0_clk(),
         .A0_done(A0_done),
-        .A0_read_data(A0_read_data),
-        .A0_write_data(A0_write_data),
+        .A0_read_data(A0_read_data), //input
+        .A0_write_data(A0_write_data), //output
         .A0_write_en(A0_write_en),
-        .B0_addr0(B0_addr0),
+        .B0_addr0(B0_addr0), //output
         .B0_clk(),
         .B0_done(B0_done),
-        .B0_read_data(B0_read_data),
-        .B0_write_data(B0_write_data),
+        .B0_read_data(B0_read_data), //input
+        .B0_write_data(B0_write_data), //output
         .B0_write_en(B0_write_en),
-        .Sum0_addr0(Sum0_addr0),
+        .Sum0_addr0(Sum0_addr0), //output
         .Sum0_clk(),
         .Sum0_done(Sum0_done),
-        .Sum0_read_data(Sum0_read_data),
-        .Sum0_write_data(Sum0_write_data),
-        .Sum0_write_en(Sum0_write_en),
+        .Sum0_read_data(Sum0_read_data), //input
+        .Sum0_write_data(Sum0_write_data), //output
+        .Sum0_write_en(Sum0_write_en), 
         .clk(ap_clk),
         .done(kernel_done),
         .go(kernel_start),
@@ -406,7 +414,7 @@ module SINGLE_PORT_BRAM_0 (
         end
     end
     reg done_reg;
-    always @(posedge ACLK) begin
+    always @(posedge ACLK) begin //XXX (nathanielnrn): could clean up this generated code
         if(WE) begin
             done_reg <= 1;
         end else begin
@@ -573,6 +581,7 @@ module Control_axi (
             waddr <= AWADDR;
         end
     end
+    //Read logic
     always @(posedge ACLK) begin
         if(ARESET) begin
             rdata <= 0;
@@ -637,6 +646,7 @@ module Control_axi (
     reg [31:0] int_timeout;
     assign ap_start = int_ap_start;
     assign timeout = int_timeout;
+    //Write logic
     always @(posedge ACLK) begin
         if(ARESET) begin
             int_ap_start <= 0;
@@ -646,6 +656,7 @@ module Control_axi (
             int_ap_start <= 0;
         end
     end
+    //note this is a read
     always @(posedge ACLK) begin
         if(ARESET) begin
             int_ap_done <= 0;
@@ -747,7 +758,7 @@ module Memory_controller_axi_0 (
     input wire ARREADY,
     output wire ARVALID,
     output wire [7:0] ARID,
-    output wire [63:0] ARADDR,
+    output wire [63:0] ARADDR, 
     output wire [7:0] ARLEN,
     output wire [2:0] ARSIZE,
     input wire RVALID,
@@ -779,7 +790,7 @@ module Memory_controller_axi_0 (
     output wire SEND_TO_HOST_DONE,
     input wire [31:0] WRITE_DATA,
     output wire [31:0] READ_DATA,
-    input wire [3:0] ADDR,
+    input wire [3:0] ADDR, // A0_addr0 from kernel
     input wire WE,
     output wire DONE
 );
@@ -869,22 +880,22 @@ module Memory_controller_axi_0 (
             rstate <= rnext;
         end
     end
-    assign ARVALID = rstate == 1;
-    assign RREADY = rstate == 2;
+    assign ARVALID = rstate == 1; //controller sending valid AR
+    assign RREADY = rstate == 2; //controller ready to recieve next data
     always @(*) begin
         case (rstate)
             0 : begin
-                if(memory_mode_next == 1) begin
+                if(memory_mode_next == 1) begin // copying from host
                     rnext = 1;
                 end else rnext = 0;
             end
             1 : begin
-                if(ARREADY) begin
+                if(ARREADY) begin // == ARREADY & ARVALID
                     rnext = 2;
                 end else rnext = 1;
             end
             2 : begin
-                if(RVALID) begin
+                if(RVALID) begin // == RVALID & RREADY
                     rnext = 0;
                 end else rnext = 2;
             end
@@ -959,7 +970,7 @@ module Memory_controller_axi_0 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2;
+    assign AWSIZE = 2; //TODO: Need to change to dynamically assign number of bytes, 2 ^ AWSIZE
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
@@ -1184,7 +1195,7 @@ module Memory_controller_axi_1 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2;
+    assign AWSIZE = 2; //TODO: Need to change to dynamically assign number of bytes, 2 ^ AWSIZE
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
@@ -1409,10 +1420,22 @@ module Memory_controller_axi_2 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2;
+    assign AWSIZE = 2; //TODO: Need to change to dynamically assign number of bytes, 2 ^ AWSIZE
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
     assign WLAST = 1;
+
+
+// the "macro" to dump signals
+`ifdef COCOTB_SIM
+initial begin
+  //change name of vcd
+  $dumpfile ("vadd_cocotb.vcd");
+  $dumpvars (0, Toplevel);
+  #1;
+end
+`endif
+
 endmodule
 `default_nettype wire
