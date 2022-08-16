@@ -281,7 +281,8 @@ name = "AXI generation"
 paths = [
   "tests/xilinx/compile/dot-product.futil",
   "tests/xilinx/compile/language-tutorial-iterate.futil",
-  "tests/xilinx/compile/vectorized-add.futil"
+  "tests/xilinx/compile/vectorized-add.futil",
+  "tests/"
 ]
 cmd = """
 target/debug/futil {} -b xilinx
@@ -289,10 +290,7 @@ target/debug/futil {} -b xilinx
 
 [[tests]]
 name = "Cocotb correctness tests"
-paths = [
-#TODO
-]
+paths = ["./tests/xilinx/cocotb/dot-product/"]
 cmd = """
-
+make -f ../Makefile run_test TEST_DIR={}
 """
-

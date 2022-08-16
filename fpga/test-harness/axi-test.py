@@ -156,6 +156,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("data_path", help = "Path to input data of kernel") 
     parser.add_argument("expect_path", help = "Path to expected output of kernel")
+    args = parser.parse_args()
+    print("hahaha")
+
 
 
 # How to build:
