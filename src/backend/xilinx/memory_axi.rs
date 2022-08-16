@@ -31,17 +31,19 @@ impl MemoryInterface for AxiInterface {
         data_width: u64,
         prefix: &str,
     ) -> Self {
+        let addr_data_ports = vec![
+            ("ID".to_string(), address_width / 8),
+            ("ADDR".to_string(), address_width),
+            ("LEN".to_string(), 8),
+            ("SIZE".to_string(), 3),
+            ("BURST".to_string(), 2),
+        ];
         // read channels
         let read_address = AxiChannel {
             prefix: format!("{}AR", prefix),
             direction: ChannelDirection::Send,
             state: vec![],
-            data_ports: vec![
-                ("ID".to_string(), address_width / 8),
-                ("ADDR".to_string(), address_width),
-                ("LEN".to_string(), 8),
-                ("SIZE".to_string(), 3),
-            ],
+            data_ports: addr_data_ports.clone(),
         };
         let read_data = AxiChannel {
             prefix: format!("{}R", prefix),
@@ -60,12 +62,7 @@ impl MemoryInterface for AxiInterface {
             prefix: format!("{}AW", prefix),
             direction: ChannelDirection::Send,
             state: vec![],
-            data_ports: vec![
-                ("ID".to_string(), address_width / 8),
-                ("ADDR".to_string(), address_width),
-                ("LEN".to_string(), 8),
-                ("SIZE".to_string(), 3),
-            ],
+            data_ports: addr_data_ports,
         };
         let write_data = AxiChannel {
             prefix: format!("{}W", prefix),
@@ -202,7 +199,16 @@ impl MemoryInterface for AxiInterface {
         // TODO(nathanielnrn): Fix the burst size and shifting values based on
         // pynq(?) input? Or memory size? unclear.
         let shift_by = 2;
-        let burst_size: i32 = utils::math::bits_needed_for(32 / 8) as i32;
+        let burst_size = v::Expr::new_ulit_dec(
+            3,
+            &utils::math::bits_needed_for(data_width / 8).to_string(),
+        );
+        //AxBURST corresponds to type of burst as follows:
+        // 0b00: Fixed
+        // 0b01 (default): Incr
+        // 0b10: Wrap
+        // 0b11: Reserved
+        let burst_type = v::Expr::new_ulit_bin(2, "01");
 
         module.add_stmt(axi4.read_address.assign("ID", 0));
 
@@ -224,8 +230,10 @@ impl MemoryInterface for AxiInterface {
             axi4.read_address
                 .assign("ADDR", v::Expr::new_add("BASE_ADDRESS", copy_shift)),
         );
+        // Currently we do not utilize burst capabilities, therefore AxLEN is 0
         module.add_stmt(axi4.read_address.assign("LEN", 0));
-        module.add_stmt(axi4.read_address.assign("SIZE", burst_size));
+        module.add_stmt(axi4.read_address.assign("SIZE", burst_size.clone()));
+        module.add_stmt(axi4.read_address.assign("BURST", burst_type.clone()));
 
         let write_controller = axi4
             .write_address
@@ -264,8 +272,10 @@ impl MemoryInterface for AxiInterface {
             axi4.write_address
                 .assign("ADDR", v::Expr::new_add("BASE_ADDRESS", send_shift)),
         );
+        // Currently we do not utilize burst capabilities, therefore AxLEN is 0
         module.add_stmt(axi4.write_address.assign("LEN", 0));
         module.add_stmt(axi4.write_address.assign("SIZE", burst_size));
+        module.add_stmt(axi4.write_address.assign("BURST", burst_type));
 
         // write data channel
         module.add_stmt(axi4.write_data.assign("ID", 0));

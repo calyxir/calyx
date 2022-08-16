@@ -115,7 +115,7 @@ module Toplevel (
     wire [31:0] timeout;
     wire [63:0] A0;
     wire [63:0] B0;
-    wire [63:0] Sum0;
+    wire [63:0] v0;
     wire reset;
     assign reset = ~ap_rst_n;
     Control_axi inst_control_axi (
@@ -136,13 +136,13 @@ module Toplevel (
         .RREADY(s_axi_control_RREADY),
         .RRESP(s_axi_control_RRESP),
         .RVALID(s_axi_control_RVALID),
-        .Sum0(Sum0),
         .WDATA(s_axi_control_WDATA),
         .WREADY(s_axi_control_WREADY),
         .WVALID(s_axi_control_WVALID),
         .ap_done(ap_done),
         .ap_start(ap_start),
-        .timeout(timeout)
+        .timeout(timeout),
+        .v0(v0)
     );
     wire A0_copy;
     wire A0_copy_done;
@@ -152,16 +152,16 @@ module Toplevel (
     wire B0_copy_done;
     wire B0_send;
     wire B0_send_done;
-    wire Sum0_copy;
-    wire Sum0_copy_done;
-    wire Sum0_send;
-    wire Sum0_send_done;
+    wire v0_copy;
+    wire v0_copy_done;
+    wire v0_send;
+    wire v0_send_done;
     wire memories_copied;
     reg memories_sent;
-    assign memories_copied = A0_copy_done && B0_copy_done && Sum0_copy_done;
+    assign memories_copied = A0_copy_done && B0_copy_done && v0_copy_done;
     always @(posedge ap_clk) begin
         if(host_txn_state == 3) begin
-            memories_sent <= A0_send_done & B0_send_done & Sum0_send_done;
+            memories_sent <= A0_send_done & B0_send_done & v0_send_done;
         end else memories_sent <= 0;
     end
     reg [1:0] host_txn_state;
@@ -175,11 +175,11 @@ module Toplevel (
     end
     assign A0_copy = host_txn_state == 1;
     assign B0_copy = host_txn_state == 1;
-    assign Sum0_copy = host_txn_state == 1;
+    assign v0_copy = host_txn_state == 1;
     assign kernel_start = host_txn_state == 2;
     assign A0_send = host_txn_state == 3;
     assign B0_send = host_txn_state == 3;
-    assign Sum0_send = host_txn_state == 3;
+    assign v0_send = host_txn_state == 3;
     always @(*) begin
         case (host_txn_state)
             0 : begin
@@ -305,14 +305,14 @@ module Toplevel (
         .WSTRB(m1_axi_WSTRB),
         .WVALID(m1_axi_WVALID)
     );
-    wire [31:0] Sum0_write_data;
-    wire [31:0] Sum0_read_data;
-    wire [11:0] Sum0_addr0;
-    wire Sum0_write_en;
-    wire Sum0_done;
+    wire [31:0] v0_write_data;
+    wire [31:0] v0_read_data;
+    wire [11:0] v0_addr0;
+    wire v0_write_en;
+    wire v0_done;
     Memory_controller_axi_2 inst_mem_controller_axi_2 (
         .ACLK(ap_clk),
-        .ADDR(Sum0_addr0),
+        .ADDR(v0_addr0),
         .ARADDR(m2_axi_ARADDR),
         .ARBURST(m2_axi_ARBURST),
         .ARESET(reset || memories_sent),
@@ -328,29 +328,29 @@ module Toplevel (
         .AWREADY(m2_axi_AWREADY),
         .AWSIZE(m2_axi_AWSIZE),
         .AWVALID(m2_axi_AWVALID),
-        .BASE_ADDRESS(Sum0),
+        .BASE_ADDRESS(v0),
         .BID(m2_axi_BID),
         .BREADY(m2_axi_BREADY),
         .BRESP(m2_axi_BRESP),
         .BVALID(m2_axi_BVALID),
-        .COPY_FROM_HOST(Sum0_copy),
-        .COPY_FROM_HOST_DONE(Sum0_copy_done),
-        .DONE(Sum0_done),
+        .COPY_FROM_HOST(v0_copy),
+        .COPY_FROM_HOST_DONE(v0_copy_done),
+        .DONE(v0_done),
         .RDATA(m2_axi_RDATA),
-        .READ_DATA(Sum0_read_data),
+        .READ_DATA(v0_read_data),
         .RID(m2_axi_RID),
         .RLAST(m2_axi_RLAST),
         .RREADY(m2_axi_RREADY),
         .RRESP(m2_axi_RRESP),
         .RVALID(m2_axi_RVALID),
-        .SEND_TO_HOST(Sum0_send),
-        .SEND_TO_HOST_DONE(Sum0_send_done),
+        .SEND_TO_HOST(v0_send),
+        .SEND_TO_HOST_DONE(v0_send_done),
         .WDATA(m2_axi_WDATA),
-        .WE(Sum0_write_en),
+        .WE(v0_write_en),
         .WID(m2_axi_WID),
         .WLAST(m2_axi_WLAST),
         .WREADY(m2_axi_WREADY),
-        .WRITE_DATA(Sum0_write_data),
+        .WRITE_DATA(v0_write_data),
         .WSTRB(m2_axi_WSTRB),
         .WVALID(m2_axi_WVALID)
     );
@@ -369,16 +369,16 @@ module Toplevel (
         .B0_read_data(B0_read_data),
         .B0_write_data(B0_write_data),
         .B0_write_en(B0_write_en),
-        .Sum0_addr0(Sum0_addr0),
-        .Sum0_clk(),
-        .Sum0_done(Sum0_done),
-        .Sum0_read_data(Sum0_read_data),
-        .Sum0_write_data(Sum0_write_data),
-        .Sum0_write_en(Sum0_write_en),
         .clk(ap_clk),
         .done(kernel_done),
         .go(kernel_start),
-        .reset(reset || memories_sent)
+        .reset(reset || memories_sent),
+        .v0_addr0(v0_addr0),
+        .v0_clk(),
+        .v0_done(v0_done),
+        .v0_read_data(v0_read_data),
+        .v0_write_data(v0_write_data),
+        .v0_write_en(v0_write_en)
     );
     reg [31:0] counter;
     always @(posedge ap_clk) begin
@@ -445,16 +445,16 @@ endmodule
 
 module SINGLE_PORT_BRAM_2 (
     input wire ACLK,
-    input wire [3:0] ADDR,
+    input wire ADDR,
     input wire [31:0] Din,
     input wire WE,
     output wire [31:0] Dout,
     output wire Done
 );
-    (*ram_style = "block"*) reg [31:0] ram_core [7:0];
+    (*ram_style = "block"*) reg [31:0] ram_core;
     always @(posedge ACLK) begin
         if(WE) begin
-            ram_core[ADDR] <= Din;
+            ram_core <= Din;
         end
     end
     reg done_reg;
@@ -465,7 +465,7 @@ module SINGLE_PORT_BRAM_2 (
             done_reg <= 0;
         end
     end
-    assign Dout = ram_core[ADDR];
+    assign Dout = ram_core;
     assign Done = done_reg;
 endmodule
 
@@ -474,7 +474,7 @@ module Control_axi (
     input wire ARESET,
     output wire [63:0] A0,
     output wire [63:0] B0,
-    output wire [63:0] Sum0,
+    output wire [63:0] v0,
     output wire ap_start,
     input wire ap_done,
     output wire [31:0] timeout,
@@ -613,10 +613,10 @@ module Control_axi (
                     rdata[31:0] <= addr_B0[63:32];
                 end
                 12'h28 : begin
-                    rdata[31:0] <= addr_Sum0[31:0];
+                    rdata[31:0] <= addr_v0[31:0];
                 end
                 12'h2c : begin
-                    rdata[31:0] <= addr_Sum0[63:32];
+                    rdata[31:0] <= addr_v0[63:32];
                 end
                 default : begin
                     rdata <= 0;
@@ -626,7 +626,7 @@ module Control_axi (
     end
     reg [63:0] addr_A0;
     reg [63:0] addr_B0;
-    reg [63:0] addr_Sum0;
+    reg [63:0] addr_v0;
     reg int_ap_done;
     reg int_ap_idle;
     reg int_ap_start;
@@ -724,19 +724,19 @@ module Control_axi (
             addr_B0[63:32] <= wdata[31:0];
         end
     end
-    assign Sum0 = addr_Sum0;
+    assign v0 = addr_v0;
     always @(posedge ACLK) begin
         if(ARESET) begin
-            addr_Sum0[31:0] <= 0;
+            addr_v0[31:0] <= 0;
         end else if(WVALID & WREADY && waddr == 40) begin
-            addr_Sum0[31:0] <= wdata[31:0];
+            addr_v0[31:0] <= wdata[31:0];
         end
     end
     always @(posedge ACLK) begin
         if(ARESET) begin
-            addr_Sum0[63:32] <= 0;
+            addr_v0[63:32] <= 0;
         end else if(WVALID & WREADY && waddr == 44) begin
-            addr_Sum0[63:32] <= wdata[31:0];
+            addr_v0[63:32] <= wdata[31:0];
         end
     end
 endmodule
@@ -1239,14 +1239,14 @@ module Memory_controller_axi_2 (
     output wire SEND_TO_HOST_DONE,
     input wire [31:0] WRITE_DATA,
     output wire [31:0] READ_DATA,
-    input wire [3:0] ADDR,
+    input wire ADDR,
     input wire WE,
     output wire DONE
 );
     wire copy_done;
-    assign copy_done = copy_addr_offset == 8;
+    assign copy_done = copy_addr_offset == 1;
     wire send_done;
-    assign send_done = send_addr_offset == 8;
+    assign send_done = send_addr_offset == 1;
     reg [2:0] memory_mode_state;
     reg [2:0] memory_mode_next;
     always @(posedge ACLK) begin
@@ -1298,7 +1298,7 @@ module Memory_controller_axi_2 (
             read_txn_count <= read_txn_count + 1;
         end
     end
-    wire [3:0] bram_addr;
+    wire bram_addr;
     wire [31:0] bram_write_data;
     wire bram_we;
     wire [31:0] bram_read_data;
@@ -1312,9 +1312,9 @@ module Memory_controller_axi_2 (
         .WE(bram_we)
     );
     assign DONE = bram_done;
-    assign bram_addr = RVALID & RREADY && memory_mode_state == 1 ? copy_addr_offset[3:0] :
+    assign bram_addr = RVALID & RREADY && memory_mode_state == 1 ? copy_addr_offset[0:0] :
      memory_mode_state == 2 ? ADDR :
-     memory_mode_state == 3 ? send_addr_offset[3:0] : 0;
+     memory_mode_state == 3 ? send_addr_offset[0:0] : 0;
     assign bram_we = RVALID & RREADY && memory_mode_state == 1 ? 1 :
      memory_mode_state == 2 ? WE : 0;
     assign bram_write_data = RVALID & RREADY && memory_mode_state == 1 ? RDATA[read_txn_count * 32 +: 32] :
@@ -1353,7 +1353,7 @@ module Memory_controller_axi_2 (
             end
         endcase
     end
-    reg [3:0] copy_addr_offset;
+    reg [1:0] copy_addr_offset;
     always @(posedge ACLK) begin
         if(memory_mode_state == 1) begin
             if(RVALID & RREADY) begin
@@ -1363,7 +1363,7 @@ module Memory_controller_axi_2 (
     end
     assign ARID = 0;
     wire [63:0] copy_shift;
-    assign copy_shift = {{60{1'b0}}, copy_addr_offset} << 2;
+    assign copy_shift = {{62{1'b0}}, copy_addr_offset} << 2;
     assign ARADDR = BASE_ADDRESS + copy_shift;
     assign ARLEN = 0;
     assign ARSIZE = 3'd2;
@@ -1407,7 +1407,7 @@ module Memory_controller_axi_2 (
             end
         endcase
     end
-    reg [3:0] send_addr_offset;
+    reg [1:0] send_addr_offset;
     always @(posedge ACLK) begin
         if(memory_mode_state == 3) begin
             if(BVALID & BREADY) begin
@@ -1417,7 +1417,7 @@ module Memory_controller_axi_2 (
     end
     assign AWID = 0;
     wire [63:0] send_shift;
-    assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
+    assign send_shift = {{62{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
     assign AWSIZE = 3'd2;
