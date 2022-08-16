@@ -61,7 +61,7 @@
 				},
 				{
 					"name": "keyword.operator",
-					"match": "ref"
+					"match": "\\b(ref|comb)\\b"
 				}
 			]
 		},
