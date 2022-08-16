@@ -14,7 +14,7 @@ import logging
 # github repo to fix
 
 
-class VectorAddTB:
+class KernelTB:
     def __init__(self, toplevel):
         toplevel.log.setLevel(logging.DEBUG)
         self.toplevel = toplevel
@@ -27,8 +27,9 @@ class VectorAddTB:
             size = mem_size(mem, data)
             width = data_width(mem, data)
 
-            # from_prefix assumes signals of form dut.<prefix>_<signal> i.e m0_axi_RDATA
-            # therefore these prefixes have to match verilog code, see kernel.xml <args>
+            # From_prefix assumes signals of form toplevel.<prefix>_<signal>
+            # i.e m0_axi_RDATA.
+            # These prefixes have to match verilog code. See kernel.xml <args>
             # and ports assigned within that for guidance.
             # In general, the index of `m<idx>_axi` just
             # increments by 1 in fud axi generation
@@ -61,7 +62,7 @@ class VectorAddTB:
 
 
 @cocotb.test(skip=False)
-async def run_vadd_test(toplevel):
+async def run_kernel_test(toplevel):
     # XXX (nathanielnrn): This only works if data passed in is less than 64 bytes
     # (512 bits) because the AxiRam isn't correctly writing to our generated
     # verilog. Speicfically, RDATA is a dump of all of the ram data, seemingly
@@ -73,12 +74,12 @@ async def run_vadd_test(toplevel):
         data = json.load(f)
 
     assert data is not None
-    vadd_tb = VectorAddTB(toplevel)
-    await vadd_tb.reset()
+    tb = KernelTB(toplevel)
+    await tb.reset()
 
     # set up clock of 2ns period, simulator default timestep is 1ps
     cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
-    await vadd_tb.setup_rams(data)
+    await tb.setup_rams(data)
     await Timer(100, "ns")
     await FallingEdge(toplevel.ap_clk)
 
@@ -86,7 +87,7 @@ async def run_vadd_test(toplevel):
 
     # Get data from ram
     mems: list[str] = list(data.keys())
-    rams = vadd_tb.get_rams()
+    rams = tb.get_rams()
 
     # Finish when ap_done is high or 100 us of simulation have passed.
     timeout = 100
@@ -145,3 +146,20 @@ def decode(b: bytes, width: int, byteorder="little", signed=False):
 def encode(lst: list[int], width, byteorder="little"):
     """Return the `width`-wide byte representation of lst with byteorder"""
     return [i.to_bytes(width, byteorder) for i in lst]
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argpasre.ArgumentParser(
+        description="Print json formatted output of kernel based on data and kernel."
+    )
+    parser.add_argument("data_path", help = "Path to input data of kernel") 
+    parser.add_argument("expect_path", help = "Path to expected output of kernel")
+
+
+# How to build:
+#Runt calls make
+#Make sets verilog sources, and data path, and expected_path
+#Make calls python script which only needs data path and expected output file.
+

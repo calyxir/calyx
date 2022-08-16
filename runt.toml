@@ -286,3 +286,13 @@ paths = [
 cmd = """
 target/debug/futil {} -b xilinx
 """
+
+[[tests]]
+name = "Cocotb correctness tests"
+paths = [
+#TODO
+]
+cmd = """
+
+"""
+
