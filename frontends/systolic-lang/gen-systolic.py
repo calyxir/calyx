@@ -530,7 +530,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             # Manually emitted becase we need to print out the PE definition
         ],
         components=[main],
-        meta=source_map
+        meta=source_map,
     )
 
 
