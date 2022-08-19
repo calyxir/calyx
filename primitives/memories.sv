@@ -1,9 +1,9 @@
 /**
 Implements a memory with sequential reads and writes.
-Both reads and writes take one cycle to perform.
-Attempting to read and write at the same time is an error.
-
-The out signal is registered to the last value requested by the read_en signal.
+- Both reads and writes take one cycle to perform.
+- Attempting to read and write at the same time is an error.
+- The out signal is registered to the last value requested by the read_en signal.
+- The out signal is undefined once write_en is asserted.
 */
 module seq_mem_d1 #(
     parameter WIDTH = 32,
@@ -34,24 +34,42 @@ module seq_mem_d1 #(
   assign out = read_out;
 
   // Read value from the memory
-  always @(posedge clk) begin
+  always_ff @(posedge clk) begin
     if (reset) begin
       read_out <= '0;
-      read_done <= '0;
     end else if (read_en) begin
       /* verilator lint_off WIDTH */
       read_out <= mem[addr0];
-      read_done <= 1;
+    end else if (write_en) begin
+      // Explicitly clobber the read output when a write is performed
+      read_out <= 'x;
     end else begin
-      read_done <= read_out;
+      read_out <= read_out;
     end
   end
 
+  // Propagate the read_done signal
+  always_ff @(posedge clk) begin
+    if (reset) begin
+      read_done <= '0;
+    end else if (read_en) begin
+      read_done <= '1;
+    end else begin
+      read_done <= '0;
+    end
+  end
+
+  // Write value to the memory
+  always_ff @(posedge clk) begin
+    if (write_en)
+      mem[addr0] <= in;
+  end
+
+  // Propagate the write_done signal
   always_ff @(posedge clk) begin
     if (reset) begin
       write_done <= '0;
     end else if (write_en) begin
-      mem[addr0] <= in;
       write_done <= 1'd1;
     end else begin
       write_done <= '0;
