@@ -16,7 +16,7 @@ import logging
 
 class KernelTB:
     def __init__(self, toplevel, data_path:Path = None, expect_path:Path = None):
-        toplevel.log.setLevel(logging.DEBUG)
+        toplevel._log.setLevel(logging.ERROR)
         self.toplevel = toplevel
         self.data_path = data_path
         assert os.path.isfile(self.data_path), "data_path must be a data path to a valid file"
@@ -101,17 +101,25 @@ async def run_kernel_test(toplevel, data_path:str, expect_path:str):
         expected = json.load(f)
     assert expected is not None
 
+    
+    #TODO: Fix up this section to only output post-execution memory values
+    post = {}
     # Check output matches expected
     for mem in mems:
         addr = 0x000
         size = mem_size(mem, data)
         post_execution = rams[mem].read(addr, size)
-        print(f"Post execution: {post_execution}")
         width = data_width(mem, data)
         post_execution = decode(post_execution, width)
-        expect = expected["memories"][mem]
-        print(f"Expected: {expect}")
-        assert post_execution == expected["memories"][mem]
+        post.update({mem: post_execution})
+        #assert post_execution == expected["memories"][mem]
+    # XXX (nathanielnrn): We currently ignore cycle data from cocotb and only
+    # are interested in correct data in memories
+    expected.pop("cycles")
+    post = {"memories" : post}
+    print(json.dumps(expected, indent=4))
+    print(json.dumps(post, indent = 4))
+    assert expected == post
 
 
 def mem_size(mem: str, data):

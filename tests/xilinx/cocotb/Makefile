@@ -4,8 +4,8 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 
-VERILOG_SOURCES += $(PWD)/$(TEST_PATH)/hdl/toplevel.v
-VERILOG_SOURCES += $(PWD)/$(TEST_PATH)/hdl/main.sv
+VERILOG_SOURCES += $(TEST_PATH)/hdl/toplevel.v
+VERILOG_SOURCES += $(TEST_PATH)/hdl/main.sv
 
 # TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
 TOPLEVEL = Toplevel
