@@ -36,8 +36,8 @@ module seq_mem_d1 #(
   // Read value from the memory
   always @(posedge clk) begin
     if (reset) begin
-        read_out <= '0;
-        read_done <= '0;
+      read_out <= '0;
+      read_done <= '0;
     end else if (read_en) begin
       /* verilator lint_off WIDTH */
       read_out <= mem[addr0];
@@ -49,12 +49,12 @@ module seq_mem_d1 #(
 
   always_ff @(posedge clk) begin
     if (reset) begin
-        done <= '0;
+      write_done <= '0;
     end else if (write_en) begin
-      mem[addr0] <= write_data;
-      done <= 1'd1;
+      mem[addr0] <= in;
+      write_done <= 1'd1;
     end else begin
-        done <= '0;
+      write_done <= '0;
     end
   end
 
