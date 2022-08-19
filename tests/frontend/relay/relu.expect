@@ -143,37 +143,37 @@ component relu_2x4x8x32() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(2) while le0.out with cond0 {
         seq {
-          let1;
+          @pos(1) let1;
           @bound(4) while le1.out with cond1 {
             seq {
-              let2;
+              @pos(2) let2;
               @bound(8) while le2.out with cond2 {
                 seq {
-                  let3;
+                  @pos(3) let3;
                   @bound(32) while le3.out with cond3 {
                     seq {
-                      upd0;
+                      @pos(4) upd0;
                       if gt0.out with cond4 {
                         seq {
-                          upd1;
-                          upd2;
+                          @pos(5) upd1;
+                          @pos(6) upd2;
                         }
                       } else {
-                        upd3;
+                        @pos(7) upd3;
                       }
-                      upd4;
+                      @pos(3) upd4;
                     }
                   }
-                  upd5;
+                  @pos(2) upd5;
                 }
               }
-              upd6;
+              @pos(1) upd6;
             }
           }
-          upd7;
+          @pos(0) upd7;
         }
       }
     }

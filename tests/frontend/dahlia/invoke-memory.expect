@@ -34,11 +34,11 @@ component mem_copy(length: 3) -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       while lt0.out with cond0 {
         seq {
-          upd0;
-          upd1;
+          @pos(1) upd0;
+          @pos(2) upd1;
         }
       }
     }
@@ -61,9 +61,15 @@ component main() -> () {
   }
   control {
     seq {
-      let1;
+      @pos(3) let1;
       invoke mem_copy0[dest0=d0, src0=s0](length=len_0.out)();
     }
   }
 }
+metadata #{
+  0:   let i: ubit<3> = (0 as ubit<3>);
+  1:     dest[i] := src[i];
+  2:     dest[i] := src[i];
+  3: let len: ubit<3> = (5 as ubit<3>);
+}#
 
