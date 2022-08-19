@@ -292,5 +292,5 @@ target/debug/futil {} -b xilinx
 name = "Cocotb correctness tests"
 paths = ["./tests/xilinx/cocotb/dot-product/"]
 cmd = """
-make -f ../Makefile run_test TEST_DIR={}
+make -B -f{}/../Makefile TEST_PATH={}
 """
