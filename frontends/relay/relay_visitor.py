@@ -129,7 +129,7 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1:]
+                func_name = func_name[prefix + 1 :]
 
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
@@ -254,17 +254,15 @@ def emit_calyx(relay_ir) -> (str, Program):
     check_naming_convention(func_defs)
 
     return (
-        (
-            emit_components(func_defs),
-            Program(
-                imports=[
-                    # Manually printed because we need to print the Dahlia
-                    # function definitions
-                ],
-                components=[main],
-                meta=visitor.source_map
-            ),
-        )
+        emit_components(func_defs),
+        Program(
+            imports=[
+                # Manually printed because we need to print the Dahlia
+                # function definitions
+            ],
+            components=[main],
+            meta=visitor.source_map,
+        ),
     )
 
 

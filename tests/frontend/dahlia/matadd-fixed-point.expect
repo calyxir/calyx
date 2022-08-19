@@ -80,24 +80,31 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(2) while le0.out with cond0 {
         seq {
-          let1;
+          @pos(1) let1;
           @bound(2) while le1.out with cond1 {
             seq {
               par {
-                upd0;
-                upd1;
+                @pos(2) upd0;
+                @pos(3) upd1;
               }
-              upd2;
-              upd3;
+              @pos(4) upd2;
+              @pos(1) upd3;
             }
           }
-          upd4;
+          @pos(0) upd4;
         }
       }
     }
   }
 }
+metadata #{
+  0: for (let i: ubit<2> = 0..2) {
+  1:   for (let j: ubit<2> = 0..2) {
+  2:     result0_0[i][j] := a0_0[i][j] + b0_0[i][j];
+  3:     result0_0[i][j] := a0_0[i][j] + b0_0[i][j];
+  4:     result0_0[i][j] := a0_0[i][j] + b0_0[i][j];
+}#
 
