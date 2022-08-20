@@ -86,22 +86,29 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
-      let1;
+      @pos(0) let0;
+      @pos(1) let1;
       @bound(4) while le0.out with cond0 {
         seq {
           par {
-            upd0;
-            upd1;
+            @pos(2) upd0;
+            @pos(3) upd1;
           }
           let2;
           let3;
           upd2;
-          upd3;
+          @pos(1) upd3;
         }
       }
-      upd4;
+      @pos(4) upd4;
     }
   }
 }
+metadata #{
+  0: let res: bit<32> = 0;
+  1: for (let i: ubit<4> = 0..4) {
+  2:   let v = a0[i] * b0[i];
+  3:   let v = a0[i] * b0[i];
+  4: result := res;
+}#
 

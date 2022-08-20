@@ -257,16 +257,16 @@ component max_pool2d_2x2x2x2() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(2) while le0.out with cond0 {
         seq {
-          let1;
+          @pos(1) let1;
           @bound(2) while le1.out with cond1 {
             seq {
-              let2;
+              @pos(2) let2;
               @bound(2) while le2.out with cond2 {
                 seq {
-                  let3;
+                  @pos(3) let3;
                   @bound(2) while le3.out with cond3 {
                     seq {
                       par {
@@ -279,38 +279,38 @@ component max_pool2d_2x2x2x2() -> () {
                           let7;
                         }
                       }
-                      upd0;
-                      let8;
+                      @pos(4) upd0;
+                      @pos(5) let8;
                       @bound(2) while le4.out with cond4 {
                         seq {
-                          let9;
+                          @pos(6) let9;
                           @bound(2) while le5.out with cond5 {
                             seq {
                               par {
-                                let10;
-                                let11;
+                                @pos(7) let10;
+                                @pos(8) let11;
                               }
-                              upd1;
+                              @pos(9) upd1;
                               if gt0.out with cond6 {
-                                upd2;
+                                @pos(10) upd2;
                               }
-                              upd3;
+                              @pos(6) upd3;
                             }
                           }
-                          upd4;
+                          @pos(5) upd4;
                         }
                       }
-                      upd5;
-                      upd6;
+                      @pos(11) upd5;
+                      @pos(3) upd6;
                     }
                   }
-                  upd7;
+                  @pos(2) upd7;
                 }
               }
-              upd8;
+              @pos(1) upd8;
             }
           }
-          upd9;
+          @pos(0) upd9;
         }
       }
     }

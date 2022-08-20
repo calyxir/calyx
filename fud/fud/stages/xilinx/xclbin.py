@@ -64,10 +64,7 @@ class XilinxStage(Stage):
 
         # tcl files
         self.gen_xo_tcl = (
-            Path(config["global", cfg.ROOT])
-            / "fud"
-            / "bitstream"
-            / "gen_xo.tcl"
+            Path(config["global", cfg.ROOT]) / "fud" / "bitstream" / "gen_xo.tcl"
         )
 
         package_cmd = (
