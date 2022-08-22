@@ -28,10 +28,14 @@ component main() -> () {
   }
   control {
     if lt0.out with cond0 {
-      let0;
+      @pos(0) let0;
     } else {
-      let1;
+      @pos(1) let1;
     }
   }
 }
+metadata #{
+  0:   let x: ubit<32> = 4;
+  1:   let y: ubit<32> = 5;
+}#
 

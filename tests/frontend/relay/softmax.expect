@@ -236,54 +236,54 @@ component softmax_1x10() -> () {
   }
   control {
     seq {
-      upd0;
-      let0;
+      @pos(0) upd0;
+      @pos(1) let0;
       @bound(1) while le0.out with cond0 {
         seq {
-          let1;
+          @pos(2) let1;
           @bound(10) while le1.out with cond1 {
             seq {
-              upd1;
+              @pos(3) upd1;
               if gt0.out with cond2 {
                 seq {
-                  upd2;
-                  upd3;
+                  @pos(4) upd2;
+                  @pos(5) upd3;
                 }
               }
-              upd4;
+              @pos(2) upd4;
             }
           }
-          upd5;
+          @pos(1) upd5;
         }
       }
-      let2;
+      @pos(6) let2;
       @bound(1) while le2.out with cond3 {
         seq {
-          let3;
-          let4;
+          @pos(7) let3;
+          @pos(8) let4;
           @bound(10) while le3.out with cond4 {
             seq {
-              upd6;
+              @pos(9) upd6;
               let5;
               invoke exp0(x=__t0_0.out)();
-              let6;
+              @pos(10) let6;
               upd7;
-              upd8;
+              @pos(8) upd8;
             }
           }
-          let7;
+          @pos(11) let7;
           @bound(10) while le4.out with cond5 {
             seq {
-              upd9;
+              @pos(12) upd9;
               let8;
               invoke exp1(x=__t2_0.out)();
-              let9;
+              @pos(13) let9;
               let10;
               upd10;
-              upd11;
+              @pos(11) upd11;
             }
           }
-          upd12;
+          @pos(6) upd12;
         }
       }
     }

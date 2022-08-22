@@ -75,11 +75,11 @@ component main() -> () {
   control {
     seq {
       par {
-        let0;
-        let1;
-        let2;
-        let3;
-        let4;
+        @pos(0) let0;
+        @pos(1) let1;
+        @pos(2) let2;
+        @pos(3) let3;
+        @pos(4) let4;
       }
       let5;
       let6;
@@ -87,4 +87,11 @@ component main() -> () {
     }
   }
 }
+metadata #{
+  0: let a: ubit<32> = 1;
+  1: let b: ubit<32> = 2;
+  2: let c: ubit<32> = 3;
+  3: let d: ubit<32> = 4;
+  4: let e: ubit<32> = 2;
+}#
 
