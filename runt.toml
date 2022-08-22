@@ -290,7 +290,10 @@ target/debug/futil {} -b xilinx
 
 [[tests]]
 name = "Cocotb correctness tests"
-paths = ["./tests/xilinx/cocotb/dot-product/"]
+paths = [
+  "tests/xilinx/cocotb/dot-product/",
+  "tests/xilinx/cocotb/vectorized-add/",
+]
 cmd = """
-make -B -f{}/../Makefile TEST_PATH={}
+make -B -C {}/../ TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL
 """

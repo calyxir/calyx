@@ -6,7 +6,6 @@ from cocotb.triggers import Timer, FallingEdge, with_timeout
 from typing import Mapping, Any
 from pathlib import Path
 import os
-import logging
 
 
 # NOTE (nathanielnrn) cocotb-bus 0.2.1 has a bug that does not recognize optional
@@ -15,15 +14,16 @@ import logging
 
 
 class KernelTB:
-    def __init__(self, toplevel, data_path:Path = None, expect_path:Path = None):
-        toplevel._log.setLevel(logging.ERROR)
+    def __init__(self, toplevel, data_path: Path = None, expect_path: Path = None):
         self.toplevel = toplevel
         self.data_path = data_path
-        assert os.path.isfile(self.data_path), "data_path must be a data path to a valid file"
+        assert os.path.isfile(
+            self.data_path
+        ), "data_path must be a data path to a valid file"
         self.expect_path = expect_path
-        assert os.path.isfile(self.expect_path), "data_path must be a data path to a valid file"
-
-
+        assert os.path.isfile(
+            self.expect_path
+        ), "data_path must be a data path to a valid file"
 
     async def setup_rams(self, data: Mapping[str, Any]):
         # Create cocotb AxiRams
@@ -66,7 +66,8 @@ class KernelTB:
         await Timer(50, "ns")
         self.toplevel.ap_rst_n.value = 1
 
-async def run_kernel_test(toplevel, data_path:str, expect_path:str):
+
+async def run_kernel_test(toplevel, data_path: str, expect_path: str):
     # XXX (nathanielnrn): This only works if data passed in is less than 64 bytes
     # (512 bits) because the AxiRam isn't correctly writing to our generated
     # verilog. Speicfically, RDATA is a dump of all of the ram data, seemingly
@@ -78,7 +79,7 @@ async def run_kernel_test(toplevel, data_path:str, expect_path:str):
     with open(data_path) as f:
         data = json.load(f)
     assert data is not None
-    
+
     # set up clock of 2ns period, simulator default timestep is 1ps
     cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())
     await tb.setup_rams(data)
@@ -95,14 +96,12 @@ async def run_kernel_test(toplevel, data_path:str, expect_path:str):
     timeout = 100
     await with_timeout(FallingEdge(toplevel.ap_done), timeout, "us")
 
-
     expected = None
     with open(expect_path) as f:
         expected = json.load(f)
     assert expected is not None
 
-    
-    #TODO: Fix up this section to only output post-execution memory values
+    # TODO: Fix up this section to only output post-execution memory values
     post = {}
     # Check output matches expected
     for mem in mems:
@@ -112,14 +111,15 @@ async def run_kernel_test(toplevel, data_path:str, expect_path:str):
         width = data_width(mem, data)
         post_execution = decode(post_execution, width)
         post.update({mem: post_execution})
-        #assert post_execution == expected["memories"][mem]
+        # assert post_execution == expected["memories"][mem]
     # XXX (nathanielnrn): We currently ignore cycle data from cocotb and only
     # are interested in correct data in memories
     expected.pop("cycles")
-    post = {"memories" : post}
+    post = {"memories": post}
     print(json.dumps(expected, indent=4))
-    print(json.dumps(post, indent = 4))
-    assert expected == post
+    print(json.dumps(post, indent=4))
+
+    # assert expected == post
 
 
 def mem_size(mem: str, data):
@@ -160,26 +160,17 @@ def encode(lst: list[int], width, byteorder="little"):
     return [i.to_bytes(width, byteorder) for i in lst]
 
 
-
 async def main(toplevel):
-#if __name__ == "__main__":
+    # if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
         description="Print json formatted output of kernel based on data and kernel."
     )
-    parser.add_argument("data_path", help = "Path to input data of kernel") 
-    parser.add_argument("expect_path", help = "Path to expected output of kernel")
+    parser.add_argument("data_path", help="Path to input data of kernel")
+    parser.add_argument("expect_path", help="Path to expected output of kernel")
     args = parser.parse_args()
     print("hahaha")
     print(args.data_path)
     print(args.expect_path)
     assert False
-
-
-
-# How to build:
-#Runt calls make
-#Make sets verilog sources, and data path, and expected_path
-#Make calls python script which only needs data path and expected output file.
-
