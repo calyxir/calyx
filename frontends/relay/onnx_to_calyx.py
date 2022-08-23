@@ -97,8 +97,8 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
         data_name = f"{net_name}.data"
         calyx_name = f"{net_name}.futil"
 
-        #print(f"...writing the Calyx data to: {data_name}")
-        #write_data(mod, data, input_name, params, data_name)
+        print(f"...writing the Calyx data to: {data_name}")
+        write_data(mod, data, input_name, params, data_name)
 
         print(f"...writing the Calyx program to: {calyx_name}")
         write_calyx(mod, calyx_name)
