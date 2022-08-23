@@ -7,7 +7,6 @@ import tvm
 from tvm import relay
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
-import sys
 
 
 from collections import defaultdict
