@@ -325,7 +325,7 @@ class While(Control):
 
     def doc(self) -> str:
         cond = f"while {self.port.doc()}"
-        if cond is not None:
+        if self.cond is not None:
             cond += f" with {self.cond.doc()}"
         return block(cond, self.body.doc(), sep="")
 
@@ -345,7 +345,7 @@ class If(Control):
 
     def doc(self) -> str:
         cond = f"if {self.port.doc()}"
-        if cond is not None:
+        if self.cond is not None:
             cond += f" with {self.cond.doc()}"
         true_branch = self.true_branch.doc()
         if isinstance(self.false_branch, Empty):
