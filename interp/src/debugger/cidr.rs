@@ -477,7 +477,8 @@ fn print_cell(
 
     match mode {
         PrintMode::State => {
-            let actual_code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
+            let actual_code =
+                code.as_ref().copied().unwrap_or(PrintCode::Binary);
             let cell_state = state.get_cell_state(&cell_ref, &actual_code);
             if matches!(&cell_state, &Serializable::Empty) {
                 print_cell(target, state, code, &PrintMode::Port)
