@@ -639,8 +639,4 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
         )
         exp_components = "\n".join(c.doc() for c in exp_components)
 
-    with open("squeezenet_defns.fuse", "w") as file:
-        for defn in dahlia_definitions:
-            file.write(defn)
-
     return dahlia_to_calyx(imports, dahlia_definitions) + exp_components

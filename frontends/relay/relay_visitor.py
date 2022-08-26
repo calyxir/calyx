@@ -150,9 +150,16 @@ class Relay2Calyx(ExprFunctor):
             comp_decl = CompVar(f"{comp_name}_")
             self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
 
-            print(dest)
-            print("---")
-            print(value.args)
+            unnested_args = []
+            for arg in value.args:
+                new_arg = arg
+                if isinstance(arg, list):
+                    assert len(
+                        arg) == 1, "only time arg can be a list is when it returns a list of length 1 from visit_var()"
+                    new_arg = arg[0]
+                unnested_args.append(new_arg)
+            value.args = unnested_args
+
             invoke = ru.emit_invoke_control(comp_decl, dest, value.args)
             invoke.attributes.append(("pos", self.pos_count))
             self.controls.append(invoke)
@@ -365,6 +372,7 @@ if __name__ == "__main__":
     ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
 
     relay_ir = relay.fromtext(relay_ir)
+
     imports = [
         Import("primitives/core.futil"),
         Import("primitives/binary_operators.futil"),
