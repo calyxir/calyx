@@ -1,0 +1,73 @@
+{
+  "x": {
+    "data": [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        2,
+        4,
+        6,
+        8
+      ]
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "y": {
+    "data": [
+      [
+        4,
+        8,
+        16,
+        32
+      ],
+      [
+        3,
+        6,
+        9,
+        12
+      ]
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  },
+  "x1": {
+    "data": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": true,
+      "width": 32
+    }
+  }
+}

@@ -150,6 +150,9 @@ class Relay2Calyx(ExprFunctor):
             comp_decl = CompVar(f"{comp_name}_")
             self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
 
+            print(dest)
+            print("---")
+            print(value.args)
             invoke = ru.emit_invoke_control(comp_decl, dest, value.args)
             invoke.attributes.append(("pos", self.pos_count))
             self.controls.append(invoke)
