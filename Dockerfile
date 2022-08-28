@@ -59,6 +59,7 @@ RUN cargo install runt --version $(grep ^ver calyx/runt.toml | awk '{print $3}' 
 RUN cargo install vcdump
 
 # Build the compiler.
+WORKDIR /home/calyx
 RUN cargo build --all
 
 # Install fud
