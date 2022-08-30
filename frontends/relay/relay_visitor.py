@@ -204,7 +204,8 @@ class Relay2Calyx(ExprFunctor):
                     dest[0], Cell), "Currently tuples in let value must evaluate to cells"
                 unnested_values.append(dest[0])
             # doesn't do anything just increments id by 1 so that we can
-            # the relay IR names that are printed match w/ the calyx file
+            # compare the names the generated Calyx/Dahlia files with the
+            # TVM relay more easily.
             self.id(let.var.name_hint)
             # don't need to create new cells, just map the var to the cells in value
             self.tuple_dic[let.var] = unnested_values
@@ -239,16 +240,7 @@ class Relay2Calyx(ExprFunctor):
         # Visit the call arguments.
         call.args = [self.visit(a) for a in call.args]
         # dealing w/ the fact that visit_var returns list
-        flat_args = []
-        for arg in call.args:
-            if isinstance(arg, Cell):
-                flat_args.append(arg)
-            elif isinstance(arg, list):
-                for sub_arg in arg:
-                    flat_args.append(sub_arg)
-            else:
-                assert 0, "Args must evaluate to a Cell"
-        call.args = flat_args
+        call.args = flatten_lst(call.args)
         return call
 
     def visit_function(self, function):
@@ -270,6 +262,27 @@ class Relay2Calyx(ExprFunctor):
             ),
             self.func_defs,
         )
+
+
+def flatten_lst(lst):
+    '''
+    Because evaluating a variable sometimes returns a tuple, the return type of 
+    visit_var() is a list. So when we evaluate a list of variables, we get a 
+    list of lists back. This function will return a flattened version of 
+    its input list. 
+    Precondition: the only elements in lst should be cells and/or lists of 
+    cells 
+    '''
+    flat = []
+    for elt in lst:
+        if isinstance(elt, Cell):
+            flat.append(elt)
+        elif isinstance(elt, list):
+            for sub_elt in elt:
+                flat.append(sub_elt)
+        else:
+            assert 0, "Args must evaluate to a Cell"
+    return flat
 
 
 def relay_transforms(mod) -> Function:

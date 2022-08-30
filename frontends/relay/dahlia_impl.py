@@ -292,13 +292,15 @@ def sqrt(fd: DahliaFuncDef) -> str:
     num_dims = get_dims(data.comp)
     args = data.comp.args
 
+    sqrt_op = "fp_sqrt" if 'fix' in fd.data_type else 'sqrt'
+
     indices = ""
     var_name = CHARACTER_I
     for _ in range(num_dims):
         indices += f"[__{var_name}]"
         var_name = next_character(var_name)
 
-    loop_body = f"""let __tmp = sqrt({data.id.name}{indices});
+    loop_body = f"""let __tmp = {sqrt_op}({data.id.name}{indices});
                     {res.id.name}{indices} := __tmp;"""
     return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
