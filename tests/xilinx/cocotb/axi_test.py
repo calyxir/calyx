@@ -101,7 +101,6 @@ async def run_kernel_test(toplevel, data_path: str, expect_path: str):
         expected = json.load(f)
     assert expected is not None
 
-    # TODO: Fix up this section to only output post-execution memory values
     post = {}
     # Check output matches expected
     for mem in mems:
@@ -111,7 +110,6 @@ async def run_kernel_test(toplevel, data_path: str, expect_path: str):
         width = data_width(mem, data)
         post_execution = decode(post_execution, width)
         post.update({mem: post_execution})
-        # assert post_execution == expected["memories"][mem]
     # XXX (nathanielnrn): We currently ignore cycle data from cocotb and only
     # are interested in correct data in memories
     expected.pop("cycles")
@@ -119,7 +117,6 @@ async def run_kernel_test(toplevel, data_path: str, expect_path: str):
     print(json.dumps(expected, indent=4))
     print(json.dumps(post, indent=4))
 
-    # assert expected == post
 
 
 def mem_size(mem: str, data):
