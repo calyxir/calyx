@@ -282,7 +282,6 @@ paths = [
   "tests/xilinx/compile/dot-product.futil",
   "tests/xilinx/compile/language-tutorial-iterate.futil",
   "tests/xilinx/compile/vectorized-add.futil",
-  "tests/"
 ]
 cmd = """
 target/debug/futil {} -b xilinx
@@ -295,5 +294,5 @@ paths = [
   "tests/xilinx/cocotb/vectorized-add/",
 ]
 cmd = """
-make -B -C {}/../ TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL
+make --silent -B -C {}/../ TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL
 """
