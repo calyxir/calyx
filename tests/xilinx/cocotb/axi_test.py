@@ -159,18 +159,3 @@ def encode(lst: list[int], width, byteorder="little"):
     """Return the `width`-wide byte representation of lst with byteorder"""
     return [i.to_bytes(width, byteorder) for i in lst]
 
-
-async def main(toplevel):
-    # if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Print json formatted output of kernel based on data and kernel."
-    )
-    parser.add_argument("data_path", help="Path to input data of kernel")
-    parser.add_argument("expect_path", help="Path to expected output of kernel")
-    args = parser.parse_args()
-    print("hahaha")
-    print(args.data_path)
-    print(args.expect_path)
-    assert False
