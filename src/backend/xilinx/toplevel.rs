@@ -50,7 +50,8 @@ impl Backend for XilinxInterfaceBackend {
 
         let mut modules = vec![
             // XXX(nathanielnrn) what defines top_level address_width and data_width?
-            top_level(12, 32, &memories),
+            //IDEAS: Take prog.components and find a way to extract memory data from there
+            top_level(toplevel),
         ];
         for (i, _mem) in memories.iter().enumerate() {
             modules.push(bram(
@@ -109,8 +110,8 @@ fn external_memories_cells(
         .collect()
 }
 
-// Returns a vector of tuples containing external memory info of form:
-// (WIDTH, SIZE, IDX_SIZE)
+// Returns a vector of tuples containing external memory info of [comp] of form:
+// [(WIDTH, SIZE, IDX_SIZE)]
 fn get_mem_info(comp: &ir::Component) -> Vec<(u64, u64, u64)> {
     external_memories_cells(comp)
         .iter()
@@ -133,10 +134,13 @@ fn external_memories(comp: &ir::Component) -> Vec<String> {
 }
 
 fn top_level(
-    address_width: u64,
-    data_width: u64,
-    memories: &[String],
+    // address_width: u64,
+    // data_width: u64,
+    // memories: &[String],
+    toplevel: &ir::Component,
 ) -> v::Module {
+    let memories = &external_memories(toplevel);
+    let mem_info = get_mem_info(toplevel);
     assert!(!memories.is_empty()); // At least 1 memory should exist within the toplevel
     let mut module = v::Module::new("Toplevel");
 
@@ -145,10 +149,14 @@ fn top_level(
     module.add_input("ap_rst_n", 1);
     // module.add_output("ap_interrupt", 1);
 
+    //seems okay if both values are hardcoded
+    let control_addr_width = 12;
+    let control_data_width = 32;
+
     // axi control signals
     let axi4 = axi::AxiInterface::control_channels(
-        address_width,
-        data_width,
+        control_addr_width,
+        control_data_width,
         "s_axi_control_",
     );
     axi4.add_ports_to(&mut module);
@@ -175,8 +183,11 @@ fn top_level(
     ));
 
     // instantiate control interface
-    let base_control_axi_interface =
-        axi::AxiInterface::control_channels(address_width, data_width, "");
+    let base_control_axi_interface = axi::AxiInterface::control_channels(
+        control_addr_width,
+        control_data_width,
+        "",
+    );
     let mut control_instance =
         v::Instance::new("inst_control_axi", "Control_axi");
     control_instance.connect("ACLK", "ap_clk");
@@ -211,9 +222,10 @@ fn top_level(
         let addr0 = format!("{}_addr0", mem);
         let write_en = format!("{}_write_en", mem);
         let done = format!("{}_done", mem);
-        module.add_decl(v::Decl::new_wire(&write_data, data_width));
-        module.add_decl(v::Decl::new_wire(&read_data, data_width));
-        module.add_decl(v::Decl::new_wire(&addr0, address_width));
+        module.add_decl(v::Decl::new_wire(&write_data, mem_info[idx].0));
+        module.add_decl(v::Decl::new_wire(&read_data, mem_info[idx].0));
+        //this causes mismatch of widths
+        module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].2));
         module.add_decl(v::Decl::new_wire(&write_en, 1));
         module.add_decl(v::Decl::new_wire(&done, 1));
 
