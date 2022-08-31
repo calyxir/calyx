@@ -392,6 +392,7 @@ def conv2d(fd: DahliaFuncDef) -> str:
                       let __padded_tensor_val: {data_type} = {'0.0' if 'fix' in data_type else '0'};
                       // this is currently hardcoded to handle when padding = (1,1,1,1). We can 
                       // generalize it if need be 
+                      --- 
                       if (__kernel_y > 0 && __kernel_y < {dim2_limit} && __kernel_x > 0 && __kernel_x < {dim3_limit}) {{
                         __padded_tensor_val := {data.id.name}[__b][__k][__kernel_y - 1][__kernel_x -1];
                       }}""" if add_padding else f"""let __padded_tensor_val: {data_type} =  {data.id.name}[__b][__k][__kernel_y][__kernel_x];"""
@@ -411,11 +412,12 @@ def conv2d(fd: DahliaFuncDef) -> str:
                     for (let __dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
                       let __kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * __y) + __dy;
                       let __kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * __x) + __dx;
-                    }} combine {{
+                      --- 
                       {assign_tensor_val}
-                      __sum += __padded_tensor_val *
+                      ---
+                       __sum += __padded_tensor_val *
                              {weight.id.name}[__c][__k][__dy][__dx];
-                    }}
+                    }} 
                   }}
                 }}
                 {res.id.name}[__b][__c][__y][__x] := __sum;
