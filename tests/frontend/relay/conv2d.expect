@@ -330,26 +330,26 @@ component conv2d_5x512x14x14() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(5) while le0.out with cond0 {
         seq {
-          let1;
+          @pos(1) let1;
           @bound(512) while le1.out with cond1 {
             seq {
-              let2;
+              @pos(2) let2;
               @bound(14) while le2.out with cond2 {
                 seq {
-                  let3;
+                  @pos(3) let3;
                   @bound(14) while le3.out with cond3 {
                     seq {
-                      let4;
-                      let5;
+                      @pos(4) let4;
+                      @pos(5) let5;
                       @bound(512) while le4.out with cond4 {
                         seq {
-                          let6;
+                          @pos(6) let6;
                           @bound(3) while le5.out with cond5 {
                             seq {
-                              let7;
+                              @pos(7) let7;
                               @bound(3) while le6.out with cond6 {
                                 seq {
                                   par {
@@ -362,36 +362,36 @@ component conv2d_5x512x14x14() -> () {
                                       let11;
                                     }
                                   }
-                                  let12;
+                                  @pos(8) let12;
                                   if and2.out with cond7 {
                                     seq {
-                                      upd0;
-                                      upd1;
+                                      @pos(9) upd0;
+                                      @pos(10) upd1;
                                     }
                                   }
-                                  upd2;
+                                  @pos(11) upd2;
                                   let13;
                                   upd3;
-                                  upd4;
+                                  @pos(7) upd4;
                                 }
                               }
-                              upd5;
+                              @pos(6) upd5;
                             }
                           }
-                          upd6;
+                          @pos(5) upd6;
                         }
                       }
-                      upd7;
-                      upd8;
+                      @pos(12) upd7;
+                      @pos(3) upd8;
                     }
                   }
-                  upd9;
+                  @pos(2) upd9;
                 }
               }
-              upd10;
+              @pos(1) upd10;
             }
           }
-          upd11;
+          @pos(0) upd11;
         }
       }
     }
