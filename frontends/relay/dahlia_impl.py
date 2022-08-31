@@ -369,10 +369,32 @@ def dense(fd: DahliaFuncDef) -> str:
 def conv2d(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.conv2d"""
     data, weight, res = fd.args[0], fd.args[1], fd.dest
+    data_size0, data_size1, data_size2, data_size3 = data.comp.args[1:5]
     data_type = fd.data_type
     strides = fd.attributes.get_int_tuple("strides")
     kernel_size = fd.attributes.get_int_tuple("kernel_size")
+    padding = fd.attributes.get_int_tuple("padding")
+    add_padding = False
+    for pad_num in padding:
+        if pad_num != 0:
+            assert padding == (
+                1, 1, 1, 1), "cannot currently handle any padding except (1, 1, 1, 1)"
+            add_padding = True
+
+    # can generalize these numbers based on padding if necessary
+    dim2_limit = data_size2 + 1
+    dim3_limit = data_size3 + 1
     size0, size1, size2, size3 = res.comp.args[1:5]
+
+    # to handle padding. Right now we hard code, but we can change the code
+    # to be more general if necessary.
+    assign_tensor_val = f"""// our code is "simulating" the padding of the input array 
+                      let __padded_tensor_val: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+                      // this is currently hardcoded to handle when padding = (1,1,1,1). We can 
+                      // generalize it if need be 
+                      if (__kernel_y > 0 && __kernel_y < {dim2_limit} && __kernel_x > 0 && __kernel_x < {dim3_limit}) {{
+                        __padded_tensor_val := {data.id.name}[__b][__k][__kernel_y - 1][__kernel_x -1];
+                      }}""" if add_padding else f"""let __padded_tensor_val: {data_type} =  {data.id.name}[__b][__k][__kernel_y][__kernel_x];"""
 
     # If no channels provided, inferred from second dimension of the data.
     channels = fd.attributes.get_int("channels") or data.comp.args[2]
@@ -384,14 +406,14 @@ def conv2d(fd: DahliaFuncDef) -> str:
             for (let __y: ubit<32> = 0..{size2}) {{
               for (let __x: ubit<32> = 0..{size3}) {{
                 let __sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
-
                 for (let __k: ubit<32> = 0..{channels}) {{
                   for (let __dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
                     for (let __dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
                       let __kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * __y) + __dy;
                       let __kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * __x) + __dx;
                     }} combine {{
-                      __sum += {data.id.name}[__b][__k][__kernel_y][__kernel_x] *
+                      {assign_tensor_val}
+                      __sum += __padded_tensor_val *
                              {weight.id.name}[__c][__k][__dy][__dx];
                     }}
                   }}
