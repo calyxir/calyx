@@ -1,6 +1,0 @@
-<testsuites name="results">
-  <testsuite name="all" package="all">
-    <property name="random_seed" value="1662085834" />
-    <testcase name="run" classname="run_axi_test" file="/home/nate/Calyx/calyx/tests/xilinx/cocotb/run_axi_test.py" lineno="7" time="0.16297054290771484" sim_time_ns="656.001" ratio_time="4025.2734530771795" />
-  </testsuite>
-</testsuites>
