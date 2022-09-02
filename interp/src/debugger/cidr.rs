@@ -308,6 +308,7 @@ impl Debugger {
                         )
                     }
                 }
+                Command::Explain => print!("{}", Command::get_explain_string()),
             }
         }
 
@@ -354,6 +355,7 @@ impl Debugger {
                     print!("{}", Command::get_help_string())
                 }
                 Command::Exit => return Err(InterpreterError::Exit),
+                Command::Explain => print!("{}", Command::get_explain_string()),
                 _ => {
                     println!(
                         "This command is unavailable after program termination"

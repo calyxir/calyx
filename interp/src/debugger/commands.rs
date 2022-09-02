@@ -189,6 +189,7 @@ pub enum Command {
         PrintMode,
     ),
     PrintPC,
+    Explain,
 }
 
 type Description = &'static str;
@@ -207,6 +208,23 @@ impl Command {
             writeln!(out, "    {: <20}{}", names.join(", "), message).unwrap();
         }
 
+        out
+    }
+
+    pub fn get_explain_string() -> String {
+        let mut out = String::new();
+        for CommandInfo {
+            invocation,
+            description,
+            usage_example,
+        } in COMMAND_INFO.iter().filter(|x| !x.usage_example.is_empty())
+        {
+            writeln!(out).unwrap();
+            writeln!(out, "{}", invocation.join(", ")).unwrap();
+            writeln!(out, "   {}", description).unwrap();
+            writeln!(out, "     {}", usage_example.join("\n     ")).unwrap();
+        }
+        writeln!(out).unwrap();
         out
     }
 }
@@ -278,10 +296,13 @@ lazy_static! {
             CIBuilder::new().invocation("disable")
                 .description("Disable target breakpoint")
                 .usage("> disable 4").usage("> disable do_mult").build(),
+            // explain
+            CIBuilder::new().invocation("explain")
+                .description("Show examples of commands which take arguments").build(),
             // exit/quit
             CIBuilder::new().invocation("exit")
                 .invocation("quit")
-                .description("Exit the debugger").build()
+                .description("Exit the debugger").build(),
         ]
     };
 }
