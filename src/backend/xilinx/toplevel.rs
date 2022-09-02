@@ -60,7 +60,7 @@ impl Backend for XilinxInterfaceBackend {
 
         modules.push(axi::AxiInterface::control_module(
             "Control_axi",
-            // XXX(nathanielnrn) seems like these should be hard coded for out controller
+            // XXX(nathanielnrn) seems like these should be hard coded for our controller
             12,
             32,
             &memories,
