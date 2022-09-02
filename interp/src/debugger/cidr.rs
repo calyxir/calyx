@@ -61,7 +61,7 @@ impl Debugger {
 
         component_interpreter.converge()?;
 
-        let mut input_stream = Input::default();
+        let mut input_stream = Input::new()?;
         println!("== Calyx Interactive Debugger ==");
         while !component_interpreter.is_done() {
             let comm = input_stream.next_command();
