@@ -48,11 +48,7 @@ impl Backend for XilinxInterfaceBackend {
 
         let mem_info = get_mem_info(toplevel);
 
-        let mut modules = vec![
-            // XXX(nathanielnrn) what defines top_level address_width and data_width?
-            //IDEAS: Take prog.components and find a way to extract memory data from there
-            top_level(toplevel),
-        ];
+        let mut modules = vec![top_level(toplevel)];
         for (i, _mem) in memories.iter().enumerate() {
             modules.push(bram(
                 &format!("SINGLE_PORT_BRAM_{}", i),
@@ -64,7 +60,7 @@ impl Backend for XilinxInterfaceBackend {
 
         modules.push(axi::AxiInterface::control_module(
             "Control_axi",
-            // XXX(nathanielnrn) these match numbers above, unclear where they're from
+            // XXX(nathanielnrn) seems like these should be hard coded for out controller
             12,
             32,
             &memories,
@@ -133,12 +129,7 @@ fn external_memories(comp: &ir::Component) -> Vec<String> {
         .collect()
 }
 
-fn top_level(
-    // address_width: u64,
-    // data_width: u64,
-    // memories: &[String],
-    toplevel: &ir::Component,
-) -> v::Module {
+fn top_level(toplevel: &ir::Component) -> v::Module {
     let memories = &external_memories(toplevel);
     let mem_info = get_mem_info(toplevel);
     assert!(!memories.is_empty()); // At least 1 memory should exist within the toplevel
@@ -224,7 +215,6 @@ fn top_level(
         let done = format!("{}_done", mem);
         module.add_decl(v::Decl::new_wire(&write_data, mem_info[idx].0));
         module.add_decl(v::Decl::new_wire(&read_data, mem_info[idx].0));
-        //this causes mismatch of widths
         module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].2));
         module.add_decl(v::Decl::new_wire(&write_en, 1));
         module.add_decl(v::Decl::new_wire(&done, 1));
