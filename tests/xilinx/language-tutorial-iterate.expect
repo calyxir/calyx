@@ -133,7 +133,7 @@ module Toplevel (
     end
     wire [31:0] mem_write_data;
     wire [31:0] mem_read_data;
-    wire [11:0] mem_addr0;
+    wire mem_addr0;
     wire mem_write_en;
     wire mem_done;
     Memory_controller_axi_0 inst_mem_controller_axi_0 (
