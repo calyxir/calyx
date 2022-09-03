@@ -197,6 +197,10 @@ impl CommandParser {
         ))
     }
 
+    fn explain(_input: Node) -> ParseResult<Command> {
+        Ok(Command::Explain)
+    }
+
     fn watch(input: Node) -> ParseResult<Command> {
         Ok(match_nodes!(input.into_children();
         [watch_position(wp), group(g), print_state(p)] => {
@@ -250,6 +254,7 @@ impl CommandParser {
             [enable(e), EOI(_)] => e,
             [disable(dis), EOI(_)] => dis,
             [exit(exit), EOI(_)] => exit,
+            [explain(ex), EOI(_)] => ex,
             [EOI(_)] => Command::Empty,
         ))
     }
