@@ -72,8 +72,6 @@ exit = { ^"exit" | ^"quit" }
 
 comm_where = { ^"where" | ^"pc" }
 
-explain = { ^"explain" }
-
 command = {
     SOI ~
     (
@@ -96,7 +94,6 @@ command = {
      | info_watch
      | display
      | exit
-     | explain
     )?
     ~ EOI
 }
