@@ -454,6 +454,7 @@ module main (
     input logic reset,
     output logic done
 );
+    // COMPONENT START: main
     string DATA;
     int CODE;
     initial begin
@@ -514,4 +515,5 @@ module main (
     assign m0_clk = clk;
     assign m1_clk = clk;
     
+    // COMPONENT END: main
 endmodule
