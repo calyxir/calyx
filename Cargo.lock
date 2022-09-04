@@ -389,6 +389,7 @@ dependencies = [
  "argh",
  "calyx",
  "lazy_static",
+ "rand",
  "serde",
  "serde_json",
 ]
