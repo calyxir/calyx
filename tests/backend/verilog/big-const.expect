@@ -454,6 +454,7 @@ module main (
     input logic reset,
     output logic done
 );
+    // COMPONENT START: main
     logic [35:0] c_out;
     
     std_const # (
@@ -464,4 +465,5 @@ module main (
     );
     assign done = 1'd1;
     
+    // COMPONENT END: main
 endmodule
