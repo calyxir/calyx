@@ -1,4 +1,4 @@
-// -p remove-comb-groups -p cell-share
+// -p remove-comb-groups -p cell-share -p remove-ids
 import "primitives/core.futil";
 component main() -> () {
   cells {

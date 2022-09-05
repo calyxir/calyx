@@ -1,0 +1,122 @@
+// -p cell-share -x cell-share:bounds=2,3,4 -p remove-ids
+// share adders twice, registers 3 times, and mults 4 times 
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+    d = std_reg(32);
+    e = std_reg(32);
+    f = std_reg(32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    add4 = std_add(32);
+    add5 = std_add(32);
+    add6 = std_add(32);
+    mult0 = std_mult_pipe(32);
+    mult1 = std_mult_pipe(32);
+    mult2 = std_mult_pipe(32);
+    mult3 = std_mult_pipe(32);
+    mult4 = std_mult_pipe(32);
+    mult5 = std_mult_pipe(32);
+  }
+  wires {
+    group let0 {
+      add1.left = 32'd2;
+      add1.right = 32'd4;
+      a.in = add1.out;
+      a.write_en = 1'd1;
+      let0[done] = a.done;
+    }
+    group let1 {
+      add2.left = 32'd2;
+      add2.right = 32'd4;
+      b.in = add2.out;
+      b.write_en = 1'd1;
+      let1[done] = b.done;
+    }
+    group let2 {
+      add3.left = 32'd2;
+      add3.right = 32'd4;
+      c.in = add3.out;
+      c.write_en = 1'd1;
+      let2[done] = c.done;
+    }
+    group let3 {
+      add4.left = 32'd2;
+      add4.right = 32'd4;
+      d.in = add4.out;
+      d.write_en = 1'd1;
+      let3[done] = d.done;
+    }
+    group let4 {
+      add5.left = 32'd2;
+      add5.right = 32'd4;
+      e.in = add5.out;
+      e.write_en = 1'd1;
+      let4[done] = e.done;
+    }
+    group let5 {
+      add6.left = 32'd2;
+      add6.right = 32'd4;
+      f.in = add6.out;
+      f.write_en = 1'd1;
+      let5[done] = f.done;
+    }
+    group m0{
+      mult0.go = 1'd1; 
+      mult0.left = 32'd1; 
+      mult0.right = 32'd2; 
+      m0[done] = mult0.done; 
+    }
+    group m1{
+      mult1.go = 1'd1; 
+      mult1.left = 32'd1; 
+      mult1.right = 32'd2; 
+      m1[done] = mult1.done; 
+    }
+    group m2{
+      mult2.go = 1'd1; 
+      mult2.left = 32'd1; 
+      mult2.right = 32'd2; 
+      m2[done] = mult2.done; 
+    }
+    group m3{
+      mult3.go = 1'd1; 
+      mult3.left = 32'd1; 
+      mult3.right = 32'd2; 
+      m3[done] = mult3.done; 
+    }
+    group m4{
+      mult4.go = 1'd1; 
+      mult4.left = 32'd1; 
+      mult4.right = 32'd2; 
+      m4[done] = mult4.done; 
+    }
+    group m5{
+      mult5.go = 1'd1; 
+      mult5.left = 32'd1; 
+      mult5.right = 32'd2; 
+      m5[done] = mult5.done; 
+    }
+  }
+  control {
+    seq {
+      let0;
+      let1;
+      let2;
+      let3;
+      let4;
+      let5;
+      m0;
+      m1;
+      m2;
+      m3;
+      m4;
+      m5;
+    }
+  }
+}

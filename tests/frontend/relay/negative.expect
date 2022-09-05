@@ -49,12 +49,12 @@ component negative_4() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(4) while le0.out with cond0 {
         seq {
-          upd0;
-          upd1;
-          upd2;
+          @pos(1) upd0;
+          @pos(2) upd1;
+          @pos(0) upd2;
         }
       }
     }

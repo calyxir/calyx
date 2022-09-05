@@ -62,16 +62,16 @@ component dot() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(4) while le0.out with cond0 {
         seq {
           par {
-            upd0;
-            upd1;
+            @pos(1) upd0;
+            @pos(2) upd1;
           }
           let1;
           upd2;
-          upd3;
+          @pos(0) upd3;
         }
       }
     }
@@ -92,4 +92,9 @@ component main() -> () {
     }
   }
 }
+metadata #{
+  0:   for (let i: ubit<3> = 0..4) {
+  1:     out[i] := A[i] * B[i];
+  2:     out[i] := A[i] * B[i];
+}#
 

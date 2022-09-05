@@ -32,7 +32,7 @@ DEFAULT_CONFIGURATION = {
         },
         "interpreter": {
             "exec": "./target/debug/interp",
-            "flags": None,
+            "flags": "--raw ",
             "data": None,
             "round_float_to_fixed": True,
         },
@@ -193,7 +193,9 @@ class Configuration:
     def __init__(self):
         """Find the configuration file."""
         self.path = Path(appdirs.user_config_dir("fud"))
-        self.path.mkdir(exist_ok=True)
+        if not self.path.parent.exists():
+            log.warn(f"{self.path.parent} doesn't exist. Creating it.")
+        self.path.mkdir(parents=True, exist_ok=True)
 
         self.config_file = self.path / "config.toml"
         if not self.config_file.exists():

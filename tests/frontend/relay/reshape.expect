@@ -132,32 +132,32 @@ component reshape_1x8() -> () {
   }
   control {
     seq {
-      let0;
-      let1;
+      @pos(0) let0;
+      @pos(1) let1;
       @bound(1) while le0.out with cond0 {
         seq {
-          let2;
+          @pos(2) let2;
           @bound(2) while le1.out with cond1 {
             seq {
-              let3;
+              @pos(3) let3;
               @bound(2) while le2.out with cond2 {
                 seq {
-                  let4;
+                  @pos(4) let4;
                   @bound(2) while le3.out with cond3 {
                     seq {
-                      upd0;
-                      upd1;
+                      @pos(5) upd0;
+                      @pos(6) upd1;
                       upd2;
-                      upd3;
+                      @pos(4) upd3;
                     }
                   }
-                  upd4;
+                  @pos(3) upd4;
                 }
               }
-              upd5;
+              @pos(2) upd5;
             }
           }
-          upd6;
+          @pos(1) upd6;
         }
       }
     }

@@ -23,7 +23,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     add0 = add_5();
     add1 = add_5();
-    x_0 = std_reg(32);
+    r0 = std_reg(32);
   }
   wires {
     group upd0 {

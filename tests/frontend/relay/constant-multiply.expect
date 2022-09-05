@@ -55,13 +55,13 @@ component multiply_1(x1: 32) -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(1) while le0.out with cond0 {
         seq {
-          upd0;
+          @pos(1) upd0;
           let1;
           upd1;
-          upd2;
+          @pos(0) upd2;
         }
       }
     }

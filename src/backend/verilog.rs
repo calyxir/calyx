@@ -161,6 +161,12 @@ fn emit_component(
         }
     }
 
+    // Add a COMPONENT START: <name> anchor before any code in the component
+    module.add_stmt(v::Stmt::new_rawstr(format!(
+        "// COMPONENT START: {}",
+        comp.name
+    )));
+
     // Add memory initial and final blocks
     if !synthesis_mode {
         memory_read_write(comp).into_iter().for_each(|stmt| {
@@ -229,6 +235,13 @@ fn emit_component(
     if !synthesis_mode {
         module.add_process(checks);
     }
+
+    // Add COMPONENT END: <name> anchor
+    module.add_stmt(v::Stmt::new_rawstr(format!(
+        "// COMPONENT END: {}",
+        comp.name
+    )));
+
     module
 }
 

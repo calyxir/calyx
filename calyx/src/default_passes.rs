@@ -5,7 +5,7 @@ use crate::passes::{
     ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
     GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
     InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveCombGroups, ResetInsertion,
+    ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds, ResetInsertion,
     SimplifyGuards, StaticParConv, SynthesisPapercut, TopDownCompileControl,
     TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
@@ -31,6 +31,7 @@ impl PassManager {
         pm.register_pass::<CompileEmpty>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;
+        pm.register_pass::<GroupToSeq>()?;
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
         pm.register_pass::<InferStaticTiming>()?;
@@ -65,7 +66,7 @@ impl PassManager {
         pm.register_pass::<ParToSeq>()?;
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<HoleInliner>()?;
-        pm.register_pass::<GroupToSeq>()?;
+        pm.register_pass::<RemoveIds>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
@@ -77,18 +78,19 @@ impl PassManager {
                 GroupToInvoke, // Creates Dead Groups potentially
                 ComponentInliner,
                 CombProp,
-                RemoveCombGroups, // Must run before `infer-static-timing` and `cell-share`.
-                InferStaticTiming,
-                MergeStaticPar,
-                DeadGroupRemoval, // Since MergeStaticPar potentialy creates dead groups
-                StaticParConv,    // Must be before `collapse-control`
-                CollapseControl,
-                CompileRef, //Must run before 'resource-sharing'.
+                CompileRef, //Must run before cell-share.
                 InferShare,
-                CellShare,
+                CellShare, // LiveRangeAnalaysis should handle comb groups
+                RemoveCombGroups, // Must run before infer-static-timing
+                InferStaticTiming,
+                CompileInvoke,    // creates dead comb groups
+                MergeStaticPar,   // creates dead groups potentially
+                StaticParConv,    // Must be before collapse-control
+                DeadGroupRemoval, // Since previous passes potentially create dead groups
+                CollapseControl,
             ]
         );
-        register_alias!(pm, "compile", [CompileInvoke, TopDownCompileControl]);
+        register_alias!(pm, "compile", [TopDownCompileControl]);
         register_alias!(
             pm,
             "post-opt",

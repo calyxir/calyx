@@ -16,7 +16,7 @@ component add(a: 32, b: 32) -> (@stable(1) out: 32) {
     out = tmp_0.out;
   }
   control {
-    let0;
+    @pos(0) let0;
   }
 }
 component main() -> () {
@@ -48,12 +48,18 @@ component main() -> () {
   control {
     seq {
       par {
-        let1;
-        let2;
+        @pos(1) let1;
+        @pos(2) let2;
       }
       invoke add1(a=lhs_0.out, b=rhs_0.out)();
-      let3;
+      @pos(3) let3;
     }
   }
 }
+metadata #{
+  0:   let tmp: ubit<32> = a + b;
+  1: let lhs: ubit<32> = (41 as ubit<32>);
+  2: let rhs: ubit<32> = (1 as ubit<32>);
+  3: let sum: ubit<32> = add(lhs, rhs);
+}#
 

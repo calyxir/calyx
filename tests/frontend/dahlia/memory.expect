@@ -40,10 +40,15 @@ component main() -> () {
   }
   control {
     par {
-      upd0;
-      upd1;
-      upd2;
+      @pos(0) upd0;
+      @pos(1) upd1;
+      @pos(2) upd2;
     }
   }
 }
+metadata #{
+  0: A[0] := 1;
+  1: B[0][0] := 1;
+  2: C[0][0][0] := 1;
+}#
 
