@@ -14,10 +14,4 @@ To generate random fixed point numbers, run:
 It will print the json in the command line  
 
 ## Current Limitations 
-As you can see, the tool is right now pretty limited, because it only supports 2 different representations of numbers. What if you want to generate random, 8 bit, unsigned ints in your memory? Data Gen currently wouldn't support that. Ideally, we would want each Calyx memory cell to have its own attribute(s) which can hold information about what type of number representation format the memory wants.   
-
-This [github issue](https://github.com/cucapra/calyx/issues/1163) goes into more detail about future improvements for the tool. 
-
-
-
-
+As you can see, the tool is right now pretty limited, because it only supports 2 different representations of numbers. What if you want to generate random, 8 bit, unsigned ints in your memory? Data Gen currently wouldn't support that. Ideally, we would want each Calyx memory cell to have its own attribute(s) which can hold information about what type of number representation format the memory wants. This [github issue](https://github.com/cucapra/calyx/issues/1163) goes into more detail about future improvements for the tool. 
