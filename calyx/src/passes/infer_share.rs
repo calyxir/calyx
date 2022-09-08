@@ -82,7 +82,7 @@ impl Visitor for InferShare {
         // cannot contain any ref cells, or any cells of a "non-shareable" type
         // (i.e. not shareable, state_shareable, const or This component)
         if comp.cells.iter().any(|cell| {
-            cell.borrow().is_reference() || !type_is_shareable(cell)
+            !type_is_shareable(cell) && !cell.borrow().is_reference()
         }) {
             return Ok(Action::Stop);
         }
@@ -92,6 +92,8 @@ impl Visitor for InferShare {
             &mut comp.control.borrow_mut(),
             comp.name.id.clone(),
         );
+
+        // print the domination map if command line argument says so
         if self.print_dmap {
             println!("{dmap:?}");
         }
