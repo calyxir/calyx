@@ -32,7 +32,7 @@ pub struct If {
     /// Control for the true branch.
     pub tbranch: Box<Control>,
 
-    /// Control for the true branch.
+    /// Control for the false branch.
     pub fbranch: Box<Control>,
 
     /// Attributes attached to this control statement.
@@ -80,7 +80,7 @@ pub struct Invoke {
     /// Optional combinational group that is active when the invoke is active.
     pub comb_group: Option<RRC<CombGroup>>,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
-    pub external_cells: CellMap,
+    pub ref_cells: CellMap,
 }
 
 /// Data for the `empty` control statement.
@@ -171,7 +171,7 @@ impl Control {
             outputs,
             attributes: Attributes::default(),
             comb_group: None,
-            external_cells: Vec::new(),
+            ref_cells: Vec::new(),
         })
     }
 
@@ -203,6 +203,24 @@ impl Control {
             body,
             attributes: Attributes::default(),
         })
+    }
+
+    /// Returns the value of an attribute if present
+    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    where
+        S: std::fmt::Display + AsRef<str>,
+    {
+        self.get_attributes().and_then(|attrs| attrs.get(attr))
+    }
+
+    /// Returns true if the node has a specific attribute
+    pub fn has_attribute<S>(&self, attr: S) -> bool
+    where
+        S: std::fmt::Display + AsRef<str>,
+    {
+        self.get_attributes()
+            .map(|attrs| attrs.has(attr))
+            .unwrap_or(false)
     }
 }
 
@@ -251,7 +269,7 @@ impl Control {
                 outputs,
                 attributes,
                 comb_group,
-                external_cells,
+                ref_cells,
             }) => Control::Invoke(Invoke {
                 comp: Rc::clone(comp),
                 inputs: inputs
@@ -264,7 +282,7 @@ impl Control {
                     .collect(),
                 comb_group: comb_group.clone().map(|cg| Rc::clone(&cg)),
                 attributes: attributes.clone(),
-                external_cells: external_cells
+                ref_cells: ref_cells
                     .iter()
                     .map(|(outcell, incell)| {
                         (outcell.clone(), Rc::clone(incell))

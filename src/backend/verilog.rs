@@ -161,6 +161,12 @@ fn emit_component(
         }
     }
 
+    // Add a COMPONENT START: <name> anchor before any code in the component
+    module.add_stmt(v::Stmt::new_rawstr(format!(
+        "// COMPONENT START: {}",
+        comp.name
+    )));
+
     // Add memory initial and final blocks
     if !synthesis_mode {
         memory_read_write(comp).into_iter().for_each(|stmt| {
@@ -229,6 +235,13 @@ fn emit_component(
     if !synthesis_mode {
         module.add_process(checks);
     }
+
+    // Add COMPONENT END: <name> anchor
+    module.add_stmt(v::Stmt::new_rawstr(format!(
+        "// COMPONENT END: {}",
+        comp.name
+    )));
+
     module
 }
 
@@ -453,6 +466,30 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
 /// end
 /// ```
 fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
+    // Find all memories marked as @external
+    let memories = comp
+        .cells
+        .iter()
+        .filter_map(|cell| {
+            let is_external = cell.borrow().get_attribute("external").is_some();
+            if is_external
+                && cell
+                    .borrow()
+                    .type_name()
+                    .map(|proto| proto.id.contains("mem"))
+                    .unwrap_or_default()
+            {
+                Some(cell.borrow().name().id.clone())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if memories.is_empty() {
+        return vec![];
+    }
+
     // Import futil helper library.
     let data_decl = v::Stmt::new_rawstr("string DATA;".to_string());
     let code_decl = v::Stmt::new_rawstr("int CODE;".to_string());
@@ -478,22 +515,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             ],
         )));
 
-    let memories = comp.cells.iter().filter_map(|cell| {
-        let is_external = cell.borrow().get_attribute("external").is_some();
-        if is_external
-            && cell
-                .borrow()
-                .type_name()
-                .map(|proto| proto.id.contains("mem"))
-                .unwrap_or_default()
-        {
-            Some(cell.borrow().name().id.clone())
-        } else {
-            None
-        }
-    });
-
-    memories.clone().for_each(|name| {
+    memories.iter().for_each(|name| {
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
@@ -509,7 +531,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
     });
 
     let mut final_block = v::ParallelProcess::new_final();
-    memories.for_each(|name| {
+    memories.iter().for_each(|name| {
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",
             vec![

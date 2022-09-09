@@ -361,9 +361,7 @@ def index_update_at(row, col):
     return updates
 
 
-def generate_control(
-    top_length, top_depth, left_length, left_depth, gen_metadata=False
-):
+def generate_control(top_length, top_depth, left_length, left_depth):
     """
     Logically, control performs the following actions:
     1. Initialize all the memory indexors at the start.
@@ -442,13 +440,9 @@ def generate_control(
                 out_connects=[],
             )
 
-            if gen_metadata:
-                tag = counter()
-                more_control.append(invoke.with_attr("pos", tag))
-
-                source_map[tag] = f"pe_{r}_{c} running. Iteration {idx}"
-            else:
-                more_control.append(invoke)
+            tag = counter()
+            more_control.append(invoke.with_attr("pos", tag))
+            source_map[tag] = f"pe_{r}_{c} running. Iteration {idx}"
 
         control.append(py_ast.ParComp(more_control))
 
@@ -464,9 +458,7 @@ def generate_control(
     return py_ast.SeqComp(stmts=control), source_map
 
 
-def create_systolic_array(
-    top_length, top_depth, left_length, left_depth, gen_metadata=False
-):
+def create_systolic_array(top_length, top_depth, left_length, left_depth):
     """
     top_length: Number of PEs in each row.
     top_depth: Number of elements processed by each PE in a row.
@@ -522,7 +514,7 @@ def create_systolic_array(
             wires.append(s)
 
     control, source_map = generate_control(
-        top_length, top_depth, left_length, left_depth, gen_metadata=gen_metadata
+        top_length, top_depth, left_length, left_depth
     )
 
     main = py_ast.Component(
@@ -533,15 +525,12 @@ def create_systolic_array(
         controls=control,
     )
 
-    return (
-        py_ast.Program(
-            imports=[
-                py_ast.Import("primitives/core.futil"),
-                py_ast.Import("primitives/binary_operators.futil"),
-            ],
-            components=[main],
-        ),
-        source_map,
+    return py_ast.Program(
+        imports=[
+            # Manually emitted becase we need to print out the PE definition
+        ],
+        components=[main],
+        meta=source_map,
     )
 
 
@@ -555,12 +544,6 @@ if __name__ == "__main__":
     parser.add_argument("-td", "--top-depth", type=int)
     parser.add_argument("-ll", "--left-length", type=int)
     parser.add_argument("-ld", "--left-depth", type=int)
-
-    parser.add_argument(
-        "--write-metadata",
-        action="store_true",
-        dest="write_metadata",
-    )
 
     args = parser.parse_args()
 
@@ -581,21 +564,22 @@ if __name__ == "__main__":
             left_depth = spec["left_depth"]
     else:
         parser.error(
-            "Need to pass either `-f FILE` or all of `"
+            "Need to pass either `FILE` or all of `"
             "-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
         )
 
-    program, metadata = create_systolic_array(
+    program = create_systolic_array(
         top_length=top_length,
         top_depth=top_depth,
         left_length=left_length,
         left_depth=left_depth,
-        gen_metadata=args.write_metadata,
     )
 
-    program.emit()
+    imports = [
+        py_ast.Import("primitives/core.futil"),
+        py_ast.Import("primitives/binary_operators.futil"),
+    ]
+    for imp in imports:
+        print(imp.doc())
     print(PE_DEF)
-
-    if args.write_metadata:
-        metadata = py_ast.Metadata(metadata)
-        print(metadata.doc())
+    program.emit()

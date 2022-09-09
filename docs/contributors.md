@@ -9,9 +9,9 @@ Here is a list of all the people who have worked on Calyx:
 - [Griffin Berlstein](https://griffinberlste.in)
 - [Chris Gyurgyik](https://chrispg.dev)
 - [Adrian Sampson](https://adriansampson.net)
-- YoungSeok Na
-- [Jan-Paul Ramos](https://jpramos.me)
-- Jiaxuan (Crystal) Hu
+- Pai Li
+- Nathaniel Navarro
+- Caleb Kim
 
 **Previous Contributors**
 
@@ -24,5 +24,8 @@ Here is a list of all the people who have worked on Calyx:
 - Karen Zhang
 - Andrii Iermolaiev
 - Alma Thaler
+- YoungSeok Na
+- [Jan-Paul Ramos](https://jpramos.me)
+- Jiaxuan (Crystal) Hu
 
 If you're missing from this list, please [add yourself](https://github.com/cucapra/futil/edit/master/docs/contributors.md)!

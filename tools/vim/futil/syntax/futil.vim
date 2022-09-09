@@ -45,7 +45,7 @@ syn match futilArrow '->' nextgroup=futilPorts skipwhite skipnl
 hi link futilArrow futilOperator
 
 " Modifiers for components, groups, primitives
-syn keyword futilModifier comb
+syn keyword futilModifier comb ref
 hi link futilModifier Operator
 
 " Highlight holes

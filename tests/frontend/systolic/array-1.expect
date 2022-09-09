@@ -1,5 +1,31 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
+
+component mac_pe(top: 32, left: 32) -> (out: 32) {
+  cells {
+    // Storage
+    acc = std_reg(32);
+    // Computation
+    add = std_add(32);
+    mul = std_mult_pipe(32);
+  }
+  wires {
+    group do_add {
+      add.left = acc.out;
+      add.right = mul.out;
+      acc.in = add.out;
+      acc.write_en = 1'd1;
+      do_add[done] = acc.done;
+    }
+    out = acc.out;
+  }
+  control {
+    seq {
+        invoke mul(left = top, right = left)();
+        do_add;
+    }
+  }
+}
 component main() -> () {
   cells {
     t0_idx = std_reg(2);
@@ -74,7 +100,7 @@ component main() -> () {
       par {
         t0_idx_update;
         l0_idx_update;
-        invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
+        @pos(0) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
       }
       par {
         t0_move;
@@ -83,14 +109,14 @@ component main() -> () {
       par {
         t0_idx_update;
         l0_idx_update;
-        invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
+        @pos(1) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
       }
       par {
         t0_move;
         l0_move;
       }
       par {
-        invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
+        @pos(2) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
       }
       seq {
         pe_0_0_out_write;
@@ -98,29 +124,8 @@ component main() -> () {
     }
   }
 }
-
-component mac_pe(top: 32, left: 32) -> (out: 32) {
-  cells {
-    // Storage
-    acc = std_reg(32);
-    // Computation
-    add = std_add(32);
-    mul = std_mult_pipe(32);
-  }
-  wires {
-    group do_add {
-      add.left = acc.out;
-      add.right = mul.out;
-      acc.in = add.out;
-      acc.write_en = 1'd1;
-      do_add[done] = acc.done;
-    }
-    out = acc.out;
-  }
-  control {
-    seq {
-        invoke mul(left = top, right = left)();
-        do_add;
-    }
-  }
-}
+metadata #{
+0: pe_0_0 running. Iteration 0
+1: pe_0_0 running. Iteration 1
+2: pe_0_0 running. Iteration 2
+}#

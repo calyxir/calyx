@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
+# type: ignore
+from typing import Tuple
 
 import numpy as np
-from tvm import relay, ir
+import tvm
+from tvm import relay
 from tvm.relay.expr_functor import ExprFunctor
 from tvm.relay.function import Function
+
 
 from collections import defaultdict
 from typing import List, Dict
 
-from relay_utils import *
-from calyx.py_ast import *
+import relay_utils as ru
+from calyx.py_ast import (
+    Cell,
+    CompVar,
+    CompInst,
+    Import,
+    Program,
+    SeqComp,
+    Stdlib,
+    Component,
+)
 from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
 from dahlia_impl import emit_components
@@ -34,7 +47,7 @@ class Relay2Calyx(ExprFunctor):
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
         # to Calyx as a stand-alone component.
-        self.func_defs: List[DahliaFuncDef] = []
+        self.func_defs: List[ru.DahliaFuncDef] = []
 
         # Controls, wires of the main component.
         self.controls = []
@@ -43,6 +56,11 @@ class Relay2Calyx(ExprFunctor):
         self.pos_count = 0
 
         self.source_map: Dict[str, str] = {}
+
+        # for let stmts such as `let %x13: (_,_) = (%x9, %x12)
+        # if %x9 is equal to some memory mem9, and %x12 is equal to some memory mem12
+        # this maps the var %x13 -> [mem9, mem12]
+        self.tuple_dic = {}
 
     def id(self, name):
         """
@@ -65,35 +83,35 @@ class Relay2Calyx(ExprFunctor):
         self.id_dictionary[function_name] += 1
         return function_name if id_number == 0 else f"{function_name}_{id_number}"
 
-    def visit_var(self, var) -> Cell:
-        """Visits a Relay variable and returns the
-        corresponding Calyx memory.
+    def visit_var(self, var) -> list:
         """
+        Visits a Relay variable and returns the
+        corresponding Calyx memory/memories. 
+        """
+        if var in self.tuple_dic.keys():
+            return self.tuple_dic[var]
+        if isinstance(var.type_annotation, tvm.ir.type.TupleType):
+            # returns a list of names instead
+            assert 0, "should have been added to tuple_dic when defined in a let stmt"
+
         var_id = self.id(var.name_hint)
-
-        cell = get_memory(var_id, var.type_annotation)
-
+        cell = ru.get_memory(var_id, var.type_annotation)
         if var.type_annotation.concrete_shape:
             # Only add the given variable if it is a tensor.
             self.id_to_shape[var_id] = var.type_annotation.concrete_shape
-
         self.id_to_cell[var_id] = cell
-        return cell
+        return [cell]
 
-    def visit_let(self, let):
-        """Visits a `let` statement in the following manner:
-        1. Visit the `value`.
-        2. Visit the `var`, or destination.
-        3. Return the `body`.
-        """
-        value = self.visit(let.value)
-        dest = self.visit(let.var)
-
+    def analyze_val_dest(self, let, value, dest, type_annotation):
+        '''
+        Helper method that is ussed to handle certain cases for visiting
+        let statements. Should only call when value is a Constant or a Call
+        '''
         if isinstance(value, tvm.relay.Constant):
             # Generates a constant primitive.
             # This is done here since we need
             # both the variable id and the value.
-            width = get_bitwidth(value.data)
+            width = ru.get_bitwidth(value.data)
 
             if "float" in value.data.dtype:
                 # Convert to fixed point.
@@ -117,10 +135,10 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1 :]
+                func_name = func_name[prefix + 1:]
 
             # Append arity to Calyx component name.
-            dims = "x".join([str(i) for i in get_dimension_sizes(dest.comp)])
+            dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
 
             # Given functions with the same operator and arity,
             # append a unique identifier to the preceding. Eventually,
@@ -132,7 +150,17 @@ class Relay2Calyx(ExprFunctor):
             comp_decl = CompVar(f"{comp_name}_")
             self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
 
-            invoke = emit_invoke_control(comp_decl, dest, value.args)
+            unnested_args = []
+            for arg in value.args:
+                new_arg = arg
+                if isinstance(arg, list):
+                    assert len(
+                        arg) == 1, "only time arg can be a list is when it returns a list of length 1 from visit_var()"
+                    new_arg = arg[0]
+                unnested_args.append(new_arg)
+            value.args = unnested_args
+
+            invoke = ru.emit_invoke_control(comp_decl, dest, value.args)
             invoke.attributes.append(("pos", self.pos_count))
             self.controls.append(invoke)
 
@@ -144,19 +172,55 @@ class Relay2Calyx(ExprFunctor):
             ][0]
 
             self.func_defs.append(
-                DahliaFuncDef(
+                ru.DahliaFuncDef(
                     function_id=func_name,
                     component_name=comp_name,
                     dest=dest,
                     args=value.args,
                     attributes=value.attrs,
-                    data_type=get_dahlia_data_type(let.var.type_annotation),
+                    data_type=ru.get_dahlia_data_type(type_annotation),
                 )
             )
         else:
             assert 0, f"{value} is not supported yet."
 
+    def visit_let(self, let):
+        """Visits a `let` statement in the following manner:
+        1. Visit the `value`.
+        2. Visit the `var`, or destination.
+        3. Return the `body`.
+        """
+        # Check if the dest is a tuple
+        if isinstance(let.var.type_annotation, tvm.ir.type.TupleType):
+            value = self.visit(let.value)
+            # Handles cases such as: `%x13 = (%x9, %x12)`. where %x9 and %x12 will
+            # evaluate to cells
+            assert isinstance(value, list) and len(value) == len(
+                let.var.type_annotation.fields), "Currently, if let destination is a tuple, can only handle 'tuple forwarding' situations"
+            unnested_values = []
+            # need to do this bc visit_var now returns a list
+            for dest in value:
+                assert isinstance(dest, list) and isinstance(
+                    dest[0], Cell), "Currently tuples in let value must evaluate to cells"
+                unnested_values.append(dest[0])
+            # doesn't do anything just increments id by 1 so that we can
+            # compare the names the generated Calyx/Dahlia files with the
+            # TVM relay more easily.
+            self.id(let.var.name_hint)
+            # don't need to create new cells, just map the var to the cells in value
+            self.tuple_dic[let.var] = unnested_values
+        else:
+            value = self.visit(let.value)
+            dest = self.visit(let.var)
+            # need to pass dest[0] bc visit_var returns a list
+            self.analyze_val_dest(let, value, dest[0], let.var.type_annotation)
         return self.visit(let.body)
+
+    def visit_tuple(self, tup) -> list:
+        '''
+        For visiting tuple. Just recursively visits each element in the tuple.
+        '''
+        return [self.visit(x) for x in tup.fields]
 
     def visit_constant(self, const) -> tvm.relay.Constant:
         """Simply returns the Relay constant. Since we don't
@@ -175,6 +239,8 @@ class Relay2Calyx(ExprFunctor):
         """
         # Visit the call arguments.
         call.args = [self.visit(a) for a in call.args]
+        # dealing w/ the fact that visit_var returns list
+        call.args = flatten_lst(call.args)
         return call
 
     def visit_function(self, function):
@@ -198,6 +264,27 @@ class Relay2Calyx(ExprFunctor):
         )
 
 
+def flatten_lst(lst):
+    '''
+    Because evaluating a variable sometimes returns a tuple, the return type of 
+    visit_var() is a list. So when we evaluate a list of variables, we get a 
+    list of lists back. This function will return a flattened version of 
+    its input list. 
+    Precondition: the only elements in lst should be cells and/or lists of 
+    cells 
+    '''
+    flat = []
+    for elt in lst:
+        if isinstance(elt, Cell):
+            flat.append(elt)
+        elif isinstance(elt, list):
+            for sub_elt in elt:
+                flat.append(sub_elt)
+        else:
+            assert 0, "Args must evaluate to a Cell"
+    return flat
+
+
 def relay_transforms(mod) -> Function:
     """https://tvm.apache.org/docs/api/python/relay/transform.html"""
     transforms = tvm.transform.Sequential(
@@ -212,13 +299,12 @@ def relay_transforms(mod) -> Function:
     return mod["main"]
 
 
-def check_naming_convention(func_defs: List[DahliaFuncDef]):
+def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
     """Names that begin with the prefix `__` are reserved for
     the Dahlia programs that are created to implement the
     respective Relay call nodes. For example, `__x` is
     not allowed, but `_x` and `x` are OK.
     """
-
     def is_reserved(x):
         return x[:2] == "__"
 
@@ -234,7 +320,7 @@ def check_naming_convention(func_defs: List[DahliaFuncDef]):
             )
 
 
-def emit_calyx(relay_ir) -> (str, Dict):
+def emit_calyx(relay_ir) -> (str, Program):
     """Lowers a Relay function to a Calyx program."""
     relay_ir = relay_transforms(relay_ir)
     visitor = Relay2Calyx()
@@ -242,20 +328,17 @@ def emit_calyx(relay_ir) -> (str, Dict):
     check_naming_convention(func_defs)
 
     return (
-        "\n".join(
-            (
-                Program(
-                    imports=[
-                        Import("primitives/core.futil"),
-                        Import("primitives/binary_operators.futil"),
-                        Import("primitives/math.futil"),
-                    ],
-                    components=[main],
-                ).doc(),
-                emit_components(func_defs),
-            )
-        ),
-        visitor.source_map,
+        (
+            emit_components(func_defs),
+            Program(
+                imports=[
+                    # Manually printed because we need to print the Dahlia
+                    # function definitions
+                ],
+                components=[main],
+                meta=visitor.source_map
+            ),
+        )
     )
 
 
@@ -288,11 +371,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
     parser.add_argument("file", help="Path to the Relay IR.")
-    parser.add_argument(
-        "--write-metadata",
-        action="store_true",
-        dest="write_metadata",
-    )
 
     args = parser.parse_args()
     if args.file is None:
@@ -307,10 +385,14 @@ if __name__ == "__main__":
     ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
 
     relay_ir = relay.fromtext(relay_ir)
-    calyx, metadata = emit_calyx(relay_ir)
 
-    print(calyx)
-
-    if args.write_metadata:
-        metadata = Metadata(metadata)
-        print(metadata.doc())
+    imports = [
+        Import("primitives/core.futil"),
+        Import("primitives/binary_operators.futil"),
+        Import("primitives/math.futil"),
+    ]
+    (dahlia_defs, prog) = emit_calyx(relay_ir)
+    for imp in imports:
+        print(imp.doc())
+    print(dahlia_defs)
+    print(prog.doc())

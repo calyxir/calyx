@@ -1,4 +1,4 @@
-name: Rust
+name: Test
 
 on: [push]
 
@@ -99,7 +99,6 @@ jobs:
         # Run the remaining tests
         runt interp -x relay -d -o fail
 
-
   compiler:
     name: Test Compiler
     runs-on: ubuntu-latest
@@ -187,32 +186,33 @@ jobs:
     - name: Install common Python dependencies
       run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
 
-        #    - name: Cache Apache TVM
-        #      id: tvm-cache
-        #      uses: actions/cache@v2
-        #      with:
-        #        path: frontends/relay/tvm
-        #        key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
-        #
-        #    - name: Build Apache TVM
-        #      if: steps.tvm-cache.outputs.cache-hit != 'true'
-        #      run: |
-        #        sudo apt-get install -y ninja-build
-        #        cd frontends/relay
-        #        git clone --recursive https://github.com/apache/tvm.git
-        #        cd tvm && git reset --hard ccacb1ec1
-        #        mkdir build && cd build
-        #        cp ../cmake/config.cmake .
-        #        cmake -G Ninja .. && ninja
-        #
-        #    - name: Install Apache TVM
-        #      run: |
-        #        pip3 install -Iv antlr4-python3-runtime==4.7.2
-        #        cd frontends/relay/tvm/
-        #        cd python && python3 setup.py bdist_wheel
-        #        pip3 install --user dist/tvm-*.whl
-        #        cd ../topi/python && python3 setup.py bdist_wheel
-        #        pip3 install --user dist/topi-*.whl
+    - name: Cache Apache TVM
+      id: tvm-cache
+      uses: actions/cache@v2
+      with:
+        path: frontends/relay/tvm
+        key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
+
+    - name: Build Apache TVM
+      if: steps.tvm-cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get install -y ninja-build
+        cd frontends/relay
+        git clone https://github.com/apache/tvm.git
+        cd tvm && git reset --hard ccacb1ec1
+        git submodule init && git submodule update
+        mkdir build && cd build
+        cp ../cmake/config.cmake .
+        cmake -G Ninja .. && ninja
+
+    - name: Install Apache TVM
+      run: |
+        pip3 install -Iv antlr4-python3-runtime==4.7.2
+        cd frontends/relay/tvm/
+        cd python && python3 setup.py bdist_wheel
+        pip3 install --user dist/tvm-*.whl
+        cd ../topi/python && python3 setup.py bdist_wheel
+        pip3 install --user dist/topi-*.whl
 
     - name: Cache SBT
       uses: actions/cache@v2
@@ -290,11 +290,15 @@ jobs:
         command: test
         args: --manifest-path calyx/Cargo.toml --doc lib
 
-    - name: Test
+    - name: Core tests
+      run: |
+        runt -i 'core|examples|errors' -d -o fail
+
+    - name: Frontend tests
       run: |
         unset JAVA_TOOL_OPTIONS
-        # Run all tests except TVM
-        runt -x relay -d -o fail
+        runt -x 'core|examples|errors' -d -o fail
+
     - name: Run Python Tests
       run: pytest fud/fud/stages/verilator/tests/numeric_types.py
 

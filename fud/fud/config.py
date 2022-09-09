@@ -12,10 +12,13 @@ from . import stages
 from .utils import eprint
 from . import errors, external, registry
 
+# Key for the root folder
+ROOT = "futil_directory"
+
 # keys to prompt the user for
 WIZARD_DATA = {
     "global": {
-        "futil_directory": "Root Directory of Calyx repository",
+        ROOT: "Root Directory of Calyx repository",
     }
 }
 
@@ -29,7 +32,7 @@ DEFAULT_CONFIGURATION = {
         },
         "interpreter": {
             "exec": "./target/debug/interp",
-            "flags": None,
+            "flags": "--raw ",
             "data": None,
             "round_float_to_fixed": True,
         },
@@ -75,17 +78,11 @@ DEFAULT_CONFIGURATION = {
             "remote": None,
             "save_temps": None,
         },
-        "wdb": {
-            "mode": "hw_emu",
-            "ssh_host": "",
-            "ssh_username": "",
-            "remote": None,
-            "host": None,
+        "fpga": {
+            "data": None,
             "save_temps": None,
-            "xilinx_location": "/scratch/opt/Xilinx/Vitis/2020.2",
-            "xrt_location": "/opt/xilinx/xrt",
+            "waveform": None,
         },
-        "fpga": {"data": None},
     },
 }
 
@@ -196,7 +193,9 @@ class Configuration:
     def __init__(self):
         """Find the configuration file."""
         self.path = Path(appdirs.user_config_dir("fud"))
-        self.path.mkdir(exist_ok=True)
+        if not self.path.parent.exists():
+            log.warn(f"{self.path.parent} doesn't exist. Creating it.")
+        self.path.mkdir(parents=True, exist_ok=True)
 
         self.config_file = self.path / "config.toml"
         if not self.config_file.exists():
@@ -208,8 +207,8 @@ class Configuration:
         self.config = DynamicDict(toml.load(self.config_file))
         self.wizard_data = DynamicDict(WIZARD_DATA)
         self.fill_missing(DEFAULT_CONFIGURATION, self.config.data)
-        if ("global", "futil_directory") not in self.config:
-            log.warn("global.futil_directory is not set in the configuration")
+        if ("global", ROOT) not in self.config:
+            log.warn(f"global.{ROOT} is not set in the configuration")
 
     def commit(self):
         """

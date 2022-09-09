@@ -5,6 +5,7 @@ import os
 from fud.stages import SourceType, Stage
 from fud.stages.remote_context import RemoteExecution
 from fud.utils import TmpDir, shell
+from fud import config as cfg
 
 from .extract import futil_extract, hls_extract
 
@@ -49,14 +50,14 @@ class VivadoBaseStage(Stage):
             cmd = f"{self.remote_exec} {self.flags}"
 
         # Steps and schedule
-        local_tmpdir = self.setup_environment(verilog_path, config)
+        local_tmpdir = self.setup_environment(verilog_path, builder, config)
         if use_ssh:
             remote_exec = RemoteExecution(builder, self, config)
             remote_exec.import_libs()
             client, remote_tmpdir = remote_exec.open_and_send(
                 {
                     verilog_path: self.target_name,
-                    **{p: os.path.basename(p) for p in self.device_files()},
+                    **{p: os.path.basename(p) for p in self.device_files(config)},
                 }
             )
             remote_exec.execute(client, remote_tmpdir, cmd)
@@ -113,9 +114,10 @@ class VivadoStage(VivadoBaseStage):
         )
 
     def device_files(self, config):
+        root = Path(config["global", cfg.ROOT])
         return [
-            Path(config["global", "futil_directory"]) / "fud" / "synth" / "synth.tcl",
-            Path(config["global", "futil_directory"]) / "fud" / "synth" / "device.xdc",
+            root / "fud" / "synth" / "synth.tcl",
+            root / "fud" / "synth" / "device.xdc",
         ]
 
 
@@ -133,16 +135,10 @@ class VivadoHLSStage(VivadoBaseStage):
         )
 
     def device_files(self, config):
+        root = Path(config["global", cfg.ROOT])
         return [
-            str(
-                Path(config["global", "futil_directory"]) / "fud" / "synth" / "hls.tcl"
-            ),
-            str(
-                Path(config["global", "futil_directory"])
-                / "fud"
-                / "synth"
-                / "fxp_sqrt.h"
-            ),
+            str(root / "fud" / "synth" / "hls.tcl"),
+            str(root / "fud" / "synth" / "fxp_sqrt.h"),
         ]
 
 

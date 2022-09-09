@@ -11,16 +11,13 @@ pub struct Input {
     command_buffer: VecDeque<Command>,
 }
 
-impl Default for Input {
-    fn default() -> Self {
-        Self {
-            buffer: Editor::new(),
-            command_buffer: VecDeque::default(),
-        }
-    }
-}
-
 impl Input {
+    pub fn new() -> InterpreterResult<Self> {
+        Ok(Self {
+            buffer: Editor::new()?,
+            command_buffer: VecDeque::default(),
+        })
+    }
     pub fn next_command(&mut self) -> InterpreterResult<Command> {
         if !self.command_buffer.is_empty() {
             return Ok(self.command_buffer.pop_front().unwrap());

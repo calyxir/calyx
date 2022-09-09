@@ -1,0 +1,16 @@
+extern "memories.sv" {
+  primitive seq_mem_d1[WIDTH, SIZE, IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    addr0: IDX_SIZE,
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) in: WIDTH,
+    // Read ports
+    @static(1) @go(2) read_en: 1
+  ) -> (
+    @stable out: WIDTH,
+    @done(1) write_done: 1,
+    @done(2) read_done: 1
+  );
+}

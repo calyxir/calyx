@@ -6,6 +6,7 @@ from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
 from fud.stages.futil import FutilStage
 from fud.utils import shell
+from fud import config as cfg
 
 
 def get_ports(kernel_xml):
@@ -63,10 +64,7 @@ class XilinxStage(Stage):
 
         # tcl files
         self.gen_xo_tcl = (
-            Path(config["global", "futil_directory"])
-            / "fud"
-            / "bitstream"
-            / "gen_xo.tcl"
+            Path(config["global", cfg.ROOT]) / "fud" / "bitstream" / "gen_xo.tcl"
         )
 
         package_cmd = (
@@ -121,7 +119,7 @@ class XilinxStage(Stage):
         xilinx_stage = FutilStage("xilinx-verilog", "-b xilinx", "")
         xml_futil = FutilStage("xilinx-verilog", "-b xilinx-xml", "")
         kernel_futil = FutilStage(
-            "xilinx-verilog", "-b verilog --synthesis -p external", ""
+            "xilinx-verilog", "-b verilog --synthesis -p external --disable-init", ""
         )
 
         if remote_exec.use_ssh:

@@ -1,0 +1,31 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(1);
+    lt = std_lt(1);
+    add = std_add(1);
+    r2 = std_reg(1);
+  }
+  wires {
+    group wr_r1 {
+      r1.write_en = 1'd1;
+      r1.in = 1'd0;
+      wr_r1[done] = r1.done;
+    }
+    comb group cg {
+      add.left = r1.out;
+      add.right = 1'd1;
+      lt.left = add.out;
+      lt.right = 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      wr_r1;
+      invoke r2(
+        in = lt.out
+      )() with cg;
+    }
+  }
+}

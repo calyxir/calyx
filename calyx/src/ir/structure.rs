@@ -159,6 +159,35 @@ pub enum CellType {
     },
 }
 
+impl CellType {
+    /// Return the name associated with this CellType is present
+    pub fn get_name(&self) -> Option<&Id> {
+        match self {
+            CellType::Primitive { name, .. } | CellType::Component { name } => {
+                Some(name)
+            }
+            CellType::ThisComponent | CellType::Constant { .. } => None,
+        }
+    }
+
+    /// Generate string representation of CellType appropriate for error messages.
+    pub fn surface_name(&self) -> Option<String> {
+        match self {
+            CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            } => Some(format!(
+                "{}({})",
+                name,
+                param_binding.iter().map(|(_, v)| v.to_string()).join(", ")
+            )),
+            CellType::Component { name } => Some(name.to_string()),
+            CellType::ThisComponent | CellType::Constant { .. } => None,
+        }
+    }
+}
+
 /// Represents an instantiated cell.
 #[derive(Debug)]
 pub struct Cell {
@@ -171,7 +200,7 @@ pub struct Cell {
     /// Attributes for this group.
     pub attributes: Attributes,
     /// Whether the cell is external
-    external: bool,
+    reference: bool,
 }
 
 impl GetAttributes for Cell {
@@ -192,19 +221,19 @@ impl Cell {
             ports: smallvec![],
             prototype,
             attributes: Attributes::default(),
-            external: false,
+            reference: false,
         }
     }
 
     ///Get a boolean describing whether the cell is external.
-    pub fn is_external(&self) -> bool {
-        self.external
+    pub fn is_reference(&self) -> bool {
+        self.reference
     }
 
     ///Set the external field
-    pub(super) fn set_external(&mut self, external: bool) -> bool {
-        self.external = external;
-        self.external
+    pub(super) fn set_reference(&mut self, reference: bool) -> bool {
+        self.reference = reference;
+        self.reference
     }
 
     /// Get a reference to the named port if it exists.
@@ -226,6 +255,20 @@ impl Cell {
         self.ports
             .iter()
             .find(|&g| g.borrow().attributes.has(attr.as_ref()))
+            .map(Rc::clone)
+    }
+
+    /// Return all ports that have the attribute `attr`.
+    pub fn find_all_with_attr<'a, S>(
+        &'a self,
+        attr: S,
+    ) -> impl Iterator<Item = RRC<Port>> + 'a
+    where
+        S: AsRef<str> + 'a,
+    {
+        self.ports
+            .iter()
+            .filter(move |&p| p.borrow().attributes.has(attr.as_ref()))
             .map(Rc::clone)
     }
 
@@ -283,13 +326,7 @@ impl Cell {
 
     /// Returns the name of the component that is this cells type.
     pub fn type_name(&self) -> Option<&Id> {
-        match &self.prototype {
-            CellType::Primitive { name, .. } | CellType::Component { name } => {
-                Some(name)
-            }
-            CellType::ThisComponent => Some(&self.name),
-            CellType::Constant { .. } => None,
-        }
+        self.prototype.get_name()
     }
 
     /// Get parameter binding from the prototype used to build this cell.

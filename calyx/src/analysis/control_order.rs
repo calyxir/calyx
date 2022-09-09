@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write as _;
 
 use itertools::Itertools;
 use petgraph::{
@@ -107,7 +108,8 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                         let mut msg = ir::Printer::control_to_str(con);
                         let (port_reads, port_writes) =
                             ReadWriteSet::control_port_read_write_set(con);
-                        msg += &format!(
+                        write!(
+                            msg,
                             "  which reads: {}\n  and writes: {}",
                             Self::get_cells(port_reads)
                                 .map(|c| c.id)
@@ -115,7 +117,8 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                             Self::get_cells(port_writes)
                                 .map(|c| c.id)
                                 .join(", "),
-                        );
+                        )
+                        .unwrap();
                         msg
                     })
                     .join("\n");

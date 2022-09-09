@@ -43,19 +43,63 @@ cmd = """
 ./target/debug/futil {} -p well-formed -p papercut -p synthesis-papercut
 """
 
-## Tests errors that occur at runtime
 [[tests]]
-name = "runtime errors"
-paths = [
-  "tests/errors/runtime/*.futil"
-]
+name = "[core] futil examples"
+paths = ["examples/futil/*.futil"]
 cmd = """
-fud exec -s futil.exec './target/debug/futil' \
-         -s verilog.cycle_limit 500 \
-         --through verilog \
-         {} --to dat -q 2>&1 | \
-         grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
+./target/debug/futil {} -m file -d top-down-st
 """
+
+##### Backend Tests #####
+[[tests]]
+name = "[core] backends"
+paths = [ "tests/backend/**/*.futil" ]
+cmd = """
+flags=$(head -n 1 {} | cut -c 3-)
+./target/debug/futil {} $flags
+"""
+
+##### Frontend Tests #####
+[[tests]]
+name = "[frontend] dahlia"
+paths = [ "tests/frontend/dahlia/*.fuse" ]
+cmd = """
+fud e {} --to futil -q \
+          -s futil.exec './target/debug/futil' \
+        | tail -n+2
+"""
+
+[[tests]]
+name = "[frontend] systolic array"
+paths = [ "tests/frontend/systolic/array-*.systolic" ]
+cmd = """
+./frontends/systolic-lang/gen-systolic.py {}
+"""
+
+[[tests]]
+name = "[frontend] NTT pipeline generation"
+paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
+cmd = """
+fud e --from ntt {} --to futil -q
+"""
+
+[[tests]]
+name = "[frontend] relay"
+paths = ["tests/frontend/relay/*.relay"]
+cmd = "python3 frontends/relay/relay_visitor.py {}"
+
+[[tests]]
+name = "[frontend] exp"
+paths = ["tests/frontend/exp/*.txt"]
+cmd = "python3 calyx-py/calyx/gen_exp.py {}"
+
+[[tests]]
+name = "python library AST"
+paths = ["calyx-py/test/*.py"]
+cmd = """
+python3 {}
+"""
+
 
 ##### Correctness Tests #####
 ## Tests that ensure that individual control
@@ -64,6 +108,8 @@ fud exec -s futil.exec './target/debug/futil' \
 name = "correctness dynamic"
 paths = [
   "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil"
 ]
 cmd = """
 fud exec --to jq \
@@ -109,7 +155,7 @@ fud exec --to jq \
 
 [[tests]]
 name = "correctness static timing"
-paths = [ "tests/correctness/*.futil" ]
+paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil", "tests/correctness/sync/*.futil" ]
 cmd = """
 fud exec --to jq \
          --through dat \
@@ -141,7 +187,7 @@ fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
 """
 
 [[tests]]
-name = "exp (taylor series approximation) correctness"
+name = "exp correctness"
 paths = [ "tests/correctness/exp/*.txt" ]
 cmd = """
 python3 calyx-py/calyx/gen_exp.py {} |\
@@ -170,62 +216,24 @@ fud e -q {} --from relay --to jq \
             -s jq.expr ".memories"
 """
 
-##### Backend Tests #####
+## Tests errors that occur at runtime
 [[tests]]
-name = "[core] backends"
-paths = [ "tests/backend/**/*.futil" ]
+name = "runtime errors"
+paths = [
+  "tests/errors/runtime/*.futil"
+]
 cmd = """
-flags=$(head -n 1 {} | cut -c 3-)
-./target/debug/futil {} $flags
-"""
-
-
-##### Frontend Tests #####
-[[tests]]
-name = "[frontend] dahlia"
-paths = [ "tests/frontend/dahlia/*.fuse" ]
-cmd = """
-fud e {} --to futil -q \
-          -s futil.exec './target/debug/futil' \
-        | tail -n+2
-"""
-
-[[tests]]
-name = "[frontend] systolic array"
-paths = [ "tests/frontend/systolic/array-*.systolic" ]
-cmd = """
-./frontends/systolic-lang/gen-systolic.py {}
-"""
-
-[[tests]]
-name = "[frontend] NTT pipeline generation"
-paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
-cmd = """
-fud e --from ntt {} --to futil -q
-"""
-
-
-[[tests]]
-name = "[frontend] relay"
-paths = ["tests/frontend/relay/*.relay"]
-cmd = "python3 frontends/relay/relay_visitor.py {}"
-
-[[tests]]
-name = "[frontend] exp"
-paths = ["tests/frontend/exp/*.txt"]
-cmd = "python3 calyx-py/calyx/gen_exp.py {}"
-
-[[tests]]
-name = "python library AST"
-paths = ["calyx-py/test/*.py"]
-cmd = """
-python3 {}
+fud exec -s futil.exec './target/debug/futil' \
+         -s verilog.cycle_limit 500 \
+         --through verilog \
+         {} --to dat -q 2>&1 | \
+         grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
 ##### Examples #####
 
 [[tests]]
-name = "language tutorial"
+name = "[examples] language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
@@ -236,7 +244,7 @@ fud e {} -s verilog.cycle_limit 500 \
 """
 
 [[tests]]
-name = "sync primitives"
+name = "[examples] sync primitives"
 paths = ["examples/sync/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
@@ -247,7 +255,7 @@ fud e {} -s verilog.cycle_limit 500 \
 """
 
 [[tests]]
-name = "memory by reference tutorial"
+name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
@@ -258,7 +266,7 @@ fud e {} -s verilog.cycle_limit 500 \
 """
 
 [[tests]]
-name = "dahlia examples"
+name = "[examples] dahlia examples"
 paths = ["examples/dahlia/*.fuse"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
@@ -267,9 +275,14 @@ fud e {} -s verilog.cycle_limit 500 \
          --to dat -q
 """
 
+##### Xilinx Tests ######
 [[tests]]
-name = "[core] futil examples"
-paths = ["examples/futil/*.futil"]
+name = "AXI generation"
+paths = [
+  "tests/xilinx/dot-product.futil",
+  "tests/xilinx/language-tutorial-iterate.futil",
+  "tests/xilinx/vectorized-add.futil"
+]
 cmd = """
-./target/debug/futil {} -m file -d top-down-st
+target/debug/futil {} -b xilinx
 """

@@ -1,0 +1,72 @@
+// tests for having two barriers
+// expected resolution order:
+// thread 1:
+// no_op; sync; r(1);  w(2);    sync; 
+// thread 2:
+// w(1);  sync;        no-op;   sync; r(2);
+
+import "primitives/core.futil";
+import "primitives/sync.futil";
+
+component main() -> () {
+  cells {
+    @external out = std_mem_d1(32, 5, 3);
+    val = std_reg(32);
+    add_0 = std_add(32);
+    addr = std_reg(3);
+    add_1 = std_add(3);
+    lt = std_lt(3);
+    no_use = std_reg(32);
+  }
+
+  wires {
+    group no_op {
+      no_use.in = 32'd0;
+      no_use.write_en = 1'd1;
+      no_op[done] = no_use.done;
+    }
+
+    group incr_val {
+      add_0.left = val.out;
+      add_0.right = 32'd1;
+      val.in = add_0.out;
+      val.write_en = 1'd1;
+      incr_val[done] = val.done;
+    }
+
+    group reg_to_mem {
+      out.write_en = 1'd1;
+      out.write_data = val.out;
+      out.addr0 = addr.out;
+      reg_to_mem[done] = out.done;
+    }
+
+    group incr_idx {
+      add_1.left = addr.out;
+      add_1.right = 3'd1;
+      addr.in = add_1.out;
+      addr.write_en = 1'd1;
+      incr_idx[done] = addr.done;
+    }
+
+  }
+
+  control {
+    par {
+      // thread 1
+        seq {
+          @sync(1) no_op;
+          reg_to_mem;
+          incr_idx;
+          @sync(2) incr_val;
+        }
+
+      //thread 2  
+        seq {
+          @sync(1) incr_val;
+          @sync(2) no_op;
+          reg_to_mem;
+        }
+    }
+  }
+}
