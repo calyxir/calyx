@@ -384,8 +384,11 @@ class Stdlib:
     def identity(self, op: str, bitwidth: int):
         return CompInst("std_id", [bitwidth])
 
-    def slice(self, op: str, in_: int, out: int):
+    def slice(self, in_: int, out: int):
         return CompInst("std_slice", [in_, out])
+
+    def pad(self, in_: int, out: int):
+        return CompInst("std_pad", [in_, out])
 
     def mem_d1(self, bitwidth: int, size: int, idx_size: int):
         return CompInst("std_mem_d1", [bitwidth, size, idx_size])
