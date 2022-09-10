@@ -157,7 +157,7 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
     }
 }
 // Gets the "final" nodes in control c. Used to build exits_map.
-fn get_final(c: &ir::Control) -> HashSet<u64> {
+fn get_final(c: &ir::Control, prnt: bool) -> HashSet<u64> {
     let mut hs = HashSet::new();
     match c {
         ir::Control::Empty(_) => (),
@@ -170,13 +170,16 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
             hs.insert(ControlId::get_guaranteed_attribute(c, END_ID));
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            get_final((&stmts[..]).last().unwrap_or_else(|| {
-                panic!("error: empty Seq block. Run collapse-control pass.")
-            }));
+            return get_final(
+                (&stmts[..]).last().unwrap_or_else(|| {
+                    panic!("error: empty Seq block. Run collapse-control pass.")
+                }),
+                prnt,
+            );
         }
         ir::Control::Par(ir::Par { stmts, .. }) => {
             for stmt in stmts {
-                let stmt_final = get_final(stmt);
+                let stmt_final = get_final(stmt, false);
                 hs = hs.union(&stmt_final).copied().collect()
             }
         }
@@ -228,7 +231,8 @@ impl DominatorMap {
                     self.build_exit_map(stmt);
                 }
                 let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
-                self.exits_map.insert(id, get_final(c));
+                let prnt = id == 25;
+                self.exits_map.insert(id, get_final(c, prnt));
             }
         }
     }
@@ -279,7 +283,6 @@ impl DominatorMap {
                 self.update_node(pred, cur_id);
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                //Could try to think a way of doing it w/o this first stuff
                 let mut p = pred;
                 let mut nxt: HashSet<u64>;
                 for stmt in stmts {
