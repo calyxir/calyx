@@ -77,13 +77,13 @@ class NoPathFound(FudError):
         super().__init__(msg)
 
 
-class UndefinedStage(FudError):
+class UndefinedState(FudError):
     """
-    No stage with the defined name.
+    No state with the defined name.
     """
 
     def __init__(self, stage, ctx=None):
-        msg = f"No stage named {stage}"
+        msg = f"No state named {stage}"
         if ctx is not None:
             msg += f". Context: {ctx}"
         super().__init__(msg)

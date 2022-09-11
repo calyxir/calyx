@@ -5,6 +5,7 @@ import tvm.relay as relay
 import numpy as np
 import simplejson as sjson
 from image_processing import preprocess_image
+from calyx.py_ast import Import
 
 
 def write_data(relay_ir, input, input_name: str, params, filename: str):
@@ -49,9 +50,17 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
 def write_calyx(relay_ir, filename: str):
     """Writes the Calyx program lowered
     from `relay_ir` to `filename`."""
-    calyx_program = relay_visitor.emit_calyx(relay_ir)
+    (dahlia_defs, prog) = relay_visitor.emit_calyx(relay_ir)
     with open(filename, "w") as file:
-        file.writelines(calyx_program)
+        imports = [
+            Import("primitives/core.futil"),
+            Import("primitives/binary_operators.futil"),
+            Import("primitives/math.futil"),
+        ]
+        for imp in imports:
+            file.writelines(imp.doc())
+        file.writelines(dahlia_defs)
+        file.writelines(prog.doc())
 
 
 def write_relay(relay_ir, filename: str):
@@ -76,7 +85,9 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
     mod, params = relay.frontend.from_onnx(onnx_model, shape_dict)
 
     # Assumes the Relay IR is not already in A-normal Form.
-    transforms = tvm.transform.Sequential([relay.transform.ToANormalForm()])
+    # SimplifyInference() gets rid of dropout() calls
+    transforms = tvm.transform.Sequential(
+        [relay.transform.SimplifyInference(), relay.transform.ToANormalForm()])
     mod = transforms(mod)
 
     output = {"tvm", "calyx", "relay"} if output == "all" else {output}

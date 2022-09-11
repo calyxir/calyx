@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 calyx = { path = "../../calyx"}
 serde_json = "1.0.79"
+rand = "0.8.4"
 argh = "0.1"
 serde = "1.0.137"
 lazy_static = "1.4.0"
