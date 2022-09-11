@@ -98,7 +98,6 @@ async def run_kernel_test(toplevel, data_path: str):
     await with_timeout(FallingEdge(toplevel.ap_done), timeout, "us")
 
     post = {}
-    # Check output matches expected
     for mem in mems:
         addr = 0x000
         size = mem_size(mem, data)
@@ -106,8 +105,6 @@ async def run_kernel_test(toplevel, data_path: str):
         width = data_width(mem, data)
         post_execution = decode(post_execution, width)
         post.update({mem: post_execution})
-    # XXX (nathanielnrn): We currently ignore cycle data from cocotb and only
-    # are interested in correct data in memories
     post = {"memories": post}
 
     print(prefix_string(json.dumps(post, indent=4)))
