@@ -20,10 +20,10 @@ class KernelTB:
         assert os.path.isfile(
             self.data_path
         ), "data_path must be a data path to a valid file"
-        #self.expect_path = expect_path
-        #assert os.path.isfile(
+        # self.expect_path = expect_path
+        # assert os.path.isfile(
         #    self.expect_path
-        #), "data_path must be a data path to a valid file"
+        # ), "data_path must be a data path to a valid file"
 
     async def setup_rams(self, data: Mapping[str, Any]):
         # Create cocotb AxiRams
@@ -150,11 +150,11 @@ def encode(lst: list[int], width, byteorder="little"):
     """Return the `width`-wide byte representation of lst with byteorder"""
     return [i.to_bytes(width, byteorder) for i in lst]
 
+
 # Processes a string to format nicely for runt.
 # Specifically, adds a semicolon at start of everyline
-def prefix_string(s, char = "; "):
-    string_array = s.splitlines(keepends = True)
+def prefix_string(s, char="; "):
+    string_array = s.splitlines(keepends=True)
     for i, line in enumerate(string_array):
         string_array[i] = char + line
     return "".join(string_array)
-
