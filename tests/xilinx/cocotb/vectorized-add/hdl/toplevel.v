@@ -25,6 +25,7 @@ module Toplevel (
     output wire [63:0] m0_axi_ARADDR,
     output wire [7:0] m0_axi_ARLEN,
     output wire [2:0] m0_axi_ARSIZE,
+    output wire [1:0] m0_axi_ARBURST,
     input wire m0_axi_RVALID,
     output wire m0_axi_RREADY,
     input wire [7:0] m0_axi_RID,
@@ -37,6 +38,7 @@ module Toplevel (
     output wire [63:0] m0_axi_AWADDR,
     output wire [7:0] m0_axi_AWLEN,
     output wire [2:0] m0_axi_AWSIZE,
+    output wire [1:0] m0_axi_AWBURST,
     input wire m0_axi_WREADY,
     output wire m0_axi_WVALID,
     output wire [7:0] m0_axi_WID,
@@ -47,16 +49,13 @@ module Toplevel (
     output wire m0_axi_BREADY,
     input wire [7:0] m0_axi_BID,
     input wire [1:0] m0_axi_BRESP,
-    //ADDED SIGNALS TO GET COCOTB TO WORK
-    output wire [1:0]  m0_axi_AWBURST,
-    output wire [1:0]  m0_axi_ARBURST,
-    //GENERATED CODE
     input wire m1_axi_ARREADY,
     output wire m1_axi_ARVALID,
     output wire [7:0] m1_axi_ARID,
     output wire [63:0] m1_axi_ARADDR,
     output wire [7:0] m1_axi_ARLEN,
     output wire [2:0] m1_axi_ARSIZE,
+    output wire [1:0] m1_axi_ARBURST,
     input wire m1_axi_RVALID,
     output wire m1_axi_RREADY,
     input wire [7:0] m1_axi_RID,
@@ -69,6 +68,7 @@ module Toplevel (
     output wire [63:0] m1_axi_AWADDR,
     output wire [7:0] m1_axi_AWLEN,
     output wire [2:0] m1_axi_AWSIZE,
+    output wire [1:0] m1_axi_AWBURST,
     input wire m1_axi_WREADY,
     output wire m1_axi_WVALID,
     output wire [7:0] m1_axi_WID,
@@ -79,16 +79,13 @@ module Toplevel (
     output wire m1_axi_BREADY,
     input wire [7:0] m1_axi_BID,
     input wire [1:0] m1_axi_BRESP,
-    //ADDED SIGNALS TO GET COCOTB TO WORK
-    output wire [1:0]  m1_axi_AWBURST,
-    output wire [1:0]  m1_axi_ARBURST,
-    //GENERATED CODE
     input wire m2_axi_ARREADY,
     output wire m2_axi_ARVALID,
     output wire [7:0] m2_axi_ARID,
     output wire [63:0] m2_axi_ARADDR,
     output wire [7:0] m2_axi_ARLEN,
     output wire [2:0] m2_axi_ARSIZE,
+    output wire [1:0] m2_axi_ARBURST,
     input wire m2_axi_RVALID,
     output wire m2_axi_RREADY,
     input wire [7:0] m2_axi_RID,
@@ -101,6 +98,7 @@ module Toplevel (
     output wire [63:0] m2_axi_AWADDR,
     output wire [7:0] m2_axi_AWLEN,
     output wire [2:0] m2_axi_AWSIZE,
+    output wire [1:0] m2_axi_AWBURST,
     input wire m2_axi_WREADY,
     output wire m2_axi_WVALID,
     output wire [7:0] m2_axi_WID,
@@ -110,20 +108,8 @@ module Toplevel (
     input wire m2_axi_BVALID,
     output wire m2_axi_BREADY,
     input wire [7:0] m2_axi_BID,
-    input wire [1:0] m2_axi_BRESP,
-    //ADDED SIGNALS TO GET COCOTB TO WORK
-    output wire [1:0]  m2_axi_AWBURST,
-    output wire [1:0]  m2_axi_ARBURST
-    //GENERATED CODE
+    input wire [1:0] m2_axi_BRESP
 );
-    //ADDED TO GET COTOB TO WORK
-    assign m0_axi_ARBURST = 2'b01;
-    assign m1_axi_ARBURST = 2'b01;
-    assign m2_axi_ARBURST = 2'b01;
-    assign m0_axi_AWBURST = 2'b01;
-    assign m1_axi_AWBURST = 2'b01;
-    assign m2_axi_AWBURST = 2'b01;
-    //GENERATED CODE
     wire ap_start;
     wire ap_done;
     wire [31:0] timeout;
@@ -223,13 +209,14 @@ module Toplevel (
     end
     wire [31:0] A0_write_data;
     wire [31:0] A0_read_data;
-    wire [11:0] A0_addr0; //XXX (nathanielnrn): Why is this 12 wide? Last 2bytes are zs throughout simulation
+    wire [3:0] A0_addr0;
     wire A0_write_en;
     wire A0_done;
     Memory_controller_axi_0 inst_mem_controller_axi_0 (
         .ACLK(ap_clk),
-        .ADDR(A0_addr0), //input, A0_addr0 is output from compute kernel
+        .ADDR(A0_addr0),
         .ARADDR(m0_axi_ARADDR),
+        .ARBURST(m0_axi_ARBURST),
         .ARESET(reset || memories_sent),
         .ARID(m0_axi_ARID),
         .ARLEN(m0_axi_ARLEN),
@@ -237,6 +224,7 @@ module Toplevel (
         .ARSIZE(m0_axi_ARSIZE),
         .ARVALID(m0_axi_ARVALID),
         .AWADDR(m0_axi_AWADDR),
+        .AWBURST(m0_axi_AWBURST),
         .AWID(m0_axi_AWID),
         .AWLEN(m0_axi_AWLEN),
         .AWREADY(m0_axi_AWREADY),
@@ -247,8 +235,8 @@ module Toplevel (
         .BREADY(m0_axi_BREADY),
         .BRESP(m0_axi_BRESP),
         .BVALID(m0_axi_BVALID),
-        .COPY_FROM_HOST(A0_copy), //input, A0_copy from host_txn_state
-        .COPY_FROM_HOST_DONE(A0_copy_done), //output, also from host_txn_state
+        .COPY_FROM_HOST(A0_copy),
+        .COPY_FROM_HOST_DONE(A0_copy_done),
         .DONE(A0_done),
         .RDATA(m0_axi_RDATA),
         .READ_DATA(A0_read_data),
@@ -264,19 +252,20 @@ module Toplevel (
         .WID(m0_axi_WID),
         .WLAST(m0_axi_WLAST),
         .WREADY(m0_axi_WREADY),
-        .WRITE_DATA(A0_write_data), //x_write_data is output of main, not used, WRITE_DATA is input
+        .WRITE_DATA(A0_write_data),
         .WSTRB(m0_axi_WSTRB),
         .WVALID(m0_axi_WVALID)
     );
     wire [31:0] B0_write_data;
     wire [31:0] B0_read_data;
-    wire [11:0] B0_addr0; //XXX (nathanielnrn): Why is this 12 wide? Last 2bytes are zs throughout simulation
+    wire [3:0] B0_addr0;
     wire B0_write_en;
     wire B0_done;
     Memory_controller_axi_1 inst_mem_controller_axi_1 (
         .ACLK(ap_clk),
         .ADDR(B0_addr0),
         .ARADDR(m1_axi_ARADDR),
+        .ARBURST(m1_axi_ARBURST),
         .ARESET(reset || memories_sent),
         .ARID(m1_axi_ARID),
         .ARLEN(m1_axi_ARLEN),
@@ -284,6 +273,7 @@ module Toplevel (
         .ARSIZE(m1_axi_ARSIZE),
         .ARVALID(m1_axi_ARVALID),
         .AWADDR(m1_axi_AWADDR),
+        .AWBURST(m1_axi_AWBURST),
         .AWID(m1_axi_AWID),
         .AWLEN(m1_axi_AWLEN),
         .AWREADY(m1_axi_AWREADY),
@@ -317,13 +307,14 @@ module Toplevel (
     );
     wire [31:0] Sum0_write_data;
     wire [31:0] Sum0_read_data;
-    wire [11:0] Sum0_addr0; //XXX (nathanielnrn): Why is this 12 wide? Last 2bytes are zs throughout simulation
+    wire [3:0] Sum0_addr0;
     wire Sum0_write_en;
     wire Sum0_done;
     Memory_controller_axi_2 inst_mem_controller_axi_2 (
         .ACLK(ap_clk),
         .ADDR(Sum0_addr0),
         .ARADDR(m2_axi_ARADDR),
+        .ARBURST(m2_axi_ARBURST),
         .ARESET(reset || memories_sent),
         .ARID(m2_axi_ARID),
         .ARLEN(m2_axi_ARLEN),
@@ -331,6 +322,7 @@ module Toplevel (
         .ARSIZE(m2_axi_ARSIZE),
         .ARVALID(m2_axi_ARVALID),
         .AWADDR(m2_axi_AWADDR),
+        .AWBURST(m2_axi_AWBURST),
         .AWID(m2_axi_AWID),
         .AWLEN(m2_axi_AWLEN),
         .AWREADY(m2_axi_AWREADY),
@@ -365,24 +357,24 @@ module Toplevel (
     wire kernel_start;
     wire kernel_done;
     main kernel_inst (
-        .A0_addr0(A0_addr0), //output
+        .A0_addr0(A0_addr0),
         .A0_clk(),
         .A0_done(A0_done),
-        .A0_read_data(A0_read_data), //input
-        .A0_write_data(A0_write_data), //output
+        .A0_read_data(A0_read_data),
+        .A0_write_data(A0_write_data),
         .A0_write_en(A0_write_en),
-        .B0_addr0(B0_addr0), //output
+        .B0_addr0(B0_addr0),
         .B0_clk(),
         .B0_done(B0_done),
-        .B0_read_data(B0_read_data), //input
-        .B0_write_data(B0_write_data), //output
+        .B0_read_data(B0_read_data),
+        .B0_write_data(B0_write_data),
         .B0_write_en(B0_write_en),
-        .Sum0_addr0(Sum0_addr0), //output
+        .Sum0_addr0(Sum0_addr0),
         .Sum0_clk(),
         .Sum0_done(Sum0_done),
-        .Sum0_read_data(Sum0_read_data), //input
-        .Sum0_write_data(Sum0_write_data), //output
-        .Sum0_write_en(Sum0_write_en), 
+        .Sum0_read_data(Sum0_read_data),
+        .Sum0_write_data(Sum0_write_data),
+        .Sum0_write_en(Sum0_write_en),
         .clk(ap_clk),
         .done(kernel_done),
         .go(kernel_start),
@@ -414,7 +406,7 @@ module SINGLE_PORT_BRAM_0 (
         end
     end
     reg done_reg;
-    always @(posedge ACLK) begin //XXX (nathanielnrn): could clean up this generated code
+    always @(posedge ACLK) begin
         if(WE) begin
             done_reg <= 1;
         end else begin
@@ -581,7 +573,6 @@ module Control_axi (
             waddr <= AWADDR;
         end
     end
-    //Read logic
     always @(posedge ACLK) begin
         if(ARESET) begin
             rdata <= 0;
@@ -646,7 +637,6 @@ module Control_axi (
     reg [31:0] int_timeout;
     assign ap_start = int_ap_start;
     assign timeout = int_timeout;
-    //Write logic
     always @(posedge ACLK) begin
         if(ARESET) begin
             int_ap_start <= 0;
@@ -656,7 +646,6 @@ module Control_axi (
             int_ap_start <= 0;
         end
     end
-    //note this is a read
     always @(posedge ACLK) begin
         if(ARESET) begin
             int_ap_done <= 0;
@@ -758,9 +747,10 @@ module Memory_controller_axi_0 (
     input wire ARREADY,
     output wire ARVALID,
     output wire [7:0] ARID,
-    output wire [63:0] ARADDR, 
+    output wire [63:0] ARADDR,
     output wire [7:0] ARLEN,
     output wire [2:0] ARSIZE,
+    output wire [1:0] ARBURST,
     input wire RVALID,
     output wire RREADY,
     input wire [7:0] RID,
@@ -773,6 +763,7 @@ module Memory_controller_axi_0 (
     output wire [63:0] AWADDR,
     output wire [7:0] AWLEN,
     output wire [2:0] AWSIZE,
+    output wire [1:0] AWBURST,
     input wire WREADY,
     output wire WVALID,
     output wire [7:0] WID,
@@ -790,7 +781,7 @@ module Memory_controller_axi_0 (
     output wire SEND_TO_HOST_DONE,
     input wire [31:0] WRITE_DATA,
     output wire [31:0] READ_DATA,
-    input wire [3:0] ADDR, // A0_addr0 from kernel
+    input wire [3:0] ADDR,
     input wire WE,
     output wire DONE
 );
@@ -880,22 +871,22 @@ module Memory_controller_axi_0 (
             rstate <= rnext;
         end
     end
-    assign ARVALID = rstate == 1; //controller sending valid AR
-    assign RREADY = rstate == 2; //controller ready to recieve next data
+    assign ARVALID = rstate == 1;
+    assign RREADY = rstate == 2;
     always @(*) begin
         case (rstate)
             0 : begin
-                if(memory_mode_next == 1) begin // copying from host
+                if(memory_mode_next == 1) begin
                     rnext = 1;
                 end else rnext = 0;
             end
             1 : begin
-                if(ARREADY) begin // == ARREADY & ARVALID
+                if(ARREADY) begin
                     rnext = 2;
                 end else rnext = 1;
             end
             2 : begin
-                if(RVALID) begin // == RVALID & RREADY
+                if(RVALID) begin
                     rnext = 0;
                 end else rnext = 2;
             end
@@ -917,7 +908,8 @@ module Memory_controller_axi_0 (
     assign copy_shift = {{60{1'b0}}, copy_addr_offset} << 2;
     assign ARADDR = BASE_ADDRESS + copy_shift;
     assign ARLEN = 0;
-    assign ARSIZE = 2;
+    assign ARSIZE = 3'd2;
+    assign ARBURST = 2'b01;
     reg [1:0] wstate;
     reg [1:0] wnext;
     always @(posedge ACLK) begin
@@ -970,7 +962,8 @@ module Memory_controller_axi_0 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2; //TODO: Need to change to dynamically assign number of bytes, 2 ^ AWSIZE
+    assign AWSIZE = 3'd2;
+    assign AWBURST = 2'b01;
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
@@ -986,6 +979,7 @@ module Memory_controller_axi_1 (
     output wire [63:0] ARADDR,
     output wire [7:0] ARLEN,
     output wire [2:0] ARSIZE,
+    output wire [1:0] ARBURST,
     input wire RVALID,
     output wire RREADY,
     input wire [7:0] RID,
@@ -998,6 +992,7 @@ module Memory_controller_axi_1 (
     output wire [63:0] AWADDR,
     output wire [7:0] AWLEN,
     output wire [2:0] AWSIZE,
+    output wire [1:0] AWBURST,
     input wire WREADY,
     output wire WVALID,
     output wire [7:0] WID,
@@ -1142,7 +1137,8 @@ module Memory_controller_axi_1 (
     assign copy_shift = {{60{1'b0}}, copy_addr_offset} << 2;
     assign ARADDR = BASE_ADDRESS + copy_shift;
     assign ARLEN = 0;
-    assign ARSIZE = 2;
+    assign ARSIZE = 3'd2;
+    assign ARBURST = 2'b01;
     reg [1:0] wstate;
     reg [1:0] wnext;
     always @(posedge ACLK) begin
@@ -1195,7 +1191,8 @@ module Memory_controller_axi_1 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2; //TODO: Need to change to dynamically assign number of bytes, 2 ^ AWSIZE
+    assign AWSIZE = 3'd2;
+    assign AWBURST = 2'b01;
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
@@ -1211,6 +1208,7 @@ module Memory_controller_axi_2 (
     output wire [63:0] ARADDR,
     output wire [7:0] ARLEN,
     output wire [2:0] ARSIZE,
+    output wire [1:0] ARBURST,
     input wire RVALID,
     output wire RREADY,
     input wire [7:0] RID,
@@ -1223,6 +1221,7 @@ module Memory_controller_axi_2 (
     output wire [63:0] AWADDR,
     output wire [7:0] AWLEN,
     output wire [2:0] AWSIZE,
+    output wire [1:0] AWBURST,
     input wire WREADY,
     output wire WVALID,
     output wire [7:0] WID,
@@ -1367,7 +1366,8 @@ module Memory_controller_axi_2 (
     assign copy_shift = {{60{1'b0}}, copy_addr_offset} << 2;
     assign ARADDR = BASE_ADDRESS + copy_shift;
     assign ARLEN = 0;
-    assign ARSIZE = 2;
+    assign ARSIZE = 3'd2;
+    assign ARBURST = 2'b01;
     reg [1:0] wstate;
     reg [1:0] wnext;
     always @(posedge ACLK) begin
@@ -1420,22 +1420,11 @@ module Memory_controller_axi_2 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2; //TODO: Need to change to dynamically assign number of bytes, 2 ^ AWSIZE
+    assign AWSIZE = 3'd2;
+    assign AWBURST = 2'b01;
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
     assign WLAST = 1;
-
-
-// the "macro" to dump signals
-`ifdef COCOTB_SIM
-initial begin
-  //change name of vcd
-  $dumpfile ("vadd_cocotb.vcd");
-  $dumpvars (0, Toplevel);
-  #1;
-end
-`endif
-
 endmodule
 `default_nettype wire

@@ -290,9 +290,8 @@ target/debug/futil {} -b xilinx
 [[tests]]
 name = "Cocotb correctness tests"
 paths = [
-  "tests/xilinx/cocotb/dot-product/",
   "tests/xilinx/cocotb/vectorized-add/",
 ]
 cmd = """
-make --silent -B -C {}/../ TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL
+make --silent -B -C {}/../ TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL | grep -E '^;'
 """
