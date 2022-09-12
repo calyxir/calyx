@@ -44,6 +44,11 @@ class Relay2Calyx(ExprFunctor):
         # This used for the data in Calyx simulation.
         self.id_to_shape: Dict[str, Tuple] = {}
 
+        # maps the operator name/ destination memory width to the
+        # dahlia function. Used to detect when two dahlia functions are
+        # the same so we don't declare it twice
+        self.func_def_map = {}
+
         # For each Relay CallNode, there is an associated
         # Dahlia FuncDef so that it can be lowered from Dahlia
         # to Calyx as a stand-alone component.
@@ -86,7 +91,7 @@ class Relay2Calyx(ExprFunctor):
     def visit_var(self, var) -> list:
         """
         Visits a Relay variable and returns the
-        corresponding Calyx memory/memories. 
+        corresponding Calyx memory/memories.
         """
         if var in self.tuple_dic.keys():
             return self.tuple_dic[var]
@@ -101,6 +106,32 @@ class Relay2Calyx(ExprFunctor):
             self.id_to_shape[var_id] = var.type_annotation.concrete_shape
         self.id_to_cell[var_id] = cell
         return [cell]
+
+    def equivalent_func(self, args1, args2, atts1, atts2):
+        '''
+        Assuming functions 1 and 2 have equivalent destination widths (ex: 1x64x55x55) and
+        operator name (ex: "Conv2d"), this function checks if the functions have 
+        equivalent args and attributes. This is mainly making sure the attributes (so for 
+        conv2d, things like `padding` or `kernel_size`) and memory sizes of the args 
+        are the same. 
+        '''
+        atts_are_same = True
+        if (atts1 is None) != (atts2 is None):
+            atts_are_same = False
+        if (atts1 is not None) and (atts2 is not None):
+            for key in atts1.keys():
+                attr1 = atts1.get_str(key)
+                attr2 = atts2.get_str(key)
+                if isinstance(attr1, tvm.ir.container.Array) and isinstance(attr2, tvm.ir.container.Array):
+                    attr1 = list(attr1)
+                    attr2 = list(attr2)
+                if not attr1 == attr2:
+                    atts_are_same = False
+        args_are_same = True
+        for arg1, arg2 in zip(args1, args2):
+            if arg1.comp != arg2.comp:
+                args_are_same = False
+        return atts_are_same and args_are_same
 
     def analyze_val_dest(self, let, value, dest, type_annotation):
         '''
@@ -145,10 +176,8 @@ class Relay2Calyx(ExprFunctor):
             # we may want to use the same component and different
             # instances. This will require careful manipulation
             # of input and output ports of the two components.
-            comp_name = self.func_id(f"{func_name}_{dims}")
-
-            comp_decl = CompVar(f"{comp_name}_")
-            self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
+            root_name = f"{func_name}_{dims}"
+            comp_name = self.func_id(root_name)
 
             unnested_args = []
             for arg in value.args:
@@ -160,7 +189,38 @@ class Relay2Calyx(ExprFunctor):
                 unnested_args.append(new_arg)
             value.args = unnested_args
 
-            invoke = ru.emit_invoke_control(comp_decl, dest, value.args)
+            is_repeat_func = False
+            # If we want to "reuse" a Dahlia function so that we're only generating
+            # one Calyx component, when we create the invoke we have
+            # to make sure that we use the old names for the parameters
+            # (by old names, I mean the names that the previous component used
+            # for its ref cell parameters)
+            old_func_args = []
+            old_dest = None
+            if root_name in self.func_def_map:
+                for dahlia_func in self.func_def_map[root_name]:
+                    if(self.equivalent_func(dahlia_func.args, value.args,
+                                            dahlia_func.attributes, value.attrs)):
+                        # this means we can "reuse" the Dahlia Function which
+                        # will later be turned into a Calyx component, since
+                        # we have already created a Dahlia function idential
+                        # to the one we were about to create
+                        comp_decl = CompVar(f"{dahlia_func.component_name}_")
+                        old_func_args = dahlia_func.args
+                        old_dest = dahlia_func.dest
+                        is_repeat_func = True
+                        break
+
+            # If we are reusing a Dahlia function, we do not need to create a new cell
+            if not is_repeat_func:
+                comp_decl = CompVar(f"{comp_name}_")
+                self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
+
+            # the parameters old_func_args and old_dest are what determines whether
+            # the invoke is a "new" invoke or an invoke of an already defined
+            # Calyx component/Dahlia function
+            invoke = ru.emit_invoke_control(
+                comp_decl, dest, value.args, old_args=old_func_args, old_dest=old_dest)
             invoke.attributes.append(("pos", self.pos_count))
             self.controls.append(invoke)
 
@@ -171,8 +231,10 @@ class Relay2Calyx(ExprFunctor):
                 x for x in str(let).splitlines() if x.startswith("let")
             ][0]
 
-            self.func_defs.append(
-                ru.DahliaFuncDef(
+            # only add to Dahlia Functions list and map if we are actually want to
+            # use a new Dahlia Function, i.e., if we are not reusing the function
+            if not is_repeat_func:
+                dahlia_func_def = ru.DahliaFuncDef(
                     function_id=func_name,
                     component_name=comp_name,
                     dest=dest,
@@ -180,7 +242,14 @@ class Relay2Calyx(ExprFunctor):
                     attributes=value.attrs,
                     data_type=ru.get_dahlia_data_type(type_annotation),
                 )
-            )
+                self.func_defs.append(
+                    dahlia_func_def
+                )
+                if root_name in self.func_def_map:
+                    self.func_def_map[root_name].append(dahlia_func_def)
+                else:
+                    self.func_def_map[root_name] = [dahlia_func_def]
+
         else:
             assert 0, f"{value} is not supported yet."
 
@@ -266,12 +335,12 @@ class Relay2Calyx(ExprFunctor):
 
 def flatten_lst(lst):
     '''
-    Because evaluating a variable sometimes returns a tuple, the return type of 
-    visit_var() is a list. So when we evaluate a list of variables, we get a 
-    list of lists back. This function will return a flattened version of 
-    its input list. 
-    Precondition: the only elements in lst should be cells and/or lists of 
-    cells 
+    Because evaluating a variable sometimes returns a tuple, the return type of
+    visit_var() is a list. So when we evaluate a list of variables, we get a
+    list of lists back. This function will return a flattened version of
+    its input list.
+    Precondition: the only elements in lst should be cells and/or lists of
+    cells
     '''
     flat = []
     for elt in lst:
