@@ -326,11 +326,8 @@ impl Visitor for ComponentInliner {
                     cell.type_name().unwrap_or(&ir::Id::from("constant"))
                 );
 
-                return Err(Error::pass_assumption(
-                    Self::name().to_string(),
-                    msg,
-                )
-                .with_pos(&cell.attributes));
+                return Err(Error::pass_assumption(Self::name(), msg)
+                    .with_pos(&cell.attributes));
             }
         }
 
@@ -366,7 +363,7 @@ impl Visitor for ComponentInliner {
             if bindings.len() > 1 {
                 return Err(
                     Error::pass_assumption(
-                        Self::name().to_string(),
+                        Self::name(),
                         format!(
                             "Instance `{}.{}` invoked with multiple parameters (currently unsupported)",
                             comp.name,
@@ -453,6 +450,10 @@ impl Visitor for ComponentInliner {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Invokes with ref cells are not supported
+        if !s.ref_cells.is_empty() {
+            return Err(Error::pass_assumption(Self::name(), format!("invoke with ref cell is not supported. Run {} before this pass", super::CompileRef::name())));
+        }
         // If the associated instance has been inlined, replace the invoke with
         // its control program.
         let cell = s.comp.borrow();

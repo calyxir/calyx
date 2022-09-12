@@ -72,28 +72,42 @@ module std_fp_mult_pipe #(
     end
   end
 
-  // Move the multiplication computation through the pipeline.
+  // Register the inputs
   always_ff @(posedge clk) begin
     if (reset) begin
       rtmp <= 0;
       ltmp <= 0;
-      out_tmp <= 0;
     end else if (go) begin
       if (SIGNED) begin
         rtmp <= $signed(right);
         ltmp <= $signed(left);
+      end else begin
+        rtmp <= right;
+        ltmp <= left;
+      end
+    end else begin
+      rtmp <= 0;
+      ltmp <= 0;
+    end
+
+  end
+
+  // Compute the output and save it into out_tmp
+  always_ff @(posedge clk) begin
+    if (reset) begin
+      out_tmp <= 0;
+    end else if (go) begin
+      if (SIGNED) begin
+        // In the first cycle, this performs an invalid computation because
+        // ltmp and rtmp only get their actual values in cycle 1
         out_tmp <= $signed(
           { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
           { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
         );
       end else begin
-        rtmp <= right;
-        ltmp <= left;
         out_tmp <= ltmp * rtmp;
       end
     end else begin
-      rtmp <= 0;
-      ltmp <= 0;
       out_tmp <= out_tmp;
     end
   end

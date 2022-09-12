@@ -1,0 +1,222 @@
+import "primitives/core.futil";
+import "primitives/sync.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    out = std_mem_d1(32, 5, 3);
+    val = std_reg(32);
+    add_0 = std_add(32);
+    addr = std_reg(3);
+    add_1 = std_add(3);
+    lt = std_lt(3);
+    no_use_1 = std_reg(32);
+    no_use_2 = std_reg(32);
+    @generated barrier = std_sync_reg(32);
+    @generated eq = std_eq(32);
+    @generated wait_restore_reg = std_reg(1);
+    @generated save = std_reg(32);
+    @generated incr = std_add(32);
+    @generated wait_reg = std_reg(1);
+    @generated barrier0 = std_sync_reg(32);
+    @generated eq0 = std_eq(32);
+    @generated wait_restore_reg0 = std_reg(1);
+    @generated save0 = std_reg(32);
+    @generated incr0 = std_add(32);
+    @generated wait_reg0 = std_reg(1);
+    @generated save1 = std_reg(32);
+    @generated incr1 = std_add(32);
+    @generated wait_reg1 = std_reg(1);
+    @generated save2 = std_reg(32);
+    @generated incr2 = std_add(32);
+    @generated wait_reg2 = std_reg(1);
+  }
+  wires {
+    group no_op_1 {
+      no_use_1.write_en = 1'd1;
+      no_use_1.in = 32'd0;
+      no_op_1[done] = no_use_1.done;
+    }
+    group no_op_2 {
+      no_use_2.write_en = 1'd1;
+      no_use_2.in = 32'd0;
+      no_op_2[done] = no_use_2.done;
+    }
+    group incr_val {
+      val.write_en = 1'd1;
+      add_0.right = 32'd1;
+      add_0.left = val.out;
+      val.in = add_0.out;
+      incr_val[done] = val.done;
+    }
+    group reg_to_mem {
+      out.addr0 = addr.out;
+      out.write_data = val.out;
+      out.write_en = 1'd1;
+      reg_to_mem[done] = out.done;
+    }
+    group incr_idx {
+      addr.write_en = 1'd1;
+      add_1.right = 3'd1;
+      add_1.left = addr.out;
+      addr.in = add_1.out;
+      incr_idx[done] = addr.done;
+    }
+    group restore {
+      barrier.write_en_0 = 1'd1;
+      barrier.in_0 = 32'd0;
+      restore[done] = barrier.write_done_0;
+    }
+    group wait_restore {
+      wait_restore_reg.in = !eq.out ? 1'd1;
+      wait_restore_reg.write_en = !eq.out ? 1'd1;
+      wait_restore[done] = wait_restore_reg.done;
+    }
+    group clear_barrier {
+      barrier.read_en_0 = 1'd1;
+      clear_barrier[done] = barrier.read_done_0;
+    }
+    group incr_barrier {
+      barrier.read_en_0 = 1'd1;
+      incr.left = barrier.out_0;
+      incr.right = 32'd1;
+      save.in = barrier.read_done_0 ? incr.out;
+      save.write_en = barrier.read_done_0;
+      incr_barrier[done] = save.done;
+    }
+    group write_barrier {
+      barrier.write_en_0 = 1'd1;
+      barrier.in_0 = save.out;
+      write_barrier[done] = barrier.write_done_0;
+    }
+    group wait {
+      wait_reg.in = eq.out;
+      wait_reg.write_en = eq.out ? 1'd1;
+      wait[done] = wait_reg.done;
+    }
+    group restore0 {
+      barrier0.write_en_0 = 1'd1;
+      barrier0.in_0 = 32'd0;
+      restore0[done] = barrier0.write_done_0;
+    }
+    group wait_restore0 {
+      wait_restore_reg0.in = !eq0.out ? 1'd1;
+      wait_restore_reg0.write_en = !eq0.out ? 1'd1;
+      wait_restore0[done] = wait_restore_reg0.done;
+    }
+    group clear_barrier0 {
+      barrier0.read_en_0 = 1'd1;
+      clear_barrier0[done] = barrier0.read_done_0;
+    }
+    group incr_barrier0 {
+      barrier0.read_en_0 = 1'd1;
+      incr0.left = barrier0.out_0;
+      incr0.right = 32'd1;
+      save0.in = barrier0.read_done_0 ? incr0.out;
+      save0.write_en = barrier0.read_done_0;
+      incr_barrier0[done] = save0.done;
+    }
+    group write_barrier0 {
+      barrier0.write_en_0 = 1'd1;
+      barrier0.in_0 = save0.out;
+      write_barrier0[done] = barrier0.write_done_0;
+    }
+    group wait0 {
+      wait_reg0.in = eq0.out;
+      wait_reg0.write_en = eq0.out ? 1'd1;
+      wait0[done] = wait_reg0.done;
+    }
+    group incr_barrier1 {
+      barrier.read_en_1 = 1'd1;
+      incr1.left = barrier.out_1;
+      incr1.right = 32'd1;
+      save1.in = barrier.read_done_1 ? incr1.out;
+      save1.write_en = barrier.read_done_1;
+      incr_barrier1[done] = save1.done;
+    }
+    group write_barrier1 {
+      barrier.write_en_1 = 1'd1;
+      barrier.in_1 = save1.out;
+      write_barrier1[done] = barrier.write_done_1;
+    }
+    group wait1 {
+      wait_reg1.in = eq.out;
+      wait_reg1.write_en = eq.out ? 1'd1;
+      wait1[done] = wait_reg1.done;
+    }
+    group incr_barrier2 {
+      barrier0.read_en_1 = 1'd1;
+      incr2.left = barrier0.out_1;
+      incr2.right = 32'd1;
+      save2.in = barrier0.read_done_1 ? incr2.out;
+      save2.write_en = barrier0.read_done_1;
+      incr_barrier2[done] = save2.done;
+    }
+    group write_barrier2 {
+      barrier0.write_en_1 = 1'd1;
+      barrier0.in_1 = save2.out;
+      write_barrier2[done] = barrier0.write_done_1;
+    }
+    group wait2 {
+      wait_reg2.in = eq0.out;
+      wait_reg2.write_en = eq0.out ? 1'd1;
+      wait2[done] = wait_reg2.done;
+    }
+    comb group cmp {
+      lt.right = 3'd5;
+      lt.left = addr.out;
+    }
+    eq.left = barrier.peek;
+    eq.right = 32'd2;
+    eq0.left = barrier0.peek;
+    eq0.right = 32'd2;
+  }
+
+  control {
+    seq {
+      par {
+        restore;
+        restore0;
+      }
+      par {
+        while lt.out with cmp {
+          seq {
+            seq {
+              no_op_1;
+              incr_barrier;
+              write_barrier;
+              wait;
+              clear_barrier;
+              restore;
+            }
+            reg_to_mem;
+            seq {
+              incr_idx;
+              incr_barrier0;
+              write_barrier0;
+              wait0;
+              clear_barrier0;
+              restore0;
+            }
+          }
+        }
+        while lt.out with cmp {
+          seq {
+            seq {
+              incr_val;
+              incr_barrier1;
+              write_barrier1;
+              wait1;
+              wait_restore;
+            }
+            seq {
+              no_op_2;
+              incr_barrier2;
+              write_barrier2;
+              wait2;
+              wait_restore0;
+            }
+          }
+        }
+      }
+    }
+  }
+}

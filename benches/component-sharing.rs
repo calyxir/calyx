@@ -6,7 +6,7 @@ use calyx::{frontend, ir, passes};
 use ir::traversal::Visitor;
 use std::path::Path;
 
-fn resource_sharing_bench(c: &mut Criterion) {
+fn cell_share_bench(c: &mut Criterion) {
     let mut gemm_group = c.benchmark_group("gemm");
     for name in &["gemm2", "gemm3", "gemm4", "gemm6", "gemm8"] {
         gemm_group.bench_with_input(
@@ -33,8 +33,7 @@ fn resource_sharing_bench(c: &mut Criterion) {
                         rep
                     },
                     |mut rep: ir::Context| {
-                        passes::ResourceSharing::do_pass_default(&mut rep)
-                            .unwrap();
+                        passes::CellShare::do_pass_default(&mut rep).unwrap();
                     },
                     BatchSize::SmallInput,
                 )
@@ -45,8 +44,8 @@ fn resource_sharing_bench(c: &mut Criterion) {
 }
 
 criterion_group! {
-    name = resource_sharing;
+    name = cell_share;
     config = Criterion::default().sample_size(20);
-    targets = resource_sharing_bench
+    targets = cell_share_bench
 }
-criterion_main!(resource_sharing);
+criterion_main!(cell_share);

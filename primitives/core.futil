@@ -25,38 +25,40 @@ extern "core.sv" {
   comb primitive std_mux<"share"=1>[WIDTH](cond: 1, tru: WIDTH, fal: WIDTH) -> (out: WIDTH);
 
   /// Memories
-  primitive std_reg<"static"=1>[WIDTH](
+  // ANCHOR: std_reg_def
+  primitive std_reg<"state_share"=1>[WIDTH](
     @write_together(1) in: WIDTH,
-    @write_together(1) @go write_en: 1,
+    @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1,
     @reset reset: 1
   ) -> (
     @stable out: WIDTH,
     @done done: 1
   );
+  // ANCHOR_END: std_reg_def
 
-  primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
+  primitive std_mem_d1[WIDTH, SIZE, IDX_SIZE](
     @read_together(1) addr0: IDX_SIZE,
     @write_together(1) write_data: WIDTH,
-    @write_together(1) @go write_en: 1,
+    @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1
   ) -> (
     @read_together(1) read_data: WIDTH,
     @done done: 1
   );
 
-  primitive std_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+  primitive std_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
     @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
     @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
     @write_together(1) write_data: WIDTH,
-    @write_together(1) @go write_en: 1,
+    @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1
   ) -> (
     @read_together(1) read_data: WIDTH,
     @done done: 1
   );
 
-  primitive std_mem_d3<"static"=1>[
+  primitive std_mem_d3[
       WIDTH,
       D0_SIZE,
       D1_SIZE,
@@ -69,14 +71,14 @@ extern "core.sv" {
     @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
     @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
     @write_together(1) write_data: WIDTH,
-    @write_together(1) @go write_en: 1,
+    @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1
   ) -> (
     @read_together(1) read_data: WIDTH,
     @done done: 1
   );
 
-  primitive std_mem_d4<"static"=1>[
+  primitive std_mem_d4[
       WIDTH,
       D0_SIZE,
       D1_SIZE,
@@ -92,7 +94,7 @@ extern "core.sv" {
     @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
     @read_together(1) @write_together(2) addr3: D3_IDX_SIZE,
     @write_together(1) write_data: WIDTH,
-    @write_together(1) @go write_en: 1,
+    @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1
   ) -> (
     @read_together(1) read_data: WIDTH,

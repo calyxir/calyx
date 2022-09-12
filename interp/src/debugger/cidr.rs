@@ -61,7 +61,7 @@ impl Debugger {
 
         component_interpreter.converge()?;
 
-        let mut input_stream = Input::default();
+        let mut input_stream = Input::new()?;
         println!("== Calyx Interactive Debugger ==");
         while !component_interpreter.is_done() {
             let comm = input_stream.next_command();
@@ -308,6 +308,7 @@ impl Debugger {
                         )
                     }
                 }
+                Command::Explain => print!("{}", Command::get_explain_string()),
             }
         }
 
@@ -354,6 +355,7 @@ impl Debugger {
                     print!("{}", Command::get_help_string())
                 }
                 Command::Exit => return Err(InterpreterError::Exit),
+                Command::Explain => print!("{}", Command::get_explain_string()),
                 _ => {
                     println!(
                         "This command is unavailable after program termination"
@@ -477,14 +479,11 @@ fn print_cell(
 
     match mode {
         PrintMode::State => {
-            let code = code.as_ref().copied().unwrap_or(PrintCode::Binary);
-            let cell_state = state.get_cell_state(&cell_ref, &code);
+            let actual_code =
+                code.as_ref().copied().unwrap_or(PrintCode::Binary);
+            let cell_state = state.get_cell_state(&cell_ref, &actual_code);
             if matches!(&cell_state, &Serializable::Empty) {
-                format!(
-                    "{} cell {} has no internal state",
-                    SPACING,
-                    cell_ref.name()
-                )
+                print_cell(target, state, code, &PrintMode::Port)
             } else {
                 format!("{}{} = {}", SPACING, cell_ref.name(), cell_state)
             }

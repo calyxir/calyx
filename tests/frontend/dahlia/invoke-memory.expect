@@ -1,7 +1,9 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component mem_copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_done: 1, length: 3) -> (dest0_write_data: 32, dest0_write_en: 1, dest0_addr0: 3, src0_write_data: 32, src0_write_en: 1, src0_addr0: 3) {
+component mem_copy(length: 3) -> () {
   cells {
+    ref dest0 = std_mem_d1(32,5,3);
+    ref src0 = std_mem_d1(32,5,3);
     const0 = std_const(3,0);
     i_0 = std_reg(3);
     lt0 = std_lt(3);
@@ -19,24 +21,24 @@ component mem_copy(dest0_read_data: 32, dest0_done: 1, src0_read_data: 32, src0_
     }
     group upd0<"static"=1> {
       src_read0_0.write_en = 1'd1;
-      src0_addr0 = i_0.out;
-      src_read0_0.in = 1'd1 ? src0_read_data;
-      upd0[done] = src_read0_0.done ? 1'd1;
+      src0.addr0 = i_0.out;
+      src_read0_0.in = src0.read_data;
+      upd0[done] = src_read0_0.done;
     }
     group upd1<"static"=1> {
-      dest0_addr0 = i_0.out;
-      dest0_write_en = 1'd1;
-      dest0_write_data = 1'd1 ? src_read0_0.out;
-      upd1[done] = dest0_done ? 1'd1;
+      dest0.addr0 = i_0.out;
+      dest0.write_en = 1'd1;
+      dest0.write_data = src_read0_0.out;
+      upd1[done] = dest0.done;
     }
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       while lt0.out with cond0 {
         seq {
-          upd0;
-          upd1;
+          @pos(1) upd0;
+          @pos(2) upd1;
         }
       }
     }
@@ -59,9 +61,15 @@ component main() -> () {
   }
   control {
     seq {
-      let1;
-      invoke mem_copy0(dest0_read_data=d0.read_data, dest0_done=d0.done, src0_read_data=s0.read_data, src0_done=s0.done, length=len_0.out)(dest0_write_data=d0.write_data, dest0_write_en=d0.write_en, dest0_addr0=d0.addr0, src0_write_data=s0.write_data, src0_write_en=s0.write_en, src0_addr0=s0.addr0);
+      @pos(3) let1;
+      invoke mem_copy0[dest0=d0, src0=s0](length=len_0.out)();
     }
   }
 }
+metadata #{
+  0:   let i: ubit<3> = (0 as ubit<3>);
+  1:     dest[i] := src[i];
+  2:     dest[i] := src[i];
+  3: let len: ubit<3> = (5 as ubit<3>);
+}#
 

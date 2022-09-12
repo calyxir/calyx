@@ -1,6 +1,7 @@
+# type: ignore
 import tvm
 from tvm import relay
-from calyx.py_ast import *
+from calyx.py_ast import CompVar, Stdlib, CompInst, Cell, Invoke, CompPort
 from calyx.utils import bits_needed
 from typing import List
 from dataclasses import dataclass
@@ -72,55 +73,54 @@ def get_addr_ports(c: CompInst):
     return [(f"addr{i}", c.args[n]) for (i, n) in zip(addresses, indices)]
 
 
-def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
+def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell], old_args=[], old_dest=None) -> Invoke:
     """Returns the Invoke control."""
-    in_connects = []
-    out_connects = []
+    ref_cells = []
+    inputs = []
 
-    def get_connects(c: Cell, is_destination: bool):
-        # Hooks up correct ports for invocation, depending on whether
-        # `c` is an argument or a destination memory.
-        comp = c.comp
+    def add_arg(cell):
+        comp = cell.comp
         assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
-        param = f"{c.id.name}{DahliaSuffix[comp.id]}"
-        arg = CompVar(c.id.name)
+        param = f"{cell.id.name}{DahliaSuffix[comp.id]}"
+        arg = CompVar(cell.id.name)
 
+        # If this is a constant or a register, connect the ports
         if any(p in comp.id for p in ["reg", "const"]):
-            # If this is a constant or a register.
-            return [(f"{param}", CompPort(arg, "out"))], []
+            inputs.append((f"{param}", CompPort(arg, "out")))
+        else:
+            ref_cells.append((param, arg))
 
-        # Otherwise, its an N-dimensional memory.
-        in_, out = [], []
-        if is_destination:
-            # If the memory is being written to, hook up write ports.
-            in_.append((f"{param}_done", CompPort(arg, "done")))
-            out.extend(
-                [
-                    (f"{param}_write_data", CompPort(arg, "write_data")),
-                    (f"{param}_write_en", CompPort(arg, "write_en")),
-                ]
-            )
+    # this function is similar to add_arg, but is for the case when we are
+    # "reusing" a Dahlia Function (which will later be a Calyx component)
+    # and therefore need to use the same parameter names as the previous invoke
+    def add_arg2(arg_cell, param_cell):
+        assert arg_cell.comp == param_cell.comp, "arg cell and param cell must be same component"
+        comp = arg_cell.comp
+        assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
+        param = f"{param_cell.id.name}{DahliaSuffix[comp.id]}"
+        arg = CompVar(arg_cell.id.name)
 
-        # Reads allowed in either case.
-        in_.append((f"{param}_read_data", CompPort(arg, "read_data")))
+        # If this is a constant or a register, connect the ports
+        if any(p in comp.id for p in ["reg", "const"]):
+            inputs.append((f"{param}", CompPort(arg, "out")))
+        else:
+            ref_cells.append((param, arg))
 
-        # Hook up address ports.
-        addr_ports = [port for port, _ in get_addr_ports(comp)]
-        out.extend(
-            [(f"{param}_{port}", CompPort(arg, f"{port}")) for port in addr_ports]
-        )
+    if len(old_args) == 0:
+        for cell in args:
+            add_arg(cell)
+        add_arg(dest)
+    else:
+        # case for when we are "reusing" a Dahlia Function/Calyx component and
+        # therefore need to make sure we're using the previous parameter names
+        assert len(old_args) == len(
+            args), "we are reusing a dahlia function but the args are different lengths"
+        assert old_dest is not None, "if using old_args must provide an old_dest too"
+        for (cell1, cell2) in zip(args, old_args):
+            add_arg2(cell1, cell2)
+        add_arg2(dest, old_dest)
 
-        return in_, out
-
-    for cell in args:
-        # Don't connect write ports for arguments.
-        in_, out = get_connects(cell, is_destination=False)
-        in_connects.extend(in_)
-        out_connects.extend(out)
-
-    dest_in, dest_out = get_connects(dest, is_destination=True)
-
-    return Invoke(decl, in_connects + dest_in, out_connects + dest_out)
+    return Invoke(decl, inputs, [], ref_cells)
 
 
 def get_dahlia_data_type(relay_type) -> str:

@@ -1,0 +1,68 @@
+The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes 
+that are attached to each non-empty control statement when the domination map is built. 
+To see which ID's refer to which control statement, look at the Calyx Program, which should 
+be printed along with the map when it is printed.
+Domination Map for component "example"  {
+Node: 0 -- Dominators: [0]
+Node: 1 -- Dominators: [0, 1]
+Node: 2 -- Dominators: [0, 1, 2]
+Node: 4 -- Dominators: [0, 1, 2, 4]
+Node: 5 -- Dominators: [0, 1, 2, 4, 5]
+Node: 7 -- Dominators: [0, 1, 2, 4, 5, 7]
+Node: 8 -- Dominators: [0, 1, 2, 4, 5, 7, 8]
+Node: 9 -- Dominators: [0, 1, 2, 4, 5, 9]
+Node: 10 -- Dominators: [0, 1, 2, 4, 5, 9, 10]
+}
+import "primitives/core.futil";
+component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    group A {
+    }
+    group B1 {
+    }
+    group B2 {
+    }
+    group C {
+    }
+    group D {
+    }
+    comb group less_than {
+      lt.left = 4'd3;
+      lt.right = 4'd2;
+    }
+  }
+
+  control {
+    @NODE_ID(0) while lt.out with less_than {
+      @NODE_ID while lt.out with less_than {
+        @NODE_ID(2) while lt.out with less_than {
+          @NODE_ID(3) seq {
+            @NODE_ID(4) A;
+            @NODE_ID(5) while lt.out with less_than {
+              @NODE_ID(6) seq {
+                @NODE_ID(7) B1;
+                @NODE_ID(8) B2;
+              }
+            }
+            @NODE_ID(9) C;
+            @NODE_ID(10) D;
+          }
+        }
+      }
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    invoke e()();
+  }
+}

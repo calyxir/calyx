@@ -5,6 +5,7 @@
 - [Language Tutorial](./tutorial/language-tut.md)
   - [Multi-Component Designs](./lang/multi-component.md)
   - [Passing Memories by Reference](./lang/memories-by-reference.md)
+- [Language Reference](./lang/ref.md)
 - [Experimental: Synchronization](./lang/sync.md)
 - [Attributes](./lang/attributes.md)
 - [Undefined Behaviors](./lang/undefined.md)
@@ -18,7 +19,6 @@
   - [Multiple Paths](./fud/multiple-paths.md)
   - [CIRCT](./fud/circt.md)
 - [The Calyx Interpreter](./interpreter.md)
-  - [Interactive Debugger](./debug/cider.md)
 
 # The Calyx Compiler
 
@@ -27,7 +27,8 @@
 - [The `calyx` Library](./compiler-as-library.md)
 - [Dataflow Analysis](./optimizations/dataflow.md)
 - [Debugging](./debug/index.md)
-  - [Tips](./debug/debug.md)
+  - [Logical Bugs](./debug/cider.md)
+  - [Compilation Bugs](./debug/debug.md)
 
 # Generating Calyx
 
@@ -43,6 +44,7 @@
 # Tools
 
 - [Runt](./tools/runt.md)
+- [Data Gen](./tools/data-gen.md)
 - [`exp` Generator](./tools/exp-generator.md)
 - [Editor Highlighting](./tools/editor-highlighting.md)
 

@@ -1,0 +1,30 @@
+// -p static-par-conv
+
+component main() -> () {
+  cells {
+  }
+
+  wires {
+    group A0{
+    }
+    group A1{
+    }
+    group A2{
+    }
+    group B0{
+    }
+    group B1 {
+    }
+    group B2 {
+    }
+    group C{
+    }
+  }
+
+  control {
+    par { 
+        seq{@static(2)A0; @static(3)A1; }
+        seq{@static(2)B0; @static(3)B1; @static(1)B2;}
+    } 
+  }
+}

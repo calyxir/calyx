@@ -1,6 +1,0 @@
----CODE---
-1
----STDERR---
-Error: tests/passes/well-formed/external-invoke-unmentioned.futil
-32 |      invoke f()();
-   |      ^^^^^^^^^^^^^ Malformed Control: unmentioned external cell: m

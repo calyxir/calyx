@@ -2,7 +2,7 @@ use crate::utils::{Idx, WeightGraph};
 use itertools::Itertools;
 use petgraph::algo;
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
     hash::Hash,
 };
 
@@ -46,9 +46,12 @@ where
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
-    pub fn color_greedy(&self) -> HashMap<T, T> {
-        let mut all_colors: BTreeSet<Idx> = BTreeSet::new();
+    pub fn color_greedy(&self, bound: Option<&u64>) -> HashMap<T, T> {
+        let mut all_colors: BTreeMap<Idx, u64> = BTreeMap::new();
         let mut coloring: HashMap<Idx, Idx> = HashMap::new();
+        let always_share = bound.is_none();
+        // if we always_share is true, then we don't care about bound
+        let bound_if_exists = if always_share { 0 } else { *bound.unwrap() };
 
         // get strongly get components of graph
         let sccs = algo::tarjan_scc(&self.graph.graph);
@@ -61,16 +64,31 @@ where
             // if graph is complete, then every node needs a new color. so there's no reason to
             // check neighbors
             if is_complete {
-                let mut available_colors: Vec<_> =
-                    all_colors.iter().cloned().collect_vec();
+                let mut available_colors: Vec<_> = all_colors
+                    .iter()
+                    .map(|(idx, _num_used)| idx)
+                    .cloned()
+                    .collect_vec();
 
-                // every node with need a different color
+                // every node will need a different color
                 for nidx in scc.into_iter().sorted() {
                     if !available_colors.is_empty() {
-                        coloring.insert(nidx, available_colors.remove(0));
+                        let c = available_colors.remove(0);
+                        coloring.insert(nidx, c);
+                        if !always_share {
+                            if let Some(num_used) = all_colors.get_mut(&c) {
+                                *num_used += 1;
+                                if *num_used == bound_if_exists {
+                                    all_colors.remove(&c);
+                                }
+                            }
+                        }
                     } else {
-                        all_colors.insert(nidx);
+                        all_colors.insert(nidx, 1);
                         coloring.insert(nidx, nidx);
+                        if !always_share && bound_if_exists == 1 {
+                            all_colors.remove(&nidx);
+                        }
                     }
                 }
             } else {
@@ -87,11 +105,24 @@ where
 
                     let color = available_colors.iter().next();
                     match color {
-                        Some(c) => coloring.insert(nidx, *c),
+                        Some((c, _)) => {
+                            coloring.insert(nidx, *c);
+                            if !always_share {
+                                if let Some(num_used) = all_colors.get_mut(c) {
+                                    *num_used += 1;
+                                    if *num_used == bound_if_exists {
+                                        all_colors.remove(c);
+                                    }
+                                }
+                            }
+                        }
                         None => {
                             // use self as color if nothing else
-                            all_colors.insert(nidx);
-                            coloring.insert(nidx, nidx)
+                            all_colors.insert(nidx, 1);
+                            coloring.insert(nidx, nidx);
+                            if !always_share && bound_if_exists == 1 {
+                                all_colors.remove(&nidx);
+                            }
                         }
                     };
                 }

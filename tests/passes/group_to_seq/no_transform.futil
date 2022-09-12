@@ -1,0 +1,43 @@
+//-p validate -p group2seq
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main<"state_share"=1>(in:32) -> () {
+  cells {
+    add = std_add(32);
+    bin_read0_0 = std_reg(32);
+    A = std_reg(32);
+    B = std_reg(32);
+    x_0 = std_reg(32);
+  }
+  wires {
+    // no A.go = B.done (or vice versa), and group's done is not in correct form 
+    group writeAB{
+      A.write_en = 1'd1; 
+      A.in = 32'd5; 
+      B.write_en = 1'd1; 
+      B.in = 32'd7; 
+      writeAB[done]= A.done & B.done? 1'd1;
+    }
+
+    // Even though this *could* be split, our pass does *not* since it doesn't 
+    // split any groups with writes to combinational components. It will only 
+    // think about splitting groups if there are exactly two writes, and those  
+    // writes are to non-combinational primitives or user-defined components. 
+    group chain_plus_adders {
+      add.left = 32'd2;
+      add.right = 32'd4;
+      x_0.write_en = bin_read0_0.done;
+      x_0.in = bin_read0_0.out;
+      bin_read0_0.in = add.out;
+      bin_read0_0.write_en = !bin_read0_0.done? 1'd1;
+      chain_plus_adders[done] = x_0.done;
+    }
+  }
+  control {
+    seq{
+      writeAB;
+      chain_plus_adders;
+    }
+  }
+}

@@ -28,7 +28,7 @@ fn axi_address_space(
     AddressSpace::new(address_width, data_width)
         .address(
             0x0,
-            "AP_CONTROL",
+            "AP_CONTROL", //TODO: where does this disapear to?
             vec![
                 (
                     0..1,
@@ -44,7 +44,12 @@ fn axi_address_space(
                         .read("ap_done")
                         .clear_on_read(axi.read_data.clone(), "raddr"),
                 ),
-                // (2..3, "ap_idle", 0..1),,
+                (
+                    2..3,
+                    "int_ap_idle",
+                    0..1,
+                    Flags::default().read("ap_done").idle(),
+                ),
             ],
         )
         .address(
