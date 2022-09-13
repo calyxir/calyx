@@ -164,8 +164,8 @@ class Cell(Structure):
 
 @dataclass
 class Connect(Structure):
-    src: Port
     dest: Port
+    src: Port
     guard: Optional[GuardExpr] = None
 
     def doc(self) -> str:
