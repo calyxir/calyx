@@ -75,7 +75,7 @@ def emit_idx_group(s_idx, b=None):
         connections=[
             Connect(CompPort(adder, "left"), CompPort(idx, "out")),
             Connect(CompPort(adder, "right"), ConstantPort(32, 1)),
-            Connect(CompPort(idx, "write_en"), (ConstantPort(1, 1)),
+            Connect(CompPort(idx, "write_en"), ConstantPort(1, 1)),
             Connect(CompPort(idx, "in"), CompPort(adder, "out")),
             Connect(HolePort(group_id, "done"), CompPort(idx, "done")),
         ],
