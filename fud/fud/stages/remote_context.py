@@ -133,6 +133,10 @@ class RemoteExecution:
             for chunk in iter(lambda: stderr.readline(2048), ""):
                 log.warn(chunk.strip())
 
+            exit_code = stdout.channel.recv_exit_status()
+            if exit_code != 0:
+                log.error(f"Non-zero exit code: {exit_code}")
+
         run_remote(client, tmpdir)
 
     def _close(self, client, remote_tmpdir, keep_tmpdir=False):
