@@ -1,3 +1,4 @@
+
 import re
 
 
@@ -132,8 +133,19 @@ class RPTParser:
         return ret
 
     def get_table(self, reg, off, multi_header=False):
-        """Parse table `off` lines after `reg` matches the files in the current
+        """
+        Parse table `off` lines after `reg` matches the files in the current
         file.
+
+        The table format is:
+        +--------+-------+----------+------------+
+        |  Clock | Target| Estimated| Uncertainty|
+        +--------+-------+----------+------------+
+        |ap_clk  |   7.00|      4.39|        1.89|
+        |ap_clk  |   7.00|      4.39|        1.89|
+        +--------+-------+----------+------------+
+        |ap_clk  |   7.00|      4.39|        1.89|
+        +--------+-------+----------+------------+
         """
         start = 0
         end = 0
@@ -155,3 +167,66 @@ class RPTParser:
         assert end > start, "Failed to find table start for {}.".format(reg)
 
         return self._parse_table(self.lines[start:end], multi_header)
+
+    def get_bare_table(self, header_regex):
+        """
+        Parse a table with the format:
+        ---------------------------------------------------------------------
+        | Design Timing Summary
+        | ---------------------
+        ---------------------------------------------------------------------
+
+            WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints
+            -------      -------  ---------------------  -------------------
+              4.221        0.000                      0                  376
+
+        Returns none if the table header is not found
+        """
+
+        # Iterate over the lines and find the header
+        start = None
+        for idx, line in enumerate(self.lines, 1):
+            if header_regex.search(line):
+                start = idx
+                break
+
+        if start is None:
+            return None
+
+        # Skip lines while the first non-empty word is not a letter
+        while True:
+            start += 1
+            line = self.lines[start]
+            if len(line.strip()) == 0:
+                continue
+            if line.strip()[0].isalpha():
+                break
+
+        # The ---- below each header defines it. First, we extract locations of --- in the next line
+        # and then we extract the header from the current line
+        dash_line = self.lines[start+1]
+        header_line = self.lines[start]
+        # Walk both the lines together
+        dash_idx = 0
+        headers = []
+
+        while dash_idx < len(dash_line):
+            if dash_line[dash_idx] == "-":
+                # Start of a new header
+                cur_header = ""
+                while dash_idx < len(dash_line) and dash_line[dash_idx] == "-":
+                    cur_header += header_line[dash_idx]
+                    dash_idx += 1
+                headers.append(cur_header.strip())
+            else:
+                # If we've found a non-dash, skip it
+                while dash_idx < len(dash_line) and dash_line[dash_idx] != "-":
+                    dash_idx += 1
+
+        # The next line is the separator. Skip it
+        start += 2
+        # The final line is the data. Split up the line and remove empty strings
+        data = list(filter(lambda a: a != "", self.lines[start].split(" ")))
+
+        # Return a dict with the headers as keys and the data as values
+        return {headers[i]: data[i] for i in range(len(headers))}

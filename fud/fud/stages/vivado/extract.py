@@ -1,7 +1,7 @@
 import json
 import re
-import sys
 import traceback
+import logging as log
 
 from fud import errors
 
@@ -57,70 +57,92 @@ def futil_extract(directory):
     # solely use one or the other.
     resourceInfo = {}
 
-    # Extraction for implementation files.
+    # Extract utilization information
+    util_file = directory / "impl_1" / "main_utilization_placed.rpt"
     try:
-        impl_parser = rpt.RPTParser(
-            directory / "impl_1" / "main_utilization_placed.rpt"
-        )
-        slice_logic = impl_parser.get_table(re.compile(r"1\. CLB Logic"), 2)
-        dsp_table = impl_parser.get_table(re.compile(r"4\. ARITHMETIC"), 2)
-        meet_timing = file_contains(
-            r"Timing constraints are not met.",
-            directory / "impl_1" / "main_timing_summary_routed.rpt",
-        )
+        if util_file.exists():
+            impl_parser = rpt.RPTParser(util_file)
+            slice_logic = impl_parser.get_table(re.compile(r"1\. CLB Logic"), 2)
+            dsp_table = impl_parser.get_table(re.compile(r"4\. ARITHMETIC"), 2)
 
-        clb_lut = to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"])
-        clb_reg = to_int(find_row(slice_logic, "Site Type", "CLB Registers")["Used"])
-        carry8 = to_int(find_row(slice_logic, "Site Type", "CARRY8")["Used"])
-        f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
-        f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
-        f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
-        resourceInfo.update(
-            {
-                "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
-                "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
-                "meet_timing": int(meet_timing),
-                "registers": rtl_component_extract(directory, "Registers"),
-                "muxes": rtl_component_extract(directory, "Muxes"),
-                "clb_registers": clb_reg,
-                "carry8": carry8,
-                "f7_muxes": f7_muxes,
-                "f8_muxes": f8_muxes,
-                "f9_muxes": f9_muxes,
-                "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
-            }
-        )
+            clb_lut = to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"])
+            clb_reg = to_int(
+                find_row(slice_logic, "Site Type", "CLB Registers")["Used"])
+            carry8 = to_int(find_row(slice_logic, "Site Type", "CARRY8")["Used"])
+            f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
+            f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
+            f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
+            resourceInfo.update(
+                {
+                    "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
+                    "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
+                    "registers": rtl_component_extract(directory, "Registers"),
+                    "muxes": rtl_component_extract(directory, "Muxes"),
+                    "clb_registers": clb_reg,
+                    "carry8": carry8,
+                    "f7_muxes": f7_muxes,
+                    "f8_muxes": f8_muxes,
+                    "f9_muxes": f9_muxes,
+                    "clb": clb_lut + clb_reg + carry8 + f7_muxes + f8_muxes + f9_muxes,
+                }
+            )
+        else:
+            log.error(f"Utilization implementation file {util_file} is missing")
 
     except Exception:
-        traceback.print_exc()
-        print("Implementation files weren't found, skipping.", file=sys.stderr)
+        log.error(traceback.format_exc())
+        log.error("Failed to extract utilization information")
+
+    # Get timing information
+    timing_file = directory / "impl_1" / "main_timing_summary_routed.rpt"
+    if not timing_file.exists():
+        log.error(f"Timing file {timing_file} is missing")
+    meet_timing = file_contains(
+        r"Timing constraints are not met.", timing_file
+    )
+    resourceInfo.update({
+        "meet_timing": int(meet_timing),
+    })
+
+    # Extract slack information
+    timing_parser = rpt.RPTParser(timing_file)
+    slack_info = timing_parser.get_bare_table(re.compile(r"Design Timing Summary"))
+    if slack_info is None:
+        log.error("Failed to extract slack information")
+
+    resourceInfo.update({"worst_slack": float(safe_get(slack_info, "WNS(ns)"))})
 
     # Extraction for synthesis files.
+    synth_file = directory / "synth_1" / "runme.log"
     try:
-        synth_parser = rpt.RPTParser(directory / "synth_1" / "runme.log")
-        cell_usage_tbl = synth_parser.get_table(re.compile(r"Report Cell Usage:"), 0)
-        cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
-        cell_lut2 = find_row(cell_usage_tbl, "Cell", "LUT2", False)
-        cell_lut3 = find_row(cell_usage_tbl, "Cell", "LUT3", False)
-        cell_lut4 = find_row(cell_usage_tbl, "Cell", "LUT4", False)
-        cell_lut5 = find_row(cell_usage_tbl, "Cell", "LUT5", False)
-        cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
-        cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
+        if not synth_file.exists():
+            log.error(f"Synthesis file {synth_file} is missing")
+        else:
+            synth_parser = rpt.RPTParser(synth_file)
+            cell_usage_tbl = synth_parser.get_table(
+                re.compile(r"Report Cell Usage:"), 0)
+            cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
+            cell_lut2 = find_row(cell_usage_tbl, "Cell", "LUT2", False)
+            cell_lut3 = find_row(cell_usage_tbl, "Cell", "LUT3", False)
+            cell_lut4 = find_row(cell_usage_tbl, "Cell", "LUT4", False)
+            cell_lut5 = find_row(cell_usage_tbl, "Cell", "LUT5", False)
+            cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
+            cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
 
-        resourceInfo.update(
-            {
-                "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
-                "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
-                "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
-                "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
-                "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
-                "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
-                "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
-            }
-        )
+            resourceInfo.update(
+                {
+                    "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
+                    "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
+                    "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
+                    "cell_lut4": to_int(safe_get(cell_lut4, "Count")),
+                    "cell_lut5": to_int(safe_get(cell_lut5, "Count")),
+                    "cell_lut6": to_int(safe_get(cell_lut6, "Count")),
+                    "cell_fdre": to_int(safe_get(cell_fdre, "Count")),
+                }
+            )
     except Exception:
-        traceback.print_exc()
-        print("Synthesis files weren't found, skipping.", file=sys.stderr)
+        log.error(traceback.format_exc())
+        log.error("Failed to extract synthesis information")
 
     return json.dumps(resourceInfo, indent=2)
 
