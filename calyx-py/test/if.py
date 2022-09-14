@@ -17,25 +17,25 @@ wires = [
     Group(
         id=cond,
         connections=[
-            Connect(ConstantPort(32, 0), CompPort(lt, "left")),
-            Connect(ConstantPort(32, 1), CompPort(lt, "right")),
-            Connect(ConstantPort(1, 1), HolePort(cond, "done")),
+            Connect(CompPort(lt, "left"), ConstantPort(32, 0)),
+            Connect(CompPort(lt, "right"), ConstantPort(32, 1)),
+            Connect(HolePort(cond, "done"), ConstantPort(1, 1)),
         ],
     ),
     Group(
         id=CompVar(true),
         connections=[
-            Connect(ConstantPort(32, 1), CompPort(x, "in")),
-            Connect(ConstantPort(1, 1), CompPort(x, "write_en")),
-            Connect(CompPort(x, "done"), HolePort(CompVar(true), "done")),
+            Connect(CompPort(x, "in"), ConstantPort(32, 1)),
+            Connect(CompPort(x, "write_en"), ConstantPort(1, 1)),
+            Connect(HolePort(CompVar(true), "done"), CompPort(x, "done")),
         ],
     ),
     Group(
         id=CompVar(false),
         connections=[
-            Connect(ConstantPort(32, 0), CompPort(x, "in")),
-            Connect(ConstantPort(1, 1), CompPort(x, "write_en")),
-            Connect(CompPort(x, "done"), HolePort(CompVar(false), "done")),
+            Connect(CompPort(x, "in"), ConstantPort(32, 0)),
+            Connect(CompPort(x, "write_en"), ConstantPort(1, 1)),
+            Connect(HolePort(CompVar(false), "done"), CompPort(x, "done")),
         ],
     ),
 ]

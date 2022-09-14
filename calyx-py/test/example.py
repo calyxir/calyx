@@ -27,18 +27,18 @@ wires = [
         id=CompVar(update_operands),
         connections=[
             # lhs.in = 32'd1
-            Connect(ConstantPort(32, 1), CompPort(lhs, "in")),
+            Connect(CompPort(lhs, "in"), ConstantPort(32, 1)),
             # rhs.in = 32'd41
-            Connect(ConstantPort(32, 41), CompPort(rhs, "in")),
+            Connect(CompPort(rhs, "in"), ConstantPort(32, 41)),
             # lhs.write_en = 1'd1
-            Connect(ConstantPort(1, 1), CompPort(lhs, "write_en")),
+            Connect(CompPort(lhs, "write_en"), ConstantPort(1, 1)),
             # rhs.write_en = 1'd1
-            Connect(ConstantPort(1, 1), CompPort(rhs, "write_en")),
+            Connect(CompPort(rhs, "write_en"), ConstantPort(1, 1)),
             # update_operands[done] = lhs.done & rhs.done ? 1'd1;
             Connect(
-                ConstantPort(1, 1),
                 HolePort(CompVar(update_operands), "done"),
-                And(CompPort(lhs, "done"), CompPort(rhs, "done")),
+                ConstantPort(1, 1),                
+                guard = And(CompPort(lhs, "done"), CompPort(rhs, "done")),
             ),
         ],
     ),
@@ -47,15 +47,15 @@ wires = [
         id=CompVar(compute_sum),
         connections=[
             # add.left = lhs.out
-            Connect(CompPort(lhs, "out"), CompPort(add, "left")),
+            Connect(CompPort(add, "left"), CompPort(lhs, "out")),
             # add.right = rhs.out
-            Connect(CompPort(rhs, "out"), CompPort(add, "right")),
+            Connect(CompPort(add, "right"), CompPort(rhs, "out")),
             # sum.write_en = 1'd1
-            Connect(ConstantPort(1, 1), CompPort(sum, "write_en")),
+            Connect(CompPort(sum, "write_en"), ConstantPort(1, 1)),
             # sum.in = add.out
-            Connect(CompPort(add, "out"), CompPort(sum, "in")),
+            Connect(CompPort(sum, "in"), CompPort(add, "out")),
             # compute_sum[done] = sum.done
-            Connect(CompPort(sum, "done"), HolePort(CompVar(compute_sum), "done")),
+            Connect(HolePort(CompVar(compute_sum), "done"), CompPort(sum, "done")),
         ],
     ),
 ]
