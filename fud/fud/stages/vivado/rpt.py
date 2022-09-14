@@ -1,4 +1,3 @@
-
 import re
 
 
@@ -204,7 +203,7 @@ class RPTParser:
 
         # The ---- below each header defines it. First, we extract locations of --- in the next line
         # and then we extract the header from the current line
-        dash_line = self.lines[start+1]
+        dash_line = self.lines[start + 1]
         header_line = self.lines[start]
         # Walk both the lines together
         dash_idx = 0

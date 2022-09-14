@@ -75,14 +75,17 @@ def futil_extract(directory):
 
             clb_lut = to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"])
             clb_reg = to_int(
-                find_row(slice_logic, "Site Type", "CLB Registers")["Used"])
+                find_row(slice_logic, "Site Type", "CLB Registers")["Used"]
+            )
             carry8 = to_int(find_row(slice_logic, "Site Type", "CARRY8")["Used"])
             f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
             f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
             f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
             resource_info.update(
                 {
-                    "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
+                    "lut": to_int(
+                        find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]
+                    ),
                     "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
                     "registers": rtl_component_extract(directory, "Registers"),
                     "muxes": rtl_component_extract(directory, "Muxes"),
@@ -105,12 +108,12 @@ def futil_extract(directory):
     timing_file = directory / "impl_1" / "main_timing_summary_routed.rpt"
     if not timing_file.exists():
         log.error(f"Timing file {timing_file} is missing")
-    meet_timing = file_contains(
-        r"Timing constraints are not met.", timing_file
+    meet_timing = file_contains(r"Timing constraints are not met.", timing_file)
+    resource_info.update(
+        {
+            "meet_timing": int(meet_timing),
+        }
     )
-    resource_info.update({
-        "meet_timing": int(meet_timing),
-    })
 
     # Extract slack information
     timing_parser = rpt.RPTParser(timing_file)
@@ -128,7 +131,8 @@ def futil_extract(directory):
         else:
             synth_parser = rpt.RPTParser(synth_file)
             cell_usage_tbl = synth_parser.get_table(
-                re.compile(r"Report Cell Usage:"), 0)
+                re.compile(r"Report Cell Usage:"), 0
+            )
             cell_lut1 = find_row(cell_usage_tbl, "Cell", "LUT1", False)
             cell_lut2 = find_row(cell_usage_tbl, "Cell", "LUT2", False)
             cell_lut3 = find_row(cell_usage_tbl, "Cell", "LUT3", False)
