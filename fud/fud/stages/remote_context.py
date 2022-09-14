@@ -130,6 +130,9 @@ class RemoteExecution:
             for chunk in iter(lambda: stdout.readline(2048), ""):
                 log.debug(chunk.strip())
 
+            for chunk in iter(lambda: stderr.readline(2048), ""):
+                log.warn(chunk.strip())
+
         run_remote(client, tmpdir)
 
     def _close(self, client, remote_tmpdir, keep_tmpdir=False):
