@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   std::unique_ptr<Vmain> top = std::make_unique<Vmain>();
 
   // Number of cycles for simulation. Defaulted to 5e8 if none provided.
-  const uint64_t n_cycles = argc >= 3 ? std::stoi(argv[2]) : 5e8;
+  const uint64_t n_cycles = argc >= 3 ? std::stoull(argv[2]) : 5e8;
 
   // Initialize trace dump, used for VCD output.
   const bool trace_requested =

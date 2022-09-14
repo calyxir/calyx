@@ -172,4 +172,4 @@ jobs:
         # Run the unrolled benchmarks
         runt -i Unrolled -d
         # Run the interpreter benchmarks
-        runt -i Interpreter
+        runt -i Interpreter -d

@@ -1,0 +1,6 @@
+v0.0.4
+def @main (%x: Tensor[(2, 2,2), int32], %y: Tensor[(2, 2,2), int32]) {
+  let %x0: (Tensor[(2, 2,2), int32], Tensor[(2, 2,2), int32]) = (%x, %y); 
+  let %x1: Tensor[(2, 2, 4), int32] = concatenate((%x,%y), axis=2);
+  %x1
+}

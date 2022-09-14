@@ -53,6 +53,7 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
                 if let Some(&n) = stmt.get_attributes().unwrap().get("sync") {
                     count.insert(n);
                 }
+                count_barriers(stmt, count);
             }
         }
         ir::Control::While(w) => {
@@ -85,7 +86,8 @@ impl CompileSync {
                 //          generate the individual groups
                 //          build the seq stmt
                 let mut stmts_new: Vec<ir::Control> = Vec::new();
-                for stmt in seq.stmts.drain(..) {
+                for mut stmt in std::mem::take(&mut seq.stmts) {
+                    self.build_barriers(builder, &mut stmt, count);
                     if let Some(n) = stmt.get_attributes().unwrap().get("sync")
                     {
                         if self.barriers.get(n).is_none() {

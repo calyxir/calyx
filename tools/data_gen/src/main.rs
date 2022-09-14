@@ -1,8 +1,14 @@
 use argh::FromArgs;
 use calyx::{errors::CalyxResult, frontend, ir};
+use rand::Rng;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+// *How to use*
+// run: cargo run -p data_gen -- <calyx file> to generate data w/ all 0s and
+// type int
+// add -f true if you want random values of type fix<32,16>
 
 lazy_static::lazy_static! {
     static ref SIZEMAP: HashMap<&'static str, Vec<&'static str>> = {
@@ -29,7 +35,7 @@ struct CellData {
     sizes: Vec<usize>,
 }
 
-#[derive(FromArgs)]
+#[derive(Debug, FromArgs)]
 /// Path for library and path for file to read from
 struct FilePaths {
     /// file path to read data from
@@ -39,6 +45,10 @@ struct FilePaths {
     /// library path
     #[argh(option, short = 'l', default = "Path::new(\".\").into()")]
     pub lib_path: PathBuf,
+
+    /// whether data is fixpoint or int
+    #[argh(option, short = 'f', default = "false")]
+    pub fp_data: bool,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
@@ -47,6 +57,7 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 
 fn main() -> CalyxResult<()> {
     let p: FilePaths = argh::from_env();
+    let fp_data = p.fp_data;
 
     let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
     let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
@@ -63,13 +74,51 @@ fn main() -> CalyxResult<()> {
     let mut map = Map::new();
 
     for CellData { name, width, sizes } in data_vec {
-        let json_comp = gen_comp(&sizes[..], width);
+        let json_comp = if !(fp_data) {
+            gen_comp(&sizes[..], width)
+        } else {
+            gen_comp_float(&sizes[..], width)
+        };
         map.insert(name, json_comp);
     }
 
     let json_map: Value = map.into();
     println!("{}", json_map);
     Ok(())
+}
+
+// generates random of size usize
+fn gen_random_vec(d0: usize) -> Vec<f32> {
+    let mut rng = rand::thread_rng();
+    (0..d0).map(|_| rng.gen_range(0.0..1.0)).collect()
+}
+
+// generates random 2d vec of size usize
+fn gen_random_2d(d0: usize, d1: usize) -> Vec<Vec<f32>> {
+    (0..d0).map(|_| gen_random_vec(d1)).collect()
+}
+
+// generates random 3d vec of size usize
+fn gen_random_3d(d0: usize, d1: usize, d2: usize) -> Vec<Vec<Vec<f32>>> {
+    (0..d0)
+        .map(|_| (0..d1).map(|_| gen_random_vec(d2)).collect())
+        .collect()
+}
+
+// generates random 3d vec of size usize
+fn gen_random_4d(
+    d0: usize,
+    d1: usize,
+    d2: usize,
+    d3: usize,
+) -> Vec<Vec<Vec<Vec<f32>>>> {
+    (0..d0)
+        .map(|_| {
+            (0..d1)
+                .map(|_| (0..d2).map(|_| gen_random_vec(d3)).collect())
+                .collect()
+        })
+        .collect()
 }
 
 //generates a json value associated with sizes_vec and width
@@ -92,6 +141,27 @@ fn gen_comp(sizes_vec: &[usize], width: u64) -> serde_json::Value {
             "numeric_type": "bitnum",
             "is_signed": false,
             "width": width,
+        }
+    })
+}
+
+// generates a fix<32,16> json value associated with sizes_vec and width
+fn gen_comp_float(sizes_vec: &[usize], width: u64) -> serde_json::Value {
+    let data = match *sizes_vec {
+        [d0] => serde_json::to_value(gen_random_vec(d0)),
+        [d0, d1] => serde_json::to_value(gen_random_2d(d0, d1)),
+        [d0, d1, d2] => serde_json::to_value(gen_random_3d(d0, d1, d2)),
+        [d0, d1, d2, d3] => serde_json::to_value(gen_random_4d(d0, d1, d2, d3)),
+        _ => panic!("Sizes Vec is not 1-4 dimensional"),
+    }
+    .unwrap_or_else(|_| panic!("could not unwrap data to put into json"));
+    json!({
+        "data": data,
+        "format": {
+            "frac_width": 16,
+            "is_signed": true,
+            "numeric_type": "fixed_point",
+            "width": width
         }
     })
 }
