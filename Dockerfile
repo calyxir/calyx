@@ -1,6 +1,9 @@
 # Use the official image as a parent image.
 FROM rust:latest
 
+# Connect to the Calux repository.
+LABEL org.opencontainers.image.source https://github.com/cucapra/calyx
+
 # Install apt dependencies
 ## Add SBT source
 RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/apt/sources.list.d/sbt.list && \
