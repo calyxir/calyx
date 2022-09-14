@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import Path
 import re
 import traceback
 import logging as log
@@ -51,11 +53,17 @@ def rtl_component_extract(directory, name):
 
 
 def futil_extract(directory):
-    directory = directory / "out" / "FutilBuild.runs"
+    # Search for directory named FutilBuild.runs
+    for root, dirs, _ in os.walk(directory):
+        for d in dirs:
+            if d == "FutilBuild.runs":
+                directory = Path(os.path.join(root, d))
+                break
+
     # The resource information is extracted first for the implementation files, and
     # then for the synthesis files. This is dones separately in case users want to
     # solely use one or the other.
-    resourceInfo = {}
+    resource_info = {}
 
     # Extract utilization information
     util_file = directory / "impl_1" / "main_utilization_placed.rpt"
@@ -72,7 +80,7 @@ def futil_extract(directory):
             f7_muxes = to_int(find_row(slice_logic, "Site Type", "F7 Muxes")["Used"])
             f8_muxes = to_int(find_row(slice_logic, "Site Type", "F8 Muxes")["Used"])
             f9_muxes = to_int(find_row(slice_logic, "Site Type", "F9 Muxes")["Used"])
-            resourceInfo.update(
+            resource_info.update(
                 {
                     "lut": to_int(find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]),
                     "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
@@ -100,7 +108,7 @@ def futil_extract(directory):
     meet_timing = file_contains(
         r"Timing constraints are not met.", timing_file
     )
-    resourceInfo.update({
+    resource_info.update({
         "meet_timing": int(meet_timing),
     })
 
@@ -110,7 +118,7 @@ def futil_extract(directory):
     if slack_info is None:
         log.error("Failed to extract slack information")
 
-    resourceInfo.update({"worst_slack": float(safe_get(slack_info, "WNS(ns)"))})
+    resource_info.update({"worst_slack": float(safe_get(slack_info, "WNS(ns)"))})
 
     # Extraction for synthesis files.
     synth_file = directory / "synth_1" / "runme.log"
@@ -129,7 +137,7 @@ def futil_extract(directory):
             cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
             cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
 
-            resourceInfo.update(
+            resource_info.update(
                 {
                     "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
                     "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
@@ -144,7 +152,7 @@ def futil_extract(directory):
         log.error(traceback.format_exc())
         log.error("Failed to extract synthesis information")
 
-    return json.dumps(resourceInfo, indent=2)
+    return json.dumps(resource_info, indent=2)
 
 
 def hls_extract(directory):
