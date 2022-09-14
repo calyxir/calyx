@@ -38,7 +38,7 @@ class VivadoBaseStage(Stage):
 
     def device_files(self, config):
         """
-        Device files requires for executing this Vivado flow
+        Device files required for executing this Vivado flow
         """
         pass
 
