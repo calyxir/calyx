@@ -500,8 +500,6 @@ def softmax(fd: DahliaFuncDef) -> str:
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
 
-    e_fp = float_to_fixed_point(e_val, 16)
-
     return emit_dahlia_definition(
         fd,
         f"""
@@ -515,12 +513,12 @@ def softmax(fd: DahliaFuncDef) -> str:
           let __exp_sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
           for (let __j: ubit<{index_size1}> = 0..{size1}) {{
             let __t0 = {data.id.name}[__i][__j] - __max;
-            let __t1 = pow(__t0, ({e_fp} as {data_type}));
+            let __t1 = exp(__t0);
             __exp_sum += __t1;
           }}
           for (let __k: ubit<{index_size1}> = 0..{size1}) {{
             let __t2 = {data.id.name}[__i][__k] - __max;
-            let __t3 = pow(__t2, ({e_fp} as {data_type}));
+            let __t3 = exp(__t2);
             {res.id.name}[__i][__k] := __t3 / __exp_sum;
           }}
         }}""",
@@ -753,9 +751,9 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     imports = [
         f"""import futil("primitives/math.futil")
         {{
+          def exp(x: {type}): {type};
           def sqrt(in: {type}): {type};
           def fp_sqrt(in: {type}): {type};
-          def pow(base: {type}, exp: {type}): {type};
         }}"""
     ]
 
