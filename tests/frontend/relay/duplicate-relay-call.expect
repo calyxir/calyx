@@ -95,17 +95,17 @@ component main() -> () {
   cells {
     @external(1) x = std_mem_d2(32, 2, 2, 2, 2);
     @external(1) x1 = std_mem_d2(32, 2, 2, 2, 2);
-    negative_2x21_ = negative_2x2();
+    negative_2x2_ = negative_2x2();
     @external(1) x2 = std_mem_d2(32, 2, 2, 2, 2);
-    negative_2x22_ = negative_2x2();
+    negative_2x2_1 = negative_2x2();
   }
   wires {
 
   }
   control {
     seq {
-      @pos(0) invoke negative_2x21_[x0_0=x, x10_0=x1]()();
-      @pos(1) invoke negative_2x22_[x0_0=x1, x10_0=x2]()();
+      @pos(0) invoke negative_2x2_[x0_0=x, x10_0=x1]()();
+      @pos(1) invoke negative_2x2_1[x0_0=x1, x10_0=x2]()();
     }
   }
 }
