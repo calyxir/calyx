@@ -68,7 +68,18 @@ impl Prop {
         }
     }
 
-    // edits self to equal self | rhs. Faster than self | rhs  but must take rhs
+    // edits self to equal self intersect rhs. Must take ownership of rhs
+    // ownership and not &rhs.
+    fn intersect(&mut self, rhs: Prop) {
+        for (cell_type, cell_names) in rhs.map {
+            self.map
+                .entry(cell_type)
+                .or_default()
+                .retain(|cell| cell_names.contains(cell));
+        }
+    }
+
+    // edits self to equal self - rhs. Faster than self - rhs  but must take rhs
     // ownership and not &rhs.
     fn sub(&mut self, rhs: Prop) {
         for (cell_type, cell_names) in rhs.map {
@@ -828,7 +839,7 @@ impl LiveRangeAnalysis {
                 (t_alive, t_gens, t_kills)
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {
-                let (mut alive, gens, kills) = stmts
+                let (mut alive, mut gens, kills) = stmts
                     .iter()
                     .rev()
                     .map(|e| {
@@ -860,6 +871,9 @@ impl LiveRangeAnalysis {
                             )
                         },
                     );
+                // should only count as a "gen" if it is alive on at least one
+                // of the outputs of the child node
+                gens.intersect(alive.clone());
                 alive.transfer(gens.clone(), kills.clone());
                 (alive, gens, kills)
             }
