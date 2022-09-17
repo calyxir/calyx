@@ -1,7 +1,9 @@
-from typing import List
-from calyx.py_ast import *
-from dahlia_utils import *
+from calyx.utils import float_to_fixed_point
 from calyx.gen_exp import generate_exp_taylor_series_approximation
+from dahlia_utils import *
+from calyx.py_ast import *
+from typing import List
+from math import ceil, floor, e as e_val
 
 
 ### Dahlia Implementations for Relay Call Nodes ###
@@ -374,27 +376,29 @@ def conv2d(fd: DahliaFuncDef) -> str:
     strides = fd.attributes.get_int_tuple("strides")
     kernel_size = fd.attributes.get_int_tuple("kernel_size")
     padding = fd.attributes.get_int_tuple("padding")
-    add_padding = False
-    for pad_num in padding:
-        if pad_num != 0:
-            assert padding == (
-                1, 1, 1, 1), "cannot currently handle any padding except (1, 1, 1, 1)"
-            add_padding = True
+    add_padding = True
+    if max(padding) == min(padding) and max(padding) == 0:
+        add_padding = False
+    assert len(padding) == 4, "Can only handle when length of padding is 4"
+    prepend_rows = padding[0]
+    append_rows = padding[1]
+    prepend_cols = padding[2]
+    append_cols = padding[3]
 
     # can generalize these numbers based on padding if necessary
-    dim2_limit = data_size2 + 1
-    dim3_limit = data_size3 + 1
+    dim2_lowest = prepend_rows
+    dim3_lowest = prepend_cols
+    dim2_limit = data_size2 + prepend_rows
+    dim3_limit = data_size3 + prepend_cols
     size0, size1, size2, size3 = res.comp.args[1:5]
 
     # to handle padding. Right now we hard code, but we can change the code
     # to be more general if necessary.
-    assign_tensor_val = f"""// our code is "simulating" the padding of the input array 
+    assign_tensor_val = f"""// our code is "simulating" the padding of the input array
                       let __padded_tensor_val: {data_type} = {'0.0' if 'fix' in data_type else '0'};
-                      // this is currently hardcoded to handle when padding = (1,1,1,1). We can 
-                      // generalize it if need be 
-                      --- 
-                      if (__kernel_y > 0 && __kernel_y < {dim2_limit} && __kernel_x > 0 && __kernel_x < {dim3_limit}) {{
-                        __padded_tensor_val := {data.id.name}[__b][__k][__kernel_y - 1][__kernel_x -1];
+                      ---
+                      if (__kernel_y >= {dim2_lowest} && __kernel_y < {dim2_limit} && __kernel_x >= {dim3_lowest} && __kernel_x < {dim3_limit}) {{
+                        __padded_tensor_val := {data.id.name}[__b][__k][__kernel_y - {prepend_rows}][__kernel_x - {prepend_cols}];
                       }}""" if add_padding else f"""let __padded_tensor_val: {data_type} =  {data.id.name}[__b][__k][__kernel_y][__kernel_x];"""
 
     # If no channels provided, inferred from second dimension of the data.
@@ -412,12 +416,12 @@ def conv2d(fd: DahliaFuncDef) -> str:
                     for (let __dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
                       let __kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * __y) + __dy;
                       let __kernel_x: ubit<32> = (/*strides[1]*/{strides[1]} * __x) + __dx;
-                      --- 
+                      ---
                       {assign_tensor_val}
                       ---
                        __sum += __padded_tensor_val *
                              {weight.id.name}[__c][__k][__dy][__dx];
-                    }} 
+                    }}
                   }}
                 }}
                 {res.id.name}[__b][__c][__y][__x] := __sum;
@@ -435,31 +439,56 @@ def reshape(fd: DahliaFuncDef) -> str:
     newshape = fd.attributes.get_int_tuple("newshape")
     ddims = get_dims(data.comp)
     rdims = get_dims(res.comp)
+    size0, size1 = data.comp.args[1:3]
+
+    assert rdims == 2, "can only support reshaping into a 2d array"
 
     assert (
         # See the TVM Relay API for significance of `newshape` values.
-        (newshape[0] == -1 or newshape[1] == -1)
-        and rdims == 2
+        # The only time we can reshape using non-inferred values is when we have a
+        # 4d input tensor whose last two dimensions are both 1, and the output
+        # is just a 2d matrix whose dimensions are the same as the first two
+        # dimensions of the input. 4x6x1x1 -> 4x6, for example. This is very
+        # specific and we can generalize it as necessary.
+        (newshape[0] == -1 or newshape[1] == -1 or (ddims == 4 and newshape[0]
+                                                    == data.comp.args[1] and newshape[1] == data.comp.args[2] and 1 == data.comp.args[3] and 1 == data.comp.args[4]))
     ), f"""Only supports a subset of `reshape` functionality (i.e. where the dimensions are inferred).
         E.g.
         let  %x: Tensor[(1, 2, 2, 2), float32] = ...;
         let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape[-1, 8]);
+
+        Or supports reshape: when all you are going from a 4d to 2d array, but the
+        first two dimension sizes are the same.
+        E.g.
+        let  %x: Tensor[(4, 6, 1, 1), float32] = ...;
+        let %x1: Tensor[(4, 6), float32] = reshape(%x, newshape[4, 6]);
         ---
-        [Actual] newshape[0]: {newshape[0]}, rdims: {rdims}"""
+        [Actual] newshape[0]: {newshape[0]},newshape[1]: {newshape[1]}, rdims: {rdims}
+        """
 
     data_indices, res_indices = "", ""
     var_name = CHARACTER_I
-    for _ in range(ddims):
-        data_indices += f"[__{var_name}]"
-        var_name = next_character(var_name)
-    input = f"{data.id.name}{data_indices}"
-    result = f"{res.id.name}[0][__m]"
-    loop_body = f"""{result} := {input}; __m += (1 as ubit<{res.comp.args[4]}>);"""
-    program = (
-        f"let __m: ubit<{res.comp.args[4]}> = 0;",
-        emit_dahlia_loop(data, loop_body),
-    )
-    return emit_dahlia_definition(fd, program)
+
+    if newshape[0] == -1 or newshape[1] == -1:
+        for _ in range(ddims):
+            data_indices += f"[__{var_name}]"
+            var_name = next_character(var_name)
+        input = f"{data.id.name}{data_indices}"
+        result = f"{res.id.name}[0][__m]"
+        loop_body = f"""{result} := {input}; __m += (1 as ubit<{res.comp.args[4]}>);"""
+        program = (
+            f"let __m: ubit<{res.comp.args[4]}> = 0;",
+            emit_dahlia_loop(data, loop_body),
+        )
+        return emit_dahlia_definition(fd, program)
+    else:
+        for _ in range(2):
+            data_indices += f"[__{var_name}]"
+            var_name = next_character(var_name)
+        input = f"{data.id.name}{data_indices}[0][0]"
+        result = f"{res.id.name}{data_indices}"
+        loop_body = f"""{result} := {input};"""
+        return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
 
 def softmax(fd: DahliaFuncDef) -> str:
@@ -470,6 +499,8 @@ def softmax(fd: DahliaFuncDef) -> str:
 
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
+
+    e_fp = float_to_fixed_point(e_val, 16)
 
     return emit_dahlia_definition(
         fd,
@@ -484,16 +515,56 @@ def softmax(fd: DahliaFuncDef) -> str:
           let __exp_sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
           for (let __j: ubit<{index_size1}> = 0..{size1}) {{
             let __t0 = {data.id.name}[__i][__j] - __max;
-            let __t1 = exp(__t0);
+            let __t1 = pow(__t0, ({e_fp} as {data_type}));
             __exp_sum += __t1;
           }}
           for (let __k: ubit<{index_size1}> = 0..{size1}) {{
             let __t2 = {data.id.name}[__i][__k] - __max;
-            let __t3 = exp(__t2);
+            let __t3 = pow(__t2, ({e_fp} as {data_type}));
             {res.id.name}[__i][__k] := __t3 / __exp_sum;
           }}
         }}""",
     )
+
+
+def clip(fd: DahliaFuncDef) -> str:
+    '''
+    https://tvm.apache.org/docs/reference/api/python/relay/index.html
+    Clips the data so it is all in between a_min and a_max
+    '''
+    data, res = fd.args[0], fd.dest
+    # getting a_min and a_max values
+    a_min = fd.attributes.get_int("a_min")
+    a_max = fd.attributes.get_int("a_max")
+    ddims = get_dims(data.comp)
+
+    data_indices, res_indices = "", ""
+    data_type = fd.data_type
+    var_name = CHARACTER_I
+    for _ in range(ddims):
+        data_indices += f"[__{var_name}]"
+        res_indices += f"[__{var_name}]"
+        var_name = next_character(var_name)
+
+    input_indices = f"{data.id.name}{data_indices}"
+    output = f"{res.id.name}{res_indices}"
+
+    # any input val below a_min or above a_max should be altered to be
+    # within the limit
+    loop_body = f"""let val: {data_type} = {input_indices};
+                if (val < ({a_min} as {data_type})) {{
+                  {output} := ({a_min} as {data_type});
+                }}
+                else {{
+                  if (val > ({a_max} as {data_type})){{
+                    {output} := ({a_max} as {data_type});
+                  }}
+                  else{{
+                    {output} := val;
+                  }}
+                }}
+                """
+    return emit_dahlia_definition(fd,  emit_dahlia_loop(data, loop_body))
 
 
 def concatenate(fd: DahliaFuncDef) -> str:
@@ -558,10 +629,10 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
     assert (
         layout == "NCHW"
     ), f"""Layout \'{layout}\' is not currently supported for
-        nn.max_pool2d; please use `NCHW`."""
+        nn.avg_pool2d; please use `NCHW`."""
     assert (
         ceil_mode == False
-    ), "`ceil_mode` is not currently supported for nn.max_pool2d"
+    ), "`ceil_mode` is not currently supported for nn.avg_pool2d"
 
     args = res.comp.args
     width = args[0]
@@ -570,7 +641,8 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
 
     return emit_dahlia_definition(
         fd,
-        f"""for (let __b: ubit<{width}> = 0..{size0}) {{
+        f"""let __pool_area: {data_type} = ({pool_size[0]} as {data_type}) * ({pool_size[1]} as {data_type});
+        for (let __b: ubit<{width}> = 0..{size0}) {{
           for (let __c: ubit<{width}> = 0..{size1}) {{
             for (let __y: ubit<{width}> = 0..{size2}) {{
               for (let __x: ubit<{width}> = 0..{size3}) {{
@@ -586,11 +658,45 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
                     __total := __total + __current;
                   }}
                 }}
-                let __pool_area: {data_type} = ({pool_size[0]} as {data_type}) * ({pool_size[1]} as {data_type});
                 let __avg: {data_type} = __total / __pool_area;
                 {res.id.name}[__b][__c][__y][__x] := __avg;
               }}
             }}
+          }}
+        }}
+        """,
+    )
+
+
+def global_avg_pool2d(fd: DahliaFuncDef) -> str:
+    '''
+    https://tvm.apache.org/docs/reference/api/python/relay/nn.html#tvm.relay.nn.global_avg_pool2d
+    '''
+    data, res = fd.args[0], fd.dest
+    layout = fd.attributes.get_str("layout")
+    assert (
+        layout == "NCHW"
+    ), f"""Layout \'{layout}\' is not currently supported for
+        nn.global_avg_pool2d; please use `NCHW`."""
+
+    args = res.comp.args
+    data_args = data.comp.args
+    width = args[0]
+    data_type = fd.data_type
+    size0, size1, size2, size3 = data_args[1:5]
+    return emit_dahlia_definition(
+        fd,
+        f"""let __area: {data_type} = ({size2} as {data_type}) * ({size3} as {data_type});
+        for (let __b: ubit<{width}> = 0..{size0}) {{
+          for (let __c: ubit<{width}> = 0..{size1}) {{
+            let __total: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+            for (let __m: ubit<{width}> = 0..{size2}) {{
+              for (let __n: ubit<{width}> = 0..{size3}) {{
+                 __total := __total + {data.id.name}[__b][__c][__m][__n];
+              }}
+            }}
+            let __avg: {data_type} = __total / __area;
+            {res.id.name}[__b][__c][0][0] := __avg;
           }}
         }}
         """,
@@ -614,6 +720,8 @@ RelayCallNodes = {
     "sqrt": sqrt,
     "concatenate": concatenate,
     "avg_pool2d": avg_pool2d,
+    "clip": clip,
+    "global_avg_pool2d": global_avg_pool2d,
 }
 
 # Mapping from Relay binary calls to
@@ -645,9 +753,9 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     imports = [
         f"""import futil("primitives/math.futil")
         {{
-          def exp(x: {type}): {type};
           def sqrt(in: {type}): {type};
           def fp_sqrt(in: {type}): {type};
+          def pow(base: {type}, exp: {type}): {type};
         }}"""
     ]
 
