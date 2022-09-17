@@ -232,8 +232,8 @@ class Relay2Calyx(ExprFunctor):
 
             # call self.id on comp_name because now we might produce two instances
             # of the same component
-            var_name = self.id(comp_name)
-            comp_decl = CompVar(f"{var_name}_")
+            var_name = self.id(f"{comp_name}_")
+            comp_decl = CompVar(f"{var_name}")
 
             self.id_to_cell[var_name] = Cell(comp_decl, comp_inst)
 

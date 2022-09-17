@@ -1,10 +1,7 @@
-from calyx.utils import float_to_fixed_point
-from calyx.gen_exp import generate_exp_taylor_series_approximation
-from dahlia_utils import *
-from calyx.py_ast import *
 from typing import List
-from math import ceil, floor, e as e_val
-
+from calyx.py_ast import *
+from dahlia_utils import *
+from calyx.gen_exp import generate_exp_taylor_series_approximation
 
 ### Dahlia Implementations for Relay Call Nodes ###
 
