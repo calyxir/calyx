@@ -1,0 +1,56 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    mult1 = std_mult_pipe(32);
+    mult2 = std_mult_pipe(32);
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+  wires {
+    group write_mult3 {
+      mult1.go = 1'd1;
+      mult1.left = 32'd2;
+      mult1.right = 32'd3;
+      write_mult3[done] = mult1.done;
+    }
+    group write_mult1 {
+      mult1.go = 1'd1;
+      mult1.left = 32'd2;
+      mult1.right = 32'd3;
+      write_mult1[done] = mult1.done;
+    }
+    group read_mult1 {
+      r1.write_en = 1'd1;
+      r1.in = mult1.out;
+      read_mult1[done] = r1.done;
+    }
+    group write_mult2 {
+      mult2.go = 1'd1;
+      mult2.left = 32'd2;
+      mult2.right = 32'd3;
+      write_mult2[done] = mult2.done;
+    }
+    group read_mult2 {
+      r2.write_en = 1'd1;
+      r2.in = mult2.out;
+      read_mult2[done] = r2.done;
+    }
+  }
+
+  control {
+    seq {
+      write_mult3;
+      par {
+        seq {
+          write_mult1;
+          read_mult1;
+        }
+        seq {
+          write_mult2;
+          read_mult2;
+        }
+      }
+    }
+  }
+}
