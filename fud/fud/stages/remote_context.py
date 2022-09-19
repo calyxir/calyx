@@ -22,6 +22,8 @@ class RemoteExecution:
     def __init__(self, builder: ComputationGraph, stage: Stage, config: Configuration):
         self.stage = stage
         self.builder = builder
+        self.SSHClient = None
+        self.SCPClient = None
         if config["stages", self.stage.name, "remote"] is not None:
             self.use_ssh = True
             self.ssh_host = config["stages", self.stage.name, "ssh_host"]
@@ -41,8 +43,8 @@ class RemoteExecution:
 
                     self.SSHClient = SSHClient
                     self.SCPClient = SCPClient
-                except ModuleNotFoundError:
-                    raise errors.RemoteLibsNotInstalled
+                except ModuleNotFoundError as e:
+                    raise errors.RemoteLibsNotInstalled from e
 
         import_libs()
 
@@ -129,6 +131,13 @@ class RemoteExecution:
             # debug mode
             for chunk in iter(lambda: stdout.readline(2048), ""):
                 log.debug(chunk.strip())
+
+            for chunk in iter(lambda: stderr.readline(2048), ""):
+                log.warn(chunk.strip())
+
+            exit_code = stdout.channel.recv_exit_status()
+            if exit_code != 0:
+                log.error(f"Non-zero exit code: {exit_code}")
 
         run_remote(client, tmpdir)
 

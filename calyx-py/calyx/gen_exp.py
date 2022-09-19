@@ -41,20 +41,20 @@ def generate_fp_pow_component(
             id=CompVar("init"),
             connections=[
                 Connect(
+                    CompPort(pow, "in"),
                     ConstantPort(
                         width,
                         numeric_types.FixedPoint(
                             "1.0", width, int_width, is_signed=is_signed
                         ).unsigned_integer(),
                     ),
-                    CompPort(pow, "in"),
                 ),
-                Connect(ConstantPort(1, 1), CompPort(pow, "write_en")),
-                Connect(ConstantPort(width, 0), CompPort(count, "in")),
-                Connect(ConstantPort(1, 1), CompPort(count, "write_en")),
+                Connect(CompPort(pow, "write_en"), ConstantPort(1, 1)),
+                Connect(CompPort(count, "in"), ConstantPort(width, 0)),
+                Connect(CompPort(count, "write_en"), ConstantPort(1, 1)),
                 Connect(
-                    ConstantPort(1, 1),
                     HolePort(CompVar("init"), "done"),
+                    ConstantPort(1, 1),
                     And(
                         Atom(CompPort(pow, "done")),
                         Atom(CompPort(count, "done")),
@@ -65,43 +65,43 @@ def generate_fp_pow_component(
         Group(
             id=CompVar("execute_mul"),
             connections=[
-                Connect(ThisPort(CompVar("base")), CompPort(mul, "left")),
-                Connect(CompPort(pow, "out"), CompPort(mul, "right")),
+                Connect(CompPort(mul, "left"), ThisPort(CompVar("base"))),
+                Connect(CompPort(mul, "right"), CompPort(pow, "out")),
                 Connect(
-                    ConstantPort(1, 1),
                     CompPort(mul, "go"),
+                    ConstantPort(1, 1),
                     Not(Atom(CompPort(mul, "done"))),
                 ),
-                Connect(CompPort(mul, "done"), CompPort(pow, "write_en")),
-                Connect(CompPort(mul, "out"), CompPort(pow, "in")),
+                Connect(CompPort(pow, "write_en"), CompPort(mul, "done")),
+                Connect(CompPort(pow, "in"), CompPort(mul, "out")),
                 Connect(
-                    CompPort(pow, "done"),
                     HolePort(CompVar("execute_mul"), "done"),
+                    CompPort(pow, "done"),
                 ),
             ],
         ),
         Group(
             id=CompVar("incr_count"),
             connections=[
-                Connect(ConstantPort(width, 1), CompPort(incr, "left")),
-                Connect(CompPort(count, "out"), CompPort(incr, "right")),
-                Connect(CompPort(incr, "out"), CompPort(count, "in")),
-                Connect(ConstantPort(1, 1), CompPort(count, "write_en")),
+                Connect(CompPort(incr, "left"), ConstantPort(width, 1)),
+                Connect(CompPort(incr, "right"), CompPort(count, "out")),
+                Connect(CompPort(count, "in"), CompPort(incr, "out")),
+                Connect(CompPort(count, "write_en"), ConstantPort(1, 1)),
                 Connect(
-                    CompPort(count, "done"),
                     HolePort(CompVar("incr_count"), "done"),
+                    CompPort(count, "done"),
                 ),
             ],
         ),
         CombGroup(
             id=CompVar("cond"),
             connections=[
-                Connect(CompPort(count, "out"), CompPort(lt, "left")),
-                Connect(ThisPort(CompVar("integer_exp")),
-                        CompPort(lt, "right")),
+                Connect(CompPort(lt, "left"), CompPort(count, "out")),
+                Connect(CompPort(lt, "right"),
+                        ThisPort(CompVar("integer_exp"))),
             ],
         ),
-        Connect(CompPort(CompVar("pow"), "out"), ThisPort(CompVar("out"))),
+        Connect(ThisPort(CompVar("out")), CompPort(CompVar("pow"), "out")),
     ]
     return Component(
         "fp_pow",
@@ -301,11 +301,11 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
                 else CompPort(reg_lhs, "out")
             )
             connections = [
-                Connect(lhs, CompPort(adder, "left")),
-                Connect(CompPort(reg_rhs, "out"), CompPort(adder, "right")),
-                Connect(ConstantPort(1, 1), CompPort(sum, "write_en")),
-                Connect(CompPort(adder, "out"), CompPort(sum, "in")),
-                Connect(CompPort(sum, "done"), HolePort(group_name, "done")),
+                Connect(CompPort(adder, "left"), lhs),
+                Connect(CompPort(adder, "right"), CompPort(reg_rhs, "out")),
+                Connect(CompPort(sum, "write_en"), ConstantPort(1, 1)),
+                Connect(CompPort(sum, "in"), CompPort(adder, "out")),
+                Connect(HolePort(group_name, "done"), CompPort(sum, "done")),
             ]
             groups.append(Group(group_name, connections, 1))
         sum_count >>= 1
@@ -320,14 +320,14 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
         Group(
             id=group_name,
             connections=[
-                Connect(CompPort(reg, "out"), CompPort(adder, "left")),
+                Connect(CompPort(adder, "left"), CompPort(reg, "out")),
                 Connect(
-                    CompPort(CompVar("one"), "out"),
                     CompPort(adder, "right"),
+                    CompPort(CompVar("one"), "out"),
                 ),
-                Connect(ConstantPort(1, 1), CompPort(reg, "write_en")),
-                Connect(CompPort(adder, "out"), CompPort(reg, "in")),
-                Connect(CompPort(reg, "done"), HolePort(group_name, "done")),
+                Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
+                Connect(CompPort(reg, "in"), CompPort(adder, "out")),
+                Connect(HolePort(group_name, "done"), CompPort(reg, "done")),
             ],
             static_delay=1,
         )
@@ -344,10 +344,10 @@ def generate_groups(
     init = Group(
         id=CompVar("init"),
         connections=[
-            Connect(ConstantPort(1, 1), CompPort(input, "write_en")),
-            Connect(ThisPort(CompVar("x")), CompPort(input, "in")),
-            Connect(CompPort(input, "done"),
-                    HolePort(CompVar("init"), "done")),
+            Connect(CompPort(input, "write_en"), ConstantPort(1, 1)),
+            Connect(CompPort(input, "in"), ThisPort(CompVar("x"))),
+            Connect(HolePort(CompVar("init"), "done"),
+                    CompPort(input, "done")),
         ],
         static_delay=1,
     )
@@ -357,21 +357,21 @@ def generate_groups(
         negate = Group(
             id=CompVar("negate"),
             connections=[
-                Connect(CompPort(input, "out"), CompPort(mult_pipe, "left")),
+                Connect(CompPort(mult_pipe, "left"), CompPort(input, "out")),
                 Connect(
-                    CompPort(CompVar("negative_one"), "out"),
                     CompPort(mult_pipe, "right"),
+                    CompPort(CompVar("negative_one"), "out"),
                 ),
                 Connect(
-                    ConstantPort(1, 1),
                     CompPort(mult_pipe, "go"),
+                    ConstantPort(1, 1),
                     Not(Atom(CompPort(mult_pipe, "done"))),
                 ),
-                Connect(CompPort(mult_pipe, "done"),
-                        CompPort(input, "write_en")),
-                Connect(CompPort(mult_pipe, "out"), CompPort(input, "in")),
-                Connect(CompPort(input, "done"), HolePort(
-                    CompVar("negate"), "done")),
+                Connect(CompPort(input, "write_en"),
+                        CompPort(mult_pipe, "done")),
+                Connect(CompPort(input, "in"), CompPort(mult_pipe, "out")),
+                Connect(HolePort(CompVar("negate"), "done"),
+                        CompPort(input, "done")),
             ],
         )
 
@@ -381,48 +381,48 @@ def generate_groups(
         id=CompVar("split_bits"),
         connections=[
             Connect(
-                CompPort(CompVar("exponent_value"), "out"),
                 CompPort(CompVar("and0"), "left"),
-            ),
-            Connect(
-                ConstantPort(width, 2 ** width - 2 ** frac_width),
-                CompPort(CompVar("and0"), "right"),
-            ),
-            Connect(
-                CompPort(CompVar("and0"), "out"),
-                CompPort(CompVar("rsh"), "left"),
-            ),
-            Connect(
-                ConstantPort(width, frac_width),
-                CompPort(CompVar("rsh"), "right"),
-            ),
-            Connect(
                 CompPort(CompVar("exponent_value"), "out"),
+            ),
+            Connect(
+                CompPort(CompVar("and0"), "right"),
+                ConstantPort(width, 2 ** width - 2 ** frac_width),
+            ),
+            Connect(
+                CompPort(CompVar("rsh"), "left"),
+                CompPort(CompVar("and0"), "out"),
+            ),
+            Connect(
+                CompPort(CompVar("rsh"), "right"),
+                ConstantPort(width, frac_width),
+            ),
+            Connect(
                 CompPort(CompVar("and1"), "left"),
+                CompPort(CompVar("exponent_value"), "out"),
             ),
             Connect(
-                ConstantPort(width, (2 ** frac_width) - 1),
                 CompPort(CompVar("and1"), "right"),
+                ConstantPort(width, (2 ** frac_width) - 1),
             ),
             Connect(
-                ConstantPort(1, 1),
                 CompPort(CompVar("int_x"), "write_en"),
+                ConstantPort(1, 1),
             ),
             Connect(
-                ConstantPort(1, 1),
                 CompPort(CompVar("frac_x"), "write_en"),
-            ),
-            Connect(
-                CompPort(CompVar("rsh"), "out"),
-                CompPort(CompVar("int_x"), "in"),
-            ),
-            Connect(
-                CompPort(CompVar("and1"), "out"),
-                CompPort(CompVar("frac_x"), "in"),
-            ),
-            Connect(
                 ConstantPort(1, 1),
+            ),
+            Connect(
+                CompPort(CompVar("int_x"), "in"),
+                CompPort(CompVar("rsh"), "out"),
+            ),
+            Connect(
+                CompPort(CompVar("frac_x"), "in"),
+                CompPort(CompVar("and1"), "out"),
+            ),
+            Connect(
                 HolePort(CompVar("split_bits"), "done"),
+                ConstantPort(1, 1),
                 And(
                     Atom(CompPort(CompVar("int_x"), "done")),
                     Atom(CompPort(CompVar("frac_x"), "done")),
@@ -436,11 +436,11 @@ def generate_groups(
         reg = CompVar(f"p{i}")
         group_name = CompVar(f"consume_pow{i}")
         connections = [
-            Connect(ConstantPort(1, 1), CompPort(reg, "write_en")),
-            Connect(CompPort(CompVar(f"pow{i}"), "out"), CompPort(reg, "in")),
+            Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
+            Connect(CompPort(reg, "in"), CompPort(CompVar(f"pow{i}"), "out")),
             Connect(
-                ConstantPort(1, 1),
                 HolePort(group_name, "done"),
+                ConstantPort(1, 1),
                 CompPort(reg, "done"),
             ),
         ]
@@ -454,17 +454,17 @@ def generate_groups(
         product = CompVar(f"product{i}")
         reciprocal = CompVar(f"reciprocal_factorial{i}")
         connections = [
-            Connect(CompPort(reg, "out"), CompPort(mult_pipe, "left")),
-            Connect(CompPort(reciprocal, "out"), CompPort(mult_pipe, "right")),
+            Connect(CompPort(mult_pipe, "left"), CompPort(reg, "out")),
+            Connect(CompPort(mult_pipe, "right"), CompPort(reciprocal, "out")),
             Connect(
-                ConstantPort(1, 1),
                 CompPort(mult_pipe, "go"),
+                ConstantPort(1, 1),
                 Not(Atom(CompPort(mult_pipe, "done"))),
             ),
-            Connect(CompPort(mult_pipe, "done"),
-                    CompPort(product, "write_en")),
-            Connect(CompPort(mult_pipe, "out"), CompPort(product, "in")),
-            Connect(CompPort(product, "done"), HolePort(group_name, "done")),
+            Connect(CompPort(product, "write_en"),
+                    CompPort(mult_pipe, "done")),
+            Connect(CompPort(product, "in"), CompPort(mult_pipe, "out")),
+            Connect(HolePort(group_name, "done"), CompPort(product, "done")),
         ]
         return Group(group_name, connections)
 
@@ -479,23 +479,23 @@ def generate_groups(
                 id=group_name,
                 connections=[
                     Connect(
-                        CompPort(CompVar("pow1"), "out"),
                         CompPort(mult_pipe, "left"),
+                        CompPort(CompVar("pow1"), "out"),
                     ),
                     Connect(
-                        CompPort(CompVar("sum1"), "out"),
                         CompPort(mult_pipe, "right"),
+                        CompPort(CompVar("sum1"), "out"),
                     ),
                     Connect(
-                        ConstantPort(1, 1),
                         CompPort(mult_pipe, "go"),
+                        ConstantPort(1, 1),
                         Not(Atom(CompPort(mult_pipe, "done"))),
                     ),
-                    Connect(CompPort(mult_pipe, "done"),
-                            CompPort(reg, "write_en")),
-                    Connect(CompPort(mult_pipe, "out"), CompPort(reg, "in")),
-                    Connect(CompPort(reg, "done"),
-                            HolePort(group_name, "done")),
+                    Connect(CompPort(reg, "write_en"),
+                            CompPort(mult_pipe, "done")),
+                    Connect(CompPort(reg, "in"), CompPort(mult_pipe, "out")),
+                    Connect(HolePort(group_name, "done"),
+                            CompPort(reg, "done")),
                 ],
             )
         ]
@@ -507,37 +507,37 @@ def generate_groups(
         reciprocal = Group(
             id=CompVar("reciprocal"),
             connections=[
-                Connect(CompPort(CompVar("one"), "out"),
-                        CompPort(div_pipe, "left")),
-                Connect(CompPort(input, "out"), CompPort(div_pipe, "right")),
+                Connect(CompPort(div_pipe, "left"),
+                        CompPort(CompVar("one"), "out")),
+                Connect(CompPort(div_pipe, "right"), CompPort(input, "out")),
                 Connect(
-                    ConstantPort(1, 1),
                     CompPort(div_pipe, "go"),
+                    ConstantPort(1, 1),
                     Not(Atom(CompPort(div_pipe, "done"))),
                 ),
-                Connect(CompPort(div_pipe, "done"),
-                        CompPort(input, "write_en")),
-                Connect(CompPort(div_pipe, "out_quotient"),
-                        CompPort(input, "in")),
+                Connect(CompPort(input, "write_en"),
+                        CompPort(div_pipe, "done")),
+                Connect(CompPort(input, "in"),
+                        CompPort(div_pipe, "out_quotient")),
                 Connect(
-                    CompPort(input, "done"), HolePort(
-                        CompVar("reciprocal"), "done")
+                    HolePort(CompVar("reciprocal"), "done"),
+                    CompPort(input, "done")
                 ),
             ],
         )
         is_negative = CombGroup(
             id=CompVar("is_negative"),
             connections=[
-                Connect(ThisPort(CompVar("x")),
-                        CompPort(CompVar("lt"), "left")),
-                Connect(ConstantPort(width, 0),
-                        CompPort(CompVar("lt"), "right")),
+                Connect(CompPort(CompVar("lt"), "left"),
+                        ThisPort(CompVar("x"))),
+                Connect(CompPort(CompVar("lt"), "right"),
+                        ConstantPort(width, 0)),
             ]
         )
 
     # Connect final value to the `out` signal of the component.
     output_register = CompVar("m")
-    out = [Connect(CompPort(output_register, "out"), ThisPort(CompVar("out")))]
+    out = [Connect(ThisPort(CompVar("out")), CompPort(output_register, "out"))]
     return (
         [init, split_bits]
         + ([negate, is_negative, reciprocal] if is_signed else [])
@@ -724,20 +724,20 @@ if __name__ == "__main__":
                     id=CompVar("init"),
                     connections=[
                         Connect(
-                            ConstantPort(1, 0),
                             CompPort(CompVar("x"), "addr0"),
+                            ConstantPort(1, 0),
                         ),
                         Connect(
-                            CompPort(CompVar("x"), "read_data"),
                             CompPort(CompVar("t"), "in"),
+                            CompPort(CompVar("x"), "read_data"),
                         ),
                         Connect(
-                            ConstantPort(1, 1),
                             CompPort(CompVar("t"), "write_en"),
+                            ConstantPort(1, 1),
                         ),
                         Connect(
-                            CompPort(CompVar("t"), "done"),
                             HolePort(CompVar("init"), "done"),
+                            CompPort(CompVar("t"), "done"),
                         ),
                     ],
                 ),
@@ -745,20 +745,20 @@ if __name__ == "__main__":
                     id=CompVar("write_to_memory"),
                     connections=[
                         Connect(
-                            ConstantPort(1, 0),
                             CompPort(CompVar("ret"), "addr0"),
+                            ConstantPort(1, 0),
                         ),
                         Connect(
-                            ConstantPort(1, 1),
                             CompPort(CompVar("ret"), "write_en"),
+                            ConstantPort(1, 1),
                         ),
                         Connect(
-                            CompPort(CompVar("e"), "out"),
                             CompPort(CompVar("ret"), "write_data"),
+                            CompPort(CompVar("e"), "out"),
                         ),
                         Connect(
-                            CompPort(CompVar("ret"), "done"),
                             HolePort(CompVar("write_to_memory"), "done"),
+                            CompPort(CompVar("ret"), "done"),
                         ),
                     ],
                 ),
