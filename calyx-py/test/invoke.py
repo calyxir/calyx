@@ -9,13 +9,13 @@ foo_wires = [
     Group(
         CompVar("let"),
         [
-            Connect(ThisPort(CompVar("a")), CompPort(temp, "in")),
-            Connect(ConstantPort(1, 1), CompPort(temp, "write_en")),
-            Connect(CompPort(temp, "done"), HolePort(CompVar("let"), "done")),
+            Connect(CompPort(temp, "in"), ThisPort(CompVar("a"))),
+            Connect(CompPort(temp, "write_en"), ConstantPort(1, 1)),
+            Connect(HolePort(CompVar("let"), "done"), CompPort(temp, "done")),
         ],
         1,
     ),
-    Connect(CompPort(temp, "out"), ThisPort(CompVar("out"))),
+    Connect(ThisPort(CompVar("out")), CompPort(temp, "out")),
 ]
 
 foo_component = Component(
@@ -42,18 +42,18 @@ wires = [
     Group(
         CompVar("write_constant"),
         [
-            Connect(CompPort(const, "out"), CompPort(b, "in")),
-            Connect(ConstantPort(1, 1), CompPort(b, "write_en")),
-            Connect(CompPort(b, "done"), HolePort(CompVar("write_constant"), "done")),
+            Connect(CompPort(b, "in"), CompPort(const, "out")),
+            Connect(CompPort(b, "write_en"), ConstantPort(1, 1)),
+            Connect(HolePort(CompVar("write_constant"), "done"), CompPort(b, "done")),
         ],
         1,
     ),
     Group(
         CompVar("save_foo"),
         [
-            Connect(CompPort(foo, "out"), CompPort(c, "in")),
-            Connect(ConstantPort(1, 1), CompPort(c, "write_en")),
-            Connect(CompPort(c, "done"), HolePort(CompVar("save_foo"), "done")),
+            Connect(CompPort(c, "in"), CompPort(foo, "out")),
+            Connect(CompPort(c, "write_en"), ConstantPort(1, 1)),
+            Connect(HolePort(CompVar("save_foo"), "done"), CompPort(c, "done")),
         ],
     ),
 ]

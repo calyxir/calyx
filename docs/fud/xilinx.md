@@ -25,19 +25,6 @@ Run the following command to install all required dependencies:
 cd fud && flit install -s --deps all
 ```
 
-### Seting up Local Tools
-
-To instead **invoke the Xilinx tools locally**, just let `fud` run the `vivado` and `vivado_hls` commands.
-You can optionally tell `fud` where these commands exist on your machine:
-
-    fud config stages.synth-verilog.exec <path> # update vivado path
-    fud config stages.vivado-hls.exec <path> # update vivado_hls path
-
-Setting the `remote` option for the stages to `0` ensure that `fud` will always try to run the commands locally.
-
-    fud config stages.synth-verilog.remote 0
-    fud config stages.vivado-hls.remote 0
-
 ### Setting up Remote Tools
 
 > Follow these instructions if you're attempting to run `vivado` or `vivado-hls` on a server from your local machine. If you are working directly on a server with these tools, skip to the [run instructions](#run).
@@ -59,7 +46,19 @@ The following commands enable remote usage of `vivado` and `vivado-hls` by defau
 
 The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
 
-If you'd like to switch back to local usage, override the `remote` option by passing `fud e ... -s stages.synth-verilog.remote 0`
+### Setting up Local Tools
+
+To instead **invoke the Xilinx tools locally**, just let `fud` run the `vivado` and `vivado_hls` commands.
+You can optionally tell `fud` where these commands exist on your machine:
+
+    fud config stages.synth-verilog.exec <path> # update vivado path
+    fud config stages.vivado-hls.exec <path> # update vivado_hls path
+
+Setting the `remote` option for the stages to `0` ensure that `fud` will always try to run the commands locally.
+
+    fud config stages.synth-verilog.remote 0
+    fud config stages.vivado-hls.remote 0
+
 
 ### Run
 
@@ -139,7 +138,7 @@ To prepare for hardware emulation of an xclbin compiled appropriately, run:
     export XCL_EMULATION_MODE=hw_emu
 
 If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable is unset:
-    
+
     unset XCL_EMULATION_MODE
 
 These steps source the setup scripts for both [Vitis][] and [XRT][],
