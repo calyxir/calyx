@@ -1,5 +1,5 @@
 // -p cell-share -p dead-cell-removal -p remove-ids
-// should share registers 
+// should not share registers because of "read_r3_another"
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
@@ -45,7 +45,7 @@ component main() -> () {
     seq {
       read_r2; 
       par{
-        no_read; 
+        read_r3_another; 
         seq{ write_r3; read_r3;}
       }
     }

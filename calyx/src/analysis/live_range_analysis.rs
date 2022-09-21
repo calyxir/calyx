@@ -1,6 +1,6 @@
 use crate::{
     analysis::{ControlId, ReadWriteSet, ShareSet, VariableDetection},
-    ir::{self, CloneName, RRC},
+    ir::{self, CloneName, Id, RRC},
 };
 use itertools::Itertools;
 use std::{
@@ -70,12 +70,12 @@ impl Prop {
 
     // edits self to equal self intersect rhs. Must take ownership of rhs
     // ownership and not &rhs.
-    fn intersect(&mut self, rhs: Prop) {
-        for (cell_type, cell_names) in rhs.map {
-            self.map
-                .entry(cell_type)
-                .or_default()
-                .retain(|cell| cell_names.contains(cell));
+    fn intersect(&mut self, mut rhs: Prop) {
+        for (cell_type, cell_names) in self.map.iter_mut() {
+            let empty_hash = HashSet::new();
+            let entry: HashSet<Id> =
+                rhs.map.remove(cell_type).unwrap_or(empty_hash);
+            cell_names.retain(|cell| entry.contains(cell));
         }
     }
 
@@ -841,7 +841,7 @@ impl LiveRangeAnalysis {
                 (t_alive, t_gens, t_kills)
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {
-                let (mut alive, mut gens, kills) = stmts
+                let (mut alive, gens, kills) = stmts
                     .iter()
                     .rev()
                     .map(|e| {
@@ -893,6 +893,8 @@ impl LiveRangeAnalysis {
                 let mut cgroup_reads: TypeNameSet = HashSet::new();
                 // all uses of shareable components in the comb group or port
                 let mut shareable_uses: TypeNameSet = HashSet::new();
+
+                let input_kills = kills.clone();
                 // Go through while body and while port + comb group once
                 let (mut alive, mut gens, kills) =
                     self.build_live_ranges(body, alive, gens, kills);
@@ -927,7 +929,16 @@ impl LiveRangeAnalysis {
                     self.build_live_ranges(body, alive, gens, kills);
                 alive.or_set(cgroup_reads.clone());
                 gens.or_set(cgroup_reads);
-                (alive, gens, kills)
+
+                // we can only inlcude the kills if we know the while loop executes
+                // at least once
+                if let Some(&val) = c.get_attribute("bound") {
+                    if val > 0 {
+                        return (alive, gens, kills);
+                    }
+                }
+
+                (alive, gens, input_kills)
             }
         }
     }
