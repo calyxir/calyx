@@ -729,6 +729,7 @@ impl LiveRangeAnalysis {
                 (
                     alive_out,
                     {
+                        gens.sub_set(writes.clone());
                         gens.or_set(reads);
                         gens
                     },
@@ -761,6 +762,7 @@ impl LiveRangeAnalysis {
                 (
                     alive_out,
                     {
+                        gens.sub_set(writes.clone());
                         gens.or_set(reads);
                         gens
                     },
@@ -797,7 +799,7 @@ impl LiveRangeAnalysis {
                 // take union
                 t_alive.or(f_alive);
                 t_gens.or(f_gens);
-                t_kills.or(f_kills);
+                t_kills.intersect(f_kills);
 
                 let id = ControlId::get_guaranteed_id(c);
 
@@ -873,7 +875,6 @@ impl LiveRangeAnalysis {
                     );
                 // should only count as a "gen" if it is alive on at least one
                 // of the outputs of the child node
-                gens.intersect(alive.clone());
                 alive.transfer(gens.clone(), kills.clone());
                 (alive, gens, kills)
             }
