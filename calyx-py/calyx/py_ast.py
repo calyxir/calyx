@@ -164,8 +164,8 @@ class Cell(Structure):
 
 @dataclass
 class Connect(Structure):
-    src: Port
     dest: Port
+    src: Port
     guard: Optional[GuardExpr] = None
 
     def doc(self) -> str:
@@ -335,7 +335,7 @@ class While(Control):
 
     def doc(self) -> str:
         cond = f"while {self.port.doc()}"
-        if cond is not None:
+        if self.cond is not None:
             cond += f" with {self.cond.doc()}"
         return block(cond, self.body.doc(), sep="")
 
@@ -355,7 +355,7 @@ class If(Control):
 
     def doc(self) -> str:
         cond = f"if {self.port.doc()}"
-        if cond is not None:
+        if self.cond is not None:
             cond += f" with {self.cond.doc()}"
         true_branch = self.true_branch.doc()
         if isinstance(self.false_branch, Empty):
@@ -380,8 +380,11 @@ class Stdlib:
     def identity(self, op: str, bitwidth: int):
         return CompInst("std_id", [bitwidth])
 
-    def slice(self, op: str, in_: int, out: int):
+    def slice(self, in_: int, out: int):
         return CompInst("std_slice", [in_, out])
+
+    def pad(self, in_: int, out: int):
+        return CompInst("std_pad", [in_, out])
 
     def mem_d1(self, bitwidth: int, size: int, idx_size: int):
         return CompInst("std_mem_d1", [bitwidth, size, idx_size])

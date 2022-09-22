@@ -30,7 +30,7 @@ Calyx uses the `ref` keyword to describe cells that are passed in by-reference:
 ```
 component add_one() -> () {
   cells {
-    ref mem = std_mem_d1(32, 4, 3); // A memory passed in by refernece.
+    ref mem = std_mem_d1(32, 4, 3); // A memory passed in by reference.
     ...
   }
   ...
@@ -45,7 +45,7 @@ Next, to pass the memory to the component, we can use the `invoke` syntax:
 component add_one() -> () { ... }
 component main() -> () {
   cells {
-    A = std_mem_d1(32, 4, 3); // A memory passed in by refernece.
+    A = std_mem_d1(32, 4, 3); // A memory passed in by reference.
     one = add_one();
     ...
   }

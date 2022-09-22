@@ -78,13 +78,13 @@ def instantiate_indexor(prefix, width):
         init_name,
         connections=[
             py_ast.Connect(
-                py_ast.ConstantPort(width, 2 ** width - 1), py_ast.CompPort(name, "in")
+                py_ast.CompPort(name, "in"), py_ast.ConstantPort(width, 2 ** width - 1)
             ),
             py_ast.Connect(
-                py_ast.ConstantPort(1, 1), py_ast.CompPort(name, "write_en")
+                py_ast.CompPort(name, "write_en"), py_ast.ConstantPort(1, 1)
             ),
             py_ast.Connect(
-                py_ast.CompPort(name, "done"), py_ast.HolePort(init_name, "done")
+                py_ast.HolePort(init_name, "done"), py_ast.CompPort(name, "done")
             ),
         ],
     )
@@ -94,19 +94,19 @@ def instantiate_indexor(prefix, width):
         upd_name,
         connections=[
             py_ast.Connect(
-                py_ast.ConstantPort(width, 1), py_ast.CompPort(add_name, "left")
+                py_ast.CompPort(add_name, "left"), py_ast.ConstantPort(width, 1)
             ),
             py_ast.Connect(
-                py_ast.CompPort(name, "out"), py_ast.CompPort(add_name, "right")
+                py_ast.CompPort(add_name, "right"), py_ast.CompPort(name, "out")
             ),
             py_ast.Connect(
-                py_ast.CompPort(add_name, "out"), py_ast.CompPort(name, "in")
+                py_ast.CompPort(name, "in"), py_ast.CompPort(add_name, "out")
             ),
             py_ast.Connect(
-                py_ast.ConstantPort(1, 1), py_ast.CompPort(name, "write_en")
+                py_ast.CompPort(name, "write_en"), py_ast.ConstantPort(1, 1)
             ),
             py_ast.Connect(
-                py_ast.CompPort(name, "done"), py_ast.HolePort(upd_name, "done")
+                py_ast.HolePort(upd_name, "done"), py_ast.CompPort(name, "done")
             ),
         ],
     )
@@ -139,17 +139,17 @@ def instantiate_memory(top_or_left, idx, size):
         group_name,
         connections=[
             py_ast.Connect(
-                py_ast.CompPort(idx_name, "out"), py_ast.CompPort(var_name, "addr0")
+                py_ast.CompPort(var_name, "addr0"), py_ast.CompPort(idx_name, "out")
             ),
             py_ast.Connect(
-                py_ast.CompPort(var_name, "read_data"),
                 py_ast.CompPort(target_reg, "in"),
+                py_ast.CompPort(var_name, "read_data"),                
             ),
             py_ast.Connect(
-                py_ast.ConstantPort(1, 1), py_ast.CompPort(target_reg, "write_en")
+                py_ast.CompPort(target_reg, "write_en"), py_ast.ConstantPort(1, 1)
             ),
             py_ast.Connect(
-                py_ast.CompPort(target_reg, "done"), py_ast.HolePort(group_name, "done")
+                py_ast.HolePort(group_name, "done"), py_ast.CompPort(target_reg, "done")
             ),
         ],
     )
@@ -200,14 +200,14 @@ def instantiate_data_move(row, col, right_edge, down_edge):
             group_name,
             connections=[
                 py_ast.Connect(
-                    py_ast.CompPort(src_reg, "out"), py_ast.CompPort(dst_reg, "in")
+                    py_ast.CompPort(dst_reg, "in"), py_ast.CompPort(src_reg, "out")
                 ),
                 py_ast.Connect(
-                    py_ast.ConstantPort(1, 1), py_ast.CompPort(dst_reg, "write_en")
+                    py_ast.CompPort(dst_reg, "write_en"), py_ast.ConstantPort(1, 1)
                 ),
                 py_ast.Connect(
-                    py_ast.CompPort(dst_reg, "done"),
                     py_ast.HolePort(group_name, "done"),
+                    py_ast.CompPort(dst_reg, "done"),
                 ),
             ],
         )
@@ -221,14 +221,14 @@ def instantiate_data_move(row, col, right_edge, down_edge):
             group_name,
             connections=[
                 py_ast.Connect(
-                    py_ast.CompPort(src_reg, "out"), py_ast.CompPort(dst_reg, "in")
+                    py_ast.CompPort(dst_reg, "in"), py_ast.CompPort(src_reg, "out")
                 ),
                 py_ast.Connect(
-                    py_ast.ConstantPort(1, 1), py_ast.CompPort(dst_reg, "write_en")
+                    py_ast.CompPort(dst_reg, "write_en"), py_ast.ConstantPort(1, 1)
                 ),
                 py_ast.Connect(
-                    py_ast.CompPort(dst_reg, "done"),
                     py_ast.HolePort(group_name, "done"),
+                    py_ast.CompPort(dst_reg, "done"),
                 ),
             ],
         )
@@ -250,17 +250,17 @@ def instantiate_output_move(row, col, cols, idx_bitwidth):
         group_name,
         connections=[
             py_ast.Connect(
-                py_ast.ConstantPort(idx_bitwidth, idx),
                 py_ast.CompPort(OUT_MEM, "addr0"),
+                py_ast.ConstantPort(idx_bitwidth, idx),
             ),
             py_ast.Connect(
-                py_ast.CompPort(pe, "out"), py_ast.CompPort(OUT_MEM, "write_data")
+                py_ast.CompPort(OUT_MEM, "write_data"), py_ast.CompPort(pe, "out")
             ),
             py_ast.Connect(
-                py_ast.ConstantPort(1, 1), py_ast.CompPort(OUT_MEM, "write_en")
+                py_ast.CompPort(OUT_MEM, "write_en"), py_ast.ConstantPort(1, 1)
             ),
             py_ast.Connect(
-                py_ast.CompPort(OUT_MEM, "done"), py_ast.HolePort(group_name, "done")
+                py_ast.HolePort(group_name, "done"), py_ast.CompPort(OUT_MEM, "done")
             ),
         ],
     )
@@ -530,7 +530,7 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
             # Manually emitted becase we need to print out the PE definition
         ],
         components=[main],
-        meta=source_map
+        meta=source_map,
     )
 
 

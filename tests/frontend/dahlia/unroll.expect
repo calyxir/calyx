@@ -91,10 +91,10 @@ component main() -> () {
       while le0.out with cond0 {
         seq {
           par {
-            upd0;
-            upd1;
-            upd2;
-            upd3;
+            @pos(0) upd0;
+            @pos(0) upd1;
+            @pos(0) upd2;
+            @pos(0) upd3;
           }
           upd4;
           upd5;
@@ -103,4 +103,7 @@ component main() -> () {
     }
   }
 }
+metadata #{
+  0:   let acc = A[i];
+}#
 

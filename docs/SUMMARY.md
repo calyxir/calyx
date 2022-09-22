@@ -44,6 +44,7 @@
 # Tools
 
 - [Runt](./tools/runt.md)
+- [Data Gen](./tools/data-gen.md)
 - [`exp` Generator](./tools/exp-generator.md)
 - [Editor Highlighting](./tools/editor-highlighting.md)
 

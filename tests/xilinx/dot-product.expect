@@ -25,6 +25,7 @@ module Toplevel (
     output wire [63:0] m0_axi_ARADDR,
     output wire [7:0] m0_axi_ARLEN,
     output wire [2:0] m0_axi_ARSIZE,
+    output wire [1:0] m0_axi_ARBURST,
     input wire m0_axi_RVALID,
     output wire m0_axi_RREADY,
     input wire [7:0] m0_axi_RID,
@@ -37,6 +38,7 @@ module Toplevel (
     output wire [63:0] m0_axi_AWADDR,
     output wire [7:0] m0_axi_AWLEN,
     output wire [2:0] m0_axi_AWSIZE,
+    output wire [1:0] m0_axi_AWBURST,
     input wire m0_axi_WREADY,
     output wire m0_axi_WVALID,
     output wire [7:0] m0_axi_WID,
@@ -53,6 +55,7 @@ module Toplevel (
     output wire [63:0] m1_axi_ARADDR,
     output wire [7:0] m1_axi_ARLEN,
     output wire [2:0] m1_axi_ARSIZE,
+    output wire [1:0] m1_axi_ARBURST,
     input wire m1_axi_RVALID,
     output wire m1_axi_RREADY,
     input wire [7:0] m1_axi_RID,
@@ -65,6 +68,7 @@ module Toplevel (
     output wire [63:0] m1_axi_AWADDR,
     output wire [7:0] m1_axi_AWLEN,
     output wire [2:0] m1_axi_AWSIZE,
+    output wire [1:0] m1_axi_AWBURST,
     input wire m1_axi_WREADY,
     output wire m1_axi_WVALID,
     output wire [7:0] m1_axi_WID,
@@ -81,6 +85,7 @@ module Toplevel (
     output wire [63:0] m2_axi_ARADDR,
     output wire [7:0] m2_axi_ARLEN,
     output wire [2:0] m2_axi_ARSIZE,
+    output wire [1:0] m2_axi_ARBURST,
     input wire m2_axi_RVALID,
     output wire m2_axi_RREADY,
     input wire [7:0] m2_axi_RID,
@@ -93,6 +98,7 @@ module Toplevel (
     output wire [63:0] m2_axi_AWADDR,
     output wire [7:0] m2_axi_AWLEN,
     output wire [2:0] m2_axi_AWSIZE,
+    output wire [1:0] m2_axi_AWBURST,
     input wire m2_axi_WREADY,
     output wire m2_axi_WVALID,
     output wire [7:0] m2_axi_WID,
@@ -203,13 +209,14 @@ module Toplevel (
     end
     wire [31:0] A0_write_data;
     wire [31:0] A0_read_data;
-    wire [11:0] A0_addr0;
+    wire [3:0] A0_addr0;
     wire A0_write_en;
     wire A0_done;
     Memory_controller_axi_0 inst_mem_controller_axi_0 (
         .ACLK(ap_clk),
         .ADDR(A0_addr0),
         .ARADDR(m0_axi_ARADDR),
+        .ARBURST(m0_axi_ARBURST),
         .ARESET(reset || memories_sent),
         .ARID(m0_axi_ARID),
         .ARLEN(m0_axi_ARLEN),
@@ -217,6 +224,7 @@ module Toplevel (
         .ARSIZE(m0_axi_ARSIZE),
         .ARVALID(m0_axi_ARVALID),
         .AWADDR(m0_axi_AWADDR),
+        .AWBURST(m0_axi_AWBURST),
         .AWID(m0_axi_AWID),
         .AWLEN(m0_axi_AWLEN),
         .AWREADY(m0_axi_AWREADY),
@@ -250,13 +258,14 @@ module Toplevel (
     );
     wire [31:0] B0_write_data;
     wire [31:0] B0_read_data;
-    wire [11:0] B0_addr0;
+    wire [3:0] B0_addr0;
     wire B0_write_en;
     wire B0_done;
     Memory_controller_axi_1 inst_mem_controller_axi_1 (
         .ACLK(ap_clk),
         .ADDR(B0_addr0),
         .ARADDR(m1_axi_ARADDR),
+        .ARBURST(m1_axi_ARBURST),
         .ARESET(reset || memories_sent),
         .ARID(m1_axi_ARID),
         .ARLEN(m1_axi_ARLEN),
@@ -264,6 +273,7 @@ module Toplevel (
         .ARSIZE(m1_axi_ARSIZE),
         .ARVALID(m1_axi_ARVALID),
         .AWADDR(m1_axi_AWADDR),
+        .AWBURST(m1_axi_AWBURST),
         .AWID(m1_axi_AWID),
         .AWLEN(m1_axi_AWLEN),
         .AWREADY(m1_axi_AWREADY),
@@ -297,13 +307,14 @@ module Toplevel (
     );
     wire [31:0] v0_write_data;
     wire [31:0] v0_read_data;
-    wire [11:0] v0_addr0;
+    wire v0_addr0;
     wire v0_write_en;
     wire v0_done;
     Memory_controller_axi_2 inst_mem_controller_axi_2 (
         .ACLK(ap_clk),
         .ADDR(v0_addr0),
         .ARADDR(m2_axi_ARADDR),
+        .ARBURST(m2_axi_ARBURST),
         .ARESET(reset || memories_sent),
         .ARID(m2_axi_ARID),
         .ARLEN(m2_axi_ARLEN),
@@ -311,6 +322,7 @@ module Toplevel (
         .ARSIZE(m2_axi_ARSIZE),
         .ARVALID(m2_axi_ARVALID),
         .AWADDR(m2_axi_AWADDR),
+        .AWBURST(m2_axi_AWBURST),
         .AWID(m2_axi_AWID),
         .AWLEN(m2_axi_AWLEN),
         .AWREADY(m2_axi_AWREADY),
@@ -738,6 +750,7 @@ module Memory_controller_axi_0 (
     output wire [63:0] ARADDR,
     output wire [7:0] ARLEN,
     output wire [2:0] ARSIZE,
+    output wire [1:0] ARBURST,
     input wire RVALID,
     output wire RREADY,
     input wire [7:0] RID,
@@ -750,6 +763,7 @@ module Memory_controller_axi_0 (
     output wire [63:0] AWADDR,
     output wire [7:0] AWLEN,
     output wire [2:0] AWSIZE,
+    output wire [1:0] AWBURST,
     input wire WREADY,
     output wire WVALID,
     output wire [7:0] WID,
@@ -894,7 +908,8 @@ module Memory_controller_axi_0 (
     assign copy_shift = {{60{1'b0}}, copy_addr_offset} << 2;
     assign ARADDR = BASE_ADDRESS + copy_shift;
     assign ARLEN = 0;
-    assign ARSIZE = 2;
+    assign ARSIZE = 3'd2;
+    assign ARBURST = 2'b01;
     reg [1:0] wstate;
     reg [1:0] wnext;
     always @(posedge ACLK) begin
@@ -947,7 +962,8 @@ module Memory_controller_axi_0 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2;
+    assign AWSIZE = 3'd2;
+    assign AWBURST = 2'b01;
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
@@ -963,6 +979,7 @@ module Memory_controller_axi_1 (
     output wire [63:0] ARADDR,
     output wire [7:0] ARLEN,
     output wire [2:0] ARSIZE,
+    output wire [1:0] ARBURST,
     input wire RVALID,
     output wire RREADY,
     input wire [7:0] RID,
@@ -975,6 +992,7 @@ module Memory_controller_axi_1 (
     output wire [63:0] AWADDR,
     output wire [7:0] AWLEN,
     output wire [2:0] AWSIZE,
+    output wire [1:0] AWBURST,
     input wire WREADY,
     output wire WVALID,
     output wire [7:0] WID,
@@ -1119,7 +1137,8 @@ module Memory_controller_axi_1 (
     assign copy_shift = {{60{1'b0}}, copy_addr_offset} << 2;
     assign ARADDR = BASE_ADDRESS + copy_shift;
     assign ARLEN = 0;
-    assign ARSIZE = 2;
+    assign ARSIZE = 3'd2;
+    assign ARBURST = 2'b01;
     reg [1:0] wstate;
     reg [1:0] wnext;
     always @(posedge ACLK) begin
@@ -1172,7 +1191,8 @@ module Memory_controller_axi_1 (
     assign send_shift = {{60{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2;
+    assign AWSIZE = 3'd2;
+    assign AWBURST = 2'b01;
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;
@@ -1188,6 +1208,7 @@ module Memory_controller_axi_2 (
     output wire [63:0] ARADDR,
     output wire [7:0] ARLEN,
     output wire [2:0] ARSIZE,
+    output wire [1:0] ARBURST,
     input wire RVALID,
     output wire RREADY,
     input wire [7:0] RID,
@@ -1200,6 +1221,7 @@ module Memory_controller_axi_2 (
     output wire [63:0] AWADDR,
     output wire [7:0] AWLEN,
     output wire [2:0] AWSIZE,
+    output wire [1:0] AWBURST,
     input wire WREADY,
     output wire WVALID,
     output wire [7:0] WID,
@@ -1344,7 +1366,8 @@ module Memory_controller_axi_2 (
     assign copy_shift = {{62{1'b0}}, copy_addr_offset} << 2;
     assign ARADDR = BASE_ADDRESS + copy_shift;
     assign ARLEN = 0;
-    assign ARSIZE = 2;
+    assign ARSIZE = 3'd2;
+    assign ARBURST = 2'b01;
     reg [1:0] wstate;
     reg [1:0] wnext;
     always @(posedge ACLK) begin
@@ -1397,7 +1420,8 @@ module Memory_controller_axi_2 (
     assign send_shift = {{62{1'b0}}, send_addr_offset} << 2;
     assign AWADDR = BASE_ADDRESS + send_shift;
     assign AWLEN = 0;
-    assign AWSIZE = 2;
+    assign AWSIZE = 3'd2;
+    assign AWBURST = 2'b01;
     assign WID = 0;
     assign WDATA = {{15{32'b0}}, bram_read_data} << send_addr_offset * 32;
     assign WSTRB = {{15{4'h0}}, 4'hF} << send_addr_offset * 4;

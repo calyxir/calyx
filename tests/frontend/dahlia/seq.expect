@@ -21,9 +21,13 @@ component main() -> () {
   }
   control {
     seq {
-      let0;
-      let1;
+      @pos(0) let0;
+      @pos(1) let1;
     }
   }
 }
+metadata #{
+  0: let x: ubit<32> = 4;
+  1: let y: ubit<32> = 5;
+}#
 

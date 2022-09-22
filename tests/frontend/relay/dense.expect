@@ -187,44 +187,44 @@ component dense_1x10() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(10) while le0.out with cond0 {
         seq {
-          let1;
+          @pos(1) let1;
           @bound(4096) while le1.out with cond1 {
             seq {
-              upd0;
-              upd1;
-              upd2;
+              @pos(2) upd0;
+              @pos(3) upd1;
+              @pos(1) upd2;
             }
           }
-          upd3;
+          @pos(0) upd3;
         }
       }
-      let2;
+      @pos(4) let2;
       @bound(1) while le2.out with cond2 {
         seq {
-          let3;
+          @pos(5) let3;
           @bound(10) while le3.out with cond3 {
             seq {
-              let4;
+              @pos(6) let4;
               @bound(4096) while le4.out with cond4 {
                 seq {
                   par {
-                    upd4;
-                    upd5;
+                    @pos(7) upd4;
+                    @pos(8) upd5;
                   }
                   let5;
                   let6;
                   let7;
                   upd6;
-                  upd7;
+                  @pos(6) upd7;
                 }
               }
-              upd8;
+              @pos(5) upd8;
             }
           }
-          upd9;
+          @pos(4) upd9;
         }
       }
     }

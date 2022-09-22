@@ -22,12 +22,12 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated cond00_done = std_wire(1);
     @generated comb_invoke0_go = std_wire(1);
     @generated comb_invoke0_done = std_wire(1);
-    @generated msp_go = std_wire(1);
-    @generated msp_done = std_wire(1);
     @generated invoke_go = std_wire(1);
     @generated invoke_done = std_wire(1);
     @generated invoke0_go = std_wire(1);
     @generated invoke0_done = std_wire(1);
+    @generated msp_go = std_wire(1);
+    @generated msp_done = std_wire(1);
     @generated tdcc_go = std_wire(1);
     @generated tdcc_done = std_wire(1);
   }

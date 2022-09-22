@@ -33,7 +33,8 @@ intermediate representation.
         cd ../python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
 
-   > If you get an error with `shutil`, try deleting the `python/` directory, restoring it, and rerunning the above command: `cd .. && rm -rf python && git checkout -- python`
+   > If you get an error with `shutil`, try deleting the `python/` directory, restoring it, and rerunning the above command: `cd .. && rm -rf python && git checkout -- python`     
+   > If you are on MacOS - Big Sur and are getting an error similar to "(wheel).whl is not a supported wheel on this platform", try changing part of the wheel's filename from 11_0 to 10_9. See this github [issue](https://github.com/apple/tensorflow_macos/issues/46) for more information. 
 
 5. Install the accompanying `topi` Python package:
 

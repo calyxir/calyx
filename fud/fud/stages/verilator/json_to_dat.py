@@ -188,8 +188,12 @@ def convert2json(input_dir, extension):
 
         try:
             arr = arr.reshape(tuple(form["shape"]))
-        except Exception:
-            raise Malformed("Data format shape", f"Memory '{mem}' had invalid shape.")
+        except Exception as e:
+            raise Malformed(
+                "Data format shape",
+                f"Failed to interpret memory `{mem}`"
+                + " with {len(arr)} elements as `{form['shape']}` ",
+            ) from e
 
         data[mem] = arr.tolist()
 

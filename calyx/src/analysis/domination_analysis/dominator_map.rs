@@ -1,7 +1,7 @@
-use crate::analysis::domination_analysis::node_analysis::{
-    NodeReads, NodeSearch,
+use crate::analysis::{
+    domination_analysis::node_analysis::{NodeReads, NodeSearch},
+    ControlId, ShareSet,
 };
-use crate::analysis::ShareSet;
 use crate::ir::{self};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -122,82 +122,6 @@ impl Debug for DominatorMap {
     }
 }
 
-/// Caleb Note: This is a copy+ paste from the tdcc pass that I edited slightly.
-/// We should unify at some point.
-/// Adds the @NODE_ID attribute to all control stmts except emtpy ones.
-/// Also, for If stmts, instead of an @NODE_ID, it gets a beginning and end
-/// id.
-///
-/// ## Example:
-/// ```
-/// seq { A; if cond {X} else{Y}; par { C; D; }; E }
-/// ```
-///
-/// gets the labels:
-///
-/// ```
-/// @NODE_ID(0)seq {
-///   @NODE_ID(1) A;
-///   @BEGIN_ID(2) @END_ID(5) if cond {
-///     @NODE_ID(3) X
-///   }
-///   else{
-///     @NODE_ID(4) Y
-///   }
-///   @NODE_ID(6) par {
-///     @NODE_ID(7) C;
-///     @NODE_ID(8) D;
-///   }
-///   @NODE_ID(9) E;
-/// }
-///
-/// These identifiers are used by the compilation methods [calculate_states_recur]
-/// and [control_exits]
-fn compute_unique_ids(con: &mut ir::Control, mut cur_state: u64) -> u64 {
-    match con {
-        ir::Control::Enable(ir::Enable { attributes, .. })
-        | ir::Control::Invoke(ir::Invoke { attributes, .. }) => {
-            attributes.insert(NODE_ID, cur_state);
-            cur_state + 1
-        }
-        ir::Control::Par(ir::Par {
-            stmts, attributes, ..
-        })
-        | ir::Control::Seq(ir::Seq {
-            stmts, attributes, ..
-        }) => {
-            attributes.insert(NODE_ID, cur_state);
-            cur_state += 1;
-            stmts.iter_mut().for_each(|stmt| {
-                let new_state = compute_unique_ids(stmt, cur_state);
-                cur_state = new_state;
-            });
-            cur_state
-        }
-        ir::Control::If(ir::If {
-            tbranch,
-            fbranch,
-            attributes,
-            ..
-        }) => {
-            attributes.insert(BEGIN_ID, cur_state);
-            cur_state += 1;
-            cur_state = compute_unique_ids(tbranch, cur_state);
-            cur_state = compute_unique_ids(fbranch, cur_state);
-            attributes.insert(END_ID, cur_state);
-            cur_state + 1
-        }
-        ir::Control::While(ir::While {
-            body, attributes, ..
-        }) => {
-            attributes.insert(NODE_ID, cur_state);
-            cur_state += 1;
-            compute_unique_ids(body, cur_state)
-        }
-        ir::Control::Empty(_) => cur_state,
-    }
-}
-
 // Given a control, gets its associated id. For if statments, gets the
 // beginning id if begin_id is true and end_id if begin_id is false.
 // Should not be called on empty control
@@ -232,15 +156,6 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
         false
     }
 }
-
-// Gets attribute s from c, panics otherwise. Should be used when you know
-// that c has attribute s.
-fn get_guaranteed_attribute(c: &ir::Control, s: &str) -> u64 {
-    *c.get_attribute(s).unwrap_or_else(||unreachable!(
-            "called get_guaranteed_attribute, meaning we had to be sure it had the id"
-        ))
-}
-
 // Gets the "final" nodes in control c. Used to build exits_map.
 fn get_final(c: &ir::Control) -> HashSet<u64> {
     let mut hs = HashSet::new();
@@ -249,13 +164,13 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
         ir::Control::Invoke(_)
         | ir::Control::Enable(_)
         | ir::Control::While(_) => {
-            hs.insert(get_guaranteed_attribute(c, NODE_ID));
+            hs.insert(ControlId::get_guaranteed_attribute(c, NODE_ID));
         }
         ir::Control::If(_) => {
-            hs.insert(get_guaranteed_attribute(c, END_ID));
+            hs.insert(ControlId::get_guaranteed_attribute(c, END_ID));
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            get_final((&stmts[..]).last().unwrap_or_else(|| {
+            return get_final((&stmts[..]).last().unwrap_or_else(|| {
                 panic!("error: empty Seq block. Run collapse-control pass.")
             }));
         }
@@ -272,7 +187,7 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
 impl DominatorMap {
     /// Construct a domination map.
     pub fn new(control: &mut ir::Control, component_name: String) -> Self {
-        compute_unique_ids(control, 0);
+        ControlId::compute_unique_ids(control, 0, true);
         let mut map = DominatorMap {
             map: HashMap::new(),
             exits_map: HashMap::new(),
@@ -289,19 +204,19 @@ impl DominatorMap {
         match c {
             ir::Control::Empty(_) => (),
             ir::Control::Invoke(_) | ir::Control::Enable(_) => {
-                let id = get_guaranteed_attribute(c, NODE_ID);
+                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
             }
             ir::Control::While(ir::While { body, .. }) => {
-                let id = get_guaranteed_attribute(c, NODE_ID);
+                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
                 self.build_exit_map(body);
             }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
             }) => {
-                let begin_id = get_guaranteed_attribute(c, BEGIN_ID);
-                let end_id = get_guaranteed_attribute(c, END_ID);
+                let begin_id = ControlId::get_guaranteed_attribute(c, BEGIN_ID);
+                let end_id = ControlId::get_guaranteed_attribute(c, END_ID);
                 self.exits_map.insert(begin_id, HashSet::from([end_id]));
                 self.exits_map.insert(end_id, HashSet::from([end_id]));
                 self.build_exit_map(tbranch);
@@ -312,7 +227,7 @@ impl DominatorMap {
                 for stmt in stmts {
                     self.build_exit_map(stmt);
                 }
-                let id = get_guaranteed_attribute(c, NODE_ID);
+                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
                 self.exits_map.insert(id, get_final(c));
             }
         }
@@ -364,7 +279,6 @@ impl DominatorMap {
                 self.update_node(pred, cur_id);
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                //Could try to think a way of doing it w/o this first stuff
                 let mut p = pred;
                 let mut nxt: HashSet<u64>;
                 for stmt in stmts {
@@ -418,7 +332,7 @@ impl DominatorMap {
                     self.update_map(main_c, f_id, &if_guard_set);
                 }
 
-                let end_id = get_guaranteed_attribute(c, END_ID);
+                let end_id = ControlId::get_guaranteed_attribute(c, END_ID);
                 self.update_node(&if_guard_set, end_id)
             }
         };

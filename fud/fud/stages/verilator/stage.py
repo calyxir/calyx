@@ -30,12 +30,7 @@ class VerilatorStage(Stage):
     def _define_steps(self, input_data, builder, config):
 
         testbench_files = [
-            str(
-                Path(config["global", cfg.ROOT])
-                / "fud"
-                / "sim"
-                / "testbench.cpp"
-            ),
+            str(Path(config["global", cfg.ROOT]) / "fud" / "sim" / "testbench.cpp"),
         ]
         data_path = config.get(["stages", self.name, "data"])
 

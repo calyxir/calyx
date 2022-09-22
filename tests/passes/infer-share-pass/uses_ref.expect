@@ -1,0 +1,37 @@
+import "primitives/core.futil";
+component uses_ref<"state_share"=1>(i: 3, j: 3, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    ref mem = std_mem_d2(32, 5, 5, 3, 3);
+    r = std_reg(32);
+  }
+  wires {
+    group read_mem {
+      r.in = mem.read_data;
+      r.write_en = 1'd1;
+      read_mem[done] = r.done;
+    }
+    group write_mem {
+      mem.addr0 = j;
+      mem.addr1 = i;
+      mem.write_data = 32'd9;
+      mem.write_en = 1'd1;
+      write_mem[done] = mem.done;
+    }
+    out = r.out;
+  }
+
+  control {
+    seq {
+      read_mem;
+      write_mem;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}

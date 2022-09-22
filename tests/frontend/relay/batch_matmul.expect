@@ -237,56 +237,56 @@ component batch_matmul_4x7x7() -> () {
   }
   control {
     seq {
-      let0;
+      @pos(0) let0;
       @bound(4) while le0.out with cond0 {
         seq {
-          let1;
+          @pos(1) let1;
           @bound(7) while le1.out with cond1 {
             seq {
-              let2;
+              @pos(2) let2;
               @bound(5) while le2.out with cond2 {
                 seq {
-                  upd0;
-                  upd1;
-                  upd2;
+                  @pos(3) upd0;
+                  @pos(4) upd1;
+                  @pos(2) upd2;
                 }
               }
-              upd3;
+              @pos(1) upd3;
             }
           }
-          upd4;
+          @pos(0) upd4;
         }
       }
-      let3;
+      @pos(5) let3;
       @bound(4) while le3.out with cond3 {
         seq {
-          let4;
+          @pos(6) let4;
           @bound(7) while le4.out with cond4 {
             seq {
-              let5;
+              @pos(7) let5;
               @bound(7) while le5.out with cond5 {
                 seq {
-                  let6;
+                  @pos(8) let6;
                   @bound(5) while le6.out with cond6 {
                     seq {
                       par {
-                        upd5;
-                        upd6;
+                        @pos(9) upd5;
+                        @pos(10) upd6;
                       }
                       let7;
                       let8;
                       let9;
                       upd7;
-                      upd8;
+                      @pos(8) upd8;
                     }
                   }
-                  upd9;
+                  @pos(7) upd9;
                 }
               }
-              upd10;
+              @pos(6) upd10;
             }
           }
-          upd11;
+          @pos(5) upd11;
         }
       }
     }

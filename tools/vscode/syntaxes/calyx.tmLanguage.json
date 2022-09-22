@@ -25,7 +25,7 @@
 		"toplevel-keywords": {
 			"patterns": [
 				{
-					"match": "\\b(component|primitive)\\b\\s+\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+					"match": "\\b(component|primitive|group)\\b\\s+\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b",
 					"captures": {
 						"1": {
 							"name": "keyword.other"
@@ -61,7 +61,7 @@
 				},
 				{
 					"name": "keyword.operator",
-					"match": "ref"
+					"match": "\\b(ref|comb)\\b"
 				}
 			]
 		},

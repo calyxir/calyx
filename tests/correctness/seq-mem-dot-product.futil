@@ -1,0 +1,86 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/memories.futil";
+
+component main() -> () {
+  cells {
+    @external in1 = seq_mem_d1(32, 10, 4);
+    @external in2 = seq_mem_d1(32, 10, 4);
+    @external out = seq_mem_d1(32, 1, 1);
+
+    // Compute primitives
+    mult = std_mult_pipe(32);
+    add = std_add(32);
+    tmp = std_reg(32);
+
+    // Counter
+    idx = std_reg(4);
+    incr = std_add(4);
+    lt = std_lt(4);
+  }
+  wires {
+    comb group is_less_than {
+      lt.left = idx.out;
+      lt.right = 4'd10;
+    }
+    group init_idx {
+      idx.in = 4'd0;
+      idx.write_en = 1'd1;
+      init_idx[done] = idx.done;
+    }
+    group incr_idx {
+      idx.write_en = 1'd1;
+      incr.left = idx.out;
+      incr.right = 4'd1;
+      idx.in = incr.out;
+      incr_idx[done] = idx.done;
+    }
+
+    // Prime memories for reading
+    group prime_in1 {
+      in1.read_en = 1'd1;
+      in1.addr0 = idx.out;
+      prime_in1[done] = in1.read_done;
+    }
+    group prime_in2 {
+      in2.read_en = 1'd1;
+      in2.addr0 = idx.out;
+      prime_in2[done] = in2.read_done;
+    }
+
+    // Computation
+    group init_tmp {
+      tmp.in = 32'd0;
+      tmp.write_en = 1'd1;
+      init_tmp[done] = tmp.done;
+    }
+    group do_add {
+      add.left = tmp.out;
+      add.right = mult.out;
+      tmp.in = add.out;
+      tmp.write_en = 1'd1;
+      do_add[done] = tmp.done;
+    }
+
+    // Write to output
+    group write {
+      out.addr0 = 1'd0;
+      out.write_en = 1'd1;
+      out.in = tmp.out;
+      write[done] = out.write_done;
+    }
+  }
+  control {
+    seq {
+      par { init_tmp; init_idx; }
+      while lt.out with is_less_than {
+        seq {
+          par { prime_in1; prime_in2; }
+          invoke mult(left = in1.out, right = in2.out)();
+          par { do_add; incr_idx; }
+        }
+      }
+      write;
+    }
+  }
+}
