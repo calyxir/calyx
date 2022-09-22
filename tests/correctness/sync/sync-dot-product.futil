@@ -1,3 +1,8 @@
+// A program that computes dot product of sparse vectors
+// using two threads that alternately increment the physical
+// and logical pointer. 
+// Note that this program does not take advantage of parallelism
+// for performance boost. 
 import "primitives/core.futil";
 import "primitives/sync.futil";
 import "primitives/binary_operators.futil";
