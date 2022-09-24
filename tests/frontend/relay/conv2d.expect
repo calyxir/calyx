@@ -43,10 +43,10 @@ component conv2d_5x512x14x14() -> () {
     const15 = std_const(32,1);
     const16 = std_const(32,1);
     const17 = std_const(32,0);
-    const18 = std_const(32,0);
+    const18 = std_const(32,1);
     const19 = std_const(32,15);
     const2 = std_const(32,0);
-    const20 = std_const(32,0);
+    const20 = std_const(32,1);
     const21 = std_const(32,15);
     const22 = std_const(32,1);
     const23 = std_const(32,1);
@@ -65,8 +65,8 @@ component conv2d_5x512x14x14() -> () {
     const8 = std_const(32,0);
     const9 = std_const(32,0);
     data_read0_0 = std_reg(32);
-    gt0 = std_gt(32);
-    gt1 = std_gt(32);
+    ge0 = std_ge(32);
+    ge1 = std_ge(32);
     le0 = std_le(32);
     le1 = std_le(32);
     le2 = std_le(32);
@@ -128,15 +128,15 @@ component conv2d_5x512x14x14() -> () {
       and2.left = and1.out;
       and2.right = lt1.out;
       and1.left = and0.out;
-      and1.right = gt1.out;
-      and0.left = gt0.out;
+      and1.right = ge1.out;
+      and0.left = ge0.out;
       and0.right = lt0.out;
-      gt0.left = __kernel_y_0.out;
-      gt0.right = const18.out;
+      ge0.left = __kernel_y_0.out;
+      ge0.right = const18.out;
       lt0.left = __kernel_y_0.out;
       lt0.right = const19.out;
-      gt1.left = __kernel_x_0.out;
-      gt1.right = const20.out;
+      ge1.left = __kernel_x_0.out;
+      ge1.right = const20.out;
       lt1.left = __kernel_x_0.out;
       lt1.right = const21.out;
     }

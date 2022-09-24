@@ -190,10 +190,10 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         phi = CompVar(f"phi{phi_index}")
         reg = CompVar(f"r{k}")
         connections = [
-            Connect(CompPort(phi, "out"), CompPort(mult_pipe, "left")),
-            Connect(CompPort(reg, "out"), CompPort(mult_pipe, "right")),
-            Connect(ConstantPort(1, 1), CompPort(mult_pipe, "go")),
-            Connect(CompPort(mult_pipe, "done"), HolePort(group_name, "done")),
+            Connect(CompPort(mult_pipe, "left"), CompPort(phi, "out")),
+            Connect(CompPort(mult_pipe, "right"), CompPort(reg, "out")),
+            Connect(CompPort(mult_pipe, "go"), ConstantPort(1, 1)),
+            Connect(HolePort(group_name, "done"), CompPort(mult_pipe, "done")),
         ]
         return Group(group_name, connections)
 
@@ -209,18 +209,18 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         mod_pipe = CompVar(f"mod_pipe{row}")
         A = CompVar(f"A{row}")
         connections = [
-            Connect(CompPort(reg, "out"), CompPort(op, "left")),
-            Connect(CompPort(mul, "out"), CompPort(op, "right")),
-            Connect(CompPort(op, "out"), CompPort(mod_pipe, "left")),
-            Connect(ConstantPort(input_bitwidth, q), CompPort(mod_pipe, "right")),
+            Connect(CompPort(op, "left"), CompPort(reg, "out")),
+            Connect(CompPort(op, "right"), CompPort(mul, "out")),
+            Connect(CompPort(mod_pipe, "left"), CompPort(op, "out")),
+            Connect(CompPort(mod_pipe, "right"), ConstantPort(input_bitwidth, q)),
             Connect(
-                ConstantPort(1, 1),
                 CompPort(mod_pipe, "go"),
+                ConstantPort(1, 1),
                 Not(Atom(CompPort(mod_pipe, "done"))),
             ),
-            Connect(CompPort(mod_pipe, "done"), CompPort(A, "write_en")),
-            Connect(CompPort(mod_pipe, "out_remainder"), CompPort(A, "in")),
-            Connect(CompPort(A, "done"), HolePort(group_name, "done")),
+            Connect(CompPort(A, "write_en"), CompPort(mod_pipe, "done")),
+            Connect(CompPort(A, "in"), CompPort(mod_pipe, "out_remainder")),
+            Connect(HolePort(group_name, "done"), CompPort(A, "done")),
         ]
         return Group(group_name, connections)
 
@@ -229,9 +229,9 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         r = CompVar(f"r{row}")
         A = CompVar(f"A{row}")
         connections = [
-            Connect(CompPort(A, "out"), CompPort(r, "in")),
-            Connect(ConstantPort(1, 1), CompPort(r, "write_en")),
-            Connect(CompPort(r, "done"), HolePort(group_name, "done")),
+            Connect(CompPort(r, "in"), CompPort(A, "out")),
+            Connect(CompPort(r, "write_en"), ConstantPort(1, 1)),
+            Connect(HolePort(group_name, "done"), CompPort(r, "done")),
         ]
         return Group(group_name, connections)
 
@@ -240,15 +240,15 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         phi = CompVar(f"phi{row}")
         group_name = CompVar(f"preamble_{row}")
         connections = [
-            Connect(ConstantPort(bitwidth, row), CompPort(input, "addr0")),
-            Connect(ConstantPort(bitwidth, row), CompPort(phis, "addr0")),
-            Connect(ConstantPort(1, 1), CompPort(reg, "write_en")),
-            Connect(CompPort(input, "read_data"), CompPort(reg, "in")),
-            Connect(ConstantPort(1, 1), CompPort(phi, "write_en")),
-            Connect(CompPort(phis, "read_data"), CompPort(phi, "in")),
+            Connect(CompPort(input, "addr0"), ConstantPort(bitwidth, row)),
+            Connect(CompPort(phis, "addr0"), ConstantPort(bitwidth, row)),
+            Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
+            Connect(CompPort(reg, "in"), CompPort(input, "read_data")),
+            Connect(CompPort(phi, "write_en"), ConstantPort(1, 1)),
+            Connect(CompPort(phi, "in"), CompPort(phis, "read_data")),
             Connect(
-                ConstantPort(1, 1),
                 HolePort(group_name, "done"),
+                ConstantPort(1, 1),
                 And(Atom(CompPort(reg, "done")), Atom(CompPort(phi, "done"))),
             ),
         ]
@@ -258,10 +258,10 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         group_name = CompVar(f"epilogue_{row}")
         A = CompVar(f"A{row}")
         connections = [
-            Connect(ConstantPort(bitwidth, row), CompPort(input, "addr0")),
-            Connect(ConstantPort(1, 1), CompPort(input, "write_en")),
-            Connect(CompPort(A, "out"), CompPort(input, "write_data")),
-            Connect(CompPort(input, "done"), HolePort(group_name, "done")),
+            Connect(CompPort(input, "addr0"), ConstantPort(bitwidth, row)),
+            Connect(CompPort(input, "write_en"), ConstantPort(1, 1)),
+            Connect(CompPort(input, "write_data"), CompPort(A, "out")),
+            Connect(HolePort(group_name, "done"), CompPort(input, "done")),
         ]
         return Group(group_name, connections)
 

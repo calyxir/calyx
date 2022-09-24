@@ -1,0 +1,64 @@
+{
+  "x": {
+    "data": [
+      [
+        [
+          1.0,
+          6.0
+        ],
+        [
+          2.0,
+          4.0
+        ]
+      ],
+      [
+        [
+          1.0,
+          6.0
+        ],
+        [
+          3.0,
+          7.0
+        ]
+      ]
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "int_width": 16
+    }
+  },
+  "y": {
+    "data": [
+      [
+        [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ]
+      ]
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": true,
+      "width": 32,
+      "int_width": 16
+    }
+  }
+}
