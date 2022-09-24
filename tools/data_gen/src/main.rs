@@ -13,6 +13,8 @@ use std::path::{Path, PathBuf};
 lazy_static::lazy_static! {
     static ref SIZEMAP: HashMap<&'static str, Vec<&'static str>> = {
         vec![
+            ("seq_mem_d1", vec!["SIZE"]),
+            ("seq_mem_d2", vec!["D0_SIZE", "D1_SIZE"]),
             ("std_mem_d1", vec!["SIZE"]),
             ("std_mem_d2", vec!["D0_SIZE", "D1_SIZE"]),
             ("std_mem_d3", vec!["D0_SIZE", "D1_SIZE", "D2_SIZE"]),

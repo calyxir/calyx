@@ -7,8 +7,8 @@ Implements a memory with sequential reads and writes.
 */
 module seq_mem_d1 #(
     parameter WIDTH = 32,
-    parameter SIZE = 16,
-    parameter IDX_SIZE = 4
+    parameter SIZE = 256,
+    parameter IDX_SIZE = 8
 ) (
    // Common signals
    input wire logic clk,
@@ -91,4 +91,47 @@ module seq_mem_d1 #(
         $error("Simultaneous read and write attempted\n");
     end
   `endif
+endmodule
+
+
+module seq_mem_d2 #(
+    parameter WIDTH = 32,
+    parameter D0_SIZE = 16,
+    parameter D1_SIZE = 16,
+    parameter D0_IDX_SIZE = 4,
+    parameter D1_IDX_SIZE = 4
+) (
+   // Common signals
+   input wire logic clk,
+   input wire logic reset,
+   input wire logic [D0_IDX_SIZE-1:0] addr0,
+   input wire logic [D1_IDX_SIZE-1:0] addr1,
+
+   // Read signal
+   input wire logic read_en,
+   output logic [ WIDTH-1:0] out,
+   output logic read_done,
+
+   // Write signals
+   input wire logic write_en,
+   input wire logic [ WIDTH-1:0] in,
+   output logic write_done
+);
+
+  // Internal memory
+  logic [WIDTH-1:0] mem[(D0_SIZE * D1_SIZE)-1:0];
+
+  wire [7:0] index; 
+  wire [31:0] index_op;
+
+  assign index_op = addr0 * D0_SIZE + addr1;
+  assign index[7:0] = index_op[7:0];
+
+  seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE), .IDX_SIZE(8)) d1_instance 
+     (.clk(clk), .reset(reset), .addr0(index), 
+    .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en), 
+    .write_done(write_done));
+  
+  assign mem[2] = 2;
+
 endmodule
