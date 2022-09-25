@@ -110,10 +110,10 @@ class Relay2Calyx(ExprFunctor):
     def equivalent_func(self, args1, args2, atts1, atts2):
         '''
         Assuming functions 1 and 2 have equivalent destination widths (ex: 1x64x55x55) and
-        operator name (ex: "Conv2d"), this function checks if the functions have 
-        equivalent args and attributes. This is mainly making sure the attributes (so for 
-        conv2d, things like `padding` or `kernel_size`) and memory sizes of the args 
-        are the same. 
+        operator name (ex: "Conv2d"), this function checks if the functions have
+        equivalent args and attributes. This is mainly making sure the attributes (so for
+        conv2d, things like `padding` or `kernel_size`) and memory sizes of the args
+        are the same.
         '''
         atts_are_same = True
         if (atts1 is None) != (atts2 is None):
@@ -457,6 +457,7 @@ if __name__ == "__main__":
 
     imports = [
         Import("primitives/core.futil"),
+        Import("primitives/memories.futil"),
         Import("primitives/binary_operators.futil"),
         Import("primitives/math.futil"),
     ]
