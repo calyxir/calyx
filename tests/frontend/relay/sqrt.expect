@@ -113,5 +113,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 4), int32] = sqrt(%x) /* ty=Tensor[(1, 4), int32] */;
+0: let %x1: Tensor[(1, 4), int32] /* ty=Tensor[(1, 4), int32] span=from_string:4:3 */ = sqrt(%x) /* ty=Tensor[(1, 4), int32] span=from_string:3:13 */;
 }#

@@ -416,5 +416,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x: Tensor[(5, 512, 14, 14), int32] = nn.conv2d(%data, %weight, padding=[1, 1, 1, 1], channels=512, kernel_size=[3, 3]) /* ty=Tensor[(5, 512, 14, 14), int32] */;
+0: let %x: Tensor[(5, 512, 14, 14), int32] /* ty=Tensor[(5, 512, 14, 14), int32] span=from_string:13:3 */ = nn.conv2d(%data, %weight, padding=[1, 1, 1, 1], channels=512, kernel_size=[3, 3]) /* ty=Tensor[(5, 512, 14, 14), int32] span=from_string:6:3 */;
 }#

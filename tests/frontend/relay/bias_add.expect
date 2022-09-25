@@ -166,7 +166,7 @@ component bias_add_1x64x512x256() -> () {
 component main() -> () {
   cells {
     @external(1) x = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    @external(1) bias = std_mem_d1(32, 64, 7);
+    @external(1) bias = seq_mem_d1(32, 64, 7);
     @external(1) x1 = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
     bias_add_1x64x512x256_ = bias_add_1x64x512x256();
   }
@@ -180,5 +180,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 64, 512, 256), float32] = nn.bias_add(%x, %bias) /* ty=Tensor[(1, 64, 512, 256), float32] */;
+0: let %x1: Tensor[(1, 64, 512, 256), float32] /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:4:3 */ = nn.bias_add(%x, %bias) /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:3:49 */;
 }#

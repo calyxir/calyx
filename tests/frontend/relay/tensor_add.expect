@@ -120,5 +120,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(2, 4), int32] = add(%x, %y) /* ty=Tensor[(2, 4), int32] */;
+0: let %x1: Tensor[(2, 4), int32] /* ty=Tensor[(2, 4), int32] span=from_string:4:3 */ = add(%x, %y) /* ty=Tensor[(2, 4), int32] span=from_string:3:13 */;
 }#

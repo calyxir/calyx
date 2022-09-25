@@ -450,10 +450,10 @@ if __name__ == "__main__":
     with open(args.file, "r") as file:
         relay_ir = file.read()
     assert (
-        "v0.0.4" in relay_ir
+        '#[version = "0.0.5"]' in relay_ir
     ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
 
-    relay_ir = relay.fromtext(relay_ir)
+    relay_ir = tvm.parser.fromtext(relay_ir)
 
     imports = [
         Import("primitives/core.futil"),

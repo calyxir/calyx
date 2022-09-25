@@ -334,5 +334,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %result: Tensor[(2, 2, 2, 2), int32] = nn.max_pool2d(%data, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 0, 0]) /* ty=Tensor[(2, 2, 2, 2), int32] */;
+0: let %result: Tensor[(2, 2, 2, 2), int32] /* ty=Tensor[(2, 2, 2, 2), int32] span=from_string:4:3 */ = nn.max_pool2d(%data, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 0, 0]) /* ty=Tensor[(2, 2, 2, 2), int32] span=from_string:3:48 */;
 }#

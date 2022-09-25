@@ -249,5 +249,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 10), int32] = nn.dense(%x, %y, units=10) /* ty=Tensor[(1, 10), int32] */;
+0: let %x1: Tensor[(1, 10), int32] /* ty=Tensor[(1, 10), int32] span=from_string:4:3 */ = nn.dense(%x, %y, units=10) /* ty=Tensor[(1, 10), int32] span=from_string:3:39 */;
 }#

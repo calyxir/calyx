@@ -674,5 +674,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 10), float32] = nn.softmax(%x) /* ty=Tensor[(1, 10), float32] */;
+0: let %x1: Tensor[(1, 10), float32] /* ty=Tensor[(1, 10), float32] span=from_string:4:3 */ = nn.softmax(%x) /* ty=Tensor[(1, 10), float32] span=from_string:3:39 */;
 }#
