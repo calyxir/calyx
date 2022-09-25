@@ -451,7 +451,7 @@ if __name__ == "__main__":
         relay_ir = file.read()
     assert (
         '#[version = "0.0.5"]' in relay_ir
-    ), "TVM Requires `v0.0.4` at the top of the Relay IR file."
+    ), 'TVM Requires #[version = "0.0.5"] at the top of the Relay IR file.'
 
     relay_ir = tvm.parser.fromtext(relay_ir)
 
