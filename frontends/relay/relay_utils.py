@@ -38,6 +38,7 @@ class DahliaFuncDef:
     args: List[CompVar]
     attributes: tvm.ir.Attrs
     data_type: str
+    component: CompInst
 
 
 def get_dims(c: CompInst):

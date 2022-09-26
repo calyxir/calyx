@@ -60,6 +60,10 @@ class Relay2Calyx(ExprFunctor):
 
         self.pos_count = 0
 
+        # cannot name variables any of the following words
+        # we can add to this list as needed
+        self.calyx_keywords = ["input"]
+
         self.source_map: Dict[str, str] = {}
 
         # for let stmts such as `let %x13: (_,_) = (%x9, %x12)
@@ -98,8 +102,14 @@ class Relay2Calyx(ExprFunctor):
         if isinstance(var.type_annotation, tvm.ir.type.TupleType):
             # returns a list of names instead
             assert 0, "should have been added to tuple_dic when defined in a let stmt"
+        name_hint = var.name_hint.replace(".", "_")
+        name_hint = name_hint.replace("/", "_")
 
-        var_id = self.id(var.name_hint)
+        if (name_hint.isdigit()):
+            name_hint = "var_" + name_hint
+        if (name_hint in self.calyx_keywords):
+            name_hint = "_" + name_hint
+        var_id = self.id(name_hint)
         cell = ru.get_memory(var_id, var.type_annotation)
         if var.type_annotation.concrete_shape:
             # Only add the given variable if it is a tensor.
@@ -122,6 +132,8 @@ class Relay2Calyx(ExprFunctor):
             for key in atts1.keys():
                 attr1 = atts1.get_str(key)
                 attr2 = atts2.get_str(key)
+                # even if the contents of tvm.ir.container.Array are the same it
+                #  still doesn't return true on '=='
                 if isinstance(attr1, tvm.ir.container.Array) and isinstance(attr2, tvm.ir.container.Array):
                     attr1 = list(attr1)
                     attr2 = list(attr2)
@@ -171,14 +183,6 @@ class Relay2Calyx(ExprFunctor):
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
 
-            # Given functions with the same operator and arity,
-            # append a unique identifier to the preceding. Eventually,
-            # we may want to use the same component and different
-            # instances. This will require careful manipulation
-            # of input and output ports of the two components.
-            root_name = f"{func_name}_{dims}"
-            comp_name = self.func_id(root_name)
-
             unnested_args = []
             for arg in value.args:
                 new_arg = arg
@@ -189,12 +193,17 @@ class Relay2Calyx(ExprFunctor):
                 unnested_args.append(new_arg)
             value.args = unnested_args
 
+            root_name = f"{func_name}_{dims}"
+
             is_repeat_func = False
             # If we want to "reuse" a Dahlia function so that we're only generating
             # one Calyx component, when we create the invoke we have
             # to make sure that we use the old names for the parameters
             # (by old names, I mean the names that the previous component used
             # for its ref cell parameters)
+            # all of this old_func_args and old_dest stuff will be useful when
+            # considering which arguments should be passed into the DahliaFunc/Calyx Invoke
+            # statement
             old_func_args = []
             old_dest = None
             if root_name in self.func_def_map:
@@ -205,16 +214,28 @@ class Relay2Calyx(ExprFunctor):
                         # will later be turned into a Calyx component, since
                         # we have already created a Dahlia function idential
                         # to the one we were about to create
-                        comp_decl = CompVar(f"{dahlia_func.component_name}_")
+                        comp_name = f"{dahlia_func.component_name}"
+                        comp_inst = dahlia_func.component
                         old_func_args = dahlia_func.args
                         old_dest = dahlia_func.dest
                         is_repeat_func = True
                         break
 
-            # If we are reusing a Dahlia function, we do not need to create a new cell
+            # Given functions with the same operator and arity,
+            # append a unique identifier to the preceding. However, we only want
+            # to create a new Dahlia Function (which will be lowered
+            # to a Calyx component) if we havnen't encountered the same function
+            # before
             if not is_repeat_func:
-                comp_decl = CompVar(f"{comp_name}_")
-                self.id_to_cell[comp_name] = Cell(comp_decl, CompInst(comp_name, []))
+                comp_name = self.func_id(f"{func_name}_{dims}")
+                comp_inst = CompInst(comp_name, [])
+
+            # call self.id on comp_name because now we might produce two instances
+            # of the same component
+            var_name = self.id(f"{comp_name}_")
+            comp_decl = CompVar(f"{var_name}")
+
+            self.id_to_cell[var_name] = Cell(comp_decl, comp_inst)
 
             # the parameters old_func_args and old_dest are what determines whether
             # the invoke is a "new" invoke or an invoke of an already defined
@@ -241,7 +262,7 @@ class Relay2Calyx(ExprFunctor):
                     args=value.args,
                     attributes=value.attrs,
                     data_type=ru.get_dahlia_data_type(type_annotation),
-                )
+                    component=comp_inst)
                 self.func_defs.append(
                     dahlia_func_def
                 )

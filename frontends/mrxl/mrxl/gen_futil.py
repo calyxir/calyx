@@ -53,8 +53,8 @@ def emit_cond_group(suffix, arr_size, b=None):
     return CombGroup(
         id=group_id,
         connections=[
-            Connect(CompPort(idx, "out"), CompPort(le, "left")),
-            Connect(ConstantPort(32, arr_size), CompPort(le, "right")),
+            Connect(CompPort(le, "left"), CompPort(idx, "out")),
+            Connect(CompPort(le, "right"), ConstantPort(32, arr_size)),
         ],
     )
 
@@ -73,11 +73,11 @@ def emit_idx_group(s_idx, b=None):
     return Group(
         id=group_id,
         connections=[
-            Connect(CompPort(idx, "out"), CompPort(adder, "left")),
-            Connect(ConstantPort(32, 1), CompPort(adder, "right")),
-            Connect(ConstantPort(1, 1), CompPort(idx, "write_en")),
-            Connect(CompPort(adder, "out"), CompPort(idx, "in")),
-            Connect(CompPort(idx, "done"), HolePort(group_id, "done")),
+            Connect(CompPort(adder, "left"), CompPort(idx, "out")),
+            Connect(CompPort(adder, "right"), ConstantPort(32, 1)),
+            Connect(CompPort(idx, "write_en"), ConstantPort(1, 1)),
+            Connect(CompPort(idx, "in"), CompPort(adder, "out")),
+            Connect(HolePort(group_id, "done"), CompPort(idx, "done")),
         ],
     )
 
@@ -119,12 +119,12 @@ def emit_eval_body_group(s_idx, stmt, b=None):
         src = CompVar(f"{bi.src}{bank_suffix}")
         dest = CompVar(f"idx{bank_suffix}_{s_idx}")
 
-        mem_offsets.append(Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
+        mem_offsets.append(Connect(CompPort(src, "addr0"), CompPort(dest, "out")))
 
     if isinstance(stmt.op, ast.Map):
         src = CompVar(f"{stmt.dest}{bank_suffix}")
         dest = CompVar(f"idx{bank_suffix}_{s_idx}")
-        mem_offsets.append(Connect(CompPort(dest, "out"), CompPort(src, "addr0")))
+        mem_offsets.append(Connect(CompPort(src, "addr0"), CompPort(dest, "out")))
 
     compute_left_op = emit_compute_op(
         stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, s_idx, bank_suffix
@@ -138,12 +138,12 @@ def emit_eval_body_group(s_idx, stmt, b=None):
         write_to = CompVar(f"{stmt.dest}{bank_suffix}")
         adder_op = CompVar(f"adder_op{bank_suffix}_{s_idx}")
         write_connection = Connect(
-            CompPort(adder_op, "out"), CompPort(write_to, "write_data")
+            CompPort(write_to, "write_data"), CompPort(adder_op, "out")
         )
     else:
         write_connection = Connect(
-            CompPort(CompVar(f"adder_op{s_idx}"), "out"),
             CompPort(CompVar(f"{stmt.dest}"), "in"),
+            CompPort(CompVar(f"adder_op{s_idx}"), "out"),
         )
     group_id = CompVar(f"eval_body{bank_suffix}_{s_idx}")
     adder = CompVar(f"adder_op{bank_suffix}_{s_idx}")
@@ -151,11 +151,11 @@ def emit_eval_body_group(s_idx, stmt, b=None):
     return Group(
         id=group_id,
         connections=[
-            Connect(ConstantPort(1, 1), CompPort(dest, "write_en")),
-            Connect(compute_left_op, CompPort(adder, "left")),
-            Connect(compute_right_op, CompPort(adder, "right")),
+            Connect(CompPort(dest, "write_en"), ConstantPort(1, 1)),
+            Connect(CompPort(adder, "left"), compute_left_op),
+            Connect(CompPort(adder, "right"), compute_right_op),
             write_connection,
-            Connect(CompPort(dest, "done"), HolePort(group_id, "done")),
+            Connect(HolePort(group_id, "done"), CompPort(dest, "done")),
         ]
         + mem_offsets,
     )
