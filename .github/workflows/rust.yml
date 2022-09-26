@@ -211,8 +211,7 @@ jobs:
         cd frontends/relay/tvm/
         cd python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
-        cd ../topi/python && python3 setup.py bdist_wheel
-        pip3 install --user dist/topi-*.whl
+         pip3 install --user dist/topi-*.whl
 
     - name: Cache SBT
       uses: actions/cache@v2
