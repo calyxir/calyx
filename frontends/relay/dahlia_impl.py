@@ -376,11 +376,18 @@ def conv2d(fd: DahliaFuncDef) -> str:
     add_padding = True
     if max(padding) == min(padding) and max(padding) == 0:
         add_padding = False
-    assert len(padding) == 4, "Can only handle when length of padding is 4"
-    prepend_rows = padding[0]
-    append_rows = padding[1]
-    prepend_cols = padding[2]
-    append_cols = padding[3]
+        prepend_rows = 0
+        prepend_cols = 0
+    else:
+        assert len(padding) == 4, "Can only handle when length of padding is 4"
+        prepend_rows = padding[0]
+        # might want to use this value to check when out of bounds on the high end
+        # currently if index is too high, it just deafults to a 0 value.
+        append_rows = padding[1]
+        prepend_cols = padding[2]
+        # might want to use this value to check when out of bounds on the high end
+        # currently when index is too high, it just defaults to 0 value
+        append_cols = padding[3]
 
     # can generalize these numbers based on padding if necessary
     dim2_lowest = prepend_rows
