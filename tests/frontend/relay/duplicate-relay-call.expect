@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component negative_2x2() -> () {
@@ -110,6 +111,6 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(2, 2), int32] = negative(%x) /* ty=Tensor[(2, 2), int32] */;
-1: let %x2: Tensor[(2, 2), int32] = negative(%x1) /* ty=Tensor[(2, 2), int32] */;
+0: let %x1: Tensor[(2, 2), int32] /* ty=Tensor[(2, 2), int32] span=from_string:4:22 */ = negative(%x) /* ty=Tensor[(2, 2), int32] span=from_string:3:13 */;
+1: let %x2: Tensor[(2, 2), int32] /* ty=Tensor[(2, 2), int32] span=from_string:5:3 */ = negative(%x1) /* ty=Tensor[(2, 2), int32] span=from_string:4:13 */;
 }#

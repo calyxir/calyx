@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component relu_2x4x8x32() -> () {
@@ -196,5 +197,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(2, 4, 8, 32), float32] = nn.relu(%x) /* ty=Tensor[(2, 4, 8, 32), float32] */;
+0: let %x1: Tensor[(2, 4, 8, 32), float32] /* ty=Tensor[(2, 4, 8, 32), float32] span=from_string:4:3 */ = nn.relu(%x) /* ty=Tensor[(2, 4, 8, 32), float32] span=from_string:3:45 */;
 }#

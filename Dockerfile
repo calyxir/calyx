@@ -44,7 +44,7 @@ RUN apt-get install -y ninja-build build-essential cmake
 ## NOTE(rachit): Not ideal. We have to clone the entire history of the main branch instead of just a tag.
 RUN git clone --single-branch https://github.com/apache/tvm.git tvm
 WORKDIR /home/tvm
-RUN git checkout ccacb1ec1
+RUN git checkout v0.10.dev0
 RUN git submodule init && git submodule update
 RUN mkdir build
 WORKDIR /home/tvm/build
@@ -53,8 +53,6 @@ RUN cmake -G Ninja .. && ninja
 RUN python3 -m pip install -Iv antlr4-python3-runtime==4.7.2
 WORKDIR /home/tvm/python
 RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
-WORKDIR /home/tvm/topi/python
-RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/topi-*.whl
 
 # Install rust tools
 WORKDIR /home
