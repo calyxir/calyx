@@ -1,11 +1,12 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) A0 = std_mem_d1(32,2,2);
-    @external(1) A1 = std_mem_d1(32,2,2);
-    @external(1) A2 = std_mem_d1(32,2,2);
-    @external(1) A3 = std_mem_d1(32,2,2);
+    @external(1) A0 = seq_mem_d1(32,2,2);
+    @external(1) A1 = seq_mem_d1(32,2,2);
+    @external(1) A2 = seq_mem_d1(32,2,2);
+    @external(1) A3 = seq_mem_d1(32,2,2);
     acc_00 = std_reg(32);
     acc_10 = std_reg(32);
     acc_20 = std_reg(32);
@@ -36,32 +37,36 @@ component main() -> () {
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-    group upd0<"static"=1> {
-      acc_00.write_en = 1'd1;
+    group upd0<"static"=2> {
+      acc_00.write_en = A0.read_done;
       A0.addr0 = slice0.out;
       slice0.in = i0.out;
-      acc_00.in = A0.read_data;
+      A0.read_en = 1'd1;
+      acc_00.in = A0.out;
       upd0[done] = acc_00.done;
     }
-    group upd1<"static"=1> {
-      acc_10.write_en = 1'd1;
+    group upd1<"static"=2> {
+      acc_10.write_en = A1.read_done;
       A1.addr0 = slice1.out;
       slice1.in = i0.out;
-      acc_10.in = A1.read_data;
+      A1.read_en = 1'd1;
+      acc_10.in = A1.out;
       upd1[done] = acc_10.done;
     }
-    group upd2<"static"=1> {
-      acc_20.write_en = 1'd1;
+    group upd2<"static"=2> {
+      acc_20.write_en = A2.read_done;
       A2.addr0 = slice2.out;
       slice2.in = i0.out;
-      acc_20.in = A2.read_data;
+      A2.read_en = 1'd1;
+      acc_20.in = A2.out;
       upd2[done] = acc_20.done;
     }
-    group upd3<"static"=1> {
-      acc_30.write_en = 1'd1;
+    group upd3<"static"=2> {
+      acc_30.write_en = A3.read_done;
       A3.addr0 = slice3.out;
       slice3.in = i0.out;
-      acc_30.in = A3.read_data;
+      A3.read_en = 1'd1;
+      acc_30.in = A3.out;
       upd3[done] = acc_30.done;
     }
     group upd4<"static"=1> {
