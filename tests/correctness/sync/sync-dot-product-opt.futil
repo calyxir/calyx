@@ -1,5 +1,8 @@
 // A sparse dot product implementation that takes advantage of parallelism.
 // thread A is in charge of updating the physical and logical pointers of 
+// the "ahead" vector: the vector whose current logical pointer is ahead of
+// the other vector
+// thread B is in charge of doing the multiplication and addition
 import "primitives/core.futil";
 import "primitives/sync.futil";
 import "primitives/binary_operators.futil";
@@ -184,12 +187,21 @@ component main () -> () {
 
   control {
     seq {
+      // initialize the physical and logical pointer
       initialize_idx;
+      // initialize the val registers that record the values of the sparse
+      // vectors at logical pointers where thread A stops incrementing 
       initialize_val;
       par {
         // thread A
         while signal.out with comp {
           if lt_0.out with chase_0 {
+            // while logical pointer of vector 1 < logical pointer of vector 2,
+            // increments the physical pointer and logical pointer of vector 1
+            // if thread B is doing the computation while thread A is incrementing
+            // thread A needs to wait for thread B to finish the computation
+            // after it sees that logical pointer of vector 1 >= logical pointer of
+            // vector 2
             seq {
               while lt_0.out with chase_0 {
                 seq {
@@ -206,6 +218,11 @@ component main () -> () {
             }
           }
           else {
+            // while logical pointer of vector 1 > logical pointer of vector 2,
+            // increments the physical pointer and logical pointer of vector 2
+            // Similarly, if it sees that thread B is doing some computation 
+            // simultaneously, then when it finishes incrementing for vector
+            // 2, it waits for thread B to finish computing
             if lt_1.out with chase_1 {
               seq {
                 while lt_1.out with chase_1 {
@@ -223,6 +240,8 @@ component main () -> () {
               }
             }
             else {
+              // If logical pointer of vector 1 == logical pointer of vector 2,
+              // signal thread B to begin computing
               seq {
                   signal_compute;
                   sign_compute;
@@ -237,6 +256,7 @@ component main () -> () {
         // thread B
         while signal.out with comp {
           if eq.out with has_computing_job {
+            // Only active if signaled by thread A to do computing
             seq {
               compute_product;
               add_to_out;
@@ -250,6 +270,7 @@ component main () -> () {
           }
         }
       }
+      // compute multiplication for last entry to address an edge case. 
       compute_product;
       add_to_out;
     }

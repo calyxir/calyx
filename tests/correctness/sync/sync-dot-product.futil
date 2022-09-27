@@ -3,6 +3,11 @@
 // and logical pointer. 
 // Note that this program does not take advantage of parallelism
 // for performance boost. 
+// Representation of sparse vector is index-value: 
+// 1. We only store non-zero values except for zeroes at the end 
+// 2. [4, 4, 6, 5, 10, 9, 16, 0, 0, 0, 0]
+//     means that we have a sparse vector of length 17, and has non-zero values
+//     4 at index 4, 5 at index 6, 9 at index 10
 import "primitives/core.futil";
 import "primitives/sync.futil";
 import "primitives/binary_operators.futil";
@@ -160,10 +165,19 @@ component main () -> () {
 
   control {
     seq {
+      // initialize the physical and logical pointer
       initialize_idx;
+      // initialize the val registers that record the values of the sparse
+      // vectors at logical pointers where thread A or thread B stops incrementing 
       initialize_val;
       par {
         // thread A
+        // 1. forwards the logical and physical pointers of vector 1 when logical
+        //    pointer 2 is ahead of logical pointer 1
+        // 2. when the logical pointer of vector 1 equals that of vector 2,
+        // does the computation(multiplication and adding to accumulator)
+        // 3. when logical pointer of vector 1 is ahead of logical pointer of 
+        //    vector 2, waits there and does nothing
         while signal.out with comp {
           if lt_0.out with chase_0 {
             seq {
@@ -196,6 +210,9 @@ component main () -> () {
         }
 
         // thread B
+        // 1. Forwards the logical and physical pointers of vector 2 when logical
+        //    pointer of vector 1 is ahead of that of vector 2
+        // 2. Otherwise waits there and does nothing  
         while signal.out with comp {
           if lt_1.out with chase_1 {
             seq {
@@ -215,6 +232,7 @@ component main () -> () {
           }
         }
       }
+      // compute multiplication for last entry to address an edge case. 
       compute_product;
       add_to_out;
     }
