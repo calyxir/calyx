@@ -159,7 +159,7 @@ impl InferStaticTiming {
                 ) {
                     let data_dst = self.latency_data.get(dst_cell_prim_type);
                     let data_src = self.latency_data.get(src_cell_prim_type);
-                    if let (Some(src_ports), Some(dst_ports)) =
+                    if let (Some(dst_ports), Some(src_ports)) =
                         (data_dst, data_src)
                     {
                         return src_ports.is_done(&src.name)
