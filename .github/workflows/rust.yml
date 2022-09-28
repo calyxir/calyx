@@ -6,95 +6,48 @@ jobs:
   interpreter:
     name: Test Interpreter
     runs-on: ubuntu-latest
+    container: ghcr.io/cucapra/calyx:latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-
-    - name: Install jq
-      run: |
-        sudo apt-get update
-        sudo apt-get install jq
-
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
-
-    - name: Install common Python dependencies
-      run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
-
-    - name: Install calyx-py
-      run: |
-        cd calyx-py
-        flit install
-
-    - name: Install MrXL
-      run: |
-        cd frontends/mrxl
-        flit install
-
-    - name: Install fud
-      run: |
-        cd fud
-        flit install --deps production
-        cd ..
-        echo "============= Setting Fud configuration =============="
-        fud config global.futil_directory '/home/runner/work/calyx/calyx'
-        fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
-        fud config stages.futil.exec "$(pwd)/target/debug/futil"
-        fud config stages.interpreter.exec "$(pwd)/target/debug/interp"
-        fud register mrxl -p '/home/runner/work/calyx/calyx/frontends/mrxl/fud/mrxl.py'
-        fud register ntt -p '/home/runner/work/calyx/calyx/frontends/ntt-pipeline/fud/ntt.py'
-        fud config
-
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: 1.60.0
-          override: true
-          components: rustfmt, clippy
-
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --all
-
-    - name: Versions
-      id: versions
-      run: |
-        echo "::set-output name=runt::$(grep ver interp/runt.toml | awk '{print $3}' | tr -d '"')"
-        echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
-      shell: bash
-
-    # Install cargo based tools and use some caching magic.
-    - name: Cache runt
-      id: runt-cache
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/bin/runt
-        key: runt-bin-${{ runner.os }}-${{ steps.versions.outputs.runt }}
-
-    - name: Install runt
-      if: steps.runt-cache.outputs.cache-hit != 'true'
+    - name: Update runt
       uses: actions-rs/cargo@v1
       with:
         command: install
         args: runt --version ${{ steps.versions.outputs.runt }}
 
+    - name: Update Dahlia
+      working-directory: /home/dahlia
+      run:
+        git pull
+        sbt "; assembly"
+
+    - name: Checkout commit that triggered run
+      working-directory: /home/calyx
+      run:
+        git checkout $GITHUB_SHA
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      working-directory: /home/calyx
+      with:
+        command: build
+        args: --all
+
     - name: Source code tests
       uses: actions-rs/cargo@v1
+      working-directory: /home/calyx
       with:
         command: test
         args: --manifest-path interp/Cargo.toml
 
     - name: Source code doc tests
       uses: actions-rs/cargo@v1
+      working-directory: /home/calyx
       with:
         command: test
         args: --manifest-path interp/Cargo.toml --doc
 
     - name: Runt tests
+      working-directory: /home/calyx
       run: |
         # Run the remaining tests
         runt interp -x relay -d -o fail
