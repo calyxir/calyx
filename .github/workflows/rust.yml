@@ -28,7 +28,8 @@ jobs:
 
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
-      run:
+      run: |
+        git fetch --all
         git checkout $GITHUB_SHA
 
     - name: Build
