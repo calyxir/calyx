@@ -8,6 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/cucapra/calyx:latest
     steps:
+    - name: Versions
+      id: versions
+      run: |
+        echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
+      shell: bash
+
     - name: Update runt
       uses: actions-rs/cargo@v1
       with:
