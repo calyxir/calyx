@@ -14,6 +14,10 @@ jobs:
         echo "::set-output name=runt::$(grep ver /home/calyx/interp/runt.toml | awk '{print $3}' | tr -d '"')"
       shell: bash
 
+    - name: Check Fud
+      run: |
+        python -c 'import fud; print(fud.__version__)'
+
     - name: Update runt
       uses: actions-rs/cargo@v1
       with:
