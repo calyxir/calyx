@@ -57,6 +57,7 @@ jobs:
 
   compiler:
     name: Test Compiler
+    needs: compiler
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
