@@ -11,7 +11,7 @@ jobs:
     - name: Versions
       id: versions
       run: |
-        echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
+        echo "::set-output name=runt::$(grep ver /home/calyx/interp/runt.toml | awk '{print $3}' | tr -d '"')"
       shell: bash
 
     - name: Update runt
