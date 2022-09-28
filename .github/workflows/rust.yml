@@ -16,7 +16,7 @@ jobs:
 
     - name: Check Fud
       run: |
-        python -c 'import fud; print(fud.__version__)'
+        python3 -c 'import fud; print(fud.__version__)'
 
     - name: Update runt
       uses: actions-rs/cargo@v1
