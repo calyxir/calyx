@@ -54,7 +54,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         # Run the remaining tests
-        runt interp -x relay -d -o fail
+        sudo runt interp -x relay -d -o fail
 
   compiler:
     name: Test Compiler
