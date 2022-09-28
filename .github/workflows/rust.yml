@@ -27,24 +27,21 @@ jobs:
 
     - name: Build
       uses: actions-rs/cargo@v1
-      working-directory: /home/calyx
       with:
         command: build
-        args: --all
+        args: --all --manifest-path /home/calyx/interp/Cargo.toml
 
     - name: Source code tests
       uses: actions-rs/cargo@v1
-      working-directory: /home/calyx
       with:
         command: test
-        args: --manifest-path interp/Cargo.toml
+        args: --manifest-path /home/calyx/interp/Cargo.toml
 
     - name: Source code doc tests
       uses: actions-rs/cargo@v1
-      working-directory: /home/calyx
       with:
         command: test
-        args: --manifest-path interp/Cargo.toml --doc
+        args: --manifest-path /home/calyx/interp/Cargo.toml --doc
 
     - name: Runt tests
       working-directory: /home/calyx
