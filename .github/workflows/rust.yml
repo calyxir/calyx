@@ -22,7 +22,7 @@ jobs:
 
     - name: Update Dahlia
       working-directory: /home/dahlia
-      run:
+      run: |
         git pull
         sbt "; assembly"
 
