@@ -9,6 +9,7 @@ jobs:
     container: ghcr.io/cucapra/calyx:latest
     steps:
     - name: Fud config
+      shell: bash
       run: |
         fud check
         fud config
