@@ -3,12 +3,12 @@ import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component mem_copy(length: 3) -> () {
   cells {
-    ref dest0 = seq_mem_d1(32,5,3);
-    ref src0 = seq_mem_d1(32,5,3);
+    ref dest = seq_mem_d1(32,5,3);
+    ref src = seq_mem_d1(32,5,3);
     const0 = std_const(3,0);
     i_0 = std_reg(3);
     lt0 = std_lt(3);
-    src_read0_0 = std_reg(32);
+    src_read00 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -20,18 +20,18 @@ component mem_copy(length: 3) -> () {
       i_0.write_en = 1'd1;
       let0[done] = i_0.done;
     }
-    group upd0<"static"=2> {
-      src_read0_0.write_en = src0.read_done;
-      src0.addr0 = i_0.out;
-      src0.read_en = 1'd1;
-      src_read0_0.in = src0.out;
-      upd0[done] = src_read0_0.done;
+    group let1<"static"=2> {
+      src_read00.in = src.out;
+      src_read00.write_en = src.read_done;
+      let1[done] = src_read00.done;
+      src.addr0 = i_0.out;
+      src.read_en = 1'd1;
     }
-    group upd1<"static"=1> {
-      dest0.addr0 = i_0.out;
-      dest0.write_en = 1'd1;
-      dest0.in = src_read0_0.out;
-      upd1[done] = dest0.write_done;
+    group upd0<"static"=1> {
+      dest.addr0 = i_0.out;
+      dest.write_en = 1'd1;
+      dest.in = src_read00.out;
+      upd0[done] = dest.write_done;
     }
   }
   control {
@@ -39,8 +39,8 @@ component mem_copy(length: 3) -> () {
       @pos(0) let0;
       while lt0.out with cond0 {
         seq {
-          @pos(1) upd0;
-          @pos(2) upd1;
+          @pos(1) let1;
+          @pos(2) upd0;
         }
       }
     }
@@ -49,22 +49,22 @@ component mem_copy(length: 3) -> () {
 component main() -> () {
   cells {
     const1 = std_const(3,5);
-    @external(1) d0 = seq_mem_d1(32,5,3);
+    @external(1) d = seq_mem_d1(32,5,3);
     len_0 = std_reg(3);
     mem_copy0 = mem_copy();
-    @external(1) s0 = seq_mem_d1(32,5,3);
+    @external(1) s = seq_mem_d1(32,5,3);
   }
   wires {
-    group let1<"static"=1> {
+    group let2<"static"=1> {
       len_0.in = const1.out;
       len_0.write_en = 1'd1;
-      let1[done] = len_0.done;
+      let2[done] = len_0.done;
     }
   }
   control {
     seq {
-      @pos(3) let1;
-      invoke mem_copy0[dest0=d0, src0=s0](length=len_0.out)();
+      @pos(3) let2;
+      invoke mem_copy0[dest=d, src=s](length=len_0.out)();
     }
   }
 }

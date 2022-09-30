@@ -4,9 +4,9 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component add_2x4() -> () {
   cells {
-    ref x0_0 = std_mem_d2(32,2,4,2,3);
-    ref y0_0 = std_mem_d2(32,2,1,2,1);
-    ref x10_0 = std_mem_d2(32,2,4,2,3);
+    ref x = std_mem_d2(32,2,4,2,3);
+    ref y = std_mem_d2(32,2,1,2,1);
+    ref x1 = std_mem_d2(32,2,4,2,3);
     __i0 = std_reg(2);
     __j0 = std_reg(3);
     add0 = std_sadd(32);
@@ -21,8 +21,8 @@ component add_2x4() -> () {
     const6 = std_const(2,1);
     le0 = std_le(2);
     le1 = std_le(3);
-    x_read0_0 = std_reg(32);
-    y_read0_0 = std_reg(32);
+    x_read00 = std_reg(32);
+    y_read00 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -43,42 +43,42 @@ component add_2x4() -> () {
       __j0.write_en = 1'd1;
       let1[done] = __j0.done;
     }
+    group let2<"static"=1> {
+      x_read00.in = x.read_data;
+      x_read00.write_en = 1'd1;
+      let2[done] = x_read00.done;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+    }
+    group let3<"static"=1> {
+      y_read00.in = y.read_data;
+      y_read00.write_en = 1'd1;
+      let3[done] = y_read00.done;
+      y.addr1 = const4.out;
+      y.addr0 = __i0.out;
+    }
     group upd0<"static"=1> {
-      x_read0_0.write_en = 1'd1;
-      x0_0.addr1 = __j0.out;
-      x0_0.addr0 = __i0.out;
-      x_read0_0.in = x0_0.read_data;
-      upd0[done] = x_read0_0.done;
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
+      add0.left = x_read00.out;
+      add0.right = y_read00.out;
+      x1.write_data = add0.out;
+      upd0[done] = x1.done;
     }
     group upd1<"static"=1> {
-      y_read0_0.write_en = 1'd1;
-      y0_0.addr1 = const4.out;
-      y0_0.addr0 = __i0.out;
-      y_read0_0.in = y0_0.read_data;
-      upd1[done] = y_read0_0.done;
-    }
-    group upd2<"static"=1> {
-      x10_0.addr1 = __j0.out;
-      x10_0.addr0 = __i0.out;
-      x10_0.write_en = 1'd1;
-      add0.left = x_read0_0.out;
-      add0.right = y_read0_0.out;
-      x10_0.write_data = add0.out;
-      upd2[done] = x10_0.done;
-    }
-    group upd3<"static"=1> {
       __j0.write_en = 1'd1;
       add1.left = __j0.out;
       add1.right = const5.out;
       __j0.in = add1.out;
-      upd3[done] = __j0.done;
+      upd1[done] = __j0.done;
     }
-    group upd4<"static"=1> {
+    group upd2<"static"=1> {
       __i0.write_en = 1'd1;
       add2.left = __i0.out;
       add2.right = const6.out;
       __i0.in = add2.out;
-      upd4[done] = __i0.done;
+      upd2[done] = __i0.done;
     }
   }
   control {
@@ -90,14 +90,14 @@ component add_2x4() -> () {
           @bound(4) while le1.out with cond1 {
             seq {
               par {
-                @pos(2) upd0;
-                @pos(3) upd1;
+                @pos(2) let2;
+                @pos(3) let3;
               }
-              @pos(4) upd2;
-              @pos(1) upd3;
+              @pos(4) upd0;
+              @pos(1) upd1;
             }
           }
-          @pos(0) upd4;
+          @pos(0) upd2;
         }
       }
     }
@@ -116,7 +116,7 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0) invoke add_2x4_[x0_0=x, y0_0=y, x10_0=x1]()();
+      @pos(0) invoke add_2x4_[x=x, y=y, x1=x1]()();
     }
   }
 }

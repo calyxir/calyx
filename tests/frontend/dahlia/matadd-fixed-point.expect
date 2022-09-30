@@ -3,13 +3,13 @@ import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) a0_00_0 = std_mem_d2(16,2,2,2,2);
-    a0_0_read0_0 = std_reg(16);
+    @external(1) a0_0 = std_mem_d2(16,2,2,2,2);
+    a0_0_read00 = std_reg(16);
     add0 = std_fp_add(16,8,8);
     add1 = std_add(2);
     add2 = std_add(2);
-    @external(1) b0_00_0 = std_mem_d2(16,2,2,2,2);
-    b0_0_read0_0 = std_reg(16);
+    @external(1) b0_0 = std_mem_d2(16,2,2,2,2);
+    b0_0_read00 = std_reg(16);
     const0 = std_const(2,0);
     const1 = std_const(2,1);
     const2 = std_const(2,0);
@@ -20,7 +20,7 @@ component main() -> () {
     j0 = std_reg(2);
     le0 = std_le(2);
     le1 = std_le(2);
-    @external(1) result0_00_0 = std_mem_d2(16,2,2,2,2);
+    @external(1) result0_0 = std_mem_d2(16,2,2,2,2);
   }
   wires {
     comb group cond0 {
@@ -41,42 +41,42 @@ component main() -> () {
       j0.write_en = 1'd1;
       let1[done] = j0.done;
     }
+    group let2<"static"=1> {
+      a0_0_read00.in = a0_0.read_data;
+      a0_0_read00.write_en = 1'd1;
+      let2[done] = a0_0_read00.done;
+      a0_0.addr1 = j0.out;
+      a0_0.addr0 = i0.out;
+    }
+    group let3<"static"=1> {
+      b0_0_read00.in = b0_0.read_data;
+      b0_0_read00.write_en = 1'd1;
+      let3[done] = b0_0_read00.done;
+      b0_0.addr1 = j0.out;
+      b0_0.addr0 = i0.out;
+    }
     group upd0<"static"=1> {
-      a0_0_read0_0.write_en = 1'd1;
-      a0_00_0.addr1 = j0.out;
-      a0_00_0.addr0 = i0.out;
-      a0_0_read0_0.in = a0_00_0.read_data;
-      upd0[done] = a0_0_read0_0.done;
+      result0_0.addr1 = j0.out;
+      result0_0.addr0 = i0.out;
+      result0_0.write_en = 1'd1;
+      add0.left = a0_0_read00.out;
+      add0.right = b0_0_read00.out;
+      result0_0.write_data = add0.out;
+      upd0[done] = result0_0.done;
     }
     group upd1<"static"=1> {
-      b0_0_read0_0.write_en = 1'd1;
-      b0_00_0.addr1 = j0.out;
-      b0_00_0.addr0 = i0.out;
-      b0_0_read0_0.in = b0_00_0.read_data;
-      upd1[done] = b0_0_read0_0.done;
-    }
-    group upd2<"static"=1> {
-      result0_00_0.addr1 = j0.out;
-      result0_00_0.addr0 = i0.out;
-      result0_00_0.write_en = 1'd1;
-      add0.left = a0_0_read0_0.out;
-      add0.right = b0_0_read0_0.out;
-      result0_00_0.write_data = add0.out;
-      upd2[done] = result0_00_0.done;
-    }
-    group upd3<"static"=1> {
       j0.write_en = 1'd1;
       add1.left = j0.out;
       add1.right = const4.out;
       j0.in = add1.out;
-      upd3[done] = j0.done;
+      upd1[done] = j0.done;
     }
-    group upd4<"static"=1> {
+    group upd2<"static"=1> {
       i0.write_en = 1'd1;
       add2.left = i0.out;
       add2.right = const5.out;
       i0.in = add2.out;
-      upd4[done] = i0.done;
+      upd2[done] = i0.done;
     }
   }
   control {
@@ -88,14 +88,14 @@ component main() -> () {
           @bound(2) while le1.out with cond1 {
             seq {
               par {
-                @pos(2) upd0;
-                @pos(3) upd1;
+                @pos(2) let2;
+                @pos(3) let3;
               }
-              @pos(4) upd2;
-              @pos(1) upd3;
+              @pos(4) upd0;
+              @pos(1) upd1;
             }
           }
-          @pos(0) upd4;
+          @pos(0) upd2;
         }
       }
     }
