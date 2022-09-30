@@ -37,7 +37,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         # Run the remaining tests
-        runt interp -x relay -d -o fail
+        runt interp -x 'relay|mrxl' -d -o fail
 
     - name: Source code tests
       uses: actions-rs/cargo@v1
@@ -53,7 +53,6 @@ jobs:
 
   compiler:
     name: Test Compiler
-    needs: interpreter
     runs-on: ubuntu-latest
     container: ghcr.io/cucapra/calyx:latest
     steps:
