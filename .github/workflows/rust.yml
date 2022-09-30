@@ -84,7 +84,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path /home/calyx/Cargo.toml --doc lib
+        args: --manifest-path /home/calyx/calyx/Cargo.toml --doc lib
 
     - name: Core tests
       working-directory: /home/calyx
