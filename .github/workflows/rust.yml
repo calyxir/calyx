@@ -134,7 +134,7 @@ jobs:
         args: --manifest-path /home/calyx/Cargo.toml
 
     - name: Checkout calyx-evaluation
-      working-dir: /home
+      working-directory: /home
       run: |
         git clone https://github.com/cucapra/calyx-evaluation.git calyx-evaluation
 
