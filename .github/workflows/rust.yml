@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/cucapra/calyx:latest
-      options: --user root
+      options: --user 0:0
     steps:
     - name: Fud config
       run: |
