@@ -6,10 +6,11 @@ jobs:
   interpreter:
     name: Test Interpreter
     runs-on: ubuntu-latest
-    container: ghcr.io/cucapra/calyx:latest
+    container:
+      image: ghcr.io/cucapra/calyx:latest
+      options: --user root
     steps:
     - name: Fud config
-      shell: bash
       run: |
         fud check
         fud config
