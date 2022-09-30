@@ -1,0 +1,53 @@
+// -p cell-share -p dead-cell-removal -p remove-ids
+// should not share registers because of "read_r3_another"
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    r3 = std_reg(32);
+    r2 = std_reg(32);
+    mult = std_mult_pipe(32);
+  }
+
+  wires {
+    group write_r3{
+      r3.write_en = 1'd1; 
+      r3.in = 32'd2; 
+      write_r3[done] = r3.done; 
+    }
+    group read_r3{
+      mult.go = 1'd1; 
+      mult.left = r3.out; 
+      mult.right = 32'd2; 
+      read_r3[done] = mult.done;
+    }
+    group no_read{
+      mult.go = 1'd1; 
+      mult.left = 32'd2; 
+      mult.right = 32'd2; 
+      read_r3[done] = mult.done;
+    }
+    group read_r3_another{
+      mult.go = 1'd1; 
+      mult.left = r3.out; 
+      mult.right = 32'd2; 
+      read_r3_another[done] = mult.done;
+    }
+    group read_r2{
+      mult.go = 1'd1; 
+      mult.left = r2.out; 
+      mult.right = 32'd2; 
+      read_r2[done] = mult.done;
+    }
+  }
+
+  control {
+    seq {
+      read_r2; 
+      par{
+        read_r3_another; 
+        seq{ write_r3; read_r3;}
+      }
+    }
+  }
+}

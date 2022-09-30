@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component negative_2x2() -> () {
@@ -97,6 +98,7 @@ component main() -> () {
     @external(1) x1 = std_mem_d2(32, 2, 2, 2, 2);
     negative_2x2_ = negative_2x2();
     @external(1) x2 = std_mem_d2(32, 2, 2, 2, 2);
+    negative_2x2_1 = negative_2x2();
   }
   wires {
 
@@ -104,11 +106,11 @@ component main() -> () {
   control {
     seq {
       @pos(0) invoke negative_2x2_[x0_0=x, x10_0=x1]()();
-      @pos(1) invoke negative_2x2_[x0_0=x1, x10_0=x2]()();
+      @pos(1) invoke negative_2x2_1[x0_0=x1, x10_0=x2]()();
     }
   }
 }
 metadata #{
-0: let %x1: Tensor[(2, 2), int32] = negative(%x) /* ty=Tensor[(2, 2), int32] */;
-1: let %x2: Tensor[(2, 2), int32] = negative(%x1) /* ty=Tensor[(2, 2), int32] */;
+0: let %x1: Tensor[(2, 2), int32] /* ty=Tensor[(2, 2), int32] span=from_string:4:22 */ = negative(%x) /* ty=Tensor[(2, 2), int32] span=from_string:3:13 */;
+1: let %x2: Tensor[(2, 2), int32] /* ty=Tensor[(2, 2), int32] span=from_string:5:3 */ = negative(%x1) /* ty=Tensor[(2, 2), int32] span=from_string:4:13 */;
 }#

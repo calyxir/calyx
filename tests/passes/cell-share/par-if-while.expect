@@ -1,0 +1,63 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r3 = std_reg(32);
+    r2 = std_reg(32);
+    mult = std_mult_pipe(32);
+    lt = std_lt(32);
+  }
+  wires {
+    group write_r3 {
+      r3.write_en = 1'd1;
+      r3.in = 32'd2;
+      write_r3[done] = r3.done;
+    }
+    group write_r2 {
+      r2.write_en = 1'd1;
+      r2.in = 32'd2;
+      write_r2[done] = r2.done;
+    }
+    group read_r3 {
+      mult.go = 1'd1;
+      mult.left = r3.out;
+      mult.right = 32'd2;
+      read_r3[done] = mult.done;
+    }
+    group no_read {
+      mult.go = 1'd1;
+      mult.left = 32'd2;
+      mult.right = 32'd2;
+      no_read[done] = mult.done;
+    }
+    group no_read2 {
+      mult.go = 1'd1;
+      mult.left = 32'd2;
+      mult.right = 32'd2;
+      no_read[done] = mult.done;
+    }
+    comb group cg {
+      lt.left = 32'd2;
+      lt.right = 32'd4;
+    }
+  }
+
+  control {
+    seq {
+      write_r2;
+      par {
+        no_read;
+        seq {
+          no_read2;
+          if lt.out with cg {
+            write_r3;
+          }
+          while lt.out with cg {
+            write_r3;
+          }
+        }
+      }
+      read_r3;
+    }
+  }
+}
