@@ -21,6 +21,15 @@ use vast::v17::ast as v;
 #[derive(Default)]
 pub struct VerilogBackend;
 
+// based on type of mem, determines what string you should use to access mem
+fn get_mem_str(mem_type: &str) -> &str {
+    if mem_type.contains("d1") || mem_type.contains("std_mem") {
+        "mem"
+    } else {
+        "mem.mem"
+    }
+}
+
 /// Checks to make sure that there are no holes being
 /// used in a guard.
 fn validate_guard(guard: &ir::Guard) -> bool {
@@ -479,7 +488,10 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                     .map(|proto| proto.id.contains("mem"))
                     .unwrap_or_default()
             {
-                Some(cell.borrow().name().id.clone())
+                Some((
+                    cell.borrow().name().id.clone(),
+                    cell.borrow().type_name().unwrap_or_else(|| unreachable!("tried to add a memory cell but there was no type name")).clone(),
+                ))
             } else {
                 None
             }
@@ -515,7 +527,8 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             ],
         )));
 
-    memories.iter().for_each(|name| {
+    memories.iter().for_each(|(name, mem_type)| {
+        let mem_access_str = get_mem_str(&mem_type.id);
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
@@ -525,13 +538,15 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.mem", name)),
+                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
     });
 
     let mut final_block = v::ParallelProcess::new_final();
-    memories.iter().for_each(|name| {
+    memories.iter().for_each(|(name, mem_type)| {
+        let mem_access_str = get_mem_str(&mem_type.id);
+
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",
             vec![
@@ -541,7 +556,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.mem", name)),
+                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
     });
