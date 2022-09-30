@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component batch_flatten_2x4096() -> () {
@@ -121,5 +122,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(2, 4096), int32] = nn.batch_flatten(%x) /* ty=Tensor[(2, 4096), int32] */;
+0: let %x1: Tensor[(2, 4096), int32] /* ty=Tensor[(2, 4096), int32] span=from_string:4:3 */ = nn.batch_flatten(%x) /* ty=Tensor[(2, 4096), int32] span=from_string:3:41 */;
 }#

@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component negative_4() -> () {
   cells {
-    ref x0 = std_mem_d1(32,4,3);
-    ref x10 = std_mem_d1(32,4,3);
+    ref x0 = seq_mem_d1(32,4,3);
+    ref x10 = seq_mem_d1(32,4,3);
     __i0 = std_reg(3);
     add0 = std_add(3);
     const0 = std_const(3,0);
@@ -25,10 +26,11 @@ component negative_4() -> () {
       __i0.write_en = 1'd1;
       let0[done] = __i0.done;
     }
-    group upd0<"static"=1> {
-      x_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      x_read0_0.write_en = x0.read_done;
       x0.addr0 = __i0.out;
-      x_read0_0.in = x0.read_data;
+      x0.read_en = 1'd1;
+      x_read0_0.in = x0.out;
       upd0[done] = x_read0_0.done;
     }
     group upd1<"static"=1> {
@@ -36,8 +38,8 @@ component negative_4() -> () {
       x10.write_en = 1'd1;
       sub0.left = const2.out;
       sub0.right = x_read0_0.out;
-      x10.write_data = sub0.out;
-      upd1[done] = x10.done;
+      x10.in = sub0.out;
+      upd1[done] = x10.write_done;
     }
     group upd2<"static"=1> {
       __i0.write_en = 1'd1;
@@ -63,8 +65,8 @@ component negative_4() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d1(32, 4, 3);
-    @external(1) x1 = std_mem_d1(32, 4, 3);
+    @external(1) x = seq_mem_d1(32, 4, 3);
+    @external(1) x1 = seq_mem_d1(32, 4, 3);
     negative_4_ = negative_4();
   }
   wires {
@@ -77,5 +79,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(4), int32] = negative(%x) /* ty=Tensor[(4), int32] */;
+0: let %x1: Tensor[(4), int32] /* ty=Tensor[(4), int32] span=from_string:4:3 */ = negative(%x) /* ty=Tensor[(4), int32] span=from_string:3:13 */;
 }#

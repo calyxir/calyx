@@ -164,8 +164,8 @@ class Cell(Structure):
 
 @dataclass
 class Connect(Structure):
-    src: Port
     dest: Port
+    src: Port
     guard: Optional[GuardExpr] = None
 
     def doc(self) -> str:
@@ -388,6 +388,9 @@ class Stdlib:
 
     def mem_d1(self, bitwidth: int, size: int, idx_size: int):
         return CompInst("std_mem_d1", [bitwidth, size, idx_size])
+
+    def seq_mem_d1(self, bitwidth: int, size: int, idx_size: int):
+        return CompInst("seq_mem_d1", [bitwidth, size, idx_size])
 
     def mem_d2(
         self, bitwidth: int, size0: int, size1: int, idx_size0: int,

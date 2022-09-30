@@ -448,6 +448,7 @@ module std_mem_d4 #(
 endmodule
 
 `default_nettype wire
+
 module main (
     input logic go,
     input logic clk,

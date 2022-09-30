@@ -1,8 +1,9 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) A0 = std_mem_d1(32,8,4);
+    @external(1) A0 = seq_mem_d1(32,8,4);
     @external(1) B0_0 = std_mem_d2(32,8,8,4,4);
     @external(1) C0_0_0 = std_mem_d3(32,8,8,8,4,4,4);
     const0 = std_const(32,1);
@@ -19,8 +20,8 @@ component main() -> () {
     group upd0<"static"=1> {
       A0.addr0 = const1.out;
       A0.write_en = 1'd1;
-      A0.write_data = const0.out;
-      upd0[done] = A0.done;
+      A0.in = const0.out;
+      upd0[done] = A0.write_done;
     }
     group upd1<"static"=1> {
       B0_0.addr1 = const4.out;

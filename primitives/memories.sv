@@ -196,4 +196,3 @@ module seq_mem_d4 #(
     .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en), 
     .write_done(write_done));
 endmodule
-

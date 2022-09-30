@@ -1,0 +1,60 @@
+name: Format
+
+on: [push]
+
+jobs:
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: 1.60.0
+          override: true
+          components: rustfmt, clippy
+    - name: Check formatting
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
+    - name: Clippy version
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: --version
+    - name: Run clippy
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: --all --all-targets -- --deny warnings
+
+  lint:
+    name: Python Linting
+    needs: format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Fud Formatting check
+        uses: psf/black@stable
+        with:
+          options: "--line-length 88"
+          src: 'fud'
+      - name: Systolic Array Formatting check
+        uses: psf/black@stable
+        with:
+          options: "--line-length 88"
+          src: 'frontends/systolic-lang'
+      - name: Fud Linting check
+        uses: TrueBrain/actions-flake8@master
+        with:
+          max_line_length: 88
+          path: 'fud'
+      - name: Systolic Array Linting check
+        uses: TrueBrain/actions-flake8@master
+        with:
+          max_line_length: 88
+          path: 'frontends/systolic-lang'
