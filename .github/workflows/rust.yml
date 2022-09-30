@@ -13,7 +13,7 @@ jobs:
     - name: Copy fud configuration
       run: |
         mkdir -p $HOME/.config
-        cp -r /root/.config $HOME/.config
+        cp -r /root/.config/* $HOME/.config
         fud check
         fud config
 
