@@ -16,7 +16,6 @@ jobs:
 
     - name: Check Fud
       run: |
-        export PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
         python3 -c 'import sys; print(sys.path); import fud; print(fud.__version__)'
 
     - name: Update runt
