@@ -98,7 +98,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         unset JAVA_TOOL_OPTIONS
-        runt -x 'core|examples|errors' -d -o fail
+        runt -x 'core|examples|errors|mrxl' -d -o fail
 
     - name: Run Python Tests
       working-directory: /home/calyx
@@ -127,22 +127,21 @@ jobs:
         git fetch --all
         git checkout $GITHUB_SHA
 
-    - name: Checkout calyx-evaluation
-      uses: actions/checkout@v2
-      with:
-        repository: 'cucapra/calyx-evaluation'
-        path: /home/calyx-evaluation
-
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
         args: --manifest-path /home/calyx/Cargo.toml
 
+    - name: Checkout calyx-evaluation
+      working-dir: /home
+      run: |
+        git clone https://github.com/cucapra/calyx-evaluation.git calyx-evaluation
+
     - name: Run benchmarks
+      working-dir: /home/calyx-evaluation
       run: |
         unset JAVA_TOOL_OPTIONS
-        cd calyx-evaluation/benchmarks
         # Run the main benchmarks
         runt -i Correctness -d
         # Run the unrolled benchmarks
