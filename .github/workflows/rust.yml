@@ -106,7 +106,7 @@ jobs:
 
   evaluation:
     name: Polybench Integration
-    # needs: compiler
+    needs: compiler
     runs-on: ubuntu-latest
     container: ghcr.io/cucapra/calyx:latest
     steps:
