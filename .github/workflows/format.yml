@@ -1,9 +1,6 @@
-name: Polybench Integration
+name: Format
 
-on:
-  push:
-    branches:
-      - master
+on: [push]
 
 jobs:
   format:

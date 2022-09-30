@@ -6,9 +6,7 @@ jobs:
   interpreter:
     name: Test Interpreter
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/cucapra/calyx:latest
-      options: --user 0:0
+    container: ghcr.io/cucapra/calyx:latest
     steps:
     - name: Copy fud configuration
       run: |
@@ -106,3 +104,48 @@ jobs:
       working-directory: /home/calyx
       run: pytest fud/fud/stages/verilator/tests/numeric_types.py
 
+  evaluation:
+    name: Polybench Integration
+    # needs: compiler
+    runs-on: ubuntu-latest
+    container: ghcr.io/cucapra/calyx:latest
+    steps:
+    - name: Copy fud configuration
+      run: |
+        mkdir -p $HOME/.config
+        cp -r /root/.config/* $HOME/.config
+
+    - name: Update Dahlia
+      working-directory: /home/dahlia
+      run: |
+        git pull
+        sbt "; assembly"
+
+    - name: Checkout commit that triggered run
+      working-directory: /home/calyx
+      run: |
+        git fetch --all
+        git checkout $GITHUB_SHA
+
+    - name: Checkout calyx-evaluation
+      uses: actions/checkout@v2
+      with:
+        repository: 'cucapra/calyx-evaluation'
+        path: /home/calyx-evaluation
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --manifest-path /home/calyx/Cargo.toml
+
+    - name: Run benchmarks
+      run: |
+        unset JAVA_TOOL_OPTIONS
+        cd calyx-evaluation/benchmarks
+        # Run the main benchmarks
+        runt -i Correctness -d
+        # Run the unrolled benchmarks
+        runt -i Unrolled -d
+        # Run the interpreter benchmarks
+        # runt -i Interpreter -d
