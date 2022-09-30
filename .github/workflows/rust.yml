@@ -10,8 +10,10 @@ jobs:
       image: ghcr.io/cucapra/calyx:latest
       options: --user 0:0
     steps:
-    - name: Fud config
+    - name: Copy fud configuration
       run: |
+        mkdir -p $HOME/.config
+        cp -r /root/.config $HOME/.config
         fud check
         fud config
 
