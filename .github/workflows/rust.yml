@@ -139,7 +139,7 @@ jobs:
         git clone https://github.com/cucapra/calyx-evaluation.git calyx-evaluation
 
     - name: Run benchmarks
-      working-directory: /home/calyx-evaluation
+      working-directory: /home/calyx-evaluation/benchmarks
       run: |
         unset JAVA_TOOL_OPTIONS
         # Run the main benchmarks
