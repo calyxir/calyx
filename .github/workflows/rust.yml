@@ -72,7 +72,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         cd frontends/mrxl
-        flit install
+        FLIT_ROOT_INSTALL=1 flit install --symlink
 
     - name: Build
       uses: actions-rs/cargo@v1
