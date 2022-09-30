@@ -5,7 +5,6 @@ on: [push]
 jobs:
   format:
     name: Check Formatting
-    needs: compiler
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -34,7 +33,7 @@ jobs:
 
   lint:
     name: Python Linting
-    needs: compiler
+    needs: format
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
