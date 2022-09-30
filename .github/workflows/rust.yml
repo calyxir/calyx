@@ -14,8 +14,6 @@ jobs:
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
-        fud check
-        fud config
 
     - name: Update Dahlia
       working-directory: /home/dahlia
