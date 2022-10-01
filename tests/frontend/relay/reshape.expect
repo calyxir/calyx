@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component reshape_1x8() -> () {
@@ -180,5 +181,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape=[-1, 8]) /* ty=Tensor[(1, 8), float32] */;
+0: let %x1: Tensor[(1, 8), float32] /* ty=Tensor[(1, 8), float32] span=from_string:4:3 */ = reshape(%x, newshape=[-1, 8]) /* ty=Tensor[(1, 8), float32] span=from_string:3:38 */;
 }#

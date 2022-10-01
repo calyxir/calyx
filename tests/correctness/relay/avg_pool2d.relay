@@ -1,0 +1,5 @@
+#[version = "0.0.5"]
+def @main (%data: Tensor[(2, 2, 4, 4), int32]) {
+  let %result: Tensor[(2, 2, 2, 2), int32] = nn.avg_pool2d(%data, pool_size=[2, 2], strides=[2, 2], padding=[0,0,0,0]);
+  %result
+}

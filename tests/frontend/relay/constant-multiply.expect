@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component multiply_1(x1: 32) -> () {
   cells {
-    ref x0 = std_mem_d1(32,1,1);
-    ref x20 = std_mem_d1(32,1,1);
+    ref x0 = seq_mem_d1(32,1,1);
+    ref x20 = seq_mem_d1(32,1,1);
     __i0 = std_reg(1);
     add0 = std_add(1);
     bin_read0_0 = std_reg(32);
@@ -33,17 +34,18 @@ component multiply_1(x1: 32) -> () {
       mult_pipe0.right = x1;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group upd0<"static"=1> {
-      x_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      x_read0_0.write_en = x0.read_done;
       x0.addr0 = __i0.out;
-      x_read0_0.in = x0.read_data;
+      x0.read_en = 1'd1;
+      x_read0_0.in = x0.out;
       upd0[done] = x_read0_0.done;
     }
     group upd1<"static"=1> {
       x20.addr0 = __i0.out;
       x20.write_en = 1'd1;
-      x20.write_data = bin_read0_0.out;
-      upd1[done] = x20.done;
+      x20.in = bin_read0_0.out;
+      upd1[done] = x20.write_done;
     }
     group upd2<"static"=1> {
       __i0.write_en = 1'd1;
@@ -70,9 +72,9 @@ component multiply_1(x1: 32) -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d1(32, 1, 1);
+    @external(1) x = seq_mem_d1(32, 1, 1);
     x1 = std_const(32, 0);
-    @external(1) x2 = std_mem_d1(32, 1, 1);
+    @external(1) x2 = seq_mem_d1(32, 1, 1);
     multiply_1_ = multiply_1();
   }
   wires {
@@ -85,5 +87,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x2: Tensor[(1), int32] = multiply(%x, %x1) /* ty=Tensor[(1), int32] */;
+0: let %x2: Tensor[(1), int32] /* ty=Tensor[(1), int32] span=from_string:5:3 */ = multiply(%x, %x1) /* ty=Tensor[(1), int32] span=from_string:4:36 */;
 }#

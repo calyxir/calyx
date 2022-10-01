@@ -448,12 +448,14 @@ module std_mem_d4 #(
 endmodule
 
 `default_nettype wire
+
 module main (
     input logic go,
     input logic clk,
     input logic reset,
     output logic done
 );
+    // COMPONENT START: main
     string DATA;
     int CODE;
     initial begin
@@ -514,4 +516,5 @@ module main (
     assign m0_clk = clk;
     assign m1_clk = clk;
     
+    // COMPONENT END: main
 endmodule

@@ -58,7 +58,8 @@ fn add_assignment_reads(
             .iter()
             .filter(|assign| !reads_only_dones(assign)),
     ) {
-        if share.is_shareable_component(&cell) {
+        if share.is_shareable_component(&cell) && !cell.borrow().is_reference()
+        {
             reads.insert(cell.borrow().clone_name());
         }
     }

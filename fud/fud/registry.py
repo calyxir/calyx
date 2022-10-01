@@ -4,7 +4,7 @@ from collections import namedtuple
 import networkx as nx  # type: ignore
 
 from fud import stages
-from fud.errors import UndefinedStage, MultiplePaths
+from fud.errors import UndefinedState, MultiplePaths
 
 # An edge in the state graph
 Edge = namedtuple("Edge", ["dest", "stage"])
@@ -51,14 +51,14 @@ class Registry:
 
         nodes = self.graph.nodes()
         if start not in nodes:
-            raise UndefinedStage(start, "Validate source state of the path")
+            raise UndefinedState(start, "Validate source state of the path")
 
         if dest not in nodes:
-            raise UndefinedStage(dest, "Validate target state of the path")
+            raise UndefinedState(dest, "Validate target state of the path")
 
         for node in through:
             if node not in nodes:
-                raise UndefinedStage(node, "State provided using --through")
+                raise UndefinedState(node, "Stage provided using --through")
 
         all_paths = list(nx.all_simple_edge_paths(self.graph, start, dest))
 
