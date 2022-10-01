@@ -1,4 +1,4 @@
-# Axi generation
+# AXI Interface Generation
 
 Calyx currently generates a fairly complex AXI interface that can be daunting
 to deal with if confronting for the first time.
@@ -9,41 +9,44 @@ In general, when `fud` is asked to create an [`.xclbin` file][xclbin] a `kernel.
 `main.sv`, and `toplevel.v` are created as intermediate steps for [xilinx tools][xilinx_tools]
 to properly work.
 
+
 `main.sv` contains the SystemVerilog needed for our computations to perform
 correctly. It is implemented as an FSM that derives from the original Calyx program.
-These files are very hard to read and not really conducive to being examined directly.
 [`kernel.xml`][kernel_xml] defines register maps and ports of our
 toplevel xilinx tools needs. `toplevel.v` wraps our computation kernel and contains
-the AXI interface for each memory define in a calyx program. 
+the AXI interface for each memory defined in a Calyx program and corresponds to the standard Calux lowering process.
+
+For more info on file generation see [how the Xilinx Toolchain works][xilinx_how]
 
 ## Toplevel
 
-Our toplevel is generated through files in `src/backend/xilinx/`.
+Our [toplevel][toplevel] is generated through files in `src/backend/xilinx/`.
 
 ### AXI memory controller
-Here, a calyx program is queried and all of its sub components are extracted.
-Most importantly, memories are extracted and separate AXI interfaces are created for each
-one (meaning, there is no shared bus between memories). Each memory has its own
-(single port) bram which writes data taken from an `mi_axi_RDATA` wire where i is the index of
-the memory. Eventually the brams are read and fed into the
+Here, the [toplevel][toplevel] component of a Calyx program is queried and
+memories marked [`@external`][external] are turned into AXI buses.
+To note, separate AXI interfaces are created for each memory 
+(meaning, there is no shared bus between memories). Each memory has its own
+(single port) BRAM which writes data taken from an `mi_axi_RDATA` wire where `i` is the index of
+the memory. Eventually the BRAMs are read and fed into the
 computation kernel of `main.sv`, which outputs results directly into the relevant
 memories as defined in the original Calyx program.
+Address and data widths and sizes are determined from cell declerations.
 
-For each memory we dynamically determine necesarry address and data widths and sizes.
-However there is always the possiblity that something is hardcoded as a remnant
-from previous versions of our AXI generation. If something is hardcoded where it shouldn't
-be please open an [issue][issues].
+> There is always the possiblity that something is hardcoded as a remnant
+> from previous versions of our AXI generation. If something is hardcoded where it shouldn't
+> be please open an [issue][issues].
 
 AXI memory controllers are constructed as (full) [AXI4 managers][signals] that lack a small amount
-of functionality. For example, xPROT signals are not currently supported.
-Additionally, things like bursting are not currently supported, but should be
+of functionality. For example, [xPROT signals][access_protection] are not currently supported.
+Additionally, things like [bursting][bursting] are not currently supported, but should be
 easy to implement due to the existing infrastructure and generation.
 
 
 A list of current signals that are hardcoded follows:
 
-* `xLEN` is set to 0, correlating to aburt length of 1.
-* `xBURST` is set to 01, correlating to INCR type of bursts.
+* `xLEN` is set to 0, corresponding to a burst length of 1.
+* `xBURST` is set to 01, corresponding to INCR type of bursts.
 * `xSIZE` is set to the width of the data we are using in bytes.
 * `xPROT` is not generated, and is therefore not supported.
 * `xLOCK` is not generated, defaulting to 0 (normal accesses).
@@ -70,3 +73,7 @@ allow this.
 [external]: https://docs.calyxir.org/lang/attributes.html?highlight=external#external
 [issues]: https://github.com/cucapra/calyx/issues
 [signals]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Signal-Descriptions?lang=en
+[bursting]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Single-Interface-Requirements/Transaction-structure/Address-structure?lang=en
+[access_protection]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Transaction-Attributes/Access-permissions?lang=en
+[toplevel]: https://docs.calyxir.org/lang/attributes.html?highlight=toplevel#toplevel
+[xilinx_how]: https://docs.calyxir.org/fud/xilinx.html?highlight=synthesis#how-it-works
