@@ -105,9 +105,9 @@ class Relay2Calyx(ExprFunctor):
         name_hint = var.name_hint.replace(".", "_")
         name_hint = name_hint.replace("/", "_")
 
-        if (name_hint.isdigit()):
+        if name_hint.isdigit():
             name_hint = "var_" + name_hint
-        if (name_hint in self.calyx_keywords):
+        if name_hint in self.calyx_keywords:
             name_hint = "_" + name_hint
         var_id = self.id(name_hint)
         cell = ru.get_memory(var_id, var.type_annotation)
@@ -155,6 +155,13 @@ class Relay2Calyx(ExprFunctor):
             # This is done here since we need
             # both the variable id and the value.
             width = ru.get_bitwidth(value.data)
+
+            # if the constant is really a memory value, then we don't need
+            # to assign the value, since it will get its values externally.
+            # A cell has already been instantiated with visit_var
+            for dim_val in value.data.shape:
+                if dim_val != 1:
+                    return
 
             if "float" in value.data.dtype:
                 # Convert to fixed point.
@@ -300,8 +307,6 @@ class Relay2Calyx(ExprFunctor):
             # don't need to create new cells, just map the var to the cells in value
             self.tuple_dic[let.var] = unnested_values
         else:
-            value = self.visit(let.value)
-            dest = self.visit(let.var)
             # need to pass dest[0] bc visit_var returns a list
             self.analyze_val_dest(let, value, dest[0], let.var.type_annotation)
         return self.visit(let.body)
