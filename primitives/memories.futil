@@ -13,4 +13,55 @@ extern "memories.sv" {
     @done(1) write_done: 1,
     @done(2) read_done: 1
   );
+
+  primitive seq_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    addr0: D0_IDX_SIZE,
+    addr1: D1_IDX_SIZE,
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) in: WIDTH,
+    // Read ports
+    @static(1) @go(2) read_en: 1
+  ) -> (
+    @stable out: WIDTH,
+    @done(1) write_done: 1,
+    @done(2) read_done: 1
+  );
+
+  primitive seq_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    addr0: D0_IDX_SIZE,
+    addr1: D1_IDX_SIZE,
+    addr2: D2_IDX_SIZE,
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) in: WIDTH,
+    // Read ports
+    @static(1) @go(2) read_en: 1
+  ) -> (
+    @stable out: WIDTH,
+    @done(1) write_done: 1,
+    @done(2) read_done: 1
+  );
+
+  primitive seq_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    addr0: D0_IDX_SIZE,
+    addr1: D1_IDX_SIZE,
+    addr2: D2_IDX_SIZE,
+    addr3: D3_IDX_SIZE,
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) in: WIDTH,
+    // Read ports
+    @static(1) @go(2) read_en: 1
+  ) -> (
+    @stable out: WIDTH,
+    @done(1) write_done: 1,
+    @done(2) read_done: 1
+  );
 }
