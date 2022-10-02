@@ -4,13 +4,17 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 
-#TODO (nathanielnrn): need to fix this so that MODULE can correcly find run_axi_test
-# from directory Make is run from (or -C flag is used to)
-# While also allowing the sources to be found correcly from our runt file
-# Currently, this works if running from tests/xilinx/cocotb/ and TEST_PATH=vectorized-add
+
+#Needed to extract desired test from runt invocation
+ifdef TEST_PATH
 DIR_NAME := $(shell basename ${TEST_PATH})
+endif
+
 VERILOG_SOURCES += $(PWD)/$(DIR_NAME)/hdl/toplevel.v
 VERILOG_SOURCES += $(PWD)/$(DIR_NAME)/hdl/main.sv
+
+#Defines build directory, if left to default only a single computation is run
+SIM_BUILD=sim_build/$(DIR_NAME)
 
 # TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
 TOPLEVEL = Toplevel

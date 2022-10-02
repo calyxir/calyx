@@ -1,0 +1,29 @@
+; {
+;     "memories": {
+;         "A0": [
+;             27,
+;             48,
+;             88,
+;             69,
+;             9,
+;             44,
+;             3,
+;             73
+;         ],
+;         "B0": [
+;             95,
+;             68,
+;             79,
+;             39,
+;             33,
+;             88,
+;             51,
+;             99
+;         ],
+;         "v0": [
+;             27021
+;         ]
+;     }
+; }
+---STDERR---
+sys:1: ResourceWarning: unclosed file <_io.TextIOWrapper name=2 mode='w' encoding='UTF-8'>
