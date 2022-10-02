@@ -156,7 +156,7 @@ class Relay2Calyx(ExprFunctor):
             # both the variable id and the value.
             width = ru.get_bitwidth(value.data)
 
-            # if the constant is really a memory value, then we don't need
+            # if the constant is a memory value, then we don't need
             # to assign the value, since it will get its values externally.
             # A cell has already been instantiated with visit_var
             for dim_val in value.data.shape:
@@ -307,6 +307,8 @@ class Relay2Calyx(ExprFunctor):
             # don't need to create new cells, just map the var to the cells in value
             self.tuple_dic[let.var] = unnested_values
         else:
+            value = self.visit(let.value)
+            dest = self.visit(let.var)
             # need to pass dest[0] bc visit_var returns a list
             self.analyze_val_dest(let, value, dest[0], let.var.type_annotation)
         return self.visit(let.body)
