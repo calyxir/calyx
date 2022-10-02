@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component batch_matmul_4x7x7() -> () {
@@ -310,5 +311,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x: Tensor[(4, 7, 7), int32] = nn.batch_matmul(%a, %b) /* ty=Tensor[(4, 7, 7), int32] */;
+0: let %x: Tensor[(4, 7, 7), int32] /* ty=Tensor[(4, 7, 7), int32] span=from_string:4:3 */ = nn.batch_matmul(%a, %b, transpose_b=True) /* ty=Tensor[(4, 7, 7), int32] span=from_string:3:40 */;
 }#

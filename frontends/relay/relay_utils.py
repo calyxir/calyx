@@ -10,7 +10,7 @@ from dataclasses import dataclass
 # corresponding Calyx primitive.
 NumDimsToCell = {
     0: Stdlib().register,
-    1: Stdlib().mem_d1,
+    1: Stdlib().seq_mem_d1,
     2: Stdlib().mem_d2,
     3: Stdlib().mem_d3,
     4: Stdlib().mem_d4,
@@ -20,7 +20,7 @@ NumDimsToCell = {
 DahliaSuffix = {
     "std_const": "",
     "std_reg": "",
-    "std_mem_d1": "0",
+    "seq_mem_d1": "0",
     "std_mem_d2": "0_0",
     "std_mem_d3": "0_0_0",
     "std_mem_d4": "0_0_0_0",
@@ -38,6 +38,7 @@ class DahliaFuncDef:
     args: List[CompVar]
     attributes: tvm.ir.Attrs
     data_type: str
+    component: CompInst
 
 
 def get_dims(c: CompInst):
@@ -45,7 +46,7 @@ def get_dims(c: CompInst):
     id = c.id
     id2dimensions = {
         "std_reg": 0,
-        "std_mem_d1": 1,
+        "seq_mem_d1": 1,
         "std_mem_d2": 2,
         "std_mem_d3": 3,
         "std_mem_d4": 4,
@@ -73,7 +74,7 @@ def get_addr_ports(c: CompInst):
     return [(f"addr{i}", c.args[n]) for (i, n) in zip(addresses, indices)]
 
 
-def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
+def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell], old_args=[], old_dest=None) -> Invoke:
     """Returns the Invoke control."""
     ref_cells = []
     inputs = []
@@ -90,9 +91,35 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell]) -> Invoke:
         else:
             ref_cells.append((param, arg))
 
-    for cell in args:
-        add_arg(cell)
-    add_arg(dest)
+    # this function is similar to add_arg, but is for the case when we are
+    # "reusing" a Dahlia Function (which will later be a Calyx component)
+    # and therefore need to use the same parameter names as the previous invoke
+    def add_arg2(arg_cell, param_cell):
+        assert arg_cell.comp == param_cell.comp, "arg cell and param cell must be same component"
+        comp = arg_cell.comp
+        assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
+        param = f"{param_cell.id.name}{DahliaSuffix[comp.id]}"
+        arg = CompVar(arg_cell.id.name)
+
+        # If this is a constant or a register, connect the ports
+        if any(p in comp.id for p in ["reg", "const"]):
+            inputs.append((f"{param}", CompPort(arg, "out")))
+        else:
+            ref_cells.append((param, arg))
+
+    if len(old_args) == 0:
+        for cell in args:
+            add_arg(cell)
+        add_arg(dest)
+    else:
+        # case for when we are "reusing" a Dahlia Function/Calyx component and
+        # therefore need to make sure we're using the previous parameter names
+        assert len(old_args) == len(
+            args), "we are reusing a dahlia function but the args are different lengths"
+        assert old_dest is not None, "if using old_args must provide an old_dest too"
+        for (cell1, cell2) in zip(args, old_args):
+            add_arg2(cell1, cell2)
+        add_arg2(dest, old_dest)
 
     return Invoke(decl, inputs, [], ref_cells)
 

@@ -1,5 +1,34 @@
 import numpy as np
 
+import imageio
+from PIL import Image
+
+
+def get_image(path):
+    '''
+    source: https://github.com/onnx/models/tree/main/vision/classification/inception_and_googlenet/googlenet
+    Using path to image, return the RGB load image
+    '''
+    img = imageio.imread(path, pilmode='RGB')
+    return img
+
+
+def preprocess_google(img_path):
+    '''
+    source: https://github.com/onnx/models/tree/main/vision/classification/inception_and_googlenet/googlenet
+    Preprocessing required on the images for inference with mxnet gluon
+    The function takes loaded image and returns processed tensor
+    '''
+    img = get_image(img_path)
+    img = np.array(Image.fromarray(img).resize((224, 224))).astype(np.float32)
+    img[:, :, 0] -= 123.68
+    img[:, :, 1] -= 116.779
+    img[:, :, 2] -= 103.939
+    img[:, :, [0, 1, 2]] = img[:, :, [2, 1, 0]]
+    img = img.transpose((2, 0, 1))
+    img = np.expand_dims(img, axis=0)
+    return img
+
 
 def preprocess_img_mnist(img_path):
     """Preprocessing required for MNIST classification."""
@@ -46,7 +75,8 @@ def preprocess_img_imagenet(img_path):
 
 
 # Supported datasets for preprocessing.
-SupportedDatasets = {"mnist": preprocess_img_mnist, "imagenet": preprocess_img_imagenet}
+SupportedDatasets = {"mnist": preprocess_img_mnist,
+                     "imagenet": preprocess_img_imagenet, "googlenet": preprocess_google}
 
 
 def preprocess_image(img, dataset: str):

@@ -1,0 +1,5 @@
+#[version = "0.0.5"]
+def @main (%data: Tensor[(1, 2, 2, 2), int32], %weight: Tensor[(2, 2, 1, 1), int32]) {
+  let %x = nn.conv2d(%data, %weight, padding=[2, 2, 2, 2], kernel_size=[1, 1], strides=[2,2]);
+  %x
+}

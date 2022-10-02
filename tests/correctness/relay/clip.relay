@@ -1,0 +1,5 @@
+#[version = "0.0.5"]
+def @main (%x: Tensor[(2,2,2), float32]) {
+  let %y: Tensor[(2, 2, 2), float32] = clip(%x, a_min = 2, a_max = 6);
+  %y
+}

@@ -6,355 +6,145 @@ jobs:
   interpreter:
     name: Test Interpreter
     runs-on: ubuntu-latest
+    container: ghcr.io/cucapra/calyx:latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-
-    - name: Install jq
+    - name: Copy fud configuration
       run: |
-        sudo apt-get update
-        sudo apt-get install jq
+        mkdir -p $HOME/.config
+        cp -r /root/.config/* $HOME/.config
 
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
-
-    - name: Install common Python dependencies
-      run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
-
-    - name: Install calyx-py
+    - name: Update Dahlia
+      working-directory: /home/dahlia
       run: |
-        cd calyx-py
-        flit install
+        git pull
+        sbt "; assembly"
 
-    - name: Install MrXL
+    - name: Checkout commit that triggered run
+      working-directory: /home/calyx
       run: |
-        cd frontends/mrxl
-        flit install
-
-    - name: Install fud
-      run: |
-        cd fud
-        flit install --deps production
-        cd ..
-        echo "============= Setting Fud configuration =============="
-        fud config global.futil_directory '/home/runner/work/calyx/calyx'
-        fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
-        fud config stages.futil.exec "$(pwd)/target/debug/futil"
-        fud config stages.interpreter.exec "$(pwd)/target/debug/interp"
-        fud register mrxl -p '/home/runner/work/calyx/calyx/frontends/mrxl/fud/mrxl.py'
-        fud register ntt -p '/home/runner/work/calyx/calyx/frontends/ntt-pipeline/fud/ntt.py'
-        fud config
-
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: 1.60.0
-          override: true
-          components: rustfmt, clippy
+        git fetch --all
+        git checkout $GITHUB_SHA
 
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all
+        args: --all --manifest-path /home/calyx/interp/Cargo.toml
 
-    - name: Versions
-      id: versions
+    - name: Runt tests
+      working-directory: /home/calyx
       run: |
-        echo "::set-output name=runt::$(grep ver interp/runt.toml | awk '{print $3}' | tr -d '"')"
-        echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
-      shell: bash
-
-    # Install cargo based tools and use some caching magic.
-    - name: Cache runt
-      id: runt-cache
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/bin/runt
-        key: runt-bin-${{ runner.os }}-${{ steps.versions.outputs.runt }}
-
-    - name: Install runt
-      if: steps.runt-cache.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: runt --version ${{ steps.versions.outputs.runt }}
+        # Run the remaining tests
+        runt interp -x 'relay|mrxl' -d -o fail
 
     - name: Source code tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path interp/Cargo.toml
+        args: --manifest-path /home/calyx/interp/Cargo.toml
 
     - name: Source code doc tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path interp/Cargo.toml --doc
-
-    - name: Runt tests
-      run: |
-        # Run the remaining tests
-        runt interp -x relay -d -o fail
+        args: --manifest-path /home/calyx/interp/Cargo.toml --doc
 
   compiler:
     name: Test Compiler
     runs-on: ubuntu-latest
+    container: ghcr.io/cucapra/calyx:latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-
-    - name: Versions
-      id: versions
+    - name: Copy fud configuration
       run: |
-        echo "::set-output name=runt::$(grep ver runt.toml | awk '{print $3}' | tr -d '"')"
-        echo "::set-output name=vcdump::$(cargo search vcdump | awk '{print $3}' | tr -d '"')"
-        echo "::set-output name=dahlia::$(git ls-remote https://github.com/cucapra/dahlia.git | awk '{print $1}')"
-        echo "::set-output name=verilator::$(cat versions/verilator)"
-        echo "::set-output name=tvm::$(cat versions/tvm)"
-      shell: bash
+        mkdir -p $HOME/.config
+        cp -r /root/.config/* $HOME/.config
 
-    # Install cargo based tools and use some caching magic.
-    - name: Cache runt
-      id: runt-cache
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/bin/runt
-        key: runt-bin-${{ runner.os }}-${{ steps.versions.outputs.runt }}
-
-    - name: Install runt
-      if: steps.runt-cache.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: runt --version ${{ steps.versions.outputs.runt }}
-
-    - name: Cache vcdump
-      id: vcdump-cache
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/bin/vcdump
-        key: vcdump-bin-${{ runner.os }}-${{ steps.versions.outputs.vcdump }}
-
-    - name: Install vcdump
-      if: steps.vcdump-cache.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: vcdump
-
-    - name: Install jq, and SBT
+    - name: Update Dahlia
+      working-directory: /home/dahlia
       run: |
-        echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
-        echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | sudo tee /etc/apt/sources.list.d/sbt_old.list
-        curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo apt-key add
-        sudo apt-get update
-        sudo apt-get install jq sbt
-
-    - name: Cache Verilator
-      id: verilator-cache
-      uses: actions/cache@v2
-      with:
-        path: ./verilator
-        key: verilator-bin-${{ runner.os }}-${{ steps.versions.outputs.verilator }}
-
-    - name: Build Verilator
-      if: steps.verilator-cache.outputs.cache-hit != 'true'
-      run: |
-        sudo apt-get install git make autoconf g++ flex bison libfl2 libfl-dev
-        git clone https://github.com/verilator/verilator
-        cd verilator
         git pull
-        git checkout master
-        autoconf
-        ./configure
-        make
-        sudo make install
+        sbt "; assembly"
 
-    - name: Install Verilator
+    - name: Checkout commit that triggered run
+      working-directory: /home/calyx
       run: |
-        cd verilator
-        sudo make install
-
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
-
-    - name: Install common Python dependencies
-      run: python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
-
-    - name: Cache Apache TVM
-      id: tvm-cache
-      uses: actions/cache@v2
-      with:
-        path: frontends/relay/tvm
-        key: tvm-bin-${{ runner.os }}-${{ steps.versions.outputs.tvm }}
-
-    - name: Build Apache TVM
-      if: steps.tvm-cache.outputs.cache-hit != 'true'
-      run: |
-        sudo apt-get install -y ninja-build
-        cd frontends/relay
-        git clone https://github.com/apache/tvm.git
-        cd tvm && git reset --hard ccacb1ec1
-        git submodule init && git submodule update
-        mkdir build && cd build
-        cp ../cmake/config.cmake .
-        cmake -G Ninja .. && ninja
-
-    - name: Install Apache TVM
-      run: |
-        pip3 install -Iv antlr4-python3-runtime==4.7.2
-        cd frontends/relay/tvm/
-        cd python && python3 setup.py bdist_wheel
-        pip3 install --user dist/tvm-*.whl
-        cd ../topi/python && python3 setup.py bdist_wheel
-        pip3 install --user dist/topi-*.whl
-
-    - name: Cache SBT
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.ivy2/cache
-          ~/.sbt
-        key: ${{ runner.os }}-sbt-${{ hashFiles('dahlia/build.sbt') }}
-
-    # Don't rebuild Dahlia if HEAD hash hasn't changed.
-    - name: Cache Dahlia
-      id: dahlia-cache
-      uses: actions/cache@v2
-      with:
-        path: ./dahlia
-        key: dahlia-dir-${{ runner.os }}-${{ steps.versions.outputs.dahlia }}
-
-    - name: Checkout Dahlia
-      uses: actions/checkout@v2
-      if: steps.dahlia-cache.outputs.cache-hit != 'true'
-      with:
-        repository: cucapra/dahlia
-        path: dahlia
-
-    - name: Build Dahlia
-      if: steps.dahlia-cache.outputs.cache-hit != 'true'
-      run: |
-        cd ./dahlia && sbt "; getHeaders; assembly"
-      shell: bash
-
-    - name: Cache Calyx dependencies
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Install calyx-py
-      run: |
-        cd calyx-py
-        flit install
+        git fetch --all
+        git checkout $GITHUB_SHA
 
     - name: Install MrXL
+      working-directory: /home/calyx
       run: |
         cd frontends/mrxl
-        flit install
+        FLIT_ROOT_INSTALL=1 flit install --symlink
 
-    - name: Install fud
-      run: |
-        cd fud
-        flit install --deps production
-        echo "============= Setting Fud configuration =============="
-        fud config global.futil_directory '/home/runner/work/calyx/calyx'
-        fud config stages.dahlia.exec '/home/runner/work/calyx/calyx/dahlia/fuse'
-        fud config stages.futil.exec './target/debug/futil'
-        fud register mrxl -p '/home/runner/work/calyx/calyx/frontends/mrxl/fud/mrxl.py'
-        fud register ntt -p '/home/runner/work/calyx/calyx/frontends/ntt-pipeline/fud/ntt.py'
-        fud config
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: 1.60.0
-          override: true
-          components: rustfmt, clippy
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
+        args: --manifest-path /home/calyx/Cargo.toml
 
     - name: Source code doc tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --manifest-path calyx/Cargo.toml --doc lib
+        args: --manifest-path /home/calyx/calyx/Cargo.toml --doc lib
 
     - name: Core tests
+      working-directory: /home/calyx
       run: |
         runt -i 'core|examples|errors' -d -o fail
 
     - name: Frontend tests
+      working-directory: /home/calyx
       run: |
         unset JAVA_TOOL_OPTIONS
-        runt -x 'core|examples|errors' -d -o fail
+        runt -x 'core|examples|errors|mrxl' -d -o fail
 
     - name: Run Python Tests
+      working-directory: /home/calyx
       run: pytest fud/fud/stages/verilator/tests/numeric_types.py
 
-  format:
-    name: Check Formatting
+  evaluation:
+    name: Polybench Integration
     needs: compiler
     runs-on: ubuntu-latest
+    container: ghcr.io/cucapra/calyx:latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Install stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: 1.60.0
-          override: true
-          components: rustfmt, clippy
-    - name: Check formatting
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --all -- --check
-    - name: Clippy version
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --version
-    - name: Run clippy
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --all --all-targets -- --deny warnings
+    - name: Copy fud configuration
+      run: |
+        mkdir -p $HOME/.config
+        cp -r /root/.config/* $HOME/.config
 
-  lint:
-    name: Python Linting
-    needs: compiler
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Fud Formatting check
-        uses: psf/black@stable
-        with:
-          options: "--line-length 88"
-          src: 'fud'
-      - name: Systolic Array Formatting check
-        uses: psf/black@stable
-        with:
-          options: "--line-length 88"
-          src: 'frontends/systolic-lang'
-      - name: Fud Linting check
-        uses: TrueBrain/actions-flake8@master
-        with:
-          max_line_length: 88
-          path: 'fud'
-      - name: Systolic Array Linting check
-        uses: TrueBrain/actions-flake8@master
-        with:
-          max_line_length: 88
-          path: 'frontends/systolic-lang'
+    - name: Update Dahlia
+      working-directory: /home/dahlia
+      run: |
+        git pull
+        sbt "; assembly"
+
+    - name: Checkout commit that triggered run
+      working-directory: /home/calyx
+      run: |
+        git fetch --all
+        git checkout $GITHUB_SHA
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --manifest-path /home/calyx/Cargo.toml
+
+    - name: Checkout calyx-evaluation
+      working-directory: /home
+      run: |
+        git clone https://github.com/cucapra/calyx-evaluation.git calyx-evaluation
+
+    - name: Run benchmarks
+      working-directory: /home/calyx-evaluation/benchmarks
+      run: |
+        unset JAVA_TOOL_OPTIONS
+        # Run the main benchmarks
+        runt -i Correctness -d
+        # Run the unrolled benchmarks
+        runt -i Unrolled -d
+        # Run the interpreter benchmarks
+        # runt -i Interpreter -d

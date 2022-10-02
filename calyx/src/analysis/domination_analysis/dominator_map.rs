@@ -170,7 +170,7 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
             hs.insert(ControlId::get_guaranteed_attribute(c, END_ID));
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            get_final((&stmts[..]).last().unwrap_or_else(|| {
+            return get_final((&stmts[..]).last().unwrap_or_else(|| {
                 panic!("error: empty Seq block. Run collapse-control pass.")
             }));
         }
@@ -279,7 +279,6 @@ impl DominatorMap {
                 self.update_node(pred, cur_id);
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                //Could try to think a way of doing it w/o this first stuff
                 let mut p = pred;
                 let mut nxt: HashSet<u64>;
                 for stmt in stmts {

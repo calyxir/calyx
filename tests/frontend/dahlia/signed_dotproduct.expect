@@ -1,12 +1,13 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) a00 = std_mem_d1(32,4,3);
+    @external(1) a00 = seq_mem_d1(32,4,3);
     a0_read0_0 = std_reg(32);
     add0 = std_sadd(32);
     add1 = std_add(4);
-    @external(1) b00 = std_mem_d1(32,4,3);
+    @external(1) b00 = seq_mem_d1(32,4,3);
     b0_read0_0 = std_reg(32);
     bin_read0_0 = std_reg(32);
     const0 = std_const(32,0);
@@ -50,18 +51,20 @@ component main() -> () {
       v_0.write_en = 1'd1;
       let3[done] = v_0.done;
     }
-    group upd0<"static"=1> {
-      a0_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      a0_read0_0.write_en = a00.read_done;
       a00.addr0 = slice0.out;
       slice0.in = i0.out;
-      a0_read0_0.in = a00.read_data;
+      a00.read_en = 1'd1;
+      a0_read0_0.in = a00.out;
       upd0[done] = a0_read0_0.done;
     }
-    group upd1<"static"=1> {
-      b0_read0_0.write_en = 1'd1;
+    group upd1<"static"=2> {
+      b0_read0_0.write_en = b00.read_done;
       b00.addr0 = slice1.out;
       slice1.in = i0.out;
-      b0_read0_0.in = b00.read_data;
+      b00.read_en = 1'd1;
+      b0_read0_0.in = b00.out;
       upd1[done] = b0_read0_0.done;
     }
     group upd2<"static"=1> {
