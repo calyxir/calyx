@@ -35,7 +35,7 @@ The `@sync` syntax means that control statements marked with this attribute are 
 
 In the modified program above, we see that `incr_idx` and `incr_r` must both finish in order for either thread to go forth. Because `add_r_to_accm` is executed after `incr_idx` in thread A, we know that in each iteration, `incr_r` will always increment `r` before `add_r_to_accm` reads it. We've also inserted a `no-op`, a group that does nothing, to the program. We mark both `no_op` and `add_r_to_accm` with `@sync(2)`, which essentially means `add_r_to_accm` has to finish before either thread enters the next iteration.
 
-## branched "barrier"
+## Synchronization in Branches
 We can also have "barriers" in `if` branches:
 ```
 {{#include ../../examples/sync/sync-if.futil:control}}
