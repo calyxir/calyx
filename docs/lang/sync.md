@@ -18,7 +18,7 @@ where groups `add_r_to_accm` and `incr_r` reads value and increments value in re
 
 Because calyx does not make any guarantee of the order of execution for threads running in parallel, it is impossible for us to determine which thread will access r first for each iteration.
 
-Nondeterminism when running parallel threads is beneficial on the compiler's end, as it will give the compiler more freedom for optimization. However, we sometimes do want to give parallel threads a measure of ordering while still taking advantage of the performance boost of parallelism. The @sync attribute allows us to do that. 
+Nondeterminism when running parallel threads is beneficial on the compiler's end, as it will give the compiler more freedom for optimization. However, we sometimes do want to give parallel threads a measure of ordering while still taking advantage of the performance boost of parallelism. The `@sync` attribute allows us to do that. 
 
 
 ## Using the `@sync` attribute
@@ -29,7 +29,7 @@ Now we want to modify the program above so that in every iteration, thread A alw
 {{#include ../../examples/sync/sync-doc-example.futil:control}}
 ```
 
-First and foremost, always remember to import "primitives/sync.futil" when using the @sync attribute!!!
+First and foremost, always remember to import "primitives/sync.futil" when using the @sync attribute.
 
 The `@sync` syntax means that control statements marked with this attribute are not allowed to proceed after finishing until every other statement marked with the same value for the `@sync` attribute has finished. In other words, we are putting a barrier after all statements marked with `@sync`. When all threads arrive, we release the "barrier". 
 
@@ -54,3 +54,8 @@ thread A never arrives at the "barrier".
 ## Limitations
 
 Currently we only support two threads sharing the same "barrier", i.e., only two threads can have control with the `@sync` attribute marked with the same value. 
+
+
+[par-undef]: ./undefined.md#semantics-of-par
+ [m-struct]: http://composition.al/blog/2013/09/22/some-example-mvar-ivar-and-lvar-programs-in-haskell/
+ [ex]: https://github.com/cucapra/calyx/blob/master/examples/sync/sync.futil
