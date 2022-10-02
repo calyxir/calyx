@@ -46,7 +46,7 @@ which syncs it up with thread 2.
 Be really really careful when using the `@sync` attribute in conditional branches!
 If the other thread sharing one "barrier" with your thread is blocked unconditionally, 
 then you would probably want to have the same `@sync` value in both branches; since
-having the same `@sync` value in only one branch would highly likely lead to a "deadlock" 
+having the same `@sync` value in only one branch would likely lead to a "deadlock" 
 situation: if thread A is running in the unlocked branch while the thread B 
 has a "barrier" that is expecting two threads, thread B may never proceed because
 thread A never arrives at the "barrier".
