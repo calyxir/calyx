@@ -33,7 +33,10 @@ class InterpreterStage(Stage):
         self = cls(
             flags="",
             debugger_flags="",
-            desc="convert data files for the interpreter use. Meant for internal interp dev use.",
+            desc=(
+                "convert data files for the interpreter use. ",
+                "Meant for internal interp dev use.",
+            ),
             output_type=SourceType.Path,
             output_name="interpreter-data",
         )
