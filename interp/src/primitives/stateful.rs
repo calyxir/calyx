@@ -1,11 +1,11 @@
-use super::prim_utils::{get_param, ShiftBuffer};
+use super::prim_utils::{get_input, get_param, ShiftBuffer};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::logging::{self, warn};
 use crate::utils::{construct_bindings, PrintCode};
+use crate::validate;
 use crate::values::Value;
-use crate::{get_input, validate};
 use calyx::ir;
 use ibig::ops::RemEuclid;
 use ibig::{ibig, ubig, IBig, UBig};

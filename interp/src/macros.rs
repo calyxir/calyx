@@ -408,18 +408,3 @@ macro_rules! validate {
         }
     }
 }
-
-#[macro_export]
-macro_rules! get_input {
-    ( $inputs:ident; $( $port:ident : $id_name:expr ),+ )  => {
-        $( let mut $port = None; )+
-        for (id, v) in $inputs {
-            match id.as_ref() {
-                $($id_name => { $port =  Some(v); } ),+
-                _ => {}
-            }
-        }
-        $(let $port: &$crate::values::Value = $port.unwrap(); )+
-
-    }
-}

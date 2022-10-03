@@ -15,7 +15,7 @@ where
     })
 }
 
-pub(super) fn get_input<'a, S>(
+pub(super) fn get_inputs<'a, S>(
     inputs: &[(calyx::ir::Id, &'a Value)],
     target: S,
 ) -> Option<&'a Value>
@@ -35,7 +35,7 @@ pub(super) fn get_input_unwrap<'a, S>(
 where
     S: AsRef<str>,
 {
-    get_input(inputs, target).unwrap()
+    get_inputs(inputs, target).unwrap()
 }
 
 /// A shift buffer of a fixed size
@@ -72,3 +72,35 @@ impl<T, const N: usize> ShiftBuffer<T, N> {
         }
     }
 }
+
+macro_rules! get_input {
+    ( $inputs:ident; $( $port:ident $([$ty:tt])? : $id_name:expr ),+ )  => {
+        $( let mut $port = None; )+
+        for (id, v) in $inputs {
+            match id.as_ref() {
+                $($id_name => { $port =  Some(v); } ),+
+                _ => {}
+            }
+        }
+        $( get_input!($port $(,$ty)? ); )+
+
+    };
+
+    ($port:ident) => {
+        let $port: &$crate::values::Value = $port.unwrap();
+    };
+
+    ($port:ident, bool) => {
+        let $port: bool = $port.unwrap().as_bool();
+    };
+
+    ($port:ident, u64) => {
+        let $port: u64 = $port.unwrap().as_u64();
+    };
+
+    ($port:ident, i64) => {
+        let $port: i64 = $port.unwrap().as_i64();
+    };
+}
+
+pub(crate) use get_input;
