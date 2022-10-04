@@ -1611,7 +1611,8 @@ checksum = "936e4b492acfd135421d8dca4b1aa80a7bfc26e702ef3af710e0752684df5372"
 [[package]]
 name = "vast"
 version = "0.3.1"
-source = "git+https://github.com/vegaluisjose/vast?rev=27f3873#27f3873730cbbea38e4481ef91bd7f1d14ebebd0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3026adf3ee343b723a373e7456c2812f15ac5294725fc562107286f434b96fc"
 dependencies = [
  "itertools 0.9.0",
  "pretty",

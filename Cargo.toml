@@ -17,7 +17,7 @@ pest = "2.0"
 itertools = "0.9.0"
 atty = "0.2.14"
 argh = "0.1"
-vast = { git = "https://github.com/vegaluisjose/vast", rev = "27f3873" }
+vast = "0.3.1"
 serde = "1.0.129"
 quick-xml = { version = "0.22.0", default-features = false, features = ["serialize"] }
 log = "0.4.14"
