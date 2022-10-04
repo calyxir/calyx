@@ -23,9 +23,6 @@ pub trait Named {
 /// Roughly corresponds to the cells defined in the primitives library for the Calyx compiler.
 /// Primitives can be either stateful or combinational.
 pub trait Primitive: Named {
-    /// Does nothing for comb. prims; mutates internal state for stateful
-    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>>;
-
     /// Returns true if this primitive is combinational
     fn is_comb(&self) -> bool;
 
@@ -37,6 +34,9 @@ pub trait Primitive: Named {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>>;
+
+    /// Does nothing for comb. prims; mutates internal state for stateful
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>>;
 
     /// Execute the component.
     fn validate_and_execute(

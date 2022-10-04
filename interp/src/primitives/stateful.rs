@@ -2209,3 +2209,170 @@ impl<const FP: bool> Primitive for StdSqrt<FP> {
         ])
     }
 }
+
+enum SeqMemAction<T> {
+    None,
+    Read(T),
+    Write(T, Value),
+    Reset,
+}
+
+impl<T> Default for SeqMemAction<T> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl<T> SeqMemAction<T> {
+    #[inline]
+    fn take(&mut self) -> Self {
+        std::mem::take(self)
+    }
+
+    fn clear(&mut self) {
+        *self = Self::None
+    }
+}
+
+pub struct SeqMemD1 {
+    // parameters
+    width: u64,
+    size: u64,
+    idx_size: u64,
+    // Internal Details
+    data: Vec<Value>,
+    full_name: ir::Id,
+    allow_invalid_memory_access: bool,
+    // I/O
+    read_out: Value,
+    read_en: bool,
+    write_en: bool,
+    reset_signal: bool,
+    update: SeqMemAction<u64>,
+}
+impl Named for SeqMemD1 {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
+    }
+}
+
+impl Primitive for SeqMemD1 {
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            addr0: self.idx_size,
+            read_en: 1,
+            write_en: 1,
+            reset: 1,
+            r#in: self.width
+        ]
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_input![inputs;
+            read_en [bool]: "read_en",
+            write_en [bool]: "write_en",
+            reset [bool]: "reset",
+            addr0 [u64]: "addr0",
+            input: "in"
+        ];
+
+        self.read_en = read_en;
+        self.write_en = write_en;
+        self.reset_signal = reset;
+
+        self.update = if reset {
+            SeqMemAction::Reset
+        } else if write_en && read_en {
+            SeqMemAction::None
+        } else if write_en {
+            SeqMemAction::Write(addr0, input.clone())
+        } else if read_en {
+            SeqMemAction::Read(addr0)
+        } else {
+            SeqMemAction::None
+        };
+
+        // nothing on comb path
+        Ok(vec![])
+    }
+
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        if self.read_en && self.write_en {
+            return Err(InterpreterError::SeqMemoryError);
+        }
+        match self.update.take() {
+            SeqMemAction::Read(idx) => {
+                if idx >= self.size && self.allow_invalid_memory_access {
+                    self.read_out = Value::zeroes(self.width)
+                } else if idx >= self.size {
+                    return Err(InterpreterError::InvalidMemoryAccess {
+                        access: vec![idx],
+                        dims: vec![self.size],
+                        name: self.full_name.clone(),
+                    });
+                } else {
+                    self.read_out = self.data[idx as usize].clone()
+                }
+
+                Ok(vec![
+                    ("out".into(), self.read_out.clone()),
+                    ("read_done".into(), Value::bit_high()),
+                    ("write_done".into(), Value::bit_low()),
+                ])
+            }
+            SeqMemAction::Write(idx, v) => {
+                if idx >= self.size && self.allow_invalid_memory_access {
+                    self.read_out = v;
+                } else if idx >= self.size {
+                    return Err(InterpreterError::InvalidMemoryAccess {
+                        access: vec![idx],
+                        dims: vec![self.size],
+                        name: self.full_name.clone(),
+                    });
+                } else {
+                    self.data[idx as usize] = v.clone();
+                    self.read_out = v;
+                }
+
+                Ok(vec![
+                    ("out".into(), self.read_out.clone()),
+                    ("read_done".into(), Value::bit_low()),
+                    ("write_done".into(), Value::bit_high()),
+                ])
+            }
+            SeqMemAction::Reset => {
+                self.read_out = Value::zeroes(self.width);
+                Ok(vec![
+                    ("out".into(), self.read_out.clone()),
+                    ("read_done".into(), Value::bit_low()),
+                    ("write_done".into(), Value::bit_low()),
+                ])
+            }
+            SeqMemAction::None => Ok(vec![
+                ("out".into(), self.read_out.clone()),
+                ("read_done".into(), Value::bit_low()),
+                ("write_done".into(), Value::bit_low()),
+            ]),
+        }
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.update.clear();
+
+        Ok(vec![
+            ("out".into(), self.read_out.clone()),
+            ("read_done".into(), Value::bit_low()),
+            ("write_done".into(), Value::bit_low()),
+        ])
+    }
+}
