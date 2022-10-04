@@ -1,0 +1,69 @@
+import "primitives/core.futil";
+import "primitives/sync.futil";
+
+component main () -> () {
+  cells {
+    @external accm = std_mem_d1(32, 1, 1);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    r = std_reg(32);
+    idx = std_reg(3);
+    incr = std_add(3);
+    lt = std_lt(3);
+    no_use = std_reg(1);
+  }
+
+  wires {
+    group incr_idx {
+      incr.left = idx.out;
+      incr.right = 3'd1;
+      idx.in = incr.out;
+      idx.write_en = 1'd1;
+      incr_idx[done] = idx.done;
+    }
+
+    group add_r_to_accm {
+      add1.left = r.out;
+      add1.right = accm.read_data;
+      accm.write_en = 1'd1;
+      accm.write_data = add1.out;
+      accm.addr0 = 1'd0;
+      add_r_to_accm[done] = accm.done;
+    }
+
+    group incr_r {
+      add2.left = r.out;
+      add2.right = 32'd1;
+      r.in = add2.out;
+      r.write_en = 1'd1;
+      incr_r[done] = r.done;
+    }
+
+    comb group comp {
+      lt.left = idx.out;
+      lt.right = 3'd5;
+    }
+  }
+
+  control {
+    /// ANCHOR: control
+    par {
+      /// thread A
+      while lt.out with comp {
+        seq {
+          incr_idx;
+          add_r_to_accm;
+        }
+      }
+
+      /// thread B
+      while lt.out with comp {
+        seq {
+          incr_r;
+        }
+      }
+    }
+    /// ANCHOR_END: control
+  }
+
+}
