@@ -374,6 +374,24 @@ fn emit_guard_disjoint_check(
     Some(v::Sequential::If(check))
 }
 
+/// Checks if:
+/// 1. The port is marked with `@data`
+/// 2. The port's cell parent is marked with `@data`
+fn is_data_port(pr: &RRC<ir::Port>) -> bool {
+    let port = pr.borrow();
+    if !port.attributes.has("data") {
+        return false;
+    }
+    if let ir::PortParent::Cell(cwr) = &port.parent {
+        let cr = cwr.upgrade();
+        let cell = cr.borrow();
+        if cell.attributes.has("data") {
+            return true;
+        }
+    }
+    false
+}
+
 /// Generates an assign statement that uses ternaries to select the correct
 /// assignment to enable and adds a default assignment to 0 when none of the
 /// guards are active.
@@ -391,29 +409,51 @@ fn emit_guard_disjoint_check(
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
-    let dst = dst_ref.borrow();
-    let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
-
-    // Flatten the mux expression if there is exactly one assignment with a true guard.
-    let rhs = if assignments.len() == 1 {
-        let assign = assignments[0];
-        if assign.guard.is_true() {
-            port_to_ref(&assign.src)
-        } else if assign.src.borrow().is_constant(1, 1) {
-            guard_to_expr(&assign.guard)
-        } else {
-            v::Expr::new_mux(
-                guard_to_expr(&assign.guard),
-                port_to_ref(&assign.src),
-                init,
-            )
-        }
-    } else {
+    // Mux over the assignment with the given default value.
+    let fold_assigns = |init: v::Expr| -> v::Expr {
         assignments.iter().rfold(init, |acc, e| {
             let guard = guard_to_expr(&e.guard);
             let asgn = port_to_ref(&e.src);
             v::Expr::new_mux(guard, asgn, acc)
         })
+    };
+
+    // If this is a data port
+    let rhs: v::Expr = if is_data_port(dst_ref) {
+        if assignments.len() == 1 {
+            // If there is exactly one guard, generate a continuous assignment.
+            // This encodes the rewrite:
+            // in = g ? out : 'x => in = out;
+            // This is valid because 'x can be replaced with any value
+            let assign = assignments[0];
+            port_to_ref(&assign.src)
+        } else {
+            // Produce an assignment with 'x as the default case.
+            fold_assigns(v::Expr::X)
+        }
+    } else {
+        let init = v::Expr::new_ulit_dec(
+            dst_ref.borrow().width as u32,
+            &0.to_string(),
+        );
+
+        // Flatten the mux expression if there is exactly one assignment with a true guard.
+        if assignments.len() == 1 {
+            let assign = assignments[0];
+            if assign.guard.is_true() {
+                port_to_ref(&assign.src)
+            } else if assign.src.borrow().is_constant(1, 1) {
+                guard_to_expr(&assign.guard)
+            } else {
+                v::Expr::new_mux(
+                    guard_to_expr(&assign.guard),
+                    port_to_ref(&assign.src),
+                    init,
+                )
+            }
+        } else {
+            fold_assigns(init)
+        }
     };
     v::Parallel::ParAssign(port_to_ref(dst_ref), rhs)
 }
