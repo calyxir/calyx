@@ -140,6 +140,7 @@ def register_stages(registry):
     # Interpreter
     registry.register(interpreter.InterpreterStage("", "", "Run the interpreter"))
     registry.register(interpreter.InterpreterStage.debugger("", "", "Run the debugger"))
+    registry.register(interpreter.InterpreterStage.data_converter())
 
 
 def register_external_stages(cfg, registry):
