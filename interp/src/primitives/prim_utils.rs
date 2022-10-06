@@ -15,7 +15,7 @@ where
     })
 }
 
-pub(super) fn get_inputs<'a, S>(
+pub(super) fn get_input<'a, S>(
     inputs: &[(calyx::ir::Id, &'a Value)],
     target: S,
 ) -> Option<&'a Value>
@@ -35,7 +35,7 @@ pub(super) fn get_input_unwrap<'a, S>(
 where
     S: AsRef<str>,
 {
-    get_inputs(inputs, target).unwrap()
+    get_input(inputs, target).unwrap()
 }
 
 /// A shift buffer of a fixed size
@@ -73,7 +73,7 @@ impl<T, const N: usize> ShiftBuffer<T, N> {
     }
 }
 
-macro_rules! get_input {
+macro_rules! get_inputs {
     ( $inputs:ident; $( $port:ident $([$ty:tt])? : $id_name:expr ),+ )  => {
         $( let mut $port = None; )+
         for (id, v) in $inputs {
@@ -82,7 +82,7 @@ macro_rules! get_input {
                 _ => {}
             }
         }
-        $( get_input!($port $(,$ty)? ); )+
+        $( get_inputs!($port $(,$ty)? ); )+
 
     };
 
@@ -103,4 +103,19 @@ macro_rules! get_input {
     };
 }
 
-pub(crate) use get_input;
+macro_rules! get_params {
+    ($inputs:ident; $( $param:ident : $id_name:expr ),+ ) => {
+        $( let mut $param = None; )+
+        for (id, v) in $inputs {
+            match id.as_ref() {
+                $($id_name => {$param = Some(v);}), +
+                _ => {}
+            }
+        }
+        $(let $param: u64 = *$param.expect(format!("Missing parameter: {}", $id_name).as_ref()); )+
+    }
+}
+
+// export the macros for local use
+pub(crate) use get_inputs;
+pub(crate) use get_params;

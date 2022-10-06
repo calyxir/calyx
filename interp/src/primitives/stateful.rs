@@ -1,4 +1,4 @@
-use super::prim_utils::{get_input, get_param, ShiftBuffer};
+use super::prim_utils::{get_inputs, get_param, get_params, ShiftBuffer};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializable};
 use crate::errors::{InterpreterError, InterpreterResult};
@@ -172,7 +172,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -381,7 +381,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -521,7 +521,7 @@ impl Primitive for StdReg {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             input: "in",
             write_en: "write_en",
             reset: "reset"
@@ -731,7 +731,7 @@ impl Primitive for StdMemD1 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             input: "write_data",
             write_en: "write_en",
             addr0: "addr0"
@@ -991,7 +991,7 @@ impl Primitive for StdMemD2 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             input: "write_data",
             write_en: "write_en",
             addr0: "addr0",
@@ -1276,7 +1276,7 @@ impl Primitive for StdMemD3 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             input: "write_data",
             write_en: "write_en",
             addr0: "addr0",
@@ -1606,7 +1606,7 @@ impl Primitive for StdMemD4 {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             input: "write_data",
             write_en: "write_en",
             addr0: "addr0",
@@ -1855,7 +1855,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -2030,7 +2030,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -2181,7 +2181,7 @@ impl<const FP: bool> Primitive for StdSqrt<FP> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             in_val: "in",
             go: "go",
             reset: "reset"
@@ -2234,11 +2234,73 @@ impl<T> SeqMemAction<T> {
     }
 }
 
-pub struct SeqMemD1 {
+pub trait MemBinder: Sized {
+    fn new(params: &ir::Binding, full_name: ir::Id) -> Self;
+
+    fn get_idx(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+        allow_invalid_memory_access: bool,
+    ) -> InterpreterResult<u64>;
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]);
+}
+
+struct MemD1 {
+    size: u64,
+    idx_size: u64,
+    full_name: ir::Id,
+}
+
+impl MemBinder for MemD1 {
+    fn new(params: &ir::Binding, full_name: ir::Id) -> Self {
+        get_params![params;
+            // width: "WIDTH",
+            size: "SIZE",
+            idx_size: "IDX_SIZE"
+        ];
+
+        Self {
+            size,
+            idx_size,
+            full_name,
+        }
+    }
+
+    fn get_idx(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+        allow_invalid_memory_access: bool,
+    ) -> InterpreterResult<u64> {
+        let idx = inputs
+            .iter()
+            .find(|(id, _)| id == "addr0")
+            .unwrap()
+            .1
+            .as_u64();
+
+        if idx >= self.size && !allow_invalid_memory_access {
+            Err(InterpreterError::InvalidMemoryAccess {
+                access: vec![idx],
+                dims: vec![self.size],
+                name: self.full_name.clone(),
+            })
+        } else {
+            Ok(idx)
+        }
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            addr0: self.idx_size
+        ]
+    }
+}
+pub struct SeqMem<T: MemBinder> {
+    mem_binder: T,
     // parameters
     width: u64,
     size: u64,
-    idx_size: u64,
     // Internal Details
     data: Vec<Value>,
     full_name: ir::Id,
@@ -2248,53 +2310,55 @@ pub struct SeqMemD1 {
     read_en: bool,
     write_en: bool,
     reset_signal: bool,
-    update: SeqMemAction<u64>,
+    update: SeqMemAction<InterpreterResult<u64>>,
 }
-impl Named for SeqMemD1 {
+impl<T: MemBinder> Named for SeqMem<T> {
     fn get_full_name(&self) -> &ir::Id {
         &self.full_name
     }
 }
 
-impl Primitive for SeqMemD1 {
+impl<T: MemBinder> Primitive for SeqMem<T> {
     fn is_comb(&self) -> bool {
         false
     }
 
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         validate![inputs;
-            addr0: self.idx_size,
             read_en: 1,
             write_en: 1,
             reset: 1,
             r#in: self.width
-        ]
+        ];
+        self.mem_binder.validate(inputs);
     }
 
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             read_en [bool]: "read_en",
             write_en [bool]: "write_en",
             reset [bool]: "reset",
-            addr0 [u64]: "addr0",
             input: "in"
         ];
 
         self.read_en = read_en;
         self.write_en = write_en;
         self.reset_signal = reset;
+        let idx = self
+            .mem_binder
+            .get_idx(inputs, self.allow_invalid_memory_access);
 
         self.update = if reset {
             SeqMemAction::Reset
         } else if write_en && read_en {
             SeqMemAction::None
         } else if write_en {
-            SeqMemAction::Write(addr0, input.clone())
+            SeqMemAction::Write(idx, input.clone())
         } else if read_en {
-            SeqMemAction::Read(addr0)
+            SeqMemAction::Read(idx)
         } else {
             SeqMemAction::None
         };
@@ -2309,14 +2373,9 @@ impl Primitive for SeqMemD1 {
         }
         match self.update.take() {
             SeqMemAction::Read(idx) => {
-                if idx >= self.size && self.allow_invalid_memory_access {
+                let idx = idx?;
+                if idx >= self.size {
                     self.read_out = Value::zeroes(self.width)
-                } else if idx >= self.size {
-                    return Err(InterpreterError::InvalidMemoryAccess {
-                        access: vec![idx],
-                        dims: vec![self.size],
-                        name: self.full_name.clone(),
-                    });
                 } else {
                     self.read_out = self.data[idx as usize].clone()
                 }
@@ -2328,14 +2387,9 @@ impl Primitive for SeqMemD1 {
                 ])
             }
             SeqMemAction::Write(idx, v) => {
-                if idx >= self.size && self.allow_invalid_memory_access {
+                let idx = idx?;
+                if idx >= self.size {
                     self.read_out = v;
-                } else if idx >= self.size {
-                    return Err(InterpreterError::InvalidMemoryAccess {
-                        access: vec![idx],
-                        dims: vec![self.size],
-                        name: self.full_name.clone(),
-                    });
                 } else {
                     self.data[idx as usize] = v.clone();
                     self.read_out = v;
