@@ -120,19 +120,19 @@ can be shared.
 ### `state_share`
 Can be attached to a component and indicates that a component can be shared
 across groups. Different than `share` since `state_share` components can have
-internal state.  
+internal state.
 This is used by `-p cell-share` to decide which components can be shared.
-Specifically, a component is state shareable if each write to 
-that component makes any previous writes to the component irrelevant. 
-The definition of a "write to a component" is an activiation of 
-the component's "go" port, followed by a read of the component's "done" port (in 
-other words, the read of a "done" port still counts as part of a "write" to the 
+Specifically, a component is state shareable if each write to
+that component makes any previous writes to the component irrelevant.
+The definition of a "write to a component" is an activiation of
+the component's "go" port, followed by a read of the component's "done" port (in
+other words, the read of a "done" port still counts as part of a "write" to the
 component).
 For `c1` and `c2`, instances of a state_shareable component:
 instantiate `c1`                        instantiate `c2`
-*any write to `c1`*                     *any write to `c2`*   
-*write value `v` to port `p` in `c1`*   *write value `v` to port `p` in `c2`*   
-`c1` and `c2` should be equal.  
+*any write to `c1`*                     *any write to `c2`*
+*write value `v` to port `p` in `c1`*   *write value `v` to port `p` in `c2`*
+`c1` and `c2` should be equal.
 
 ### `bound(n)`
 Used in `infer-static-timing` and `static-timing` when the number of iterations
@@ -180,5 +180,26 @@ primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
 This requires that when `read_data` is used then `addr0` must be driven.
 Note that each group must have exactly one output port in it.
 
+### `@data`
 
+Marks a cell or a port as a *purely datapath* component, i.e., the output does not propagate into a guard or another control signal. See [this issue][datapath-components] for the full set of constraints.
+
+When we have following two conditions:
+1. An input port is marked with `@data` in the component definitions, and
+2. The cell instance is marked as `@data`
+
+The backend generate `'x` as the default value for the assignment to the port instead of `'0`. Additionally, if the port has exactly one assignment, the backend removes the guard entirely and produces a continuous assignment.
+
+This represents the optimization:
+```
+in = g ? out : 'x
+```
+into:
+```
+in = out;
+```
+Since the value `'x` can be replaced with anything.
+
+
+[datapath-components]: https://github.com/cucapra/calyx/issues/1169
 [builder]: https://docs.calyxir.org/source/calyx/ir/struct.Builder.html
