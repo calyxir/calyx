@@ -1,6 +1,5 @@
 import cocotb
 import os
-import logging
 
 
 @cocotb.test()
