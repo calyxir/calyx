@@ -12,7 +12,7 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     apt-get install -y jq python3.9 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake
 
 # Install python dependencies
-RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
+RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb
 
 # Clone the Calyx repository
 WORKDIR /home
@@ -26,6 +26,8 @@ WORKDIR /home/verilator
 RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
+WORKDIR /home
+RUN apt-get install iverilog
 
 # Install Dahlia
 WORKDIR /home
