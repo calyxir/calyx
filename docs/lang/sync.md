@@ -53,7 +53,7 @@ thread A never arrives at the "barrier".
 
 ## More Complex Example
 If you want to see a more complex design using `@sync`, see 
-[sync-dot-product](../../tests/correctness/sync/sync-dot-product.futil)
+[sync-dot-product](https://github.com/cucapra/calyx/blob/master/tests/correctness/sync/sync-dot-product.futil)
 
 ## Limitations
 
