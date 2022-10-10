@@ -27,7 +27,7 @@ RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
 WORKDIR /home
-RUN apt-get install iverilog
+RUN apt-get update && apt-get install -y iverilog
 
 # Install Dahlia
 WORKDIR /home
