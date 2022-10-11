@@ -3,7 +3,7 @@ use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use crate::ir::{self, CloneName, LibrarySignatures};
+use crate::ir::{self, CloneName, LibrarySignatures, CellType};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
@@ -82,11 +82,11 @@ impl Visitor for Papercut {
         &mut self,
         comp: &mut ir::Component,
         _ctx: &LibrarySignatures,
-        _comps: &[ir::Component],
+        comps: &[ir::Component],
     ) -> VisResult {
         // If the component isn't marked "nointerface", it should have an invokable
         // interface.
-        if !comp.attributes.has("nointerface") {
+        if !comp.attributes.has("nointerface") && !comp.is_comb {
             // If the control program is empty, check that the `done` signal has been assigned to.
             if let ir::Control::Empty(..) = *comp.control.borrow() {
                 let done_use =
@@ -98,6 +98,26 @@ impl Visitor for Papercut {
                     });
                 if done_use.is_none() {
                     return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the `done` port. Without an assignment to the `done`, the component cannot return control flow.", comp.name)).with_pos(&comp.name));
+                }
+            }
+        }
+
+        // If the component is combinational, make sure all cells are also combinational
+        if comp.is_comb {
+            for cell_ref in comp.cells.iter() {
+                let cell = cell_ref.borrow();
+                let is_comb = match &cell.prototype {
+                    CellType::Primitive { is_comb, .. } => is_comb.to_owned(),
+                    CellType::Constant { .. } => true,
+                    CellType::Component { name } => {
+                        let comp_idx = comps.iter().position(|x| x.name == name).unwrap();
+                        let comp = comps.get(comp_idx).expect("Found cell that does not exist");
+                        comp.is_comb
+                    },
+                    _ => false,
+                };
+                if !is_comb {
+                    return Err(Error::papercut(format!("Component `{}` is marked combinational but contains non-combinational cells.", comp.name)).with_pos(&comp.name));
                 }
             }
         }
