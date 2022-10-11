@@ -36,11 +36,11 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
         # The exact same operations are done on names of variables in relay_visitor.py
         name_hint = name.replace(".", "_")
         name_hint = name_hint.replace("/", "_")
-
         if (name_hint.isdigit()):
             name_hint = "var_" + name_hint
         if (name_hint in ["input"]):
             name_hint = "_" + name_hint
+
         data[name_hint] = {
             "data": value.asnumpy().tolist(),
             "format": {

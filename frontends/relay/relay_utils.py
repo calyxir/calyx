@@ -11,9 +11,9 @@ from dataclasses import dataclass
 NumDimsToCell = {
     0: Stdlib().register,
     1: Stdlib().seq_mem_d1,
-    2: Stdlib().mem_d2,
-    3: Stdlib().mem_d3,
-    4: Stdlib().mem_d4,
+    2: Stdlib().seq_mem_d2,
+    3: Stdlib().seq_mem_d3,
+    4: Stdlib().seq_mem_d4,
 }
 
 # Suffix appended to memories by Dahlia when lowering.
@@ -21,9 +21,9 @@ DahliaSuffix = {
     "std_const": "",
     "std_reg": "",
     "seq_mem_d1": "0",
-    "std_mem_d2": "0_0",
-    "std_mem_d3": "0_0_0",
-    "std_mem_d4": "0_0_0_0",
+    "seq_mem_d2": "0_0",
+    "seq_mem_d3": "0_0_0",
+    "seq_mem_d4": "0_0_0_0",
 }
 
 
