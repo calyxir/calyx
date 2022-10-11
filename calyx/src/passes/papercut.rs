@@ -3,7 +3,7 @@ use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use crate::ir::{self, CloneName, LibrarySignatures, CellType};
+use crate::ir::{self, CellType, CloneName, LibrarySignatures};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
@@ -110,10 +110,13 @@ impl Visitor for Papercut {
                     CellType::Primitive { is_comb, .. } => is_comb.to_owned(),
                     CellType::Constant { .. } => true,
                     CellType::Component { name } => {
-                        let comp_idx = comps.iter().position(|x| x.name == name).unwrap();
-                        let comp = comps.get(comp_idx).expect("Found cell that does not exist");
+                        let comp_idx =
+                            comps.iter().position(|x| x.name == name).unwrap();
+                        let comp = comps
+                            .get(comp_idx)
+                            .expect("Found cell that does not exist");
                         comp.is_comb
-                    },
+                    }
                     _ => false,
                 };
                 if !is_comb {

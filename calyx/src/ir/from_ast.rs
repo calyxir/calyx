@@ -229,7 +229,8 @@ fn build_component(
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
-    let mut ir_component = Component::new(comp.name, comp.signature, comp.is_comb);
+    let mut ir_component =
+        Component::new(comp.name, comp.signature, comp.is_comb);
     let mut builder =
         Builder::new(&mut ir_component, &sig_ctx.lib).not_generated();
 

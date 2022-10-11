@@ -60,7 +60,11 @@ pub struct ComponentDef {
 }
 
 impl ComponentDef {
-    pub fn new<S>(name: S, is_comb: bool, signature: Vec<ir::PortDef<u64>>) -> Self
+    pub fn new<S>(
+        name: S,
+        is_comb: bool,
+        signature: Vec<ir::PortDef<u64>>,
+    ) -> Self
     where
         S: Into<ir::Id>,
     {

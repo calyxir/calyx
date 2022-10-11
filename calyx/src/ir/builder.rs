@@ -193,7 +193,7 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             CellType::Component {
-                name: component.into()
+                name: component.into(),
             },
             sig,
         );
