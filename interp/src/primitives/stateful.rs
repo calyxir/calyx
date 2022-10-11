@@ -2244,8 +2244,11 @@ pub trait MemBinder: Sized {
     ) -> InterpreterResult<u64>;
 
     fn validate(&self, inputs: &[(ir::Id, &Value)]);
+
+    fn get_dimensions(&self) -> Shape;
 }
 
+use super::primitive::Shape;
 struct MemD1 {
     size: u64,
     idx_size: u64,
@@ -2294,6 +2297,10 @@ impl MemBinder for MemD1 {
         validate![inputs;
             addr0: self.idx_size
         ]
+    }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D1((self.size as usize,))
     }
 }
 
@@ -2352,6 +2359,10 @@ impl MemBinder for MemD2 {
             addr0: self.d0_idx_size,
             addr1: self.d1_idx_size
         ]
+    }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D2((self.d0_size as usize, self.d1_size as usize))
     }
 }
 
@@ -2419,6 +2430,14 @@ impl MemBinder for MemD3 {
             addr1: self.d1_idx_size,
             addr2: self.d2_idx_size
         ]
+    }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D3((
+            self.d0_size as usize,
+            self.d1_size as usize,
+            self.d2_size as usize,
+        ))
     }
 }
 
@@ -2503,13 +2522,21 @@ impl MemBinder for MemD4 {
             addr3: self.d3_idx_size
         ]
     }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D4((
+            self.d0_size as usize,
+            self.d1_size as usize,
+            self.d2_size as usize,
+            self.d3_size as usize,
+        ))
+    }
 }
 
 pub struct SeqMem<T: MemBinder> {
     mem_binder: T,
     // parameters
     width: u64,
-    size: u64,
     // Internal Details
     data: Vec<Value>,
     full_name: ir::Id,
@@ -2583,7 +2610,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
         match self.update.take() {
             SeqMemAction::Read(idx) => {
                 let idx = idx?;
-                if idx >= self.size {
+                if idx >= self.data.len() as u64 {
                     self.read_out = Value::zeroes(self.width)
                 } else {
                     self.read_out = self.data[idx as usize].clone()
@@ -2597,7 +2624,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
             }
             SeqMemAction::Write(idx, v) => {
                 let idx = idx?;
-                if idx >= self.size {
+                if idx >= self.data.len() as u64 {
                     self.read_out = v;
                 } else {
                     self.data[idx as usize] = v.clone();
@@ -2637,5 +2664,21 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
             ("read_done".into(), Value::bit_low()),
             ("write_done".into(), Value::bit_low()),
         ])
+    }
+
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
+        let code = code.unwrap_or_default();
+
+        Serializable::Array(
+            self.data
+                .iter()
+                .map(|x| Entry::from_val_code(x, &code))
+                .collect(),
+            self.mem_binder.get_dimensions(),
+        )
+    }
+
+    fn has_serializeable_state(&self) -> bool {
+        true
     }
 }
