@@ -425,6 +425,12 @@ impl Value {
         }
     }
 
+    pub fn truncate_in_place(&mut self, new_size: usize) {
+        Rc::make_mut(&mut self.vec).truncate(new_size);
+        self.signed = Default::default();
+        self.unsigned = Unsigned::default();
+    }
+
     /// Zero-extend the vector to length ext.
     ///
     /// # Example:

@@ -2593,6 +2593,42 @@ impl<T: MemBinder> SeqMem<T> {
             update: SeqMemAction::None,
         }
     }
+
+    pub fn from_initial_mem(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+        initial: Vec<Value>,
+    ) -> InterpreterResult<Self> {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let size = mem_binder.get_array_length();
+
+        if initial.len() != size {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: mem_binder.get_dimensions().dim_str(),
+                expected: size as u64,
+                given: initial.len(),
+            });
+        }
+
+        let mut data = initial;
+        for val in data.iter_mut() {
+            val.truncate_in_place(width as usize);
+        }
+
+        Ok(Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            read_out: Value::zeroes(width),
+            update: SeqMemAction::None,
+        })
+    }
 }
 impl<T: MemBinder> Named for SeqMem<T> {
     fn get_full_name(&self) -> &ir::Id {

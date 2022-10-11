@@ -86,6 +86,15 @@ impl Shape {
     fn is_1d(&self) -> bool {
         matches!(self, Shape::D1(_))
     }
+
+    pub(crate) fn dim_str(&self) -> String {
+        match self {
+            Shape::D1(_) => String::from("1D"),
+            Shape::D2(_) => String::from("2D"),
+            Shape::D3(_) => String::from("3D"),
+            Shape::D4(_) => String::from("4D"),
+        }
+    }
 }
 impl From<usize> for Shape {
     fn from(u: usize) -> Self {
