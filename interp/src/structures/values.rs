@@ -571,7 +571,7 @@ impl Value {
             Value::signed_value_fits_in(&self.vec, 64),
             "Cannot fit value into an i64"
         );
-        let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
+        let init = if *self.vec.last().unwrap() { -1 } else { 0 };
         self.vec.iter().enumerate().take(64).fold(
             init,
             |acc, (idx, bit)| -> i64 {
@@ -595,7 +595,7 @@ impl Value {
             Value::signed_value_fits_in(&self.vec, 128),
             "Cannot fit value into an i128"
         );
-        let init = if *(&self.vec).last().unwrap() { -1 } else { 0 };
+        let init = if *self.vec.last().unwrap() { -1 } else { 0 };
         self.vec.iter().enumerate().take(128).fold(
             init,
             |acc, (idx, bit)| -> i128 {
