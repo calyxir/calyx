@@ -74,6 +74,15 @@ impl<T, const N: usize> ShiftBuffer<T, N> {
 }
 
 macro_rules! get_inputs {
+    ( $inputs:ident; $port:ident $([$ty:tt])? : $id_name:expr )  => {
+        let $port = $inputs
+                        .iter()
+                        .find(|(id, _)| id == $id_name)
+                        .map(|x| x.1);
+
+        get_inputs!($port $(,$ty)? );
+    };
+
     ( $inputs:ident; $( $port:ident $([$ty:tt])? : $id_name:expr ),+ )  => {
         $( let mut $port = None; )+
         for (id, v) in $inputs {

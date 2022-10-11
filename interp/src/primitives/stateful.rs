@@ -555,6 +555,14 @@ impl Primitive for StdReg {
     }
 }
 
+enum StdMemAction {
+    None,
+    Read(u64),
+    Write(u64, Value),
+}
+
+// struct StdMem<T: MemBinder> {}
+
 /// A one-dimensional memory. Initialized with
 /// StdMemD1.new(WIDTH, SIZE, IDX_SIZE) where:
 /// * WIDTH - Size of an individual memory slot.
@@ -2215,6 +2223,7 @@ enum SeqMemAction<T> {
     Read(T),
     Write(T, Value),
     Reset,
+    Error,
 }
 
 impl<T> Default for SeqMemAction<T> {
@@ -2246,6 +2255,8 @@ pub trait MemBinder: Sized {
     fn validate(&self, inputs: &[(ir::Id, &Value)]);
 
     fn get_dimensions(&self) -> Shape;
+
+    fn get_array_length(&self) -> usize;
 }
 
 use super::primitive::Shape;
@@ -2275,12 +2286,9 @@ impl MemBinder for MemD1 {
         inputs: &[(ir::Id, &Value)],
         allow_invalid_memory_access: bool,
     ) -> InterpreterResult<u64> {
-        let idx = inputs
-            .iter()
-            .find(|(id, _)| id == "addr0")
-            .unwrap()
-            .1
-            .as_u64();
+        get_inputs![inputs;
+            idx [u64]: "addr0"
+        ];
 
         if idx >= self.size && !allow_invalid_memory_access {
             Err(InterpreterError::InvalidMemoryAccess {
@@ -2301,6 +2309,10 @@ impl MemBinder for MemD1 {
 
     fn get_dimensions(&self) -> Shape {
         Shape::D1((self.size as usize,))
+    }
+
+    fn get_array_length(&self) -> usize {
+        self.size as usize
     }
 }
 
@@ -2363,6 +2375,10 @@ impl MemBinder for MemD2 {
 
     fn get_dimensions(&self) -> Shape {
         Shape::D2((self.d0_size as usize, self.d1_size as usize))
+    }
+
+    fn get_array_length(&self) -> usize {
+        (self.d0_size * self.d1_size) as usize
     }
 }
 
@@ -2438,6 +2454,10 @@ impl MemBinder for MemD3 {
             self.d1_size as usize,
             self.d2_size as usize,
         ))
+    }
+
+    fn get_array_length(&self) -> usize {
+        (self.d0_size * self.d1_size * self.d2_size) as usize
     }
 }
 
@@ -2531,6 +2551,10 @@ impl MemBinder for MemD4 {
             self.d3_size as usize,
         ))
     }
+
+    fn get_array_length(&self) -> usize {
+        (self.d0_size * self.d1_size * self.d2_size * self.d3_size) as usize
+    }
 }
 
 pub struct SeqMem<T: MemBinder> {
@@ -2543,10 +2567,32 @@ pub struct SeqMem<T: MemBinder> {
     allow_invalid_memory_access: bool,
     // I/O
     read_out: Value,
-    read_en: bool,
-    write_en: bool,
-    reset_signal: bool,
     update: SeqMemAction<InterpreterResult<u64>>,
+}
+
+impl<T: MemBinder> SeqMem<T> {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> Self {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let data =
+            vec![Value::zeroes(width as usize); mem_binder.get_array_length()];
+
+        Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            read_out: Value::zeroes(width),
+            update: SeqMemAction::None,
+        }
+    }
 }
 impl<T: MemBinder> Named for SeqMem<T> {
     fn get_full_name(&self) -> &ir::Id {
@@ -2580,9 +2626,6 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
             input: "in"
         ];
 
-        self.read_en = read_en;
-        self.write_en = write_en;
-        self.reset_signal = reset;
         let idx = self
             .mem_binder
             .get_idx(inputs, self.allow_invalid_memory_access);
@@ -2590,7 +2633,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
         self.update = if reset {
             SeqMemAction::Reset
         } else if write_en && read_en {
-            SeqMemAction::None
+            SeqMemAction::Error
         } else if write_en {
             SeqMemAction::Write(idx, input.clone())
         } else if read_en {
@@ -2604,16 +2647,13 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
     }
 
     fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        if self.read_en && self.write_en {
-            return Err(InterpreterError::SeqMemoryError);
-        }
         match self.update.take() {
             SeqMemAction::Read(idx) => {
-                let idx = idx?;
-                if idx >= self.data.len() as u64 {
+                let idx = idx? as usize;
+                if idx >= self.data.len() {
                     self.read_out = Value::zeroes(self.width)
                 } else {
-                    self.read_out = self.data[idx as usize].clone()
+                    self.read_out = self.data[idx].clone()
                 }
 
                 Ok(vec![
@@ -2623,11 +2663,11 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
                 ])
             }
             SeqMemAction::Write(idx, v) => {
-                let idx = idx?;
-                if idx >= self.data.len() as u64 {
+                let idx = idx? as usize;
+                if idx >= self.data.len() {
                     self.read_out = v;
                 } else {
-                    self.data[idx as usize] = v.clone();
+                    self.data[idx] = v.clone();
                     self.read_out = v;
                 }
 
@@ -2650,6 +2690,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
                 ("read_done".into(), Value::bit_low()),
                 ("write_done".into(), Value::bit_low()),
             ]),
+            SeqMemAction::Error => Err(InterpreterError::SeqMemoryError),
         }
     }
 
