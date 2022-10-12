@@ -27,6 +27,26 @@ from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
 from dahlia_impl import emit_components
 
+calyx_keywords_list = ["input"]
+
+
+def rename_relay_var(name: str) -> str:
+    '''
+    Function to rename relay variable names (that are illegal in Calyx) into legal
+    ones. This function is to ensure a consistent standard for renaming, since
+    we want to make sure that the cell names in the external memory json match the
+    name they are instantiated as in the Calyx file
+    '''
+    new_name = name.replace(".", "_")
+    new_name = new_name.replace("/", "_")
+
+    if new_name.isdigit():
+        new_name = "var_" + new_name
+    if new_name in calyx_keywords_list:
+        new_name = "_" + new_name
+
+    return new_name
+
 
 class Relay2Calyx(ExprFunctor):
     """The main compilation visitor."""
@@ -60,16 +80,17 @@ class Relay2Calyx(ExprFunctor):
 
         self.pos_count = 0
 
-        # cannot name variables any of the following words
-        # we can add to this list as needed
-        self.calyx_keywords = ["input"]
-
         self.source_map: Dict[str, str] = {}
 
         # for let stmts such as `let %x13: (_,_) = (%x9, %x12)
         # if %x9 is equal to some memory mem9, and %x12 is equal to some memory mem12
         # this maps the var %x13 -> [mem9, mem12]
         self.tuple_dic = {}
+
+        # for let stmts such as `let %x_10 =  meta[relay.Constant][0]`,
+        # which is a multidimensional value, we need a dic to remember such
+        # statements so that we can put it in the data json file
+        self.mem_data = {}
 
     def id(self, name):
         """
@@ -102,14 +123,8 @@ class Relay2Calyx(ExprFunctor):
         if isinstance(var.type_annotation, tvm.ir.type.TupleType):
             # returns a list of names instead
             assert 0, "should have been added to tuple_dic when defined in a let stmt"
-        name_hint = var.name_hint.replace(".", "_")
-        name_hint = name_hint.replace("/", "_")
 
-        if (name_hint.isdigit()):
-            name_hint = "var_" + name_hint
-        if (name_hint in self.calyx_keywords):
-            name_hint = "_" + name_hint
-        var_id = self.id(name_hint)
+        var_id = self.id(rename_relay_var(var.name_hint))
         cell = ru.get_memory(var_id, var.type_annotation)
         if var.type_annotation.concrete_shape:
             # Only add the given variable if it is a tensor.
@@ -151,6 +166,16 @@ class Relay2Calyx(ExprFunctor):
         let statements. Should only call when value is a Constant or a Call
         '''
         if isinstance(value, tvm.relay.Constant):
+            # In the updated version of TVM, sometimes there are assignments
+            # in the form of `let %x_10 = meta[relay.Constant][0]`
+            # We need to handle remember this data in a dictionary since Calyx
+            # will get these values externally in a json file
+            for dim_val in value.data.shape:
+                if dim_val != 1:
+                    np_data = value.data.numpy()
+                    self.mem_data[dest.id.name] = np_data
+                    return
+
             # Generates a constant primitive.
             # This is done here since we need
             # both the variable id and the value.
@@ -158,7 +183,7 @@ class Relay2Calyx(ExprFunctor):
 
             if "float" in value.data.dtype:
                 # Convert to fixed point.
-                constant = float_to_fixed_point(value.data.asnumpy(), width // 2)
+                constant = float_to_fixed_point(value.data.numpy(), width // 2)
                 val = numeric_types.FixedPoint(
                     f"{constant}", width, width // 2, True
                 ).unsigned_integer()
@@ -196,6 +221,7 @@ class Relay2Calyx(ExprFunctor):
             root_name = f"{func_name}_{dims}"
 
             is_repeat_func = False
+
             # If we want to "reuse" a Dahlia function so that we're only generating
             # one Calyx component, when we create the invoke we have
             # to make sure that we use the old names for the parameters
@@ -238,7 +264,7 @@ class Relay2Calyx(ExprFunctor):
             self.id_to_cell[var_name] = Cell(comp_decl, comp_inst)
 
             # the parameters old_func_args and old_dest are what determines whether
-            # the invoke is a "new" invoke or an invoke of an already defined
+            # ru.emit_invoke_control emits a "new" invoke or an invoke of an already defined
             # Calyx component/Dahlia function
             invoke = ru.emit_invoke_control(
                 comp_decl, dest, value.args, old_args=old_func_args, old_dest=old_dest)
@@ -291,7 +317,7 @@ class Relay2Calyx(ExprFunctor):
             # need to do this bc visit_var now returns a list
             for dest in value:
                 assert isinstance(dest, list) and isinstance(
-                    dest[0], Cell), "Currently tuples in let value must evaluate to cells"
+                    dest[0], Cell), "Tuples in let value must evaluate to cells"
                 unnested_values.append(dest[0])
             # doesn't do anything just increments id by 1 so that we can
             # compare the names the generated Calyx/Dahlia files with the
@@ -386,6 +412,7 @@ def relay_transforms(mod) -> Function:
     if isinstance(mod, relay.Function):
         mod = tvm.IRModule.from_expr(mod)
     mod = transforms(mod)
+
     return mod["main"]
 
 
@@ -443,15 +470,26 @@ def get_program_dat_memories(relay_ir):
 
     memories = {}
     for id, shape in visitor.id_to_shape.items():
-        memories[id] = {
-            "data": np.zeros(shape).tolist(),
-            "format": {
-                "numeric_type": "fixed_point",
-                "is_signed": True,
-                "width": 32,
-                "frac_width": 16,
-            },
-        }
+        if id in visitor.mem_data.keys():
+            memories[id] = {
+                "data": visitor.mem_data[id].tolist(),
+                "format": {
+                    "numeric_type": "fixed_point",
+                    "is_signed": True,
+                    "width": 32,
+                    "frac_width": 16,
+                },
+            }
+        else:
+            memories[id] = {
+                "data": np.zeros(shape).tolist(),
+                "format": {
+                    "numeric_type": "fixed_point",
+                    "is_signed": True,
+                    "width": 32,
+                    "frac_width": 16,
+                },
+            }
 
     return memories
 
