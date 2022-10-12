@@ -4,9 +4,9 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component conv2d_5x512x14x14() -> () {
   cells {
-    ref data0_0_0_0 = std_mem_d4(32,5,512,14,14,3,10,4,4);
-    ref weight0_0_0_0 = std_mem_d4(32,512,512,3,3,10,10,2,2);
-    ref x0_0_0_0 = std_mem_d4(32,5,512,14,14,3,10,4,4);
+    ref data0_0_0_0 = seq_mem_d4(32,5,512,14,14,3,10,4,4);
+    ref weight0_0_0_0 = seq_mem_d4(32,512,512,3,3,10,10,2,2);
+    ref x0_0_0_0 = seq_mem_d4(32,5,512,14,14,3,10,4,4);
     __b0 = std_reg(32);
     __c0 = std_reg(32);
     __dx0 = std_reg(32);
@@ -224,8 +224,8 @@ component conv2d_5x512x14x14() -> () {
       add0.left = bin_read0_0.out;
       add0.right = __dy0.out;
     }
-    group upd0<"static"=1> {
-      data_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      data_read0_0.write_en = data0_0_0_0.read_done;
       data0_0_0_0.addr3 = slice3.out;
       slice3.in = sub1.out;
       sub1.left = __kernel_x_0.out;
@@ -238,7 +238,8 @@ component conv2d_5x512x14x14() -> () {
       slice1.in = __k0.out;
       data0_0_0_0.addr0 = slice0.out;
       slice0.in = __b0.out;
-      data_read0_0.in = data0_0_0_0.read_data;
+      data0_0_0_0.read_en = 1'd1;
+      data_read0_0.in = data0_0_0_0.out;
       upd0[done] = data_read0_0.done;
     }
     group upd1<"static"=1> {
@@ -260,8 +261,8 @@ component conv2d_5x512x14x14() -> () {
       __b0.in = add9.out;
       upd11[done] = __b0.done;
     }
-    group upd2<"static"=1> {
-      weight_read0_0.write_en = 1'd1;
+    group upd2<"static"=2> {
+      weight_read0_0.write_en = weight0_0_0_0.read_done;
       weight0_0_0_0.addr3 = slice7.out;
       slice7.in = __dx0.out;
       weight0_0_0_0.addr2 = slice6.out;
@@ -270,7 +271,8 @@ component conv2d_5x512x14x14() -> () {
       slice5.in = __k0.out;
       weight0_0_0_0.addr0 = slice4.out;
       slice4.in = __c0.out;
-      weight_read0_0.in = weight0_0_0_0.read_data;
+      weight0_0_0_0.read_en = 1'd1;
+      weight_read0_0.in = weight0_0_0_0.out;
       upd2[done] = weight_read0_0.done;
     }
     group upd3<"static"=1> {
@@ -311,8 +313,8 @@ component conv2d_5x512x14x14() -> () {
       x0_0_0_0.addr0 = slice8.out;
       slice8.in = __b0.out;
       x0_0_0_0.write_en = 1'd1;
-      x0_0_0_0.write_data = __sum_0.out;
-      upd7[done] = x0_0_0_0.done;
+      x0_0_0_0.in = __sum_0.out;
+      upd7[done] = x0_0_0_0.write_done;
     }
     group upd8<"static"=1> {
       __x0.write_en = 1'd1;
@@ -401,9 +403,9 @@ component conv2d_5x512x14x14() -> () {
 
 component main() -> () {
   cells {
-    @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
-    @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external(1) data = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external(1) weight = seq_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
+    @external(1) x = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     conv2d_5x512x14x14_ = conv2d_5x512x14x14();
   }
   wires {
