@@ -239,8 +239,8 @@ fn test_std_mem_d1() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have low done
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
@@ -282,8 +282,8 @@ fn test_std_mem_d1() {
     let out = output_vals.next().unwrap();
     let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
-    let mut output_vals = mem.do_tick().unwrap().into_iter();
-    let d = output_vals.next().unwrap().1;
+    let output_vals = mem.do_tick().unwrap();
+    let d = &output_vals[1].1;
     assert_eq!(d.as_u64(), 0);
 }
 
@@ -308,8 +308,8 @@ fn test_std_mem_d2() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have low done
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1; //done signal
     assert_eq!(d.as_u64(), 0);
     //now have write_en high and see output of execute is 0, and output of write is 16
     port_bindings![binds;
@@ -375,8 +375,8 @@ fn test_std_mem_d3() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have done as 0
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1; //done;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
@@ -447,8 +447,8 @@ fn test_std_mem_d4() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have low done
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16

@@ -1009,6 +1009,10 @@ impl InvokeInterpreter {
         let mut assignment_vec: Vec<Assignment> = vec![];
         let comp_cell = invoke.comp.borrow();
 
+        if !invoke.ref_cells.is_empty() {
+            todo!("Interpreter does not currently support ref-cells")
+        }
+
         //first connect the inputs (from connection -> input)
         for (input_port, connection) in &invoke.inputs {
             let comp_input_port = comp_cell.get(input_port);
