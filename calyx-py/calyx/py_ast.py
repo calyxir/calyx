@@ -401,6 +401,15 @@ class Stdlib:
             [bitwidth, size0, size1, idx_size0, idx_size1]
         )
 
+    def seq_mem_d2(
+        self, bitwidth: int, size0: int, size1: int, idx_size0: int,
+        idx_size1: int
+    ):
+        return CompInst(
+            "seq_mem_d2",
+            [bitwidth, size0, size1, idx_size0, idx_size1]
+        )
+
     def mem_d3(
         self,
         bitwidth: int,
@@ -413,6 +422,21 @@ class Stdlib:
     ):
         return CompInst(
             "std_mem_d3",
+            [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
+        )
+
+    def seq_mem_d3(
+        self,
+        bitwidth: int,
+        size0: int,
+        size1: int,
+        size2: int,
+        idx_size0: int,
+        idx_size1: int,
+        idx_size2: int,
+    ):
+        return CompInst(
+            "seq_mem_d3",
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
         )
 
@@ -430,6 +454,33 @@ class Stdlib:
     ):
         return CompInst(
             "std_mem_d4",
+            [
+                bitwidth,
+                size0,
+                size1,
+                size2,
+                size3,
+                idx_size0,
+                idx_size1,
+                idx_size2,
+                idx_size3,
+            ],
+        )
+
+    def seq_mem_d4(
+        self,
+        bitwidth: int,
+        size0: int,
+        size1: int,
+        size2: int,
+        size3: int,
+        idx_size0: int,
+        idx_size1: int,
+        idx_size2: int,
+        idx_size3: int,
+    ):
+        return CompInst(
+            "seq_mem_d4",
             [
                 bitwidth,
                 size0,
