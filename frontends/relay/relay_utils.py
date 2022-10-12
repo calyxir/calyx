@@ -47,9 +47,9 @@ def get_dims(c: CompInst):
     id2dimensions = {
         "std_reg": 0,
         "seq_mem_d1": 1,
-        "std_mem_d2": 2,
-        "std_mem_d3": 3,
-        "std_mem_d4": 4,
+        "seq_mem_d2": 2,
+        "seq_mem_d3": 3,
+        "seq_mem_d4": 4,
     }
     assert id in id2dimensions, f"{id} not supported."
     return id2dimensions[id]

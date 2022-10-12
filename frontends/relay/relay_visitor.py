@@ -27,6 +27,26 @@ from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
 from dahlia_impl import emit_components
 
+calyx_keywords_list = ["input"]
+
+
+def rename_relay_var(name: str) -> str:
+    '''
+    Function to rename relay variable names (that are illegal in Calyx) into legal
+    ones. This function is to ensure a consistent standard for renaming, since
+    we want to make sure that the cell names in the external memory json match the
+    name they are instantiated as in the Calyx file
+    '''
+    new_name = name.replace(".", "_")
+    new_name = new_name.replace("/", "_")
+
+    if new_name.isdigit():
+        new_name = "var_" + new_name
+    if new_name in calyx_keywords_list:
+        new_name = "_" + new_name
+
+    return new_name
+
 
 class Relay2Calyx(ExprFunctor):
     """The main compilation visitor."""
@@ -59,10 +79,6 @@ class Relay2Calyx(ExprFunctor):
         self.wires = []
 
         self.pos_count = 0
-
-        # cannot name variables any of the following words
-        # we can add to this list as needed
-        self.calyx_keywords = ["input"]
 
         self.source_map: Dict[str, str] = {}
 
@@ -107,14 +123,8 @@ class Relay2Calyx(ExprFunctor):
         if isinstance(var.type_annotation, tvm.ir.type.TupleType):
             # returns a list of names instead
             assert 0, "should have been added to tuple_dic when defined in a let stmt"
-        name_hint = var.name_hint.replace(".", "_")
-        name_hint = name_hint.replace("/", "_")
 
-        if name_hint.isdigit():
-            name_hint = "var_" + name_hint
-        if name_hint in self.calyx_keywords:
-            name_hint = "_" + name_hint
-        var_id = self.id(name_hint)
+        var_id = self.id(rename_relay_var(var.name_hint))
         cell = ru.get_memory(var_id, var.type_annotation)
         if var.type_annotation.concrete_shape:
             # Only add the given variable if it is a tensor.
@@ -159,7 +169,7 @@ class Relay2Calyx(ExprFunctor):
             # In the updated version of TVM, sometimes there are assignments
             # in the form of `let %x_10 = meta[relay.Constant][0]`
             # We need to handle remember this data in a dictionary since Calyx
-            # will get these values externally through a json file
+            # will get these values externally in a json file
             for dim_val in value.data.shape:
                 if dim_val != 1:
                     np_data = value.data.numpy()
