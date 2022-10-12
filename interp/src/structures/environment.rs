@@ -334,7 +334,82 @@ impl InterpreterState {
                     )),
                 }
             }
+            "seq_mem_d1" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
 
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::SeqMemD1::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::SeqMemD1::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
+            "seq_mem_d2" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::SeqMemD2::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::SeqMemD2::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
+            "seq_mem_d3" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::SeqMemD3::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::SeqMemD3::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
+            "seq_mem_d4" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::SeqMemD4::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::SeqMemD4::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
             // Unsynthesizeable operators
             "std_unsyn_mult" => {
                 Box::new(combinational::StdUnsynMult::new(params, cell_qin))
