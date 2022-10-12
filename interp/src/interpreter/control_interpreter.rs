@@ -1010,7 +1010,7 @@ impl InvokeInterpreter {
         let comp_cell = invoke.comp.borrow();
 
         if !invoke.ref_cells.is_empty() {
-            todo!("Interpreter does not currently support ref-cells")
+            todo!("Interpreter does not currently support ref-cells. Please run the compile-ref pass.")
         }
 
         //first connect the inputs (from connection -> input)
