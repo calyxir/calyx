@@ -185,8 +185,8 @@ impl Visitor for WellFormed {
             }
         }
 
-        // If the component is combinational, make sure all cells are also combinational
-        // and there are no group or comb group definitions
+        // If the component is combinational, make sure all cells are also combinational,
+        // there are no group or comb group definitions, and the control program is empty
         if comp.is_comb {
             if !matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
                 return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but has a non-empty control program", comp.name)));
