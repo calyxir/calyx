@@ -1,0 +1,278 @@
+// A sparse dot product implementation that takes advantage of parallelism.
+// thread A is in charge of updating the physical and logical pointers of 
+// the "ahead" vector: the vector whose current logical pointer is ahead of
+// the other vector
+// thread B is in charge of doing the multiplication and addition
+import "primitives/core.futil";
+import "primitives/sync.futil";
+import "primitives/binary_operators.futil";
+
+component main () -> () {
+  cells {
+    @external in_0 = std_mem_d1(32, 18, 32);
+    @external in_1 = std_mem_d1(32, 18, 32);
+    @external out = std_mem_d1(32, 1, 32);
+    idx_0 = std_reg(32);
+    idx_1 = std_reg(32);
+    point_0 = std_reg(32);
+    point_1 = std_reg(32);
+    val_0 = std_reg(32);
+    val_1 = std_reg(32);
+    val_out = std_reg(32);
+    lt_0 = std_lt(32);
+    lt_1 = std_lt(32);
+    incr_0 = std_add(32);
+    incr_1 = std_add(32);
+    add = std_add(32);
+    mult = std_smult_pipe(32);
+    fwd_0 = std_lt(32);
+    fwd_1 = std_lt(32);
+    eq = std_eq(1);
+    signal = std_or(1);
+    no_use_0 = std_reg(1);
+    no_use_1 = std_reg(1);
+    flag = std_reg(1);
+    flag_reg = std_reg(1);
+    sign = std_reg(1);
+    eq0 = std_eq(1);
+  }
+
+  wires {
+    group sign_compute {
+      sign.in = 1'd1;
+      sign.write_en = 1'd1;
+      sign_compute[done] = sign.done;
+    }
+
+    group sign_complete {
+      sign.in = 1'd0;
+      sign.write_en = 1'd1;
+      sign_complete[done] = sign.done;
+    }
+
+    comb group in_barrier {
+      eq0.left = sign.out;
+      eq0.right = 1'd1;
+    }
+
+    group signal_compute {
+      flag.in = 1'd1;
+      flag.write_en = 1'd1;
+      signal_compute[done] = flag.done;
+    }
+
+    group signal_complete {
+      flag.in = 1'd0;
+      flag.write_en = 1'd1;
+      signal_complete[done] = flag.done;
+    }
+
+    group wait_compute {
+      flag_reg.in = 1'd1;
+      flag_reg.write_en = flag.out? 1'd1;
+      wait_compute[done] = flag_reg.done;
+    }
+
+    comb group has_computing_job {
+      eq.left = flag.out;
+      eq.right = 1'd1;
+    }
+
+    group initialize_idx {
+      idx_0.in = in_0.read_data;
+      in_0.addr0 = 32'd0;
+      idx_0.write_en = 1'd1;
+      idx_1.in = in_1.read_data;
+      in_1.addr0 = 32'd0;
+      idx_1.write_en = 1'd1;
+      initialize_idx[done] = idx_0.done & idx_1.done? 1'd1;
+    }
+
+    group initialize_val {
+      val_0.in = in_0.read_data;
+      in_0.addr0 = 32'd1;
+      val_0.write_en = 1'd1;
+      val_1.in = in_1.read_data;
+      in_1.addr0 = 32'd1;
+      val_1.write_en = 1'd1;
+      initialize_val[done] = val_0.done & val_1.done? 1'd1;
+    }
+
+    group fwd_idx_0 {
+      idx_0.in = in_0.read_data;
+      in_0.addr0 = point_0.out;
+      idx_0.write_en = 1'd1;
+      fwd_idx_0[done] = idx_0.done; 
+    }
+
+    group fwd_idx_1 {
+      idx_1.in = in_1.read_data;
+      in_1.addr0 = point_1.out;
+      idx_1.write_en = 1'd1;
+      fwd_idx_1[done] = idx_1.done; 
+    }
+
+    group forward_pointer_0 {
+      incr_0.left =32'd2;
+      incr_0.right = point_0.out;
+      point_0.in = incr_0.out;
+      point_0.write_en = 1'd1;
+      forward_pointer_0[done] = point_0.done;
+    }
+
+    group forward_pointer_1 {
+      incr_1.left =32'd2;
+      incr_1.right = point_1.out;
+      point_1.in = incr_1.out;
+      point_1.write_en = 1'd1;
+      forward_pointer_1[done] = point_1.done;
+    }
+
+    group val_to_reg_0 {
+      incr_0.left = 32'd1;
+      incr_0.right = point_0.out;
+      val_0.in = in_0.read_data;
+      in_0.addr0 = incr_0.out;
+      val_0.write_en = 1'd1;
+      val_to_reg_0[done] = val_0.done;
+    }
+
+    group val_to_reg_1 {
+      incr_1.left = 32'd1;
+      incr_1.right = point_1.out;
+      val_1.in = in_1.read_data;
+      in_1.addr0 = incr_1.out;
+      val_1.write_en =1'd1;
+      val_to_reg_1[done] = val_1.done;
+    }
+
+    group compute_product {
+      mult.go = 1'd1;
+      mult.left = val_0.out;
+      mult.right = val_1.out;
+      val_out.in = mult.done? mult.out;
+      val_out.write_en = mult.done?1'd1;
+      compute_product[done] = val_out.done;
+    }
+
+    group add_to_out {
+      add.left = out.read_data;
+      out.addr0 = 32'd0;
+      add.right = val_out.out;
+      out.write_data = add.out;
+      out.write_en = 1'd1;
+      add_to_out[done] = out.done;
+    }
+
+    comb group chase_0 {
+      lt_0.left = idx_0.out;
+      lt_0.right = idx_1.out;
+    }
+
+    comb group chase_1 {
+      lt_1.left = idx_1.out;
+      lt_1.right = idx_0.out;
+    }
+
+    comb group comp {
+      fwd_0.left = idx_0.out;
+      fwd_0.right = 32'd16;
+      fwd_1.left = idx_1.out;
+      fwd_1.right = 32'd16;
+      signal.left = fwd_0.out;
+      signal.right = fwd_1.out;
+    }
+
+  }
+
+  control {
+    seq {
+      // initialize the physical and logical pointer
+      initialize_idx;
+      // initialize the val registers that record the values of the sparse
+      // vectors at logical pointers where thread A stops incrementing 
+      initialize_val;
+      par {
+        // thread A
+        while signal.out with comp {
+          if lt_0.out with chase_0 {
+            // while logical pointer of vector 1 < logical pointer of vector 2,
+            // increments the physical pointer and logical pointer of vector 1
+            // if thread B is doing the computation while thread A is incrementing
+            // thread A needs to wait for thread B to finish the computation
+            // after it sees that logical pointer of vector 1 >= logical pointer of
+            // vector 2
+            seq {
+              while lt_0.out with chase_0 {
+                seq {
+                  forward_pointer_0;
+                  fwd_idx_0;
+                }
+              }
+              val_to_reg_0;
+              if eq0.out with in_barrier {
+                seq {
+                  @sync(1) sign_complete;
+                }
+              }
+            }
+          }
+          else {
+            // while logical pointer of vector 1 > logical pointer of vector 2,
+            // increments the physical pointer and logical pointer of vector 2
+            // Similarly, if it sees that thread B is doing some computation 
+            // simultaneously, then when it finishes incrementing for vector
+            // 2, it waits for thread B to finish computing
+            if lt_1.out with chase_1 {
+              seq {
+                while lt_1.out with chase_1 {
+                  seq {
+                    forward_pointer_1;
+                    fwd_idx_1;
+                  }
+                }
+                val_to_reg_1;
+                if eq0.out with in_barrier {
+                  seq {
+                    @sync(1) sign_complete;
+                  }
+                }
+              }
+            }
+            else {
+              // If logical pointer of vector 1 == logical pointer of vector 2,
+              // signal thread B to begin computing
+              seq {
+                  signal_compute;
+                  sign_compute;
+                  forward_pointer_0;
+                  fwd_idx_0;
+                  val_to_reg_0;
+              }
+            }
+          }
+        }
+
+        // thread B
+        while signal.out with comp {
+          if eq.out with has_computing_job {
+            // Only active if signaled by thread A to do computing
+            seq {
+              compute_product;
+              add_to_out;
+              @sync(1) signal_complete;
+            }
+          }
+          else {
+            seq {
+              wait_compute;
+            }
+          }
+        }
+      }
+      // compute multiplication for last entry to address an edge case. 
+      compute_product;
+      add_to_out;
+    }
+  }
+}
