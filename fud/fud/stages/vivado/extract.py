@@ -115,13 +115,18 @@ def futil_extract(directory):
         }
     )
 
-    # Extract slack information
+    # Extract timing information
     timing_parser = rpt.RPTParser(timing_file)
     slack_info = timing_parser.get_bare_table(re.compile(r"Design Timing Summary"))
     if slack_info is None:
         log.error("Failed to extract slack information")
-
     resource_info.update({"worst_slack": float(safe_get(slack_info, "WNS(ns)"))})
+
+    period_info = timing_parser.get_bare_table(re.compile(r"Clock Summary"))
+    if slack_info is None:
+        log.error("Failed to extract clock information")
+    resource_info.update({"period": float(safe_get(period_info, "Period(ns)"))})
+    resource_info.update({"frequency": float(safe_get(period_info, "Frequency(MHz)"))})
 
     # Extraction for synthesis files.
     synth_file = directory / "synth_1" / "runme.log"

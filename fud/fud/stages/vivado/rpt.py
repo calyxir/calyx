@@ -225,8 +225,9 @@ class RPTParser:
 
         # The next line is the separator. Skip it
         start += 2
-        # The final line is the data. Split up the line and remove empty strings
-        data = list(filter(lambda a: a != "", self.lines[start].split(" ")))
+        # Split up the line and remove empty strings. We split on two spaces because
+        # the table may have data like {0.000 0.000} which we don't want to split
+        data = list(filter(lambda a: a != "", self.lines[start].split("  ")))
 
         # Return a dict with the headers as keys and the data as values
         return {headers[i]: data[i] for i in range(len(headers))}
