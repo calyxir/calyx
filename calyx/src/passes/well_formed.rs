@@ -188,8 +188,18 @@ impl Visitor for WellFormed {
         // If the component is combinational, make sure all cells are also combinational
         // and there are no group or comb group definitions
         if comp.is_comb {
-            if !comp.groups.is_empty() || !comp.comb_groups.is_empty() {
-                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group.", comp.name)).with_pos(&comp.name));
+            if !matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but has a non-empty control program", comp.name)));
+            }
+
+            if !comp.groups.is_empty() {
+                let group = comp.groups.iter().next().unwrap().borrow();
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
+            }
+
+            if !comp.comb_groups.is_empty() {
+                let group = comp.comb_groups.iter().next().unwrap().borrow();
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
             }
 
             for cell_ref in comp.cells.iter() {
@@ -208,7 +218,7 @@ impl Visitor for WellFormed {
                     _ => false,
                 };
                 if !is_comb {
-                    return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains non-combinational cells.", comp.name)).with_pos(&comp.name));
+                    return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains non-combinational cell `{}`", comp.name, cell.name())).with_pos(&cell.attributes));
                 }
             }
         }

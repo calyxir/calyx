@@ -160,25 +160,17 @@ impl Printer {
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
 
-        if comp.is_comb {
-            writeln!(
-                f,
-                "comb component {}{}({}) -> ({}) {{",
-                comp.name.id,
-                Self::format_attributes(&comp.attributes),
-                Self::format_ports(&inputs),
-                Self::format_ports(&outputs),
-            )?;
-        } else {
-            writeln!(
-                f,
-                "component {}{}({}) -> ({}) {{",
-                comp.name.id,
-                Self::format_attributes(&comp.attributes),
-                Self::format_ports(&inputs),
-                Self::format_ports(&outputs),
-            )?;
-        }
+        let pre = if comp.is_comb { "comb " } else { "" };
+
+        writeln!(
+            f,
+            "{}component {}{}({}) -> ({}) {{",
+            pre,
+            comp.name.id,
+            Self::format_attributes(&comp.attributes),
+            Self::format_ports(&inputs),
+            Self::format_ports(&outputs),
+        )?;
 
         // Add the cells
         writeln!(f, "  cells {{")?;
