@@ -157,12 +157,6 @@ class Cell(Structure):
     comp: CompInst
     is_external: bool = False
 
-    def __eq__(self, other):
-        '''
-        to make cells hashable 
-        '''
-        return self.id.name == other.id.name and self.is_external == other.is_external and self.comp.id == other.comp.id and self.comp.args == other.comp.args
-
     def doc(self) -> str:
         external = "@external(1) " if self.is_external else ""
         return f"{external}{self.id.doc()} = {self.comp.doc()};"
