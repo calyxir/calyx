@@ -1,4 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: [Papercut] Component `custom_lt` is marked combinational but contains non-combinational cells.
+Error: Malformed Structure: Component `custom_lt` is marked combinational but contains non-combinational cells.

@@ -1,0 +1,46 @@
+import "primitives/core.futil";
+comb component custom_lt(left: 4, right: 4) -> (out: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    comb group g {
+      lt.left = left;
+      lt.right = right;
+      out = lt.out;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1, a: 4, b: 4, c: 1) -> (@done done: 1) {
+  cells {
+    w1 = std_wire(4);
+    w2 = std_wire(4);
+    w3 = std_wire(1);
+    w4 = std_wire(1);
+    r = std_reg(4);
+    lt = custom_lt();
+  }
+  wires {
+    group g {
+      r.write_en = 1'd1;
+      r.in = w1.out;
+      g[done] = r.done;
+    }
+    comb group cond {
+      lt.left = w2.out;
+      lt.right = r.out;
+    }
+    w1.in = a;
+    w2.in = b;
+    w3.in = c;
+    w4.in = w3.out;
+  }
+
+  control {
+    if lt.out with cond {
+      if w4.out {
+        g;
+      }
+    }
+  }
+}

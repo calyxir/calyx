@@ -160,7 +160,7 @@ impl Visitor for WellFormed {
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
-        _comps: &[ir::Component],
+        comps: &[ir::Component],
     ) -> VisResult {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
@@ -181,6 +181,34 @@ impl Visitor for WellFormed {
                     unreachable!(
                         "the current component not allowed for ref cells"
                     );
+                }
+            }
+        }
+
+        // If the component is combinational, make sure all cells are also combinational
+        // and there are no group or comb group definitions
+        if comp.is_comb {
+            if !comp.groups.is_empty() || !comp.comb_groups.is_empty() {
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group.", comp.name)).with_pos(&comp.name));
+            }
+
+            for cell_ref in comp.cells.iter() {
+                let cell = cell_ref.borrow();
+                let is_comb = match &cell.prototype {
+                    CellType::Primitive { is_comb, .. } => is_comb.to_owned(),
+                    CellType::Constant { .. } => true,
+                    CellType::Component { name } => {
+                        let comp_idx =
+                            comps.iter().position(|x| x.name == name).unwrap();
+                        let comp = comps
+                            .get(comp_idx)
+                            .expect("Found cell that does not exist");
+                        comp.is_comb
+                    }
+                    _ => false,
+                };
+                if !is_comb {
+                    return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains non-combinational cells.", comp.name)).with_pos(&comp.name));
                 }
             }
         }
