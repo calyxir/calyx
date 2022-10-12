@@ -26,6 +26,10 @@ WORKDIR /home/verilator
 RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
+WORKDIR /home
+RUN git clone --depth 1 --branch v11_0 https://github.com/steveicarus/iverilog
+WORKDIR /home/iverilog
+RUN sh autoconf.sh && ./configure && make && make install
 
 # Install Dahlia
 WORKDIR /home
