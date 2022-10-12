@@ -125,6 +125,15 @@ macro_rules! get_params {
     }
 }
 
+macro_rules! output {
+    ( $(($id:expr, $val:expr) ),+ ) => {
+        vec![
+            $((calyx::ir::Id::from($id), $val)),+
+        ]
+    }
+}
+
 // export the macros for local use
 pub(crate) use get_inputs;
 pub(crate) use get_params;
+pub(crate) use output;

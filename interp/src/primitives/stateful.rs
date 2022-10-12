@@ -1,4 +1,6 @@
-use super::prim_utils::{get_inputs, get_param, get_params, ShiftBuffer};
+use super::prim_utils::{
+    get_inputs, get_param, get_params, output, ShiftBuffer,
+};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializable};
 use crate::errors::{InterpreterError, InterpreterResult};
@@ -557,11 +559,305 @@ impl Primitive for StdReg {
 
 enum StdMemAction {
     None,
-    Read(u64),
-    Write(u64, Value),
+    Read(InterpreterResult<u64>),
+    Write(InterpreterResult<u64>, Value),
 }
 
-// struct StdMem<T: MemBinder> {}
+impl StdMemAction {
+    #[inline]
+    pub fn take(&mut self) -> Self {
+        std::mem::take(self)
+    }
+}
+
+impl Default for StdMemAction {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+struct StdMem<T: MemBinder> {
+    mem_binder: T,
+    width: u64,
+    data: Vec<Value>,
+    full_name: ir::Id,
+    allow_invalid_memory_access: bool,
+    update: StdMemAction,
+}
+
+impl<T: MemBinder> StdMem<T> {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> Self {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let data =
+            vec![Value::zeroes(width as usize); mem_binder.get_array_length()];
+
+        Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            update: StdMemAction::None,
+        }
+    }
+
+    pub fn from_initial_mem(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+        initial: Vec<Value>,
+    ) -> InterpreterResult<Self> {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let size = mem_binder.get_array_length();
+
+        if initial.len() != size {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: mem_binder.get_dimensions().dim_str(),
+                expected: size as u64,
+                given: initial.len(),
+            });
+        }
+
+        let mut data = initial;
+        for val in data.iter_mut() {
+            val.truncate_in_place(width as usize);
+        }
+
+        Ok(Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            update: StdMemAction::None,
+        })
+    }
+}
+
+impl<T: MemBinder> Named for StdMem<T> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
+    }
+}
+
+impl<T: MemBinder> Primitive for StdMem<T> {
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            write_en: 1,
+            write_data: self.width
+        ];
+        self.mem_binder.validate(inputs);
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_inputs![inputs;
+            write_en [bool]: "write_en",
+            write_data: "write_data"
+        ];
+
+        let idx = self
+            .mem_binder
+            .get_idx(inputs, self.allow_invalid_memory_access);
+
+        let out = match &idx {
+            Ok(idx) => {
+                output![(
+                    "read_data",
+                    if (*idx as usize) < self.data.len() {
+                        self.data[*idx as usize].clone()
+                    } else {
+                        Value::zeroes(self.width)
+                    }
+                )]
+            }
+            Err(_) => {
+                output![("read_data", Value::zeroes(self.width))]
+            }
+        };
+
+        self.update = if write_en {
+            StdMemAction::Write(idx, write_data.clone())
+        } else {
+            StdMemAction::Read(idx)
+        };
+
+        Ok(out)
+    }
+
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        Ok(match self.update.take() {
+            StdMemAction::None => {
+                output![
+                    ("read_data", Value::zeroes(self.width)),
+                    ("done", Value::bit_low())
+                ]
+            }
+            StdMemAction::Read(idx) => {
+                let idx = idx? as usize;
+                if idx >= self.data.len() {
+                    output![
+                        ("read_data", Value::zeroes(self.width)),
+                        ("done", Value::bit_low())
+                    ]
+                } else {
+                    output!(
+                        ("read_data", self.data[idx].clone()),
+                        ("done", Value::bit_low())
+                    )
+                }
+            }
+            StdMemAction::Write(idx, v) => {
+                let idx = idx? as usize;
+                if idx >= self.data.len() {
+                    output![("read_data", v), ("done", Value::bit_high())]
+                } else {
+                    self.data[idx] = v.clone();
+                    output![("read_data", v), ("done", Value::bit_high())]
+                }
+            }
+        })
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        Ok(output![
+            ("read_data", Value::zeroes(self.width)),
+            ("done", Value::bit_low())
+        ])
+    }
+
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
+        let code = code.unwrap_or_default();
+
+        Serializable::Array(
+            self.data
+                .iter()
+                .map(|x| Entry::from_val_code(x, &code))
+                .collect(),
+            self.mem_binder.get_dimensions(),
+        )
+    }
+
+    fn has_serializeable_state(&self) -> bool {
+        true
+    }
+}
+
+impl StdMem<MemD1> {
+    pub fn from_constants(
+        width: u64,
+        size: u64,
+        idx_size: u64,
+        full_name: ir::Id,
+    ) -> Self {
+        let bindings = construct_bindings(
+            [("WIDTH", width), ("SIZE", size), ("IDX_SIZE", idx_size)].iter(),
+        );
+        Self::new(&bindings, full_name, false)
+    }
+}
+
+impl StdMem<MemD2> {
+    pub fn from_constants(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+        full_name: ir::Id,
+    ) -> Self {
+        let bindings = construct_bindings(
+            [
+                ("WIDTH", width),
+                ("D0_SIZE", d0_size),
+                ("D1_SIZE", d1_size),
+                ("D0_IDX_SIZE", d0_idx_size),
+                ("D1_IDX_SIZE", d1_idx_size),
+            ]
+            .iter(),
+        );
+        Self::new(&bindings, full_name, false)
+    }
+}
+
+impl StdMem<MemD3> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_constants(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d2_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+        d2_idx_size: u64,
+        full_name: ir::Id,
+    ) -> Self {
+        let bindings = construct_bindings(
+            [
+                ("WIDTH", width),
+                ("D0_SIZE", d0_size),
+                ("D1_SIZE", d1_size),
+                ("D2_SIZE", d2_size),
+                ("D0_IDX_SIZE", d0_idx_size),
+                ("D1_IDX_SIZE", d1_idx_size),
+                ("D2_IDX_SIZE", d2_idx_size),
+            ]
+            .iter(),
+        );
+        Self::new(&bindings, full_name, false)
+    }
+}
+
+impl StdMem<MemD4> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_constants(
+        width: u64,
+        d0_size: u64,
+        d1_size: u64,
+        d2_size: u64,
+        d3_size: u64,
+        d0_idx_size: u64,
+        d1_idx_size: u64,
+        d2_idx_size: u64,
+        d3_idx_size: u64,
+        full_name: ir::Id,
+    ) -> Self {
+        let bindings = construct_bindings(
+            [
+                ("WIDTH", width),
+                ("D0_SIZE", d0_size),
+                ("D1_SIZE", d1_size),
+                ("D2_SIZE", d2_size),
+                ("D3_SIZE", d3_size),
+                ("D0_IDX_SIZE", d0_idx_size),
+                ("D1_IDX_SIZE", d1_idx_size),
+                ("D2_IDX_SIZE", d2_idx_size),
+                ("D3_IDX_SIZE", d3_idx_size),
+            ]
+            .iter(),
+        );
+        Self::new(&bindings, full_name, false)
+    }
+}
 
 /// A one-dimensional memory. Initialized with
 /// StdMemD1.new(WIDTH, SIZE, IDX_SIZE) where:
