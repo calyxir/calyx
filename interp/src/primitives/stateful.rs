@@ -1,11 +1,13 @@
-use super::prim_utils::{get_param, ShiftBuffer};
+use super::prim_utils::{
+    get_inputs, get_param, get_params, output, ShiftBuffer,
+};
 use super::primitive::Named;
 use super::{Entry, Primitive, Serializable};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::logging::{self, warn};
 use crate::utils::{construct_bindings, PrintCode};
 use crate::values::Value;
-use crate::{get_input, validate};
+use crate::{validate, validate_friendly};
 use calyx::ir;
 use ibig::ops::RemEuclid;
 use ibig::{ibig, ubig, IBig, UBig};
@@ -172,7 +174,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -381,7 +383,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -521,7 +523,7 @@ impl Primitive for StdReg {
         &mut self,
         inputs: &[(calyx::ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             input: "in",
             write_en: "write_en",
             reset: "reset"
@@ -555,38 +557,214 @@ impl Primitive for StdReg {
     }
 }
 
-/// A one-dimensional memory. Initialized with
-/// StdMemD1.new(WIDTH, SIZE, IDX_SIZE) where:
-/// * WIDTH - Size of an individual memory slot.
-/// * SIZE - Number of slots in the memory.
-/// * IDX_SIZE - The width of the index given to the memory.
-///
-/// To write to a memory, the `write_en` must be high.
-/// Inputs:
-/// * addr0: IDX_SIZE - The index to be accessed or updated.
-/// * write_data: WIDTH - Data to be written to the selected memory slot.
-/// * write_en: 1 - One bit write enabled signal, causes the memory to write
-///             write_data to the slot indexed by addr0.
-///
-/// Outputs:
-/// * read_data: WIDTH - The value stored at addr0. This value is combinational
-///              with respect to addr0.
-/// * done: 1 - The done signal for the memory. This signal goes high for one
-///         cycle after finishing a write to the memory.
-#[derive(Debug)]
-pub struct StdMemD1 {
-    pub width: u64,    // size of individual piece of mem
-    pub size: u64,     // # slots of mem
-    pub idx_size: u64, // # bits needed to index a piece of mem
-    pub data: Vec<Value>,
-    update: Option<(u64, Value)>,
-    write_en: bool,
-    last_index: u64,
-    full_name: ir::Id,
-    allow_invalid_memory_access: bool,
+enum StdMemAction {
+    None,
+    Read(InterpreterResult<u64>),
+    Write(InterpreterResult<u64>, Value),
 }
 
-impl StdMemD1 {
+impl StdMemAction {
+    #[inline]
+    pub fn take(&mut self) -> Self {
+        std::mem::take(self)
+    }
+}
+
+impl Default for StdMemAction {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+/// The primitive skeleton for the std_mem primitives. Supports combinational
+/// reads and 1-cycle writes. The read_data output is not latched.
+pub struct StdMem<T: MemBinder> {
+    mem_binder: T,
+    width: u64,
+    data: Vec<Value>,
+    full_name: ir::Id,
+    allow_invalid_memory_access: bool,
+    update: StdMemAction,
+}
+
+impl<T: MemBinder> StdMem<T> {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> Self {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let data =
+            vec![Value::zeroes(width as usize); mem_binder.get_array_length()];
+
+        Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            update: StdMemAction::None,
+        }
+    }
+
+    pub fn from_initial_mem(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+        initial: Vec<Value>,
+    ) -> InterpreterResult<Self> {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let size = mem_binder.get_array_length();
+
+        if initial.len() != size {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: mem_binder.get_dimensions().dim_str(),
+                expected: size as u64,
+                given: initial.len(),
+            });
+        }
+
+        let mut data = initial;
+        for val in data.iter_mut() {
+            val.truncate_in_place(width as usize);
+        }
+
+        Ok(Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            update: StdMemAction::None,
+        })
+    }
+}
+
+impl<T: MemBinder> Named for StdMem<T> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
+    }
+}
+
+impl<T: MemBinder> Primitive for StdMem<T> {
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate_friendly![inputs;
+            write_en: 1,
+            write_data: self.width
+        ];
+        self.mem_binder.validate(inputs);
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_inputs![inputs;
+            write_en [bool]: "write_en",
+            write_data: "write_data"
+        ];
+
+        let idx = self
+            .mem_binder
+            .get_idx(inputs, self.allow_invalid_memory_access);
+
+        let out = match &idx {
+            Ok(idx) => {
+                output![(
+                    "read_data",
+                    if (*idx as usize) < self.data.len() {
+                        self.data[*idx as usize].clone()
+                    } else {
+                        Value::zeroes(self.width)
+                    }
+                )]
+            }
+            Err(_) => {
+                output![("read_data", Value::zeroes(self.width))]
+            }
+        };
+
+        self.update = if write_en {
+            StdMemAction::Write(idx, write_data.clone())
+        } else {
+            StdMemAction::Read(idx)
+        };
+
+        Ok(out)
+    }
+
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        Ok(match self.update.take() {
+            StdMemAction::None => {
+                output![
+                    ("read_data", Value::zeroes(self.width)),
+                    ("done", Value::bit_low())
+                ]
+            }
+            StdMemAction::Read(idx) => {
+                let idx = idx? as usize;
+                if idx >= self.data.len() {
+                    output![
+                        ("read_data", Value::zeroes(self.width)),
+                        ("done", Value::bit_low())
+                    ]
+                } else {
+                    output!(
+                        ("read_data", self.data[idx].clone()),
+                        ("done", Value::bit_low())
+                    )
+                }
+            }
+            StdMemAction::Write(idx, v) => {
+                let idx = idx? as usize;
+                if idx >= self.data.len() {
+                    output![("read_data", v), ("done", Value::bit_high())]
+                } else {
+                    self.data[idx] = v.clone();
+                    output![("read_data", v), ("done", Value::bit_high())]
+                }
+            }
+        })
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        Ok(output![
+            ("read_data", Value::zeroes(self.width)),
+            ("done", Value::bit_low())
+        ])
+    }
+
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
+        let code = code.unwrap_or_default();
+
+        Serializable::Array(
+            self.data
+                .iter()
+                .map(|x| Entry::from_val_code(x, &code))
+                .collect(),
+            self.mem_binder.get_dimensions(),
+        )
+    }
+
+    fn has_serializeable_state(&self) -> bool {
+        true
+    }
+}
+
+impl StdMem<MemD1> {
     pub fn from_constants(
         width: u64,
         size: u64,
@@ -598,233 +776,9 @@ impl StdMemD1 {
         );
         Self::new(&bindings, full_name, false)
     }
-    /// Instantiates a new StdMemD1 storing data of width `width`, containing
-    /// `size` slots for memory, accepting indices (addr0) of width `idx_size`.
-    /// Note: if `idx_size` is smaller than the length of `size`'s binary
-    /// representation, you will not be able to access the slots near the end of
-    /// the memory.
-    pub fn new(
-        params: &ir::Binding,
-        name: ir::Id,
-        allow_invalid_memory_access: bool,
-    ) -> StdMemD1 {
-        let width = get_param(params, "WIDTH")
-            .expect("Missing width param for std_mem_d1");
-        let size = get_param(params, "SIZE")
-            .expect("Missing size param for std_mem_d1");
-        let idx_size = get_param(params, "IDX_SIZE")
-            .expect("Missing idx_size param for std_mem_d1");
-
-        let data = vec![Value::zeroes(width as usize); size as usize];
-        StdMemD1 {
-            width,
-            size,     //how many slots of memory in the vector
-            idx_size, //the width of the values used to address the memory
-            data,
-            update: None,
-            write_en: false,
-            last_index: 0,
-            full_name: name,
-            allow_invalid_memory_access,
-        }
-    }
-
-    pub fn initialize_memory(
-        &mut self,
-        vals: &[Value],
-    ) -> InterpreterResult<()> {
-        if self.size as usize != vals.len() {
-            return Err(InterpreterError::IncorrectMemorySize {
-                mem_dim: "1D".into(),
-                expected: self.size,
-                given: vals.len(),
-            });
-        }
-
-        for (idx, val) in vals.iter().enumerate() {
-            self.data[idx] = val.truncate(self.width.try_into().unwrap())
-        }
-
-        Ok(())
-    }
 }
 
-impl Named for StdMemD1 {
-    fn get_full_name(&self) -> &ir::Id {
-        &self.full_name
-    }
-}
-
-impl Primitive for StdMemD1 {
-    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        //if there is an update, update and return along w/ a done
-        //else this memory was used combinationally and there is nothing to tick
-        if self.last_index >= self.size {
-            if self.allow_invalid_memory_access {
-                if self.write_en {
-                    return Ok(vec![
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                        (ir::Id::from("done"), Value::bit_high()),
-                    ]);
-                } else {
-                    return Ok(vec![
-                        (ir::Id::from("done"), Value::bit_low()),
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                    ]);
-                }
-            }
-
-            return Err(InterpreterError::InvalidMemoryAccess {
-                name: self.full_name.clone(),
-                access: vec![self.last_index],
-                dims: vec![self.size],
-            });
-        }
-
-        let out = if self.write_en {
-            assert!(self.update.is_some());
-            //set cycle_count to 0 for future
-            self.write_en = false;
-            //take update
-            if let Some((idx, val)) = self.update.take() {
-                //alter data
-                self.data[idx as usize] = val;
-                //return vec w/ done
-                vec![
-                    (
-                        ir::Id::from("read_data"),
-                        self.data[idx as usize].clone(),
-                    ),
-                    (ir::Id::from("done"), Value::bit_high()),
-                ]
-            } else {
-                unreachable!();
-            }
-        } else {
-            vec![(ir::Id::from("done"), Value::bit_low())]
-        };
-
-        Ok(out)
-    }
-
-    fn is_comb(&self) -> bool {
-        false
-    }
-
-    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
-        for (id, v) in inputs {
-            match id.as_ref() {
-                "write_data" => assert_eq!(v.len() as u64, self.width),
-                "write_en" => assert_eq!(v.len(), 1),
-                "addr0" => {
-                    assert!(v.as_u64() < self.size);
-                    assert_eq!(v.len() as u64, self.idx_size, "std_mem_d1: addr0 is not same width ({}) as idx_size ({})", v.len(), self.idx_size)
-                }
-                "clk" => assert_eq!(v.len(), 1),
-                "reset" => assert_eq!(v.len(), 1),
-                p => unreachable!("Unknown port: {}", p),
-            }
-        }
-    }
-
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
-            input: "write_data",
-            write_en: "write_en",
-            addr0: "addr0"
-        ];
-        let addr0 = addr0.as_u64();
-        self.last_index = addr0;
-        if write_en.as_bool() {
-            self.update = Some((addr0, (*input).clone()));
-            self.write_en = true;
-        } else {
-            self.update = None;
-            self.write_en = false;
-        }
-        //read_data is combinational w.r.t addr0;
-        //if there was an update, [do_tick()] will return a vector w/ a done value
-        //else, empty vector return
-        Ok(vec![(
-            ir::Id::from("read_data"),
-            if addr0 < self.size {
-                self.data[addr0 as usize].clone()
-            } else {
-                Value::zeroes(self.width as usize)
-            },
-        )])
-    }
-
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        //so we don't have to keep using .as_u64()
-        let addr0 = addr0.as_u64();
-        //check that input data is the appropriate width as well
-        let old = self.data[addr0 as usize].clone();
-        //also clear update
-        self.update = None;
-        self.write_en = false;
-        self.last_index = addr0;
-        Ok(vec![
-            ("read_data".into(), old),
-            (ir::Id::from("done"), Value::zeroes(1)),
-        ])
-    }
-
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
-        let code = signed.unwrap_or_default();
-        Serializable::Array(
-            self.data
-                .iter()
-                .map(|x| Entry::from_val_code(x, &code))
-                .collect(),
-            (self.size as usize,).into(),
-        )
-    }
-
-    fn has_serializeable_state(&self) -> bool {
-        true
-    }
-}
-
-///std_memd2 :
-/// A two-dimensional memory.
-/// Parameters:
-/// WIDTH - Size of an individual memory slot.
-/// D0_SIZE - Number of memory slots for the first index.
-/// D1_SIZE - Number of memory slots for the second index.
-/// D0_IDX_SIZE - The width of the first index.
-/// D1_IDX_SIZE - The width of the second index.
-/// Inputs:
-/// addr0: D0_IDX_SIZE - The first index into the memory
-/// addr1: D1_IDX_SIZE - The second index into the memory
-/// write_data: WIDTH - Data to be written to the selected memory slot
-/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0 and addr1
-/// Outputs:
-/// read_data: WIDTH - The value stored at mem\[addr0\]\[addr1\]. This value is combinational with respect to addr0 and addr1.
-/// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
-#[derive(Clone, Debug)]
-pub struct StdMemD2 {
-    pub width: u64,   // size of individual piece of mem
-    pub d0_size: u64, // # slots of mem
-    pub d1_size: u64,
-    pub d0_idx_size: u64,
-    pub d1_idx_size: u64, // # bits needed to index a piece of mem
-    pub data: Vec<Value>,
-    update: Option<(u64, Value)>,
-    write_en: bool,
-    last_idx: (u64, u64),
-    full_name: ir::Id,
-    allow_invalid_memory_access: bool,
-}
-
-impl StdMemD2 {
+impl StdMem<MemD2> {
     pub fn from_constants(
         width: u64,
         d0_size: u64,
@@ -845,253 +799,9 @@ impl StdMemD2 {
         );
         Self::new(&bindings, full_name, false)
     }
-
-    #[inline]
-    fn max_idx(&self) -> u64 {
-        self.d0_size * self.d1_size
-    }
-
-    /// Instantiates a new StdMemD2 storing data of width `width`, containing
-    /// `d0_size` * `d1_size` slots for memory, accepting indices \[addr0\]\[addr1\] of widths
-    /// `d0_idx_size` and `d1_idx_size` respectively.
-    /// Initially the memory is filled with all 0s.
-    pub fn new(
-        params: &ir::Binding,
-        full_name: ir::Id,
-        allow_invalid_memory_access: bool,
-    ) -> StdMemD2 {
-        let width = get_param(params, "WIDTH")
-            .expect("Missing width parameter for std_mem_d2");
-        let d0_size = get_param(params, "D0_SIZE")
-            .expect("Missing d0_size parameter for std_mem_d2");
-        let d1_size = get_param(params, "D1_SIZE")
-            .expect("Missing d1_size parameter for std_mem_d2");
-        let d0_idx_size = get_param(params, "D0_IDX_SIZE")
-            .expect("Missing d0_idx_size parameter for std_mem_d2");
-        let d1_idx_size = get_param(params, "D1_IDX_SIZE")
-            .expect("Missing d1_idx_size parameter for std_mem_d2");
-
-        let data =
-            vec![Value::zeroes(width as usize); (d0_size * d1_size) as usize];
-        StdMemD2 {
-            width,
-            d0_size,
-            d1_size,
-            d0_idx_size,
-            d1_idx_size,
-            data,
-            update: None,
-            write_en: false,
-            last_idx: (0, 0),
-            full_name,
-            allow_invalid_memory_access,
-        }
-    }
-
-    pub fn initialize_memory(
-        &mut self,
-        vals: &[Value],
-    ) -> InterpreterResult<()> {
-        if (self.d0_size * self.d1_size) as usize != vals.len() {
-            return Err(InterpreterError::IncorrectMemorySize {
-                mem_dim: "2D".into(),
-                expected: self.d0_size * self.d1_size,
-                given: vals.len(),
-            });
-        }
-
-        for (idx, val) in vals.iter().enumerate() {
-            self.data[idx] = val.truncate(self.width.try_into().unwrap())
-        }
-        Ok(())
-    }
-
-    #[inline]
-    fn calc_addr(&self, addr0: u64, addr1: u64) -> u64 {
-        addr0 * self.d1_size + addr1
-    }
 }
 
-impl Named for StdMemD2 {
-    fn get_full_name(&self) -> &ir::Id {
-        &self.full_name
-    }
-}
-
-impl Primitive for StdMemD2 {
-    //null-op for now
-    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        if self.calc_addr(self.last_idx.0, self.last_idx.1) >= self.max_idx() {
-            if self.allow_invalid_memory_access {
-                if self.write_en {
-                    return Ok(vec![
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                        (ir::Id::from("done"), Value::bit_high()),
-                    ]);
-                } else {
-                    return Ok(vec![
-                        (ir::Id::from("done"), Value::bit_low()),
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                    ]);
-                }
-            }
-            return Err(InterpreterError::InvalidMemoryAccess {
-                name: self.full_name.clone(),
-                access: vec![self.last_idx.0, self.last_idx.1],
-                dims: vec![self.d0_size, self.d1_size],
-            });
-        }
-        let out = if self.write_en {
-            assert!(self.update.is_some());
-            self.write_en = false;
-            if let Some((idx, val)) = self.update.take() {
-                self.data[idx as usize] = val;
-                vec![
-                    (
-                        ir::Id::from("read_data"),
-                        self.data[idx as usize].clone(),
-                    ),
-                    (ir::Id::from("done"), Value::bit_high()),
-                ]
-            } else {
-                unreachable!();
-            }
-        } else {
-            vec![(ir::Id::from("done"), Value::bit_low())]
-        };
-
-        Ok(out)
-    }
-
-    fn is_comb(&self) -> bool {
-        false
-    }
-
-    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
-        for (id, v) in inputs {
-            match id.as_ref() {
-                "write_data" => assert_eq!(v.len() as u64, self.width),
-                "write_en" => assert_eq!(v.len(), 1),
-                "addr0" => {
-                    assert!(v.as_u64() < self.d0_size);
-                    assert_eq!(v.len() as u64, self.d0_idx_size)
-                }
-                "addr1" => {
-                    assert!(v.as_u64() < self.d1_size);
-                    assert_eq!(v.len() as u64, self.d1_idx_size)
-                }
-                "clk" => assert_eq!(v.len(), 1),
-                "reset" => assert_eq!(v.len(), 1),
-                p => unreachable!("Unknown port: {}", p),
-            }
-        }
-    }
-
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
-            input: "write_data",
-            write_en: "write_en",
-            addr0: "addr0",
-            addr1: "addr1"
-        ];
-        let addr0 = addr0.as_u64();
-        let addr1 = addr1.as_u64();
-        self.last_idx = (addr0, addr1);
-        let real_addr = self.calc_addr(addr0, addr1);
-
-        if write_en.as_bool() {
-            self.update = Some((real_addr, (*input).clone()));
-            self.write_en = true;
-        } else {
-            self.update = None;
-            self.write_en = false;
-        }
-        Ok(vec![(
-            ir::Id::from("read_data"),
-            if real_addr < self.max_idx() {
-                self.data[real_addr as usize].clone()
-            } else {
-                Value::zeroes(self.width as usize)
-            },
-        )])
-    }
-
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let addr0 = addr0.as_u64();
-        let addr1 = addr1.as_u64();
-
-        let real_addr = self.calc_addr(addr0, addr1);
-
-        let old = self.data[real_addr as usize].clone();
-
-        //clear update
-        self.update = None;
-        self.write_en = false;
-        self.last_idx = (addr0, addr1);
-
-        Ok(vec![
-            (ir::Id::from("read_data"), old),
-            (ir::Id::from("done"), Value::zeroes(1)),
-        ])
-    }
-
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
-        let code = signed.unwrap_or_default();
-        Serializable::Array(
-            self.data
-                .iter()
-                .map(|x| Entry::from_val_code(x, &code))
-                .collect(),
-            (self.d0_size as usize, self.d1_size as usize).into(),
-        )
-    }
-}
-
-///std_memd3 :
-/// A three-dimensional memory.
-/// Parameters:
-/// WIDTH - Size of an individual memory slot.
-/// D0_SIZE - Number of memory slots for the first index.
-/// D1_SIZE - Number of memory slots for the second index.
-/// D2_SIZE - Number of memory slots for the third index.
-/// D0_IDX_SIZE - The width of the first index.
-/// D1_IDX_SIZE - The width of the second index.
-/// D2_IDX_SIZE - The width of the third index.
-/// Inputs:
-/// addr0: D0_IDX_SIZE - The first index into the memory
-/// addr1: D1_IDX_SIZE - The second index into the memory
-/// addr2: D2_IDX_SIZE - The third index into the memory
-/// write_data: WIDTH - Data to be written to the selected memory slot
-/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0, addr1, and addr2
-/// Outputs:
-/// read_data: WIDTH - The value stored at mem\[addr0\]\[addr1\]\[addr2\]. This value is combinational with respect to addr0, addr1, and addr2.
-/// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
-#[derive(Clone, Debug)]
-pub struct StdMemD3 {
-    width: u64,
-    d0_size: u64,
-    d1_size: u64,
-    d2_size: u64,
-    d0_idx_size: u64,
-    d1_idx_size: u64,
-    d2_idx_size: u64,
-    data: Vec<Value>,
-    update: Option<(u64, Value)>,
-    write_en: bool,
-    last_idx: (u64, u64, u64),
-    full_name: ir::Id,
-    allow_invalid_memory_access: bool,
-}
-
-impl StdMemD3 {
+impl StdMem<MemD3> {
     #[allow(clippy::too_many_arguments)]
     pub fn from_constants(
         width: u64,
@@ -1117,282 +827,9 @@ impl StdMemD3 {
         );
         Self::new(&bindings, full_name, false)
     }
-    /// Instantiates a new StdMemD3 storing data of width `width`, containing
-    /// `d0_size` * `d1_size` * `d2_size` slots for memory, accepting indices \[addr0\]\[addr1\]\[addr2\] of widths
-    /// \[d0_idx_size\], \[d1_idx_size\], and \[d2_idx_size\] respectively.
-    /// Initially the memory is filled with all 0s.
-    pub fn new(
-        params: &ir::Binding,
-        full_name: ir::Id,
-        allow_invalid_memory_access: bool,
-    ) -> StdMemD3 {
-        let width = get_param(params, "WIDTH")
-            .expect("Missing width parameter for std_mem_d3");
-        let d0_size = get_param(params, "D0_SIZE")
-            .expect("Missing d0_size parameter for std_mem_d3");
-        let d1_size = get_param(params, "D1_SIZE")
-            .expect("Missing d1_size parameter for std_mem_d3");
-        let d2_size = get_param(params, "D2_SIZE")
-            .expect("Missing d2_size parameter for std_mem_d3");
-        let d0_idx_size = get_param(params, "D0_IDX_SIZE")
-            .expect("Missing d0_idx_size parameter for std_mem_d3");
-        let d1_idx_size = get_param(params, "D1_IDX_SIZE")
-            .expect("Missing d1_idx_size parameter for std_mem_d3");
-        let d2_idx_size = get_param(params, "D2_IDX_SIZE")
-            .expect("Missing d2_idx_size parameter for std_mem_d3");
-
-        let data = vec![
-            Value::zeroes(width as usize);
-            (d0_size * d1_size * d2_size) as usize
-        ];
-        StdMemD3 {
-            width,
-            d0_size,
-            d1_size,
-            d2_size,
-            d0_idx_size,
-            d1_idx_size,
-            d2_idx_size,
-            data,
-            update: None,
-            write_en: false,
-            last_idx: (0, 0, 0),
-            full_name,
-            allow_invalid_memory_access,
-        }
-    }
-
-    pub fn initialize_memory(
-        &mut self,
-        vals: &[Value],
-    ) -> InterpreterResult<()> {
-        if (self.d0_size * self.d1_size * self.d2_size) as usize != vals.len() {
-            return Err(InterpreterError::IncorrectMemorySize {
-                mem_dim: "3D".into(),
-                expected: self.d0_size * self.d1_size * self.d2_size,
-                given: vals.len(),
-            });
-        }
-
-        for (idx, val) in vals.iter().enumerate() {
-            self.data[idx] = val.truncate(self.width.try_into().unwrap())
-        }
-        Ok(())
-    }
-
-    #[inline]
-    fn max_idx(&self) -> u64 {
-        self.d0_size * self.d1_size * self.d2_size
-    }
-
-    #[inline]
-    fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64) -> u64 {
-        self.d2_size * (addr0 * self.d1_size + addr1) + addr2
-    }
 }
 
-impl Named for StdMemD3 {
-    fn get_full_name(&self) -> &ir::Id {
-        &self.full_name
-    }
-}
-
-impl Primitive for StdMemD3 {
-    //null-op for now
-    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (addr0, addr1, addr2) = self.last_idx;
-        if self.calc_addr(addr0, addr1, addr2) >= self.max_idx() {
-            if self.allow_invalid_memory_access {
-                if self.write_en {
-                    return Ok(vec![
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                        (ir::Id::from("done"), Value::bit_high()),
-                    ]);
-                } else {
-                    return Ok(vec![
-                        (ir::Id::from("done"), Value::bit_low()),
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                    ]);
-                }
-            }
-            return Err(InterpreterError::InvalidMemoryAccess {
-                name: self.full_name.clone(),
-                access: vec![self.last_idx.0, self.last_idx.1, self.last_idx.2],
-                dims: vec![self.d0_size, self.d1_size, self.d2_size],
-            });
-        }
-
-        let out = if self.write_en {
-            assert!(self.update.is_some());
-            self.write_en = false;
-            if let Some((idx, val)) = self.update.take() {
-                self.data[idx as usize] = val;
-                vec![
-                    (
-                        ir::Id::from("read_data"),
-                        self.data[idx as usize].clone(),
-                    ),
-                    (ir::Id::from("done"), Value::bit_high()),
-                ]
-            } else {
-                unreachable!();
-            }
-        } else {
-            vec![(ir::Id::from("done"), Value::bit_low())]
-        };
-
-        Ok(out)
-    }
-
-    fn is_comb(&self) -> bool {
-        false
-    }
-
-    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
-        for (id, v) in inputs {
-            match id.as_ref() {
-                "write_data" => assert_eq!(v.len() as u64, self.width),
-                "write_en" => assert_eq!(v.len(), 1),
-                "addr0" => {
-                    assert!(v.as_u64() < self.d0_size);
-                    assert_eq!(v.len() as u64, self.d0_idx_size)
-                }
-                "addr1" => {
-                    assert!(v.as_u64() < self.d1_size);
-                    assert_eq!(v.len() as u64, self.d1_idx_size)
-                }
-                "addr2" => {
-                    assert!(v.as_u64() < self.d2_size);
-                    assert_eq!(v.len() as u64, self.d2_idx_size)
-                }
-                "clk" => assert_eq!(v.len(), 1),
-                "reset" => assert_eq!(v.len(), 1),
-                p => unreachable!("Unknown port: {}", p),
-            }
-        }
-    }
-
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
-            input: "write_data",
-            write_en: "write_en",
-            addr0: "addr0",
-            addr1: "addr1",
-            addr2: "addr2"
-        ];
-
-        let addr0 = addr0.as_u64();
-        let addr1 = addr1.as_u64();
-        let addr2 = addr2.as_u64();
-        self.last_idx = (addr0, addr1, addr2);
-
-        let real_addr = self.calc_addr(addr0, addr1, addr2);
-        if write_en.as_bool() {
-            self.update = Some((real_addr, (*input).clone()));
-            self.write_en = true;
-        } else {
-            self.update = None;
-            self.write_en = false;
-        }
-        Ok(vec![(
-            ir::Id::from("read_data"),
-            if real_addr < self.max_idx() {
-                self.data[real_addr as usize].clone()
-            } else {
-                Value::zeroes(self.width as usize)
-            },
-        )])
-    }
-
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
-        //check that addr0 is not out of bounds and that it is the proper width!
-        let addr0 = addr0.as_u64();
-        let addr1 = addr1.as_u64();
-        let addr2 = addr2.as_u64();
-
-        self.last_idx = (addr0, addr1, addr2);
-
-        let real_addr = self.calc_addr(addr0, addr1, addr2);
-
-        let old = self.data[real_addr as usize].clone();
-        //clear update, and set write_en false
-        self.update = None;
-        self.write_en = false;
-        Ok(vec![
-            (ir::Id::from("read_data"), old),
-            (ir::Id::from("done"), Value::zeroes(1)),
-        ])
-    }
-
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
-        let code = signed.unwrap_or_default();
-        Serializable::Array(
-            self.data
-                .iter()
-                .map(|x| Entry::from_val_code(x, &code))
-                .collect(),
-            (
-                self.d0_size as usize,
-                self.d1_size as usize,
-                self.d2_size as usize,
-            )
-                .into(),
-        )
-    }
-}
-
-///std_memd4
-/// std_mem_d4
-/// A four-dimensional memory.
-/// Parameters:
-/// WIDTH - Size of an individual memory slot.
-/// D0_SIZE - Number of memory slots for the first index.
-/// D1_SIZE - Number of memory slots for the second index.
-/// D2_SIZE - Number of memory slots for the third index.
-/// D3_SIZE - Number of memory slots for the fourth index.
-/// D0_IDX_SIZE - The width of the first index.
-/// D1_IDX_SIZE - The width of the second index.
-/// D2_IDX_SIZE - The width of the third index.
-/// D3_IDX_SIZE - The width of the fourth index.
-/// Inputs:
-/// addr0: D0_IDX_SIZE - The first index into the memory
-/// addr1: D1_IDX_SIZE - The second index into the memory
-/// addr2: D2_IDX_SIZE - The third index into the memory
-/// addr3: D3_IDX_SIZE - The fourth index into the memory
-/// write_data: WIDTH - Data to be written to the selected memory slot
-/// write_en: 1 - One bit write enabled signal, causes the memory to write write_data to the slot indexed by addr0, addr1, addr2, and addr3
-/// Outputs:
-/// read_data: WIDTH - The value stored at mem\[addr0\]\[addr1\]\[addr2\]\[addr3\]. This value is combinational with respect to addr0, addr1, addr2, and addr3.
-/// done: 1: The done signal for the memory. This signal goes high for one cycle after finishing a write to the memory.
-#[derive(Clone, Debug)]
-pub struct StdMemD4 {
-    width: u64,
-    d0_size: u64,
-    d1_size: u64,
-    d2_size: u64,
-    d3_size: u64,
-    d0_idx_size: u64,
-    d1_idx_size: u64,
-    d2_idx_size: u64,
-    d3_idx_size: u64,
-    data: Vec<Value>,
-    update: Option<(u64, Value)>,
-    write_en: bool,
-    last_idx: (u64, u64, u64, u64),
-    full_name: ir::Id,
-    allow_invalid_memory_access: bool,
-}
-
-impl StdMemD4 {
+impl StdMem<MemD4> {
     #[allow(clippy::too_many_arguments)]
     pub fn from_constants(
         width: u64,
@@ -1422,266 +859,12 @@ impl StdMemD4 {
         );
         Self::new(&bindings, full_name, false)
     }
-    // Instantiates a new StdMemD3 storing data of width `width`, containing
-    /// `d0_size` * `d1_size` * `d2_size` * `d3_size` slots for memory, accepting indecies `addr0``addr1``addr2``addr3` of widths
-    /// `d0_idx_size`, `d1_idx_size`, `d2_idx_size` and `d3_idx_size` respectively.
-    /// Initially the memory is filled with all 0s.
-    pub fn new(
-        params: &ir::Binding,
-        full_name: ir::Id,
-        allow_invalid_memory_access: bool,
-    ) -> StdMemD4 {
-        // yes this was incredibly tedious to write. Why do you ask?
-        let width = get_param(params, "WIDTH")
-            .expect("Missing width parameter for std_mem_d4");
-        let d0_size = get_param(params, "D0_SIZE")
-            .expect("Missing d0_size parameter for std_mem_d4");
-        let d1_size = get_param(params, "D1_SIZE")
-            .expect("Missing d1_size parameter for std_mem_d4");
-        let d2_size = get_param(params, "D2_SIZE")
-            .expect("Missing d2_size parameter for std_mem_d4");
-        let d3_size = get_param(params, "D3_SIZE")
-            .expect("Missing d3_size parameter for std_mem_d4");
-        let d0_idx_size = get_param(params, "D0_IDX_SIZE")
-            .expect("Missing d0_idx_size parameter for std_mem_d4");
-        let d1_idx_size = get_param(params, "D1_IDX_SIZE")
-            .expect("Missing d1_idx_size parameter for std_mem_d4");
-        let d2_idx_size = get_param(params, "D2_IDX_SIZE")
-            .expect("Missing d2_idx_size parameter for std_mem_d4");
-        let d3_idx_size = get_param(params, "D3_IDX_SIZE")
-            .expect("Missing d3_idx_size parameter for std_mem_d4");
-
-        let data = vec![
-            Value::zeroes(width as usize);
-            (d0_size * d1_size * d2_size * d3_size) as usize
-        ];
-        StdMemD4 {
-            width,
-            d0_size,
-            d1_size,
-            d2_size,
-            d3_size,
-            d0_idx_size,
-            d1_idx_size,
-            d2_idx_size,
-            d3_idx_size,
-            data,
-            update: None,
-            write_en: false,
-            last_idx: (0, 0, 0, 0),
-            full_name,
-            allow_invalid_memory_access,
-        }
-    }
-
-    pub fn initialize_memory(
-        &mut self,
-        vals: &[Value],
-    ) -> InterpreterResult<()> {
-        if (self.d0_size * self.d1_size * self.d2_size * self.d3_size) as usize
-            != vals.len()
-        {
-            return Err(InterpreterError::IncorrectMemorySize {
-                mem_dim: "4D".into(),
-                expected: self.d0_size
-                    * self.d1_size
-                    * self.d2_size
-                    * self.d3_size,
-                given: vals.len(),
-            });
-        }
-
-        for (idx, val) in vals.iter().enumerate() {
-            self.data[idx] = val.truncate(self.width.try_into().unwrap())
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    fn calc_addr(&self, addr0: u64, addr1: u64, addr2: u64, addr3: u64) -> u64 {
-        self.d3_size * (self.d2_size * (addr0 * self.d1_size + addr1) + addr2)
-            + addr3
-    }
-
-    fn max_idx(&self) -> u64 {
-        self.d0_size * self.d1_size * self.d2_size * self.d3_size
-    }
-}
-impl Named for StdMemD4 {
-    fn get_full_name(&self) -> &ir::Id {
-        &self.full_name
-    }
 }
 
-impl Primitive for StdMemD4 {
-    //null-op for now
-    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (addr0, addr1, addr2, addr3) = self.last_idx;
-        if self.calc_addr(addr0, addr1, addr2, addr3) >= self.max_idx() {
-            if self.allow_invalid_memory_access {
-                if self.write_en {
-                    return Ok(vec![
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                        (ir::Id::from("done"), Value::bit_high()),
-                    ]);
-                } else {
-                    return Ok(vec![
-                        (ir::Id::from("done"), Value::bit_low()),
-                        (ir::Id::from("read_data"), Value::zeroes(self.width)),
-                    ]);
-                }
-            }
-
-            return Err(InterpreterError::InvalidMemoryAccess {
-                name: self.full_name.clone(),
-                access: vec![
-                    self.last_idx.0,
-                    self.last_idx.1,
-                    self.last_idx.2,
-                    self.last_idx.3,
-                ],
-                dims: vec![
-                    self.d0_size,
-                    self.d1_size,
-                    self.d2_size,
-                    self.d3_size,
-                ],
-            });
-        }
-
-        if self.write_en {
-            assert!(self.update.is_some());
-            self.write_en = false;
-            if let Some((idx, val)) = self.update.take() {
-                self.data[idx as usize] = val;
-                Ok(vec![
-                    (
-                        ir::Id::from("read_data"),
-                        self.data[idx as usize].clone(),
-                    ),
-                    (ir::Id::from("done"), Value::bit_high()),
-                ])
-            } else {
-                unreachable!();
-            }
-        } else {
-            Ok(vec![(ir::Id::from("done"), Value::bit_low())])
-        }
-    }
-
-    fn is_comb(&self) -> bool {
-        false
-    }
-
-    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
-        for (id, v) in inputs {
-            match id.as_ref() {
-                "write_data" => assert_eq!(v.len() as u64, self.width),
-                "write_en" => assert_eq!(v.len(), 1),
-                "addr0" => {
-                    assert!(v.as_u64() < self.d0_size);
-                    assert_eq!(v.len() as u64, self.d0_idx_size)
-                }
-                "addr1" => {
-                    assert!(v.as_u64() < self.d1_size);
-                    assert_eq!(v.len() as u64, self.d1_idx_size)
-                }
-                "addr2" => {
-                    assert!(v.as_u64() < self.d2_size);
-                    assert_eq!(v.len() as u64, self.d2_idx_size)
-                }
-                "addr3" => {
-                    assert!(v.as_u64() < self.d3_size);
-                    assert_eq!(v.len() as u64, self.d3_idx_size)
-                }
-                "clk" => assert_eq!(v.len(), 1),
-                "reset" => assert_eq!(v.len(), 1),
-                p => unreachable!("Unknown port: {}", p),
-            }
-        }
-    }
-
-    fn execute(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
-            input: "write_data",
-            write_en: "write_en",
-            addr0: "addr0",
-            addr1: "addr1",
-            addr2: "addr2",
-            addr3: "addr3"
-        ];
-
-        let addr0 = addr0.as_u64();
-        let addr1 = addr1.as_u64();
-        let addr2 = addr2.as_u64();
-        let addr3 = addr3.as_u64();
-        self.last_idx = (addr0, addr1, addr2, addr3);
-
-        let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
-        if write_en.as_bool() {
-            self.update = Some((real_addr, (*input).clone()));
-            self.write_en = true;
-        } else {
-            self.update = None;
-            self.write_en = false;
-        }
-        Ok(vec![(
-            ir::Id::from("read_data"),
-            if real_addr < self.max_idx() {
-                self.data[real_addr as usize].clone()
-            } else {
-                Value::zeroes(self.width as usize)
-            },
-        )])
-    }
-
-    fn reset(
-        &mut self,
-        inputs: &[(ir::Id, &Value)],
-    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        let (_, addr0) = inputs.iter().find(|(id, _)| id == "addr0").unwrap();
-        let (_, addr1) = inputs.iter().find(|(id, _)| id == "addr1").unwrap();
-        let (_, addr2) = inputs.iter().find(|(id, _)| id == "addr2").unwrap();
-        let (_, addr3) = inputs.iter().find(|(id, _)| id == "addr3").unwrap();
-        //check that addr0 is not out of bounds and that it is the proper width!
-        let addr0 = addr0.as_u64();
-        let addr1 = addr1.as_u64();
-        let addr2 = addr2.as_u64();
-        let addr3 = addr3.as_u64();
-        self.last_idx = (addr0, addr1, addr2, addr3);
-        let real_addr = self.calc_addr(addr0, addr1, addr2, addr3);
-
-        let old = self.data[real_addr as usize].clone();
-        //clear update and write_en
-        self.update = None;
-        self.write_en = false;
-        Ok(vec![
-            (ir::Id::from("read_data"), old),
-            (ir::Id::from("done"), Value::zeroes(1)),
-        ])
-    }
-
-    fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
-        let code = signed.unwrap_or_default();
-        Serializable::Array(
-            self.data
-                .iter()
-                .map(|x| Entry::from_val_code(x, &code))
-                .collect(),
-            (
-                self.d0_size as usize,
-                self.d1_size as usize,
-                self.d2_size as usize,
-                self.d3_size as usize,
-            )
-                .into(),
-        )
-    }
-}
+pub type StdMemD1 = StdMem<MemD1>;
+pub type StdMemD2 = StdMem<MemD2>;
+pub type StdMemD3 = StdMem<MemD3>;
+pub type StdMemD4 = StdMem<MemD4>;
 
 pub struct StdFpMultPipe<const SIGNED: bool> {
     pub width: u64,
@@ -1855,7 +1038,7 @@ impl<const SIGNED: bool> Primitive for StdFpMultPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -2030,7 +1213,7 @@ impl<const SIGNED: bool> Primitive for StdFpDivPipe<SIGNED> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             left: "left",
             right: "right",
             reset: "reset",
@@ -2181,7 +1364,7 @@ impl<const FP: bool> Primitive for StdSqrt<FP> {
         &mut self,
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
-        get_input![inputs;
+        get_inputs![inputs;
             in_val: "in",
             go: "go",
             reset: "reset"
@@ -2209,3 +1392,552 @@ impl<const FP: bool> Primitive for StdSqrt<FP> {
         ])
     }
 }
+
+enum SeqMemAction<T> {
+    None,
+    Read(T),
+    Write(T, Value),
+    Reset,
+    Error,
+}
+
+impl<T> Default for SeqMemAction<T> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl<T> SeqMemAction<T> {
+    #[inline]
+    fn take(&mut self) -> Self {
+        std::mem::take(self)
+    }
+
+    fn clear(&mut self) {
+        *self = Self::None
+    }
+}
+
+pub trait MemBinder: Sized {
+    fn new(params: &ir::Binding, full_name: ir::Id) -> Self;
+
+    fn get_idx(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+        allow_invalid_memory_access: bool,
+    ) -> InterpreterResult<u64>;
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]);
+
+    fn get_dimensions(&self) -> Shape;
+
+    fn get_array_length(&self) -> usize;
+}
+
+use super::primitive::Shape;
+pub struct MemD1 {
+    size: u64,
+    idx_size: u64,
+    full_name: ir::Id,
+}
+
+impl MemBinder for MemD1 {
+    fn new(params: &ir::Binding, full_name: ir::Id) -> Self {
+        get_params![params;
+            // width: "WIDTH",
+            size: "SIZE",
+            idx_size: "IDX_SIZE"
+        ];
+
+        Self {
+            size,
+            idx_size,
+            full_name,
+        }
+    }
+
+    fn get_idx(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+        allow_invalid_memory_access: bool,
+    ) -> InterpreterResult<u64> {
+        get_inputs![inputs;
+            idx [u64]: "addr0"
+        ];
+
+        if idx >= self.size && !allow_invalid_memory_access {
+            Err(InterpreterError::InvalidMemoryAccess {
+                access: vec![idx],
+                dims: vec![self.size],
+                name: self.full_name.clone(),
+            })
+        } else {
+            Ok(idx)
+        }
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate_friendly![inputs;
+            addr0: self.idx_size
+        ]
+    }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D1((self.size as usize,))
+    }
+
+    fn get_array_length(&self) -> usize {
+        self.size as usize
+    }
+}
+
+pub struct MemD2 {
+    d0_size: u64,
+    d1_size: u64,
+    d0_idx_size: u64,
+    d1_idx_size: u64,
+    full_name: ir::Id,
+}
+impl MemBinder for MemD2 {
+    fn new(params: &ir::Binding, full_name: ir::Id) -> Self {
+        get_params![params;
+            d0_size: "D0_SIZE",
+            d1_size: "D1_SIZE",
+            d0_idx_size: "D0_IDX_SIZE",
+            d1_idx_size: "D1_IDX_SIZE"
+        ];
+
+        Self {
+            d0_size,
+            d1_size,
+            d0_idx_size,
+            d1_idx_size,
+            full_name,
+        }
+    }
+
+    fn get_idx(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+        allow_invalid_memory_access: bool,
+    ) -> InterpreterResult<u64> {
+        get_inputs![inputs;
+            addr0 [u64]: "addr0",
+            addr1 [u64]: "addr1"
+        ];
+
+        let address = addr0 * self.d1_size + addr1;
+
+        if address >= (self.d0_size * self.d1_size)
+            && !allow_invalid_memory_access
+        {
+            Err(InterpreterError::InvalidMemoryAccess {
+                access: vec![addr0, addr1],
+                dims: vec![self.d0_size, self.d1_size],
+                name: self.full_name.clone(),
+            })
+        } else {
+            Ok(address)
+        }
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate_friendly![inputs;
+            addr0: self.d0_idx_size,
+            addr1: self.d1_idx_size
+        ]
+    }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D2((self.d0_size as usize, self.d1_size as usize))
+    }
+
+    fn get_array_length(&self) -> usize {
+        (self.d0_size * self.d1_size) as usize
+    }
+}
+
+pub struct MemD3 {
+    d0_size: u64,
+    d1_size: u64,
+    d2_size: u64,
+    d0_idx_size: u64,
+    d1_idx_size: u64,
+    d2_idx_size: u64,
+    full_name: ir::Id,
+}
+
+impl MemBinder for MemD3 {
+    fn new(params: &ir::Binding, full_name: ir::Id) -> Self {
+        get_params![params;
+            d0_size: "D0_SIZE",
+            d1_size: "D1_SIZE",
+            d2_size: "D2_SIZE",
+            d0_idx_size: "D0_IDX_SIZE",
+            d1_idx_size: "D1_IDX_SIZE",
+            d2_idx_size: "D2_IDX_SIZE"
+        ];
+
+        Self {
+            d0_size,
+            d1_size,
+            d2_size,
+            d0_idx_size,
+            d1_idx_size,
+            d2_idx_size,
+            full_name,
+        }
+    }
+
+    fn get_idx(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+        allow_invalid_memory_access: bool,
+    ) -> InterpreterResult<u64> {
+        get_inputs![inputs;
+            addr0 [u64]: "addr0",
+            addr1 [u64]: "addr1",
+            addr2 [u64]: "addr2"
+        ];
+
+        let address = self.d2_size * (addr0 * self.d1_size + addr1) + addr2;
+
+        if address >= (self.d0_size * self.d1_size * self.d2_size)
+            && !allow_invalid_memory_access
+        {
+            Err(InterpreterError::InvalidMemoryAccess {
+                access: vec![addr0, addr1, addr2],
+                dims: vec![self.d0_size, self.d1_size, self.d2_size],
+                name: self.full_name.clone(),
+            })
+        } else {
+            Ok(address)
+        }
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate_friendly![inputs;
+            addr0: self.d0_idx_size,
+            addr1: self.d1_idx_size,
+            addr2: self.d2_idx_size
+        ]
+    }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D3((
+            self.d0_size as usize,
+            self.d1_size as usize,
+            self.d2_size as usize,
+        ))
+    }
+
+    fn get_array_length(&self) -> usize {
+        (self.d0_size * self.d1_size * self.d2_size) as usize
+    }
+}
+
+pub struct MemD4 {
+    d0_size: u64,
+    d1_size: u64,
+    d2_size: u64,
+    d3_size: u64,
+    d0_idx_size: u64,
+    d1_idx_size: u64,
+    d2_idx_size: u64,
+    d3_idx_size: u64,
+    full_name: ir::Id,
+}
+
+impl MemBinder for MemD4 {
+    fn new(params: &ir::Binding, full_name: ir::Id) -> Self {
+        get_params![params;
+            d0_size: "D0_SIZE",
+            d1_size: "D1_SIZE",
+            d2_size: "D2_SIZE",
+            d3_size: "D3_SIZE",
+            d0_idx_size: "D0_IDX_SIZE",
+            d1_idx_size: "D1_IDX_SIZE",
+            d2_idx_size: "D2_IDX_SIZE",
+            d3_idx_size: "D3_IDX_SIZE"
+        ];
+
+        Self {
+            d0_size,
+            d1_size,
+            d2_size,
+            d3_size,
+            d0_idx_size,
+            d1_idx_size,
+            d2_idx_size,
+            d3_idx_size,
+            full_name,
+        }
+    }
+
+    fn get_idx(
+        &self,
+        inputs: &[(ir::Id, &Value)],
+        allow_invalid_memory_access: bool,
+    ) -> InterpreterResult<u64> {
+        get_inputs![inputs;
+            addr0 [u64]: "addr0",
+            addr1 [u64]: "addr1",
+            addr2 [u64]: "addr2",
+            addr3 [u64]: "addr3"
+        ];
+
+        let address = self.d3_size
+            * (self.d2_size * (addr0 * self.d1_size + addr1) + addr2)
+            + addr3;
+
+        if address
+            >= (self.d0_size * self.d1_size * self.d2_size * self.d3_size)
+            && !allow_invalid_memory_access
+        {
+            Err(InterpreterError::InvalidMemoryAccess {
+                access: vec![addr0, addr1, addr2, addr3],
+                dims: vec![
+                    self.d0_size,
+                    self.d1_size,
+                    self.d2_size,
+                    self.d3_size,
+                ],
+                name: self.full_name.clone(),
+            })
+        } else {
+            Ok(address)
+        }
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate_friendly![inputs;
+            addr0: self.d0_idx_size,
+            addr1: self.d1_idx_size,
+            addr2: self.d2_idx_size,
+            addr3: self.d3_idx_size
+        ]
+    }
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D4((
+            self.d0_size as usize,
+            self.d1_size as usize,
+            self.d2_size as usize,
+            self.d3_size as usize,
+        ))
+    }
+
+    fn get_array_length(&self) -> usize {
+        (self.d0_size * self.d1_size * self.d2_size * self.d3_size) as usize
+    }
+}
+
+/// The primitive skeleton for sequential memories. Both reads and writes take a
+/// cycle. Read output is latched. Read and Write signals cannot be asserted at
+/// the same time.
+pub struct SeqMem<T: MemBinder> {
+    mem_binder: T,
+    // parameters
+    width: u64,
+    // Internal Details
+    data: Vec<Value>,
+    full_name: ir::Id,
+    allow_invalid_memory_access: bool,
+    // I/O
+    read_out: Value,
+    update: SeqMemAction<InterpreterResult<u64>>,
+}
+
+impl<T: MemBinder> SeqMem<T> {
+    pub fn new(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+    ) -> Self {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let data =
+            vec![Value::zeroes(width as usize); mem_binder.get_array_length()];
+
+        Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            read_out: Value::zeroes(width),
+            update: SeqMemAction::None,
+        }
+    }
+
+    pub fn from_initial_mem(
+        params: &ir::Binding,
+        name: ir::Id,
+        allow_invalid_memory_access: bool,
+        initial: Vec<Value>,
+    ) -> InterpreterResult<Self> {
+        let mem_binder = T::new(params, name.clone());
+        let width =
+            get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
+
+        let size = mem_binder.get_array_length();
+
+        if initial.len() != size {
+            return Err(InterpreterError::IncorrectMemorySize {
+                mem_dim: mem_binder.get_dimensions().dim_str(),
+                expected: size as u64,
+                given: initial.len(),
+            });
+        }
+
+        let mut data = initial;
+        for val in data.iter_mut() {
+            val.truncate_in_place(width as usize);
+        }
+
+        Ok(Self {
+            mem_binder,
+            width,
+            data,
+            full_name: name,
+            allow_invalid_memory_access,
+            read_out: Value::zeroes(width),
+            update: SeqMemAction::None,
+        })
+    }
+}
+impl<T: MemBinder> Named for SeqMem<T> {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.full_name
+    }
+}
+
+impl<T: MemBinder> Primitive for SeqMem<T> {
+    fn is_comb(&self) -> bool {
+        false
+    }
+
+    fn validate(&self, inputs: &[(ir::Id, &Value)]) {
+        validate![inputs;
+            read_en: 1,
+            write_en: 1,
+            reset: 1,
+            r#in: self.width
+        ];
+        self.mem_binder.validate(inputs);
+    }
+
+    fn execute(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        get_inputs![inputs;
+            read_en [bool]: "read_en",
+            write_en [bool]: "write_en",
+            reset [bool]: "reset",
+            input: "in"
+        ];
+
+        let idx = self
+            .mem_binder
+            .get_idx(inputs, self.allow_invalid_memory_access);
+
+        self.update = if reset {
+            SeqMemAction::Reset
+        } else if write_en && read_en {
+            SeqMemAction::Error
+        } else if write_en {
+            SeqMemAction::Write(idx, input.clone())
+        } else if read_en {
+            SeqMemAction::Read(idx)
+        } else {
+            SeqMemAction::None
+        };
+
+        // nothing on comb path
+        Ok(vec![])
+    }
+
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        match self.update.take() {
+            SeqMemAction::Read(idx) => {
+                let idx = idx? as usize;
+                if idx >= self.data.len() {
+                    self.read_out = Value::zeroes(self.width)
+                } else {
+                    self.read_out = self.data[idx].clone()
+                }
+
+                Ok(vec![
+                    ("out".into(), self.read_out.clone()),
+                    ("read_done".into(), Value::bit_high()),
+                    ("write_done".into(), Value::bit_low()),
+                ])
+            }
+            SeqMemAction::Write(idx, v) => {
+                let idx = idx? as usize;
+                if idx < self.data.len() {
+                    self.data[idx] = v;
+                }
+
+                self.read_out = Value::zeroes(self.width);
+
+                Ok(vec![
+                    ("out".into(), self.read_out.clone()),
+                    ("read_done".into(), Value::bit_low()),
+                    ("write_done".into(), Value::bit_high()),
+                ])
+            }
+            SeqMemAction::Reset => {
+                self.read_out = Value::zeroes(self.width);
+                Ok(vec![
+                    ("out".into(), self.read_out.clone()),
+                    ("read_done".into(), Value::bit_low()),
+                    ("write_done".into(), Value::bit_low()),
+                ])
+            }
+            SeqMemAction::None => Ok(vec![
+                ("out".into(), self.read_out.clone()),
+                ("read_done".into(), Value::bit_low()),
+                ("write_done".into(), Value::bit_low()),
+            ]),
+            SeqMemAction::Error => Err(InterpreterError::SeqMemoryError),
+        }
+    }
+
+    fn reset(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.update.clear();
+
+        Ok(vec![
+            ("out".into(), self.read_out.clone()),
+            ("read_done".into(), Value::bit_low()),
+            ("write_done".into(), Value::bit_low()),
+        ])
+    }
+
+    fn serialize(&self, code: Option<PrintCode>) -> Serializable {
+        let code = code.unwrap_or_default();
+
+        Serializable::Array(
+            self.data
+                .iter()
+                .map(|x| Entry::from_val_code(x, &code))
+                .collect(),
+            self.mem_binder.get_dimensions(),
+        )
+    }
+
+    fn has_serializeable_state(&self) -> bool {
+        true
+    }
+}
+
+pub type SeqMemD1 = SeqMem<MemD1>;
+pub type SeqMemD2 = SeqMem<MemD2>;
+pub type SeqMemD3 = SeqMem<MemD3>;
+pub type SeqMemD4 = SeqMem<MemD4>;

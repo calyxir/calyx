@@ -320,6 +320,8 @@ def parse_from_json(output_data_str, original_data_file_path):
         inner_dict_output = dict()
         for key, target in inner_dict.items():
             if orig is not None:
+                if key not in orig:
+                    continue
                 width = orig[key]["format"].get("width")
                 width = (
                     width
