@@ -86,7 +86,7 @@ impl Visitor for Papercut {
     ) -> VisResult {
         // If the component isn't marked "nointerface", it should have an invokable
         // interface.
-        if !comp.attributes.has("nointerface") {
+        if !comp.attributes.has("nointerface") && !comp.is_comb {
             // If the control program is empty, check that the `done` signal has been assigned to.
             if let ir::Control::Empty(..) = *comp.control.borrow() {
                 let done_use =

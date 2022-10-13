@@ -56,11 +56,11 @@ extern_or_component = {
 externs_and_comps = { extern_or_component* }
 
 component = {
-      "component" ~ name_with_attribute ~ signature
+      comb? ~ "component" ~ name_with_attribute ~ signature
       ~ "{"
       ~ cells
       ~ connections
-      ~ control
+      ~ control?
       ~ "}"
 }
 
