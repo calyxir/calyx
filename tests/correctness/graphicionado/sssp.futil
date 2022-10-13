@@ -1,0 +1,637 @@
+// A Calyx implementation of the Graphicionado Base Graph Processing Model, as described in:
+// "Graphicionado: A high-performance and energy efficient accelerator for graph analytics"
+// Ham et al. (2016) [https://ieeexplore.ieee.org/document/7783759]
+// Custom-computation modules (i.e. process_edge, reduce, apply) configured to support BFS.
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+// Returns Uprop + Eweight
+component process_edge(e_weight: 32, src_prop: 32) -> (res: 32) {
+  cells {
+    val = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+    res = val.out;
+    group add_res {
+      add.left = e_weight;
+      add.right = src_prop;
+      val.in = add.out;
+      val.write_en = 1'd1;
+      add_res[done] = val.done;
+    }
+  }
+  control {
+    seq { add_res; }
+  }
+}
+
+// Returns min(temp, Res(process_edge))
+component reduce(vtemp: 32, res: 32) -> (out: 32) {
+  cells {
+    val = std_reg(32);
+    lt = std_lt(32);
+  }
+  wires {
+    out = val.out; // out will always equal to val. "continuous assignment"
+    group set_val_res {
+      val.in = res;
+      val.write_en = 1'b1;
+      set_val_res[done] = val.done;
+    }
+    group set_val_vtemp {
+      val.in = vtemp;
+      val.write_en = 1'b1;
+      set_val_vtemp[done] = val.done;
+    }
+    comb group min {
+      lt.left = vtemp;
+      lt.right = res;
+    }
+  }
+  control {
+    seq {
+      if lt.out with min {
+        set_val_vtemp;
+      } else {
+        set_val_res;
+      }
+    }
+  }
+}
+
+// Returns min(vtemp, vprop)
+component apply(vprop: 32, vtemp: 32) -> (out: 32) {
+  cells {
+    val = std_reg(32);
+  }
+  wires {
+    out = val.out;
+
+    group set_val {
+      val.in = vtemp;
+      val.write_en = 1'b1;
+      set_val[done] = val.done;
+    }
+  }
+  control {
+    seq { set_val; }
+  }
+}
+
+/** All outgoing edges from every active vertex are examined and updates to the associated 
+    vertex properties are calculated with `Process_Edge` and `Reduce` and stored in `VTempProperty`.
+    This phase only terminates when all active vertices are processed. */
+component processing_phase(
+  res: 32,
+  // edges
+  edges_read_data: 32,
+  // edgeIDTable (NOT USED IN PageRank and CF)
+  EdgeIDTable_read_data: 32,
+  // VProperty
+  VProperty_read_data: 32,
+  VProperty_done: 1,
+  // VTempProperty
+  VTempProperty_read_data: 32,
+  VTempProperty_done: 1,
+  // ActiveVertex
+  ActiveVertex_read_data: 32,
+  ActiveVertex_done: 1,
+  // ActiveVertex
+  ActiveVertexCount_out: 32,
+  ActiveVertexCount_done: 1
+) -> (
+  // edges
+  edges_addr0: 32,
+  edges_addr1: 32,
+  // EdgeIDTable
+  EdgeIDTable_addr0: 32,
+  // VProperty
+  VProperty_addr0: 32,
+  VProperty_write_data: 32,
+  VProperty_write_en: 1,
+  // VTempProperty
+  VTempProperty_addr0: 32,
+  VTempProperty_write_data: 32,
+  VTempProperty_write_en: 1,
+  // ActiveVertex
+  ActiveVertex_addr0: 32,
+  ActiveVertex_write_data: 32,
+  ActiveVertex_write_en: 1,
+  // ActiveVertexCount
+  ActiveVertexCount_in: 32,
+  ActiveVertexCount_write_en: 1
+) {
+  cells {
+    i = std_reg(32);
+    activeVertexCount = std_reg(32);
+    v_src = std_reg(32);
+    v_srcid = std_reg(32);
+    v_srcprop = std_reg(32);
+    eid = std_reg(32);
+    e_dstid = std_reg(32);
+    e_srcid = std_reg(32);
+    e_weight = std_reg(32);
+    res = std_reg(32);
+    temp = std_reg(32);
+    add1 = std_add(32);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    lt1 = std_lt(32);
+    eq1 = std_eq(32);
+
+    p = process_edge();
+    r = reduce();
+  }
+  wires {
+    group init_i {
+      i.in = 32'd0;
+      i.write_en = 1'b1;
+      init_i[done] = i.done;
+    }
+    group incr_i {
+      add1.left = i.out;
+      add1.right = 32'd1;
+      i.in = add1.out;
+      i.write_en = 1'b1;
+      incr_i[done] = i.done;
+    }
+    group incr_eid {
+      add2.left = eid.out;
+      add2.right = 32'd1;
+      eid.in = add2.out;
+      eid.write_en = 1'b1;
+      incr_eid[done] = eid.done;
+    }
+    group read_ActiveVertexCount {
+      activeVertexCount.write_en = 1'b1;
+      activeVertexCount.in = ActiveVertexCount_out;
+      read_ActiveVertexCount[done] = activeVertexCount.done;
+    }
+    group read_vertex {
+      ActiveVertex_addr0 = i.out;
+      v_src.write_en = 1'b1;
+      v_src.in = ActiveVertex_read_data;
+      read_vertex[done] = v_src.done;
+    }
+    // A vertex (src) and its id (srcid) are considered the same entity.
+    group read_vertex_srcid {
+      v_srcid.write_en = 1'b1;
+      v_srcid.in = v_src.out;
+      read_vertex_srcid[done] = v_srcid.done;
+    }
+    // Get src property from VProperty[srcid]
+    group read_vertex_srcprop {
+      VProperty_addr0 = v_src.out;
+      v_srcprop.write_en = 1'b1;
+      v_srcprop.in = VProperty_read_data;
+      read_vertex_srcprop[done] = v_srcprop.done;
+    }
+    // Get edge index from EdgeIDTable
+    group read_eid {
+      EdgeIDTable_addr0 = v_srcid.out;
+      eid.write_en = 1'b1;
+      eid.in = EdgeIDTable_read_data;
+      read_eid[done] = eid.done;
+    }
+    // get edge from edges table based on index (i.e. eid)
+    group read_edge_srcid {
+      edges_addr0 = eid.out;
+      edges_addr1 = 32'd0;
+      e_srcid.write_en = 1'b1;
+      e_srcid.in = edges_read_data;
+      read_edge_srcid[done] = e_srcid.done;
+    }
+    group read_edge_dstid {
+      edges_addr0 = eid.out;
+      edges_addr1 = 32'd1;
+      e_dstid.write_en = 1'b1;
+      e_dstid.in = edges_read_data;
+      read_edge_dstid[done] = e_dstid.done;
+    }
+    group read_edge_weight {
+      edges_addr0 = eid.out;
+      edges_addr1 = 32'd2;
+      e_weight.write_en = 1'b1;
+      e_weight.in = edges_read_data;
+      read_edge_weight[done] = e_weight.done;
+    }
+    group read_temp {
+      VTempProperty_addr0 = e_dstid.out;
+      temp.write_en = 1'b1;
+      temp.in = VTempProperty_read_data;
+      read_temp[done] = temp.done;
+    }
+    group run_process_edge {
+      p.e_weight = e_weight.out;
+      p.src_prop = v_srcprop.out;
+      p.go = 1'd1;
+      run_process_edge[done] = p.done;
+    }
+    // execute the 'reduce' component and write the output to 'temp'
+    group run_reduce {
+      // r.res = res;
+      r.vtemp = temp.out;
+      r.res = res;
+      r.go = 1'd1;
+      run_reduce[done] = r.done;
+    }
+    // set 'temp' to the output of 'reduce'
+    group set_temp {
+      temp.in = r.out;
+      temp.write_en = 1'b1;
+      set_temp[done] = temp.done;
+    }
+    group write_VTempProperty {
+      VTempProperty_addr0 = e_dstid.out;
+      VTempProperty_write_en = 1'b1;
+      VTempProperty_write_data = temp.out;
+      write_VTempProperty[done] = VTempProperty_done;
+    }
+		// this entire section is hardcoded to the amount of vertices (4)
+    // group reset_av0 { // reset ActiveVertex at index 0
+    //   ActiveVertex_addr0 = 32'd0;
+    //   ActiveVertex_write_data = 32'd0;
+    //   ActiveVertex_write_en = 1'b1;
+    //   reset_av0[done] = ActiveVertex_done;
+    // }
+    // group reset_av1 { // reset ActiveVertex at index 1
+    //   ActiveVertex_addr0 = 32'd1;
+    //   ActiveVertex_write_data = 32'd0;
+    //   ActiveVertex_write_en = 1'b1;
+    //   reset_av1[done] = ActiveVertex_done;
+    // }
+    // group reset_av2 { // reset ActiveVertex at index 2
+    //   ActiveVertex_addr0 = 32'd2;
+    //   ActiveVertex_write_data = 32'd0;
+    //   ActiveVertex_write_en = 1'b1;
+    //   reset_av2[done] = ActiveVertex_done;
+    // }
+    // group reset_av3{ // reset ActiveVertex at index 3
+    //   ActiveVertex_addr0 = 32'd3;
+    //   ActiveVertex_write_data = 32'd0;
+    //   ActiveVertex_write_en = 1'b1;
+    //   reset_av3[done] = ActiveVertex_done;
+    // }
+    // group reset_ActiveVertexCount {
+    //   ActiveVertexCount_in = 32'd0;
+    //   ActiveVertexCount_write_en = 1'b1;
+    //   reset_ActiveVertexCount[done] = ActiveVertexCount_done;
+    // }
+
+    comb group cond_i_lt_ActiveVertexCount {
+      lt1.left = i.out;
+      lt1.right = activeVertexCount.out;
+    }
+    comb group cond_e_srcid_eq_v_srcid {
+      eq1.left = e_srcid.out;
+      eq1.right = v_srcid.out;
+    }
+  }
+  control {
+    seq {
+      read_ActiveVertexCount;
+      init_i; //l1
+      while lt1.out with cond_i_lt_ActiveVertexCount { //l1
+        seq {
+          read_vertex; //l2
+          read_vertex_srcid; //l2
+          read_vertex_srcprop; //l2
+          read_eid; //l3
+          read_edge_srcid; //l4
+          read_edge_dstid; //l4
+          read_edge_weight; //l4
+          while eq1.out with cond_e_srcid_eq_v_srcid { //l5
+            seq {
+              read_temp; //l8
+              run_process_edge;
+              run_reduce; //l9
+              set_temp; //l9
+              write_VTempProperty; //10
+              incr_eid; //l11
+              read_edge_srcid; //l11
+              read_edge_dstid; //l11
+              read_edge_weight; //l11
+            }
+          }
+          incr_i; //l1
+        }
+      }
+      // reset_av0;
+      // reset_av1;
+      // reset_av2;
+      // reset_av3;
+      // reset_ActiveVertexCount; //l14
+    }
+  }
+}
+
+// Sets the final VTemp to VProperty
+component apply_phase(
+  // VProperty
+  VProperty_read_data: 32,
+  VProperty_done: 1,
+  // VTempProperty
+  VTempProperty_read_data: 32,
+  VTempProperty_done: 1,
+  // ActiveVertex
+  ActiveVertex_read_data: 32,
+  ActiveVertex_done: 1,
+  // ActiveVertexCount
+  ActiveVertexCount_out: 32,
+  ActiveVertexCount_done: 1,
+  // TotalVertexCount
+  TotalVertexCount_read_data: 32
+) -> (
+  // VProperty
+  VProperty_addr0: 32,
+  VProperty_write_data: 32,
+  VProperty_write_en: 1,
+  // VTempProperty
+  VTempProperty_addr0: 32,
+  VTempProperty_write_data: 32,
+  VTempProperty_write_en: 1,
+  // ActiveVertex
+  ActiveVertex_addr0: 32,
+  ActiveVertex_write_data: 32,
+  ActiveVertex_write_en: 1,
+  // ActiveVertexCount
+  ActiveVertexCount_in: 32,
+  ActiveVertexCount_write_en: 1,
+  // TotalVertexCount
+  TotalVertexCount_addr0: 1
+) {
+  cells {
+    i = std_reg(32);
+    avCount = std_reg(32); // active vertex count
+    tvCount = std_reg(32); // total vertex count
+    vprop = std_reg(32);
+    vtemp = std_reg(32);
+    temp = std_reg(32);
+    vid = std_reg(32);
+
+    add1 = std_add(32);
+    add2 = std_add(32);
+    lt = std_lt(32);
+    neq = std_neq(32);
+
+    a = apply();
+  }
+  wires {
+    comb group cond_i_lt_TotalVertexCount {
+      lt.left = i.out;
+      lt.right = tvCount.out;
+    }
+    comb group cond_temp_neq_vprop {
+      neq.left = temp.out;
+      neq.right = vprop.out;
+    }
+    group init_i {
+      i.in = 32'd0;
+      i.write_en = 1'b1;
+      init_i[done] = i.done;
+    }
+    group incr_i {
+      add1.left = i.out;
+      add1.right = 32'd1;
+      i.in = add1.out;
+      i.write_en = 1'b1;
+      incr_i[done] = i.done;
+    }
+    group read_activeVertexCount {
+      avCount.write_en = 1'b1;
+      avCount.in = ActiveVertexCount_out;
+      read_activeVertexCount[done] = avCount.done;
+    }
+    group incr_activeVertexCount {
+      add2.left = avCount.out;
+      add2.right = 32'd1;
+      avCount.in = add2.out;
+      avCount.write_en = 1'b1;
+      incr_activeVertexCount[done] = avCount.done;
+    }
+    group read_totalVertexCount {
+      TotalVertexCount_addr0 = 1'd0;
+      tvCount.write_en = 1'b1;
+      tvCount.in = TotalVertexCount_read_data;
+      read_totalVertexCount[done] = tvCount.done;
+    }
+    group read_vprop {
+      VProperty_addr0 = i.out;
+      vprop.write_en = 1'b1;
+      vprop.in = VProperty_read_data;
+      read_vprop[done] = vprop.done;
+    }
+    group read_vtemp {
+      VTempProperty_addr0 = i.out;
+      vtemp.write_en = 1'b1;
+      vtemp.in = VTempProperty_read_data;
+      read_vtemp[done] = vtemp.done;
+    }
+    group run_apply {
+      a.vprop = vprop.out;
+      a.vtemp = vtemp.out;
+      a.go = 1'b1;
+      run_apply[done] = a.done;
+    }
+    // Get the result of the apply operation
+    group set_temp {
+      temp.in = a.out;
+      temp.write_en = 1'b1;
+      set_temp[done] = temp.done;
+    }
+    group write_vprop {
+      VProperty_addr0 = i.out;
+      VProperty_write_en = 1'b1;
+      VProperty_write_data = temp.out;
+      write_vprop[done] = VProperty_done;
+    }
+    group set_vid {
+      vid.in = temp.out;
+      vid.write_en = 1'b1;
+      set_vid[done] = vid.done;
+    }
+    group write_activeVertexCount {
+      ActiveVertexCount_write_en = 1'b1;
+      ActiveVertexCount_in = avCount.out;
+      write_activeVertexCount[done] = ActiveVertexCount_done;
+    }
+    group write_activeVertex {
+      ActiveVertex_addr0 = avCount.out;
+      ActiveVertex_write_en = 1'b1;
+      ActiveVertex_write_data = vid.out;
+      write_activeVertex[done] = ActiveVertex_done;
+    }
+  }
+  control {
+    seq {
+      init_i;
+      read_activeVertexCount;
+      read_totalVertexCount;
+      while lt.out with cond_i_lt_TotalVertexCount {
+        seq {
+          read_vprop;
+          read_vtemp;
+          run_apply;
+          set_temp;
+          write_vprop;
+          if neq.out with cond_temp_neq_vprop {
+            seq {
+              set_vid;
+              incr_activeVertexCount;
+              write_activeVertexCount;
+              write_activeVertex;
+            }
+          }
+          incr_i;
+        }
+      }
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    /*********** Inputs **************/
+    // This contains the number of vertices in the input graph.
+    // It can be smaller than MAX_VERTICES.
+    @external @read_only TotalVertexCount = std_mem_d1(32, 1, 1);
+
+    // Loop maximum to prevent overflowing edges.
+    @external @read_only TotalEdgeCount = std_mem_d1(32, 1, 1);
+
+    // Contains edges in the form (source, dest, weight) and is sorted by
+    // source Id.
+    @external @read_only edges = std_mem_d2(32, /*MAX_EDGES=*/4, 3, 32, 32);
+
+    // Indexes the smallest edge for a given source ID.
+    @external @read_only EdgeIDTable = std_mem_d1(32, /*MAX_VERTICES=*/4, 32);
+
+    /*********** Outputs **************/
+    // This usually contains the output of the graph algorithm.
+    @external VProperty = std_mem_d1(32, /*MAX_VERTICES=*/4, 32);
+
+    /*********** Internal Memories **************/
+    // Contains the currently active vertices.
+    // When provided as an input,
+    ActiveVertexId = std_mem_d1(32, /*MAX_VERTICES=*/4, 32);
+
+    // Number of currently active vertices.
+    ActiveVertexCount = std_reg(32);
+
+    // Contains the current amount of iterations it took to get to the current vertex.
+    VTempProperty = std_mem_d1(32, 4, 32);
+
+    /*********** Other Structure **************/
+    curIter = std_reg(32); // current iteration
+    add = std_add(32);
+    lt = std_lt(32);
+    p = process_edge();
+    pp = processing_phase();
+    app = apply_phase();
+  }
+  wires {
+    comb group cond_curIter_lt_TotalEdge {
+      lt.left = curIter.out;
+      lt.right = TotalEdgeCount.read_data;
+    }
+    group init_curIter {
+      curIter.write_en = 1'b1;
+      curIter.in = 32'd0;
+      init_curIter[done] = curIter.done;
+    }
+    group incr_curIter {
+      add.left = curIter.out;
+      add.right = 32'd1;
+      curIter.in = add.out;
+      curIter.write_en = 1'b1;
+      incr_curIter[done] = curIter.done;
+    }
+  }
+  control {
+    seq {
+      init_curIter;
+      while lt.out with cond_curIter_lt_TotalEdge {
+        seq {
+          invoke pp(
+            // res
+            // res_read_data=process_edge(),
+            // edges
+            edges_read_data = edges.read_data,
+            // edgeIDTable
+            EdgeIDTable_read_data = EdgeIDTable.read_data,
+            // VProperty
+            VProperty_read_data = VProperty.read_data,
+            VProperty_done = VProperty.done,
+            // VTempProperty
+            VTempProperty_read_data = VTempProperty.read_data,
+            VTempProperty_done = VTempProperty.done,
+            // ActiveVertexId
+            ActiveVertex_read_data = ActiveVertexId.read_data,
+            ActiveVertex_done = ActiveVertexId.done,
+            // ActiveVertexId
+            ActiveVertexCount_out = ActiveVertexCount.out,
+            ActiveVertexCount_done = ActiveVertexCount.done
+          )(
+            // edges
+            edges_addr0 = edges.addr0,
+            edges_addr1 = edges.addr1,
+            // EdgeIDTable
+            EdgeIDTable_addr0 = EdgeIDTable.addr0,
+            // VProperty
+            VProperty_addr0 = VProperty.addr0,
+            VProperty_write_data = VProperty.write_data,
+            VProperty_write_en = VProperty.write_en,
+            // VTempProperty
+            VTempProperty_addr0 = VTempProperty.addr0,
+            VTempProperty_write_data = VTempProperty.write_data,
+            VTempProperty_write_en = VTempProperty.write_en,
+            // ActiveVertex
+            ActiveVertex_addr0 = ActiveVertexId.addr0,
+            ActiveVertex_write_data = ActiveVertexId.write_data,
+            ActiveVertex_write_en = ActiveVertexId.write_en,
+            // ActiveVertexCount
+            ActiveVertexCount_in = ActiveVertexCount.in,
+            ActiveVertexCount_write_en = ActiveVertexCount.write_en
+          );
+          invoke app(
+            // VProperty
+            VProperty_read_data = VProperty.read_data,
+            VProperty_done = VProperty.done,
+            // VTempProperty
+            VTempProperty_read_data = VTempProperty.read_data,
+            VTempProperty_done = VTempProperty.done,
+            // ActiveVertex
+            ActiveVertex_read_data = ActiveVertexId.read_data,
+            ActiveVertex_done = ActiveVertexId.done,
+            // ActiveVertexCount
+            ActiveVertexCount_out = ActiveVertexCount.out,
+            ActiveVertexCount_done = ActiveVertexCount.done,
+            // TotalVertexCount
+            TotalVertexCount_read_data = TotalVertexCount.read_data
+          )(
+            // VProperty
+            VProperty_addr0 = VProperty.addr0,
+            VProperty_write_data = VProperty.write_data,
+            VProperty_write_en = VProperty.write_en,
+            // VTempProperty
+            VTempProperty_addr0 = VTempProperty.addr0,
+            VTempProperty_write_data = VTempProperty.write_data,
+            VTempProperty_write_en = VTempProperty.write_en,
+            // ActiveVertex
+            ActiveVertex_addr0 = ActiveVertexId.addr0,
+            ActiveVertex_write_data = ActiveVertexId.write_data,
+            ActiveVertex_write_en = ActiveVertexId.write_en,
+            // ActiveVertexCount
+            ActiveVertexCount_in = ActiveVertexCount.in,
+            ActiveVertexCount_write_en = ActiveVertexCount.write_en,
+            // TotalVertexCount
+            TotalVertexCount_addr0 = TotalVertexCount.addr0
+          );
+          incr_curIter;
+        }
+      }
+    }
+  }
+}
