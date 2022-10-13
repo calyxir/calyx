@@ -1878,12 +1878,11 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
             }
             SeqMemAction::Write(idx, v) => {
                 let idx = idx? as usize;
-                if idx >= self.data.len() {
-                    self.read_out = v;
-                } else {
-                    self.data[idx] = v.clone();
-                    self.read_out = v;
+                if idx < self.data.len() {
+                    self.data[idx] = v;
                 }
+
+                self.read_out = Value::zeroes(self.width);
 
                 Ok(vec![
                     ("out".into(), self.read_out.clone()),
