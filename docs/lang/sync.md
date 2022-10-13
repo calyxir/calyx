@@ -51,6 +51,10 @@ situation: if thread A is running in the unlocked branch while the thread B
 has a "barrier" that is expecting two threads, thread B may never proceed because
 thread A never arrives at the "barrier".
 
+## More Complex Example
+If you want to see a more complex design using `@sync`, see 
+[sync-dot-product](https://github.com/cucapra/calyx/blob/master/tests/correctness/sync/sync-dot-product.futil)
+
 ## Limitations
 
 Currently we only support two threads sharing the same "barrier", i.e., only two threads can have control with the `@sync` attribute marked with the same value. 

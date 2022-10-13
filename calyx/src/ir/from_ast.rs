@@ -128,7 +128,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         let sig = &mut comp.signature;
         check_signature(&*sig)?;
         // extend the signature if the component does not have the @nointerface attribute.
-        if !comp.attributes.has("nointerface") {
+        if !comp.attributes.has("nointerface") && !comp.is_comb {
             extend_signature(sig);
         }
         sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
@@ -229,7 +229,8 @@ fn build_component(
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
-    let mut ir_component = Component::new(comp.name, comp.signature);
+    let mut ir_component =
+        Component::new(comp.name, comp.signature, comp.is_comb);
     let mut builder =
         Builder::new(&mut ir_component, &sig_ctx.lib).not_generated();
 

@@ -1,0 +1,26 @@
+{
+  "in_0": {
+    "data": [4, 4, 6, 5, 10, 9, 16, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "in_1": {
+    "data": [0, 11, 6, 6, 10, 8, 12, 13, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  },
+  "out": {
+    "data": [0],
+    "format": {
+      "numeric_type": "bitnum",
+      "is_signed": false,
+      "width": 32
+    }
+  }
+}

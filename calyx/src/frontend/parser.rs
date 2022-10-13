@@ -1,7 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 
 //! Parser for Calyx programs.
-use super::ast::{self, BitNum, GuardComp as GC, GuardExpr, NumType};
+use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
 use crate::errors::{self, CalyxResult, Span};
 use crate::ir;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
@@ -749,36 +749,68 @@ impl CalyxParser {
     fn component(input: Node) -> ParseResult<ComponentDef> {
         let span = Self::get_span(&input);
         match_nodes!(
-            input.clone().into_children();
-            [
-                name_with_attribute((name, attributes)),
-                signature(sig),
-                cells(cells),
-                connections(connections),
-                control(control)
-            ] => {
-                let (continuous_assignments, groups) = connections;
-                let sig = sig.into_iter().map(|ir::PortDef { name, width, direction, attributes }| {
-                    if let ir::Width::Const { value } = width {
-                        Ok(ir::PortDef {
-                            name,
-                            width: value,
-                            direction,
-                            attributes
-                        })
-                    } else {
-                        Err(input.error("Components cannot use parameters"))
-                    }
-                }).collect::<Result<_, _>>()?;
-                Ok(ComponentDef {
-                    name,
-                    signature: sig,
-                    cells,
-                    groups,
-                    continuous_assignments,
-                    control,
-                    attributes: attributes.add_span(span),
-                })
+        input.clone().into_children();
+        [
+            comb(_),
+            name_with_attribute((name, attributes)),
+            signature(sig),
+            cells(cells),
+            connections(connections)
+        ] => {
+            let (continuous_assignments, groups) = connections;
+            let sig = sig.into_iter().map(|ir::PortDef { name, width, direction, attributes }| {
+                if let ir::Width::Const { value } = width {
+                    Ok(ir::PortDef {
+                        name,
+                        width: value,
+                        direction,
+                        attributes
+                    })
+                } else {
+                    Err(input.error("Components cannot use parameters"))
+                }
+            }).collect::<Result<_, _>>()?;
+            Ok(ComponentDef {
+                name,
+                signature: sig,
+                cells,
+                groups,
+                continuous_assignments,
+                control: Control::Empty {},
+                attributes: attributes.add_span(span),
+                is_comb: true,
+            })
+        },
+        [
+            name_with_attribute((name, attributes)),
+            signature(sig),
+            cells(cells),
+            connections(connections),
+            control(control)
+        ] => {
+            let (continuous_assignments, groups) = connections;
+            let sig = sig.into_iter().map(|ir::PortDef { name, width, direction, attributes }| {
+                if let ir::Width::Const { value } = width {
+                    Ok(ir::PortDef {
+                        name,
+                        width: value,
+                        direction,
+                        attributes
+                    })
+                } else {
+                    Err(input.error("Components cannot use parameters"))
+                }
+            }).collect::<Result<_, _>>()?;
+            Ok(ComponentDef {
+                name,
+                signature: sig,
+                cells,
+                groups,
+                continuous_assignments,
+                control,
+                attributes: attributes.add_span(span),
+                is_comb: false,
+            })
         })
     }
 
