@@ -108,25 +108,26 @@ def futil_extract(directory):
     timing_file = directory / "impl_1" / "main_timing_summary_routed.rpt"
     if not timing_file.exists():
         log.error(f"Timing file {timing_file} is missing")
-    meet_timing = file_contains(r"Timing constraints are not met.", timing_file)
-    resource_info.update(
-        {
-            "meet_timing": int(meet_timing),
-        }
-    )
+    else:
+        meet_timing = file_contains(r"Timing constraints are not met.", timing_file)
+        resource_info.update(
+            {
+                "meet_timing": int(meet_timing),
+            }
+        )
 
-    # Extract timing information
-    timing_parser = rpt.RPTParser(timing_file)
-    slack_info = timing_parser.get_bare_table(re.compile(r"Design Timing Summary"))
-    if slack_info is None:
-        log.error("Failed to extract slack information")
-    resource_info.update({"worst_slack": float(safe_get(slack_info, "WNS(ns)"))})
+        # Extract timing information
+        timing_parser = rpt.RPTParser(timing_file)
+        slack_info = timing_parser.get_bare_table(re.compile(r"Design Timing Summary"))
+        if slack_info is None:
+            log.error("Failed to extract slack information")
+        resource_info.update({"worst_slack": float(safe_get(slack_info, "WNS(ns)"))})
 
-    period_info = timing_parser.get_bare_table(re.compile(r"Clock Summary"))
-    if slack_info is None:
-        log.error("Failed to extract clock information")
-    resource_info.update({"period": float(safe_get(period_info, "Period(ns)"))})
-    resource_info.update({"frequency": float(safe_get(period_info, "Frequency(MHz)"))})
+        period_info = timing_parser.get_bare_table(re.compile(r"Clock Summary"))
+        if slack_info is None:
+            log.error("Failed to extract clock information")
+        resource_info.update({"period": float(safe_get(period_info, "Period(ns)"))})
+        resource_info.update({"frequency": float(safe_get(period_info, "Frequency(MHz)"))})
 
     # Extraction for synthesis files.
     synth_file = directory / "synth_1" / "runme.log"
