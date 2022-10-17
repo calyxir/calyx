@@ -126,7 +126,9 @@ class InterpreterStage(Stage):
             """
             Creates a data file to initialze the interpreter memories
             """
-            round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
+            round_float_to_fixed = config[
+                "stages", self.name, "round_float_to_fixed"
+            ]
             convert_to_json(
                 tmpdir.name,
                 sjson.load(json_path, use_decimal=True),
@@ -183,7 +185,9 @@ class InterpreterStage(Stage):
             output = parse_from_json(output, json_path)
 
             with out_path.open("w") as f:
-                sjson.dump(output, f, indent=2, sort_keys=True, use_decimal=True)
+                sjson.dump(
+                    output, f, indent=2, sort_keys=True, use_decimal=True
+                )
 
             return out_path.open("rb")
 
@@ -227,7 +231,9 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
         shape[k] = {"is_signed": is_signed}
 
         if numeric_type not in {"bitnum", "fixed_point"}:
-            raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
+            raise InvalidNumericType(
+                'Fud only supports "fixed_point" and "bitnum".'
+            )
 
         is_fp = numeric_type == "fixed_point"
         if is_fp:
@@ -283,13 +289,14 @@ def parse_from_json(output_data_str, original_data_file_path):
         if isinstance(target, list):
             return [
                 parse_entry(
-                    x, (numeric_type, is_signed, (width, int_width, frac_width))
+                    x,
+                    (numeric_type, is_signed, (width, int_width, frac_width)),
                 )
                 for x in target
             ]
         elif isinstance(target, str):
             num = base64.standard_b64decode(target)
-            int_rep = int.from_bytes(num, "little", signed=is_signed)
+            int_rep = int.from_bytes(num, "little", signed=False)
 
             if int_rep > 0 and (int_rep & (1 << (width - 1))) and is_signed:
                 int_rep = -(2 ** (width - 1)) + (int_rep ^ (1 << (width - 1)))
