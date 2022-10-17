@@ -1,0 +1,18 @@
+import "primitives/memories.futil";
+component mem_0_comp<"toplevel"=1>(addr0: 3, @go read_en: 1, write_data: 32, @go(2) write_en: 1, @clk clk: 1, @reset reset: 1) -> (read_data: 32, @done read_done: 1, @done(2) write_done: 1) {
+  cells {
+    mem_0 = seq_mem_d1(32, 6, 3);
+  }
+  wires {
+    mem_0.clk = clk;
+    read_data = mem_0.out;
+    mem_0.read_en = read_en;
+    read_done = mem_0.read_done;
+    mem_0.addr0 = addr0;
+    mem_0.in = write_data;
+    mem_0.write_en = write_en;
+    write_done = mem_0.write_done;
+  }
+
+  control {}
+}

@@ -1,0 +1,4 @@
+---CODE---
+1
+---STDERR---
+Error: [Papercut] Component `mem_0_comp` has an empty control program and does not assign to the done port `write_done`. Without an assignment to the done port, the component cannot return control flow.
