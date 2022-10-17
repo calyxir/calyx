@@ -91,13 +91,15 @@ impl Visitor for Papercut {
             if let ir::Control::Empty(..) = *comp.control.borrow() {
                 for p in &comp.signature.borrow().ports {
                     if p.borrow().attributes.has("done") {
-                        let done_use =
-                            comp.continuous_assignments.iter().find(|assign_ref| {
+                        let done_use = comp.continuous_assignments.iter().find(
+                            |assign_ref| {
                                 let assign = assign_ref.dst.borrow();
                                 // If at least one assignment used the `done` port, then
                                 // we're good.
-                                assign.name == p.borrow().name && !assign.is_hole()
-                            });
+                                assign.name == p.borrow().name
+                                    && !assign.is_hole()
+                            },
+                        );
                         if done_use.is_none() {
                             return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.name));
                         }
