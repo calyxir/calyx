@@ -292,7 +292,7 @@ def parse_from_json(output_data_str, original_data_file_path):
             num = base64.standard_b64decode(target)
             int_rep = int.from_bytes(num, "little", signed=False)
 
-            if int_rep > 0 and (int_rep & (1 << (width - 1))) and is_signed:
+            if is_signed and int_rep > 0 and (int_rep & (1 << (width - 1))):
                 int_rep = -(2 ** (width - 1)) + (int_rep ^ (1 << (width - 1)))
 
             if numeric_type == "bitnum":
