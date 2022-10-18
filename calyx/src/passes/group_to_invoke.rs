@@ -200,9 +200,9 @@ impl Visitor for GroupToInvoke {
             }
 
             // Component must have a single @go/@done pair
-            let go_ports = cell.find_all_with_attr("go").collect_vec();
-            let done_ports = cell.find_all_with_attr("done").collect_vec();
-            if go_ports.len() > 1 || done_ports.len() > 1 {
+            let go_ports = cell.find_all_with_attr("go").count();
+            let done_ports = cell.find_all_with_attr("done").count();
+            if go_ports > 1 || done_ports > 1 {
                 continue;
             }
 
