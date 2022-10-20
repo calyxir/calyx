@@ -1,0 +1,42 @@
+// -p group2invoke
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+extern "../../../primitives/core.sv" {
+  primitive real_mem(
+    @static(1) @go read_en: 1,
+    @static(2) @go(2) write_en: 1
+  ) -> (
+    @done read_done: 1,
+    @done(2) write_done: 1
+  );
+}
+component real_mem_comp(@go port0_read_en: 1, @go(2) port1_write_en: 1, @clk clk: 1, @reset reset: 1) -> (@done port0_read_done: 1, @done(2) port1_write_done: 1) {
+  cells {
+    mem_0 = real_mem();
+  }
+  wires {
+    mem_0.read_en = port0_read_en;
+    port0_read_done = mem_0.read_done;
+    mem_0.write_en = port1_write_en;
+    port1_write_done = mem_0.write_done;
+  }
+  control {
+  }
+}
+component main<"toplevel"=1>(@clk clk: 1, @reset reset: 1, @go go: 1) -> (@done done: 1) {
+  cells {
+    std_slice_0 = std_slice(32, 3);
+    std_add_0 = std_add(32);
+    inst_0 = real_mem_comp();
+  }
+  wires {
+    group bb0_8 {
+      inst_0.port1_write_en = 1'd1;
+      bb0_8[done] = inst_0.port1_write_done;
+    }
+  }
+  control {
+      bb0_8;
+  }
+}
