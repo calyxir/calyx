@@ -9,7 +9,7 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list && \
     curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | apt-key add && \
     apt-get update -y && \
-    apt-get install -y jq python3.9 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake gperf
+    apt-get install -y jq python3.9 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
 
 # Install python dependencies
 RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
@@ -25,9 +25,6 @@ RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
 WORKDIR /home
-RUN apt-get update && apt-get install -y \
-  autoconf \
-  gperf
 RUN git clone --depth 1 --branch v11_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
 RUN sh autoconf.sh && ./configure && make && make install
@@ -56,7 +53,7 @@ RUN sbt "; getHeaders; assembly"
 
 # Clone the Calyx repository
 WORKDIR /home
-RUN git clone --branch axi-test-harness https://github.com/cucapra/calyx.git calyx
+RUN git clone https://github.com/cucapra/calyx.git calyx
 
 # Install rust tools
 WORKDIR /home
