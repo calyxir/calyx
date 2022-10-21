@@ -12,7 +12,9 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     apt-get install -y jq python3.9 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake gperf
 
 # Install python dependencies
-RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb
+RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
+# Current cocotb-bus has a bug that is fixed in more up to date repo
+RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
 # Install Verilator
 WORKDIR /home
@@ -23,6 +25,9 @@ RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
 WORKDIR /home
+RUN apt-get update && apt-get install -y \
+  autoconf \
+  gperf
 RUN git clone --depth 1 --branch v11_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
 RUN sh autoconf.sh && ./configure && make && make install
@@ -51,7 +56,7 @@ RUN sbt "; getHeaders; assembly"
 
 # Clone the Calyx repository
 WORKDIR /home
-RUN git clone https://github.com/cucapra/calyx.git calyx
+RUN git clone --branch axi-test-harness https://github.com/cucapra/calyx.git calyx
 
 # Install rust tools
 WORKDIR /home
@@ -82,3 +87,6 @@ WORKDIR /home/calyx/calyx-py
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
 WORKDIR /home/calyx
+
+# Used to make runt cocotb tests happy
+ENV LANG=C.UTF-8
