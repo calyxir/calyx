@@ -409,17 +409,28 @@ macro_rules! validate {
     }
 }
 
+/// Helper macro to generate validation checks for the input passed to
+/// primitives, does not error on unknown ports
+/// ```
+///  # use interp::validate_friendly;
+///  # use interp::values::Value;
+///  # let input = [("left", [4,4,4,4])];
+///  # let inputs = &input;
+///  # let width = 4;
+///  validate_friendly![inputs;
+///       left: width,
+///       right: width,
+///       go: 1
+///  ];
+/// ```
 #[macro_export]
-macro_rules! get_input {
-    ( $inputs:ident; $( $port:ident : $id_name:expr ),+ )  => {
-        $( let mut $port = None; )+
+macro_rules! validate_friendly {
+    ( $inputs:ident; $( $port:ident : $width:expr ),+ ) => {
         for (id, v) in $inputs {
             match id.as_ref() {
-                $($id_name => { $port =  Some(v); } ),+
-                _ => {}
+                $( $crate::in_fix!($port) => assert_eq!(v.len() as u64, $width) ),+,
+                _ => {},
             }
         }
-        $(let $port: &$crate::values::Value = $port.unwrap(); )+
-
     }
 }

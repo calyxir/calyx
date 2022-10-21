@@ -160,7 +160,7 @@ impl Visitor for WellFormed {
         &mut self,
         comp: &mut Component,
         _ctx: &LibrarySignatures,
-        _comps: &[ir::Component],
+        comps: &[ir::Component],
     ) -> VisResult {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
@@ -181,6 +181,44 @@ impl Visitor for WellFormed {
                     unreachable!(
                         "the current component not allowed for ref cells"
                     );
+                }
+            }
+        }
+
+        // If the component is combinational, make sure all cells are also combinational,
+        // there are no group or comb group definitions, and the control program is empty
+        if comp.is_comb {
+            if !matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but has a non-empty control program", comp.name)));
+            }
+
+            if !comp.groups.is_empty() {
+                let group = comp.groups.iter().next().unwrap().borrow();
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
+            }
+
+            if !comp.comb_groups.is_empty() {
+                let group = comp.comb_groups.iter().next().unwrap().borrow();
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
+            }
+
+            for cell_ref in comp.cells.iter() {
+                let cell = cell_ref.borrow();
+                let is_comb = match &cell.prototype {
+                    CellType::Primitive { is_comb, .. } => is_comb.to_owned(),
+                    CellType::Constant { .. } => true,
+                    CellType::Component { name } => {
+                        let comp_idx =
+                            comps.iter().position(|x| x.name == name).unwrap();
+                        let comp = comps
+                            .get(comp_idx)
+                            .expect("Found cell that does not exist");
+                        comp.is_comb
+                    }
+                    _ => false,
+                };
+                if !is_comb {
+                    return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains non-combinational cell `{}`", comp.name, cell.name())).with_pos(&cell.attributes));
                 }
             }
         }

@@ -34,6 +34,8 @@ pub struct Component {
     pub control: RRC<Control>,
     /// Attributes for this component
     pub attributes: Attributes,
+    /// True iff component is combinational
+    pub is_comb: bool,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -47,7 +49,7 @@ pub struct Component {
 ///   name.
 impl Component {
     /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S>(name: S, ports: Vec<PortDef<u64>>) -> Self
+    pub fn new<S>(name: S, ports: Vec<PortDef<u64>>, is_comb: bool) -> Self
     where
         S: AsRef<str>,
     {
@@ -79,6 +81,7 @@ impl Component {
             control: Rc::new(RefCell::new(Control::empty())),
             namegen: utils::NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
+            is_comb,
         }
     }
 

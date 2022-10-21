@@ -119,7 +119,13 @@ impl PassManager {
         register_alias!(
             pm,
             "no-opt",
-            ["validate", RemoveCombGroups, "compile", "lower"]
+            [
+                "validate",
+                RemoveCombGroups,
+                CompileInvoke,
+                "compile",
+                "lower"
+            ]
         );
 
         register_alias!(
