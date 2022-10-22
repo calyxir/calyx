@@ -1,4 +1,4 @@
-// -p cell-share -x cell-share:bounds=2,3,4 -p remove-ids
+// -p cell-share -x cell-share:bounds=2,3,-1 -p dead-cell-removal -p remove-ids
 // share adders twice, registers 3 times, and mults 4 times 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
