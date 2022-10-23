@@ -295,6 +295,7 @@ paths = [
   "tests/xilinx/cocotb/vectorized-add/",
 ]
 cmd = """
+mkdir -p {}/hdl && \
 dir_name=$(basename {}) && \
 fud e {}/${dir_name}.futil  --to synth-verilog -o {}/hdl/main.sv -s futil.flags "\\-\\-disable-init" &&\
 fud e {}/${dir_name}.futil --to axi-wrapper -o {}/hdl/toplevel.v
