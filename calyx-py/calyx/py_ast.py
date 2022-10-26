@@ -156,10 +156,12 @@ class Cell(Structure):
     id: CompVar
     comp: CompInst
     is_external: bool = False
+    is_ref: bool = False
 
     def doc(self) -> str:
         external = "@external(1) " if self.is_external else ""
-        return f"{external}{self.id.doc()} = {self.comp.doc()};"
+        ref = "ref " if self.is_ref else ""
+        return f"{external}{ref}{self.id.doc()} = {self.comp.doc()};"
 
 
 @dataclass
