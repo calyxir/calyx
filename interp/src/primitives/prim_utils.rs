@@ -72,3 +72,68 @@ impl<T, const N: usize> ShiftBuffer<T, N> {
         }
     }
 }
+
+macro_rules! get_inputs {
+    ( $inputs:ident; $port:ident $([$ty:tt])? : $id_name:expr )  => {
+        let $port = $inputs
+                        .iter()
+                        .find(|(id, _)| id == $id_name)
+                        .map(|x| x.1);
+
+        get_inputs!($port $(,$ty)? );
+    };
+
+    ( $inputs:ident; $( $port:ident $([$ty:tt])? : $id_name:expr ),+ )  => {
+        $( let mut $port = None; )+
+        for (id, v) in $inputs {
+            match id.as_ref() {
+                $($id_name => { $port =  Some(v); } ),+
+                _ => {}
+            }
+        }
+        $( get_inputs!($port $(,$ty)? ); )+
+
+    };
+
+    ($port:ident) => {
+        let $port: &$crate::values::Value = $port.unwrap();
+    };
+
+    ($port:ident, bool) => {
+        let $port: bool = $port.unwrap().as_bool();
+    };
+
+    ($port:ident, u64) => {
+        let $port: u64 = $port.unwrap().as_u64();
+    };
+
+    ($port:ident, i64) => {
+        let $port: i64 = $port.unwrap().as_i64();
+    };
+}
+
+macro_rules! get_params {
+    ($inputs:ident; $( $param:ident : $id_name:expr ),+ ) => {
+        $( let mut $param = None; )+
+        for (id, v) in $inputs {
+            match id.as_ref() {
+                $($id_name => {$param = Some(v);}), +
+                _ => {}
+            }
+        }
+        $(let $param: u64 = *$param.expect(format!("Missing parameter: {}", $id_name).as_ref()); )+
+    }
+}
+
+macro_rules! output {
+    ( $(($id:expr, $val:expr) ),+ ) => {
+        vec![
+            $((calyx::ir::Id::from($id), $val)),+
+        ]
+    }
+}
+
+// export the macros for local use
+pub(crate) use get_inputs;
+pub(crate) use get_params;
+pub(crate) use output;

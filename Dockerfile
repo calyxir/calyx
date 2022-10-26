@@ -9,14 +9,12 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list && \
     curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | apt-key add && \
     apt-get update -y && \
-    apt-get install -y jq python3.9 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake
+    apt-get install -y jq python3.9 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
 
 # Install python dependencies
-RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson
-
-# Clone the Calyx repository
-WORKDIR /home
-RUN git clone https://github.com/cucapra/calyx.git calyx
+RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
+# Current cocotb-bus has a bug that is fixed in more up to date repo
+RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
 # Install Verilator
 WORKDIR /home
@@ -26,12 +24,10 @@ WORKDIR /home/verilator
 RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
-
-# Install Dahlia
 WORKDIR /home
-RUN git clone https://github.com/cucapra/dahlia.git
-WORKDIR /home/dahlia
-RUN sbt "; getHeaders; assembly"
+RUN git clone --depth 1 --branch v11_0 https://github.com/steveicarus/iverilog
+WORKDIR /home/iverilog
+RUN sh autoconf.sh && ./configure && make && make install
 
 # Install TVM
 WORKDIR /home
@@ -49,10 +45,20 @@ RUN cp ../cmake/config.cmake . && \
 WORKDIR /home/tvm/python
 RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
 
+# Install Dahlia
+WORKDIR /home
+RUN git clone https://github.com/cucapra/dahlia.git
+WORKDIR /home/dahlia
+RUN sbt "; getHeaders; assembly"
+
+# Clone the Calyx repository
+WORKDIR /home
+RUN git clone https://github.com/cucapra/calyx.git calyx
+
 # Install rust tools
 WORKDIR /home
-RUN cargo install runt --version $(grep ^ver calyx/runt.toml | awk '{print $3}' | tr -d '"')
 RUN cargo install vcdump
+RUN cargo install runt --version $(grep ^ver calyx/runt.toml | awk '{print $3}' | tr -d '"')
 
 # Build the compiler.
 WORKDIR /home/calyx
@@ -78,3 +84,6 @@ WORKDIR /home/calyx/calyx-py
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
 WORKDIR /home/calyx
+
+# Used to make runt cocotb tests happy
+ENV LANG=C.UTF-8

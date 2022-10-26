@@ -110,6 +110,8 @@ pub enum InterpreterError {
         dims: Vec<u64>,
         name: Id,
     },
+    #[error("Both read and write signals provided to the sequential memory.")]
+    SeqMemoryError,
 
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]

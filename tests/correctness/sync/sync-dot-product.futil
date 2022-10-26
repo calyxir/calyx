@@ -1,0 +1,240 @@
+// A program that computes dot product of sparse vectors
+// using two threads that alternately increment the physical
+// and logical pointer. 
+// Note that this program does not take advantage of parallelism
+// for performance boost. 
+// Representation of sparse vector is index-value: 
+// 1. We only store non-zero values except for zeroes at the end 
+// 2. [4, 4, 6, 5, 10, 9, 16, 0, 0, 0, 0]
+//     means that we have a sparse vector of length 17, and has non-zero values
+//     4 at index 4, 5 at index 6, 9 at index 10
+import "primitives/core.futil";
+import "primitives/sync.futil";
+import "primitives/binary_operators.futil";
+
+component main () -> () {
+  cells {
+    @external in_0 = std_mem_d1(32, 18, 32);
+    @external in_1 = std_mem_d1(32, 18, 32);
+    @external out = std_mem_d1(32, 1, 32);
+    idx_0 = std_reg(32);
+    idx_1 = std_reg(32);
+    point_0 = std_reg(32);
+    point_1 = std_reg(32);
+    val_0 = std_reg(32);
+    val_1 = std_reg(32);
+    val_out = std_reg(32);
+    lt_0 = std_lt(32);
+    lt_1 = std_lt(32);
+    incr_0 = std_add(32);
+    incr_1 = std_add(32);
+    add = std_add(32);
+    mult = std_smult_pipe(32);
+    fwd_0 = std_lt(32);
+    fwd_1 = std_lt(32);
+    eq = std_eq(1);
+    signal = std_or(1);
+    no_use_0 = std_reg(1);
+    no_use_1 = std_reg(1);
+    flag = std_reg(1);
+    flag_reg = std_reg(1);
+    sign = std_reg(1);
+    eq0 = std_eq(1);
+    eq1 = std_eq(32);
+    no_use = std_reg(1);
+  }
+
+  wires {
+    group no_op {
+      no_use.in = 1'd1;
+      no_use.write_en = 1'd1;
+      no_op[done] = no_use.done;
+    }
+    
+    group initialize_idx {
+      idx_0.in = in_0.read_data;
+      in_0.addr0 = 32'd0;
+      idx_0.write_en = 1'd1;
+      idx_1.in = in_1.read_data;
+      in_1.addr0 = 32'd0;
+      idx_1.write_en = 1'd1;
+      initialize_idx[done] = idx_0.done & idx_1.done? 1'd1;
+    }
+
+    group initialize_val {
+      val_0.in = in_0.read_data;
+      in_0.addr0 = 32'd1;
+      val_0.write_en = 1'd1;
+      val_1.in = in_1.read_data;
+      in_1.addr0 = 32'd1;
+      val_1.write_en = 1'd1;
+      initialize_val[done] = val_0.done & val_1.done? 1'd1;
+    }
+
+    group fwd_idx_0 {
+      idx_0.in = in_0.read_data;
+      in_0.addr0 = point_0.out;
+      idx_0.write_en = 1'd1;
+      fwd_idx_0[done] = idx_0.done; 
+    }
+
+    group fwd_idx_1 {
+      idx_1.in = in_1.read_data;
+      in_1.addr0 = point_1.out;
+      idx_1.write_en = 1'd1;
+      fwd_idx_1[done] = idx_1.done; 
+    }
+
+    group forward_pointer_0 {
+      incr_0.left =32'd2;
+      incr_0.right = point_0.out;
+      point_0.in = incr_0.out;
+      point_0.write_en = 1'd1;
+      forward_pointer_0[done] = point_0.done;
+    }
+
+    group forward_pointer_1 {
+      incr_1.left =32'd2;
+      incr_1.right = point_1.out;
+      point_1.in = incr_1.out;
+      point_1.write_en = 1'd1;
+      forward_pointer_1[done] = point_1.done;
+    }
+
+    group val_to_reg_0 {
+      incr_0.left = 32'd1;
+      incr_0.right = point_0.out;
+      val_0.in = in_0.read_data;
+      in_0.addr0 = incr_0.out;
+      val_0.write_en = 1'd1;
+      val_to_reg_0[done] = val_0.done;
+    }
+
+    group val_to_reg_1 {
+      incr_1.left = 32'd1;
+      incr_1.right = point_1.out;
+      val_1.in = in_1.read_data;
+      in_1.addr0 = incr_1.out;
+      val_1.write_en =1'd1;
+      val_to_reg_1[done] = val_1.done;
+    }
+
+    group compute_product {
+      mult.go = 1'd1;
+      mult.left = val_0.out;
+      mult.right = val_1.out;
+      val_out.in = mult.done? mult.out;
+      val_out.write_en = mult.done?1'd1;
+      compute_product[done] = val_out.done;
+    }
+
+    group add_to_out {
+      add.left = out.read_data;
+      out.addr0 = 32'd0;
+      add.right = val_out.out;
+      out.write_data = add.out;
+      out.write_en = 1'd1;
+      add_to_out[done] = out.done;
+    }
+
+    comb group chase_0 {
+      lt_0.left = idx_0.out;
+      lt_0.right = idx_1.out;
+    }
+
+    comb group chase_1 {
+      lt_1.left = idx_1.out;
+      lt_1.right = idx_0.out;
+    }
+
+    comb group equal {
+      eq1.left = idx_1.out;
+      eq1.right = idx_0.out;
+    }
+
+    comb group comp {
+      fwd_0.left = idx_0.out;
+      fwd_0.right = 32'd16;
+      fwd_1.left = idx_1.out;
+      fwd_1.right = 32'd16;
+      signal.left = fwd_0.out;
+      signal.right = fwd_1.out;
+    }
+
+  }
+
+  control {
+    seq {
+      // initialize the physical and logical pointer
+      initialize_idx;
+      // initialize the val registers that record the values of the sparse
+      // vectors at logical pointers where thread A or thread B stops incrementing 
+      initialize_val;
+      par {
+        // thread A
+        // 1. forwards the logical and physical pointers of vector 1 when logical
+        //    pointer 2 is ahead of logical pointer 1
+        // 2. when the logical pointer of vector 1 equals that of vector 2,
+        // does the computation(multiplication and adding to accumulator)
+        // 3. when logical pointer of vector 1 is ahead of logical pointer of 
+        //    vector 2, waits there and does nothing
+        while signal.out with comp {
+          if lt_0.out with chase_0 {
+            seq {
+              while lt_0.out with chase_0 {
+                seq {
+                  forward_pointer_0;
+                  fwd_idx_0;
+                }
+              }
+              @sync(1) val_to_reg_0;
+            }
+            
+          }
+          else {
+            if eq1.out with equal {
+              seq {
+                compute_product;
+                add_to_out;
+                forward_pointer_0;
+                fwd_idx_0;
+                @sync(1) val_to_reg_0;
+              }
+            }
+            else {
+              seq {
+                @sync(2) no_op;
+              }
+            }
+          }
+        }
+
+        // thread B
+        // 1. Forwards the logical and physical pointers of vector 2 when logical
+        //    pointer of vector 1 is ahead of that of vector 2
+        // 2. Otherwise waits there and does nothing  
+        while signal.out with comp {
+          if lt_1.out with chase_1 {
+            seq {
+              while lt_1.out with chase_1 {
+                seq {
+                  forward_pointer_1;
+                  fwd_idx_1;
+                }
+              }
+              @sync(2) val_to_reg_1;
+            }
+          }
+          else {
+              seq {
+                @sync(1) no_op;
+              }
+          }
+        }
+      }
+      // compute multiplication for last entry to address an edge case. 
+      compute_product;
+      add_to_out;
+    }
+  }
+}

@@ -192,6 +192,7 @@ def bias_add(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.bias_add"""
     data, bias, res = fd.args[0], fd.args[1], fd.dest
     axis_attribute = fd.attributes.get_int("axis")
+
     num_dims = get_dims(data.comp)
     axis = num_dims - 1 if axis_attribute == -1 else axis_attribute
 
@@ -345,6 +346,9 @@ def dense(fd: DahliaFuncDef) -> str:
     M1_size0, M1_size1 = a.comp.args[1:3]
     M1_index_size0, M1_index_size1 = a.comp.args[3:5]
     M2_size0, M2_size1, M2_index_size0, M2_index_size1 = b.comp.args[1:5]
+    units = fd.attributes.get_int("units")
+    assert units is None or units == res.comp.args[2], (
+        "parameter for `units` should be the same as the second dimension of the result")
 
     return emit_dahlia_definition(
         fd,
@@ -379,7 +383,7 @@ def conv2d(fd: DahliaFuncDef) -> str:
         prepend_rows = 0
         prepend_cols = 0
     else:
-        assert len(padding) == 4, "Can only handle when length of padding is 4"
+        assert len(padding) == 4, "Can only handle when we're given 4 padding values"
         prepend_rows = padding[0]
         # might want to use this value to check when out of bounds on the high end
         # currently if index is too high, it just deafults to a 0 value.
@@ -405,17 +409,20 @@ def conv2d(fd: DahliaFuncDef) -> str:
                         __padded_tensor_val := {data.id.name}[__b][__k][__kernel_y - {prepend_rows}][__kernel_x - {prepend_cols}];
                       }}""" if add_padding else f"""let __padded_tensor_val: {data_type} =  {data.id.name}[__b][__k][__kernel_y][__kernel_x];"""
 
-    # If no channels provided, inferred from second dimension of the data.
-    channels = fd.attributes.get_int("channels") or data.comp.args[2]
+    # If no channels provided, inferred from the second dimension of the res (which
+    # is size1 since we start counting from size0).
+    output_channels = fd.attributes.get_int("channels") or size1
+
+    input_channels = data_size1
 
     return emit_dahlia_definition(
         fd,
         f"""for (let __b: ubit<32> = 0..{size0}) {{
-          for (let __c: ubit<32> = 0..{size1}) {{
+          for (let __c: ubit<32> = 0..{output_channels}) {{
             for (let __y: ubit<32> = 0..{size2}) {{
               for (let __x: ubit<32> = 0..{size3}) {{
                 let __sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
-                for (let __k: ubit<32> = 0..{channels}) {{
+                for (let __k: ubit<32> = 0..{input_channels}) {{
                   for (let __dy: ubit<32> = 0..{kernel_size[1]}/*kernel_size[1]*/) {{
                     for (let __dx: ubit<32> = 0..{kernel_size[0]}/*kernel_size[0]*/) {{
                       let __kernel_y: ubit<32> = (/*strides[0]*/{strides[0]} * __y) + __dy;

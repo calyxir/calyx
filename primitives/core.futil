@@ -12,8 +12,8 @@ extern "core.sv" {
   comb primitive std_xor<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   /// Numerical Operators
-  comb primitive std_add<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  comb primitive std_sub<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_gt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
   comb primitive std_lt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
   comb primitive std_eq<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);

@@ -1,0 +1,23 @@
+// -p well-formed -b verilog
+import "primitives/core.futil";
+
+component main(@go go: 1, g: 1) -> (@done done: 1) {
+  cells {
+    add = std_add(2);
+    con_add = std_add(2);
+    @data data_add = std_add(2);
+    @data data_add_multi = std_add(2);
+  }
+
+  wires {
+    add.left = g ?  2'd2;
+    con_add.left = g ? 2'd2;
+    data_add.left = g ? 2'd2;
+    data_add_multi.left = g ? 2'd2;
+    data_add_multi.left = !g ? 2'd3;
+
+    done = 1'd1;
+  }
+
+  control {}
+}
