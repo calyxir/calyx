@@ -46,12 +46,12 @@ where
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
-    pub fn color_greedy(&self, bound: Option<&u64>) -> HashMap<T, T> {
-        let mut all_colors: BTreeMap<Idx, u64> = BTreeMap::new();
+    pub fn color_greedy(&self, bound: Option<i64>) -> HashMap<T, T> {
+        let mut all_colors: BTreeMap<Idx, i64> = BTreeMap::new();
         let mut coloring: HashMap<Idx, Idx> = HashMap::new();
         let always_share = bound.is_none();
         // if we always_share is true, then we don't care about bound
-        let bound_if_exists = if always_share { 0 } else { *bound.unwrap() };
+        let bound_if_exists = if always_share { 0 } else { bound.unwrap() };
 
         // get strongly get components of graph
         let sccs = algo::tarjan_scc(&self.graph.graph);
