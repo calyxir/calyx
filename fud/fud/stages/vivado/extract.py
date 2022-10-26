@@ -61,7 +61,7 @@ def futil_extract(directory):
                 break
 
     # The resource information is extracted first for the implementation files, and
-    # then for the synthesis files. This is dones separately in case users want to
+    # then for the synthesis files. This is done separately in case users want to
     # solely use one or the other.
     resource_info = {}
 
@@ -146,9 +146,11 @@ def futil_extract(directory):
             cell_lut5 = find_row(cell_usage_tbl, "Cell", "LUT5", False)
             cell_lut6 = find_row(cell_usage_tbl, "Cell", "LUT6", False)
             cell_fdre = find_row(cell_usage_tbl, "Cell", "FDRE", False)
+            uram_usage = find_row(cell_usage_tbl, "Cell", "URAM288", False)
 
             resource_info.update(
                 {
+                    "uram": to_int(safe_get(uram_usage, "Count")),
                     "cell_lut1": to_int(safe_get(cell_lut1, "Count")),
                     "cell_lut2": to_int(safe_get(cell_lut2, "Count")),
                     "cell_lut3": to_int(safe_get(cell_lut3, "Count")),
