@@ -16,7 +16,8 @@ set outdir ./out
 # set partname xc7z020clg484-1
 # You can also use part name "xcu250-figd2104-2-e", which we get on havarti. 
 # This is a bigger device (larger memory, etc.) and also supports URAM memory, which 
-# "xczu3eg-sbva484-1-e" does not support. 
+# "xczu3eg-sbva484-1-e" does not support. For more information on 
+# this part type look here: https://docs.xilinx.com/r/en-US/ds962-u200-u250/Summary
 set partname "xczu3eg-sbva484-1-e"
 
 # Create the project (forcibly overwriting) and add sources SystemVerilog
