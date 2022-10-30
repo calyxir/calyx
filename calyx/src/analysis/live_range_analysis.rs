@@ -612,8 +612,31 @@ impl LiveRangeAnalysis {
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
     ) -> (TypeNameSet, TypeNameSet) {
-        //The reads of the invoke include its inputs plus the cell itself, if the
-        //outputs are not empty.
+        let mut comp_is_written = false;
+
+        //The writes of the invoke include its outpus plus the cell itself, if the
+        //inputs are not empty.
+        let mut write_set: TypeNameSet = invoke
+            .outputs
+            .iter()
+            .filter_map(|(_, src)| {
+                Self::port_to_cell_name(src, shareable_components)
+            })
+            .collect();
+        if !invoke.inputs.is_empty()
+            && shareable_components.is_shareable_component(&invoke.comp)
+        {
+            write_set.insert((
+                invoke.comp.borrow().prototype.clone(),
+                invoke.comp.borrow().clone_name(),
+            ));
+            comp_is_written = true;
+        }
+
+        // The reads of the invoke include its inputs plus the cell itself, if the
+        // outputs are not empty.
+        // Also, if the component is written to, there is no need to include this
+        // component as being "read from" since it is immediately getting overwritten.
         let mut read_set: TypeNameSet = invoke
             .inputs
             .iter()
@@ -622,6 +645,7 @@ impl LiveRangeAnalysis {
             })
             .collect();
         if !invoke.outputs.is_empty()
+            && !comp_is_written
             && shareable_components.is_shareable_component(&invoke.comp)
         {
             read_set.insert((
@@ -640,24 +664,6 @@ impl LiveRangeAnalysis {
                         (cell.borrow().prototype.clone(), cell.clone_name())
                     }),
             );
-        }
-
-        //The writes of the invoke include its outpus plus the cell itself, if the
-        //inputs are not empty.
-        let mut write_set: TypeNameSet = invoke
-            .outputs
-            .iter()
-            .filter_map(|(_, src)| {
-                Self::port_to_cell_name(src, shareable_components)
-            })
-            .collect();
-        if !invoke.inputs.is_empty()
-            && shareable_components.is_shareable_component(&invoke.comp)
-        {
-            write_set.insert((
-                invoke.comp.borrow().prototype.clone(),
-                invoke.comp.borrow().clone_name(),
-            ));
         }
 
         (read_set, write_set)
