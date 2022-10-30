@@ -636,7 +636,8 @@ impl LiveRangeAnalysis {
         // The reads of the invoke include its inputs plus the cell itself, if the
         // outputs are not empty.
         // Also, if the component is written to, there is no need to include this
-        // component as being "read from" since it is immediately getting overwritten.
+        // component as being "read from" since we know the write to the component
+        // precedes the read from it.
         let mut read_set: TypeNameSet = invoke
             .inputs
             .iter()
