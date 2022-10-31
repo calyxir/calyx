@@ -631,7 +631,7 @@ impl LiveRangeAnalysis {
         }
 
         // The reads of the invoke include its inputs plus (if the outputs are
-        // not empty) the cell itself.
+        // not empty) the cell being invoked.
         // Also, if the component is written to, there is no need to include this
         // component as being read from since we know the write to the component
         // precedes the read from it, due to the nature of `invoke` statements.
