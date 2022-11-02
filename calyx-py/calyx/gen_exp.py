@@ -126,7 +126,7 @@ def generate_fp_pow_component(
 
 
 def generate_cells(
-    degree: int, width: int, int_width: int, is_signed: bool, gen_exp: bool
+    degree: int, width: int, int_width: int, is_signed: bool
 ) -> List[Cell]:
     stdlib = Stdlib()
     frac_width = width - int_width
@@ -138,8 +138,6 @@ def generate_cells(
         Cell(CompVar("and0"), stdlib.op("and", width, signed=False)),
         Cell(CompVar("and1"), stdlib.op("and", width, signed=False)),
         Cell(CompVar("rsh"), stdlib.op("rsh", width, signed=False)),
-        Cell(CompVar("init_sub"), stdlib.fixed_point_op(
-            "sub", width, int_width, frac_width, signed=is_signed))
     ] + (
         [Cell(CompVar("lt"), stdlib.op("lt", width, signed=is_signed))]
         if is_signed
@@ -170,16 +168,6 @@ def generate_cells(
         )
         for i in range(1, (degree // 2) + 1)
     ]
-    # for natural log approximation
-    subs = [
-        Cell(
-            CompVar(f"sub{i}"),
-            stdlib.fixed_point_op(
-                "sub", width, int_width, frac_width, signed=is_signed
-            ),
-        )
-        for i in range(1, (degree // 2) + 1)
-    ]
     pipes = [
         Cell(
             CompVar(f"mult_pipe{i}"),
@@ -198,7 +186,7 @@ def generate_cells(
     reciprocal_factorials = []
     for i in range(2, degree + 1):
         fixed_point_value = float_to_fixed_point(
-            1.0 / factorial(i), frac_width) if gen_exp else float_to_fixed_point(1.0 / i, frac_width)
+            1.0 / factorial(i), frac_width)
         value = numeric_types.FixedPoint(
             str(fixed_point_value), width, int_width, is_signed=is_signed
         ).unsigned_integer()
@@ -262,14 +250,13 @@ def generate_cells(
         + pow_registers
         + sum_registers
         + adds
-        + subs
         + pipes
         + reciprocal_factorials
         + pows
     )
 
 
-def divide_and_conquer_sums(degree: int, gen_exp: bool) -> List[Structure]:
+def divide_and_conquer_sums(degree: int) -> List[Structure]:
     """Returns a list of groups for the sums.
     This is done by dividing the groups into
     log2(N) different rounds, where N is the `degree`.
@@ -300,10 +287,7 @@ def divide_and_conquer_sums(degree: int, gen_exp: bool) -> List[Structure]:
             group_name = CompVar(f"sum_round{round}_{i + 1}")
 
             # ADD COMMENT EXPLAINING THIS
-            if not gen_exp and round == 1:
-                op = CompVar(f"sub{i + 1}")
-            else:
-                op = CompVar(f"add{i + 1}")
+            op = CompVar(f"add{i + 1}")
 
             # The first round will accrue its operands
             # from the previously calculated products.
@@ -336,23 +320,23 @@ def divide_and_conquer_sums(degree: int, gen_exp: bool) -> List[Structure]:
     group_name = CompVar("add_degree_zero")
     adder = CompVar("add1")
     reg = CompVar("sum1")
-    if gen_exp:
-        groups.append(
-            Group(
-                id=group_name,
-                connections=[
-                    Connect(CompPort(adder, "left"), CompPort(reg, "out")),
-                    Connect(
-                        CompPort(adder, "right"),
-                        CompPort(CompVar("one"), "out"),
-                    ),
-                    Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
-                    Connect(CompPort(reg, "in"), CompPort(adder, "out")),
-                    Connect(HolePort(group_name, "done"), CompPort(reg, "done")),
-                ],
-                static_delay=1,
-            )
+
+    groups.append(
+        Group(
+            id=group_name,
+            connections=[
+                Connect(CompPort(adder, "left"), CompPort(reg, "out")),
+                Connect(
+                    CompPort(adder, "right"),
+                    CompPort(CompVar("one"), "out"),
+                ),
+                Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
+                Connect(CompPort(reg, "in"), CompPort(adder, "out")),
+                Connect(HolePort(group_name, "done"), CompPort(reg, "done")),
+            ],
+            static_delay=1,
         )
+    )
     return groups
 
 
@@ -428,26 +412,8 @@ def final_multiply(register_id: CompVar) -> List[Group]:
     ]
 
 
-def final_group_ln(register_id: CompVar) -> List[Group]:
-    # write sum1 to register `m`.
-    group_name = CompVar("final_group_ln")
-    reg = CompVar("m")
-    return [
-        Group(
-            id=group_name,
-            connections=[
-                Connect(CompPort(reg, "write_en"),
-                        ConstantPort(1, 1)),
-                Connect(CompPort(reg, "in"), CompPort(CompVar("sum1"), "out")),
-                Connect(HolePort(group_name, "done"),
-                        CompPort(reg, "done")),
-            ],
-        )
-    ]
-
-
 def generate_groups(
-    degree: int, width: int, int_width: int, is_signed: bool, gen_exp: bool
+    degree: int, width: int, int_width: int, is_signed: bool
 ) -> List[Structure]:
     frac_width = width - int_width
 
@@ -460,23 +426,6 @@ def generate_groups(
             Connect(CompPort(input, "in"), ThisPort(CompVar("x"))),
             Connect(HolePort(CompVar("init"), "done"),
                     CompPort(input, "done")),
-        ],
-        static_delay=1,
-    )
-
-    # ADD COMMENT EXPLAINING THIS
-    fp_sub = CompVar("init_sub")
-    const_one = CompVar("one")
-    ln_input = CompVar("frac_x")
-    init_ln = Group(
-        id=CompVar("init"),
-        connections=[
-            Connect(CompPort(fp_sub, "left"), ThisPort(CompVar("x"))),
-            Connect(CompPort(fp_sub, "right"), CompPort(const_one, "out")),
-            Connect(CompPort(ln_input, "write_en"), ConstantPort(1, 1)),
-            Connect(CompPort(ln_input, "in"), CompPort(fp_sub, "out")),
-            Connect(HolePort(CompVar("init"), "done"),
-                    CompPort(ln_input, "done")),
         ],
         static_delay=1,
     )
@@ -599,18 +548,17 @@ def generate_groups(
     output_register = CompVar("m")
     out = [Connect(ThisPort(CompVar("out")), CompPort(output_register, "out"))]
     return (
-        ([init_exp, split_bits] if gen_exp else [init_ln])
+        ([init_exp, split_bits])
         + ([negate, is_negative, reciprocal] if is_signed else [])
         + [consume_pow(j) for j in range(2, degree + 1)]
         + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
-        + divide_and_conquer_sums(degree, gen_exp)
-        + (final_multiply(output_register)
-           if gen_exp else final_group_ln(output_register))
+        + divide_and_conquer_sums(degree)
+        + final_multiply(output_register)
         + out
     )
 
 
-def generate_control(degree: int, is_signed: bool, gen_exp: bool) -> Control:
+def generate_control(degree: int, is_signed: bool) -> Control:
     pow_invokes = [
         ParComp(
             ([
@@ -622,7 +570,7 @@ def generate_control(degree: int, is_signed: bool, gen_exp: bool) -> Control:
                     ],
                     [],
                 )
-            ]if gen_exp else [])
+            ])
             + [
                 Invoke(
                     CompVar(f"pow{i}"),
@@ -655,7 +603,7 @@ def generate_control(degree: int, is_signed: bool, gen_exp: bool) -> Control:
         Enable_count >>= 1
 
     final_calculation = [Enable("add_degree_zero"), Enable(
-        "final_multiply")] if gen_exp else [Enable("final_group_ln")]
+        "final_multiply")]
     ending_sequence = final_calculation + (
         [
             If(
@@ -680,7 +628,7 @@ def generate_control(degree: int, is_signed: bool, gen_exp: bool) -> Control:
             if is_signed
             else []
         )
-        + ([Enable("split_bits")] if gen_exp else [])
+        + ([Enable("split_bits")])
         + pow_invokes
         + consume_pow
         + mult_by_reciprocal
@@ -716,9 +664,9 @@ def generate_exp_taylor_series_approximation(
             "exp",
             inputs=[PortDef(CompVar("x"), width)],
             outputs=[PortDef(CompVar("out"), width)],
-            structs=generate_cells(degree, width, int_width, is_signed, True)
-            + generate_groups(degree, width, int_width, is_signed, True),
-            controls=generate_control(degree, is_signed, True),
+            structs=generate_cells(degree, width, int_width, is_signed)
+            + generate_groups(degree, width, int_width, is_signed),
+            controls=generate_control(degree, is_signed),
         ),
         generate_fp_pow_component(width, int_width, is_signed),
     ]
