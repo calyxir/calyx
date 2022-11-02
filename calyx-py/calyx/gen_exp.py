@@ -158,7 +158,6 @@ def generate_cells(
         Cell(CompVar(f"sum{i}"), stdlib.register(width))
         for i in range(1, (degree // 2) + 1)
     ]
-    # for exponentation approximation
     adds = [
         Cell(
             CompVar(f"add{i}"),
@@ -286,9 +285,6 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
         for i, (lhs, rhs) in enumerate(register_indices):
             group_name = CompVar(f"sum_round{round}_{i + 1}")
 
-            # ADD COMMENT EXPLAINING THIS
-            op = CompVar(f"add{i + 1}")
-
             # The first round will accrue its operands
             # from the previously calculated products.
             register_name = "product" if round == 1 else "sum"
@@ -305,10 +301,11 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
                 else CompPort(reg_lhs, "out")
             )
             connections = [
-                Connect(CompPort(op, "left"), lhs),
-                Connect(CompPort(op, "right"), CompPort(reg_rhs, "out")),
+                Connect(CompPort(CompVar(f"add{i + 1}"), "left"), lhs),
+                Connect(CompPort(CompVar(f"add{i + 1}"),
+                        "right"), CompPort(reg_rhs, "out")),
                 Connect(CompPort(sum, "write_en"), ConstantPort(1, 1)),
-                Connect(CompPort(sum, "in"), CompPort(op, "out")),
+                Connect(CompPort(sum, "in"), CompPort(CompVar(f"add{i + 1}"), "out")),
                 Connect(HolePort(group_name, "done"), CompPort(sum, "done")),
             ]
             groups.append(Group(group_name, connections, 1))
