@@ -19,7 +19,7 @@ def build():
     update_operands.asgn(
         update_operands.done,
         const(1, 1),
-        ast.And(lhs.port("done"), rhs.port("done")),
+        lhs.port("done") & rhs.port("done"),
     )
 
     compute_sum = main.group("compute_sum")

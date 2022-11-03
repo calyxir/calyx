@@ -130,7 +130,7 @@ class CellBuilder:
 
     def port(self, name: str):
         """Build a port access expression."""
-        return ast.CompPort(self.cell.id, name)
+        return ExprBuilder(ast.CompPort(self.cell.id, name))
 
 
 class GroupBuilder:
@@ -139,13 +139,47 @@ class GroupBuilder:
 
     def asgn(self, lhs, rhs, cond=None):
         """Add a connection to the group."""
-        wire = ast.Connect(rhs, lhs, cond)  # TODO Reverse.
+        wire = ast.Connect(
+            ExprBuilder.unwrap(rhs),
+            ExprBuilder.unwrap(lhs),  # TODO Reverse.
+            ExprBuilder.unwrap(cond),
+        )
         self.group.connections.append(wire)
 
     @property
     def done(self):
         """The `done` hole for the group."""
-        return ast.HolePort(ast.CompVar(self.group.id.name), "done")
+        return ExprBuilder(
+            ast.HolePort(ast.CompVar(self.group.id.name), "done")
+        )
+
+
+class ExprBuilder:
+    """Wraps an assignment expression.
+
+    This wrapper provides convenient ways to build logical expressions
+    for guards. Use the Python operators &, |, and ~ to build and, or,
+    and not expressions in Calyx.
+    """
+
+    def __init__(self, expr: ast.GuardExpr | ast.Port):
+        self.expr = expr
+
+    def __and__(self, other: 'ExprBuilder'):
+        return ExprBuilder(ast.And(self.expr, other.expr))
+
+    def __or__(self, other: 'ExprBuilder'):
+        return ExprBuilder(ast.Or(self.expr, other.expr))
+
+    def __invert__(self, other: 'ExprBuilder'):
+        return ExprBuilder(ast.Not(self.expr))
+
+    @classmethod
+    def unwrap(cls, obj):
+        if isinstance(obj, cls):
+            return obj.expr
+        else:
+            return obj
 
 
 # TODO Unfortunate.
