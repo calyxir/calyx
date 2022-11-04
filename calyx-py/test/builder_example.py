@@ -1,5 +1,4 @@
-from calyx.builder import ProgramBuilder, const
-from calyx import py_ast as ast
+from calyx.builder import ProgramBuilder
 
 
 def build():
@@ -16,7 +15,7 @@ def build():
         rhs.in_ = 41
         lhs.write_en = 1
         rhs.write_en = 1
-        update_operands.done[lhs.port("done") & rhs.port("done")] = const(1, 1)
+        update_operands.done[lhs.port("done") & rhs.port("done")] = 1
 
     with main.group("compute_sum") as compute_sum:
         add.left = lhs.out

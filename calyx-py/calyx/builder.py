@@ -275,7 +275,13 @@ def infer_width(expr):
     assert TLS.groups, "int width inference only works inside `with group:`"
     group_builder = TLS.groups[-1]
 
+    # Deal with `done` holes.
     expr = ExprBuilder.unwrap(expr)
+    if isinstance(expr, ast.HolePort):
+        assert expr.name == 'done', f"unknown hole {expr.name}"
+        return 1
+
+    # Otherwise, it's a `cell.port` lookup.
     cell_name = expr.id.name
     port_name = expr.name
 
