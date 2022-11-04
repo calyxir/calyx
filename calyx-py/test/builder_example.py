@@ -15,7 +15,7 @@ def build():
         rhs.in_ = 41
         lhs.write_en = 1
         rhs.write_en = 1
-        update_operands.done[lhs.port("done") & rhs.port("done")] = 1
+        update_operands.done[lhs.done & rhs.done] = 1
 
     with main.group("compute_sum") as compute_sum:
         add.left = lhs.out
