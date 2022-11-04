@@ -1,6 +1,5 @@
 import threading
-from contextlib import contextmanager
-from calyx import py_ast as ast
+from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
@@ -220,7 +219,7 @@ class CellBuilder:
         ctx_asgn(self.port(port), rhs)
 
     def __setitem__(self, key, value):
-        ctx_asgn(self.port(port), value)
+        ctx_asgn(self.port(key), value)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
