@@ -181,6 +181,9 @@ class CellBuilder:
 
     Using "dot syntax" works only for port names that *do not* begin
     with a `_` (underscore fields are reserved for internal operations).
+    To avoid collisions with Python reserved words, you can use an
+    underscore suffix: for example, use `reg.in_ = ...`. When in doubt,
+    you can always use subscripting to provide an explicit string.
     """
     def __init__(self, cell: ast.Cell):
         self._cell = cell
@@ -195,6 +198,8 @@ class CellBuilder:
     def __getattr__(self, key):
         if key.startswith('_'):
             return object.__getattr__(self, key)
+        elif key.endswith('_'):
+            return self.port(key[:-1])
         else:
             return self.port(key)
 
@@ -210,6 +215,8 @@ class CellBuilder:
     def __setattr__(self, key, value):
         if key.startswith('_'):
             object.__setattr__(self, key, value)
+        elif key.endswith('_'):
+            self.ctx_asgn(key[:-1], value)
         else:
             self.ctx_asgn(key, value)
 
