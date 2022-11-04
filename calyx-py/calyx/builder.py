@@ -241,6 +241,7 @@ class GroupBuilder:
 
     def __enter__(self):
         TLS.groups.append(self)
+        return self
 
     def __exit__(self, exc, value, tb):
         TLS.groups.pop()

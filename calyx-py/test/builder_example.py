@@ -11,16 +11,14 @@ def build():
     sum = main.reg("sum", 32)
     add = main.add("add", 32)
 
-    update_operands = main.group("update_operands")
-    with update_operands:
+    with main.group("update_operands") as update_operands:
         lhs["in"] = const(32, 1)
         rhs["in"] = const(32, 41)
         lhs.write_en = const(1, 1)
         rhs.write_en = const(1, 1)
         update_operands.done[lhs.port("done") & rhs.port("done")] = const(1, 1)
 
-    compute_sum = main.group("compute_sum")
-    with compute_sum:
+    with main.group("compute_sum") as compute_sum:
         add.left = lhs.out
         add.right = rhs.out
         sum.write_en = const(1, 1)
