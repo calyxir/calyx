@@ -86,7 +86,7 @@ impl InterpreterState {
         Ok(Self {
             context: Rc::clone(ctx),
             clk: 0,
-            port_map: InterpreterState::construct_port_map(&**target),
+            port_map: InterpreterState::construct_port_map(target),
             cell_map: map,
             component: target.clone(),
             sub_comp_set: Rc::new(set),
@@ -111,7 +111,7 @@ impl InterpreterState {
         Ok(Self {
             context: Rc::clone(ctx),
             clk: 0,
-            port_map: InterpreterState::construct_port_map(&**target),
+            port_map: InterpreterState::construct_port_map(target),
             cell_map: map,
             component: target.clone(),
             sub_comp_set: Rc::new(set),

@@ -17,7 +17,7 @@ impl std::ops::Deref for BoxedInterpreterError {
     type Target = InterpreterError;
 
     fn deref(&self) -> &Self::Target {
-        &*self.0
+        &self.0
     }
 }
 
