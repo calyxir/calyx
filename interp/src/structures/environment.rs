@@ -430,7 +430,11 @@ impl InterpreterState {
                 Box::new(combinational::StdUnsynSmod::new(params, cell_qin))
             }
 
-            p => return Err(InterpreterError::UnknownPrimitive(p.to_string())),
+            p => {
+                return Err(
+                    InterpreterError::UnknownPrimitive(p.to_string()).into()
+                )
+            }
         })
     }
 
@@ -682,7 +686,8 @@ impl InterpreterState {
                     return Err(InterpreterError::InvalidBoolCast(
                         (can.0, can.1),
                         p.borrow().width,
-                    ));
+                    )
+                    .into());
                 } else {
                     val.as_bool()
                 }

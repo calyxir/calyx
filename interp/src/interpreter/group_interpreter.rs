@@ -227,7 +227,8 @@ impl AssignmentInterpreter {
                             dst.get_parent_name(),
                             s_orig,
                             s_conf,
-                        ));
+                        )
+                        .into());
                     }
                     //now add to the HS, because we are assigning
                     //regardless of whether value has changed this is still a
@@ -354,9 +355,9 @@ impl AssignmentInterpreter {
         if self.is_deconstructable() {
             Ok(self.deconstruct_no_check())
         } else if let Some(name) = self.assigns.get_name() {
-            Err(InterpreterError::InvalidGroupExitNamed(name))
+            Err(InterpreterError::InvalidGroupExitNamed(name).into())
         } else {
-            Err(InterpreterError::InvalidGroupExitUnnamed)
+            Err(InterpreterError::InvalidGroupExitUnnamed.into())
         }
     }
 

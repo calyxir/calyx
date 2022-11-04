@@ -7,7 +7,28 @@ use rustyline::error::ReadlineError;
 use thiserror::Error;
 
 // Utility type
-pub type InterpreterResult<T> = Result<T, InterpreterError>;
+pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
+
+#[derive(Error, Debug)]
+#[error(transparent)]
+pub struct BoxedInterpreterError(#[from] Box<InterpreterError>);
+
+impl std::ops::Deref for BoxedInterpreterError {
+    type Target = InterpreterError;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl<T> From<T> for BoxedInterpreterError
+where
+    T: Into<InterpreterError>,
+{
+    fn from(e: T) -> Self {
+        Self(Box::new(T::into(e)))
+    }
+}
 
 #[derive(Error)]
 pub enum InterpreterError {
@@ -115,7 +136,7 @@ pub enum InterpreterError {
 
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]
-    OverflowError(),
+    OverflowError,
 
     #[error(transparent)]
     IOError(#[from] std::io::Error),
