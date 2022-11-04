@@ -137,6 +137,13 @@ class ControlBuilder:
             )
 
 
+def ctx_asgn(lhs, rhs, cond=None):
+    """Add an assignment to the current group context."""
+    assert TLS.groups, "assignment outside `with group`"
+    group_builder = TLS.groups[-1]
+    group_builder.asgn(lhs, rhs, cond)
+
+
 class ExprBuilder:
     """Wraps an assignment expression.
 
@@ -162,14 +169,11 @@ class ExprBuilder:
     def __invert__(self, other: 'ExprBuilder'):
         return ExprBuilder(ast.Not(self.expr))
 
-    def ctx_cond_asgn(self, cond: 'ExprBuilder', rhs: 'ExprBuilder'):
-        """Add a conditional assignment to the current group context."""
-        assert TLS.groups, "conditional assignment outside `with group`"
-        group_builder = TLS.groups[-1]
-        group_builder.asgn(self, rhs, cond)
-
     def __setitem__(self, key, value):
-        self.ctx_cond_asgn(key, value)
+        """Funky subscript syntax to create a conditional assignment in
+        the current group context.
+        """
+        ctx_asgn(self, value, key)
 
     @classmethod
     def unwrap(cls, obj):
@@ -211,14 +215,12 @@ class CellBuilder:
         else:
             return self.port(key)
 
-    def ctx_asgn(self, port: str, rhs: ExprBuilder, cond=None):
+    def ctx_asgn(self, port: str, rhs: ExprBuilder):
         """Add an assignment to the current group context."""
-        assert TLS.groups, "assignment outside `with group`"
-        group_builder = TLS.groups[-1]
-        group_builder.asgn(self.port(port), rhs, cond)
+        ctx_asgn(self.port(port), rhs)
 
     def __setitem__(self, key, value):
-        self.ctx_asgn(key, value)
+        ctx_asgn(self.port(port), value)
 
     def __setattr__(self, key, value):
         if key.startswith('_'):
