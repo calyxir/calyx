@@ -612,8 +612,8 @@ impl LiveRangeAnalysis {
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
     ) -> (TypeNameSet, TypeNameSet) {
-        // The writes of the invoke include its outputs plus (if inputs
-        // are not empty) the cell being invoked
+        // The writes of the invoke include its outputs. Also, if the input to the invoke
+        // is not empty, we also count the cell being invoked as being written to.
         let mut write_set: TypeNameSet = invoke
             .outputs
             .iter()
@@ -630,11 +630,16 @@ impl LiveRangeAnalysis {
             ));
         }
 
-        // The reads of the invoke include its inputs plus (if the outputs are
-        // not empty) the cell being invoked.
-        // Also, if the component is written to, there is no need to include this
+        // The reads of the invoke include its inputs. Also, if the outputs are
+        // not empty, the cell being invoked will be considered as being read from.
+        // One quick note: if the component is written to, there is no need to include this
         // component as being read from since we know the write to the component
         // precedes the read from it, due to the nature of `invoke` statements.
+        // This is "cheating" in a sense, since the componenet is technically being
+        // read from. However, since we know that there is a write to the component
+        // that that precedes the read from it within the very same invoke statement,
+        // it "appears" to all the other control statements in the program that the
+        // component is not being read from in the invoke statement.
         let mut read_set: TypeNameSet = invoke
             .inputs
             .iter()
