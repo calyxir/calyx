@@ -8,7 +8,9 @@ TLS = threading.local()
 TLS.groups = []
 
 
-class ProgramBuilder:
+class Builder:
+    """The entry-point builder for top-level Calyx programs."""
+
     def __init__(self):
         self.program = ast.Program(
             imports=[
@@ -25,6 +27,8 @@ class ProgramBuilder:
 
 
 class ComponentBuilder:
+    """Builds Calyx components definitions."""
+
     def __init__(self, name: str):
         self.component = ast.Component(
             name,
@@ -98,6 +102,8 @@ def as_control(obj):
 
 
 class ControlBuilder:
+    """Wraps control statements for convenient construction."""
+
     def __init__(self, stmt=None):
         self.stmt = as_control(stmt)
 
@@ -186,6 +192,7 @@ class CellBuilder:
     underscore suffix: for example, use `reg.in_ = ...`. When in doubt,
     you can always use subscripting to provide an explicit string.
     """
+
     def __init__(self, cell: ast.Cell):
         self._cell = cell
 
@@ -223,6 +230,18 @@ class CellBuilder:
 
 
 class GroupBuilder:
+    """Wraps a group for easy addition of assignment statements.
+
+    The basic mechanism here is the `asgn` method, which builds a single
+    assignment statement and adds it to the underlying group. The `done`
+    property also provides access to the group's done hole.
+
+    There is also a fancy, magical way to add assignments using Python
+    assignment syntax based on Python's context managers. Use `with` on
+    a `GroupBuilder` to enter a context where assignments can
+    *implicitly* get added to this group.
+    """
+
     def __init__(self, group: ast.Group, comp: ComponentBuilder):
         self.group = group
         self.comp = comp
@@ -262,8 +281,13 @@ class GroupBuilder:
         TLS.groups.pop()
 
 
-# TODO Unfortunate.
 def const(width: int, value: int):
+    """Build a sized integer constant expression.
+
+    This is available as a shorthand in cases where automatic width
+    inference fails. Otherwise, you can just use plain Python integer
+    values.
+    """
     return ast.ConstantPort(width, value)
 
 

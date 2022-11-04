@@ -1,8 +1,8 @@
-from calyx.builder import ProgramBuilder
+from calyx.builder import Builder
 
 
 def build():
-    prog = ProgramBuilder()
+    prog = Builder()
     main = prog.component("main")
 
     lhs = main.reg("lhs", 32)
