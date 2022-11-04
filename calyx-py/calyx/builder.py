@@ -136,13 +136,6 @@ class ControlBuilder:
             )
 
 
-def ctx_asgn(lhs, rhs, cond=None):
-    """Add an assignment to the current group context."""
-    assert TLS.groups, "assignment outside `with group`"
-    group_builder = TLS.groups[-1]
-    group_builder.asgn(lhs, rhs, cond)
-
-
 class ExprBuilder:
     """Wraps an assignment expression.
 
@@ -150,10 +143,8 @@ class ExprBuilder:
     for guards. Use the Python operators &, |, and ~ to build and, or,
     and not expressions in Calyx.
 
-    Supports a magical subscript assignment operator to build a
-    *conditional* assignment in the current group context. Use
-    `cell.port[cond] = value` to build a Calyx assignment like
-    `cell.port ? cond = value`.
+    It also provides an @ operator to help build conditional
+    expressions, by creating a `CondExprBuilder`.
     """
 
     def __init__(self, expr: ast.GuardExpr | ast.Port):
@@ -168,11 +159,8 @@ class ExprBuilder:
     def __invert__(self, other: 'ExprBuilder'):
         return ExprBuilder(ast.Not(self.expr))
 
-    def __setitem__(self, key, value):
-        """Funky subscript syntax to create a conditional assignment in
-        the current group context.
-        """
-        ctx_asgn(self, value, key)
+    def __matmul__(self, other):
+        return CondExprBuilder(self, other)
 
     @classmethod
     def unwrap(cls, obj):
@@ -180,6 +168,12 @@ class ExprBuilder:
             return obj.expr
         else:
             return obj
+
+
+class CondExprBuilder:
+    def __init__(self, cond, value):
+        self.cond = cond
+        self.value = value
 
 
 class CellBuilder:
@@ -247,8 +241,21 @@ class GroupBuilder:
         self.group = group
         self.comp = comp
 
-    def asgn(self, lhs, rhs, cond=None):
-        """Add a connection to the group."""
+    def asgn(self, lhs: ExprBuilder,
+             rhs: ExprBuilder | CondExprBuilder | int,
+             cond=None):
+        """Add a connection to the group.
+
+        If the assigned value is an int, try to infer a width for it and
+        promote it to a constant expression. If it's a `CondExprBuilder`
+        (which you create as (`cond @ value`), use the condition
+        contained therein for the assignment.
+        """
+
+        if isinstance(rhs, CondExprBuilder):
+            assert cond is None
+            cond = rhs.cond
+            rhs = rhs.value
 
         if isinstance(rhs, int):
             width = infer_width(lhs)
@@ -323,3 +330,10 @@ def infer_width(expr):
 
     # Give up.
     return None
+
+
+def ctx_asgn(lhs: ExprBuilder, rhs: ExprBuilder | CondExprBuilder):
+    """Add an assignment to the current group context."""
+    assert TLS.groups, "assignment outside `with group`"
+    group_builder = TLS.groups[-1]
+    group_builder.asgn(lhs, rhs)
