@@ -257,8 +257,8 @@ class GroupBuilder:
             rhs = const(width, rhs)
 
         wire = ast.Connect(
+            ExprBuilder.unwrap(lhs),
             ExprBuilder.unwrap(rhs),
-            ExprBuilder.unwrap(lhs),  # TODO Reverse.
             ExprBuilder.unwrap(cond),
         )
         self.group.connections.append(wire)
