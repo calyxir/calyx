@@ -12,16 +12,16 @@ def build():
     add = main.add("add", 32)
 
     with main.group("update_operands") as update_operands:
-        lhs.in_ = const(32, 1)
-        rhs.in_ = const(32, 41)
-        lhs.write_en = const(1, 1)
-        rhs.write_en = const(1, 1)
+        lhs.in_ = 1
+        rhs.in_ = 41
+        lhs.write_en = 1
+        rhs.write_en = 1
         update_operands.done[lhs.port("done") & rhs.port("done")] = const(1, 1)
 
     with main.group("compute_sum") as compute_sum:
         add.left = lhs.out
         add.right = rhs.out
-        sum.write_en = const(1, 1)
+        sum.write_en = 1
         sum.in_ = add.out
         compute_sum.done = sum.done
 

@@ -1,4 +1,5 @@
 import threading
+from contextlib import contextmanager
 from calyx import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -48,7 +49,7 @@ class ComponentBuilder:
     def group(self, name: str):
         group = ast.Group(ast.CompVar(name), connections=[])
         self.component.wires.append(group)
-        builder = GroupBuilder(group)
+        builder = GroupBuilder(group, self)
         self.index[name] = builder
         return builder
 
@@ -222,11 +223,18 @@ class CellBuilder:
 
 
 class GroupBuilder:
-    def __init__(self, group: ast.Group):
+    def __init__(self, group: ast.Group, comp: ComponentBuilder):
         self.group = group
+        self.comp = comp
 
     def asgn(self, lhs, rhs, cond=None):
         """Add a connection to the group."""
+
+        if isinstance(rhs, int):
+            width = infer_width(lhs)
+            assert width, f'could not infer width for literal {rhs}'
+            rhs = const(width, rhs)
+
         wire = ast.Connect(
             ExprBuilder.unwrap(rhs),
             ExprBuilder.unwrap(lhs),  # TODO Reverse.
@@ -257,3 +265,30 @@ class GroupBuilder:
 # TODO Unfortunate.
 def const(width: int, value: int):
     return ast.ConstantPort(width, value)
+
+
+def infer_width(expr):
+    """Try to guess the width of a port expression.
+
+    Return an int, or None if we don't have a guess.
+    """
+    assert TLS.groups, "int width inference only works inside `with group:`"
+    group_builder = TLS.groups[-1]
+
+    expr = ExprBuilder.unwrap(expr)
+    cell_name = expr.id.name
+    port_name = expr.name
+
+    # Look up the component for the referenced cell.
+    cell_builder = group_builder.comp.index[cell_name]
+    inst = cell_builder._cell.comp
+
+    # Extract widths from stdlib components we know.
+    if inst.id == 'std_reg':
+        if port_name == 'in':
+            return inst.args[0]
+        if port_name == 'write_en':
+            return 1
+
+    # Give up.
+    return None
