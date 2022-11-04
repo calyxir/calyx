@@ -1,6 +1,6 @@
 use crate::utils::assignment_to_string;
 use crate::values::Value;
-use calyx::errors::Error;
+use calyx::errors::Error as CalyxError;
 use calyx::ir::{self, Assignment, Id};
 
 use rustyline::error::ReadlineError;
@@ -43,7 +43,7 @@ pub enum InterpreterError {
 
     /// Wrapper error for parsing & related compiler errors
     #[error("{0:?}")]
-    CompilerError(Box<Error>),
+    CompilerError(Box<CalyxError>),
 
     /// There is no main component in the given program
     #[error("no main component")]
@@ -145,8 +145,8 @@ impl std::fmt::Debug for InterpreterError {
     }
 }
 
-impl From<Error> for InterpreterError {
-    fn from(e: Error) -> Self {
+impl From<CalyxError> for InterpreterError {
+    fn from(e: CalyxError) -> Self {
         Self::CompilerError(Box::new(e))
     }
 }
@@ -176,6 +176,6 @@ impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
 
 impl From<std::str::Utf8Error> for InterpreterError {
     fn from(err: std::str::Utf8Error) -> Self {
-        Error::invalid_file(err.to_string()).into()
+        CalyxError::invalid_file(err.to_string()).into()
     }
 }
