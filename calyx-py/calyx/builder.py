@@ -1,5 +1,6 @@
 import threading
 from . import py_ast as ast
+from typing import Dict
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
@@ -36,7 +37,7 @@ class ComponentBuilder:
             structs=[],
             controls=ast.Empty(),
         )
-        self.index = {}
+        self.index: Dict[str, GroupBuilder | CellBuilder] = {}
 
     def __getitem__(self, key):
         return self.index[key]
@@ -147,7 +148,7 @@ class ExprBuilder:
     expressions, by creating a `CondExprBuilder`.
     """
 
-    def __init__(self, expr: ast.GuardExpr | ast.Port):
+    def __init__(self, expr: ast.GuardExpr):
         self.expr = expr
 
     def __and__(self, other: 'ExprBuilder'):
@@ -195,7 +196,7 @@ class CellBuilder:
 
     def port(self, name: str):
         """Build a port access expression."""
-        return ExprBuilder(ast.CompPort(self._cell.id, name))
+        return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
     def __getitem__(self, key):
         return self.port(key)
@@ -314,8 +315,9 @@ def infer_width(expr):
         return 1
 
     # Otherwise, it's a `cell.port` lookup.
-    cell_name = expr.id.name
-    port_name = expr.name
+    assert isinstance(expr, ast.Atom)
+    cell_name = expr.item.id.name
+    port_name = expr.item.name
 
     # Look up the component for the referenced cell.
     cell_builder = group_builder.comp.index[cell_name]
