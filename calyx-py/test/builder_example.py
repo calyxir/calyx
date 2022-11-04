@@ -12,22 +12,20 @@ def build():
     add = main.add("add", 32)
 
     update_operands = main.group("update_operands")
-    update_operands.asgn(lhs.port("in"), const(32, 1))
-    update_operands.asgn(rhs.port("in"), const(32, 41))
-    update_operands.asgn(lhs.port("write_en"), const(1, 1))
-    update_operands.asgn(rhs.port("write_en"), const(1, 1))
-    update_operands.asgn(
-        update_operands.done,
-        const(1, 1),
-        lhs.port("done") & rhs.port("done"),
-    )
+    with update_operands:
+        lhs["in"] = const(32, 1)
+        rhs["in"] = const(32, 41)
+        lhs.write_en = const(1, 1)
+        rhs.write_en = const(1, 1)
+        update_operands.done[lhs.port("done") & rhs.port("done")] = const(1, 1)
 
     compute_sum = main.group("compute_sum")
-    compute_sum.asgn(add.port("left"), lhs.port("out"))
-    compute_sum.asgn(add.port("right"), rhs.port("out"))
-    compute_sum.asgn(sum.port("write_en"), const(1, 1))
-    compute_sum.asgn(sum.port("in"), add.port("out"))
-    compute_sum.asgn(compute_sum.done, sum.port("done"))
+    with compute_sum:
+        add.left = lhs.out
+        add.right = rhs.out
+        sum.write_en = const(1, 1)
+        sum["in"] = add.out
+        compute_sum.done = sum.done
 
     main.control += [
         update_operands,

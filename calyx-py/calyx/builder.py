@@ -1,4 +1,10 @@
+import threading
 from calyx import py_ast as ast
+
+# Thread-local storage to keep track of the current GroupBuilder we have
+# entered as a context manager. This is weird magic!
+TLS = threading.local()
+TLS.groups = []
 
 
 class ProgramBuilder:
@@ -124,13 +130,88 @@ class ControlBuilder:
             )
 
 
+class ExprBuilder:
+    """Wraps an assignment expression.
+
+    This wrapper provides convenient ways to build logical expressions
+    for guards. Use the Python operators &, |, and ~ to build and, or,
+    and not expressions in Calyx.
+
+    Supports a magical subscript assignment operator to build a
+    *conditional* assignment in the current group context. Use
+    `cell.port[cond] = value` to build a Calyx assignment like
+    `cell.port ? cond = value`.
+    """
+
+    def __init__(self, expr: ast.GuardExpr | ast.Port):
+        self.expr = expr
+
+    def __and__(self, other: 'ExprBuilder'):
+        return ExprBuilder(ast.And(self.expr, other.expr))
+
+    def __or__(self, other: 'ExprBuilder'):
+        return ExprBuilder(ast.Or(self.expr, other.expr))
+
+    def __invert__(self, other: 'ExprBuilder'):
+        return ExprBuilder(ast.Not(self.expr))
+
+    def ctx_cond_asgn(self, cond: 'ExprBuilder', rhs: 'ExprBuilder'):
+        """Add a conditional assignment to the current group context."""
+        assert TLS.groups, "conditional assignment outside `with group`"
+        group_builder = TLS.groups[-1]
+        group_builder.asgn(self, rhs, cond)
+
+    def __setitem__(self, key, value):
+        self.ctx_cond_asgn(key, value)
+
+    @classmethod
+    def unwrap(cls, obj):
+        if isinstance(obj, cls):
+            return obj.expr
+        else:
+            return obj
+
+
 class CellBuilder:
+    """Wraps a cell for convenient wire building.
+
+    When we're in the context for a group builder (inside a `with
+    group:` block), use `cell.port = expr` or `cell["port"] = expr` to
+    add an assignment to the active group.
+
+    Using "dot syntax" works only for port names that *do not* begin
+    with a `_` (underscore fields are reserved for internal operations).
+    """
     def __init__(self, cell: ast.Cell):
-        self.cell = cell
+        self._cell = cell
 
     def port(self, name: str):
         """Build a port access expression."""
-        return ExprBuilder(ast.CompPort(self.cell.id, name))
+        return ExprBuilder(ast.CompPort(self._cell.id, name))
+
+    def __getitem__(self, key):
+        return self.port(key)
+
+    def __getattr__(self, key):
+        if key.startswith('_'):
+            return object.__getattr__(self, key)
+        else:
+            return self.port(key)
+
+    def ctx_asgn(self, port: str, rhs: ExprBuilder, cond=None):
+        """Add an assignment to the current group context."""
+        assert TLS.groups, "assignment outside `with group`"
+        group_builder = TLS.groups[-1]
+        group_builder.asgn(self.port(port), rhs, cond)
+
+    def __setitem__(self, key, value):
+        self.ctx_asgn(key, value)
+
+    def __setattr__(self, key, value):
+        if key.startswith('_'):
+            object.__setattr__(self, key, value)
+        else:
+            self.ctx_asgn(key, value)
 
 
 class GroupBuilder:
@@ -153,33 +234,16 @@ class GroupBuilder:
             ast.HolePort(ast.CompVar(self.group.id.name), "done")
         )
 
+    @done.setter
+    def done(self, expr):
+        """Build an assignment to `done` in the group."""
+        self.asgn(self.done, expr)
 
-class ExprBuilder:
-    """Wraps an assignment expression.
+    def __enter__(self):
+        TLS.groups.append(self)
 
-    This wrapper provides convenient ways to build logical expressions
-    for guards. Use the Python operators &, |, and ~ to build and, or,
-    and not expressions in Calyx.
-    """
-
-    def __init__(self, expr: ast.GuardExpr | ast.Port):
-        self.expr = expr
-
-    def __and__(self, other: 'ExprBuilder'):
-        return ExprBuilder(ast.And(self.expr, other.expr))
-
-    def __or__(self, other: 'ExprBuilder'):
-        return ExprBuilder(ast.Or(self.expr, other.expr))
-
-    def __invert__(self, other: 'ExprBuilder'):
-        return ExprBuilder(ast.Not(self.expr))
-
-    @classmethod
-    def unwrap(cls, obj):
-        if isinstance(obj, cls):
-            return obj.expr
-        else:
-            return obj
+    def __exit__(self, exc, value, tb):
+        TLS.groups.pop()
 
 
 # TODO Unfortunate.
