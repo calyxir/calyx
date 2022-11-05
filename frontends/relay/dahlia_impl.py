@@ -342,8 +342,10 @@ def batch_matmul(fd: DahliaFuncDef) -> str:
 def dense(fd: DahliaFuncDef, save_mem=True) -> str:
     """
     tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense
-    Instead of actually building the transpose of the weight matrix, we instead 
-    access W[j][i] everytime we would have accessed W^T[i][j]. 
+    If save_mem=True, instead of actually building the transpose of the weight matrix,
+    we just access W[j][i] everytime we would have accessed W^T[i][j]. It seems 
+    to be a better way (in terms of resource usage) to calculate dense, which 
+    is why it has been save_mem is the default setting. 
     """
     a, b, res = fd.args[0], fd.args[1], fd.dest
     type = fd.data_type
@@ -367,7 +369,7 @@ def dense(fd: DahliaFuncDef, save_mem=True) -> str:
           """,
         )
     else:
-        # generate internal `transpose`
+        # generate internal `transpose` memory.
         return emit_dahlia_definition(
             fd,
             f"""let __transpose_{b.id.name}: {type}[{M2_size1}][{M2_size0}];
