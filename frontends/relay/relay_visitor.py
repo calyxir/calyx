@@ -437,7 +437,7 @@ def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
             )
 
 
-def emit_calyx(relay_ir) -> (str, Program):
+def emit_calyx(relay_ir, save_mem=True) -> (str, Program):
     """Lowers a Relay function to a Calyx program."""
     relay_ir = relay_transforms(relay_ir)
     visitor = Relay2Calyx()
@@ -446,7 +446,7 @@ def emit_calyx(relay_ir) -> (str, Program):
 
     return (
         (
-            emit_components(func_defs),
+            emit_components(func_defs, save_mem),
             Program(
                 imports=[
                     # Manually printed because we need to print the Dahlia
@@ -499,6 +499,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
     parser.add_argument("file", help="Path to the Relay IR.")
+    parser.add_argument(
+        "-s", "--save_mem", required=False, help="boolean to determine whether you the Calyx design to use less memory"
+    )
 
     args = parser.parse_args()
     if args.file is None:
@@ -520,7 +523,12 @@ if __name__ == "__main__":
         Import("primitives/binary_operators.futil"),
         Import("primitives/math.futil"),
     ]
-    (dahlia_defs, prog) = emit_calyx(relay_ir)
+    if args.save_mem == "false":
+        save_mem = False
+    else:
+        save_mem = True
+
+    (dahlia_defs, prog) = emit_calyx(relay_ir, save_mem)
     for imp in imports:
         print(imp.doc())
     print(dahlia_defs)
