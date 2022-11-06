@@ -305,7 +305,8 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
                 Connect(CompPort(CompVar(f"add{i + 1}"),
                         "right"), CompPort(reg_rhs, "out")),
                 Connect(CompPort(sum, "write_en"), ConstantPort(1, 1)),
-                Connect(CompPort(sum, "in"), CompPort(CompVar(f"add{i + 1}"), "out")),
+                Connect(CompPort(sum, "in"), CompPort(
+                    CompVar(f"add{i + 1}"), "out")),
                 Connect(HolePort(group_name, "done"), CompPort(sum, "done")),
             ]
             groups.append(Group(group_name, connections, 1))
@@ -837,7 +838,8 @@ def generate_fp_pow_full(
         generate_ln(width, int_width, is_signed) +
         [Component(
             "fp_pow_full",
-            inputs=[PortDef(CompVar("base"), width), PortDef(CompVar("exp"), width)],
+            inputs=[PortDef(CompVar("base"), width),
+                    PortDef(CompVar("exp_value"), width)],
             outputs=[PortDef(CompVar("out"), width)],
             structs=(rev_structs if is_signed else []) + [
                 const_one,
@@ -860,7 +862,7 @@ def generate_fp_pow_full(
                         ),
                         Connect(
                             CompPort(CompVar("mult"), "right"),
-                            ThisPort(CompVar("exp")),
+                            ThisPort(CompVar("exp_value")),
                         ),
                         Connect(
                             CompPort(CompVar("mult"), "go"),
@@ -881,7 +883,8 @@ def generate_fp_pow_full(
                         )
                     ],
                 ),
-                Connect(ThisPort(CompVar("out")), CompPort(CompVar("res"), "out")),
+                Connect(ThisPort(CompVar("out")),
+                        CompPort(CompVar("res"), "out")),
                 Group(
                     id=CompVar("write_to_base_reg"),
                     connections=[
@@ -927,7 +930,8 @@ def generate_fp_pow_full(
                                 CompPort(res.id, "done"))
                     ]
                 ),
-                gen_reciprocal("set_base_reciprocal", new_base_reg, div, const_one),
+                gen_reciprocal("set_base_reciprocal",
+                               new_base_reg, div, const_one),
                 gen_reciprocal("set_res_reciprocal", res, div, const_one),
                 gen_comb_lt("base_lt_one", CompPort(
                     stored_base_reg.id, "out"), lt, const_one),
@@ -937,12 +941,14 @@ def generate_fp_pow_full(
                     Enable("write_to_base_reg"),
                     pre_process,
                     Invoke(id=CompVar("l"),
-                           in_connects=[("x", CompPort(new_base_reg.id, "out"))],
+                           in_connects=[
+                               ("x", CompPort(new_base_reg.id, "out"))],
                            out_connects=[]),
                     Enable("set_new_exp"),
                     Invoke(
                         id=CompVar("e"),
-                        in_connects=[("x", CompPort(CompVar("new_exp_val"), "out"))],
+                        in_connects=[
+                            ("x", CompPort(CompVar("new_exp_val"), "out"))],
                         out_connects=[],
                     ),
                     Enable("write_e_to_res"),
@@ -952,53 +958,20 @@ def generate_fp_pow_full(
         )])
 
 
-if __name__ == "__main__":
-    import argparse
-    import json
-
-    parser = argparse.ArgumentParser(
-        description="`exp` using a Taylor Series approximation"
-    )
-    parser.add_argument("file", nargs="?", type=str)
-    parser.add_argument("-d", "--degree", type=int)
-    parser.add_argument("-w", "--width", type=int)
-    parser.add_argument("-i", "--int_width", type=int)
-    parser.add_argument("-s", "--is_signed", type=bool)
-    parser.add_argument("-e", "--base_is_e", type=bool)
-
-    args = parser.parse_args()
-
-    degree, width, int_width, is_signed, base_is_e = None, None, None, None, None
-    required_fields = [args.degree, args.width,
-                       args.int_width, args.is_signed, args.base_is_e]
-    if all(map(lambda x: x is not None, required_fields)):
-        degree = args.degree
-        width = args.width
-        int_width = args.int_width
-        is_signed = args.is_signed
-        base_is_e = args.base_is_e
-    elif args.file is not None:
-        with open(args.file, "r") as f:
-            spec = json.load(f)
-            degree = spec["degree"]
-            width = spec["width"]
-            int_width = spec["int_width"]
-            is_signed = spec["is_signed"]
-            base_is_e = spec["base_is_e"]
-    else:
-        parser.error(
-            "Need to pass either `-f FILE` or all of `-d DEGREE -w WIDTH -i INT_WIDTH`"
-        )
-
-    # build 2 separate programs: 1 if base_is_e is true, the other if false
-    # any_base_program is (obviously) the one for any base
-    any_base_program = Program(
+def build_base_not_e(degree, width, int_width, is_signed) -> Program:
+    '''
+    Builds a program that uses reads from an external memory file to test
+    the fp_pow_full component (`fp_pow_full works` for any base, but since
+    we already have an `exp` component that works for base `e`, it is better
+    to just use that if we want to calculate the base being e).
+    '''
+    program = Program(
         imports=[Import("primitives/core.futil"),
                  Import("primitives/binary_operators.futil")],
         components=generate_fp_pow_full(degree, width, int_width, is_signed)
     )
     # main component for testing purposes
-    any_base_main = Component(
+    program_main = Component(
         "main",
         inputs=[],
         outputs=[],
@@ -1086,16 +1059,22 @@ if __name__ == "__main__":
                 Invoke(
                     id=CompVar("f"),
                     in_connects=[("base", CompPort(CompVar("base_reg"), "out")),
-                                 ("exp", CompPort(CompVar("exp_reg"), "out"))],
+                                 ("exp_value", CompPort(CompVar("exp_reg"), "out"))],
                     out_connects=[],
                 ),
                 Enable("write_to_memory"),
             ]
         ),
     )
-    any_base_program.components.append(any_base_main)
+    program.components.append(program_main)
+    return program
 
-    # this is the program for when the base = e
+
+def build_base_is_e(degree, width, int_width, is_signed) -> Program:
+    '''
+    Builds a program that uses reads from an external memory file to test
+    the exp component. Exp can calculate any power as long as the base is e. 
+    '''
     program = Program(
         imports=[
             Import("primitives/core.futil"),
@@ -1176,8 +1155,54 @@ if __name__ == "__main__":
             ),
         )
     )
+    return program
 
-    if base_is_e:
-        program.emit()
+
+if __name__ == "__main__":
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(
+        description="`exp` using a Taylor Series approximation"
+    )
+    parser.add_argument("file", nargs="?", type=str)
+    parser.add_argument("-d", "--degree", type=int)
+    parser.add_argument("-w", "--width", type=int)
+    parser.add_argument("-i", "--int_width", type=int)
+    parser.add_argument("-s", "--is_signed", type=bool)
+    parser.add_argument("-e", "--base_is_e", type=bool)
+
+    args = parser.parse_args()
+
+    degree, width, int_width, is_signed, base_is_e = None, None, None, None, None
+    required_fields = [args.degree, args.width,
+                       args.int_width, args.is_signed, args.base_is_e]
+    if all(map(lambda x: x is not None, required_fields)):
+        degree = args.degree
+        width = args.width
+        int_width = args.int_width
+        is_signed = args.is_signed
+        base_is_e = args.base_is_e
+    elif args.file is not None:
+        with open(args.file, "r") as f:
+            spec = json.load(f)
+            degree = spec["degree"]
+            width = spec["width"]
+            int_width = spec["int_width"]
+            is_signed = spec["is_signed"]
+            base_is_e = spec["base_is_e"]
     else:
-        any_base_program.emit()
+        parser.error(
+            "Need to pass either `-f FILE` or all of `-d DEGREE -w WIDTH -i INT_WIDTH`"
+        )
+
+    # build 2 separate programs:
+    # if base_is_e is true, then we only need to generate the exp component,
+    # which can caclulate e^x for any x.
+    # if base_is_e is false, then we need to generate additional hardware; namely,
+    # the ln component (in addition to the exp component). Having both ln
+    # and e^x available to use allows us to calculate b^x for any b and any x.
+    if base_is_e:
+        build_base_is_e(degree, width, int_width, is_signed).emit()
+    else:
+        build_base_not_e(degree, width, int_width, is_signed).emit()
