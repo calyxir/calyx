@@ -11,6 +11,13 @@ use crate::{
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
+/// The data structure used to represent sets of ids. This is used to represent
+/// the `live`, `gen`, and `kill` sets.
+#[derive(Default, Clone)]
+pub struct CdfMap {
+    pmf: HashMap<ir::CellType, HashMap<i64, i64>>,
+}
+
 /// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
 /// alive at each group, minimizes the cells used for each component.
 ///
