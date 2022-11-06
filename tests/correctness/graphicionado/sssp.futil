@@ -1,7 +1,7 @@
 // A Calyx implementation of the Graphicionado Base Graph Processing Model, as described in:
 // "Graphicionado: A high-performance and energy efficient accelerator for graph analytics"
 // Ham et al. (2016) [https://ieeexplore.ieee.org/document/7783759]
-// Custom-computation modules (i.e. process_edge, reduce, apply) configured to support BFS.
+// Custom-computation modules (i.e. process_edge, reduce, apply) configured to support SSSP.
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
@@ -65,18 +65,33 @@ component reduce(vtemp: 32, res: 32) -> (out: 32) {
 component apply(vprop: 32, vtemp: 32) -> (out: 32) {
   cells {
     val = std_reg(32);
+    lt = std_lt(32);
   }
   wires {
-    out = val.out;
-
-    group set_val {
+    out = val.out; 
+    group set_val_vprop {
+      val.in = vprop;
+      val.write_en = 1'b1;
+      set_val_vprop[done] = val.done;
+    }
+    group set_val_vtemp {
       val.in = vtemp;
       val.write_en = 1'b1;
-      set_val[done] = val.done;
+      set_val_vtemp[done] = val.done;
+    }
+    comb group min {
+      lt.left = vtemp;
+      lt.right = vprop;
     }
   }
   control {
-    seq { set_val; }
+    seq {
+      if lt.out with min {
+        set_val_vtemp;
+      } else {
+        set_val_vprop;
+      }
+    }
   }
 }
 
@@ -137,7 +152,6 @@ component processing_phase(
     temp = std_reg(32);
     add1 = std_add(32);
     add2 = std_add(32);
-    add3 = std_add(32);
     lt1 = std_lt(32);
     eq1 = std_eq(32);
 
@@ -231,9 +245,8 @@ component processing_phase(
     }
     // execute the 'reduce' component and write the output to 'temp'
     group run_reduce {
-      // r.res = res;
       r.vtemp = temp.out;
-      r.res = res;
+      r.res = p.res;
       r.go = 1'd1;
       run_reduce[done] = r.done;
     }
@@ -250,35 +263,35 @@ component processing_phase(
       write_VTempProperty[done] = VTempProperty_done;
     }
 		// this entire section is hardcoded to the amount of vertices (4)
-    // group reset_av0 { // reset ActiveVertex at index 0
-    //   ActiveVertex_addr0 = 32'd0;
-    //   ActiveVertex_write_data = 32'd0;
-    //   ActiveVertex_write_en = 1'b1;
-    //   reset_av0[done] = ActiveVertex_done;
-    // }
-    // group reset_av1 { // reset ActiveVertex at index 1
-    //   ActiveVertex_addr0 = 32'd1;
-    //   ActiveVertex_write_data = 32'd0;
-    //   ActiveVertex_write_en = 1'b1;
-    //   reset_av1[done] = ActiveVertex_done;
-    // }
-    // group reset_av2 { // reset ActiveVertex at index 2
-    //   ActiveVertex_addr0 = 32'd2;
-    //   ActiveVertex_write_data = 32'd0;
-    //   ActiveVertex_write_en = 1'b1;
-    //   reset_av2[done] = ActiveVertex_done;
-    // }
-    // group reset_av3{ // reset ActiveVertex at index 3
-    //   ActiveVertex_addr0 = 32'd3;
-    //   ActiveVertex_write_data = 32'd0;
-    //   ActiveVertex_write_en = 1'b1;
-    //   reset_av3[done] = ActiveVertex_done;
-    // }
-    // group reset_ActiveVertexCount {
-    //   ActiveVertexCount_in = 32'd0;
-    //   ActiveVertexCount_write_en = 1'b1;
-    //   reset_ActiveVertexCount[done] = ActiveVertexCount_done;
-    // }
+    group reset_av0 { // reset ActiveVertex at index 0
+      ActiveVertex_addr0 = 32'd0;
+      ActiveVertex_write_data = 32'd0;
+      ActiveVertex_write_en = 1'b1;
+      reset_av0[done] = ActiveVertex_done;
+    }
+    group reset_av1 { // reset ActiveVertex at index 1
+      ActiveVertex_addr0 = 32'd1;
+      ActiveVertex_write_data = 32'd0;
+      ActiveVertex_write_en = 1'b1;
+      reset_av1[done] = ActiveVertex_done;
+    }
+    group reset_av2 { // reset ActiveVertex at index 2
+      ActiveVertex_addr0 = 32'd2;
+      ActiveVertex_write_data = 32'd0;
+      ActiveVertex_write_en = 1'b1;
+      reset_av2[done] = ActiveVertex_done;
+    }
+    group reset_av3{ // reset ActiveVertex at index 3
+      ActiveVertex_addr0 = 32'd3;
+      ActiveVertex_write_data = 32'd0;
+      ActiveVertex_write_en = 1'b1;
+      reset_av3[done] = ActiveVertex_done;
+    }
+    group reset_ActiveVertexCount {
+      ActiveVertexCount_in = 32'd0;
+      ActiveVertexCount_write_en = 1'b1;
+      reset_ActiveVertexCount[done] = ActiveVertexCount_done;
+    }
 
     comb group cond_i_lt_ActiveVertexCount {
       lt1.left = i.out;
@@ -305,7 +318,7 @@ component processing_phase(
           while eq1.out with cond_e_srcid_eq_v_srcid { //l5
             seq {
               read_temp; //l8
-              run_process_edge;
+              run_process_edge; //l9
               run_reduce; //l9
               set_temp; //l9
               write_VTempProperty; //10
@@ -318,11 +331,11 @@ component processing_phase(
           incr_i; //l1
         }
       }
-      // reset_av0;
-      // reset_av1;
-      // reset_av2;
-      // reset_av3;
-      // reset_ActiveVertexCount; //l14
+      reset_av0;
+      reset_av1;
+      reset_av2;
+      reset_av3;
+      reset_ActiveVertexCount; //l14
     }
   }
 }
@@ -499,7 +512,7 @@ component main() -> () {
     @external @read_only TotalVertexCount = std_mem_d1(32, 1, 1);
 
     // Loop maximum to prevent overflowing edges.
-    @external @read_only TotalEdgeCount = std_mem_d1(32, 1, 1);
+    TotalEdgeCount = std_reg(32);
 
     // Contains edges in the form (source, dest, weight) and is sorted by
     // source Id.
@@ -534,7 +547,12 @@ component main() -> () {
   wires {
     comb group cond_curIter_lt_TotalEdge {
       lt.left = curIter.out;
-      lt.right = TotalEdgeCount.read_data;
+      lt.right = TotalEdgeCount.out;
+    }
+    group init_TotalEdgeCount {
+      TotalEdgeCount.in = 32'd4;
+      TotalEdgeCount.write_en = 1'b1;
+      init_TotalEdgeCount[done] = TotalEdgeCount.done;
     }
     group init_curIter {
       curIter.write_en = 1'b1;
@@ -552,6 +570,7 @@ component main() -> () {
   control {
     seq {
       init_curIter;
+      init_TotalEdgeCount;
       while lt.out with cond_curIter_lt_TotalEdge {
         seq {
           invoke pp(
