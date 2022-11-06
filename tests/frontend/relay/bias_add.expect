@@ -1,11 +1,12 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component bias_add_1x64x512x256() -> () {
   cells {
-    ref x0_0_0_0 = std_mem_d4(32,1,64,512,256,1,7,10,9);
-    ref bias0 = std_mem_d1(32,64,7);
-    ref x10_0_0_0 = std_mem_d4(32,1,64,512,256,1,7,10,9);
+    ref x0_0_0_0 = seq_mem_d4(32,1,64,512,256,1,7,10,9);
+    ref bias0 = seq_mem_d1(32,64,7);
+    ref x10_0_0_0 = seq_mem_d4(32,1,64,512,256,1,7,10,9);
     __i0 = std_reg(1);
     __j0 = std_reg(7);
     __k0 = std_reg(10);
@@ -71,19 +72,21 @@ component bias_add_1x64x512x256() -> () {
       __l0.write_en = 1'd1;
       let3[done] = __l0.done;
     }
-    group upd0<"static"=1> {
-      x_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      x_read0_0.write_en = x0_0_0_0.read_done;
       x0_0_0_0.addr3 = __l0.out;
       x0_0_0_0.addr2 = __k0.out;
       x0_0_0_0.addr1 = __j0.out;
       x0_0_0_0.addr0 = __i0.out;
-      x_read0_0.in = x0_0_0_0.read_data;
+      x0_0_0_0.read_en = 1'd1;
+      x_read0_0.in = x0_0_0_0.out;
       upd0[done] = x_read0_0.done;
     }
-    group upd1<"static"=1> {
-      bias_read0_0.write_en = 1'd1;
+    group upd1<"static"=2> {
+      bias_read0_0.write_en = bias0.read_done;
       bias0.addr0 = __j0.out;
-      bias_read0_0.in = bias0.read_data;
+      bias0.read_en = 1'd1;
+      bias_read0_0.in = bias0.out;
       upd1[done] = bias_read0_0.done;
     }
     group upd2<"static"=1> {
@@ -94,8 +97,8 @@ component bias_add_1x64x512x256() -> () {
       x10_0_0_0.write_en = 1'd1;
       add0.left = x_read0_0.out;
       add0.right = bias_read0_0.out;
-      x10_0_0_0.write_data = add0.out;
-      upd2[done] = x10_0_0_0.done;
+      x10_0_0_0.in = add0.out;
+      upd2[done] = x10_0_0_0.write_done;
     }
     group upd3<"static"=1> {
       __l0.write_en = 1'd1;
@@ -163,9 +166,9 @@ component bias_add_1x64x512x256() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    @external(1) bias = std_mem_d1(32, 64, 7);
-    @external(1) x1 = std_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external(1) x = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external(1) bias = seq_mem_d1(32, 64, 7);
+    @external(1) x1 = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
     bias_add_1x64x512x256_ = bias_add_1x64x512x256();
   }
   wires {
@@ -178,5 +181,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 64, 512, 256), float32] = nn.bias_add(%x, %bias) /* ty=Tensor[(1, 64, 512, 256), float32] */;
+0: let %x1: Tensor[(1, 64, 512, 256), float32] /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:4:3 */ = nn.bias_add(%x, %bias) /* ty=Tensor[(1, 64, 512, 256), float32] span=from_string:3:49 */;
 }#

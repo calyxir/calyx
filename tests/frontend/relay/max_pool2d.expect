@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component max_pool2d_2x2x2x2() -> () {
   cells {
-    ref data0_0_0_0 = std_mem_d4(32,2,2,4,4,2,2,3,3);
-    ref result0_0_0_0 = std_mem_d4(32,2,2,2,2,2,2,2,2);
+    ref data0_0_0_0 = seq_mem_d4(32,2,2,4,4,2,2,3,3);
+    ref result0_0_0_0 = seq_mem_d4(32,2,2,2,2,2,2,2,2);
     __b0 = std_reg(32);
     __c0 = std_reg(32);
     __current_0 = std_reg(32);
@@ -168,8 +169,8 @@ component max_pool2d_2x2x2x2() -> () {
       __n0.write_en = 1'd1;
       let9[done] = __n0.done;
     }
-    group upd0<"static"=1> {
-      __max_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      __max_0.write_en = data0_0_0_0.read_done;
       data0_0_0_0.addr3 = slice3.out;
       slice3.in = __stride_x_0.out;
       data0_0_0_0.addr2 = slice2.out;
@@ -178,11 +179,12 @@ component max_pool2d_2x2x2x2() -> () {
       slice1.in = __c0.out;
       data0_0_0_0.addr0 = slice0.out;
       slice0.in = __b0.out;
-      __max_0.in = data0_0_0_0.read_data;
+      data0_0_0_0.read_en = 1'd1;
+      __max_0.in = data0_0_0_0.out;
       upd0[done] = __max_0.done;
     }
-    group upd1<"static"=1> {
-      __current_0.write_en = 1'd1;
+    group upd1<"static"=2> {
+      __current_0.write_en = data0_0_0_0.read_done;
       data0_0_0_0.addr3 = slice7.out;
       slice7.in = __pool_x_0.out;
       data0_0_0_0.addr2 = slice6.out;
@@ -191,7 +193,8 @@ component max_pool2d_2x2x2x2() -> () {
       slice5.in = __c0.out;
       data0_0_0_0.addr0 = slice4.out;
       slice4.in = __b0.out;
-      __current_0.in = data0_0_0_0.read_data;
+      data0_0_0_0.read_en = 1'd1;
+      __current_0.in = data0_0_0_0.out;
       upd1[done] = __current_0.done;
     }
     group upd2<"static"=1> {
@@ -223,8 +226,8 @@ component max_pool2d_2x2x2x2() -> () {
       result0_0_0_0.addr0 = slice8.out;
       slice8.in = __b0.out;
       result0_0_0_0.write_en = 1'd1;
-      result0_0_0_0.write_data = __max_0.out;
-      upd5[done] = result0_0_0_0.done;
+      result0_0_0_0.in = __max_0.out;
+      upd5[done] = result0_0_0_0.write_done;
     }
     group upd6<"static"=1> {
       __x0.write_en = 1'd1;
@@ -319,8 +322,8 @@ component max_pool2d_2x2x2x2() -> () {
 
 component main() -> () {
   cells {
-    @external(1) data = std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
-    @external(1) result = std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
+    @external(1) data = seq_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
+    @external(1) result = seq_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
     max_pool2d_2x2x2x2_ = max_pool2d_2x2x2x2();
   }
   wires {
@@ -333,5 +336,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %result: Tensor[(2, 2, 2, 2), int32] = nn.max_pool2d(%data, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 0, 0]) /* ty=Tensor[(2, 2, 2, 2), int32] */;
+0: let %result: Tensor[(2, 2, 2, 2), int32] /* ty=Tensor[(2, 2, 2, 2), int32] span=from_string:4:3 */ = nn.max_pool2d(%data, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 0, 0]) /* ty=Tensor[(2, 2, 2, 2), int32] span=from_string:3:48 */;
 }#

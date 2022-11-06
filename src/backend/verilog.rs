@@ -21,6 +21,21 @@ use vast::v17::ast as v;
 #[derive(Default)]
 pub struct VerilogBackend;
 
+// input string should be the cell type name of a memory cell. In other words one
+// of "seq/std_mem_d_1/2/3/4". Becase we define seq_mem_d2/3/4 in terms of seq_mem_d1
+// we need another layer of memory access to get the actual memory array in verilog
+// for these mem types.
+// In other words, for memories not defined in terms of another memory, we can just use
+// "mem" to access them. But for memories defined in terms of another memory,
+// which are seq_mem_d2/3/4, we need "mem.mem" to access them.
+fn get_mem_str(mem_type: &str) -> &str {
+    if mem_type.contains("d1") || mem_type.contains("std_mem") {
+        "mem"
+    } else {
+        "mem.mem"
+    }
+}
+
 /// Checks to make sure that there are no holes being
 /// used in a guard.
 fn validate_guard(guard: &ir::Guard) -> bool {
@@ -359,6 +374,24 @@ fn emit_guard_disjoint_check(
     Some(v::Sequential::If(check))
 }
 
+/// Checks if:
+/// 1. The port is marked with `@data`
+/// 2. The port's cell parent is marked with `@data`
+fn is_data_port(pr: &RRC<ir::Port>) -> bool {
+    let port = pr.borrow();
+    if !port.attributes.has("data") {
+        return false;
+    }
+    if let ir::PortParent::Cell(cwr) = &port.parent {
+        let cr = cwr.upgrade();
+        let cell = cr.borrow();
+        if cell.attributes.has("data") {
+            return true;
+        }
+    }
+    false
+}
+
 /// Generates an assign statement that uses ternaries to select the correct
 /// assignment to enable and adds a default assignment to 0 when none of the
 /// guards are active.
@@ -376,29 +409,51 @@ fn emit_guard_disjoint_check(
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
-    let dst = dst_ref.borrow();
-    let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
-
-    // Flatten the mux expression if there is exactly one assignment with a true guard.
-    let rhs = if assignments.len() == 1 {
-        let assign = assignments[0];
-        if assign.guard.is_true() {
-            port_to_ref(&assign.src)
-        } else if assign.src.borrow().is_constant(1, 1) {
-            guard_to_expr(&assign.guard)
-        } else {
-            v::Expr::new_mux(
-                guard_to_expr(&assign.guard),
-                port_to_ref(&assign.src),
-                init,
-            )
-        }
-    } else {
+    // Mux over the assignment with the given default value.
+    let fold_assigns = |init: v::Expr| -> v::Expr {
         assignments.iter().rfold(init, |acc, e| {
             let guard = guard_to_expr(&e.guard);
             let asgn = port_to_ref(&e.src);
             v::Expr::new_mux(guard, asgn, acc)
         })
+    };
+
+    // If this is a data port
+    let rhs: v::Expr = if is_data_port(dst_ref) {
+        if assignments.len() == 1 {
+            // If there is exactly one guard, generate a continuous assignment.
+            // This encodes the rewrite:
+            // in = g ? out : 'x => in = out;
+            // This is valid because 'x can be replaced with any value
+            let assign = assignments[0];
+            port_to_ref(&assign.src)
+        } else {
+            // Produce an assignment with 'x as the default case.
+            fold_assigns(v::Expr::X)
+        }
+    } else {
+        let init = v::Expr::new_ulit_dec(
+            dst_ref.borrow().width as u32,
+            &0.to_string(),
+        );
+
+        // Flatten the mux expression if there is exactly one assignment with a true guard.
+        if assignments.len() == 1 {
+            let assign = assignments[0];
+            if assign.guard.is_true() {
+                port_to_ref(&assign.src)
+            } else if assign.src.borrow().is_constant(1, 1) {
+                guard_to_expr(&assign.guard)
+            } else {
+                v::Expr::new_mux(
+                    guard_to_expr(&assign.guard),
+                    port_to_ref(&assign.src),
+                    init,
+                )
+            }
+        } else {
+            fold_assigns(init)
+        }
     };
     v::Parallel::ParAssign(port_to_ref(dst_ref), rhs)
 }
@@ -482,7 +537,10 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                     .map(|proto| proto.id.contains("mem"))
                     .unwrap_or_default()
             {
-                Some(cell.borrow().name().id.clone())
+                Some((
+                    cell.borrow().name().id.clone(),
+                    cell.borrow().type_name().unwrap_or_else(|| unreachable!("tried to add a memory cell but there was no type name")).clone(),
+                ))
             } else {
                 None
             }
@@ -518,7 +576,8 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             ],
         )));
 
-    memories.iter().for_each(|name| {
+    memories.iter().for_each(|(name, mem_type)| {
+        let mem_access_str = get_mem_str(&mem_type.id);
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
@@ -528,13 +587,15 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.mem", name)),
+                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
     });
 
     let mut final_block = v::ParallelProcess::new_final();
-    memories.iter().for_each(|name| {
+    memories.iter().for_each(|(name, mem_type)| {
+        let mem_access_str = get_mem_str(&mem_type.id);
+
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",
             vec![
@@ -544,7 +605,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.mem", name)),
+                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
     });

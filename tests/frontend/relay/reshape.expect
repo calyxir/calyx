@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component reshape_1x8() -> () {
   cells {
-    ref x0_0_0_0 = std_mem_d4(32,1,2,2,2,1,2,2,2);
-    ref x10_0 = std_mem_d2(32,1,8,1,4);
+    ref x0_0_0_0 = seq_mem_d4(32,1,2,2,2,1,2,2,2);
+    ref x10_0 = seq_mem_d2(32,1,8,1,4);
     __i0 = std_reg(1);
     __j0 = std_reg(2);
     __k0 = std_reg(2);
@@ -78,21 +79,22 @@ component reshape_1x8() -> () {
       __l0.write_en = 1'd1;
       let4[done] = __l0.done;
     }
-    group upd0<"static"=1> {
-      x_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      x_read0_0.write_en = x0_0_0_0.read_done;
       x0_0_0_0.addr3 = __l0.out;
       x0_0_0_0.addr2 = __k0.out;
       x0_0_0_0.addr1 = __j0.out;
       x0_0_0_0.addr0 = __i0.out;
-      x_read0_0.in = x0_0_0_0.read_data;
+      x0_0_0_0.read_en = 1'd1;
+      x_read0_0.in = x0_0_0_0.out;
       upd0[done] = x_read0_0.done;
     }
     group upd1<"static"=1> {
       x10_0.addr1 = __m_0.out;
       x10_0.addr0 = const9.out;
       x10_0.write_en = 1'd1;
-      x10_0.write_data = x_read0_0.out;
-      upd1[done] = x10_0.done;
+      x10_0.in = x_read0_0.out;
+      upd1[done] = x10_0.write_done;
     }
     group upd2<"static"=1> {
       __m_0.write_en = 1'd1;
@@ -166,8 +168,8 @@ component reshape_1x8() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d4(32, 1, 2, 2, 2, 1, 2, 2, 2);
-    @external(1) x1 = std_mem_d2(32, 1, 8, 1, 4);
+    @external(1) x = seq_mem_d4(32, 1, 2, 2, 2, 1, 2, 2, 2);
+    @external(1) x1 = seq_mem_d2(32, 1, 8, 1, 4);
     reshape_1x8_ = reshape_1x8();
   }
   wires {
@@ -180,5 +182,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape=[-1, 8]) /* ty=Tensor[(1, 8), float32] */;
+0: let %x1: Tensor[(1, 8), float32] /* ty=Tensor[(1, 8), float32] span=from_string:4:3 */ = reshape(%x, newshape=[-1, 8]) /* ty=Tensor[(1, 8), float32] span=from_string:3:38 */;
 }#

@@ -1,18 +1,19 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component dense_1x10() -> () {
   cells {
-    ref x0_0 = std_mem_d2(32,1,4096,1,13);
-    ref y0_0 = std_mem_d2(32,10,4096,4,13);
-    ref x10_0 = std_mem_d2(32,1,10,1,4);
+    ref x0_0 = seq_mem_d2(32,1,4096,1,13);
+    ref y0_0 = seq_mem_d2(32,10,4096,4,13);
+    ref x10_0 = seq_mem_d2(32,1,10,1,4);
     __i0 = std_reg(4);
     __i1 = std_reg(1);
     __j0 = std_reg(13);
     __j1 = std_reg(4);
     __k0 = std_reg(13);
     __product_0 = std_reg(32);
-    __transpose_y0_0 = std_mem_d2(32,4096,10,13,4);
+    __transpose_y0_0 = seq_mem_d2(32,4096,10,13,4);
     __transpose_y_read0_0 = std_reg(32);
     add0 = std_add(13);
     add1 = std_add(4);
@@ -105,26 +106,28 @@ component dense_1x10() -> () {
       __product_0.write_en = 1'd1;
       let6[done] = __product_0.done;
     }
-    group let7<"static"=1> {
-      red_read00.in = x10_0.read_data;
-      red_read00.write_en = 1'd1;
+    group let7<"static"=2> {
+      red_read00.in = x10_0.out;
+      red_read00.write_en = x10_0.read_done;
       let7[done] = red_read00.done;
       x10_0.addr1 = __j1.out;
       x10_0.addr0 = __i1.out;
+      x10_0.read_en = 1'd1;
     }
-    group upd0<"static"=1> {
-      y_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      y_read0_0.write_en = y0_0.read_done;
       y0_0.addr1 = __j0.out;
       y0_0.addr0 = __i0.out;
-      y_read0_0.in = y0_0.read_data;
+      y0_0.read_en = 1'd1;
+      y_read0_0.in = y0_0.out;
       upd0[done] = y_read0_0.done;
     }
     group upd1<"static"=1> {
       __transpose_y0_0.addr1 = __i0.out;
       __transpose_y0_0.addr0 = __j0.out;
       __transpose_y0_0.write_en = 1'd1;
-      __transpose_y0_0.write_data = y_read0_0.out;
-      upd1[done] = __transpose_y0_0.done;
+      __transpose_y0_0.in = y_read0_0.out;
+      upd1[done] = __transpose_y0_0.write_done;
     }
     group upd2<"static"=1> {
       __j0.write_en = 1'd1;
@@ -140,18 +143,20 @@ component dense_1x10() -> () {
       __i0.in = add1.out;
       upd3[done] = __i0.done;
     }
-    group upd4<"static"=1> {
-      x_read0_0.write_en = 1'd1;
+    group upd4<"static"=2> {
+      x_read0_0.write_en = x0_0.read_done;
       x0_0.addr1 = __k0.out;
       x0_0.addr0 = __i1.out;
-      x_read0_0.in = x0_0.read_data;
+      x0_0.read_en = 1'd1;
+      x_read0_0.in = x0_0.out;
       upd4[done] = x_read0_0.done;
     }
-    group upd5<"static"=1> {
-      __transpose_y_read0_0.write_en = 1'd1;
+    group upd5<"static"=2> {
+      __transpose_y_read0_0.write_en = __transpose_y0_0.read_done;
       __transpose_y0_0.addr1 = __j1.out;
       __transpose_y0_0.addr0 = __k0.out;
-      __transpose_y_read0_0.in = __transpose_y0_0.read_data;
+      __transpose_y0_0.read_en = 1'd1;
+      __transpose_y_read0_0.in = __transpose_y0_0.out;
       upd5[done] = __transpose_y_read0_0.done;
     }
     group upd6<"static"=1> {
@@ -160,8 +165,8 @@ component dense_1x10() -> () {
       x10_0.write_en = 1'd1;
       add2.left = red_read00.out;
       add2.right = __product_0.out;
-      x10_0.write_data = add2.out;
-      upd6[done] = x10_0.done;
+      x10_0.in = add2.out;
+      upd6[done] = x10_0.write_done;
     }
     group upd7<"static"=1> {
       __k0.write_en = 1'd1;
@@ -233,9 +238,9 @@ component dense_1x10() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d2(32, 1, 4096, 1, 13);
-    @external(1) y = std_mem_d2(32, 10, 4096, 4, 13);
-    @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
+    @external(1) x = seq_mem_d2(32, 1, 4096, 1, 13);
+    @external(1) y = seq_mem_d2(32, 10, 4096, 4, 13);
+    @external(1) x1 = seq_mem_d2(32, 1, 10, 1, 4);
     dense_1x10_ = dense_1x10();
   }
   wires {
@@ -248,5 +253,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 10), int32] = nn.dense(%x, %y, units=10) /* ty=Tensor[(1, 10), int32] */;
+0: let %x1: Tensor[(1, 10), int32] /* ty=Tensor[(1, 10), int32] span=from_string:4:3 */ = nn.dense(%x, %y, units=10) /* ty=Tensor[(1, 10), int32] span=from_string:3:39 */;
 }#

@@ -156,10 +156,13 @@ class Cell(Structure):
     id: CompVar
     comp: CompInst
     is_external: bool = False
+    is_ref: bool = False
 
     def doc(self) -> str:
+        assert not (self.is_ref and self.is_external)
         external = "@external(1) " if self.is_external else ""
-        return f"{external}{self.id.doc()} = {self.comp.doc()};"
+        ref = "ref " if self.is_ref else ""
+        return f"{external}{ref}{self.id.doc()} = {self.comp.doc()};"
 
 
 @dataclass
@@ -389,12 +392,24 @@ class Stdlib:
     def mem_d1(self, bitwidth: int, size: int, idx_size: int):
         return CompInst("std_mem_d1", [bitwidth, size, idx_size])
 
+    def seq_mem_d1(self, bitwidth: int, size: int, idx_size: int):
+        return CompInst("seq_mem_d1", [bitwidth, size, idx_size])
+
     def mem_d2(
         self, bitwidth: int, size0: int, size1: int, idx_size0: int,
         idx_size1: int
     ):
         return CompInst(
             "std_mem_d2",
+            [bitwidth, size0, size1, idx_size0, idx_size1]
+        )
+
+    def seq_mem_d2(
+        self, bitwidth: int, size0: int, size1: int, idx_size0: int,
+        idx_size1: int
+    ):
+        return CompInst(
+            "seq_mem_d2",
             [bitwidth, size0, size1, idx_size0, idx_size1]
         )
 
@@ -413,6 +428,21 @@ class Stdlib:
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
         )
 
+    def seq_mem_d3(
+        self,
+        bitwidth: int,
+        size0: int,
+        size1: int,
+        size2: int,
+        idx_size0: int,
+        idx_size1: int,
+        idx_size2: int,
+    ):
+        return CompInst(
+            "seq_mem_d3",
+            [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
+        )
+
     def mem_d4(
         self,
         bitwidth: int,
@@ -427,6 +457,33 @@ class Stdlib:
     ):
         return CompInst(
             "std_mem_d4",
+            [
+                bitwidth,
+                size0,
+                size1,
+                size2,
+                size3,
+                idx_size0,
+                idx_size1,
+                idx_size2,
+                idx_size3,
+            ],
+        )
+
+    def seq_mem_d4(
+        self,
+        bitwidth: int,
+        size0: int,
+        size1: int,
+        size2: int,
+        size3: int,
+        idx_size0: int,
+        idx_size1: int,
+        idx_size2: int,
+        idx_size3: int,
+    ):
+        return CompInst(
+            "seq_mem_d4",
             [
                 bitwidth,
                 size0,

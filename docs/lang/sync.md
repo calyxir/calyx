@@ -5,83 +5,61 @@ synchronization in presence of parallelism.
 We're currently experimenting with a suite of new primitives that add synchronization to the
 language.
 
-## `std_sync_reg`
+## `@sync` attribute
 
-The `std_sync_reg` primitive defined by `primitives/sync.futil` provides a synchronizing
-register that acts as an [M-structure][m-struct] which provides the following interface:
-On the reader side:
-1. If the register is "empty", block the read till the register is written into.
-2. If the register is "full", provide the value to the reader, provide a `done` signal, and mark it as "empty".
+## Motivation
 
-On the writer side:
-1. If the register is "empty", write the value in the register, mark it as "full", and provide a `done` signal.
-2. If the register is "full", block the write till the register is read from.
-
-One way to think of this interface is as a size-1 concurrent FIFO.
-
-## Using `std_sync_reg`
-
-> The [following example][ex] is a part of the Calyx compiler test suite and can be
-> executed using:
->
->       runt -i examples/sync
-
-The synchronizing register interface is non-standard: it provides two go signals and
-two done signals to initiate parallel reads and writes.
-
+Consider the following control program in calyx:
 ```
-{{#include ../../primitives/sync.futil:sync_interface}}
+{{#include ../../examples/sync/unsync-example/unsync-doc-example.futil:control}}
 ```
 
-The signal `read_en` is used by a program to initiate a read operation while
-the `write_en` signal initiates a write operation.
-We need to explicitly initiate a read operation because reading a value marks
-the register as "empty" which causes any future reads to block.
+where groups `add_r_to_accm` and `incr_r` reads value and increments value in register `r`, respectively, as indicated by their names. 
 
-Similarly, the output interface specifies the `read_done` and `write_done` signals
-which the user program needs to read to know when the operations are completed.
-The `read_done` signal is similar to a `valid` signal while the `write_done` is
-similar to a `write_done` signal.
+Because calyx does not make any guarantee of the order of execution for threads running in parallel, it is impossible for us to determine which thread will access r first for each iteration.
 
-The following group initiates a write operation into the synchronizing register `imm`
-from the memory `in`:
-```
-{{#include ../../examples/sync/sync.futil:write}}
-```
-The group waits for the `imm.write_done` signal to be high before continuing
-execution.
-If the synchronizing register was "full" in this cycle, the execution would
-stall and cause the group to take another cycle.
+Nondeterminism when running parallel threads is beneficial on the compiler's end, as it will give the compiler more freedom for optimization. However, we sometimes do want to give parallel threads a measure of ordering while still taking advantage of the performance boost of parallelism. The `@sync` attribute allows us to do that. 
 
-The following group initiates a read the synchronizing register `imm` and saves
-the value into the `out` memory:
-```
-{{#include ../../examples/sync/sync.futil:read}}
-```
-The group waits till the `imm.read_done` signal is high to write the value into
-the memory.
-Note that in case the register is empty, `imm.read_done` will be low and cause
-the group to another cycle.
 
-Finally, we can describe the control program as:
+## Using the `@sync` attribute
+
+Now we want to modify the program above so that in every iteration, thread A always reads after thread B finishes incrementing using the `@sync` attribute with the following:
+
 ```
-{{#include ../../examples/sync/sync.futil:control}}
+{{#include ../../examples/sync/sync-doc-example.futil:control}}
 ```
-Note that the two groups execute in parallel which means there is no guarantee
-to their order of execution.
-However, the synchronization ensures that the reads see a consistent set of
-writes in the order we expect.
+
+First and foremost, always remember to import "primitives/sync.futil" when using the @sync attribute.
+
+The `@sync` syntax means that control statements marked with this attribute are not allowed to proceed after finishing until every other statement marked with the same value for the `@sync` attribute has finished. In other words, we are putting a barrier after all statements marked with `@sync`. When all threads arrive, we release the "barrier". 
+
+In the modified program above, we see that `incr_idx` and `incr_r` must both finish in order for either thread to go forth. Because `add_r_to_accm` is executed after `incr_idx` in thread A, we know that in each iteration, `incr_r` will always increment `r` before `add_r_to_accm` reads it. We've also inserted a `no-op`, a group that does nothing, to the program. We mark both `no_op` and `add_r_to_accm` with `@sync(2)`, which essentially means `add_r_to_accm` has to finish before either thread enters the next iteration.
+
+## Synchronization in Branches
+We can also have "barriers" in `if` branches:
+```
+{{#include ../../examples/sync/sync-if.futil:control}}
+```
+In this control program, both branches of thread 1 have statements marked with `@sync(1)`, 
+which syncs it up with thread 2.
+
+Be really really careful when using the `@sync` attribute in conditional branches!
+If the other thread sharing one "barrier" with your thread is blocked unconditionally, 
+then you would probably want to have the same `@sync` value in both branches; since
+having the same `@sync` value in only one branch would likely lead to a "deadlock" 
+situation: if thread A is running in the unlocked branch while the thread B 
+has a "barrier" that is expecting two threads, thread B may never proceed because
+thread A never arrives at the "barrier".
+
+## More Complex Example
+If you want to see a more complex design using `@sync`, see 
+[sync-dot-product](https://github.com/cucapra/calyx/blob/master/tests/correctness/sync/sync-dot-product.futil)
 
 ## Limitations
 
-The example above implements a standard producer-consumer.
-However, as implemented, the `std_sync_reg` primitive does not support multiple
-producers or consumers.
-To do so, it would need to provide an interface that allows several read and
-write ports and ensure that only one read or write operation succeeds.
-This capability would be useful in implementing synchronizing barriers in Calyx.
+Currently we only support two threads sharing the same "barrier", i.e., only two threads can have control with the `@sync` attribute marked with the same value. 
 
 
 [par-undef]: ./undefined.md#semantics-of-par
-[m-struct]: http://composition.al/blog/2013/09/22/some-example-mvar-ivar-and-lvar-programs-in-haskell/
-[ex]: https://github.com/cucapra/calyx/blob/master/examples/sync/sync.futil
+ [m-struct]: http://composition.al/blog/2013/09/22/some-example-mvar-ivar-and-lvar-programs-in-haskell/
+ [ex]: https://github.com/cucapra/calyx/blob/master/examples/sync/sync.futil

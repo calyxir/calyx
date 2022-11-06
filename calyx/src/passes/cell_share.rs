@@ -28,19 +28,20 @@ use std::collections::{HashMap, HashSet};
 /// if you share a given component too much, the logic to determine when that
 /// component should be activated ends up being more expensive than just using
 /// a separate component. To pass this command line argument, you give three numbers:
-/// 1) the number of times a given combinational component can be shared, 2) the number
-/// of times a given register can be shared, and 3) the number of times all other
+/// The number of times a given combinational component can be shared, the number
+/// of times a given register can be shared, and the number of times all other
 /// components can be shared. Generally we would want settings such that 1 < 2 < 3,
 /// since a given share of a 3) would save more hardware than a share of a 2), and
 /// a share of a 2) would save more hardware than a share of a 1).
 /// The exact command line syntax to use: if we had a file, "x.futil" and ran:
-/// `cargo run x.futil -x cell-share:bounds=2,4,8", then we would only share a
+/// `cargo run x.futil -x cell-share:bounds=2,4,8`, then we would only share a
 /// given combinational component at most twice, a given register at most 4 times,
-/// and all other components at most 8 times. If you wanted to do somethign with
-/// fud then run `fud e ... -s futil.flags " -x cell-share:bounds=2,3,4"`.
+/// and all other components at most 8 times. If you wanted to do something with
+/// fud then run `fud e ... -s futil.flags " -x cell-share:bounds=2,4,8"`. Finally
+/// if you do not want to bound the sharing for a particular cell type,
+/// you can pass -1 as a bound. So for example if you passed
+/// `-x cell-share:bounds=2,-1,3` this means that you will always share registers.
 /// Note: *The no spaces are important.*
-/// Passing "-x cell-share:always-share" will always share a given cell and
-/// override any " -x cell-share:bounds=..." argument you pass.
 ///
 /// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the definitions.
@@ -58,7 +59,7 @@ pub struct CellShare {
 
     /// The number of times a given class of cell can be shared. bounds should be
     /// length 3 to hold the 3 classes: comb cells, registers, and everything else
-    bounds: Option<Vec<u64>>,
+    bounds: Vec<Option<i64>>,
 }
 
 impl Named for CellShare {
@@ -137,12 +138,12 @@ impl CellShare {
     // is passed in the cmd line, we should return [2,3,4]. If no such argument
     // is given, return the default, which is currently set rather
     // arbitrarily at [4,6,18].
-    fn get_bounds(ctx: &ir::Context) -> Option<Vec<u64>>
+    fn get_bounds(ctx: &ir::Context) -> Vec<Option<i64>>
     where
         Self: Named,
     {
         let n = Self::name();
-        // getting the givne opts for -x cell-share:__
+        // getting the given opts for -x cell-share:__
         let given_opts: HashSet<_> = ctx
             .extra_opts
             .iter()
@@ -156,11 +157,7 @@ impl CellShare {
             })
             .collect();
 
-        if given_opts.iter().any(|arg| arg == &"always-share") {
-            return None;
-        }
-
-        // searching for -x cell-share:bounds=x,y,z and getting back "x,y,z"
+        // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
         let bounds_arg = given_opts.into_iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
             if let Some(str) = split.get(0) {
@@ -174,24 +171,33 @@ impl CellShare {
         let mut bounds = Vec::new();
         let mut set_default = false;
 
-        // if bounds_arg = "x,y,z", set bounds to [x,y,z]
+        // if bounds_arg = "x,y,z", set bounds to [Some(x),Some(y),Some(z)]
+        // a -1 argument means no bound since that means we always want to share
         if let Some(s) = bounds_arg {
             bounds = s
                 .split(',')
-                .map(|s| s.parse::<u64>().unwrap_or(0))
+                .map(|s| {
+                    let val = s.parse::<i64>().unwrap_or(-2);
+                    if val == -1 {
+                        None
+                    } else {
+                        Some(val)
+                    }
+                })
                 .collect();
         } else {
             set_default = true;
         }
-        if bounds.len() != 3 || bounds.contains(&0) {
+
+        if bounds.len() != 3 || bounds.contains(&Some(-2)) {
             set_default = true;
         }
 
         if set_default {
             // could possibly put vec![x,y,z] here as default instead
-            None
+            vec![None, None, None]
         } else {
-            Some(bounds)
+            bounds
         }
     }
 }
@@ -312,12 +318,10 @@ impl Visitor for CellShare {
         for (cell_type, graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {
-                if self.bounds.is_none() {
-                    None
-                } else if let Some(name) = cell_type.get_name() {
-                    let comb_bound = self.bounds.as_ref().unwrap().get(0);
-                    let reg_bound = self.bounds.as_ref().unwrap().get(1);
-                    let other_bound = self.bounds.as_ref().unwrap().get(2);
+                if let Some(name) = cell_type.get_name() {
+                    let comb_bound = self.bounds.get(0).unwrap_or(&None);
+                    let reg_bound = self.bounds.get(1).unwrap_or(&None);
+                    let other_bound = self.bounds.get(2).unwrap_or(&None);
                     if self.shareable.contains(name) {
                         comb_bound
                     } else if name == "std_reg" {
@@ -326,13 +330,13 @@ impl Visitor for CellShare {
                         other_bound
                     }
                 } else {
-                    None
+                    &None
                 }
             };
             if graph.has_nodes() {
                 coloring.extend(
                     graph
-                        .color_greedy(bound)
+                        .color_greedy(*bound)
                         .iter()
                         .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
                 );

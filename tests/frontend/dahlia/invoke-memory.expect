@@ -1,9 +1,10 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component mem_copy(length: 3) -> () {
   cells {
-    ref dest0 = std_mem_d1(32,5,3);
-    ref src0 = std_mem_d1(32,5,3);
+    ref dest0 = seq_mem_d1(32,5,3);
+    ref src0 = seq_mem_d1(32,5,3);
     const0 = std_const(3,0);
     i_0 = std_reg(3);
     lt0 = std_lt(3);
@@ -19,17 +20,18 @@ component mem_copy(length: 3) -> () {
       i_0.write_en = 1'd1;
       let0[done] = i_0.done;
     }
-    group upd0<"static"=1> {
-      src_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      src_read0_0.write_en = src0.read_done;
       src0.addr0 = i_0.out;
-      src_read0_0.in = src0.read_data;
+      src0.read_en = 1'd1;
+      src_read0_0.in = src0.out;
       upd0[done] = src_read0_0.done;
     }
     group upd1<"static"=1> {
       dest0.addr0 = i_0.out;
       dest0.write_en = 1'd1;
-      dest0.write_data = src_read0_0.out;
-      upd1[done] = dest0.done;
+      dest0.in = src_read0_0.out;
+      upd1[done] = dest0.write_done;
     }
   }
   control {
@@ -47,10 +49,10 @@ component mem_copy(length: 3) -> () {
 component main() -> () {
   cells {
     const1 = std_const(3,5);
-    @external(1) d0 = std_mem_d1(32,5,3);
+    @external(1) d0 = seq_mem_d1(32,5,3);
     len_0 = std_reg(3);
     mem_copy0 = mem_copy();
-    @external(1) s0 = std_mem_d1(32,5,3);
+    @external(1) s0 = seq_mem_d1(32,5,3);
   }
   wires {
     group let1<"static"=1> {

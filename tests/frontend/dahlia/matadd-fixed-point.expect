@@ -1,13 +1,14 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) a0_00_0 = std_mem_d2(16,2,2,2,2);
+    @external(1) a0_00_0 = seq_mem_d2(16,2,2,2,2);
     a0_0_read0_0 = std_reg(16);
     add0 = std_fp_add(16,8,8);
     add1 = std_add(2);
     add2 = std_add(2);
-    @external(1) b0_00_0 = std_mem_d2(16,2,2,2,2);
+    @external(1) b0_00_0 = seq_mem_d2(16,2,2,2,2);
     b0_0_read0_0 = std_reg(16);
     const0 = std_const(2,0);
     const1 = std_const(2,1);
@@ -19,7 +20,7 @@ component main() -> () {
     j0 = std_reg(2);
     le0 = std_le(2);
     le1 = std_le(2);
-    @external(1) result0_00_0 = std_mem_d2(16,2,2,2,2);
+    @external(1) result0_00_0 = seq_mem_d2(16,2,2,2,2);
   }
   wires {
     comb group cond0 {
@@ -40,18 +41,20 @@ component main() -> () {
       j0.write_en = 1'd1;
       let1[done] = j0.done;
     }
-    group upd0<"static"=1> {
-      a0_0_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      a0_0_read0_0.write_en = a0_00_0.read_done;
       a0_00_0.addr1 = j0.out;
       a0_00_0.addr0 = i0.out;
-      a0_0_read0_0.in = a0_00_0.read_data;
+      a0_00_0.read_en = 1'd1;
+      a0_0_read0_0.in = a0_00_0.out;
       upd0[done] = a0_0_read0_0.done;
     }
-    group upd1<"static"=1> {
-      b0_0_read0_0.write_en = 1'd1;
+    group upd1<"static"=2> {
+      b0_0_read0_0.write_en = b0_00_0.read_done;
       b0_00_0.addr1 = j0.out;
       b0_00_0.addr0 = i0.out;
-      b0_0_read0_0.in = b0_00_0.read_data;
+      b0_00_0.read_en = 1'd1;
+      b0_0_read0_0.in = b0_00_0.out;
       upd1[done] = b0_0_read0_0.done;
     }
     group upd2<"static"=1> {
@@ -60,8 +63,8 @@ component main() -> () {
       result0_00_0.write_en = 1'd1;
       add0.left = a0_0_read0_0.out;
       add0.right = b0_0_read0_0.out;
-      result0_00_0.write_data = add0.out;
-      upd2[done] = result0_00_0.done;
+      result0_00_0.in = add0.out;
+      upd2[done] = result0_00_0.write_done;
     }
     group upd3<"static"=1> {
       j0.write_en = 1'd1;

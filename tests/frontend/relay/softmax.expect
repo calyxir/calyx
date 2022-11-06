@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component softmax_1x10() -> () {
   cells {
-    ref x0_0 = std_mem_d2(32,1,10,1,4);
-    ref x10_0 = std_mem_d2(32,1,10,1,4);
+    ref x0_0 = seq_mem_d2(32,1,10,1,4);
+    ref x10_0 = seq_mem_d2(32,1,10,1,4);
     __exp_sum_0 = std_reg(32);
     __i0 = std_reg(1);
     __i1 = std_reg(1);
@@ -144,26 +145,28 @@ component softmax_1x10() -> () {
       __t3_0.write_en = 1'd1;
       let9[done] = __t3_0.done;
     }
-    group upd0<"static"=1> {
-      __max_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      __max_0.write_en = x0_0.read_done;
       x0_0.addr1 = const1.out;
       x0_0.addr0 = const0.out;
-      __max_0.in = x0_0.read_data;
+      x0_0.read_en = 1'd1;
+      __max_0.in = x0_0.out;
       upd0[done] = __max_0.done;
     }
-    group upd1<"static"=1> {
-      x_read0_0.write_en = 1'd1;
+    group upd1<"static"=2> {
+      x_read0_0.write_en = x0_0.read_done;
       x0_0.addr1 = __j0.out;
       x0_0.addr0 = __i0.out;
-      x_read0_0.in = x0_0.read_data;
+      x0_0.read_en = 1'd1;
+      x_read0_0.in = x0_0.out;
       upd1[done] = x_read0_0.done;
     }
     group upd10<"static"=1> {
       x10_0.addr1 = __k0.out;
       x10_0.addr0 = __i1.out;
       x10_0.write_en = 1'd1;
-      x10_0.write_data = bin_read0_0.out;
-      upd10[done] = x10_0.done;
+      x10_0.in = bin_read0_0.out;
+      upd10[done] = x10_0.write_done;
     }
     group upd11<"static"=1> {
       __k0.write_en = 1'd1;
@@ -179,11 +182,12 @@ component softmax_1x10() -> () {
       __i1.in = add5.out;
       upd12[done] = __i1.done;
     }
-    group upd2<"static"=1> {
-      x_read1_0.write_en = 1'd1;
+    group upd2<"static"=2> {
+      x_read1_0.write_en = x0_0.read_done;
       x0_0.addr1 = __j0.out;
       x0_0.addr0 = __i0.out;
-      x_read1_0.in = x0_0.read_data;
+      x0_0.read_en = 1'd1;
+      x_read1_0.in = x0_0.out;
       upd2[done] = x_read1_0.done;
     }
     group upd3<"static"=1> {
@@ -205,11 +209,12 @@ component softmax_1x10() -> () {
       __i0.in = add1.out;
       upd5[done] = __i0.done;
     }
-    group upd6<"static"=1> {
-      x_read2_0.write_en = 1'd1;
+    group upd6<"static"=2> {
+      x_read2_0.write_en = x0_0.read_done;
       x0_0.addr1 = __j1.out;
       x0_0.addr0 = __i1.out;
-      x_read2_0.in = x0_0.read_data;
+      x0_0.read_en = 1'd1;
+      x_read2_0.in = x0_0.out;
       upd6[done] = x_read2_0.done;
     }
     group upd7<"static"=1> {
@@ -226,11 +231,12 @@ component softmax_1x10() -> () {
       __j1.in = add3.out;
       upd8[done] = __j1.done;
     }
-    group upd9<"static"=1> {
-      x_read3_0.write_en = 1'd1;
+    group upd9<"static"=2> {
+      x_read3_0.write_en = x0_0.read_done;
       x0_0.addr1 = __k0.out;
       x0_0.addr0 = __i1.out;
-      x_read3_0.in = x0_0.read_data;
+      x0_0.read_en = 1'd1;
+      x_read3_0.in = x0_0.out;
       upd9[done] = x_read3_0.done;
     }
   }
@@ -659,8 +665,8 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
 }
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d2(32, 1, 10, 1, 4);
-    @external(1) x1 = std_mem_d2(32, 1, 10, 1, 4);
+    @external(1) x = seq_mem_d2(32, 1, 10, 1, 4);
+    @external(1) x1 = seq_mem_d2(32, 1, 10, 1, 4);
     softmax_1x10_ = softmax_1x10();
   }
   wires {
@@ -673,5 +679,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x1: Tensor[(1, 10), float32] = nn.softmax(%x) /* ty=Tensor[(1, 10), float32] */;
+0: let %x1: Tensor[(1, 10), float32] /* ty=Tensor[(1, 10), float32] span=from_string:4:3 */ = nn.softmax(%x) /* ty=Tensor[(1, 10), float32] span=from_string:3:39 */;
 }#

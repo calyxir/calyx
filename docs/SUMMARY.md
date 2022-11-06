@@ -15,6 +15,7 @@
 - [`fud`: The Calyx Driver](./fud/index.md)
   - [Examples](./fud/examples.md)
   - [Xilinx Tools](./fud/xilinx.md)
+    - [AXI Generation](./fud/axi-gen.md)
   - [External Stages](./fud/external.md)
   - [Multiple Paths](./fud/multiple-paths.md)
   - [CIRCT](./fud/circt.md)

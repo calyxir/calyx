@@ -1,11 +1,12 @@
 import "primitives/core.futil";
+import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component batch_matmul_4x7x7() -> () {
   cells {
-    ref a0_0_0 = std_mem_d3(32,4,7,5,3,3,3);
-    ref b0_0_0 = std_mem_d3(32,4,7,5,3,3,3);
-    ref x0_0_0 = std_mem_d3(32,4,7,7,3,3,3);
+    ref a0_0_0 = seq_mem_d3(32,4,7,5,3,3,3);
+    ref b0_0_0 = seq_mem_d3(32,4,7,5,3,3,3);
+    ref x0_0_0 = seq_mem_d3(32,4,7,7,3,3,3);
     __batch0 = std_reg(3);
     __batch1 = std_reg(3);
     __i0 = std_reg(3);
@@ -14,7 +15,7 @@ component batch_matmul_4x7x7() -> () {
     __j1 = std_reg(3);
     __k0 = std_reg(3);
     __product_0 = std_reg(32);
-    __transpose_b0_0_0 = std_mem_d3(32,4,5,7,3,3,3);
+    __transpose_b0_0_0 = seq_mem_d3(32,4,5,7,3,3,3);
     __transpose_b_read0_0 = std_reg(32);
     a_read0_0 = std_reg(32);
     add0 = std_add(3);
@@ -135,20 +136,22 @@ component batch_matmul_4x7x7() -> () {
       __product_0.write_en = 1'd1;
       let8[done] = __product_0.done;
     }
-    group let9<"static"=1> {
-      red_read00.in = x0_0_0.read_data;
-      red_read00.write_en = 1'd1;
+    group let9<"static"=2> {
+      red_read00.in = x0_0_0.out;
+      red_read00.write_en = x0_0_0.read_done;
       let9[done] = red_read00.done;
       x0_0_0.addr2 = __j1.out;
       x0_0_0.addr1 = __i1.out;
       x0_0_0.addr0 = __batch1.out;
+      x0_0_0.read_en = 1'd1;
     }
-    group upd0<"static"=1> {
-      b_read0_0.write_en = 1'd1;
+    group upd0<"static"=2> {
+      b_read0_0.write_en = b0_0_0.read_done;
       b0_0_0.addr2 = __j0.out;
       b0_0_0.addr1 = __i0.out;
       b0_0_0.addr0 = __batch0.out;
-      b_read0_0.in = b0_0_0.read_data;
+      b0_0_0.read_en = 1'd1;
+      b_read0_0.in = b0_0_0.out;
       upd0[done] = b_read0_0.done;
     }
     group upd1<"static"=1> {
@@ -156,8 +159,8 @@ component batch_matmul_4x7x7() -> () {
       __transpose_b0_0_0.addr1 = __j0.out;
       __transpose_b0_0_0.addr0 = __batch0.out;
       __transpose_b0_0_0.write_en = 1'd1;
-      __transpose_b0_0_0.write_data = b_read0_0.out;
-      upd1[done] = __transpose_b0_0_0.done;
+      __transpose_b0_0_0.in = b_read0_0.out;
+      upd1[done] = __transpose_b0_0_0.write_done;
     }
     group upd10<"static"=1> {
       __i1.write_en = 1'd1;
@@ -194,20 +197,22 @@ component batch_matmul_4x7x7() -> () {
       __batch0.in = add2.out;
       upd4[done] = __batch0.done;
     }
-    group upd5<"static"=1> {
-      a_read0_0.write_en = 1'd1;
+    group upd5<"static"=2> {
+      a_read0_0.write_en = a0_0_0.read_done;
       a0_0_0.addr2 = __k0.out;
       a0_0_0.addr1 = __i1.out;
       a0_0_0.addr0 = __batch1.out;
-      a_read0_0.in = a0_0_0.read_data;
+      a0_0_0.read_en = 1'd1;
+      a_read0_0.in = a0_0_0.out;
       upd5[done] = a_read0_0.done;
     }
-    group upd6<"static"=1> {
-      __transpose_b_read0_0.write_en = 1'd1;
+    group upd6<"static"=2> {
+      __transpose_b_read0_0.write_en = __transpose_b0_0_0.read_done;
       __transpose_b0_0_0.addr2 = __j1.out;
       __transpose_b0_0_0.addr1 = __k0.out;
       __transpose_b0_0_0.addr0 = __batch1.out;
-      __transpose_b_read0_0.in = __transpose_b0_0_0.read_data;
+      __transpose_b0_0_0.read_en = 1'd1;
+      __transpose_b_read0_0.in = __transpose_b0_0_0.out;
       upd6[done] = __transpose_b_read0_0.done;
     }
     group upd7<"static"=1> {
@@ -217,8 +222,8 @@ component batch_matmul_4x7x7() -> () {
       x0_0_0.write_en = 1'd1;
       add3.left = red_read00.out;
       add3.right = __product_0.out;
-      x0_0_0.write_data = add3.out;
-      upd7[done] = x0_0_0.done;
+      x0_0_0.in = add3.out;
+      upd7[done] = x0_0_0.write_done;
     }
     group upd8<"static"=1> {
       __k0.write_en = 1'd1;
@@ -295,9 +300,9 @@ component batch_matmul_4x7x7() -> () {
 
 component main() -> () {
   cells {
-    @external(1) a = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external(1) b = std_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external(1) x = std_mem_d3(32, 4, 7, 7, 3, 3, 3);
+    @external(1) a = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external(1) b = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external(1) x = seq_mem_d3(32, 4, 7, 7, 3, 3, 3);
     batch_matmul_4x7x7_ = batch_matmul_4x7x7();
   }
   wires {
@@ -310,5 +315,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: let %x: Tensor[(4, 7, 7), int32] = nn.batch_matmul(%a, %b) /* ty=Tensor[(4, 7, 7), int32] */;
+0: let %x: Tensor[(4, 7, 7), int32] /* ty=Tensor[(4, 7, 7), int32] span=from_string:4:3 */ = nn.batch_matmul(%a, %b, transpose_b=True) /* ty=Tensor[(4, 7, 7), int32] span=from_string:3:40 */;
 }#

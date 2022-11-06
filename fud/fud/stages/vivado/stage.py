@@ -115,13 +115,20 @@ class VivadoStage(VivadoBaseStage):
 
     def device_files(self, config):
         root = Path(config["global", cfg.ROOT])
+        # Load constraints
         constraints = config.get(["stages", self.name, "constraints"])
         if constraints:
             constraints = Path(constraints)
         else:
             constraints = root / "fud" / "synth" / "device.xdc"
+        # Load synthesis TCL file
+        synth = config.get(["stages", self.name, "tcl"])
+        if synth:
+            tcl = Path(synth)
+        else:
+            tcl = root / "fud" / "synth" / "synth.tcl"
         return [
-            root / "fud" / "synth" / "synth.tcl",
+            tcl,
             constraints
         ]
 

@@ -13,6 +13,9 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
     the corresponding parameter values. `input` is the data being
     classified, and `input_name` is its name. `params` are the
     parameters from the ONNX model."""
+
+    input_name = relay_visitor.rename_relay_var(input_name)
+
     # Get the memories from the Calyx program.
     data = relay_visitor.get_program_dat_memories(relay_ir)
 
@@ -34,14 +37,8 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
     # Write the actual parameter values.
     for name, value in params.items():
         # The exact same operations are done on names of variables in relay_visitor.py
-        name_hint = name.replace(".", "_")
-        name_hint = name_hint.replace("/", "_")
-
-        if (name_hint.isdigit()):
-            name_hint = "var_" + name_hint
-        if (name_hint in ["input"]):
-            name_hint = "_" + name_hint
-        data[name_hint] = {
+        new_name = relay_visitor.rename_relay_var(name)
+        data[new_name] = {
             "data": value.asnumpy().tolist(),
             "format": {
                 "numeric_type": "fixed_point",
@@ -64,6 +61,7 @@ def write_calyx(relay_ir, filename: str):
             Import("primitives/core.futil"),
             Import("primitives/binary_operators.futil"),
             Import("primitives/math.futil"),
+            Import("primitives/memories.futil"),
         ]
         for imp in imports:
             file.writelines(imp.doc())
@@ -90,7 +88,7 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
     input_name = onnx_model.graph.input[0].name
 
     shape_dict = {input_name: data.shape}
-    mod, params = relay.frontend.from_onnx(onnx_model, shape_dict)
+    (mod, params) = relay.frontend.from_onnx(onnx_model, shape_dict)
 
     # Assumes the Relay IR is not already in A-normal Form.
     # SimplifyInference() gets rid of dropout() calls

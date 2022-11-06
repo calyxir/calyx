@@ -160,9 +160,12 @@ impl Printer {
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
 
+        let pre = if comp.is_comb { "comb " } else { "" };
+
         writeln!(
             f,
-            "component {}{}({}) -> ({}) {{",
+            "{}component {}{}({}) -> ({}) {{",
+            pre,
             comp.name.id,
             Self::format_attributes(&comp.attributes),
             Self::format_ports(&inputs),
@@ -191,13 +194,15 @@ impl Printer {
             Self::write_assignment(assign, 4, f)?;
             writeln!(f)?;
         }
-        writeln!(f, "  }}\n")?;
+        writeln!(f, "  }}")?;
 
         // Add the control program
         if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
-            writeln!(f, "  control {{}}")?;
+            if !comp.is_comb {
+                writeln!(f, "\n  control {{}}")?;
+            }
         } else {
-            writeln!(f, "  control {{")?;
+            writeln!(f, "\n  control {{")?;
             Self::write_control(&comp.control.borrow(), 4, f)?;
             writeln!(f, "  }}")?;
         }
@@ -240,7 +245,7 @@ impl Printer {
                         .join(", ")
                 )
             }
-            ir::CellType::Component { name } => {
+            ir::CellType::Component { name, .. } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
                 if !cell.attributes.is_empty() {
                     write!(
