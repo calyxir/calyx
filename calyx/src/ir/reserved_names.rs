@@ -1,5 +1,4 @@
 pub const RESERVED_NAMES: &[&str] = &[
     "reg", "wire", "always", "posedge", "negedge", "logic", "tri", "input",
-    "output", "if", "generate", "var", "go", "done", "clk", "and", "process",
-    "assign", "automatic", "disable",
+    "output", "if", "generate", "var", "go", "done", "clk", "and", "process", "disable",
 ];
