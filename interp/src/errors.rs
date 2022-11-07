@@ -9,9 +9,25 @@ use thiserror::Error;
 // Utility type
 pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
 
-#[derive(Error, Debug)]
-#[error(transparent)]
-pub struct BoxedInterpreterError(#[from] Box<InterpreterError>);
+pub struct BoxedInterpreterError(Box<InterpreterError>);
+
+impl std::fmt::Display for BoxedInterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&*self.0, f)
+    }
+}
+
+impl std::fmt::Debug for BoxedInterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self, f)
+    }
+}
+
+impl std::error::Error for BoxedInterpreterError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
 
 impl std::ops::Deref for BoxedInterpreterError {
     type Target = InterpreterError;
