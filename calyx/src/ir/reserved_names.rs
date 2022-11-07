@@ -13,5 +13,5 @@ pub const RESERVED_NAMES: &[&str] = &[
     "rtranif1", "scalared", "showcancelled", "signed", "small", "specify", "specparam", "strong0", "strong1", "supply0", 
     "supply1", "table", "task", "time", "tran", "tranif0", "tranif1", "tri", "tri0", "tri1", 
     "triand", "trior", "trireg", "unsigned", "use", "vectored", "wait", "wand", "weak0", "weak1", 
-    "while", "wire", "wor", "xnor", "xor"
+    "while", "wire", "wor", "xnor", "xor",
 ];
