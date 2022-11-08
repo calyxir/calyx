@@ -152,15 +152,26 @@ class ExprBuilder:
         self.expr = expr
 
     def __and__(self, other: 'ExprBuilder'):
+        """Construct an "and" logical expression with &."""
         return ExprBuilder(ast.And(self.expr, other.expr))
 
     def __or__(self, other: 'ExprBuilder'):
+        """Construct an "or" logical expression with |."""
         return ExprBuilder(ast.Or(self.expr, other.expr))
 
     def __invert__(self, other: 'ExprBuilder'):
+        """Construct a "not" logical expression with ^."""
         return ExprBuilder(ast.Not(self.expr))
 
     def __matmul__(self, other):
+        """Construct a conditional expression with @.
+
+        This produces a `CondExprBuilder`, which wraps a value
+        expression and a logical condition expression. Assigning this
+        into any port or hole *makes that assignment conditional*. It is
+        not possible to compose larger expressions out of
+        `CondExprBuilder` values; they are only useful for assignment.
+        """
         return CondExprBuilder(self, other)
 
     @classmethod
