@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal, getcontext
 from fud.errors import InvalidNumericType
 import math
+import logging as log
 
 
 @dataclass
@@ -22,6 +23,7 @@ class NumericType:
     width: int
     is_signed: bool
     string_repr: str
+    is_undef: bool = False
     bit_string_repr: str = None
     hex_string_repr: str = None
     uint_repr: int = None
@@ -39,19 +41,21 @@ class NumericType:
         # Some backends may use `x` to represent an uninitialized digit, e.g. `0bxxxx`.
         # Since this cannot be properly translated into a number, returns error.
         value = value.strip()
+        self.width = width
+        self.is_signed = is_signed
+
         stripped_prefix = value[2:] if value.startswith("0x") else value
         if any(digit == "x" for digit in stripped_prefix):
-            raise InvalidNumericType(
+            log.error(
                 f"Memory contains the value: `{value}', which is uninitialized. "
                 "This happens when the Calyx design attempts to read a port"
                 " that is not connected to anything."
                 " Try to generate a VCD file using `--to vcd` and look for signals "
                 "that are not driven in a given cycle."
             )
-        self.width = width
-        self.is_signed = is_signed
-
-        if value.startswith("0b"):
+            self.string_repr = str(stripped_prefix)
+            self.is_undef = True
+        elif value.startswith("0b"):
             self.string_repr = str(int(value, 2))
             # Zero padding for bit string.
             self.bit_string_repr = "0" * max(width - len(value), 0) + value[2:]
@@ -97,21 +101,22 @@ class Bitnum(NumericType):
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
 
-        if self.bit_string_repr is None and self.hex_string_repr is None:
-            # The decimal representation was passed in.
-            self.bit_string_repr = np.binary_repr(int(self.string_repr), self.width)
-            self.uint_repr = int(self.bit_string_repr, 2)
-            self.hex_string_repr = np.base_repr(self.uint_repr, 16)
+        if not self.is_undef:
+            if self.bit_string_repr is None and self.hex_string_repr is None:
+                # The decimal representation was passed in.
+                self.bit_string_repr = np.binary_repr(int(self.string_repr), self.width)
+                self.uint_repr = int(self.bit_string_repr, 2)
+                self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
-        if is_signed and self.uint_repr > (2 ** (width - 1)):
-            negated_value = -1 * ((2 ** width) - self.uint_repr)
-            self.string_repr = str(negated_value)
+            if is_signed and self.uint_repr > (2 ** (width - 1)):
+                negated_value = -1 * ((2 ** width) - self.uint_repr)
+                self.string_repr = str(negated_value)
 
-        if len(self.bit_string_repr) > width:
-            raise InvalidNumericType(
-                f"The value: {value} will overflow when trying to represent "
-                f"{len(self.bit_string_repr)} bits with width: {width}"
-            )
+            if len(self.bit_string_repr) > width:
+                raise InvalidNumericType(
+                    f"The value: {value} will overflow when trying to represent "
+                    f"{len(self.bit_string_repr)} bits with width: {width}"
+                )
 
     def pretty_print(self):
         print(
