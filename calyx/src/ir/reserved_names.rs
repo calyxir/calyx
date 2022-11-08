@@ -118,7 +118,6 @@ pub const RESERVED_NAMES: &[&str] = &[
     "unsigned",
     "use",
     "vectored",
-    "wait",
     "wand",
     "weak0",
     "weak1",
