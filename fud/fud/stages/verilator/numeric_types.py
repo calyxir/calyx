@@ -101,22 +101,23 @@ class Bitnum(NumericType):
     def __init__(self, value: str, width: int, is_signed: bool):
         super().__init__(value, width, is_signed)
 
-        if not self.is_undef:
-            if self.bit_string_repr is None and self.hex_string_repr is None:
-                # The decimal representation was passed in.
-                self.bit_string_repr = np.binary_repr(int(self.string_repr), self.width)
-                self.uint_repr = int(self.bit_string_repr, 2)
-                self.hex_string_repr = np.base_repr(self.uint_repr, 16)
+        if self.is_undef:
+            return
+        if self.bit_string_repr is None and self.hex_string_repr is None:
+            # The decimal representation was passed in.
+            self.bit_string_repr = np.binary_repr(int(self.string_repr), self.width)
+            self.uint_repr = int(self.bit_string_repr, 2)
+            self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
-            if is_signed and self.uint_repr > (2 ** (width - 1)):
-                negated_value = -1 * ((2 ** width) - self.uint_repr)
-                self.string_repr = str(negated_value)
+        if is_signed and self.uint_repr > (2 ** (width - 1)):
+            negated_value = -1 * ((2 ** width) - self.uint_repr)
+            self.string_repr = str(negated_value)
 
-            if len(self.bit_string_repr) > width:
-                raise InvalidNumericType(
-                    f"The value: {value} will overflow when trying to represent "
-                    f"{len(self.bit_string_repr)} bits with width: {width}"
-                )
+        if len(self.bit_string_repr) > width:
+            raise InvalidNumericType(
+                f"The value: {value} will overflow when trying to represent "
+                f"{len(self.bit_string_repr)} bits with width: {width}"
+            )
 
     def pretty_print(self):
         print(
