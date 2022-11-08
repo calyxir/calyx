@@ -174,7 +174,7 @@ comb_primitive!(FLAG: error_on_overflow; LOG: logger; StdAdd[WIDTH](left: WIDTH,
     }
     if c_in {
         if error_on_overflow {
-            return Err(InterpreterError::OverflowError());
+            return Err(InterpreterError::OverflowError.into());
         }
         warn!(logger, "Computation over/underflow");
     }
@@ -218,7 +218,7 @@ comb_primitive!(FLAG: error_on_overflow; LOG: logger; StdFpAdd[WIDTH, INT_WIDTH,
     let tr = Value::from_bv(sum);
     if c_in {
         if error_on_overflow {
-            return Err(InterpreterError::OverflowError());
+            return Err(InterpreterError::OverflowError.into());
         }
         warn!(logger, "Computation over/underflow");
     }
