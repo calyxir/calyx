@@ -276,7 +276,7 @@ impl<'a, K: Eq + Hash, V: Eq> From<&'a StackMap<K, V>>
         for nd in List::iter(&item.tail) {
             for (k, v) in HashMap::iter(nd) {
                 //add, but only if the binding isn't yet in the HM (preserve scope)
-                if None == tr.get(k) {
+                if tr.get(k).is_none() {
                     tr.insert(k, v);
                 }
             }
@@ -1056,7 +1056,7 @@ impl<K: Eq + Hash, V: Eq> StackMap<K, V> {
         for nd in List::iter(&self.tail) {
             for (k, v) in HashMap::iter(nd) {
                 //add, but only if the binding isn't yet in the HM (preserve scope)
-                if None == tr.get(k) {
+                if tr.get(k).is_none() {
                     tr.insert(k, v);
                 }
             }

@@ -103,12 +103,14 @@ fn print_res(
             };
             Ok(())
         }
-        Err(InterpreterError::Exit)
-        | Err(InterpreterError::ReadlineError(ReadlineError::Eof)) => {
-            println!("Exiting.");
-            Ok(())
-        } // The exit command doesn't cause an error code
-        Err(e) => Err(e),
+        Err(e) => match *e {
+            InterpreterError::Exit
+            | InterpreterError::ReadlineError(ReadlineError::Eof) => {
+                println!("Exiting.");
+                Ok(())
+            }
+            _ => Err(e),
+        },
     }
 }
 

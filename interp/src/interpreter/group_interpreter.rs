@@ -92,6 +92,11 @@ impl<'a> IterRef<'a> {
     }
 }
 
+enum ConvergeType {
+    Continuous,
+    Both,
+}
+
 /// An interpreter object which exposes a pausable interface to interpreting a
 /// group of assignments
 pub struct AssignmentInterpreter {
@@ -190,13 +195,14 @@ impl AssignmentInterpreter {
         Ok(())
     }
 
-    /// Continue interpreting the assignments until the combinational portions
-    /// converge
-    pub fn step_convergence(&mut self) -> InterpreterResult<()> {
-        self.val_changed = Some(true); // always run convergence if called
-
+    fn converge_assignments(
+        &mut self,
+        converge_type: ConvergeType,
+    ) -> InterpreterResult<()> {
         // only used when compiled with change-based-sim feature
         let mut first_iteration = true;
+
+        let mut updates_list = vec![];
 
         // this unwrap is safe
         while self.val_changed.unwrap() {
@@ -207,12 +213,22 @@ impl AssignmentInterpreter {
             let mut cells_to_run_rrc: Vec<RRC<Cell>> = Vec::new();
             let mut cells_to_run_set: HashSet<*const Cell> = HashSet::new();
 
-            let mut updates_list = vec![];
-
             let assign_ref = self.assigns.get_ref();
+
+            let assigns: Box<dyn Iterator<Item = &ir::Assignment>> =
+                match converge_type {
+                    ConvergeType::Continuous => {
+                        Box::new(self.cont_assigns.iter())
+                            as Box<dyn Iterator<Item = &ir::Assignment>>
+                    }
+                    ConvergeType::Both => Box::new(
+                        assign_ref.iter().chain(self.cont_assigns.iter()),
+                    )
+                        as Box<dyn Iterator<Item = &ir::Assignment>>,
+                };
+
             // compute all updates from the assignments
-            for assignment in assign_ref.iter().chain(self.cont_assigns.iter())
-            {
+            for assignment in assigns {
                 if self.state.eval_guard(&assignment.guard)? {
                     let pa = PortAssignment::new(assignment);
                     //first check nothing has been assigned to this destination yet
@@ -227,7 +243,8 @@ impl AssignmentInterpreter {
                             dst.get_parent_name(),
                             s_orig,
                             s_conf,
-                        ));
+                        )
+                        .into());
                     }
                     //now add to the HS, because we are assigning
                     //regardless of whether value has changed this is still a
@@ -301,7 +318,7 @@ impl AssignmentInterpreter {
             }
 
             // perform all the updates
-            for (port, value) in updates_list {
+            for (port, value) in updates_list.drain(..) {
                 self.state.insert(port, value);
             }
 
@@ -328,6 +345,45 @@ impl AssignmentInterpreter {
         }
         Ok(())
     }
+
+    /// Continue interpreting the assignments until the combinational portions
+    /// converge
+    pub fn step_convergence(&mut self) -> InterpreterResult<()> {
+        self.val_changed = Some(true); // always run convergence if called
+
+        if !self.done_port_high() {
+            self.converge_assignments(ConvergeType::Both)?;
+        }
+
+        if self.done_port_high() {
+            // VERY IMPORTANT TO SET THIS HERE. Failure to do so will cause an
+            // infinite loop as the groups will never be considered done
+            self.val_changed = Some(false);
+
+            for assign in self.assigns.get_ref().iter() {
+                // this unwrap is safe since done_port_high requires the
+                // done_port to be some
+                if assign.dst.as_raw() != self.done_port.unwrap() {
+                    // all destinations other than the done_port get assigned
+                    // zero
+                    self.state.insert(
+                        &assign.dst,
+                        Value::zeroes(assign.dst.borrow().width),
+                    );
+                }
+            }
+
+            // TODO Griffin: check if none here is actually okay. I think it is,
+            // but it merits further thinking
+            let cells =
+                utils::get_dest_cells(self.assigns.get_ref().iter(), None);
+
+            eval_prims(&mut self.state, cells.iter(), false)?;
+            self.converge_assignments(ConvergeType::Continuous)?;
+        }
+
+        Ok(())
+    }
     /// Advance the interpreter by a cycle, if possible
     pub fn step(&mut self) -> InterpreterResult<()> {
         self.step_cycle()?;
@@ -350,13 +406,23 @@ impl AssignmentInterpreter {
             )
     }
 
+    #[inline]
+    /// true only if the done port exists and is high
+    /// different from is_done which is true if there is no done port or if the
+    /// done port exists and is high
+    fn done_port_high(&self) -> bool {
+        self.done_port
+            .map(|x| self.state.get_from_port(x).as_bool())
+            .unwrap_or(false)
+    }
+
     pub fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         if self.is_deconstructable() {
             Ok(self.deconstruct_no_check())
         } else if let Some(name) = self.assigns.get_name() {
-            Err(InterpreterError::InvalidGroupExitNamed(name))
+            Err(InterpreterError::InvalidGroupExitNamed(name).into())
         } else {
-            Err(InterpreterError::InvalidGroupExitUnnamed)
+            Err(InterpreterError::InvalidGroupExitUnnamed.into())
         }
     }
 
@@ -371,7 +437,7 @@ impl AssignmentInterpreter {
             && !self.val_changed.unwrap()
     }
 
-    /// The inerpreter must have finished executing first
+    /// The interpreter must have finished executing first
     pub fn reset(mut self) -> InterpreterResult<InterpreterState> {
         let assigns = std::mem::take(&mut self.assigns);
         let done_signal = self.done_port;
