@@ -74,7 +74,9 @@ def get_addr_ports(c: CompInst):
     return [(f"addr{i}", c.args[n]) for (i, n) in zip(addresses, indices)]
 
 
-def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell], old_args=[], old_dest=None) -> Invoke:
+def emit_invoke_control(
+    decl: CompVar, dest: Cell, args: List[Cell], old_args=[], old_dest=None
+) -> Invoke:
     """Returns the Invoke control."""
     ref_cells = []
     inputs = []
@@ -95,7 +97,9 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell], old_args=[]
     # "reusing" a Dahlia Function (which will later be a Calyx component)
     # and therefore need to use the same parameter names as the previous invoke
     def add_arg2(arg_cell, param_cell):
-        assert arg_cell.comp == param_cell.comp, "arg cell and param cell must be same component"
+        assert (
+            arg_cell.comp == param_cell.comp
+        ), "arg cell and param cell must be same component"
         comp = arg_cell.comp
         assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
         param = f"{param_cell.id.name}{DahliaSuffix[comp.id]}"
@@ -115,7 +119,8 @@ def emit_invoke_control(decl: CompVar, dest: Cell, args: List[Cell], old_args=[]
         # case for when we are "reusing" a Dahlia Function/Calyx component and
         # therefore need to make sure we're using the previous parameter names
         assert len(old_args) == len(
-            args), "we are reusing a dahlia function but the args are different lengths"
+            args
+        ), "we are reusing a dahlia function but the args are different lengths"
         assert old_dest is not None, "if using old_args must provide an old_dest too"
         for (cell1, cell2) in zip(args, old_args):
             add_arg2(cell1, cell2)
