@@ -31,12 +31,12 @@ calyx_keywords_list = ["input"]
 
 
 def rename_relay_var(name: str) -> str:
-    '''
+    """
     Function to rename relay variable names (that are illegal in Calyx) into legal
     ones. This function is to ensure a consistent standard for renaming, since
     we want to make sure that the cell names in the external memory json match the
     name they are instantiated as in the Calyx file
-    '''
+    """
     new_name = name.replace(".", "_")
     new_name = new_name.replace("/", "_")
 
@@ -133,13 +133,13 @@ class Relay2Calyx(ExprFunctor):
         return [cell]
 
     def equivalent_func(self, args1, args2, atts1, atts2):
-        '''
+        """
         Assuming functions 1 and 2 have equivalent destination widths (ex: 1x64x55x55) and
         operator name (ex: "Conv2d"), this function checks if the functions have
         equivalent args and attributes. This is mainly making sure the attributes (so for
         conv2d, things like `padding` or `kernel_size`) and memory sizes of the args
         are the same.
-        '''
+        """
         atts_are_same = True
         if (atts1 is None) != (atts2 is None):
             atts_are_same = False
@@ -149,7 +149,9 @@ class Relay2Calyx(ExprFunctor):
                 attr2 = atts2.get_str(key)
                 # even if the contents of tvm.ir.container.Array are the same it
                 #  still doesn't return true on '=='
-                if isinstance(attr1, tvm.ir.container.Array) and isinstance(attr2, tvm.ir.container.Array):
+                if isinstance(attr1, tvm.ir.container.Array) and isinstance(
+                    attr2, tvm.ir.container.Array
+                ):
                     attr1 = list(attr1)
                     attr2 = list(attr2)
                 if not attr1 == attr2:
@@ -161,10 +163,10 @@ class Relay2Calyx(ExprFunctor):
         return atts_are_same and args_are_same
 
     def analyze_val_dest(self, let, value, dest, type_annotation):
-        '''
+        """
         Helper method that is ussed to handle certain cases for visiting
         let statements. Should only call when value is a Constant or a Call
-        '''
+        """
         if isinstance(value, tvm.relay.Constant):
             # In the updated version of TVM, sometimes there are assignments
             # in the form of `let %x_10 = meta[relay.Constant][0]`
@@ -203,7 +205,7 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1:]
+                func_name = func_name[prefix + 1 :]
 
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
@@ -212,8 +214,9 @@ class Relay2Calyx(ExprFunctor):
             for arg in value.args:
                 new_arg = arg
                 if isinstance(arg, list):
-                    assert len(
-                        arg) == 1, "only time arg can be a list is when it returns a list of length 1 from visit_var()"
+                    assert (
+                        len(arg) == 1
+                    ), "only time arg can be a list is when it returns a list of length 1 from visit_var()"
                     new_arg = arg[0]
                 unnested_args.append(new_arg)
             value.args = unnested_args
@@ -234,8 +237,12 @@ class Relay2Calyx(ExprFunctor):
             old_dest = None
             if root_name in self.func_def_map:
                 for dahlia_func in self.func_def_map[root_name]:
-                    if(self.equivalent_func(dahlia_func.args, value.args,
-                                            dahlia_func.attributes, value.attrs)):
+                    if self.equivalent_func(
+                        dahlia_func.args,
+                        value.args,
+                        dahlia_func.attributes,
+                        value.attrs,
+                    ):
                         # this means we can "reuse" the Dahlia Function which
                         # will later be turned into a Calyx component, since
                         # we have already created a Dahlia function idential
@@ -267,7 +274,8 @@ class Relay2Calyx(ExprFunctor):
             # ru.emit_invoke_control emits a "new" invoke or an invoke of an already defined
             # Calyx component/Dahlia function
             invoke = ru.emit_invoke_control(
-                comp_decl, dest, value.args, old_args=old_func_args, old_dest=old_dest)
+                comp_decl, dest, value.args, old_args=old_func_args, old_dest=old_dest
+            )
             invoke.attributes.append(("pos", self.pos_count))
             self.controls.append(invoke)
 
@@ -288,10 +296,9 @@ class Relay2Calyx(ExprFunctor):
                     args=value.args,
                     attributes=value.attrs,
                     data_type=ru.get_dahlia_data_type(type_annotation),
-                    component=comp_inst)
-                self.func_defs.append(
-                    dahlia_func_def
+                    component=comp_inst,
                 )
+                self.func_defs.append(dahlia_func_def)
                 if root_name in self.func_def_map:
                     self.func_def_map[root_name].append(dahlia_func_def)
                 else:
@@ -312,12 +319,14 @@ class Relay2Calyx(ExprFunctor):
             # Handles cases such as: `%x13 = (%x9, %x12)`. where %x9 and %x12 will
             # evaluate to cells
             assert isinstance(value, list) and len(value) == len(
-                let.var.type_annotation.fields), "Currently, if let destination is a tuple, can only handle 'tuple forwarding' situations"
+                let.var.type_annotation.fields
+            ), "Currently, if let destination is a tuple, can only handle 'tuple forwarding' situations"
             unnested_values = []
             # need to do this bc visit_var now returns a list
             for dest in value:
                 assert isinstance(dest, list) and isinstance(
-                    dest[0], Cell), "Tuples in let value must evaluate to cells"
+                    dest[0], Cell
+                ), "Tuples in let value must evaluate to cells"
                 unnested_values.append(dest[0])
             # doesn't do anything just increments id by 1 so that we can
             # compare the names the generated Calyx/Dahlia files with the
@@ -333,9 +342,9 @@ class Relay2Calyx(ExprFunctor):
         return self.visit(let.body)
 
     def visit_tuple(self, tup) -> list:
-        '''
+        """
         For visiting tuple. Just recursively visits each element in the tuple.
-        '''
+        """
         return [self.visit(x) for x in tup.fields]
 
     def visit_constant(self, const) -> tvm.relay.Constant:
@@ -381,14 +390,14 @@ class Relay2Calyx(ExprFunctor):
 
 
 def flatten_lst(lst):
-    '''
+    """
     Because evaluating a variable sometimes returns a tuple, the return type of
     visit_var() is a list. So when we evaluate a list of variables, we get a
     list of lists back. This function will return a flattened version of
     its input list.
     Precondition: the only elements in lst should be cells and/or lists of
     cells
-    '''
+    """
     flat = []
     for elt in lst:
         if isinstance(elt, Cell):
@@ -422,6 +431,7 @@ def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
     respective Relay call nodes. For example, `__x` is
     not allowed, but `_x` and `x` are OK.
     """
+
     def is_reserved(x):
         return x[:2] == "__"
 
@@ -445,17 +455,15 @@ def emit_calyx(relay_ir) -> (str, Program):
     check_naming_convention(func_defs)
 
     return (
-        (
-            emit_components(func_defs),
-            Program(
-                imports=[
-                    # Manually printed because we need to print the Dahlia
-                    # function definitions
-                ],
-                components=[main],
-                meta=visitor.source_map
-            ),
-        )
+        emit_components(func_defs),
+        Program(
+            imports=[
+                # Manually printed because we need to print the Dahlia
+                # function definitions
+            ],
+            components=[main],
+            meta=visitor.source_map,
+        ),
     )
 
 
