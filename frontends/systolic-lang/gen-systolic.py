@@ -143,7 +143,7 @@ def instantiate_memory(top_or_left, idx, size):
             ),
             py_ast.Connect(
                 py_ast.CompPort(target_reg, "in"),
-                py_ast.CompPort(var_name, "read_data"),                
+                py_ast.CompPort(var_name, "read_data"),
             ),
             py_ast.Connect(
                 py_ast.CompPort(target_reg, "write_en"), py_ast.ConstantPort(1, 1)

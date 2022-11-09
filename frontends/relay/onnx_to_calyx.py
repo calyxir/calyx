@@ -93,7 +93,8 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str, save_mem=Tr
     # Assumes the Relay IR is not already in A-normal Form.
     # SimplifyInference() gets rid of dropout() calls
     transforms = tvm.transform.Sequential(
-        [relay.transform.SimplifyInference(), relay.transform.ToANormalForm()])
+        [relay.transform.SimplifyInference(), relay.transform.ToANormalForm()]
+    )
     mod = transforms(mod)
 
     output = {"tvm", "calyx", "relay"} if output == "all" else {output}

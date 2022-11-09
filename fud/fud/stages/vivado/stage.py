@@ -127,10 +127,7 @@ class VivadoStage(VivadoBaseStage):
             tcl = Path(synth)
         else:
             tcl = root / "fud" / "synth" / "synth.tcl"
-        return [
-            tcl,
-            constraints
-        ]
+        return [tcl, constraints]
 
 
 class VivadoHLSStage(VivadoBaseStage):
