@@ -9,13 +9,41 @@ use crate::{
     },
 };
 use itertools::Itertools;
+use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
+use std::fs;
 
-/// The data structure used to represent sets of ids. This is used to represent
-/// the `live`, `gen`, and `kill` sets.
-#[derive(Default, Clone)]
-pub struct CdfMap {
-    pmf: HashMap<ir::CellType, HashMap<i64, i64>>,
+fn cell_type_to_string(cell_type: &ir::CellType) -> String {
+    match cell_type {
+        ir::CellType::Primitive {
+            name,
+            param_binding,
+            ..
+        } => {
+            let param_str = param_binding
+                .iter()
+                .map(|(id, val)| {
+                    let mut id_str = id.to_string();
+                    id_str.push('_');
+                    id_str.push_str(&val.to_string());
+                    id_str
+                })
+                .join("_");
+            let mut name_str = name.to_string();
+            name_str.push('_');
+            name_str.push_str(&param_str);
+            name_str
+        }
+        ir::CellType::Component { name } => name.to_string(),
+        ir::CellType::ThisComponent => "ThisComponent".to_string(),
+        ir::CellType::Constant { val, width } => {
+            let mut s = "Const_".to_string();
+            s.push_str(&val.to_string());
+            s.push_str("_");
+            s.push_str(&width.to_string());
+            s
+        }
+    }
 }
 
 /// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
@@ -67,6 +95,13 @@ pub struct CellShare {
     /// The number of times a given class of cell can be shared. bounds should be
     /// length 3 to hold the 3 classes: comb cells, registers, and everything else
     bounds: Vec<Option<i64>>,
+
+    /// Maps cell types to the corresponding cdf. Each cdf is a hashmap which maps
+    /// the number of times a given cell name reused (i.e., shared) to the cumulative  
+    /// frequency of that time.  
+    cdfs: HashMap<ir::CellType, HashMap<i64, f64>>,
+    /// whether or not to print the cdfs
+    print_cdfs: Option<String>,
 }
 
 impl Named for CellShare {
@@ -82,7 +117,7 @@ impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let state_shareable = ShareSet::from_context::<true>(ctx);
         let shareable = ShareSet::from_context::<false>(ctx);
-        let bounds = Self::get_bounds(ctx);
+        let (print_cdfs, bounds) = Self::parse_args(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -91,6 +126,8 @@ impl ConstructVisitor for CellShare {
             state_shareable,
             shareable,
             bounds,
+            cdfs: HashMap::new(),
+            print_cdfs,
         })
     }
 
@@ -145,11 +182,12 @@ impl CellShare {
     // is passed in the cmd line, we should return [2,3,4]. If no such argument
     // is given, return the default, which is currently set rather
     // arbitrarily at [4,6,18].
-    fn get_bounds(ctx: &ir::Context) -> Vec<Option<i64>>
+    fn parse_args(ctx: &ir::Context) -> (Option<String>, Vec<Option<i64>>)
     where
         Self: Named,
     {
         let n = Self::name();
+
         // getting the given opts for -x cell-share:__
         let given_opts: HashSet<_> = ctx
             .extra_opts
@@ -165,11 +203,22 @@ impl CellShare {
             .collect();
 
         // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
-        let bounds_arg = given_opts.into_iter().find_map(|arg| {
+        let bounds_arg = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
             if let Some(str) = split.get(0) {
                 if str == &"bounds" && split.len() == 2 {
                     return Some(split[1]);
+                }
+            }
+            None
+        });
+
+        // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
+        let print_cdf_arg = given_opts.iter().find_map(|arg| {
+            let split: Vec<&str> = arg.split('=').collect();
+            if let Some(str) = split.get(0) {
+                if str == &"print-cdfs" && split.len() == 2 {
+                    return Some(split[1].to_string());
                 }
             }
             None
@@ -202,9 +251,9 @@ impl CellShare {
 
         if set_default {
             // could possibly put vec![x,y,z] here as default instead
-            vec![None, None, None]
+            (print_cdf_arg, vec![None, None, None])
         } else {
-            bounds
+            (print_cdf_arg, bounds)
         }
     }
 }
@@ -322,7 +371,7 @@ impl Visitor for CellShare {
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
-        for (cell_type, graph) in graphs_by_type {
+        for (cell_type, mut graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {
                 if let Some(name) = cell_type.get_name() {
@@ -347,6 +396,22 @@ impl Visitor for CellShare {
                         .iter()
                         .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
                 );
+                self.cdfs.insert(cell_type, graph.get_cdf());
+            }
+        }
+
+        if let Some(file) = &self.print_cdfs {
+            let printable_cdfs: HashMap<String, _> = self
+                .cdfs
+                .iter()
+                .map(|(cell_type, cdf)| (cell_type_to_string(cell_type), cdf))
+                .collect();
+            let json_cdfs: Value = json!(printable_cdfs);
+            if file == "cmd" {
+                println!("{}", json_cdfs);
+            } else {
+                fs::write(file, format!("{}", json_cdfs))
+                    .expect("Unable to write file");
             }
         }
 

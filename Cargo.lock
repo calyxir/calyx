@@ -170,6 +170,7 @@ dependencies = [
  "pest_derive",
  "petgraph",
  "serde",
+ "serde_json",
  "smallvec",
 ]
 
