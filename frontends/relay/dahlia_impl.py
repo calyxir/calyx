@@ -293,7 +293,7 @@ def sqrt(fd: DahliaFuncDef) -> str:
     num_dims = get_dims(data.comp)
     args = data.comp.args
 
-    sqrt_op = "fp_sqrt" if 'fix' in fd.data_type else 'sqrt'
+    sqrt_op = "fp_sqrt" if "fix" in fd.data_type else "sqrt"
 
     indices = ""
     var_name = CHARACTER_I
@@ -348,8 +348,9 @@ def dense(fd: DahliaFuncDef) -> str:
     M1_index_size0, M1_index_size1 = a.comp.args[3:5]
     M2_size0, M2_size1, M2_index_size0, M2_index_size1 = b.comp.args[1:5]
     units = fd.attributes.get_int("units")
-    assert units is None or units == res.comp.args[2], (
-        "parameter for `units` should be the same as the second dimension of the result")
+    assert (
+        units is None or units == res.comp.args[2]
+    ), "parameter for `units` should be the same as the second dimension of the result"
 
     return emit_dahlia_definition(
         fd,
@@ -404,12 +405,16 @@ def conv2d(fd: DahliaFuncDef) -> str:
 
     # to handle padding. Right now we hard code, but we can change the code
     # to be more general if necessary.
-    assign_tensor_val = f"""// our code is "simulating" the padding of the input array
+    assign_tensor_val = (
+        f"""// our code is "simulating" the padding of the input array
                       let __padded_tensor_val: {data_type} = {'0.0' if 'fix' in data_type else '0'};
                       ---
                       if (__kernel_y >= {dim2_lowest} && __kernel_y < {dim2_limit} && __kernel_x >= {dim3_lowest} && __kernel_x < {dim3_limit}) {{
                         __padded_tensor_val := {data.id.name}[__b][__k][__kernel_y - {prepend_rows}][__kernel_x - {prepend_cols}];
-                      }}""" if add_padding else f"""let __padded_tensor_val: {data_type} =  {data.id.name}[__b][__k][__kernel_y][__kernel_x];"""
+                      }}"""
+        if add_padding
+        else f"""let __padded_tensor_val: {data_type} =  {data.id.name}[__b][__k][__kernel_y][__kernel_x];"""
+    )
 
     # If no channels provided, inferred from the second dimension of the res (which
     # is size1 since we start counting from size0).
@@ -457,14 +462,15 @@ def reshape(fd: DahliaFuncDef) -> str:
     assert rdims == 2, "can only support reshaping into a 2d array"
 
     assert (
-        # See the TVM Relay API for significance of `newshape` values.
-        # The only time we can reshape using non-inferred values is when we have a
-        # 4d input tensor whose last two dimensions are both 1, and the output
-        # is just a 2d matrix whose dimensions are the same as the first two
-        # dimensions of the input. 4x6x1x1 -> 4x6, for example. This is very
-        # specific and we can generalize it as necessary.
-        (newshape[0] == -1 or newshape[1] == -1 or (ddims == 4 and newshape[0]
-                                                    == data.comp.args[1] and newshape[1] == data.comp.args[2] and 1 == data.comp.args[3] and 1 == data.comp.args[4]))
+        newshape[0] == -1
+        or newshape[1] == -1
+        or (
+            ddims == 4
+            and newshape[0] == data.comp.args[1]
+            and newshape[1] == data.comp.args[2]
+            and 1 == data.comp.args[3]
+            and 1 == data.comp.args[4]
+        )
     ), f"""Only supports a subset of `reshape` functionality (i.e. where the dimensions are inferred).
         E.g.
         let  %x: Tensor[(1, 2, 2, 2), float32] = ...;
@@ -540,10 +546,10 @@ def softmax(fd: DahliaFuncDef) -> str:
 
 
 def clip(fd: DahliaFuncDef) -> str:
-    '''
+    """
     https://tvm.apache.org/docs/reference/api/python/relay/index.html
     Clips the data so it is all in between a_min and a_max
-    '''
+    """
     data, res = fd.args[0], fd.dest
     # getting a_min and a_max values
     a_min = fd.attributes.get_int("a_min")
@@ -576,13 +582,13 @@ def clip(fd: DahliaFuncDef) -> str:
                   }}
                 }}
                 """
-    return emit_dahlia_definition(fd,  emit_dahlia_loop(data, loop_body))
+    return emit_dahlia_definition(fd, emit_dahlia_loop(data, loop_body))
 
 
 def concatenate(fd: DahliaFuncDef) -> str:
-    '''
+    """
     https://tvm.apache.org/docs/reference/api/python/relay/index.html
-    '''
+    """
     # data0 and data1 will be concatenated into res
     data0, data1, res = fd.args[0], fd.args[1], fd.dest
     # axis to concatenate along
@@ -609,7 +615,7 @@ def concatenate(fd: DahliaFuncDef) -> str:
     res_indices1 = ""
     data_indices1 = ""
     var_name = CHARACTER_I
-    d0_axis_len = data0.comp.args[axis+1]
+    d0_axis_len = data0.comp.args[axis + 1]
     for i in range(rdims):
         data_indices1 += f"[__{var_name}]"
         if i == axis:
@@ -629,10 +635,10 @@ def concatenate(fd: DahliaFuncDef) -> str:
 
 
 def avg_pool2d(fd: DahliaFuncDef) -> str:
-    '''
+    """
     https://tvm.apache.org/docs/reference/api/python/relay/nn.html
     Very similar to max_pool2d
-    '''
+    """
     data, res = fd.args[0], fd.dest
     strides = fd.attributes.get_int_tuple("strides")
     pool_size = fd.attributes.get_int_tuple("pool_size")
@@ -681,9 +687,9 @@ def avg_pool2d(fd: DahliaFuncDef) -> str:
 
 
 def global_avg_pool2d(fd: DahliaFuncDef) -> str:
-    '''
+    """
     https://tvm.apache.org/docs/reference/api/python/relay/nn.html#tvm.relay.nn.global_avg_pool2d
-    '''
+    """
     data, res = fd.args[0], fd.dest
     layout = fd.attributes.get_str("layout")
     assert (
@@ -838,8 +844,8 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
     elif any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax.
         sep = type.find(",")
-        width = int(type[type.find("<") + 1: sep])
-        int_width = int(type[sep + 1: type.find(">")])
+        width = int(type[type.find("<") + 1 : sep])
+        int_width = int(type[sep + 1 : type.find(">")])
         exp_components = generate_exp_taylor_series_approximation(
             degree=8,
             width=width,

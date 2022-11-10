@@ -743,7 +743,7 @@ impl std::fmt::Display for Value {
         let mut out = String::new();
         write!(out, "[")?;
         for bit in self.vec.iter().rev() {
-            write!(out, "{}", if *bit { 1 } else { 0 })?;
+            write!(out, "{}", i32::from(*bit))?;
         }
         write!(out, "]")?;
         write!(f, "{}", out)
