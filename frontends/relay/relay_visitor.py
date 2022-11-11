@@ -205,7 +205,7 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1 :]
+                func_name = func_name[prefix + 1:]
 
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
@@ -533,10 +533,10 @@ if __name__ == "__main__":
         Import("primitives/binary_operators.futil"),
         Import("primitives/math.futil"),
     ]
-    if args.save_mem == "false":
-        save_mem = False
-    else:
-        save_mem = True
+
+    # save_mem is an optional argument. If user doesn't specify, we
+    # want default to be save_mem = true
+    save_mem = args.save_mem == "true" or args.save_mem == "True" or args.save_mem is None
 
     (dahlia_defs, prog) = emit_calyx(relay_ir, save_mem)
     for imp in imports:

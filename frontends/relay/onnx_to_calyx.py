@@ -176,11 +176,9 @@ if __name__ == "__main__":
     # Determines which output you want.
     output = args["output"]
 
-    # Determines whether you want to save memory or not
-    if args["save_mem"] == "false":
-        save_mem = False
-    else:
-        save_mem = True
+    # Determines whether you want to save memory or not since save_mem is
+    # an optional argument, we want default setting of save_mem to be true
+    save_mem = args["save_mem"] is None or args["save_mem"] == "True" or args["save_mem"] == "true"
 
     # Runs the net and prints the classification output.
     run_net(net_name, data, onnx_model_path, output, save_mem)
