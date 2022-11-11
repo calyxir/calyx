@@ -122,6 +122,7 @@ impl PassManager {
             [
                 "validate",
                 RemoveCombGroups,
+                CompileRef,
                 CompileInvoke,
                 "compile",
                 "lower"
