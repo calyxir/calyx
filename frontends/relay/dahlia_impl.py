@@ -483,6 +483,7 @@ def reshape(fd: DahliaFuncDef) -> str:
     assert (
         newshape[0] == -1
         or newshape[1] == -1
+        or newshape[0] == 1
         or (
             ddims == 4
             and newshape[0] == data.comp.args[1]
@@ -494,8 +495,10 @@ def reshape(fd: DahliaFuncDef) -> str:
         E.g.
         let  %x: Tensor[(1, 2, 2, 2), float32] = ...;
         let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape[-1, 8]);
+        
+        Or supports reshape when the first dimension of the new size is 1
 
-        Or supports reshape: when all you are going from a 4d to 2d array, but the
+        Or supports reshape when all you are going from a 4d to 2d array, but the
         first two dimension sizes are the same.
         E.g.
         let  %x: Tensor[(4, 6, 1, 1), float32] = ...;
@@ -507,7 +510,7 @@ def reshape(fd: DahliaFuncDef) -> str:
     data_indices, res_indices = "", ""
     var_name = CHARACTER_I
 
-    if newshape[0] == -1 or newshape[1] == -1:
+    if newshape[0] == -1 or newshape[1] == -1 or newshape[0] == 1:
         for _ in range(ddims):
             data_indices += f"[__{var_name}]"
             var_name = next_character(var_name)
@@ -866,8 +869,8 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
     elif any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax.
         sep = type.find(",")
-        width = int(type[type.find("<") + 1 : sep])
-        int_width = int(type[sep + 1 : type.find(">")])
+        width = int(type[type.find("<") + 1: sep])
+        int_width = int(type[sep + 1: type.find(">")])
         exp_components = generate_exp_taylor_series_approximation(
             degree=8,
             width=width,
