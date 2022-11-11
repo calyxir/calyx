@@ -205,7 +205,7 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1 :]
+                func_name = func_name[prefix + 1:]
 
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
@@ -447,7 +447,7 @@ def check_naming_convention(func_defs: List[ru.DahliaFuncDef]):
             )
 
 
-def emit_calyx(relay_ir) -> (str, Program):
+def emit_calyx(relay_ir, save_mem=True) -> (str, Program):
     """Lowers a Relay function to a Calyx program."""
     relay_ir = relay_transforms(relay_ir)
     visitor = Relay2Calyx()
@@ -455,15 +455,17 @@ def emit_calyx(relay_ir) -> (str, Program):
     check_naming_convention(func_defs)
 
     return (
-        emit_components(func_defs),
-        Program(
-            imports=[
-                # Manually printed because we need to print the Dahlia
-                # function definitions
-            ],
-            components=[main],
-            meta=visitor.source_map,
-        ),
+        (
+            emit_components(func_defs, save_mem),
+            Program(
+                imports=[
+                    # Manually printed because we need to print the Dahlia
+                    # function definitions
+                ],
+                components=[main],
+                meta=visitor.source_map
+            ),
+        )
     )
 
 
@@ -507,6 +509,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
     parser.add_argument("file", help="Path to the Relay IR.")
+    parser.add_argument(
+        "-s", "--save_mem", required=False, help="boolean to determine whether you the Calyx design to use less memory"
+    )
 
     args = parser.parse_args()
     if args.file is None:
@@ -528,7 +533,12 @@ if __name__ == "__main__":
         Import("primitives/binary_operators.futil"),
         Import("primitives/math.futil"),
     ]
-    (dahlia_defs, prog) = emit_calyx(relay_ir)
+
+    # save_mem is an optional argument. If user doesn't specify, we
+    # want default to be save_mem = true
+    save_mem = args.save_mem == "true" or args.save_mem == "True" or args.save_mem is None
+
+    (dahlia_defs, prog) = emit_calyx(relay_ir, save_mem)
     for imp in imports:
         print(imp.doc())
     print(dahlia_defs)

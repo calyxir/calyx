@@ -340,35 +340,54 @@ def batch_matmul(fd: DahliaFuncDef) -> str:
     )
 
 
-def dense(fd: DahliaFuncDef) -> str:
-    """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense"""
+def dense(fd: DahliaFuncDef, save_mem=True) -> str:
+    """
+    tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense
+    If save_mem=True, instead of actually building the transpose of the weight matrix,
+    we just access W[j][i] everytime we would have accessed W^T[i][j]. It seems 
+    to be a better way (in terms of resource usage) to calculate dense, which 
+    is why it has been save_mem is the default setting. 
+    """
     a, b, res = fd.args[0], fd.args[1], fd.dest
     type = fd.data_type
-    M1_size0, M1_size1 = a.comp.args[1:3]
-    M1_index_size0, M1_index_size1 = a.comp.args[3:5]
+    M1_size0, M1_size1, M1_index_size0, M1_index_size1 = a.comp.args[1:5]
     M2_size0, M2_size1, M2_index_size0, M2_index_size1 = b.comp.args[1:5]
     units = fd.attributes.get_int("units")
-    assert (
-        units is None or units == res.comp.args[2]
-    ), "parameter for `units` should be the same as the second dimension of the result"
-
-    return emit_dahlia_definition(
-        fd,
-        f"""let __transpose_{b.id.name}: {type}[{M2_size1}][{M2_size0}];
-        for (let __i: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
-          for (let __j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
-            __transpose_{b.id.name}[__j][__i] := {b.id.name}[__i][__j];
+    assert units is None or units == res.comp.args[2], (
+        "parameter for `units` should be the same as the second dimension of the result")
+    if save_mem:
+        # don't generate internal `transpose` memory
+        return emit_dahlia_definition(
+            fd,
+            f"""
+          for (let __i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+            for (let __j: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
+              for (let __k: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
+                let __product = {a.id.name}[__i][__k] * {b.id.name}[__j][__k];
+              }} combine {{ {res.id.name}[__i][__j] += __product; }}
+            }}
           }}
-        }}
-        for (let __i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
-          for (let __j: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
-            for (let __k: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
-              let __product = {a.id.name}[__i][__k] * __transpose_{b.id.name}[__k][__j];
-            }} combine {{ {res.id.name}[__i][__j] += __product; }}
+          """,
+        )
+    else:
+        # generate internal `transpose` memory.
+        return emit_dahlia_definition(
+            fd,
+            f"""let __transpose_{b.id.name}: {type}[{M2_size1}][{M2_size0}];
+          for (let __i: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
+            for (let __j: ubit<{M2_index_size1}> = 0..{M2_size1}) {{
+              __transpose_{b.id.name}[__j][__i] := {b.id.name}[__i][__j];
+            }}
           }}
-        }}
-        """,
-    )
+          for (let __i: ubit<{M1_index_size0}> = 0..{M1_size0}) {{
+            for (let __j: ubit<{M2_index_size0}> = 0..{M2_size0}) {{
+              for (let __k: ubit<{M1_index_size1}> = 0..{M1_size1}) {{
+                let __product = {a.id.name}[__i][__k] * __transpose_{b.id.name}[__k][__j];
+              }} combine {{ {res.id.name}[__i][__j] += __product; }}
+            }}
+          }}
+          """,
+        )
 
 
 def conv2d(fd: DahliaFuncDef) -> str:
@@ -795,7 +814,7 @@ RelayCallNodes = {
 BinaryOps = {"add": "+", "divide": "/", "multiply": "*", "subtract": "-"}
 
 
-def emit_components(func_defs: List[DahliaFuncDef]) -> str:
+def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
     """Returns a string containing all the components
     created from the list of Dahlia function definitions.
     This does not include the import statement.
@@ -812,8 +831,11 @@ def emit_components(func_defs: List[DahliaFuncDef]) -> str:
 
         # If the function is a binary operation, use broadcasting.
         # Otherwise, use the associated Relay function.
-        apply = broadcast if id in BinaryOps else RelayCallNodes[id]
-        dahlia_definitions.append(apply(func_def))
+        if id == "dense":
+            dahlia_definitions.append(dense(func_def, save_mem))
+        else:
+            apply = broadcast if id in BinaryOps else RelayCallNodes[id]
+            dahlia_definitions.append(apply(func_def))
 
     type = func_defs[0].data_type
     imports = [
