@@ -612,8 +612,34 @@ impl LiveRangeAnalysis {
         invoke: &ir::Invoke,
         shareable_components: &ShareSet,
     ) -> (TypeNameSet, TypeNameSet) {
-        //The reads of the invoke include its inputs plus the cell itself, if the
-        //outputs are not empty.
+        // The writes of the invoke include its outputs. Also, if the input to the invoke
+        // is not empty, we also count the cell being invoked as being written to.
+        let mut write_set: TypeNameSet = invoke
+            .outputs
+            .iter()
+            .filter_map(|(_, src)| {
+                Self::port_to_cell_name(src, shareable_components)
+            })
+            .collect();
+        let comp_is_written = !invoke.inputs.is_empty()
+            && shareable_components.is_shareable_component(&invoke.comp);
+        if comp_is_written {
+            write_set.insert((
+                invoke.comp.borrow().prototype.clone(),
+                invoke.comp.borrow().clone_name(),
+            ));
+        }
+
+        // The reads of the invoke include its inputs. Also, if the outputs are
+        // not empty, the cell being invoked will be considered as being read from.
+        // One quick note: if the component is written to, there is no need to include this
+        // component as being read from since we know the write to the component
+        // precedes the read from it, due to the nature of `invoke` statements.
+        // This is "cheating" in a sense, since the componenet is technically being
+        // read from. However, since we know that there is a write to the component
+        // that that precedes the read from it within the very same invoke statement,
+        // it "appears" to all the other control statements in the program that the
+        // component is not being read from in the invoke statement.
         let mut read_set: TypeNameSet = invoke
             .inputs
             .iter()
@@ -622,6 +648,7 @@ impl LiveRangeAnalysis {
             })
             .collect();
         if !invoke.outputs.is_empty()
+            && !comp_is_written
             && shareable_components.is_shareable_component(&invoke.comp)
         {
             read_set.insert((
@@ -640,24 +667,6 @@ impl LiveRangeAnalysis {
                         (cell.borrow().prototype.clone(), cell.clone_name())
                     }),
             );
-        }
-
-        //The writes of the invoke include its outpus plus the cell itself, if the
-        //inputs are not empty.
-        let mut write_set: TypeNameSet = invoke
-            .outputs
-            .iter()
-            .filter_map(|(_, src)| {
-                Self::port_to_cell_name(src, shareable_components)
-            })
-            .collect();
-        if !invoke.inputs.is_empty()
-            && shareable_components.is_shareable_component(&invoke.comp)
-        {
-            write_set.insert((
-                invoke.comp.borrow().prototype.clone(),
-                invoke.comp.borrow().clone_name(),
-            ));
         }
 
         (read_set, write_set)
