@@ -51,7 +51,7 @@ module std_fp_mult_pipe #(
   // If the done buffer is completely empty and go is high then execution
   // just started.
   logic start;
-  assign start = go & done_buf[0] == 0 & done_buf[1] == 0;
+  assign start = go;
 
   // Start sending the done signal.
   always_ff @(posedge clk) begin
