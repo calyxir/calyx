@@ -1,7 +1,8 @@
 from typing import List
 from calyx.py_ast import *
 from dahlia_utils import *
-from calyx.gen_exp import generate_exp_taylor_series_approximation
+from calyx.gen_exp import generate_exp_taylor_series_approximation, generate_fp_pow_full
+from calyx.utils import float_to_fixed_point
 
 ### Dahlia Implementations for Relay Call Nodes ###
 
@@ -403,7 +404,8 @@ def conv2d(fd: DahliaFuncDef) -> str:
         prepend_rows = 0
         prepend_cols = 0
     else:
-        assert len(padding) == 4, "Can only handle when we're given 4 padding values"
+        assert len(
+            padding) == 4, "Can only handle when we're given 4 padding values"
         prepend_rows = padding[0]
         # might want to use this value to check when out of bounds on the high end
         # currently if index is too high, it just deafults to a 0 value.
@@ -531,7 +533,8 @@ def softmax(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
     data, res = fd.args[0], fd.dest
     axis = fd.attributes.get_int("axis")
-    assert axis == -1 or axis == 1, f"nn.softmax with axis = {axis} is not supported."
+    assert axis == - \
+        1 or axis == 1, f"nn.softmax with axis = {axis} is not supported."
 
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
@@ -737,6 +740,53 @@ def global_avg_pool2d(fd: DahliaFuncDef) -> str:
     )
 
 
+def lrn(fd: DahliaFuncDef) -> str:
+    '''
+    https://tvm.apache.org/docs/reference/api/python/relay/nn.html
+    '''
+    data, res = fd.args[0], fd.dest
+
+    axis = fd.attributes.get_str("axis")
+
+    assert (axis == 1), f"""currently can only support lrn along axis 1"""
+
+    size = fd.attributes.get_str("size")
+
+    bias = float_to_fixed_point(fd.attributes.get_str("bias"), 16)
+    alpha = float_to_fixed_point(fd.attributes.get_str("alpha"), 16)
+    beta = float_to_fixed_point(fd.attributes.get_str("beta"), 16)
+
+    res_args = res.comp.args
+    width = res_args[0]
+    data_args = data.comp.args
+    data_type = fd.data_type
+    size0, size1, size2, size3 = data_args[1:5]
+
+    assert size0 == 1, f"""currently only supports lrn if the first dimension of the tensor has size of 1"""
+
+    return emit_dahlia_definition(
+        fd,
+        f"""for (let __n: ubit<{width}> = 0..{size0}) {{
+          for (let __c: ubit<{width}> = 0..{size1}) {{
+            for (let __h: ubit<{width}> = 0..{size2}) {{
+              for (let __w: ubit<{width}> = 0..{size3}) {{
+                let __sum: {data_type} = {'0.0' if 'fix' in data_type else '0'};
+                for (let __i: ubit<{width}> = 0..{size-1}){{
+                  let __c_index: ubit<{width}> = __c - (({size-1} as ubit<{width}>)/(2 as ubit<{width}>)) + __i;
+                  if (__c_index >=0 && __c_index < {size1}){{
+                      __sum := __sum + {data.id.name}[__n][__c_index][__h][__w];
+                  }}
+                }}
+                let __divisor: {data_type} = fp_pow_full((({bias} as {data_type}) + (({alpha} as {data_type}) * __sum)), ({beta} as {data_type}));
+                {res.id.name}[__n][__c][__h][__w] := {data.id.name}[__n][__c][__h][__w] / __divisor; 
+              }}
+            }}
+          }}
+        }}
+        """,
+    )
+
+
 # Mapping from Relay function names to their respective Dahlia lowering.
 RelayCallNodes = {
     "expand_dims": expand_dims,
@@ -756,6 +806,7 @@ RelayCallNodes = {
     "avg_pool2d": avg_pool2d,
     "clip": clip,
     "global_avg_pool2d": global_avg_pool2d,
+    "lrn": lrn,
 }
 
 # Mapping from Relay binary calls to
@@ -791,13 +842,28 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
         f"""import futil("primitives/math.futil")
         {{
           def exp(x: {type}): {type};
+          def fp_pow_full(base: {type}, exp_value: {type}): {type};
           def sqrt(in: {type}): {type};
           def fp_sqrt(in: {type}): {type};
         }}"""
     ]
 
     exp_components = ""
-    if any(f.function_id == "softmax" for f in func_defs):
+    if any(f.function_id == "lrn" for f in func_defs):
+        # Import `exp` operator for softmax.
+        sep = type.find(",")
+        width = int(type[type.find("<") + 1: sep])
+        int_width = int(type[sep + 1: type.find(">")])
+        exp_components = generate_fp_pow_full(
+            degree=8,
+            width=width,
+            int_width=int_width,
+            is_signed="u" not in type,
+        )
+        exp_components = "\n".join(c.doc() for c in exp_components)
+    # note that generate_fp_pow_full will already generate an exp component
+    # this is why we can do an elif statement
+    elif any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax.
         sep = type.find(",")
         width = int(type[type.find("<") + 1 : sep])
