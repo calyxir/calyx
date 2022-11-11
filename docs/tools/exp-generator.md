@@ -18,11 +18,11 @@ any fixed point numbers. This can be calculated by first observing:
 ```
 b^x = e^(ln(b^x)) = e^(x*ln(b))
 ```
-Therefore, we just calculate `x*ln(b)`, and then we can input the result into the `exp`  
+Therefore, we just calculate `x*ln(b)`, and then we can feed the result into the `exp`  
 component to get our answer. 
 
-To calculate `ln(p)` for fixed point values `p`, we use the second order [Padé Approximant](https://en.wikipedia.org/wiki/Pad%C3%A9_approximant) of `ln(p)`. We calculated the polynomial function 
-to use using [Wolfram Alpha](https://www.wolframalpha.com/input?i=+PadeApproximant%5Bln%28x%29%2C%7Bx%2C1.5%2C%7B2%2C2%7D%7D%5D+).  
+To calculate `ln(p)` for fixed point values `p`, we use the second order [Padé Approximant](https://en.wikipedia.org/wiki/Pad%C3%A9_approximant) of `ln(p)`. We calculated the approximant 
+using [Wolfram Alpha](https://www.wolframalpha.com/input?i=+PadeApproximant%5Bln%28x%29%2C%7Bx%2C1.5%2C%7B2%2C2%7D%7D%5D+).  
 
 
 The `gen_exp.py` file can generate an entire Calyx program for testing purposes.
@@ -32,8 +32,8 @@ values for `e^x`. The main component contains memories `x` (for the input) and `
 If `base_is_e` is false, then the design can calculate values for `b^x` for any base 
 `e`. Therefore, the main component contains memories `x` (the exponent input), `b` (the base intput),
 and `ret` for the result of `b^x`. 
-In order to generate an example program that only calculates exponent values with base 
-`e`, with degree `4`, bit width `32`, integer bit width `16`, and `x` interpreted as a signed value:
+In order to generate an example program (that can only calculate exponent values with base 
+`e`), with degree `4`, bit width `32`, integer bit width `16`, and `x` interpreted as a signed value:
 ```
 ./calyx-py/calyx/gen_exp.py -d 4 -w 32 -i 16 -s true -e true 
 ```
