@@ -7,7 +7,7 @@ use crate::ir::Attributes;
 use crate::ir::WRC;
 use crate::ir::{self, LibrarySignatures, RRC};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 /// 1. Remove all the cells marked with the 'ref' keyword
 /// 2. Inline all the ports of the ref cells to the component signature
@@ -15,6 +15,7 @@ use std::rc::Rc;
 /// 4. Inline all the mappings of ports to the invoke signature
 pub struct CompileRef {
     port_names: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
+    visited_invokes: HashSet<ir::Id>,
 }
 
 impl ConstructVisitor for CompileRef {
@@ -24,12 +25,13 @@ impl ConstructVisitor for CompileRef {
     {
         let compile_external = CompileRef {
             port_names: HashMap::new(),
+            visited_invokes: HashSet::new(),
         };
         Ok(compile_external)
     }
 
     fn clear_data(&mut self) {
-        //data is shared between components
+        self.visited_invokes = HashSet::new();
     }
 }
 
@@ -95,17 +97,20 @@ impl Visitor for CompileRef {
                             unreachable!("Internal Error: This state should not be reachable.");
                         }
                     }
-                    let p = Rc::new(RefCell::new(ir::Port {
-                        name: port_name.clone(),
-                        width: port.borrow().width,
-                        direction: port.borrow().direction.reverse(),
-                        parent: ir::PortParent::Cell(WRC::from(&s.comp)),
-                        attributes: Attributes::default(),
-                    }));
-                    s.comp.borrow_mut().ports.push(p);
+                    if !self.visited_invokes.contains(&comp_name) {
+                        let p = Rc::new(RefCell::new(ir::Port {
+                            name: port_name.clone(),
+                            width: port.borrow().width,
+                            direction: port.borrow().direction.reverse(),
+                            parent: ir::PortParent::Cell(WRC::from(&s.comp)),
+                            attributes: Attributes::default(),
+                        }));
+                        s.comp.borrow_mut().ports.push(p);
+                    }
                 }
             }
         }
+        self.visited_invokes.insert(comp_name);
         Ok(Action::Continue)
     }
 }

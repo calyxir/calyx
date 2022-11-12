@@ -1,0 +1,50 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external(1) mem = std_mem_d1(32, 1, 1);
+    pe1 = add_one();
+  }
+  wires {}
+  control {
+    seq {
+      invoke pe1[mem=mem]()();
+      invoke pe1[mem=mem]()();
+    }
+  }
+}
+component add_one() -> () {
+  cells {
+    ref mem = std_mem_d1(32, 1, 1);  
+    adder = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    group load {
+      mem.addr0 = 1'b0;
+      r.in = mem.read_data;
+      r.write_en = 1'b1;
+      load[done] = r.done;
+    }
+    group add {
+      adder.left = r.out;
+      adder.right = 32'b1;
+      r.in = adder.out;
+      r.write_en = 1'b1;
+      add[done] = r.done;
+    }
+    group store {
+      mem.addr0 = 1'b0;
+      mem.write_data = 32'b0;
+      mem.write_en = 1'b1;
+      store[done] = mem.done;
+    }
+  }
+  control {
+    seq {
+      load;
+      add;
+      store;
+    }
+  }
+}
