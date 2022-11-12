@@ -15,6 +15,8 @@ use std::rc::Rc;
 /// 4. Inline all the mappings of ports to the invoke signature
 pub struct CompileRef {
     port_names: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
+    // record for each component the cell names of invoke controls already 
+    // visited
     visited_invokes: HashSet<ir::Id>,
 }
 
@@ -97,6 +99,9 @@ impl Visitor for CompileRef {
                             unreachable!("Internal Error: This state should not be reachable.");
                         }
                     }
+
+                    // We only have to add ports to cells who have not been 
+                    // "previously" invoked
                     if !self.visited_invokes.contains(&comp_name) {
                         let p = Rc::new(RefCell::new(ir::Port {
                             name: port_name.clone(),
