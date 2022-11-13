@@ -101,7 +101,7 @@ impl FromStr for CompileMode {
 // ================== Backend Variant and Parsing ===================== //
 
 /// Enumeration of valid backends
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BackendOpt {
     Verilog,
     Xilinx,
