@@ -1,0 +1,18 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = std_eq(32);
+    r = std_reg(1);
+  }
+  wires {
+    group wait {
+      r.write_en = e.out ? 1'd1;
+      r.in = e.out;
+      wait[done] = r.done;
+    }
+  }
+
+  control {
+    wait;
+  }
+}
