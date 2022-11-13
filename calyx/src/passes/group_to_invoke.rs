@@ -5,7 +5,7 @@ use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
-use crate::ir::{CloneName, RRC, GetAttributes};
+use crate::ir::{CloneName, GetAttributes, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
