@@ -226,9 +226,7 @@ component main () -> () {
             }
           }
           else {
-              seq {
                 @sync(1) no_op;
-              }
           }
         }
       }

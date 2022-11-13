@@ -53,7 +53,14 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
                 if let Some(&n) = stmt.get_attributes().unwrap().get("sync") {
                     count.insert(n);
                 }
-                count_barriers(stmt, count);
+                match stmt {
+                    ir::Control::Seq(_)
+                    | ir::Control::While(_)
+                    | ir::Control::If(_) => {
+                        count_barriers(stmt, count);
+                    }
+                    _ => {}
+                }
             }
         }
         ir::Control::While(w) => {
@@ -62,6 +69,11 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
         ir::Control::If(i) => {
             count_barriers(&i.tbranch, count);
             count_barriers(&i.fbranch, count);
+        }
+        ir::Control::Enable(_) | ir::Control::Invoke(_) => {
+            if let Some(&n) = s.get_attributes().unwrap().get("sync") {
+                count.insert(n);
+            }
         }
         _ => {}
     }
@@ -81,7 +93,7 @@ impl CompileSync {
             let (cells, groups) = &self.barriers[n];
             let member_idx = count[n];
 
-            build_member(builder, &stmt, cells, groups, &member_idx)
+            build_member(builder, stmt, cells, groups, &member_idx)
         } else {
             ir::Control::clone(stmt)
         }
@@ -109,7 +121,8 @@ impl CompileSync {
                         ir::Control::If(_)
                         | ir::Control::While(_)
                         | ir::Control::Seq(_) => {
-                            self.build_barriers(builder, &mut stmt, count);
+                            stmt =
+                                self.build_barriers(builder, &mut stmt, count);
                         }
                         _ => {}
                     }
