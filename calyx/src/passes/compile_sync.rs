@@ -194,7 +194,10 @@ fn build_write_barrier(
     group
 }
 
-// put together the group to wait until the peek value reaches capacity
+// put together the group to wait until the peek value reaches capacity.
+// We don't actually care about the value being written to the register.
+// We're only using it to make sure that the barrier has reached the expected
+// value.
 fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
     let group = builder.add_group("wait");
     structure!(builder;
@@ -203,6 +206,7 @@ fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
     let eq_guard = guard!(eq["out"]);
     let mut assigns = build_assignments!(builder;
         // wait_reg_*.in = eq_*.out;
+        // XXX(rachit): Since the value doesn't matter, can this just be zero?
         wait_reg["in"] = ?eq["out"];
         // wait_reg_*.write_en = eq_*.out? 1'd1;
         wait_reg["write_en"] = eq_guard? cst_1["out"];
