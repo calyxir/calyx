@@ -180,23 +180,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         seq {
           while lt.out with cmp {
             seq {
-              seq {
-                no_op_1;
-                incr_barrier;
-                write_barrier;
-                wait;
-                clear_barrier;
-                restore;
-              }
-              reg_to_mem;
-              seq {
-                incr_idx;
-                incr_barrier0;
-                write_barrier0;
-                wait0;
-                clear_barrier0;
-                restore0;
-              }
             }
           }
         }

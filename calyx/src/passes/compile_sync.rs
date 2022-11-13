@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::RRC;
 use crate::ir::{self, GetAttributes};
+use crate::ir::{If, Seq, While, RRC};
 use crate::{build_assignments, guard, structure};
 use linked_hash_map::LinkedHashMap;
 
@@ -68,12 +68,30 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
 }
 
 impl CompileSync {
+    fn add_barrier_to_control(
+        &mut self,
+        builder: &mut ir::Builder,
+        stmt: &mut ir::Control,
+        count: &mut HashMap<u64, u64>,
+    ) -> ir::Control {
+        if let Some(n) = stmt.get_attributes().unwrap().get("sync") {
+            if self.barriers.get(n).is_none() {
+                self.add_shared_structure(builder, n);
+            }
+            let (cells, groups) = &self.barriers[n];
+            let member_idx = count[n];
+
+            build_member(builder, &stmt, cells, groups, &member_idx)
+        } else {
+            ir::Control::clone(stmt)
+        }
+    }
     fn build_barriers(
         &mut self,
         builder: &mut ir::Builder,
         s: &mut ir::Control,
         count: &mut HashMap<u64, u64>,
-    ) {
+    ) -> ir::Control {
         match s {
             ir::Control::Seq(seq) => {
                 // go through each control statement
@@ -87,36 +105,47 @@ impl CompileSync {
                 //          build the seq stmt
                 let mut stmts_new: Vec<ir::Control> = Vec::new();
                 for mut stmt in std::mem::take(&mut seq.stmts) {
-                    self.build_barriers(builder, &mut stmt, count);
-                    if let Some(n) = stmt.get_attributes().unwrap().get("sync")
-                    {
-                        if self.barriers.get(n).is_none() {
-                            self.add_shared_structure(builder, n);
+                    match stmt {
+                        ir::Control::If(_)
+                        | ir::Control::While(_)
+                        | ir::Control::Seq(_) => {
+                            self.build_barriers(builder, &mut stmt, count);
                         }
-                        let (cells, groups) = &self.barriers[n];
-                        let member_idx = count[n];
-
-                        stmts_new.push(build_member(
-                            builder,
-                            &stmt,
-                            cells,
-                            groups,
-                            &member_idx,
-                        ));
-                    } else {
-                        stmts_new.push(stmt);
+                        _ => {}
                     }
+                    stmts_new.push(
+                        self.add_barrier_to_control(builder, &mut stmt, count),
+                    );
                 }
-                seq.stmts = stmts_new;
+                ir::Control::Seq(Seq {
+                    stmts: stmts_new,
+                    attributes: seq.attributes.clone(),
+                })
             }
             ir::Control::While(w) => {
-                self.build_barriers(builder, &mut w.body, count);
+                let n_body = self.build_barriers(builder, &mut w.body, count);
+                ir::Control::While(While {
+                    port: Rc::clone(&w.port),
+                    cond: w.cond.clone(),
+                    body: Box::new(n_body),
+                    attributes: w.attributes.clone(),
+                })
             }
             ir::Control::If(i) => {
-                self.build_barriers(builder, &mut i.tbranch, count);
-                self.build_barriers(builder, &mut i.fbranch, count);
+                let tb = self.build_barriers(builder, &mut i.tbranch, count);
+                let fb = self.build_barriers(builder, &mut i.fbranch, count);
+                ir::Control::If(If {
+                    port: Rc::clone(&i.port),
+                    cond: i.cond.clone(),
+                    tbranch: Box::new(tb),
+                    fbranch: Box::new(fb),
+                    attributes: i.attributes.clone(),
+                })
             }
-            _ => {}
+            ir::Control::Enable(_) | ir::Control::Invoke(_) => {
+                self.add_barrier_to_control(builder, s, count)
+            }
+            _ => ir::Control::clone(s),
         }
     }
 
@@ -323,6 +352,7 @@ impl Visitor for CompileSync {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut barrier_count: HashMap<u64, u64> = HashMap::new();
+        let mut stmts_new: Vec<ir::Control> = Vec::new();
         for stmt in s.stmts.iter_mut() {
             let mut cnt: HashSet<u64> = HashSet::new();
             count_barriers(stmt, &mut cnt);
@@ -332,7 +362,11 @@ impl Visitor for CompileSync {
                     .and_modify(|count| *count += 1)
                     .or_insert(1);
             }
-            self.build_barriers(&mut builder, stmt, &mut barrier_count);
+            stmts_new.push(self.build_barriers(
+                &mut builder,
+                stmt,
+                &mut barrier_count,
+            ));
         }
 
         if self.barriers.is_empty() {
@@ -366,11 +400,7 @@ impl Visitor for CompileSync {
         // wrap the par stmt in a seq stmt so that barriers are initialized
         let mut changed_sequence: Vec<ir::Control> =
             vec![ir::Control::par(init_barriers)];
-        let mut copied_par_stmts: Vec<ir::Control> = Vec::new();
-        for con in s.stmts.drain(..) {
-            copied_par_stmts.push(con);
-        }
-        changed_sequence.push(ir::Control::par(copied_par_stmts));
+        changed_sequence.push(ir::Control::par(stmts_new));
 
         Ok(Action::change(ir::Control::seq(changed_sequence)))
     }
