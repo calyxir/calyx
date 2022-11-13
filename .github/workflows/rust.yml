@@ -104,7 +104,7 @@ jobs:
       run: |
         runt -i 'systolic' -x 'core|examples|errors|NTT' -d -o fail
 
-    - name: Dahlia tests
+    - name: Dahlia
       working-directory: /home/calyx
       run: |
         runt -i 'dahlia' -x 'core|examples|errors|NTT|systolic' -d -o fail
@@ -114,7 +114,7 @@ jobs:
       run: |
         runt -i 'relay' -x 'core|examples|errors|dahlia|NTT|systolic' -d -o fail
 
-    - name: Frontend tests
+    - name: Misc tests
       working-directory: /home/calyx
       run: |
         unset JAVA_TOOL_OPTIONS
