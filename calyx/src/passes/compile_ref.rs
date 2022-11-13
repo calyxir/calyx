@@ -69,8 +69,8 @@ impl Visitor for CompileRef {
         for cell in comp.cells.iter() {
             let mut new_ports: Vec<RRC<ir::Port>> = Vec::new();
             if let Some(name) = cell.borrow().type_name() {
-                if self.port_names.contains_key(&name) {
-                    for (_, submap) in self.port_names[&name].iter() {
+                if self.port_names.contains_key(name) {
+                    for (_, submap) in self.port_names[name].iter() {
                         for (_, p) in submap.iter() {
                             let new_port = Rc::new(RefCell::new(ir::Port {
                                 name: p.borrow().name.clone(),
