@@ -1,5 +1,6 @@
 use crate::ir::{self, RRC, WRC};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Formats name of a port given the id of the cell and the port
 pub(super) fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
@@ -15,7 +16,10 @@ pub(super) fn dump_ports_to_signature(
     component: &mut ir::Component,
     cell_filter: fn(&RRC<ir::Cell>) -> bool,
     remove_signals: bool,
-    port_names: &mut HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
+    port_names: &mut HashMap<
+        ir::Id,
+        HashMap<ir::Id, HashMap<ir::Id, RRC<ir::Port>>>,
+    >,
 ) {
     let comp_name = component.name.clone();
     let (ext_cells, cells): (Vec<_>, Vec<_>) =
@@ -42,24 +46,25 @@ pub(super) fn dump_ports_to_signature(
         for port_ref in ports_inline {
             let port_name = port_ref.borrow().name.clone();
             // Change the name and the parent of this port.
-            port_names
-                .entry(comp_name.clone())
-                .or_default()
-                .entry(name.clone())
-                .or_default()
-                .insert(
-                    port_name.clone(),
-                    component
-                        .generate_name(format_port_name(&name, &port_name)),
-                );
             port_ref.borrow_mut().name =
-                port_names[&comp_name][&name][&port_name].clone();
+                component.generate_name(format_port_name(&name, &port_name));
             // Point to the signature cell as its parent
             port_ref.borrow_mut().parent =
                 ir::PortParent::Cell(WRC::from(&component.signature));
             // Remove any attributes from this cell port.
             port_ref.borrow_mut().attributes = ir::Attributes::default();
-            component.signature.borrow_mut().ports.push(port_ref);
+            component
+                .signature
+                .borrow_mut()
+                .ports
+                .push(Rc::clone(&port_ref));
+            // Record the port to add to cells
+            port_names
+                .entry(comp_name.clone())
+                .or_default()
+                .entry(name.clone())
+                .or_default()
+                .insert(port_name.clone(), Rc::clone(&port_ref));
         }
     }
 }

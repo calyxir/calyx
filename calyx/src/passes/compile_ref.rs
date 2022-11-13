@@ -7,17 +7,15 @@ use crate::ir::Attributes;
 use crate::ir::WRC;
 use crate::ir::{self, LibrarySignatures, RRC};
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 /// 1. Remove all the cells marked with the 'ref' keyword
 /// 2. Inline all the ports of the ref cells to the component signature
 /// 3. Remove all the ref cell mappings from the invoke statement
 /// 4. Inline all the mappings of ports to the invoke signature
 pub struct CompileRef {
-    port_names: HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, ir::Id>>>,
-    // record for each component the cell names of invoke controls already 
-    // visited
-    visited_invokes: HashSet<ir::Id>,
+    port_names:
+        HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, RRC<ir::Port>>>>,
 }
 
 impl ConstructVisitor for CompileRef {
@@ -27,13 +25,12 @@ impl ConstructVisitor for CompileRef {
     {
         let compile_external = CompileRef {
             port_names: HashMap::new(),
-            visited_invokes: HashSet::new(),
         };
         Ok(compile_external)
     }
 
     fn clear_data(&mut self) {
-        self.visited_invokes = HashSet::new();
+        // data is shared between components
     }
 }
 
@@ -68,6 +65,27 @@ impl Visitor for CompileRef {
             true,
             &mut self.port_names,
         );
+
+        for cell in comp.cells.iter() {
+            let mut new_ports: Vec<RRC<ir::Port>> = Vec::new();
+            if let Some(name) = cell.borrow().type_name() {
+                if self.port_names.contains_key(&name) {
+                    for (_, submap) in self.port_names[&name].iter() {
+                        for (_, p) in submap.iter() {
+                            let new_port = Rc::new(RefCell::new(ir::Port {
+                                name: p.borrow().name.clone(),
+                                width: p.borrow().width,
+                                direction: p.borrow().direction.reverse(),
+                                parent: ir::PortParent::Cell(WRC::from(cell)),
+                                attributes: Attributes::default(),
+                            }));
+                            new_ports.push(new_port);
+                        }
+                    }
+                }
+            }
+            cell.borrow_mut().ports.extend(new_ports);
+        }
         Ok(Action::Continue)
     }
 
@@ -86,6 +104,8 @@ impl Visitor for CompileRef {
                 {
                     let port_name = self.port_names[&comp_name][&id]
                         [&port.borrow().name.clone()]
+                        .borrow()
+                        .name
                         .clone();
                     match port.borrow().direction {
                         ir::Direction::Input => {
@@ -99,23 +119,9 @@ impl Visitor for CompileRef {
                             unreachable!("Internal Error: This state should not be reachable.");
                         }
                     }
-
-                    // We only have to add ports to cells who have not been 
-                    // "previously" invoked
-                    if !self.visited_invokes.contains(&comp_name) {
-                        let p = Rc::new(RefCell::new(ir::Port {
-                            name: port_name.clone(),
-                            width: port.borrow().width,
-                            direction: port.borrow().direction.reverse(),
-                            parent: ir::PortParent::Cell(WRC::from(&s.comp)),
-                            attributes: Attributes::default(),
-                        }));
-                        s.comp.borrow_mut().ports.push(p);
-                    }
                 }
             }
         }
-        self.visited_invokes.insert(comp_name);
         Ok(Action::Continue)
     }
 }
