@@ -5,7 +5,7 @@ use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
-use crate::ir::{CloneName, RRC};
+use crate::ir::{CloneName, GetAttributes, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -291,7 +291,10 @@ impl Visitor for GroupToInvoke {
         match self.group_invoke_map.get(s.group.borrow().name()) {
             None => Ok(Action::Continue),
             Some(invoke) => {
-                Ok(Action::Change(Box::new(ir::Control::clone(invoke))))
+                let mut inv = ir::Control::clone(invoke);
+                let attrs = std::mem::take(&mut s.attributes);
+                *inv.get_mut_attributes().unwrap() = attrs;
+                Ok(Action::Change(Box::new(inv)))
             }
         }
     }
