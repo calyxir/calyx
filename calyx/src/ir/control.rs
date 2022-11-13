@@ -106,6 +106,18 @@ pub enum Control {
     Empty(Empty),
 }
 
+impl From<Invoke> for Control {
+    fn from(inv: Invoke) -> Self {
+        Control::Invoke(inv)
+    }
+}
+
+impl From<Enable> for Control {
+    fn from(en: Enable) -> Self {
+        Control::Enable(en)
+    }
+}
+
 impl GetAttributes for Control {
     fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
         match self {
