@@ -383,9 +383,8 @@ impl MlirBackend {
             }
             ir::Control::Empty(_) => writeln!(f),
         }?;
-        if let Some(attr) = control.get_attributes() {
-            write!(f, "{}", Self::format_attributes(attr))?;
-        }
+        let attr = control.get_attributes();
+        write!(f, "{}", Self::format_attributes(attr))?;
         writeln!(f)
     }
 
