@@ -9,6 +9,8 @@ use crate::ir::{
     RRC,
 };
 
+const VISIBLE: &str = "_comb_prop_output";
+
 /// A data structure to track rewrites of ports with added functionality to declare
 /// two wires to be "equal" when they are connected together.
 #[derive(Default, Clone)]
@@ -208,6 +210,16 @@ impl Visitor for CombProp {
                 let old_v =
                     rewrites.insert(Rc::clone(&port), Rc::clone(&assign.dst));
 
+                // If the destination port is externall visible, then we need to
+                // make sure that this assignment is not removed.
+                if let ir::PortParent::Cell(cell_wref) = &dst.parent {
+                    let cr = cell_wref.upgrade();
+                    let cell = cr.borrow();
+                    if cell.is_this() {
+                        assign.attributes.insert(VISIBLE, 1);
+                    }
+                }
+
                 // If the insertion process found an old key, we have something like:
                 // ```
                 // x.in = wire.out;
@@ -242,13 +254,16 @@ impl Visitor for CombProp {
         if self.do_not_eliminate {
             // If elimination is disabled, mark the assignments with the @dead attribute.
             for assign in &mut comp.continuous_assignments {
-                if rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst)) {
+                if rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst))
+                    && !assign.attributes.has(VISIBLE)
+                {
                     assign.attributes.insert("dead", 1)
                 }
             }
         } else {
-            comp.continuous_assignments.retain(|assign| {
+            comp.continuous_assignments.retain_mut(|assign| {
                 !rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst))
+                    || assign.attributes.remove(VISIBLE).is_some()
             });
         }
 

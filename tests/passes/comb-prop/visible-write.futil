@@ -1,0 +1,14 @@
+// -p validate -p comb-prop
+import "primitives/core.futil";
+component main(in: 32) -> (out: 32) {
+  cells {
+    wire1 = std_wire(32);
+  }
+  wires {
+    wire1.in = in;
+    out = wire1.out;
+    done = 1'b1;
+  }
+  control {
+  }
+}
