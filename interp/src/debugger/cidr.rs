@@ -67,7 +67,7 @@ impl Debugger {
             let comm = input_stream.next_command();
             let comm = match comm {
                 Ok(c) => c,
-                Err(e) => match &e {
+                Err(e) => match *e {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_)
                     | InterpreterError::ParseError(_) => {
@@ -181,7 +181,7 @@ impl Debugger {
                         self.debugging_ctx.add_breakpoint(target);
                     }
                 }
-                Command::Exit => return Err(InterpreterError::Exit),
+                Command::Exit => return Err(InterpreterError::Exit.into()),
                 Command::InfoBreak => self.debugging_ctx.print_breakpoints(),
                 Command::Delete(targets) => {
                     if targets.is_empty() {
@@ -320,7 +320,7 @@ impl Debugger {
             let comm = input_stream.next_command();
             let comm = match comm {
                 Ok(c) => c,
-                Err(e) => match &e {
+                Err(e) => match *e {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_)
                     | InterpreterError::ParseError(_) => {
@@ -354,7 +354,7 @@ impl Debugger {
                 Command::Help => {
                     print!("{}", Command::get_help_string())
                 }
-                Command::Exit => return Err(InterpreterError::Exit),
+                Command::Exit => return Err(InterpreterError::Exit.into()),
                 Command::Explain => print!("{}", Command::get_explain_string()),
                 _ => {
                     println!(

@@ -153,18 +153,18 @@ fud exec --to jq \
       {} -q
 """
 
-[[tests]]
-name = "correctness static timing"
-paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil", "tests/correctness/sync/*.futil" ]
-cmd = """
-fud exec --to jq \
-         --through dat \
-         -s futil.exec './target/debug/futil' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         -s jq.expr ".memories" \
-         {} -q
-"""
+# [[tests]]
+# name = "correctness static timing"
+# paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil", "tests/correctness/sync/*.futil" ]
+# cmd = """
+# fud exec --to jq \
+#          --through dat \
+#          -s futil.exec './target/debug/futil' \
+#          -s verilog.cycle_limit 500 \
+#          -s verilog.data {}.data \
+#          -s jq.expr ".memories" \
+#          {} -q
+# """
 
 [[tests]]
 name = "[frontend] systolic array correctness"

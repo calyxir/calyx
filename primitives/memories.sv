@@ -26,7 +26,7 @@ module seq_mem_d1 #(
    output logic write_done
 );
   // Internal memory
-  logic [WIDTH-1:0] mem[SIZE-1:0];
+  (* ram_style = "ultra" *)  logic [WIDTH-1:0] mem[SIZE-1:0];
 
   // Register for the read output
   logic [WIDTH-1:0] read_out;

@@ -7,41 +7,27 @@ component dense_1x10() -> () {
     ref x0_0 = seq_mem_d2(32,1,4096,1,13);
     ref y0_0 = seq_mem_d2(32,10,4096,4,13);
     ref x10_0 = seq_mem_d2(32,1,10,1,4);
-    __i0 = std_reg(4);
-    __i1 = std_reg(1);
-    __j0 = std_reg(13);
-    __j1 = std_reg(4);
+    __i0 = std_reg(1);
+    __j0 = std_reg(4);
     __k0 = std_reg(13);
     __product_0 = std_reg(32);
-    __transpose_y0_0 = seq_mem_d2(32,4096,10,13,4);
-    __transpose_y_read0_0 = std_reg(32);
-    add0 = std_add(13);
-    add1 = std_add(4);
-    add2 = std_sadd(32);
-    add3 = std_add(13);
-    add4 = std_add(4);
-    add5 = std_add(1);
+    add0 = std_sadd(32);
+    add1 = std_add(13);
+    add2 = std_add(4);
+    add3 = std_add(1);
     bin_read0_0 = std_reg(32);
-    const0 = std_const(4,0);
-    const1 = std_const(4,9);
-    const10 = std_const(13,0);
-    const11 = std_const(13,4095);
-    const12 = std_const(13,1);
-    const13 = std_const(4,1);
-    const14 = std_const(1,1);
-    const2 = std_const(13,0);
-    const3 = std_const(13,4095);
-    const4 = std_const(13,1);
-    const5 = std_const(4,1);
-    const6 = std_const(1,0);
-    const7 = std_const(1,0);
-    const8 = std_const(4,0);
-    const9 = std_const(4,9);
-    le0 = std_le(4);
-    le1 = std_le(13);
-    le2 = std_le(1);
-    le3 = std_le(4);
-    le4 = std_le(13);
+    const0 = std_const(1,0);
+    const1 = std_const(1,0);
+    const2 = std_const(4,0);
+    const3 = std_const(4,9);
+    const4 = std_const(13,0);
+    const5 = std_const(13,4095);
+    const6 = std_const(13,1);
+    const7 = std_const(4,1);
+    const8 = std_const(1,1);
+    le0 = std_le(1);
+    le1 = std_le(4);
+    le2 = std_le(13);
     mult_pipe0 = std_smult_pipe(32);
     red_read00 = std_reg(32);
     x_read0_0 = std_reg(32);
@@ -57,16 +43,8 @@ component dense_1x10() -> () {
       le1.right = const3.out;
     }
     comb group cond2 {
-      le2.left = __i1.out;
-      le2.right = const7.out;
-    }
-    comb group cond3 {
-      le3.left = __j1.out;
-      le3.right = const9.out;
-    }
-    comb group cond4 {
-      le4.left = __k0.out;
-      le4.right = const11.out;
+      le2.left = __k0.out;
+      le2.right = const5.out;
     }
     group let0<"static"=1> {
       __i0.in = const0.out;
@@ -79,157 +57,104 @@ component dense_1x10() -> () {
       let1[done] = __j0.done;
     }
     group let2<"static"=1> {
-      __i1.in = const6.out;
-      __i1.write_en = 1'd1;
-      let2[done] = __i1.done;
-    }
-    group let3<"static"=1> {
-      __j1.in = const8.out;
-      __j1.write_en = 1'd1;
-      let3[done] = __j1.done;
-    }
-    group let4<"static"=1> {
-      __k0.in = const10.out;
+      __k0.in = const4.out;
       __k0.write_en = 1'd1;
-      let4[done] = __k0.done;
+      let2[done] = __k0.done;
     }
-    group let5<"static"=4> {
+    group let3<"static"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
-      let5[done] = bin_read0_0.done;
+      let3[done] = bin_read0_0.done;
       mult_pipe0.left = x_read0_0.out;
-      mult_pipe0.right = __transpose_y_read0_0.out;
+      mult_pipe0.right = y_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let6<"static"=1> {
+    group let4<"static"=1> {
       __product_0.in = bin_read0_0.out;
       __product_0.write_en = 1'd1;
-      let6[done] = __product_0.done;
+      let4[done] = __product_0.done;
     }
-    group let7<"static"=2> {
+    group let5<"static"=2> {
       red_read00.in = x10_0.out;
       red_read00.write_en = x10_0.read_done;
-      let7[done] = red_read00.done;
-      x10_0.addr1 = __j1.out;
-      x10_0.addr0 = __i1.out;
+      let5[done] = red_read00.done;
+      x10_0.addr1 = __j0.out;
+      x10_0.addr0 = __i0.out;
       x10_0.read_en = 1'd1;
     }
     group upd0<"static"=2> {
-      y_read0_0.write_en = y0_0.read_done;
-      y0_0.addr1 = __j0.out;
-      y0_0.addr0 = __i0.out;
-      y0_0.read_en = 1'd1;
-      y_read0_0.in = y0_0.out;
-      upd0[done] = y_read0_0.done;
-    }
-    group upd1<"static"=1> {
-      __transpose_y0_0.addr1 = __i0.out;
-      __transpose_y0_0.addr0 = __j0.out;
-      __transpose_y0_0.write_en = 1'd1;
-      __transpose_y0_0.in = y_read0_0.out;
-      upd1[done] = __transpose_y0_0.write_done;
-    }
-    group upd2<"static"=1> {
-      __j0.write_en = 1'd1;
-      add0.left = __j0.out;
-      add0.right = const4.out;
-      __j0.in = add0.out;
-      upd2[done] = __j0.done;
-    }
-    group upd3<"static"=1> {
-      __i0.write_en = 1'd1;
-      add1.left = __i0.out;
-      add1.right = const5.out;
-      __i0.in = add1.out;
-      upd3[done] = __i0.done;
-    }
-    group upd4<"static"=2> {
       x_read0_0.write_en = x0_0.read_done;
       x0_0.addr1 = __k0.out;
-      x0_0.addr0 = __i1.out;
+      x0_0.addr0 = __i0.out;
       x0_0.read_en = 1'd1;
       x_read0_0.in = x0_0.out;
-      upd4[done] = x_read0_0.done;
+      upd0[done] = x_read0_0.done;
     }
-    group upd5<"static"=2> {
-      __transpose_y_read0_0.write_en = __transpose_y0_0.read_done;
-      __transpose_y0_0.addr1 = __j1.out;
-      __transpose_y0_0.addr0 = __k0.out;
-      __transpose_y0_0.read_en = 1'd1;
-      __transpose_y_read0_0.in = __transpose_y0_0.out;
-      upd5[done] = __transpose_y_read0_0.done;
+    group upd1<"static"=2> {
+      y_read0_0.write_en = y0_0.read_done;
+      y0_0.addr1 = __k0.out;
+      y0_0.addr0 = __j0.out;
+      y0_0.read_en = 1'd1;
+      y_read0_0.in = y0_0.out;
+      upd1[done] = y_read0_0.done;
     }
-    group upd6<"static"=1> {
-      x10_0.addr1 = __j1.out;
-      x10_0.addr0 = __i1.out;
+    group upd2<"static"=1> {
+      x10_0.addr1 = __j0.out;
+      x10_0.addr0 = __i0.out;
       x10_0.write_en = 1'd1;
-      add2.left = red_read00.out;
-      add2.right = __product_0.out;
-      x10_0.in = add2.out;
-      upd6[done] = x10_0.write_done;
+      add0.left = red_read00.out;
+      add0.right = __product_0.out;
+      x10_0.in = add0.out;
+      upd2[done] = x10_0.write_done;
     }
-    group upd7<"static"=1> {
+    group upd3<"static"=1> {
       __k0.write_en = 1'd1;
-      add3.left = __k0.out;
-      add3.right = const12.out;
-      __k0.in = add3.out;
-      upd7[done] = __k0.done;
+      add1.left = __k0.out;
+      add1.right = const6.out;
+      __k0.in = add1.out;
+      upd3[done] = __k0.done;
     }
-    group upd8<"static"=1> {
-      __j1.write_en = 1'd1;
-      add4.left = __j1.out;
-      add4.right = const13.out;
-      __j1.in = add4.out;
-      upd8[done] = __j1.done;
+    group upd4<"static"=1> {
+      __j0.write_en = 1'd1;
+      add2.left = __j0.out;
+      add2.right = const7.out;
+      __j0.in = add2.out;
+      upd4[done] = __j0.done;
     }
-    group upd9<"static"=1> {
-      __i1.write_en = 1'd1;
-      add5.left = __i1.out;
-      add5.right = const14.out;
-      __i1.in = add5.out;
-      upd9[done] = __i1.done;
+    group upd5<"static"=1> {
+      __i0.write_en = 1'd1;
+      add3.left = __i0.out;
+      add3.right = const8.out;
+      __i0.in = add3.out;
+      upd5[done] = __i0.done;
     }
   }
   control {
     seq {
       @pos(0) let0;
-      @bound(10) while le0.out with cond0 {
+      @bound(1) while le0.out with cond0 {
         seq {
           @pos(1) let1;
-          @bound(4096) while le1.out with cond1 {
+          @bound(10) while le1.out with cond1 {
             seq {
-              @pos(2) upd0;
-              @pos(3) upd1;
-              @pos(1) upd2;
-            }
-          }
-          @pos(0) upd3;
-        }
-      }
-      @pos(4) let2;
-      @bound(1) while le2.out with cond2 {
-        seq {
-          @pos(5) let3;
-          @bound(10) while le3.out with cond3 {
-            seq {
-              @pos(6) let4;
-              @bound(4096) while le4.out with cond4 {
+              @pos(2) let2;
+              @bound(4096) while le2.out with cond2 {
                 seq {
                   par {
-                    @pos(7) upd4;
-                    @pos(8) upd5;
+                    @pos(3) upd0;
+                    @pos(4) upd1;
                   }
+                  let3;
+                  let4;
                   let5;
-                  let6;
-                  let7;
-                  upd6;
-                  @pos(6) upd7;
+                  upd2;
+                  @pos(2) upd3;
                 }
               }
-              @pos(5) upd8;
+              @pos(1) upd4;
             }
           }
-          @pos(4) upd9;
+          @pos(0) upd5;
         }
       }
     }

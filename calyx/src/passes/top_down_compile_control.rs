@@ -750,7 +750,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(par_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().unwrap().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, *node_id);
 
         Ok(Action::change(en))
     }

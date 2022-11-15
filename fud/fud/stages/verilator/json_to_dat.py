@@ -35,7 +35,11 @@ def parse_dat(path, args):
         if "int_width" in args:
             return FixedPoint(hex_value, **args).str_value()
         else:
-            return int(Bitnum(hex_value, **args).str_value())
+            bn = Bitnum(hex_value, **args)
+            if bn.is_undef:
+                return bn.str_value()
+            else:
+                return int(bn.str_value())
 
     with path.open("r") as f:
         lines = []
