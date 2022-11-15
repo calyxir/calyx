@@ -11,21 +11,21 @@ pub struct Id {
     #[derivative(Hash = "ignore")]
     #[derivative(Debug = "ignore")]
     #[serde(skip)]
-    span: Option<Span>,
+    span: Box<Option<Span>>,
 }
 
 impl Id {
     pub fn new<S: ToString>(id: S, span: Option<Span>) -> Self {
         Self {
             id: id.to_string(),
-            span,
+            span: Box::new(span),
         }
     }
 }
 
 impl WithPos for Id {
     fn copy_span(&self) -> Option<Span> {
-        self.span.clone()
+        (*self.span).clone()
     }
 }
 
@@ -50,14 +50,17 @@ impl From<&str> for Id {
     fn from(s: &str) -> Self {
         Id {
             id: s.to_string(),
-            span: None,
+            span: Box::new(None),
         }
     }
 }
 
 impl From<String> for Id {
     fn from(s: String) -> Self {
-        Id { id: s, span: None }
+        Id {
+            id: s,
+            span: Box::new(None),
+        }
     }
 }
 
