@@ -1,31 +1,34 @@
 use crate::errors::{Span, WithPos};
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 /// Represents an identifier in a Calyx program
-#[derive(Derivative, Clone, PartialOrd, Ord, Deserialize)]
-#[derivative(Hash, Eq, Debug)]
+#[derive(Derivative, Clone, Deserialize)]
+#[derivative(Hash, Eq, Debug, PartialOrd, Ord)]
 #[serde(transparent)]
 pub struct Id {
     pub id: String,
     #[derivative(Hash = "ignore")]
     #[derivative(Debug = "ignore")]
+    #[derivative(PartialOrd = "ignore")]
+    #[derivative(Ord = "ignore")]
     #[serde(skip)]
-    span: Box<Option<Span>>,
+    span: Option<Rc<Span>>,
 }
 
 impl Id {
-    pub fn new<S: ToString>(id: S, span: Option<Span>) -> Self {
+    pub fn new<S: ToString>(id: S, span: Option<Rc<Span>>) -> Self {
         Self {
             id: id.to_string(),
-            span: Box::new(span),
+            span,
         }
     }
 }
 
 impl WithPos for Id {
-    fn copy_span(&self) -> Option<Span> {
-        (*self.span).clone()
+    fn copy_span(&self) -> Option<Rc<Span>> {
+        self.span.clone()
     }
 }
 
@@ -50,17 +53,14 @@ impl From<&str> for Id {
     fn from(s: &str) -> Self {
         Id {
             id: s.to_string(),
-            span: Box::new(None),
+            span: None,
         }
     }
 }
 
 impl From<String> for Id {
     fn from(s: String) -> Self {
-        Id {
-            id: s,
-            span: Box::new(None),
-        }
+        Id { id: s, span: None }
     }
 }
 

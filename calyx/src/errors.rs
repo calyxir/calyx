@@ -13,7 +13,7 @@ pub type CalyxResult<T> = std::result::Result<T, Error>;
 
 /// A span of the input program.
 /// Used for reporting location-based errors.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Span {
     /// Reference to input program source.
     input: Rc<str>,
@@ -100,18 +100,18 @@ impl Span {
 /// An IR node that may contain position information.
 pub trait WithPos {
     /// Copy the span associated with this node.
-    fn copy_span(&self) -> Option<Span>;
+    fn copy_span(&self) -> Option<Rc<Span>>;
 }
 
 pub struct Error {
     kind: Box<ErrorKind>,
-    pos: Box<Option<Span>>,
+    pos: Option<Rc<Span>>,
     post_msg: Option<String>,
 }
 
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &*self.pos {
+        match &self.pos {
             None => write!(f, "{}", self.kind)?,
             Some(pos) => write!(f, "{}", pos.format(&self.kind.to_string()))?,
         }
@@ -124,7 +124,7 @@ impl std::fmt::Debug for Error {
 
 impl Error {
     pub fn with_pos<T: WithPos>(mut self, pos: &T) -> Self {
-        self.pos = Box::new(pos.copy_span());
+        self.pos = pos.copy_span();
         self
     }
 
@@ -136,7 +136,7 @@ impl Error {
     pub fn parse_error(err: pest_consume::Error<parser::Rule>) -> Self {
         Self {
             kind: Box::new(ErrorKind::ParseError(err)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
@@ -144,28 +144,28 @@ impl Error {
     pub fn reserved_name(name: ir::Id) -> Self {
         Self {
             kind: Box::new(ErrorKind::ReservedName(name)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
     pub fn malformed_control(msg: String) -> Self {
         Self {
             kind: Box::new(ErrorKind::MalformedControl(msg)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
     pub fn malformed_structure<S: ToString>(msg: S) -> Self {
         Self {
             kind: Box::new(ErrorKind::MalformedStructure(msg.to_string())),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
     pub fn pass_assumption<S: ToString>(pass: S, msg: String) -> Self {
         Self {
             kind: Box::new(ErrorKind::PassAssumption(pass.to_string(), msg)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
@@ -173,7 +173,7 @@ impl Error {
         let pos = name.copy_span();
         Self {
             kind: Box::new(ErrorKind::Undefined(name, typ)),
-            pos: Box::new(pos),
+            pos,
             post_msg: None,
         }
     }
@@ -181,42 +181,42 @@ impl Error {
         let pos = name.copy_span();
         Self {
             kind: Box::new(ErrorKind::AlreadyBound(name, typ)),
-            pos: Box::new(pos),
+            pos,
             post_msg: None,
         }
     }
     pub fn unused<S: ToString>(group: ir::Id, typ: S) -> Self {
         Self {
             kind: Box::new(ErrorKind::Unused(group, typ.to_string())),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
     pub fn papercut(msg: String) -> Self {
         Self {
             kind: Box::new(ErrorKind::Papercut(msg)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
     pub fn misc(msg: String) -> Self {
         Self {
             kind: Box::new(ErrorKind::Misc(msg)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
     pub fn invalid_file(msg: String) -> Self {
         Self {
             kind: Box::new(ErrorKind::InvalidFile(msg)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
     pub fn write_error(msg: String) -> Self {
         Self {
             kind: Box::new(ErrorKind::WriteError(msg)),
-            pos: Box::new(None),
+            pos: None,
             post_msg: None,
         }
     }
