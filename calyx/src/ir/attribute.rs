@@ -1,5 +1,5 @@
 use linked_hash_map::LinkedHashMap;
-use std::{convert::TryFrom, ops::Index};
+use std::{convert::TryFrom, ops::Index, rc::Rc};
 
 use crate::errors::{CalyxResult, Span, WithPos};
 
@@ -9,7 +9,7 @@ pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
     pub(super) attrs: LinkedHashMap<String, u64>,
     /// Source location information for the item
-    span: Option<Span>,
+    span: Option<Rc<Span>>,
 }
 
 impl Default for Attributes {
@@ -40,7 +40,7 @@ impl TryFrom<Vec<(String, u64)>> for Attributes {
 }
 
 impl WithPos for Attributes {
-    fn copy_span(&self) -> Option<Span> {
+    fn copy_span(&self) -> Option<Rc<Span>> {
         self.span.clone()
     }
 }
@@ -98,14 +98,14 @@ impl Attributes {
     }
 
     /// Set the span information
-    pub fn add_span(mut self, span: Span) -> Self {
+    pub fn add_span(mut self, span: Rc<Span>) -> Self {
         self.span = Some(span);
         self
     }
 }
 
 impl<T: GetAttributes> WithPos for T {
-    fn copy_span(&self) -> Option<Span> {
+    fn copy_span(&self) -> Option<Rc<Span>> {
         self.get_attributes().copy_span()
     }
 }
