@@ -295,6 +295,11 @@ impl Cell {
         matches!(&self.prototype, CellType::Component { .. })
     }
 
+    /// Returns true iff this cell is the signature of the current component
+    pub fn is_this(&self) -> bool {
+        matches!(&self.prototype, CellType::ThisComponent)
+    }
+
     /// Returns true if this is an instance of a primitive. If the optional name is provided then
     /// only returns true if the primitive has the given name.
     pub fn is_primitive<S>(&self, prim: Option<S>) -> bool

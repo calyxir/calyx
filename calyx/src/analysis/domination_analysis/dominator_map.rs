@@ -170,7 +170,7 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
             hs.insert(ControlId::get_guaranteed_attribute(c, END_ID));
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            return get_final((&stmts[..]).last().unwrap_or_else(|| {
+            return get_final(stmts[..].last().unwrap_or_else(|| {
                 panic!("error: empty Seq block. Run collapse-control pass.")
             }));
         }
