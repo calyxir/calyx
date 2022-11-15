@@ -1,0 +1,75 @@
+import "primitives/core.futil";
+
+extern "mult.sv" {
+    primitive mult_pipe(
+        @clk clk: 1,
+        @reset reset: 1,
+        // The input data is valid
+        @go valid: 1,
+        // inputs
+        left: 32,
+        right: 32
+    ) -> (
+        // The input has been committed
+        @done read_done: 1,
+        out: 32
+    );
+}
+
+component main() -> () {
+    cells {
+        mul = mult_pipe();
+        @external left = std_mem_d1(32, 10, 4);
+        @external right = std_mem_d1(32, 10, 4);
+        @external out = std_mem_d1(32, 10, 4);
+        idx = std_reg(4);
+        incr = std_add(4);
+        lt = std_lt(4);
+        cond = std_reg(1);
+    }
+    wires {
+        group init_cond<"static"=1> {
+            cond.in = 1'd1;
+            cond.write_en = 1'd1;
+            init_cond[done] = cond.done;
+        }
+        group incr_idx<"static"=1> {
+            incr.left = idx.out;
+            incr.right = 4'd1;
+            idx.in = incr.out;
+            idx.write_en = 1'd1;
+            // Computation for cond
+            lt.left = incr.out;
+            lt.right = 4'd10;
+            cond.in = lt.out;
+            cond.write_en = 1'd1;
+            incr_idx[done] = idx.done;
+        }
+        group start_mult<"static"=1> {
+            left.addr0 = idx.out;
+            right.addr0 = idx.out;
+            mul.left = left.read_data;
+            mul.right = right.read_data;
+            mul.valid = 1'd1;
+            start_mult[done] = mul.read_done;
+        }
+        group do_write<"static"=1> {
+            out.addr0 = idx.out;
+            out.write_data = mul.out;
+            out.write_en = 1'd1;
+            do_write[done] = out.done;
+        }
+    }
+    control {
+        seq {
+            init_cond;
+            @bound(10) while cond.out {
+                par {
+                    start_mult;
+                    incr_idx;
+                    do_write;
+                }
+            }
+        }
+    }
+}
