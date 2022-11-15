@@ -1,11 +1,3 @@
-// test barrier for while loops
-// expected resolution order:
-// thread 1:
-// no-op;   sync;   r(1);   w(2);   sync;   no-op;          sync;  r (3); w(4);
-// sync;    no-op;        sync;  r(5); w(6); sync;
-// thread 2:
-// w(1);    sync;   no-op;          sync;   r(2);    w(3);  sync;  no-op;     
-// sync;    r(4);  w(5);  sync;  no-op;      sync;   r(6);
 import "primitives/core.futil";
 import "primitives/sync.futil";
 
@@ -27,26 +19,26 @@ component main() -> () {
       no_use_1.write_en = 1'd1;
       no_op_1[done] = no_use_1.done;
     }
-    
+
     group no_op_2 {
       no_use_2.in = 32'd0;
       no_use_2.write_en = 1'd1;
       no_op_2[done] = no_use_2.done;
     }
 
-    group incr_val {
+    group write {
       add_0.left = val.out;
       add_0.right = 32'd1;
       val.in = add_0.out;
       val.write_en = 1'd1;
-      incr_val[done] = val.done;
+      write[done] = val.done;
     }
 
-    group reg_to_mem {
+    group read {
       out.write_en = 1'd1;
       out.write_data = val.out;
       out.addr0 = addr.out;
-      reg_to_mem[done] = out.done;
+      read[done] = out.done;
     }
 
     group incr_idx {
@@ -64,23 +56,27 @@ component main() -> () {
   }
 
   control {
+    // test barrier for while loops
+    // expected resolution order:
+    // thread 1: N    S r(1) I(0) w(2) S N                S r (3) I(4) w(4) S N                S  r(5) I(5) w(6) S
+    // thread 2: w(1) S N                S r(2) I(1) w(3) S N                S r(4) I(4) w(5)  S  N                S  r(6)
     par {
       // thread 1
       while lt.out with cmp {
         seq {
           @sync(1) no_op_1;
-          reg_to_mem;
+          read;
           incr_idx;
-          @sync(2) incr_val;
+          @sync(2) write;
         }
       }
 
       // thread 2
       while lt.out with cmp {
         seq {
-          @sync(1) incr_val;
+          @sync(1) write;
           @sync(2) no_op_2;
-          reg_to_mem;
+          read;
           incr_idx;
         }
       }

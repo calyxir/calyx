@@ -121,6 +121,8 @@ impl PassManager {
             "no-opt",
             [
                 "validate",
+                CompileSync,
+                CompileRef,
                 RemoveCombGroups,
                 CompileInvoke,
                 "compile",
