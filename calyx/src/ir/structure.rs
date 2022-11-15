@@ -204,12 +204,12 @@ pub struct Cell {
 }
 
 impl GetAttributes for Cell {
-    fn get_attributes(&self) -> Option<&Attributes> {
-        Some(&self.attributes)
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
     }
 
-    fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
-        Some(&mut self.attributes)
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
     }
 }
 

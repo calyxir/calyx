@@ -227,6 +227,8 @@ connections = {
 
 // ====== control ======
 
+empty = { at_attributes ~ ";" }
+
 enable = { at_attributes ~ identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ (port | num_lit) }
@@ -269,7 +271,8 @@ while_stmt = {
 }
 
 stmt = {
-      enable
+      empty
+    | enable
     | invoke
     | seq
     | par

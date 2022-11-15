@@ -50,7 +50,7 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
     match s {
         ir::Control::Seq(seq) => {
             for stmt in seq.stmts.iter() {
-                if let Some(&n) = stmt.get_attributes().unwrap().get("sync") {
+                if let Some(&n) = stmt.get_attributes().get("sync") {
                     count.insert(n);
                 }
                 count_barriers(stmt, count);
@@ -88,8 +88,7 @@ impl CompileSync {
                 let mut stmts_new: Vec<ir::Control> = Vec::new();
                 for mut stmt in std::mem::take(&mut seq.stmts) {
                     self.build_barriers(builder, &mut stmt, count);
-                    if let Some(n) = stmt.get_attributes().unwrap().get("sync")
-                    {
+                    if let Some(n) = stmt.get_attributes().get("sync") {
                         if self.barriers.get(n).is_none() {
                             self.add_shared_structure(builder, n);
                         }
@@ -290,7 +289,7 @@ fn build_member(
     let mut stmts: Vec<ir::Control> = Vec::new();
     let mut copy = ir::Control::clone(original);
 
-    copy.get_mut_attributes().unwrap().remove("sync");
+    copy.get_mut_attributes().remove("sync");
 
     let barrier = Rc::clone(&cells[0]);
     let eq = Rc::clone(&cells[1]);

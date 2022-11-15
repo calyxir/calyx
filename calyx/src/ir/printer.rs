@@ -196,15 +196,21 @@ impl Printer {
         }
         writeln!(f, "  }}")?;
 
-        // Add the control program
-        if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
-            if !comp.is_comb {
-                writeln!(f, "\n  control {{}}")?;
+        // Add the control program.
+        // Since the syntax doesn't allow combinational components to have a control block, the attributes will always be empty
+        match &*comp.control.borrow() {
+            ir::Control::Empty(ir::Empty { attributes })
+                if attributes.is_empty() =>
+            {
+                if !comp.is_comb {
+                    writeln!(f, "\n  control {{}}")?;
+                }
             }
-        } else {
-            writeln!(f, "\n  control {{")?;
-            Self::write_control(&comp.control.borrow(), 4, f)?;
-            writeln!(f, "  }}")?;
+            _ => {
+                writeln!(f, "\n  control {{")?;
+                Self::write_control(&comp.control.borrow(), 4, f)?;
+                writeln!(f, "  }}")?;
+            }
         }
 
         write!(f, "}}")
@@ -473,7 +479,13 @@ impl Printer {
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
-            ir::Control::Empty(_) => writeln!(f),
+            ir::Control::Empty(ir::Empty { attributes }) => {
+                if !attributes.is_empty() {
+                    writeln!(f, "{};", Self::format_at_attributes(attributes))
+                } else {
+                    writeln!(f)
+                }
+            }
         }
     }
 
