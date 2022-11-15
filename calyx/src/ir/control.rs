@@ -84,8 +84,10 @@ pub struct Invoke {
 }
 
 /// Data for the `empty` control statement.
-#[derive(Debug)]
-pub struct Empty {}
+#[derive(Debug, Default)]
+pub struct Empty {
+    pub attributes: Attributes,
+}
 
 /// Control AST nodes.
 #[derive(Debug)]
@@ -119,27 +121,27 @@ impl From<Enable> for Control {
 }
 
 impl GetAttributes for Control {
-    fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
         match self {
             Self::Seq(Seq { attributes, .. })
             | Self::Par(Par { attributes, .. })
             | Self::If(If { attributes, .. })
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
-            | Self::Enable(Enable { attributes, .. }) => Some(attributes),
-            Self::Empty(..) => None,
+            | Self::Enable(Enable { attributes, .. })
+            | Self::Empty(Empty { attributes }) => attributes,
         }
     }
 
-    fn get_attributes(&self) -> Option<&Attributes> {
+    fn get_attributes(&self) -> &Attributes {
         match self {
             Self::Seq(Seq { attributes, .. })
             | Self::Par(Par { attributes, .. })
             | Self::If(If { attributes, .. })
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
-            | Self::Enable(Enable { attributes, .. }) => Some(attributes),
-            Self::Empty(..) => None,
+            | Self::Enable(Enable { attributes, .. })
+            | Self::Empty(Empty { attributes }) => attributes,
         }
     }
 }
@@ -148,7 +150,7 @@ impl Control {
     // ================ Constructor methods ================
     /// Convience constructor for empty.
     pub fn empty() -> Self {
-        Control::Empty(Empty {})
+        Control::Empty(Empty::default())
     }
 
     /// Convience constructor for seq.
@@ -222,7 +224,7 @@ impl Control {
     where
         S: std::fmt::Display + AsRef<str>,
     {
-        self.get_attributes().and_then(|attrs| attrs.get(attr))
+        self.get_attributes().get(attr)
     }
 
     /// Returns true if the node has a specific attribute
@@ -230,9 +232,7 @@ impl Control {
     where
         S: std::fmt::Display + AsRef<str>,
     {
-        self.get_attributes()
-            .map(|attrs| attrs.has(attr))
-            .unwrap_or(false)
+        self.get_attributes().has(attr)
     }
 }
 

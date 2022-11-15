@@ -48,10 +48,10 @@ impl WithPos for Attributes {
 /// Structs that can return an [`Attributes`] instance.
 pub trait GetAttributes {
     /// Returns an [`Attributes`] instance
-    fn get_attributes(&self) -> Option<&Attributes>;
+    fn get_attributes(&self) -> &Attributes;
 
     /// Returns a mutable [`Attributes`] instance
-    fn get_mut_attributes(&mut self) -> Option<&mut Attributes>;
+    fn get_mut_attributes(&mut self) -> &mut Attributes;
 }
 
 impl Attributes {
@@ -106,7 +106,7 @@ impl Attributes {
 
 impl<T: GetAttributes> WithPos for T {
     fn copy_span(&self) -> Option<Span> {
-        self.get_attributes().and_then(|attrs| attrs.copy_span())
+        self.get_attributes().copy_span()
     }
 }
 

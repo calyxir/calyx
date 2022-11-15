@@ -293,7 +293,7 @@ impl Visitor for GroupToInvoke {
             Some(invoke) => {
                 let mut inv = ir::Control::clone(invoke);
                 let attrs = std::mem::take(&mut s.attributes);
-                *inv.get_mut_attributes().unwrap() = attrs;
+                *inv.get_mut_attributes() = attrs;
                 Ok(Action::Change(Box::new(inv)))
             }
         }
