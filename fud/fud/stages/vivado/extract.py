@@ -127,7 +127,9 @@ def futil_extract(directory):
         if slack_info is None:
             log.error("Failed to extract clock information")
         resource_info.update({"period": float(safe_get(period_info, "Period(ns)"))})
-        resource_info.update({"frequency": float(safe_get(period_info, "Frequency(MHz)"))})
+        resource_info.update(
+            {"frequency": float(safe_get(period_info, "Frequency(MHz)"))}
+        )
 
     # Extraction for synthesis files.
     synth_file = directory / "synth_1" / "runme.log"

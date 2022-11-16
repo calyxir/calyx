@@ -1,0 +1,35 @@
+{
+  "x": {
+    "data": [
+      0.8125
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "int_width": 16
+    }
+  },
+  "b": {
+    "data": [
+      0.75
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "int_width": 16
+    }
+  },
+  "ret": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 32,
+      "int_width": 16
+    }
+  }
+}

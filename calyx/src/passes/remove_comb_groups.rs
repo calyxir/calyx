@@ -231,9 +231,8 @@ impl Visitor for RemoveCombGroups {
                 new_inputs,
                 s.outputs.drain(..).collect(),
             );
-            if let Some(attrs) = invoke.get_mut_attributes() {
-                *attrs = std::mem::take(&mut s.attributes);
-            }
+            let attrs = invoke.get_mut_attributes();
+            *attrs = std::mem::take(&mut s.attributes);
             // Seq to run the rewritten comb group first and then the invoke.
             let seq = ir::Control::seq(vec![
                 ir::Control::enable(Rc::clone(new_group.unwrap())),
@@ -267,9 +266,8 @@ impl Visitor for RemoveCombGroups {
         let new_body = ir::Control::seq(vec![body, cond_in_body]);
         let mut while_ =
             ir::Control::while_(Rc::clone(port_ref), None, Box::new(new_body));
-        if let Some(attrs) = while_.get_mut_attributes() {
-            *attrs = std::mem::take(&mut s.attributes);
-        }
+        let attrs = while_.get_mut_attributes();
+        *attrs = std::mem::take(&mut s.attributes);
         let cond_before_body = ir::Control::enable(Rc::clone(cond_ref));
         Ok(Action::change(ir::Control::seq(vec![
             cond_before_body,

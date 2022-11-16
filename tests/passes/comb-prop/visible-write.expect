@@ -1,0 +1,12 @@
+import "primitives/core.futil";
+component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    wire1 = std_wire(32);
+  }
+  wires {
+    done = 1'd1;
+    out = in;
+  }
+
+  control {}
+}

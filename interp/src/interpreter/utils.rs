@@ -103,7 +103,7 @@ impl<'a, T> Deref for ReferenceHolder<'a, T> {
     fn deref(&self) -> &Self::Target {
         match self {
             ReferenceHolder::Ref(r) => r,
-            ReferenceHolder::Borrow(b) => *b,
+            ReferenceHolder::Borrow(b) => b,
         }
     }
 }

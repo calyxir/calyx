@@ -90,9 +90,13 @@ impl CalyxParser {
         Ok(CalyxParser::file(input)?)
     }
 
-    fn get_span(node: &Node) -> Span {
+    fn get_span(node: &Node) -> Rc<Span> {
         let ud = node.user_data();
-        Span::new(node.as_span(), Rc::clone(&ud.file), Rc::clone(&ud.input))
+        Rc::new(Span::new(
+            node.as_span(),
+            Rc::clone(&ud.file),
+            Rc::clone(&ud.input),
+        ))
     }
 }
 
@@ -625,6 +629,16 @@ impl CalyxParser {
         ))
     }
 
+    fn empty(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs)] => ast::Control::Empty {
+                attributes: attrs.add_span(span)
+            }
+        ))
+    }
+
     fn enable(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
@@ -674,7 +688,7 @@ impl CalyxParser {
                 port,
                 cond,
                 tbranch: Box::new(stmt),
-                fbranch: Box::new(ast::Control::Empty{}),
+                fbranch: Box::new(ast::Control::Empty { attributes: ir::Attributes::default() }),
                 attributes: attrs.add_span(span),
             },
             [at_attributes(attrs), port_with((port, cond)), block(tbranch), block(fbranch)] =>
@@ -714,6 +728,7 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [enable(data)] => data,
+            [empty(data)] => data,
             [invoke(data)] => data,
             [seq(data)] => data,
             [par(data)] => data,
@@ -742,7 +757,7 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [block(stmt)] => stmt,
-            [] => ast::Control::Empty{}
+            [] => ast::Control::empty()
         ))
     }
 
@@ -776,7 +791,7 @@ impl CalyxParser {
                 cells,
                 groups,
                 continuous_assignments,
-                control: Control::Empty {},
+                control: Control::empty(),
                 attributes: attributes.add_span(span),
                 is_comb: true,
             })

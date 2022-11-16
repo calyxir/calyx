@@ -115,7 +115,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
                 };
 
                 if overflow & self.error_on_overflow {
-                    return Err(InterpreterError::OverflowError());
+                    return Err(InterpreterError::OverflowError.into());
                 } else if overflow {
                     warn!(
                         self.logger,
@@ -327,7 +327,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
                     // min_val is divided by negative one as the resultant postitive value will
                     // not be representable in the desired bit width
                     if (overflow) & self.error_on_overflow {
-                        return Err(InterpreterError::OverflowError());
+                        return Err(InterpreterError::OverflowError.into());
                     } else if overflow {
                         warn!(
                             self.logger,
@@ -627,7 +627,8 @@ impl<T: MemBinder> StdMem<T> {
                 mem_dim: mem_binder.get_dimensions().dim_str(),
                 expected: size as u64,
                 given: initial.len(),
-            });
+            }
+            .into());
         }
 
         let mut data = initial;
@@ -1470,7 +1471,8 @@ impl MemBinder for MemD1 {
                 access: vec![idx],
                 dims: vec![self.size],
                 name: self.full_name.clone(),
-            })
+            }
+            .into())
         } else {
             Ok(idx)
         }
@@ -1535,7 +1537,8 @@ impl MemBinder for MemD2 {
                 access: vec![addr0, addr1],
                 dims: vec![self.d0_size, self.d1_size],
                 name: self.full_name.clone(),
-            })
+            }
+            .into())
         } else {
             Ok(address)
         }
@@ -1609,7 +1612,8 @@ impl MemBinder for MemD3 {
                 access: vec![addr0, addr1, addr2],
                 dims: vec![self.d0_size, self.d1_size, self.d2_size],
                 name: self.full_name.clone(),
-            })
+            }
+            .into())
         } else {
             Ok(address)
         }
@@ -1703,7 +1707,8 @@ impl MemBinder for MemD4 {
                     self.d3_size,
                 ],
                 name: self.full_name.clone(),
-            })
+            }
+            .into())
         } else {
             Ok(address)
         }
@@ -1789,7 +1794,8 @@ impl<T: MemBinder> SeqMem<T> {
                 mem_dim: mem_binder.get_dimensions().dim_str(),
                 expected: size as u64,
                 given: initial.len(),
-            });
+            }
+            .into());
         }
 
         let mut data = initial;
@@ -1903,7 +1909,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
                 ("read_done".into(), Value::bit_low()),
                 ("write_done".into(), Value::bit_low()),
             ]),
-            SeqMemAction::Error => Err(InterpreterError::SeqMemoryError),
+            SeqMemAction::Error => Err(InterpreterError::SeqMemoryError.into()),
         }
     }
 
