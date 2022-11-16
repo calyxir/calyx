@@ -9,7 +9,6 @@ component main() -> () {
     add1 = std_add(4);
     @external(1) b00 = seq_mem_d1(32,4,3);
     b0_read0_0 = std_reg(32);
-    bin_read0_0 = std_reg(32);
     const0 = std_const(32,0);
     const1 = std_const(4,0);
     const2 = std_const(4,3);
@@ -39,17 +38,12 @@ component main() -> () {
       let1[done] = i0.done;
     }
     group let2<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
-      let2[done] = bin_read0_0.done;
+      v_0.in = mult_pipe0.out;
+      v_0.write_en = mult_pipe0.done;
+      let2[done] = v_0.done;
       mult_pipe0.left = a0_read0_0.out;
       mult_pipe0.right = b0_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
-    }
-    group let3<"static"=1> {
-      v_0.in = bin_read0_0.out;
-      v_0.write_en = 1'd1;
-      let3[done] = v_0.done;
     }
     group upd0<"static"=2> {
       a0_read0_0.write_en = a00.read_done;
@@ -98,7 +92,6 @@ component main() -> () {
             @pos(3) upd1;
           }
           let2;
-          let3;
           upd2;
           @pos(1) upd3;
         }
