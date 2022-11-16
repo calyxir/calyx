@@ -63,14 +63,14 @@ where
     pub fn get_share_freqs(&mut self) -> HashMap<i64, i64> {
         let mut pdf: HashMap<i64, i64> = HashMap::new();
         // hold total value so we know how much to divide by at the end
-        for (_, value) in &self.color_freq_map {
+        for value in self.color_freq_map.values() {
             // `value` is the number of times a cell is shared, corresponding entry
             // is the number of cells that have been shared exactly `value` times
             pdf.entry(*value)
                 .and_modify(|v| *v += *value as i64)
                 .or_insert(*value as i64);
         }
-        return pdf;
+        pdf
     }
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
@@ -104,7 +104,7 @@ where
                     if !available_colors.is_empty() {
                         let c = available_colors.remove(0);
                         coloring.insert(nidx, c);
-                        self.increase_freq(c.clone());
+                        self.increase_freq(c);
                         if let Some(num_used) = all_colors.get_mut(&c) {
                             *num_used += 1;
                             if !always_share && *num_used == bound_if_exists {
@@ -114,7 +114,7 @@ where
                     } else {
                         all_colors.insert(nidx, 1);
                         coloring.insert(nidx, nidx);
-                        self.increase_freq(nidx.clone());
+                        self.increase_freq(nidx);
                         if !always_share && bound_if_exists == 1 {
                             all_colors.remove(&nidx);
                         }
@@ -136,7 +136,7 @@ where
                     match color {
                         Some((c, _)) => {
                             coloring.insert(nidx, *c);
-                            self.increase_freq(c.clone());
+                            self.increase_freq(*c);
                             if let Some(num_used) = all_colors.get_mut(c) {
                                 *num_used += 1;
                                 if !always_share && *num_used == bound_if_exists
@@ -149,7 +149,7 @@ where
                             // use self as color if nothing else
                             all_colors.insert(nidx, 1);
                             coloring.insert(nidx, nidx);
-                            self.increase_freq(nidx.clone());
+                            self.increase_freq(nidx);
                             if !always_share && bound_if_exists == 1 {
                                 all_colors.remove(&nidx);
                             }

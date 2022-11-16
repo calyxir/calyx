@@ -39,7 +39,7 @@ fn cell_type_to_string(cell_type: &ir::CellType) -> String {
         ir::CellType::Constant { val, width } => {
             let mut s = "Const_".to_string();
             s.push_str(&val.to_string());
-            s.push_str("_");
+            s.push('_');
             s.push_str(&width.to_string());
             s
         }
@@ -404,7 +404,7 @@ impl Visitor for CellShare {
                         .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
                 );
                 // only generate share-freqs if we're going to use them.
-                if let Some(_) = &self.print_share_freqs {
+                if self.print_share_freqs.is_some() {
                     // must accumulate sharing numbers for share_freqs across
                     self.share_freqs
                         .entry(cell_type)
@@ -416,7 +416,7 @@ impl Visitor for CellShare {
                                     .or_insert(freq);
                             }
                         })
-                        .or_insert(graph.get_share_freqs());
+                        .or_insert_with(|| graph.get_share_freqs());
                 }
             }
         }
