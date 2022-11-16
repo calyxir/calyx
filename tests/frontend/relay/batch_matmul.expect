@@ -27,7 +27,6 @@ component batch_matmul_4x7x7() -> () {
     add6 = std_add(3);
     add7 = std_add(3);
     b_read0_0 = std_reg(32);
-    bin_read0_0 = std_reg(32);
     const0 = std_const(3,0);
     const1 = std_const(3,3);
     const10 = std_const(3,3);
@@ -124,22 +123,17 @@ component batch_matmul_4x7x7() -> () {
       let6[done] = __k0.done;
     }
     group let7<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
-      let7[done] = bin_read0_0.done;
+      __product_0.in = mult_pipe0.out;
+      __product_0.write_en = mult_pipe0.done;
+      let7[done] = __product_0.done;
       mult_pipe0.left = a_read0_0.out;
       mult_pipe0.right = __transpose_b_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let8<"static"=1> {
-      __product_0.in = bin_read0_0.out;
-      __product_0.write_en = 1'd1;
-      let8[done] = __product_0.done;
-    }
-    group let9<"static"=2> {
+    group let8<"static"=2> {
       red_read00.in = x0_0_0.out;
       red_read00.write_en = x0_0_0.read_done;
-      let9[done] = red_read00.done;
+      let8[done] = red_read00.done;
       x0_0_0.addr2 = __j1.out;
       x0_0_0.addr1 = __i1.out;
       x0_0_0.addr0 = __batch1.out;
@@ -280,7 +274,6 @@ component batch_matmul_4x7x7() -> () {
                       }
                       let7;
                       let8;
-                      let9;
                       upd7;
                       @pos(8) upd8;
                     }

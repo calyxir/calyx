@@ -26,8 +26,6 @@ component max_pool2d_2x2x2x2() -> () {
     add5 = std_add(32);
     add6 = std_add(32);
     add7 = std_add(32);
-    bin_read0_0 = std_reg(32);
-    bin_read1_0 = std_reg(32);
     const0 = std_const(32,0);
     const1 = std_const(32,1);
     const10 = std_const(32,0);
@@ -109,20 +107,6 @@ component max_pool2d_2x2x2x2() -> () {
       __c0.write_en = 1'd1;
       let1[done] = __c0.done;
     }
-    group let10<"static"=1> {
-      __pool_y_0.in = add0.out;
-      __pool_y_0.write_en = 1'd1;
-      let10[done] = __pool_y_0.done;
-      add0.left = __stride_y_0.out;
-      add0.right = __m0.out;
-    }
-    group let11<"static"=1> {
-      __pool_x_0.in = add1.out;
-      __pool_x_0.write_en = 1'd1;
-      let11[done] = __pool_x_0.done;
-      add1.left = __stride_x_0.out;
-      add1.right = __n0.out;
-    }
     group let2<"static"=1> {
       __y0.in = const4.out;
       __y0.write_en = 1'd1;
@@ -134,40 +118,44 @@ component max_pool2d_2x2x2x2() -> () {
       let3[done] = __x0.done;
     }
     group let4<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
-      let4[done] = bin_read0_0.done;
+      __stride_y_0.in = mult_pipe0.out;
+      __stride_y_0.write_en = mult_pipe0.done;
+      let4[done] = __stride_y_0.done;
       mult_pipe0.left = __y0.out;
       mult_pipe0.right = const8.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let5<"static"=1> {
-      __stride_y_0.in = bin_read0_0.out;
-      __stride_y_0.write_en = 1'd1;
-      let5[done] = __stride_y_0.done;
-    }
-    group let6<"static"=4> {
-      bin_read1_0.in = mult_pipe1.out;
-      bin_read1_0.write_en = mult_pipe1.done;
-      let6[done] = bin_read1_0.done;
+    group let5<"static"=4> {
+      __stride_x_0.in = mult_pipe1.out;
+      __stride_x_0.write_en = mult_pipe1.done;
+      let5[done] = __stride_x_0.done;
       mult_pipe1.left = __x0.out;
       mult_pipe1.right = const9.out;
       mult_pipe1.go = !mult_pipe1.done ? 1'd1;
     }
-    group let7<"static"=1> {
-      __stride_x_0.in = bin_read1_0.out;
-      __stride_x_0.write_en = 1'd1;
-      let7[done] = __stride_x_0.done;
-    }
-    group let8<"static"=1> {
+    group let6<"static"=1> {
       __m0.in = const10.out;
       __m0.write_en = 1'd1;
-      let8[done] = __m0.done;
+      let6[done] = __m0.done;
     }
-    group let9<"static"=1> {
+    group let7<"static"=1> {
       __n0.in = const12.out;
       __n0.write_en = 1'd1;
-      let9[done] = __n0.done;
+      let7[done] = __n0.done;
+    }
+    group let8<"static"=1> {
+      __pool_y_0.in = add0.out;
+      __pool_y_0.write_en = 1'd1;
+      let8[done] = __pool_y_0.done;
+      add0.left = __stride_y_0.out;
+      add0.right = __m0.out;
+    }
+    group let9<"static"=1> {
+      __pool_x_0.in = add1.out;
+      __pool_x_0.write_en = 1'd1;
+      let9[done] = __pool_x_0.done;
+      add1.left = __stride_x_0.out;
+      add1.right = __n0.out;
     }
     group upd0<"static"=2> {
       __max_0.write_en = data0_0_0_0.read_done;
@@ -273,37 +261,31 @@ component max_pool2d_2x2x2x2() -> () {
                   @bound(2) while le3.out with cond3 {
                     seq {
                       par {
-                        seq {
-                          let4;
-                          let5;
-                        }
-                        seq {
-                          let6;
-                          let7;
-                        }
+                        @pos(4) let4;
+                        @pos(5) let5;
                       }
-                      @pos(4) upd0;
-                      @pos(5) let8;
+                      @pos(6) upd0;
+                      @pos(7) let6;
                       @bound(2) while le4.out with cond4 {
                         seq {
-                          @pos(6) let9;
+                          @pos(8) let7;
                           @bound(2) while le5.out with cond5 {
                             seq {
                               par {
-                                @pos(7) let10;
-                                @pos(8) let11;
+                                @pos(9) let8;
+                                @pos(10) let9;
                               }
-                              @pos(9) upd1;
+                              @pos(11) upd1;
                               if gt0.out with cond6 {
-                                @pos(10) upd2;
+                                @pos(12) upd2;
                               }
-                              @pos(6) upd3;
+                              @pos(8) upd3;
                             }
                           }
-                          @pos(5) upd4;
+                          @pos(7) upd4;
                         }
                       }
-                      @pos(11) upd5;
+                      @pos(13) upd5;
                       @pos(3) upd6;
                     }
                   }

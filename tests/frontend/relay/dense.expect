@@ -15,7 +15,6 @@ component dense_1x10() -> () {
     add1 = std_add(13);
     add2 = std_add(4);
     add3 = std_add(1);
-    bin_read0_0 = std_reg(32);
     const0 = std_const(1,0);
     const1 = std_const(1,0);
     const2 = std_const(4,0);
@@ -62,22 +61,17 @@ component dense_1x10() -> () {
       let2[done] = __k0.done;
     }
     group let3<"static"=4> {
-      bin_read0_0.in = mult_pipe0.out;
-      bin_read0_0.write_en = mult_pipe0.done;
-      let3[done] = bin_read0_0.done;
+      __product_0.in = mult_pipe0.out;
+      __product_0.write_en = mult_pipe0.done;
+      let3[done] = __product_0.done;
       mult_pipe0.left = x_read0_0.out;
       mult_pipe0.right = y_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let4<"static"=1> {
-      __product_0.in = bin_read0_0.out;
-      __product_0.write_en = 1'd1;
-      let4[done] = __product_0.done;
-    }
-    group let5<"static"=2> {
+    group let4<"static"=2> {
       red_read00.in = x10_0.out;
       red_read00.write_en = x10_0.read_done;
-      let5[done] = red_read00.done;
+      let4[done] = red_read00.done;
       x10_0.addr1 = __j0.out;
       x10_0.addr0 = __i0.out;
       x10_0.read_en = 1'd1;
@@ -146,7 +140,6 @@ component dense_1x10() -> () {
                   }
                   let3;
                   let4;
-                  let5;
                   upd2;
                   @pos(2) upd3;
                 }
