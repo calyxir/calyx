@@ -59,20 +59,18 @@ where
             .or_insert(1);
     }
 
-    /// provides a hashmap
-    pub fn get_cdf(&mut self) -> HashMap<i64, f64> {
-        let mut cdf: HashMap<i64, f64> = HashMap::new();
-        let mut total: f64 = 0.0;
+    /// provides a hashmap that gives the sharing frequencies
+    pub fn get_share_freqs(&mut self) -> HashMap<i64, i64> {
+        let mut pdf: HashMap<i64, i64> = HashMap::new();
+        // hold total value so we know how much to divide by at the end
         for (_, value) in &self.color_freq_map {
-            cdf.entry(*value)
-                .and_modify(|v| *v += *value as f64)
-                .or_insert(*value as f64);
-            total += *value as f64
+            // `value` is the number of times a cell is shared, corresponding entry
+            // is the number of cells that have been shared exactly `value` times
+            pdf.entry(*value)
+                .and_modify(|v| *v += *value as i64)
+                .or_insert(*value as i64);
         }
-        for (_, v) in cdf.iter_mut() {
-            *v /= total;
-        }
-        return cdf;
+        return pdf;
     }
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such

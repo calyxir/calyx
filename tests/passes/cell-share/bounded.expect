@@ -1,9 +1,10 @@
+{"std_add_WIDTH_32":{"2":6},"std_mult_pipe_WIDTH_32":{"6":6},"std_reg_WIDTH_32":{"2":2,"4":4}}
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     a = std_reg(32);
-    d = std_reg(32);
+    e = std_reg(32);
     add1 = std_add(32);
     add3 = std_add(32);
     add5 = std_add(32);
@@ -34,23 +35,23 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group let3 {
       add3.left = 32'd2;
       add3.right = 32'd4;
-      d.in = add3.out;
-      d.write_en = 1'd1;
-      let3[done] = d.done;
+      a.in = add3.out;
+      a.write_en = 1'd1;
+      let3[done] = a.done;
     }
     group let4 {
       add5.left = 32'd2;
       add5.right = 32'd4;
-      d.in = add5.out;
-      d.write_en = 1'd1;
-      let4[done] = d.done;
+      e.in = add5.out;
+      e.write_en = 1'd1;
+      let4[done] = e.done;
     }
     group let5 {
       add5.left = 32'd2;
       add5.right = 32'd4;
-      d.in = add5.out;
-      d.write_en = 1'd1;
-      let5[done] = d.done;
+      e.in = add5.out;
+      e.write_en = 1'd1;
+      let5[done] = e.done;
     }
     group m0 {
       mult0.go = 1'd1;

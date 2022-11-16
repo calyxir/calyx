@@ -77,6 +77,13 @@ fn cell_type_to_string(cell_type: &ir::CellType) -> String {
 /// you can pass -1 as a bound. So for example if you passed
 /// `-x cell-share:bounds=2,-1,3` this means that you will always share registers.
 /// Note: *The no spaces are important.*
+/// Also, if you pass the following flag: `-x cell-share:print-share-freqs=file-name`
+/// this pass will write a json to `file-name`. If want to print onto
+/// command line, then just set the file-name to be "cmd" (you don't need the quotes
+/// when you actually pass in the argument, so run `-x cell-share:print-share-freqs=cmd`).
+/// The json will map an integer (say n) to the number of cells that were shared
+/// exactly n times. So the key n = 2 will be mapped to the number of cells
+/// that are shared exactly twice.
 ///
 /// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the definitions.
@@ -96,12 +103,12 @@ pub struct CellShare {
     /// length 3 to hold the 3 classes: comb cells, registers, and everything else
     bounds: Vec<Option<i64>>,
 
-    /// Maps cell types to the corresponding cdf. Each cdf is a hashmap which maps
-    /// the number of times a given cell name reused (i.e., shared) to the cumulative  
-    /// frequency of that time.  
-    cdfs: HashMap<ir::CellType, HashMap<i64, f64>>,
-    /// whether or not to print the cdfs
-    print_cdfs: Option<String>,
+    /// Maps cell types to the corresponding pdf. Each pdf is a hashmap which maps
+    /// the number of times a given cell name reused (i.e., shared) to the  
+    /// number of cells that have been shared that many times times.
+    share_freqs: HashMap<ir::CellType, HashMap<i64, i64>>,
+    /// whether or not to print the share_freqs
+    print_share_freqs: Option<String>,
 }
 
 impl Named for CellShare {
@@ -117,7 +124,7 @@ impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let state_shareable = ShareSet::from_context::<true>(ctx);
         let shareable = ShareSet::from_context::<false>(ctx);
-        let (print_cdfs, bounds) = Self::parse_args(ctx);
+        let (print_share_freqs, bounds) = Self::parse_args(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -126,8 +133,8 @@ impl ConstructVisitor for CellShare {
             state_shareable,
             shareable,
             bounds,
-            cdfs: HashMap::new(),
-            print_cdfs,
+            share_freqs: HashMap::new(),
+            print_share_freqs,
         })
     }
 
@@ -213,11 +220,11 @@ impl CellShare {
             None
         });
 
-        // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
-        let print_cdf_arg = given_opts.iter().find_map(|arg| {
+        // searching for "-x cell-share:print-share-freqs=file_name" and getting Some(file_name) back
+        let print_pdf_arg = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
             if let Some(str) = split.get(0) {
-                if str == &"print-cdfs" && split.len() == 2 {
+                if str == &"print-share-freqs" && split.len() == 2 {
                     return Some(split[1].to_string());
                 }
             }
@@ -251,9 +258,9 @@ impl CellShare {
 
         if set_default {
             // could possibly put vec![x,y,z] here as default instead
-            (print_cdf_arg, vec![None, None, None])
+            (print_pdf_arg, vec![None, None, None])
         } else {
-            (print_cdf_arg, bounds)
+            (print_pdf_arg, bounds)
         }
     }
 }
@@ -396,22 +403,36 @@ impl Visitor for CellShare {
                         .iter()
                         .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
                 );
-                self.cdfs.insert(cell_type, graph.get_cdf());
+                // only generate share-freqs if we're going to use them.
+                if let Some(_) = &self.print_share_freqs {
+                    // must accumulate sharing numbers for share_freqs across
+                    self.share_freqs
+                        .entry(cell_type)
+                        .and_modify(|cur_pdf| {
+                            for (n, freq) in graph.get_share_freqs() {
+                                cur_pdf
+                                    .entry(n)
+                                    .and_modify(|cur_freq| *cur_freq += freq)
+                                    .or_insert(freq);
+                            }
+                        })
+                        .or_insert(graph.get_share_freqs());
+                }
             }
         }
 
-        if let Some(file) = &self.print_cdfs {
-            let printable_cdfs: HashMap<String, _> = self
-                .cdfs
+        if let Some(file) = &self.print_share_freqs {
+            let printable_share_freqs: HashMap<String, _> = self
+                .share_freqs
                 .iter()
-                .map(|(cell_type, cdf)| (cell_type_to_string(cell_type), cdf))
+                .map(|(cell_type, pdf)| (cell_type_to_string(cell_type), pdf))
                 .collect();
-            let json_cdfs: Value = json!(printable_cdfs);
+            let json_share_freqs: Value = json!(printable_share_freqs);
             if file == "cmd" {
-                println!("{}", json_cdfs);
+                println!("{}", json_share_freqs);
             } else {
-                fs::write(file, format!("{}", json_cdfs))
-                    .expect("Unable to write file");
+                fs::write(file, format!("{}", json_share_freqs))
+                    .expect("unable to write file");
             }
         }
 
