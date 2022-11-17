@@ -106,7 +106,7 @@ pub struct CellShare {
     /// Maps cell types to the corresponding pdf. Each pdf is a hashmap which maps
     /// the number of times a given cell name reused (i.e., shared) to the  
     /// number of cells that have been shared that many times times.
-    share_freqs: HashMap<ir::CellType, HashMap<i64, i64>>,
+    share_freqs: HashMap<ir::Id, HashMap<ir::CellType, HashMap<i64, i64>>>,
     /// whether or not to print the share_freqs
     print_share_freqs: Option<String>,
 }
@@ -212,7 +212,7 @@ impl CellShare {
         // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
         let bounds_arg = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.first() {
+            if let Some(str) = split.get(0) {
                 if str == &"bounds" && split.len() == 2 {
                     return Some(split[1]);
                 }
@@ -378,6 +378,8 @@ impl Visitor for CellShare {
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
+        let mut comp_share_freqs: HashMap<ir::CellType, HashMap<i64, i64>> =
+            HashMap::new();
         for (cell_type, mut graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {
@@ -406,7 +408,7 @@ impl Visitor for CellShare {
                 // only generate share-freqs if we're going to use them.
                 if self.print_share_freqs.is_some() {
                     // must accumulate sharing numbers for share_freqs across
-                    self.share_freqs
+                    comp_share_freqs
                         .entry(cell_type)
                         .and_modify(|cur_pdf| {
                             for (n, freq) in graph.get_share_freqs() {
@@ -421,12 +423,24 @@ impl Visitor for CellShare {
             }
         }
 
+        self.share_freqs.insert(comp.name.clone(), comp_share_freqs);
+
         if let Some(file) = &self.print_share_freqs {
-            let printable_share_freqs: HashMap<String, _> = self
-                .share_freqs
-                .iter()
-                .map(|(cell_type, pdf)| (cell_type_to_string(cell_type), pdf))
-                .collect();
+            let printable_share_freqs: HashMap<String, HashMap<String, _>> =
+                self.share_freqs
+                    .iter()
+                    .map(|(id, freq_map)| {
+                        (
+                            id.to_string(),
+                            freq_map
+                                .iter()
+                                .map(|(cell_type, pdf)| {
+                                    (cell_type_to_string(cell_type), pdf)
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect();
             let json_share_freqs: Value = json!(printable_share_freqs);
             if file == "cmd" {
                 println!("{}", json_share_freqs);
