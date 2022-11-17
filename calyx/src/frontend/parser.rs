@@ -90,9 +90,13 @@ impl CalyxParser {
         Ok(CalyxParser::file(input)?)
     }
 
-    fn get_span(node: &Node) -> Span {
+    fn get_span(node: &Node) -> Rc<Span> {
         let ud = node.user_data();
-        Span::new(node.as_span(), Rc::clone(&ud.file), Rc::clone(&ud.input))
+        Rc::new(Span::new(
+            node.as_span(),
+            Rc::clone(&ud.file),
+            Rc::clone(&ud.input),
+        ))
     }
 }
 
