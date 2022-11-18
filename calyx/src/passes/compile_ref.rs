@@ -13,9 +13,34 @@ use std::rc::Rc;
 /// 2. Inline all the ports of the ref cells to the component signature
 /// 3. Remove all the ref cell mappings from the invoke statement
 /// 4. Inline all the mappings of ports to the invoke signature
+
+/// Map for storing added ports for each ref cell
+/// level of Hashmap represents:
+/// HashMap<-component name-, Hashmap<-cell name-, HashMap<-port name-, port>>>;
+type RefPortMap =
+    HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, RRC<ir::Port>>>>;
+
+trait GetPorts {
+    fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>>;
+}
+
+impl GetPorts for RefPortMap {
+    fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
+        if self.contains_key(comp_name) {
+            let mut ret = Vec::new();
+            for (_, submap) in self[comp_name].iter() {
+                for (_, p) in submap.iter() {
+                    ret.push(Rc::clone(p));
+                }
+            }
+            Some(ret)
+        } else {
+            None
+        }
+    }
+}
 pub struct CompileRef {
-    port_names:
-        HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, RRC<ir::Port>>>>,
+    port_names: RefPortMap,
 }
 
 impl ConstructVisitor for CompileRef {
@@ -69,22 +94,21 @@ impl Visitor for CompileRef {
         for cell in comp.cells.iter() {
             let mut new_ports: Vec<RRC<ir::Port>> = Vec::new();
             if let Some(name) = cell.borrow().type_name() {
-                if self.port_names.contains_key(name) {
-                    for (_, submap) in self.port_names[name].iter() {
-                        for (_, p) in submap.iter() {
-                            let new_port = Rc::new(RefCell::new(ir::Port {
-                                name: p.borrow().name.clone(),
-                                width: p.borrow().width,
-                                direction: p.borrow().direction.reverse(),
-                                parent: ir::PortParent::Cell(WRC::from(cell)),
-                                attributes: Attributes::default(),
-                            }));
-                            new_ports.push(new_port);
-                        }
+                if let Some(vec) = self.port_names.get_ports(name) {
+                    for p in vec.iter() {
+                        let new_port = Rc::new(RefCell::new(ir::Port {
+                            name: p.borrow().name.clone(),
+                            width: p.borrow().width,
+                            direction: p.borrow().direction.reverse(),
+                            parent: ir::PortParent::Cell(WRC::from(cell)),
+                            attributes: Attributes::default(),
+                        }));
+                        new_ports.push(new_port);
                     }
                 }
             }
             cell.borrow_mut().ports.extend(new_ports);
+
         }
         Ok(Action::Continue)
     }

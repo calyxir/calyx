@@ -35,7 +35,7 @@ component add_one() -> () {
     }
     group store {
       mem.addr0 = 1'b0;
-      mem.write_data = 32'b0;
+      mem.write_data = r.out;
       mem.write_en = 1'b1;
       store[done] = mem.done;
     }
