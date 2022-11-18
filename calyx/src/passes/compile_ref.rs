@@ -108,7 +108,6 @@ impl Visitor for CompileRef {
                 }
             }
             cell.borrow_mut().ports.extend(new_ports);
-
         }
         Ok(Action::Continue)
     }
