@@ -74,7 +74,7 @@ impl ComponentDef {
             cells: Vec::new(),
             groups: Vec::new(),
             continuous_assignments: Vec::new(),
-            control: Control::Empty {},
+            control: Control::empty(),
             attributes: ir::Attributes::default(),
             is_comb,
         }
@@ -299,5 +299,16 @@ pub enum Control {
         ref_cells: Vec<(ir::Id, ir::Id)>,
     },
     /// Control statement that does nothing.
-    Empty {},
+    Empty {
+        /// Attributes
+        attributes: ir::Attributes,
+    },
+}
+
+impl Control {
+    pub fn empty() -> Control {
+        Control::Empty {
+            attributes: ir::Attributes::default(),
+        }
+    }
 }

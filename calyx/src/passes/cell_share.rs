@@ -160,7 +160,7 @@ impl CellShare {
         // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
         let bounds_arg = given_opts.into_iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.get(0) {
+            if let Some(str) = split.first() {
                 if str == &"bounds" && split.len() == 2 {
                     return Some(split[1]);
                 }

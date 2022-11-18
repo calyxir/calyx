@@ -36,11 +36,10 @@ impl Visitor for RemoveIds {
 }
 
 fn remove_ids(c: &mut ir::Control) {
-    if let Some(atts) = c.get_mut_attributes() {
-        atts.remove(BEGIN_ID);
-        atts.remove(END_ID);
-        atts.remove(NODE_ID);
-    }
+    let atts = c.get_mut_attributes();
+    atts.remove(BEGIN_ID);
+    atts.remove(END_ID);
+    atts.remove(NODE_ID);
     match c {
         ir::Control::Empty(_)
         | ir::Control::Invoke(_)

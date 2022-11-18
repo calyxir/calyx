@@ -1,0 +1,25 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    mem = std_mem_d1(32, 1, 1);
+    eq = std_add(32);
+    r = std_reg(1);
+  }
+  wires {
+    comb group check {
+      eq.left = mem.read_data;
+      eq.right = 32'd1;
+    }
+    group incr {
+      r.in = 1'd1;
+      r.write_en = 1'd1;
+      incr[done] = r.done;
+    }
+  }
+  control {
+    if eq.out with check {
+      incr;
+    }
+  }
+}

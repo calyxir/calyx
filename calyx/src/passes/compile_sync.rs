@@ -50,7 +50,7 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
     match s {
         ir::Control::Seq(seq) => {
             for stmt in seq.stmts.iter() {
-                if let Some(&n) = stmt.get_attributes().unwrap().get("sync") {
+                if let Some(&n) = stmt.get_attributes().get("sync") {
                     count.insert(n);
                 }
                 match stmt {
@@ -71,7 +71,7 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
             count_barriers(&i.fbranch, count);
         }
         ir::Control::Enable(_) | ir::Control::Invoke(_) => {
-            if let Some(&n) = s.get_attributes().unwrap().get("sync") {
+            if let Some(&n) = s.get_attributes().get("sync") {
                 count.insert(n);
             }
         }
@@ -86,7 +86,7 @@ impl CompileSync {
         stmt: &mut ir::Control,
         count: &mut HashMap<u64, u64>,
     ) -> ir::Control {
-        if let Some(n) = stmt.get_attributes().unwrap().get("sync") {
+        if let Some(n) = stmt.get_attributes().get("sync") {
             if self.barriers.get(n).is_none() {
                 self.add_shared_structure(builder, n);
             }
@@ -236,7 +236,10 @@ fn build_write_barrier(
     group
 }
 
-// put together the group to wait until the peek value reaches capacity
+// Put together the group to wait until the peek value reaches capacity.
+// We don't actually care about the value being written to the register.
+// We're only using it to make sure that the barrier has reached the expected
+// value.
 fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
     let group = builder.add_group("wait");
     structure!(builder;
@@ -245,6 +248,7 @@ fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
     let eq_guard = guard!(eq["out"]);
     let mut assigns = build_assignments!(builder;
         // wait_reg_*.in = eq_*.out;
+        // XXX(rachit): Since the value doesn't matter, can this just be zero?
         wait_reg["in"] = ?eq["out"];
         // wait_reg_*.write_en = eq_*.out? 1'd1;
         wait_reg["write_en"] = eq_guard? cst_1["out"];
@@ -293,7 +297,9 @@ fn build_restore(
     group
 }
 
-// put together the group to wait for restorer to finish
+// Put together the group to wait for restorer to finish.
+// Like the wait group, we don't care about the value in the register
+// We just want to wait till the value in the barrier is set to 0.
 fn build_wait_restore(
     builder: &mut ir::Builder,
     eq: &RRC<ir::Cell>,
@@ -326,7 +332,7 @@ fn build_member(
     let mut stmts: Vec<ir::Control> = Vec::new();
     let mut copy = ir::Control::clone(original);
 
-    copy.get_mut_attributes().unwrap().remove("sync");
+    copy.get_mut_attributes().remove("sync");
 
     let barrier = Rc::clone(&cells[0]);
     let eq = Rc::clone(&cells[1]);

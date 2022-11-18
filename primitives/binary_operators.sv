@@ -42,16 +42,16 @@ module std_fp_mult_pipe #(
   logic [WIDTH-1:0]          ltmp;
   logic [(WIDTH << 1) - 1:0] out_tmp;
   // Buffer used to walk through the 3 cycles of the pipeline.
-  logic done_buf[2:0];
+  logic done_buf[1:0];
 
-  assign done = done_buf[2];
+  assign done = done_buf[1];
 
   assign out = out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
 
   // If the done buffer is completely empty and go is high then execution
   // just started.
   logic start;
-  assign start = go & done_buf[0] == 0 & done_buf[1] == 0;
+  assign start = go;
 
   // Start sending the done signal.
   always_ff @(posedge clk) begin
@@ -64,10 +64,8 @@ module std_fp_mult_pipe #(
   // Push the done signal through the pipeline.
   always_ff @(posedge clk) begin
     if (go) begin
-      done_buf[2] <= done_buf[1];
       done_buf[1] <= done_buf[0];
     end else begin
-      done_buf[2] <= 0;
       done_buf[1] <= 0;
     end
   end

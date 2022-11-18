@@ -2,6 +2,12 @@ name: Test
 
 on: [push]
 
+# Ensures that only the latest commit of a PR can execute the actions.
+# Useful for cancelling job when a sequence of commits are quickly added.
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   interpreter:
     name: Test Interpreter
@@ -94,11 +100,31 @@ jobs:
       run: |
         runt -i 'core|examples|errors' -d -o fail
 
-    - name: Frontend tests
+    - name: NTT
+      working-directory: /home/calyx
+      run: |
+        runt -i 'ntt' -x 'core|examples|errors' -d -o fail
+
+    - name: Systolic
+      working-directory: /home/calyx
+      run: |
+        runt -i 'systolic' -x 'core|examples|errors|NTT' -d -o fail
+
+    - name: Dahlia
+      working-directory: /home/calyx
+      run: |
+        runt -i 'dahlia' -x 'core|examples|errors|NTT|systolic' -d -o fail
+
+    - name: Relay
+      working-directory: /home/calyx
+      run: |
+        runt -i 'relay' -x 'core|examples|errors|dahlia|NTT|systolic' -d -o fail
+
+    - name: Misc tests
       working-directory: /home/calyx
       run: |
         unset JAVA_TOOL_OPTIONS
-        runt -x 'core|examples|errors|mrxl' -d -o fail
+        runt -x 'core|examples|errors|mrxl|relay|dahlia|NTT|systolic' -d -o fail
 
     - name: Run Python Tests
       working-directory: /home/calyx
@@ -106,7 +132,6 @@ jobs:
 
   evaluation:
     name: Polybench Integration
-    needs: compiler
     runs-on: ubuntu-latest
     container: ghcr.io/cucapra/calyx:latest
     steps:
