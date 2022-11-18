@@ -520,18 +520,42 @@ impl Visitor for InferStaticTiming {
         _lib: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(time) = comp.control.borrow().get_attribute("static") {
-            let go_port =
-                comp.signature.borrow().find_with_attr("go").ok_or_else(
-                    || {
-                        Error::malformed_structure(format!(
-                            "Component {} does not have a @go port",
-                            comp.name
-                        ))
-                    },
-                )?;
-            go_port.borrow_mut().attributes.insert("static", *time);
-            self.invoke_latency.insert(comp.name.clone(), *time);
+        let go_port =
+            comp.signature
+                .borrow()
+                .find_with_attr("go")
+                .ok_or_else(|| {
+                    Error::malformed_structure(format!(
+                        "Component {} does not have a @go port",
+                        comp.name
+                    ))
+                })?;
+        // If the control program has a static time, make sure the go port's static annotation matches it
+        if let Some(&time) = comp.control.borrow().get_attribute("static") {
+            let maybe_go_time = {
+                let gp = go_port.borrow();
+                gp.attributes.get("static").copied()
+            };
+            if let Some(go_time) = maybe_go_time {
+                if go_time != time {
+                    let msg1 = format!("Annotated latency: {}", go_time);
+                    let msg2 = format!("Inferred latency: {}", time);
+                    let msg = format!(
+                        "Impossible \"static\" latency annotation for component {}.\n{}\n{}",
+                        comp.name,
+                        msg1,
+                        msg2
+                    );
+                    return Err(Error::malformed_structure(msg)
+                        .with_pos(&go_port.borrow().attributes));
+                }
+            } else {
+                go_port.borrow_mut().attributes.insert("static", time);
+            }
+        }
+        if let Some(t) = go_port.borrow().attributes.get("static") {
+            log::info!("Component `{}` has static time {}", comp.name, t);
+            self.invoke_latency.insert(comp.name.clone(), *t);
         }
         Ok(Action::Continue)
     }
