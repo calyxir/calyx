@@ -202,8 +202,8 @@ impl InferStaticTiming {
                 if let (Some(s_name), Some(d_name)) =
                     (src_cell.type_name(), dst_cell.type_name())
                 {
-                    let data_dst = self.latency_data.get(s_name);
-                    let data_src = self.latency_data.get(d_name);
+                    let data_src = self.latency_data.get(s_name);
+                    let data_dst = self.latency_data.get(d_name);
                     if let (Some(dst_ports), Some(src_ports)) =
                         (data_dst, data_src)
                     {
@@ -434,7 +434,7 @@ impl Visitor for InferStaticTiming {
                         let msg1 = format!("Annotated latency: {}", curr_lat);
                         let msg2 = format!("Inferred latency: {}", latency);
                         let msg = format!(
-                            "Impossible \"static\" latency annotation for group {}.\n{}\n{}",
+                            "Invalid \"static\" latency annotation for group {}.\n{}\n{}",
                             grp.name(),
                             msg1,
                             msg2
