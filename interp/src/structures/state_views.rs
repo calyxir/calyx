@@ -309,7 +309,7 @@ impl<'a> StateView<'a> {
                                         cell.name().clone(),
                                         Primitive::serialize(
                                             &**prim,
-                                            raw.then(|| PrintCode::Binary),
+                                            raw.then_some(PrintCode::Binary),
                                         ), //TODO Griffin: Fix this
                                     ));
                                 }

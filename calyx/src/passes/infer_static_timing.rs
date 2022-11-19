@@ -266,12 +266,10 @@ impl InferStaticTiming {
                 if *val > 0 {
                     return true;
                 }
-            } else {
-                if let Some(ports) =
-                    cell.type_name().and_then(|c| self.latency_data.get(c))
-                {
-                    return ports.is_done(&port.name);
-                }
+            } else if let Some(ports) =
+                cell.type_name().and_then(|c| self.latency_data.get(c))
+            {
+                return ports.is_done(&port.name);
             }
         }
         false
@@ -290,10 +288,10 @@ impl InferStaticTiming {
                     {
                         let name = &port.borrow().name;
                         if ports.is_go(name) {
-                            for write_port in graph.writes_to(&*port.borrow()) {
-                                if !self.is_done_port_or_const(
-                                    &*write_port.borrow(),
-                                ) {
+                            for write_port in graph.writes_to(&port.borrow()) {
+                                if !self
+                                    .is_done_port_or_const(&write_port.borrow())
+                                {
                                     log::debug!(
                                         "`{}` is not a done port",
                                         write_port.borrow().canonical(),
@@ -307,9 +305,8 @@ impl InferStaticTiming {
 
                 ir::PortParent::Group(_) => {
                     if port.borrow().name == "done" {
-                        for write_port in graph.writes_to(&*port.borrow()) {
-                            if !self
-                                .is_done_port_or_const(&*write_port.borrow())
+                        for write_port in graph.writes_to(&port.borrow()) {
+                            if !self.is_done_port_or_const(&write_port.borrow())
                             {
                                 log::debug!(
                                     "`{}` is not a done port",
@@ -328,7 +325,7 @@ impl InferStaticTiming {
     /// Returns true if `graph` contains any nodes with degree > 1.
     fn contains_node_deg_gt_one(graph: &GraphAnalysis) -> bool {
         for port in graph.ports() {
-            if graph.writes_to(&*port.borrow()).count() > 1 {
+            if graph.writes_to(&port.borrow()).count() > 1 {
                 return true;
             }
         }
@@ -383,7 +380,7 @@ impl InferStaticTiming {
         let start = tsort.next().unwrap();
         let finish = tsort.last().unwrap();
 
-        let paths = graph.paths(&*start.borrow(), &*finish.borrow());
+        let paths = graph.paths(&start.borrow(), &finish.borrow());
         // If there are no paths, give up.
         if paths.is_empty() {
             log::debug!("FAIL: No path between @go and @done port");
