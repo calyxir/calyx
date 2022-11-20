@@ -3,7 +3,7 @@
 ---STDERR---
 Error: Calyx Parser:  --> 4:5
   |
-4 |     @external(1) @external(2) r = std_reg(32);
+4 |     @external(1) @external(2) r = std_reg(32);␊
   |     ^-----------------------^
   |
   = Malformed Structure: Multiple entries for attribute: external
