@@ -26,11 +26,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated wait_reg1 = std_reg(1);
   }
   wires {
-    group no_op {
-      no_use.write_en = 1'd1;
-      no_use.in = 1'd0;
-      no_op[done] = no_use.done;
-    }
     group prod_0 {
       in_0.addr0 = idx.out;
       prod.write_en = 1'd1;
@@ -155,8 +150,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         while lt.out with comp {
           if eq.out with st_0 {
             seq {
+              prod_0;
               seq {
-                prod_0;
                 incr_barrier;
                 write_barrier;
                 wait;
@@ -167,8 +162,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
             }
           } else {
             seq {
+              prod_1;
               seq {
-                prod_1;
                 incr_barrier0;
                 write_barrier0;
                 wait0;
@@ -182,7 +177,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         while lt.out with comp {
           seq {
             seq {
-              no_op;
               incr_barrier1;
               write_barrier1;
               wait1;

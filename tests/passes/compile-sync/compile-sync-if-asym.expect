@@ -134,8 +134,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         while lt.out with comp {
           if eq.out with st_0 {
             seq {
+              prod_0;
               seq {
-                prod_0;
                 incr_barrier;
                 write_barrier;
                 wait;
@@ -154,8 +154,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         while lt.out with comp {
           if eq.out with st_0 {
             seq {
+              no_op;
               seq {
-                no_op;
                 incr_barrier0;
                 write_barrier0;
                 wait0;

@@ -96,8 +96,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       }
       par {
         seq {
+          no_op;
           seq {
-            no_op;
             incr_barrier;
             write_barrier;
             wait;
@@ -107,8 +107,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           reg_to_mem;
         }
         seq {
+          calc_val;
           seq {
-            calc_val;
             incr_barrier0;
             write_barrier0;
             wait0;

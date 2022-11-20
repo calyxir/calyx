@@ -11,22 +11,9 @@ component main() -> () {
     addr = std_reg(3);
     add_1 = std_add(3);
     lt = std_lt(3);
-    no_use_1 = std_reg(32);
-    no_use_2 = std_reg(32);
   }
 
   wires {
-    group no_op_1 {
-      no_use_1.in = 32'd0;
-      no_use_1.write_en = 1'd1;
-      no_op_1[done] = no_use_1.done;
-    }
-    
-    group no_op_2 {
-      no_use_2.in = 32'd0;
-      no_use_2.write_en = 1'd1;
-      no_op_2[done] = no_use_2.done;
-    }
 
     group incr_val {
       add_0.left = val.out;
@@ -61,16 +48,18 @@ component main() -> () {
     par {
       while lt.out with cmp {
         seq {
-          @sync(1) no_op_1;
+          @sync(1);
           reg_to_mem;
-          @sync(2) incr_idx;
+          incr_idx;
+          @sync(2);
         }
       }
 
       while lt.out with cmp {
         seq {
-          @sync(1) incr_val;
-          @sync(2) no_op_2;
+          incr_val;
+          @sync(1);
+          @sync(2);
         }
       }
     }

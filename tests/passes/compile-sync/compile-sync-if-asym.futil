@@ -81,7 +81,8 @@ component main () -> () {
       while lt.out with comp {
         if eq.out with st_0 {
           seq {
-            @sync(1) prod_0;
+            prod_0;
+            @sync(1);
             switch_to_st_1;
           }
         }
@@ -96,7 +97,8 @@ component main () -> () {
       while lt.out with comp {
         if eq.out with st_0 {
           seq {
-            @sync(1) no_op;
+            no_op;
+            @sync(1);
             reg_to_mem;
             incr_idx;
           }

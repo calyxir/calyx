@@ -168,8 +168,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       }
       par {
         seq {
+          no_op;
           seq {
-            no_op;
             incr_barrier;
             write_barrier;
             wait;
@@ -177,8 +177,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
             restore;
           }
           reg_to_mem;
+          incr_idx;
           seq {
-            incr_idx;
             incr_barrier0;
             write_barrier0;
             wait0;
@@ -187,15 +187,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           }
         }
         seq {
+          incr_val;
           seq {
-            incr_val;
             incr_barrier1;
             write_barrier1;
             wait1;
             wait_restore;
           }
+          no_op;
           seq {
-            no_op;
             incr_barrier2;
             write_barrier2;
             wait2;
