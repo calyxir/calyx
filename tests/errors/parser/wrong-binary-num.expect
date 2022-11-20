@@ -3,7 +3,7 @@
 ---STDERR---
 Error: Calyx Parser:  --> 4:16
   |
-4 |     r.in = 10'b22;␊
+4 |     r.in = 10'b22;
   |                ^^
   |
   = Expected binary number
