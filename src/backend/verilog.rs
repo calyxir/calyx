@@ -169,19 +169,19 @@ fn emit_component<F: io::Write>(
         // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {
-                write!(f, "  input")?;
+                write!(f, "  output")?;
             }
             ir::Direction::Output => {
-                write!(f, "  output")?;
+                write!(f, "  input")?;
             }
             ir::Direction::Inout => {
                 panic!("Unexpected Inout port on Component: {}", port.name)
             }
         }
         if port.width == 1 {
-            write!(f, " {}", port.name)?;
+            write!(f, " logic {}", port.name)?;
         } else {
-            write!(f, " [{}:0] {}", port.width - 1, port.name)?;
+            write!(f, " logic [{}:0] {}", port.width - 1, port.name)?;
         }
         if idx == sig.ports.len() - 1 {
             writeln!(f)?;
