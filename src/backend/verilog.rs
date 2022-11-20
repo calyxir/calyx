@@ -11,9 +11,9 @@ use calyx::{
 };
 use ir::{Control, Group, Guard, RRC};
 use itertools::Itertools;
-use std::fs::File;
 use std::io;
 use std::{collections::HashMap, rc::Rc};
+use std::{fs::File, time::Instant};
 use vast::v17::ast as v;
 
 /// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
@@ -130,66 +130,75 @@ impl Backend for VerilogBackend {
     }
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let modules = &ctx
-            .components
-            .iter()
-            .map(|comp| {
-                emit_component(
-                    comp,
-                    ctx.bc.synthesis_mode,
-                    ctx.bc.enable_verification,
-                    ctx.bc.initialize_inputs,
-                )
-                .to_string()
-            })
-            .collect::<Vec<_>>();
-
-        write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
+        let out = &mut file.get_write();
+        let comps = ctx.components.iter().try_for_each(|comp| {
+            // Time the generation of the component.
+            let time = Instant::now();
+            let out = emit_component(
+                comp,
+                ctx.bc.synthesis_mode,
+                ctx.bc.enable_verification,
+                ctx.bc.initialize_inputs,
+                out,
+            );
+            log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
+            out
+        });
+        comps.map_err(|err| {
             let std::io::Error { .. } = err;
             Error::write_error(format!(
                 "File not found: {}",
                 file.as_path_string()
             ))
-        })?;
-        Ok(())
+        })
     }
 }
 
-fn emit_component(
+fn emit_component<F: io::Write>(
     comp: &ir::Component,
     synthesis_mode: bool,
     enable_verification: bool,
     initialize_inputs: bool,
-) -> v::Module {
-    let mut module = v::Module::new(comp.name.as_ref());
+    f: &mut F,
+) -> io::Result<()> {
+    writeln!(f, "module {}(", comp.name)?;
+
     let sig = comp.signature.borrow();
-    for port_ref in &sig.ports {
+    for (idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
         // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {
-                module.add_output(port.name.as_ref(), port.width);
+                write!(f, "  input")?;
             }
             ir::Direction::Output => {
-                module.add_input(port.name.as_ref(), port.width);
+                write!(f, "  output")?;
             }
             ir::Direction::Inout => {
                 panic!("Unexpected Inout port on Component: {}", port.name)
             }
         }
+        if port.width == 1 {
+            write!(f, " {}", port.name)?;
+        } else {
+            write!(f, " [{}:0] {}", port.width - 1, port.name)?;
+        }
+        if idx == sig.ports.len() - 1 {
+            writeln!(f)?;
+        } else {
+            writeln!(f, ",")?;
+        }
     }
+    writeln!(f, ");")?;
 
     // Add a COMPONENT START: <name> anchor before any code in the component
-    module.add_stmt(v::Stmt::new_rawstr(format!(
-        "// COMPONENT START: {}",
-        comp.name
-    )));
+    writeln!(f, "// COMPONENT START: {}", comp.name)?;
 
     // Add memory initial and final blocks
     if !synthesis_mode {
-        memory_read_write(comp).into_iter().for_each(|stmt| {
-            module.add_stmt(stmt);
-        });
+        memory_read_write(comp)
+            .into_iter()
+            .try_for_each(|stmt| writeln!(f, "{}", stmt))?;
     }
 
     let wires = comp
@@ -198,9 +207,10 @@ fn emit_component(
         .flat_map(|cell| wire_decls(&cell.borrow()))
         .collect_vec();
     // structure wire declarations
-    wires.iter().for_each(|(name, width, _)| {
-        module.add_decl(v::Decl::new_logic(name, *width));
-    });
+    wires.iter().try_for_each(|(name, width, _)| {
+        let decl = v::Decl::new_logic(name, *width);
+        writeln!(f, "{};", decl)
+    })?;
 
     // Generate initial assignments for all input ports in defined cells.
     if initialize_inputs {
@@ -216,16 +226,14 @@ fn emit_component(
                 ));
             }
         });
-        module.add_process(initial);
+        writeln!(f, "{initial}")?;
     }
 
     // cell instances
     comp.cells
         .iter()
         .filter_map(|cell| cell_instance(&cell.borrow()))
-        .for_each(|instance| {
-            module.add_instance(instance);
-        });
+        .try_for_each(|instance| writeln!(f, "{instance}"))?;
 
     // gather assignments keyed by destination
     let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
@@ -240,27 +248,24 @@ fn emit_component(
 
     map.values()
         .sorted_by_key(|(port, _)| port.borrow().canonical())
-        .for_each(|asgns| {
-            module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
+        .try_for_each(|asgns| {
             // If verification generation is enabled, emit disjointness check.
             if enable_verification {
                 if let Some(check) = emit_guard_disjoint_check(asgns) {
                     checks.add_seq(check);
                 };
             }
-        });
+            let stmt = v::Stmt::new_parallel(emit_assignment(asgns));
+            writeln!(f, "{stmt}")
+        })?;
 
     if !synthesis_mode {
-        module.add_process(checks);
+        writeln!(f, "{checks}")?;
     }
 
     // Add COMPONENT END: <name> anchor
-    module.add_stmt(v::Stmt::new_rawstr(format!(
-        "// COMPONENT END: {}",
-        comp.name
-    )));
-
-    module
+    writeln!(f, "// COMPONENT END: {}\nendmodule", comp.name)?;
+    Ok(())
 }
 
 fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
