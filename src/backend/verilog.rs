@@ -201,32 +201,33 @@ fn emit_component<F: io::Write>(
             .try_for_each(|stmt| writeln!(f, "{}", stmt))?;
     }
 
-    let wires = comp
+    let cells = comp
         .cells
         .iter()
         .flat_map(|cell| wire_decls(&cell.borrow()))
         .collect_vec();
     // structure wire declarations
-    wires.iter().try_for_each(|(name, width, _)| {
+    cells.iter().try_for_each(|(name, width, _)| {
         let decl = v::Decl::new_logic(name, *width);
         writeln!(f, "{};", decl)
     })?;
 
     // Generate initial assignments for all input ports in defined cells.
     if initialize_inputs {
-        let mut initial = v::ParallelProcess::new_initial();
-        wires.iter().for_each(|(name, width, dir)| {
+        writeln!(f, "initial begin")?;
+        for (name, width, dir) in &cells {
             if *dir == ir::Direction::Input {
                 // HACK: this is not the right way to reset
                 // registers. we should have real reset ports.
                 let value = String::from("0");
-                initial.add_seq(v::Sequential::new_blk_assign(
+                let assign = v::Sequential::new_blk_assign(
                     v::Expr::new_ref(name),
                     v::Expr::new_ulit_dec(*width as u32, &value),
-                ));
+                );
+                writeln!(f, "  {};", assign)?;
             }
-        });
-        writeln!(f, "{initial}")?;
+        }
+        writeln!(f, "end")?;
     }
 
     // cell instances
