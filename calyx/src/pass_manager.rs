@@ -171,7 +171,13 @@ impl PassManager {
                 if !excl_set.contains(&name) {
                     let start = Instant::now();
                     pass(ctx)?;
-                    log::info!("{name}: {}ms", start.elapsed().as_millis());
+                    let elapsed = start.elapsed();
+                    // Warn if pass takes more than 3 seconds.
+                    if elapsed.as_secs() > 5 {
+                        log::warn!("{name}: {}ms", elapsed.as_millis());
+                    } else {
+                        log::info!("{name}: {}ms", start.elapsed().as_millis());
+                    }
                 } else {
                     log::info!("{name}: Ignored")
                 }

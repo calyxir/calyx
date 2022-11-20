@@ -5,5 +5,9 @@
     "lldb.verboseLogging": true,
     "git.ignoreLimitWarning": true,
     "python.linting.pylintEnabled": true,
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "lldb.displayFormat": "auto",
+    "lldb.showDisassembly": "never",
+    "lldb.dereferencePointers": true,
+    "lldb.consoleMode": "commands"
 }

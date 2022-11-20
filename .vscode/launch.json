@@ -4,8 +4,34 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug Compiler",
+            "args": [
+                "${input:target}",
+                "-l",
+                "${workspaceFolder}",
+                "-p",
+                "${input:pass}",
+                "-b",
+                "${input:backend}",
+            ],
+            "program": "${workspaceFolder}/target/debug/futil",
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "sourceLanguages": [
+                "rust"
+            ],
+            "preLaunchTask": "Cargo Build",
+            "console": "integratedTerminal",
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug Interpreter",
-            "args": ["${input:target}", "-l","${workspaceFolder}" ],
+            "args": [
+                "${input:target}",
+                "-l",
+                "${workspaceFolder}"
+            ],
             "program": "${workspaceFolder}/target/debug/interp",
             "windows": {
                 "program": "${workspaceFolder}/target/debug/interp.exe"
@@ -20,7 +46,11 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug Interpreter on current file",
-            "args": ["${file}", "-l","${workspaceFolder}" ],
+            "args": [
+                "${file}",
+                "-l",
+                "${workspaceFolder}"
+            ],
             "program": "${workspaceFolder}/target/debug/interp",
             "windows": {
                 "program": "${workspaceFolder}/target/debug/interp.exe"
@@ -37,6 +67,21 @@
             "id": "target",
             "type": "promptString",
             "description": "Target file"
+        },
+        {
+            "id": "pass",
+            "type": "promptString",
+            "description": "Pass to be executed by the compiler (only one allowed)",
+            "default": "all"
+        },
+        {
+            "id": "backend",
+            "type": "pickString",
+            "description": "Backend to be used by the compiler",
+            "options": [
+                "verilog",
+                "calyx",
+            ],
         }
     ]
 }

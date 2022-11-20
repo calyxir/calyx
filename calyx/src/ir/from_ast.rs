@@ -182,7 +182,7 @@ fn validate_component(
 
         let proto_name = &cell.prototype.name;
 
-        if sig_ctx.lib.find_primitive(&proto_name).is_none()
+        if sig_ctx.lib.find_primitive(proto_name).is_none()
             && !sig_ctx.comp_sigs.contains_key(proto_name)
         {
             return Err(Error::undefined(
