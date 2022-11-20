@@ -83,14 +83,10 @@ impl CompileSync {
                         self.add_shared_structure(builder, n);
                     }
                     let (cells, groups) = &self.barriers[n];
-                        let member_idx = count[n];
-                    
-                    let mut new_s = build_member(
-                            builder,
-                            cells,
-                            groups,
-                            &member_idx,
-                        );
+                    let member_idx = count[n];
+
+                    let mut new_s =
+                        build_member(builder, cells, groups, &member_idx);
                     std::mem::swap(s, &mut new_s);
                 }
             }

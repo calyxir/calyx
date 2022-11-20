@@ -9,23 +9,9 @@ component main() -> () {
     addr = std_reg(3);
     add_1 = std_add(3);
     lt = std_lt(3);
-    no_use_1 = std_reg(32);
-    no_use_2 = std_reg(32);
   }
 
   wires {
-    group no_op_1 {
-      no_use_1.in = 32'd0;
-      no_use_1.write_en = 1'd1;
-      no_op_1[done] = no_use_1.done;
-    }
-
-    group no_op_2 {
-      no_use_2.in = 32'd0;
-      no_use_2.write_en = 1'd1;
-      no_op_2[done] = no_use_2.done;
-    }
-
     group write {
       add_0.left = val.out;
       add_0.right = 32'd1;
@@ -64,20 +50,24 @@ component main() -> () {
       // thread 1
       while lt.out with cmp {
         seq {
-          @sync(1) no_op_1;
+          @sync(1);
           read;
           incr_idx;
-          @sync(2) write;
+          write;
+          @sync(2);
+          @sync(3);
         }
       }
 
       // thread 2
       while lt.out with cmp {
         seq {
-          @sync(1) write;
-          @sync(2) no_op_2;
+          write;
+          @sync(1);
+          @sync(2);
           read;
           incr_idx;
+          @sync(3);
         }
       }
     }
