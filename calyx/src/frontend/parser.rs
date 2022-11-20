@@ -48,6 +48,7 @@ pub struct CalyxParser;
 impl CalyxParser {
     /// Parse a Calyx program into an AST representation.
     pub fn parse_file(path: &Path) -> CalyxResult<ast::NamespaceDef> {
+        let time = std::time::Instant::now();
         let content = &fs::read(path).map_err(|err| {
             errors::Error::invalid_file(format!(
                 "Failed to read {}: {err}",
@@ -66,7 +67,13 @@ impl CalyxParser {
         )
         .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
-        Ok(CalyxParser::file(input)?)
+        let out = CalyxParser::file(input)?;
+        log::info!(
+            "Parsed `{}` in {}ms",
+            path.to_string_lossy(),
+            time.elapsed().as_millis()
+        );
+        Ok(out)
     }
 
     pub fn parse<R: Read>(mut r: R) -> CalyxResult<ast::NamespaceDef> {
