@@ -242,10 +242,10 @@ impl SplitAnalysis {
             let (maybe_first, maybe_last, last) =
                 Self::look_for_assigns(asmts)?;
             if maybe_last == last
-                // making sure maybe_first and maybe_last are the only 2 cells written to 
+                // making sure maybe_first and maybe_last are the only 2 cells written to
                 && v.contains(&maybe_first)
                 && v.contains(&maybe_last)
-                // making sure that all reads of the first cell are from stable ports 
+                // making sure that all reads of the first cell are from stable ports
                 && asmts.iter().all(|assign| {
                     if_name_stable_or_done(assign, &maybe_first)
                 })
@@ -332,7 +332,7 @@ impl SplitAnalysis {
         // checks cell.go =
         dst.get_parent_name() == cell  && dst.attributes.has("go")
         // checks !cell.done ?
-        && guard_not_done(&*asmt.guard)
+        && guard_not_done(&asmt.guard)
         // checks 1'd1
         && asmt.src.borrow().is_constant(1, 1)
     }

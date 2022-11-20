@@ -117,7 +117,7 @@ where
     type Output = u64;
 
     fn index(&self, key: &S) -> &u64 {
-        self.get(&key)
+        self.get(key)
             .unwrap_or_else(|| panic!("No key `{}` in attribute map", key))
     }
 }
