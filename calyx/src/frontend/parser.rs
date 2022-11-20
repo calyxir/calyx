@@ -4,7 +4,7 @@
 use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
 use crate::errors::{self, CalyxResult, Span};
 use crate::ir;
-use pest::prec_climber::{Assoc, Operator, PrecClimber};
+use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
 use std::convert::TryInto;
 use std::fs;
@@ -35,14 +35,10 @@ const _GRAMMAR: &str = include_str!("syntax.pest");
 // Define the precedence of binary operations. We use `lazy_static` so that
 // this is only ever constructed once.
 lazy_static::lazy_static! {
-    static ref PRECCLIMBER: PrecClimber<Rule> = PrecClimber::new(
-        vec![
-            // loosest binding
-            Operator::new(Rule::guard_or, Assoc::Left),
-            Operator::new(Rule::guard_and, Assoc::Left),
-            // tighest binding
-        ]
-    );
+    static ref PRATT: PrattParser<Rule> =
+    PrattParser::new()
+        .op(Op::infix(Rule::guard_or, Assoc::Left))
+        .op(Op::infix(Rule::guard_and, Assoc::Left));
 }
 
 #[derive(Parser)]
@@ -97,6 +93,29 @@ impl CalyxParser {
             Rc::clone(&ud.file),
             Rc::clone(&ud.input),
         ))
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn guard_expr_helper(
+        ud: UserData,
+        pairs: pest::iterators::Pairs<Rule>,
+    ) -> ParseResult<Box<GuardExpr>> {
+        PRATT
+            .map_primary(|primary| match primary.as_rule() {
+                Rule::term => {
+                    Self::term(Node::new_with_user_data(primary, ud.clone()))
+                        .map(Box::new)
+                }
+                x => unreachable!("Unexpected rule {:?} for guard_expr", x),
+            })
+            .map_infix(|lhs, op, rhs| {
+                Ok(match op.as_rule() {
+                    Rule::guard_or => Box::new(GuardExpr::Or(lhs?, rhs?)),
+                    Rule::guard_and => Box::new(GuardExpr::And(lhs?, rhs?)),
+                    _ => unreachable!(),
+                })
+            })
+            .parse(pairs)
     }
 }
 
@@ -478,25 +497,15 @@ impl CalyxParser {
         Ok(())
     }
 
-    #[prec_climb(term, PRECCLIMBER)]
-    fn guard_expr(
-        l: ast::GuardExpr,
-        op: Node,
-        r: ast::GuardExpr,
-    ) -> ParseResult<ast::GuardExpr> {
-        match op.as_rule() {
-            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
-            Rule::guard_and => {
-                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
-            }
-            _ => unreachable!(),
-        }
+    fn guard_expr(input: Node) -> ParseResult<Box<GuardExpr>> {
+        let ud = input.user_data().clone();
+        Self::guard_expr_helper(ud, input.into_pair().into_inner())
     }
 
     fn term(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
-            [guard_expr(guard)] => guard,
+            [guard_expr(guard)] => *guard,
             [cmp_expr(e)] => e,
             [expr(e)] => ast::GuardExpr::Atom(e),
             [guard_not(_), expr(e)] => {
@@ -506,7 +515,7 @@ impl CalyxParser {
                 ast::GuardExpr::Not(Box::new(e))
             },
             [guard_not(_), guard_expr(e)] => {
-                ast::GuardExpr::Not(Box::new(e))
+                ast::GuardExpr::Not(e)
             },
             [guard_not(_), expr(e)] =>
                 ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
@@ -516,7 +525,7 @@ impl CalyxParser {
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
-            [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(guard), expr },
+            [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(*guard), expr },
         ))
     }
 
