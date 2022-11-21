@@ -80,12 +80,14 @@ fn cell_type_to_string(cell_type: &ir::CellType) -> String {
 /// `-x cell-share:bounds=2,-1,3` this means that you will always share registers.
 /// Note: *The no spaces are important.*
 /// Also, if you pass the following flag: `-x cell-share:print-share-freqs=file-name`
-/// this pass will write a json to `file-name`. If want to print onto
-/// command line, then just set the file-name to be "cmd" (you don't need the quotes
-/// when you actually pass in the argument, so run `-x cell-share:print-share-freqs=cmd`).
-/// The json will map an integer (say n) to the number of cells that were shared
-/// exactly n times. So the key n = 2 will be mapped to the number of cells
-/// that are shared exactly twice.
+/// this pass will write a json to `file-name`. If want to print into stdout
+/// then just set the file-name to be "stdout" (you don't need the quotes
+/// when you actually pass in the argument, so run `-x cell-share:print-share-freqs=stdout`),
+/// and if you want to print to stderr then just set the file-name to be "stderr".
+/// The json will map an integer (say n) to the number of cells in the new design (i.e.,
+/// the design after sharing has been performed) that were shared
+/// exactly n times. So the key n = 2 will be mapped to the number of cells in the
+/// new design that are shared exactly twice.
 ///
 /// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the definitions.
@@ -215,7 +217,7 @@ impl CellShare {
         // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
         let bounds_arg = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.get(0) {
+            if let Some(str) = split.first() {
                 if str == &"bounds" && split.len() == 2 {
                     return Some(split[1]);
                 }
@@ -226,7 +228,7 @@ impl CellShare {
         // searching for "-x cell-share:print-share-freqs=file_name" and getting Some(file_name) back
         let print_pdf_arg = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.get(0) {
+            if let Some(str) = split.first() {
                 if str == &"print-share-freqs" && split.len() == 2 {
                     return Some(split[1].to_string());
                 }
