@@ -2,15 +2,12 @@ use super::math_utilities::get_bit_width_from;
 use crate::errors::CalyxResult;
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::GetAttributes;
-use crate::{build_assignments, guard, passes, structure};
-use crate::{
-    errors::Error,
-    ir::{
-        self,
-        traversal::{Action, Named, VisResult, Visitor},
-        LibrarySignatures, RRC,
-    },
+use crate::ir::{
+    self,
+    traversal::{Action, Named, VisResult, Visitor},
+    LibrarySignatures, RRC,
 };
+use crate::{build_assignments, guard, passes, structure};
 use ir::Printer;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
@@ -20,7 +17,7 @@ use std::rc::Rc;
 
 const NODE_ID: &str = "NODE_ID";
 
-/// Computes the entry and exit points of a given [ir::Control] program.
+/// Computes the exit points of a given [ir::Control] program.
 ///
 /// ## Example
 /// In the following Calyx program:
@@ -39,43 +36,62 @@ const NODE_ID: &str = "NODE_ID";
 /// while comb_reg.out {
 ///   incr;
 ///   if comb_reg2.out {
-///     true;
+///     A;
 ///   } else {
-///     false;
+///     B;
 ///   }
 /// }
 /// ```
-/// The exit set is `[true, false]`.
+/// The exit set is `[A, B]`.
+///
+/// When an else branch is missing, the exits include the last statement before the `if`
+/// ```
+/// while comb_reg.out {
+///   incr;
+///   if comb_reg2.out {
+///    A;
+///  }
+/// ```
+/// The exit set is `[A, incr]`.
 fn control_exits(
     con: &ir::Control,
     is_exit: bool,
+    prev_exits: &mut Vec<(u64, RRC<ir::Group>)>,
     exits: &mut Vec<(u64, RRC<ir::Group>)>,
 ) {
     match con {
         ir::Control::Enable(ir::Enable { group, attributes }) => {
+            let cur_state = attributes.get(NODE_ID).unwrap();
             if is_exit {
-                let cur_state = attributes.get(NODE_ID).unwrap();
                 exits.push((*cur_state, Rc::clone(group)))
+            } else {
+                prev_exits.push((*cur_state, Rc::clone(group)))
             }
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            if let Some(stmt) = stmts.last() { control_exits(stmt, true, exits) }
+            let mut rev = stmts.iter().rev();
+            if let Some(last) = rev.next() { control_exits(last, true, prev_exits, exits) }
+            if let Some(sec_last) = rev.next() { control_exits(sec_last, false, prev_exits, exits) }
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
             control_exits(
-                tbranch, is_exit, exits,
+                tbranch, is_exit, prev_exits, exits,
             );
-            control_exits(
-                fbranch, is_exit, exits,
-            )
+            if let ir::Control::Empty(_) = **fbranch {
+                // Return the exits from the last statement
+            } else {
+                control_exits(
+                    fbranch, is_exit, prev_exits, exits,
+                );
+            }
         }
         ir::Control::While(ir::While { body, .. }) => control_exits(
-            body, is_exit, exits,
+            body, is_exit, prev_exits, exits,
         ),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Empty(_) => unreachable!(),
         ir::Control::Par(_) => unreachable!(),
     }
 }
@@ -387,8 +403,13 @@ fn calculate_states_recur(
             fbranch,
             ..
         }) => {
-            if cond.is_some() {
-                return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
+            // If a combinational group is defined, enable its assignments in all predecessor states.
+            if let Some(cgr) = cond {
+                let cg = cgr.borrow();
+                let assigns = cg.assignments.clone();
+                for (pred_st, _) in &preds {
+                    schedule.enables.entry(*pred_st).or_default().extend(assigns.clone());
+                }
             }
             let port_guard: ir::Guard = Rc::clone(port).into();
             // Previous states transitioning into true branch need the conditional
@@ -426,20 +447,19 @@ fn calculate_states_recur(
         ir::Control::While(ir::While {
             cond, port, body, ..
         }) => {
-            if cond.is_some() {
-                return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), cond.as_ref().unwrap().borrow().name())));
-            }
-
             let port_guard: ir::Guard = Rc::clone(port).into();
 
             // Step 1: Generate the backward edges
             // First compute the entry and exit points.
             let mut exits = vec![];
+            let mut prev_exits = vec![];
             control_exits(
                 body,
                 true,
+                &mut prev_exits,
                 &mut exits,
             );
+            log::debug!("Exits: {}", exits.iter().map(|(_, e)| e.borrow().name().id.clone()).join(", "));
             let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
 
             // Step 2: Generate the forward edges normally.
@@ -467,7 +487,16 @@ fn calculate_states_recur(
                 .into_iter()
                 .chain(prevs.into_iter())
                 .map(|(st, guard)| (st, guard & not_port_guard.clone()))
-                .collect();
+                .collect_vec();
+
+            // If there is a combinational group, then enable its assignments in all predecessor states.
+            if let Some(cg) = cond {
+                let cg = cg.borrow();
+                let assigns = cg.assignments.clone();
+                for (pred_st, _) in &all_prevs {
+                    schedule.enables.entry(*pred_st).or_default().extend(assigns.clone());
+                }
+            }
 
             Ok(all_prevs)
         }
@@ -527,16 +556,16 @@ fn calculate_states(
 /// ```
 /// cond0;
 /// while lt.out {
-///   if gt.out { true } else { false }
+///   if gt.out { one } else { two }
 /// }
 /// next;
 /// ```
 /// The predeccesor sets are:
 /// ```
-/// cond0 -> []
-/// true -> [(cond0, lt.out & gt.out); (true; lt.out & gt.out); (false, lt.out & !gt.out)]
-/// false -> [(cond0, lt.out & !gt.out); (true; lt.out & gt.out); (false, lt.out & !gt.out)]
-/// next -> [(cond0, !lt.out); (true, !lt.out); (false, !lt.out)]
+/// cond0 -> [START, true] // START is the initial state
+/// one -> [(cond0, lt.out & gt.out); (one; lt.out & gt.out); (two, lt.out & !gt.out)]
+/// two -> [(cond0, lt.out & !gt.out); (one; lt.out & gt.out); (two, lt.out & !gt.out)]
+/// next -> [(cond0, !lt.out); (one, !lt.out); (two, !lt.out)]
 /// ```
 ///
 /// ### Compiling [ir::Enable]
@@ -574,8 +603,10 @@ fn calculate_states(
 /// The transition t -> t+1 represents one where group one is done but group two hasn't started
 /// executing.
 ///
-/// To address this specific problem, there is an additional enable added to run all groups within
-/// an enable *while the FSM is transitioning*.
+/// ### Experimental: `-x tdcc:early-transitions`
+/// To address the above problem, there is an experimental flag `-x tdcc:early-transitions` that attempts
+/// to start the next group as soon as the previous group is done. This is done by adding an additional enable
+/// added to run all groups within an enable *while the FSM is transitioning*.
 /// The final transition will look like this:
 /// ```
 /// f.in = one[done] ? 1;

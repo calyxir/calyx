@@ -81,7 +81,6 @@ impl PassManager {
                 CompileRef, //Must run before cell-share.
                 InferShare,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
-                RemoveCombGroups, // Must run before infer-static-timing
                 InferStaticTiming,
                 CompileInvoke,    // creates dead comb groups
                 MergeStaticPar,   // creates dead groups potentially

@@ -27,11 +27,20 @@ impl Visitor for CompileInvoke {
         ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let ir::Invoke {
+            comp: invoke_comp,
+            inputs,
+            outputs,
+            attributes,
+            comb_group,
+            ref_cells,
+        } = s;
+
         let mut builder = ir::Builder::new(comp, ctx);
 
         let invoke_group = builder.add_group("invoke");
 
-        if !s.ref_cells.is_empty() {
+        if !ref_cells.is_empty() {
             return Err(Error::malformed_structure(format!(
                 "Invoke statement contains ref cell. Run {} before this pass",
                 super::CompileRef::name()
@@ -44,7 +53,7 @@ impl Visitor for CompileInvoke {
             let one = constant(1, 1);
         );
 
-        let cell = s.comp.borrow();
+        let cell = invoke_comp.borrow();
         let name = cell.name();
 
         // Get the go port
@@ -77,31 +86,36 @@ impl Visitor for CompileInvoke {
         let mut enable_assignments = vec![go_assign, done_assign];
 
         // Generate argument assignments
-        let cell = &*s.comp.borrow();
-        let assigns = s
-            .inputs
+        let cell = &*invoke_comp.borrow();
+        let assigns = inputs
             .drain(..)
             .into_iter()
             .map(|(inp, p)| {
                 builder.build_assignment(cell.get(inp), p, ir::Guard::True)
             })
-            .chain(s.outputs.drain(..).into_iter().map(|(out, p)| {
+            .chain(outputs.drain(..).into_iter().map(|(out, p)| {
                 builder.build_assignment(p, cell.get(out), ir::Guard::True)
             }))
             .chain(enable_assignments.drain(..))
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 
-        // Copy "static" annotation from the `invoke` statement if present
-        if let Some(time) = s.attributes.get("static") {
-            invoke_group.borrow_mut().attributes.insert("static", *time);
+        // Add assignments from the comb group
+        if let Some(cg) = comb_group {
+            let cg = cg.borrow();
+            invoke_group
+                .borrow_mut()
+                .assignments
+                .append(&mut cg.assignments.clone());
         }
 
         let mut en = ir::Enable {
             group: invoke_group,
             attributes: Attributes::default(),
         };
-        if let Some(time) = s.attributes.get("static") {
+        // Copy "static" annotation from the `invoke` statement if present
+        if let Some(time) = attributes.get("static") {
+            en.group.borrow_mut().attributes.insert("static", *time);
             en.attributes.insert("static", *time);
         }
 
