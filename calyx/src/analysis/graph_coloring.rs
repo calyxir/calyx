@@ -64,11 +64,10 @@ where
         let mut pdf: HashMap<i64, i64> = HashMap::new();
         // hold total value so we know how much to divide by at the end
         for value in self.color_freq_map.values() {
-            // `value` is the number of times a cell is shared, corresponding entry
-            // is the number of cells that have been shared exactly `value` times
-            pdf.entry(*value)
-                .and_modify(|v| *v += *value as i64)
-                .or_insert(*value as i64);
+            // in`pdf`, each key represents a possible number of times a cell
+            // is shared-- for example, x-- and the corresponding key represents
+            // how many cells in the new program were shared x times
+            pdf.entry(*value).and_modify(|v| *v += 1).or_insert(1);
         }
         pdf
     }

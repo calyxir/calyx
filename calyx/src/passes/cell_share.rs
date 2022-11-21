@@ -13,6 +13,8 @@ use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 
+// function to turn cell types to string when we are building hte json for
+// share_freqs
 fn cell_type_to_string(cell_type: &ir::CellType) -> String {
     match cell_type {
         ir::CellType::Primitive {
@@ -185,7 +187,8 @@ impl CellShare {
         }
     }
 
-    // given a ctx, gets the bounds. For example, if "-x cell-share:bounds=2,3,4"
+    // given a ctx, gets the bounds and the file to write the sharing frequencies
+    // to. For example, if "-x cell-share:bounds=2,3,4"
     // is passed in the cmd line, we should return [2,3,4]. If no such argument
     // is given, return the default, which is currently set rather
     // arbitrarily at [4,6,18].
@@ -257,10 +260,42 @@ impl CellShare {
         }
 
         if set_default {
-            // could possibly put vec![x,y,z] here as default instead
+            // could possibly put vec![x,y,z] where x,y, and z are deliberately
+            // chosen numbers here instead
             (print_pdf_arg, vec![None, None, None])
         } else {
             (print_pdf_arg, bounds)
+        }
+    }
+
+    // prints the json if self.print_share_freqs is not None
+    fn print_share_json(&self) {
+        if let Some(file) = &self.print_share_freqs {
+            let printable_share_freqs: HashMap<String, HashMap<String, _>> =
+                self.share_freqs
+                    .iter()
+                    .map(|(id, freq_map)| {
+                        (
+                            id.to_string(),
+                            freq_map
+                                .iter()
+                                .map(|(cell_type, pdf)| {
+                                    (cell_type_to_string(cell_type), pdf)
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect();
+            let json_share_freqs: Value = json!(printable_share_freqs);
+            if file == "stdout" {
+                println!("{json_share_freqs}");
+            } else if file == "stderr" {
+                eprintln!("{json_share_freqs}");
+                std::process::exit(1);
+            } else {
+                fs::write(file, format!("{}", json_share_freqs))
+                    .expect("unable to write file");
+            }
         }
     }
 }
@@ -407,47 +442,18 @@ impl Visitor for CellShare {
                 );
                 // only generate share-freqs if we're going to use them.
                 if self.print_share_freqs.is_some() {
-                    // must accumulate sharing numbers for share_freqs across
-                    comp_share_freqs
-                        .entry(cell_type)
-                        .and_modify(|cur_pdf| {
-                            for (n, freq) in graph.get_share_freqs() {
-                                cur_pdf
-                                    .entry(n)
-                                    .and_modify(|cur_freq| *cur_freq += freq)
-                                    .or_insert(freq);
-                            }
-                        })
-                        .or_insert_with(|| graph.get_share_freqs());
+                    // must accumulate sharing numbers for share_freqs
+                    comp_share_freqs.insert(cell_type, graph.get_share_freqs());
                 }
             }
         }
 
-        self.share_freqs.insert(comp.name.clone(), comp_share_freqs);
-
-        if let Some(file) = &self.print_share_freqs {
-            let printable_share_freqs: HashMap<String, HashMap<String, _>> =
-                self.share_freqs
-                    .iter()
-                    .map(|(id, freq_map)| {
-                        (
-                            id.to_string(),
-                            freq_map
-                                .iter()
-                                .map(|(cell_type, pdf)| {
-                                    (cell_type_to_string(cell_type), pdf)
-                                })
-                                .collect(),
-                        )
-                    })
-                    .collect();
-            let json_share_freqs: Value = json!(printable_share_freqs);
-            if file == "cmd" {
-                println!("{}", json_share_freqs);
-            } else {
-                fs::write(file, format!("{}", json_share_freqs))
-                    .expect("unable to write file");
-            }
+        // add the sharing freqs for the component we just analyzed
+        if self.print_share_freqs.is_some() {
+            // must accumulate sharing numbers for share_freqs
+            self.share_freqs.insert(comp.name.clone(), comp_share_freqs);
+            // print share freqs json if self.print_share_freqs is not none
+            self.print_share_json();
         }
 
         // Rewrite assignments using the coloring generated.

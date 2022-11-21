@@ -1,4 +1,4 @@
-{"main":{"std_add_WIDTH_32":{"2":6},"std_mult_pipe_WIDTH_32":{"6":6},"std_reg_WIDTH_32":{"2":2,"4":4}}}
+{"main":{"std_add_WIDTH_32":{"2":3},"std_mult_pipe_WIDTH_32":{"6":1},"std_reg_WIDTH_32":{"2":1,"4":1}}}
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
