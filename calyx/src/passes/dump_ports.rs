@@ -1,6 +1,6 @@
 use crate::ir::{self, RRC, WRC};
-use std::collections::HashMap;
 use std::rc::Rc;
+use crate::passes::compile_ref::RefPortMap;
 
 /// Formats name of a port given the id of the cell and the port
 pub(super) fn format_port_name(comp: &ir::Id, port: &ir::Id) -> ir::Id {
@@ -16,10 +16,7 @@ pub(super) fn dump_ports_to_signature(
     component: &mut ir::Component,
     cell_filter: fn(&RRC<ir::Cell>) -> bool,
     remove_signals: bool,
-    port_names: &mut HashMap<
-        ir::Id,
-        HashMap<ir::Id, HashMap<ir::Id, RRC<ir::Port>>>,
-    >,
+    port_names: &mut RefPortMap,
 ) {
     let comp_name = component.name.clone();
     let (ext_cells, cells): (Vec<_>, Vec<_>) =
@@ -45,6 +42,7 @@ pub(super) fn dump_ports_to_signature(
 
         for port_ref in ports_inline {
             let port_name = port_ref.borrow().name.clone();
+            let canon = port_ref.borrow().canonical();
             // Change the name and the parent of this port.
             port_ref.borrow_mut().name =
                 component.generate_name(format_port_name(&name, &port_name));
@@ -62,9 +60,7 @@ pub(super) fn dump_ports_to_signature(
             port_names
                 .entry(comp_name.clone())
                 .or_default()
-                .entry(name.clone())
-                .or_default()
-                .insert(port_name.clone(), Rc::clone(&port_ref));
+                .insert(canon, Rc::clone(&port_ref));
         }
     }
 }

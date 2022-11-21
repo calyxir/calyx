@@ -16,9 +16,9 @@ use std::rc::Rc;
 
 /// Map for storing added ports for each ref cell
 /// level of Hashmap represents:
-/// HashMap<-component name-, Hashmap<-cell name-, HashMap<-port name-, port>>>;
-type RefPortMap =
-    HashMap<ir::Id, HashMap<ir::Id, HashMap<ir::Id, RRC<ir::Port>>>>;
+/// HashMap<-component name-, Hashmap<(-cell name-,-port name-), port>>;
+pub(super) type RefPortMap =
+    HashMap<ir::Id, HashMap<ir::Canonical, RRC<ir::Port>>>;
 
 trait GetPorts {
     fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>>;
@@ -28,10 +28,8 @@ impl GetPorts for RefPortMap {
     fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
         if self.contains_key(comp_name) {
             let mut ret = Vec::new();
-            for (_, submap) in self[comp_name].iter() {
-                for (_, p) in submap.iter() {
-                    ret.push(Rc::clone(p));
-                }
+            for (_, p) in self[comp_name].iter() {
+                ret.push(Rc::clone(p));
             }
             Some(ret)
         } else {
@@ -119,14 +117,20 @@ impl Visitor for CompileRef {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        for (key, value) in self.port_names.iter() {
+            print!("{}\n", key);
+            for (k, _) in value {
+                print!("{}\n",k);
+            }
+        }
         let comp_name = s.comp.borrow().type_name().unwrap().clone();
-        for (id, cell) in s.ref_cells.drain(..) {
+        for (_, cell) in s.ref_cells.drain(..) {
             for port in cell.borrow().ports.iter() {
                 if port.borrow().attributes.get("clk").is_none()
                     && port.borrow().attributes.get("reset").is_none()
                 {
-                    let port_name = self.port_names[&comp_name][&id]
-                        [&port.borrow().name.clone()]
+                    println!("{}",&port.borrow().canonical());
+                    let port_name = self.port_names[&comp_name][&port.borrow().canonical()]
                         .borrow()
                         .name
                         .clone();
