@@ -10,15 +10,9 @@ component main () -> () {
     idx = std_reg(3);
     incr = std_add(3);
     lt = std_lt(3);
-    no_use = std_reg(1);
   }
 
   wires {
-    group no_op {
-      no_use.in = 1'd0;
-      no_use.write_en = 1'd1;
-      no_op[done] = no_use.done;
-    }
     group incr_idx {
       incr.left = idx.out;
       incr.right = 3'd1;
@@ -56,16 +50,19 @@ component main () -> () {
       // thread A
       while lt.out with comp {
         seq {
-          @sync(1) incr_idx;
-          @sync(2) add_r_to_accm;
+          incr_idx;
+          @sync(1);
+          add_r_to_accm;
+          @sync(2);
         }
       }
 
       // thread B
       while lt.out with comp {
         seq {
-          @sync(1) incr_r;
-          @sync(2) no_op;
+          incr_r;
+          @sync(1);
+          @sync(2);
         }
       }
     }
