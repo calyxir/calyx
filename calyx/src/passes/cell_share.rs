@@ -169,7 +169,7 @@ impl CellShare {
         // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
         // cells.
         self.live = LiveRangeAnalysis::new(
-            &mut *comp.control.borrow_mut(),
+            &mut comp.control.borrow_mut(),
             self.state_shareable.clone(),
             self.shareable.clone(),
         );
@@ -360,7 +360,7 @@ impl Visitor for CellShare {
             &mut par_thread_map,
             &mut live_cell_map,
             &HashSet::new(),
-            &*comp.control.borrow(),
+            &comp.control.borrow(),
         );
 
         // Adding the conflicts
@@ -465,7 +465,7 @@ impl Visitor for CellShare {
 
         // Rewrite control uses of ports
         rewriter.rewrite_control(
-            &mut *comp.control.borrow_mut(),
+            &mut comp.control.borrow_mut(),
             &HashMap::new(),
             &HashMap::new(),
         );
