@@ -55,40 +55,45 @@ const NODE_ID: &str = "NODE_ID";
 /// The exit set is `[A, incr]`.
 fn control_exits(
     con: &ir::Control,
-    is_exit: bool,
-    prev_exits: &mut Vec<(u64, RRC<ir::Group>)>,
+    prev_exits: &Vec<(u64, RRC<ir::Group>)>,
     exits: &mut Vec<(u64, RRC<ir::Group>)>,
 ) {
     match con {
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap();
-            if is_exit {
-                exits.push((*cur_state, Rc::clone(group)))
-            } else {
-                prev_exits.push((*cur_state, Rc::clone(group)))
-            }
+            exits.push((*cur_state, Rc::clone(group)));
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            let mut rev = stmts.iter().rev();
-            if let Some(last) = rev.next() { control_exits(last, true, prev_exits, exits) }
-            if let Some(sec_last) = rev.next() { control_exits(sec_last, false, prev_exits, exits) }
+            let mut pe = prev_exits.clone();
+            for stmt in stmts.iter() {
+                // eprint!("{}", ir::Printer::control_to_str(stmt));
+                // eprintln!("prevs: {}", pe.iter().map(|(a, _)| format!("{a}")).join(", "));
+                let mut cur_exits = vec![];
+                // This control's prev_exits are the previous statement's exits
+                control_exits(stmt, &pe, &mut cur_exits);
+                // eprintln!("exits: {}", cur_exits.iter().map(|(a, _)| format!("{a}")).join(", "));
+                pe = cur_exits;
+            }
+            // The prev exits from the last statements are the final exits
+            exits.append(&mut pe);
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
             control_exits(
-                tbranch, is_exit, prev_exits, exits,
+                tbranch, prev_exits, exits,
             );
             if let ir::Control::Empty(_) = **fbranch {
                 // Return the exits from the last statement
+                exits.append(&mut prev_exits.clone());
             } else {
                 control_exits(
-                    fbranch, is_exit, prev_exits, exits,
+                    fbranch, prev_exits, exits,
                 );
             }
         }
         ir::Control::While(ir::While { body, .. }) => control_exits(
-            body, is_exit, prev_exits, exits,
+            body, prev_exits, exits,
         ),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!(),
@@ -449,26 +454,26 @@ fn calculate_states_recur(
         }) => {
             let port_guard: ir::Guard = Rc::clone(port).into();
 
-            // Step 1: Generate the backward edges
-            // First compute the entry and exit points.
+            // Step 1: Generate the backward edges by computing the backward edge.
+            // A backward edge is added from each enable statement that *may be* the last
+            // statement executed by the while loop.
             let mut exits = vec![];
-            let mut prev_exits = vec![];
             control_exits(
                 body,
-                true,
-                &mut prev_exits,
+                &vec![],
                 &mut exits,
             );
             log::debug!("Exits: {}", exits.iter().map(|(_, e)| e.borrow().name().id.clone()).join(", "));
             let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
 
-            // Step 2: Generate the forward edges normally.
-            // Previous transitions into the body require the condition to be
-            // true.
+            // Step 2: Generate the forward edges in the body.
+            // Each forward edge can come from the loop's predecessor states or from
+            // the backward edges.
             let transitions: Vec<(u64, ir::Guard)> = preds
                 .clone()
                 .into_iter()
                 .chain(back_edge_prevs)
+                // Previous transitions into the body require the condition to be true.
                 .map(|(s, g)| (s, g & port_guard.clone()))
                 .collect();
             let prevs = calculate_states_recur(
