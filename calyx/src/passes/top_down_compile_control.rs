@@ -66,12 +66,9 @@ fn control_exits(
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             let mut pe = prev_exits.clone();
             for stmt in stmts.iter() {
-                // eprint!("{}", ir::Printer::control_to_str(stmt));
-                // eprintln!("prevs: {}", pe.iter().map(|(a, _)| format!("{a}")).join(", "));
                 let mut cur_exits = vec![];
                 // This control's prev_exits are the previous statement's exits
                 control_exits(stmt, &pe, &mut cur_exits);
-                // eprintln!("exits: {}", cur_exits.iter().map(|(a, _)| format!("{a}")).join(", "));
                 pe = cur_exits;
             }
             // The prev exits from the last statements are the final exits
@@ -463,7 +460,6 @@ fn calculate_states_recur(
                 &vec![],
                 &mut exits,
             );
-            log::debug!("Exits: {}", exits.iter().map(|(_, e)| e.borrow().name().id.clone()).join(", "));
             let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
 
             // Step 2: Generate the forward edges in the body.
