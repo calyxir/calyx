@@ -118,6 +118,22 @@ fn control_exits(
 /// }
 /// ```
 ///
+/// `if` nodes with a combinational group are also given a unique ID since previous states cannot directly jump to them.
+/// ```
+/// seq {
+///   A;
+///   if lt.out with C { B }
+/// }
+/// ```
+/// gets the labels:
+/// ```
+/// seq {
+///  @NODE_ID(1) A;
+///  @NODE_ID(2) if lt.out with C {
+///    @NODE_ID(3) B }
+/// }
+/// ```
+///
 /// These identifiers are used by the compilation methods [calculate_states_recur]
 /// and [control_exits].
 fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
@@ -141,8 +157,15 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             cur
         }
         ir::Control::If(ir::If {
-            tbranch, fbranch, ..
+            tbranch, fbranch, cond, attributes, ..
         }) => {
+            // If there is a comb group attached to this if, we provide the `if` itself with a unique id representing the state where the cond computation occurs.
+            let cur_state = if cond.is_some() {
+                attributes.insert(NODE_ID, cur_state);
+                cur_state + 1
+            } else {
+                cur_state
+            };
             // If the program starts with a branch then branches can't get
             // the initial state.
             let cur_state = if cur_state == 0 {
@@ -329,7 +352,7 @@ type PredEdge = (u64, ir::Guard);
 fn calculate_states_recur(
     con: &ir::Control,
     // The set of previous states that want to transition into cur_state
-    preds: Vec<(u64, ir::Guard)>,
+    preds: Vec<PredEdge>,
     // Current schedule.
     schedule: &mut Schedule,
     // Component builder
@@ -403,20 +426,36 @@ fn calculate_states_recur(
             cond,
             tbranch,
             fbranch,
+            attributes,
             ..
         }) => {
-            // If a combinational group is defined, enable its assignments in all predecessor states.
+            let mut prev_states = preds;
+            // If a combinational group is defined, transition to the NODE_ID for this `if` from all predecessors.
             if let Some(cgr) = cond {
+                // If this is the first control statement, then merge the start state with the state used to compute the condition.
+                let cur_st = if prev_states.len() == 1 && prev_states[0].1.is_true() {
+                    prev_states.pop().unwrap().0
+                } else {
+                    *attributes.get(NODE_ID).unwrap_or_else(|| panic!("`if`-`with` `{}` does not have NODE_ID information", cgr.borrow().name()))
+                };
+
+                // Transition from all previous states to this state.
+                let transitions = prev_states
+                    .into_iter()
+                    .map(|(st, guard)| (st, cur_st, guard));
+                schedule.transitions.extend(transitions);
+
+                // Enable comb group assignments in this state
                 let cg = cgr.borrow();
-                let assigns = cg.assignments.clone();
-                for (pred_st, _) in &preds {
-                    schedule.enables.entry(*pred_st).or_default().extend(assigns.clone());
-                }
+                schedule.enables.entry(cur_st).or_default().extend(cg.assignments.clone());
+
+                // This state is the only predecessor for the `then` and `else` branches.
+                prev_states = vec![(cur_st, ir::Guard::True)];
             }
             let port_guard: ir::Guard = Rc::clone(port).into();
             // Previous states transitioning into true branch need the conditional
             // to be true.
-            let tru_transitions = preds.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
+            let tru_transitions = prev_states.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
             let tru_prev = calculate_states_recur(
                 tbranch,
                 tru_transitions,
@@ -426,7 +465,7 @@ fn calculate_states_recur(
             )?;
             // Previous states transitioning into false branch need the conditional
             // to be false.
-            let fal_transitions = preds.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
+            let fal_transitions = prev_states.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
 
             let fal_prev = if let ir::Control::Empty(..) = **fbranch {
                 // If the false branch is empty, then all the prevs to this node will become prevs
@@ -465,7 +504,7 @@ fn calculate_states_recur(
             // Step 2: Generate the forward edges in the body.
             // Each forward edge can come from the loop's predecessor states or from
             // the backward edges.
-            let transitions: Vec<(u64, ir::Guard)> = preds
+            let transitions: Vec<PredEdge> = preds
                 .clone()
                 .into_iter()
                 .chain(back_edge_prevs)
@@ -681,7 +720,10 @@ impl Visitor for TopDownCompileControl {
 
         let mut con = comp.control.borrow_mut();
         compute_unique_ids(&mut con, 0);
-        // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
+        log::debug!(
+            "Control with unique IDs:\n{}",
+            ir::Printer::control_to_str(&con)
+        );
         Ok(Action::Continue)
     }
 
