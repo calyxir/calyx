@@ -138,8 +138,8 @@ component batch_flatten_1x4() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d3(32, 1, 2, 2, 1, 2, 2);
-    @external(1) x1 = seq_mem_d2(32, 1, 4, 1, 3);
+    @external x = seq_mem_d3(32, 1, 2, 2, 1, 2, 2);
+    @external x1 = seq_mem_d2(32, 1, 4, 1, 3);
     batch_flatten_1x4_ = batch_flatten_1x4();
   }
   wires {

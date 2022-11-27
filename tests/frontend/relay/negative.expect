@@ -65,8 +65,8 @@ component negative_4() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d1(32, 4, 3);
-    @external(1) x1 = seq_mem_d1(32, 4, 3);
+    @external x = seq_mem_d1(32, 4, 3);
+    @external x1 = seq_mem_d1(32, 4, 3);
     negative_4_ = negative_4();
   }
   wires {

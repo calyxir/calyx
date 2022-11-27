@@ -163,9 +163,9 @@ component dense_1x10() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d2(32, 1, 4096, 1, 13);
-    @external(1) y = seq_mem_d2(32, 10, 4096, 4, 13);
-    @external(1) x1 = seq_mem_d2(32, 1, 10, 1, 4);
+    @external x = seq_mem_d2(32, 1, 4096, 1, 13);
+    @external y = seq_mem_d2(32, 10, 4096, 4, 13);
+    @external x1 = seq_mem_d2(32, 1, 10, 1, 4);
     dense_1x10_ = dense_1x10();
   }
   wires {

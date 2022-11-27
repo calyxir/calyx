@@ -109,8 +109,8 @@ component batch_flatten_2x4096() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d2(32, 2, 4096, 2, 13);
-    @external(1) x1 = seq_mem_d2(32, 2, 4096, 2, 13);
+    @external x = seq_mem_d2(32, 2, 4096, 2, 13);
+    @external x1 = seq_mem_d2(32, 2, 4096, 2, 13);
     batch_flatten_2x4096_ = batch_flatten_2x4096();
   }
   wires {
