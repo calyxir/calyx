@@ -95,10 +95,10 @@ component negative_2x2() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d2(32, 2, 2, 2, 2);
-    @external(1) x1 = seq_mem_d2(32, 2, 2, 2, 2);
+    @external x = seq_mem_d2(32, 2, 2, 2, 2);
+    @external x1 = seq_mem_d2(32, 2, 2, 2, 2);
     negative_2x2_ = negative_2x2();
-    @external(1) x2 = seq_mem_d2(32, 2, 2, 2, 2);
+    @external x2 = seq_mem_d2(32, 2, 2, 2, 2);
     negative_2x2_1 = negative_2x2();
   }
   wires {

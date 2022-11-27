@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main() -> () {
+component main(in: 32) -> (out: 32) {
   cells {
     lhs = std_reg(32);
     rhs = std_reg(32);
@@ -9,10 +9,10 @@ component main() -> () {
   }
   wires {
     group update_operands {
-      lhs.in = 32'd1;
-      rhs.in = 32'd41;
       lhs.write_en = 1'd1;
       rhs.write_en = 1'd1;
+      lhs.in = 32'd1;
+      rhs.in = 32'd41;
       update_operands[done] = lhs.done & rhs.done ? 1'd1;
     }
     group compute_sum {
@@ -22,6 +22,7 @@ component main() -> () {
       sum.in = add.out;
       compute_sum[done] = sum.done;
     }
+    in = out;
   }
   control {
     seq {

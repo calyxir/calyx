@@ -185,8 +185,8 @@ component relu_2x4x8x32() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
-    @external(1) x1 = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    @external x = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    @external x1 = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
     relu_2x4x8x32_ = relu_2x4x8x32();
   }
   wires {

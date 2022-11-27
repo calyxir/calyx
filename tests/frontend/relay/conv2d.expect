@@ -403,9 +403,9 @@ component conv2d_5x512x14x14() -> () {
 
 component main() -> () {
   cells {
-    @external(1) data = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    @external(1) weight = seq_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
-    @external(1) x = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external data = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external weight = seq_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
+    @external x = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     conv2d_5x512x14x14_ = conv2d_5x512x14x14();
   }
   wires {
