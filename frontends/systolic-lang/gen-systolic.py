@@ -100,7 +100,6 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     """
     Instantiates:
     - top memory
-    - target register for the memory
     - structure to move data from memory to read registers.
 
     Returns (cells, structure) tuple.
@@ -112,7 +111,7 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
         name = f"l{idx}"
         target_reg = f"left_{idx}_0"
     else:
-        raise f"Invalid top_or_left: {top_or_left}"
+        raise Exception(f"Invalid top_or_left: {top_or_left}")
 
     idx_width = bits_needed(size)
     # Instantiate the memory
@@ -172,7 +171,7 @@ def instantiate_data_move(
             move.done = dst_reg.done
 
 
-def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols, idx_bitwidth):
+def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
     """
     Generates groups to move the final value from a PE into the output array.
     """
@@ -428,7 +427,7 @@ def create_systolic_array(
             )
 
             # Instantiate output movement structure
-            instantiate_output_move(main, row, col, top_length, out_idx_size)
+            instantiate_output_move(main, row, col, top_length)
 
     # Generate the control and set the source map
     control, source_map = generate_control(
