@@ -245,8 +245,8 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
 component main() -> () {
   cells {
     t = std_reg(16);
-    @external(1) x = std_mem_d1(16, 1, 1);
-    @external(1) ret = std_mem_d1(16, 1, 1);
+    @external x = std_mem_d1(16, 1, 1);
+    @external ret = std_mem_d1(16, 1, 1);
     e = exp();
   }
   wires {

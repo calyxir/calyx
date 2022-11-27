@@ -10,8 +10,8 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) a = std_mem_d1(32, 4, 3);
-    @external(1) phis = std_mem_d1(32, 4, 3);
+    @external a = std_mem_d1(32, 4, 3);
+    @external phis = std_mem_d1(32, 4, 3);
     r0 = std_reg(32);
     r1 = std_reg(32);
     r2 = std_reg(32);
