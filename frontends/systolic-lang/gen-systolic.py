@@ -45,34 +45,6 @@ def pe(prog: cb.Builder):
     ]
 
 
-# Eventually, PE_DEF will be included a separate `.futil` file.
-PE_DEF = """
-component mac_pe(top: 32, left: 32) -> (out: 32) {
-  cells {
-    // Storage
-    acc = std_reg(32);
-    // Computation
-    add = std_add(32);
-    mul = std_mult_pipe(32);
-  }
-  wires {
-    group do_add {
-      add.left = acc.out;
-      add.right = mul.out;
-      acc.in = add.out;
-      acc.write_en = 1'd1;
-      do_add[done] = acc.done;
-    }
-    out = acc.out;
-  }
-  control {
-    seq {
-        invoke mul(left = top, right = left)();
-        do_add;
-    }
-  }
-}"""
-
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
 NAME_SCHEME = {
