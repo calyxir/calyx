@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -30,7 +30,7 @@ class ComponentBuilder:
     """Builds Calyx components definitions."""
 
     def __init__(self, name: str):
-        self.component = ast.Component(
+        self.component: ast.Component = ast.Component(
             name,
             inputs=[],
             outputs=[],
@@ -38,27 +38,49 @@ class ComponentBuilder:
             controls=ast.Empty(),
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
+        self.continuous = GroupBuilder(None, self)
 
-    def __getitem__(self, key):
-        return self.index[key]
+    def input(self, name: str, size: int):
+        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
+
+    def output(self, name: str, size: int):
+        self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
+
+    def this(self) -> "ThisBuilder":
+        return ThisBuilder()
 
     @property
     def control(self):
         return ControlBuilder(self.component.controls)
 
     @control.setter
-    def control(self, builder):
-        self.component.controls = builder.stmt
+    def control(self, builder: Union[ast.Control, "ControlBuilder"]):
+        if isinstance(builder, ControlBuilder):
+            self.component.controls = builder.stmt
+        else:
+            self.component.controls = builder
 
-    def group(self, name: str):
+    def get_cell(self, name: str) -> "CellBuilder":
+        out = self.index[name]
+        assert isinstance(out, CellBuilder)
+        return out
+
+    def get_group(self, name: str) -> "GroupBuilder":
+        out = self.index[name]
+        assert isinstance(out, GroupBuilder)
+        return out
+
+    def group(self, name: str) -> "GroupBuilder":
         group = ast.Group(ast.CompVar(name), connections=[])
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
         return builder
 
-    def cell(self, name: str, comp: ast.CompInst):
-        cell = ast.Cell(ast.CompVar(name), comp)
+    def cell(
+        self, name: str, comp: ast.CompInst, is_external=False, is_ref=False
+    ) -> "CellBuilder":
+        cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
         self.component.cells.append(cell)
         builder = CellBuilder(cell)
         self.index[name] = builder
@@ -116,25 +138,16 @@ class ControlBuilder:
             return ControlBuilder(other_stmt)
         elif isinstance(other_stmt, ast.Empty):
             return self
-        elif isinstance(self.stmt, ast.SeqComp) and \
-                isinstance(other_stmt, ast.SeqComp):
+        elif isinstance(self.stmt, ast.SeqComp) and isinstance(other_stmt, ast.SeqComp):
             # Special cases for when we already have at least one seq.
-            return ControlBuilder(
-                ast.SeqComp(self.stmt.stmts + other_stmt.stmts)
-            )
+            return ControlBuilder(ast.SeqComp(self.stmt.stmts + other_stmt.stmts))
         elif isinstance(self.stmt, ast.SeqComp):
-            return ControlBuilder(
-                ast.SeqComp(self.stmt.stmts + [other_stmt])
-            )
+            return ControlBuilder(ast.SeqComp(self.stmt.stmts + [other_stmt]))
         elif isinstance(other_stmt, ast.SeqComp):
-            return ControlBuilder(
-                ast.SeqComp([self.stmt] + other_stmt.stmts)
-            )
+            return ControlBuilder(ast.SeqComp([self.stmt] + other_stmt.stmts))
         else:
             # General case.
-            return ControlBuilder(
-                ast.SeqComp([self.stmt, as_control(other)])
-            )
+            return ControlBuilder(ast.SeqComp([self.stmt, as_control(other)]))
 
 
 class ExprBuilder:
@@ -151,15 +164,15 @@ class ExprBuilder:
     def __init__(self, expr: ast.GuardExpr):
         self.expr = expr
 
-    def __and__(self, other: 'ExprBuilder'):
+    def __and__(self, other: "ExprBuilder"):
         """Construct an "and" logical expression with &."""
         return ExprBuilder(ast.And(self.expr, other.expr))
 
-    def __or__(self, other: 'ExprBuilder'):
+    def __or__(self, other: "ExprBuilder"):
         """Construct an "or" logical expression with |."""
         return ExprBuilder(ast.Or(self.expr, other.expr))
 
-    def __invert__(self, other: 'ExprBuilder'):
+    def __invert__(self, other: "ExprBuilder"):
         """Construct a "not" logical expression with ^."""
         return ExprBuilder(ast.Not(self.expr))
 
@@ -188,8 +201,8 @@ class CondExprBuilder:
         self.value = value
 
 
-class CellBuilder:
-    """Wraps a cell for convenient wire building.
+class CellLikeBuilder:
+    """Wraps a cell-like for convenient wire building.
 
     When we're in the context for a group builder (inside a `with
     group:` block), use `cell.port = expr` or `cell["port"] = expr` to
@@ -202,20 +215,19 @@ class CellBuilder:
     you can always use subscripting to provide an explicit string.
     """
 
-    def __init__(self, cell: ast.Cell):
-        self._cell = cell
+    def __init__(self):
+        pass
 
     def port(self, name: str):
-        """Build a port access expression."""
-        return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
+        raise "Not implemented"
 
     def __getitem__(self, key):
         return self.port(key)
 
     def __getattr__(self, key):
-        if key.startswith('_'):
+        if key.startswith("_"):
             return object.__getattr__(self, key)
-        elif key.endswith('_'):
+        elif key.endswith("_"):
             return self.port(key[:-1])
         else:
             return self.port(key)
@@ -228,12 +240,34 @@ class CellBuilder:
         ctx_asgn(self.port(key), value)
 
     def __setattr__(self, key, value):
-        if key.startswith('_'):
+        if key.startswith("_"):
             object.__setattr__(self, key, value)
-        elif key.endswith('_'):
+        elif key.endswith("_"):
             self.ctx_asgn(key[:-1], value)
         else:
             self.ctx_asgn(key, value)
+
+
+class CellBuilder(CellLikeBuilder):
+    """Wraps a cell for convenient wire building."""
+
+    def __init__(self, cell: ast.Cell):
+        self._cell = cell
+
+    def port(self, name: str):
+        """Build a port access expression."""
+        return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
+
+
+class ThisBuilder(CellLikeBuilder):
+    """Wraps a component for convenient wire building."""
+
+    def __init__(self):
+        pass
+
+    def port(self, name: str):
+        """Build a port access expression."""
+        return ExprBuilder(ast.Atom(ast.ThisPort(ast.CompVar(name))))
 
 
 class GroupBuilder:
@@ -249,13 +283,13 @@ class GroupBuilder:
     *implicitly* get added to this group.
     """
 
-    def __init__(self, group: ast.Group, comp: ComponentBuilder):
+    def __init__(self, group: Optional[ast.Group], comp: ComponentBuilder):
         self.group = group
         self.comp = comp
 
-    def asgn(self, lhs: ExprBuilder,
-             rhs: Union[ExprBuilder, CondExprBuilder, int],
-             cond=None):
+    def asgn(
+        self, lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder, int], cond=None
+    ):
         """Add a connection to the group.
 
         If the assigned value is an int, try to infer a width for it and
@@ -271,7 +305,7 @@ class GroupBuilder:
 
         if isinstance(rhs, int):
             width = infer_width(lhs)
-            assert width, f'could not infer width for literal {rhs}'
+            assert width, f"could not infer width for literal {rhs}"
             rhs = const(width, rhs)
 
         wire = ast.Connect(
@@ -279,18 +313,27 @@ class GroupBuilder:
             ExprBuilder.unwrap(rhs),
             ExprBuilder.unwrap(cond),
         )
-        self.group.connections.append(wire)
+        if self.group is not None:
+            self.group.connections.append(wire)
+        else:
+            self.comp.component.wires.append(wire)
 
     @property
     def done(self):
         """The `done` hole for the group."""
-        return ExprBuilder(
-            ast.HolePort(ast.CompVar(self.group.id.name), "done")
-        )
+        if not self.group:
+            raise Exception(
+                "GroupBuilder represents continuous assignments and does not have a done hole"
+            )
+        return ExprBuilder(ast.HolePort(ast.CompVar(self.group.id.name), "done"))
 
     @done.setter
     def done(self, expr):
         """Build an assignment to `done` in the group."""
+        if not self.group:
+            raise Exception(
+                "GroupLikeBuilder represents continuous assignments and does not have a done hole"
+            )
         self.asgn(self.done, expr)
 
     def __enter__(self):
@@ -317,12 +360,12 @@ def infer_width(expr):
     Return an int, or None if we don't have a guess.
     """
     assert TLS.groups, "int width inference only works inside `with group:`"
-    group_builder = TLS.groups[-1]
+    group_builder: GroupBuilder = TLS.groups[-1]
 
     # Deal with `done` holes.
     expr = ExprBuilder.unwrap(expr)
     if isinstance(expr, ast.HolePort):
-        assert expr.name == 'done', f"unknown hole {expr.name}"
+        assert expr.name == "done", f"unknown hole {expr.name}"
         return 1
 
     # Otherwise, it's a `cell.port` lookup.
@@ -332,14 +375,30 @@ def infer_width(expr):
 
     # Look up the component for the referenced cell.
     cell_builder = group_builder.comp.index[cell_name]
-    inst = cell_builder._cell.comp
+    if isinstance(cell_builder, CellBuilder):
+        inst = cell_builder._cell.comp
+    else:
+        return None
 
     # Extract widths from stdlib components we know.
-    if inst.id == 'std_reg':
-        if port_name == 'in':
-            return inst.args[0]
-        if port_name == 'write_en':
-            return 1
+    match inst.id:
+        case "std_reg":
+            match port_name:
+                case "in":
+                    return inst.args[0]
+                case "write_en":
+                    return 1
+        case "std_add":
+            if port_name == "left" or port_name == "right":
+                return inst.args[0]
+        case "std_mem_d1":
+            match port_name:
+                case "write_en":
+                    return 1
+                case "addr0":
+                    return inst.args[2]
+                case "in":
+                    return inst.args[0]
 
     # Give up.
     return None
@@ -348,5 +407,5 @@ def infer_width(expr):
 def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     """Add an assignment to the current group context."""
     assert TLS.groups, "assignment outside `with group`"
-    group_builder = TLS.groups[-1]
+    group_builder: GroupBuilder = TLS.groups[-1]
     group_builder.asgn(lhs, rhs)
