@@ -1,6 +1,6 @@
 import threading
+from typing import Dict, Union
 from . import py_ast as ast
-from typing import Dict
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
@@ -37,7 +37,7 @@ class ComponentBuilder:
             structs=[],
             controls=ast.Empty(),
         )
-        self.index: Dict[str, GroupBuilder | CellBuilder] = {}
+        self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
 
     def __getitem__(self, key):
         return self.index[key]
@@ -254,7 +254,7 @@ class GroupBuilder:
         self.comp = comp
 
     def asgn(self, lhs: ExprBuilder,
-             rhs: ExprBuilder | CondExprBuilder | int,
+             rhs: Union[ExprBuilder, CondExprBuilder, int],
              cond=None):
         """Add a connection to the group.
 
@@ -345,7 +345,7 @@ def infer_width(expr):
     return None
 
 
-def ctx_asgn(lhs: ExprBuilder, rhs: ExprBuilder | CondExprBuilder):
+def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     """Add an assignment to the current group context."""
     assert TLS.groups, "assignment outside `with group`"
     group_builder = TLS.groups[-1]
