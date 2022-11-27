@@ -36,6 +36,7 @@ def build():
         sum.in_ = add_out
         compute_sum.done = sum.done
 
+    # Use `this()` method to access the ports on the current component
     this = main.this()
     with main.continuous:
         this.in_ = this.out
