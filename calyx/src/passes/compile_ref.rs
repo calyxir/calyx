@@ -120,7 +120,7 @@ impl Visitor for CompileRef {
         for (key, value) in self.port_names.iter() {
             print!("{}\n", key);
             for (k, _) in value {
-                print!("{}\n",k);
+                print!("{}\n", k);
             }
         }
         let comp_name = s.comp.borrow().type_name().unwrap().clone();
@@ -129,8 +129,9 @@ impl Visitor for CompileRef {
                 if port.borrow().attributes.get("clk").is_none()
                     && port.borrow().attributes.get("reset").is_none()
                 {
-                    println!("{}",&port.borrow().canonical());
-                    let port_name = self.port_names[&comp_name][&port.borrow().canonical()]
+                    println!("{}", &port.borrow().canonical());
+                    let port_name = self.port_names[&comp_name]
+                        [&port.borrow().canonical()]
                         .borrow()
                         .name
                         .clone();
