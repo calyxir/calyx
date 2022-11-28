@@ -3,6 +3,7 @@
 # Calyx Language
 
 - [Language Reference](./lang/ref.md)
+  - [Data Format](./lang/data-format.md)
   - [Experimental: Synchronization](./lang/sync.md)
   - [Undefined Behaviors](./lang/undefined.md)
 - [Language Tutorial](./tutorial/language-tut.md)

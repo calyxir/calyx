@@ -37,13 +37,23 @@ In order to perform a reduction, we need to run the program twice, once with
 a "golden workflow" that we trust to generate the right result and once with
 the buggy workflow.
 
-First, it is useful to inline all the code into the `main` component so that we can focus our energy on reducing one control program. This can be done by passing the following flags to the compiler:
+### Inlining (Optional)
+It is useful to inline all the code into the `main` component so that we can focus our energy on reducing one control program. This can be done by passing the following flags to the compiler:
 ```
 -p well-formed -p inline -x inline:always -p post-opt
 ```
 The `-x inline:always` flag tells the inlining pass to attempt to inline all components into one. If this command fails, we can just work with the original program and reduce control programs for each component.
 
-For example, if we've identified the problem to be in one of the Calyx passes,
+### Reducing
+At a high-level, we want to do the following:
+1. Delete some part of the control program
+2. See if the error still occurs
+3. If it doesn't, delete a smaller part of the control program
+4. Otherwise, continue deleting more parts of the control program
+
+> When deleting parts of the control program, the compiler may complain that certain groups are no longer being used. In this case, run the `-p dead-group-removal` pass before any other pass runs.
+
+Next, if we've identified the problem to be in one of the Calyx passes,
 the "golden workflow" is running the program without the pass while the buggy
 workflow is running the program with the pass enabled.
 This case is so common that we've written [a script][flag-cmp] that can run
