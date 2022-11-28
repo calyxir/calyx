@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use crate::errors::{CalyxResult, Error};
 
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::RRC;
@@ -46,28 +47,50 @@ impl Named for CompileSync {
     }
 }
 
-fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
+fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) -> CalyxResult<()>{
     match s {
         ir::Control::Empty(_) => {
             if let Some(&n) = s.get_attributes().get("sync") {
                 count.insert(n);
             }
+            Ok(())
         }
         ir::Control::Seq(seq) => {
             for stmt in seq.stmts.iter() {
-                count_barriers(stmt, count);
+                count_barriers(stmt, count)?;
             }
+            Ok(())
         }
         ir::Control::While(w) => {
-            count_barriers(&w.body, count);
+            count_barriers(&w.body, count)?;
+            Ok(())
         }
         ir::Control::If(i) => {
-            count_barriers(&i.tbranch, count);
-            count_barriers(&i.fbranch, count);
+            count_barriers(&i.tbranch, count)?;
+            count_barriers(&i.fbranch, count)?;
+            Ok(())
         }
-        _ => {}
+        ir::Control::Enable(e) => {
+            if let Some(_) = s.get_attributes().get("sync") {
+            return Err(Error::malformed_control(format!(
+                "Enable or Invoke controls cannot be marked with @sync"
+            )).with_pos(&e.attributes));
+            }
+            Ok(())
+        }
+        ir::Control::Invoke(i) => {
+            if let Some(_) = s.get_attributes().get("sync") {
+            return Err(Error::malformed_control(format!(
+                "Enable or Invoke controls cannot be marked with @sync"
+            )).with_pos(&i.attributes));
+            }
+            Ok(())
+        }
+        ir::Control::Par(_) => {
+            Ok(())
+        }
+        }
     }
-}
 
 impl CompileSync {
     fn build_barriers(
@@ -194,7 +217,7 @@ fn build_write_barrier(
 // We're only using it to make sure that the barrier has reached the expected
 // value.
 fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
-    let group = builder.add_group("wait");
+    let group = builder.add_group("wt");
     structure!(builder;
     let wait_reg = prim std_reg(1);
     let cst_1 = constant(1, 1););
@@ -321,7 +344,7 @@ impl Visitor for CompileSync {
         let mut barrier_count: HashMap<u64, u64> = HashMap::new();
         for stmt in s.stmts.iter_mut() {
             let mut cnt: HashSet<u64> = HashSet::new();
-            count_barriers(stmt, &mut cnt);
+            count_barriers(stmt, &mut cnt)?;
             for barrier in cnt {
                 barrier_count
                     .entry(barrier)
