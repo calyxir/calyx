@@ -2,7 +2,7 @@ use super::stateful::floored_division;
 use super::{
     super::errors::InterpreterResult,
     prim_utils::{get_input_unwrap, get_param},
-    primitive::Named,
+    primitive_traits::Named,
     Primitive,
 };
 use crate::logging::warn;
