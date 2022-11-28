@@ -107,9 +107,9 @@ component add_2x4() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d2(32, 2, 4, 2, 3);
-    @external(1) y = seq_mem_d2(32, 2, 4, 2, 3);
-    @external(1) x1 = seq_mem_d2(32, 2, 4, 2, 3);
+    @external x = seq_mem_d2(32, 2, 4, 2, 3);
+    @external y = seq_mem_d2(32, 2, 4, 2, 3);
+    @external x1 = seq_mem_d2(32, 2, 4, 2, 3);
     add_2x4_ = add_2x4();
   }
   wires {

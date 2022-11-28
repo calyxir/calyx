@@ -300,9 +300,9 @@ component batch_matmul_4x7x7() -> () {
 
 component main() -> () {
   cells {
-    @external(1) a = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external(1) b = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
-    @external(1) x = seq_mem_d3(32, 4, 7, 7, 3, 3, 3);
+    @external a = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external b = seq_mem_d3(32, 4, 7, 5, 3, 3, 3);
+    @external x = seq_mem_d3(32, 4, 7, 7, 3, 3, 3);
     batch_matmul_4x7x7_ = batch_matmul_4x7x7();
   }
   wires {
