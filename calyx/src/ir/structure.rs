@@ -53,6 +53,12 @@ pub struct Port {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Canonical(pub Id, pub Id);
 
+impl std::fmt::Display for Canonical {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.0, self.1)
+    }
+}
+
 impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {

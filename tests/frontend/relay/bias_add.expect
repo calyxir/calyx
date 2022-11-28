@@ -166,9 +166,9 @@ component bias_add_1x64x512x256() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
-    @external(1) bias = seq_mem_d1(32, 64, 7);
-    @external(1) x1 = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external x = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
+    @external bias = seq_mem_d1(32, 64, 7);
+    @external x1 = seq_mem_d4(32, 1, 64, 512, 256, 1, 7, 10, 9);
     bias_add_1x64x512x256_ = bias_add_1x64x512x256();
   }
   wires {

@@ -168,8 +168,8 @@ component reshape_1x8() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d4(32, 1, 2, 2, 2, 1, 2, 2, 2);
-    @external(1) x1 = seq_mem_d2(32, 1, 8, 1, 4);
+    @external x = seq_mem_d4(32, 1, 2, 2, 2, 1, 2, 2, 2);
+    @external x1 = seq_mem_d2(32, 1, 8, 1, 4);
     reshape_1x8_ = reshape_1x8();
   }
   wires {
