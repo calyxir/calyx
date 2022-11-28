@@ -3,9 +3,9 @@ use crate::errors::CalyxResult;
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use crate::ir::Attributes;
 use crate::ir::WRC;
 use crate::ir::{self, LibrarySignatures, RRC};
+use crate::ir::{Attributes, Canonical};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -117,21 +117,15 @@ impl Visitor for CompileRef {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        for (key, value) in self.port_names.iter() {
-            print!("{}\n", key);
-            for (k, _) in value {
-                print!("{}\n", k);
-            }
-        }
         let comp_name = s.comp.borrow().type_name().unwrap().clone();
-        for (_, cell) in s.ref_cells.drain(..) {
+        for (in_cell, cell) in s.ref_cells.drain(..) {
             for port in cell.borrow().ports.iter() {
                 if port.borrow().attributes.get("clk").is_none()
                     && port.borrow().attributes.get("reset").is_none()
                 {
-                    println!("{}", &port.borrow().canonical());
-                    let port_name = self.port_names[&comp_name]
-                        [&port.borrow().canonical()]
+                    let canon =
+                        Canonical(in_cell.clone(), port.borrow().name.clone());
+                    let port_name = self.port_names[&comp_name][&canon]
                         .borrow()
                         .name
                         .clone();
