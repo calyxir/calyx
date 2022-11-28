@@ -260,6 +260,8 @@ The output should be the result of adding 4 to the initial value 8 times, so 10 
 
 > The complete program for this section is available under [examples/tutorial/language-tutorial-iterate.futil](https://github.com/cucapra/calyx/blob/master/examples/tutorial/language-tutorial-iterate.futil).
 
+Take a look at the [full language reference][lang-ref] for details on the complete language.
+
 [ext-attr]: ../lang/attributes.html#external1
 [json]: https://www.json.org/
 [verilator]: https://www.veripool.org/wiki/verilator
@@ -267,3 +269,4 @@ The output should be the result of adding 4 to the initial value 8 times, so 10 
 [icarus verilog]: http://iverilog.icarus.com
 [fud]: ./fud/index.md
 [data-format]: ../lang/data-format.md
+[lang-ref]: ../lang/ref.md
