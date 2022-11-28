@@ -8,11 +8,13 @@ incomplete yet daunting list of CLI tools used by Calyx is:
 - Verilator, the Verilog simulation framework used to test Calyx-generated designs.
 - Waveform viewers to see the results of simulation
 
-`fud` aims to provide a simple interface for using these toolchains and
-executing them in a pipeline. The source for fud is
-[here](https://github.com/cucapra/futil/tree/master/fud).
+`fud` aims to provide a simple interface for using these toolchains and executing them in a pipeline.
+The source for fud is [here](https://github.com/cucapra/futil/tree/master/fud).
+
 
 ## Installation
+> Fud requires Python 3.9 or higher to work correctly.
+
 You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`. Install it with `pip3 install flit`.
 
 You can then install `fud` with
@@ -86,7 +88,7 @@ On macOS, you can use `brew install verilator` or, otherwise, compile from sourc
     make
     sudo make install
 
-Run `fud check` to make sure you have the right version.
+Run `fud check` to make sure you have the right version. We currently require >=v5.002 of Verilator with fud.
 
 By default, `fud` will use the `verilator` executable to run Verilator.
 To use a different binary, configure the path by:
@@ -187,7 +189,7 @@ manually set the stages using `--to` and `--from`.
 
 Fud provides some very basic profiling tools through the use of the `--dump_prof` (or `-pr`) flag.
 You can get overall stage durations for a `fud` run by simply using `-pr`.
-For example, 
+For example,
 
 ```bash
   fud e examples/dahlia/dot-product.fuse --to dat \
