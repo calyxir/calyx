@@ -71,18 +71,17 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) -> CalyxResult<()>{
             Ok(())
         }
         ir::Control::Enable(e) => {
-            if let Some(_) = s.get_attributes().get("sync") {
-            return Err(Error::malformed_control(format!(
-                "Enable or Invoke controls cannot be marked with @sync"
-            )).with_pos(&e.attributes));
+            if s.get_attributes().get("sync").is_some() {
+            return Err(Error::malformed_control(
+                "Enable or Invoke controls cannot be marked with @sync".to_string()).with_pos(&e.attributes));
             }
             Ok(())
         }
         ir::Control::Invoke(i) => {
-            if let Some(_) = s.get_attributes().get("sync") {
-            return Err(Error::malformed_control(format!(
-                "Enable or Invoke controls cannot be marked with @sync"
-            )).with_pos(&i.attributes));
+            if s.get_attributes().get("sync").is_some() {
+            return Err(Error::malformed_control(
+                "Enable or Invoke controls cannot be marked with @sync".to_string()
+            ).with_pos(&i.attributes));
             }
             Ok(())
         }
