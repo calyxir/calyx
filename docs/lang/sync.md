@@ -31,9 +31,10 @@ Now we want to modify the program above so that in every iteration, thread A alw
 
 First and foremost, always remember to import "primitives/sync.futil" when using the @sync attribute.
 
-The `@sync` syntax means that control statements marked with this attribute are not allowed to proceed after finishing until every other statement marked with the same value for the `@sync` attribute has finished. In other words, we are putting a barrier after all statements marked with `@sync`. When all threads arrive, we release the "barrier". 
+The `@sync` syntax can only be marked with empty statements. `@sync` means that the thread
+marked with a certain value, now called barrier index, for this attribute, must stop and wait for all other threads marked with the same barrier index to arrive, at which point they can proceed. 
 
-In the modified program above, we see that `incr_idx` and `incr_r` must both finish in order for either thread to go forth. Because `add_r_to_accm` is executed after `incr_idx` in thread A, we know that in each iteration, `incr_r` will always increment `r` before `add_r_to_accm` reads it. We've also inserted a `no-op`, a group that does nothing, to the program. We mark both `no_op` and `add_r_to_accm` with `@sync(2)`, which essentially means `add_r_to_accm` has to finish before either thread enters the next iteration.
+In the modified program above, we see that `incr_idx` and `incr_r` must both finish in order for either thread to go forth. Because `add_r_to_accm` is executed after `incr_idx` in thread A, we know that in each iteration, `incr_r` will always increment `r` before `add_r_to_accm` reads it. We've also inserted another barrier at the end of the while loops for each thread, which essentially means `add_r_to_accm` has to finish before either thread enters the next iteration.
 
 ## Synchronization in Branches
 We can also have "barriers" in `if` branches:

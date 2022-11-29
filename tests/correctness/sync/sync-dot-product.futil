@@ -187,7 +187,8 @@ component main () -> () {
                   fwd_idx_0;
                 }
               }
-              @sync(1) val_to_reg_0;
+              val_to_reg_0;
+              @sync(1);
             }
             
           }
@@ -198,12 +199,14 @@ component main () -> () {
                 add_to_out;
                 forward_pointer_0;
                 fwd_idx_0;
-                @sync(1) val_to_reg_0;
+                val_to_reg_0;
+                @sync(1);
               }
             }
             else {
               seq {
-                @sync(2) no_op;
+                no_op;
+                @sync(2);
               }
             }
           }
@@ -222,13 +225,12 @@ component main () -> () {
                   fwd_idx_1;
                 }
               }
-              @sync(2) val_to_reg_1;
+              val_to_reg_1;
+              @sync(2);
             }
           }
           else {
-              seq {
-                @sync(1) no_op;
-              }
+              @sync(1);
           }
         }
       }

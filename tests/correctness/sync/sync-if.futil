@@ -1,13 +1,11 @@
-// -p validate -p compile-sync
-
 import "primitives/core.futil";
 import "primitives/sync.futil";
 
 component main () -> () {
   cells {
-    in_0 = std_mem_d1(32, 6, 3);
-    in_1 = std_mem_d1(32, 6, 3);
-    out = std_mem_d1(32, 6, 3);
+    @external in_0 = std_mem_d1(32, 6, 3);
+    @external in_1 = std_mem_d1(32, 6, 3);
+    @external out = std_mem_d1(32, 6, 3);
     idx = std_reg(3);
     prod = std_reg(32);
     st = std_reg(1);
@@ -78,6 +76,7 @@ component main () -> () {
             prod_0;
             @sync(1);
             switch_to_st_1;
+            @sync(2);
           }
         }
         else {
@@ -85,6 +84,7 @@ component main () -> () {
             prod_1;
             @sync(1);
             switch_to_st_0;
+            @sync(2);
           }
         }
       }
@@ -94,6 +94,7 @@ component main () -> () {
           @sync(1);
           reg_to_mem;
           incr_idx;
+          @sync(2);
         }
       }
     }
