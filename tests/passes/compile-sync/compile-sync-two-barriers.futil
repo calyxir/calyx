@@ -49,14 +49,18 @@ component main() -> () {
   control {
     par {
         seq {
-          @sync(1) no_op;
+          no_op;
+          @sync(1);
           reg_to_mem;
-          @sync(2) incr_idx;
+          incr_idx;
+          @sync(2);
         }
 
         seq {
-          @sync(1) incr_val;
-          @sync(2) no_op;
+          incr_val;
+          @sync(1);
+          no_op;
+          @sync(2);
         }
     }
   }

@@ -449,22 +449,23 @@ endmodule
 
 `default_nettype wire
 
-module main (
-    input logic go,
-    input logic clk,
-    input logic reset,
-    output logic done
+module main(
+  input logic go,
+  input logic clk,
+  input logic reset,
+  output logic done
 );
-    // COMPONENT START: main
-    logic [35:0] c_out;
-    
-    std_const # (
-        .VALUE(36'd34359738368),
-        .WIDTH(36)
-    ) c (
-        .out(c_out)
-    );
-    assign done = 1'd1;
-    
-    // COMPONENT END: main
+// COMPONENT START: main
+logic [35:0] c_out;
+initial begin
+end
+std_const # (
+    .VALUE(36'd34359738368),
+    .WIDTH(36)
+) c (
+    .out(c_out)
+);
+assign done = 1'd1;
+
+// COMPONENT END: main
 endmodule

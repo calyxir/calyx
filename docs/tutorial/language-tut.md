@@ -19,14 +19,9 @@ statement to import the standard library:
     import "primitives/core.futil";
 
     component main(go: 1) -> (done: 1) {
-      cells {
-      }
-
-      wires {
-      }
-
-      control {
-      }
+      cells {}
+      wires {}
+      control {}
     }
 
 Put this in a file—you can call it `language-tutorial-mem.futil`, for example.
@@ -59,7 +54,7 @@ the data width (here, 32 bits),
 the number of elements (just one),
 and the width of the address port (one bit).
 
-The `@external(1)` syntax is an [extra bit of magic][ext-attr] that allows us
+The `@external` syntax is an [extra bit of magic][ext-attr] that allows us
 to read and write to the memory.
 
 Next, we'll add some assignments to the `wires` section to update the value in
@@ -87,7 +82,7 @@ We'll see later how to organize assignments into groups.
 
 We can almost run this program!
 But first, we need to provide it with data.
-The Calyx infrastructure can provide data to programs from [JSON][] files.
+The Calyx infrastructure can [provide data to programs][data-format] from [JSON][] files.
 So make a file called something like `data.json` containing something along these lines:
 
 ```
@@ -119,7 +114,7 @@ Executing this program should print:
 
 Meaning that, after the program finished, the final value in our memory was 42.
 
-> **Note**: Icarus Verilog may report a different cycle count compared to the one above. As long as the final value in memory is correct, this does not matter.
+> **Note**: Verilator may report a different cycle count compared to the one above. As long as the final value in memory is correct, this does not matter.
 
 ## Add Control
 
@@ -265,9 +260,13 @@ The output should be the result of adding 4 to the initial value 8 times, so 10 
 
 > The complete program for this section is available under [examples/tutorial/language-tutorial-iterate.futil](https://github.com/cucapra/calyx/blob/master/examples/tutorial/language-tutorial-iterate.futil).
 
+Take a look at the [full language reference][lang-ref] for details on the complete language.
+
 [ext-attr]: ../lang/attributes.html#external1
 [json]: https://www.json.org/
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/cucapra/calyx/tree/master/examples/tutorial
 [icarus verilog]: http://iverilog.icarus.com
 [fud]: ./fud/index.md
+[data-format]: ../lang/data-format.md
+[lang-ref]: ../lang/ref.md

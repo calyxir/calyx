@@ -16,16 +16,9 @@ component main() -> () {
     addr = std_reg(3);
     add_1 = std_add(3);
     lt = std_lt(3);
-    no_use = std_reg(32);
   }
 
   wires {
-    group no_op {
-      no_use.in = 32'd0;
-      no_use.write_en = 1'd1;
-      no_op[done] = no_use.done;
-    }
-
     group incr_val {
       add_0.left = val.out;
       add_0.right = 32'd1;
@@ -55,16 +48,18 @@ component main() -> () {
     par {
       // thread 1
         seq {
-          @sync(1) no_op;
+          @sync(1);
           reg_to_mem;
           incr_idx;
-          @sync(2) incr_val;
+          incr_val;
+          @sync(2);
         }
 
       //thread 2  
         seq {
-          @sync(1) incr_val;
-          @sync(2) no_op;
+          incr_val;
+          @sync(1);
+          @sync(2);
           reg_to_mem;
         }
     }

@@ -94,6 +94,8 @@ determine what preprocessing should be done on the image. e.g. `"mnist"` or `"im
     2. `relay`: Output a file with the corresponding Relay program. `<net_name>.relay`
     3. `calyx`: Output a `.data` file and Calyx program for simulation. `<net_name>.futil`, `<net_name>.data`
     4. `all`: All the above.
+- `-s`: This is an optional boolean argument that signifies `save_mem`, and is set to true by default. If this flag is set to true, then it will produce a Calyx 
+design that requires less internal memory usage compared to the design that is produced when this flag is false. 
 
 
 [lenet]: https://github.com/ekut-es/pico-cnn/blob/master/data/lenet/lenet.onnx

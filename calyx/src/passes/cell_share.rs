@@ -9,7 +9,44 @@ use crate::{
     },
 };
 use itertools::Itertools;
+use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
+use std::fs;
+
+// function to turn cell types to string when we are building hte json for
+// share_freqs
+fn cell_type_to_string(cell_type: &ir::CellType) -> String {
+    match cell_type {
+        ir::CellType::Primitive {
+            name,
+            param_binding,
+            ..
+        } => {
+            let param_str = param_binding
+                .iter()
+                .map(|(id, val)| {
+                    let mut id_str = id.to_string();
+                    id_str.push('_');
+                    id_str.push_str(&val.to_string());
+                    id_str
+                })
+                .join("_");
+            let mut name_str = name.to_string();
+            name_str.push('_');
+            name_str.push_str(&param_str);
+            name_str
+        }
+        ir::CellType::Component { name } => name.to_string(),
+        ir::CellType::ThisComponent => "ThisComponent".to_string(),
+        ir::CellType::Constant { val, width } => {
+            let mut s = "Const_".to_string();
+            s.push_str(&val.to_string());
+            s.push('_');
+            s.push_str(&width.to_string());
+            s
+        }
+    }
+}
 
 /// Given a [LiveRangeAnalysis] that specifies the "share" and "state_share" cells
 /// alive at each group, minimizes the cells used for each component.
@@ -28,19 +65,29 @@ use std::collections::{HashMap, HashSet};
 /// if you share a given component too much, the logic to determine when that
 /// component should be activated ends up being more expensive than just using
 /// a separate component. To pass this command line argument, you give three numbers:
-/// 1) the number of times a given combinational component can be shared, 2) the number
-/// of times a given register can be shared, and 3) the number of times all other
+/// The number of times a given combinational component can be shared, the number
+/// of times a given register can be shared, and the number of times all other
 /// components can be shared. Generally we would want settings such that 1 < 2 < 3,
 /// since a given share of a 3) would save more hardware than a share of a 2), and
 /// a share of a 2) would save more hardware than a share of a 1).
 /// The exact command line syntax to use: if we had a file, "x.futil" and ran:
-/// `cargo run x.futil -x cell-share:bounds=2,4,8", then we would only share a
+/// `cargo run x.futil -x cell-share:bounds=2,4,8`, then we would only share a
 /// given combinational component at most twice, a given register at most 4 times,
-/// and all other components at most 8 times. If you wanted to do somethign with
-/// fud then run `fud e ... -s futil.flags " -x cell-share:bounds=2,3,4"`.
+/// and all other components at most 8 times. If you wanted to do something with
+/// fud then run `fud e ... -s futil.flags " -x cell-share:bounds=2,4,8"`. Finally
+/// if you do not want to bound the sharing for a particular cell type,
+/// you can pass -1 as a bound. So for example if you passed
+/// `-x cell-share:bounds=2,-1,3` this means that you will always share registers.
 /// Note: *The no spaces are important.*
-/// Passing "-x cell-share:always-share" will always share a given cell and
-/// override any " -x cell-share:bounds=..." argument you pass.
+/// Also, if you pass the following flag: `-x cell-share:print-share-freqs=file-name`
+/// this pass will write a json to `file-name`. If want to print into stdout
+/// then just set the file-name to be "stdout" (you don't need the quotes
+/// when you actually pass in the argument, so run `-x cell-share:print-share-freqs=stdout`),
+/// and if you want to print to stderr then just set the file-name to be "stderr".
+/// The json will map an integer (say n) to the number of cells in the new design (i.e.,
+/// the design after sharing has been performed) that were shared
+/// exactly n times. So the key n = 2 will be mapped to the number of cells in the
+/// new design that are shared exactly twice.
 ///
 /// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the definitions.
@@ -58,7 +105,14 @@ pub struct CellShare {
 
     /// The number of times a given class of cell can be shared. bounds should be
     /// length 3 to hold the 3 classes: comb cells, registers, and everything else
-    bounds: Option<Vec<u64>>,
+    bounds: Vec<Option<i64>>,
+
+    /// Maps cell types to the corresponding pdf. Each pdf is a hashmap which maps
+    /// the number of times a given cell name reused (i.e., shared) to the  
+    /// number of cells that have been shared that many times times.
+    share_freqs: HashMap<ir::Id, HashMap<ir::CellType, HashMap<i64, i64>>>,
+    /// whether or not to print the share_freqs
+    print_share_freqs: Option<String>,
 }
 
 impl Named for CellShare {
@@ -74,7 +128,7 @@ impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let state_shareable = ShareSet::from_context::<true>(ctx);
         let shareable = ShareSet::from_context::<false>(ctx);
-        let bounds = Self::get_bounds(ctx);
+        let (print_share_freqs, bounds) = Self::parse_args(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -83,6 +137,8 @@ impl ConstructVisitor for CellShare {
             state_shareable,
             shareable,
             bounds,
+            share_freqs: HashMap::new(),
+            print_share_freqs,
         })
     }
 
@@ -115,7 +171,7 @@ impl CellShare {
         // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
         // cells.
         self.live = LiveRangeAnalysis::new(
-            &mut *comp.control.borrow_mut(),
+            &mut comp.control.borrow_mut(),
             self.state_shareable.clone(),
             self.shareable.clone(),
         );
@@ -133,16 +189,18 @@ impl CellShare {
         }
     }
 
-    // given a ctx, gets the bounds. For example, if "-x cell-share:bounds=2,3,4"
+    // given a ctx, gets the bounds and the file to write the sharing frequencies
+    // to. For example, if "-x cell-share:bounds=2,3,4"
     // is passed in the cmd line, we should return [2,3,4]. If no such argument
     // is given, return the default, which is currently set rather
     // arbitrarily at [4,6,18].
-    fn get_bounds(ctx: &ir::Context) -> Option<Vec<u64>>
+    fn parse_args(ctx: &ir::Context) -> (Option<String>, Vec<Option<i64>>)
     where
         Self: Named,
     {
         let n = Self::name();
-        // getting the givne opts for -x cell-share:__
+
+        // getting the given opts for -x cell-share:__
         let given_opts: HashSet<_> = ctx
             .extra_opts
             .iter()
@@ -156,16 +214,23 @@ impl CellShare {
             })
             .collect();
 
-        if given_opts.iter().any(|arg| arg == &"always-share") {
-            return None;
-        }
-
-        // searching for -x cell-share:bounds=x,y,z and getting back "x,y,z"
-        let bounds_arg = given_opts.into_iter().find_map(|arg| {
+        // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
+        let bounds_arg = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.get(0) {
+            if let Some(str) = split.first() {
                 if str == &"bounds" && split.len() == 2 {
                     return Some(split[1]);
+                }
+            }
+            None
+        });
+
+        // searching for "-x cell-share:print-share-freqs=file_name" and getting Some(file_name) back
+        let print_pdf_arg = given_opts.iter().find_map(|arg| {
+            let split: Vec<&str> = arg.split('=').collect();
+            if let Some(str) = split.first() {
+                if str == &"print-share-freqs" && split.len() == 2 {
+                    return Some(split[1].to_string());
                 }
             }
             None
@@ -174,24 +239,65 @@ impl CellShare {
         let mut bounds = Vec::new();
         let mut set_default = false;
 
-        // if bounds_arg = "x,y,z", set bounds to [x,y,z]
+        // if bounds_arg = "x,y,z", set bounds to [Some(x),Some(y),Some(z)]
+        // a -1 argument means no bound since that means we always want to share
         if let Some(s) = bounds_arg {
             bounds = s
                 .split(',')
-                .map(|s| s.parse::<u64>().unwrap_or(0))
+                .map(|s| {
+                    let val = s.parse::<i64>().unwrap_or(-2);
+                    if val == -1 {
+                        None
+                    } else {
+                        Some(val)
+                    }
+                })
                 .collect();
         } else {
             set_default = true;
         }
-        if bounds.len() != 3 || bounds.contains(&0) {
+
+        if bounds.len() != 3 || bounds.contains(&Some(-2)) {
             set_default = true;
         }
 
         if set_default {
-            // could possibly put vec![x,y,z] here as default instead
-            None
+            // could possibly put vec![x,y,z] where x,y, and z are deliberately
+            // chosen numbers here instead
+            (print_pdf_arg, vec![None, None, None])
         } else {
-            Some(bounds)
+            (print_pdf_arg, bounds)
+        }
+    }
+
+    // prints the json if self.print_share_freqs is not None
+    fn print_share_json(&self) {
+        if let Some(file) = &self.print_share_freqs {
+            let printable_share_freqs: HashMap<String, HashMap<String, _>> =
+                self.share_freqs
+                    .iter()
+                    .map(|(id, freq_map)| {
+                        (
+                            id.to_string(),
+                            freq_map
+                                .iter()
+                                .map(|(cell_type, pdf)| {
+                                    (cell_type_to_string(cell_type), pdf)
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect();
+            let json_share_freqs: Value = json!(printable_share_freqs);
+            if file == "stdout" {
+                println!("{json_share_freqs}");
+            } else if file == "stderr" {
+                eprintln!("{json_share_freqs}");
+                std::process::exit(1);
+            } else {
+                fs::write(file, format!("{}", json_share_freqs))
+                    .expect("unable to write file");
+            }
         }
     }
 }
@@ -256,7 +362,7 @@ impl Visitor for CellShare {
             &mut par_thread_map,
             &mut live_cell_map,
             &HashSet::new(),
-            &*comp.control.borrow(),
+            &comp.control.borrow(),
         );
 
         // Adding the conflicts
@@ -309,15 +415,15 @@ impl Visitor for CellShare {
 
         // perform graph coloring to rename the cells
         let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
-        for (cell_type, graph) in graphs_by_type {
+        let mut comp_share_freqs: HashMap<ir::CellType, HashMap<i64, i64>> =
+            HashMap::new();
+        for (cell_type, mut graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {
-                if self.bounds.is_none() {
-                    None
-                } else if let Some(name) = cell_type.get_name() {
-                    let comb_bound = self.bounds.as_ref().unwrap().get(0);
-                    let reg_bound = self.bounds.as_ref().unwrap().get(1);
-                    let other_bound = self.bounds.as_ref().unwrap().get(2);
+                if let Some(name) = cell_type.get_name() {
+                    let comb_bound = self.bounds.get(0).unwrap_or(&None);
+                    let reg_bound = self.bounds.get(1).unwrap_or(&None);
+                    let other_bound = self.bounds.get(2).unwrap_or(&None);
                     if self.shareable.contains(name) {
                         comb_bound
                     } else if name == "std_reg" {
@@ -326,17 +432,30 @@ impl Visitor for CellShare {
                         other_bound
                     }
                 } else {
-                    None
+                    &None
                 }
             };
             if graph.has_nodes() {
                 coloring.extend(
                     graph
-                        .color_greedy(bound)
+                        .color_greedy(*bound)
                         .iter()
                         .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
                 );
+                // only generate share-freqs if we're going to use them.
+                if self.print_share_freqs.is_some() {
+                    // must accumulate sharing numbers for share_freqs
+                    comp_share_freqs.insert(cell_type, graph.get_share_freqs());
+                }
             }
+        }
+
+        // add the sharing freqs for the component we just analyzed
+        if self.print_share_freqs.is_some() {
+            // must accumulate sharing numbers for share_freqs
+            self.share_freqs.insert(comp.name.clone(), comp_share_freqs);
+            // print share freqs json if self.print_share_freqs is not none
+            self.print_share_json();
         }
 
         // Rewrite assignments using the coloring generated.
@@ -348,7 +467,7 @@ impl Visitor for CellShare {
 
         // Rewrite control uses of ports
         rewriter.rewrite_control(
-            &mut *comp.control.borrow_mut(),
+            &mut comp.control.borrow_mut(),
             &HashMap::new(),
             &HashMap::new(),
         );

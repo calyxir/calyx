@@ -29,13 +29,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       invoke r(
         in = 32'd1
       )();
-      invoke r(
+      @foo invoke r(
         in = add.out
       )() with comb_invoke;
       invoke r(
         in = in_guarded_wire.out
       )() with comb_invoke0;
-      invoke r(
+      @bar invoke r(
         in = add.out
       )() with comb_invoke1;
       invoke r(

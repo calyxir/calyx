@@ -89,104 +89,34 @@ impl Visitor for Papercut {
         if !comp.attributes.has("nointerface") && !comp.is_comb {
             // If the control program is empty, check that the `done` signal has been assigned to.
             if let ir::Control::Empty(..) = *comp.control.borrow() {
-                let done_use =
-                    comp.continuous_assignments.iter().find(|assign_ref| {
-                        let assign = assign_ref.dst.borrow();
-                        // If at least one assignment used the `done` port, then
-                        // we're good.
-                        assign.name == "done" && !assign.is_hole()
-                    });
-                if done_use.is_none() {
-                    return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the `done` port. Without an assignment to the `done`, the component cannot return control flow.", comp.name)).with_pos(&comp.name));
+                for p in comp.signature.borrow().find_all_with_attr("done") {
+                    let done_use =
+                        comp.continuous_assignments.iter().find(|assign_ref| {
+                            let assign = assign_ref.dst.borrow();
+                            // If at least one assignment used the `done` port, then
+                            // we're good.
+                            assign.name == p.borrow().name && !assign.is_hole()
+                        });
+                    if done_use.is_none() {
+                        return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.name));
+                    }
                 }
             }
         }
 
-        // For each component that's being driven in a group, make sure all signals defined for
+        // For each component that's being driven in a group and comb group, make sure all signals defined for
         // that component's `write_together' and `read_together' are also driven.
         // For example, for a register, both the `.in' port and the `.write_en' port need to be
         // driven.
         for group_ref in comp.groups.iter() {
             let group = group_ref.borrow();
-            // Build a map from (instance name, primitive name) to the signals being
-            // read from and written to.
-            let all_writes = analysis::ReadWriteSet::port_write_set(
-                group.assignments.iter(),
-            )
-            .filter_map(port_information)
-            .into_grouping_map()
-            .collect::<HashSet<_>>();
-            let all_reads =
-                analysis::ReadWriteSet::port_read_set(group.assignments.iter())
-                    .filter_map(port_information)
-                    .into_grouping_map()
-                    .collect::<HashSet<_>>();
-
-            for ((inst, comp_type), reads) in all_reads {
-                if let Some(spec) = self.read_together.get(&comp_type) {
-                    let empty = HashSet::new();
-                    let writes = all_writes
-                        .get(&(inst.clone(), comp_type.clone()))
-                        .unwrap_or(&empty);
-                    for (read, required) in spec {
-                        if reads.contains(read)
-                            && matches!(
-                                required.difference(writes).next(),
-                                Some(_)
-                            )
-                        {
-                            let missing = required
-                                .difference(writes)
-                                .sorted()
-                                .map(|port| {
-                                    format!("{}.{}", inst.clone(), port)
-                                })
-                                .join(", ");
-                            let msg =
-                                format!("Required signal not driven inside the group.\
-                                        \nWhen read the port `{}.{}', the ports [{}] must be written to.\
-                                        \nThe primitive type `{}' requires this invariant.",
-                                        inst,
-                                        read,
-                                        missing,
-                                        comp_type);
-                            return Err(Error::papercut(msg)
-                                .with_pos(&group.attributes));
-                        }
-                    }
-                }
-            }
-            // Check if this matches the `write_together' and `read_together' specification.
-            for ((inst, comp_type), writes) in all_writes {
-                if let Some(spec) = self.write_together.get(&comp_type) {
-                    for required in spec {
-                        // It should either be the case that:
-                        // 1. `writes` contains no writes that overlap with `required`
-                        //     In which case `required - writes` == `required`.
-                        // 2. `writes` contains writes that overlap with `required`
-                        //     In which case `required - writes == {}`
-                        let mut diff = required - &writes;
-                        if !diff.is_empty() && diff != *required {
-                            let first = writes.iter().sorted().next().unwrap();
-                            let missing = diff
-                                .drain()
-                                .sorted()
-                                .map(|port| format!("{}.{}", inst, port))
-                                .join(", ");
-                            let msg =
-                                format!("Required signal not driven inside the group.\
-                                        \nWhen writing to the port `{}.{}', the ports [{}] must also be written to.\
-                                        \nThe primitive type `{}' requires this invariant.",
-                                        inst,
-                                        first,
-                                        missing,
-                                        comp_type);
-                            return Err(Error::papercut(msg)
-                                .with_pos(&group.attributes));
-                        }
-                    }
-                }
-            }
+            self.check_specs(&group.assignments)
+                .map_err(|err| err.with_pos(&group.attributes))?;
+        }
+        for cgr in comp.comb_groups.iter() {
+            let cg = cgr.borrow();
+            self.check_specs(&cg.assignments)
+                .map_err(|err| err.with_pos(&cg.attributes))?;
         }
 
         // Compute all cells that are driven in by the continuous assignments0
@@ -260,6 +190,78 @@ impl Visitor for Papercut {
                 }
             }
         }
+        Ok(Action::Continue)
+    }
+}
+
+impl Papercut {
+    fn check_specs(&mut self, assigns: &[ir::Assignment]) -> VisResult {
+        let all_writes = analysis::ReadWriteSet::port_write_set(assigns.iter())
+            .filter_map(port_information)
+            .into_grouping_map()
+            .collect::<HashSet<_>>();
+        let all_reads = analysis::ReadWriteSet::port_read_set(assigns.iter())
+            .filter_map(port_information)
+            .into_grouping_map()
+            .collect::<HashSet<_>>();
+        for ((inst, comp_type), reads) in all_reads {
+            if let Some(spec) = self.read_together.get(&comp_type) {
+                let empty = HashSet::new();
+                let writes = all_writes
+                    .get(&(inst.clone(), comp_type.clone()))
+                    .unwrap_or(&empty);
+                for (read, required) in spec {
+                    if reads.contains(read)
+                        && matches!(required.difference(writes).next(), Some(_))
+                    {
+                        let missing = required
+                            .difference(writes)
+                            .sorted()
+                            .map(|port| format!("{}.{}", inst.clone(), port))
+                            .join(", ");
+                        let msg =
+                            format!("Required signal not driven inside the group.\
+                                        \nWhen read the port `{}.{}', the ports [{}] must be written to.\
+                                        \nThe primitive type `{}' requires this invariant.",
+                                    inst,
+                                    read,
+                                    missing,
+                                    comp_type);
+                        return Err(Error::papercut(msg));
+                    }
+                }
+            }
+        }
+        for ((inst, comp_type), writes) in all_writes {
+            if let Some(spec) = self.write_together.get(&comp_type) {
+                for required in spec {
+                    // It should either be the case that:
+                    // 1. `writes` contains no writes that overlap with `required`
+                    //     In which case `required - writes` == `required`.
+                    // 2. `writes` contains writes that overlap with `required`
+                    //     In which case `required - writes == {}`
+                    let mut diff = required - &writes;
+                    if !diff.is_empty() && diff != *required {
+                        let first = writes.iter().sorted().next().unwrap();
+                        let missing = diff
+                            .drain()
+                            .sorted()
+                            .map(|port| format!("{}.{}", inst, port))
+                            .join(", ");
+                        let msg =
+                            format!("Required signal not driven inside the group.\
+                                        \nWhen writing to the port `{}.{}', the ports [{}] must also be written to.\
+                                        \nThe primitive type `{}' requires this invariant.",
+                                    inst,
+                                    first,
+                                    missing,
+                                    comp_type);
+                        return Err(Error::papercut(msg));
+                    }
+                }
+            }
+        }
+        // This return value is not used
         Ok(Action::Continue)
     }
 }

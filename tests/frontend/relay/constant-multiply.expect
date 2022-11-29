@@ -72,9 +72,9 @@ component multiply_1(x1: 32) -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d1(32, 1, 1);
+    @external x = seq_mem_d1(32, 1, 1);
     x1 = std_const(32, 0);
-    @external(1) x2 = seq_mem_d1(32, 1, 1);
+    @external x2 = seq_mem_d1(32, 1, 1);
     multiply_1_ = multiply_1();
   }
   wires {

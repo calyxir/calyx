@@ -212,7 +212,8 @@ component main () -> () {
               val_to_reg_0;
               if eq0.out with in_barrier {
                 seq {
-                  @sync(1) sign_complete;
+                  sign_complete;
+                  @sync(1);
                 }
               }
             }
@@ -234,7 +235,8 @@ component main () -> () {
                 val_to_reg_1;
                 if eq0.out with in_barrier {
                   seq {
-                    @sync(1) sign_complete;
+                    sign_complete;
+                    @sync(1);
                   }
                 }
               }
@@ -260,7 +262,8 @@ component main () -> () {
             seq {
               compute_product;
               add_to_out;
-              @sync(1) signal_complete;
+              signal_complete;
+              @sync(1);
             }
           }
           else {

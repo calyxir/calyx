@@ -53,6 +53,12 @@ pub struct Port {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Canonical(pub Id, pub Id);
 
+impl std::fmt::Display for Canonical {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.0, self.1)
+    }
+}
+
 impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
@@ -204,12 +210,12 @@ pub struct Cell {
 }
 
 impl GetAttributes for Cell {
-    fn get_attributes(&self) -> Option<&Attributes> {
-        Some(&self.attributes)
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
     }
 
-    fn get_mut_attributes(&mut self) -> Option<&mut Attributes> {
-        Some(&mut self.attributes)
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
     }
 }
 
@@ -293,6 +299,11 @@ impl Cell {
     /// Returns true iff this cell is an instance of a Calyx-defined component.
     pub fn is_component(&self) -> bool {
         matches!(&self.prototype, CellType::Component { .. })
+    }
+
+    /// Returns true iff this cell is the signature of the current component
+    pub fn is_this(&self) -> bool {
+        matches!(&self.prototype, CellType::ThisComponent)
     }
 
     /// Returns true if this is an instance of a primitive. If the optional name is provided then

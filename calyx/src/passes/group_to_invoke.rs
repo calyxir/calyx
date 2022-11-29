@@ -5,7 +5,7 @@ use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
-use crate::ir::{CloneName, RRC};
+use crate::ir::{CloneName, GetAttributes, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -63,7 +63,7 @@ impl Named for GroupToInvoke {
 
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
-    assigns: &[ir::Assignment],
+    group: &ir::Group,
     comp: RRC<ir::Cell>,
     builder: &mut ir::Builder,
 ) -> ir::Control {
@@ -92,7 +92,7 @@ fn construct_invoke(
     let mut inputs = Vec::new();
     let mut comb_assigns = Vec::new();
 
-    for assign in assigns {
+    for assign in &group.assignments {
         // We know that all assignments in this group should write to either a)
         // a combinational component or b) comp or c) the group's done port-- we
         // should have checked for this condition before calling this function
@@ -162,8 +162,9 @@ impl Visitor for GroupToInvoke {
     ) -> VisResult {
         let groups = comp.groups.drain().collect_vec();
         let mut builder = ir::Builder::new(comp, sigs);
-        for g in &groups {
+        'groups: for g in &groups {
             let group = g.borrow();
+
             let mut writes = ReadWriteSet::write_set(group.assignments.iter())
                 .filter(|cell| match cell.borrow().prototype {
                     ir::CellType::Primitive { is_comb, .. } => !is_comb,
@@ -199,49 +200,80 @@ impl Visitor for GroupToInvoke {
                 continue;
             }
 
+            // Component must have a single @go/@done pair
+            let go_ports = cell.find_all_with_attr("go").count();
+            let done_ports = cell.find_all_with_attr("done").count();
+            if go_ports > 1 || done_ports > 1 {
+                continue;
+            }
+
             let go_port = maybe_go_port.unwrap();
-            let mut go_multi_write = false;
             let done_port = maybe_done_port.unwrap();
-            let mut done_multi_write = false;
-            for assign in &group.assignments {
+            let mut go_wr_cnt = 0;
+            let mut done_wr_cnt = 0;
+
+            'assigns: for assign in &group.assignments {
                 // @go port should have exactly one write and the src should be 1.
                 if assign.dst == go_port {
-                    if go_multi_write {
-                        return Ok(Action::Continue);
-                    }
-                    if !go_multi_write
-                        && assign.src.borrow().is_constant(1, 1)
-                        && assign.guard.is_true()
-                    {
-                        go_multi_write = true;
+                    if go_wr_cnt > 0 {
+                        log::info!(
+                            "Cannot transform `{}` due to multiple writes to @go port",
+                            group.name(),
+                        );
+                        continue 'groups;
+                    } else if !assign.guard.is_true() {
+                        log::info!(
+                            "Cannot transform `{}` due to guarded write to @go port: {}",
+                            group.name(),
+                            ir::Printer::assignment_to_str(assign)
+                        );
+                        continue 'groups;
+                    } else if assign.src.borrow().is_constant(1, 1) {
+                        go_wr_cnt += 1;
                     } else {
                         // if go port's guard is not true, src is not (1,1), then
                         // Continue
-                        continue;
+                        continue 'assigns;
                     }
                 }
                 // @done port should have exactly one read and the dst should be
                 // group's done signal.
                 if assign.src == done_port {
-                    if done_multi_write {
-                        return Ok(Action::Continue);
-                    }
-                    if !done_multi_write
-                        && assign.dst == group.get("done")
-                        && assign.guard.is_true()
-                    {
-                        done_multi_write = true;
+                    if done_wr_cnt > 0 {
+                        log::info!(
+                            "Cannot transform `{}` due to multiple writes to @done port",
+                            group.name(),
+                        );
+                        continue 'groups;
+                    } else if !assign.guard.is_true() {
+                        log::info!(
+                            "Cannot transform `{}` due to guarded write to @done port: {}",
+                            group.name(),
+                            ir::Printer::assignment_to_str(assign)
+                        );
+                        continue 'groups;
+                    } else if assign.dst == group.get("done") {
+                        done_wr_cnt += 1;
                     } else {
                         // If done port's guard is not true and does not write to group's done
                         // then Continue
-                        continue;
+                        continue 'assigns;
                     }
                 }
             }
             drop(cell);
+
+            if go_wr_cnt != 1 {
+                log::info!("Cannot transform `{}` because there are no writes to @go port", group.name());
+                continue 'groups;
+            } else if done_wr_cnt != 1 {
+                log::info!("Cannot transform `{}` because there are no writes to @done port", group.name());
+                continue 'groups;
+            }
+
             self.group_invoke_map.insert(
                 g.clone_name(),
-                construct_invoke(&group.assignments, cr, &mut builder),
+                construct_invoke(&group, cr, &mut builder),
             );
         }
         comp.groups.append(groups.into_iter());
@@ -259,7 +291,10 @@ impl Visitor for GroupToInvoke {
         match self.group_invoke_map.get(s.group.borrow().name()) {
             None => Ok(Action::Continue),
             Some(invoke) => {
-                Ok(Action::Change(Box::new(ir::Control::clone(invoke))))
+                let mut inv = ir::Control::clone(invoke);
+                let attrs = std::mem::take(&mut s.attributes);
+                *inv.get_mut_attributes() = attrs;
+                Ok(Action::Change(Box::new(inv)))
             }
         }
     }

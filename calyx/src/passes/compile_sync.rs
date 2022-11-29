@@ -1,3 +1,4 @@
+use crate::errors::{CalyxResult, Error};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -46,24 +47,53 @@ impl Named for CompileSync {
     }
 }
 
-fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) {
+fn count_barriers(
+    s: &ir::Control,
+    count: &mut HashSet<u64>,
+) -> CalyxResult<()> {
     match s {
+        ir::Control::Empty(_) => {
+            if let Some(&n) = s.get_attributes().get("sync") {
+                count.insert(n);
+            }
+            Ok(())
+        }
         ir::Control::Seq(seq) => {
             for stmt in seq.stmts.iter() {
-                if let Some(&n) = stmt.get_attributes().unwrap().get("sync") {
-                    count.insert(n);
-                }
-                count_barriers(stmt, count);
+                count_barriers(stmt, count)?;
             }
+            Ok(())
         }
         ir::Control::While(w) => {
-            count_barriers(&w.body, count);
+            count_barriers(&w.body, count)?;
+            Ok(())
         }
         ir::Control::If(i) => {
-            count_barriers(&i.tbranch, count);
-            count_barriers(&i.fbranch, count);
+            count_barriers(&i.tbranch, count)?;
+            count_barriers(&i.fbranch, count)?;
+            Ok(())
         }
-        _ => {}
+        ir::Control::Enable(e) => {
+            if s.get_attributes().get("sync").is_some() {
+                return Err(Error::malformed_control(
+                    "Enable or Invoke controls cannot be marked with @sync"
+                        .to_string(),
+                )
+                .with_pos(&e.attributes));
+            }
+            Ok(())
+        }
+        ir::Control::Invoke(i) => {
+            if s.get_attributes().get("sync").is_some() {
+                return Err(Error::malformed_control(
+                    "Enable or Invoke controls cannot be marked with @sync"
+                        .to_string(),
+                )
+                .with_pos(&i.attributes));
+            }
+            Ok(())
+        }
+        ir::Control::Par(_) => Ok(()),
     }
 }
 
@@ -75,6 +105,19 @@ impl CompileSync {
         count: &mut HashMap<u64, u64>,
     ) {
         match s {
+            ir::Control::Empty(_) => {
+                if let Some(n) = s.get_attributes().get("sync") {
+                    if self.barriers.get(n).is_none() {
+                        self.add_shared_structure(builder, n);
+                    }
+                    let (cells, groups) = &self.barriers[n];
+                    let member_idx = count[n];
+
+                    let mut new_s =
+                        build_member(builder, cells, groups, &member_idx);
+                    std::mem::swap(s, &mut new_s);
+                }
+            }
             ir::Control::Seq(seq) => {
                 // go through each control statement
                 // if @sync
@@ -85,29 +128,9 @@ impl CompileSync {
                 //          put the shared groups in the barriermap
                 //          generate the individual groups
                 //          build the seq stmt
-                let mut stmts_new: Vec<ir::Control> = Vec::new();
-                for mut stmt in std::mem::take(&mut seq.stmts) {
-                    self.build_barriers(builder, &mut stmt, count);
-                    if let Some(n) = stmt.get_attributes().unwrap().get("sync")
-                    {
-                        if self.barriers.get(n).is_none() {
-                            self.add_shared_structure(builder, n);
-                        }
-                        let (cells, groups) = &self.barriers[n];
-                        let member_idx = count[n];
-
-                        stmts_new.push(build_member(
-                            builder,
-                            &stmt,
-                            cells,
-                            groups,
-                            &member_idx,
-                        ));
-                    } else {
-                        stmts_new.push(stmt);
-                    }
+                for stmt in seq.stmts.iter_mut() {
+                    self.build_barriers(builder, stmt, count);
                 }
-                seq.stmts = stmts_new;
             }
             ir::Control::While(w) => {
                 self.build_barriers(builder, &mut w.body, count);
@@ -194,15 +217,19 @@ fn build_write_barrier(
     group
 }
 
-// put together the group to wait until the peek value reaches capacity
+// Put together the group to wait until the peek value reaches capacity.
+// We don't actually care about the value being written to the register.
+// We're only using it to make sure that the barrier has reached the expected
+// value.
 fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
-    let group = builder.add_group("wait");
+    let group = builder.add_group("wt");
     structure!(builder;
     let wait_reg = prim std_reg(1);
     let cst_1 = constant(1, 1););
     let eq_guard = guard!(eq["out"]);
     let mut assigns = build_assignments!(builder;
         // wait_reg_*.in = eq_*.out;
+        // XXX(rachit): Since the value doesn't matter, can this just be zero?
         wait_reg["in"] = ?eq["out"];
         // wait_reg_*.write_en = eq_*.out? 1'd1;
         wait_reg["write_en"] = eq_guard? cst_1["out"];
@@ -251,7 +278,9 @@ fn build_restore(
     group
 }
 
-// put together the group to wait for restorer to finish
+// Put together the group to wait for restorer to finish.
+// Like the wait group, we don't care about the value in the register
+// We just want to wait till the value in the barrier is set to 0.
 fn build_wait_restore(
     builder: &mut ir::Builder,
     eq: &RRC<ir::Cell>,
@@ -276,15 +305,11 @@ fn build_wait_restore(
 // put together the sequence of groups that a barrier member requires
 fn build_member(
     builder: &mut ir::Builder,
-    original: &ir::Control,
     cells: &[RRC<ir::Cell>; 2],
     groups: &[RRC<ir::Group>; 3],
     member_idx: &u64,
 ) -> ir::Control {
     let mut stmts: Vec<ir::Control> = Vec::new();
-    let mut copy = ir::Control::clone(original);
-
-    copy.get_mut_attributes().unwrap().remove("sync");
 
     let barrier = Rc::clone(&cells[0]);
     let eq = Rc::clone(&cells[1]);
@@ -300,7 +325,6 @@ fn build_member(
         build_write_barrier(builder, &barrier, &save, &(member_idx - 1));
     let wait = build_wait(builder, &eq);
 
-    stmts.push(copy);
     stmts.push(ir::Control::enable(incr_barrier));
     stmts.push(ir::Control::enable(write_barrier));
     stmts.push(ir::Control::enable(wait));
@@ -325,7 +349,7 @@ impl Visitor for CompileSync {
         let mut barrier_count: HashMap<u64, u64> = HashMap::new();
         for stmt in s.stmts.iter_mut() {
             let mut cnt: HashSet<u64> = HashSet::new();
-            count_barriers(stmt, &mut cnt);
+            count_barriers(stmt, &mut cnt)?;
             for barrier in cnt {
                 barrier_count
                     .entry(barrier)
