@@ -9,6 +9,10 @@ use std::{
 /// Defines a greedy graph coloring algorithm over a generic conflict graph.
 pub struct GraphColoring<T> {
     graph: WeightGraph<T>,
+    // color_freq_map records similar information as `all_colors` does in the
+    // `color_greedy()` method, but `color_freq_map` stays alive after the
+    // function call, and doesn't get rid of colors once they reach the bound
+    color_freq_map: HashMap<Idx, i64>,
 }
 
 impl<T, C> From<C> for GraphColoring<T>
@@ -18,7 +22,10 @@ where
 {
     fn from(nodes: C) -> Self {
         let graph = WeightGraph::from(nodes);
-        GraphColoring { graph }
+        GraphColoring {
+            graph,
+            color_freq_map: HashMap::new(),
+        }
     }
 }
 
@@ -44,9 +51,30 @@ where
         self.graph.graph.node_count() > 0
     }
 
+    /// increases the frequency of `idx` in `color_freq_map` by one
+    fn increase_freq(&mut self, idx: Idx) {
+        self.color_freq_map
+            .entry(idx)
+            .and_modify(|v| *v += 1)
+            .or_insert(1);
+    }
+
+    /// provides a hashmap that gives the sharing frequencies
+    pub fn get_share_freqs(&mut self) -> HashMap<i64, i64> {
+        let mut pdf: HashMap<i64, i64> = HashMap::new();
+        // hold total value so we know how much to divide by at the end
+        for value in self.color_freq_map.values() {
+            // in`pdf`, each key represents a possible number of times a cell
+            // is shared-- for example, x-- and the corresponding key represents
+            // how many cells in the new program were shared x times
+            pdf.entry(*value).and_modify(|v| *v += 1).or_insert(1);
+        }
+        pdf
+    }
+
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
-    pub fn color_greedy(&self, bound: Option<i64>) -> HashMap<T, T> {
+    pub fn color_greedy(&mut self, bound: Option<i64>) -> HashMap<T, T> {
         let mut all_colors: BTreeMap<Idx, i64> = BTreeMap::new();
         let mut coloring: HashMap<Idx, Idx> = HashMap::new();
         let always_share = bound.is_none();
@@ -75,17 +103,17 @@ where
                     if !available_colors.is_empty() {
                         let c = available_colors.remove(0);
                         coloring.insert(nidx, c);
-                        if !always_share {
-                            if let Some(num_used) = all_colors.get_mut(&c) {
-                                *num_used += 1;
-                                if *num_used == bound_if_exists {
-                                    all_colors.remove(&c);
-                                }
+                        self.increase_freq(c);
+                        if let Some(num_used) = all_colors.get_mut(&c) {
+                            *num_used += 1;
+                            if !always_share && *num_used == bound_if_exists {
+                                all_colors.remove(&c);
                             }
                         }
                     } else {
                         all_colors.insert(nidx, 1);
                         coloring.insert(nidx, nidx);
+                        self.increase_freq(nidx);
                         if !always_share && bound_if_exists == 1 {
                             all_colors.remove(&nidx);
                         }
@@ -107,12 +135,12 @@ where
                     match color {
                         Some((c, _)) => {
                             coloring.insert(nidx, *c);
-                            if !always_share {
-                                if let Some(num_used) = all_colors.get_mut(c) {
-                                    *num_used += 1;
-                                    if *num_used == bound_if_exists {
-                                        all_colors.remove(c);
-                                    }
+                            self.increase_freq(*c);
+                            if let Some(num_used) = all_colors.get_mut(c) {
+                                *num_used += 1;
+                                if !always_share && *num_used == bound_if_exists
+                                {
+                                    all_colors.remove(c);
                                 }
                             }
                         }
@@ -120,6 +148,7 @@ where
                             // use self as color if nothing else
                             all_colors.insert(nidx, 1);
                             coloring.insert(nidx, nidx);
+                            self.increase_freq(nidx);
                             if !always_share && bound_if_exists == 1 {
                                 all_colors.remove(&nidx);
                             }

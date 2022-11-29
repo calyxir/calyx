@@ -9,7 +9,7 @@ use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
 use serde::Serialize;
 
-pub type BitString = BitVec<u64, Lsb0>;
+pub type BitString = BitVec<usize, Lsb0>;
 
 /// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
 ///  integral and fractional bits. The width of the integral bits is described as:
@@ -173,35 +173,35 @@ impl InputNumber {
 
     fn as_bit_vec(&self) -> BitString {
         match self {
-            InputNumber::U8(i) => BitVec::from_element(*i as u64),
-            InputNumber::U16(i) => BitVec::from_element(*i as u64),
-            InputNumber::U32(i) => BitVec::from_element(*i as u64),
-            InputNumber::U64(i) => BitVec::from_element(*i),
+            InputNumber::U8(i) => BitVec::from_element(*i as usize),
+            InputNumber::U16(i) => BitVec::from_element(*i as usize),
+            InputNumber::U32(i) => BitVec::from_element(*i as usize),
+            InputNumber::U64(i) => BitVec::from_element(*i as usize),
             InputNumber::U128(i) => {
-                let lower = (i & (u64::MAX as u128)) as u64;
-                let upper = ((i >> 64) & u64::MAX as u128) as u64;
+                let lower = (i & (u64::MAX as u128)) as usize;
+                let upper = ((i >> 64) & u64::MAX as u128) as usize;
                 BitVec::from_slice(&[lower, upper])
             }
-            InputNumber::I8(i) => BitVec::from_element(*i as u64),
-            InputNumber::I16(i) => BitVec::from_element(*i as u64),
-            InputNumber::I32(i) => BitVec::from_element(*i as u64),
-            InputNumber::I64(i) => BitVec::from_element(*i as u64),
+            InputNumber::I8(i) => BitVec::from_element(*i as usize),
+            InputNumber::I16(i) => BitVec::from_element(*i as usize),
+            InputNumber::I32(i) => BitVec::from_element(*i as usize),
+            InputNumber::I64(i) => BitVec::from_element(*i as usize),
             InputNumber::I128(i) => {
-                let lower = (i & (u64::MAX as i128)) as u64;
-                let upper = ((i >> 64) & u64::MAX as i128) as u64;
+                let lower = (i & (u64::MAX as i128)) as usize;
+                let upper = ((i >> 64) & u64::MAX as i128) as usize;
                 BitVec::from_slice(&[lower, upper])
             }
-            InputNumber::Usize(i) => BitVec::from_element(*i as u64),
+            InputNumber::Usize(i) => BitVec::from_element(*i),
             InputNumber::U(u) => {
-                let bytes_64: Vec<u64> = u
+                let bytes_64: Vec<_> = u
                     .to_le_bytes()
                     .into_iter()
                     .chunks(8)
                     .into_iter()
                     .map(|x| {
-                        let mut acc: u64 = 0;
+                        let mut acc: usize = 0;
                         for (byte_number, u) in x.enumerate() {
-                            acc |= (u as u64) << (byte_number * 8)
+                            acc |= (u as usize) << (byte_number * 8)
                         }
                         acc
                     })
@@ -220,9 +220,9 @@ impl InputNumber {
                         .chunks(8)
                         .into_iter()
                         .map(|x| {
-                            let mut acc: u64 = 0;
+                            let mut acc: usize = 0;
                             for (byte_number, u) in x.enumerate() {
-                                acc |= (u as u64) << (byte_number * 8)
+                                acc |= (u as usize) << (byte_number * 8)
                             }
                             acc = acc.not();
 
@@ -332,18 +332,18 @@ impl Value {
     pub fn zeroes<I: Into<InputNumber>>(bitwidth: I) -> Value {
         let input_num: InputNumber = bitwidth.into();
         Value {
-            vec: Rc::new(bitvec![u64, Lsb0; 0; input_num.as_usize()]),
+            vec: Rc::new(bitvec![usize, Lsb0; 0; input_num.as_usize()]),
             unsigned: Rc::new(RefCell::new(Some(0_u8.into()))),
             signed: Rc::new(RefCell::new(Some(0.into()))),
         }
     }
 
     pub fn bit_high() -> Value {
-        Value::from(1_u64, 1_usize)
+        Value::from(1_usize, 1_usize)
     }
 
     pub fn bit_low() -> Value {
-        Value::from(0_u64, 1_usize)
+        Value::from(0_usize, 1_usize)
     }
 
     /// Create a new Value of a given bitwidth out of an initial_val. You do

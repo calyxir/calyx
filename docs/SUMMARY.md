@@ -6,9 +6,10 @@
   - [Multi-Component Designs](./lang/multi-component.md)
   - [Passing Memories by Reference](./lang/memories-by-reference.md)
 - [Language Reference](./lang/ref.md)
-- [Experimental: Synchronization](./lang/sync.md)
+  - [Data Format](./lang/data-format.md)
+  - [Experimental: Synchronization](./lang/sync.md)
+  - [Undefined Behaviors](./lang/undefined.md)
 - [Attributes](./lang/attributes.md)
-- [Undefined Behaviors](./lang/undefined.md)
 
 # Running Calyx Programs
 

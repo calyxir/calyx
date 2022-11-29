@@ -1,0 +1,22 @@
+{
+  "depth_output": {
+    "data": [
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 2
+    }
+  },
+  "path_ids1": {
+    "data": [
+      1
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 3
+    }
+  }
+}
