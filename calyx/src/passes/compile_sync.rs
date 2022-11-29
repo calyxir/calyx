@@ -1,6 +1,6 @@
+use crate::errors::{CalyxResult, Error};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use crate::errors::{CalyxResult, Error};
 
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::RRC;
@@ -47,7 +47,10 @@ impl Named for CompileSync {
     }
 }
 
-fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) -> CalyxResult<()>{
+fn count_barriers(
+    s: &ir::Control,
+    count: &mut HashSet<u64>,
+) -> CalyxResult<()> {
     match s {
         ir::Control::Empty(_) => {
             if let Some(&n) = s.get_attributes().get("sync") {
@@ -72,24 +75,27 @@ fn count_barriers(s: &ir::Control, count: &mut HashSet<u64>) -> CalyxResult<()>{
         }
         ir::Control::Enable(e) => {
             if s.get_attributes().get("sync").is_some() {
-            return Err(Error::malformed_control(
-                "Enable or Invoke controls cannot be marked with @sync".to_string()).with_pos(&e.attributes));
+                return Err(Error::malformed_control(
+                    "Enable or Invoke controls cannot be marked with @sync"
+                        .to_string(),
+                )
+                .with_pos(&e.attributes));
             }
             Ok(())
         }
         ir::Control::Invoke(i) => {
             if s.get_attributes().get("sync").is_some() {
-            return Err(Error::malformed_control(
-                "Enable or Invoke controls cannot be marked with @sync".to_string()
-            ).with_pos(&i.attributes));
+                return Err(Error::malformed_control(
+                    "Enable or Invoke controls cannot be marked with @sync"
+                        .to_string(),
+                )
+                .with_pos(&i.attributes));
             }
             Ok(())
         }
-        ir::Control::Par(_) => {
-            Ok(())
-        }
-        }
+        ir::Control::Par(_) => Ok(()),
     }
+}
 
 impl CompileSync {
     fn build_barriers(
