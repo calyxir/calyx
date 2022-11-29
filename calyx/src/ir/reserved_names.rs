@@ -117,7 +117,7 @@ pub const RESERVED_NAMES: &[&str] = &[
     "trireg",
     "unsigned",
     "use",
-    "vectored",
+    "vectored", "wait",
     "wand",
     "weak0",
     "weak1",
