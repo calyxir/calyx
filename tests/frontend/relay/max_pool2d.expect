@@ -322,8 +322,8 @@ component max_pool2d_2x2x2x2() -> () {
 
 component main() -> () {
   cells {
-    @external(1) data = seq_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
-    @external(1) result = seq_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
+    @external data = seq_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
+    @external result = seq_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
     max_pool2d_2x2x2x2_ = max_pool2d_2x2x2x2();
   }
   wires {

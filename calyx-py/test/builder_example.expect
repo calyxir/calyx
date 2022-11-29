@@ -1,0 +1,33 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(in: 32) -> (out: 32) {
+  cells {
+    lhs = std_reg(32);
+    rhs = std_reg(32);
+    sum = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+    group update_operands {
+      lhs.write_en = 1'd1;
+      rhs.write_en = 1'd1;
+      lhs.in = 32'd1;
+      rhs.in = 32'd41;
+      update_operands[done] = lhs.done & rhs.done ? 1'd1;
+    }
+    group compute_sum {
+      add.left = lhs.out;
+      add.right = rhs.out;
+      sum.write_en = 1'd1;
+      sum.in = add.out;
+      compute_sum[done] = sum.done;
+    }
+    in = out;
+  }
+  control {
+    seq {
+      update_operands;
+      compute_sum;
+    }
+  }
+}

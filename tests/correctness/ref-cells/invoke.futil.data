@@ -1,0 +1,12 @@
+{
+  "mem": {
+    "data": [
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  }
+}

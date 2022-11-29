@@ -1,0 +1,57 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external(1) depth_output = std_mem_d1(3, 1, 1);
+    @eternal(1) depth = std_reg(3);
+    @external(1) path_ids1 = std_mem_d1(3, 1, 1);
+    pe1 = node_depth_pe();
+  }
+  wires {
+    group init_depth {
+      depth.in = 3'b0;
+      depth.write_en = 1'b1;
+      init_depth[done] = depth.done;
+    }
+    group store_depth {
+      depth_output.addr0 = 1'd0;
+      depth_output.write_data = depth.out;
+      depth_output.write_en = 1'd1;
+      store_depth[done] = depth_output.done;
+    }
+  }
+  control {
+    seq {
+      init_depth;
+      invoke pe1(pids_read_data=path_ids1.read_data, depth_out=depth.out, depth_done=depth.done)(pids_addr0=path_ids1.addr0, depth_in=depth.in, depth_write_en=depth.write_en);
+      store_depth;
+    }
+  }
+}
+component node_depth_pe(pids_read_data: 3, depth_out: 3, depth_done: 1) -> (pids_addr0: 1, depth_in: 3, depth_write_en: 1) {
+  cells {
+    path_id_reg = std_reg(3);
+    depth_adder = std_add(3);
+  }
+  wires {
+    group load_path_id {
+      pids_addr0 = 1'b0;
+      path_id_reg.in = pids_read_data;
+      path_id_reg.write_en = 1'd1;
+      load_path_id[done] = path_id_reg.done;
+    }
+    group inc_depth {
+      depth_adder.left = depth_out;
+      depth_adder.right = path_id_reg.out;
+      depth_in = depth_adder.out;
+      depth_write_en = 1'd1;
+      inc_depth[done] = depth_done;
+    }
+  }
+  control {
+    seq {
+      load_path_id;
+      inc_depth;
+    }
+  }
+}
