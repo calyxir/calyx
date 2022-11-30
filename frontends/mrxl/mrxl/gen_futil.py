@@ -1,3 +1,4 @@
+from typing import Dict, List
 from . import ast
 from calyx.py_ast import (
     Connect,
@@ -282,7 +283,37 @@ def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
         return gen_reduce_impl(stmt, arr_size, s_idx)
 
 
-def emit(prog):
+def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
+    """Maps the name of memories to their banking factors."""
+    out = dict()
+
+    def add_par(mem, par):
+        # If we've already inferred a banking factor for this memory,
+        # make sure it's the same as the one we're inferring now.
+        if mem in out and par != out[mem]:
+            raise Exception(
+                f"Previous use of `{mem}` had banking factor {out[mem]}"
+                " but current use has banking factor {par}"
+            )
+        out[mem] = par
+
+    for stmt in stmts:
+        if isinstance(stmt.op, ast.Map):
+            par_f = stmt.op.par
+            # The destination must support parallel writes
+            add_par(stmt.dest, par_f)
+            for b in stmt.op.bind:
+                # The source must support parallel reads
+                add_par(b, par_f)
+        elif isinstance(stmt.op, ast.Reduce):
+            # Reduction does not support parallelism
+            if stmt.op.par != 1:
+                raise Exception("Reduction does not support parallelism")
+
+    return out
+
+
+def emit(prog: ast.Prog):
     """
     Returns a string containing a Calyx program, compiled from `prog`, a MrXL
     program.
@@ -293,13 +324,10 @@ def emit(prog):
     # size that we'll assume for the rest of the program's arrays.
     arr_size = None
 
+    # ANCHOR: compute_par_factors
     # Collect banking factors.
-    name2par = dict()
-    for stmt in prog.stmts:
-        if isinstance(stmt.op, ast.Map):
-            name2par[stmt.dest] = stmt.op.par
-            for b in stmt.op.bind:
-                name2par[b.src] = stmt.op.par
+    par_factor = compute_par_factors(prog.stmts)
+    # ANCHOR_END: compute_par_factors
 
     # Collect memory and register declarations.
     used_names = []
@@ -309,7 +337,9 @@ def emit(prog):
         used_names.append(decl.name)
         if decl.type.size:  # A memory
             arr_size = decl.type.size
-            cells.extend(emit_mem_decl(decl.name, decl.type.size, name2par[decl.name]))
+            cells.extend(
+                emit_mem_decl(decl.name, decl.type.size, par_factor[decl.name])
+            )
         else:  # A register
             cells.append(Cell(CompVar(decl.name), stdlib.register(32)))
     # ANCHOR_END: collect-decls
@@ -318,7 +348,7 @@ def emit(prog):
     for stmt in prog.stmts:
         if stmt.dest not in used_names:
             if isinstance(stmt.op, ast.Map):
-                cells.extend(emit_mem_decl(stmt.dest, arr_size, name2par[stmt.dest]))
+                cells.extend(emit_mem_decl(stmt.dest, arr_size, par_factor[stmt.dest]))
             else:
                 raise NotImplementedError("Generating register declarations")
                 #  cells.append(emit_reg_decl(stmt.dest, 32))
@@ -326,7 +356,7 @@ def emit(prog):
 
     # Generate Calyx.
     for i, stmt in enumerate(prog.stmts):
-        stmt_impl = gen_stmt_impl(stmt, arr_size, name2par, i)
+        stmt_impl = gen_stmt_impl(stmt, arr_size, par_factor, i)
         cells.extend(stmt_impl["cells"])
         wires.extend(stmt_impl["wires"])
         control.append(stmt_impl["control"])

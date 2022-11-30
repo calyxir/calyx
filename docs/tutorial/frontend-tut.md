@@ -105,19 +105,38 @@ We perform syntax-directed compilation by walking over nodes in the above AST an
 
 #### `Decl` nodes
 
-`Decl` nodes instantiate new memories and registers. We need these to be instantiated in the `cells` section of our Calyx output. Here's Calyx code that creates a new memory `foo`, with 4 32-bit elements and a 32-bit indexor:
+`Decl` nodes instantiate new memories and registers.
+We need these to be instantiated in the `cells` section of our Calyx output.
+We use Calyx's `std_reg` and `std_mem_d1` primitives to represent registers and memories:
 
+```C
+import "primitives/core.futil"; // Import standard library
+
+component main() -> () {
+  cells {
+    // A memory with 4 32-bit elements. Indexed using a 6-bit value.
+    foo = std_mem_d1(32, 4, 6);
+    // A register that contains a 32-bit value
+    r = std_reg(32);
+  }
+  ...
+}
 ```
-foo = std_mem_d1(32, 4, 32);
+
+For each `Decl` node, we need to determine if we're instantiating a memory or a register, and then translate that to a corresponding Calyx declaration and place that inside the `cells` section of our generated program.
+
+If a memory is used in a parallel `map` or `reduce`, we might need to create different physical banks for it.
+We define a function to walk over the AST and compute the parallelism factor for each memory:
+```python
+{{#include ../../frontends/mrxl/mrxl/gen_futil.py:compute_par_factors}}
 ```
 
-For each `Decl` node, we need to determine if we're instantiating a memory or a register, and then translate that to a corresponding Calyx declaration and place that inside the `cells` section of our generated program. Here's some code from our compiler that walks through each register and memory declaration, and generates a Calyx program with those registers:
-
+Using this information, we can instantiate registers and memories for our inputs and outputs:
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:collect-decls}}
 ```
+The helper function `emit_mem_decl` instantiates all banks necessary for a memory.
 
-The `emit_mem_decl` function emits a string of the form `"mem_name = std_mem_d1(<element_width>, <num_elements>, <index_width>)"`.
 
 #### `Map` and `Reduce` nodes
 

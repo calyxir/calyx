@@ -1,3 +1,4 @@
+# fmt: off
 from dataclasses import dataclass
 from typing import List, Union, Optional
 
@@ -5,7 +6,7 @@ from typing import List, Union, Optional
 @dataclass
 class Type:
     base: str
-    size: Optional[int]
+    size: Optional[int]  # None means this is a register
 
 
 # ANCHOR: decl
@@ -63,6 +64,8 @@ class Reduce:
 class Stmt:
     dest: str
     op: Union[Map, Reduce]
+
+
 # ANCHOR_END: stmt
 
 
@@ -71,4 +74,6 @@ class Stmt:
 class Prog:
     decls: List[Decl]
     stmts: List[Stmt]
+
+
 # ANCHOR_END: prog
