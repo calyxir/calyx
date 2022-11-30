@@ -8,11 +8,13 @@ class Type:
     size: Optional[int]
 
 
+# ANCHOR: decl
 @dataclass
 class Decl:
     input: bool  # Otherwise, output.
     name: str
     type: Type
+# ANCHOR_END: decl
 
 
 @dataclass
@@ -56,13 +58,17 @@ class Reduce:
     body: Expr
 
 
+# ANCHOR: stmt
 @dataclass
 class Stmt:
     dest: str
     op: Union[Map, Reduce]
+# ANCHOR_END: stmt
 
 
+# ANCHOR: prog
 @dataclass
 class Prog:
     decls: List[Decl]
     stmts: List[Stmt]
+# ANCHOR_END: prog

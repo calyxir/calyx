@@ -170,7 +170,7 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
     of a `map` statement.
     """
     stdlib = Stdlib()
-    op_name = "mult" if stmt.op.body.op == "mul" else "add"
+    op_name = "mult_pipe" if stmt.op.body.op == "mul" else "add"
     cells = [
         Cell(CompVar(f"le{s_idx}"), stdlib.op("lt", 32, signed=False)),
         Cell(CompVar(f"idx{s_idx}"), stdlib.register(32)),
@@ -218,7 +218,7 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
             ]
         )
 
-    op_name = "mult" if stmt.op.body.op == "mul" else "add"
+    op_name = "mult_pipe" if stmt.op.body.op == "mul" else "add"
     for b in range(bank_factor):
         cells.append(
             Cell(

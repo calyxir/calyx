@@ -9,37 +9,50 @@ MrXL provides constructs to create arrays, and perform `map` and `reduce` operat
 {{#include ../../frontends/mrxl/test/dot.mrxl}}
 ```
 
-A `map` expressions produces a new vector, each element an evaluated expression that can use elements of other vectors. In the above example, the `map` expression multiplies the values of `avec` and `bvec`. These expressions also have _parallelism factors_: in the above code snippet, the `map` expression has a parallelism factor of 16, which means we stamp out 16 multipliers to speed up the computation.
+We define the interface of program by specifying `input` and `output` arrays.
+Input arrays have their values populated by an external harness while the output arrays must be computed using the program.
 
-`reduce` expressions walk over memories and accumulate a result into a register. In the above code snippet, we add together all of the elements of `prodvec` and place them in a register named `dot`.
+A `map` expression iterates over multiple arrays of the same element and produces a new vector using the function provided in the body.
+In the above example, the `map` expression multiplies the values of `avec` and `bvec`.
+`map 1` states that the operation has a *parallelism factor* of which means that the loop iterations are performed sequentially.
 
-Arrays can be `input` arrays, which we populate with some input data, or `output` arrays, which the program will populate for us.
+`reduce` expressions walk over memories and accumulate a result into a register.
+In the above code snippet, we add together all the elements of `prodvec` and place them in a register named `dot`.
+Since the `reduce` parallelism factor is also 1, the reduction is performed sequentially.
+
 
 ## Run a MrXL Program
 
-First, you'll need to have the MrXL stage installed for `fud`. See the [MrXL docs][mrxldocs].
+Once we have [installed the mrxl command line tool][mrxldocs], we can run MrXL programs using [`fud`][fud].
 
-MrXL programs need to be fed data in the form of JSON files. Let's try to run this program, which has a parallelism factor of two:
+To provide MrXL program with input values, we use fud's [JSON][json]-based [data format][fud-data].
+Let's try to run this program, which has a parallelism factor of two:
 
 ```
 {{#include ../../frontends/mrxl/test/add.mrxl}}
 ```
+In order to take advantage of the parallelism in the program, the MrXL compiler automatically partitions the input memory `foo` into two different *physical banks*: `foo_b0` and `foo_b1`.
+Therefore, we split up our logical `foo` input of `[1, 2, 3, 4]` into `[1,2]` and `[3,4]`:
+```json
+{{#include ../../frontends/mrxl/test/add.mrxl.data:2:23}}
+```
+Our complete data file similarly splits up the input for `baz`.
 
-with this data file, containing banked memories to allow for the parallelism:
+Run the program with the complete data by typing:
 
 ```
-{{#include ../../frontends/mrxl/test/add.mrxl.data}}
+fud exec frontends/mrxl/test/add.mrxl \
+    --from mrxl \
+    --to vcd -s verilog.data frontends/mrxl/test/add.mrxl.data
 ```
 
-Run the program with the supplied data by typing:
+## Compiling MrXL to Calyx
 
-```
-fud exec frontends/mrxl/test/add.mrxl --from mrxl --to vcd -s verilog.data frontends/mrxl/test/add.mrxl.data
-```
+This guide will walk you through the steps to build a Python program that compiles MrXL programs to Calyx code.
+The guide assumes some basic familiarity with Calyx.
+Take a look at [Calyx tutorial][calyx-tut] if you need a refresher.
 
-## Build a Compiler for MrXL
-
-This guide will walk you through the steps to build a Python program that compiles MrXL programs to Calyx code. To simplify things, we'll make a few assumptions:
+To simplify things, we'll make a few assumptions about MrXL programs:
 - Every array in a MrXL program has the same length.
 - Every integer in our generated hardware will be 32 bits.
 - Every `map` and `reduce` body will be either a multiplication or addition of either an array element or an integer.
@@ -50,21 +63,25 @@ The following sections will outline these two high level tasks:
 
 ### Parse MrXL into an AST
 
-To start, we'll parse this MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`s. Our toplevel AST node looks like this:
-
-```
-{{#include ../../frontends/mrxl/mrxl/ast.py:65:68}}
+To start, we'll parse this MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`.
+A program is a sequence of array declarations followed by computation statements:
+```python
+{{#include ../../frontends/mrxl/mrxl/ast.py:prog}}
 ```
 
 `Decl` nodes correspond to array declarations like `input avec: int[1024]`, and carry data about whether they're an `input` or `output` array, their name, and their type:
 
-```
-{{#include ../../frontends/mrxl/mrxl/ast.py:11:15}}
+```python
+{{#include ../../frontends/mrxl/mrxl/ast.py:decl}}
 ```
 
 `Stmt` nodes represent statements such as `dot := reduce 4 (a, b <- prodvec) 0 { a + b }`, and contain more nested nodes representing their function header and body, and type of operation.
 
-Now we can decide on rules for generating code depending on which AST node we're working on. Depending on the AST node, we might need to add code to `cells`, `wires` or `control`.
+```python
+{{#include ../../frontends/mrxl/mrxl/ast.py:stmt}}
+```
+
+[The complete AST][mrxl-ast] defines the remaining AST nodes required to represent a MrXL program.
 
 ### Generate Calyx Code
 
@@ -72,13 +89,18 @@ The skeleton of a Calyx program has three sections, and looks like this:
 
 ```
 component main() -> {
-  cells { }
-  wires { }
-  control { }
+  cells {}
+  wires {}
+  control {}
 }
 ```
 
-`cells` contains declarations for logical hardware units like adders, memories and registers. `wires` contains `group`s that connect together the units declared in `cell`s and form the structure of the hardware. `control` contains the logic specifying when the `group`s will perform their computation. Walking the nodes of the AST we defined earlier, we'll generate strings that we'll insert into each of these sections. The next few sections will discuss the different node types.
+The [cells section][lf-cells] instantiates hardware units like adders, memories and registers.
+The [wires section][lf-wires] contains [groups][lf-groups] that connect
+together hardware instances to perform some logical task such as incrementing a specific register.
+Finally, the [control section][lf-control] *schedules* the execution of groups using control operators such as `seq`, `par`, and `while`.
+
+We perform syntax-directed compilation by walking over nodes in the above AST and generating `cells`, `wires`, and `control` operations.
 
 
 #### `Decl` nodes
@@ -150,3 +172,12 @@ Hopefully this should be enough to get you started with writing your own MrXL co
 
 [astcode]: https://github.com/cucapra/futil/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs]: https://github.com/cucapra/futil/tree/master/frontends/mrxl
+[fud]: ../fud/index.md
+[fud-data]: ../lang/data-format.md
+[json]: https://www.json.org/json-en.html
+[calyx-tut]: ./language-tut.md
+[mrxl-ast]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/ast.py
+[lf-cells]: ../lang/ref.md#cells
+[lf-wires]: ../lang/ref.md#the-wires-section
+[lf-groups]: ../lang/ref.md#group-definitions
+[lf-control]: ../lang/ref.md#the-control-operators
