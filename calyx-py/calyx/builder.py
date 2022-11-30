@@ -189,7 +189,7 @@ class ExprBuilder:
         """Construct a "not" logical expression with ~."""
         return ExprBuilder(ast.Not(self.expr))
 
-    def __matmul__(self, other):
+    def __matmul__(self, rhs: "ExprBuilder"):
         """Construct a conditional expression with @.
 
         This produces a `CondExprBuilder`, which wraps a value
@@ -198,7 +198,7 @@ class ExprBuilder:
         not possible to compose larger expressions out of
         `CondExprBuilder` values; they are only useful for assignment.
         """
-        return CondExprBuilder(self, other)
+        return CondExprBuilder(self, rhs)
 
     @classmethod
     def unwrap(cls, obj):
@@ -301,7 +301,10 @@ class GroupBuilder:
         self.comp = comp
 
     def asgn(
-        self, lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder, int], cond=None
+        self,
+        lhs: ExprBuilder,
+        rhs: Union[ExprBuilder, CondExprBuilder, int],
+        cond: Optional[ExprBuilder] = None,
     ):
         """Add a connection to the group.
 
