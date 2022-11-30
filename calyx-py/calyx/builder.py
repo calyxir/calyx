@@ -232,7 +232,7 @@ class CellLikeBuilder:
         pass
 
     def port(self, name: str):
-        raise "Not implemented"
+        raise NotImplementedError()
 
     def __getitem__(self, key):
         return self.port(key)
@@ -327,7 +327,7 @@ class GroupBuilder:
             ExprBuilder.unwrap(rhs),
             ExprBuilder.unwrap(cond),
         )
-        if self.group is not None:
+        if self.group:
             self.group.connections.append(wire)
         else:
             self.comp.component.wires.append(wire)
@@ -335,10 +335,10 @@ class GroupBuilder:
     @property
     def done(self):
         """The `done` hole for the group."""
-        if not self.group:
-            raise Exception(
-                "GroupBuilder represents continuous assignments and does not have a done hole"
-            )
+        assert self.group, (
+            "GroupLikeBuilder represents continuous assignments"
+            " and does not have a done hole"
+        )
         return ExprBuilder(ast.HolePort(ast.CompVar(self.group.id.name), "done"))
 
     @done.setter
