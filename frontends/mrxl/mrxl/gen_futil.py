@@ -304,6 +304,7 @@ def emit(prog):
     # Collect memory and register declarations.
     used_names = []
     stdlib = Stdlib()
+    # ANCHOR: collect-decls
     for decl in prog.decls:
         used_names.append(decl.name)
         if decl.type.size:  # A memory
@@ -311,6 +312,7 @@ def emit(prog):
             cells.extend(emit_mem_decl(decl.name, decl.type.size, name2par[decl.name]))
         else:  # A register
             cells.append(Cell(CompVar(decl.name), stdlib.register(32)))
+    # ANCHOR_END: collect-decls
 
     # Collect implicit memory and register declarations.
     for stmt in prog.stmts:
