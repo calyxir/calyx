@@ -45,14 +45,6 @@ class ConstructAST(lark.Transformer):
         qual, name, typ = args
         return ast.Decl(qual.data == "input", str(name), typ)
 
-    def binop(self, op_str):
-        if op_str.data == "add":
-            return ast.BinOp.ADD
-        elif op_str.data == "mul":
-            return ast.BinOp.MUL
-        else:
-            assert False
-
     def start(self, args):
         decls, stmts = args
         return ast.Prog(decls.children, stmts.children)

@@ -353,7 +353,7 @@ class While(Control):
 @dataclass
 class Empty(Control):
     def doc(self) -> str:
-        return "empty"
+        return ""
 
 
 @dataclass

@@ -1,7 +1,6 @@
 # fmt: off
 from dataclasses import dataclass
 from typing import List, Union, Optional
-from enum import Enum
 
 
 @dataclass
@@ -19,15 +18,10 @@ class Decl:
 # ANCHOR_END: decl
 
 
-class BinOp(Enum):
-    ADD = "add"
-    MUL = "mul"
-
-
 @dataclass
 class BinExpr:
     """A binary expression."""
-    op: BinOp
+    op: str
     lhs: "Expr"
     rhs: "Expr"
 
@@ -73,6 +67,17 @@ class Reduce:
 class Stmt:
     dest: str
     op: Union[Map, Reduce]
+
+    def __init__(self, dest: str, op: Union[Map, Reduce]):
+        self.dest = dest
+        if isinstance(op, Map):
+            # Ensure that bindings for Map contain only one destination
+            for bind in op.bind:
+                assert len(bind.dest) == 1, "Map bindings must have one destination"
+        elif isinstance(op, Reduce):
+            for bind in op.bind:
+                assert len(bind.dest) == 2, "Reduce bindings must have two destinations"
+        self.op = op
 
 
 # ANCHOR_END: stmt

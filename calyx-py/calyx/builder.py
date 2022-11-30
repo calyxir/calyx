@@ -110,9 +110,19 @@ class ComponentBuilder:
         stdlib = ast.Stdlib()  # TODO Silly; should be @staticmethods.
         return self.cell(name, stdlib.register(size))
 
-    def mem_d1(self, name: str, bitwidth: int, len: int, idx_size: int):
+    def mem_d1(
+        self,
+        name: str,
+        bitwidth: int,
+        len: int,
+        idx_size: int,
+        is_external=False,
+        is_ref=False,
+    ):
         stdlib = ast.Stdlib()
-        return self.cell(name, stdlib.mem_d1(bitwidth, len, idx_size))
+        return self.cell(
+            name, stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
 
     def add(self, name: str, size: int):
         stdlib = ast.Stdlib()
