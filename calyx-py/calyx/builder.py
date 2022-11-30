@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, List
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -20,8 +20,8 @@ class Builder:
             components=[],
         )
 
-    def component(self, name: str):
-        comp_builder = ComponentBuilder(name)
+    def component(self, name: str, cells=[]):
+        comp_builder = ComponentBuilder(name, cells)
         self.program.components.append(comp_builder.component)
         return comp_builder
 
@@ -29,15 +29,19 @@ class Builder:
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, cells: List[ast.Cell] = []):
+        """Contructs a new component in the current program. If `cells` is
+        provided, the component will be initialized with those cells."""
         self.component: ast.Component = ast.Component(
             name,
             inputs=[],
             outputs=[],
-            structs=[],
+            structs=cells,
             controls=ast.Empty(),
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
+        for cell in cells:
+            self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
 
     def input(self, name: str, size: int):
@@ -61,14 +65,23 @@ class ComponentBuilder:
             self.component.controls = builder
 
     def get_cell(self, name: str) -> "CellBuilder":
-        out = self.index[name]
-        assert isinstance(out, CellBuilder)
-        return out
+        out = self.index.get(name)
+        if out and isinstance(out, CellBuilder):
+            return out
+        else:
+            raise Exception(
+                f"Cell `{name}' not found in component {self.component.name}.\n"
+                f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
+            )
 
     def get_group(self, name: str) -> "GroupBuilder":
-        out = self.index[name]
-        assert isinstance(out, GroupBuilder)
-        return out
+        out = self.index.get(name)
+        if out and isinstance(out, GroupBuilder):
+            return out
+        else:
+            raise Exception(
+                f"Group `{name}' not found in component {self.component.name}"
+            )
 
     def group(self, name: str) -> "GroupBuilder":
         group = ast.Group(ast.CompVar(name), connections=[])
@@ -172,8 +185,8 @@ class ExprBuilder:
         """Construct an "or" logical expression with |."""
         return ExprBuilder(ast.Or(self.expr, other.expr))
 
-    def __invert__(self, other: "ExprBuilder"):
-        """Construct a "not" logical expression with ^."""
+    def __invert__(self):
+        """Construct a "not" logical expression with ~."""
         return ExprBuilder(ast.Not(self.expr))
 
     def __matmul__(self, other):
@@ -305,7 +318,8 @@ class GroupBuilder:
 
         if isinstance(rhs, int):
             width = infer_width(lhs)
-            assert width, f"could not infer width for literal {rhs}"
+            if not width:
+                raise Exception(f"could not infer width for literal {rhs}")
             rhs = const(width, rhs)
 
         wire = ast.Connect(
@@ -381,21 +395,34 @@ def infer_width(expr):
         return None
 
     # Extract widths from stdlib components we know.
-    if inst.id == "std_reg":
+    prim = inst.id
+    if prim == "std_reg":
         if port_name == "in":
             return inst.args[0]
         elif port_name == "write_en":
             return 1
-    elif inst.id == "std_add":
+    elif prim == "std_add":
         if port_name == "left" or port_name == "right":
             return inst.args[0]
-    elif inst.id == "std_mem_d1":
+    elif prim == "std_mem_d1":
         if port_name == "write_en":
             return 1
         elif port_name == "addr0":
             return inst.args[2]
         elif port_name == "in":
             return inst.args[0]
+    elif (
+        prim == "std_mult_pipe"
+        or prim == "std_smult_pipe"
+        or prim == "std_mod_pipe"
+        or prim == "std_smod_pipe"
+        or prim == "std_div_pipe"
+        or prim == "std_sdiv_pipe"
+    ):
+        if port_name == "left" or port_name == "right":
+            return inst.args[0]
+        elif port_name == "go":
+            return 1
 
     # Give up.
     return None

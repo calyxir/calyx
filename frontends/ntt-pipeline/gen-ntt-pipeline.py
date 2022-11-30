@@ -21,6 +21,7 @@ from calyx.py_ast import (
     Import,
     Stdlib,
 )
+import calyx.builder as cb
 from calyx.utils import bits_needed
 
 
@@ -179,95 +180,77 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         return saved_count
 
     # Memory component variables.
-    input = CompVar("a")
-    phis = CompVar("phis")
+    # input = CompVar("a")
+    # phis = CompVar("phis")
 
-    def mul_group(stage, mul_tuple):
+    def mul_group(comp: cb.ComponentBuilder, stage, mul_tuple):
         mul_index, k, phi_index = mul_tuple
 
-        group_name = CompVar(f"s{stage}_mul{mul_index}")
-        mult_pipe = CompVar(f"mult_pipe{mul_index}")
-        phi = CompVar(f"phi{phi_index}")
-        reg = CompVar(f"r{k}")
-        connections = [
-            Connect(CompPort(mult_pipe, "left"), CompPort(phi, "out")),
-            Connect(CompPort(mult_pipe, "right"), CompPort(reg, "out")),
-            Connect(CompPort(mult_pipe, "go"), ConstantPort(1, 1)),
-            Connect(HolePort(group_name, "done"), CompPort(mult_pipe, "done")),
-        ]
-        return Group(group_name, connections)
+        mul = comp.get_cell(f"mult_pipe{mul_index}")
+        phi = comp.get_cell(f"phi{phi_index}")
+        reg = comp.get_cell(f"r{k}")
+        with comp.group(f"s{stage}_mul{mul_index}") as g:
+            mul.left = phi.out
+            mul.right = reg.out
+            mul.go = 1
+            g.done = mul.done
 
-    def op_mod_group(stage, row, operations_tuple):
+    def op_mod_group(comp: cb.ComponentBuilder, stage, row, operations_tuple):
         lhs, op, mul_index = operations_tuple
-        comp = "add" if op == "+" else "sub"
-        comp_index = fresh_comp_index(comp)
+        op_name = "add" if op == "+" else "sub"
+        comp_index = fresh_comp_index(op_name)
 
-        group_name = CompVar(f"s{stage}_r{row}_op_mod")
-        op = CompVar(f"{comp}{comp_index}")
-        reg = CompVar(f"r{lhs}")
-        mul = CompVar(f"mult_pipe{mul_index}")
-        mod_pipe = CompVar(f"mod_pipe{row}")
-        A = CompVar(f"A{row}")
-        connections = [
-            Connect(CompPort(op, "left"), CompPort(reg, "out")),
-            Connect(CompPort(op, "right"), CompPort(mul, "out")),
-            Connect(CompPort(mod_pipe, "left"), CompPort(op, "out")),
-            Connect(CompPort(mod_pipe, "right"), ConstantPort(input_bitwidth, q)),
-            Connect(
-                CompPort(mod_pipe, "go"),
-                ConstantPort(1, 1),
-                Not(Atom(CompPort(mod_pipe, "done"))),
-            ),
-            Connect(CompPort(A, "write_en"), CompPort(mod_pipe, "done")),
-            Connect(CompPort(A, "in"), CompPort(mod_pipe, "out_remainder")),
-            Connect(HolePort(group_name, "done"), CompPort(A, "done")),
-        ]
-        return Group(group_name, connections)
+        op = comp.get_cell(f"{op_name}{comp_index}")
+        reg = comp.get_cell(f"r{lhs}")
+        mul = comp.get_cell(f"mult_pipe{mul_index}")
+        mod_pipe = comp.get_cell(f"mod_pipe{row}")
+        A = comp.get_cell(f"A{row}")
+        with comp.group(f"s{stage}_r{row}_op_mod") as g:
+            op.left = reg.out
+            op.right = mul.out
+            mod_pipe.left = op.out
+            mod_pipe.right = q
+            mod_pipe.go = ~mod_pipe.done @ 1
+            A.write_en = mod_pipe.done
+            A.in_ = mod_pipe.out_remainder
+            g.done = A.done
 
-    def precursor_group(row):
-        group_name = CompVar(f"precursor_{row}")
-        r = CompVar(f"r{row}")
-        A = CompVar(f"A{row}")
-        connections = [
-            Connect(CompPort(r, "in"), CompPort(A, "out")),
-            Connect(CompPort(r, "write_en"), ConstantPort(1, 1)),
-            Connect(HolePort(group_name, "done"), CompPort(r, "done")),
-        ]
-        return Group(group_name, connections)
+    def precursor_group(comp: cb.ComponentBuilder, row):
+        r = comp.get_cell(f"r{row}")
+        A = comp.get_cell(f"A{row}")
+        with comp.group(f"precursor_{row}") as g:
+            r.in_ = A.out
+            r.write_en = 1
+            g.done = r.done
 
-    def preamble_group(row):
-        reg = CompVar(f"r{row}")
-        phi = CompVar(f"phi{row}")
-        group_name = CompVar(f"preamble_{row}")
-        connections = [
-            Connect(CompPort(input, "addr0"), ConstantPort(bitwidth, row)),
-            Connect(CompPort(phis, "addr0"), ConstantPort(bitwidth, row)),
-            Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
-            Connect(CompPort(reg, "in"), CompPort(input, "read_data")),
-            Connect(CompPort(phi, "write_en"), ConstantPort(1, 1)),
-            Connect(CompPort(phi, "in"), CompPort(phis, "read_data")),
-            Connect(
-                HolePort(group_name, "done"),
-                ConstantPort(1, 1),
-                And(Atom(CompPort(reg, "done")), Atom(CompPort(phi, "done"))),
-            ),
-        ]
-        return Group(group_name, connections)
+    def preamble_group(comp: cb.ComponentBuilder, row):
+        reg = comp.get_cell(f"r{row}")
+        phi = comp.get_cell(f"phi{row}")
+        input = comp.get_cell("a")
+        phis = comp.get_cell("phis")
+        with main.group(f"preamble_{row}") as preamble:
+            input.addr0 = row
+            phis.addr0 = row
+            reg.write_en = 1
+            reg.in_ = input.read_data
+            phi.write_en = 1
+            phi.in_ = phis.read_data
+            preamble.done = (reg.done & phi.done) @ 1
 
-    def epilogue_group(row):
-        group_name = CompVar(f"epilogue_{row}")
-        A = CompVar(f"A{row}")
-        connections = [
-            Connect(CompPort(input, "addr0"), ConstantPort(bitwidth, row)),
-            Connect(CompPort(input, "write_en"), ConstantPort(1, 1)),
-            Connect(CompPort(input, "write_data"), CompPort(A, "out")),
-            Connect(HolePort(group_name, "done"), CompPort(input, "done")),
-        ]
-        return Group(group_name, connections)
+    def epilogue_group(comp: cb.ComponentBuilder, row):
+        input = comp.get_cell("a")
+        A = comp.get_cell(f"A{row}")
+        with comp.group(f"epilogue_{row}") as epilogue:
+            input.addr0 = row
+            input.write_en = 1
+            input.write_data = A.out
+            epilogue.done = input.done
 
     def cells():
         stdlib = Stdlib()
 
+        input = CompVar("a")
+        phis = CompVar("phis")
         memories = [
             Cell(input, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
             Cell(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
@@ -320,21 +303,19 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             + subs
         )
 
-    def wires():
-        preambles = [preamble_group(r) for r in range(n)]
-        precursors = [precursor_group(r) for r in range(n)]
-        muls = [
-            mul_group(s, multiplies[s][i])
-            for s in range(num_stages)
-            for i in range(n // 2)
-        ]
-        op_mods = [
-            op_mod_group(s, r, operations[s][r])
-            for s in range(num_stages)
-            for r in range(n)
-        ]
-        epilogues = [epilogue_group(r) for r in range(n)]
-        return preambles + precursors + muls + op_mods + epilogues
+    def wires(main: cb.ComponentBuilder):
+        for r in range(n):
+            preamble_group(main, r)
+        for r in range(n):
+            precursor_group(main, r)
+        for s in range(num_stages):
+            for i in range(n // 2):
+                mul_group(main, s, multiplies[s][i])
+        for s in range(num_stages):
+            for r in range(n):
+                op_mod_group(main, s, r, operations[s][r])
+        for r in range(n):
+            epilogue_group(main, r)
 
     def control():
         preambles = [SeqComp([Enable(f"preamble_{r}") for r in range(n)])]
@@ -352,21 +333,11 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         return SeqComp(preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
-    return Program(
-        imports=[
-            Import("primitives/core.futil"),
-            Import("primitives/binary_operators.futil"),
-        ],
-        components=[
-            Component(
-                "main",
-                inputs=[],
-                outputs=[],
-                structs=cells() + wires(),
-                controls=control(),
-            )
-        ],
-    )
+    prog = cb.Builder()
+    main = prog.component("main", cells())
+    wires(main)
+    main.component.controls = control()
+    return prog.program
 
 
 if __name__ == "__main__":
