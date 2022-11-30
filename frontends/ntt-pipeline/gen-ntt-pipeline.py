@@ -3,29 +3,15 @@
 from prettytable import PrettyTable
 import numpy as np
 from calyx.py_ast import (
-    ParComp,
-    SeqComp,
-    Enable,
     CompVar,
-    Connect,
-    Atom,
-    Not,
-    Group,
-    HolePort,
-    Component,
-    Program,
-    CompPort,
     Cell,
-    ConstantPort,
-    And,
-    Import,
-    Stdlib,
 )
+import calyx.py_ast as ast
 import calyx.builder as cb
 from calyx.utils import bits_needed
 
 
-def reduce_parallel_control_pass(component: Component, N: int, input_size: int):
+def reduce_parallel_control_pass(component: ast.Component, N: int, input_size: int):
     """Reduces the amount of fan-out by reducing
     parallelization in the execution flow
     by a factor of `N`.
@@ -50,7 +36,7 @@ def reduce_parallel_control_pass(component: Component, N: int, input_size: int):
 
     reduced_controls = []
     for control in component.controls.stmts:
-        if not isinstance(control, ParComp):
+        if not isinstance(control, ast.ParComp):
             reduced_controls.append(control)
             continue
 
@@ -59,10 +45,10 @@ def reduce_parallel_control_pass(component: Component, N: int, input_size: int):
         factor = N // 2 if "mul" in enable else N
 
         reduced_controls.extend(
-            ParComp(x) for x in np.split(np.array(control.stmts), factor)
+            ast.ParComp(x) for x in np.split(np.array(control.stmts), factor)
         )
 
-    component.controls = SeqComp(reduced_controls)
+    component.controls = ast.SeqComp(reduced_controls)
 
 
 def get_pipeline_data(n, num_stages):
@@ -247,7 +233,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             epilogue.done = input.done
 
     def cells():
-        stdlib = Stdlib()
+        stdlib = ast.Stdlib()
 
         input = CompVar("a")
         phis = CompVar("phis")
@@ -318,19 +304,25 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             epilogue_group(main, r)
 
     def control():
-        preambles = [SeqComp([Enable(f"preamble_{r}") for r in range(n)])]
-        epilogues = [SeqComp([Enable(f"epilogue_{r}") for r in range(n)])]
+        preambles = [ast.SeqComp([ast.Enable(f"preamble_{r}") for r in range(n)])]
+        epilogues = [ast.SeqComp([ast.Enable(f"epilogue_{r}") for r in range(n)])]
 
         ntt_stages = []
         for s in range(num_stages):
             if s != 0:
                 # Only append precursors if this is not the first stage.
-                ntt_stages.append(ParComp([Enable(f"precursor_{r}") for r in range(n)]))
+                ntt_stages.append(
+                    ast.ParComp([ast.Enable(f"precursor_{r}") for r in range(n)])
+                )
             # Multiply
-            ntt_stages.append(ParComp([Enable(f"s{s}_mul{i}") for i in range(n // 2)]))
+            ntt_stages.append(
+                ast.ParComp([ast.Enable(f"s{s}_mul{i}") for i in range(n // 2)])
+            )
             # Addition or subtraction mod `q`
-            ntt_stages.append(ParComp([Enable(f"s{s}_r{r}_op_mod") for r in range(n)]))
-        return SeqComp(preambles + ntt_stages + epilogues)
+            ntt_stages.append(
+                ast.ParComp([ast.Enable(f"s{s}_r{r}_op_mod") for r in range(n)])
+            )
+        return ast.SeqComp(preambles + ntt_stages + epilogues)
 
     pp_table(operations, multiplies, n, num_stages)
     prog = cb.Builder()
