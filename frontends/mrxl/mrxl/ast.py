@@ -1,6 +1,7 @@
 # fmt: off
 from dataclasses import dataclass
 from typing import List, Union, Optional
+from enum import Enum
 
 
 @dataclass
@@ -18,20 +19,28 @@ class Decl:
 # ANCHOR_END: decl
 
 
+class BinOp(Enum):
+    ADD = "add"
+    MUL = "mul"
+
+
 @dataclass
 class BinExpr:
-    op: str
+    """A binary expression."""
+    op: BinOp
     lhs: "Expr"
     rhs: "Expr"
 
 
 @dataclass
 class LitExpr:
+    """A constant value."""
     value: int
 
 
 @dataclass
 class VarExpr:
+    """A variable reference."""
     name: str
 
 

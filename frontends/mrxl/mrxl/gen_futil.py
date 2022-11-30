@@ -6,9 +6,6 @@ from calyx.py_ast import (
     CompVar,
     Stdlib,
     Cell,
-    Program,
-    Component,
-    Import,
     SeqComp,
     ConstantPort,
     HolePort,
@@ -16,71 +13,8 @@ from calyx.py_ast import (
     Enable,
     While,
     ParComp,
-    CombGroup,
 )
-
-
-def emit_mem_decl(name, size, par):
-    """
-    Returns N memory declarations,
-    where N = `par`.
-    """
-    stdlib = Stdlib()
-    banked_mems = []
-    for i in range(par):
-        banked_mems.append(
-            Cell(
-                CompVar(f"{name}_b{i}"),
-                stdlib.mem_d1(32, size // par, 32),
-                is_external=True,
-            )
-        )
-    return banked_mems
-
-
-def emit_cond_group(suffix, arr_size, b=None):
-    """
-    Emits a group that checks if an index has reached
-    arr_size. If the bank number `b` is not None, adds it
-    to the end of the index cell name.
-
-    suffix is added to the end to the end of each cell,
-    to disambiguate from other `map` or `reduce` implementations.
-    """
-    bank_suffix = f"_b{b}_" if b is not None else ""
-    group_id = CompVar(f"cond{bank_suffix}{suffix}")
-    le = CompVar(f"le{bank_suffix}{suffix}")
-    idx = CompVar(f"idx{bank_suffix}{suffix}")
-    return CombGroup(
-        id=group_id,
-        connections=[
-            Connect(CompPort(le, "left"), CompPort(idx, "out")),
-            Connect(CompPort(le, "right"), ConstantPort(32, arr_size)),
-        ],
-    )
-
-
-def emit_idx_group(s_idx, b=None):
-    """
-    Emits a group that increments an index.
-    If the bank number `b` is not None, adds
-    it (the bank number) as a suffix to each
-    cell name.
-    """
-    bank_suffix = "_b" + str(b) + "_" if b is not None else ""
-    group_id = CompVar(f"incr_idx{bank_suffix}{s_idx}")
-    adder = CompVar(f"adder_idx{bank_suffix}{s_idx}")
-    idx = CompVar(f"idx{bank_suffix}{s_idx}")
-    return Group(
-        id=group_id,
-        connections=[
-            Connect(CompPort(adder, "left"), CompPort(idx, "out")),
-            Connect(CompPort(adder, "right"), ConstantPort(32, 1)),
-            Connect(CompPort(idx, "write_en"), ConstantPort(1, 1)),
-            Connect(CompPort(idx, "in"), CompPort(adder, "out")),
-            Connect(HolePort(group_id, "done"), CompPort(idx, "done")),
-        ],
-    )
+import calyx.builder as cb
 
 
 def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
@@ -101,7 +35,7 @@ def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
         return ConstantPort(32, exp.value)
 
 
-def emit_eval_body_group(s_idx, stmt, b=None):
+def emit_eval_body_group(s_idx, stmt: ast.Stmt, b=None):
     """
     Returns a string of a group that implements the body
     of stmt, a `map` or `reduce` statement. Adds suffix
@@ -162,7 +96,9 @@ def emit_eval_body_group(s_idx, stmt, b=None):
     )
 
 
-def gen_reduce_impl(stmt, arr_size, s_idx):
+def gen_reduce_impl(
+    comp: cb.ComponentBuilder, stmt: ast.Stmt, arr_size: int, s_idx: int
+):
     """
     Returns a dictionary containing Calyx cells, wires and
     control needed to implement a map statement. Similar
@@ -171,28 +107,41 @@ def gen_reduce_impl(stmt, arr_size, s_idx):
     of a `map` statement.
     """
     stdlib = Stdlib()
-    op_name = "mult_pipe" if stmt.op.body.op == "mul" else "add"
+    op_name = "mult_pipe" if stmt.op.body.op == ast.BinOp.MUL else "add"
     cells = [
-        Cell(CompVar(f"le{s_idx}"), stdlib.op("lt", 32, signed=False)),
-        Cell(CompVar(f"idx{s_idx}"), stdlib.register(32)),
-        Cell(CompVar(f"adder_idx{s_idx}"), stdlib.op("add", 32, signed=False)),
         Cell(CompVar(f"adder_op{s_idx}"), stdlib.op(f"{op_name}", 32, signed=False)),
     ]
-    wires = [
-        emit_cond_group(s_idx, arr_size),
-        emit_idx_group(s_idx),
-        emit_eval_body_group(s_idx, stmt, 0),
-    ]
+
+    idx = comp.reg(f"idx{s_idx}", 32)
+    # Check if we've reached the end of the loop
+    lt = comp.cell(f"le{s_idx}", stdlib.op("lt", 32, signed=False))
+    with comp.comb_group(f"cond{s_idx}"):
+        lt.left = idx.out
+        lt.right = cb.const(32, arr_size)
+
+    # Increment the index
+    adder = comp.add(f"adder_idx{s_idx}", 32)
+    with comp.group(f"incr_idx{s_idx}") as incr:
+        adder.left = idx.out
+        adder.right = 1
+        idx.in_ = adder.out
+        idx.write_en = 1
+        incr.done = idx.done
+
+    emit_eval_body_group(s_idx, stmt, 0),
+
     control = While(
         port=CompPort(CompVar(f"le{s_idx}"), "out"),
         cond=CompVar(f"cond{s_idx}"),
         body=SeqComp([Enable(f"eval_body{s_idx}"), Enable(f"incr_idx{s_idx}")]),
     )
 
-    return {"cells": cells, "wires": wires, "control": control}
+    return control
 
 
-def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
+def gen_map_impl(
+    comp: cb.ComponentBuilder, stmt: ast.Stmt, arr_size: int, bank_factor: int, s_idx
+):
     """
     Returns a dictionary containing Calyx cells, wires and
     control needed to implement a map statement. (See gen_stmt_impl
@@ -206,60 +155,69 @@ def gen_map_impl(stmt, arr_size, bank_factor, s_idx):
     """
     stdlib = Stdlib()
 
-    cells = []
-    for b in range(bank_factor):
-        cells.extend(
-            [
-                Cell(CompVar(f"le_b{b}_{s_idx}"), stdlib.op("lt", 32, signed=False)),
-                Cell(CompVar(f"idx_b{b}_{s_idx}"), stdlib.register(32)),
-                Cell(
-                    CompVar(f"adder_idx_b{b}_{s_idx}"),
-                    stdlib.op("add", 32, signed=False),
+    # Parallel loops representing the map body
+    map_loops = []
+
+    for bank in range(bank_factor):
+        suffix = f"b{bank}_{s_idx}"
+
+        arr_size = arr_size // bank_factor
+        idx = comp.reg(f"idx_{suffix}", 32)
+        lt = comp.cell(f"le_{suffix}", stdlib.op("lt", 32, signed=False))
+        # Combinational group that checks if we've reached the end of the array
+        with comp.comb_group(f"cond_{suffix}"):
+            lt.left = idx.out
+            lt.right = cb.const(32, arr_size)
+
+        # Increment the value in the idx register
+        adder = comp.add(f"adder_idx_{suffix}", 32)
+        with comp.group(f"incr_idx_{suffix}") as incr:
+            adder.left = idx.out
+            adder.right = 1
+            idx.in_ = adder.out
+            idx.write_en = 1
+            incr.done = idx.done
+
+        # Perform the computation
+        body = stmt.op.body
+        if isinstance(body, ast.LitExpr):  # Body is a constant
+            raise NotImplementedError()
+        elif isinstance(body, ast.VarExpr):  # Body is a variable
+            raise NotImplementedError()
+
+        if body.op == ast.BinOp.MUL:
+            op = comp.cell(f"map_op_{suffix}", stdlib.op("mult_pipe", 32, signed=False))
+        else:
+            op = comp.add(f"adder_op_{suffix}", 32)
+
+        emit_eval_body_group(comp, s_idx, stmt, bank),
+
+        # Control to execute the groups
+        map_loops.append(
+            While(
+                CompPort(CompVar(f"le_{suffix}"), "out"),
+                CompVar(f"cond_{suffix}"),
+                SeqComp(
+                    [
+                        Enable(f"eval_body_{suffix}"),
+                        Enable(f"incr_idx_{suffix}"),
+                    ]
                 ),
-            ]
-        )
-
-    op_name = "mult_pipe" if stmt.op.body.op == "mul" else "add"
-    for b in range(bank_factor):
-        cells.append(
-            Cell(
-                CompVar(f"adder_op_b{b}_{s_idx}"),
-                stdlib.op(f"{op_name}", 32, signed=False),
             )
         )
-
-    wires = []
-    for b in range(bank_factor):
-        wires.extend(
-            [
-                emit_cond_group(s_idx, arr_size // bank_factor, b),
-                emit_idx_group(s_idx, b),
-                emit_eval_body_group(s_idx, stmt, b),
-            ]
-        )
-
-        map_loops = []
-        for b in range(bank_factor):
-            b_suffix = f"_b{str(b)}_"
-            map_loops.append(
-                While(
-                    CompPort(CompVar(f"le{b_suffix}{s_idx}"), "out"),
-                    CompVar(f"cond{b_suffix}{s_idx}"),
-                    SeqComp(
-                        [
-                            Enable(f"eval_body{b_suffix}{s_idx}"),
-                            Enable(f"incr_idx{b_suffix}{s_idx}"),
-                        ]
-                    ),
-                )
-            )
 
     control = ParComp(map_loops)
 
-    return {"cells": cells, "wires": wires, "control": control}
+    return control
 
 
-def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
+def gen_stmt_impl(
+    comp: cb.ComponentBuilder,
+    stmt: ast.Stmt,
+    arr_size: int,
+    name2par: Dict[str, int],
+    statement_idx: int,
+):
     """
     Returns Calyx cells, wires, and control needed to implement
     a MrXL `map` or `reduce` statement. It is a dictionary
@@ -278,16 +236,16 @@ def gen_stmt_impl(stmt, arr_size, name2par, s_idx):
     name2par maps memory names to banking factors.
     """
     if isinstance(stmt.op, ast.Map):
-        return gen_map_impl(stmt, arr_size, name2par[stmt.dest], s_idx)
+        return gen_map_impl(comp, stmt, arr_size, name2par[stmt.dest], statement_idx)
     else:
-        return gen_reduce_impl(stmt, arr_size, s_idx)
+        return gen_reduce_impl(comp, stmt, arr_size, statement_idx)
 
 
 def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
     """Maps the name of memories to their banking factors."""
-    out = dict()
+    out: Dict[str, int] = dict()
 
-    def add_par(mem, par):
+    def add_par(mem: str, par: int):
         # If we've already inferred a banking factor for this memory,
         # make sure it's the same as the one we're inferring now.
         if mem in out and par != out[mem]:
@@ -304,7 +262,7 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
             add_par(stmt.dest, par_f)
             for b in stmt.op.bind:
                 # The source must support parallel reads
-                add_par(b, par_f)
+                add_par(b.src, par_f)
         elif isinstance(stmt.op, ast.Reduce):
             # Reduction does not support parallelism
             if stmt.op.par != 1:
@@ -318,7 +276,10 @@ def emit(prog: ast.Prog):
     Returns a string containing a Calyx program, compiled from `prog`, a MrXL
     program.
     """
-    cells, wires, control = [], [], []
+
+    # Instantiate a Calyx program
+    calyx_prog = cb.Builder()
+    main = calyx_prog.component("main")
 
     # All arrays must be the same size. The first array we see determines the
     # size that we'll assume for the rest of the program's arrays.
@@ -331,49 +292,38 @@ def emit(prog: ast.Prog):
 
     # Collect memory and register declarations.
     used_names = []
-    stdlib = Stdlib()
     # ANCHOR: collect-decls
     for decl in prog.decls:
         used_names.append(decl.name)
         if decl.type.size:  # A memory
             arr_size = decl.type.size
-            cells.extend(
-                emit_mem_decl(decl.name, decl.type.size, par_factor[decl.name])
-            )
+            name = decl.name
+            par = par_factor[name]
+            for i in range(par):
+                main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32)
         else:  # A register
-            cells.append(Cell(CompVar(decl.name), stdlib.register(32)))
+            main.reg(decl.name, 32)
     # ANCHOR_END: collect-decls
+
+    if not arr_size:
+        raise Exception("Failed to infer array size. Are there no array declarations?")
 
     # Collect implicit memory and register declarations.
     for stmt in prog.stmts:
         if stmt.dest not in used_names:
             if isinstance(stmt.op, ast.Map):
-                cells.extend(emit_mem_decl(stmt.dest, arr_size, par_factor[stmt.dest]))
+                name = stmt.dest
+                par = par_factor[name]
+                for i in range(par):
+                    main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32)
             else:
                 raise NotImplementedError("Generating register declarations")
                 #  cells.append(emit_reg_decl(stmt.dest, 32))
             used_names.append(stmt.dest)
 
-    # Generate Calyx.
+    # Generate Calyx for each statement
     for i, stmt in enumerate(prog.stmts):
-        stmt_impl = gen_stmt_impl(stmt, arr_size, par_factor, i)
-        cells.extend(stmt_impl["cells"])
-        wires.extend(stmt_impl["wires"])
-        control.append(stmt_impl["control"])
+        gen_stmt_impl(main, stmt, arr_size, par_factor, i)
 
-    program = Program(
-        imports=[
-            Import("primitives/core.futil"),
-            Import("primitives/binary_operators.futil"),
-        ],
-        components=[
-            Component(
-                name="main",
-                inputs=[],
-                outputs=[],
-                structs=cells + wires,
-                controls=SeqComp(control),
-            )
-        ],
-    )
-    program.emit()
+    # Generate the Calyx program
+    calyx_prog.program.emit()

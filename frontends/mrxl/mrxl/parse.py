@@ -18,10 +18,7 @@ reduce: "reduce" INT binding litexpr block
 binexpr: expr binop expr
 litexpr: INT
 varexpr: CNAME
-binop: "+" -> add
-     | "-" -> sub
-     | "*" -> mul
-     | "/" -> div
+binop: "+" -> add | "*" -> mul
 
 bindlist: (bind ("," bind)*)?
 bind: varlist "<-" CNAME
@@ -47,6 +44,14 @@ class ConstructAST(lark.Transformer):
     def decl(self, args):
         qual, name, typ = args
         return ast.Decl(qual.data == "input", str(name), typ)
+
+    def binop(self, op_str):
+        if op_str.data == "add":
+            return ast.BinOp.ADD
+        elif op_str.data == "mul":
+            return ast.BinOp.MUL
+        else:
+            assert False
 
     def start(self, args):
         decls, stmts = args
