@@ -1,4 +1,4 @@
-from calyx.builder import Builder
+from calyx.builder import Builder, const
 from calyx import py_ast as ast
 
 
@@ -19,10 +19,12 @@ def build():
     with main.group("update_operands") as update_operands:
         # Directly index cell ports using dot notation
         lhs.write_en = 1
+        # Builder attempts to infer the bitwidth of the constant
         rhs.write_en = 1
         # `in` is a reserved keyword, so we use `in_` instead
         lhs.in_ = 1
-        rhs.in_ = 41
+        # Explicilty sized constants when bitwidth inference may not work
+        rhs.in_ = const(32, 41)
         # Guards are specified using the `@` syntax
         update_operands.done = (lhs.done & rhs.done) @ 1
 
