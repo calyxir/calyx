@@ -238,9 +238,9 @@ def gen_map_impl(
     # Parallel loops representing the map body
     map_loops = []
 
+    arr_size = arr_size // bank_factor
     for bank in range(bank_factor):
         suffix = f"b{bank}_{s_idx}"
-        arr_size = arr_size // bank_factor
         idx = comp.reg(f"idx_{suffix}", 32)
 
         # Increment the index
