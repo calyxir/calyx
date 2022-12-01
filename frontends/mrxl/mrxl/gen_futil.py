@@ -1,11 +1,10 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from . import ast
 from calyx.py_ast import (
     Connect,
     Group,
     CompVar,
     Stdlib,
-    Cell,
     SeqComp,
     ConstantPort,
     HolePort,
@@ -97,44 +96,119 @@ def emit_eval_body_group(s_idx, stmt: ast.Stmt, b=None):
     )
 
 
-def gen_reduce_impl(
-    comp: cb.ComponentBuilder, stmt: ast.Stmt, arr_size: int, s_idx: int
-):
+def cond_group(
+    comp: cb.ComponentBuilder, idx: cb.CellBuilder, arr_size: int, suffix: str
+) -> Tuple[str, str]:
     """
-    Returns a dictionary containing Calyx cells, wires and
-    control needed to implement a map statement. Similar
-    to gen_map_impl, with an implementation of a body
-    of the `reduce` statement instead of an implementation
-    of a `map` statement.
+    Creates a group that checks if the index is less than the array size.
     """
+    group_name = f"cond_{suffix}"
     stdlib = Stdlib()
-    op_name = "mult_pipe" if stmt.op.body.op == "mul" else "add"
-    cells = [
-        Cell(CompVar(f"adder_op{s_idx}"), stdlib.op(f"{op_name}", 32, signed=False)),
-    ]
-
-    idx = comp.reg(f"idx{s_idx}", 32)
-    # Check if we've reached the end of the loop
-    lt = comp.cell(f"le{s_idx}", stdlib.op("lt", 32, signed=False))
-    with comp.comb_group(f"cond{s_idx}"):
+    cell = f"lt_{suffix}"
+    lt = comp.cell(cell, stdlib.op("lt", 32, signed=False))
+    with comp.comb_group(group_name):
         lt.left = idx.out
         lt.right = cb.const(32, arr_size)
 
-    # Increment the index
-    adder = comp.add(f"adder_idx{s_idx}", 32)
-    with comp.group(f"incr_idx{s_idx}") as incr:
+    return cell, group_name
+
+
+def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> str:
+    """
+    Creates a group that increments the index.
+    """
+    group_name = f"incr_idx_{suffix}"
+    adder = comp.add(f"incr_{suffix}", 32)
+    with comp.group(group_name) as incr:
         adder.left = idx.out
         adder.right = 1
         idx.in_ = adder.out
         idx.write_en = 1
         incr.done = idx.done
 
-    emit_eval_body_group(s_idx, stmt, 0),
+    return group_name
 
-    control = While(
-        port=CompPort(CompVar(f"le{s_idx}"), "out"),
-        cond=CompVar(f"cond{s_idx}"),
-        body=SeqComp([Enable(f"eval_body{s_idx}"), Enable(f"incr_idx{s_idx}")]),
+
+def gen_reduce_impl(
+    comp: cb.ComponentBuilder, dest: str, stmt: ast.Reduce, arr_size: int, s_idx: int
+):
+    """
+    Implements a `reduce` statement of the form:
+        baz := reduce 5 (acc, x <- foo) init { acc + x }
+    The implementation first initializes the accumulator to `init` and then directly
+    accumulates the values of the array into the accumulator.
+    """
+    stdlib = Stdlib()
+
+    idx = comp.reg(f"idx{s_idx}", 32)
+    # Initialize the accumulator to `init`.
+    init = f"init_{s_idx}"
+    init_val = stmt.init
+    assert isinstance(init_val, ast.LitExpr), "Reduce init must be a literal"
+    with comp.group(init) as group:
+        idx.in_ = init_val.value
+        idx.write_en = 1
+        group.done = idx.done
+
+    # Increment the index register
+    incr = incr_group(comp, idx, f"{s_idx}")
+    # Check if we've reached the end of the loop
+    (port, cond) = cond_group(comp, idx, arr_size, f"{s_idx}")
+
+    # Perform the computation
+    assert (
+        len(stmt.bind) == 1
+    ), "Reduce statements with multiple bind clauses not supported"
+
+    # Split up the accumulator and the array element
+    bind = stmt.bind[0]
+    [acc, x] = bind.dest
+    name2arr = {acc: (dest, "reg"), x: (f"{bind.src}_b0", "mem")}
+
+    def expr_to_port(expr: ast.Expr):
+        if isinstance(expr, ast.LitExpr):
+            return cb.const(32, expr.value)
+        elif isinstance(expr, ast.VarExpr):
+            (bind, kind) = name2arr[expr.name]
+            if kind == "mem":
+                # If the mapping is defined, this is a memory
+                return CompPort(CompVar(f"{bind}"), "read_data")
+            else:
+                # Otherwise this is a cell
+                return CompPort(CompVar(f"{bind}"), "out")
+        elif isinstance(expr, ast.BinExpr):
+            raise NotImplementedError("Nested expressions not supported")
+
+    if stmt.body.op == "mul":
+        op = comp.cell(f"mul_{s_idx}", stdlib.op("mult_pipe", 32, signed=False))
+    else:
+        op = comp.add(f"add_{s_idx}", 32)
+    with comp.group(f"reduce{s_idx}") as ev:
+        out = comp.get_cell(dest)  # The accumulator is a register
+
+        # The source must be a singly-banked array
+        inp = comp.get_cell(f"{bind.src}_b0")
+        inp.addr0 = idx.out
+        op.left = expr_to_port(stmt.body.lhs)
+        op.right = expr_to_port(stmt.body.rhs)
+        out.in_ = op.out
+        # Multipliers are sequential so we need to manipulate go/done signals
+        if stmt.body.op == "mul":
+            op.go = 1
+            out.write_en = op.done
+        else:
+            out.write_en = 1
+        ev.done = out.done
+
+    control = SeqComp(
+        [
+            Enable(init),
+            While(
+                port=CompPort(CompVar(port), "out"),
+                cond=CompVar(cond),
+                body=SeqComp([Enable(f"reduce{s_idx}"), Enable(incr)]),
+            ),
+        ]
     )
 
     return control
@@ -166,23 +240,13 @@ def gen_map_impl(
 
     for bank in range(bank_factor):
         suffix = f"b{bank}_{s_idx}"
-
         arr_size = arr_size // bank_factor
         idx = comp.reg(f"idx_{suffix}", 32)
-        lt = comp.cell(f"le_{suffix}", stdlib.op("lt", 32, signed=False))
-        # Combinational group that checks if we've reached the end of the array
-        with comp.comb_group(f"cond_{suffix}"):
-            lt.left = idx.out
-            lt.right = cb.const(32, arr_size)
 
-        # Increment the value in the idx register
-        adder = comp.add(f"adder_idx_{suffix}", 32)
-        with comp.group(f"incr_idx_{suffix}") as incr:
-            adder.left = idx.out
-            adder.right = 1
-            idx.in_ = adder.out
-            idx.write_en = 1
-            incr.done = idx.done
+        # Increment the index
+        incr = incr_group(comp, idx, suffix)
+        # Check if we've reached the end of the loop
+        (port, cond) = cond_group(comp, idx, arr_size, suffix)
 
         # Perform the computation
         body = stmt.body
@@ -202,7 +266,6 @@ def gen_map_impl(
             elif isinstance(expr, ast.BinExpr):
                 raise NotImplementedError("Nested expressions not supported")
 
-        print(body.op)
         if body.op == "mul":
             op = comp.cell(f"mul_{suffix}", stdlib.op("mult_pipe", 32, signed=False))
         else:
@@ -234,12 +297,12 @@ def gen_map_impl(
         # Control to execute the groups
         map_loops.append(
             While(
-                CompPort(CompVar(f"le_{suffix}"), "out"),
-                CompVar(f"cond_{suffix}"),
+                CompPort(CompVar(port), "out"),
+                CompVar(cond),
                 SeqComp(
                     [
                         Enable(f"eval_body_{suffix}"),
-                        Enable(f"incr_idx_{suffix}"),
+                        Enable(incr),
                     ]
                 ),
             )
@@ -279,7 +342,7 @@ def gen_stmt_impl(
             comp, stmt.dest, stmt.op, arr_size, name2par[stmt.dest], statement_idx
         )
     else:
-        return gen_reduce_impl(comp, stmt, arr_size, statement_idx)
+        return gen_reduce_impl(comp, stmt.dest, stmt.op, arr_size, statement_idx)
 
 
 def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
@@ -297,17 +360,14 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         out[mem] = par
 
     for stmt in stmts:
-        if isinstance(stmt.op, ast.Map):
-            par_f = stmt.op.par
-            # The destination must support parallel writes
-            add_par(stmt.dest, par_f)
-            for b in stmt.op.bind:
-                # The source must support parallel reads
-                add_par(b.src, par_f)
-        elif isinstance(stmt.op, ast.Reduce):
+        par_f = stmt.op.par
+        if isinstance(stmt.op, ast.Reduce):
             # Reduction does not support parallelism
-            if stmt.op.par != 1:
+            if par_f != 1:
                 raise Exception("Reduction does not support parallelism")
+        add_par(stmt.dest, par_f)
+        for b in stmt.op.bind:
+            add_par(b.src, par_f)
 
     return out
 
