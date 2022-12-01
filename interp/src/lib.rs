@@ -11,4 +11,6 @@ mod structures;
 mod tests;
 mod utils;
 
+pub mod flatten;
+
 pub use structures::{environment, stk_env, values};
