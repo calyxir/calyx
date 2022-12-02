@@ -341,6 +341,10 @@ class GroupBuilder:
                 raise Exception(f"could not infer width for literal {rhs}")
             rhs = const(width, rhs)
 
+        assert isinstance(rhs, (ExprBuilder, ast.Port)), \
+            "assignment must use literal int, conditional, or expression, " \
+            f"not {type(rhs)}"
+
         wire = ast.Connect(
             ExprBuilder.unwrap(lhs),
             ExprBuilder.unwrap(rhs),
