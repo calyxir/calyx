@@ -19,14 +19,6 @@ class Decl:
 
 
 @dataclass
-class BinExpr:
-    """A binary expression."""
-    op: str
-    lhs: "Expr"
-    rhs: "Expr"
-
-
-@dataclass
 class LitExpr:
     """A constant value."""
     value: int
@@ -38,7 +30,15 @@ class VarExpr:
     name: str
 
 
-Expr = Union[BinExpr, LitExpr, VarExpr]
+BaseExpr = Union[LitExpr, VarExpr]
+
+
+@dataclass
+class BinExpr:
+    """A binary expression. Nested expressions are not supported."""
+    op: str
+    lhs: BaseExpr
+    rhs: BaseExpr
 
 
 @dataclass
@@ -51,15 +51,15 @@ class Bind:
 class Map:
     par: int
     bind: List[Bind]
-    body: Expr
+    body: BinExpr
 
 
 @dataclass
 class Reduce:
     par: int
     bind: List[Bind]
-    init: Expr
-    body: Expr
+    init: LitExpr
+    body: BinExpr
 
 
 # ANCHOR: stmt

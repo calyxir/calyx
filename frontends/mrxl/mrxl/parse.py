@@ -11,13 +11,13 @@ decl: qual CNAME ":" type
 stmt: CNAME ":=" (map | reduce)
 map: "map" INT binding block
 reduce: "reduce" INT binding litexpr block
-?block: "{" expr "}"
+?block: "{" binexpr "}"
 ?binding: "(" bindlist ")"
 
-?expr: binexpr | litexpr | varexpr
-binexpr: expr binop expr
 litexpr: INT
 varexpr: CNAME
+?baseexpr: litexpr | varexpr
+binexpr: baseexpr binop baseexpr
 binop: "+" -> add | "*" -> mul
 
 bindlist: (bind ("," bind)*)?

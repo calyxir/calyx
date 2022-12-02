@@ -1,13 +1,9 @@
 from typing import Dict, List, Tuple
 from . import ast
 from calyx.py_ast import (
-    Connect,
-    Group,
     CompVar,
     Stdlib,
     SeqComp,
-    ConstantPort,
-    HolePort,
     CompPort,
     Enable,
     While,
@@ -15,85 +11,6 @@ from calyx.py_ast import (
     Control,
 )
 import calyx.builder as cb
-
-
-def emit_compute_op(exp, op, dest, name2arr, suffix, bank_suffix):
-    """
-    Returns a string containing a Calyx implementation of a MrXL
-    variable or number (exp). op is the type of operation this
-    expression is used in. dest is the destination of this expression.
-    name2arr maps statement variable names to the array names they're
-    accessing elements of, e.g. if we're binding an element of array
-    `foo` to a variable `a`, `a` maps to `foo`.
-    """
-    if isinstance(exp, ast.VarExpr):
-        if isinstance(op, ast.Map):
-            return CompPort(CompVar(f"{name2arr[exp.name]}{bank_suffix}"), "read_data")
-        else:
-            return CompPort(CompVar(f"{dest}"), "out")
-    else:
-        return ConstantPort(32, exp.value)
-
-
-def emit_eval_body_group(s_idx, stmt: ast.Stmt, b=None):
-    """
-    Returns a string of a group that implements the body
-    of stmt, a `map` or `reduce` statement. Adds suffix
-    at the end of the group name, to avoid name collisions
-    with other `map` or `reduce` statement group implementations.
-    If this is a `map` expression, b is the banking factor
-    of the input array. (Otherwise, b is None.)
-    """
-    bank_suffix = "_b" + str(b) if b is not None else ""
-
-    mem_offsets = []
-    name2arr = dict()
-    for bi in stmt.op.bind:
-        idx = 0 if isinstance(stmt.op, ast.Map) else 1
-        name2arr[bi.dest[idx]] = bi.src
-        src = CompVar(f"{bi.src}{bank_suffix}")
-        dest = CompVar(f"idx{bank_suffix}_{s_idx}")
-
-        mem_offsets.append(Connect(CompPort(src, "addr0"), CompPort(dest, "out")))
-
-    if isinstance(stmt.op, ast.Map):
-        src = CompVar(f"{stmt.dest}{bank_suffix}")
-        dest = CompVar(f"idx{bank_suffix}_{s_idx}")
-        mem_offsets.append(Connect(CompPort(src, "addr0"), CompPort(dest, "out")))
-
-    compute_left_op = emit_compute_op(
-        stmt.op.body.lhs, stmt.op, stmt.dest, name2arr, s_idx, bank_suffix
-    )
-
-    compute_right_op = emit_compute_op(
-        stmt.op.body.rhs, stmt.op, stmt.dest, name2arr, s_idx, bank_suffix
-    )
-
-    if isinstance(stmt.op, ast.Map):
-        write_to = CompVar(f"{stmt.dest}{bank_suffix}")
-        adder_op = CompVar(f"adder_op{bank_suffix}_{s_idx}")
-        write_connection = Connect(
-            CompPort(write_to, "write_data"), CompPort(adder_op, "out")
-        )
-    else:
-        write_connection = Connect(
-            CompPort(CompVar(f"{stmt.dest}"), "in"),
-            CompPort(CompVar(f"adder_op{s_idx}"), "out"),
-        )
-    group_id = CompVar(f"eval_body{bank_suffix}_{s_idx}")
-    adder = CompVar(f"adder_op{bank_suffix}_{s_idx}")
-    dest = CompVar(f"{stmt.dest}{bank_suffix}")
-    return Group(
-        id=group_id,
-        connections=[
-            Connect(CompPort(dest, "write_en"), ConstantPort(1, 1)),
-            Connect(CompPort(adder, "left"), compute_left_op),
-            Connect(CompPort(adder, "right"), compute_right_op),
-            write_connection,
-            Connect(HolePort(group_id, "done"), CompPort(dest, "done")),
-        ]
-        + mem_offsets,
-    )
 
 
 def cond_group(
@@ -134,7 +51,7 @@ def gen_reduce_impl(
 ):
     """
     Implements a `reduce` statement of the form:
-        baz := reduce 5 (acc, x <- foo) init { acc + x }
+        baz := reduce 1 (acc, x <- foo) init { acc + x }
     The implementation first initializes the accumulator to `init` and then directly
     accumulates the values of the array into the accumulator.
     """
@@ -163,37 +80,36 @@ def gen_reduce_impl(
     # Split up the accumulator and the array element
     bind = stmt.bind[0]
     [acc, x] = bind.dest
-    name2arr = {acc: (dest, "reg"), x: (f"{bind.src}_b0", "mem")}
+    name2arr = {acc: f"{dest}_b0", x: f"{bind.src}_b0"}
 
-    def expr_to_port(expr: ast.Expr):
+    def expr_to_port(expr: ast.BaseExpr):
         if isinstance(expr, ast.LitExpr):
             return cb.const(32, expr.value)
         elif isinstance(expr, ast.VarExpr):
-            (bind, kind) = name2arr[expr.name]
-            if kind == "mem":
-                # If the mapping is defined, this is a memory
-                return CompPort(CompVar(f"{bind}"), "read_data")
-            else:
-                # Otherwise this is a cell
-                return CompPort(CompVar(f"{bind}"), "out")
-        elif isinstance(expr, ast.BinExpr):
-            raise NotImplementedError("Nested expressions not supported")
+            bind = name2arr[expr.name]
+            return CompPort(CompVar(f"{bind}"), "read_data")
 
-    if stmt.body.op == "mul":
+    body = stmt.body
+
+    if not isinstance(body, ast.BinExpr):
+        raise NotImplementedError("Reduce body must be a binary expression")
+
+    if body.op == "mul":
         op = comp.cell(f"mul_{s_idx}", stdlib.op("mult_pipe", 32, signed=False))
     else:
         op = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as ev:
-        out = comp.get_cell(dest)  # The accumulator is a register
+        out = comp.get_cell(f"{dest}_b0")  # The accumulator is a register
 
         # The source must be a singly-banked array
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
-        op.left = expr_to_port(stmt.body.lhs)
-        op.right = expr_to_port(stmt.body.rhs)
-        out.in_ = op.out
+        op.left = expr_to_port(body.lhs)
+        op.right = expr_to_port(body.rhs)
+        out.write_data = op.out
+        out.addr0 = 0
         # Multipliers are sequential so we need to manipulate go/done signals
-        if stmt.body.op == "mul":
+        if body.op == "mul":
             op.go = 1
             out.write_en = op.done
         else:
@@ -258,13 +174,11 @@ def gen_map_impl(
         # Mapping from binding to arrays
         name2arr = {bind.dest[0]: f"{bind.src}_b{bank}" for bind in stmt.bind}
 
-        def expr_to_port(expr: ast.Expr):
+        def expr_to_port(expr: ast.BaseExpr):
             if isinstance(expr, ast.LitExpr):
                 return cb.const(32, expr.value)
             elif isinstance(expr, ast.VarExpr):
                 return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
-            elif isinstance(expr, ast.BinExpr):
-                raise NotImplementedError("Nested expressions not supported")
 
         if body.op == "mul":
             op = comp.cell(f"mul_{suffix}", stdlib.op("mult_pipe", 32, signed=False))
@@ -397,7 +311,14 @@ def emit(prog: ast.Prog):
     for decl in prog.decls:
         used_names.append(decl.name)
         if decl.type.size:  # A memory
-            arr_size = decl.type.size
+            # Ensure all memories have the same size
+            if not arr_size:
+                arr_size = decl.type.size
+            elif arr_size != decl.type.size:
+                raise Exception(
+                    f"Memory `{decl.name}` has size {decl.type.size}"
+                    f" but previous memory had size {arr_size}"
+                )
             name = decl.name
             par = par_factor[name]
             for i in range(par):
