@@ -196,7 +196,7 @@ def convert2json(input_dir, extension):
             raise Malformed(
                 "Data format shape",
                 f"Failed to interpret memory `{mem}`"
-                + " with {len(arr)} elements as `{form['shape']}` ",
+                + f" with {len(arr)} elements as `{form['shape']}` ",
             ) from e
 
         data[mem] = arr.tolist()
