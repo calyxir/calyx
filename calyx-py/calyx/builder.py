@@ -146,9 +146,16 @@ def as_control(obj):
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: "ExprBuilder", cond: "GroupBuilder", body):
+def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     """Build a `while` control statement."""
-    return ast.While(port.expr, cond.group.id, as_control(body))
+    return ast.While(port.expr, cond.group.id if cond else None,
+                     as_control(body))
+
+
+def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+    """Build an `if` control statement."""
+    return ast.If(port.expr, cond.group.id if cond else None,
+                  as_control(body))
 
 
 class ControlBuilder:
@@ -425,7 +432,7 @@ def infer_width(expr):
             return inst.args[0]
         elif port_name == "write_en":
             return 1
-    elif prim == "std_add":
+    elif prim in ("std_add", "std_lt", "std_eq"):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
     elif prim == "std_mem_d1" or prim == "seq_mem_d1":
@@ -438,14 +445,8 @@ def infer_width(expr):
         if prim == "seq_mem_d1":
             if port_name == "read_en":
                 return 1
-    elif (
-        prim == "std_mult_pipe"
-        or prim == "std_smult_pipe"
-        or prim == "std_mod_pipe"
-        or prim == "std_smod_pipe"
-        or prim == "std_div_pipe"
-        or prim == "std_sdiv_pipe"
-    ):
+    elif prim in ("std_mult_pipe", "std_smult_pipe", "std_mod_pipe",
+                  "std_smod_pipe", "std_div_pipe", "std_sdiv_pipe"):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
         elif port_name == "go":
