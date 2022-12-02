@@ -146,6 +146,11 @@ def as_control(obj):
         assert False, f"unsupported control type {type(obj)}"
 
 
+def while_(port: "ExprBuilder", cond: "GroupBuilder", body):
+    """Build a `while` control statement."""
+    return ast.While(port.expr, cond.group.id, as_control(body))
+
+
 class ControlBuilder:
     """Wraps control statements for convenient construction."""
 
