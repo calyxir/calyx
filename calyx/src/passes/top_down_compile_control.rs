@@ -84,8 +84,9 @@ fn control_exits(
 /// Each [ir::Enable] gets a unique label within the context of a child of
 /// a [ir::Par] node.
 /// Furthermore, if an if/while/seq statement is labeled with a `new_fsm` attribute,
-/// then it will get its own unique label. Within the if/while/seq, each enable
-/// will get its own unique label within the context of that if/while/seq.
+/// then it will get its own unique label. Within that if/while/seq, each enable
+/// will get its own unique label within the context of that if/while/seq (see
+/// example for clarification).
 ///
 /// ## Example:
 /// ```
