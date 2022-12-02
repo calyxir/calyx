@@ -16,6 +16,7 @@ class Builder:
             imports=[
                 ast.Import("primitives/core.futil"),
                 ast.Import("primitives/binary_operators.futil"),
+                ast.Import("primitives/memories.futil"),
             ],
             components=[],
         )
@@ -130,6 +131,8 @@ def as_control(obj):
         return ast.Enable(obj.group.id.name)
     elif isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
+    elif isinstance(obj, set):
+        return ast.ParComp([as_control(o) for o in obj])
     elif obj is None:
         return ast.Empty()
     else:
