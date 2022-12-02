@@ -8,7 +8,7 @@ use crate::errors::Error;
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use crate::ir::{self, CloneName, LibrarySignatures, RRC};
+use crate::ir::{self, CloneName, GetAttributes, LibrarySignatures, RRC};
 
 /// Map name of old group to new group
 type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
@@ -457,7 +457,8 @@ impl Visitor for ComponentInliner {
         // If the associated instance has been inlined, replace the invoke with
         // its control program.
         let cell = s.comp.borrow();
-        if let Some(con) = self.control_map.get(cell.name()) {
+        if let Some(con) = self.control_map.get_mut(cell.name()) {
+            con.get_mut_attributes().insert("new_fsm", 1);
             Ok(Action::change(ir::Control::clone(con)))
         } else {
             Ok(Action::Continue)

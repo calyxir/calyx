@@ -1,0 +1,93 @@
+// -x tdcc:dump-fsm -d top-down-st -d post-opt -d group2invoke -d lower -b none
+
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    d = std_reg(2);
+    e = std_reg(2);
+    t = std_reg(1);
+    r = std_reg(2);
+    f = std_reg(1);
+    lt = std_lt(1);
+  }
+
+  wires {
+    comb group cond {
+      lt.left = 1'd1; 
+      lt.right = 1'd0; 
+    }
+
+    group A {
+      a.in = 2'd0;
+      a.write_en = 1'b1;
+      A[done] = a.done;
+    }
+
+    group B {
+      b.in = 2'd1;
+      b.write_en = 1'b1;
+      B[done] = b.done;
+    }
+
+    group C {
+      c.in = 2'd2;
+      c.write_en = 1'b1;
+      C[done] = c.done;
+    }
+
+    group D {
+      d.in = 2'd2;
+      d.write_en = 1'b1;
+      D[done] = d.done;
+    }
+
+    group E {
+      e.in = 2'd2;
+      e.write_en = 1'b1;
+      E[done] = e.done;
+    }
+
+    group true {
+      t.in = 1'b1;
+      t.write_en = 1'b1;
+      true[done] = t.done;
+    }
+
+    group false {
+      f.in = 1'b1;
+      f.write_en = 1'b1;
+      false[done] = f.done;
+    }
+  }
+
+  control {
+    seq {
+      A; 
+      @new_fsm while r.out {
+        seq{
+          true;
+          @new_fsm if lt.out with cond {
+            seq{
+              B; 
+              @new_fsm seq {
+                A; 
+                B;
+              }
+              D; 
+            }
+          }
+          else{
+            E; 
+          }
+          false;
+        }
+      }
+      C; 
+    }
+    
+  }
+}
