@@ -91,6 +91,13 @@ class ComponentBuilder:
         self.index[name] = builder
         return builder
 
+    def comb_group(self, name: str) -> "GroupBuilder":
+        group = ast.CombGroup(ast.CompVar(name), connections=[])
+        self.component.wires.append(group)
+        builder = GroupBuilder(group, self)
+        self.index[name] = builder
+        return builder
+
     def cell(
         self, name: str, comp: ast.CompInst, is_external=False, is_ref=False
     ) -> "CellBuilder":
@@ -299,7 +306,8 @@ class GroupBuilder:
     *implicitly* get added to this group.
     """
 
-    def __init__(self, group: Optional[ast.Group], comp: ComponentBuilder):
+    def __init__(self, group: Optional[ast.Group | ast.CombGroup],
+                 comp: ComponentBuilder):
         self.group = group
         self.comp = comp
 
@@ -342,17 +350,18 @@ class GroupBuilder:
     def done(self):
         """The `done` hole for the group."""
         assert self.group, (
-            "GroupLikeBuilder represents continuous assignments"
+            "GroupBuilder represents continuous assignments"
             " and does not have a done hole"
         )
-        return ExprBuilder(ast.HolePort(ast.CompVar(self.group.id.name), "done"))
+        return ExprBuilder(ast.HolePort(ast.CompVar(self.group.id.name),
+                                        "done"))
 
     @done.setter
     def done(self, expr):
         """Build an assignment to `done` in the group."""
         if not self.group:
             raise Exception(
-                "GroupLikeBuilder represents continuous assignments and does not have a done hole"
+                "GroupBuilder represents continuous assignments and does not have a done hole"
             )
         self.asgn(self.done, expr)
 
