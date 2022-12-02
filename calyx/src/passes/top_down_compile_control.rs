@@ -83,9 +83,9 @@ fn control_exits(
 /// Adds the @NODE_ID attribute to [ir::Enable] and [ir::Par].
 /// Each [ir::Enable] gets a unique label within the context of a child of
 /// a [ir::Par] node.
-/// Furthermore, if an if/while/seq statement is labeled with a `new_fsm` attribute, 
-/// then it will get its own unique label. Within the if/while/seq, each enable 
-/// will get its own unique label within the context of that if/while/seq. 
+/// Furthermore, if an if/while/seq statement is labeled with a `new_fsm` attribute,
+/// then it will get its own unique label. Within the if/while/seq, each enable
+/// will get its own unique label within the context of that if/while/seq.
 ///
 /// ## Example:
 /// ```
@@ -101,8 +101,8 @@ fn control_exits(
 ///   }
 ///   @NODE_ID(4) E;
 ///   @NODE_ID(5) seq{
-///     @NODE_ID(0) F; 
-///     @NODE_ID(1) G; 
+///     @NODE_ID(0) F;
+///     @NODE_ID(1) G;
 ///     @NODE_ID(2) H;
 ///   }
 /// }
@@ -143,7 +143,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
                 cur_state + 1
             }
             else{
-                cur  
+                cur
             }
         }
         ir::Control::If(ir::If {
@@ -160,7 +160,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // Also, if new_fsm is true, we want to start with state 1 as well: 
             // we can't start at 0 for the reason mentioned above  
             let cur = if new_fsm || cur_state == 0 {
-                1 
+                1
             }
             else{
                 cur_state
@@ -190,7 +190,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // Also, if new_fsm is true, we want to start with state 1 as well: 
             // we can't start at 0 for the reason mentioned above 
             let cur = if new_fsm || cur_state == 0 {
-                1 
+                1
             }
             else{
                 cur_state
@@ -439,8 +439,8 @@ fn calculate_states_recur(
 }
 
 /// Essentially the same as `calculate_states_recur`, but takes an input Seq  
-/// instead of a Control. This is helpful if you have a seq that is not 
-/// "wrapped" in the enum `Control`. 
+/// instead of a Control. This is helpful if you have a seq that is not
+/// "wrapped" in the enum `Control`.
 fn calc_seq_recur(
     seq: &ir::Seq,
     // The set of previous states that want to transition into cur_state
@@ -466,8 +466,8 @@ fn calc_seq_recur(
 }
 
 /// Essentially the same as `calculate_states_recur`, but takes an input If  
-/// instead of a Control. This is helpful if you have an If statement that is not 
-/// "wrapped" in the enum `Control`. 
+/// instead of a Control. This is helpful if you have an If statement that is not
+/// "wrapped" in the enum `Control`.
 fn calc_if_recur(
     if_stmt: &ir::If,
     // The set of previous states that want to transition into cur_state
@@ -485,17 +485,24 @@ fn calc_if_recur(
     let port_guard: ir::Guard = Rc::clone(&if_stmt.port).into();
     // Previous states transitioning into true branch need the conditional
     // to be true.
-    let tru_transitions = preds.clone().into_iter().map(|(s, g)| (s, g & port_guard.clone())).collect();
+    let tru_transitions = preds
+        .clone()
+        .into_iter()
+        .map(|(s, g)| (s, g & port_guard.clone()))
+        .collect();
     let tru_prev = calculate_states_recur(
         &if_stmt.tbranch,
         tru_transitions,
         schedule,
         builder,
-        early_transitions
+        early_transitions,
     )?;
     // Previous states transitioning into false branch need the conditional
     // to be false.
-    let fal_transitions = preds.into_iter().map(|(s, g)| (s, g & !port_guard.clone())).collect();
+    let fal_transitions = preds
+        .into_iter()
+        .map(|(s, g)| (s, g & !port_guard.clone()))
+        .collect();
 
     let fal_prev = if let ir::Control::Empty(..) = *if_stmt.fbranch {
         // If the false branch is empty, then all the prevs to this node will become prevs
@@ -507,18 +514,17 @@ fn calc_if_recur(
             fal_transitions,
             schedule,
             builder,
-            early_transitions
+            early_transitions,
         )?
     };
 
-    let prevs =
-        tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
+    let prevs = tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
     Ok(prevs)
 }
 
 /// Essentially the same as `calculate_states_recur`, but takes an input While  
-/// instead of a Control. This is helpful if you have an While loop that is not 
-/// "wrapped" in the enum `Control`. 
+/// instead of a Control. This is helpful if you have an While loop that is not
+/// "wrapped" in the enum `Control`.
 fn calc_while_recur(
     while_stmt: &ir::While,
     // The set of previous states that want to transition into cur_state
@@ -539,12 +545,10 @@ fn calc_while_recur(
     // Step 1: Generate the backward edges
     // First compute the entry and exit points.
     let mut exits = vec![];
-    control_exits(
-        &while_stmt.body,
-        true,
-        &mut exits,
-    );
-    let back_edge_prevs = exits.into_iter().map(|(st, group)| (st, group.borrow().get("done").into()));
+    control_exits(&while_stmt.body, true, &mut exits);
+    let back_edge_prevs = exits
+        .into_iter()
+        .map(|(st, group)| (st, group.borrow().get("done").into()));
 
     // Step 2: Generate the forward edges normally.
     // Previous transitions into the body require the condition to be
@@ -560,7 +564,7 @@ fn calc_while_recur(
         transitions,
         schedule,
         builder,
-        early_transitions
+        early_transitions,
     )?;
 
     // Step 3: The final out edges from the while come from:
@@ -577,8 +581,8 @@ fn calc_while_recur(
 }
 
 /// Essentially the same as `calculate_states`, but takes an input Seq  
-/// instead of a Control. This is helpful if you have a Seq that is not 
-/// "wrapped" in the enum `Control`. 
+/// instead of a Control. This is helpful if you have a Seq that is not
+/// "wrapped" in the enum `Control`.
 fn calculate_states_seq(
     seq: &ir::Seq,
     builder: &mut ir::Builder,
@@ -602,8 +606,8 @@ fn calculate_states_seq(
 }
 
 /// Essentially the same as `calculate_states`, but takes an input If  
-/// instead of a Control. This is helpful if you have an If statement that is not 
-/// "wrapped" in the enum `Control`. 
+/// instead of a Control. This is helpful if you have an If statement that is not
+/// "wrapped" in the enum `Control`.
 fn calculate_states_if(
     if_stmt: &ir::If,
     builder: &mut ir::Builder,
@@ -627,8 +631,8 @@ fn calculate_states_if(
 }
 
 /// Essentially the same as `calculate_states`, but takes an input While  
-/// instead of a Control. This is helpful if you have a While Loop that is not 
-/// "wrapped" in the enum `Control`. 
+/// instead of a Control. This is helpful if you have a While Loop that is not
+/// "wrapped" in the enum `Control`.
 fn calculate_states_while(
     while_stmt: &ir::While,
     builder: &mut ir::Builder,
@@ -653,7 +657,7 @@ fn calculate_states_while(
 
 fn add_nxt_transition(schedule: &mut Schedule, prev: Vec<PredEdge>) {
     // Helper function: given predecessors prev, creates a new "next" state and
-    // transitions from each state in prev to the next state. Essentially, just 
+    // transitions from each state in prev to the next state. Essentially, just
     // adds an "end" state to `schedule` and the appropriate transitions to that
     // "end" state.
     let nxt = prev
@@ -870,14 +874,14 @@ impl Visitor for TopDownCompileControl {
         Ok(Action::change(en))
     }
 
-
     fn finish_if(
         &mut self,
         i: &mut ir::If,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
-        _comps: &[ir::Component]) -> VisResult {
-         // only compile using new fsm if has new_fsm attribute
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        // only compile using new fsm if has new_fsm attribute
         if !i.attributes.has("new_fsm") {
             return Ok(Action::Continue);
         }
@@ -903,7 +907,6 @@ impl Visitor for TopDownCompileControl {
         en.get_mut_attributes().insert(NODE_ID, *node_id);
 
         Ok(Action::change(en))
-
     }
 
     fn finish_while(
@@ -911,7 +914,8 @@ impl Visitor for TopDownCompileControl {
         w: &mut ir::While,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
-        _comps: &[ir::Component]) -> VisResult {
+        _comps: &[ir::Component],
+    ) -> VisResult {
         // only compile using new fsm if has attribute
         if !w.attributes.has("new_fsm") {
             return Ok(Action::Continue);
@@ -919,8 +923,11 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         // Compile schedule and return the group.
         let if_group = {
-            let schedule =
-                calculate_states_while(w, &mut builder, self.early_transitions)?;
+            let schedule = calculate_states_while(
+                w,
+                &mut builder,
+                self.early_transitions,
+            )?;
             let group = builder.add_group("tdcc");
             if self.dump_fsm {
                 schedule.display(format!(
@@ -938,7 +945,6 @@ impl Visitor for TopDownCompileControl {
         en.get_mut_attributes().insert(NODE_ID, *node_id);
 
         Ok(Action::change(en))
-
     }
 
     /// Compile each child in `par` block separately so each child can make
