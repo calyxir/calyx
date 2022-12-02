@@ -407,13 +407,16 @@ def infer_width(expr):
     elif prim == "std_add":
         if port_name == "left" or port_name == "right":
             return inst.args[0]
-    elif prim == "std_mem_d1":
+    elif prim == "std_mem_d1" or prim == "seq_mem_d1":
         if port_name == "write_en":
             return 1
         elif port_name == "addr0":
             return inst.args[2]
         elif port_name == "in":
             return inst.args[0]
+        if prim == "seq_mem_d1":
+            if port_name == "read_en":
+                return 1
     elif (
         prim == "std_mult_pipe"
         or prim == "std_smult_pipe"
