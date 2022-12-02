@@ -14,7 +14,7 @@ Input arrays have their values populated by an external harness while the output
 
 A `map` expression iterates over multiple arrays of the same element and produces a new vector using the function provided in the body.
 In the above example, the `map` expression multiplies the values of `avec` and `bvec`.
-`map 1` states that the operation has a *parallelism factor* of which means that the loop iterations are performed sequentially.
+`map 1` states that the operation has a *parallelism factor* of 1 which means that the loop iterations are performed sequentially.
 
 `reduce` expressions walk over memories and accumulate a result into a register.
 In the above code snippet, we add together all the elements of `prodvec` and place them in a register named `dot`.
@@ -61,6 +61,8 @@ The following sections will outline these two high level tasks:
 1. Parse MrXL into a representation we can process with Python
 1. Generate Calyx code
 
+> You can find our [complete implementation][impl] in the Calyx repository.
+
 ### Parse MrXL into an AST
 
 To start, we'll parse this MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`.
@@ -102,6 +104,15 @@ Finally, the [control section][lf-control] *schedules* the execution of groups u
 
 We perform syntax-directed compilation by walking over nodes in the above AST and generating `cells`, `wires`, and `control` operations.
 
+#### Calyx Embedded DSL
+
+To make it easy to generate the hardware, we'll use Calyx's [`builder` module][builder-ex] in python:
+```python
+import calyx.builder as cb
+
+prog = cb.Builder() # A Calyx program
+main = prog.component("main") # Create a component named "main"
+```
 
 #### `Decl` nodes
 
@@ -135,27 +146,75 @@ Using this information, we can instantiate registers and memories for our inputs
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:collect-decls}}
 ```
-The helper function `emit_mem_decl` instantiates all banks necessary for a memory.
+The `main.mem_d1` call is a function defined by the Calyx builder module to instantiate memories for a component.
+By setting `is_external=True`, we're indicating that a memory declaration is a part of the program's input-output interface.
 
 
-#### `Map` and `Reduce` nodes
+### Compiling `Map` Operations
 
-For every map or reduce node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation. For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array. For `reduce` operations, we'll also use an element of an input array, but we'll also use an _accumulator_ register that we'll use in each computation, and we'll also store to. For example, if we were writing a `reduce` that summed up the elements of an input array, we'd use an accumulator register that was initialized to hold the value 0, and add to the value of this register each element of an input array.
+For every map or reduce node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation.
+For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array.
+We can use Calyx's [while loops][lf-while] to iterate over an input array, perform the map's computation, and store the final value.
+At a high-level, we want to generate the following pieces of hardware:
+1. A register to store the current value of the loop index.
+2. A comparator to check of the loop index is less than the array size.
+3. An adder to increment the value of the index.
+4. Hardware needed to implement the loop body computation.
 
-We can implement these behaviors using Calyx groups:
-- `incr_idx`: Increments an `idx` register using an adder. This group is done when the `idx` register is written to.
-- `cond`: Applies a "less than" operator to `idx`, and the length of our input arrays, using the `le` hardware unit.
-- `eval_body`: Reads from an array, performs some kind of computation, and writes the result of the computation to an accumulator register or another array.
+#### Loop Condition
 
-We'll make these groups for each `Map` and `Reduce` node, so to avoid naming collisions, we'll suffix each group with an integer starting at 0, incrementing each time we need to add a new set of  groups. These groups will be added to the `wires` section. We'll also need to add logic to the `control` section as well that uses these groups to process arrays:
+We define a [combinational group][lf-comb-group] to perform the comparison `idx < arr_size` that uses an `lt` cell.
 
+```python
+{{#include ../../frontends/mrxl/mrxl/gen_futil.py:cond_group}}
 ```
-while le0.out with cond0 {
-  seq { eval_body0; incr_idx0; }
-}
+
+
+#### Index Increment
+
+```python
+{{#include ../../frontends/mrxl/mrxl/gen_futil.py:incr_group}}
 ```
 
-This logic orchestrates our groups, basically representing iterating over our array and evaluating some computation on each element of the array. On each iteration we signal for the `eval_body0` group to do its work, followed sequentially by `incr_idx0` to advance our index register so that we can work on the next element of the array.
+The loop index increment is implemented using a [group][lf-group] and an adder (`adder`).
+We provide the index's previous value and the constant 1 to the adder and write the adder's output into the register.
+Because we're performing a stateful update of the register, we must wait for the register to state that it's committed the write by setting the group's done condition to the register's `done` signal.
+
+#### Body Computation
+
+The final piece of the puzzle is the body's computation.
+The corresponding group indexes into the input memories:
+```python
+{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_inputs}}
+```
+Because the builder module is an embedded DSL, we can simply use Python's `for` loop to generate all the required assignments for indexing.
+
+Instantiates an adder or a multiplier depending on the computation needed using the `expr_to_port` helper function:
+```python
+{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_op}}
+```
+
+And writes the value from the operation into the output memory:
+```py
+{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_write}}
+```
+This final operation is complex because we must account for whether we're using an adder or a multiplier.
+Adders are *combinational*–they produce their output immediately–while multipliers are *sequential* and require multiple cycles to produce its output.
+
+When using a mutliplier, we need to explicitly set its `go` signal to one and only write the output from the multiplier into the memory when its `done` signal is asserted.
+We do this by assigning the memory's `write_en` (write enable) signal to the multiplier's done signal.
+Finally, the group's computation is done when the memory write is committed.
+
+#### Generating Control
+
+Once we have generated the hardware needed for our computation, we can schedule its computation using [control operators][lf-control]:
+
+```py
+{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_loop}}
+```
+
+We generate a while loop that checks that the index is less than the array size.
+Then, it sequentially executes the computation for the body and increments the loop index.
 
 ### Add Parallelization
 
@@ -167,14 +226,9 @@ output baz: int[4]
 baz := map 4 (a <- foo) { a + 5 }
 ```
 
-The number 4 after the `map` specifies the number of adders we can use at once to parallelize this computation. There are a few ways we could parallelize this program, and one of them is to split the memories used in the `map` operation into 4 separate memory _banks_, and then we can read from each bank of `foo` and write into each bank of `baz` simultaneously. In general, we can break memories of size `m` into `b` banks (each with size `m/b`), and then simultaneously process those `b` banks. Realizing this in Calyx means creating separate memories for each bank, and creating `group`s to process each bank. Here's a section of the compiler that generates banked memories:
-
-```
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:4:18}}
-```
-
-In the `Map` and `Reduce` code generation section we described `group`s that could be orchestrated to iterate over a memory and process it. We'll now have to do that for each memory bank, and then parallelize these operations in the generated Calyx's `control` section. We can accomplish this with Calyx's `par` keyword, signalling to execute groups in parallel. Here's an example of executing four while loops in parallel:
-
+The number 4 specifies that four copies of the loop bodies should be executed in parallel.
+Our implementation already creates [memory banks](#decl-nodes) to allow for parallel accesses.
+At a high-level, we can change the compilation for the `map` operation to produce `n` copies of the hardware we generate above and generate a control program that looks like this:
 ```
 par {
   while le_b0.out with cond_b0 { seq { eval_body_b0; incr_idx_b0; } }
@@ -184,12 +238,16 @@ par {
 }
 ```
 
+The [`par` operator][lf-par] executes all the loops in parallel.
+The [full implementation][impl] shows the necessary code to accomplish this which simply creates an outer loop to generate distinct hardware for each copy of the loop.
+
 ## Conclusion
 
-Hopefully this should be enough to get you started with writing your own MrXL compiler. Some more follow up tasks you could try if you're interested:
-- Implement code generation to implement `reduce` statements, which we do not include in our compiler.
+Hopefully this should be enough to get you started with writing your own MrXL compiler. Some more follow-up tasks you could try if you're interested:
+- Read the code for compiling `reduce` statements and extend to support parallel reductions using [reduction trees][reduc-trees].
 - Implement code generation that allows memories that differ from one another in size.
-- Implement complex function body expressions. We only support binary operations with simple operands, like `a + 5`. Different hardware components take multiple cycles to execute: for example, a register takes 1 cycle to write data to, but a memory might take more. This complicates hardware design, as you need to account for differing latencies among hardware components.
+- Implement complex function body expressions. We only support binary operations with two operands, like `a + 5`.
+- Add a new `filter` operation to MrXL.
 
 [astcode]: https://github.com/cucapra/futil/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs]: https://github.com/cucapra/futil/tree/master/frontends/mrxl
@@ -202,3 +260,9 @@ Hopefully this should be enough to get you started with writing your own MrXL co
 [lf-wires]: ../lang/ref.md#the-wires-section
 [lf-groups]: ../lang/ref.md#group-definitions
 [lf-control]: ../lang/ref.md#the-control-operators
+[lf-while]: ../lang/ref.md#while
+[lf-comb-group]: ../lang/ref.md#comb-group-definitions
+[lf-par]: ../lang/ref.md#par
+[impl]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_futil.py
+[reduc-trees]: http://www.cs.ucr.edu/~nael/217-f15/lectures/217-lec10.pdf
+[builder-ex]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py

@@ -67,6 +67,7 @@ class Reduce:
 class Stmt:
     dest: str
     op: Union[Map, Reduce]
+# ANCHOR_END: stmt
 
     def __init__(self, dest: str, op: Union[Map, Reduce]):
         self.dest = dest
@@ -80,14 +81,9 @@ class Stmt:
         self.op = op
 
 
-# ANCHOR_END: stmt
-
-
 # ANCHOR: prog
 @dataclass
 class Prog:
-    decls: List[Decl]
-    stmts: List[Stmt]
-
-
+    decls: List[Decl] # Memory declarations
+    stmts: List[Stmt] # Map and reduce statements
 # ANCHOR_END: prog

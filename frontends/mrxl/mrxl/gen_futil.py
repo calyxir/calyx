@@ -19,6 +19,7 @@ def cond_group(
     """
     Creates a group that checks if the index is less than the array size.
     """
+    # ANCHOR: cond_group
     group_name = f"cond_{suffix}"
     stdlib = Stdlib()
     cell = f"lt_{suffix}"
@@ -26,6 +27,7 @@ def cond_group(
     with comp.comb_group(group_name):
         lt.left = idx.out
         lt.right = cb.const(32, arr_size)
+    # ANCHOR_END: cond_group
 
     return cell, group_name
 
@@ -34,6 +36,7 @@ def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> s
     """
     Creates a group that increments the index.
     """
+    # ANCHOR: incr_group
     group_name = f"incr_idx_{suffix}"
     adder = comp.add(f"incr_{suffix}", 32)
     with comp.group(group_name) as incr:
@@ -42,6 +45,7 @@ def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> s
         idx.in_ = adder.out
         idx.write_en = 1
         incr.done = idx.done
+    # ANCHOR_END: incr_group
 
     return group_name
 
@@ -185,20 +189,25 @@ def gen_map_impl(
         else:
             op = comp.add(f"add_{suffix}", 32)
 
+        assert (
+            len(stmt.bind) <= 2
+        ), "Map statements with more than 2 arguments not supported"
+        # ANCHOR: map_inputs
         with comp.group(f"eval_body_{suffix}") as ev:
-            assert (
-                len(stmt.bind) <= 2
-            ), "Map statements with more than 2 arguments not supported"
             # Index each array
             for bind in stmt.bind:
                 # Map bindings have exactly one dest
                 mem = comp.get_cell(f"{name2arr[bind.dest[0]]}")
                 mem.addr0 = idx.out
-            out_mem = comp.get_cell(f"{dest}_b{bank}")
-            out_mem.addr0 = idx.out
+            # ANCHOR_END: map_inputs
+            # ANCHOR: map_op
             # Provide inputs to the op
             op.left = expr_to_port(body.lhs)
             op.right = expr_to_port(body.rhs)
+            # ANCHOR_END: map_op
+            # ANCHOR: map_write
+            out_mem = comp.get_cell(f"{dest}_b{bank}")
+            out_mem.addr0 = idx.out
             out_mem.write_data = op.out
             # Multipliers are sequential so we need to manipulate go/done signals
             if body.op == "mul":
@@ -207,9 +216,11 @@ def gen_map_impl(
             else:
                 out_mem.write_en = 1
             ev.done = out_mem.done
+            # ANCHOR_END: map_write
 
         # Control to execute the groups
         map_loops.append(
+            # ANCHOR: map_loop
             While(
                 CompPort(CompVar(port), "out"),
                 CompVar(cond),
@@ -220,6 +231,7 @@ def gen_map_impl(
                     ]
                 ),
             )
+            # ANCHOR_END: map_loop
         )
 
     control = ParComp(map_loops)
@@ -307,7 +319,6 @@ def emit(prog: ast.Prog):
 
     # Collect memory and register declarations.
     used_names = []
-    # ANCHOR: collect-decls
     for decl in prog.decls:
         used_names.append(decl.name)
         if decl.type.size:  # A memory
@@ -321,11 +332,12 @@ def emit(prog: ast.Prog):
                 )
             name = decl.name
             par = par_factor[name]
+            # ANCHOR: collect-decls
             for i in range(par):
                 main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32, is_external=True)
+            # ANCHOR_END: collect-decls
         else:  # A register
             main.reg(decl.name, 32)
-    # ANCHOR_END: collect-decls
 
     if not arr_size:
         raise Exception("Failed to infer array size. Are there no array declarations?")
