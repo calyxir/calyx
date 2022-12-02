@@ -1,4 +1,15 @@
 pub const RESERVED_NAMES: &[&str] = &[
+    // Calyx keywords
+    "invoke",
+    "par",
+    "seq",
+    "if",
+    "while",
+    "with",
+    "component",
+    "primitive",
+    "extern",
+    // Verilog keywords
     "reg",
     "wire",
     "always",
