@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component relu_2x4x8x32() -> () {
   cells {
-    ref x = std_mem_d4(32,2,4,8,32,2,3,4,6);
-    ref x1 = std_mem_d4(32,2,4,8,32,2,3,4,6);
+    ref x = seq_mem_d4(32,2,4,8,32,2,3,4,6);
+    ref x1 = seq_mem_d4(32,2,4,8,32,2,3,4,6);
     __i0 = std_reg(2);
     __j0 = std_reg(3);
     __k0 = std_reg(4);
@@ -33,8 +33,8 @@ component relu_2x4x8x32() -> () {
     le1 = std_le(3);
     le2 = std_le(4);
     le3 = std_le(6);
-    x_read00 = std_reg(32);
-    x_read10 = std_reg(32);
+    x_read0_0 = std_reg(32);
+    x_read1_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -54,7 +54,7 @@ component relu_2x4x8x32() -> () {
       le3.right = const7.out;
     }
     comb group cond4 {
-      gt0.left = x_read00.out;
+      gt0.left = x_read0_0.out;
       gt0.right = fp_const0.out;
     }
     group let0<"static"=1> {
@@ -77,23 +77,25 @@ component relu_2x4x8x32() -> () {
       __l0.write_en = 1'd1;
       let3[done] = __l0.done;
     }
-    group let4<"static"=1> {
-      x_read00.in = x.read_data;
-      x_read00.write_en = 1'd1;
-      let4[done] = x_read00.done;
+    group let4<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let4[done] = x_read0_0.done;
       x.addr3 = __l0.out;
       x.addr2 = __k0.out;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
+      x.read_en = 1'd1;
     }
-    group let5<"static"=1> {
-      x_read10.in = x.read_data;
-      x_read10.write_en = 1'd1;
-      let5[done] = x_read10.done;
+    group let5<"static"=2> {
+      x_read1_0.in = x.out;
+      x_read1_0.write_en = x.read_done;
+      let5[done] = x_read1_0.done;
       x.addr3 = __l0.out;
       x.addr2 = __k0.out;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
+      x.read_en = 1'd1;
     }
     group upd0<"static"=1> {
       x1.addr3 = __l0.out;
@@ -101,8 +103,8 @@ component relu_2x4x8x32() -> () {
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      x1.write_data = x_read10.out;
-      upd0[done] = x1.done;
+      x1.in = x_read1_0.out;
+      upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {
       x1.addr3 = __l0.out;
@@ -110,8 +112,8 @@ component relu_2x4x8x32() -> () {
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      x1.write_data = fp_const1.out;
-      upd1[done] = x1.done;
+      x1.in = fp_const1.out;
+      upd1[done] = x1.write_done;
     }
     group upd2<"static"=1> {
       __l0.write_en = 1'd1;
@@ -183,8 +185,8 @@ component relu_2x4x8x32() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
-    @external(1) x1 = std_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    @external x = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
+    @external x1 = seq_mem_d4(32, 2, 4, 8, 32, 2, 3, 4, 6);
     relu_2x4x8x32_ = relu_2x4x8x32();
   }
   wires {

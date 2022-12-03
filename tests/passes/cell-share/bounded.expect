@@ -1,25 +1,14 @@
+{"main":{"std_add_WIDTH_32":{"2":3},"std_mult_pipe_WIDTH_32":{"6":1},"std_reg_WIDTH_32":{"2":1,"4":1}}}
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     a = std_reg(32);
-    b = std_reg(32);
-    c = std_reg(32);
-    d = std_reg(32);
     e = std_reg(32);
-    f = std_reg(32);
     add1 = std_add(32);
-    add2 = std_add(32);
     add3 = std_add(32);
-    add4 = std_add(32);
     add5 = std_add(32);
-    add6 = std_add(32);
     mult0 = std_mult_pipe(32);
-    mult1 = std_mult_pipe(32);
-    mult2 = std_mult_pipe(32);
-    mult3 = std_mult_pipe(32);
-    mult4 = std_mult_pipe(32);
-    mult5 = std_mult_pipe(32);
   }
   wires {
     group let0 {
@@ -46,23 +35,23 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group let3 {
       add3.left = 32'd2;
       add3.right = 32'd4;
-      d.in = add3.out;
-      d.write_en = 1'd1;
-      let3[done] = d.done;
+      a.in = add3.out;
+      a.write_en = 1'd1;
+      let3[done] = a.done;
     }
     group let4 {
       add5.left = 32'd2;
       add5.right = 32'd4;
-      d.in = add5.out;
-      d.write_en = 1'd1;
-      let4[done] = d.done;
+      e.in = add5.out;
+      e.write_en = 1'd1;
+      let4[done] = e.done;
     }
     group let5 {
       add5.left = 32'd2;
       add5.right = 32'd4;
-      d.in = add5.out;
-      d.write_en = 1'd1;
-      let5[done] = d.done;
+      e.in = add5.out;
+      e.write_en = 1'd1;
+      let5[done] = e.done;
     }
     group m0 {
       mult0.go = 1'd1;
@@ -89,16 +78,16 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       m3[done] = mult0.done;
     }
     group m4 {
-      mult4.go = 1'd1;
-      mult4.left = 32'd1;
-      mult4.right = 32'd2;
-      m4[done] = mult4.done;
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m4[done] = mult0.done;
     }
     group m5 {
-      mult4.go = 1'd1;
-      mult4.left = 32'd1;
-      mult4.right = 32'd2;
-      m5[done] = mult4.done;
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m5[done] = mult0.done;
     }
   }
 

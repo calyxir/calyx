@@ -26,11 +26,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated wait_reg1 = std_reg(1);
   }
   wires {
-    group no_op {
-      no_use.write_en = 1'd1;
-      no_use.in = 1'd0;
-      no_op[done] = no_use.done;
-    }
     group prod_0 {
       in_0.addr0 = idx.out;
       prod.write_en = 1'd1;
@@ -93,10 +88,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       barrier.in_0 = save.out;
       write_barrier[done] = barrier.write_done_0;
     }
-    group wait {
+    group wt {
       wait_reg.in = eq0.out;
       wait_reg.write_en = eq0.out ? 1'd1;
-      wait[done] = wait_reg.done;
+      wt[done] = wait_reg.done;
     }
     group incr_barrier0 {
       barrier.read_en_0 = 1'd1;
@@ -111,10 +106,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       barrier.in_0 = save0.out;
       write_barrier0[done] = barrier.write_done_0;
     }
-    group wait0 {
+    group wt0 {
       wait_reg0.in = eq0.out;
       wait_reg0.write_en = eq0.out ? 1'd1;
-      wait0[done] = wait_reg0.done;
+      wt0[done] = wait_reg0.done;
     }
     group incr_barrier1 {
       barrier.read_en_1 = 1'd1;
@@ -129,10 +124,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       barrier.in_1 = save1.out;
       write_barrier1[done] = barrier.write_done_1;
     }
-    group wait1 {
+    group wt1 {
       wait_reg1.in = eq0.out;
       wait_reg1.write_en = eq0.out ? 1'd1;
-      wait1[done] = wait_reg1.done;
+      wt1[done] = wait_reg1.done;
     }
     comb group comp {
       lt.right = 3'd6;
@@ -155,11 +150,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         while lt.out with comp {
           if eq.out with st_0 {
             seq {
+              prod_0;
               seq {
-                prod_0;
                 incr_barrier;
                 write_barrier;
-                wait;
+                wt;
                 clear_barrier;
                 restore;
               }
@@ -167,11 +162,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
             }
           } else {
             seq {
+              prod_1;
               seq {
-                prod_1;
                 incr_barrier0;
                 write_barrier0;
-                wait0;
+                wt0;
                 clear_barrier;
                 restore;
               }
@@ -182,10 +177,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         while lt.out with comp {
           seq {
             seq {
-              no_op;
               incr_barrier1;
               write_barrier1;
-              wait1;
+              wt1;
               wait_restore;
             }
             reg_to_mem;

@@ -71,7 +71,7 @@
         "addr1": 0,
         "clk": 0,
         "done": 0,
-        "read_data": 12,
+        "read_data": 0,
         "write_data": 0,
         "write_en": 0
       },
@@ -80,7 +80,7 @@
         "addr1": 0,
         "clk": 0,
         "done": 0,
-        "read_data": 16,
+        "read_data": 0,
         "write_data": 0,
         "write_en": 0
       },

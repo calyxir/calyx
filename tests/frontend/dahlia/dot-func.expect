@@ -6,8 +6,8 @@ component dot() -> () {
     ref A = seq_mem_d1(32,4,3);
     ref B = seq_mem_d1(32,4,3);
     ref out = seq_mem_d1(32,4,3);
-    A_read00 = std_reg(32);
-    B_read00 = std_reg(32);
+    A_read0_0 = std_reg(32);
+    B_read0_0 = std_reg(32);
     add0 = std_add(3);
     bin_read0_0 = std_reg(32);
     const0 = std_const(3,0);
@@ -28,16 +28,16 @@ component dot() -> () {
       let0[done] = i0.done;
     }
     group let1<"static"=2> {
-      A_read00.in = A.out;
-      A_read00.write_en = A.read_done;
-      let1[done] = A_read00.done;
+      A_read0_0.in = A.out;
+      A_read0_0.write_en = A.read_done;
+      let1[done] = A_read0_0.done;
       A.addr0 = i0.out;
       A.read_en = 1'd1;
     }
     group let2<"static"=2> {
-      B_read00.in = B.out;
-      B_read00.write_en = B.read_done;
-      let2[done] = B_read00.done;
+      B_read0_0.in = B.out;
+      B_read0_0.write_en = B.read_done;
+      let2[done] = B_read0_0.done;
       B.addr0 = i0.out;
       B.read_en = 1'd1;
     }
@@ -45,8 +45,8 @@ component dot() -> () {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let3[done] = bin_read0_0.done;
-      mult_pipe0.left = A_read00.out;
-      mult_pipe0.right = B_read00.out;
+      mult_pipe0.left = A_read0_0.out;
+      mult_pipe0.right = B_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group upd0<"static"=1> {

@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     @external(1) A = seq_mem_d1(32,8,4);
-    @external(1) B = std_mem_d2(32,8,8,4,4);
-    @external(1) C = std_mem_d3(32,8,8,8,4,4,4);
+    @external(1) B = seq_mem_d2(32,8,8,4,4);
+    @external(1) C = seq_mem_d3(32,8,8,8,4,4,4);
     const0 = std_const(32,1);
     const1 = std_const(4,0);
     const2 = std_const(32,1);
@@ -27,16 +27,16 @@ component main() -> () {
       B.addr1 = const4.out;
       B.addr0 = const3.out;
       B.write_en = 1'd1;
-      B.write_data = const2.out;
-      upd1[done] = B.done;
+      B.in = const2.out;
+      upd1[done] = B.write_done;
     }
     group upd2<"static"=1> {
       C.addr2 = const8.out;
       C.addr1 = const7.out;
       C.addr0 = const6.out;
       C.write_en = 1'd1;
-      C.write_data = const5.out;
-      upd2[done] = C.done;
+      C.in = const5.out;
+      upd2[done] = C.write_done;
     }
   }
   control {

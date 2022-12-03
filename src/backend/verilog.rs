@@ -11,15 +11,30 @@ use calyx::{
 };
 use ir::{Control, Group, Guard, RRC};
 use itertools::Itertools;
-use std::fs::File;
 use std::io;
 use std::{collections::HashMap, rc::Rc};
+use std::{fs::File, time::Instant};
 use vast::v17::ast as v;
 
 /// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
 /// and no groups.
 #[derive(Default)]
 pub struct VerilogBackend;
+
+// input string should be the cell type name of a memory cell. In other words one
+// of "seq/std_mem_d_1/2/3/4". Becase we define seq_mem_d2/3/4 in terms of seq_mem_d1
+// we need another layer of memory access to get the actual memory array in verilog
+// for these mem types.
+// In other words, for memories not defined in terms of another memory, we can just use
+// "mem" to access them. But for memories defined in terms of another memory,
+// which are seq_mem_d2/3/4, we need "mem.mem" to access them.
+fn get_mem_str(mem_type: &str) -> &str {
+    if mem_type.contains("d1") || mem_type.contains("std_mem") {
+        "mem"
+    } else {
+        "mem.mem"
+    }
+}
 
 /// Checks to make sure that there are no holes being
 /// used in a guard.
@@ -115,102 +130,111 @@ impl Backend for VerilogBackend {
     }
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let modules = &ctx
-            .components
-            .iter()
-            .map(|comp| {
-                emit_component(
-                    comp,
-                    ctx.bc.synthesis_mode,
-                    ctx.bc.enable_verification,
-                    ctx.bc.initialize_inputs,
-                )
-                .to_string()
-            })
-            .collect::<Vec<_>>();
-
-        write!(file.get_write(), "{}", modules.join("\n")).map_err(|err| {
+        let out = &mut file.get_write();
+        let comps = ctx.components.iter().try_for_each(|comp| {
+            // Time the generation of the component.
+            let time = Instant::now();
+            let out = emit_component(
+                comp,
+                ctx.bc.synthesis_mode,
+                ctx.bc.enable_verification,
+                ctx.bc.initialize_inputs,
+                out,
+            );
+            log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
+            out
+        });
+        comps.map_err(|err| {
             let std::io::Error { .. } = err;
             Error::write_error(format!(
                 "File not found: {}",
                 file.as_path_string()
             ))
-        })?;
-        Ok(())
+        })
     }
 }
 
-fn emit_component(
+fn emit_component<F: io::Write>(
     comp: &ir::Component,
     synthesis_mode: bool,
     enable_verification: bool,
     initialize_inputs: bool,
-) -> v::Module {
-    let mut module = v::Module::new(comp.name.as_ref());
+    f: &mut F,
+) -> io::Result<()> {
+    writeln!(f, "module {}(", comp.name)?;
+
     let sig = comp.signature.borrow();
-    for port_ref in &sig.ports {
+    for (idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
         // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {
-                module.add_output(port.name.as_ref(), port.width);
+                write!(f, "  output")?;
             }
             ir::Direction::Output => {
-                module.add_input(port.name.as_ref(), port.width);
+                write!(f, "  input")?;
             }
             ir::Direction::Inout => {
                 panic!("Unexpected Inout port on Component: {}", port.name)
             }
         }
+        if port.width == 1 {
+            write!(f, " logic {}", port.name)?;
+        } else {
+            write!(f, " logic [{}:0] {}", port.width - 1, port.name)?;
+        }
+        if idx == sig.ports.len() - 1 {
+            writeln!(f)?;
+        } else {
+            writeln!(f, ",")?;
+        }
     }
+    writeln!(f, ");")?;
 
     // Add a COMPONENT START: <name> anchor before any code in the component
-    module.add_stmt(v::Stmt::new_rawstr(format!(
-        "// COMPONENT START: {}",
-        comp.name
-    )));
+    writeln!(f, "// COMPONENT START: {}", comp.name)?;
 
     // Add memory initial and final blocks
     if !synthesis_mode {
-        memory_read_write(comp).into_iter().for_each(|stmt| {
-            module.add_stmt(stmt);
-        });
+        memory_read_write(comp)
+            .into_iter()
+            .try_for_each(|stmt| writeln!(f, "{}", stmt))?;
     }
 
-    let wires = comp
+    let cells = comp
         .cells
         .iter()
         .flat_map(|cell| wire_decls(&cell.borrow()))
         .collect_vec();
     // structure wire declarations
-    wires.iter().for_each(|(name, width, _)| {
-        module.add_decl(v::Decl::new_logic(name, *width));
-    });
+    cells.iter().try_for_each(|(name, width, _)| {
+        let decl = v::Decl::new_logic(name, *width);
+        writeln!(f, "{};", decl)
+    })?;
 
     // Generate initial assignments for all input ports in defined cells.
     if initialize_inputs {
-        let mut initial = v::ParallelProcess::new_initial();
-        wires.iter().for_each(|(name, width, dir)| {
+        writeln!(f, "initial begin")?;
+        for (name, width, dir) in &cells {
             if *dir == ir::Direction::Input {
                 // HACK: this is not the right way to reset
                 // registers. we should have real reset ports.
                 let value = String::from("0");
-                initial.add_seq(v::Sequential::new_blk_assign(
+                let assign = v::Sequential::new_blk_assign(
                     v::Expr::new_ref(name),
                     v::Expr::new_ulit_dec(*width as u32, &value),
-                ));
+                );
+                writeln!(f, "  {};", assign)?;
             }
-        });
-        module.add_process(initial);
+        }
+        writeln!(f, "end")?;
     }
 
     // cell instances
     comp.cells
         .iter()
         .filter_map(|cell| cell_instance(&cell.borrow()))
-        .for_each(|instance| {
-            module.add_instance(instance);
-        });
+        .try_for_each(|instance| writeln!(f, "{instance}"))?;
 
     // gather assignments keyed by destination
     let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
@@ -225,27 +249,24 @@ fn emit_component(
 
     map.values()
         .sorted_by_key(|(port, _)| port.borrow().canonical())
-        .for_each(|asgns| {
-            module.add_stmt(v::Stmt::new_parallel(emit_assignment(asgns)));
+        .try_for_each(|asgns| {
             // If verification generation is enabled, emit disjointness check.
             if enable_verification {
                 if let Some(check) = emit_guard_disjoint_check(asgns) {
                     checks.add_seq(check);
                 };
             }
-        });
+            let stmt = v::Stmt::new_parallel(emit_assignment(asgns));
+            writeln!(f, "{stmt}")
+        })?;
 
     if !synthesis_mode {
-        module.add_process(checks);
+        writeln!(f, "{checks}")?;
     }
 
     // Add COMPONENT END: <name> anchor
-    module.add_stmt(v::Stmt::new_rawstr(format!(
-        "// COMPONENT END: {}",
-        comp.name
-    )));
-
-    module
+    writeln!(f, "// COMPONENT END: {}\nendmodule", comp.name)?;
+    Ok(())
 }
 
 fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
@@ -359,6 +380,24 @@ fn emit_guard_disjoint_check(
     Some(v::Sequential::If(check))
 }
 
+/// Checks if:
+/// 1. The port is marked with `@data`
+/// 2. The port's cell parent is marked with `@data`
+fn is_data_port(pr: &RRC<ir::Port>) -> bool {
+    let port = pr.borrow();
+    if !port.attributes.has("data") {
+        return false;
+    }
+    if let ir::PortParent::Cell(cwr) = &port.parent {
+        let cr = cwr.upgrade();
+        let cell = cr.borrow();
+        if cell.attributes.has("data") {
+            return true;
+        }
+    }
+    false
+}
+
 /// Generates an assign statement that uses ternaries to select the correct
 /// assignment to enable and adds a default assignment to 0 when none of the
 /// guards are active.
@@ -376,29 +415,51 @@ fn emit_guard_disjoint_check(
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
-    let dst = dst_ref.borrow();
-    let init = v::Expr::new_ulit_dec(dst.width as u32, &0.to_string());
-
-    // Flatten the mux expression if there is exactly one assignment with a true guard.
-    let rhs = if assignments.len() == 1 {
-        let assign = assignments[0];
-        if assign.guard.is_true() {
-            port_to_ref(&assign.src)
-        } else if assign.src.borrow().is_constant(1, 1) {
-            guard_to_expr(&assign.guard)
-        } else {
-            v::Expr::new_mux(
-                guard_to_expr(&assign.guard),
-                port_to_ref(&assign.src),
-                init,
-            )
-        }
-    } else {
+    // Mux over the assignment with the given default value.
+    let fold_assigns = |init: v::Expr| -> v::Expr {
         assignments.iter().rfold(init, |acc, e| {
             let guard = guard_to_expr(&e.guard);
             let asgn = port_to_ref(&e.src);
             v::Expr::new_mux(guard, asgn, acc)
         })
+    };
+
+    // If this is a data port
+    let rhs: v::Expr = if is_data_port(dst_ref) {
+        if assignments.len() == 1 {
+            // If there is exactly one guard, generate a continuous assignment.
+            // This encodes the rewrite:
+            // in = g ? out : 'x => in = out;
+            // This is valid because 'x can be replaced with any value
+            let assign = assignments[0];
+            port_to_ref(&assign.src)
+        } else {
+            // Produce an assignment with 'x as the default case.
+            fold_assigns(v::Expr::X)
+        }
+    } else {
+        let init = v::Expr::new_ulit_dec(
+            dst_ref.borrow().width as u32,
+            &0.to_string(),
+        );
+
+        // Flatten the mux expression if there is exactly one assignment with a true guard.
+        if assignments.len() == 1 {
+            let assign = assignments[0];
+            if assign.guard.is_true() {
+                port_to_ref(&assign.src)
+            } else if assign.src.borrow().is_constant(1, 1) {
+                guard_to_expr(&assign.guard)
+            } else {
+                v::Expr::new_mux(
+                    guard_to_expr(&assign.guard),
+                    port_to_ref(&assign.src),
+                    init,
+                )
+            }
+        } else {
+            fold_assigns(init)
+        }
     };
     v::Parallel::ParAssign(port_to_ref(dst_ref), rhs)
 }
@@ -482,7 +543,10 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                     .map(|proto| proto.id.contains("mem"))
                     .unwrap_or_default()
             {
-                Some(cell.borrow().name().id.clone())
+                Some((
+                    cell.borrow().name().id.clone(),
+                    cell.borrow().type_name().unwrap_or_else(|| unreachable!("tried to add a memory cell but there was no type name")).clone(),
+                ))
             } else {
                 None
             }
@@ -518,7 +582,8 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             ],
         )));
 
-    memories.iter().for_each(|name| {
+    memories.iter().for_each(|(name, mem_type)| {
+        let mem_access_str = get_mem_str(&mem_type.id);
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
@@ -528,13 +593,15 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.mem", name)),
+                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
     });
 
     let mut final_block = v::ParallelProcess::new_final();
-    memories.iter().for_each(|name| {
+    memories.iter().for_each(|(name, mem_type)| {
+        let mem_access_str = get_mem_str(&mem_type.id);
+
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",
             vec![
@@ -544,7 +611,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                         v::Expr::new_ref("DATA"),
                     ],
                 }),
-                v::Expr::new_ipath(&format!("{}.mem", name)),
+                v::Expr::new_ipath(&format!("{}.{}", name, mem_access_str)),
             ],
         )));
     });

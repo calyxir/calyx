@@ -74,7 +74,7 @@ impl InterpreterState {
     pub fn init_top_level(
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
-        mems: &Option<MemoryMap>,
+        mems: &mut Option<MemoryMap>,
         configs: &Config,
     ) -> InterpreterResult<Self> {
         // only for the main component
@@ -86,7 +86,7 @@ impl InterpreterState {
         Ok(Self {
             context: Rc::clone(ctx),
             clk: 0,
-            port_map: InterpreterState::construct_port_map(&*target),
+            port_map: InterpreterState::construct_port_map(target),
             cell_map: map,
             component: target.clone(),
             sub_comp_set: Rc::new(set),
@@ -101,7 +101,7 @@ impl InterpreterState {
     pub fn init(
         ctx: &iir::ComponentCtx,
         target: &Rc<iir::Component>,
-        mems: &Option<MemoryMap>,
+        mems: &mut Option<MemoryMap>,
         qin: &ComponentQualifiedInstanceName,
         configs: &Config,
     ) -> InterpreterResult<Self> {
@@ -111,7 +111,7 @@ impl InterpreterState {
         Ok(Self {
             context: Rc::clone(ctx),
             clk: 0,
-            port_map: InterpreterState::construct_port_map(&*target),
+            port_map: InterpreterState::construct_port_map(target),
             cell_map: map,
             component: target.clone(),
             sub_comp_set: Rc::new(set),
@@ -131,7 +131,7 @@ impl InterpreterState {
         prim_name: &ir::Id,
         params: &ir::Binding,
         cell_name: &ir::Id,
-        mems: &Option<MemoryMap>,
+        mems: &mut Option<MemoryMap>,
         qin_name: &ComponentQualifiedInstanceName,
         configs: &Config,
     ) -> InterpreterResult<Box<dyn Primitive>> {
@@ -224,7 +224,7 @@ impl InterpreterState {
             "std_wire" => {
                 Box::new(combinational::StdWire::new(params, cell_qin))
             }
-            // Unsigned Comparsion
+            // Unsigned Comparison
             "std_ge" => Box::new(combinational::StdGe::new(params, cell_qin)),
             "std_le" => Box::new(combinational::StdLe::new(params, cell_qin)),
             "std_lt" => Box::new(combinational::StdLt::new(params, cell_qin)),
@@ -257,64 +257,159 @@ impl InterpreterState {
             }
             "std_pad" => Box::new(combinational::StdPad::new(params, cell_qin)),
             // State components
-            "std_reg" => Box::new(stateful::StdReg::new(params, cell_qin)),
+            "std_reg" => Box::new(stateful::mem::StdReg::new(params, cell_qin)),
             "std_mem_d1" => {
-                let mut prim = Box::new(stateful::StdMemD1::new(
-                    params,
-                    cell_qin,
-                    configs.allow_invalid_memory_access,
-                ));
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
 
-                let init = mems.as_ref().and_then(|x| x.get(cell_name));
-
-                if let Some(vals) = init {
-                    prim.initialize_memory(vals)?;
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::StdMemD1::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::StdMemD1::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
                 }
-                prim
             }
             "std_mem_d2" => {
-                let mut prim = Box::new(stateful::StdMemD2::new(
-                    params,
-                    cell_qin,
-                    configs.allow_invalid_memory_access,
-                ));
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
 
-                let init = mems.as_ref().and_then(|x| x.get(cell_name));
-
-                if let Some(vals) = init {
-                    prim.initialize_memory(vals)?;
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::StdMemD2::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::StdMemD2::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
                 }
-                prim
             }
             "std_mem_d3" => {
-                let mut prim = Box::new(stateful::StdMemD3::new(
-                    params,
-                    cell_qin,
-                    configs.allow_invalid_memory_access,
-                ));
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
 
-                let init = mems.as_ref().and_then(|x| x.get(cell_name));
-
-                if let Some(vals) = init {
-                    prim.initialize_memory(vals)?;
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::StdMemD3::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::StdMemD3::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
                 }
-                prim
             }
             "std_mem_d4" => {
-                let mut prim = Box::new(stateful::StdMemD4::new(
-                    params,
-                    cell_qin,
-                    configs.allow_invalid_memory_access,
-                ));
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
 
-                let init = mems.as_ref().and_then(|x| x.get(cell_name));
-
-                if let Some(vals) = init {
-                    prim.initialize_memory(vals)?;
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::StdMemD4::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::StdMemD4::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
                 }
-                prim
             }
+            "seq_mem_d1" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
 
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::SeqMemD1::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::SeqMemD1::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
+            "seq_mem_d2" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::SeqMemD2::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::SeqMemD2::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
+            "seq_mem_d3" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::SeqMemD3::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::SeqMemD3::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
+            "seq_mem_d4" => {
+                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+
+                match init {
+                    Some(vals) => {
+                        Box::new(stateful::mem::SeqMemD4::from_initial_mem(
+                            params,
+                            cell_qin,
+                            configs.allow_invalid_memory_access,
+                            vals,
+                        )?)
+                    }
+                    None => Box::new(stateful::mem::SeqMemD4::new(
+                        params,
+                        cell_qin,
+                        configs.allow_invalid_memory_access,
+                    )),
+                }
+            }
             // Unsynthesizeable operators
             "std_unsyn_mult" => {
                 Box::new(combinational::StdUnsynMult::new(params, cell_qin))
@@ -335,7 +430,11 @@ impl InterpreterState {
                 Box::new(combinational::StdUnsynSmod::new(params, cell_qin))
             }
 
-            p => return Err(InterpreterError::UnknownPrimitive(p.to_string())),
+            p => {
+                return Err(
+                    InterpreterError::UnknownPrimitive(p.to_string()).into()
+                )
+            }
         })
     }
 
@@ -344,7 +443,7 @@ impl InterpreterState {
     fn construct_cell_map(
         comp: &Rc<iir::Component>,
         ctx: &iir::ComponentCtx,
-        mems: &Option<MemoryMap>,
+        mems: &mut Option<MemoryMap>,
         qin_name: &ComponentQualifiedInstanceName,
         configs: &Config,
     ) -> InterpreterResult<(PrimitiveMap, HashSet<ConstCell>)> {
@@ -376,7 +475,8 @@ impl InterpreterState {
                         ctx.iter().find(|x| x.name == name).unwrap();
                     let qin = qin_name
                         .new_extend(InstanceName::new(inner_comp, cl.name()));
-                    let env = Self::init(ctx, inner_comp, mems, &qin, configs)?;
+                    let env =
+                        Self::init(ctx, inner_comp, &mut None, &qin, configs)?;
                     let comp_interp: Box<dyn Primitive> =
                         Box::new(ComponentInterpreter::from_component(
                             inner_comp, env, qin,
@@ -586,7 +686,8 @@ impl InterpreterState {
                     return Err(InterpreterError::InvalidBoolCast(
                         (can.0, can.1),
                         p.borrow().width,
-                    ));
+                    )
+                    .into());
                 } else {
                     val.as_bool()
                 }

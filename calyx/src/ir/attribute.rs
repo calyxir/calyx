@@ -1,5 +1,5 @@
 use linked_hash_map::LinkedHashMap;
-use std::{convert::TryFrom, ops::Index};
+use std::{convert::TryFrom, ops::Index, rc::Rc};
 
 use crate::errors::{CalyxResult, Span, WithPos};
 
@@ -9,7 +9,7 @@ pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
     pub(super) attrs: LinkedHashMap<String, u64>,
     /// Source location information for the item
-    span: Option<Span>,
+    span: Option<Rc<Span>>,
 }
 
 impl Default for Attributes {
@@ -40,7 +40,7 @@ impl TryFrom<Vec<(String, u64)>> for Attributes {
 }
 
 impl WithPos for Attributes {
-    fn copy_span(&self) -> Option<Span> {
+    fn copy_span(&self) -> Option<Rc<Span>> {
         self.span.clone()
     }
 }
@@ -48,10 +48,10 @@ impl WithPos for Attributes {
 /// Structs that can return an [`Attributes`] instance.
 pub trait GetAttributes {
     /// Returns an [`Attributes`] instance
-    fn get_attributes(&self) -> Option<&Attributes>;
+    fn get_attributes(&self) -> &Attributes;
 
     /// Returns a mutable [`Attributes`] instance
-    fn get_mut_attributes(&mut self) -> Option<&mut Attributes>;
+    fn get_mut_attributes(&mut self) -> &mut Attributes;
 }
 
 impl Attributes {
@@ -98,15 +98,15 @@ impl Attributes {
     }
 
     /// Set the span information
-    pub fn add_span(mut self, span: Span) -> Self {
+    pub fn add_span(mut self, span: Rc<Span>) -> Self {
         self.span = Some(span);
         self
     }
 }
 
 impl<T: GetAttributes> WithPos for T {
-    fn copy_span(&self) -> Option<Span> {
-        self.get_attributes().and_then(|attrs| attrs.copy_span())
+    fn copy_span(&self) -> Option<Rc<Span>> {
+        self.get_attributes().copy_span()
     }
 }
 
@@ -117,7 +117,7 @@ where
     type Output = u64;
 
     fn index(&self, key: &S) -> &u64 {
-        self.get(&key)
+        self.get(key)
             .unwrap_or_else(|| panic!("No key `{}` in attribute map", key))
     }
 }

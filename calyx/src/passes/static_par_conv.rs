@@ -52,8 +52,8 @@ impl Named for StaticParConv {
 // and the 5 in shorter can be paired with the 5 in longer (@ index 2).
 // A consequence of this is that vec should always be the same length as shorter.
 fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
-    let mut long_iter = (*longer).stmts.iter();
-    let mut short_iter = (*shorter).stmts.iter();
+    let mut long_iter = longer.stmts.iter();
+    let mut short_iter = shorter.stmts.iter();
 
     let mut long_val = long_iter.next();
     let mut short_val = short_iter.next();

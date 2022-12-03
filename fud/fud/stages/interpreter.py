@@ -8,6 +8,14 @@ from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.utils import shell, TmpDir, unwrap_or, transparent_shell
 from fud import config as cfg
+from enum import Enum, auto
+
+
+class EvalType(Enum):
+    INTERPRETER = auto()
+    DEBUGGER = auto()
+    DATA_CONVERTER = auto()
+
 
 # A local constant used only within this file largely for organizational
 # purposes and to avoid magic strings
@@ -18,6 +26,22 @@ _DEBUGGER_TARGET = "debugger"
 class InterpreterStage(Stage):
 
     name = "interpreter"
+    eval_type = EvalType.INTERPRETER
+
+    @classmethod
+    def data_converter(cls):
+        self = cls(
+            flags="",
+            debugger_flags="",
+            desc=(
+                "convert data files for the interpreter use. ",
+                "Meant for internal interp dev use.",
+            ),
+            output_type=SourceType.Path,
+            output_name="interpreter-data",
+        )
+        self.eval_type = EvalType.DATA_CONVERTER
+        return self
 
     @classmethod
     def debugger(cls, interp_flags, debug_flags, desc):
@@ -28,6 +52,7 @@ class InterpreterStage(Stage):
             output_name=_DEBUGGER_TARGET,
             output_type=SourceType.Terminal,
         )
+        self.eval_type = EvalType.DEBUGGER
         self._no_spinner = True
         return self
 
@@ -54,7 +79,13 @@ class InterpreterStage(Stage):
         """
         Am I a debugger?
         """
-        return self.target_state == _DEBUGGER_TARGET
+        return self.eval_type == EvalType.DEBUGGER
+
+    def _is_data_converter(self):
+        """
+        Am I the data_converter
+        """
+        return self.eval_type == EvalType.DATA_CONVERTER
 
     def _define_steps(self, input_data, builder, config):
 
@@ -101,6 +132,16 @@ class InterpreterStage(Stage):
                 sjson.load(json_path, use_decimal=True),
                 round_float_to_fixed,
             )
+
+        @builder.step()
+        def output_data(
+            tmpdir: SourceType.Directory,
+        ) -> SourceType.Path:
+            """
+            Output converted data for the interpreter-data target
+            """
+            path = Path(tmpdir.name) / _FILE_NAME
+            return path
 
         @builder.step(description=cmd)
         def interpret(
@@ -153,6 +194,12 @@ class InterpreterStage(Stage):
             convert_json_to_interp_json(
                 tmpdir, Source(Path(data_path), SourceType.Path)
             )
+
+        if self._is_data_converter():
+            if data_path is not None:
+                return output_data(tmpdir)
+            else:
+                raise ValueError("verilog.data must be provided")
 
         if self._is_debugger():
             debug(input_data, tmpdir)
@@ -236,15 +283,16 @@ def parse_from_json(output_data_str, original_data_file_path):
         if isinstance(target, list):
             return [
                 parse_entry(
-                    x, (numeric_type, is_signed, (width, int_width, frac_width))
+                    x,
+                    (numeric_type, is_signed, (width, int_width, frac_width)),
                 )
                 for x in target
             ]
         elif isinstance(target, str):
             num = base64.standard_b64decode(target)
-            int_rep = int.from_bytes(num, "little", signed=is_signed)
+            int_rep = int.from_bytes(num, "little", signed=False)
 
-            if int_rep > 0 and (int_rep & (1 << (width - 1))) and is_signed:
+            if is_signed and int_rep > 0 and (int_rep & (1 << (width - 1))):
                 int_rep = -(2 ** (width - 1)) + (int_rep ^ (1 << (width - 1)))
 
             if numeric_type == "bitnum":
@@ -273,6 +321,8 @@ def parse_from_json(output_data_str, original_data_file_path):
         inner_dict_output = dict()
         for key, target in inner_dict.items():
             if orig is not None:
+                if key not in orig:
+                    continue
                 width = orig[key]["format"].get("width")
                 width = (
                     width

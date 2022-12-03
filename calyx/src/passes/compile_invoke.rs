@@ -31,6 +31,13 @@ impl Visitor for CompileInvoke {
 
         let invoke_group = builder.add_group("invoke");
 
+        if !s.ref_cells.is_empty() {
+            return Err(Error::malformed_structure(format!(
+                "Invoke statement contains ref cell. Run {} before this pass",
+                super::CompileRef::name()
+            )));
+        }
+
         // comp.go = 1'd1;
         // invoke[done] = comp.done;
         structure!(builder;

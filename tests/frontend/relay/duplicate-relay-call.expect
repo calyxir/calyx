@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component negative_2x2() -> () {
   cells {
-    ref x = std_mem_d2(32,2,2,2,2);
-    ref x1 = std_mem_d2(32,2,2,2,2);
+    ref x = seq_mem_d2(32,2,2,2,2);
+    ref x1 = seq_mem_d2(32,2,2,2,2);
     __i0 = std_reg(2);
     __j0 = std_reg(2);
     add0 = std_add(2);
@@ -20,7 +20,7 @@ component negative_2x2() -> () {
     le0 = std_le(2);
     le1 = std_le(2);
     sub0 = std_ssub(32);
-    x_read00 = std_reg(32);
+    x_read0_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -41,21 +41,22 @@ component negative_2x2() -> () {
       __j0.write_en = 1'd1;
       let1[done] = __j0.done;
     }
-    group let2<"static"=1> {
-      x_read00.in = x.read_data;
-      x_read00.write_en = 1'd1;
-      let2[done] = x_read00.done;
+    group let2<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let2[done] = x_read0_0.done;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
+      x.read_en = 1'd1;
     }
     group upd0<"static"=1> {
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
       sub0.left = const4.out;
-      sub0.right = x_read00.out;
-      x1.write_data = sub0.out;
-      upd0[done] = x1.done;
+      sub0.right = x_read0_0.out;
+      x1.in = sub0.out;
+      upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {
       __j0.write_en = 1'd1;
@@ -94,10 +95,10 @@ component negative_2x2() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d2(32, 2, 2, 2, 2);
-    @external(1) x1 = std_mem_d2(32, 2, 2, 2, 2);
+    @external x = seq_mem_d2(32, 2, 2, 2, 2);
+    @external x1 = seq_mem_d2(32, 2, 2, 2, 2);
     negative_2x2_ = negative_2x2();
-    @external(1) x2 = std_mem_d2(32, 2, 2, 2, 2);
+    @external x2 = seq_mem_d2(32, 2, 2, 2, 2);
     negative_2x2_1 = negative_2x2();
   }
   wires {

@@ -103,12 +103,14 @@ fn print_res(
             };
             Ok(())
         }
-        Err(InterpreterError::Exit)
-        | Err(InterpreterError::ReadlineError(ReadlineError::Eof)) => {
-            println!("Exiting.");
-            Ok(())
-        } // The exit command doesn't cause an error code
-        Err(e) => Err(e),
+        Err(e) => match *e {
+            InterpreterError::Exit
+            | InterpreterError::ReadlineError(ReadlineError::Eof) => {
+                println!("Exiting.");
+                Ok(())
+            }
+            _ => Err(e),
+        },
     }
 }
 
@@ -158,12 +160,12 @@ fn main() -> InterpreterResult<()> {
         .find(|&cm| cm.name == entry_point)
         .ok_or(InterpreterError::MissingMainComponent)?;
 
-    let mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
+    let mut mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
 
     let env = InterpreterState::init_top_level(
         &components,
         main_component,
-        &mems,
+        &mut mems,
         &config,
     )?;
     let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))

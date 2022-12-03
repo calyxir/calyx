@@ -1,5 +1,4 @@
 use crate::values::Value;
-use calyx::errors::Error;
 use calyx::ir::{self, Assignment, Binding, Id, Port, RRC};
 use serde::Deserialize;
 use std::cell::Ref;
@@ -52,7 +51,9 @@ impl<'a> PortAssignment<'a> {
 pub struct MemoryMap(HashMap<Id, Vec<Value>>);
 
 impl MemoryMap {
-    pub fn inflate_map(path: &Option<PathBuf>) -> Result<Option<Self>, Error> {
+    pub fn inflate_map(
+        path: &Option<PathBuf>,
+    ) -> crate::errors::InterpreterResult<Option<Self>> {
         if let Some(path) = path {
             let v = fs::read(path)?;
             let file_contents = std::str::from_utf8(&v)?;

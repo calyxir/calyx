@@ -13,7 +13,7 @@ pub type CalyxResult<T> = std::result::Result<T, Error>;
 
 /// A span of the input program.
 /// Used for reporting location-based errors.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Span {
     /// Reference to input program source.
     input: Rc<str>,
@@ -100,12 +100,12 @@ impl Span {
 /// An IR node that may contain position information.
 pub trait WithPos {
     /// Copy the span associated with this node.
-    fn copy_span(&self) -> Option<Span>;
+    fn copy_span(&self) -> Option<Rc<Span>>;
 }
 
 pub struct Error {
-    kind: ErrorKind,
-    pos: Option<Span>,
+    kind: Box<ErrorKind>,
+    pos: Option<Rc<Span>>,
     post_msg: Option<String>,
 }
 
@@ -135,7 +135,7 @@ impl Error {
 
     pub fn parse_error(err: pest_consume::Error<parser::Rule>) -> Self {
         Self {
-            kind: ErrorKind::ParseError(err),
+            kind: Box::new(ErrorKind::ParseError(err)),
             pos: None,
             post_msg: None,
         }
@@ -143,28 +143,28 @@ impl Error {
 
     pub fn reserved_name(name: ir::Id) -> Self {
         Self {
-            kind: ErrorKind::ReservedName(name),
+            kind: Box::new(ErrorKind::ReservedName(name)),
             pos: None,
             post_msg: None,
         }
     }
     pub fn malformed_control(msg: String) -> Self {
         Self {
-            kind: ErrorKind::MalformedControl(msg),
+            kind: Box::new(ErrorKind::MalformedControl(msg)),
             pos: None,
             post_msg: None,
         }
     }
     pub fn malformed_structure<S: ToString>(msg: S) -> Self {
         Self {
-            kind: ErrorKind::MalformedStructure(msg.to_string()),
+            kind: Box::new(ErrorKind::MalformedStructure(msg.to_string())),
             pos: None,
             post_msg: None,
         }
     }
     pub fn pass_assumption<S: ToString>(pass: S, msg: String) -> Self {
         Self {
-            kind: ErrorKind::PassAssumption(pass.to_string(), msg),
+            kind: Box::new(ErrorKind::PassAssumption(pass.to_string(), msg)),
             pos: None,
             post_msg: None,
         }
@@ -172,7 +172,7 @@ impl Error {
     pub fn undefined(name: ir::Id, typ: String) -> Self {
         let pos = name.copy_span();
         Self {
-            kind: ErrorKind::Undefined(name, typ),
+            kind: Box::new(ErrorKind::Undefined(name, typ)),
             pos,
             post_msg: None,
         }
@@ -180,42 +180,42 @@ impl Error {
     pub fn already_bound(name: ir::Id, typ: String) -> Self {
         let pos = name.copy_span();
         Self {
-            kind: ErrorKind::AlreadyBound(name, typ),
+            kind: Box::new(ErrorKind::AlreadyBound(name, typ)),
             pos,
             post_msg: None,
         }
     }
     pub fn unused<S: ToString>(group: ir::Id, typ: S) -> Self {
         Self {
-            kind: ErrorKind::Unused(group, typ.to_string()),
+            kind: Box::new(ErrorKind::Unused(group, typ.to_string())),
             pos: None,
             post_msg: None,
         }
     }
     pub fn papercut(msg: String) -> Self {
         Self {
-            kind: ErrorKind::Papercut(msg),
+            kind: Box::new(ErrorKind::Papercut(msg)),
             pos: None,
             post_msg: None,
         }
     }
     pub fn misc(msg: String) -> Self {
         Self {
-            kind: ErrorKind::Misc(msg),
+            kind: Box::new(ErrorKind::Misc(msg)),
             pos: None,
             post_msg: None,
         }
     }
     pub fn invalid_file(msg: String) -> Self {
         Self {
-            kind: ErrorKind::InvalidFile(msg),
+            kind: Box::new(ErrorKind::InvalidFile(msg)),
             pos: None,
             post_msg: None,
         }
     }
     pub fn write_error(msg: String) -> Self {
         Self {
-            kind: ErrorKind::WriteError(msg),
+            kind: Box::new(ErrorKind::WriteError(msg)),
             pos: None,
             post_msg: None,
         }

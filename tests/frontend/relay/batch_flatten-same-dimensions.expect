@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component batch_flatten_2x4096() -> () {
   cells {
-    ref x = std_mem_d2(32,2,4096,2,13);
-    ref x1 = std_mem_d2(32,2,4096,2,13);
+    ref x = seq_mem_d2(32,2,4096,2,13);
+    ref x1 = seq_mem_d2(32,2,4096,2,13);
     __i0 = std_reg(2);
     __j0 = std_reg(13);
     __k_0 = std_reg(13);
@@ -22,7 +22,7 @@ component batch_flatten_2x4096() -> () {
     const7 = std_const(2,1);
     le0 = std_le(2);
     le1 = std_le(13);
-    x_read00 = std_reg(32);
+    x_read0_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -48,19 +48,20 @@ component batch_flatten_2x4096() -> () {
       __j0.write_en = 1'd1;
       let2[done] = __j0.done;
     }
-    group let3<"static"=1> {
-      x_read00.in = x.read_data;
-      x_read00.write_en = 1'd1;
-      let3[done] = x_read00.done;
+    group let3<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let3[done] = x_read0_0.done;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
+      x.read_en = 1'd1;
     }
     group upd0<"static"=1> {
       x1.addr1 = __k_0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      x1.write_data = x_read00.out;
-      upd0[done] = x1.done;
+      x1.in = x_read0_0.out;
+      upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {
       __k_0.write_en = 1'd1;
@@ -108,8 +109,8 @@ component batch_flatten_2x4096() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d2(32, 2, 4096, 2, 13);
-    @external(1) x1 = std_mem_d2(32, 2, 4096, 2, 13);
+    @external x = seq_mem_d2(32, 2, 4096, 2, 13);
+    @external x1 = seq_mem_d2(32, 2, 4096, 2, 13);
     batch_flatten_2x4096_ = batch_flatten_2x4096();
   }
   wires {

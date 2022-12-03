@@ -339,7 +339,7 @@ impl Interpreter for SeqInterpreter {
                 Ok(())
             }
             SeqFsm::Done(_) => Ok(()),
-            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState.into()),
         }
     }
 
@@ -349,9 +349,11 @@ impl Interpreter for SeqInterpreter {
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         match self.internal_state {
-            SeqFsm::Iterating(_, _) => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Iterating(_, _) => {
+                Err(InterpreterError::InvalidSeqState.into())
+            }
             SeqFsm::Done(e) => Ok(e),
-            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState.into()),
         }
     }
 
@@ -381,7 +383,7 @@ impl Interpreter for SeqInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.internal_state {
-            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState.into()),
             SeqFsm::Iterating(i, _) => i.converge(),
             SeqFsm::Done(_) => {
                 if let SeqFsm::Done(env) =
@@ -410,7 +412,7 @@ impl Interpreter for SeqInterpreter {
 
     fn run(&mut self) -> InterpreterResult<()> {
         match &mut self.internal_state {
-            SeqFsm::Err => Err(InterpreterError::InvalidSeqState),
+            SeqFsm::Err => Err(InterpreterError::InvalidSeqState.into()),
             SeqFsm::Iterating(_, _) => {
                 if let SeqFsm::Iterating(i, mut idx) =
                     std::mem::take(&mut self.internal_state)
@@ -662,14 +664,14 @@ impl Interpreter for IfInterpreter {
                 Ok(())
             }
             IfFsm::Done(_) => Ok(()),
-            IfFsm::Err => Err(InterpreterError::InvalidIfState),
+            IfFsm::Err => Err(InterpreterError::InvalidIfState.into()),
         }
     }
 
     fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         match self.state {
             IfFsm::Done(e) => Ok(e),
-            _ => Err(InterpreterError::InvalidIfState),
+            _ => Err(InterpreterError::InvalidIfState.into()),
         }
     }
 
@@ -706,7 +708,7 @@ impl Interpreter for IfInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            IfFsm::Err => Err(InterpreterError::InvalidIfState),
+            IfFsm::Err => Err(InterpreterError::InvalidIfState.into()),
             IfFsm::Body(b_interp) => b_interp.converge(),
             IfFsm::ConditionPort(_) | IfFsm::Done(_) => {
                 let is_done = matches!(self.state, IfFsm::Done(_));
@@ -869,7 +871,7 @@ impl WhileInterpreter {
 impl Interpreter for WhileInterpreter {
     fn step(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            WhileFsm::Err => Err(InterpreterError::InvalidWhileState),
+            WhileFsm::Err => Err(InterpreterError::InvalidWhileState.into()),
             WhileFsm::CondWith(_) => {
                 if let WhileFsm::CondWith(mut interp) =
                     std::mem::take(&mut self.state)
@@ -916,7 +918,7 @@ impl Interpreter for WhileInterpreter {
     fn deconstruct(self) -> InterpreterResult<InterpreterState> {
         match self.state {
             WhileFsm::Done(e) => Ok(e),
-            _ => Err(InterpreterError::InvalidWhileState),
+            _ => Err(InterpreterError::InvalidWhileState.into()),
         }
     }
 
@@ -953,7 +955,7 @@ impl Interpreter for WhileInterpreter {
 
     fn converge(&mut self) -> InterpreterResult<()> {
         match &mut self.state {
-            WhileFsm::Err => Err(InterpreterError::InvalidWhileState),
+            WhileFsm::Err => Err(InterpreterError::InvalidWhileState.into()),
             WhileFsm::Body(b) => b.converge(),
             WhileFsm::CondWith(interp) => interp.converge(),
             WhileFsm::CondPort(_) | WhileFsm::Done(_) => {
@@ -1008,6 +1010,10 @@ impl InvokeInterpreter {
     ) -> Self {
         let mut assignment_vec: Vec<Assignment> = vec![];
         let comp_cell = invoke.comp.borrow();
+
+        if !invoke.ref_cells.is_empty() {
+            todo!("Interpreter does not currently support ref-cells. Please run the compile-ref pass.")
+        }
 
         //first connect the inputs (from connection -> input)
         for (input_port, connection) in &invoke.inputs {

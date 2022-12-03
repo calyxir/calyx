@@ -160,9 +160,12 @@ impl Printer {
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
 
+        let pre = if comp.is_comb { "comb " } else { "" };
+
         writeln!(
             f,
-            "component {}{}({}) -> ({}) {{",
+            "{}component {}{}({}) -> ({}) {{",
+            pre,
             comp.name.id,
             Self::format_attributes(&comp.attributes),
             Self::format_ports(&inputs),
@@ -191,15 +194,23 @@ impl Printer {
             Self::write_assignment(assign, 4, f)?;
             writeln!(f)?;
         }
-        writeln!(f, "  }}\n")?;
+        writeln!(f, "  }}")?;
 
-        // Add the control program
-        if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
-            writeln!(f, "  control {{}}")?;
-        } else {
-            writeln!(f, "  control {{")?;
-            Self::write_control(&comp.control.borrow(), 4, f)?;
-            writeln!(f, "  }}")?;
+        // Add the control program.
+        // Since the syntax doesn't allow combinational components to have a control block, the attributes will always be empty
+        match &*comp.control.borrow() {
+            ir::Control::Empty(ir::Empty { attributes })
+                if attributes.is_empty() =>
+            {
+                if !comp.is_comb {
+                    writeln!(f, "\n  control {{}}")?;
+                }
+            }
+            _ => {
+                writeln!(f, "\n  control {{")?;
+                Self::write_control(&comp.control.borrow(), 4, f)?;
+                writeln!(f, "  }}")?;
+            }
         }
 
         write!(f, "}}")
@@ -240,7 +251,7 @@ impl Printer {
                         .join(", ")
                 )
             }
-            ir::CellType::Component { name } => {
+            ir::CellType::Component { name, .. } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
                 if !cell.attributes.is_empty() {
                     write!(
@@ -468,7 +479,13 @@ impl Printer {
                 Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
-            ir::Control::Empty(_) => writeln!(f),
+            ir::Control::Empty(ir::Empty { attributes }) => {
+                if !attributes.is_empty() {
+                    writeln!(f, "{};", Self::format_at_attributes(attributes))
+                } else {
+                    writeln!(f)
+                }
+            }
         }
     }
 

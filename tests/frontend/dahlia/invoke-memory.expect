@@ -8,7 +8,7 @@ component mem_copy(length: 3) -> () {
     const0 = std_const(3,0);
     i_0 = std_reg(3);
     lt0 = std_lt(3);
-    src_read00 = std_reg(32);
+    src_read0_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -21,16 +21,16 @@ component mem_copy(length: 3) -> () {
       let0[done] = i_0.done;
     }
     group let1<"static"=2> {
-      src_read00.in = src.out;
-      src_read00.write_en = src.read_done;
-      let1[done] = src_read00.done;
+      src_read0_0.in = src.out;
+      src_read0_0.write_en = src.read_done;
+      let1[done] = src_read0_0.done;
       src.addr0 = i_0.out;
       src.read_en = 1'd1;
     }
     group upd0<"static"=1> {
       dest.addr0 = i_0.out;
       dest.write_en = 1'd1;
-      dest.in = src_read00.out;
+      dest.in = src_read0_0.out;
       upd0[done] = dest.write_done;
     }
   }

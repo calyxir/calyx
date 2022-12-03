@@ -12,6 +12,7 @@ Here is a list of all the people who have worked on Calyx:
 - Pai Li
 - Nathaniel Navarro
 - Caleb Kim
+- Andrew Butt
 
 **Previous Contributors**
 

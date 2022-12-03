@@ -4,11 +4,11 @@ import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     @external(1) a0 = seq_mem_d1(32,4,3);
-    a0_read00 = std_reg(32);
+    a0_read0_0 = std_reg(32);
     add0 = std_sadd(32);
     add1 = std_add(4);
     @external(1) b0 = seq_mem_d1(32,4,3);
-    b0_read00 = std_reg(32);
+    b0_read0_0 = std_reg(32);
     bin_read0_0 = std_reg(32);
     const0 = std_const(32,0);
     const1 = std_const(4,0);
@@ -39,17 +39,17 @@ component main() -> () {
       let1[done] = i0.done;
     }
     group let2<"static"=2> {
-      a0_read00.in = a0.out;
-      a0_read00.write_en = a0.read_done;
-      let2[done] = a0_read00.done;
+      a0_read0_0.in = a0.out;
+      a0_read0_0.write_en = a0.read_done;
+      let2[done] = a0_read0_0.done;
       a0.addr0 = slice0.out;
       slice0.in = i0.out;
       a0.read_en = 1'd1;
     }
     group let3<"static"=2> {
-      b0_read00.in = b0.out;
-      b0_read00.write_en = b0.read_done;
-      let3[done] = b0_read00.done;
+      b0_read0_0.in = b0.out;
+      b0_read0_0.write_en = b0.read_done;
+      let3[done] = b0_read0_0.done;
       b0.addr0 = slice1.out;
       slice1.in = i0.out;
       b0.read_en = 1'd1;
@@ -58,8 +58,8 @@ component main() -> () {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let4[done] = bin_read0_0.done;
-      mult_pipe0.left = a0_read00.out;
-      mult_pipe0.right = b0_read00.out;
+      mult_pipe0.left = a0_read0_0.out;
+      mult_pipe0.right = b0_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
     group let5<"static"=1> {

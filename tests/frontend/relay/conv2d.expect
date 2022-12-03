@@ -4,9 +4,9 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component conv2d_5x512x14x14() -> () {
   cells {
-    ref data = std_mem_d4(32,5,512,14,14,3,10,4,4);
-    ref weight = std_mem_d4(32,512,512,3,3,10,10,2,2);
-    ref x = std_mem_d4(32,5,512,14,14,3,10,4,4);
+    ref data = seq_mem_d4(32,5,512,14,14,3,10,4,4);
+    ref weight = seq_mem_d4(32,512,512,3,3,10,10,2,2);
+    ref x = seq_mem_d4(32,5,512,14,14,3,10,4,4);
     __b0 = std_reg(32);
     __c0 = std_reg(32);
     __dx0 = std_reg(32);
@@ -65,7 +65,7 @@ component conv2d_5x512x14x14() -> () {
     const7 = std_const(32,13);
     const8 = std_const(32,0);
     const9 = std_const(32,0);
-    data_read00 = std_reg(32);
+    data_read0_0 = std_reg(32);
     ge0 = std_ge(32);
     ge1 = std_ge(32);
     le0 = std_le(32);
@@ -94,7 +94,7 @@ component conv2d_5x512x14x14() -> () {
     slice9 = std_slice(32,10);
     sub0 = std_sub(32);
     sub1 = std_sub(32);
-    weight_read00 = std_reg(32);
+    weight_read0_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -171,10 +171,10 @@ component conv2d_5x512x14x14() -> () {
       __padded_tensor_val_0.write_en = 1'd1;
       let12[done] = __padded_tensor_val_0.done;
     }
-    group let13<"static"=1> {
-      data_read00.in = data.read_data;
-      data_read00.write_en = 1'd1;
-      let13[done] = data_read00.done;
+    group let13<"static"=2> {
+      data_read0_0.in = data.out;
+      data_read0_0.write_en = data.read_done;
+      let13[done] = data_read0_0.done;
       data.addr3 = slice3.out;
       slice3.in = sub1.out;
       sub1.left = __kernel_x_0.out;
@@ -187,11 +187,12 @@ component conv2d_5x512x14x14() -> () {
       slice1.in = __k0.out;
       data.addr0 = slice0.out;
       slice0.in = __b0.out;
+      data.read_en = 1'd1;
     }
-    group let14<"static"=1> {
-      weight_read00.in = weight.read_data;
-      weight_read00.write_en = 1'd1;
-      let14[done] = weight_read00.done;
+    group let14<"static"=2> {
+      weight_read0_0.in = weight.out;
+      weight_read0_0.write_en = weight.read_done;
+      let14[done] = weight_read0_0.done;
       weight.addr3 = slice7.out;
       slice7.in = __dx0.out;
       weight.addr2 = slice6.out;
@@ -200,13 +201,14 @@ component conv2d_5x512x14x14() -> () {
       slice5.in = __k0.out;
       weight.addr0 = slice4.out;
       slice4.in = __c0.out;
+      weight.read_en = 1'd1;
     }
     group let15<"static"=4> {
       bin_read2_0.in = mult_pipe2.out;
       bin_read2_0.write_en = mult_pipe2.done;
       let15[done] = bin_read2_0.done;
       mult_pipe2.left = __padded_tensor_val_0.out;
-      mult_pipe2.right = weight_read00.out;
+      mult_pipe2.right = weight_read0_0.out;
       mult_pipe2.go = !mult_pipe2.done ? 1'd1;
     }
     group let2<"static"=1> {
@@ -256,7 +258,7 @@ component conv2d_5x512x14x14() -> () {
     }
     group upd0<"static"=1> {
       __padded_tensor_val_0.write_en = 1'd1;
-      __padded_tensor_val_0.in = data_read00.out;
+      __padded_tensor_val_0.in = data_read0_0.out;
       upd0[done] = __padded_tensor_val_0.done;
     }
     group upd1<"static"=1> {
@@ -297,8 +299,8 @@ component conv2d_5x512x14x14() -> () {
       x.addr0 = slice8.out;
       slice8.in = __b0.out;
       x.write_en = 1'd1;
-      x.write_data = __sum_0.out;
-      upd5[done] = x.done;
+      x.in = __sum_0.out;
+      upd5[done] = x.write_done;
     }
     group upd6<"static"=1> {
       __x0.write_en = 1'd1;
@@ -401,9 +403,9 @@ component conv2d_5x512x14x14() -> () {
 
 component main() -> () {
   cells {
-    @external(1) data = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
-    @external(1) weight = std_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
-    @external(1) x = std_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external data = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
+    @external weight = seq_mem_d4(32, 512, 512, 3, 3, 10, 10, 2, 2);
+    @external x = seq_mem_d4(32, 5, 512, 14, 14, 3, 10, 4, 4);
     conv2d_5x512x14x14_ = conv2d_5x512x14x14();
   }
   wires {

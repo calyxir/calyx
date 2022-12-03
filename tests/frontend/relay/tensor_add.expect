@@ -4,9 +4,9 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component add_2x4() -> () {
   cells {
-    ref x = std_mem_d2(32,2,4,2,3);
-    ref y = std_mem_d2(32,2,4,2,3);
-    ref x1 = std_mem_d2(32,2,4,2,3);
+    ref x = seq_mem_d2(32,2,4,2,3);
+    ref y = seq_mem_d2(32,2,4,2,3);
+    ref x1 = seq_mem_d2(32,2,4,2,3);
     __i0 = std_reg(2);
     __j0 = std_reg(3);
     add0 = std_sadd(32);
@@ -20,8 +20,8 @@ component add_2x4() -> () {
     const5 = std_const(2,1);
     le0 = std_le(2);
     le1 = std_le(3);
-    x_read00 = std_reg(32);
-    y_read00 = std_reg(32);
+    x_read0_0 = std_reg(32);
+    y_read0_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -42,28 +42,30 @@ component add_2x4() -> () {
       __j0.write_en = 1'd1;
       let1[done] = __j0.done;
     }
-    group let2<"static"=1> {
-      x_read00.in = x.read_data;
-      x_read00.write_en = 1'd1;
-      let2[done] = x_read00.done;
+    group let2<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let2[done] = x_read0_0.done;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
+      x.read_en = 1'd1;
     }
-    group let3<"static"=1> {
-      y_read00.in = y.read_data;
-      y_read00.write_en = 1'd1;
-      let3[done] = y_read00.done;
+    group let3<"static"=2> {
+      y_read0_0.in = y.out;
+      y_read0_0.write_en = y.read_done;
+      let3[done] = y_read0_0.done;
       y.addr1 = __j0.out;
       y.addr0 = __i0.out;
+      y.read_en = 1'd1;
     }
     group upd0<"static"=1> {
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      add0.left = x_read00.out;
-      add0.right = y_read00.out;
-      x1.write_data = add0.out;
-      upd0[done] = x1.done;
+      add0.left = x_read0_0.out;
+      add0.right = y_read0_0.out;
+      x1.in = add0.out;
+      upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {
       __j0.write_en = 1'd1;
@@ -105,9 +107,9 @@ component add_2x4() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d2(32, 2, 4, 2, 3);
-    @external(1) y = std_mem_d2(32, 2, 4, 2, 3);
-    @external(1) x1 = std_mem_d2(32, 2, 4, 2, 3);
+    @external x = seq_mem_d2(32, 2, 4, 2, 3);
+    @external y = seq_mem_d2(32, 2, 4, 2, 3);
+    @external x1 = seq_mem_d2(32, 2, 4, 2, 3);
     add_2x4_ = add_2x4();
   }
   wires {

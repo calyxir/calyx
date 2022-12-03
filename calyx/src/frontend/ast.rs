@@ -55,10 +55,16 @@ pub struct ComponentDef {
     pub control: Control,
     /// Attributes attached to this component
     pub attributes: ir::Attributes,
+    /// True iff this is a combinational component
+    pub is_comb: bool,
 }
 
 impl ComponentDef {
-    pub fn new<S>(name: S, signature: Vec<ir::PortDef<u64>>) -> Self
+    pub fn new<S>(
+        name: S,
+        is_comb: bool,
+        signature: Vec<ir::PortDef<u64>>,
+    ) -> Self
     where
         S: Into<ir::Id>,
     {
@@ -68,8 +74,9 @@ impl ComponentDef {
             cells: Vec::new(),
             groups: Vec::new(),
             continuous_assignments: Vec::new(),
-            control: Control::Empty {},
+            control: Control::empty(),
             attributes: ir::Attributes::default(),
+            is_comb,
         }
     }
 }
@@ -292,5 +299,16 @@ pub enum Control {
         ref_cells: Vec<(ir::Id, ir::Id)>,
     },
     /// Control statement that does nothing.
-    Empty {},
+    Empty {
+        /// Attributes
+        attributes: ir::Attributes,
+    },
+}
+
+impl Control {
+    pub fn empty() -> Control {
+        Control::Empty {
+            attributes: ir::Attributes::default(),
+        }
+    }
 }

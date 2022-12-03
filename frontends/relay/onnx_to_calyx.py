@@ -13,6 +13,9 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
     the corresponding parameter values. `input` is the data being
     classified, and `input_name` is its name. `params` are the
     parameters from the ONNX model."""
+
+    input_name = relay_visitor.rename_relay_var(input_name)
+
     # Get the memories from the Calyx program.
     data = relay_visitor.get_program_dat_memories(relay_ir)
 
@@ -34,14 +37,8 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
     # Write the actual parameter values.
     for name, value in params.items():
         # The exact same operations are done on names of variables in relay_visitor.py
-        name_hint = name.replace(".", "_")
-        name_hint = name_hint.replace("/", "_")
-
-        if (name_hint.isdigit()):
-            name_hint = "var_" + name_hint
-        if (name_hint in ["input"]):
-            name_hint = "_" + name_hint
-        data[name_hint] = {
+        new_name = relay_visitor.rename_relay_var(name)
+        data[new_name] = {
             "data": value.asnumpy().tolist(),
             "format": {
                 "numeric_type": "fixed_point",
@@ -55,15 +52,16 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
         sjson.dump(data, file, sort_keys=True, indent=2)
 
 
-def write_calyx(relay_ir, filename: str):
+def write_calyx(relay_ir, filename: str, save_mem=True):
     """Writes the Calyx program lowered
     from `relay_ir` to `filename`."""
-    (dahlia_defs, prog) = relay_visitor.emit_calyx(relay_ir)
+    (dahlia_defs, prog) = relay_visitor.emit_calyx(relay_ir, save_mem)
     with open(filename, "w") as file:
         imports = [
             Import("primitives/core.futil"),
             Import("primitives/binary_operators.futil"),
             Import("primitives/math.futil"),
+            Import("primitives/memories.futil"),
         ]
         for imp in imports:
             file.writelines(imp.doc())
@@ -77,7 +75,7 @@ def write_relay(relay_ir, filename: str):
         file.writelines(str(relay_ir))
 
 
-def run_net(net_name: str, input, onnx_model_path: str, output: str):
+def run_net(net_name: str, input, onnx_model_path: str, output: str, save_mem=True):
     """Runs the net with name `net_name` to classify the `input`
     with the ONNX model at `onnx_model_path`.
     - If `output` is "calyx":
@@ -90,12 +88,13 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
     input_name = onnx_model.graph.input[0].name
 
     shape_dict = {input_name: data.shape}
-    mod, params = relay.frontend.from_onnx(onnx_model, shape_dict)
+    (mod, params) = relay.frontend.from_onnx(onnx_model, shape_dict)
 
     # Assumes the Relay IR is not already in A-normal Form.
     # SimplifyInference() gets rid of dropout() calls
     transforms = tvm.transform.Sequential(
-        [relay.transform.SimplifyInference(), relay.transform.ToANormalForm()])
+        [relay.transform.SimplifyInference(), relay.transform.ToANormalForm()]
+    )
     mod = transforms(mod)
 
     output = {"tvm", "calyx", "relay"} if output == "all" else {output}
@@ -109,7 +108,7 @@ def run_net(net_name: str, input, onnx_model_path: str, output: str):
         write_data(mod, data, input_name, params, data_name)
 
         print(f"...writing the Calyx program to: {calyx_name}")
-        write_calyx(mod, calyx_name)
+        write_calyx(mod, calyx_name, save_mem)
     if "relay" in output:
         relay_name = f"{net_name}.relay"
         print(f"...writing the Relay IR to: {relay_name}")
@@ -151,6 +150,13 @@ if __name__ == "__main__":
         choices={"calyx", "tvm", "relay", "all"},
         help="Choices: `calyx`, `tvm`, `relay`, or `all` the above.",
     )
+    parser.add_argument(
+        "-s",
+        "--save-mem",
+        required=False,
+        help="boolean arguement to determine whether to save the memory you use.  \
+        Default value is set to True ",
+    )
 
     args = vars(parser.parse_args())
 
@@ -170,5 +176,9 @@ if __name__ == "__main__":
     # Determines which output you want.
     output = args["output"]
 
+    # Determines whether you want to save memory or not since save_mem is
+    # an optional argument, we want default setting of save_mem to be true
+    save_mem = args["save_mem"] is None or args["save_mem"] == "True" or args["save_mem"] == "true"
+
     # Runs the net and prints the classification output.
-    run_net(net_name, data, onnx_model_path, output)
+    run_net(net_name, data, onnx_model_path, output, save_mem)

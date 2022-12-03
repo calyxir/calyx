@@ -14,7 +14,7 @@ component multiply_1(x1: 32) -> () {
     const2 = std_const(1,1);
     le0 = std_le(1);
     mult_pipe0 = std_smult_pipe(32);
-    x_read00 = std_reg(32);
+    x_read0_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -27,9 +27,9 @@ component multiply_1(x1: 32) -> () {
       let0[done] = __i0.done;
     }
     group let1<"static"=2> {
-      x_read00.in = x.out;
-      x_read00.write_en = x.read_done;
-      let1[done] = x_read00.done;
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let1[done] = x_read0_0.done;
       x.addr0 = __i0.out;
       x.read_en = 1'd1;
     }
@@ -37,7 +37,7 @@ component multiply_1(x1: 32) -> () {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let2[done] = bin_read0_0.done;
-      mult_pipe0.left = x_read00.out;
+      mult_pipe0.left = x_read0_0.out;
       mult_pipe0.right = x1;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
@@ -72,9 +72,9 @@ component multiply_1(x1: 32) -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d1(32, 1, 1);
+    @external x = seq_mem_d1(32, 1, 1);
     x1 = std_const(32, 0);
-    @external(1) x2 = seq_mem_d1(32, 1, 1);
+    @external x2 = seq_mem_d1(32, 1, 1);
     multiply_1_ = multiply_1();
   }
   wires {

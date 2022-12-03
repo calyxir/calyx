@@ -163,7 +163,7 @@ fn test_std_div_pipe() {
 
 #[test]
 fn test_std_reg_imval() {
-    let mut reg1 = stfl::StdReg::from_constants(6, "".into());
+    let mut reg1 = stfl::mem::StdReg::from_constants(6, "".into());
     //see that unitialized register, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -222,7 +222,7 @@ fn test_std_reg_imval() {
 
 #[test]
 fn test_std_mem_d1() {
-    let mut mem = stfl::StdMemD1::from_constants(6, 10, 4, "".into());
+    let mut mem = stfl::mem::StdMemD1::from_constants(6, 10, 4, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -239,8 +239,8 @@ fn test_std_mem_d1() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have low done
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
@@ -282,14 +282,14 @@ fn test_std_mem_d1() {
     let out = output_vals.next().unwrap();
     let rd = out.1;
     assert_eq!(rd.as_u64(), 16);
-    let mut output_vals = mem.do_tick().unwrap().into_iter();
-    let d = output_vals.next().unwrap().1;
+    let output_vals = mem.do_tick().unwrap();
+    let d = &output_vals[1].1;
     assert_eq!(d.as_u64(), 0);
 }
 
 #[test]
 fn test_std_mem_d2() {
-    let mut mem = stfl::StdMemD2::from_constants(6, 4, 4, 2, 2, "".into());
+    let mut mem = stfl::mem::StdMemD2::from_constants(6, 4, 4, 2, 2, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -308,8 +308,8 @@ fn test_std_mem_d2() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have low done
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1; //done signal
     assert_eq!(d.as_u64(), 0);
     //now have write_en high and see output of execute is 0, and output of write is 16
     port_bindings![binds;
@@ -355,7 +355,7 @@ fn test_std_mem_d2() {
 #[test]
 fn test_std_mem_d3() {
     let mut mem =
-        stfl::StdMemD3::from_constants(6, 4, 4, 4, 2, 2, 2, "".into());
+        stfl::mem::StdMemD3::from_constants(6, 4, 4, 4, 2, 2, 2, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -375,8 +375,8 @@ fn test_std_mem_d3() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have done as 0
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1; //done;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16
@@ -425,8 +425,18 @@ fn test_std_mem_d3() {
 
 #[test]
 fn test_std_mem_d4() {
-    let mut mem =
-        stfl::StdMemD4::from_constants(6, 4, 4, 4, 4, 2, 2, 2, 2, "".into());
+    let mut mem = stfl::mem::StdMemD4::from_constants(
+        6,
+        4,
+        4,
+        4,
+        4,
+        2,
+        2,
+        2,
+        2,
+        "".into(),
+    );
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -447,8 +457,8 @@ fn test_std_mem_d4() {
     assert_eq!(rd.as_u64(), 0);
     assert_eq!(out.0, "read_data");
     let output_vals = mem.do_tick().unwrap(); //this should have low done
-    assert_eq!(output_vals.len(), 1);
-    let d = output_vals.into_iter().next().unwrap().1;
+    assert_eq!(output_vals.len(), 2);
+    let d = &output_vals[1].1;
     assert_eq!(d.as_u64(), 0);
 
     //now have write_en high and see output of execute is 0, and output of write is 16

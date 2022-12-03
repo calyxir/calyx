@@ -14,7 +14,7 @@ component negative_4() -> () {
     const3 = std_const(3,1);
     le0 = std_le(3);
     sub0 = std_ssub(32);
-    x_read00 = std_reg(32);
+    x_read0_0 = std_reg(32);
   }
   wires {
     comb group cond0 {
@@ -27,9 +27,9 @@ component negative_4() -> () {
       let0[done] = __i0.done;
     }
     group let1<"static"=2> {
-      x_read00.in = x.out;
-      x_read00.write_en = x.read_done;
-      let1[done] = x_read00.done;
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let1[done] = x_read0_0.done;
       x.addr0 = __i0.out;
       x.read_en = 1'd1;
     }
@@ -37,7 +37,7 @@ component negative_4() -> () {
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
       sub0.left = const2.out;
-      sub0.right = x_read00.out;
+      sub0.right = x_read0_0.out;
       x1.in = sub0.out;
       upd0[done] = x1.write_done;
     }
@@ -65,8 +65,8 @@ component negative_4() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d1(32, 4, 3);
-    @external(1) x1 = seq_mem_d1(32, 4, 3);
+    @external x = seq_mem_d1(32, 4, 3);
+    @external x1 = seq_mem_d1(32, 4, 3);
     negative_4_ = negative_4();
   }
   wires {

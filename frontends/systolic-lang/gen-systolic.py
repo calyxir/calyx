@@ -1,42 +1,49 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import calyx.builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
 # Name of the ouput array
-OUT_MEM = py_ast.CompVar("out_mem")
+OUT_MEM = "out_mem"
 PE_NAME = "mac_pe"
 
-# Eventually, PE_DEF will be included a separate `.futil` file.
-PE_DEF = """
-component mac_pe(top: 32, left: 32) -> (out: 32) {
-  cells {
-    // Storage
-    acc = std_reg(32);
-    // Computation
-    add = std_add(32);
-    mul = std_mult_pipe(32);
-  }
-  wires {
-    group do_add {
-      add.left = acc.out;
-      add.right = mul.out;
-      acc.in = add.out;
-      acc.write_en = 1'd1;
-      do_add[done] = acc.done;
-    }
-    out = acc.out;
-  }
-  control {
-    seq {
-        invoke mul(left = top, right = left)();
-        do_add;
-    }
-  }
-}"""
+
+def pe(prog: cb.Builder):
+    comp = prog.component(PE_NAME)
+    comp.input("top", BITWIDTH)
+    comp.input("left", BITWIDTH)
+    comp.output("out", BITWIDTH)
+    acc = comp.reg("acc", BITWIDTH)
+    add = comp.add("add", BITWIDTH)
+    mul = comp.cell("mul", py_ast.Stdlib().op("mult_pipe", BITWIDTH, False))
+
+    with comp.group("do_add") as do_add:
+        add.left = acc.out
+        add.right = mul.out
+        acc.in_ = add.out
+        acc.write_en = 1
+        do_add.done = acc.done
+
+    this = comp.this()
+    with comp.continuous:
+        this.out = acc.out
+
+    comp.control += [
+        py_ast.Invoke(
+            py_ast.CompVar("mul"),
+            [
+                ("left", py_ast.ThisPort(py_ast.CompVar("top"))),
+                ("right", py_ast.ThisPort(py_ast.CompVar("left"))),
+            ],
+            [],
+        ),
+        do_add,
+    ]
+
 
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
@@ -54,7 +61,7 @@ NAME_SCHEME = {
 }
 
 
-def instantiate_indexor(prefix, width):
+def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuilder:
     """
     Instantiate an indexor for accessing memory with name `prefix`.
     Generates structure to initialize and update the indexor.
@@ -65,56 +72,31 @@ def instantiate_indexor(prefix, width):
 
     Returns (cells, structure)
     """
-    stdlib = py_ast.Stdlib()
-    name = py_ast.CompVar(NAME_SCHEME["index name"].format(prefix=prefix))
-    add_name = py_ast.CompVar(f"{prefix}_add")
-    cells = [
-        py_ast.Cell(name, stdlib.register(width)),
-        py_ast.Cell(add_name, stdlib.op("add", width, signed=False)),
-    ]
+    name = NAME_SCHEME["index name"].format(prefix=prefix)
 
-    init_name = py_ast.CompVar(NAME_SCHEME["index init"].format(prefix=prefix))
-    init_group = py_ast.Group(
-        init_name,
-        connections=[
-            py_ast.Connect(
-                py_ast.CompPort(name, "in"), py_ast.ConstantPort(width, 2 ** width - 1)
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(name, "write_en"), py_ast.ConstantPort(1, 1)
-            ),
-            py_ast.Connect(
-                py_ast.HolePort(init_name, "done"), py_ast.CompPort(name, "done")
-            ),
-        ],
-    )
+    reg = comp.reg(name, width)
+    add = comp.add(f"{prefix}_add", width)
 
-    upd_name = py_ast.CompVar(NAME_SCHEME["index update"].format(prefix=prefix))
-    upd_group = py_ast.Group(
-        upd_name,
-        connections=[
-            py_ast.Connect(
-                py_ast.CompPort(add_name, "left"), py_ast.ConstantPort(width, 1)
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(add_name, "right"), py_ast.CompPort(name, "out")
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(name, "in"), py_ast.CompPort(add_name, "out")
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(name, "write_en"), py_ast.ConstantPort(1, 1)
-            ),
-            py_ast.Connect(
-                py_ast.HolePort(upd_name, "done"), py_ast.CompPort(name, "done")
-            ),
-        ],
-    )
+    init_name = NAME_SCHEME["index init"].format(prefix=prefix)
+    with comp.group(init_name) as init:
+        # Initialize the indexor to its maximum value.
+        reg.in_ = 2**width - 1
+        reg.write_en = 1
+        init.done = reg.done
 
-    return (cells, [init_group, upd_group])
+    upd_name = NAME_SCHEME["index update"].format(prefix=prefix)
+    with comp.group(upd_name) as upd:
+        # Increment the indexor.
+        add.left = 1
+        add.right = reg.out
+        reg.in_ = add.out
+        reg.write_en = 1
+        upd.done = reg.done
+
+    return reg
 
 
-def instantiate_memory(top_or_left, idx, size):
+def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     """
     Instantiates:
     - top memory
@@ -129,141 +111,79 @@ def instantiate_memory(top_or_left, idx, size):
         name = f"l{idx}"
         target_reg = f"left_{idx}_0"
     else:
-        raise f"Invalid top_or_left: {top_or_left}"
-
-    var_name = py_ast.CompVar(f"{name}")
-    idx_name = py_ast.CompVar(NAME_SCHEME["index name"].format(prefix=name))
-    group_name = py_ast.CompVar(NAME_SCHEME["memory move"].format(prefix=name))
-    target_reg = py_ast.CompVar(target_reg)
-    structure = py_ast.Group(
-        group_name,
-        connections=[
-            py_ast.Connect(
-                py_ast.CompPort(var_name, "addr0"), py_ast.CompPort(idx_name, "out")
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(target_reg, "in"),
-                py_ast.CompPort(var_name, "read_data"),                
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(target_reg, "write_en"), py_ast.ConstantPort(1, 1)
-            ),
-            py_ast.Connect(
-                py_ast.HolePort(group_name, "done"), py_ast.CompPort(target_reg, "done")
-            ),
-        ],
-    )
+        raise Exception(f"Invalid top_or_left: {top_or_left}")
 
     idx_width = bits_needed(size)
-    # Instantiate the indexor
-    (idx_cells, idx_structure) = instantiate_indexor(name, idx_width)
-    idx_structure.append(structure)
     # Instantiate the memory
-    idx_cells.append(
-        py_ast.Cell(
-            var_name,
-            py_ast.Stdlib().mem_d1(BITWIDTH, size, idx_width),
-            is_external=True,
-        )
+    mem = comp.cell(
+        name,
+        py_ast.Stdlib().mem_d1(BITWIDTH, size, idx_width),
+        is_external=True,
     )
-    return (idx_cells, idx_structure)
+    # Instantiate the indexing register
+    idx = instantiate_indexor(comp, name, idx_width)
+    # Register to save the value from the memory. Defined by [[instantiate_pe]].
+    target = comp.get_cell(target_reg)
+    group_name = NAME_SCHEME["memory move"].format(prefix=name)
+    with comp.group(group_name) as move:
+        mem.addr0 = idx.out
+        target.in_ = mem.read_data
+        target.write_en = 1
+        move.done = target.done
 
 
-def instantiate_pe(row, col, right_edge=False, down_edge=False):
+def instantiate_pe(comp: cb.ComponentBuilder, row: int, col: int):
     """
     Instantiate the PE and all the registers connected to it.
     """
     # Add all the required cells.
-    stdlib = py_ast.Stdlib()
-    cells = [
-        py_ast.Cell(py_ast.CompVar(f"pe_{row}_{col}"), py_ast.CompInst(PE_NAME, [])),
-        py_ast.Cell(py_ast.CompVar(f"top_{row}_{col}"), stdlib.register(BITWIDTH)),
-        py_ast.Cell(py_ast.CompVar(f"left_{row}_{col}"), stdlib.register(BITWIDTH)),
-    ]
-    return cells
+    comp.cell(f"pe_{row}_{col}", py_ast.CompInst(PE_NAME, []))
+    comp.reg(f"top_{row}_{col}", BITWIDTH)
+    comp.reg(f"left_{row}_{col}", BITWIDTH)
 
 
-def instantiate_data_move(row, col, right_edge, down_edge):
+def instantiate_data_move(
+    comp: cb.ComponentBuilder, row: int, col: int, right_edge: bool, down_edge: bool
+):
     """
     Generates groups for "data movers" which are groups that move data
     from the `write` register of the PE at (row, col) to the read register
     of the PEs at (row+1, col) and (row, col+1)
     """
     name = f"pe_{row}_{col}"
-    structures = []
 
     if not right_edge:
-        group_name = py_ast.CompVar(NAME_SCHEME["register move right"].format(pe=name))
-        src_reg = py_ast.CompVar(f"left_{row}_{col}")
-        dst_reg = py_ast.CompVar(f"left_{row}_{col + 1}")
-        mover = py_ast.Group(
-            group_name,
-            connections=[
-                py_ast.Connect(
-                    py_ast.CompPort(dst_reg, "in"), py_ast.CompPort(src_reg, "out")
-                ),
-                py_ast.Connect(
-                    py_ast.CompPort(dst_reg, "write_en"), py_ast.ConstantPort(1, 1)
-                ),
-                py_ast.Connect(
-                    py_ast.HolePort(group_name, "done"),
-                    py_ast.CompPort(dst_reg, "done"),
-                ),
-            ],
-        )
-        structures.append(mover)
+        group_name = NAME_SCHEME["register move right"].format(pe=name)
+        src_reg = comp.get_cell(f"left_{row}_{col}")
+        dst_reg = comp.get_cell(f"left_{row}_{col + 1}")
+        with comp.group(group_name) as move:
+            dst_reg.in_ = src_reg.out
+            dst_reg.write_en = 1
+            move.done = dst_reg.done
 
     if not down_edge:
-        group_name = py_ast.CompVar(NAME_SCHEME["register move down"].format(pe=name))
-        src_reg = py_ast.CompVar(f"top_{row}_{col}")
-        dst_reg = py_ast.CompVar(f"top_{row + 1}_{col}")
-        mover = py_ast.Group(
-            group_name,
-            connections=[
-                py_ast.Connect(
-                    py_ast.CompPort(dst_reg, "in"), py_ast.CompPort(src_reg, "out")
-                ),
-                py_ast.Connect(
-                    py_ast.CompPort(dst_reg, "write_en"), py_ast.ConstantPort(1, 1)
-                ),
-                py_ast.Connect(
-                    py_ast.HolePort(group_name, "done"),
-                    py_ast.CompPort(dst_reg, "done"),
-                ),
-            ],
-        )
-        structures.append(mover)
-
-    return structures
+        group_name = NAME_SCHEME["register move down"].format(pe=name)
+        src_reg = comp.get_cell(f"top_{row}_{col}")
+        dst_reg = comp.get_cell(f"top_{row + 1}_{col}")
+        with comp.group(group_name) as move:
+            dst_reg.in_ = src_reg.out
+            dst_reg.write_en = 1
+            move.done = dst_reg.done
 
 
-def instantiate_output_move(row, col, cols, idx_bitwidth):
+def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
     """
     Generates groups to move the final value from a PE into the output array.
     """
-    group_name = py_ast.CompVar(
-        NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}")
-    )
+    group_name = NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}")
     idx = row * cols + col
-    pe = py_ast.CompVar(f"pe_{row}_{col}")
-    return py_ast.Group(
-        group_name,
-        connections=[
-            py_ast.Connect(
-                py_ast.CompPort(OUT_MEM, "addr0"),
-                py_ast.ConstantPort(idx_bitwidth, idx),
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(OUT_MEM, "write_data"), py_ast.CompPort(pe, "out")
-            ),
-            py_ast.Connect(
-                py_ast.CompPort(OUT_MEM, "write_en"), py_ast.ConstantPort(1, 1)
-            ),
-            py_ast.Connect(
-                py_ast.HolePort(group_name, "done"), py_ast.CompPort(OUT_MEM, "done")
-            ),
-        ],
-    )
+    pe = comp.get_cell(f"pe_{row}_{col}")
+    out = comp.get_cell(OUT_MEM)
+    with comp.group(group_name) as move:
+        out.addr0 = idx
+        out.write_data = pe.out
+        out.write_en = 1
+        move.done = out.done
 
 
 def generate_schedule(top_length, top_depth, left_length, left_depth):
@@ -271,7 +191,7 @@ def generate_schedule(top_length, top_depth, left_length, left_depth):
     Generate the *schedule* for each PE and data mover. A schedule is the
     timesteps when a PE needs to compute.
 
-    Returns a schedule array `sch` of size `top_length`x`left_length` array
+    Returns a schedule array `sch` of size `top_length`*`left_length` array
     such that `sch[i][j]` returns the timesteps when PE_{i}{j} is active.
 
     Timesteps start from 0.
@@ -331,8 +251,8 @@ def row_data_mover_at(row, col):
     """
     if row == 0:
         return NAME_SCHEME["memory move"].format(prefix=f"t{col}")
-    else:
-        return NAME_SCHEME["register move down"].format(pe=f"pe_{row - 1}_{col}")
+
+    return NAME_SCHEME["register move down"].format(pe=f"pe_{row - 1}_{col}")
 
 
 def col_data_mover_at(row, col):
@@ -342,8 +262,8 @@ def col_data_mover_at(row, col):
     """
     if col == 0:
         return NAME_SCHEME["memory move"].format(prefix=f"l{row}")
-    else:
-        return NAME_SCHEME["register move right"].format(pe=f"pe_{row}_{col - 1}")
+
+    return NAME_SCHEME["register move right"].format(pe=f"pe_{row}_{col - 1}")
 
 
 def index_update_at(row, col):
@@ -377,7 +297,7 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     control = []
 
     # Initialize all memories.
-    init_indices = [
+    init_indices: list[py_ast.Control] = [
         py_ast.Enable(NAME_SCHEME["index init"].format(prefix=f"t{idx}"))
         for idx in range(top_length)
     ]
@@ -409,7 +329,9 @@ def generate_control(top_length, top_depth, left_length, left_depth):
 
     for (idx, elements) in enumerate(sch):
         # Move all the requisite data.
-        move = [py_ast.Enable(row_data_mover_at(r, c)) for (r, c) in elements]
+        move: list[py_ast.Control] = [
+            py_ast.Enable(row_data_mover_at(r, c)) for (r, c) in elements
+        ]
         move.extend([py_ast.Enable(col_data_mover_at(r, c)) for (r, c) in elements])
         control.append(py_ast.ParComp(move))
 
@@ -458,7 +380,9 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     return py_ast.SeqComp(stmts=control), source_map
 
 
-def create_systolic_array(top_length, top_depth, left_length, left_depth):
+def create_systolic_array(
+    prog: cb.Builder, top_length, top_depth, left_length, left_depth
+):
     """
     top_length: Number of PEs in each row.
     top_depth: Number of elements processed by each PE in a row.
@@ -471,67 +395,46 @@ def create_systolic_array(top_length, top_depth, left_length, left_depth):
         f"{top_length}x{top_depth} and {left_depth}x{left_length}"
     )
 
-    cells = []
-    wires = []
+    main = prog.component("main")
+
+    for row in range(left_length):
+        for col in range(top_length):
+            # Instantiate the PEs and surronding registers
+            instantiate_pe(main, row, col)
 
     # Instantiate all the memories
     for r in range(top_length):
-        (c, s) = instantiate_memory("top", r, top_depth)
-        cells.extend(c)
-        wires.extend(s)
+        instantiate_memory(main, "top", r, top_depth)
 
-    for c in range(left_length):
-        (c, s) = instantiate_memory("left", c, left_depth)
-        cells.extend(c)
-        wires.extend(s)
+    for col in range(left_length):
+        instantiate_memory(main, "left", col, left_depth)
 
     # Instantiate output memory
     total_size = left_length * top_length
     out_idx_size = bits_needed(total_size)
-    cells.append(
-        py_ast.Cell(
-            OUT_MEM,
-            py_ast.Stdlib().mem_d1(BITWIDTH, total_size, out_idx_size),
-            is_external=True,
-        )
+    main.cell(
+        OUT_MEM,
+        py_ast.Stdlib().mem_d1(BITWIDTH, total_size, out_idx_size),
+        is_external=True,
     )
 
     # Instantiate all the PEs
     for row in range(left_length):
         for col in range(top_length):
-            # Instantiate the PEs
-            c = instantiate_pe(row, col, col == top_length - 1, row == left_length - 1)
-            cells.extend(c)
-
             # Instantiate the mover fabric
-            s = instantiate_data_move(
-                row, col, col == top_length - 1, row == left_length - 1
+            instantiate_data_move(
+                main, row, col, col == top_length - 1, row == left_length - 1
             )
-            wires.extend(s)
 
             # Instantiate output movement structure
-            s = instantiate_output_move(row, col, top_length, out_idx_size)
-            wires.append(s)
+            instantiate_output_move(main, row, col, top_length)
 
+    # Generate the control and set the source map
     control, source_map = generate_control(
         top_length, top_depth, left_length, left_depth
     )
-
-    main = py_ast.Component(
-        name="main",
-        inputs=[],
-        outputs=[],
-        structs=wires + cells,
-        controls=control,
-    )
-
-    return py_ast.Program(
-        imports=[
-            # Manually emitted becase we need to print out the PE definition
-        ],
-        components=[main],
-        meta=source_map,
-    )
+    main.control = control
+    prog.program.meta = source_map
 
 
 if __name__ == "__main__":
@@ -568,18 +471,14 @@ if __name__ == "__main__":
             "-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
         )
 
-    program = create_systolic_array(
+    prog = cb.Builder()
+    pe(prog)
+    create_systolic_array(
+        prog,
         top_length=top_length,
         top_depth=top_depth,
         left_length=left_length,
         left_depth=left_depth,
     )
 
-    imports = [
-        py_ast.Import("primitives/core.futil"),
-        py_ast.Import("primitives/binary_operators.futil"),
-    ]
-    for imp in imports:
-        print(imp.doc())
-    print(PE_DEF)
-    program.emit()
+    prog.program.emit()

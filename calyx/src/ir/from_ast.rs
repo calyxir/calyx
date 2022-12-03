@@ -128,7 +128,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         let sig = &mut comp.signature;
         check_signature(&*sig)?;
         // extend the signature if the component does not have the @nointerface attribute.
-        if !comp.attributes.has("nointerface") {
+        if !comp.attributes.has("nointerface") && !comp.is_comb {
             extend_signature(sig);
         }
         sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
@@ -182,7 +182,7 @@ fn validate_component(
 
         let proto_name = &cell.prototype.name;
 
-        if sig_ctx.lib.find_primitive(&proto_name).is_none()
+        if sig_ctx.lib.find_primitive(proto_name).is_none()
             && !sig_ctx.comp_sigs.contains_key(proto_name)
         {
             return Err(Error::undefined(
@@ -229,7 +229,8 @@ fn build_component(
     // Validate the component before building it.
     validate_component(&comp, sig_ctx)?;
 
-    let mut ir_component = Component::new(comp.name, comp.signature);
+    let mut ir_component =
+        Component::new(comp.name, comp.signature, comp.is_comb);
     let mut builder =
         Builder::new(&mut ir_component, &sig_ctx.lib).not_generated();
 
@@ -477,7 +478,7 @@ fn build_control(
                     Error::undefined(component.clone(), "group".to_string())
                 })?,
             ));
-            *(en.get_mut_attributes().unwrap()) = attributes;
+            *en.get_mut_attributes() = attributes;
             en
         }
         ast::Control::Invoke {
@@ -551,7 +552,7 @@ fn build_control(
                     .map(|c| build_control(c, builder))
                     .collect::<CalyxResult<Vec<_>>>()?,
             );
-            *(s.get_mut_attributes().unwrap()) = attributes;
+            *s.get_mut_attributes() = attributes;
             s
         }
         ast::Control::Par { stmts, attributes } => {
@@ -561,7 +562,7 @@ fn build_control(
                     .map(|c| build_control(c, builder))
                     .collect::<CalyxResult<Vec<_>>>()?,
             );
-            *(p.get_mut_attributes().unwrap()) = attributes;
+            *p.get_mut_attributes() = attributes;
             p
         }
         ast::Control::If {
@@ -590,7 +591,7 @@ fn build_control(
                 Box::new(build_control(*tbranch, builder)?),
                 Box::new(build_control(*fbranch, builder)?),
             );
-            *(con.get_mut_attributes().unwrap()) = attributes;
+            *con.get_mut_attributes() = attributes;
             con
         }
         ast::Control::While {
@@ -617,9 +618,13 @@ fn build_control(
                 group,
                 Box::new(build_control(*body, builder)?),
             );
-            *(con.get_mut_attributes().unwrap()) = attributes;
+            *con.get_mut_attributes() = attributes;
             con
         }
-        ast::Control::Empty { .. } => Control::empty(),
+        ast::Control::Empty { attributes } => {
+            let mut emp = Control::empty();
+            *emp.get_mut_attributes() = attributes;
+            emp
+        }
     })
 }

@@ -76,9 +76,9 @@ impl PassManager {
                 CompileSync,
                 GroupToSeq,
                 GroupToInvoke, // Creates Dead Groups potentially
+                CompileRef, //Must run before cell-share, and before componnt-inliner
                 ComponentInliner,
                 CombProp,
-                CompileRef, //Must run before cell-share.
                 InferShare,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
                 RemoveCombGroups, // Must run before infer-static-timing
@@ -119,7 +119,15 @@ impl PassManager {
         register_alias!(
             pm,
             "no-opt",
-            ["validate", RemoveCombGroups, "compile", "lower"]
+            [
+                "validate",
+                CompileSync,
+                CompileRef,
+                RemoveCombGroups,
+                CompileInvoke,
+                "compile",
+                "lower"
+            ]
         );
 
         register_alias!(

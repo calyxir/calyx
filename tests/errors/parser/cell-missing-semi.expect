@@ -3,7 +3,7 @@
 ---STDERR---
 Error: Calyx Parser:  --> 4:5
   |
-4 |     h = std_reg(32)␊
+4 |     h = std_reg(32)
 5 |     l = std_reg(32);␊
   |     ^
   |

@@ -1,0 +1,111 @@
+// test case for one thread with if branches
+// thread 1:
+// w(1);  sync; w(4); sync; w(5); sync; w(8); sync; w(9); sync; w(12); sync;
+// thread 2:
+// no-op; sync; r(1); sync; r(4); sync; r(5); sync; r(8); sync; r(9);  sync; r(12);
+import "primitives/core.futil";
+import "primitives/sync.futil";
+
+component main () -> () {
+  cells {
+    @external in_0 = std_mem_d1(32, 6, 3);
+    @external in_1 = std_mem_d1(32, 6, 3);
+    @external out = std_mem_d1(32, 6, 3);
+    idx = std_reg(3);
+    prod = std_reg(32);
+    st = std_reg(1);
+    lt = std_lt(3);
+    eq = std_eq(1);
+    add = std_add(3);
+    no_use = std_reg(1);
+  }
+
+  wires {
+    group prod_0 {
+      prod.in = in_0.read_data;
+      prod.write_en = 1'd1;
+      in_0.addr0 = idx.out;
+      prod_0[done] = prod.done;
+    }
+
+    group prod_1 {
+      prod.in = in_1.read_data;
+      prod.write_en = 1'd1;
+      in_1.addr0 = idx.out;
+      prod_1[done] = prod.done;
+    }
+
+    group reg_to_mem {
+      out.write_data = prod.out;
+      out.write_en = 1'd1;
+      out.addr0 = idx.out;
+      reg_to_mem[done] = out.done;
+    }
+
+    group incr_idx {
+      add.left = idx.out;
+      add.right = 3'd1;
+      idx.in = add.out;
+      idx.write_en = 1'd1;
+      incr_idx[done] = idx.done;
+    }
+
+    comb group comp {
+      lt.left = idx.out;
+      lt.right = 3'd6;
+    }
+
+    comb group st_0 {
+      eq.left = st.out;
+      eq.right = 1'd0;
+    }
+
+    group switch_to_st_0 {
+      st.in = 1'd0;
+      st.write_en = 1'd1;
+      switch_to_st_0[done] = st.done;
+    }
+
+    group switch_to_st_1 {
+      st.in = 1'd1;
+      st.write_en = 1'd1;
+      switch_to_st_1[done] = st.done;
+    }
+  }
+
+  control {
+    /// ANCHOR: control
+    par {
+      // thread 1
+      while lt.out with comp {
+        if eq.out with st_0 {
+          seq {
+            prod_0;
+            @sync(1);
+            switch_to_st_1;
+            @sync(2);
+          }
+        }
+        else {
+          seq {
+            prod_1;
+            @sync(1);
+            switch_to_st_0;
+            @sync(2);
+          }
+        }
+      }
+
+      // thread 2
+      while lt.out with comp {
+        seq {
+          @sync(1);
+          reg_to_mem;
+          incr_idx;
+          @sync(2);
+        }
+      }
+    }
+  }
+  /// ANCHOR_END: control
+}

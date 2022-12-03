@@ -1,13 +1,50 @@
 use crate::utils::assignment_to_string;
 use crate::values::Value;
-use calyx::errors::Error;
+use calyx::errors::Error as CalyxError;
 use calyx::ir::{self, Assignment, Id};
 
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
 // Utility type
-pub type InterpreterResult<T> = Result<T, InterpreterError>;
+pub type InterpreterResult<T> = Result<T, BoxedInterpreterError>;
+
+pub struct BoxedInterpreterError(Box<InterpreterError>);
+
+impl std::fmt::Display for BoxedInterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&*self.0, f)
+    }
+}
+
+impl std::fmt::Debug for BoxedInterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self, f)
+    }
+}
+
+impl std::error::Error for BoxedInterpreterError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+impl std::ops::Deref for BoxedInterpreterError {
+    type Target = InterpreterError;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> From<T> for BoxedInterpreterError
+where
+    T: Into<InterpreterError>,
+{
+    fn from(e: T) -> Self {
+        Self(Box::new(T::into(e)))
+    }
+}
 
 #[derive(Error)]
 pub enum InterpreterError {
@@ -43,7 +80,7 @@ pub enum InterpreterError {
 
     /// Wrapper error for parsing & related compiler errors
     #[error("{0:?}")]
-    CompilerError(Box<Error>),
+    CompilerError(Box<CalyxError>),
 
     /// There is no main component in the given program
     #[error("no main component")]
@@ -110,10 +147,12 @@ pub enum InterpreterError {
         dims: Vec<u64>,
         name: Id,
     },
+    #[error("Both read and write signals provided to the sequential memory.")]
+    SeqMemoryError,
 
     // TODO (Griffin): Make this error message better please
     #[error("Computation has under/overflowed its bounds")]
-    OverflowError(),
+    OverflowError,
 
     #[error(transparent)]
     IOError(#[from] std::io::Error),
@@ -143,8 +182,8 @@ impl std::fmt::Debug for InterpreterError {
     }
 }
 
-impl From<Error> for InterpreterError {
-    fn from(e: Error) -> Self {
+impl From<CalyxError> for InterpreterError {
+    fn from(e: CalyxError) -> Self {
         Self::CompilerError(Box::new(e))
     }
 }
@@ -174,6 +213,6 @@ impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
 
 impl From<std::str::Utf8Error> for InterpreterError {
     fn from(err: std::str::Utf8Error) -> Self {
-        Error::invalid_file(err.to_string()).into()
+        CalyxError::invalid_file(err.to_string()).into()
     }
 }

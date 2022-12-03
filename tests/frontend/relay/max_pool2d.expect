@@ -4,13 +4,13 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component max_pool2d_2x2x2x2() -> () {
   cells {
-    ref data = std_mem_d4(32,2,2,4,4,2,2,3,3);
-    ref result = std_mem_d4(32,2,2,2,2,2,2,2,2);
+    ref data = seq_mem_d4(32,2,2,4,4,2,2,3,3);
+    ref result = seq_mem_d4(32,2,2,2,2,2,2,2,2);
     __b0 = std_reg(32);
     __c0 = std_reg(32);
-    __current0 = std_reg(32);
+    __current_0 = std_reg(32);
     __m0 = std_reg(32);
-    __max0 = std_reg(32);
+    __max_0 = std_reg(32);
     __n0 = std_reg(32);
     __pool_x_0 = std_reg(32);
     __pool_y_0 = std_reg(32);
@@ -96,8 +96,8 @@ component max_pool2d_2x2x2x2() -> () {
       le5.right = const13.out;
     }
     comb group cond6 {
-      gt0.left = __current0.out;
-      gt0.right = __max0.out;
+      gt0.left = __current_0.out;
+      gt0.right = __max_0.out;
     }
     group let0<"static"=1> {
       __b0.in = const0.out;
@@ -128,10 +128,10 @@ component max_pool2d_2x2x2x2() -> () {
       add1.left = __stride_x_0.out;
       add1.right = __n0.out;
     }
-    group let13<"static"=1> {
-      __current0.in = data.read_data;
-      __current0.write_en = 1'd1;
-      let13[done] = __current0.done;
+    group let13<"static"=2> {
+      __current_0.in = data.out;
+      __current_0.write_en = data.read_done;
+      let13[done] = __current_0.done;
       data.addr3 = slice7.out;
       slice7.in = __pool_x_0.out;
       data.addr2 = slice6.out;
@@ -140,6 +140,7 @@ component max_pool2d_2x2x2x2() -> () {
       slice5.in = __c0.out;
       data.addr0 = slice4.out;
       slice4.in = __b0.out;
+      data.read_en = 1'd1;
     }
     group let2<"static"=1> {
       __y0.in = const4.out;
@@ -177,10 +178,10 @@ component max_pool2d_2x2x2x2() -> () {
       __stride_x_0.write_en = 1'd1;
       let7[done] = __stride_x_0.done;
     }
-    group let8<"static"=1> {
-      __max0.in = data.read_data;
-      __max0.write_en = 1'd1;
-      let8[done] = __max0.done;
+    group let8<"static"=2> {
+      __max_0.in = data.out;
+      __max_0.write_en = data.read_done;
+      let8[done] = __max_0.done;
       data.addr3 = slice3.out;
       slice3.in = __stride_x_0.out;
       data.addr2 = slice2.out;
@@ -189,6 +190,7 @@ component max_pool2d_2x2x2x2() -> () {
       slice1.in = __c0.out;
       data.addr0 = slice0.out;
       slice0.in = __b0.out;
+      data.read_en = 1'd1;
     }
     group let9<"static"=1> {
       __m0.in = const10.out;
@@ -196,9 +198,9 @@ component max_pool2d_2x2x2x2() -> () {
       let9[done] = __m0.done;
     }
     group upd0<"static"=1> {
-      __max0.write_en = 1'd1;
-      __max0.in = __current0.out;
-      upd0[done] = __max0.done;
+      __max_0.write_en = 1'd1;
+      __max_0.in = __current_0.out;
+      upd0[done] = __max_0.done;
     }
     group upd1<"static"=1> {
       __n0.write_en = 1'd1;
@@ -224,8 +226,8 @@ component max_pool2d_2x2x2x2() -> () {
       result.addr0 = slice8.out;
       slice8.in = __b0.out;
       result.write_en = 1'd1;
-      result.write_data = __max0.out;
-      upd3[done] = result.done;
+      result.in = __max_0.out;
+      upd3[done] = result.write_done;
     }
     group upd4<"static"=1> {
       __x0.write_en = 1'd1;
@@ -320,8 +322,8 @@ component max_pool2d_2x2x2x2() -> () {
 
 component main() -> () {
   cells {
-    @external(1) data = std_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
-    @external(1) result = std_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
+    @external data = seq_mem_d4(32, 2, 2, 4, 4, 2, 2, 3, 3);
+    @external result = seq_mem_d4(32, 2, 2, 2, 2, 2, 2, 2, 2);
     max_pool2d_2x2x2x2_ = max_pool2d_2x2x2x2();
   }
   wires {

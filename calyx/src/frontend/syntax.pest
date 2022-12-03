@@ -56,11 +56,11 @@ extern_or_component = {
 externs_and_comps = { extern_or_component* }
 
 component = {
-      "component" ~ name_with_attribute ~ signature
+      comb? ~ "component" ~ name_with_attribute ~ signature
       ~ "{"
       ~ cells
       ~ connections
-      ~ control
+      ~ control?
       ~ "}"
 }
 
@@ -227,6 +227,8 @@ connections = {
 
 // ====== control ======
 
+empty = { at_attributes ~ ";" }
+
 enable = { at_attributes ~ identifier ~ ";" }
 
 invoke_arg = { identifier ~ "=" ~ (port | num_lit) }
@@ -269,7 +271,8 @@ while_stmt = {
 }
 
 stmt = {
-      enable
+      empty
+    | enable
     | invoke
     | seq
     | par
