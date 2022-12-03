@@ -155,7 +155,7 @@ By setting `is_external=True`, we're indicating that a memory declaration is a p
 For every map or reduce node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation.
 For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array.
 We can use Calyx's [while loops][lf-while] to iterate over an input array, perform the map's computation, and store the final value.
-At a high-level, we want to generate the following pieces of hardware:
+At a high level, we want to generate the following pieces of hardware:
 1. A register to store the current value of the loop index.
 2. A comparator to check of the loop index is less than the array size.
 3. An adder to increment the value of the index.
