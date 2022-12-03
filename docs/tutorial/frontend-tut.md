@@ -189,7 +189,7 @@ The corresponding group indexes into the input memories:
 ```
 Because the builder module is an embedded DSL, we can simply use Python's `for` loop to generate all the required assignments for indexing.
 
-Instantiates an adder or a multiplier depending on the computation needed using the `expr_to_port` helper function:
+This code instantiates an adder or a multiplier depending on the computation needed using the `expr_to_port` helper function:
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_op}}
 ```
