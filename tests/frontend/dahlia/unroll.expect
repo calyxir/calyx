@@ -3,10 +3,10 @@ import "primitives/memories.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) A0 = seq_mem_d1(32,2,2);
-    @external(1) A1 = seq_mem_d1(32,2,2);
-    @external(1) A2 = seq_mem_d1(32,2,2);
-    @external(1) A3 = seq_mem_d1(32,2,2);
+    A0 = seq_mem_d1(32,2,2);
+    A1 = seq_mem_d1(32,2,2);
+    A2 = seq_mem_d1(32,2,2);
+    A3 = seq_mem_d1(32,2,2);
     acc_00 = std_reg(32);
     acc_10 = std_reg(32);
     acc_20 = std_reg(32);
