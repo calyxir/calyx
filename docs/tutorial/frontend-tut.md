@@ -106,7 +106,7 @@ We perform syntax-directed compilation by walking over nodes in the above AST an
 
 #### Calyx Embedded DSL
 
-To make it easy to generate the hardware, we'll use Calyx's [`builder` module][builder-ex] in python:
+To make it easy to generate the hardware, we'll use Calyx's [`builder` module][builder-ex] in Python:
 ```python
 import calyx.builder as cb
 
