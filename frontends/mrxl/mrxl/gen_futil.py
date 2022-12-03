@@ -21,9 +21,8 @@ def cond_group(
     """
     # ANCHOR: cond_group
     group_name = f"cond_{suffix}"
-    stdlib = Stdlib()
     cell = f"lt_{suffix}"
-    lt = comp.cell(cell, stdlib.op("lt", 32, signed=False))
+    lt = comp.cell(cell, Stdlib.op("lt", 32, signed=False))
     with comp.comb_group(group_name):
         lt.left = idx.out
         lt.right = cb.const(32, arr_size)
@@ -59,8 +58,6 @@ def gen_reduce_impl(
     The implementation first initializes the accumulator to `init` and then directly
     accumulates the values of the array into the accumulator.
     """
-    stdlib = Stdlib()
-
     idx = comp.reg(f"idx{s_idx}", 32)
     # Initialize the accumulator to `init`.
     init = f"init_{s_idx}"
@@ -99,7 +96,7 @@ def gen_reduce_impl(
         raise NotImplementedError("Reduce body must be a binary expression")
 
     if body.op == "mul":
-        op = comp.cell(f"mul_{s_idx}", stdlib.op("mult_pipe", 32, signed=False))
+        op = comp.cell(f"mul_{s_idx}", Stdlib.op("mult_pipe", 32, signed=False))
     else:
         op = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as ev:
@@ -153,7 +150,6 @@ def gen_map_impl(
       - a group that implements the loop condition, checking if the index
         has reached the end of the input array
     """
-    stdlib = Stdlib()
 
     # Parallel loops representing the map body
     map_loops = []
@@ -185,7 +181,7 @@ def gen_map_impl(
                 return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
 
         if body.op == "mul":
-            op = comp.cell(f"mul_{suffix}", stdlib.op("mult_pipe", 32, signed=False))
+            op = comp.cell(f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False))
         else:
             op = comp.add(f"add_{suffix}", 32)
 

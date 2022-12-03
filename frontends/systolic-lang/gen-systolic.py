@@ -19,7 +19,7 @@ def pe(prog: cb.Builder):
     comp.output("out", BITWIDTH)
     acc = comp.reg("acc", BITWIDTH)
     add = comp.add("add", BITWIDTH)
-    mul = comp.cell("mul", py_ast.Stdlib().op("mult_pipe", BITWIDTH, False))
+    mul = comp.cell("mul", py_ast.Stdlib.op("mult_pipe", BITWIDTH, False))
 
     with comp.group("do_add") as do_add:
         add.left = acc.out
@@ -115,9 +115,11 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
 
     idx_width = bits_needed(size)
     # Instantiate the memory
-    mem = comp.cell(
+    mem = comp.mem_d1(
         name,
-        py_ast.Stdlib().mem_d1(BITWIDTH, size, idx_width),
+        BITWIDTH,
+        size,
+        idx_width,
         is_external=True,
     )
     # Instantiate the indexing register
@@ -412,9 +414,11 @@ def create_systolic_array(
     # Instantiate output memory
     total_size = left_length * top_length
     out_idx_size = bits_needed(total_size)
-    main.cell(
+    main.mem_d1(
         OUT_MEM,
-        py_ast.Stdlib().mem_d1(BITWIDTH, total_size, out_idx_size),
+        BITWIDTH,
+        total_size,
+        out_idx_size,
         is_external=True,
     )
 

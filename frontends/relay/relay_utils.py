@@ -16,6 +16,7 @@ NumDimsToCell = {
     4: Stdlib().seq_mem_d4,
 }
 
+
 @dataclass
 class DahliaFuncDef:
     """Necessary information to compute a Dahlia
