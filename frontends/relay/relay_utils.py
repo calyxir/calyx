@@ -9,13 +9,14 @@ from dataclasses import dataclass
 # Mapping from the tensor dimensions to the
 # corresponding Calyx primitive.
 NumDimsToCell = {
-    0: Stdlib().register,
-    1: Stdlib().seq_mem_d1,
-    2: Stdlib().seq_mem_d2,
-    3: Stdlib().seq_mem_d3,
-    4: Stdlib().seq_mem_d4,
+    0: Stdlib.register,
+    1: Stdlib.seq_mem_d1,
+    2: Stdlib.seq_mem_d2,
+    3: Stdlib.seq_mem_d3,
+    4: Stdlib.seq_mem_d4,
 }
 
+<<<<<<< Updated upstream
 # Suffix appended to memories by Dahlia when lowering.
 DahliaSuffix = {
     "std_const": "",
@@ -26,6 +27,8 @@ DahliaSuffix = {
     "seq_mem_d4": "0_0_0_0",
 }
 
+=======
+>>>>>>> Stashed changes
 
 @dataclass
 class DahliaFuncDef:
