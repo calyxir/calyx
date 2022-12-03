@@ -268,6 +268,15 @@ class Or(GuardExpr):
         return f"{self.left.doc()} | {self.right.doc()}"
 
 
+@dataclass
+class Eq(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"{self.left.doc()} == {self.right.doc()}"
+
+
 # Control
 @dataclass
 class Control(Emittable):

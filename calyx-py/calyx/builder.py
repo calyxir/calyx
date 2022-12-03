@@ -158,6 +158,21 @@ def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
                   as_control(body))
 
 
+def invoke(cell: "CellBuilder", **kwargs):
+    """Build an `invoke` control statement.
+
+    The keyword arguments should have the form `in_*` and `out_*`, where
+    `*` is the name of an input or output port on the invoked cell.
+    """
+    return ast.Invoke(
+        cell._cell.id,
+        [(k[3:], ExprBuilder.unwrap(v)) for (k, v) in kwargs.items()
+         if k.startswith('in_')],
+        [(k[4:], ExprBuilder.unwrap(v)) for (k, v) in kwargs.items()
+         if k.startswith('out_')],
+    )
+
+
 class ControlBuilder:
     """Wraps control statements for convenient construction."""
 
@@ -221,6 +236,10 @@ class ExprBuilder:
         `CondExprBuilder` values; they are only useful for assignment.
         """
         return CondExprBuilder(self, rhs)
+
+    def __eq__(self, other: "ExprBuilder"):
+        """Construct an equality comparison with ==."""
+        return ExprBuilder(ast.Eq(self.expr, other.expr))
 
     @classmethod
     def unwrap(cls, obj):
@@ -396,7 +415,7 @@ def const(width: int, value: int):
     inference fails. Otherwise, you can just use plain Python integer
     values.
     """
-    return ast.ConstantPort(width, value)
+    return ExprBuilder(ast.ConstantPort(width, value))
 
 
 def infer_width(expr):
