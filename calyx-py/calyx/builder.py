@@ -99,8 +99,14 @@ class ComponentBuilder:
         return builder
 
     def cell(
-        self, name: str, comp: ast.CompInst, is_external=False, is_ref=False
+        self, name: str, comp: Union[ast.CompInst, "ComponentBuilder"],
+        is_external=False, is_ref=False
     ) -> "CellBuilder":
+        # If we get a (non-primitive) component builder, instantiate it
+        # with no parameters.
+        if isinstance(comp, ComponentBuilder):
+            comp = ast.CompInst(comp.component.name, [])
+
         cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
         self.component.cells.append(cell)
         builder = CellBuilder(cell)
@@ -240,6 +246,10 @@ class ExprBuilder:
     def __eq__(self, other: "ExprBuilder"):
         """Construct an equality comparison with ==."""
         return ExprBuilder(ast.Eq(self.expr, other.expr))
+
+    def __ne__(self, other: "ExprBuilder"):
+        """Construct an inequality comparison with ==."""
+        return ExprBuilder(ast.Neq(self.expr, other.expr))
 
     @classmethod
     def unwrap(cls, obj):
