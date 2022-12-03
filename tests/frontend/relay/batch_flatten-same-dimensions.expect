@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component batch_flatten_2x4096() -> () {
   cells {
-    ref x0_0 = seq_mem_d2(32,2,4096,2,13);
-    ref x10_0 = seq_mem_d2(32,2,4096,2,13);
+    ref x = seq_mem_d2(32,2,4096,2,13);
+    ref x1 = seq_mem_d2(32,2,4096,2,13);
     __i0 = std_reg(2);
     __j0 = std_reg(13);
     __k_0 = std_reg(13);
@@ -48,41 +48,41 @@ component batch_flatten_2x4096() -> () {
       __j0.write_en = 1'd1;
       let2[done] = __j0.done;
     }
-    group upd0<"static"=2> {
-      x_read0_0.write_en = x0_0.read_done;
-      x0_0.addr1 = __j0.out;
-      x0_0.addr0 = __i0.out;
-      x0_0.read_en = 1'd1;
-      x_read0_0.in = x0_0.out;
-      upd0[done] = x_read0_0.done;
+    group let3<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let3[done] = x_read0_0.done;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+      x.read_en = 1'd1;
+    }
+    group upd0<"static"=1> {
+      x1.addr1 = __k_0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
+      x1.in = x_read0_0.out;
+      upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {
-      x10_0.addr1 = __k_0.out;
-      x10_0.addr0 = __i0.out;
-      x10_0.write_en = 1'd1;
-      x10_0.in = x_read0_0.out;
-      upd1[done] = x10_0.write_done;
-    }
-    group upd2<"static"=1> {
       __k_0.write_en = 1'd1;
       add0.left = __k_0.out;
       add0.right = const5.out;
       __k_0.in = add0.out;
-      upd2[done] = __k_0.done;
+      upd1[done] = __k_0.done;
     }
-    group upd3<"static"=1> {
+    group upd2<"static"=1> {
       __j0.write_en = 1'd1;
       add1.left = __j0.out;
       add1.right = const6.out;
       __j0.in = add1.out;
-      upd3[done] = __j0.done;
+      upd2[done] = __j0.done;
     }
-    group upd4<"static"=1> {
+    group upd3<"static"=1> {
       __i0.write_en = 1'd1;
       add2.left = __i0.out;
       add2.right = const7.out;
       __i0.in = add2.out;
-      upd4[done] = __i0.done;
+      upd3[done] = __i0.done;
     }
   }
   control {
@@ -94,13 +94,13 @@ component batch_flatten_2x4096() -> () {
           @pos(2) let2;
           @bound(4096) while le1.out with cond1 {
             seq {
-              @pos(3) upd0;
-              @pos(4) upd1;
-              @pos(5) upd2;
-              @pos(2) upd3;
+              @pos(3) let3;
+              @pos(4) upd0;
+              @pos(5) upd1;
+              @pos(2) upd2;
             }
           }
-          @pos(1) upd4;
+          @pos(1) upd3;
         }
       }
     }
@@ -118,7 +118,7 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0) invoke batch_flatten_2x4096_[x0_0=x, x10_0=x1]()();
+      @pos(0) invoke batch_flatten_2x4096_[x=x, x1=x1]()();
     }
   }
 }
