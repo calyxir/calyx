@@ -30,6 +30,16 @@ def cond_group(
 
     return cell, group_name
 
+    idx = comp.reg(f"idx{s_idx}", 32)
+    # Initialize the accumulator to `init`.
+    init = f"init_{s_idx}"
+    init_val = stmt.init
+    assert isinstance(init_val, ast.LitExpr), "Reduce init must be a literal"
+    with comp.group(init) as group:
+        idx.in_ = init_val.value
+        idx.write_en = 1
+        group.done = idx.done
+
 
 def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> str:
     """
@@ -47,6 +57,11 @@ def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> s
     # ANCHOR_END: incr_group
 
     return group_name
+
+    # Split up the accumulator and the array element
+    bind = stmt.bind[0]
+    [acc, x] = bind.dest
+    name2arr = {acc: f"{dest}_b0", x: f"{bind.src}_b0"}
 
 
 def gen_reduce_impl(

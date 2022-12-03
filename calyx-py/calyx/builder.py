@@ -122,6 +122,20 @@ class ComponentBuilder:
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
+    def mem_d1(
+        self,
+        name: str,
+        bitwidth: int,
+        len: int,
+        idx_size: int,
+        is_external=False,
+        is_ref=False,
+    ):
+        stdlib = ast.Stdlib()
+        return self.cell(
+            name, stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
+
     def add(self, name: str, size: int):
         return self.cell(name, ast.Stdlib.op("add", size, signed=False))
 
