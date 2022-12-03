@@ -1,5 +1,5 @@
 {
-  "foo": {
+  "foo_b0": {
     "data": [
       1,
       2,
@@ -12,12 +12,9 @@
       "width": 32
     }
   },
-  "baz": {
+  "baz_b0": {
     "data": [
-      1,
-      2,
-      3,
-      4
+      0, 0, 0, 0
     ],
     "format": {
       "numeric_type": "bitnum",
