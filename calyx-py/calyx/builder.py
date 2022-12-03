@@ -367,8 +367,10 @@ class GroupBuilder:
             "GroupLikeBuilder represents continuous assignments"
             " and does not have a done hole"
         )
-        if isinstance(self.group_like, ast.CombGroup):
-            raise Exception("done hole not available for comb group")
+        assert not isinstance(
+            self.group_like, ast.CombGroup
+        ), "done hole not available for comb group"
+
         return ExprBuilder(ast.HolePort(ast.CompVar(self.group_like.id.name), "done"))
 
     @done.setter
