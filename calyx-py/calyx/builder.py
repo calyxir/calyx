@@ -18,11 +18,9 @@ class Builder:
         )
         self.imported = set()
         self.import_("primitives/core.futil")
-        self.import_("primitives/binary_operators.futil")
-        self.import_("primitives/memories.futil")
 
     def component(self, name: str, cells=[]):
-        comp_builder = ComponentBuilder(name, cells)
+        comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
         return comp_builder
 
@@ -37,9 +35,10 @@ class Builder:
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
-    def __init__(self, name: str, cells: List[ast.Cell] = []):
+    def __init__(self, prog: Builder, name: str, cells: List[ast.Cell] = []):
         """Contructs a new component in the current program. If `cells` is
         provided, the component will be initialized with those cells."""
+        self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
             inputs=[],
@@ -137,6 +136,7 @@ class ComponentBuilder:
         )
 
     def add(self, name: str, size: int):
+        self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed=False))
 
 
