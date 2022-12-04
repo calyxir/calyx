@@ -172,13 +172,13 @@ def as_control(obj):
 
 def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     """Build a `while` control statement."""
-    return ast.While(port.expr, cond.group.id if cond else None,
+    return ast.While(port.expr, cond.group_like.id if cond else None,
                      as_control(body))
 
 
 def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     """Build an `if` control statement."""
-    return ast.If(port.expr, cond.group.id if cond else None,
+    return ast.If(port.expr, cond.group_like.id if cond else None,
                   as_control(body))
 
 
