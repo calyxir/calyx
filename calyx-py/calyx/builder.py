@@ -90,6 +90,13 @@ class ComponentBuilder:
         self.index[name] = builder
         return builder
 
+    def comb_group(self, name: str) -> "GroupBuilder":
+        group = ast.CombGroup(ast.CompVar(name), connections=[])
+        self.component.wires.append(group)
+        builder = GroupBuilder(group, self)
+        self.index[name] = builder
+        return builder
+
     def cell(
         self, name: str, comp: ast.CompInst, is_external=False, is_ref=False
     ) -> "CellBuilder":
@@ -102,6 +109,20 @@ class ComponentBuilder:
     def reg(self, name: str, size: int):
         stdlib = ast.Stdlib()  # TODO Silly; should be @staticmethods.
         return self.cell(name, stdlib.register(size))
+
+    def mem_d1(
+        self,
+        name: str,
+        bitwidth: int,
+        len: int,
+        idx_size: int,
+        is_external=False,
+        is_ref=False,
+    ):
+        stdlib = ast.Stdlib()
+        return self.cell(
+            name, stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
 
     def add(self, name: str, size: int):
         stdlib = ast.Stdlib()
@@ -127,7 +148,7 @@ def as_control(obj):
     elif isinstance(obj, ast.Group):
         return ast.Enable(obj.id.name)
     elif isinstance(obj, GroupBuilder):
-        return ast.Enable(obj.group.id.name)
+        return ast.Enable(obj.group_like.id.name)
     elif isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
     elif obj is None:
@@ -296,8 +317,12 @@ class GroupBuilder:
     *implicitly* get added to this group.
     """
 
-    def __init__(self, group: Optional[ast.Group], comp: ComponentBuilder):
-        self.group = group
+    def __init__(
+        self,
+        group_like: Optional[Union[ast.Group, ast.CombGroup]],
+        comp: ComponentBuilder,
+    ):
+        self.group_like = group_like
         self.comp = comp
 
     def asgn(
@@ -330,24 +355,28 @@ class GroupBuilder:
             ExprBuilder.unwrap(rhs),
             ExprBuilder.unwrap(cond),
         )
-        if self.group:
-            self.group.connections.append(wire)
+        if self.group_like:
+            self.group_like.connections.append(wire)
         else:
             self.comp.component.wires.append(wire)
 
     @property
     def done(self):
         """The `done` hole for the group."""
-        assert self.group, (
+        assert self.group_like, (
             "GroupLikeBuilder represents continuous assignments"
             " and does not have a done hole"
         )
-        return ExprBuilder(ast.HolePort(ast.CompVar(self.group.id.name), "done"))
+        assert not isinstance(
+            self.group_like, ast.CombGroup
+        ), "done hole not available for comb group"
+
+        return ExprBuilder(ast.HolePort(ast.CompVar(self.group_like.id.name), "done"))
 
     @done.setter
     def done(self, expr):
         """Build an assignment to `done` in the group."""
-        if not self.group:
+        if not self.group_like:
             raise Exception(
                 "GroupLikeBuilder represents continuous assignments and does not have a done hole"
             )

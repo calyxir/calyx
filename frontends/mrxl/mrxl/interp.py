@@ -22,7 +22,7 @@ def _dict_zip(d):
         yield {k: v[i] for k, v in d.items()}
 
 
-def interp_expr(expr: ast.Expr, env: ScalarEnv) -> Scalar:
+def interp_expr(expr, env: ScalarEnv) -> Scalar:
     """Interpret a MrXL expression to a scalar value."""
     if isinstance(expr, ast.LitExpr):
         return expr.value
