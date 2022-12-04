@@ -13,18 +13,25 @@ class Builder:
 
     def __init__(self):
         self.program = ast.Program(
-            imports=[
-                ast.Import("primitives/core.futil"),
-                ast.Import("primitives/binary_operators.futil"),
-                ast.Import("primitives/memories.futil"),
-            ],
+            imports=[],
             components=[],
         )
+        self.imported = set()
+        self.import_("primitives/core.futil")
+        self.import_("primitives/binary_operators.futil")
+        self.import_("primitives/memories.futil")
 
     def component(self, name: str, cells=[]):
         comp_builder = ComponentBuilder(name, cells)
         self.program.components.append(comp_builder.component)
         return comp_builder
+
+    def import_(self, filename: str):
+        """Add an `import` statement to the program."""
+        self.imported.add(filename)
+        self.program.imports.append(
+            ast.Import(filename)
+        )
 
 
 class ComponentBuilder:
