@@ -1,5 +1,5 @@
 from typing import List
-from math import log2, log
+from math import log
 from calyx.py_ast import (
     Connect,
     CompVar,
@@ -335,7 +335,7 @@ def gen_ln_cells(width: int, int_width: int, is_signed: bool) -> List[Cell]:
     """
     Generates cells for the ln component.
     """
-    and1 = Cell(CompVar("and1"), stdlib.op("and", width, signed=False))
+    and1 = Cell(CompVar("and1"), Stdlib.op("and", width, signed=False))
     n = Cell(CompVar("n"), Stdlib.register(width))
     div_pipe = Cell(
         CompVar("div_pipe"),
@@ -365,7 +365,7 @@ def gen_ln_cells(width: int, int_width: int, is_signed: bool) -> List[Cell]:
     msb_gen = Cell(CompVar("msb"), CompInst("msb_calc", []))
     slice0 = Cell(CompVar("slice0"), Stdlib.slice(width, int_width))
     rsh = Cell(CompVar("rsh"), Stdlib.op("rsh", width, is_signed))
-    shift_amount = Cell(CompVar("shift_amount"), stdlib.constant(width, int_width))
+    shift_amount = Cell(CompVar("shift_amount"), Stdlib.constant(width, int_width))
     return [
         and1,
         n,
