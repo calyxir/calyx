@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component negative_2x2() -> () {
   cells {
-    ref x0_0 = seq_mem_d2(32,2,2,2,2);
-    ref x10_0 = seq_mem_d2(32,2,2,2,2);
+    ref x = seq_mem_d2(32,2,2,2,2);
+    ref x1 = seq_mem_d2(32,2,2,2,2);
     __i0 = std_reg(2);
     __j0 = std_reg(2);
     add0 = std_add(2);
@@ -41,36 +41,36 @@ component negative_2x2() -> () {
       __j0.write_en = 1'd1;
       let1[done] = __j0.done;
     }
-    group upd0<"static"=2> {
-      x_read0_0.write_en = x0_0.read_done;
-      x0_0.addr1 = __j0.out;
-      x0_0.addr0 = __i0.out;
-      x0_0.read_en = 1'd1;
-      x_read0_0.in = x0_0.out;
-      upd0[done] = x_read0_0.done;
+    group let2<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let2[done] = x_read0_0.done;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+      x.read_en = 1'd1;
     }
-    group upd1<"static"=1> {
-      x10_0.addr1 = __j0.out;
-      x10_0.addr0 = __i0.out;
-      x10_0.write_en = 1'd1;
+    group upd0<"static"=1> {
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
       sub0.left = const4.out;
       sub0.right = x_read0_0.out;
-      x10_0.in = sub0.out;
-      upd1[done] = x10_0.write_done;
+      x1.in = sub0.out;
+      upd0[done] = x1.write_done;
     }
-    group upd2<"static"=1> {
+    group upd1<"static"=1> {
       __j0.write_en = 1'd1;
       add0.left = __j0.out;
       add0.right = const5.out;
       __j0.in = add0.out;
-      upd2[done] = __j0.done;
+      upd1[done] = __j0.done;
     }
-    group upd3<"static"=1> {
+    group upd2<"static"=1> {
       __i0.write_en = 1'd1;
       add1.left = __i0.out;
       add1.right = const6.out;
       __i0.in = add1.out;
-      upd3[done] = __i0.done;
+      upd2[done] = __i0.done;
     }
   }
   control {
@@ -81,12 +81,12 @@ component negative_2x2() -> () {
           @pos(1) let1;
           @bound(2) while le1.out with cond1 {
             seq {
-              @pos(2) upd0;
-              @pos(3) upd1;
-              @pos(1) upd2;
+              @pos(2) let2;
+              @pos(3) upd0;
+              @pos(1) upd1;
             }
           }
-          @pos(0) upd3;
+          @pos(0) upd2;
         }
       }
     }
@@ -106,8 +106,8 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0) invoke negative_2x2_[x0_0=x, x10_0=x1]()();
-      @pos(1) invoke negative_2x2_1[x0_0=x1, x10_0=x2]()();
+      @pos(0) invoke negative_2x2_[x=x, x1=x1]()();
+      @pos(1) invoke negative_2x2_1[x=x1, x1=x2]()();
     }
   }
 }

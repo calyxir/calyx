@@ -191,7 +191,7 @@ class Relay2Calyx(ExprFunctor):
                 ).unsigned_integer()
             else:
                 val = value.data
-            cell = Cell(CompVar(dest.id.name), Stdlib().constant(width, val))
+            cell = Cell(CompVar(dest.id.name), Stdlib.constant(width, val))
             self.id_to_cell[dest.id.name] = cell
         elif isinstance(value, tvm.relay.Call):
             # Generates cells and control for a Relay Call:
@@ -205,7 +205,7 @@ class Relay2Calyx(ExprFunctor):
             # We want to remove these.
             prefix = func_name.find(".")
             if prefix is not None:
-                func_name = func_name[prefix + 1:]
+                func_name = func_name[prefix + 1 :]
 
             # Append arity to Calyx component name.
             dims = "x".join([str(i) for i in ru.get_dimension_sizes(dest.comp)])
@@ -455,17 +455,15 @@ def emit_calyx(relay_ir, save_mem=True) -> (str, Program):
     check_naming_convention(func_defs)
 
     return (
-        (
-            emit_components(func_defs, save_mem),
-            Program(
-                imports=[
-                    # Manually printed because we need to print the Dahlia
-                    # function definitions
-                ],
-                components=[main],
-                meta=visitor.source_map
-            ),
-        )
+        emit_components(func_defs, save_mem),
+        Program(
+            imports=[
+                # Manually printed because we need to print the Dahlia
+                # function definitions
+            ],
+            components=[main],
+            meta=visitor.source_map,
+        ),
     )
 
 
@@ -510,7 +508,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Lower Relay IR to Calyx.")
     parser.add_argument("file", help="Path to the Relay IR.")
     parser.add_argument(
-        "-s", "--save_mem", required=False, help="boolean to determine whether you the Calyx design to use less memory"
+        "-s",
+        "--save_mem",
+        required=False,
+        help="boolean to determine whether you the Calyx design to use less memory",
     )
 
     args = parser.parse_args()
@@ -536,7 +537,9 @@ if __name__ == "__main__":
 
     # save_mem is an optional argument. If user doesn't specify, we
     # want default to be save_mem = true
-    save_mem = args.save_mem == "true" or args.save_mem == "True" or args.save_mem is None
+    save_mem = (
+        args.save_mem == "true" or args.save_mem == "True" or args.save_mem is None
+    )
 
     (dahlia_defs, prog) = emit_calyx(relay_ir, save_mem)
     for imp in imports:
