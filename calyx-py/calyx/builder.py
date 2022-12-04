@@ -26,10 +26,11 @@ class Builder:
 
     def import_(self, filename: str):
         """Add an `import` statement to the program."""
-        self.imported.add(filename)
-        self.program.imports.append(
-            ast.Import(filename)
-        )
+        if filename not in self.imported:
+            self.imported.add(filename)
+            self.program.imports.append(
+                ast.Import(filename)
+            )
 
 
 class ComponentBuilder:
