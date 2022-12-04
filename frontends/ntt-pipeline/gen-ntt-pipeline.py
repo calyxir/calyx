@@ -2,11 +2,8 @@
 
 from prettytable import PrettyTable
 import numpy as np
-from calyx.py_ast import (
-    CompVar,
-    Cell,
-)
 import calyx.py_ast as ast
+from calyx.py_ast import CompVar, Cell, Stdlib
 import calyx.builder as cb
 from calyx.utils import bits_needed
 
@@ -233,47 +230,45 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             epilogue.done = input.done
 
     def cells():
-        stdlib = ast.Stdlib()
-
         input = CompVar("a")
         phis = CompVar("phis")
         memories = [
-            Cell(input, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
-            Cell(phis, stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
+            Cell(input, Stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
+            Cell(phis, Stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
         ]
         r_regs = [
-            Cell(CompVar(f"r{r}"), stdlib.register(input_bitwidth)) for r in range(n)
+            Cell(CompVar(f"r{r}"), Stdlib.register(input_bitwidth)) for r in range(n)
         ]
         A_regs = [
-            Cell(CompVar(f"A{r}"), stdlib.register(input_bitwidth)) for r in range(n)
+            Cell(CompVar(f"A{r}"), Stdlib.register(input_bitwidth)) for r in range(n)
         ]
         mul_regs = [
-            Cell(CompVar(f"mul{i}"), stdlib.register(input_bitwidth))
+            Cell(CompVar(f"mul{i}"), Stdlib.register(input_bitwidth))
             for i in range(n // 2)
         ]
         phi_regs = [
-            Cell(CompVar(f"phi{r}"), stdlib.register(input_bitwidth)) for r in range(n)
+            Cell(CompVar(f"phi{r}"), Stdlib.register(input_bitwidth)) for r in range(n)
         ]
         mod_pipes = [
             Cell(
                 CompVar(f"mod_pipe{r}"),
-                stdlib.op("div_pipe", input_bitwidth, signed=True),
+                Stdlib.op("div_pipe", input_bitwidth, signed=True),
             )
             for r in range(n)
         ]
         mult_pipes = [
             Cell(
                 CompVar(f"mult_pipe{i}"),
-                stdlib.op("mult_pipe", input_bitwidth, signed=True),
+                Stdlib.op("mult_pipe", input_bitwidth, signed=True),
             )
             for i in range(n // 2)
         ]
         adds = [
-            Cell(CompVar(f"add{i}"), stdlib.op("add", input_bitwidth, signed=True))
+            Cell(CompVar(f"add{i}"), Stdlib.op("add", input_bitwidth, signed=True))
             for i in range(n // 2)
         ]
         subs = [
-            Cell(CompVar(f"sub{i}"), stdlib.op("sub", input_bitwidth, signed=True))
+            Cell(CompVar(f"sub{i}"), Stdlib.op("sub", input_bitwidth, signed=True))
             for i in range(n // 2)
         ]
 

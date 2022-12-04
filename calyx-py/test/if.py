@@ -1,12 +1,11 @@
 from calyx.py_ast import *
 
-stdlib = Stdlib()
 x = CompVar("x")
 lt = CompVar("lt")
 
 cells = [
-    Cell(lt, stdlib.op("lt", 32, signed=False), is_external=False),
-    Cell(x, stdlib.register(32), is_external=False),
+    Cell(lt, Stdlib.op("lt", 32, signed=False), is_external=False),
+    Cell(x, Stdlib.register(32), is_external=False),
 ]
 
 true = "true"
@@ -47,10 +46,13 @@ main_component = Component(
 )
 
 # Create the Calyx program.
-program = Program(imports=[
-    Import("primitives/core.futil"),
-    Import("primitives/binary_operators.futil")
-], components=[main_component])
+program = Program(
+    imports=[
+        Import("primitives/core.futil"),
+        Import("primitives/binary_operators.futil"),
+    ],
+    components=[main_component],
+)
 
 # Emit the code.
 program.emit()

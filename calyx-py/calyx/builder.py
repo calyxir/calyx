@@ -107,8 +107,7 @@ class ComponentBuilder:
         return builder
 
     def reg(self, name: str, size: int):
-        stdlib = ast.Stdlib()  # TODO Silly; should be @staticmethods.
-        return self.cell(name, stdlib.register(size))
+        return self.cell(name, ast.Stdlib.register(size))
 
     def mem_d1(
         self,
@@ -119,14 +118,12 @@ class ComponentBuilder:
         is_external=False,
         is_ref=False,
     ):
-        stdlib = ast.Stdlib()
         return self.cell(
-            name, stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
+            name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
     def add(self, name: str, size: int):
-        stdlib = ast.Stdlib()
-        return self.cell(name, stdlib.op("add", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("add", size, signed=False))
 
 
 def as_control(obj):

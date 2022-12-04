@@ -1,7 +1,5 @@
 from calyx.py_ast import *
 
-stdlib = Stdlib()
-
 # Variable identifiers.
 lhs = CompVar("lhs")
 rhs = CompVar("rhs")
@@ -10,10 +8,10 @@ add = CompVar("add")
 
 # Create cells: three registers and an adder.
 cells = [
-    Cell(lhs, stdlib.register(32), is_external=False),
-    Cell(rhs, stdlib.register(32), is_external=False),
-    Cell(sum, stdlib.register(32), is_external=False),
-    Cell(add, stdlib.op("add", 32, signed=False), is_external=False),
+    Cell(lhs, Stdlib.register(32), is_external=False),
+    Cell(rhs, Stdlib.register(32), is_external=False),
+    Cell(sum, Stdlib.register(32), is_external=False),
+    Cell(add, Stdlib.op("add", 32, signed=False), is_external=False),
 ]
 
 # Group names.
@@ -37,8 +35,8 @@ wires = [
             # update_operands[done] = lhs.done & rhs.done ? 1'd1;
             Connect(
                 HolePort(CompVar(update_operands), "done"),
-                ConstantPort(1, 1),                
-                guard = And(CompPort(lhs, "done"), CompPort(rhs, "done")),
+                ConstantPort(1, 1),
+                guard=And(CompPort(lhs, "done"), CompPort(rhs, "done")),
             ),
         ],
     ),
@@ -69,10 +67,13 @@ main_component = Component(
 )
 
 # Create the Calyx program.
-program = Program(imports=[
+program = Program(
+    imports=[
         Import("primitives/core.futil"),
-        Import("primitives/binary_operators.futil")
-    ], components=[main_component])
+        Import("primitives/binary_operators.futil"),
+    ],
+    components=[main_component],
+)
 
 # Emit the code.
 program.emit()
