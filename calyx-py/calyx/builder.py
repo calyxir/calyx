@@ -13,25 +13,33 @@ class Builder:
 
     def __init__(self):
         self.program = ast.Program(
-            imports=[
-                ast.Import("primitives/core.futil"),
-                ast.Import("primitives/binary_operators.futil"),
-            ],
+            imports=[],
             components=[],
         )
+        self.imported = set()
+        self.import_("primitives/core.futil")
 
     def component(self, name: str, cells=[]):
-        comp_builder = ComponentBuilder(name, cells)
+        comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
         return comp_builder
+
+    def import_(self, filename: str):
+        """Add an `import` statement to the program."""
+        if filename not in self.imported:
+            self.imported.add(filename)
+            self.program.imports.append(
+                ast.Import(filename)
+            )
 
 
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
-    def __init__(self, name: str, cells: List[ast.Cell] = []):
+    def __init__(self, prog: Builder, name: str, cells: List[ast.Cell] = []):
         """Contructs a new component in the current program. If `cells` is
         provided, the component will be initialized with those cells."""
+        self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
             inputs=[],
@@ -98,8 +106,14 @@ class ComponentBuilder:
         return builder
 
     def cell(
-        self, name: str, comp: ast.CompInst, is_external=False, is_ref=False
+        self, name: str, comp: Union[ast.CompInst, "ComponentBuilder"],
+        is_external=False, is_ref=False
     ) -> "CellBuilder":
+        # If we get a (non-primitive) component builder, instantiate it
+        # with no parameters.
+        if isinstance(comp, ComponentBuilder):
+            comp = ast.CompInst(comp.component.name, [])
+
         cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
         self.component.cells.append(cell)
         builder = CellBuilder(cell)
@@ -123,6 +137,7 @@ class ComponentBuilder:
         )
 
     def add(self, name: str, size: int):
+        self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed=False))
 
 
@@ -148,10 +163,39 @@ def as_control(obj):
         return ast.Enable(obj.group_like.id.name)
     elif isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
+    elif isinstance(obj, set):
+        return ast.ParComp([as_control(o) for o in obj])
     elif obj is None:
         return ast.Empty()
     else:
         assert False, f"unsupported control type {type(obj)}"
+
+
+def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+    """Build a `while` control statement."""
+    return ast.While(port.expr, cond.group_like.id if cond else None,
+                     as_control(body))
+
+
+def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+    """Build an `if` control statement."""
+    return ast.If(port.expr, cond.group_like.id if cond else None,
+                  as_control(body))
+
+
+def invoke(cell: "CellBuilder", **kwargs):
+    """Build an `invoke` control statement.
+
+    The keyword arguments should have the form `in_*` and `out_*`, where
+    `*` is the name of an input or output port on the invoked cell.
+    """
+    return ast.Invoke(
+        cell._cell.id,
+        [(k[3:], ExprBuilder.unwrap(v)) for (k, v) in kwargs.items()
+         if k.startswith('in_')],
+        [(k[4:], ExprBuilder.unwrap(v)) for (k, v) in kwargs.items()
+         if k.startswith('out_')],
+    )
 
 
 class ControlBuilder:
@@ -217,6 +261,14 @@ class ExprBuilder:
         `CondExprBuilder` values; they are only useful for assignment.
         """
         return CondExprBuilder(self, rhs)
+
+    def __eq__(self, other: "ExprBuilder"):
+        """Construct an equality comparison with ==."""
+        return ExprBuilder(ast.Eq(self.expr, other.expr))
+
+    def __ne__(self, other: "ExprBuilder"):
+        """Construct an inequality comparison with ==."""
+        return ExprBuilder(ast.Neq(self.expr, other.expr))
 
     @classmethod
     def unwrap(cls, obj):
@@ -347,6 +399,10 @@ class GroupBuilder:
                 raise Exception(f"could not infer width for literal {rhs}")
             rhs = const(width, rhs)
 
+        assert isinstance(rhs, (ExprBuilder, ast.Port)), \
+            "assignment must use literal int, conditional, or expression, " \
+            f"not {type(rhs)}"
+
         wire = ast.Connect(
             ExprBuilder.unwrap(lhs),
             ExprBuilder.unwrap(rhs),
@@ -375,7 +431,7 @@ class GroupBuilder:
         """Build an assignment to `done` in the group."""
         if not self.group_like:
             raise Exception(
-                "GroupLikeBuilder represents continuous assignments and does not have a done hole"
+                "GroupBuilder represents continuous assignments and does not have a done hole"
             )
         self.asgn(self.done, expr)
 
@@ -394,7 +450,7 @@ def const(width: int, value: int):
     inference fails. Otherwise, you can just use plain Python integer
     values.
     """
-    return ast.ConstantPort(width, value)
+    return ExprBuilder(ast.ConstantPort(width, value))
 
 
 def infer_width(expr):
@@ -430,28 +486,28 @@ def infer_width(expr):
             return inst.args[0]
         elif port_name == "write_en":
             return 1
-    elif prim == "std_add":
+    elif prim in ("std_add", "std_lt", "std_eq"):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
-    elif prim == "std_mem_d1":
+    elif prim == "std_mem_d1" or prim == "seq_mem_d1":
         if port_name == "write_en":
             return 1
         elif port_name == "addr0":
             return inst.args[2]
         elif port_name == "in":
             return inst.args[0]
-    elif (
-        prim == "std_mult_pipe"
-        or prim == "std_smult_pipe"
-        or prim == "std_mod_pipe"
-        or prim == "std_smod_pipe"
-        or prim == "std_div_pipe"
-        or prim == "std_sdiv_pipe"
-    ):
+        if prim == "seq_mem_d1":
+            if port_name == "read_en":
+                return 1
+    elif prim in ("std_mult_pipe", "std_smult_pipe", "std_mod_pipe",
+                  "std_smod_pipe", "std_div_pipe", "std_sdiv_pipe"):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
         elif port_name == "go":
             return 1
+    elif prim == "std_wire":
+        if port_name == "in":
+            return inst.args[0]
 
     # Give up.
     return None
