@@ -69,6 +69,30 @@ module std_pad #(
   `endif
 endmodule
 
+module std_cat #(
+  parameter LEFT_WIDTH  = 32,
+  parameter RIGHT_WIDTH = 32,
+  parameter OUT_WIDTH = 64
+) (
+  input wire logic [LEFT_WIDTH-1:0] left,
+  input wire logic [RIGHT_WIDTH-1:0] right,
+  output logic [OUT_WIDTH-1:0] out
+);
+  assign out = {left, right};
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (LEFT_WIDTH + RIGHT_WIDTH != OUT_WIDTH)
+        $error(
+          "std_cat: Output width must equal sum of input widths\n",
+          "LEFT_WIDTH: %0d", LEFT_WIDTH,
+          "RIGHT_WIDTH: %0d", RIGHT_WIDTH,
+          "OUT_WIDTH: %0d", OUT_WIDTH
+        );
+    end
+  `endif
+endmodule
+
 module std_not #(
     parameter WIDTH = 32
 ) (
