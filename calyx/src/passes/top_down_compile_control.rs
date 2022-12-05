@@ -130,9 +130,8 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // start over counting states from 0
             let mut cur = if new_fsm{
                 attributes.insert(NODE_ID, cur_state);
-               0
-            }
-            else{
+                0
+            } else {
                 cur_state
             };
             stmts.iter_mut().for_each(|stmt| {
@@ -142,8 +141,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // seq should really only take up 1 "state" on the "outer" fsm
             if new_fsm{
                 cur_state + 1
-            }
-            else{
+            } else {
                 cur
             }
         }
@@ -153,7 +151,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             let new_fsm = attributes.has("new_fsm");
             // if new_fsm is true, then we want to add an attribute to this 
             // control statement
-            if new_fsm{
+            if new_fsm {
                 attributes.insert(NODE_ID, cur_state);
             }
             // If the program starts with a branch then branches can't get
@@ -162,8 +160,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // we can't start at 0 for the reason mentioned above  
             let cur = if new_fsm || cur_state == 0 {
                 1
-            }
-            else{
+            } else {
                 cur_state
             };
             let tru_nxt = compute_unique_ids(
@@ -173,16 +170,17 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
                 fbranch, tru_nxt
             );
             // If new_fsm is true then we want to return cur_state + 1, since this 
-            // if should really only take up 1 "state" on the "outer" fsm
+            // if stmt should really only take up 1 "state" on the "outer" fsm
             if new_fsm {
                 cur_state + 1
-            }
-            else{
+            } else {
                 false_nxt
             }
         }
         ir::Control::While(ir::While { body, attributes, .. }) => {
             let new_fsm = attributes.has("new_fsm");
+            // if new_fsm is true, then we want to add an attribute to this 
+            // control statement
             if new_fsm{
                 attributes.insert(NODE_ID, cur_state);
             }
@@ -192,8 +190,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // we can't start at 0 for the reason mentioned above 
             let cur = if new_fsm || cur_state == 0 {
                 1
-            }
-            else{
+            } else {
                 cur_state
             };
             let body_nxt = compute_unique_ids(body, cur);
@@ -201,8 +198,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             // while loop should really only take up 1 "state" on the "outer" fsm
             if new_fsm{
                 cur_state + 1
-            }
-            else{
+            } else {
                 body_nxt
             }
         }
@@ -365,6 +361,12 @@ type PredEdge = (u64, ir::Guard);
 ///     2. Enable the groups in the current state
 ///     3. Calculate [PredEdge] implied by this state
 ///     4. Return [PredEdge] and the next state.
+/// Another note: the functions calc_seq_recur, calc_while_recur, and calc_if_recur
+/// are functions that `calculate_states_recur` uses for when con is a seq, while,
+/// and if respectively. The reason why they are defined as separate functions is because we
+/// need to call `calculate_seq_recur` (for example) directly when we are in `finish_seq`
+/// since `finish_seq` only gives us access to a `& mut seq` type, not a `& Control`
+/// type.
 fn calculate_states_recur(
     con: &ir::Control,
     // The set of previous states that want to transition into cur_state
@@ -439,9 +441,10 @@ fn calculate_states_recur(
     }
 }
 
-/// Essentially the same as `calculate_states_recur`, but takes an input Seq  
-/// instead of a Control. This is helpful if you have a seq that is not
-/// "wrapped" in the enum `Control`.
+/// Builds a finite state machine for `seq` represented by a [Schedule].
+/// At a high level, it iterates through each stmt in the seq's control, using the
+/// previous stmt's [PredEdge] as the `preds` for the current stmt, and returns
+/// the [PredEdge] implied by the last stmt in `seq`'s control.
 fn calc_seq_recur(
     seq: &ir::Seq,
     // The set of previous states that want to transition into cur_state
@@ -466,9 +469,11 @@ fn calc_seq_recur(
     Ok(prev)
 }
 
-/// Essentially the same as `calculate_states_recur`, but takes an input If  
-/// instead of a Control. This is helpful if you have an If statement that is not
-/// "wrapped" in the enum `Control`.
+/// Builds a finite state machine for `if_stmt` represented by a [Schedule].
+/// First generates the transitions into the true branch + the transitions that exist
+/// inside the true branch. Then generates the transitions into the false branch + the transitions
+/// that exist inside the false branch. Then calculates the transitions needed to
+/// exit the if statmement (which include edges from both the true and false branches).
 fn calc_if_recur(
     if_stmt: &ir::If,
     // The set of previous states that want to transition into cur_state
@@ -523,9 +528,10 @@ fn calc_if_recur(
     Ok(prevs)
 }
 
-/// Essentially the same as `calculate_states_recur`, but takes an input While  
-/// instead of a Control. This is helpful if you have an While loop that is not
-/// "wrapped" in the enum `Control`.
+/// Builds a finite state machine for `while_stmt` represented by a [Schedule].
+/// It first generates the backwards edges (i.e., edges from the end of the while
+/// body back to the beginning of the while body), then generates the forwards
+/// edges in the body, then generates the edges that exit the while loop.
 fn calc_while_recur(
     while_stmt: &ir::While,
     // The set of previous states that want to transition into cur_state
@@ -581,9 +587,7 @@ fn calc_while_recur(
     Ok(all_prevs)
 }
 
-/// Essentially the same as `calculate_states`, but takes an input Seq  
-/// instead of a Control. This is helpful if you have a Seq that is not
-/// "wrapped" in the enum `Control`.
+/// Creates a Schedule that represents `seq`, mainly relying on `calc_seq_recur()`.
 fn calculate_states_seq(
     seq: &ir::Seq,
     builder: &mut ir::Builder,
@@ -606,9 +610,7 @@ fn calculate_states_seq(
     Ok(schedule)
 }
 
-/// Essentially the same as `calculate_states`, but takes an input If  
-/// instead of a Control. This is helpful if you have an If statement that is not
-/// "wrapped" in the enum `Control`.
+/// Creates a Schedule that represents `if`, mainly relying on `calc_if_recur()`.
 fn calculate_states_if(
     if_stmt: &ir::If,
     builder: &mut ir::Builder,
@@ -631,9 +633,7 @@ fn calculate_states_if(
     Ok(schedule)
 }
 
-/// Essentially the same as `calculate_states`, but takes an input While  
-/// instead of a Control. This is helpful if you have a While Loop that is not
-/// "wrapped" in the enum `Control`.
+/// Creates a Schedule that represents `while`, mainly relying on `calc_while_recur()`.
 fn calculate_states_while(
     while_stmt: &ir::While,
     builder: &mut ir::Builder,
@@ -658,7 +658,7 @@ fn calculate_states_while(
 
 fn add_nxt_transition(schedule: &mut Schedule, prev: Vec<PredEdge>) {
     // Helper function: given predecessors prev, creates a new "next" state and
-    // transitions from each state in prev to the next state. Essentially, just
+    // transitions from each state in prev to the next state. In other words, it just
     // adds an "end" state to `schedule` and the appropriate transitions to that
     // "end" state.
     let nxt = prev
@@ -671,6 +671,12 @@ fn add_nxt_transition(schedule: &mut Schedule, prev: Vec<PredEdge>) {
     schedule.transitions.extend(transitions);
 }
 
+/// Note: the functions calculate_states_seq, calculate_states_while, and calculate_states_if
+/// are functions that basically do what `calculate_states` would do if `calculate_states` knew (for certain)
+/// that its input parameter would be a seq/while/if.
+/// The reason why we need to define these as separate functions is because `finish_seq`
+/// (for example) we only gives us access to a `& mut seq` type, not a `& Control`
+/// type.
 fn calculate_states(
     con: &ir::Control,
     builder: &mut ir::Builder,
@@ -887,6 +893,7 @@ impl Visitor for TopDownCompileControl {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
+
         // Compile schedule and return the group.
         let if_group = {
             let schedule =
