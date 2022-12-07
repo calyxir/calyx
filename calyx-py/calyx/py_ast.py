@@ -268,6 +268,24 @@ class Or(GuardExpr):
         return f"{self.left.doc()} | {self.right.doc()}"
 
 
+@dataclass
+class Eq(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"{self.left.doc()} == {self.right.doc()}"
+
+
+@dataclass
+class Neq(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"{self.left.doc()} != {self.right.doc()}"
+
+
 # Control
 @dataclass
 class Control(Emittable):
@@ -378,42 +396,46 @@ class If(Control):
 # Standard Library
 @dataclass
 class Stdlib:
-    def register(self, bitwidth: int):
+    @staticmethod
+    def register(bitwidth: int):
         return CompInst("std_reg", [bitwidth])
 
-    def constant(self, bitwidth: int, value: int):
+    @staticmethod
+    def constant(bitwidth: int, value: int):
         return CompInst("std_const", [bitwidth, value])
 
-    def op(self, op: str, bitwidth: int, signed: bool):
+    @staticmethod
+    def op(op: str, bitwidth: int, signed: bool):
         return CompInst(f'std_{"s" if signed else ""}{op}', [bitwidth])
 
-    def identity(self, op: str, bitwidth: int):
-        return CompInst("std_id", [bitwidth])
-
-    def slice(self, in_: int, out: int):
+    @staticmethod
+    def slice(in_: int, out: int):
         return CompInst("std_slice", [in_, out])
 
-    def pad(self, in_: int, out: int):
+    @staticmethod
+    def pad(in_: int, out: int):
         return CompInst("std_pad", [in_, out])
 
-    def mem_d1(self, bitwidth: int, size: int, idx_size: int):
+    @staticmethod
+    def mem_d1(bitwidth: int, size: int, idx_size: int):
         return CompInst("std_mem_d1", [bitwidth, size, idx_size])
 
-    def seq_mem_d1(self, bitwidth: int, size: int, idx_size: int):
+    @staticmethod
+    def seq_mem_d1(bitwidth: int, size: int, idx_size: int):
         return CompInst("seq_mem_d1", [bitwidth, size, idx_size])
 
-    def mem_d2(
-        self, bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int
-    ):
+    @staticmethod
+    def mem_d2(bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int):
         return CompInst("std_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
 
+    @staticmethod
     def seq_mem_d2(
-        self, bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int
+        bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int
     ):
         return CompInst("seq_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
 
+    @staticmethod
     def mem_d3(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -427,8 +449,8 @@ class Stdlib:
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
         )
 
+    @staticmethod
     def seq_mem_d3(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -442,8 +464,8 @@ class Stdlib:
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
         )
 
+    @staticmethod
     def mem_d4(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -469,8 +491,8 @@ class Stdlib:
             ],
         )
 
+    @staticmethod
     def seq_mem_d4(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -497,8 +519,9 @@ class Stdlib:
         )
 
     # Extended Fixed Point AST
+    @staticmethod
     def fixed_point_op(
-        self, op: str, width: int, int_width: int, frac_width: int, signed: bool
+        op: str, width: int, int_width: int, frac_width: int, signed: bool
     ):
         return CompInst(
             f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]

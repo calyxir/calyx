@@ -1,10 +1,25 @@
 from typing import List
-from math import log2, log
+from math import log
 from calyx.py_ast import (
-    Connect, CompVar, Cell, Group, ConstantPort, CompPort, Stdlib,
-    Component, ThisPort, And, HolePort, Atom, Not, PortDef, SeqComp,
-    Enable, While, ParComp, Structure, CompInst, Invoke, Program, Control,
-    If, Import, CombGroup
+    Connect,
+    CompVar,
+    Cell,
+    Group,
+    ConstantPort,
+    CompPort,
+    Stdlib,
+    Component,
+    ThisPort,
+    HolePort,
+    PortDef,
+    SeqComp,
+    Enable,
+    ParComp,
+    CompInst,
+    Invoke,
+    Program,
+    Control,
+    Import,
 )
 from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
@@ -12,14 +27,13 @@ from calyx.gen_msb import gen_msb_calc
 
 
 def gen_constant_cell(name, value, width, int_width, is_signed) -> Cell:
-    '''
-    Generates a constant cell named `name`, and value, widht, int_width, and is_signed 
-    set according to their respective arguments. 
-    '''
-    stdlib = Stdlib()
+    """
+    Generates a constant cell named `name`, and value, widht, int_width, and is_signed
+    set according to their respective arguments.
+    """
     return Cell(
         CompVar(name),
-        stdlib.constant(
+        Stdlib.constant(
             width,
             numeric_types.FixedPoint(
                 value, width, int_width, is_signed
@@ -29,9 +43,9 @@ def gen_constant_cell(name, value, width, int_width, is_signed) -> Cell:
 
 
 def multiply_cells(group_name, mult_cell, lhs, rhs):
-    '''
+    """
     Returns a group named `group_name" that multiplies `lhs` and `rhs` using `mult_cell`
-    '''
+    """
     return Group(
         id=CompVar(group_name),
         connections=[
@@ -47,64 +61,133 @@ def multiply_cells(group_name, mult_cell, lhs, rhs):
                 CompPort(CompVar(mult_cell), "right"),
                 CompPort(CompVar(lhs), "out"),
             ),
-            Connect(HolePort(CompVar(group_name), "done"),
-                    CompPort(CompVar(mult_cell), "done"))
-        ]
+            Connect(
+                HolePort(CompVar(group_name), "done"),
+                CompPort(CompVar(mult_cell), "done"),
+            ),
+        ],
     )
 
 
 def generate_pade_cells(width: int, int_width: int, is_signed: bool) -> List[Cell]:
-    '''
+    """
     Generates cells for pade approximant componenet
-    '''
+    """
     frac_width = width - int_width
-    n1 = gen_constant_cell("n1", str(float_to_fixed_point(3.40547, frac_width)),
-                           width, int_width, is_signed)
-    n2 = gen_constant_cell("n2", str(float_to_fixed_point(2.43279, frac_width)),
-                           width, int_width, is_signed)
-    n3 = gen_constant_cell("n3", str(float_to_fixed_point(5.8376, frac_width)),
-                           width, int_width, is_signed)
-    d2 = gen_constant_cell("d2", str(float_to_fixed_point(6.0, frac_width)),
-                           width, int_width, is_signed)
-    d3 = gen_constant_cell("d3", str(float_to_fixed_point(2.25, frac_width)),
-                           width, int_width, is_signed)
-    mult_pipe = Cell(CompVar("mult_pipe"), Stdlib().fixed_point_op(
-        "mult_pipe", width, int_width, width-int_width, is_signed))
-    n_mult_pipe1 = Cell(CompVar("n_mult_pipe1"), Stdlib().fixed_point_op(
-        "mult_pipe", width, int_width, width-int_width, is_signed))
-    n_mult_pipe2 = Cell(CompVar("n_mult_pipe2"), Stdlib().fixed_point_op(
-        "mult_pipe", width, int_width, width-int_width, is_signed))
-    d_mult_pipe1 = Cell(CompVar("d_mult_pipe1"), Stdlib().fixed_point_op(
-        "mult_pipe", width, int_width, width-int_width, is_signed))
-    d_mult_pipe2 = Cell(CompVar("d_mult_pipe2"), Stdlib().fixed_point_op(
-        "mult_pipe", width, int_width, width-int_width, is_signed))
-    div_pipe = Cell(CompVar("div_pipe"), Stdlib().fixed_point_op(
-        "div_pipe", width, int_width, width-int_width, is_signed))
-    add1 = Cell(CompVar("add1"), Stdlib().fixed_point_op(
-        "add", width, int_width, width-int_width, is_signed))
-    add2 = Cell(CompVar("add2"), Stdlib().fixed_point_op(
-        "add", width, int_width, width-int_width, is_signed))
-    add3 = Cell(CompVar("add3"), Stdlib().fixed_point_op(
-        "add", width, int_width, width-int_width, is_signed))
-    sub1 = Cell(CompVar("sub1"), Stdlib().fixed_point_op(
-        "sub", width, int_width, width-int_width, is_signed))
-    numerator_reg = Cell(CompVar("num_reg"), Stdlib().register(width))
-    denominator_reg = Cell(CompVar("den_reg"), Stdlib().register(width))
-    res_reg = Cell(CompVar("res_reg"), Stdlib().register(width))
-    x_reg = Cell(CompVar("x_reg"), Stdlib().register(width))
-    x_sq_reg = Cell(CompVar("x_sq_reg"), Stdlib().register(width))
-    return [n1, n2, n3, d2, d3, mult_pipe, n_mult_pipe1, n_mult_pipe2, d_mult_pipe1, d_mult_pipe2, div_pipe, add1, add2, add3, sub1, numerator_reg, denominator_reg, res_reg, x_reg, x_sq_reg]
+    n1 = gen_constant_cell(
+        "n1",
+        str(float_to_fixed_point(3.40547, frac_width)),
+        width,
+        int_width,
+        is_signed,
+    )
+    n2 = gen_constant_cell(
+        "n2",
+        str(float_to_fixed_point(2.43279, frac_width)),
+        width,
+        int_width,
+        is_signed,
+    )
+    n3 = gen_constant_cell(
+        "n3", str(float_to_fixed_point(5.8376, frac_width)), width, int_width, is_signed
+    )
+    d2 = gen_constant_cell(
+        "d2", str(float_to_fixed_point(6.0, frac_width)), width, int_width, is_signed
+    )
+    d3 = gen_constant_cell(
+        "d3", str(float_to_fixed_point(2.25, frac_width)), width, int_width, is_signed
+    )
+    mult_pipe = Cell(
+        CompVar("mult_pipe"),
+        Stdlib.fixed_point_op(
+            "mult_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
+    n_mult_pipe1 = Cell(
+        CompVar("n_mult_pipe1"),
+        Stdlib.fixed_point_op(
+            "mult_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
+    n_mult_pipe2 = Cell(
+        CompVar("n_mult_pipe2"),
+        Stdlib.fixed_point_op(
+            "mult_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
+    d_mult_pipe1 = Cell(
+        CompVar("d_mult_pipe1"),
+        Stdlib.fixed_point_op(
+            "mult_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
+    d_mult_pipe2 = Cell(
+        CompVar("d_mult_pipe2"),
+        Stdlib.fixed_point_op(
+            "mult_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
+    div_pipe = Cell(
+        CompVar("div_pipe"),
+        Stdlib.fixed_point_op(
+            "div_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
+    add1 = Cell(
+        CompVar("add1"),
+        Stdlib.fixed_point_op("add", width, int_width, width - int_width, is_signed),
+    )
+    add2 = Cell(
+        CompVar("add2"),
+        Stdlib.fixed_point_op("add", width, int_width, width - int_width, is_signed),
+    )
+    add3 = Cell(
+        CompVar("add3"),
+        Stdlib.fixed_point_op("add", width, int_width, width - int_width, is_signed),
+    )
+    sub1 = Cell(
+        CompVar("sub1"),
+        Stdlib.fixed_point_op("sub", width, int_width, width - int_width, is_signed),
+    )
+    numerator_reg = Cell(CompVar("num_reg"), Stdlib.register(width))
+    denominator_reg = Cell(CompVar("den_reg"), Stdlib.register(width))
+    res_reg = Cell(CompVar("res_reg"), Stdlib.register(width))
+    x_reg = Cell(CompVar("x_reg"), Stdlib.register(width))
+    x_sq_reg = Cell(CompVar("x_sq_reg"), Stdlib.register(width))
+    return [
+        n1,
+        n2,
+        n3,
+        d2,
+        d3,
+        mult_pipe,
+        n_mult_pipe1,
+        n_mult_pipe2,
+        d_mult_pipe1,
+        d_mult_pipe2,
+        div_pipe,
+        add1,
+        add2,
+        add3,
+        sub1,
+        numerator_reg,
+        denominator_reg,
+        res_reg,
+        x_reg,
+        x_sq_reg,
+    ]
 
 
 def generate_pade_groups() -> List[Group]:
-    '''
+    """
     Generates groups for pade approximant componenet
-    '''
-    mult_groups = [multiply_cells("get_x_sq", "mult_pipe", "x_reg", "x_reg"),
-                   multiply_cells("num_term1", "n_mult_pipe1", "mult_pipe", "n1"),
-                   multiply_cells("num_term2", "n_mult_pipe2", "x_reg", "n2"),
-                   multiply_cells("den_term2", "d_mult_pipe2", "x_reg", "d2"),
-                   ]
+    """
+    mult_groups = [
+        multiply_cells("get_x_sq", "mult_pipe", "x_reg", "x_reg"),
+        multiply_cells("num_term1", "n_mult_pipe1", "mult_pipe", "n1"),
+        multiply_cells("num_term2", "n_mult_pipe2", "x_reg", "n2"),
+        multiply_cells("den_term2", "d_mult_pipe2", "x_reg", "d2"),
+    ]
     write_x_to_reg = Group(
         id=CompVar("write_x_to_reg"),
         connections=[
@@ -112,13 +195,12 @@ def generate_pade_groups() -> List[Group]:
                 CompPort(CompVar("x_reg"), "write_en"),
                 ConstantPort(1, 1),
             ),
+            Connect(CompPort(CompVar("x_reg"), "in"), ThisPort(CompVar("x"))),
             Connect(
-                CompPort(CompVar("x_reg"), "in"),
-                ThisPort(CompVar("x"))
+                HolePort(CompVar("write_x_to_reg"), "done"),
+                CompPort(CompVar("x_reg"), "done"),
             ),
-            Connect(HolePort(CompVar("write_x_to_reg"), "done"),
-                    CompPort(CompVar("x_reg"), "done"))
-        ]
+        ],
     )
     get_numerator = Group(
         id=CompVar("get_numerator"),
@@ -150,8 +232,8 @@ def generate_pade_groups() -> List[Group]:
             Connect(
                 HolePort(CompVar("get_numerator"), "done"),
                 CompPort(CompVar("num_reg"), "done"),
-            )
-        ]
+            ),
+        ],
     )
     get_denominator = Group(
         id=CompVar("get_denominator"),
@@ -183,16 +265,13 @@ def generate_pade_groups() -> List[Group]:
             Connect(
                 HolePort(CompVar("get_denominator"), "done"),
                 CompPort(CompVar("den_reg"), "done"),
-            )
-        ]
+            ),
+        ],
     )
     get_res = Group(
         id=CompVar("get_res"),
         connections=[
-            Connect(
-                CompPort(CompVar("res_reg"), "write_en"),
-                ConstantPort(1, 1)
-            ),
+            Connect(CompPort(CompVar("res_reg"), "write_en"), ConstantPort(1, 1)),
             Connect(
                 CompPort(CompVar("res_reg"), "in"),
                 CompPort(CompVar("div_pipe"), "out_quotient"),
@@ -201,77 +280,112 @@ def generate_pade_groups() -> List[Group]:
                 HolePort(CompVar("get_res"), "done"),
                 CompPort(CompVar("res_reg"), "done"),
             ),
-        ]
+        ],
     )
     return mult_groups + [write_x_to_reg, get_numerator, get_denominator, get_res]
 
 
 def generate_pade_control() -> Control:
-    '''
+    """
     Generates control for pade approximant componenet
-    '''
-    return SeqComp([
-        Enable("write_x_to_reg"),
-        Enable("get_x_sq"),
-        ParComp([Enable("num_term1"), Enable("num_term2"), Enable("den_term2")]),
-        ParComp([Enable("get_numerator"), Enable("get_denominator")]),
-        Invoke(CompVar("div_pipe"), [("left",  CompPort(
-            CompVar("num_reg"), "out")), ("right", CompPort(CompVar("den_reg"), "out"))], []),
-        Enable("get_res")
-    ])
+    """
+    return SeqComp(
+        [
+            Enable("write_x_to_reg"),
+            Enable("get_x_sq"),
+            ParComp([Enable("num_term1"), Enable("num_term2"), Enable("den_term2")]),
+            ParComp([Enable("get_numerator"), Enable("get_denominator")]),
+            Invoke(
+                CompVar("div_pipe"),
+                [
+                    ("left", CompPort(CompVar("num_reg"), "out")),
+                    ("right", CompPort(CompVar("den_reg"), "out")),
+                ],
+                [],
+            ),
+            Enable("get_res"),
+        ]
+    )
 
 
 def gen_pade_approx(width: int, int_width: int, is_signed: bool) -> List[Component]:
-    '''
+    """
     Component to approximate ln(x).
-    Uses the 2nd order Pade Approximant of ln(x) at x = 1.5. Therefore, we only 
-    us this component when 1 <= x < 2. 
+    Uses the 2nd order Pade Approximant of ln(x) at x = 1.5. Therefore, we only
+    us this component when 1 <= x < 2.
     Formula calculated using Wolfram Alpha:
     https://www.wolframalpha.com/input?i=+PadeApproximant%5Bln%28x%29%2C%7Bx%2C1.5%2C%7B2%2C2%7D%7D%5D+
     Read About Pade Approximant here:
     https://en.wikipedia.org/wiki/Pad%C3%A9_approximant
-    '''
-    return [Component(
+    """
+    return [
+        Component(
             "ln_pade_approx",
             inputs=[PortDef(CompVar("x"), width)],
             outputs=[PortDef(CompVar("out"), width)],
-            structs=generate_pade_cells(
-                width, int_width, is_signed) + generate_pade_groups()
-            + [Connect(ThisPort(CompVar("out")),
-                       CompPort(CompVar("res_reg"), "out"))],
+            structs=generate_pade_cells(width, int_width, is_signed)
+            + generate_pade_groups()
+            + [Connect(ThisPort(CompVar("out")), CompPort(CompVar("res_reg"), "out"))],
             controls=generate_pade_control(),
-            )]
+        )
+    ]
 
 
 def gen_ln_cells(width: int, int_width: int, is_signed: bool) -> List[Cell]:
-    '''
+    """
     Generates cells for the ln component.
-    '''
-    stdlib = Stdlib()
-    and1 = Cell(CompVar("and1"), stdlib.op("and", width, signed=False))
-    n = Cell(CompVar("n"), Stdlib().register(width))
-    div_pipe = Cell(CompVar("div_pipe"), Stdlib().fixed_point_op(
-        "div_pipe", width, int_width, width-int_width, is_signed))
-    add1 = Cell(CompVar("add1"), Stdlib().fixed_point_op(
-        "add", width, int_width, width-int_width, is_signed))
-    mult_pipe = Cell(CompVar("mult_pipe"), Stdlib().fixed_point_op(
-        "mult_pipe", width, int_width, width-int_width, is_signed))
+    """
+    and1 = Cell(CompVar("and1"), Stdlib.op("and", width, signed=False))
+    n = Cell(CompVar("n"), Stdlib.register(width))
+    div_pipe = Cell(
+        CompVar("div_pipe"),
+        Stdlib.fixed_point_op(
+            "div_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
+    add1 = Cell(
+        CompVar("add1"),
+        Stdlib.fixed_point_op("add", width, int_width, width - int_width, is_signed),
+    )
+    mult_pipe = Cell(
+        CompVar("mult_pipe"),
+        Stdlib.fixed_point_op(
+            "mult_pipe", width, int_width, width - int_width, is_signed
+        ),
+    )
     ln_2 = gen_constant_cell(
-        "ln_2", str(float_to_fixed_point(log(2), width-int_width)),
-        width, int_width, is_signed)
+        "ln_2",
+        str(float_to_fixed_point(log(2), width - int_width)),
+        width,
+        int_width,
+        is_signed,
+    )
     pade_approx = Cell(CompVar("pade_approx"), CompInst("ln_pade_approx", []))
-    res_reg = Cell(CompVar("res_reg"), Stdlib().register(width))
+    res_reg = Cell(CompVar("res_reg"), Stdlib.register(width))
     msb_gen = Cell(CompVar("msb"), CompInst("msb_calc", []))
-    slice0 = Cell(CompVar("slice0"), Stdlib().slice(width, int_width))
-    rsh = Cell(CompVar("rsh"), Stdlib().op("rsh", width, is_signed))
-    shift_amount = Cell(CompVar("shift_amount"), stdlib.constant(width, int_width))
-    return [and1, n, div_pipe, mult_pipe, ln_2, pade_approx, res_reg, add1, msb_gen, slice0, rsh, shift_amount]
+    slice0 = Cell(CompVar("slice0"), Stdlib.slice(width, int_width))
+    rsh = Cell(CompVar("rsh"), Stdlib.op("rsh", width, is_signed))
+    shift_amount = Cell(CompVar("shift_amount"), Stdlib.constant(width, int_width))
+    return [
+        and1,
+        n,
+        div_pipe,
+        mult_pipe,
+        ln_2,
+        pade_approx,
+        res_reg,
+        add1,
+        msb_gen,
+        slice0,
+        rsh,
+        shift_amount,
+    ]
 
 
 def gen_ln_groups() -> List[Group]:
-    '''
+    """
     Generates groups for the ln component
-    '''
+    """
     get_n = Group(
         id=CompVar("get_n"),
         connections=[
@@ -305,9 +419,11 @@ def gen_ln_groups() -> List[Group]:
                 CompPort(CompVar("div_pipe"), "right"),
                 CompPort(CompVar("msb"), "value"),
             ),
-            Connect(HolePort(CompVar("get_p"), "done"),
-                    CompPort(CompVar("div_pipe"), "done"))
-        ]
+            Connect(
+                HolePort(CompVar("get_p"), "done"),
+                CompPort(CompVar("div_pipe"), "done"),
+            ),
+        ],
     )
 
     get_term_1 = Group(
@@ -325,9 +441,11 @@ def gen_ln_groups() -> List[Group]:
                 CompPort(CompVar("mult_pipe"), "right"),
                 CompPort(CompVar("n"), "out"),
             ),
-            Connect(HolePort(CompVar("get_term1"), "done"),
-                    CompPort(CompVar("mult_pipe"), "done"))
-        ]
+            Connect(
+                HolePort(CompVar("get_term1"), "done"),
+                CompPort(CompVar("mult_pipe"), "done"),
+            ),
+        ],
     )
 
     get_res = Group(
@@ -349,22 +467,27 @@ def gen_ln_groups() -> List[Group]:
                 CompPort(CompVar("res_reg"), "write_en"),
                 ConstantPort(1, 1),
             ),
-            Connect(HolePort(CompVar("get_res"), "done"),
-                    CompPort(CompVar("res_reg"), "done"))
-        ]
+            Connect(
+                HolePort(CompVar("get_res"), "done"),
+                CompPort(CompVar("res_reg"), "done"),
+            ),
+        ],
     )
 
     return [get_n, get_p, get_term_1, get_res]
 
 
 def gen_ln_control() -> Control:
-    '''
+    """
     Generates control for the ln component
-    '''
+    """
     return SeqComp(
         [
-            Invoke(id=CompVar("msb"), in_connects=[
-                   ("in",  ThisPort(CompVar("x")))], out_connects=[]),
+            Invoke(
+                id=CompVar("msb"),
+                in_connects=[("in", ThisPort(CompVar("x")))],
+                out_connects=[],
+            ),
             Enable("get_n"),
             Enable("get_p"),
             Enable("get_term1"),
@@ -373,7 +496,7 @@ def gen_ln_control() -> Control:
                 in_connects=[("x", CompPort(CompVar("div_pipe"), "out_quotient"))],
                 out_connects=[],
             ),
-            Enable("get_res")
+            Enable("get_res"),
         ]
     )
 
@@ -383,23 +506,29 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
     Generates a component that approximates ln(x) for x >= 1.
     Notice that x = 2^n * y for some natural number n, and some p between 1 and 2.
     Therefore, ln(x) = ln(2^n * p) = ln(2^n) + ln(p) = n*ln(2) + ln(p).
-    Therefore, we can calculate 2 * ln(2) easily (since we can just store ln(2) 
+    Therefore, we can calculate 2 * ln(2) easily (since we can just store ln(2)
     as a constant),and then add ln(p) using the pade approximant.
     We use the `msb_calc` component (located in gen_msb.py) to calculate the n and p values.
     """
-    return (gen_pade_approx(width, int_width, is_signed) +
-            gen_msb_calc(width, int_width) +
-            [
-        Component(
-            "ln",
-            inputs=[PortDef(CompVar("x"), width)],
-            outputs=[PortDef(CompVar("out"), width)],
-            structs=gen_ln_cells(width, int_width, is_signed)
-            + gen_ln_groups() + [Connect(ThisPort(CompVar("out")),
-                                         CompPort(CompVar("res_reg"), "out"))],
-            controls=gen_ln_control(),
-        )
-    ])
+    return (
+        gen_pade_approx(width, int_width, is_signed)
+        + gen_msb_calc(width, int_width)
+        + [
+            Component(
+                "ln",
+                inputs=[PortDef(CompVar("x"), width)],
+                outputs=[PortDef(CompVar("out"), width)],
+                structs=gen_ln_cells(width, int_width, is_signed)
+                + gen_ln_groups()
+                + [
+                    Connect(
+                        ThisPort(CompVar("out")), CompPort(CompVar("res_reg"), "out")
+                    )
+                ],
+                controls=gen_ln_control(),
+            )
+        ]
+    )
 
 
 if __name__ == "__main__":
@@ -434,9 +563,11 @@ if __name__ == "__main__":
     # build 2 separate programs: 1 if base_is_e is true, the other if false
     # any_base_program is (obviously) the one for any base
     program = Program(
-        imports=[Import("primitives/core.futil"),
-                 Import("primitives/binary_operators.futil")],
-        components=generate_ln(width, int_width, is_signed)
+        imports=[
+            Import("primitives/core.futil"),
+            Import("primitives/binary_operators.futil"),
+        ],
+        components=generate_ln(width, int_width, is_signed),
     )
     # main component for testing purposes
     main = Component(
@@ -444,12 +575,11 @@ if __name__ == "__main__":
         inputs=[],
         outputs=[],
         structs=[
-            Cell(CompVar("x"), Stdlib().register(width)),
-            Cell(CompVar("in"), Stdlib().mem_d1(
-                width, 1, 1), is_external=True),
+            Cell(CompVar("x"), Stdlib.register(width)),
+            Cell(CompVar("in"), Stdlib.mem_d1(width, 1, 1), is_external=True),
             Cell(
                 CompVar("out"),
-                Stdlib().mem_d1(width, 1, 1),
+                Stdlib.mem_d1(width, 1, 1),
                 is_external=True,
             ),
             Cell(CompVar("l"), CompInst("ln", [])),
