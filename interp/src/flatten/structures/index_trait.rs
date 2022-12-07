@@ -5,11 +5,15 @@ pub trait IndexRef: Copy + Eq {
 }
 
 macro_rules! impl_index {
-    ( $struct_name: ident, $backing_ty: ty) => {
-        #[derive(Debug, Eq, Copy, Clone, PartialEq)]
-        struct $struct_name($backing_ty);
+    ($v: vis $struct_name: ident) => {
+        impl_index!($v $struct_name, u32);
+    };
 
-        impl IndexRef for $struct_name {
+    ( $v:vis $struct_name: ident, $backing_ty: ty) => {
+        #[derive(Debug, Eq, Copy, Clone, PartialEq)]
+        $v struct $struct_name($backing_ty);
+
+        impl $crate::flatten::structures::index_trait::IndexRef for $struct_name {
             fn index(&self) -> usize {
                 self.0 as usize
             }
@@ -18,10 +22,6 @@ macro_rules! impl_index {
                 Self(input as $backing_ty)
             }
         }
-    };
-
-    ($struct_name: ident) => {
-        impl_index!($struct_name, u32);
     };
 }
 

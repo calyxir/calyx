@@ -1,15 +1,17 @@
+use smallvec::SmallVec;
+
 use super::index_trait::IndexRef;
 use std::{marker::PhantomData, ops};
 
-pub struct IndexedMap<T, K>
+pub struct IndexedMap<T, K, const N: usize = 0>
 where
     K: IndexRef,
 {
-    data: Vec<T>,
+    data: SmallVec<[T; N]>,
     phantom: PhantomData<K>,
 }
 
-impl<T, K> ops::IndexMut<K> for IndexedMap<T, K>
+impl<T, K, const N: usize> ops::IndexMut<K> for IndexedMap<T, K, N>
 where
     K: IndexRef,
 {
@@ -18,7 +20,7 @@ where
     }
 }
 
-impl<T, K> ops::Index<K> for IndexedMap<T, K>
+impl<T, K, const N: usize> ops::Index<K> for IndexedMap<T, K, N>
 where
     K: IndexRef,
 {
@@ -29,20 +31,20 @@ where
     }
 }
 
-impl<T, K> IndexedMap<T, K>
+impl<T, K, const N: usize> IndexedMap<T, K, N>
 where
     K: IndexRef,
 {
     pub fn with_capacity(size: usize) -> Self {
         Self {
-            data: Vec::with_capacity(size),
+            data: SmallVec::with_capacity(size),
             phantom: PhantomData,
         }
     }
 
     pub fn new() -> Self {
         Self {
-            data: Vec::new(),
+            data: SmallVec::new(),
             phantom: PhantomData,
         }
     }
