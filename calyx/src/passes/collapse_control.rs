@@ -5,7 +5,9 @@ use crate::ir::{self, LibrarySignatures};
 /// Collapses and de-nests control constructs.
 ///
 /// Running this pass removes unnecessary FSM transitions and compilation
-/// groups during the lowering phase.
+/// groups during the lowering phase. If a seq is marked with @new_fsm, then
+/// we don't collapse it, since we need that fsm transition to transition
+/// from our old fsm to our new one.
 ///
 /// # Example
 /// 1. Collapses nested `seq`:
@@ -59,11 +61,16 @@ impl Visitor for CollapseControl {
         }
         let mut seqs: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {
-            match con {
-                ir::Control::Seq(mut data) => {
-                    seqs.append(&mut data.stmts);
+            if con.has_attribute("new_fsm") {
+                // if con has attribute new_fsm, then we do *not* want to collapse
+                seqs.push(con)
+            } else {
+                match con {
+                    ir::Control::Seq(mut data) => {
+                        seqs.append(&mut data.stmts);
+                    }
+                    _ => seqs.push(con),
                 }
-                _ => seqs.push(con),
             }
         }
         s.stmts = seqs;

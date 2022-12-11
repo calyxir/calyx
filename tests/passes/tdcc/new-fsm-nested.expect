@@ -1,0 +1,60 @@
+======== main:tdcc =========
+0:
+  A[go] = !A[done] ? 1'd1;
+1:
+  B[go] = !B[done] ? 1'd1;
+2:
+  <end>
+transitions:
+  (0, 1): A[done]
+  (1, 2): B[done]
+======== main:tdcc0 =========
+1:
+  B[go] = !B[done] ? 1'd1;
+2:
+  tdcc[go] = !tdcc[done] ? 1'd1;
+3:
+  D[go] = !D[done] ? 1'd1;
+4:
+  E[go] = !E[done] ? 1'd1;
+5:
+  <end>
+transitions:
+  (0, 1): comb_reg.out
+  (0, 4): !comb_reg.out
+  (1, 2): B[done]
+  (2, 3): tdcc[done]
+  (3, 5): D[done]
+  (4, 5): E[done]
+======== main:tdcc1 =========
+1:
+  true[go] = !true[done] ? 1'd1;
+2:
+  cond0[go] = !cond0[done] ? 1'd1;
+3:
+  tdcc0[go] = !tdcc0[done] ? 1'd1;
+4:
+  false[go] = !false[done] ? 1'd1;
+5:
+  <end>
+transitions:
+  (0, 1): r.out
+  (0, 5): !r.out
+  (1, 2): true[done]
+  (2, 3): cond0[done]
+  (3, 4): tdcc0[done]
+  (4, 1): false[done] & r.out
+  (4, 5): false[done] & !r.out
+======== main:tdcc2 =========
+0:
+  A[go] = !A[done] ? 1'd1;
+1:
+  tdcc1[go] = !tdcc1[done] ? 1'd1;
+2:
+  C[go] = !C[done] ? 1'd1;
+3:
+  <end>
+transitions:
+  (0, 1): A[done]
+  (1, 2): tdcc1[done]
+  (2, 3): C[done]

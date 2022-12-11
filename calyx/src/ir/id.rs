@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
 /// Represents an identifier in a Calyx program
-#[derive(Derivative, Clone, Deserialize)]
+#[derive(Derivative, Clone, Deserialize, Default)]
 #[derivative(Hash, Eq, Debug, PartialOrd, Ord)]
 #[serde(transparent)]
 pub struct Id {

@@ -287,7 +287,6 @@ impl Visitor for RemoveCombGroups {
         if s.cond.is_none() {
             return Ok(Action::Continue);
         }
-
         // Construct a new `if` statement
         let key = (
             s.cond.as_ref().unwrap().borrow().name().clone(),
@@ -307,12 +306,14 @@ impl Visitor for RemoveCombGroups {
             std::mem::replace(s.tbranch.as_mut(), ir::Control::empty());
         let fbranch =
             std::mem::replace(s.fbranch.as_mut(), ir::Control::empty());
-        let if_ = ir::Control::if_(
+        let mut if_ = ir::Control::if_(
             Rc::clone(port_ref),
             None,
             Box::new(tbranch),
             Box::new(fbranch),
         );
+        let attrs = if_.get_mut_attributes();
+        *attrs = std::mem::take(&mut s.attributes);
         let cond = ir::Control::enable(Rc::clone(cond_ref));
         Ok(Action::change(ir::Control::seq(vec![cond, if_])))
     }
