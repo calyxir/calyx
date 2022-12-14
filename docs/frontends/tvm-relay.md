@@ -13,10 +13,10 @@ intermediate representation.
 
 ## Installation
 
-1. Clone the TVM repository with commit hash `ccacb1ec1`):
+1. Clone the TVM repository and checkout the tag `v0.10.dev0`:
 
         git clone git@github.com:apache/incubator-tvm.git
-        cd incubator-tvm && git checkout ccacb1ec1
+        cd incubator-tvm && git checkout v0.10.dev0
         git submodule init && git submodule update
 
 2. Set up to build (the default configuration is fine because we don't need any fancy backends like LLVM or CUDA):
