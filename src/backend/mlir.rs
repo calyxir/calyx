@@ -220,7 +220,7 @@ impl MlirBackend {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        let name = cell.name().id.clone();
+        let name = cell.name().id;
         let all_ports = cell
             .ports()
             .iter()

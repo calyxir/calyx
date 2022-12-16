@@ -311,11 +311,11 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
                     let (wn, width) = &param_binding[0];
                     let (vn, value) = &param_binding[1];
                     inst.add_param(
-                        &wn.id.as_str(),
+                        wn.id.as_str(),
                         v::Expr::new_int(*width as i32),
                     );
                     inst.add_param(
-                        &vn.id.as_str(),
+                        vn.id.as_str(),
                         v::Expr::new_ulit_dec(
                             *width as u32,
                             &value.to_string(),
@@ -548,7 +548,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                     .unwrap_or_default()
             {
                 Some((
-                    cell.borrow().name().id.clone(),
+                    cell.borrow().name().id,
                     cell.borrow().type_name().unwrap_or_else(|| unreachable!("tried to add a memory cell but there was no type name")).clone(),
                 ))
             } else {
