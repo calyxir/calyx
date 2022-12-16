@@ -310,9 +310,12 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
                 if name == "std_const" {
                     let (wn, width) = &param_binding[0];
                     let (vn, value) = &param_binding[1];
-                    inst.add_param(&wn.id, v::Expr::new_int(*width as i32));
                     inst.add_param(
-                        &vn.id,
+                        &wn.id.as_str(),
+                        v::Expr::new_int(*width as i32),
+                    );
+                    inst.add_param(
+                        &vn.id.as_str(),
                         v::Expr::new_ulit_dec(
                             *width as u32,
                             &value.to_string(),
@@ -540,7 +543,8 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
                 && cell
                     .borrow()
                     .type_name()
-                    .map(|proto| proto.id.contains("mem"))
+                    // HACK: Check if the name of the primitive contains the string "mem"
+                    .map(|proto| proto.id.as_str().contains("mem"))
                     .unwrap_or_default()
             {
                 Some((
@@ -583,7 +587,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         )));
 
     memories.iter().for_each(|(name, mem_type)| {
-        let mem_access_str = get_mem_str(&mem_type.id);
+        let mem_access_str = get_mem_str(mem_type.id.as_str());
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
@@ -600,7 +604,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
 
     let mut final_block = v::ParallelProcess::new_final();
     memories.iter().for_each(|(name, mem_type)| {
-        let mem_access_str = get_mem_str(&mem_type.id);
+        let mem_access_str = get_mem_str(mem_type.id.as_str());
 
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",

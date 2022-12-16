@@ -299,8 +299,8 @@ impl CalyxParser {
     fn at_attribute(input: Node) -> ParseResult<(String, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(key), attr_val(num)] => (key.id, num),
-            [identifier(key)] => (key.id, 1)
+            [identifier(key), attr_val(num)] => (key.id.as_str().to_owned(), num),
+            [identifier(key)] => (key.id.as_str().to_owned(), 1)
         ))
     }
 

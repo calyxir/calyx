@@ -94,7 +94,7 @@ pub struct DominatorMap {
     /// and for if statements it will be the "if" nods. For pars in seqs, you
     /// have to look inside the children to see what their "last" nodes are.
     pub exits_map: HashMap<u64, HashSet<u64>>,
-    pub component_name: String,
+    pub component_name: ir::Id,
 }
 
 impl Debug for DominatorMap {
@@ -186,7 +186,7 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
 
 impl DominatorMap {
     /// Construct a domination map.
-    pub fn new(control: &mut ir::Control, component_name: String) -> Self {
+    pub fn new(control: &mut ir::Control, component_name: ir::Id) -> Self {
         ControlId::compute_unique_ids(control, 0, true);
         let mut map = DominatorMap {
             map: HashMap::new(),

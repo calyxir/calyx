@@ -165,7 +165,7 @@ impl Visitor for WellFormed {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
             // Check if any of the cells use a reserved name.
-            if self.reserved_names.contains(&cell.name().id) {
+            if self.reserved_names.contains(cell.name().id.as_str()) {
                 return Err(Error::reserved_name(cell.clone_name())
                     .with_pos(cell.name()));
             }
