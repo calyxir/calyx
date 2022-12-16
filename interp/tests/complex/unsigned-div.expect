@@ -1,51 +1,51 @@
 {
   "ports": {
     "main": {
+      "_5_32": {
+        "out": 5
+      },
       "_1_1": {
         "out": 1
+      },
+      "reg_r": {
+        "done": 0,
+        "write_en": 0,
+        "clk": 0,
+        "out": 1,
+        "reset": 0,
+        "in": 0
+      },
+      "div": {
+        "done": 0,
+        "out_remainder": 1,
+        "clk": 0,
+        "left": 0,
+        "go": 0,
+        "reset": 0,
+        "out_quotient": 11,
+        "right": 0
       },
       "_56_32": {
         "out": 56
       },
-      "_5_32": {
-        "out": 5
-      },
-      "div": {
-        "clk": 0,
-        "done": 0,
-        "go": 0,
-        "left": 0,
-        "out_quotient": 11,
-        "out_remainder": 1,
-        "reset": 0,
-        "right": 0
-      },
       "reg_q": {
-        "clk": 0,
         "done": 0,
-        "in": 0,
+        "write_en": 0,
+        "clk": 0,
         "out": 11,
         "reset": 0,
-        "write_en": 0
-      },
-      "reg_r": {
-        "clk": 0,
-        "done": 0,
-        "in": 0,
-        "out": 1,
-        "reset": 0,
-        "write_en": 0
+        "in": 0
       }
     }
   },
   "memories": {
     "main": {
+      "reg_r": 1,
       "div": [
         11,
         1
       ],
-      "reg_q": 11,
-      "reg_r": 1
+      "reg_q": 11
     }
   }
 }
