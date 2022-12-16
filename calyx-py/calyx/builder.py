@@ -28,9 +28,7 @@ class Builder:
         """Add an `import` statement to the program."""
         if filename not in self.imported:
             self.imported.add(filename)
-            self.program.imports.append(
-                ast.Import(filename)
-            )
+            self.program.imports.append(ast.Import(filename))
 
 
 class ComponentBuilder:
@@ -106,8 +104,11 @@ class ComponentBuilder:
         return builder
 
     def cell(
-        self, name: str, comp: Union[ast.CompInst, "ComponentBuilder"],
-        is_external=False, is_ref=False
+        self,
+        name: str,
+        comp: Union[ast.CompInst, "ComponentBuilder"],
+        is_external=False,
+        is_ref=False,
     ) -> "CellBuilder":
         # If we get a (non-primitive) component builder, instantiate it
         # with no parameters.
@@ -160,7 +161,15 @@ def as_control(obj):
     elif isinstance(obj, ast.Group):
         return ast.Enable(obj.id.name)
     elif isinstance(obj, GroupBuilder):
-        return ast.Enable(obj.group_like.id.name)
+        gl = obj.group_like
+        assert gl, (
+            "GroupBuilder represents continuous assignments and"
+            " cannot be used as a control statement"
+        )
+        assert not isinstance(
+            gl, ast.CombGroup
+        ), "Cannot use combinational group as control statement"
+        return ast.Enable(gl.id.name)
     elif isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
     elif isinstance(obj, set):
@@ -173,14 +182,26 @@ def as_control(obj):
 
 def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     """Build a `while` control statement."""
-    return ast.While(port.expr, cond.group_like.id if cond else None,
-                     as_control(body))
+    if cond:
+        assert isinstance(
+            cond.group_like, ast.CombGroup
+        ), "while condition must be a combinational group"
+        cg = cond.group_like.id
+    else:
+        cg = None
+    return ast.While(port.expr, cg, as_control(body))
 
 
 def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     """Build an `if` control statement."""
-    return ast.If(port.expr, cond.group_like.id if cond else None,
-                  as_control(body))
+    if cond:
+        assert isinstance(
+            cond.group_like, ast.CombGroup
+        ), "if condition must be a combinational group"
+        cg = cond.group_like.id
+    else:
+        cg = None
+    return ast.If(port.expr, cg, as_control(body))
 
 
 def invoke(cell: "CellBuilder", **kwargs):
@@ -191,10 +212,16 @@ def invoke(cell: "CellBuilder", **kwargs):
     """
     return ast.Invoke(
         cell._cell.id,
-        [(k[3:], ExprBuilder.unwrap(v)) for (k, v) in kwargs.items()
-         if k.startswith('in_')],
-        [(k[4:], ExprBuilder.unwrap(v)) for (k, v) in kwargs.items()
-         if k.startswith('out_')],
+        [
+            (k[3:], ExprBuilder.unwrap(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("in_")
+        ],
+        [
+            (k[4:], ExprBuilder.unwrap(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("out_")
+        ],
     )
 
 
@@ -399,9 +426,10 @@ class GroupBuilder:
                 raise Exception(f"could not infer width for literal {rhs}")
             rhs = const(width, rhs)
 
-        assert isinstance(rhs, (ExprBuilder, ast.Port)), \
-            "assignment must use literal int, conditional, or expression, " \
+        assert isinstance(rhs, (ExprBuilder, ast.Port)), (
+            "assignment must use literal int, conditional, or expression, "
             f"not {type(rhs)}"
+        )
 
         wire = ast.Connect(
             ExprBuilder.unwrap(lhs),
@@ -499,8 +527,14 @@ def infer_width(expr):
         if prim == "seq_mem_d1":
             if port_name == "read_en":
                 return 1
-    elif prim in ("std_mult_pipe", "std_smult_pipe", "std_mod_pipe",
-                  "std_smod_pipe", "std_div_pipe", "std_sdiv_pipe"):
+    elif prim in (
+        "std_mult_pipe",
+        "std_smult_pipe",
+        "std_mod_pipe",
+        "std_smod_pipe",
+        "std_div_pipe",
+        "std_sdiv_pipe",
+    ):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
         elif port_name == "go":
