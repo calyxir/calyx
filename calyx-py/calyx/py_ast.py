@@ -358,12 +358,12 @@ class Invoke(Control):
 @dataclass
 class While(Control):
     port: Port
-    cond: CompVar
+    cond: Optional[CompVar]
     body: Control
 
     def doc(self) -> str:
         cond = f"while {self.port.doc()}"
-        if self.cond is not None:
+        if self.cond:
             cond += f" with {self.cond.doc()}"
         return block(cond, self.body.doc(), sep="")
 
@@ -377,13 +377,13 @@ class Empty(Control):
 @dataclass
 class If(Control):
     port: Port
-    cond: CompVar
+    cond: Optional[CompVar]
     true_branch: Control
     false_branch: Control = Empty()
 
     def doc(self) -> str:
         cond = f"if {self.port.doc()}"
-        if self.cond is not None:
+        if self.cond:
             cond += f" with {self.cond.doc()}"
         true_branch = self.true_branch.doc()
         if isinstance(self.false_branch, Empty):
