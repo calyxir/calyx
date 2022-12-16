@@ -1,5 +1,6 @@
 use crate::interpreter_ir as iir;
 use calyx::ir::Id;
+use itertools::Itertools;
 use std::{
     fmt::{Display, Write},
     hash::Hash,
@@ -46,9 +47,8 @@ pub struct ComponentQualifiedInstanceName(Rc<Vec<InstanceName>>);
 
 impl ComponentQualifiedInstanceName {
     pub fn as_id(&self) -> Id {
-        let string_vec: Vec<String> =
-            self.0.iter().map(|x| x.instance.clone().id).collect();
-        string_vec.join(".").into()
+        let name = self.0.iter().map(|x| x.instance.id.as_str()).join(".");
+        Id::from(name)
     }
 }
 
@@ -94,9 +94,12 @@ pub struct QualifiedInstanceName {
 
 impl QualifiedInstanceName {
     pub fn as_id(&self) -> Id {
-        let mut string_vec: Vec<String> =
-            self.prefix.iter().map(|x| x.instance.clone().id).collect();
-        string_vec.push(self.name.id.clone());
+        let mut string_vec: Vec<String> = self
+            .prefix
+            .iter()
+            .map(|x| x.instance.id.as_str().to_string())
+            .collect();
+        string_vec.push(self.name.id.as_str().to_string());
         string_vec.join(".").into()
     }
 

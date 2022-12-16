@@ -136,11 +136,12 @@ impl MlirBackend {
         write!(f, "}}")
     }
 
-    pub fn write_prototype_sig<F: io::Write>(
+    pub fn write_prototype_sig<F: io::Write, S: ToString>(
         cell_type: &ir::CellType,
-        cell_name: String,
+        cell_name: S,
         f: &mut F,
     ) -> io::Result<()> {
+        let cell_name = cell_name.to_string();
         match cell_type {
             ir::CellType::Primitive {
                 name,
@@ -227,7 +228,7 @@ impl MlirBackend {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "{} = ", all_ports)?;
-        Self::write_prototype_sig(&cell.prototype, name, f)?;
+        Self::write_prototype_sig(&cell.prototype, name.as_str(), f)?;
         write!(f, "{}", Self::format_attributes(&cell.attributes))?;
         write!(f, " : ")?;
         let all_port_widths = cell
