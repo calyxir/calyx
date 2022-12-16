@@ -11,22 +11,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     done = tdcc_done.out ? 1'd1;
-    add.left = do_update_go.out ? 32'd1;
-    add.right = do_update_go.out ? r.out;
+    fsm.write_en = do_update_done.out & tdcc_go.out & fsm.out == 2'd1 | fsm.out == 2'd0 & do_update_done.out & tdcc_go.out | fsm.out == 2'd2 ? 1'd1;
+    fsm.clk = clk;
+    fsm.reset = reset;
+    fsm.in = fsm.out == 2'd0 & do_update_done.out & tdcc_go.out ? 2'd1;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 2'd1 & do_update_done.out & tdcc_go.out ? 2'd2;
     do_update_done.in = r.done;
     do_update_go.in = !do_update_done.out & tdcc_go.out & (fsm.out == 2'd1 | fsm.out == 2'd0) ? 1'd1;
-    fsm.clk = clk;
-    fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.in = fsm.out == 2'd0 & do_update_done.out & tdcc_go.out ? 2'd1;
-    fsm.in = fsm.out == 2'd1 & do_update_done.out & tdcc_go.out ? 2'd2;
-    fsm.reset = reset;
-    fsm.write_en = do_update_done.out & tdcc_go.out & fsm.out == 2'd1 | fsm.out == 2'd0 & do_update_done.out & tdcc_go.out | fsm.out == 2'd2 ? 1'd1;
-    r.clk = clk;
-    r.in = do_update_go.out ? add.out;
-    r.reset = reset;
     r.write_en = do_update_go.out ? 1'd1;
-    tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
+    r.clk = clk;
+    r.reset = reset;
+    r.in = do_update_go.out ? add.out;
     tdcc_go.in = go;
+    add.left = do_update_go.out ? 32'd1;
+    add.right = do_update_go.out ? r.out;
+    tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
   }
 
   control {}

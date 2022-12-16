@@ -5,14 +5,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     y = std_reg(32);
     add2 = std_add(32);
     result = std_reg(32);
-    @generated unshr_x = std_reg(32);
     @generated unshr_y = std_reg(32);
+    @generated unshr_x = std_reg(32);
   }
   wires {
     group zero_x {
-      unshr_x.write_en = 1'd1;
-      unshr_x.in = 32'd0;
-      zero_x[done] = unshr_x.done;
+      x.write_en = 1'd1;
+      x.in = 32'd0;
+      zero_x[done] = x.done;
     }
     group zero_y {
       unshr_y.write_en = 1'd1;
@@ -20,13 +20,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       zero_y[done] = unshr_y.done;
     }
     group one_x {
-      x.write_en = 1'd1;
-      x.in = 32'd1;
-      one_x[done] = x.done;
+      unshr_x.write_en = 1'd1;
+      unshr_x.in = 32'd1;
+      one_x[done] = unshr_x.done;
     }
     group final {
       add2.left = y.out;
-      add2.right = x.out;
+      add2.right = unshr_x.out;
       result.in = add2.out;
       result.write_en = 1'd1;
       final[done] = result.done;

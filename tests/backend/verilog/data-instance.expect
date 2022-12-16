@@ -531,15 +531,15 @@ std_add # (
     .out(data_add_multi_out),
     .right(data_add_multi_right)
 );
-assign done = 1'd1;
-assign add_left =
- g ? 2'd2 : 2'd0;
-assign con_add_left =
- g ? 2'd2 : 2'd0;
-assign data_add_left = 2'd2;
 assign data_add_multi_left =
  g ? 2'd2 :
  ~g ? 2'd3 : 'x;
+assign done = 1'd1;
+assign con_add_left =
+ g ? 2'd2 : 2'd0;
+assign data_add_left = 2'd2;
+assign add_left =
+ g ? 2'd2 : 2'd0;
 always_comb begin
     if(~$onehot0({~g, g})) begin
         $fatal(2, "Multiple assignment to port `data_add_multi.left'.");

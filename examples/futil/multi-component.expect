@@ -8,12 +8,12 @@ component identity<"state_share"=1>(in: 32, @go @static go: 1, @clk clk: 1, @res
   wires {
     done = invoke0_done.out ? 1'd1;
     out = r.out;
-    invoke0_done.in = r.done;
-    invoke0_go.in = go;
-    r.clk = clk;
-    r.in = invoke0_go.out ? in;
-    r.reset = reset;
     r.write_en = invoke0_go.out ? 1'd1;
+    r.clk = clk;
+    r.reset = reset;
+    r.in = invoke0_go.out ? in;
+    invoke0_go.in = go;
+    invoke0_done.in = r.done;
   }
 
   control {}
@@ -32,26 +32,26 @@ component main(@go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
   }
   wires {
     done = tdcc_done.out ? 1'd1;
-    current_value.clk = clk;
-    current_value.in = invoke1_go.out ? id.out;
-    current_value.reset = reset;
-    current_value.write_en = invoke1_go.out ? 1'd1;
-    fsm.clk = clk;
-    fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.in = fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out ? 2'd1;
-    fsm.in = fsm.out == 2'd1 & invoke1_done.out & tdcc_go.out ? 2'd2;
-    fsm.reset = reset;
     fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out | fsm.out == 2'd1 & invoke1_done.out & tdcc_go.out ? 1'd1;
+    fsm.clk = clk;
+    fsm.reset = reset;
+    fsm.in = fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out ? 2'd1;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 2'd1 & invoke1_done.out & tdcc_go.out ? 2'd2;
     id.clk = clk;
     id.go = invoke0_go.out ? 1'd1;
-    id.in = invoke0_go.out ? 32'd10;
     id.reset = reset;
-    invoke0_done.in = id.done;
+    id.in = invoke0_go.out ? 32'd10;
     invoke0_go.in = !invoke0_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
-    invoke1_done.in = current_value.done;
+    tdcc_go.in = go;
+    invoke0_done.in = id.done;
     invoke1_go.in = !invoke1_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
     tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
-    tdcc_go.in = go;
+    current_value.write_en = invoke1_go.out ? 1'd1;
+    current_value.clk = clk;
+    current_value.reset = reset;
+    current_value.in = invoke1_go.out ? id.out;
+    invoke1_done.in = current_value.done;
   }
 
   control {}
