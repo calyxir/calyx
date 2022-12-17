@@ -1,4 +1,4 @@
-use super::{Attributes, Direction, Id};
+use super::{Attributes, Direction, GetName, Id};
 use crate::errors::{CalyxResult, Error};
 use linked_hash_map::LinkedHashMap;
 use smallvec::SmallVec;
@@ -75,6 +75,12 @@ impl Primitive {
         self.signature
             .iter()
             .filter(move |&g| g.attributes.has(attr.as_ref()))
+    }
+}
+
+impl GetName for Primitive {
+    fn name(&self) -> &Id {
+        &self.name
     }
 }
 

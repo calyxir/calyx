@@ -1,7 +1,9 @@
 //! Defines a global symbol type and its associated interning pool
 use std::{mem, sync};
 
-use string_interner::{symbol::SymbolU32, StringInterner};
+use string_interner::{
+    backend::BucketBackend, symbol::SymbolU32, StringInterner,
+};
 
 #[derive(
     Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize,
@@ -9,9 +11,10 @@ use string_interner::{symbol::SymbolU32, StringInterner};
 #[serde(into = "&'static str")]
 pub struct GSym(SymbolU32);
 
-fn singleton() -> &'static mut StringInterner {
-    static mut SINGLETON: mem::MaybeUninit<StringInterner> =
-        mem::MaybeUninit::uninit();
+type Pool = StringInterner<BucketBackend>;
+
+fn singleton() -> &'static mut Pool {
+    static mut SINGLETON: mem::MaybeUninit<Pool> = mem::MaybeUninit::uninit();
     static ONCE: sync::Once = sync::Once::new();
 
     // SAFETY:
@@ -19,7 +22,7 @@ fn singleton() -> &'static mut StringInterner {
     // - the ONCE guarantees that SINGLETON is init'ed before assume_init_ref
     unsafe {
         ONCE.call_once(|| {
-            SINGLETON.write(StringInterner::default());
+            SINGLETON.write(Pool::new());
         });
         SINGLETON.assume_init_mut()
     }

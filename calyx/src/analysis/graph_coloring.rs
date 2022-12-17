@@ -92,11 +92,8 @@ where
             // if graph is complete, then every node needs a new color. so there's no reason to
             // check neighbors
             if is_complete {
-                let mut available_colors: Vec<_> = all_colors
-                    .iter()
-                    .map(|(idx, _num_used)| idx)
-                    .cloned()
-                    .collect_vec();
+                let mut available_colors: Vec<_> =
+                    all_colors.keys().cloned().collect_vec();
 
                 // every node will need a different color
                 for nidx in scc.into_iter().sorted() {

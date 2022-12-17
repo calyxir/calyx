@@ -189,7 +189,7 @@ fn get_data(cell: &ir::RRC<ir::Cell>) -> Option<CellData> {
                 sizes: sizes_vec
                     .iter()
                     .map(|size| {
-                        final_cell.get_parameter(size).unwrap_or_else(|| {
+                        final_cell.get_parameter(*size).unwrap_or_else(|| {
                             panic!("unable to get sizes of cell")
                         }) as usize
                     })

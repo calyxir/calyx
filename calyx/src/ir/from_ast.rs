@@ -329,7 +329,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
                 Error::undefined(component.clone(), "cell".to_string())
             })?
             .borrow()
-            .find(&port)
+            .find(port.clone())
             .ok_or_else(|| Error::undefined(port, "port".to_string())),
         ast::Port::This { port } => {
             comp.signature.borrow().find(&port).ok_or_else(|| {
