@@ -2,7 +2,8 @@ use crate::errors::{CalyxResult, Error, WithPos};
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
-    self, CellType, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
+    self, CellType, CloneName, Component, GetAttributes, LibrarySignatures,
+    RESERVED_NAMES,
 };
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -58,7 +59,7 @@ impl ConstructVisitor for WellFormed {
                         return Err(Error::malformed_structure(
                             "ref cells are not allowed for main component",
                         )
-                        .with_pos(cell.borrow().name()));
+                        .with_pos(cell.borrow().get_attributes()));
                     }
                 }
             }
@@ -167,7 +168,7 @@ impl Visitor for WellFormed {
             // Check if any of the cells use a reserved name.
             if self.reserved_names.contains(cell.name().id.as_str()) {
                 return Err(Error::reserved_name(cell.clone_name())
-                    .with_pos(cell.name()));
+                    .with_pos(cell.get_attributes()));
             }
             // Check if a `ref` cell is invalid
             if cell.is_reference() {
@@ -175,7 +176,7 @@ impl Visitor for WellFormed {
                     return Err(Error::malformed_structure(
                         "constant not allowed for ref cells".to_string(),
                     )
-                    .with_pos(cell.name()));
+                    .with_pos(cell.get_attributes()));
                 }
                 if matches!(cell.prototype, CellType::ThisComponent) {
                     unreachable!(
@@ -359,8 +360,7 @@ impl Visitor for WellFormed {
                     return Err(Error::malformed_control(format!(
                         "{} does not have ref cell named {}",
                         id, outcell
-                    ))
-                    .with_pos(outcell));
+                    )));
                 }
             }
             for id in cellmap.keys() {

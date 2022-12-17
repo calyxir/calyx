@@ -1,35 +1,18 @@
-use crate::errors::{Span, WithPos};
 use crate::utils::GSym;
-use derivative::Derivative;
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
 
 /// Represents an identifier in a Calyx program
-#[derive(Derivative, Clone, Deserialize)]
-#[derivative(Hash, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Deserialize, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[serde(transparent)]
 pub struct Id {
     pub id: GSym,
-    #[derivative(Hash = "ignore")]
-    #[derivative(Debug = "ignore")]
-    #[derivative(PartialOrd = "ignore")]
-    #[derivative(Ord = "ignore")]
-    #[serde(skip)]
-    span: Option<Rc<Span>>,
 }
 
 impl Id {
-    pub fn new<S: ToString>(id: S, span: Option<Rc<Span>>) -> Self {
+    pub fn new<S: ToString>(id: S) -> Self {
         Self {
             id: GSym::from(id.to_string()),
-            span,
         }
-    }
-}
-
-impl WithPos for Id {
-    fn copy_span(&self) -> Option<Rc<Span>> {
-        self.span.clone()
     }
 }
 
@@ -37,7 +20,7 @@ impl WithPos for Id {
 
 impl Default for Id {
     fn default() -> Self {
-        Id::new("", None)
+        Id::new("")
     }
 }
 
@@ -58,13 +41,13 @@ impl AsRef<str> for Id {
 
 impl From<&str> for Id {
     fn from(s: &str) -> Self {
-        Id::new(s, None)
+        Id::new(s)
     }
 }
 
 impl From<String> for Id {
     fn from(s: String) -> Self {
-        Id::new(s, None)
+        Id::new(s)
     }
 }
 
@@ -85,11 +68,6 @@ impl PartialEq<&str> for Id {
 }
 impl PartialEq<&Id> for Id {
     fn eq(&self, other: &&Id) -> bool {
-        self.id == other.id
-    }
-}
-impl PartialEq<Id> for Id {
-    fn eq(&self, other: &Id) -> bool {
         self.id == other.id
     }
 }

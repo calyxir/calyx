@@ -98,7 +98,7 @@ impl Visitor for Papercut {
                             assign.name == p.borrow().name && !assign.is_hole()
                         });
                     if done_use.is_none() {
-                        return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.name));
+                        return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)));
                     }
                 }
             }

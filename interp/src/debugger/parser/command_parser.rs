@@ -109,7 +109,7 @@ impl CommandParser {
     // ----------------------
 
     fn identifier(input: Node) -> ParseResult<Id> {
-        Ok(Id::new(input.as_str(), None))
+        Ok(Id::new(input.as_str()))
     }
 
     fn group(input: Node) -> ParseResult<ParsedGroupName> {
