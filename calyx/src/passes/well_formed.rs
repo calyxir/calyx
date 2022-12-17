@@ -82,7 +82,7 @@ impl ConstructVisitor for WellFormed {
                     }
                 })
                 .collect::<CalyxResult<_>>()?;
-            ref_cell_types.insert(comp.name.clone(), cellmap);
+            ref_cell_types.insert(comp.name, cellmap);
         }
 
         let w_f = WellFormed {
@@ -166,7 +166,7 @@ impl Visitor for WellFormed {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
             // Check if any of the cells use a reserved name.
-            if self.reserved_names.contains(cell.name()) {
+            if self.reserved_names.contains(&cell.name()) {
                 return Err(Error::reserved_name(cell.clone_name())
                     .with_pos(cell.get_attributes()));
             }
@@ -245,7 +245,7 @@ impl Visitor for WellFormed {
                         has_done = true;
                     }
                     // Group uses another group's done condition
-                    if gname != &dst.get_parent_name() {
+                    if gname != dst.get_parent_name() {
                         return Err(Error::malformed_structure(
                             format!("Group `{}` refers to the done condition of another group (`{}`).",
                             gname,
@@ -329,7 +329,7 @@ impl Visitor for WellFormed {
         // Only refers to ports defined in the invoked instance.
         let cell = s.comp.borrow();
         let ports: HashSet<_> =
-            cell.ports.iter().map(|p| p.borrow().name.clone()).collect();
+            cell.ports.iter().map(|p| p.borrow().name).collect();
 
         s.inputs
             .iter()
@@ -355,7 +355,7 @@ impl Visitor for WellFormed {
                     let proto = incell.borrow().prototype.clone();
                     same_type(t, &proto)
                         .map_err(|err| err.with_pos(&s.attributes))?;
-                    mentioned_cells.insert(outcell.clone());
+                    mentioned_cells.insert(outcell);
                 } else {
                     return Err(Error::malformed_control(format!(
                         "{} does not have ref cell named {}",
@@ -430,9 +430,7 @@ impl Visitor for WellFormed {
         {
             let gr = comp.find_group(&group).unwrap();
             let gr = gr.borrow();
-            return Err(
-                Error::unused(group.clone(), "group").with_pos(&gr.attributes)
-            );
+            return Err(Error::unused(*group, "group").with_pos(&gr.attributes));
         };
 
         let all_comb_groups: HashSet<ir::Id> =
@@ -444,11 +442,8 @@ impl Visitor for WellFormed {
         {
             let cgr = comp.find_comb_group(&comb_group).unwrap();
             let cgr = cgr.borrow();
-            return Err(Error::unused(
-                comb_group.clone(),
-                "combinational group",
-            )
-            .with_pos(&cgr.attributes));
+            return Err(Error::unused(*comb_group, "combinational group")
+                .with_pos(&cgr.attributes));
         }
         Ok(Action::Continue)
     }

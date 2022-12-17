@@ -61,16 +61,16 @@ impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
             .find_all_with_attr("done")
-            .map(|pd| (pd.attributes[&"done"], pd.name.clone()))
+            .map(|pd| (pd.attributes[&"done"], pd.name))
             .collect();
 
         let go_ports = prim
             .find_all_with_attr("go")
             .filter_map(|pd| {
                 pd.attributes.get("static").and_then(|st| {
-                    done_ports.get(&pd.attributes[&"go"]).map(|done_port| {
-                        (pd.name.clone(), done_port.clone(), *st)
-                    })
+                    done_ports
+                        .get(&pd.attributes[&"go"])
+                        .map(|done_port| (pd.name, *done_port, *st))
                 })
             })
             .collect_vec();
@@ -84,7 +84,7 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr("done")
             .map(|pr| {
                 let port = pr.borrow();
-                (port.attributes[&"done"], port.name.clone())
+                (port.attributes[&"done"], port.name)
             })
             .collect();
 
@@ -93,9 +93,9 @@ impl From<&ir::Cell> for GoDone {
             .filter_map(|pr| {
                 let port = pr.borrow();
                 port.attributes.get("static").and_then(|st| {
-                    done_ports.get(&port.attributes[&"go"]).map(|done_port| {
-                        (port.name.clone(), done_port.clone(), *st)
-                    })
+                    done_ports
+                        .get(&port.attributes[&"go"])
+                        .map(|done_port| (port.name, *done_port, *st))
                 })
             })
             .collect_vec();
@@ -127,16 +127,16 @@ impl ConstructVisitor for InferStaticTiming {
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
                 .find_all_with_attr("done")
-                .map(|pd| (pd.attributes[&"done"], pd.name.clone()))
+                .map(|pd| (pd.attributes[&"done"], pd.name))
                 .collect();
 
             let go_ports = prim
                 .find_all_with_attr("go")
                 .filter_map(|pd| {
                     pd.attributes.get("static").and_then(|st| {
-                        done_ports.get(&pd.attributes[&"go"]).map(|done_port| {
-                            (pd.name.clone(), done_port.clone(), *st)
-                        })
+                        done_ports
+                            .get(&pd.attributes[&"go"])
+                            .map(|done_port| (pd.name, *done_port, *st))
                     })
                 })
                 .collect_vec();
@@ -144,9 +144,9 @@ impl ConstructVisitor for InferStaticTiming {
             // If this primitive has exactly one (go, done, static) pair, we
             // can infer the latency of its invokes.
             if go_ports.len() == 1 {
-                comp_latency.insert(prim.name.clone(), go_ports[0].2);
+                comp_latency.insert(prim.name, go_ports[0].2);
             }
-            latency_data.insert(prim.name.clone(), GoDone::new(go_ports));
+            latency_data.insert(prim.name, GoDone::new(go_ports));
         }
         Ok(InferStaticTiming { latency_data })
     }
@@ -202,8 +202,8 @@ impl InferStaticTiming {
                 if let (Some(s_name), Some(d_name)) =
                     (src_cell.type_name(), dst_cell.type_name())
                 {
-                    let data_src = self.latency_data.get(s_name);
-                    let data_dst = self.latency_data.get(d_name);
+                    let data_src = self.latency_data.get(&s_name);
+                    let data_dst = self.latency_data.get(&d_name);
                     if let (Some(dst_ports), Some(src_ports)) =
                         (data_dst, data_src)
                     {
@@ -216,7 +216,7 @@ impl InferStaticTiming {
                 if let (Some(d_name), ir::CellType::Constant { .. }) =
                     (dst_cell.type_name(), &src_cell.prototype)
                 {
-                    if let Some(ports) = self.latency_data.get(d_name) {
+                    if let Some(ports) = self.latency_data.get(&d_name) {
                         return ports.is_go(&dst.name);
                     }
                 }
@@ -244,7 +244,7 @@ impl InferStaticTiming {
         for cell_ref in rw_set {
             let cell = cell_ref.borrow();
             if let Some(ports) =
-                cell.type_name().and_then(|c| self.latency_data.get(c))
+                cell.type_name().and_then(|c| self.latency_data.get(&c))
             {
                 go_done_edges.extend(
                     ports
@@ -267,7 +267,7 @@ impl InferStaticTiming {
                     return true;
                 }
             } else if let Some(ports) =
-                cell.type_name().and_then(|c| self.latency_data.get(c))
+                cell.type_name().and_then(|c| self.latency_data.get(&c))
             {
                 return ports.is_done(&port.name);
             }
@@ -284,7 +284,7 @@ impl InferStaticTiming {
                     let cr = cell_wrf.upgrade();
                     let cell = cr.borrow();
                     if let Some(ports) =
-                        cell.type_name().and_then(|c| self.latency_data.get(c))
+                        cell.type_name().and_then(|c| self.latency_data.get(&c))
                     {
                         let name = &port.borrow().name;
                         if ports.is_go(name) {
@@ -395,7 +395,7 @@ impl InferStaticTiming {
                 let cr = cwrf.upgrade();
                 let cell = cr.borrow();
                 if let Some(ports) =
-                    cell.type_name().and_then(|c| self.latency_data.get(c))
+                    cell.type_name().and_then(|c| self.latency_data.get(&c))
                 {
                     if let Some(latency) =
                         ports.get_latency(&port.borrow().name)
@@ -544,7 +544,7 @@ impl Visitor for InferStaticTiming {
             .comp
             .borrow()
             .type_name()
-            .and_then(|name| self.latency_data.get(name))
+            .and_then(|name| self.latency_data.get(&name))
             .and_then(|ports| ports.invoke_latency())
         {
             s.attributes.insert("static", *time);
@@ -601,7 +601,7 @@ impl Visitor for InferStaticTiming {
         let sig = &*comp.signature.borrow();
         let ports: GoDone = sig.into();
 
-        self.latency_data.insert(comp.name.clone(), ports);
+        self.latency_data.insert(comp.name, ports);
 
         Ok(Action::Continue)
     }

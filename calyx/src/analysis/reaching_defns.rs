@@ -91,9 +91,9 @@ pub struct DefSet {
 }
 
 impl DefSet {
-    fn extend(&mut self, writes: BTreeSet<ir::Id>, grp: &GroupName) {
+    fn extend(&mut self, writes: BTreeSet<ir::Id>, grp: GroupName) {
         for var in writes {
-            self.set.insert((var, GroupOrInvoke::Group(grp.clone())));
+            self.set.insert((var, GroupOrInvoke::Group(grp)));
         }
     }
 
@@ -227,21 +227,20 @@ impl ReachingDefinitionAnalysis {
 
             for (defname, group_name) in &defset.set {
                 let set = group_overlaps.entry(defname).or_default();
-                set.insert((defname.clone(), group_name.clone()));
-                set.insert((defname.clone(), grp.clone()));
+                set.insert((*defname, group_name.clone()));
+                set.insert((*defname, grp.clone()));
             }
 
             for name in &continuous_regs {
                 let set = group_overlaps.entry(name).or_default();
                 set.insert((
-                    name.clone(),
+                    *name,
                     GroupOrInvoke::Group("__continuous".into()),
                 ));
             }
 
             for (defname, set) in group_overlaps {
-                let overlap_vec =
-                    overlap_map.entry(defname.clone()).or_default();
+                let overlap_vec = overlap_map.entry(*defname).or_default();
 
                 if overlap_vec.is_empty() {
                     overlap_vec.push(set)
@@ -404,7 +403,9 @@ fn build_reaching_def(
                     if let ir::PortParent::Cell(wc) = &port.borrow().parent {
                         let rc = wc.upgrade();
                         let parent = rc.borrow();
-                        if parent.type_name().unwrap_or(&ir::Id::from(""))
+                        if parent
+                            .type_name()
+                            .unwrap_or_else(|| ir::Id::from(""))
                             == "std_reg"
                         {
                             let name = format!("{}{}", INVOKE_PREFIX, counter);

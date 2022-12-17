@@ -92,14 +92,14 @@ impl Port {
     /// Gets name of parent object.
     pub fn get_parent_name(&self) -> Id {
         match &self.parent {
-            PortParent::Cell(cell) => cell.upgrade().borrow().name.clone(),
-            PortParent::Group(group) => group.upgrade().borrow().name.clone(),
+            PortParent::Cell(cell) => cell.upgrade().borrow().name,
+            PortParent::Group(group) => group.upgrade().borrow().name,
         }
     }
 
     /// Get the canonical representation for this Port.
     pub fn canonical(&self) -> Canonical {
-        Canonical(self.get_parent_name(), self.name.clone())
+        Canonical(self.get_parent_name(), self.name)
     }
 }
 
@@ -168,10 +168,10 @@ pub enum CellType {
 
 impl CellType {
     /// Return the name associated with this CellType is present
-    pub fn get_name(&self) -> Option<&Id> {
+    pub fn get_name(&self) -> Option<Id> {
         match self {
             CellType::Primitive { name, .. } | CellType::Component { name } => {
-                Some(name)
+                Some(*name)
             }
             CellType::ThisComponent | CellType::Constant { .. } => None,
         }
@@ -339,7 +339,7 @@ impl Cell {
     }
 
     /// Returns the name of the component that is this cells type.
-    pub fn type_name(&self) -> Option<&Id> {
+    pub fn type_name(&self) -> Option<Id> {
         self.prototype.get_name()
     }
 
@@ -382,8 +382,8 @@ impl Cell {
     }
 
     /// Grants immutable access to the name of this cell.
-    pub fn name(&self) -> &Id {
-        &self.name
+    pub fn name(&self) -> Id {
+        self.name
     }
 
     /// Returns a reference to all [super::Port] attached to this cells.
@@ -398,7 +398,7 @@ impl Cell {
             .map(|port_ref| {
                 let port = port_ref.borrow();
                 PortDef {
-                    name: port.name.clone(),
+                    name: port.name,
                     width: port.width,
                     direction: port.direction.clone(),
                     attributes: port.attributes.clone(),
@@ -517,8 +517,8 @@ impl Group {
 
     /// The name of this group.
     #[inline]
-    pub fn name(&self) -> &Id {
-        &self.name
+    pub fn name(&self) -> Id {
+        self.name
     }
 
     /// The attributes of this group.
@@ -545,8 +545,8 @@ pub struct CombGroup {
 impl CombGroup {
     /// The name of this group.
     #[inline]
-    pub fn name(&self) -> &Id {
-        &self.name
+    pub fn name(&self) -> Id {
+        self.name
     }
 
     /// The attributes of this group.
@@ -559,23 +559,23 @@ impl CombGroup {
 /// A trait representing something in the IR that has a name.
 pub trait GetName {
     /// Return a reference to the object's name
-    fn name(&self) -> &Id;
+    fn name(&self) -> Id;
 }
 
 impl GetName for Cell {
-    fn name(&self) -> &Id {
+    fn name(&self) -> Id {
         self.name()
     }
 }
 
 impl GetName for Group {
-    fn name(&self) -> &Id {
+    fn name(&self) -> Id {
         self.name()
     }
 }
 
 impl GetName for CombGroup {
-    fn name(&self) -> &Id {
+    fn name(&self) -> Id {
         self.name()
     }
 }
@@ -589,6 +589,6 @@ pub trait CloneName {
 
 impl<T: GetName> CloneName for T {
     fn clone_name(&self) -> Id {
-        self.name().clone()
+        self.name()
     }
 }

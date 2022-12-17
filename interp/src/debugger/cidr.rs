@@ -50,7 +50,7 @@ impl Debugger {
     ) -> InterpreterResult<InterpreterState> {
         let qin = ComponentQualifiedInstanceName::new_single(
             &self.main_component,
-            &self.main_component.name,
+            self.main_component.name,
         );
         let mut component_interpreter = ComponentInterpreter::from_component(
             &self.main_component,
@@ -430,7 +430,7 @@ impl Debugger {
                         return Ok(print_port(
                             &port,
                             &current_env,
-                            Some(print_list[idx - 1].clone()),
+                            Some(print_list[idx - 1]),
                             code,
                         ));
                     } else {

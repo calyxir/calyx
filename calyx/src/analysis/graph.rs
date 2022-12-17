@@ -243,7 +243,7 @@ impl GraphAnalysis {
         for n_idx in graph.node_indices() {
             let node = graph[n_idx].borrow();
             num_neighbors.insert(
-                (node.get_parent_name(), node.name.clone()),
+                (node.get_parent_name(), node.name),
                 graph.neighbors_undirected(n_idx).count(),
             );
         }
@@ -253,7 +253,7 @@ impl GraphAnalysis {
         graph_copy.retain_nodes(|_g, n_idx| {
             let node = graph[n_idx].borrow();
             return *num_neighbors
-                .get(&(node.get_parent_name(), node.name.clone()))
+                .get(&(node.get_parent_name(), node.name))
                 .unwrap()
                 > 0;
         });

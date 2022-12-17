@@ -63,7 +63,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
              map: &mut HashMap<ir::Id, Vec<NodeIndex>>| {
                 let cells = Self::get_cells(ports);
                 for cell in cells {
-                    map.entry(cell.clone()).or_default().push(idx);
+                    map.entry(cell).or_default().push(idx);
                 }
             };
 

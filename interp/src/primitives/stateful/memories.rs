@@ -179,7 +179,7 @@ impl<T: MemBinder> StdMem<T> {
         name: ir::Id,
         allow_invalid_memory_access: bool,
     ) -> Self {
-        let mem_binder = T::new(params, name.clone());
+        let mem_binder = T::new(params, name);
         let width =
             get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
 
@@ -202,7 +202,7 @@ impl<T: MemBinder> StdMem<T> {
         allow_invalid_memory_access: bool,
         initial: Vec<Value>,
     ) -> InterpreterResult<Self> {
-        let mem_binder = T::new(params, name.clone());
+        let mem_binder = T::new(params, name);
         let width =
             get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
 
@@ -495,7 +495,7 @@ impl<T: MemBinder> SeqMem<T> {
         name: ir::Id,
         allow_invalid_memory_access: bool,
     ) -> Self {
-        let mem_binder = T::new(params, name.clone());
+        let mem_binder = T::new(params, name);
         let width =
             get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
 
@@ -519,7 +519,7 @@ impl<T: MemBinder> SeqMem<T> {
         allow_invalid_memory_access: bool,
         initial: Vec<Value>,
     ) -> InterpreterResult<Self> {
-        let mem_binder = T::new(params, name.clone());
+        let mem_binder = T::new(params, name);
         let width =
             get_param(params, "WIDTH").expect("Missing WIDTH param for memory");
 

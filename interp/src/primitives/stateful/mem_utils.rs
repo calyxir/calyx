@@ -60,7 +60,7 @@ impl MemBinder for MemD1 {
             Err(InterpreterError::InvalidMemoryAccess {
                 access: vec![idx],
                 dims: vec![self.size],
-                name: self.full_name.clone(),
+                name: self.full_name,
             }
             .into())
         } else {
@@ -126,7 +126,7 @@ impl MemBinder for MemD2 {
             Err(InterpreterError::InvalidMemoryAccess {
                 access: vec![addr0, addr1],
                 dims: vec![self.d0_size, self.d1_size],
-                name: self.full_name.clone(),
+                name: self.full_name,
             }
             .into())
         } else {
@@ -201,7 +201,7 @@ impl MemBinder for MemD3 {
             Err(InterpreterError::InvalidMemoryAccess {
                 access: vec![addr0, addr1, addr2],
                 dims: vec![self.d0_size, self.d1_size, self.d2_size],
-                name: self.full_name.clone(),
+                name: self.full_name,
             }
             .into())
         } else {
@@ -296,7 +296,7 @@ impl MemBinder for MemD4 {
                     self.d2_size,
                     self.d3_size,
                 ],
-                name: self.full_name.clone(),
+                name: self.full_name,
             }
             .into())
         } else {

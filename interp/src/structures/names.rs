@@ -18,10 +18,10 @@ pub struct InstanceName {
 }
 
 impl InstanceName {
-    pub fn new(component_id: &Rc<iir::Component>, instance: &Id) -> Self {
+    pub fn new(component_id: &Rc<iir::Component>, instance: Id) -> Self {
         Self {
             component_id: component_id.clone(),
-            instance: instance.clone(),
+            instance,
         }
     }
 }
@@ -67,10 +67,7 @@ impl ComponentQualifiedInstanceName {
         Self(Rc::new(inner))
     }
 
-    pub fn new_single(
-        component_id: &Rc<iir::Component>,
-        instance: &Id,
-    ) -> Self {
+    pub fn new_single(component_id: &Rc<iir::Component>, instance: Id) -> Self {
         let inst = InstanceName::new(component_id, instance);
         Self::from(inst)
     }
@@ -103,10 +100,10 @@ impl QualifiedInstanceName {
         string_vec.join(".").into()
     }
 
-    pub fn new(prefix: &ComponentQualifiedInstanceName, name: &Id) -> Self {
+    pub fn new(prefix: &ComponentQualifiedInstanceName, name: Id) -> Self {
         Self {
             prefix: prefix.clone(),
-            name: name.clone(),
+            name,
         }
     }
 
@@ -146,21 +143,21 @@ pub struct GroupQualifiedInstanceName {
 }
 
 impl GroupQualifiedInstanceName {
-    pub fn new_group(comp: &ComponentQualifiedInstanceName, name: &Id) -> Self {
+    pub fn new_group(comp: &ComponentQualifiedInstanceName, name: Id) -> Self {
         Self {
             prefix: comp.clone(),
-            group: GroupName::Group(name.clone()),
+            group: GroupName::Group(name),
             pos_tag: None,
         }
     }
 
     pub fn new_phantom(
         comp: &ComponentQualifiedInstanceName,
-        name: &Id,
+        name: Id,
     ) -> Self {
         Self {
             prefix: comp.clone(),
-            group: GroupName::Phantom(name.clone()),
+            group: GroupName::Phantom(name),
             pos_tag: None,
         }
     }
@@ -220,7 +217,7 @@ impl From<GroupQIN> for CompGroupName {
         let last = qin.prefix.last().unwrap();
         Self {
             group_name: qin.name,
-            component_name: last.component_id.name.clone(),
+            component_name: last.component_id.name,
         }
     }
 }

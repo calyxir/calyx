@@ -45,7 +45,7 @@ impl ParsedGroupName {
         main_comp_name: &calyx::ir::Id,
     ) -> CompGroupName {
         if !self.is_concrete() {
-            self.component = Some(main_comp_name.clone());
+            self.component = Some(*main_comp_name);
         }
 
         self.unwrap_concrete()

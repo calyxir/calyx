@@ -176,12 +176,9 @@ impl DebuggingContext {
             watchpoints_before: HashMap::new(),
             watchpoints_after: HashMap::new(),
             group_exec_info: GroupExecutionInfo::new(),
-            main_comp_name: main_component.clone(),
+            main_comp_name: *main_component,
 
-            comp_ctx: ctx
-                .iter()
-                .map(|x| (x.name.clone(), Rc::clone(x)))
-                .collect(),
+            comp_ctx: ctx.iter().map(|x| (x.name, Rc::clone(x))).collect(),
         }
     }
 

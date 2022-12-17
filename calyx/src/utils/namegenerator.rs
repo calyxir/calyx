@@ -39,7 +39,7 @@ impl NameGenerator {
             // Insert default value for this prefix if there is no entry.
             let count = self
                 .name_hash
-                .entry(cur_prefix.clone())
+                .entry(cur_prefix)
                 .and_modify(|v| *v += 1)
                 .or_insert(-1);
 
@@ -51,7 +51,7 @@ impl NameGenerator {
 
             // If we've not generated this name before, return it.
             if !self.generated_names.contains(&name) {
-                self.generated_names.insert(name.clone());
+                self.generated_names.insert(name);
                 return name;
             }
 

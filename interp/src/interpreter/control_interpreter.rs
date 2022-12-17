@@ -244,7 +244,7 @@ impl Interpreter for EnableInterpreter {
 
     fn currently_executing_group(&self) -> HashSet<GroupQIN> {
         let mut set = HashSet::new();
-        if let Some(name) = &self.group_name {
+        if let Some(name) = self.group_name {
             set.insert(GroupQIN::new(&self.qin, name));
         }
         set
@@ -259,7 +259,7 @@ impl Interpreter for EnableInterpreter {
     }
 
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
-        let name = match &self.group_name {
+        let name = match self.group_name {
             Some(name) => {
                 GroupQualifiedInstanceName::new_group(&self.qin, name)
             }
@@ -570,7 +570,7 @@ impl IfInterpreter {
     ) -> Self {
         let state = if let Some(grp) = &ctrl_if.cond {
             let grp_ref = grp.borrow();
-            let name = Some(grp_ref.name().clone());
+            let name = Some(grp_ref.name());
             let enable = EnableInterpreter::new(
                 grp,
                 name,
@@ -805,7 +805,7 @@ impl WhileInterpreter {
     fn process_initial_state(&mut self, env: InterpreterState) {
         if let Some(cond_grp) = &self.wh.cond {
             let grp_ref = cond_grp.borrow();
-            let name = grp_ref.name().clone();
+            let name = grp_ref.name();
             let interp = EnableInterpreter::new(
                 cond_grp.clone(),
                 Some(name),
@@ -1111,7 +1111,7 @@ impl Interpreter for InvokeInterpreter {
     fn get_active_tree(&self) -> Vec<ActiveTreeNode> {
         let name = GroupQualifiedInstanceName::new_phantom(
             &self.qin,
-            &(format!("invoke {}", self.invoke.comp.borrow().name()).into()),
+            format!("invoke {}", self.invoke.comp.borrow().name()).into(),
         );
 
         let pos_tag = self.invoke.attributes.get(POS_TAG).cloned();
@@ -1174,7 +1174,7 @@ impl ControlInterpreter {
                 )))
             }
             iir::Control::Enable(e) => {
-                let name = e.group.borrow().name().clone();
+                let name = e.group.borrow().name();
                 Self::Enable(Box::new(EnableInterpreter::new(
                     e,
                     Some(name),
