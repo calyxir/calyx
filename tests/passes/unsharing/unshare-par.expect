@@ -15,9 +15,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       zero_x[done] = unshr_x.done;
     }
     group zero_y {
-      unshr_y.write_en = 1'd1;
-      unshr_y.in = 32'd0;
-      zero_y[done] = unshr_y.done;
+      y.write_en = 1'd1;
+      y.in = 32'd0;
+      zero_y[done] = y.done;
     }
     group one_x {
       x.write_en = 1'd1;
@@ -25,16 +25,16 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       one_x[done] = x.done;
     }
     group final {
-      add2.left = y.out;
+      add2.left = unshr_y.out;
       add2.right = x.out;
       result.in = add2.out;
       result.write_en = 1'd1;
       final[done] = result.done;
     }
     group five_y {
-      y.write_en = 1'd1;
-      y.in = 32'd5;
-      five_y[done] = y.done;
+      unshr_y.write_en = 1'd1;
+      unshr_y.in = 32'd5;
+      five_y[done] = unshr_y.done;
     }
   }
 

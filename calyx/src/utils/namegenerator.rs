@@ -50,7 +50,7 @@ impl NameGenerator {
             };
 
             // If we've not generated this name before, return it.
-            if !self.generated_names.contains(&*name.id) {
+            if !self.generated_names.contains(name.id.as_str()) {
                 self.generated_names.insert(name.to_string());
                 return name;
             }

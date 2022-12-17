@@ -374,7 +374,7 @@ impl Debugger {
     ) -> Result<String, DebuggerError> {
         let orig_string = print_list
             .iter()
-            .map(|s| s.id.clone())
+            .map(|s| s.id.as_str())
             .collect::<Vec<_>>()
             .join(".");
 

@@ -90,7 +90,7 @@ impl Visitor for InferShare {
         // build the domination map
         let mut dmap = DominatorMap::new(
             &mut comp.control.borrow_mut(),
-            comp.name.id.clone(),
+            comp.name.clone(),
         );
 
         // print the domination map if command line argument says so

@@ -1,14 +1,15 @@
 use crate::errors::{Span, WithPos};
+use crate::utils::GSym;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
 /// Represents an identifier in a Calyx program
-#[derive(Derivative, Clone, Deserialize, Default)]
+#[derive(Derivative, Clone, Deserialize)]
 #[derivative(Hash, Eq, Debug, PartialOrd, Ord)]
 #[serde(transparent)]
 pub struct Id {
-    pub id: String,
+    pub id: GSym,
     #[derivative(Hash = "ignore")]
     #[derivative(Debug = "ignore")]
     #[derivative(PartialOrd = "ignore")]
@@ -20,7 +21,7 @@ pub struct Id {
 impl Id {
     pub fn new<S: ToString>(id: S, span: Option<Rc<Span>>) -> Self {
         Self {
-            id: id.to_string(),
+            id: GSym::from(id.to_string()),
             span,
         }
     }
@@ -34,6 +35,12 @@ impl WithPos for Id {
 
 /* =================== Impls for Id to make them easier to use ============== */
 
+impl Default for Id {
+    fn default() -> Self {
+        Id::new("", None)
+    }
+}
+
 impl std::fmt::Display for Id {
     fn fmt(
         &self,
@@ -45,34 +52,31 @@ impl std::fmt::Display for Id {
 
 impl AsRef<str> for Id {
     fn as_ref(&self) -> &str {
-        &self.id
+        self.id.as_str()
     }
 }
 
 impl From<&str> for Id {
     fn from(s: &str) -> Self {
-        Id {
-            id: s.to_string(),
-            span: None,
-        }
+        Id::new(s, None)
     }
 }
 
 impl From<String> for Id {
     fn from(s: String) -> Self {
-        Id { id: s, span: None }
+        Id::new(s, None)
     }
 }
 
 impl PartialEq<str> for Id {
     fn eq(&self, other: &str) -> bool {
-        self.id == other
+        self.id == GSym::from(other)
     }
 }
 
 impl<S: AsRef<str>> PartialEq<S> for Id {
     fn eq(&self, other: &S) -> bool {
-        self.id == other.as_ref()
+        self.id == GSym::from(other.as_ref())
     }
 }
 
@@ -81,6 +85,6 @@ impl Serialize for Id {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.id)
+        self.id.serialize(serializer)
     }
 }

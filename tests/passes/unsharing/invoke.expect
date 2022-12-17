@@ -37,9 +37,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       zero_x[done] = unshr_x.done;
     }
     group zero_y {
-      unshr_y.write_en = 1'd1;
-      unshr_y.in = 32'd0;
-      zero_y[done] = unshr_y.done;
+      y.write_en = 1'd1;
+      y.in = 32'd0;
+      zero_y[done] = y.done;
     }
     group one_x {
       x.write_en = 1'd1;
@@ -52,9 +52,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       write_final[done] = result.done;
     }
     group five_y {
-      y.write_en = 1'd1;
-      y.in = 32'd5;
-      five_y[done] = y.done;
+      unshr_y.write_en = 1'd1;
+      unshr_y.in = 32'd5;
+      five_y[done] = unshr_y.done;
     }
   }
 
@@ -65,15 +65,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         zero_y;
       }
       invoke my_add(
-        left = unshr_y.out,
+        left = y.out,
         right = unshr_x.out
       )();
       invoke my_add(
-        left = unshr_y.out,
+        left = y.out,
         right = unshr_x.out
       )();
       invoke my_add(
-        left = unshr_y.out,
+        left = y.out,
         right = unshr_x.out
       )();
       par {
@@ -81,7 +81,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         five_y;
       }
       invoke my_add(
-        left = y.out,
+        left = unshr_y.out,
         right = x.out
       )();
       write_final;
