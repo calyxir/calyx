@@ -1,4 +1,5 @@
 //! Representation for structure (wires and cells) in a Calyx program.
+
 use super::{Attributes, GetAttributes, Guard, Id, PortDef, RRC, WRC};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
@@ -245,7 +246,8 @@ impl Cell {
     /// Get a reference to the named port if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
     {
         self.ports
             .iter()
@@ -282,9 +284,10 @@ impl Cell {
     /// exist.
     pub fn get<S>(&self, name: S) -> RRC<Port>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
     {
-        self.find(&name).unwrap_or_else(|| {
+        self.find(name.clone()).unwrap_or_else(|| {
             panic!(
                 "Port `{name}' not found on cell `{}'. Known ports are: {}",
                 self.name,
@@ -310,11 +313,11 @@ impl Cell {
     /// only returns true if the primitive has the given name.
     pub fn is_primitive<S>(&self, prim: Option<S>) -> bool
     where
-        S: AsRef<str>,
+        Id: PartialEq<S>,
     {
         match &self.prototype {
             CellType::Primitive { name, .. } => {
-                prim.as_ref().map(|p| name.eq(p)).unwrap_or(true)
+                prim.as_ref().map(|p| name == p).unwrap_or(true)
             }
             _ => false,
         }
@@ -343,7 +346,7 @@ impl Cell {
     /// Get parameter binding from the prototype used to build this cell.
     pub fn get_parameter<S>(&self, param: S) -> Option<u64>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        Id: PartialEq<S>,
     {
         match &self.prototype {
             CellType::Primitive { param_binding, .. } => param_binding
@@ -464,9 +467,10 @@ impl Group {
     }
 
     /// Get a reference to the named hole if it exists.
-    pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
+    pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: std::fmt::Display,
+        Id: PartialEq<S>,
     {
         self.holes
             .iter()
@@ -477,9 +481,10 @@ impl Group {
     /// Get a reference to the named hole or panic.
     pub fn get<S>(&self, name: S) -> RRC<Port>
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
     {
-        self.find(&name).unwrap_or_else(|| {
+        self.find(name.clone()).unwrap_or_else(|| {
             panic!("Hole `{name}' not found on group `{}'", self.name)
         })
     }

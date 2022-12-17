@@ -68,15 +68,46 @@ impl From<String> for Id {
     }
 }
 
+impl PartialEq<GSym> for Id {
+    fn eq(&self, other: &GSym) -> bool {
+        self.id == *other
+    }
+}
 impl PartialEq<str> for Id {
     fn eq(&self, other: &str) -> bool {
         self.id == GSym::from(other)
     }
 }
+impl PartialEq<&str> for Id {
+    fn eq(&self, other: &&str) -> bool {
+        self.id == GSym::from(*other)
+    }
+}
+impl PartialEq<&Id> for Id {
+    fn eq(&self, other: &&Id) -> bool {
+        self.id == other.id
+    }
+}
+impl PartialEq<Id> for Id {
+    fn eq(&self, other: &Id) -> bool {
+        self.id == other.id
+    }
+}
+impl PartialEq<String> for Id {
+    fn eq(&self, other: &String) -> bool {
+        self.id == GSym::from(other)
+    }
+}
 
-impl<S: AsRef<str>> PartialEq<S> for Id {
-    fn eq(&self, other: &S) -> bool {
-        self.id == GSym::from(other.as_ref())
+impl From<Id> for GSym {
+    fn from(id: Id) -> Self {
+        id.id
+    }
+}
+
+impl From<&Id> for GSym {
+    fn from(id: &Id) -> Self {
+        id.id
     }
 }
 
