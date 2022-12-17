@@ -1,15 +1,15 @@
 use crate::errors::{Span, WithPos};
+use crate::utils::GSym;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use symbol_table::GlobalSymbol;
 
 /// Represents an identifier in a Calyx program
 #[derive(Derivative, Clone, Deserialize)]
 #[derivative(Hash, Eq, Debug, PartialOrd, Ord)]
 #[serde(transparent)]
 pub struct Id {
-    pub id: GlobalSymbol,
+    pub id: GSym,
     #[derivative(Hash = "ignore")]
     #[derivative(Debug = "ignore")]
     #[derivative(PartialOrd = "ignore")]
@@ -21,7 +21,7 @@ pub struct Id {
 impl Id {
     pub fn new<S: ToString>(id: S, span: Option<Rc<Span>>) -> Self {
         Self {
-            id: GlobalSymbol::from(id.to_string()),
+            id: GSym::from(id.to_string()),
             span,
         }
     }
@@ -70,13 +70,13 @@ impl From<String> for Id {
 
 impl PartialEq<str> for Id {
     fn eq(&self, other: &str) -> bool {
-        self.id == GlobalSymbol::from(other)
+        self.id == GSym::from(other)
     }
 }
 
 impl<S: AsRef<str>> PartialEq<S> for Id {
     fn eq(&self, other: &S) -> bool {
-        self.id == GlobalSymbol::from(other.as_ref())
+        self.id == GSym::from(other.as_ref())
     }
 }
 
