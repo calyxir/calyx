@@ -170,18 +170,16 @@ impl Error {
         }
     }
     pub fn undefined(name: ir::Id, typ: String) -> Self {
-        let pos = name.copy_span();
         Self {
             kind: Box::new(ErrorKind::Undefined(name, typ)),
-            pos,
+            pos: None,
             post_msg: None,
         }
     }
     pub fn already_bound(name: ir::Id, typ: String) -> Self {
-        let pos = name.copy_span();
         Self {
             kind: Box::new(ErrorKind::AlreadyBound(name, typ)),
-            pos,
+            pos: None,
             post_msg: None,
         }
     }

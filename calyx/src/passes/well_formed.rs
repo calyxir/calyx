@@ -2,7 +2,8 @@ use crate::errors::{CalyxResult, Error, WithPos};
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
-    self, CellType, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
+    self, CellType, CloneName, Component, GetAttributes, LibrarySignatures,
+    RESERVED_NAMES,
 };
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -21,7 +22,7 @@ use std::collections::HashSet;
 /// 7. Invoking components with impatible fed-in cell type for ref cells.
 pub struct WellFormed {
     /// Reserved names
-    reserved_names: HashSet<String>,
+    reserved_names: HashSet<ir::Id>,
     /// Names of the groups that have been used in the control.
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
@@ -36,7 +37,7 @@ impl ConstructVisitor for WellFormed {
         Self: Sized,
     {
         let reserved_names =
-            RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
+            RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
         for prim in ctx.lib.signatures() {
             if prim.attributes.has("static") {
@@ -58,7 +59,7 @@ impl ConstructVisitor for WellFormed {
                         return Err(Error::malformed_structure(
                             "ref cells are not allowed for main component",
                         )
-                        .with_pos(cell.borrow().name()));
+                        .with_pos(cell.borrow().get_attributes()));
                     }
                 }
             }
@@ -165,9 +166,9 @@ impl Visitor for WellFormed {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
             // Check if any of the cells use a reserved name.
-            if self.reserved_names.contains(cell.name().id.as_str()) {
+            if self.reserved_names.contains(cell.name()) {
                 return Err(Error::reserved_name(cell.clone_name())
-                    .with_pos(cell.name()));
+                    .with_pos(cell.get_attributes()));
             }
             // Check if a `ref` cell is invalid
             if cell.is_reference() {
@@ -175,7 +176,7 @@ impl Visitor for WellFormed {
                     return Err(Error::malformed_structure(
                         "constant not allowed for ref cells".to_string(),
                     )
-                    .with_pos(cell.name()));
+                    .with_pos(cell.get_attributes()));
                 }
                 if matches!(cell.prototype, CellType::ThisComponent) {
                     unreachable!(
@@ -359,8 +360,7 @@ impl Visitor for WellFormed {
                     return Err(Error::malformed_control(format!(
                         "{} does not have ref cell named {}",
                         id, outcell
-                    ))
-                    .with_pos(outcell));
+                    )));
                 }
             }
             for id in cellmap.keys() {

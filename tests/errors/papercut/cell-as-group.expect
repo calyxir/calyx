@@ -1,6 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: tests/errors/papercut/cell-as-group.futil
-9 |    save;
-  |    ^^^^ Undefined group name: save
+Error: Undefined group name: save

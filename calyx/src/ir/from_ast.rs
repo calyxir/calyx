@@ -4,7 +4,7 @@ use super::{
     LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
 };
 use crate::{
-    errors::{CalyxResult, Error, WithPos},
+    errors::{self, CalyxResult, Error, WithPos},
     frontend::{self, ast},
     ir::PortComp,
     utils::NameGenerator,
@@ -25,32 +25,31 @@ struct SigCtx {
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(ports: &[PortDef<u64>]) -> CalyxResult<()> {
-    let mut inputs: HashSet<&Id> = HashSet::new();
-    let mut outputs: HashSet<&Id> = HashSet::new();
+fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
+    let mut ports: HashSet<&Id> = HashSet::new();
     for PortDef {
         name, direction, ..
-    } in ports
+    } in pds
     {
         // check for uniqueness
         match &direction {
             Direction::Input => {
-                if !inputs.contains(&name) {
-                    inputs.insert(name);
+                if !ports.contains(&name) {
+                    ports.insert(name);
                 } else {
                     return Err(Error::already_bound(
                         name.clone(),
-                        "component".to_string(),
+                        "port".to_string(),
                     ));
                 }
             }
             Direction::Output => {
-                if !outputs.contains(&name) {
-                    outputs.insert(name);
+                if !ports.contains(&name) {
+                    ports.insert(name);
                 } else {
                     return Err(Error::already_bound(
                         name.clone(),
-                        "component".to_string(),
+                        "port".to_string(),
                     ));
                 }
             }
@@ -72,8 +71,7 @@ const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
 
 /// Extend the signature with magical ports.
 fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
-    let port_names: HashSet<_> =
-        sig.iter().map(|pd| pd.name.to_string()).collect();
+    let port_names: HashSet<_> = sig.iter().map(|pd| pd.name.clone()).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
     for (name, width, direction) in INTERFACE_PORTS.iter() {
         // Check if there is already another interface port defined for the
@@ -162,23 +160,21 @@ fn validate_component(
     comp: &ast::ComponentDef,
     sig_ctx: &SigCtx,
 ) -> CalyxResult<()> {
-    let mut cells: HashSet<Id> = HashSet::new();
-    let mut groups: HashSet<Id> = HashSet::new();
+    let mut cells: HashMap<Id, Option<Rc<errors::Span>>> = HashMap::new();
+    let mut groups: HashMap<Id, Option<Rc<errors::Span>>> = HashMap::new();
 
     for cell in &comp.cells {
-        if cells.contains(&cell.name) {
-            let prev = cells
-                .get(&cell.name)
-                .unwrap()
-                .copy_span()
-                .map(|s| s.format("Previous definition"));
+        let attrs = &cell.attributes;
+        if let Some(pos) = cells.get(&cell.name) {
+            let prev = pos.as_ref().map(|s| s.format("Previous definition"));
             return Err(Error::already_bound(
                 cell.name.clone(),
                 "cell".to_string(),
             )
+            .with_pos(attrs)
             .with_post_msg(prev));
         }
-        cells.insert(cell.name.clone());
+        cells.insert(cell.name.clone(), cell.attributes.copy_span());
 
         let proto_name = &cell.prototype.name;
 
@@ -194,28 +190,23 @@ fn validate_component(
 
     for group in &comp.groups {
         let name = &group.name;
-        if groups.contains(name) {
-            let prev = groups
-                .get(name)
-                .unwrap()
-                .copy_span()
-                .map(|s| s.format("Previous definition"));
+        let attrs = &group.attributes;
+        if let Some(pos) = groups.get(name) {
+            let prev = pos.as_ref().map(|s| s.format("Previous definition"));
             return Err(Error::already_bound(
                 name.clone(),
                 "group".to_string(),
             )
+            .with_pos(attrs)
             .with_post_msg(prev));
         }
-        if cells.contains(name) {
-            let prev = cells
-                .get(name)
-                .unwrap()
-                .copy_span()
-                .map(|s| s.format("Previous definition"));
+        if let Some(pos) = cells.get(name) {
+            let prev = pos.as_ref().map(|s| s.format("Previous definition"));
             return Err(Error::already_bound(name.clone(), "cell".to_string())
+                .with_pos(attrs)
                 .with_post_msg(prev));
         }
-        groups.insert(name.clone());
+        groups.insert(name.clone(), group.attributes.copy_span());
     }
 
     Ok(())
@@ -258,7 +249,7 @@ fn build_component(
     // Add reserved names to the component's namegenerator so future conflicts
     // don't occur
     ir_component
-        .add_names(RESERVED_NAMES.iter().map(|s| s.to_string()).collect());
+        .add_names(RESERVED_NAMES.iter().map(|s| Id::from(*s)).collect());
 
     Ok(ir_component)
 }

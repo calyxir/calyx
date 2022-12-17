@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/errors/reserved-name.futil
 4 |    reg = std_reg(32);
-  |    ^^^ Use of reserved keyword: reg
+  |    ^^^^^^^^^^^^^^^^^ Use of reserved keyword: reg

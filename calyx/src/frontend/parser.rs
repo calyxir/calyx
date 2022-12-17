@@ -152,8 +152,7 @@ impl CalyxParser {
 
     // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
-        let span = Self::get_span(&input);
-        Ok(ir::Id::new(input.as_str(), Some(span)))
+        Ok(ir::Id::new(input.as_str()))
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {

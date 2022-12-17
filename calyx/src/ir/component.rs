@@ -53,10 +53,8 @@ impl Component {
     where
         S: AsRef<str>,
     {
-        let prev_names: HashSet<_> = ports
-            .iter()
-            .map(|pd| pd.name.as_ref().to_string())
-            .collect();
+        let prev_names: HashSet<_> =
+            ports.iter().map(|pd| pd.name.clone()).collect();
 
         let this_sig = Builder::cell_from_signature(
             THIS_ID.into(),
@@ -85,7 +83,7 @@ impl Component {
         }
     }
 
-    pub(super) fn add_names(&mut self, names: HashSet<String>) {
+    pub(super) fn add_names(&mut self, names: HashSet<Id>) {
         self.namegen.add_names(names)
     }
 

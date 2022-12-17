@@ -171,7 +171,7 @@ impl PortDef<Width> {
                 None => {
                     let param_name = &self.name;
                     let msg = format!("Failed to resolve: {param_name}");
-                    Err(Error::malformed_structure(msg).with_pos(value))
+                    Err(Error::malformed_structure(msg))
                 }
             },
         }
