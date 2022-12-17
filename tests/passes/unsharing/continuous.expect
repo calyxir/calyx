@@ -14,19 +14,19 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group zero {
       r.in = 32'd0;
       r.write_en = 1'd1;
-      unshr_x.write_en = 1'd1;
-      unshr_x.in = 32'd0;
-      unshr_y.write_en = 1'd1;
-      unshr_y.in = 32'd0;
+      x.write_en = 1'd1;
+      x.in = 32'd0;
+      y.write_en = 1'd1;
+      y.in = 32'd0;
       zero[done] = r.done;
     }
     group one {
       r.in = 32'd1;
       r.write_en = 1'd1;
-      x.write_en = 1'd1;
-      x.in = 32'd1;
-      y.write_en = 1'd1;
-      y.in = 32'd1;
+      unshr_x.write_en = 1'd1;
+      unshr_x.in = 32'd1;
+      unshr_y.write_en = 1'd1;
+      unshr_y.in = 32'd1;
       one[done] = r.done;
     }
     group cond {
@@ -50,10 +50,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group five {
       r.in = 32'd5;
       r.write_en = 1'd1;
-      y.write_en = 1'd1;
-      y.in = 32'd5;
-      x.write_en = 1'd1;
-      x.in = 32'd5;
+      unshr_y.write_en = 1'd1;
+      unshr_y.in = 32'd5;
+      unshr_x.write_en = 1'd1;
+      unshr_x.in = 32'd5;
       five[done] = r.done;
     }
     group set_flag {

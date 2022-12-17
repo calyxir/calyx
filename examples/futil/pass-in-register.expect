@@ -8,15 +8,15 @@ component times_10_and_add_1<"state_share"=1>(reg_done: 1, reg_out: 32, @go go: 
     @generated do_add_and_mul_done = std_wire(1);
   }
   wires {
-    done = do_add_and_mul_done.out ? 1'd1;
+    add.right = do_add_and_mul_go.out ? mult.out;
+    add.left = do_add_and_mul_go.out ? 32'd1;
+    mult.right = do_add_and_mul_go.out ? reg_out;
+    mult.left = do_add_and_mul_go.out ? 32'd10;
     reg_in = do_add_and_mul_go.out ? add.out;
     reg_write_en = do_add_and_mul_go.out ? 1'd1;
-    add.left = do_add_and_mul_go.out ? 32'd1;
-    add.right = do_add_and_mul_go.out ? mult.out;
-    do_add_and_mul_done.in = reg_done;
+    done = do_add_and_mul_done.out ? 1'd1;
     do_add_and_mul_go.in = go;
-    mult.left = do_add_and_mul_go.out ? 32'd10;
-    mult.right = do_add_and_mul_go.out ? reg_out;
+    do_add_and_mul_done.in = reg_done;
   }
 
   control {}
@@ -34,30 +34,30 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated tdcc_done = std_wire(1);
   }
   wires {
-    done = tdcc_done.out ? 1'd1;
-    apply_op_done.in = op.done;
-    apply_op_go.in = !apply_op_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
-    fsm.clk = clk;
-    fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.in = fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out ? 2'd1;
-    fsm.in = fsm.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 2'd2;
-    fsm.reset = reset;
-    fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out | fsm.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 1'd1;
-    invoke0_done.in = r.done;
-    invoke0_go.in = !invoke0_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
-    op.clk = clk;
-    op.go = apply_op_go.out ? 1'd1;
     op.reg_done = apply_op_go.out ? r.done;
     op.reg_out = apply_op_go.out ? r.out;
+    op.go = apply_op_go.out ? 1'd1;
+    op.clk = clk;
     op.reset = reset;
-    r.clk = clk;
-    r.in = invoke0_go.out ? 32'd15;
     r.in = apply_op_go.out ? op.reg_in;
-    r.reset = reset;
-    r.write_en = invoke0_go.out ? 1'd1;
+    r.in = invoke0_go.out ? 32'd15;
     r.write_en = apply_op_go.out ? op.reg_write_en;
-    tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
+    r.write_en = invoke0_go.out ? 1'd1;
+    r.clk = clk;
+    r.reset = reset;
+    done = tdcc_done.out ? 1'd1;
+    fsm.in = fsm.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 2'd2;
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.in = fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out ? 2'd1;
+    fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out | fsm.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 1'd1;
+    fsm.clk = clk;
+    fsm.reset = reset;
+    apply_op_go.in = !apply_op_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
+    apply_op_done.in = op.done;
+    invoke0_go.in = !invoke0_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
+    invoke0_done.in = r.done;
     tdcc_go.in = go;
+    tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
   }
 
   control {}
