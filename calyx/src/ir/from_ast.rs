@@ -71,8 +71,7 @@ const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
 
 /// Extend the signature with magical ports.
 fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
-    let port_names: HashSet<_> =
-        sig.iter().map(|pd| pd.name.to_string()).collect();
+    let port_names: HashSet<_> = sig.iter().map(|pd| pd.name.clone()).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
     for (name, width, direction) in INTERFACE_PORTS.iter() {
         // Check if there is already another interface port defined for the
@@ -250,7 +249,7 @@ fn build_component(
     // Add reserved names to the component's namegenerator so future conflicts
     // don't occur
     ir_component
-        .add_names(RESERVED_NAMES.iter().map(|s| s.to_string()).collect());
+        .add_names(RESERVED_NAMES.iter().map(|s| Id::from(*s)).collect());
 
     Ok(ir_component)
 }

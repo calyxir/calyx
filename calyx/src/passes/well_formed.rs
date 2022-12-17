@@ -22,7 +22,7 @@ use std::collections::HashSet;
 /// 7. Invoking components with impatible fed-in cell type for ref cells.
 pub struct WellFormed {
     /// Reserved names
-    reserved_names: HashSet<String>,
+    reserved_names: HashSet<ir::Id>,
     /// Names of the groups that have been used in the control.
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
@@ -37,7 +37,7 @@ impl ConstructVisitor for WellFormed {
         Self: Sized,
     {
         let reserved_names =
-            RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
+            RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
         for prim in ctx.lib.signatures() {
             if prim.attributes.has("static") {
@@ -166,7 +166,7 @@ impl Visitor for WellFormed {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
             // Check if any of the cells use a reserved name.
-            if self.reserved_names.contains(cell.name().id.as_str()) {
+            if self.reserved_names.contains(cell.name()) {
                 return Err(Error::reserved_name(cell.clone_name())
                     .with_pos(cell.get_attributes()));
             }
