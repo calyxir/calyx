@@ -1,3 +1,3 @@
-from .stage import VerilatorStage, JsonToDat
+from .stage import VerilatorStage, JsonToDat, DatToJson
 
-__all__ = ["VerilatorStage", "JsonToDat"]
+__all__ = [VerilatorStage, JsonToDat, DatToJson]

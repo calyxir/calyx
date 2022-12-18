@@ -111,6 +111,7 @@ def register_stages(registry):
 
     # Data conversion
     registry.register(verilator.JsonToDat())
+    registry.register(verilator.DatToJson())
 
     # Verilator
     registry.register(
