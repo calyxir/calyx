@@ -109,6 +109,9 @@ def register_stages(registry):
         )
     )
 
+    # Data conversion
+    registry.register(verilator.JsonToDat())
+
     # Verilator
     registry.register(
         verilator.VerilatorStage("vcd", "Generate a VCD file from Verilog simulation")

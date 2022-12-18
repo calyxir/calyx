@@ -10,6 +10,47 @@ from fud import config as cfg
 from .json_to_dat import convert2dat, convert2json
 
 
+class JsonToDat(Stage):
+    name = "data-conv"
+
+    def __init__(self):
+        super().__init__(
+            src_state="json",
+            target_state="dat",
+            input_type=SourceType.Stream,
+            output_type=SourceType.Directory,
+            description="Converts JSON data to Dat.",
+        )
+
+    def _define_steps(self, input: Source, builder, config):
+        @builder.step()
+        def mktmp() -> SourceType.Directory:
+            """
+            Make temporary directory to store Verilator build files.
+            """
+            return TmpDir()
+
+        @builder.step()
+        def json_to_dat(json: SourceType.Stream, dir: SourceType.Directory):
+            """
+            Converts a `json` data format into a series of `.dat` files inside the given
+            temporary directory.
+            """
+            round_float_to_fixed = (
+                config.get(["stages", self.name, "round_float_to_fixed"]) or False
+            )
+            convert2dat(
+                dir.name,
+                sjson.load(json, use_decimal=True),
+                "dat",
+                round_float_to_fixed,
+            )
+
+        dir = mktmp()
+        json_to_dat(input, dir)
+        return dir
+
+
 class VerilatorStage(Stage):
 
     name = "verilog"

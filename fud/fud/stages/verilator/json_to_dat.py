@@ -3,7 +3,7 @@ import numpy as np
 from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
 from fud.errors import InvalidNumericType, Malformed
-from fud.utils import log
+import logging as log
 
 
 def float_to_fixed(value: float, N: int) -> float:
