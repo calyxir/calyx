@@ -23,16 +23,17 @@ impl_index!(pub(crate) GlobalCellRef);
 impl_index!(pub(crate) LocalCellRef);
 // A local reference
 impl_index!(pub(crate) CellPortID);
+// ref cell index
+impl_index!(pub(crate) GlobalRCellRef);
+impl_index!(pub(crate) LocalRCellRef);
 
 pub(crate) type PortMap = IndexedMap<Value, GlobalPortRef>;
 pub(crate) type CellMap = IndexedMap<CellLedger, GlobalCellRef>;
+pub(crate) type RefCellMap = IndexedMap<Option<GlobalCellRef>, GlobalRCellRef>;
 
 pub(crate) enum CellLedger {
     Primitive {
         name: Symbol,
-        in_ports: IndexedMap<GlobalPortRef, CellPortID, INPUT_CELL_PORT_COUNT>,
-        out_ports:
-            IndexedMap<GlobalPortRef, CellPortID, OUTPUT_CELL_PORT_COUNT>,
         // wish there was a better option with this one
         cell_dyn: Box<dyn Primitive>,
     },
@@ -40,10 +41,6 @@ pub(crate) enum CellLedger {
         name: Symbol,
         port_base_offset: GlobalPortRef,
         comp_id: ComponentRef,
-    },
-    Ref {
-        name: Symbol,
-        cell_ref: GlobalCellRef,
     },
 }
 
@@ -55,4 +52,5 @@ pub struct Environment {
     pcs: ProgramCounter,
     ports: PortMap,
     cells: CellMap,
+    ref_cells: RefCellMap,
 }
