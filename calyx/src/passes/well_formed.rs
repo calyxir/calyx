@@ -1,10 +1,11 @@
-use crate::errors::{CalyxResult, Error, WithPos};
+use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
     self, CellType, CloneName, Component, GetAttributes, LibrarySignatures,
     RESERVED_NAMES,
 };
+use crate::utils::WithPos;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;

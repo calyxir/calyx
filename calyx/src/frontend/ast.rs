@@ -3,8 +3,9 @@ use std::path::PathBuf;
 
 use atty::Stream;
 
-use crate::errors::{CalyxResult, Error, Span};
+use crate::errors::{CalyxResult, Error};
 use crate::ir;
+use crate::utils::Span;
 
 use super::parser;
 

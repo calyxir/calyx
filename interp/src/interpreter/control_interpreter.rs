@@ -18,8 +18,8 @@ use crate::{
     },
     values::Value,
 };
-use calyx::errors::WithPos;
 use calyx::ir::{self, Assignment, Guard, RRC};
+use calyx::utils::WithPos;
 use std::collections::HashSet;
 use std::rc::Rc;
 

@@ -2,8 +2,9 @@
 
 //! Parser for Calyx programs.
 use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
-use crate::errors::{self, CalyxResult, Span};
+use crate::errors::{self, CalyxResult};
 use crate::ir;
+use crate::utils::Span;
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
 use std::convert::TryInto;

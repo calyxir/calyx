@@ -1,7 +1,10 @@
 use linked_hash_map::LinkedHashMap;
 use std::{convert::TryFrom, ops::Index, rc::Rc};
 
-use crate::errors::{CalyxResult, Span, WithPos};
+use crate::{
+    errors::CalyxResult,
+    utils::{Span, WithPos},
+};
 
 /// Attributes associated with a specific IR structure.
 #[derive(Debug, Clone)]

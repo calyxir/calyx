@@ -4,10 +4,10 @@ use super::{
     LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
 };
 use crate::{
-    errors::{self, CalyxResult, Error, WithPos},
+    errors::{CalyxResult, Error},
     frontend::{self, ast},
     ir::PortComp,
-    utils::NameGenerator,
+    utils::{NameGenerator, Span, WithPos},
 };
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -160,8 +160,8 @@ fn validate_component(
     comp: &ast::ComponentDef,
     sig_ctx: &SigCtx,
 ) -> CalyxResult<()> {
-    let mut cells: HashMap<Id, Option<Rc<errors::Span>>> = HashMap::new();
-    let mut groups: HashMap<Id, Option<Rc<errors::Span>>> = HashMap::new();
+    let mut cells: HashMap<Id, Option<Rc<Span>>> = HashMap::new();
+    let mut groups: HashMap<Id, Option<Rc<Span>>> = HashMap::new();
 
     for cell in &comp.cells {
         let attrs = &cell.attributes;
