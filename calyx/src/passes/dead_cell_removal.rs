@@ -134,8 +134,8 @@ impl Visitor for DeadCellRemoval {
             // Remove unused cells
             let removed = comp.cells.retain(|c| {
                 let cell = c.borrow();
-                self.all_reads.contains(cell.name())
-                    || wire_reads.contains(cell.name())
+                self.all_reads.contains(&cell.name())
+                    || wire_reads.contains(&cell.name())
             });
 
             if removed == 0 {

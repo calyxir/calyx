@@ -75,7 +75,7 @@ impl ComponentInterpreter {
         env: InterpreterState,
         comp: &Rc<iir::Component>,
     ) -> Self {
-        let qin = ComponentQualifiedInstanceName::new_single(comp, &comp.name);
+        let qin = ComponentQualifiedInstanceName::new_single(comp, comp.name);
         Self::from_component(comp, env, qin)
     }
 
@@ -169,7 +169,7 @@ impl ComponentInterpreter {
             .iter()
             .map(|x| {
                 let port_ref = x.borrow();
-                (port_ref.name.clone(), env.lookup(x.as_raw()).clone())
+                (port_ref.name, env.lookup(x.as_raw()).clone())
             })
             .collect()
     }
@@ -213,7 +213,7 @@ impl ComponentInterpreter {
         env: InterpreterState,
         comp: &Rc<iir::Component>,
     ) -> InterpreterResult<InterpreterState> {
-        let qin = ComponentQualifiedInstanceName::new_single(comp, &comp.name);
+        let qin = ComponentQualifiedInstanceName::new_single(comp, comp.name);
         let mut main_comp = Self::from_component(comp, env, qin);
         main_comp.set_go_high();
         main_comp.run()?;

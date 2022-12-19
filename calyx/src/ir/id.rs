@@ -2,7 +2,9 @@ use crate::utils::GSym;
 use serde::{Deserialize, Serialize};
 
 /// Represents an identifier in a Calyx program
-#[derive(Clone, Deserialize, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Deserialize, Hash, PartialEq, Eq, Debug, PartialOrd, Ord,
+)]
 #[serde(transparent)]
 pub struct Id {
     pub id: GSym,

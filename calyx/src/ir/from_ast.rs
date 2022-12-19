@@ -38,7 +38,7 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
                     ports.insert(name);
                 } else {
                     return Err(Error::already_bound(
-                        name.clone(),
+                        *name,
                         "port".to_string(),
                     ));
                 }
@@ -48,7 +48,7 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
                     ports.insert(name);
                 } else {
                     return Err(Error::already_bound(
-                        name.clone(),
+                        *name,
                         "port".to_string(),
                     ));
                 }
@@ -71,7 +71,7 @@ const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
 
 /// Extend the signature with magical ports.
 fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
-    let port_names: HashSet<_> = sig.iter().map(|pd| pd.name.clone()).collect();
+    let port_names: HashSet<_> = sig.iter().map(|pd| pd.name).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
     for (name, width, direction) in INTERFACE_PORTS.iter() {
         // Check if there is already another interface port defined for the
@@ -104,7 +104,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
     for bound in prim_names.chain(comp_names) {
         if all_names.contains(bound) {
             return Err(Error::already_bound(
-                bound.clone(),
+                *bound,
                 "component or primitive".to_string(),
             ));
         }
@@ -129,7 +129,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         if !comp.attributes.has("nointerface") && !comp.is_comb {
             extend_signature(sig);
         }
-        sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
+        sig_ctx.comp_sigs.insert(comp.name, sig.clone());
     }
 
     let comps: Vec<Component> = workspace
@@ -143,7 +143,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         .iter()
         .find(|c| c.attributes.get("toplevel").is_some())
         .or_else(|| comps.iter().find(|c| c.name == "main"))
-        .map(|c| c.name.clone())
+        .map(|c| c.name)
         .ok_or_else(|| Error::misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
 
     Ok(Context {
@@ -168,14 +168,11 @@ fn validate_component(
         if let Some(pos) = cells.get(&cell.name) {
             let prev =
                 pos.into_option().map(|s| s.format("Previous definition"));
-            return Err(Error::already_bound(
-                cell.name.clone(),
-                "cell".to_string(),
-            )
-            .with_pos(attrs)
-            .with_post_msg(prev));
+            return Err(Error::already_bound(cell.name, "cell".to_string())
+                .with_pos(attrs)
+                .with_post_msg(prev));
         }
-        cells.insert(cell.name.clone(), cell.attributes.copy_span());
+        cells.insert(cell.name, cell.attributes.copy_span());
 
         let proto_name = &cell.prototype.name;
 
@@ -183,7 +180,7 @@ fn validate_component(
             && !sig_ctx.comp_sigs.contains_key(proto_name)
         {
             return Err(Error::undefined(
-                proto_name.clone(),
+                *proto_name,
                 "primitive or component".to_string(),
             ));
         }
@@ -195,21 +192,25 @@ fn validate_component(
         if let Some(pos) = groups.get(name) {
             let prev =
                 pos.into_option().map(|s| s.format("Previous definition"));
-            return Err(Error::already_bound(
-                name.clone(),
-                "group".to_string(),
-            )
-            .with_pos(attrs)
-            .with_post_msg(prev));
+            return Err(Error::already_bound(*name, "group".to_string())
+                .with_pos(attrs)
+                .with_post_msg(prev));
         }
         if let Some(pos) = cells.get(name) {
             let prev =
                 pos.into_option().map(|s| s.format("Previous definition"));
-            return Err(Error::already_bound(name.clone(), "cell".to_string())
+            return Err(Error::already_bound(*name, "cell".to_string())
                 .with_pos(attrs)
                 .with_post_msg(prev));
         }
-        groups.insert(name.clone(), group.attributes.copy_span());
+        if let Some(pos) = cells.get(name) {
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(*name, "cell".to_string())
+                .with_pos(attrs)
+                .with_post_msg(prev));
+        }
+        groups.insert(*name, group.attributes.copy_span());
     }
 
     Ok(())
@@ -275,9 +276,7 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         // is a component.
         let name = builder.component.generate_name(cell.name);
         let sig = &sig_ctx.comp_sigs[proto_name];
-        let typ = CellType::Component {
-            name: proto_name.clone(),
-        };
+        let typ = CellType::Component { name: *proto_name };
         let reference = cell.reference;
         // Components do not have any bindings for parameters
         let cell = Builder::cell_from_signature(name, typ, sig.clone());
@@ -319,11 +318,9 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
     match port {
         ast::Port::Comp { component, port } => comp
             .find_cell(&component)
-            .ok_or_else(|| {
-                Error::undefined(component.clone(), "cell".to_string())
-            })?
+            .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
             .borrow()
-            .find(port.clone())
+            .find(port)
             .ok_or_else(|| Error::undefined(port, "port".to_string())),
         ast::Port::This { port } => {
             comp.signature.borrow().find(&port).ok_or_else(|| {
@@ -334,7 +331,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             .find_group(&group)
             .ok_or_else(|| Error::undefined(group, "group".to_string()))?
             .borrow()
-            .find(&port)
+            .find(port)
             .ok_or_else(|| Error::undefined(port, "hole".to_string())),
     }
 }
@@ -469,7 +466,7 @@ fn build_control(
         } => {
             let mut en = Control::enable(Rc::clone(
                 &builder.component.find_group(&component).ok_or_else(|| {
-                    Error::undefined(component.clone(), "group".to_string())
+                    Error::undefined(component, "group".to_string())
                 })?,
             ));
             *en.get_mut_attributes() = attributes;
@@ -485,7 +482,7 @@ fn build_control(
         } => {
             let cell = Rc::clone(
                 &builder.component.find_cell(&component).ok_or_else(|| {
-                    Error::undefined(component.clone(), "cell".to_string())
+                    Error::undefined(component, "cell".to_string())
                 })?,
             );
             let inputs = inputs
@@ -517,22 +514,17 @@ fn build_control(
                     .component
                     .find_comb_group(&cg)
                     .ok_or_else(|| {
-                        Error::undefined(
-                            cg.clone(),
-                            "combinational group".to_string(),
-                        )
+                        Error::undefined(cg, "combinational group".to_string())
                     })?;
                 inv.comb_group = Some(cg_ref);
             }
             if !ref_cells.is_empty() {
                 let mut ext_cell_tuples = Vec::new();
                 for (outcell, incell) in ref_cells {
-                    let ext_cell_ref = builder
-                        .component
-                        .find_cell(&incell)
-                        .ok_or_else(|| {
-                            Error::undefined(incell.clone(), "cell".to_string())
-                        })?;
+                    let ext_cell_ref =
+                        builder.component.find_cell(&incell).ok_or_else(
+                            || Error::undefined(incell, "cell".to_string()),
+                        )?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
                 }
                 inv.ref_cells = ext_cell_tuples;
@@ -570,7 +562,7 @@ fn build_control(
                 .map(|cond| {
                     builder.component.find_comb_group(&cond).ok_or_else(|| {
                         Error::undefined(
-                            cond.clone(),
+                            cond,
                             "combinational group".to_string(),
                         )
                     })
@@ -598,7 +590,7 @@ fn build_control(
                 .map(|cond| {
                     builder.component.find_comb_group(&cond).ok_or_else(|| {
                         Error::undefined(
-                            cond.clone(),
+                            cond,
                             "combinational group".to_string(),
                         )
                     })

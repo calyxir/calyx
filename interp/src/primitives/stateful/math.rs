@@ -55,7 +55,7 @@ impl<const SIGNED: bool, const DEPTH: usize> StdMultPipe<SIGNED, DEPTH> {
             product: Value::zeroes(width as usize),
             update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
-            logger: logging::new_sublogger(&name),
+            logger: logging::new_sublogger(name),
             full_name: name,
             error_on_overflow,
         }
@@ -246,7 +246,7 @@ impl<const SIGNED: bool> StdDivPipe<SIGNED> {
             remainder: Value::zeroes(width as usize),
             update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
-            logger: logging::new_sublogger(&name),
+            logger: logging::new_sublogger(name),
             full_name: name,
             error_on_overflow,
         }
@@ -451,7 +451,7 @@ impl<const SIGNED: bool> StdFpMultPipe<SIGNED> {
             product: Value::zeroes(width),
             update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
-            logger: logging::new_sublogger(&full_name),
+            logger: logging::new_sublogger(full_name),
             full_name,
         }
     }
@@ -654,7 +654,7 @@ impl<const SIGNED: bool> StdFpDivPipe<SIGNED> {
             remainder: Value::zeroes(width),
             update: BinOpUpdate::None,
             queue: ShiftBuffer::default(),
-            logger: logging::new_sublogger(&name),
+            logger: logging::new_sublogger(name),
             full_name: name,
         }
     }

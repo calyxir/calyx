@@ -114,7 +114,7 @@ impl Visitor for RemoveCombGroups {
             .comb_groups
             .drain()
             .map(|cg_ref| {
-                let name = cg_ref.borrow().name().clone();
+                let name = cg_ref.borrow().name();
                 // Register the ports read by the combinational group's usages.
                 let used_ports = used_ports.remove(&name).ok_or_else(|| {
                     Error::malformed_structure(format!(
@@ -154,7 +154,7 @@ impl Visitor for RemoveCombGroups {
                     // Define mapping from this port to the register's output
                     // value.
                     self.port_rewrite.insert(
-                        (name.clone(), port.borrow().canonical().clone()),
+                        (name, port.borrow().canonical().clone()),
                         (
                             Rc::clone(&comb_reg.borrow().get("out")),
                             Rc::clone(&group_ref),
@@ -257,7 +257,7 @@ impl Visitor for RemoveCombGroups {
 
         // Construct a new `while` statement
         let key = (
-            s.cond.as_ref().unwrap().borrow().name().clone(),
+            s.cond.as_ref().unwrap().borrow().name(),
             s.port.borrow().canonical(),
         );
         let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
@@ -289,7 +289,7 @@ impl Visitor for RemoveCombGroups {
         }
         // Construct a new `if` statement
         let key = (
-            s.cond.as_ref().unwrap().borrow().name().clone(),
+            s.cond.as_ref().unwrap().borrow().name(),
             s.port.borrow().canonical(),
         );
         let (port_ref, cond_ref) =

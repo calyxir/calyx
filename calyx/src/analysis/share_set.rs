@@ -32,12 +32,12 @@ impl ShareSet {
         let mut shareable = HashSet::new();
         for prim in ctx.lib.signatures() {
             if prim.attributes.has(keyword) {
-                shareable.insert(prim.name.clone());
+                shareable.insert(prim.name);
             }
         }
         for comp in &ctx.components {
             if comp.attributes.has(keyword) {
-                shareable.insert(comp.name.clone());
+                shareable.insert(comp.name);
             }
         }
         ShareSet {
@@ -64,7 +64,7 @@ impl ShareSet {
     ///Given a set of shareable and a cell, determines whether cell's
     ///type is shareable or not
     pub fn is_shareable_component(&self, cell: &RRC<ir::Cell>) -> bool {
-        if let Some(type_name) = cell.borrow().type_name() {
+        if let Some(ref type_name) = cell.borrow().type_name() {
             self.contains(type_name)
         } else {
             false

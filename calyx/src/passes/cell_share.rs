@@ -108,7 +108,7 @@ pub struct CellShare {
     bounds: Vec<Option<i64>>,
 
     /// Maps cell types to the corresponding pdf. Each pdf is a hashmap which maps
-    /// the number of times a given cell name reused (i.e., shared) to the  
+    /// the number of times a given cell name reused (i.e., shared) to the
     /// number of cells that have been shared that many times times.
     share_freqs: HashMap<ir::Id, HashMap<ir::CellType, HashMap<i64, i64>>>,
     /// whether or not to print the share_freqs
@@ -179,10 +179,10 @@ impl CellShare {
 
     fn cell_filter(&self, cell: &ir::Cell) -> bool {
         // Cells used in continuous assignments cannot be shared, nor can ref cells.
-        if self.cont_ref_cells.contains(cell.name()) {
+        if self.cont_ref_cells.contains(&cell.name()) {
             return false;
         }
-        if let Some(name) = cell.type_name() {
+        if let Some(ref name) = cell.type_name() {
             self.state_shareable.contains(name) || self.shareable.contains(name)
         } else {
             false
@@ -420,7 +420,7 @@ impl Visitor for CellShare {
         for (cell_type, mut graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {
-                if let Some(name) = cell_type.get_name() {
+                if let Some(ref name) = cell_type.get_name() {
                     let comb_bound = self.bounds.get(0).unwrap_or(&None);
                     let reg_bound = self.bounds.get(1).unwrap_or(&None);
                     let other_bound = self.bounds.get(2).unwrap_or(&None);
@@ -440,7 +440,7 @@ impl Visitor for CellShare {
                     graph
                         .color_greedy(*bound)
                         .iter()
-                        .map(|(a, b)| (a.clone(), comp.find_cell(&b).unwrap())),
+                        .map(|(a, b)| (*a, comp.find_cell(&b).unwrap())),
                 );
                 // only generate share-freqs if we're going to use them.
                 if self.print_share_freqs.is_some() {
@@ -453,7 +453,7 @@ impl Visitor for CellShare {
         // add the sharing freqs for the component we just analyzed
         if self.print_share_freqs.is_some() {
             // must accumulate sharing numbers for share_freqs
-            self.share_freqs.insert(comp.name.clone(), comp_share_freqs);
+            self.share_freqs.insert(comp.name, comp_share_freqs);
             // print share freqs json if self.print_share_freqs is not none
             self.print_share_json();
         }

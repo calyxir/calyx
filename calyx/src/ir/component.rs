@@ -53,8 +53,7 @@ impl Component {
     where
         S: AsRef<str>,
     {
-        let prev_names: HashSet<_> =
-            ports.iter().map(|pd| pd.name.clone()).collect();
+        let prev_names: HashSet<_> = ports.iter().map(|pd| pd.name).collect();
 
         let this_sig = Builder::cell_from_signature(
             THIS_ID.into(),
@@ -162,7 +161,7 @@ where
         IdList(
             list.into_iter()
                 .map(|item| {
-                    let name = item.borrow().name().clone();
+                    let name = item.borrow().name();
                     (name, item)
                 })
                 .collect::<LinkedHashMap<Id, RRC<T>>>(),

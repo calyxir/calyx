@@ -186,7 +186,7 @@ comb_primitive!(FLAG: error_on_overflow; LOG: logger; StdAdd[WIDTH](left: WIDTH,
 comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdSub[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
-    let mut adder = StdAdd::from_constants(WIDTH, full_name.clone(), error_on_overflow);
+    let mut adder = StdAdd::from_constants(WIDTH, *full_name, error_on_overflow);
     let (_,new_right) = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),
@@ -229,7 +229,7 @@ comb_primitive!(FLAG: error_on_overflow; LOG: logger; StdFpAdd[WIDTH, INT_WIDTH,
 comb_primitive!(FLAG: error_on_overflow; NAME: full_name; StdFpSub[WIDTH, INT_WIDTH, FRAC_WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     //first turn right into ~right + 1
     let new_right = !right.clone_bit_vec();
-    let mut adder = StdFpAdd::from_constants(WIDTH, INT_WIDTH, FRAC_WIDTH, full_name.clone(), error_on_overflow);
+    let mut adder = StdFpAdd::from_constants(WIDTH, INT_WIDTH, FRAC_WIDTH, *full_name, error_on_overflow);
     let new_right = adder
         .execute(
             &[("left".into(), &Value::from_bv(new_right)),

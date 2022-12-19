@@ -29,17 +29,14 @@ impl PortInterface {
             let writes: Vec<HashSet<ir::Id>> = prim
                 .find_all_with_attr("write_together")
                 .map(|pd| {
-                    (
-                        pd.attributes.get("write_together").unwrap(),
-                        pd.name.clone(),
-                    )
+                    (pd.attributes.get("write_together").unwrap(), pd.name)
                 })
                 .into_group_map()
                 .into_values()
                 .map(|writes| writes.into_iter().collect::<HashSet<_>>())
                 .collect();
             if !writes.is_empty() {
-                write_together.insert(prim.name.clone(), writes);
+                write_together.insert(prim.name, writes);
             }
         }
         write_together
@@ -70,10 +67,10 @@ impl PortInterface {
                     }
                     assert!(outputs.len() == 1);
                     Ok((
-                        outputs[0].name.clone(),
+                        outputs[0].name,
                         inputs
                             .into_iter()
-                            .map(|port| port.name.clone())
+                            .map(|port| port.name)
                             .collect::<HashSet<_>>(),
                     ))
                 })
@@ -88,7 +85,7 @@ impl PortInterface {
         for prim in primitives {
             let reads = Self::comb_path_spec(prim)?;
             if !reads.is_empty() {
-                read_together.insert(prim.name.clone(), reads);
+                read_together.insert(prim.name, reads);
             }
         }
         Ok(read_together)

@@ -79,7 +79,7 @@ impl InterpreterState {
     ) -> InterpreterResult<Self> {
         // only for the main component
         let qin =
-            ComponentQualifiedInstanceName::new_single(target, &target.name);
+            ComponentQualifiedInstanceName::new_single(target, target.name);
         let (map, set) =
             Self::construct_cell_map(target, ctx, mems, &qin, configs)?;
 
@@ -128,9 +128,9 @@ impl InterpreterState {
     /// Primitive>` from the source tree definition. This is only for creating
     /// primitive cells.
     fn make_primitive(
-        prim_name: &ir::Id,
+        prim_name: ir::Id,
         params: &ir::Binding,
-        cell_name: &ir::Id,
+        cell_name: ir::Id,
         mems: &mut Option<MemoryMap>,
         qin_name: &ComponentQualifiedInstanceName,
         configs: &Config,
@@ -259,7 +259,7 @@ impl InterpreterState {
             // State components
             "std_reg" => Box::new(stateful::mem::StdReg::new(params, cell_qin)),
             "std_mem_d1" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -278,7 +278,7 @@ impl InterpreterState {
                 }
             }
             "std_mem_d2" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -297,7 +297,7 @@ impl InterpreterState {
                 }
             }
             "std_mem_d3" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -316,7 +316,7 @@ impl InterpreterState {
                 }
             }
             "std_mem_d4" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -335,7 +335,7 @@ impl InterpreterState {
                 }
             }
             "seq_mem_d1" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -354,7 +354,7 @@ impl InterpreterState {
                 }
             }
             "seq_mem_d2" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -373,7 +373,7 @@ impl InterpreterState {
                 }
             }
             "seq_mem_d3" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -392,7 +392,7 @@ impl InterpreterState {
                 }
             }
             "seq_mem_d4" => {
-                let init = mems.as_mut().and_then(|x| x.remove(cell_name));
+                let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
                     Some(vals) => {
@@ -461,7 +461,7 @@ impl InterpreterState {
                     map.insert(
                         cl as ConstCell,
                         Self::make_primitive(
-                            name,
+                            *name,
                             param_binding,
                             cl.name(),
                             mems,
@@ -643,7 +643,7 @@ impl InterpreterState {
                     // this is just to make the error point toward the component, rather
                     // than printing "_this"
                     if parent_id == "_this" {
-                        *parent_id = self.component.name.clone()
+                        *parent_id = self.component.name
                     }
                 }
                 Err(ie)

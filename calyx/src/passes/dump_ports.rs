@@ -20,7 +20,7 @@ pub(super) fn dump_ports_to_signature(
     remove_signals: bool,
     port_names: &mut RefPortMap,
 ) {
-    let comp_name = component.name.clone();
+    let comp_name = component.name;
     let (ext_cells, cells): (Vec<_>, Vec<_>) =
         component.cells.drain().partition(cell_filter);
     component.cells.append(cells.into_iter());
@@ -63,7 +63,7 @@ pub(super) fn dump_ports_to_signature(
                 .push(Rc::clone(&port_ref));
             // Record the port to add to cells
             port_names
-                .entry(comp_name.clone())
+                .entry(comp_name)
                 .or_default()
                 .insert(canon, Rc::clone(&port_ref));
         }

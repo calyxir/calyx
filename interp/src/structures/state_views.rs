@@ -272,7 +272,7 @@ impl<'a> StateView<'a> {
                                 let value = self.lookup(port.as_raw());
 
                                 (
-                                    port.borrow().name.clone(),
+                                    port.borrow().name,
                                     if port
                                         .borrow()
                                         .attributes
@@ -285,10 +285,10 @@ impl<'a> StateView<'a> {
                                 )
                             })
                             .collect();
-                        (cell.borrow().name().clone(), inner_map)
+                        (cell.borrow().name(), inner_map)
                     })
                     .collect();
-                (comp.name.clone(), inner_map)
+                (comp.name, inner_map)
             })
             .collect();
         let cell_map: BTreeMap<_, _> = ctx
@@ -306,7 +306,7 @@ impl<'a> StateView<'a> {
                             {
                                 if !prim.is_comb() {
                                     return Some((
-                                        cell.name().clone(),
+                                        cell.name(),
                                         Primitive::serialize(
                                             &**prim,
                                             raw.then_some(PrintCode::Binary),
@@ -318,7 +318,7 @@ impl<'a> StateView<'a> {
                         None
                     })
                     .collect();
-                (comp.name.clone(), inner_map)
+                (comp.name, inner_map)
             })
             .collect();
 

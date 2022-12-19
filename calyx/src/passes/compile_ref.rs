@@ -91,11 +91,11 @@ impl Visitor for CompileRef {
 
         for cell in comp.cells.iter() {
             let mut new_ports: Vec<RRC<ir::Port>> = Vec::new();
-            if let Some(name) = cell.borrow().type_name() {
+            if let Some(ref name) = cell.borrow().type_name() {
                 if let Some(vec) = self.port_names.get_ports(name) {
                     for p in vec.iter() {
                         let new_port = Rc::new(RefCell::new(ir::Port {
-                            name: p.borrow().name.clone(),
+                            name: p.borrow().name,
                             width: p.borrow().width,
                             direction: p.borrow().direction.reverse(),
                             parent: ir::PortParent::Cell(WRC::from(cell)),
@@ -117,25 +117,21 @@ impl Visitor for CompileRef {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let comp_name = s.comp.borrow().type_name().unwrap().clone();
+        let comp_name = s.comp.borrow().type_name().unwrap();
         for (in_cell, cell) in s.ref_cells.drain(..) {
             for port in cell.borrow().ports.iter() {
                 if port.borrow().attributes.get("clk").is_none()
                     && port.borrow().attributes.get("reset").is_none()
                 {
-                    let canon =
-                        Canonical(in_cell.clone(), port.borrow().name.clone());
-                    let port_name = self.port_names[&comp_name][&canon]
-                        .borrow()
-                        .name
-                        .clone();
+                    let canon = Canonical(in_cell, port.borrow().name);
+                    let port_name =
+                        self.port_names[&comp_name][&canon].borrow().name;
                     match port.borrow().direction {
                         ir::Direction::Input => {
-                            s.outputs
-                                .push((port_name.clone(), Rc::clone(port)));
+                            s.outputs.push((port_name, Rc::clone(port)));
                         }
                         ir::Direction::Output => {
-                            s.inputs.push((port_name.clone(), Rc::clone(port)));
+                            s.inputs.push((port_name, Rc::clone(port)));
                         }
                         _ => {
                             unreachable!("Internal Error: This state should not be reachable.");
