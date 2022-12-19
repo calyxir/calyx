@@ -46,6 +46,9 @@ impl Default for PositionTable {
 }
 
 impl PositionTable {
+    /// The unknown position
+    pub const UNKNOWN: PosIdx = PosIdx(0);
+
     /// Create a new position table where the first file and first position are unknown
     pub fn new() -> Self {
         let mut table = PositionTable {
@@ -53,13 +56,9 @@ impl PositionTable {
             indices: Vec::new(),
         };
         table.add_file("unknown".to_string(), "".to_string());
-        table.add_pos(FileIdx(0), 0, 0);
+        let pos = table.add_pos(FileIdx(0), 0, 0);
+        debug_assert!(pos == Self::UNKNOWN);
         table
-    }
-
-    /// Return the position index for the unknown position
-    pub fn unknown(&self) -> PosIdx {
-        PosIdx(0)
     }
 
     /// Add a new file to the position table
@@ -113,9 +112,7 @@ impl GlobalPositionTable {
         unsafe {
             ONCE.call_once(|| {
                 SINGLETON.write(PositionTable::new());
-                assert!(
-                    SINGLETON.assume_init_ref().unknown() == GPosIdx::UNKNOWN.0
-                )
+                assert!(PositionTable::UNKNOWN == GPosIdx::UNKNOWN.0)
             });
             SINGLETON.assume_init_mut()
         }
