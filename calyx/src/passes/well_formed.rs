@@ -132,6 +132,7 @@ where
                 .map(|a| {
                     a.attributes
                         .copy_span()
+                        .into_option()
                         .map(|s| s.show())
                         .unwrap_or_else(|| ir::Printer::assignment_to_str(a))
                 })

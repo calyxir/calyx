@@ -5,7 +5,7 @@ use atty::Stream;
 
 use crate::errors::{CalyxResult, Error};
 use crate::ir;
-use crate::utils::Span;
+use crate::utils::GPosIdx;
 
 use super::parser;
 
@@ -117,7 +117,7 @@ pub struct BitNum {
     pub width: u64,
     pub num_type: NumType,
     pub val: u64,
-    pub span: Option<Span>,
+    pub span: GPosIdx,
 }
 
 /// Atomic operations used in guard conditions and RHS of the

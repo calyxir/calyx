@@ -1,9 +1,9 @@
 use linked_hash_map::LinkedHashMap;
-use std::{convert::TryFrom, ops::Index, rc::Rc};
+use std::{convert::TryFrom, ops::Index};
 
 use crate::{
     errors::CalyxResult,
-    utils::{Span, WithPos},
+    utils::{GPosIdx, WithPos},
 };
 
 /// Attributes associated with a specific IR structure.
@@ -12,7 +12,7 @@ pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
     pub(super) attrs: LinkedHashMap<String, u64>,
     /// Source location information for the item
-    span: Option<Rc<Span>>,
+    span: GPosIdx,
 }
 
 impl Default for Attributes {
@@ -20,7 +20,7 @@ impl Default for Attributes {
         Attributes {
             // Does not allocate any space.
             attrs: LinkedHashMap::with_capacity(0),
-            span: None,
+            span: GPosIdx::UNKNOWN,
         }
     }
 }
@@ -38,13 +38,17 @@ impl TryFrom<Vec<(String, u64)>> for Attributes {
             }
             attrs.insert(k, v);
         }
-        Ok(Attributes { attrs, span: None })
+        Ok(Attributes {
+            attrs,
+            span: GPosIdx::UNKNOWN,
+        })
     }
 }
 
 impl WithPos for Attributes {
-    fn copy_span(&self) -> Option<Rc<Span>> {
-        self.span.clone()
+    #[inline]
+    fn copy_span(&self) -> GPosIdx {
+        self.span
     }
 }
 
@@ -101,14 +105,14 @@ impl Attributes {
     }
 
     /// Set the span information
-    pub fn add_span(mut self, span: Rc<Span>) -> Self {
-        self.span = Some(span);
+    pub fn add_span(mut self, span: GPosIdx) -> Self {
+        self.span = span;
         self
     }
 }
 
 impl<T: GetAttributes> WithPos for T {
-    fn copy_span(&self) -> Option<Rc<Span>> {
+    fn copy_span(&self) -> GPosIdx {
         self.get_attributes().copy_span()
     }
 }

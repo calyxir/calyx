@@ -837,6 +837,7 @@ impl WhileInterpreter {
                         .wh
                         .attributes
                         .copy_span()
+                        .into_option()
                         .map(|x| x.show())
                         .unwrap_or_else(|| "".to_string());
                     warn!(logger,"While loop has violated its bounds. The annotation suggests that the body should execute {target} times, but it exited after {current} iterations. \n     {line}");
@@ -854,6 +855,7 @@ impl WhileInterpreter {
                         .wh
                         .attributes
                         .copy_span()
+                        .into_option()
                         .map(|x| x.show())
                         .unwrap_or_else(|| "".to_string());
                     warn!(logger,"While loop has violated its bounds. The annotation suggests that the body should execute {target} times, but it has entered its {current} iteration. \n     {line}");

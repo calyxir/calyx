@@ -4,14 +4,13 @@
 use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
 use crate::errors::{self, CalyxResult};
 use crate::ir;
-use crate::utils::Span;
+use crate::utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
 use std::convert::TryInto;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
-use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
 type PortDef = ir::PortDef<ir::Width>;
@@ -20,10 +19,8 @@ type ComponentDef = ast::ComponentDef;
 /// Data associated with parsing the file.
 #[derive(Clone)]
 struct UserData {
-    /// Input to the parser
-    pub input: Rc<str>,
-    /// Path of the file
-    pub file: Rc<str>,
+    /// Index to the current file
+    pub file: FileIdx,
 }
 
 // user data is the input program so that we can create ir::Id's
@@ -56,17 +53,16 @@ impl CalyxParser {
                 path.to_string_lossy(),
             ))
         })?;
-        let string_content = std::str::from_utf8(content)?;
-        let user_data = UserData {
-            input: Rc::from(string_content),
-            file: Rc::from(path.to_string_lossy()),
-        };
-        let inputs = CalyxParser::parse_with_userdata(
-            Rule::file,
-            string_content,
-            user_data,
-        )
-        .map_err(|e| e.with_path(&path.to_string_lossy()))?;
+        // Add a new file to the position table
+        let string_content = std::str::from_utf8(content)?.to_string();
+        let file = GlobalPositionTable::as_mut()
+            .add_file(path.to_string_lossy().to_string(), string_content);
+        let user_data = UserData { file };
+        let content = GlobalPositionTable::as_ref().get_source(file);
+        // Parse the file
+        let inputs =
+            CalyxParser::parse_with_userdata(Rule::file, content, user_data)
+                .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
         let out = CalyxParser::file(input)?;
         log::info!(
@@ -84,23 +80,27 @@ impl CalyxParser {
                 "Failed to parse buffer: {err}",
             ))
         })?;
-        let user_data = UserData {
-            input: Rc::from(buf.as_ref()),
-            file: Rc::from("<stdin>"),
-        };
+        // Save the input string to the position table
+        let file =
+            GlobalPositionTable::as_mut().add_file("<stdin>".to_string(), buf);
+        let user_data = UserData { file };
+        let contents = GlobalPositionTable::as_ref().get_source(file);
+        // Parse the input
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, &buf, user_data)?;
+            CalyxParser::parse_with_userdata(Rule::file, contents, user_data)?;
         let input = inputs.single()?;
         Ok(CalyxParser::file(input)?)
     }
 
-    fn get_span(node: &Node) -> Rc<Span> {
+    fn get_span(node: &Node) -> GPosIdx {
         let ud = node.user_data();
-        Rc::new(Span::new(
-            node.as_span(),
-            Rc::clone(&ud.file),
-            Rc::clone(&ud.input),
-        ))
+        let sp = node.as_span();
+        let pos = GlobalPositionTable::as_mut().add_pos(
+            ud.file,
+            sp.start(),
+            sp.end(),
+        );
+        GPosIdx(pos)
     }
 
     #[allow(clippy::result_large_err)]
@@ -186,50 +186,32 @@ impl CalyxParser {
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
-        let ud = input.user_data();
-        let input_ref = Rc::clone(&ud.input);
-        let file_ref = Rc::clone(&ud.file);
+        let span = Self::get_span(&input);
         let num = match_nodes!(
             input.clone().into_children();
             [bitwidth(width), decimal(val)] => BitNum {
                     width,
                     num_type: NumType::Decimal,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
             [bitwidth(width), hex(val)] => BitNum {
                     width,
                     num_type: NumType::Hex,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
             [bitwidth(width), octal(val)] => BitNum {
                     width,
                     num_type: NumType::Octal,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
             [bitwidth(width), binary(val)] => BitNum {
                     width,
                     num_type: NumType::Binary,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
 
         );

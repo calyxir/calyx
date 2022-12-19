@@ -7,7 +7,7 @@ use crate::{
     errors::{CalyxResult, Error},
     frontend::{self, ast},
     ir::PortComp,
-    utils::{NameGenerator, Span, WithPos},
+    utils::{GPosIdx, NameGenerator, WithPos},
 };
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -160,13 +160,14 @@ fn validate_component(
     comp: &ast::ComponentDef,
     sig_ctx: &SigCtx,
 ) -> CalyxResult<()> {
-    let mut cells: HashMap<Id, Option<Rc<Span>>> = HashMap::new();
-    let mut groups: HashMap<Id, Option<Rc<Span>>> = HashMap::new();
+    let mut cells: HashMap<Id, GPosIdx> = HashMap::new();
+    let mut groups: HashMap<Id, GPosIdx> = HashMap::new();
 
     for cell in &comp.cells {
         let attrs = &cell.attributes;
         if let Some(pos) = cells.get(&cell.name) {
-            let prev = pos.as_ref().map(|s| s.format("Previous definition"));
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
             return Err(Error::already_bound(
                 cell.name.clone(),
                 "cell".to_string(),
@@ -192,7 +193,8 @@ fn validate_component(
         let name = &group.name;
         let attrs = &group.attributes;
         if let Some(pos) = groups.get(name) {
-            let prev = pos.as_ref().map(|s| s.format("Previous definition"));
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
             return Err(Error::already_bound(
                 name.clone(),
                 "group".to_string(),
@@ -201,7 +203,8 @@ fn validate_component(
             .with_post_msg(prev));
         }
         if let Some(pos) = cells.get(name) {
-            let prev = pos.as_ref().map(|s| s.format("Previous definition"));
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
             return Err(Error::already_bound(name.clone(), "cell".to_string())
                 .with_pos(attrs)
                 .with_post_msg(prev));
