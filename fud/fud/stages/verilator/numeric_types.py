@@ -1,4 +1,5 @@
 import base64
+from typing import Tuple
 import numpy as np
 from math import log2
 from fractions import Fraction
@@ -110,7 +111,7 @@ class Bitnum(NumericType):
             self.hex_string_repr = np.base_repr(self.uint_repr, 16)
 
         if is_signed and self.uint_repr > (2 ** (width - 1)):
-            negated_value = -1 * ((2 ** width) - self.uint_repr)
+            negated_value = -1 * ((2**width) - self.uint_repr)
             self.string_repr = str(negated_value)
 
         if len(self.bit_string_repr) > width:
@@ -128,6 +129,19 @@ Bit String: 0b{self.bit_string_repr}
 Hex String: 0x{self.hex_string_repr}
 Unsigned Integer: {self.uint_repr}"""
         )
+
+
+def partition(decimal: Decimal, rational: Fraction) -> Tuple[int, Fraction]:
+    if rational.denominator == 1:
+        # It is a whole number.
+        return int(decimal), Fraction(0)
+    elif rational < 1:
+        # Catches the scientific notation case,
+        # e.g. `4.2e-20`.
+        return 0, Fraction(decimal)
+    else:
+        ipart, fpart = str(decimal).split(".")
+        return int(ipart), Fraction("0.{}".format(fpart))
 
 
 @dataclass
@@ -177,22 +191,9 @@ class FixedPoint(NumericType):
             self.decimal_repr *= -1
             self.rational_repr *= -1
 
-        def partition():
-            if self.rational_repr.denominator == 1:
-                # It is a whole number.
-                return int(self.decimal_repr), 0
-            elif self.rational_repr < 1:
-                # Catches the scientific notation case,
-                # e.g. `4.2e-20`.
-                return 0, self.decimal_repr
-            else:
-                ipart, fpart = str(self.decimal_repr).split(".")
-                return int(ipart), "0.{}".format(fpart)
+        int_partition, frac_partition = partition(self.decimal_repr, self.rational_repr)
 
-        int_partition, frac_partition = partition()
-        frac_width_rational = Fraction(frac_partition)
-
-        required_frac_width = log2(frac_width_rational.denominator)
+        required_frac_width = log2(frac_partition.denominator)
         if not required_frac_width.is_integer():
             raise InvalidNumericType(
                 f"The value: `{value}` is not representable in fixed point."
@@ -214,7 +215,7 @@ has led to overflow.
 
         int_bits = np.binary_repr(int_partition, self.int_width)
         frac_bits = np.binary_repr(
-            round(frac_width_rational * (2 ** self.frac_width)), self.frac_width
+            round(frac_partition * (2**self.frac_width)), self.frac_width
         )
         # Given the binary form of the integer part and fractional part of
         # the decimal, simply append the two strings.
