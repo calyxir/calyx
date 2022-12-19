@@ -79,8 +79,8 @@ impl Primitive {
 }
 
 impl GetName for Primitive {
-    fn name(&self) -> &Id {
-        &self.name
+    fn name(&self) -> Id {
+        self.name
     }
 }
 

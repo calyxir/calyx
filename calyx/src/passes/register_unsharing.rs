@@ -121,11 +121,10 @@ impl Bookkeeper {
                             &[*self.widths.get(name).unwrap()],
                         )
                         .borrow()
-                        .name()
-                        .clone();
+                        .name();
                     rename_list.push((
-                        new_name.clone(),
-                        name.clone(),
+                        new_name,
+                        *name,
                         defs.iter()
                             .map(|(_, groupname)| groupname.clone())
                             .collect(),
@@ -145,7 +144,7 @@ impl Bookkeeper {
         let mut invoke_map: RewriteMap<ir::Id> = HashMap::new();
         for (new_name, old_name, grouplist) in rename_list {
             for group_or_invoke in grouplist {
-                let name = old_name.clone();
+                let name = *old_name;
                 let cell = comp.find_cell(new_name).unwrap();
                 match group_or_invoke {
                     GroupOrInvoke::Group(group) => {
@@ -153,7 +152,7 @@ impl Bookkeeper {
                     }
                     GroupOrInvoke::Invoke(invoke) => {
                         invoke_map
-                            .entry(invoke.clone())
+                            .entry(*invoke)
                             .or_default()
                             .insert(name, cell);
                     }

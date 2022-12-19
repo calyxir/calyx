@@ -72,7 +72,7 @@ where
         let mut lib = LibrarySignatures::default();
         for (path, prims) in externs {
             let map: LinkedHashMap<_, _> =
-                prims.into_iter().map(|p| (p.name.clone(), p)).collect();
+                prims.into_iter().map(|p| (p.name, p)).collect();
             lib.primitive_definitions.push((path, map));
         }
         lib

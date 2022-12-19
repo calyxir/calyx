@@ -31,7 +31,7 @@ impl Named for WireInliner {
 fn rewrite_assign(map: &HoleMapping, assign: &mut ir::Assignment) {
     let rewrite = |port: &RRC<ir::Port>| -> Option<RRC<ir::Cell>> {
         if let ir::PortParent::Group(g) = &port.borrow().parent {
-            let (go, done) = &map[g.upgrade().borrow().name()];
+            let (go, done) = &map[&g.upgrade().borrow().name()];
             let cell = if port.borrow().name == "go" { go } else { done };
             Some(Rc::clone(cell))
         } else {

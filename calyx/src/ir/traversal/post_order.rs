@@ -45,7 +45,7 @@ impl PostOrder {
         let rev_map: HashMap<ir::Id, NodeIndex> = comps
             .iter()
             .enumerate()
-            .map(|(idx, c)| (c.name.clone(), graph.add_node(idx)))
+            .map(|(idx, c)| (c.name, graph.add_node(idx)))
             .collect::<HashMap<_, _>>();
 
         // Construct a graph.

@@ -477,7 +477,7 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
                 ir::CellType::Constant { val, width } => {
                     v::Expr::new_ulit_dec(width as u32, &val.to_string())
                 }
-                ir::CellType::ThisComponent => v::Expr::new_ref(&port.name),
+                ir::CellType::ThisComponent => v::Expr::new_ref(port.name),
                 _ => v::Expr::Ref(format!(
                     "{}_{}",
                     parent.name().as_ref(),
@@ -549,7 +549,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
             {
                 Some((
                     cell.borrow().name().id,
-                    cell.borrow().type_name().unwrap_or_else(|| unreachable!("tried to add a memory cell but there was no type name")).clone(),
+                    cell.borrow().type_name().unwrap_or_else(|| unreachable!("tried to add a memory cell but there was no type name")),
                 ))
             } else {
                 None

@@ -64,7 +64,7 @@ impl Visitor for CompileEmpty {
                 empty_group.borrow_mut().assignments.append(&mut assigns);
 
                 // Register the name of the group to the pass
-                self.group_name = Some(empty_group.borrow().name().clone());
+                self.group_name = Some(empty_group.borrow().name());
 
                 empty_group
             }

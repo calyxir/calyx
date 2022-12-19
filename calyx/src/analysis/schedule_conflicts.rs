@@ -35,16 +35,14 @@ impl ScheduleConflicts {
         self.graph
             .graph
             .edge_references()
-            .map(move |(src, dst, _)| {
-                (self.rev_map[&src].clone(), self.rev_map[&dst].clone())
-            })
+            .map(move |(src, dst, _)| (self.rev_map[&src], self.rev_map[&dst]))
     }
 
     /////////////// Internal Methods //////////////////
     /// Adds a node to the CurrentConflict set.
-    fn add_node(&mut self, node: &ir::Id) {
-        if !self.graph.contains_node(node) {
-            self.graph.add_node(node.clone())
+    fn add_node(&mut self, node: ir::Id) {
+        if !self.graph.contains_node(&node) {
+            self.graph.add_node(node)
         }
     }
 
@@ -95,7 +93,7 @@ fn build_conflict_graph(
         ir::Control::Empty(_) => (),
         ir::Control::Invoke(ir::Invoke { comp, .. }) => {
             confs.add_node(comp.borrow().name());
-            all_nodes.push(comp.borrow().name().clone());
+            all_nodes.push(comp.borrow().name());
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {
             confs.add_node(group.borrow().name());

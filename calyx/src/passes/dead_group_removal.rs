@@ -88,16 +88,16 @@ impl Visitor for DeadGroupRemoval {
             for assign in &group.borrow().assignments {
                 let dst = assign.dst.borrow();
                 if dst.is_hole() && dst.name == "go" {
-                    self.used_groups.insert(dst.get_parent_name().clone());
+                    self.used_groups.insert(dst.get_parent_name());
                 }
             }
         }
 
         // Remove Groups that are not used
         comp.groups
-            .retain(|g| self.used_groups.contains(g.borrow().name()));
+            .retain(|g| self.used_groups.contains(&g.borrow().name()));
         comp.comb_groups
-            .retain(|cg| self.used_comb_groups.contains(cg.borrow().name()));
+            .retain(|cg| self.used_comb_groups.contains(&cg.borrow().name()));
 
         Ok(Action::Stop)
     }

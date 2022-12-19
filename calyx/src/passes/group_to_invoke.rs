@@ -37,7 +37,7 @@ impl ConstructVisitor for GroupToInvoke {
             .lib
             .signatures()
             .filter(|p| p.find_all_with_attr("go").count() > 1)
-            .map(|p| p.name.clone())
+            .map(|p| p.name)
             .collect();
 
         Ok(Self {
@@ -108,7 +108,7 @@ fn construct_invoke(
         else if parent_is_cell(&assign.dst.borrow())
             && assign.dst != comp.borrow().get_with_attr("go")
         {
-            let name = assign.dst.borrow().name.clone();
+            let name = assign.dst.borrow().name;
             if assign.guard.is_true() {
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
@@ -288,7 +288,7 @@ impl Visitor for GroupToInvoke {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        match self.group_invoke_map.get(s.group.borrow().name()) {
+        match self.group_invoke_map.get(&s.group.borrow().name()) {
             None => Ok(Action::Continue),
             Some(invoke) => {
                 let mut inv = ir::Control::clone(invoke);

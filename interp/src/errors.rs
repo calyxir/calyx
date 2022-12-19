@@ -201,7 +201,7 @@ impl From<crate::structures::stk_env::CollisionError<*const ir::Port, Value>>
         // dereference is safe
         let port: &ir::Port = unsafe { &*err.0 };
         let parent_name = port.get_parent_name();
-        let port_name = port.name.clone();
+        let port_name = port.name;
         Self::ParOverlap {
             port_id: port_name,
             parent_id: parent_name,
