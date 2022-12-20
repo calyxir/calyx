@@ -346,7 +346,15 @@ impl Visitor for WellFormed {
                 .iter()
                 .chain(comp.continuous_assignments.iter())
                 .chain(self.active_comb.iter()),
-        )?;
+        )
+        .map_err(|err| {
+            let msg = s
+                .attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.format("Assigments activated by group enable"));
+            err.with_post_msg(msg)
+        })?;
 
         Ok(Action::Continue)
     }

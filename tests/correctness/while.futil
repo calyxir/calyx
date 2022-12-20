@@ -4,14 +4,18 @@ component main() -> () {
   cells {
     @external(1) i = std_mem_d1(32, 1, 1);
     lt = std_lt(32);
+    lt_reg = std_reg(1);
     add = std_add(32);
   }
 
   wires {
-    comb group cond<"static"=0> {
+    group cond {
       i.addr0 = 1'd0;
       lt.left = i.read_data;
       lt.right = 32'd8;
+      lt_reg.in = lt.out;
+      lt_reg.write_en = 1'b1;
+      cond[done] = lt_reg.done;
     }
 
     group incr<"static"=1> {
@@ -27,10 +31,14 @@ component main() -> () {
   }
 
   control {
-    while lt.out with cond {
-      seq {
-        incr;
-        incr;
+    seq {
+      cond;
+      while lt_reg.out {
+        seq {
+          incr;
+          incr;
+          cond;
+        }
       }
     }
   }
