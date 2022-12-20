@@ -5,3 +5,6 @@ Error: Malformed Structure: Obviously conflicting assignments found:
 13 |      w1.in = r.out;
 10 |      w1.in = 32'd10;
 
+tests/errors/group-comb-conflict.futil
+21 |      do_r;
+   |      ^^^^^ Assigments activated by group enable

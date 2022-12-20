@@ -21,7 +21,6 @@ struct ActiveAssignments {
 impl ActiveAssignments {
     /// Push a set of assignments to the stack.
     pub fn push(&mut self, assign: &[ir::Assignment]) {
-        assert!(!assign.is_empty(), "Cannot add empty assignment");
         let prev_size = self.assigns.len();
         self.assigns.extend(assign.iter().cloned());
         // Number of assignments added at this level
@@ -429,19 +428,18 @@ impl Visitor for WellFormed {
     ) -> VisResult {
         if let Some(cgr) = &s.cond {
             let cg = cgr.borrow();
+            let assigns = &cg.assignments;
             // Check if the combinational group conflicts with the active combinational groups
-            obvious_conflicts(
-                cg.assignments.iter().chain(self.active_comb.iter()),
-            )
-            .map_err(|err| {
-                let msg = s.attributes.copy_span().format(format!(
-                    "Assignments from `{}' are actived here",
-                    cg.name()
-                ));
-                err.with_post_msg(Some(msg))
-            })?;
+            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
+                .map_err(|err| {
+                    let msg = s.attributes.copy_span().format(format!(
+                        "Assignments from `{}' are actived here",
+                        cg.name()
+                    ));
+                    err.with_post_msg(Some(msg))
+                })?;
             // Push the combinational group to the stack of active groups
-            self.active_comb.push(&cg.assignments);
+            self.active_comb.push(assigns);
         }
         Ok(Action::Continue)
     }
@@ -471,19 +469,18 @@ impl Visitor for WellFormed {
     ) -> VisResult {
         if let Some(cgr) = &s.cond {
             let cg = cgr.borrow();
+            let assigns = &cg.assignments;
             // Check if the combinational group conflicts with the active combinational groups
-            obvious_conflicts(
-                cg.assignments.iter().chain(self.active_comb.iter()),
-            )
-            .map_err(|err| {
-                let msg = s.attributes.copy_span().format(format!(
-                    "Assignments from `{}' are actived here",
-                    cg.name()
-                ));
-                err.with_post_msg(Some(msg))
-            })?;
+            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
+                .map_err(|err| {
+                    let msg = s.attributes.copy_span().format(format!(
+                        "Assignments from `{}' are actived here",
+                        cg.name()
+                    ));
+                    err.with_post_msg(Some(msg))
+                })?;
             // Push the combinational group to the stack of active groups
-            self.active_comb.push(&cg.assignments);
+            self.active_comb.push(assigns);
         }
         Ok(Action::Continue)
     }

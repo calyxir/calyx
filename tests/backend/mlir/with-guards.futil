@@ -59,7 +59,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
         seq {
           Group1;
           Group1;
-          if c1.out with CombGroup {
+          if c1.out {
             Group2;
           }
           if c1.out {
