@@ -1,0 +1,7 @@
+---CODE---
+1
+---STDERR---
+Error: Malformed Structure: Obviously conflicting assignments found:
+13 |      w1.in = r.out;
+10 |      w1.in = 32'd10;
+
