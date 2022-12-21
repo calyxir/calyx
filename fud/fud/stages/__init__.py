@@ -12,6 +12,7 @@ from enum import Enum, auto
 from io import IOBase
 from pathlib import Path
 
+from .. import errors
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
 
@@ -208,6 +209,25 @@ class Stage:
 
         self.description = description
 
+    def known_opts(self) -> Optional[List[str]]:
+        """
+        Return a list of known options for this stage.
+        If None, we don't know what options are available.
+        """
+        return None
+
+    def _check_opts(self, config: Configuration):
+        """
+        Check that the options provided by the user are valid.
+        """
+        known = self.known_opts()
+        if known:
+            # Get all the options defined for this stage
+            opts = config["stages", self.name]
+            for opt in opts.keys():
+                if opt not in known:
+                    raise errors.UnknownConfiguration(self.name, opt, known)
+
     def setup(
         self,
         config: Configuration,
@@ -217,6 +237,9 @@ class Stage:
         Construct a computation graph for this stage.
         Returns a `ComputationGraph` representing the staged computation.
         """
+
+        # Check that the options provided by the user are valid.
+        self._check_opts(config)
 
         # If a builder is provided, construct the computation graph using it.
         if builder:

@@ -37,6 +37,9 @@ class IcarusBaseStage(Stage):
             "round_float_to_fixed": True,
         }
 
+    def known_opts(self):
+        return ["exec", "testbench", "round_float_to_fixed"]
+
     def _define_steps(self, input_data, builder, config):
         testbench = config["stages", self.name, "testbench"]
         data_path = config.get(("stages", "verilog", "data"))
