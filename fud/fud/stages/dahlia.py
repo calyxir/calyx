@@ -15,6 +15,9 @@ class DahliaStage(Stage):
         )
         self.flags = flags
 
+    def known_opts(self):
+        return ["flags", "exec", "file_extensions"]
+
     def _define_steps(self, input, builder, config):
         dahlia_exec = config["stages", self.name, "exec"]
         cmd = " ".join(
