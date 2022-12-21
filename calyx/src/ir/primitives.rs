@@ -65,16 +65,17 @@ impl Primitive {
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr<'a, S>(
-        &'a self,
+    pub fn find_all_with_attr<S>(
+        &self,
         attr: S,
-    ) -> impl Iterator<Item = &'a PortDef<Width>>
+    ) -> impl Iterator<Item = &PortDef<Width>>
     where
-        S: AsRef<str> + 'a,
+        S: Into<Id>,
     {
+        let key = attr.into();
         self.signature
             .iter()
-            .filter(move |&g| g.attributes.has(attr.as_ref()))
+            .filter(move |&g| g.attributes.has(key))
     }
 }
 

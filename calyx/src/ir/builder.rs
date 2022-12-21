@@ -57,10 +57,11 @@ impl<'a> Builder<'a> {
     /// Returns a reference to the group.
     pub fn add_group<S>(&mut self, prefix: S) -> RRC<ir::Group>
     where
-        S: Into<ir::Id> + ToString + Clone + AsRef<str>,
+        S: Into<ir::Id>,
     {
+        let prefix: ir::Id = prefix.into();
         assert!(
-            prefix.as_ref() != "",
+            prefix != "",
             "Cannot construct group with empty name prefix"
         );
         let name = self.component.generate_name(prefix);

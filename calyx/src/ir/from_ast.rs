@@ -175,15 +175,16 @@ fn validate_component(
         }
         cells.insert(cell.name, cell.attributes.copy_span());
 
-        let proto_name = &cell.prototype.name;
+        let proto_name = cell.prototype.name;
 
         if sig_ctx.lib.find_primitive(proto_name).is_none()
-            && !sig_ctx.comp_sigs.contains_key(proto_name)
+            && !sig_ctx.comp_sigs.contains_key(&proto_name)
         {
             return Err(Error::undefined(
-                *proto_name,
+                proto_name,
                 "primitive or component".to_string(),
-            ));
+            )
+            .with_pos(attrs));
         }
     }
 

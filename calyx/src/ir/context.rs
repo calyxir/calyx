@@ -19,9 +19,9 @@ impl LibrarySignatures {
     /// Return the [Primitive] associated with the given name if defined, otherwise return None.
     pub fn find_primitive<S>(&self, name: S) -> Option<&Primitive>
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
-        let key = Id::from(name.as_ref());
+        let key = name.into();
         for (_, sig) in &self.primitive_definitions {
             if let Some(p) = sig.get(&key) {
                 return Some(p);
@@ -33,13 +33,11 @@ impl LibrarySignatures {
     /// Return the [Primitive] associated to this Id.
     pub fn get_primitive<S>(&self, name: S) -> &Primitive
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
-        self.find_primitive(&name).unwrap_or_else(|| {
-            panic!(
-                "Primitive `{}` is not defined in the context.",
-                name.as_ref()
-            )
+        let key = name.into();
+        self.find_primitive(key).unwrap_or_else(|| {
+            panic!("Primitive `{}` is not defined in the context.", key)
         })
     }
 
