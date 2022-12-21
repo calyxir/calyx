@@ -261,7 +261,7 @@ fn build_component(
 ///////////////// Cell Construction /////////////////////////
 
 fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
-    let proto_name = &cell.prototype.name;
+    let proto_name = cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
         let c = builder.add_primitive(
@@ -275,8 +275,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         // Validator ensures that if the protoype is not a primitive, it
         // is a component.
         let name = builder.component.generate_name(cell.name);
-        let sig = &sig_ctx.comp_sigs[proto_name];
-        let typ = CellType::Component { name: *proto_name };
+        let sig = &sig_ctx.comp_sigs[&proto_name];
+        let typ = CellType::Component { name: proto_name };
         let reference = cell.reference;
         // Components do not have any bindings for parameters
         let cell = Builder::cell_from_signature(name, typ, sig.clone());

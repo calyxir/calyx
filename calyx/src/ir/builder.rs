@@ -153,9 +153,9 @@ impl<'a> Builder<'a> {
     ) -> RRC<ir::Cell>
     where
         Pre: Into<ir::Id> + ToString + Clone,
-        Prim: AsRef<str>,
+        Prim: Into<ir::Id>,
     {
-        let prim_id = ir::Id::from(primitive.as_ref());
+        let prim_id = primitive.into();
         let prim = &self.lib.get_primitive(prim_id);
         let (param_binding, ports) = prim
             .resolve(param_values)
