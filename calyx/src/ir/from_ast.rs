@@ -467,6 +467,7 @@ fn build_control(
             let mut en = Control::enable(Rc::clone(
                 &builder.component.find_group(&component).ok_or_else(|| {
                     Error::undefined(component, "group".to_string())
+                        .with_pos(&attributes)
                 })?,
             ));
             *en.get_mut_attributes() = attributes;
@@ -483,6 +484,7 @@ fn build_control(
             let cell = Rc::clone(
                 &builder.component.find_cell(&component).ok_or_else(|| {
                     Error::undefined(component, "cell".to_string())
+                        .with_pos(&attributes)
                 })?,
             );
             let inputs = inputs
@@ -515,6 +517,7 @@ fn build_control(
                     .find_comb_group(&cg)
                     .ok_or_else(|| {
                         Error::undefined(cg, "combinational group".to_string())
+                            .with_pos(&inv.attributes)
                     })?;
                 inv.comb_group = Some(cg_ref);
             }
@@ -565,6 +568,7 @@ fn build_control(
                             cond,
                             "combinational group".to_string(),
                         )
+                        .with_pos(&attributes)
                     })
                 })
                 .transpose()?;
@@ -593,6 +597,7 @@ fn build_control(
                             cond,
                             "combinational group".to_string(),
                         )
+                        .with_pos(&attributes)
                     })
                 })
                 .transpose()?;

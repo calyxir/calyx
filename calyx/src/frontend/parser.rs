@@ -739,15 +739,17 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [stmt(stmt)] => stmt,
-            [stmts_without_block(_)] => unreachable!()
+            [stmts_without_block(seq)] => seq,
         ))
     }
 
     fn stmts_without_block(input: Node) -> ParseResult<ast::Control> {
         match_nodes!(
             input.clone().into_children();
-            [stmt(_)..] => Err(
-                input.error("Sequence of control statements should be enclosed in `seq` or `par`."))
+            [stmt(stmt)..] => Ok(ast::Control::Seq {
+                stmts: stmt.collect(),
+                attributes: ir::Attributes::default(),
+            })
         )
     }
 
