@@ -249,10 +249,10 @@ impl CalyxParser {
     }
 
     // ================ Attributes =====================
-    fn attribute(input: Node) -> ParseResult<(String, u64)> {
+    fn attribute(input: Node) -> ParseResult<(ir::Id, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [string_lit(key), bitwidth(num)] => (key, num)
+            [string_lit(key), bitwidth(num)] => (ir::Id::from(key), num)
         ))
     }
     fn attributes(input: Node) -> ParseResult<ir::Attributes> {
@@ -278,11 +278,11 @@ impl CalyxParser {
         ))
     }
 
-    fn at_attribute(input: Node) -> ParseResult<(String, u64)> {
+    fn at_attribute(input: Node) -> ParseResult<(ir::Id, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(key), attr_val(num)] => (key.id.as_str().to_owned(), num),
-            [identifier(key)] => (key.id.as_str().to_owned(), 1)
+            [identifier(key), attr_val(num)] => (key, num),
+            [identifier(key)] => (key, 1)
         ))
     }
 

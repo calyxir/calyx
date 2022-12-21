@@ -76,9 +76,10 @@ fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
     for (name, width, direction) in INTERFACE_PORTS.iter() {
         // Check if there is already another interface port defined for the
         // component
-        if !sig.iter().any(|pd| pd.attributes.has(name)) {
+        let attr = Id::from(*name);
+        if !sig.iter().any(|pd| pd.attributes.has(attr)) {
             let mut attributes = Attributes::default();
-            attributes.insert(name, 1);
+            attributes.insert(attr, 1);
             sig.push(PortDef {
                 name: namegen.gen_name(name.to_string()),
                 width: *width,

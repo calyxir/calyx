@@ -6,11 +6,13 @@ use crate::{
     utils::{GPosIdx, WithPos},
 };
 
+use super::Id;
+
 /// Attributes associated with a specific IR structure.
 #[derive(Debug, Clone)]
 pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
-    pub(super) attrs: LinkedHashMap<String, u64>,
+    pub(super) attrs: LinkedHashMap<Id, u64>,
     /// Source location information for the item
     span: GPosIdx,
 }
@@ -25,10 +27,10 @@ impl Default for Attributes {
     }
 }
 
-impl TryFrom<Vec<(String, u64)>> for Attributes {
+impl TryFrom<Vec<(Id, u64)>> for Attributes {
     type Error = crate::errors::Error;
 
-    fn try_from(v: Vec<(String, u64)>) -> CalyxResult<Self> {
+    fn try_from(v: Vec<(Id, u64)>) -> CalyxResult<Self> {
         let mut attrs = LinkedHashMap::with_capacity(v.len());
         for (k, v) in v {
             if attrs.contains_key(&k) {
@@ -65,25 +67,25 @@ impl Attributes {
     /// Add a new attribute
     pub fn insert<S>(&mut self, key: S, val: u64)
     where
-        S: ToString + std::hash::Hash,
+        S: Into<Id>,
     {
-        self.attrs.insert(key.to_string(), val);
+        self.attrs.insert(key.into(), val);
     }
 
     /// Get the value associated with an attribute key
     pub fn get<S>(&self, key: S) -> Option<&u64>
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: Into<Id>,
     {
-        self.attrs.get(&key.as_ref().to_string())
+        self.attrs.get(&key.into())
     }
 
     /// Check if an attribute key has been set
     pub fn has<S>(&self, key: S) -> bool
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: Into<Id>,
     {
-        self.attrs.contains_key(&key.as_ref().to_string())
+        self.attrs.contains_key(&key.into())
     }
 
     /// Returns true if there are no attributes
@@ -94,13 +96,13 @@ impl Attributes {
     /// Remove attribute with the name `key`
     pub fn remove<S>(&mut self, key: S) -> Option<u64>
     where
-        S: ToString,
+        S: Into<Id>,
     {
-        self.attrs.remove(&key.to_string())
+        self.attrs.remove(&key.into())
     }
 
     /// Iterate over all attributes
-    pub fn iter(&self) -> impl Iterator<Item = (&String, &u64)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Id, &u64)> {
         self.attrs.iter()
     }
 
@@ -117,14 +119,15 @@ impl<T: GetAttributes> WithPos for T {
     }
 }
 
-impl<S> Index<&S> for Attributes
+impl<S> Index<S> for Attributes
 where
-    S: AsRef<str> + std::fmt::Display,
+    S: Into<Id>,
 {
     type Output = u64;
 
-    fn index(&self, key: &S) -> &u64 {
-        self.get(key)
-            .unwrap_or_else(|| panic!("No key `{}` in attribute map", key))
+    fn index(&self, key: S) -> &u64 {
+        let idx = key.into();
+        self.get(idx)
+            .unwrap_or_else(|| panic!("No key `{}` in attribute map", idx))
     }
 }
