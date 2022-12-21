@@ -87,25 +87,25 @@ impl Component {
     }
 
     /// Return a reference to the group with `name` if present.
-    pub fn find_group<S>(&self, name: &S) -> Option<RRC<Group>>
+    pub fn find_group<S>(&self, name: S) -> Option<RRC<Group>>
     where
-        S: Clone + AsRef<str>,
+        S: Clone + Into<Id>,
     {
         self.groups.find(name)
     }
 
     /// Return a refernece to a combination group with `name` if present.
-    pub fn find_comb_group<S>(&self, name: &S) -> Option<RRC<CombGroup>>
+    pub fn find_comb_group<S>(&self, name: S) -> Option<RRC<CombGroup>>
     where
-        S: Clone + AsRef<str>,
+        S: Clone + Into<Id>,
     {
         self.comb_groups.find(name)
     }
 
     /// Return a reference to the cell with `name` if present.
-    pub fn find_cell<S>(&self, name: &S) -> Option<RRC<Cell>>
+    pub fn find_cell<S>(&self, name: S) -> Option<RRC<Cell>>
     where
-        S: Clone + AsRef<str>,
+        S: Clone + Into<Id>,
     {
         self.cells.find(name)
     }
@@ -233,11 +233,11 @@ impl<T: GetName> IdList<T> {
     }
 
     /// Returns the element indicated by the name, if present, otherwise None.
-    pub fn find<S>(&self, name: &S) -> Option<RRC<T>>
+    pub fn find<S>(&self, name: S) -> Option<RRC<T>>
     where
-        S: Clone + AsRef<str>,
+        S: Clone + Into<Id>,
     {
-        self.0.get(&name.as_ref().into()).map(Rc::clone)
+        self.0.get(&name.into()).map(Rc::clone)
     }
 }
 

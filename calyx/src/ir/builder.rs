@@ -113,7 +113,7 @@ impl<'a> Builder<'a> {
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
-        if let Some(cell) = self.component.cells.find(&name) {
+        if let Some(cell) = self.component.cells.find(name) {
             return Rc::clone(&cell);
         }
 
@@ -264,13 +264,13 @@ impl<'a> Builder<'a> {
                 let cell_ref = cell_wref.internal.upgrade().expect("Weak reference to port's parent cell points to nothing. This usually means that the Component did not retain a pointer to the Cell.");
 
                 let cell = &cell_ref.borrow();
-                self.component.find_cell(&cell.name()).expect("Port's parent cell not present in the component. Add the cell to the component before using the Port.");
+                self.component.find_cell(cell.name()).expect("Port's parent cell not present in the component. Add the cell to the component before using the Port.");
             }
             ir::PortParent::Group(group_wref) => {
                 let group_ref = group_wref.internal.upgrade().expect("Weak reference to hole's parent group points to nothing. This usually means that the Component did not retain a pointer to the Group.");
 
                 let group = &group_ref.borrow();
-                self.component.find_group(&group.name()).expect("Hole's parent cell not present in the component. Add the group to the component before using the Hole.");
+                self.component.find_group(group.name()).expect("Hole's parent cell not present in the component. Add the group to the component before using the Hole.");
             }
         };
     }

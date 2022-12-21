@@ -317,7 +317,7 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
 fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
     match port {
         ast::Port::Comp { component, port } => comp
-            .find_cell(&component)
+            .find_cell(component)
             .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
             .borrow()
             .find(port)
@@ -328,7 +328,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             })
         }
         ast::Port::Hole { group, name: port } => comp
-            .find_group(&group)
+            .find_group(group)
             .ok_or_else(|| Error::undefined(group, "group".to_string()))?
             .borrow()
             .find(port)
@@ -465,7 +465,7 @@ fn build_control(
             attributes,
         } => {
             let mut en = Control::enable(Rc::clone(
-                &builder.component.find_group(&component).ok_or_else(|| {
+                &builder.component.find_group(component).ok_or_else(|| {
                     Error::undefined(component, "group".to_string())
                 })?,
             ));
@@ -480,11 +480,10 @@ fn build_control(
             comb_group,
             ref_cells,
         } => {
-            let cell = Rc::clone(
-                &builder.component.find_cell(&component).ok_or_else(|| {
-                    Error::undefined(component, "cell".to_string())
-                })?,
-            );
+            let cell =
+                Rc::clone(&builder.component.find_cell(component).ok_or_else(
+                    || Error::undefined(component, "cell".to_string()),
+                )?);
             let inputs = inputs
                 .into_iter()
                 .map(|(id, port)| {
@@ -510,10 +509,8 @@ fn build_control(
                 ref_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
-                let cg_ref = builder
-                    .component
-                    .find_comb_group(&cg)
-                    .ok_or_else(|| {
+                let cg_ref =
+                    builder.component.find_comb_group(cg).ok_or_else(|| {
                         Error::undefined(cg, "combinational group".to_string())
                     })?;
                 inv.comb_group = Some(cg_ref);
@@ -522,7 +519,7 @@ fn build_control(
                 let mut ext_cell_tuples = Vec::new();
                 for (outcell, incell) in ref_cells {
                     let ext_cell_ref =
-                        builder.component.find_cell(&incell).ok_or_else(
+                        builder.component.find_cell(incell).ok_or_else(
                             || Error::undefined(incell, "cell".to_string()),
                         )?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
@@ -560,7 +557,7 @@ fn build_control(
         } => {
             let group = maybe_cond
                 .map(|cond| {
-                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                    builder.component.find_comb_group(cond).ok_or_else(|| {
                         Error::undefined(
                             cond,
                             "combinational group".to_string(),
@@ -588,7 +585,7 @@ fn build_control(
         } => {
             let group = maybe_cond
                 .map(|cond| {
-                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                    builder.component.find_comb_group(cond).ok_or_else(|| {
                         Error::undefined(
                             cond,
                             "combinational group".to_string(),
