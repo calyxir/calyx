@@ -47,7 +47,7 @@ def compute_exp_frac_table(frac_width: int):
     # in increasing order.
     binary_permutations = map(lambda l: list(l), product(["0", "1"], repeat=frac_width))
 
-    e_table = [0] * (2 ** frac_width)
+    e_table = [0] * (2**frac_width)
     for permutation in binary_permutations:
         i = int("".join(permutation), 2)
         fraction = Decimal(i / 2 ** (frac_width))

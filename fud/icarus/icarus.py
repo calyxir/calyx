@@ -28,6 +28,10 @@ class IcarusBaseStage(Stage):
         self.object_name = "main.vvp"
 
     @staticmethod
+    def pre_install():
+        pass
+
+    @staticmethod
     def defaults():
         parent = Path(__file__).parent.resolve()
         test_bench = parent / "./tb.sv"

@@ -1,3 +1,4 @@
+from fud import errors
 from fud.stages import Stage, SourceType
 from fud.utils import shell
 import pathlib
@@ -18,6 +19,19 @@ class NTTStage(Stage):
             output_type=SourceType.Stream,
             description="Compiles NTT configuration to Calyx.",
         )
+
+    @staticmethod
+    def pre_install():
+        try:
+            import prettytable
+        except ImportError:
+            raise errors.FudRegisterError(
+                "ntt",
+                (
+                    "`prettytable' library missing. "
+                    "Install by running `pip install prettytable'."
+                ),
+            )
 
     @staticmethod
     def defaults():
