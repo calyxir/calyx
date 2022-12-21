@@ -13,10 +13,10 @@ intermediate representation.
 
 ## Installation
 
-1. Clone the TVM repository with commit hash `ccacb1ec1`):
+1. Clone the TVM repository and checkout the tag `v0.10.dev0`:
 
         git clone git@github.com:apache/incubator-tvm.git
-        cd incubator-tvm && git checkout ccacb1ec1
+        cd incubator-tvm && git checkout v0.10.dev0
         git submodule init && git submodule update
 
 2. Set up to build (the default configuration is fine because we don't need any fancy backends like LLVM or CUDA):
@@ -35,11 +35,6 @@ intermediate representation.
 
    > If you get an error with `shutil`, try deleting the `python/` directory, restoring it, and rerunning the above command: `cd .. && rm -rf python && git checkout -- python`     
    > If you are on MacOS - Big Sur and are getting an error similar to "(wheel).whl is not a supported wheel on this platform", try changing part of the wheel's filename from 11_0 to 10_9. See this github [issue](https://github.com/apple/tensorflow_macos/issues/46) for more information. 
-
-5. Install the accompanying `topi` Python package:
-
-        cd ../topi/python && python3 setup.py bdist_wheel
-        pip3 install --user dist/topi-*.whl
 
 6. Install ANTLR v4.7.2 (required for the Relay text format parser):
 

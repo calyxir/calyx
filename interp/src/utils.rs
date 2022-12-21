@@ -80,14 +80,10 @@ impl DerefMut for MemoryMap {
 }
 
 /// Construct memory bindings.
-pub fn construct_bindings<'a, I, S: 'a>(iter: I) -> Binding
-where
-    S: AsRef<str>,
-    I: Iterator<Item = &'a (S, u64)>,
-{
+pub fn construct_bindings<const N: usize>(binds: [(&str, u64); N]) -> Binding {
     let mut vec = Binding::new();
-    for (name, val) in iter {
-        vec.push((name.as_ref().into(), *val))
+    for (name, val) in binds {
+        vec.push((Id::from(name), val))
     }
     vec
 }

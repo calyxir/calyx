@@ -69,6 +69,30 @@ module std_pad #(
   `endif
 endmodule
 
+module std_cat #(
+  parameter LEFT_WIDTH  = 32,
+  parameter RIGHT_WIDTH = 32,
+  parameter OUT_WIDTH = 64
+) (
+  input wire logic [LEFT_WIDTH-1:0] left,
+  input wire logic [RIGHT_WIDTH-1:0] right,
+  output logic [OUT_WIDTH-1:0] out
+);
+  assign out = {left, right};
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (LEFT_WIDTH + RIGHT_WIDTH != OUT_WIDTH)
+        $error(
+          "std_cat: Output width must equal sum of input widths\n",
+          "LEFT_WIDTH: %0d", LEFT_WIDTH,
+          "RIGHT_WIDTH: %0d", RIGHT_WIDTH,
+          "OUT_WIDTH: %0d", OUT_WIDTH
+        );
+    end
+  `endif
+endmodule
+
 module std_not #(
     parameter WIDTH = 32
 ) (
@@ -449,72 +473,72 @@ endmodule
 
 `default_nettype wire
 
-module main (
-    input logic go,
-    input logic clk,
-    input logic reset,
-    output logic done
+module main(
+  input logic go,
+  input logic clk,
+  input logic reset,
+  output logic done
 );
-    // COMPONENT START: main
-    string DATA;
-    int CODE;
-    initial begin
-        CODE = $value$plusargs("DATA=%s", DATA);
-        $display("DATA (path to meminit files): %s", DATA);
-        $readmemh({DATA, "/m1.dat"}, m1.mem);
-    end
-    final begin
-        $writememh({DATA, "/m1.out"}, m1.mem);
-    end
-    logic [3:0] m0_addr0;
-    logic [31:0] m0_write_data;
-    logic m0_write_en;
-    logic m0_clk;
-    logic [31:0] m0_read_data;
-    logic m0_done;
-    logic [3:0] m1_addr0;
-    logic [31:0] m1_write_data;
-    logic m1_write_en;
-    logic m1_clk;
-    logic [31:0] m1_read_data;
-    logic m1_done;
-    initial begin
-        m0_addr0 = 4'd0;
-        m0_write_data = 32'd0;
-        m0_write_en = 1'd0;
-        m0_clk = 1'd0;
-        m1_addr0 = 4'd0;
-        m1_write_data = 32'd0;
-        m1_write_en = 1'd0;
-        m1_clk = 1'd0;
-    end
-    std_mem_d1 # (
-        .IDX_SIZE(4),
-        .SIZE(4),
-        .WIDTH(32)
-    ) m0 (
-        .addr0(m0_addr0),
-        .clk(m0_clk),
-        .done(m0_done),
-        .read_data(m0_read_data),
-        .write_data(m0_write_data),
-        .write_en(m0_write_en)
-    );
-    std_mem_d1 # (
-        .IDX_SIZE(4),
-        .SIZE(4),
-        .WIDTH(32)
-    ) m1 (
-        .addr0(m1_addr0),
-        .clk(m1_clk),
-        .done(m1_done),
-        .read_data(m1_read_data),
-        .write_data(m1_write_data),
-        .write_en(m1_write_en)
-    );
-    assign done = m1_done;
-    assign m0_clk = clk;
-    assign m1_clk = clk;
-    
-    // COMPONENT END: main
+// COMPONENT START: main
+string DATA;
+int CODE;
+initial begin
+    CODE = $value$plusargs("DATA=%s", DATA);
+    $display("DATA (path to meminit files): %s", DATA);
+    $readmemh({DATA, "/m1.dat"}, m1.mem);
+end
+final begin
+    $writememh({DATA, "/m1.out"}, m1.mem);
+end
+logic [3:0] m0_addr0;
+logic [31:0] m0_write_data;
+logic m0_write_en;
+logic m0_clk;
+logic [31:0] m0_read_data;
+logic m0_done;
+logic [3:0] m1_addr0;
+logic [31:0] m1_write_data;
+logic m1_write_en;
+logic m1_clk;
+logic [31:0] m1_read_data;
+logic m1_done;
+initial begin
+  m0_addr0 = 4'd0;;
+  m0_write_data = 32'd0;;
+  m0_write_en = 1'd0;;
+  m0_clk = 1'd0;;
+  m1_addr0 = 4'd0;;
+  m1_write_data = 32'd0;;
+  m1_write_en = 1'd0;;
+  m1_clk = 1'd0;;
+end
+std_mem_d1 # (
+    .IDX_SIZE(4),
+    .SIZE(4),
+    .WIDTH(32)
+) m0 (
+    .addr0(m0_addr0),
+    .clk(m0_clk),
+    .done(m0_done),
+    .read_data(m0_read_data),
+    .write_data(m0_write_data),
+    .write_en(m0_write_en)
+);
+std_mem_d1 # (
+    .IDX_SIZE(4),
+    .SIZE(4),
+    .WIDTH(32)
+) m1 (
+    .addr0(m1_addr0),
+    .clk(m1_clk),
+    .done(m1_done),
+    .read_data(m1_read_data),
+    .write_data(m1_write_data),
+    .write_en(m1_write_en)
+);
+assign m0_clk = clk;
+assign m1_clk = clk;
+assign done = m1_done;
+
+// COMPONENT END: main
 endmodule

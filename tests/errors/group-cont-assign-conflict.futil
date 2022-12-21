@@ -14,5 +14,7 @@ component main() -> () {
     }
     r.in = w1.out;
   }
-  control {}
+  control {
+    do_r;
+  }
 }

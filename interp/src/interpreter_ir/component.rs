@@ -43,9 +43,9 @@ impl From<CalyxComponent> for Component {
 
 impl Component {
     /// Return a reference to the cell with `name` if present.
-    pub fn find_cell<S>(&self, name: &S) -> Option<RRC<Cell>>
+    pub fn find_cell<S>(&self, name: S) -> Option<RRC<Cell>>
     where
-        S: Clone + AsRef<str>,
+        S: Clone + Into<Id>,
     {
         self.cells.find(name)
     }

@@ -222,7 +222,7 @@ impl Control {
     /// Returns the value of an attribute if present
     pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: Into<Id>,
     {
         self.get_attributes().get(attr)
     }
@@ -230,7 +230,7 @@ impl Control {
     /// Returns true if the node has a specific attribute
     pub fn has_attribute<S>(&self, attr: S) -> bool
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: Into<Id>,
     {
         self.get_attributes().has(attr)
     }
@@ -286,19 +286,17 @@ impl Control {
                 comp: Rc::clone(comp),
                 inputs: inputs
                     .iter()
-                    .map(|(name, port)| (name.clone(), Rc::clone(port)))
+                    .map(|(name, port)| (*name, Rc::clone(port)))
                     .collect(),
                 outputs: outputs
                     .iter()
-                    .map(|(name, port)| (name.clone(), Rc::clone(port)))
+                    .map(|(name, port)| (*name, Rc::clone(port)))
                     .collect(),
                 comb_group: comb_group.clone().map(|cg| Rc::clone(&cg)),
                 attributes: attributes.clone(),
                 ref_cells: ref_cells
                     .iter()
-                    .map(|(outcell, incell)| {
-                        (outcell.clone(), Rc::clone(incell))
-                    })
+                    .map(|(outcell, incell)| (*outcell, Rc::clone(incell)))
                     .collect(),
             }),
             Control::Enable(Enable { group, attributes }) => {

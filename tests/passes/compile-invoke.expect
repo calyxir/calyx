@@ -16,15 +16,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     exp0 = exponent();
   }
   wires {
-    group invoke<"static"=0> {
+    group invoke0<"static"=0> {
       exp0.base = r.out;
       exp0.exp = const3.out;
       exp0.go = 1'd1;
-      invoke[done] = exp0.done;
+      invoke0[done] = exp0.done;
     }
   }
 
   control {
-    @static(0) invoke;
+    @static(0) invoke0;
   }
 }

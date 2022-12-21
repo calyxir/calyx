@@ -42,7 +42,7 @@ impl ConstructVisitor for InferShare {
             print_dmap: opts[0],
             state_shareable,
             shareable,
-            main: ctx.entrypoint.clone(),
+            main: ctx.entrypoint,
         })
     }
 
@@ -88,10 +88,8 @@ impl Visitor for InferShare {
         }
 
         // build the domination map
-        let mut dmap = DominatorMap::new(
-            &mut comp.control.borrow_mut(),
-            comp.name.id.clone(),
-        );
+        let mut dmap =
+            DominatorMap::new(&mut comp.control.borrow_mut(), comp.name);
 
         // print the domination map if command line argument says so
         if self.print_dmap {
@@ -115,7 +113,7 @@ impl Visitor for InferShare {
             }
         }
         comp.attributes.insert("state_share", 1);
-        self.state_shareable.add(comp.name.clone());
+        self.state_shareable.add(comp.name);
         Ok(Action::Stop)
     }
 }

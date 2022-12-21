@@ -1,13 +1,42 @@
-use crate::errors::{CalyxResult, Error, WithPos};
+use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
-    self, CellType, CloneName, Component, LibrarySignatures, RESERVED_NAMES,
+    self, CellType, CloneName, Component, GetAttributes, LibrarySignatures,
+    RESERVED_NAMES,
 };
+use crate::utils::WithPos;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+
+#[derive(Default)]
+struct ActiveAssignments {
+    // Set of currently active assignments
+    assigns: Vec<ir::Assignment>,
+    // Stack representing the number of assignments added at each level
+    num_assigns: Vec<usize>,
+}
+impl ActiveAssignments {
+    /// Push a set of assignments to the stack.
+    pub fn push(&mut self, assign: &[ir::Assignment]) {
+        let prev_size = self.assigns.len();
+        self.assigns.extend(assign.iter().cloned());
+        // Number of assignments added at this level
+        self.num_assigns.push(self.assigns.len() - prev_size);
+    }
+
+    /// Pop the last set of assignments from the stack.
+    pub fn pop(&mut self) {
+        let num_assigns = self.num_assigns.pop().unwrap();
+        self.assigns.truncate(self.assigns.len() - num_assigns);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &ir::Assignment> {
+        self.assigns.iter()
+    }
+}
 
 /// Pass to check if the program is well-formed.
 ///
@@ -21,13 +50,15 @@ use std::collections::HashSet;
 /// 7. Invoking components with impatible fed-in cell type for ref cells.
 pub struct WellFormed {
     /// Reserved names
-    reserved_names: HashSet<String>,
+    reserved_names: HashSet<ir::Id>,
     /// Names of the groups that have been used in the control.
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
     used_comb_groups: HashSet<ir::Id>,
     /// ref cell types of components used in the control.
     ref_cell_types: HashMap<ir::Id, LinkedHashMap<ir::Id, CellType>>,
+    /// Stack of currently active combinational groups
+    active_comb: ActiveAssignments,
 }
 
 impl ConstructVisitor for WellFormed {
@@ -36,7 +67,7 @@ impl ConstructVisitor for WellFormed {
         Self: Sized,
     {
         let reserved_names =
-            RESERVED_NAMES.iter().map(|s| s.to_string()).collect();
+            RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
         for prim in ctx.lib.signatures() {
             if prim.attributes.has("static") {
@@ -58,7 +89,7 @@ impl ConstructVisitor for WellFormed {
                         return Err(Error::malformed_structure(
                             "ref cells are not allowed for main component",
                         )
-                        .with_pos(cell.borrow().name()));
+                        .with_pos(cell.borrow().get_attributes()));
                     }
                 }
             }
@@ -81,7 +112,7 @@ impl ConstructVisitor for WellFormed {
                     }
                 })
                 .collect::<CalyxResult<_>>()?;
-            ref_cell_types.insert(comp.name.clone(), cellmap);
+            ref_cell_types.insert(comp.name, cellmap);
         }
 
         let w_f = WellFormed {
@@ -89,6 +120,7 @@ impl ConstructVisitor for WellFormed {
             used_groups: HashSet::new(),
             used_comb_groups: HashSet::new(),
             ref_cell_types,
+            active_comb: ActiveAssignments::default(),
         };
 
         Ok(w_f)
@@ -130,6 +162,7 @@ where
                 .map(|a| {
                     a.attributes
                         .copy_span()
+                        .into_option()
                         .map(|s| s.show())
                         .unwrap_or_else(|| ir::Printer::assignment_to_str(a))
                 })
@@ -165,9 +198,9 @@ impl Visitor for WellFormed {
         for cell_ref in comp.cells.iter() {
             let cell = cell_ref.borrow();
             // Check if any of the cells use a reserved name.
-            if self.reserved_names.contains(&cell.name().id) {
+            if self.reserved_names.contains(&cell.name()) {
                 return Err(Error::reserved_name(cell.clone_name())
-                    .with_pos(cell.name()));
+                    .with_pos(cell.get_attributes()));
             }
             // Check if a `ref` cell is invalid
             if cell.is_reference() {
@@ -175,7 +208,7 @@ impl Visitor for WellFormed {
                     return Err(Error::malformed_structure(
                         "constant not allowed for ref cells".to_string(),
                     )
-                    .with_pos(cell.name()));
+                    .with_pos(cell.get_attributes()));
                 }
                 if matches!(cell.prototype, CellType::ThisComponent) {
                     unreachable!(
@@ -244,7 +277,7 @@ impl Visitor for WellFormed {
                         has_done = true;
                     }
                     // Group uses another group's done condition
-                    if gname != &dst.get_parent_name() {
+                    if gname != dst.get_parent_name() {
                         return Err(Error::malformed_structure(
                             format!("Group `{}` refers to the done condition of another group (`{}`).",
                             gname,
@@ -262,15 +295,9 @@ impl Visitor for WellFormed {
             }
         }
 
-        // Check for obvious conflicting assignments
-        for gr in comp.groups.iter() {
-            obvious_conflicts(
-                gr.borrow()
-                    .assignments
-                    .iter()
-                    .chain(comp.continuous_assignments.iter()),
-            )?;
-        }
+        // Check for obvious conflicting assignments in the continuous assignments
+        obvious_conflicts(comp.continuous_assignments.iter())?;
+        // Check for obvious conflicting assignments between the continuous assignments and the groups
         for cgr in comp.comb_groups.iter() {
             obvious_conflicts(
                 cgr.borrow()
@@ -279,7 +306,6 @@ impl Visitor for WellFormed {
                     .chain(comp.continuous_assignments.iter()),
             )?;
         }
-        obvious_conflicts(comp.continuous_assignments.iter())?;
 
         Ok(Action::Continue)
     }
@@ -287,7 +313,7 @@ impl Visitor for WellFormed {
     fn enable(
         &mut self,
         s: &mut ir::Enable,
-        _comp: &mut Component,
+        comp: &mut Component,
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
@@ -312,6 +338,23 @@ impl Visitor for WellFormed {
             return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
         }
 
+        // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups
+        obvious_conflicts(
+            group
+                .assignments
+                .iter()
+                .chain(comp.continuous_assignments.iter())
+                .chain(self.active_comb.iter()),
+        )
+        .map_err(|err| {
+            let msg = s
+                .attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.format("Assigments activated by group enable"));
+            err.with_post_msg(msg)
+        })?;
+
         Ok(Action::Continue)
     }
 
@@ -328,7 +371,7 @@ impl Visitor for WellFormed {
         // Only refers to ports defined in the invoked instance.
         let cell = s.comp.borrow();
         let ports: HashSet<_> =
-            cell.ports.iter().map(|p| p.borrow().name.clone()).collect();
+            cell.ports.iter().map(|p| p.borrow().name).collect();
 
         s.inputs
             .iter()
@@ -354,13 +397,12 @@ impl Visitor for WellFormed {
                     let proto = incell.borrow().prototype.clone();
                     same_type(t, &proto)
                         .map_err(|err| err.with_pos(&s.attributes))?;
-                    mentioned_cells.insert(outcell.clone());
+                    mentioned_cells.insert(outcell);
                 } else {
                     return Err(Error::malformed_control(format!(
                         "{} does not have ref cell named {}",
                         id, outcell
-                    ))
-                    .with_pos(outcell));
+                    )));
                 }
             }
             for id in cellmap.keys() {
@@ -377,6 +419,31 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
+    fn start_if(
+        &mut self,
+        s: &mut ir::If,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if let Some(cgr) = &s.cond {
+            let cg = cgr.borrow();
+            let assigns = &cg.assignments;
+            // Check if the combinational group conflicts with the active combinational groups
+            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
+                .map_err(|err| {
+                    let msg = s.attributes.copy_span().format(format!(
+                        "Assignments from `{}' are actived here",
+                        cg.name()
+                    ));
+                    err.with_post_msg(Some(msg))
+                })?;
+            // Push the combinational group to the stack of active groups
+            self.active_comb.push(assigns);
+        }
+        Ok(Action::Continue)
+    }
+
     fn finish_if(
         &mut self,
         s: &mut ir::If,
@@ -387,6 +454,33 @@ impl Visitor for WellFormed {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
             self.used_comb_groups.insert(cond.clone_name());
+            // Remove assignments from this combinational group
+            self.active_comb.pop();
+        }
+        Ok(Action::Continue)
+    }
+
+    fn start_while(
+        &mut self,
+        s: &mut ir::While,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if let Some(cgr) = &s.cond {
+            let cg = cgr.borrow();
+            let assigns = &cg.assignments;
+            // Check if the combinational group conflicts with the active combinational groups
+            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
+                .map_err(|err| {
+                    let msg = s.attributes.copy_span().format(format!(
+                        "Assignments from `{}' are actived here",
+                        cg.name()
+                    ));
+                    err.with_post_msg(Some(msg))
+                })?;
+            // Push the combinational group to the stack of active groups
+            self.active_comb.push(assigns);
         }
         Ok(Action::Continue)
     }
@@ -401,6 +495,8 @@ impl Visitor for WellFormed {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
             self.used_comb_groups.insert(cond.clone_name());
+            // Remove assignments from this combinational group
+            self.active_comb.pop();
         }
         Ok(Action::Continue)
     }
@@ -428,11 +524,9 @@ impl Visitor for WellFormed {
         if let Some(group) =
             all_groups.difference(&self.used_groups).into_iter().next()
         {
-            let gr = comp.find_group(&group).unwrap();
+            let gr = comp.find_group(*group).unwrap();
             let gr = gr.borrow();
-            return Err(
-                Error::unused(group.clone(), "group").with_pos(&gr.attributes)
-            );
+            return Err(Error::unused(*group, "group").with_pos(&gr.attributes));
         };
 
         let all_comb_groups: HashSet<ir::Id> =
@@ -442,13 +536,10 @@ impl Visitor for WellFormed {
             .into_iter()
             .next()
         {
-            let cgr = comp.find_comb_group(&comb_group).unwrap();
+            let cgr = comp.find_comb_group(*comb_group).unwrap();
             let cgr = cgr.borrow();
-            return Err(Error::unused(
-                comb_group.clone(),
-                "combinational group",
-            )
-            .with_pos(&cgr.attributes));
+            return Err(Error::unused(*comb_group, "combinational group")
+                .with_pos(&cgr.attributes));
         }
         Ok(Action::Continue)
     }

@@ -1,4 +1,5 @@
 //! Representation for structure (wires and cells) in a Calyx program.
+
 use super::{Attributes, GetAttributes, Guard, Id, PortDef, RRC, WRC};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
@@ -53,6 +54,12 @@ pub struct Port {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Canonical(pub Id, pub Id);
 
+impl std::fmt::Display for Canonical {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.0, self.1)
+    }
+}
+
 impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
@@ -85,14 +92,14 @@ impl Port {
     /// Gets name of parent object.
     pub fn get_parent_name(&self) -> Id {
         match &self.parent {
-            PortParent::Cell(cell) => cell.upgrade().borrow().name.clone(),
-            PortParent::Group(group) => group.upgrade().borrow().name.clone(),
+            PortParent::Cell(cell) => cell.upgrade().borrow().name,
+            PortParent::Group(group) => group.upgrade().borrow().name,
         }
     }
 
     /// Get the canonical representation for this Port.
     pub fn canonical(&self) -> Canonical {
-        Canonical(self.get_parent_name(), self.name.clone())
+        Canonical(self.get_parent_name(), self.name)
     }
 }
 
@@ -161,10 +168,10 @@ pub enum CellType {
 
 impl CellType {
     /// Return the name associated with this CellType is present
-    pub fn get_name(&self) -> Option<&Id> {
+    pub fn get_name(&self) -> Option<Id> {
         match self {
             CellType::Primitive { name, .. } | CellType::Component { name } => {
-                Some(name)
+                Some(*name)
             }
             CellType::ThisComponent | CellType::Constant { .. } => None,
         }
@@ -239,7 +246,8 @@ impl Cell {
     /// Get a reference to the named port if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
     {
         self.ports
             .iter()
@@ -250,25 +258,27 @@ impl Cell {
     /// Get a reference to the first port that has the attribute `attr`.
     pub fn find_with_attr<S>(&self, attr: S) -> Option<RRC<Port>>
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
+        let key = attr.into();
         self.ports
             .iter()
-            .find(|&g| g.borrow().attributes.has(attr.as_ref()))
+            .find(|&g| g.borrow().attributes.has(key))
             .map(Rc::clone)
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr<'a, S>(
-        &'a self,
+    pub fn find_all_with_attr<S>(
+        &self,
         attr: S,
-    ) -> impl Iterator<Item = RRC<Port>> + 'a
+    ) -> impl Iterator<Item = RRC<Port>> + '_
     where
-        S: AsRef<str> + 'a,
+        S: Into<Id>,
     {
+        let key = attr.into();
         self.ports
             .iter()
-            .filter(move |&p| p.borrow().attributes.has(attr.as_ref()))
+            .filter(move |&p| p.borrow().attributes.has(key))
             .map(Rc::clone)
     }
 
@@ -276,9 +286,10 @@ impl Cell {
     /// exist.
     pub fn get<S>(&self, name: S) -> RRC<Port>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
     {
-        self.find(&name).unwrap_or_else(|| {
+        self.find(name.clone()).unwrap_or_else(|| {
             panic!(
                 "Port `{name}' not found on cell `{}'. Known ports are: {}",
                 self.name,
@@ -304,11 +315,11 @@ impl Cell {
     /// only returns true if the primitive has the given name.
     pub fn is_primitive<S>(&self, prim: Option<S>) -> bool
     where
-        S: AsRef<str>,
+        Id: PartialEq<S>,
     {
         match &self.prototype {
             CellType::Primitive { name, .. } => {
-                prim.as_ref().map(|p| name.eq(p)).unwrap_or(true)
+                prim.as_ref().map(|p| name == p).unwrap_or(true)
             }
             _ => false,
         }
@@ -318,26 +329,26 @@ impl Cell {
     /// exist.
     pub fn get_with_attr<S>(&self, attr: S) -> RRC<Port>
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
-        self.find_with_attr(&attr).unwrap_or_else(|| {
+        let key = attr.into();
+        self.find_with_attr(key).unwrap_or_else(|| {
             panic!(
                 "Port with attribute `{}' not found on cell `{}'",
-                attr.as_ref(),
-                self.name,
+                key, self.name,
             )
         })
     }
 
     /// Returns the name of the component that is this cells type.
-    pub fn type_name(&self) -> Option<&Id> {
+    pub fn type_name(&self) -> Option<Id> {
         self.prototype.get_name()
     }
 
     /// Get parameter binding from the prototype used to build this cell.
     pub fn get_parameter<S>(&self, param: S) -> Option<u64>
     where
-        S: std::fmt::Display + Clone + AsRef<str>,
+        Id: PartialEq<S>,
     {
         match &self.prototype {
             CellType::Primitive { param_binding, .. } => param_binding
@@ -359,9 +370,10 @@ impl Cell {
     /// Return the value associated with this attribute key.
     pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
-        self.attributes.get(attr.as_ref())
+        let key = attr.into();
+        self.attributes.get(key)
     }
 
     /// Add a new attribute to the group.
@@ -373,8 +385,8 @@ impl Cell {
     }
 
     /// Grants immutable access to the name of this cell.
-    pub fn name(&self) -> &Id {
-        &self.name
+    pub fn name(&self) -> Id {
+        self.name
     }
 
     /// Returns a reference to all [super::Port] attached to this cells.
@@ -389,7 +401,7 @@ impl Cell {
             .map(|port_ref| {
                 let port = port_ref.borrow();
                 PortDef {
-                    name: port.name.clone(),
+                    name: port.name,
                     width: port.width,
                     direction: port.direction.clone(),
                     attributes: port.attributes.clone(),
@@ -458,9 +470,10 @@ impl Group {
     }
 
     /// Get a reference to the named hole if it exists.
-    pub fn find<S>(&self, name: &S) -> Option<RRC<Port>>
+    pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: std::fmt::Display,
+        Id: PartialEq<S>,
     {
         self.holes
             .iter()
@@ -471,9 +484,10 @@ impl Group {
     /// Get a reference to the named hole or panic.
     pub fn get<S>(&self, name: S) -> RRC<Port>
     where
-        S: std::fmt::Display + AsRef<str>,
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
     {
-        self.find(&name).unwrap_or_else(|| {
+        self.find(name.clone()).unwrap_or_else(|| {
             panic!("Hole `{name}' not found on group `{}'", self.name)
         })
     }
@@ -506,8 +520,8 @@ impl Group {
 
     /// The name of this group.
     #[inline]
-    pub fn name(&self) -> &Id {
-        &self.name
+    pub fn name(&self) -> Id {
+        self.name
     }
 
     /// The attributes of this group.
@@ -534,8 +548,8 @@ pub struct CombGroup {
 impl CombGroup {
     /// The name of this group.
     #[inline]
-    pub fn name(&self) -> &Id {
-        &self.name
+    pub fn name(&self) -> Id {
+        self.name
     }
 
     /// The attributes of this group.
@@ -548,23 +562,23 @@ impl CombGroup {
 /// A trait representing something in the IR that has a name.
 pub trait GetName {
     /// Return a reference to the object's name
-    fn name(&self) -> &Id;
+    fn name(&self) -> Id;
 }
 
 impl GetName for Cell {
-    fn name(&self) -> &Id {
+    fn name(&self) -> Id {
         self.name()
     }
 }
 
 impl GetName for Group {
-    fn name(&self) -> &Id {
+    fn name(&self) -> Id {
         self.name()
     }
 }
 
 impl GetName for CombGroup {
-    fn name(&self) -> &Id {
+    fn name(&self) -> Id {
         self.name()
     }
 }
@@ -578,6 +592,6 @@ pub trait CloneName {
 
 impl<T: GetName> CloneName for T {
     fn clone_name(&self) -> Id {
-        self.name().clone()
+        self.name()
     }
 }

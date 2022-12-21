@@ -114,7 +114,7 @@ impl Visitor for RemoveCombGroups {
             .comb_groups
             .drain()
             .map(|cg_ref| {
-                let name = cg_ref.borrow().name().clone();
+                let name = cg_ref.borrow().name();
                 // Register the ports read by the combinational group's usages.
                 let used_ports = used_ports.remove(&name).ok_or_else(|| {
                     Error::malformed_structure(format!(
@@ -124,7 +124,7 @@ impl Visitor for RemoveCombGroups {
                 })?;
 
                 // Group generated to replace this comb group.
-                let group_ref = builder.add_group(name.as_ref());
+                let group_ref = builder.add_group(name);
                 let mut group = group_ref.borrow_mut();
                 // Attach assignmens from comb group
                 group.assignments =
@@ -154,7 +154,7 @@ impl Visitor for RemoveCombGroups {
                     // Define mapping from this port to the register's output
                     // value.
                     self.port_rewrite.insert(
-                        (name.clone(), port.borrow().canonical().clone()),
+                        (name, port.borrow().canonical().clone()),
                         (
                             Rc::clone(&comb_reg.borrow().get("out")),
                             Rc::clone(&group_ref),
@@ -257,7 +257,7 @@ impl Visitor for RemoveCombGroups {
 
         // Construct a new `while` statement
         let key = (
-            s.cond.as_ref().unwrap().borrow().name().clone(),
+            s.cond.as_ref().unwrap().borrow().name(),
             s.port.borrow().canonical(),
         );
         let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
@@ -287,10 +287,9 @@ impl Visitor for RemoveCombGroups {
         if s.cond.is_none() {
             return Ok(Action::Continue);
         }
-
         // Construct a new `if` statement
         let key = (
-            s.cond.as_ref().unwrap().borrow().name().clone(),
+            s.cond.as_ref().unwrap().borrow().name(),
             s.port.borrow().canonical(),
         );
         let (port_ref, cond_ref) =
@@ -307,12 +306,14 @@ impl Visitor for RemoveCombGroups {
             std::mem::replace(s.tbranch.as_mut(), ir::Control::empty());
         let fbranch =
             std::mem::replace(s.fbranch.as_mut(), ir::Control::empty());
-        let if_ = ir::Control::if_(
+        let mut if_ = ir::Control::if_(
             Rc::clone(port_ref),
             None,
             Box::new(tbranch),
             Box::new(fbranch),
         );
+        let attrs = if_.get_mut_attributes();
+        *attrs = std::mem::take(&mut s.attributes);
         let cond = ir::Control::enable(Rc::clone(cond_ref));
         Ok(Action::change(ir::Control::seq(vec![cond, if_])))
     }

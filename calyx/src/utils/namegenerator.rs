@@ -5,14 +5,14 @@ use std::collections::{HashMap, HashSet};
 /// prefix.
 #[derive(Clone, Debug)]
 pub struct NameGenerator {
-    name_hash: HashMap<String, i64>,
-    generated_names: HashSet<String>,
+    name_hash: HashMap<ir::Id, i64>,
+    generated_names: HashSet<ir::Id>,
 }
 
 impl NameGenerator {
     /// Create a NameGenerator where `names` are already defined so that this generator
     /// will never generate those names.
-    pub fn with_prev_defined_names(names: HashSet<String>) -> Self {
+    pub fn with_prev_defined_names(names: HashSet<ir::Id>) -> Self {
         NameGenerator {
             generated_names: names,
             name_hash: HashMap::default(),
@@ -20,7 +20,7 @@ impl NameGenerator {
     }
 
     /// Add generated names
-    pub fn add_names(&mut self, names: HashSet<String>) {
+    pub fn add_names(&mut self, names: HashSet<ir::Id>) {
         self.generated_names.extend(names)
     }
 
@@ -32,14 +32,14 @@ impl NameGenerator {
     /// ```
     pub fn gen_name<S>(&mut self, prefix: S) -> ir::Id
     where
-        S: Into<ir::Id> + ToString + Clone,
+        S: Into<ir::Id>,
     {
         let mut cur_prefix: ir::Id = prefix.into();
         loop {
             // Insert default value for this prefix if there is no entry.
             let count = self
                 .name_hash
-                .entry(cur_prefix.to_string())
+                .entry(cur_prefix)
                 .and_modify(|v| *v += 1)
                 .or_insert(-1);
 
@@ -50,8 +50,8 @@ impl NameGenerator {
             };
 
             // If we've not generated this name before, return it.
-            if !self.generated_names.contains(&*name.id) {
-                self.generated_names.insert(name.to_string());
+            if !self.generated_names.contains(&name) {
+                self.generated_names.insert(name);
                 return name;
             }
 

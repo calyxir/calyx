@@ -227,23 +227,26 @@ impl<'a> StateView<'a> {
 
     /// Return a vector RRCs for all cells (across any component) which have the given
     /// name
-    pub fn get_cells<S: AsRef<str> + Clone>(
-        &self,
-        name: S,
-    ) -> Vec<RRC<ir::Cell>> {
+    pub fn get_cells<S>(&self, name: S) -> Vec<RRC<ir::Cell>>
+    where
+        S: Into<ir::Id> + Clone,
+    {
         let ctx_ref = self.get_ctx();
-        ctx_ref.iter().filter_map(|x| x.find_cell(&name)).collect()
+        ctx_ref
+            .iter()
+            .filter_map(|x| x.find_cell(name.clone()))
+            .collect()
     }
 
     /// Return an RRC for the given cell if it exists within the root component
     /// of the environment. Otherwise None
-    pub fn get_cell<S: AsRef<str> + Clone>(
-        &self,
-        name: S,
-    ) -> Option<RRC<ir::Cell>> {
+    pub fn get_cell<S>(&self, name: S) -> Option<RRC<ir::Cell>>
+    where
+        S: Into<ir::Id> + Clone,
+    {
         match self {
-            StateView::SingleView(sv) => sv.component.find_cell(&name),
-            StateView::Composite(cv) => cv.0.component.find_cell(&name),
+            StateView::SingleView(sv) => sv.component.find_cell(name),
+            StateView::Composite(cv) => cv.0.component.find_cell(name),
         }
     }
 
@@ -272,7 +275,7 @@ impl<'a> StateView<'a> {
                                 let value = self.lookup(port.as_raw());
 
                                 (
-                                    port.borrow().name.clone(),
+                                    port.borrow().name,
                                     if port
                                         .borrow()
                                         .attributes
@@ -285,10 +288,10 @@ impl<'a> StateView<'a> {
                                 )
                             })
                             .collect();
-                        (cell.borrow().name().clone(), inner_map)
+                        (cell.borrow().name(), inner_map)
                     })
                     .collect();
-                (comp.name.clone(), inner_map)
+                (comp.name, inner_map)
             })
             .collect();
         let cell_map: BTreeMap<_, _> = ctx
@@ -306,10 +309,10 @@ impl<'a> StateView<'a> {
                             {
                                 if !prim.is_comb() {
                                     return Some((
-                                        cell.name().clone(),
+                                        cell.name(),
                                         Primitive::serialize(
                                             &**prim,
-                                            raw.then(|| PrintCode::Binary),
+                                            raw.then_some(PrintCode::Binary),
                                         ), //TODO Griffin: Fix this
                                     ));
                                 }
@@ -318,7 +321,7 @@ impl<'a> StateView<'a> {
                         None
                     })
                     .collect();
-                (comp.name.clone(), inner_map)
+                (comp.name, inner_map)
             })
             .collect();
 

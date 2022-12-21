@@ -57,10 +57,11 @@ impl<'a> Builder<'a> {
     /// Returns a reference to the group.
     pub fn add_group<S>(&mut self, prefix: S) -> RRC<ir::Group>
     where
-        S: Into<ir::Id> + ToString + Clone + AsRef<str>,
+        S: Into<ir::Id>,
     {
+        let prefix: ir::Id = prefix.into();
         assert!(
-            prefix.as_ref() != "",
+            prefix != "",
             "Cannot construct group with empty name prefix"
         );
         let name = self.component.generate_name(prefix);
@@ -113,7 +114,7 @@ impl<'a> Builder<'a> {
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
-        if let Some(cell) = self.component.cells.find(&name) {
+        if let Some(cell) = self.component.cells.find(name) {
             return Rc::clone(&cell);
         }
 
@@ -153,10 +154,10 @@ impl<'a> Builder<'a> {
     ) -> RRC<ir::Cell>
     where
         Pre: Into<ir::Id> + ToString + Clone,
-        Prim: AsRef<str>,
+        Prim: Into<ir::Id>,
     {
-        let prim_id = ir::Id::from(primitive.as_ref());
-        let prim = &self.lib.get_primitive(&prim_id);
+        let prim_id = primitive.into();
+        let prim = &self.lib.get_primitive(prim_id);
         let (param_binding, ports) = prim
             .resolve(param_values)
             .expect("Failed to add primitive.");

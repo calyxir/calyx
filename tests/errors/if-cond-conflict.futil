@@ -1,0 +1,28 @@
+// -p well-formed
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    w1 = std_wire(32);
+  }
+  wires {
+    comb group w1_1 {
+      w1.in = 32'd1;
+    }
+    comb group w1_2 {
+      w1.in = 32'd2;
+    }
+    group do_r {
+      r.write_en = 1'd1;
+      r.in = 32'd10;
+      do_r[done] = r.done;
+    }
+  }
+  control {
+    if w1.out with w1_1 {
+      if w1.out with w1_2 {
+        do_r;
+      }
+    }
+  }
+}

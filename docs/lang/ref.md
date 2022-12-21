@@ -104,11 +104,12 @@ A component's `cells` section instantiates a set of sub-components.
 It contains a list of declarations with this syntax:
 
 ```
-<name> = <comp>(<param...>);
+[ref]? <name> = <comp>(<param...>);
 ```
 
 Here, `<comp>` is the name of an existing [primitive][prim] or [component definition][components], and
 `<name>` is the fresh, local name of the instance.
+The optional `ref` parameter turns the cell into a [by-reference cell](#ref-cells).
 Parameters are only allowed when instantiating primitives, not Calyx-defined components.
 
 For example, the following definition of the `counter` component instantiates a
@@ -188,7 +189,12 @@ Using guards, Calyx programs can assign multiple different values to the same
 port. Omitting a guard expression is equivalent to using `1'd1` (a constant
 "true") as the guard.
 
-**TK:** Document the "mini-language" of logical operators that go into guards.
+Guards can use the following constructs:
+- `port`: A port access on a defined cell
+- `port op port`: A comparison between values on two ports. Valid `op` are: `>`, `<`, `>=`, `<=`, `==`
+- `!guard`: Logical negation of a guard value
+- `guard || guard`: Disjunction between two guards
+- `guard && guard`: Conjunction of two guards
 
 > **Well-formedness**: For each input port on the LHS, only one guard should be active in any given cycle during the execution of a Calyx program.
 
@@ -399,7 +405,38 @@ They are automatically threaded to any primitive that defines `@clk` or
 
 ### `ref` cells
 
-**TK**
+Calyx components can specify that a cell needs to be passed in "by-reference":
+
+```
+// Component that performs mem[0] += 1;
+component update_memory() -> () {
+  cells {
+    ref mem = std_mem_d1(...)
+  }
+  wires { ... }
+  control { ... }
+}
+```
+
+When invoking such a component, the calling component must provide a binding for each defined cell:
+```
+component main() -> () {
+  cells {
+    upd = update_memory();
+    m1 = std_mem_d1(...);
+    m2 = std_mem_d2(...);
+  }
+  wires { ... }
+  control {
+    seq {
+      invoke upd[mem=m1]()(); // Pass `m1` by reference
+      invoke upd[mem=m2]()(); // Pass `m2` by reference
+    }
+  }
+}
+```
+As the example shows, each invocation can take different bindings for each `ref` cell.
+See [the tutorial][ref-tut] for longer example on how to use this feature.
 
 [attributes]: ./attributes.md
 [components]: #calyx-components
@@ -412,3 +449,4 @@ They are automatically threaded to any primitive that defines `@clk` or
 [ref]: #ref-cells
 [godoneattr]: ./attributes.md#go-done-clk-and-reset
 [clkreset]: ./attributes.md#go-done-clk-and-reset
+[ref-tut]: ./memories-by-reference.md

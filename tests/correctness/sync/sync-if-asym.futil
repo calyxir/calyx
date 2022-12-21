@@ -25,12 +25,6 @@ component main () -> () {
   }
 
   wires {
-    group no_op {
-      no_use.in = 1'd0;
-      no_use.write_en = 1'd1;
-      no_op[done] = no_use.done;
-    }
-
     group prod_0 {
       prod.in = in_0.read_data;
       prod.write_en = 1'd1;
@@ -89,15 +83,18 @@ component main () -> () {
       while lt.out with comp {
         if eq.out with st_0 {
           seq {
-            @sync(1) prod_0;
-            @sync(3) switch_to_st_1;
+            prod_0;
+            @sync(1);
+            switch_to_st_1;
+            @sync(3);
           }
         }
         else {
           seq {
-            @sync(2) no_op;
+            @sync(2);
             reg_to_mem;
-            @sync(4) incr_idx;
+            incr_idx;
+            @sync(4);
           }
         }
       }
@@ -106,15 +103,18 @@ component main () -> () {
       while lt.out with comp {
         if eq.out with st_0 {
           seq {
-            @sync(1) no_op;
+            @sync(1);
             reg_to_mem;
-            @sync(3) incr_idx;
+            incr_idx;
+            @sync(3);
           }
         }
         else {
           seq {
-            @sync(2) prod_1;
-            @sync(4) switch_to_st_0;
+            prod_1;
+            @sync(2);
+            switch_to_st_0;
+            @sync(4);
           }
         }
       }

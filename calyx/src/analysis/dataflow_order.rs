@@ -36,10 +36,10 @@ fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
         }
         match port.direction {
             ir::Direction::Input => {
-                inputs.insert(port.name.clone());
+                inputs.insert(port.name);
             }
             ir::Direction::Output => outputs.push((
-                port.name.clone(),
+                port.name,
                 attrs.get("stable").or_else(|| attrs.get("done")).is_some(),
             )),
             ir::Direction::Inout => {
@@ -66,7 +66,7 @@ fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
 fn primitive_parent(pr: &RRC<ir::Port>) -> Option<ir::Id> {
     let port = pr.borrow();
     match &port.cell_parent().borrow().prototype {
-        ir::CellType::Primitive { name, .. } => Some(name.clone()),
+        ir::CellType::Primitive { name, .. } => Some(*name),
         ir::CellType::Component { .. }
         | ir::CellType::ThisComponent
         | ir::CellType::Constant { .. } => None,
@@ -78,7 +78,7 @@ impl DataflowOrder {
         primitives: impl Iterator<Item = &'a ir::Primitive>,
     ) -> CalyxResult<Self> {
         let write_map = primitives
-            .map(|p| prim_to_write_map(p).map(|wm| (p.name.clone(), wm)))
+            .map(|p| prim_to_write_map(p).map(|wm| (p.name, wm)))
             .collect::<CalyxResult<_>>()?;
         Ok(DataflowOrder { write_map })
     }
@@ -153,7 +153,7 @@ impl DataflowOrder {
             dep_ports
                 .iter()
                 .cloned()
-                .flat_map(|port| writes.get(&ir::Canonical(inst.clone(), port)))
+                .flat_map(|port| writes.get(&ir::Canonical(inst, port)))
                 .flatten()
                 .try_for_each(|w_idx| {
                     if *w_idx == r_idx {

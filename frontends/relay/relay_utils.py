@@ -16,16 +16,6 @@ NumDimsToCell = {
     4: Stdlib().seq_mem_d4,
 }
 
-# Suffix appended to memories by Dahlia when lowering.
-DahliaSuffix = {
-    "std_const": "",
-    "std_reg": "",
-    "seq_mem_d1": "0",
-    "seq_mem_d2": "0_0",
-    "seq_mem_d3": "0_0_0",
-    "seq_mem_d4": "0_0_0_0",
-}
-
 
 @dataclass
 class DahliaFuncDef:
@@ -83,8 +73,7 @@ def emit_invoke_control(
 
     def add_arg(cell):
         comp = cell.comp
-        assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
-        param = f"{cell.id.name}{DahliaSuffix[comp.id]}"
+        param = f"{cell.id.name}"
         arg = CompVar(cell.id.name)
 
         # If this is a constant or a register, connect the ports
@@ -101,8 +90,7 @@ def emit_invoke_control(
             arg_cell.comp == param_cell.comp
         ), "arg cell and param cell must be same component"
         comp = arg_cell.comp
-        assert comp.id in DahliaSuffix, f"{comp.id} supported yet."
-        param = f"{param_cell.id.name}{DahliaSuffix[comp.id]}"
+        param = f"{param_cell.id.name}"
         arg = CompVar(arg_cell.id.name)
 
         # If this is a constant or a register, connect the ports

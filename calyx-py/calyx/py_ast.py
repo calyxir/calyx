@@ -48,7 +48,7 @@ class Component:
     inputs: list[PortDef]
     outputs: list[PortDef]
     wires: list[Structure]
-    cells: list[Structure]
+    cells: list[Cell]
     controls: Control
 
     def __init__(
@@ -63,13 +63,21 @@ class Component:
         self.outputs = outputs
         self.name = name
         self.controls = controls
-        # Partition cells and wires.
 
+        # Partition cells and wires.
         def is_cell(x):
             return isinstance(x, Cell)
 
         self.cells = [s for s in structs if is_cell(s)]
         self.wires = [s for s in structs if not is_cell(s)]
+
+    def get_cell(self, name: str) -> Cell:
+        for cell in self.cells:
+            if cell.id.name == name:
+                return cell
+        raise Exception(
+            f"Cell `{name}' not found in component {self.name}. Currently defined cells: {[c.id.name for c in self.cells]}"
+        )
 
     def doc(self) -> str:
         ins = ", ".join([s.doc() for s in self.inputs])
@@ -159,8 +167,10 @@ class Cell(Structure):
     is_ref: bool = False
 
     def doc(self) -> str:
-        assert not (self.is_ref and self.is_external)
-        external = "@external(1) " if self.is_external else ""
+        assert not (
+            self.is_ref and self.is_external
+        ), "Cell cannot be both a ref and external"
+        external = "@external " if self.is_external else ""
         ref = "ref " if self.is_ref else ""
         return f"{external}{ref}{self.id.doc()} = {self.comp.doc()};"
 
@@ -188,8 +198,7 @@ class Group(Structure):
 
     def doc(self) -> str:
         static_delay_attr = (
-            "" if self.static_delay is None
-            else f'<"static"={self.static_delay}>'
+            "" if self.static_delay is None else f'<"static"={self.static_delay}>'
         )
         return block(
             f"group {self.id.doc()}{static_delay_attr}",
@@ -259,6 +268,24 @@ class Or(GuardExpr):
         return f"{self.left.doc()} | {self.right.doc()}"
 
 
+@dataclass
+class Eq(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"{self.left.doc()} == {self.right.doc()}"
+
+
+@dataclass
+class Neq(GuardExpr):
+    left: GuardExpr
+    right: GuardExpr
+
+    def doc(self) -> str:
+        return f"{self.left.doc()} != {self.right.doc()}"
+
+
 # Control
 @dataclass
 class Control(Emittable):
@@ -303,14 +330,12 @@ class Invoke(Control):
 
         # Add attributes if present
         if len(self.attributes) > 0:
-            attrs = " ".join(
-                [f"@{tag}({val})" for tag, val in self.attributes])
+            attrs = " ".join([f"@{tag}({val})" for tag, val in self.attributes])
             inv = f"{attrs} {inv}"
 
         # Add ref cells if present
         if len(self.ref_cells) > 0:
-            rcs = ", ".join(
-                [f"{n}={arg.doc()}" for (n, arg) in self.ref_cells])
+            rcs = ", ".join([f"{n}={arg.doc()}" for (n, arg) in self.ref_cells])
             inv += f"[{rcs}]"
 
         # Inputs and outputs
@@ -333,12 +358,12 @@ class Invoke(Control):
 @dataclass
 class While(Control):
     port: Port
-    cond: CompVar
+    cond: Optional[CompVar]
     body: Control
 
     def doc(self) -> str:
         cond = f"while {self.port.doc()}"
-        if self.cond is not None:
+        if self.cond:
             cond += f" with {self.cond.doc()}"
         return block(cond, self.body.doc(), sep="")
 
@@ -346,19 +371,19 @@ class While(Control):
 @dataclass
 class Empty(Control):
     def doc(self) -> str:
-        return "empty"
+        return ""
 
 
 @dataclass
 class If(Control):
     port: Port
-    cond: CompVar
+    cond: Optional[CompVar]
     true_branch: Control
     false_branch: Control = Empty()
 
     def doc(self) -> str:
         cond = f"if {self.port.doc()}"
-        if self.cond is not None:
+        if self.cond:
             cond += f" with {self.cond.doc()}"
         true_branch = self.true_branch.doc()
         if isinstance(self.false_branch, Empty):
@@ -371,50 +396,46 @@ class If(Control):
 # Standard Library
 @dataclass
 class Stdlib:
-    def register(self, bitwidth: int):
+    @staticmethod
+    def register(bitwidth: int):
         return CompInst("std_reg", [bitwidth])
 
-    def constant(self, bitwidth: int, value: int):
+    @staticmethod
+    def constant(bitwidth: int, value: int):
         return CompInst("std_const", [bitwidth, value])
 
-    def op(self, op: str, bitwidth: int, signed: bool):
+    @staticmethod
+    def op(op: str, bitwidth: int, signed: bool):
         return CompInst(f'std_{"s" if signed else ""}{op}', [bitwidth])
 
-    def identity(self, op: str, bitwidth: int):
-        return CompInst("std_id", [bitwidth])
-
-    def slice(self, in_: int, out: int):
+    @staticmethod
+    def slice(in_: int, out: int):
         return CompInst("std_slice", [in_, out])
 
-    def pad(self, in_: int, out: int):
+    @staticmethod
+    def pad(in_: int, out: int):
         return CompInst("std_pad", [in_, out])
 
-    def mem_d1(self, bitwidth: int, size: int, idx_size: int):
+    @staticmethod
+    def mem_d1(bitwidth: int, size: int, idx_size: int):
         return CompInst("std_mem_d1", [bitwidth, size, idx_size])
 
-    def seq_mem_d1(self, bitwidth: int, size: int, idx_size: int):
+    @staticmethod
+    def seq_mem_d1(bitwidth: int, size: int, idx_size: int):
         return CompInst("seq_mem_d1", [bitwidth, size, idx_size])
 
-    def mem_d2(
-        self, bitwidth: int, size0: int, size1: int, idx_size0: int,
-        idx_size1: int
-    ):
-        return CompInst(
-            "std_mem_d2",
-            [bitwidth, size0, size1, idx_size0, idx_size1]
-        )
+    @staticmethod
+    def mem_d2(bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int):
+        return CompInst("std_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
 
+    @staticmethod
     def seq_mem_d2(
-        self, bitwidth: int, size0: int, size1: int, idx_size0: int,
-        idx_size1: int
+        bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int
     ):
-        return CompInst(
-            "seq_mem_d2",
-            [bitwidth, size0, size1, idx_size0, idx_size1]
-        )
+        return CompInst("seq_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
 
+    @staticmethod
     def mem_d3(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -428,8 +449,8 @@ class Stdlib:
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
         )
 
+    @staticmethod
     def seq_mem_d3(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -443,8 +464,8 @@ class Stdlib:
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
         )
 
+    @staticmethod
     def mem_d4(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -470,8 +491,8 @@ class Stdlib:
             ],
         )
 
+    @staticmethod
     def seq_mem_d4(
-        self,
         bitwidth: int,
         size0: int,
         size1: int,
@@ -498,11 +519,10 @@ class Stdlib:
         )
 
     # Extended Fixed Point AST
+    @staticmethod
     def fixed_point_op(
-        self, op: str, width: int, int_width: int, frac_width: int,
-        signed: bool
+        op: str, width: int, int_width: int, frac_width: int, signed: bool
     ):
         return CompInst(
-            f'std_fp_{"s" if signed else ""}{op}', [
-                width, int_width, frac_width]
+            f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]
         )

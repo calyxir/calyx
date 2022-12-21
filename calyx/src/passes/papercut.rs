@@ -68,10 +68,7 @@ fn port_information(
         let cell_ref = cell_wref.upgrade();
         let cell = cell_ref.borrow();
         if let ir::CellType::Primitive { name, .. } = &cell.prototype {
-            return Some((
-                (cell.name().clone(), name.clone()),
-                port.name.clone(),
-            ));
+            return Some(((cell.name(), *name), port.name));
         }
     }
     None
@@ -98,7 +95,7 @@ impl Visitor for Papercut {
                             assign.name == p.borrow().name && !assign.is_hole()
                         });
                     if done_use.is_none() {
-                        return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)).with_pos(&comp.name));
+                        return Err(Error::papercut(format!("Component `{}` has an empty control program and does not assign to the done port `{}`. Without an assignment to the done port, the component cannot return control flow.", comp.name, p.borrow().name)));
                     }
                 }
             }
@@ -148,7 +145,7 @@ impl Visitor for Papercut {
                 } = &cell.prototype
                 {
                     // If the cell is combinational and not driven by continuous assignments
-                    if *is_comb && !self.cont_cells.contains(cell.name()) {
+                    if *is_comb && !self.cont_cells.contains(&cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `while` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
                         return Err(
@@ -180,7 +177,7 @@ impl Visitor for Papercut {
                 } = &cell.prototype
                 {
                     // If the cell is combinational and not driven by continuous assignments
-                    if *is_comb && !self.cont_cells.contains(cell.name()) {
+                    if *is_comb && !self.cont_cells.contains(&cell.name()) {
                         let msg = format!("Port `{}.{}` is an output port on combinational primitive `{}` and will always output 0. Add a `with` statement to the `if` statement to ensure it has a valid value during execution.", cell.name(), port.name, prim_name);
                         // Use dummy Id to get correct source location for error
                         return Err(
@@ -207,9 +204,8 @@ impl Papercut {
         for ((inst, comp_type), reads) in all_reads {
             if let Some(spec) = self.read_together.get(&comp_type) {
                 let empty = HashSet::new();
-                let writes = all_writes
-                    .get(&(inst.clone(), comp_type.clone()))
-                    .unwrap_or(&empty);
+                let writes =
+                    all_writes.get(&(inst, comp_type)).unwrap_or(&empty);
                 for (read, required) in spec {
                     if reads.contains(read)
                         && matches!(required.difference(writes).next(), Some(_))

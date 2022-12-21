@@ -1,4 +1,4 @@
-# Passing Memories by Reference
+# Passing Cells by Reference
 
 One question that may arise when using Calyx as a backend is how to
 pass a memory "by reference" between components. In C++, this might look like:
@@ -61,6 +61,8 @@ In fact, any cell can be passed in by-reference in a Calyx program.
 Read the next section if you're curious about how this process is implemented.
 
 ## The Hard Way
+
+> We recommend using the `ref` syntax is almost all cases since it enables the compiler to perform more optimizations.
 
 In the C++ code above, we've constructed an "l-value reference" to the array,
 which essentially means we can both read and write from `x` in the function

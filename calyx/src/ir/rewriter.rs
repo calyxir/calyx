@@ -62,7 +62,7 @@ impl<'a> Rewriter<'a> {
         let new_cell = if let ir::PortParent::Cell(cell_wref) = &port.parent {
             let cell_ref = cell_wref.upgrade();
             let cell = cell_ref.borrow();
-            self.cell_map.get(cell.name())
+            self.cell_map.get(&cell.name())
         } else {
             None
         };

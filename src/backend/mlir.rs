@@ -136,11 +136,12 @@ impl MlirBackend {
         write!(f, "}}")
     }
 
-    pub fn write_prototype_sig<F: io::Write>(
+    pub fn write_prototype_sig<F: io::Write, S: ToString>(
         cell_type: &ir::CellType,
-        cell_name: String,
+        cell_name: S,
         f: &mut F,
     ) -> io::Result<()> {
+        let cell_name = cell_name.to_string();
         match cell_type {
             ir::CellType::Primitive {
                 name,
@@ -219,7 +220,7 @@ impl MlirBackend {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        let name = cell.name().id.clone();
+        let name = cell.name().id;
         let all_ports = cell
             .ports()
             .iter()
@@ -227,7 +228,7 @@ impl MlirBackend {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "{} = ", all_ports)?;
-        Self::write_prototype_sig(&cell.prototype, name, f)?;
+        Self::write_prototype_sig(&cell.prototype, name.as_str(), f)?;
         write!(f, "{}", Self::format_attributes(&cell.attributes))?;
         write!(f, " : ")?;
         let all_port_widths = cell
@@ -264,7 +265,7 @@ impl MlirBackend {
         } else if matches!(&*assign.guard, ir::Guard::True) {
             /* Print nothing */
         } else {
-            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", ir::Printer::guard_str(&*assign.guard));
+            panic!("Failed to compile guard: {}.\nFirst run the `lower-guards` pass. If you did, report this as an issue.", ir::Printer::guard_str(&assign.guard));
         }
         write!(f, "{}", Self::get_port_access(&assign.src.borrow()),)?;
         write!(f, " : i{}", assign.src.borrow().width)

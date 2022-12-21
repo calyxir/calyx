@@ -182,14 +182,14 @@ fn get_data(cell: &ir::RRC<ir::Cell>) -> Option<CellData> {
     match final_cell.prototype {
         ir::CellType::Primitive { ref name, .. } => {
             SIZEMAP.get(&name.id.as_str()).map(|sizes_vec| CellData {
-                name: final_cell.name().id.clone(),
+                name: final_cell.name().id.as_str().to_string(),
                 width: final_cell
                     .get_parameter("WIDTH")
                     .unwrap_or_else(|| panic!("unable to get width of cell")),
                 sizes: sizes_vec
                     .iter()
                     .map(|size| {
-                        final_cell.get_parameter(size).unwrap_or_else(|| {
+                        final_cell.get_parameter(*size).unwrap_or_else(|| {
                             panic!("unable to get sizes of cell")
                         }) as usize
                     })

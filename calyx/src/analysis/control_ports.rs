@@ -77,7 +77,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                             cells.contains(&port.borrow().get_parent_name())
                         });
                     self.cg_to_port
-                        .entry(c.borrow().name().clone())
+                        .entry(c.borrow().name())
                         .or_default()
                         .extend(ports);
                 }
@@ -100,7 +100,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
             }) => {
                 if let Some(c) = cond {
                     self.cg_to_port
-                        .entry(c.borrow().name().clone())
+                        .entry(c.borrow().name())
                         .or_default()
                         .push(Rc::clone(port));
                 }
@@ -113,7 +113,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
             }) => {
                 if let Some(c) = cond {
                     self.cg_to_port
-                        .entry(c.borrow().name().clone())
+                        .entry(c.borrow().name())
                         .or_default()
                         .push(Rc::clone(port));
                 }

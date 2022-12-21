@@ -62,10 +62,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       barrier.in_0 = save.out;
       write_barrier[done] = barrier.write_done_0;
     }
-    group wait {
+    group wt {
       wait_reg.in = eq.out;
       wait_reg.write_en = eq.out ? 1'd1;
-      wait[done] = wait_reg.done;
+      wt[done] = wait_reg.done;
     }
     group incr_barrier0 {
       barrier.read_en_1 = 1'd1;
@@ -80,10 +80,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       barrier.in_1 = save0.out;
       write_barrier0[done] = barrier.write_done_1;
     }
-    group wait0 {
+    group wt0 {
       wait_reg0.in = eq.out;
       wait_reg0.write_en = eq.out ? 1'd1;
-      wait0[done] = wait_reg0.done;
+      wt0[done] = wait_reg0.done;
     }
     eq.left = barrier.peek;
     eq.right = 32'd2;
@@ -96,22 +96,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       }
       par {
         seq {
+          no_op;
           seq {
-            no_op;
             incr_barrier;
             write_barrier;
-            wait;
+            wt;
             clear_barrier;
             restore;
           }
           reg_to_mem;
         }
         seq {
+          calc_val;
           seq {
-            calc_val;
             incr_barrier0;
             write_barrier0;
-            wait0;
+            wt0;
             wait_restore;
           }
         }

@@ -76,7 +76,7 @@ calyx.component @main(%go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) ->
         calyx.seq {
           calyx.enable @Group1
           calyx.enable @Group1
-          calyx.if %c1.out with @CombGroup {
+          calyx.if %c1.out {
             calyx.enable @Group2
           }
           calyx.if %c1.out {

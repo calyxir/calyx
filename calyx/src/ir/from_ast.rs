@@ -4,10 +4,10 @@ use super::{
     LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
 };
 use crate::{
-    errors::{CalyxResult, Error, WithPos},
+    errors::{CalyxResult, Error},
     frontend::{self, ast},
     ir::PortComp,
-    utils::NameGenerator,
+    utils::{GPosIdx, NameGenerator, WithPos},
 };
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -25,32 +25,31 @@ struct SigCtx {
 }
 
 /// Validates a component signature to make sure there are not duplicate ports.
-fn check_signature(ports: &[PortDef<u64>]) -> CalyxResult<()> {
-    let mut inputs: HashSet<&Id> = HashSet::new();
-    let mut outputs: HashSet<&Id> = HashSet::new();
+fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
+    let mut ports: HashSet<&Id> = HashSet::new();
     for PortDef {
         name, direction, ..
-    } in ports
+    } in pds
     {
         // check for uniqueness
         match &direction {
             Direction::Input => {
-                if !inputs.contains(&name) {
-                    inputs.insert(name);
+                if !ports.contains(&name) {
+                    ports.insert(name);
                 } else {
                     return Err(Error::already_bound(
-                        name.clone(),
-                        "component".to_string(),
+                        *name,
+                        "port".to_string(),
                     ));
                 }
             }
             Direction::Output => {
-                if !outputs.contains(&name) {
-                    outputs.insert(name);
+                if !ports.contains(&name) {
+                    ports.insert(name);
                 } else {
                     return Err(Error::already_bound(
-                        name.clone(),
-                        "component".to_string(),
+                        *name,
+                        "port".to_string(),
                     ));
                 }
             }
@@ -72,15 +71,15 @@ const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
 
 /// Extend the signature with magical ports.
 fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
-    let port_names: HashSet<_> =
-        sig.iter().map(|pd| pd.name.to_string()).collect();
+    let port_names: HashSet<_> = sig.iter().map(|pd| pd.name).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
     for (name, width, direction) in INTERFACE_PORTS.iter() {
         // Check if there is already another interface port defined for the
         // component
-        if !sig.iter().any(|pd| pd.attributes.has(name)) {
+        let attr = Id::from(*name);
+        if !sig.iter().any(|pd| pd.attributes.has(attr)) {
             let mut attributes = Attributes::default();
-            attributes.insert(name, 1);
+            attributes.insert(attr, 1);
             sig.push(PortDef {
                 name: namegen.gen_name(name.to_string()),
                 width: *width,
@@ -106,7 +105,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
     for bound in prim_names.chain(comp_names) {
         if all_names.contains(bound) {
             return Err(Error::already_bound(
-                bound.clone(),
+                *bound,
                 "component or primitive".to_string(),
             ));
         }
@@ -131,7 +130,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         if !comp.attributes.has("nointerface") && !comp.is_comb {
             extend_signature(sig);
         }
-        sig_ctx.comp_sigs.insert(comp.name.clone(), sig.clone());
+        sig_ctx.comp_sigs.insert(comp.name, sig.clone());
     }
 
     let comps: Vec<Component> = workspace
@@ -145,7 +144,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         .iter()
         .find(|c| c.attributes.get("toplevel").is_some())
         .or_else(|| comps.iter().find(|c| c.name == "main"))
-        .map(|c| c.name.clone())
+        .map(|c| c.name)
         .ok_or_else(|| Error::misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
 
     Ok(Context {
@@ -162,60 +161,58 @@ fn validate_component(
     comp: &ast::ComponentDef,
     sig_ctx: &SigCtx,
 ) -> CalyxResult<()> {
-    let mut cells: HashSet<Id> = HashSet::new();
-    let mut groups: HashSet<Id> = HashSet::new();
+    let mut cells: HashMap<Id, GPosIdx> = HashMap::new();
+    let mut groups: HashMap<Id, GPosIdx> = HashMap::new();
 
     for cell in &comp.cells {
-        if cells.contains(&cell.name) {
-            let prev = cells
-                .get(&cell.name)
-                .unwrap()
-                .copy_span()
-                .map(|s| s.format("Previous definition"));
-            return Err(Error::already_bound(
-                cell.name.clone(),
-                "cell".to_string(),
-            )
-            .with_post_msg(prev));
+        let attrs = &cell.attributes;
+        if let Some(pos) = cells.get(&cell.name) {
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(cell.name, "cell".to_string())
+                .with_pos(attrs)
+                .with_post_msg(prev));
         }
-        cells.insert(cell.name.clone());
+        cells.insert(cell.name, cell.attributes.copy_span());
 
-        let proto_name = &cell.prototype.name;
+        let proto_name = cell.prototype.name;
 
-        if sig_ctx.lib.find_primitive(&proto_name).is_none()
-            && !sig_ctx.comp_sigs.contains_key(proto_name)
+        if sig_ctx.lib.find_primitive(proto_name).is_none()
+            && !sig_ctx.comp_sigs.contains_key(&proto_name)
         {
             return Err(Error::undefined(
-                proto_name.clone(),
+                proto_name,
                 "primitive or component".to_string(),
-            ));
+            )
+            .with_pos(attrs));
         }
     }
 
     for group in &comp.groups {
         let name = &group.name;
-        if groups.contains(name) {
-            let prev = groups
-                .get(name)
-                .unwrap()
-                .copy_span()
-                .map(|s| s.format("Previous definition"));
-            return Err(Error::already_bound(
-                name.clone(),
-                "group".to_string(),
-            )
-            .with_post_msg(prev));
-        }
-        if cells.contains(name) {
-            let prev = cells
-                .get(name)
-                .unwrap()
-                .copy_span()
-                .map(|s| s.format("Previous definition"));
-            return Err(Error::already_bound(name.clone(), "cell".to_string())
+        let attrs = &group.attributes;
+        if let Some(pos) = groups.get(name) {
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(*name, "group".to_string())
+                .with_pos(attrs)
                 .with_post_msg(prev));
         }
-        groups.insert(name.clone());
+        if let Some(pos) = cells.get(name) {
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(*name, "cell".to_string())
+                .with_pos(attrs)
+                .with_post_msg(prev));
+        }
+        if let Some(pos) = cells.get(name) {
+            let prev =
+                pos.into_option().map(|s| s.format("Previous definition"));
+            return Err(Error::already_bound(*name, "cell".to_string())
+                .with_pos(attrs)
+                .with_post_msg(prev));
+        }
+        groups.insert(*name, group.attributes.copy_span());
     }
 
     Ok(())
@@ -258,7 +255,7 @@ fn build_component(
     // Add reserved names to the component's namegenerator so future conflicts
     // don't occur
     ir_component
-        .add_names(RESERVED_NAMES.iter().map(|s| s.to_string()).collect());
+        .add_names(RESERVED_NAMES.iter().map(|s| Id::from(*s)).collect());
 
     Ok(ir_component)
 }
@@ -266,7 +263,7 @@ fn build_component(
 ///////////////// Cell Construction /////////////////////////
 
 fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
-    let proto_name = &cell.prototype.name;
+    let proto_name = cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
         let c = builder.add_primitive(
@@ -280,10 +277,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         // Validator ensures that if the protoype is not a primitive, it
         // is a component.
         let name = builder.component.generate_name(cell.name);
-        let sig = &sig_ctx.comp_sigs[proto_name];
-        let typ = CellType::Component {
-            name: proto_name.clone(),
-        };
+        let sig = &sig_ctx.comp_sigs[&proto_name];
+        let typ = CellType::Component { name: proto_name };
         let reference = cell.reference;
         // Components do not have any bindings for parameters
         let cell = Builder::cell_from_signature(name, typ, sig.clone());
@@ -324,12 +319,10 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
 fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
     match port {
         ast::Port::Comp { component, port } => comp
-            .find_cell(&component)
-            .ok_or_else(|| {
-                Error::undefined(component.clone(), "cell".to_string())
-            })?
+            .find_cell(component)
+            .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
             .borrow()
-            .find(&port)
+            .find(port)
             .ok_or_else(|| Error::undefined(port, "port".to_string())),
         ast::Port::This { port } => {
             comp.signature.borrow().find(&port).ok_or_else(|| {
@@ -337,10 +330,10 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             })
         }
         ast::Port::Hole { group, name: port } => comp
-            .find_group(&group)
+            .find_group(group)
             .ok_or_else(|| Error::undefined(group, "group".to_string()))?
             .borrow()
-            .find(&port)
+            .find(port)
             .ok_or_else(|| Error::undefined(port, "hole".to_string())),
     }
 }
@@ -474,8 +467,9 @@ fn build_control(
             attributes,
         } => {
             let mut en = Control::enable(Rc::clone(
-                &builder.component.find_group(&component).ok_or_else(|| {
-                    Error::undefined(component.clone(), "group".to_string())
+                &builder.component.find_group(component).ok_or_else(|| {
+                    Error::undefined(component, "group".to_string())
+                        .with_pos(&attributes)
                 })?,
             ));
             *en.get_mut_attributes() = attributes;
@@ -490,10 +484,12 @@ fn build_control(
             ref_cells,
         } => {
             let cell = Rc::clone(
-                &builder.component.find_cell(&component).ok_or_else(|| {
-                    Error::undefined(component.clone(), "cell".to_string())
+                &builder.component.find_cell(component).ok_or_else(|| {
+                    Error::undefined(component, "cell".to_string())
+                        .with_pos(&attributes)
                 })?,
             );
+
             let inputs = inputs
                 .into_iter()
                 .map(|(id, port)| {
@@ -519,26 +515,20 @@ fn build_control(
                 ref_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
-                let cg_ref = builder
-                    .component
-                    .find_comb_group(&cg)
-                    .ok_or_else(|| {
-                        Error::undefined(
-                            cg.clone(),
-                            "combinational group".to_string(),
-                        )
+                let cg_ref =
+                    builder.component.find_comb_group(cg).ok_or_else(|| {
+                        Error::undefined(cg, "combinational group".to_string())
+                            .with_pos(&inv.attributes)
                     })?;
                 inv.comb_group = Some(cg_ref);
             }
             if !ref_cells.is_empty() {
                 let mut ext_cell_tuples = Vec::new();
                 for (outcell, incell) in ref_cells {
-                    let ext_cell_ref = builder
-                        .component
-                        .find_cell(&incell)
-                        .ok_or_else(|| {
-                            Error::undefined(incell.clone(), "cell".to_string())
-                        })?;
+                    let ext_cell_ref =
+                        builder.component.find_cell(incell).ok_or_else(
+                            || Error::undefined(incell, "cell".to_string()),
+                        )?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
                 }
                 inv.ref_cells = ext_cell_tuples;
@@ -574,11 +564,12 @@ fn build_control(
         } => {
             let group = maybe_cond
                 .map(|cond| {
-                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                    builder.component.find_comb_group(cond).ok_or_else(|| {
                         Error::undefined(
-                            cond.clone(),
+                            cond,
                             "combinational group".to_string(),
                         )
+                        .with_pos(&attributes)
                     })
                 })
                 .transpose()?;
@@ -602,11 +593,12 @@ fn build_control(
         } => {
             let group = maybe_cond
                 .map(|cond| {
-                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                    builder.component.find_comb_group(cond).ok_or_else(|| {
                         Error::undefined(
-                            cond.clone(),
+                            cond,
                             "combinational group".to_string(),
                         )
+                        .with_pos(&attributes)
                     })
                 })
                 .transpose()?;

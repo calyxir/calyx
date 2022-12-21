@@ -163,7 +163,7 @@ fn test_std_div_pipe() {
 
 #[test]
 fn test_std_reg_imval() {
-    let mut reg1 = stfl::StdReg::from_constants(6, "".into());
+    let mut reg1 = stfl::mem::StdReg::from_constants(6, "".into());
     //see that unitialized register, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -222,7 +222,7 @@ fn test_std_reg_imval() {
 
 #[test]
 fn test_std_mem_d1() {
-    let mut mem = stfl::StdMemD1::from_constants(6, 10, 4, "".into());
+    let mut mem = stfl::mem::StdMemD1::from_constants(6, 10, 4, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -289,7 +289,7 @@ fn test_std_mem_d1() {
 
 #[test]
 fn test_std_mem_d2() {
-    let mut mem = stfl::StdMemD2::from_constants(6, 4, 4, 2, 2, "".into());
+    let mut mem = stfl::mem::StdMemD2::from_constants(6, 4, 4, 2, 2, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -355,7 +355,7 @@ fn test_std_mem_d2() {
 #[test]
 fn test_std_mem_d3() {
     let mut mem =
-        stfl::StdMemD3::from_constants(6, 4, 4, 4, 2, 2, 2, "".into());
+        stfl::mem::StdMemD3::from_constants(6, 4, 4, 4, 2, 2, 2, "".into());
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;
@@ -425,8 +425,18 @@ fn test_std_mem_d3() {
 
 #[test]
 fn test_std_mem_d4() {
-    let mut mem =
-        stfl::StdMemD4::from_constants(6, 4, 4, 4, 4, 2, 2, 2, 2, "".into());
+    let mut mem = stfl::mem::StdMemD4::from_constants(
+        6,
+        4,
+        4,
+        4,
+        4,
+        2,
+        2,
+        2,
+        2,
+        "".into(),
+    );
     //see that unitialized mem, executed w/ write_en low,
     //returns 0, and no DONE
     port_bindings![binds;

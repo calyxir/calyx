@@ -69,8 +69,8 @@ impl AssignmentHolder {
     }
     pub fn get_name(&self) -> Option<ir::Id> {
         match self {
-            AssignmentHolder::CombGroup(cg) => Some(cg.borrow().name().clone()),
-            AssignmentHolder::Group(g) => Some(g.borrow().name().clone()),
+            AssignmentHolder::CombGroup(cg) => Some(cg.borrow().name()),
+            AssignmentHolder::Group(g) => Some(g.borrow().name()),
             AssignmentHolder::Vec(_) => None,
         }
     }
@@ -239,7 +239,7 @@ impl AssignmentInterpreter {
                         let dst = assignment.dst.borrow();
 
                         return Err(InterpreterError::conflicting_assignments(
-                            dst.name.clone(),
+                            dst.name,
                             dst.get_parent_name(),
                             s_orig,
                             s_conf,
@@ -534,7 +534,7 @@ fn get_inputs<'a>(
             let p_ref: &ir::Port = &p.borrow();
             match &p_ref.direction {
                 ir::Direction::Input => {
-                    Some((p_ref.name.clone(), env.get_from_port(p_ref)))
+                    Some((p_ref.name, env.get_from_port(p_ref)))
                 }
                 _ => None,
             }

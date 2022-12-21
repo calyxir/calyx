@@ -1,35 +1,30 @@
-use crate::errors::{Span, WithPos};
-use derivative::Derivative;
+use crate::utils::GSym;
 use serde::{Deserialize, Serialize};
 
 /// Represents an identifier in a Calyx program
-#[derive(Derivative, Clone, PartialOrd, Ord, Deserialize)]
-#[derivative(Hash, Eq, Debug)]
+#[derive(
+    Clone, Copy, Deserialize, Hash, PartialEq, Eq, Debug, PartialOrd, Ord,
+)]
 #[serde(transparent)]
 pub struct Id {
-    pub id: String,
-    #[derivative(Hash = "ignore")]
-    #[derivative(Debug = "ignore")]
-    #[serde(skip)]
-    span: Option<Span>,
+    pub id: GSym,
 }
 
 impl Id {
-    pub fn new<S: ToString>(id: S, span: Option<Span>) -> Self {
+    pub fn new<S: ToString>(id: S) -> Self {
         Self {
-            id: id.to_string(),
-            span,
+            id: GSym::from(id.to_string()),
         }
     }
 }
 
-impl WithPos for Id {
-    fn copy_span(&self) -> Option<Span> {
-        self.span.clone()
+/* =================== Impls for Id to make them easier to use ============== */
+
+impl Default for Id {
+    fn default() -> Self {
+        Id::new("")
     }
 }
-
-/* =================== Impls for Id to make them easier to use ============== */
 
 impl std::fmt::Display for Id {
     fn fmt(
@@ -42,34 +37,57 @@ impl std::fmt::Display for Id {
 
 impl AsRef<str> for Id {
     fn as_ref(&self) -> &str {
-        &self.id
+        self.id.as_str()
     }
 }
 
 impl From<&str> for Id {
     fn from(s: &str) -> Self {
-        Id {
-            id: s.to_string(),
-            span: None,
-        }
+        Id::new(s)
     }
 }
 
 impl From<String> for Id {
     fn from(s: String) -> Self {
-        Id { id: s, span: None }
+        Id::new(s)
     }
 }
 
+impl PartialEq<GSym> for Id {
+    fn eq(&self, other: &GSym) -> bool {
+        self.id == *other
+    }
+}
 impl PartialEq<str> for Id {
     fn eq(&self, other: &str) -> bool {
-        self.id == other
+        self.id == GSym::from(other)
+    }
+}
+impl PartialEq<&str> for Id {
+    fn eq(&self, other: &&str) -> bool {
+        self.id == GSym::from(*other)
+    }
+}
+impl PartialEq<&Id> for Id {
+    fn eq(&self, other: &&Id) -> bool {
+        self.id == other.id
+    }
+}
+impl PartialEq<String> for Id {
+    fn eq(&self, other: &String) -> bool {
+        self.id == GSym::from(other)
     }
 }
 
-impl<S: AsRef<str>> PartialEq<S> for Id {
-    fn eq(&self, other: &S) -> bool {
-        self.id == other.as_ref()
+impl From<Id> for GSym {
+    fn from(id: Id) -> Self {
+        id.id
+    }
+}
+
+impl From<&Id> for GSym {
+    fn from(id: &Id) -> Self {
+        id.id
     }
 }
 
@@ -78,6 +96,6 @@ impl Serialize for Id {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.id)
+        self.id.serialize(serializer)
     }
 }

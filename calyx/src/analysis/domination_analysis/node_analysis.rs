@@ -181,7 +181,7 @@ impl NodeSearch {
                 && assign.src.borrow().is_constant(1, 1)
             {
                 if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
-                    return *cell_wref.upgrade().borrow().name() == self.name;
+                    return cell_wref.upgrade().borrow().name() == self.name;
                 }
             }
             false
@@ -221,7 +221,7 @@ impl NodeSearch {
                             return true;
                         }
                     }
-                    if *comp.borrow().name() == self.name {
+                    if comp.borrow().name() == self.name {
                         return true;
                     }
                 }

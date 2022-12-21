@@ -7,6 +7,10 @@ import simplejson as sjson
 from image_processing import preprocess_image
 from calyx.py_ast import Import
 
+WIDTH = 32
+FRAC_WIDTH = 16
+IS_SIGNED = True
+
 
 def write_data(relay_ir, input, input_name: str, params, filename: str):
     """Writes the `.data` file to `filename` for Calyx simulation, with
@@ -19,18 +23,14 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
     # Get the memories from the Calyx program.
     data = relay_visitor.get_program_dat_memories(relay_ir)
 
-    width = 32
-    frac_width = 16
-    is_signed = True
-
     # Write the input.
     data[input_name] = {
         "data": input.tolist(),
         "format": {
             "numeric_type": "fixed_point",
-            "is_signed": is_signed,
-            "width": width,
-            "frac_width": frac_width,
+            "is_signed": IS_SIGNED,
+            "width": WIDTH,
+            "frac_width": FRAC_WIDTH,
         },
     }
 
@@ -42,9 +42,9 @@ def write_data(relay_ir, input, input_name: str, params, filename: str):
             "data": value.asnumpy().tolist(),
             "format": {
                 "numeric_type": "fixed_point",
-                "is_signed": is_signed,
-                "width": width,
-                "frac_width": frac_width,
+                "is_signed": IS_SIGNED,
+                "width": WIDTH,
+                "frac_width": FRAC_WIDTH,
             },
         }
 

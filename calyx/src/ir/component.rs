@@ -51,12 +51,9 @@ impl Component {
     /// Construct a new Component with the given `name` and signature fields.
     pub fn new<S>(name: S, ports: Vec<PortDef<u64>>, is_comb: bool) -> Self
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
-        let prev_names: HashSet<_> = ports
-            .iter()
-            .map(|pd| pd.name.as_ref().to_string())
-            .collect();
+        let prev_names: HashSet<_> = ports.iter().map(|pd| pd.name).collect();
 
         let this_sig = Builder::cell_from_signature(
             THIS_ID.into(),
@@ -72,7 +69,7 @@ impl Component {
         );
 
         Component {
-            name: name.as_ref().into(),
+            name: name.into(),
             signature: this_sig,
             cells: IdList::default(),
             groups: IdList::default(),
@@ -85,30 +82,30 @@ impl Component {
         }
     }
 
-    pub(super) fn add_names(&mut self, names: HashSet<String>) {
+    pub(super) fn add_names(&mut self, names: HashSet<Id>) {
         self.namegen.add_names(names)
     }
 
     /// Return a reference to the group with `name` if present.
-    pub fn find_group<S>(&self, name: &S) -> Option<RRC<Group>>
+    pub fn find_group<S>(&self, name: S) -> Option<RRC<Group>>
     where
-        S: Clone + AsRef<str>,
+        S: Into<Id>,
     {
         self.groups.find(name)
     }
 
     /// Return a refernece to a combination group with `name` if present.
-    pub fn find_comb_group<S>(&self, name: &S) -> Option<RRC<CombGroup>>
+    pub fn find_comb_group<S>(&self, name: S) -> Option<RRC<CombGroup>>
     where
-        S: Clone + AsRef<str>,
+        S: Into<Id>,
     {
         self.comb_groups.find(name)
     }
 
     /// Return a reference to the cell with `name` if present.
-    pub fn find_cell<S>(&self, name: &S) -> Option<RRC<Cell>>
+    pub fn find_cell<S>(&self, name: S) -> Option<RRC<Cell>>
     where
-        S: Clone + AsRef<str>,
+        S: Into<Id>,
     {
         self.cells.find(name)
     }
@@ -116,7 +113,7 @@ impl Component {
     /// Construct a non-conflicting name using the Component's namegenerator.
     pub fn generate_name<S>(&mut self, prefix: S) -> Id
     where
-        S: Into<Id> + ToString + Clone,
+        S: Into<Id>,
     {
         self.namegen.gen_name(prefix)
     }
@@ -164,7 +161,7 @@ where
         IdList(
             list.into_iter()
                 .map(|item| {
-                    let name = item.borrow().name().clone();
+                    let name = item.borrow().name();
                     (name, item)
                 })
                 .collect::<LinkedHashMap<Id, RRC<T>>>(),
@@ -236,11 +233,11 @@ impl<T: GetName> IdList<T> {
     }
 
     /// Returns the element indicated by the name, if present, otherwise None.
-    pub fn find<S>(&self, name: &S) -> Option<RRC<T>>
+    pub fn find<S>(&self, name: S) -> Option<RRC<T>>
     where
-        S: Clone + AsRef<str>,
+        S: Into<Id>,
     {
-        self.0.get(&name.as_ref().into()).map(Rc::clone)
+        self.0.get(&name.into()).map(Rc::clone)
     }
 }
 

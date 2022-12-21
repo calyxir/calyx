@@ -4,9 +4,9 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component dense_1x10() -> () {
   cells {
-    ref x0_0 = seq_mem_d2(32,1,4096,1,13);
-    ref y0_0 = seq_mem_d2(32,10,4096,4,13);
-    ref x10_0 = seq_mem_d2(32,1,10,1,4);
+    ref x = seq_mem_d2(32,1,4096,1,13);
+    ref y = seq_mem_d2(32,10,4096,4,13);
+    ref x1 = seq_mem_d2(32,1,10,1,4);
     __i0 = std_reg(1);
     __j0 = std_reg(4);
     __k0 = std_reg(13);
@@ -61,72 +61,72 @@ component dense_1x10() -> () {
       __k0.write_en = 1'd1;
       let2[done] = __k0.done;
     }
-    group let3<"static"=4> {
+    group let3<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let3[done] = x_read0_0.done;
+      x.addr1 = __k0.out;
+      x.addr0 = __i0.out;
+      x.read_en = 1'd1;
+    }
+    group let4<"static"=2> {
+      y_read0_0.in = y.out;
+      y_read0_0.write_en = y.read_done;
+      let4[done] = y_read0_0.done;
+      y.addr1 = __k0.out;
+      y.addr0 = __j0.out;
+      y.read_en = 1'd1;
+    }
+    group let5<"static"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
-      let3[done] = bin_read0_0.done;
+      let5[done] = bin_read0_0.done;
       mult_pipe0.left = x_read0_0.out;
       mult_pipe0.right = y_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let4<"static"=1> {
+    group let6<"static"=1> {
       __product_0.in = bin_read0_0.out;
       __product_0.write_en = 1'd1;
-      let4[done] = __product_0.done;
+      let6[done] = __product_0.done;
     }
-    group let5<"static"=2> {
-      red_read00.in = x10_0.out;
-      red_read00.write_en = x10_0.read_done;
-      let5[done] = red_read00.done;
-      x10_0.addr1 = __j0.out;
-      x10_0.addr0 = __i0.out;
-      x10_0.read_en = 1'd1;
+    group let7<"static"=2> {
+      red_read00.in = x1.out;
+      red_read00.write_en = x1.read_done;
+      let7[done] = red_read00.done;
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.read_en = 1'd1;
     }
-    group upd0<"static"=2> {
-      x_read0_0.write_en = x0_0.read_done;
-      x0_0.addr1 = __k0.out;
-      x0_0.addr0 = __i0.out;
-      x0_0.read_en = 1'd1;
-      x_read0_0.in = x0_0.out;
-      upd0[done] = x_read0_0.done;
-    }
-    group upd1<"static"=2> {
-      y_read0_0.write_en = y0_0.read_done;
-      y0_0.addr1 = __k0.out;
-      y0_0.addr0 = __j0.out;
-      y0_0.read_en = 1'd1;
-      y_read0_0.in = y0_0.out;
-      upd1[done] = y_read0_0.done;
-    }
-    group upd2<"static"=1> {
-      x10_0.addr1 = __j0.out;
-      x10_0.addr0 = __i0.out;
-      x10_0.write_en = 1'd1;
+    group upd0<"static"=1> {
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
       add0.left = red_read00.out;
       add0.right = __product_0.out;
-      x10_0.in = add0.out;
-      upd2[done] = x10_0.write_done;
+      x1.in = add0.out;
+      upd0[done] = x1.write_done;
     }
-    group upd3<"static"=1> {
+    group upd1<"static"=1> {
       __k0.write_en = 1'd1;
       add1.left = __k0.out;
       add1.right = const6.out;
       __k0.in = add1.out;
-      upd3[done] = __k0.done;
+      upd1[done] = __k0.done;
     }
-    group upd4<"static"=1> {
+    group upd2<"static"=1> {
       __j0.write_en = 1'd1;
       add2.left = __j0.out;
       add2.right = const7.out;
       __j0.in = add2.out;
-      upd4[done] = __j0.done;
+      upd2[done] = __j0.done;
     }
-    group upd5<"static"=1> {
+    group upd3<"static"=1> {
       __i0.write_en = 1'd1;
       add3.left = __i0.out;
       add3.right = const8.out;
       __i0.in = add3.out;
-      upd5[done] = __i0.done;
+      upd3[done] = __i0.done;
     }
   }
   control {
@@ -141,20 +141,20 @@ component dense_1x10() -> () {
               @bound(4096) while le2.out with cond2 {
                 seq {
                   par {
-                    @pos(3) upd0;
-                    @pos(4) upd1;
+                    @pos(3) let3;
+                    @pos(4) let4;
                   }
-                  let3;
-                  let4;
                   let5;
-                  upd2;
-                  @pos(2) upd3;
+                  let6;
+                  let7;
+                  upd0;
+                  @pos(2) upd1;
                 }
               }
-              @pos(1) upd4;
+              @pos(1) upd2;
             }
           }
-          @pos(0) upd5;
+          @pos(0) upd3;
         }
       }
     }
@@ -163,9 +163,9 @@ component dense_1x10() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d2(32, 1, 4096, 1, 13);
-    @external(1) y = seq_mem_d2(32, 10, 4096, 4, 13);
-    @external(1) x1 = seq_mem_d2(32, 1, 10, 1, 4);
+    @external x = seq_mem_d2(32, 1, 4096, 1, 13);
+    @external y = seq_mem_d2(32, 10, 4096, 4, 13);
+    @external x1 = seq_mem_d2(32, 1, 10, 1, 4);
     dense_1x10_ = dense_1x10();
   }
   wires {
@@ -173,7 +173,7 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0) invoke dense_1x10_[x0_0=x, y0_0=y, x10_0=x1]()();
+      @pos(0) invoke dense_1x10_[x=x, y=y, x1=x1]()();
     }
   }
 }

@@ -2,6 +2,12 @@ name: Test
 
 on: [push]
 
+# Ensures that only the latest commit of a PR can execute the actions.
+# Useful for cancelling job when a sequence of commits are quickly added.
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   interpreter:
     name: Test Interpreter
@@ -126,7 +132,6 @@ jobs:
 
   evaluation:
     name: Polybench Integration
-    needs: compiler
     runs-on: ubuntu-latest
     container: ghcr.io/cucapra/calyx:latest
     steps:

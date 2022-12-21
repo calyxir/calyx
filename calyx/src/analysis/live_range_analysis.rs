@@ -383,7 +383,7 @@ impl LiveRangeAnalysis {
                             live_once_map
                                 .entry(cell_type.clone())
                                 .or_default()
-                                .entry(cell_name.clone())
+                                .entry(*cell_name)
                                 .or_default()
                                 .extend(parents);
                         }
@@ -393,7 +393,7 @@ impl LiveRangeAnalysis {
                         live_cell_map
                             .entry(cell_type.clone())
                             .or_default()
-                            .entry(cell_name.clone())
+                            .entry(*cell_name)
                             .or_default()
                             .insert(id);
                     }
@@ -414,14 +414,14 @@ impl LiveRangeAnalysis {
                             live_once_map
                                 .entry(cell_type.clone())
                                 .or_default()
-                                .entry(cell_name.clone())
+                                .entry(*cell_name)
                                 .or_default()
                                 .extend(parents);
                         }
                         live_cell_map
                             .entry(cell_type.clone())
                             .or_default()
-                            .entry(cell_name.clone())
+                            .entry(*cell_name)
                             .or_default()
                             .insert(id);
                     }
@@ -436,10 +436,7 @@ impl LiveRangeAnalysis {
                     let cell_to_control =
                         live_once_map.entry(cell_type).or_default();
                     for cell in live_cells {
-                        cell_to_node
-                            .entry(cell.clone())
-                            .or_default()
-                            .insert(id);
+                        cell_to_node.entry(cell).or_default().insert(id);
                         cell_to_control
                             .entry(cell)
                             .or_default()
@@ -478,7 +475,7 @@ impl LiveRangeAnalysis {
         grp: &RRC<ir::Group>,
     ) -> &Option<(ir::CellType, ir::Id)> {
         let group = grp.borrow();
-        let name = group.name();
+        let name = &group.name();
         if !self.variable_like.contains_key(name) {
             let res = VariableDetection::variable_like(grp, &self.state_share);
             self.variable_like.insert(grp.clone_name(), res);

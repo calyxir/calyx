@@ -3,7 +3,7 @@
 ---STDERR---
 Error: tests/errors/duplicate-cells.futil
 6 |    r = std_reg(32);
-  |    ^ Name `r' already bound by cell
+  |    ^^^^^^^^^^^^^^^ Name `r' already bound by cell
 tests/errors/duplicate-cells.futil
 5 |    r = std_reg(32);
-  |    ^ Previous definition
+  |    ^^^^^^^^^^^^^^^ Previous definition

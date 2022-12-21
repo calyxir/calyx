@@ -4,8 +4,8 @@ import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component sqrt_1x4() -> () {
   cells {
-    ref x0_0 = seq_mem_d2(32,1,4,1,3);
-    ref x10_0 = seq_mem_d2(32,1,4,1,3);
+    ref x = seq_mem_d2(32,1,4,1,3);
+    ref x1 = seq_mem_d2(32,1,4,1,3);
     __i0 = std_reg(1);
     __j0 = std_reg(3);
     __tmp_0 = std_reg(32);
@@ -41,39 +41,39 @@ component sqrt_1x4() -> () {
       __j0.write_en = 1'd1;
       let1[done] = __j0.done;
     }
-    group let2 {
+    group let2<"static"=2> {
+      x_read0_0.in = x.out;
+      x_read0_0.write_en = x.read_done;
+      let2[done] = x_read0_0.done;
+      x.addr1 = __j0.out;
+      x.addr0 = __i0.out;
+      x.read_en = 1'd1;
+    }
+    group let3 {
       __tmp_0.in = sqrt0.out;
       __tmp_0.write_en = 1'd1;
-      let2[done] = __tmp_0.done;
+      let3[done] = __tmp_0.done;
     }
-    group upd0<"static"=2> {
-      x_read0_0.write_en = x0_0.read_done;
-      x0_0.addr1 = __j0.out;
-      x0_0.addr0 = __i0.out;
-      x0_0.read_en = 1'd1;
-      x_read0_0.in = x0_0.out;
-      upd0[done] = x_read0_0.done;
+    group upd0<"static"=1> {
+      x1.addr1 = __j0.out;
+      x1.addr0 = __i0.out;
+      x1.write_en = 1'd1;
+      x1.in = __tmp_0.out;
+      upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {
-      x10_0.addr1 = __j0.out;
-      x10_0.addr0 = __i0.out;
-      x10_0.write_en = 1'd1;
-      x10_0.in = __tmp_0.out;
-      upd1[done] = x10_0.write_done;
-    }
-    group upd2<"static"=1> {
       __j0.write_en = 1'd1;
       add0.left = __j0.out;
       add0.right = const4.out;
       __j0.in = add0.out;
-      upd2[done] = __j0.done;
+      upd1[done] = __j0.done;
     }
-    group upd3<"static"=1> {
+    group upd2<"static"=1> {
       __i0.write_en = 1'd1;
       add1.left = __i0.out;
       add1.right = const5.out;
       __i0.in = add1.out;
-      upd3[done] = __i0.done;
+      upd2[done] = __i0.done;
     }
   }
   control {
@@ -84,14 +84,14 @@ component sqrt_1x4() -> () {
           @pos(1) let1;
           @bound(4) while le1.out with cond1 {
             seq {
-              @pos(2) upd0;
+              @pos(2) let2;
               invoke sqrt0(in=x_read0_0.out)();
-              let2;
-              @pos(3) upd1;
-              @pos(1) upd2;
+              let3;
+              @pos(3) upd0;
+              @pos(1) upd1;
             }
           }
-          @pos(0) upd3;
+          @pos(0) upd2;
         }
       }
     }
@@ -100,8 +100,8 @@ component sqrt_1x4() -> () {
 
 component main() -> () {
   cells {
-    @external(1) x = seq_mem_d2(32, 1, 4, 1, 3);
-    @external(1) x1 = seq_mem_d2(32, 1, 4, 1, 3);
+    @external x = seq_mem_d2(32, 1, 4, 1, 3);
+    @external x1 = seq_mem_d2(32, 1, 4, 1, 3);
     sqrt_1x4_ = sqrt_1x4();
   }
   wires {
@@ -109,7 +109,7 @@ component main() -> () {
   }
   control {
     seq {
-      @pos(0) invoke sqrt_1x4_[x0_0=x, x10_0=x1]()();
+      @pos(0) invoke sqrt_1x4_[x=x, x1=x1]()();
     }
   }
 }

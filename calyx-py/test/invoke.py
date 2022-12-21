@@ -1,9 +1,26 @@
-from calyx.py_ast import *
+from calyx.py_ast import (
+    CompVar,
+    Cell,
+    Stdlib,
+    CompPort,
+    ThisPort,
+    Connect,
+    HolePort,
+    Component,
+    PortDef,
+    SeqComp,
+    Group,
+    ConstantPort,
+    Enable,
+    CompInst,
+    Invoke,
+    Import,
+    Program,
+)
 
-stdlib = Stdlib()
 temp = CompVar("temp")
 
-foo_cells = [Cell(temp, stdlib.register(32))]
+foo_cells = [Cell(temp, Stdlib.register(32))]
 
 foo_wires = [
     Group(
@@ -32,9 +49,9 @@ const = CompVar("cst")
 foo = CompVar("foo0")
 
 cells = [
-    Cell(b, stdlib.register(32)),
-    Cell(c, stdlib.register(32)),
-    Cell(const, stdlib.constant(32, 1)),
+    Cell(b, Stdlib.register(32)),
+    Cell(c, Stdlib.register(32)),
+    Cell(const, Stdlib.constant(32, 1)),
     Cell(foo, CompInst("foo", [])),
 ]
 
@@ -76,9 +93,9 @@ main_component = Component(
 program = Program(
     imports=[
         Import("primitives/core.futil"),
-        Import("primitives/binary_operators.futil")
+        Import("primitives/binary_operators.futil"),
     ],
-    components=[foo_component, main_component]
+    components=[foo_component, main_component],
 )
 
 # Emit the code.

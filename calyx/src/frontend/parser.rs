@@ -2,15 +2,15 @@
 
 //! Parser for Calyx programs.
 use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
-use crate::errors::{self, CalyxResult, Span};
+use crate::errors::{self, CalyxResult};
 use crate::ir;
-use pest::prec_climber::{Assoc, Operator, PrecClimber};
+use crate::utils::{FileIdx, GPosIdx, GlobalPositionTable};
+use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
 use std::convert::TryInto;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
-use std::rc::Rc;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
 type PortDef = ir::PortDef<ir::Width>;
@@ -19,10 +19,8 @@ type ComponentDef = ast::ComponentDef;
 /// Data associated with parsing the file.
 #[derive(Clone)]
 struct UserData {
-    /// Input to the parser
-    pub input: Rc<str>,
-    /// Path of the file
-    pub file: Rc<str>,
+    /// Index to the current file
+    pub file: FileIdx,
 }
 
 // user data is the input program so that we can create ir::Id's
@@ -35,14 +33,10 @@ const _GRAMMAR: &str = include_str!("syntax.pest");
 // Define the precedence of binary operations. We use `lazy_static` so that
 // this is only ever constructed once.
 lazy_static::lazy_static! {
-    static ref PRECCLIMBER: PrecClimber<Rule> = PrecClimber::new(
-        vec![
-            // loosest binding
-            Operator::new(Rule::guard_or, Assoc::Left),
-            Operator::new(Rule::guard_and, Assoc::Left),
-            // tighest binding
-        ]
-    );
+    static ref PRATT: PrattParser<Rule> =
+    PrattParser::new()
+        .op(Op::infix(Rule::guard_or, Assoc::Left))
+        .op(Op::infix(Rule::guard_and, Assoc::Left));
 }
 
 #[derive(Parser)]
@@ -52,25 +46,31 @@ pub struct CalyxParser;
 impl CalyxParser {
     /// Parse a Calyx program into an AST representation.
     pub fn parse_file(path: &Path) -> CalyxResult<ast::NamespaceDef> {
+        let time = std::time::Instant::now();
         let content = &fs::read(path).map_err(|err| {
             errors::Error::invalid_file(format!(
                 "Failed to read {}: {err}",
                 path.to_string_lossy(),
             ))
         })?;
-        let string_content = std::str::from_utf8(content)?;
-        let user_data = UserData {
-            input: Rc::from(string_content),
-            file: Rc::from(path.to_string_lossy()),
-        };
-        let inputs = CalyxParser::parse_with_userdata(
-            Rule::file,
-            string_content,
-            user_data,
-        )
-        .map_err(|e| e.with_path(&path.to_string_lossy()))?;
+        // Add a new file to the position table
+        let string_content = std::str::from_utf8(content)?.to_string();
+        let file = GlobalPositionTable::as_mut()
+            .add_file(path.to_string_lossy().to_string(), string_content);
+        let user_data = UserData { file };
+        let content = GlobalPositionTable::as_ref().get_source(file);
+        // Parse the file
+        let inputs =
+            CalyxParser::parse_with_userdata(Rule::file, content, user_data)
+                .map_err(|e| e.with_path(&path.to_string_lossy()))?;
         let input = inputs.single()?;
-        Ok(CalyxParser::file(input)?)
+        let out = CalyxParser::file(input)?;
+        log::info!(
+            "Parsed `{}` in {}ms",
+            path.to_string_lossy(),
+            time.elapsed().as_millis()
+        );
+        Ok(out)
     }
 
     pub fn parse<R: Read>(mut r: R) -> CalyxResult<ast::NamespaceDef> {
@@ -80,19 +80,50 @@ impl CalyxParser {
                 "Failed to parse buffer: {err}",
             ))
         })?;
-        let user_data = UserData {
-            input: Rc::from(buf.as_ref()),
-            file: Rc::from("<stdin>"),
-        };
+        // Save the input string to the position table
+        let file =
+            GlobalPositionTable::as_mut().add_file("<stdin>".to_string(), buf);
+        let user_data = UserData { file };
+        let contents = GlobalPositionTable::as_ref().get_source(file);
+        // Parse the input
         let inputs =
-            CalyxParser::parse_with_userdata(Rule::file, &buf, user_data)?;
+            CalyxParser::parse_with_userdata(Rule::file, contents, user_data)?;
         let input = inputs.single()?;
         Ok(CalyxParser::file(input)?)
     }
 
-    fn get_span(node: &Node) -> Span {
+    fn get_span(node: &Node) -> GPosIdx {
         let ud = node.user_data();
-        Span::new(node.as_span(), Rc::clone(&ud.file), Rc::clone(&ud.input))
+        let sp = node.as_span();
+        let pos = GlobalPositionTable::as_mut().add_pos(
+            ud.file,
+            sp.start(),
+            sp.end(),
+        );
+        GPosIdx(pos)
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn guard_expr_helper(
+        ud: UserData,
+        pairs: pest::iterators::Pairs<Rule>,
+    ) -> ParseResult<Box<GuardExpr>> {
+        PRATT
+            .map_primary(|primary| match primary.as_rule() {
+                Rule::term => {
+                    Self::term(Node::new_with_user_data(primary, ud.clone()))
+                        .map(Box::new)
+                }
+                x => unreachable!("Unexpected rule {:?} for guard_expr", x),
+            })
+            .map_infix(|lhs, op, rhs| {
+                Ok(match op.as_rule() {
+                    Rule::guard_or => Box::new(GuardExpr::Or(lhs?, rhs?)),
+                    Rule::guard_and => Box::new(GuardExpr::And(lhs?, rhs?)),
+                    _ => unreachable!(),
+                })
+            })
+            .parse(pairs)
     }
 }
 
@@ -122,8 +153,7 @@ impl CalyxParser {
 
     // ================ Literals =====================
     fn identifier(input: Node) -> ParseResult<ir::Id> {
-        let span = Self::get_span(&input);
-        Ok(ir::Id::new(input.as_str(), Some(span)))
+        Ok(ir::Id::new(input.as_str()))
     }
 
     fn bitwidth(input: Node) -> ParseResult<u64> {
@@ -156,50 +186,32 @@ impl CalyxParser {
     }
 
     fn num_lit(input: Node) -> ParseResult<BitNum> {
-        let ud = input.user_data();
-        let input_ref = Rc::clone(&ud.input);
-        let file_ref = Rc::clone(&ud.file);
+        let span = Self::get_span(&input);
         let num = match_nodes!(
             input.clone().into_children();
             [bitwidth(width), decimal(val)] => BitNum {
                     width,
                     num_type: NumType::Decimal,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
             [bitwidth(width), hex(val)] => BitNum {
                     width,
                     num_type: NumType::Hex,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
             [bitwidth(width), octal(val)] => BitNum {
                     width,
                     num_type: NumType::Octal,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
             [bitwidth(width), binary(val)] => BitNum {
                     width,
                     num_type: NumType::Binary,
                     val,
-                    span: Some(Span::new(
-                        input.as_span(),
-                        file_ref,
-                        input_ref,
-                    )),
+                    span
                 },
 
         );
@@ -237,10 +249,10 @@ impl CalyxParser {
     }
 
     // ================ Attributes =====================
-    fn attribute(input: Node) -> ParseResult<(String, u64)> {
+    fn attribute(input: Node) -> ParseResult<(ir::Id, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [string_lit(key), bitwidth(num)] => (key, num)
+            [string_lit(key), bitwidth(num)] => (ir::Id::from(key), num)
         ))
     }
     fn attributes(input: Node) -> ParseResult<ir::Attributes> {
@@ -266,11 +278,11 @@ impl CalyxParser {
         ))
     }
 
-    fn at_attribute(input: Node) -> ParseResult<(String, u64)> {
+    fn at_attribute(input: Node) -> ParseResult<(ir::Id, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [identifier(key), attr_val(num)] => (key.id, num),
-            [identifier(key)] => (key.id, 1)
+            [identifier(key), attr_val(num)] => (key, num),
+            [identifier(key)] => (key, 1)
         ))
     }
 
@@ -474,25 +486,15 @@ impl CalyxParser {
         Ok(())
     }
 
-    #[prec_climb(term, PRECCLIMBER)]
-    fn guard_expr(
-        l: ast::GuardExpr,
-        op: Node,
-        r: ast::GuardExpr,
-    ) -> ParseResult<ast::GuardExpr> {
-        match op.as_rule() {
-            Rule::guard_or => Ok(ast::GuardExpr::Or(Box::new(l), Box::new(r))),
-            Rule::guard_and => {
-                Ok(ast::GuardExpr::And(Box::new(l), Box::new(r)))
-            }
-            _ => unreachable!(),
-        }
+    fn guard_expr(input: Node) -> ParseResult<Box<GuardExpr>> {
+        let ud = input.user_data().clone();
+        Self::guard_expr_helper(ud, input.into_pair().into_inner())
     }
 
     fn term(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
-            [guard_expr(guard)] => guard,
+            [guard_expr(guard)] => *guard,
             [cmp_expr(e)] => e,
             [expr(e)] => ast::GuardExpr::Atom(e),
             [guard_not(_), expr(e)] => {
@@ -502,7 +504,7 @@ impl CalyxParser {
                 ast::GuardExpr::Not(Box::new(e))
             },
             [guard_not(_), guard_expr(e)] => {
-                ast::GuardExpr::Not(Box::new(e))
+                ast::GuardExpr::Not(e)
             },
             [guard_not(_), expr(e)] =>
                 ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
@@ -512,7 +514,7 @@ impl CalyxParser {
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
-            [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(guard), expr },
+            [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(*guard), expr },
         ))
     }
 
@@ -737,15 +739,17 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [stmt(stmt)] => stmt,
-            [stmts_without_block(_)] => unreachable!()
+            [stmts_without_block(seq)] => seq,
         ))
     }
 
     fn stmts_without_block(input: Node) -> ParseResult<ast::Control> {
         match_nodes!(
             input.clone().into_children();
-            [stmt(_)..] => Err(
-                input.error("Sequence of control statements should be enclosed in `seq` or `par`."))
+            [stmt(stmt)..] => Ok(ast::Control::Seq {
+                stmts: stmt.collect(),
+                attributes: ir::Attributes::default(),
+            })
         )
     }
 

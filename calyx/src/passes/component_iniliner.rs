@@ -8,7 +8,7 @@ use crate::errors::Error;
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use crate::ir::{self, CloneName, LibrarySignatures, RRC};
+use crate::ir::{self, CloneName, GetAttributes, LibrarySignatures, RRC};
 
 /// Map name of old group to new group
 type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
@@ -29,6 +29,9 @@ type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
 pub struct ComponentInliner {
     /// Force inlining of all components. Parsed from the command line.
     always_inline: bool,
+    /// Generate new_fsms for the componnent we generate. Helpful if you don't
+    /// want the fsms to get too many states
+    new_fsms: bool,
     /// Map from the name of an instance to its associated control program.
     control_map: HashMap<ir::Id, ir::Control>,
     /// Mapping for ports on cells that have been inlined.
@@ -41,9 +44,10 @@ pub struct ComponentInliner {
 impl ComponentInliner {
     /// Equivalent to a default method but not automatically derived because
     /// it conflicts with the autogeneration of `ConstructVisitor`.
-    fn new(always_inline: bool) -> Self {
+    fn new(always_inline: bool, new_fsms: bool) -> Self {
         ComponentInliner {
             always_inline,
+            new_fsms,
             control_map: HashMap::default(),
             interface_rewrites: HashMap::default(),
             inlined_cells: Vec::default(),
@@ -56,12 +60,12 @@ impl ConstructVisitor for ComponentInliner {
     where
         Self: Sized,
     {
-        let opts = Self::get_opts(&["always"], ctx);
-        Ok(ComponentInliner::new(opts[0]))
+        let opts = Self::get_opts(&["always", "new-fsms"], ctx);
+        Ok(ComponentInliner::new(opts[0], opts[1]))
     }
 
     fn clear_data(&mut self) {
-        *self = ComponentInliner::new(self.always_inline);
+        *self = ComponentInliner::new(self.always_inline, self.new_fsms);
     }
 }
 
@@ -79,15 +83,13 @@ impl ComponentInliner {
                 param_binding,
                 ..
             } => builder.add_primitive(
-                cn.clone(),
-                name,
+                cn,
+                *name,
                 &param_binding.iter().map(|(_, v)| *v).collect_vec(),
             ),
-            ir::CellType::Component { name } => builder.add_component(
-                cn.clone(),
-                name.clone(),
-                cell.get_signature(),
-            ),
+            ir::CellType::Component { name } => {
+                builder.add_component(cn, *name, cell.get_signature())
+            }
             ir::CellType::Constant { val, width } => {
                 builder.add_constant(*val, *width)
             }
@@ -205,7 +207,7 @@ impl ComponentInliner {
             .map(|cell_ref| Self::inline_cell(builder, cell_ref))
             .collect();
         // Rewrites to inline the interface.
-        let interface_map = Self::inline_interface(builder, comp, name.clone());
+        let interface_map = Self::inline_interface(builder, comp, name);
         let rewrite = ir::Rewriter::new(&cell_map, &interface_map);
 
         // For each group, create a new group and rewrite all assignments within
@@ -244,10 +246,7 @@ impl ComponentInliner {
                     "out" => "in",
                     _ => unreachable!(),
                 };
-                (
-                    ir::Canonical(name.clone(), p),
-                    port.cell_parent().borrow().get(np),
-                )
+                (ir::Canonical(name, p), port.cell_parent().borrow().get(np))
             });
 
         (con, rev_interface_map)
@@ -313,7 +312,7 @@ impl Visitor for ComponentInliner {
                 let comp_name = cell.type_name().unwrap();
                 let (control, rewrites) = Self::inline_component(
                     &mut builder,
-                    comp_map[comp_name],
+                    comp_map[&comp_name],
                     cell.clone_name(),
                 );
                 interface_rewrites.extend(rewrites);
@@ -323,7 +322,8 @@ impl Visitor for ComponentInliner {
                 let msg = format!(
                     "Cannot inline `{}`. It is a instance of primitive: `{}`",
                     cell.name(),
-                    cell.type_name().unwrap_or(&ir::Id::from("constant"))
+                    cell.type_name()
+                        .unwrap_or_else(|| ir::Id::from("constant"))
                 );
 
                 return Err(Error::pass_assumption(Self::name(), msg)
@@ -375,8 +375,7 @@ impl Visitor for ComponentInliner {
                 .into_iter()
                 .map(|(name, param)| {
                     let port = Rc::clone(
-                        &interface_rewrites
-                            [&ir::Canonical(instance.clone(), name)],
+                        &interface_rewrites[&ir::Canonical(instance, name)],
                     );
                     // The parameter can refer to port on a cell that has been
                     // inlined.
@@ -457,7 +456,10 @@ impl Visitor for ComponentInliner {
         // If the associated instance has been inlined, replace the invoke with
         // its control program.
         let cell = s.comp.borrow();
-        if let Some(con) = self.control_map.get(cell.name()) {
+        if let Some(con) = self.control_map.get_mut(&cell.name()) {
+            if self.new_fsms {
+                con.get_mut_attributes().insert("new_fsm", 1);
+            }
             Ok(Action::change(ir::Control::clone(con)))
         } else {
             Ok(Action::Continue)

@@ -9,7 +9,7 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list && \
     curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | apt-key add && \
     apt-get update -y && \
-    apt-get install -y jq python3.9 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
+    apt-get install -y jq python3.10 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
 
 # Install python dependencies
 RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
@@ -19,7 +19,7 @@ RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbex
 # Install Verilator
 WORKDIR /home
 ## TODO(rachit): Don't hardcode the version here
-RUN git clone --depth 1 --branch v4.224 https://github.com/verilator/verilator
+RUN git clone --depth 1 --branch v5.002 https://github.com/verilator/verilator
 WORKDIR /home/verilator
 RUN autoconf && ./configure && make && make install
 

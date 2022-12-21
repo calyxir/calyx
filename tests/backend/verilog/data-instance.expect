@@ -69,6 +69,30 @@ module std_pad #(
   `endif
 endmodule
 
+module std_cat #(
+  parameter LEFT_WIDTH  = 32,
+  parameter RIGHT_WIDTH = 32,
+  parameter OUT_WIDTH = 64
+) (
+  input wire logic [LEFT_WIDTH-1:0] left,
+  input wire logic [RIGHT_WIDTH-1:0] right,
+  output logic [OUT_WIDTH-1:0] out
+);
+  assign out = {left, right};
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (LEFT_WIDTH + RIGHT_WIDTH != OUT_WIDTH)
+        $error(
+          "std_cat: Output width must equal sum of input widths\n",
+          "LEFT_WIDTH: %0d", LEFT_WIDTH,
+          "RIGHT_WIDTH: %0d", RIGHT_WIDTH,
+          "OUT_WIDTH: %0d", OUT_WIDTH
+        );
+    end
+  `endif
+endmodule
+
 module std_not #(
     parameter WIDTH = 32
 ) (
@@ -449,77 +473,77 @@ endmodule
 
 `default_nettype wire
 
-module main (
-    input logic go,
-    input logic g,
-    output logic done,
-    input logic clk,
-    input logic reset
+module main(
+  input logic go,
+  input logic g,
+  output logic done,
+  input logic clk,
+  input logic reset
 );
-    // COMPONENT START: main
-    logic [1:0] add_left;
-    logic [1:0] add_right;
-    logic [1:0] add_out;
-    logic [1:0] con_add_left;
-    logic [1:0] con_add_right;
-    logic [1:0] con_add_out;
-    logic [1:0] data_add_left;
-    logic [1:0] data_add_right;
-    logic [1:0] data_add_out;
-    logic [1:0] data_add_multi_left;
-    logic [1:0] data_add_multi_right;
-    logic [1:0] data_add_multi_out;
-    initial begin
-        add_left = 2'd0;
-        add_right = 2'd0;
-        con_add_left = 2'd0;
-        con_add_right = 2'd0;
-        data_add_left = 2'd0;
-        data_add_right = 2'd0;
-        data_add_multi_left = 2'd0;
-        data_add_multi_right = 2'd0;
+// COMPONENT START: main
+logic [1:0] add_left;
+logic [1:0] add_right;
+logic [1:0] add_out;
+logic [1:0] con_add_left;
+logic [1:0] con_add_right;
+logic [1:0] con_add_out;
+logic [1:0] data_add_left;
+logic [1:0] data_add_right;
+logic [1:0] data_add_out;
+logic [1:0] data_add_multi_left;
+logic [1:0] data_add_multi_right;
+logic [1:0] data_add_multi_out;
+initial begin
+  add_left = 2'd0;;
+  add_right = 2'd0;;
+  con_add_left = 2'd0;;
+  con_add_right = 2'd0;;
+  data_add_left = 2'd0;;
+  data_add_right = 2'd0;;
+  data_add_multi_left = 2'd0;;
+  data_add_multi_right = 2'd0;;
+end
+std_add # (
+    .WIDTH(2)
+) add (
+    .left(add_left),
+    .out(add_out),
+    .right(add_right)
+);
+std_add # (
+    .WIDTH(2)
+) con_add (
+    .left(con_add_left),
+    .out(con_add_out),
+    .right(con_add_right)
+);
+std_add # (
+    .WIDTH(2)
+) data_add (
+    .left(data_add_left),
+    .out(data_add_out),
+    .right(data_add_right)
+);
+std_add # (
+    .WIDTH(2)
+) data_add_multi (
+    .left(data_add_multi_left),
+    .out(data_add_multi_out),
+    .right(data_add_multi_right)
+);
+assign add_left =
+ g ? 2'd2 : 2'd0;
+assign con_add_left =
+ g ? 2'd2 : 2'd0;
+assign data_add_left = 2'd2;
+assign data_add_multi_left =
+ g ? 2'd2 :
+ ~g ? 2'd3 : 'x;
+assign done = 1'd1;
+always_comb begin
+    if(~$onehot0({~g, g})) begin
+        $fatal(2, "Multiple assignment to port `data_add_multi.left'.");
     end
-    std_add # (
-        .WIDTH(2)
-    ) add (
-        .left(add_left),
-        .out(add_out),
-        .right(add_right)
-    );
-    std_add # (
-        .WIDTH(2)
-    ) con_add (
-        .left(con_add_left),
-        .out(con_add_out),
-        .right(con_add_right)
-    );
-    std_add # (
-        .WIDTH(2)
-    ) data_add (
-        .left(data_add_left),
-        .out(data_add_out),
-        .right(data_add_right)
-    );
-    std_add # (
-        .WIDTH(2)
-    ) data_add_multi (
-        .left(data_add_multi_left),
-        .out(data_add_multi_out),
-        .right(data_add_multi_right)
-    );
-    assign done = 1'd1;
-    assign add_left =
-     g ? 2'd2 : 2'd0;
-    assign con_add_left =
-     g ? 2'd2 : 2'd0;
-    assign data_add_left = 2'd2;
-    assign data_add_multi_left =
-     g ? 2'd2 :
-     ~g ? 2'd3 : 'x;
-    always_comb begin
-        if(~$onehot0({~g, g})) begin
-            $fatal(2, "Multiple assignment to port `data_add_multi.left'.");
-        end
-    end
-    // COMPONENT END: main
+end
+// COMPONENT END: main
 endmodule

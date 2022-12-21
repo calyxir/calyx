@@ -1,6 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: tests/errors/redefine-external.futil
-7 |component exp() -> () {
-  |          ^^^ Name `exp' already bound by component or primitive
+Error: Name `exp' already bound by component or primitive

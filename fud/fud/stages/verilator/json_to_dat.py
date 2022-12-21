@@ -3,7 +3,7 @@ import numpy as np
 from .numeric_types import FixedPoint, Bitnum
 from pathlib import Path
 from fud.errors import InvalidNumericType, Malformed
-from fud.utils import log
+import logging as log
 
 
 def float_to_fixed(value: float, N: int) -> float:
@@ -22,7 +22,7 @@ def parse_dat(path, args):
         raise Malformed(
             "Data directory",
             (
-                f"Output file for memory `{path.stem}' is missing. "
+                f"Output file `{path}` for memory `{path.stem}' is missing. "
                 "This probably happened because a memory is specified in the "
                 "input JSON file but is not marked with @external(1) in the "
                 "Calyx program. Either add the @external(1) in front of the cell "
@@ -90,7 +90,26 @@ def parse_fp_widths(format):
         )
 
 
-def convert2dat(output_dir, data, extension, round_float_to_fixed):
+def convert(x, round: bool, is_signed: bool, width: int, int_width=None):
+    with_prefix = False
+    # If `int_width` is not defined, then this is a `Bitnum`
+    if not int_width:
+        return Bitnum(x, width, is_signed).hex_string(with_prefix)
+
+    try:
+        return FixedPoint(x, width, int_width, is_signed).hex_string(with_prefix)
+    except InvalidNumericType as error:
+        if round:
+            # Only round if it is not already representable.
+            fractional_width = width - int_width
+            x = float_to_fixed(float(x), fractional_width)
+            x = str(x)
+            return FixedPoint(x, width, int_width, is_signed).hex_string(with_prefix)
+        else:
+            raise error
+
+
+def convert2dat(output_dir, data, extension, round: bool):
     """Goes through the JSON data and creates a file for
     each key, flattens the data, and then converts it to
     bitstrings. Also generates a file named "shape.json" t
@@ -103,6 +122,7 @@ def convert2dat(output_dir, data, extension, round_float_to_fixed):
     point. If False, an exception is thrown when a number
     cannot be represented exactly in fixed point format.
     """
+    log.info(f"convert2dat.round_float_to_fixed: {round}")
     output_dir = Path(output_dir)
     shape = {}
     for k, item in data.items():
@@ -113,7 +133,6 @@ def convert2dat(output_dir, data, extension, round_float_to_fixed):
 
         numeric_type = format["numeric_type"]
         is_signed = format["is_signed"]
-        shape[k] = {"is_signed": is_signed}
 
         if numeric_type not in {"bitnum", "fixed_point"}:
             raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
@@ -121,32 +140,22 @@ def convert2dat(output_dir, data, extension, round_float_to_fixed):
         is_fp = numeric_type == "fixed_point"
         if is_fp:
             width, int_width = parse_fp_widths(format)
-            shape[k]["int_width"] = int_width
         else:
             # `Bitnum`s only have a bit width.
             width = format["width"]
-        shape[k]["width"] = width
+            int_width = None
 
-        def convert(x):
-            with_prefix = False
-            if not is_fp:
-                return Bitnum(x, **shape[k]).hex_string(with_prefix)
-
-            try:
-                return FixedPoint(x, **shape[k]).hex_string(with_prefix)
-            except InvalidNumericType as error:
-                if round_float_to_fixed:
-                    # Only round if it is not already representable.
-                    fractional_width = width - int_width
-                    x = float_to_fixed(float(x), fractional_width)
-                    x = str(x)
-                    return FixedPoint(x, **shape[k]).hex_string(with_prefix)
-                else:
-                    raise error
+        # Add shape information
+        shape[k] = {
+            "is_signed": is_signed,
+            "width": width,
+        }
+        if int_width:
+            shape[k]["int_width"] = int_width
 
         with path.open("w") as f:
             for v in arr.flatten():
-                f.write(convert(v) + "\n")
+                f.write(convert(v, round, is_signed, width, int_width) + "\n")
 
         shape[k]["shape"] = list(arr.shape)
         shape[k]["numeric_type"] = numeric_type
@@ -173,8 +182,11 @@ def convert2json(input_dir, extension):
 
     for (mem, form) in shape_json.items():
         path = input_dir / f"{mem}.{extension}"
+        # Copy the shape information and remove fields so we can use `args`` as kwargs
+        # for building the FixedPoint or Bitnum classes.
         args = form.copy()
-        args.pop("shape"), args.pop("numeric_type")
+        del args["shape"]
+        del args["numeric_type"]
         arr = parse_dat(path, args)
         if form["shape"] == [0]:
             raise Malformed(
@@ -196,7 +208,7 @@ def convert2json(input_dir, extension):
             raise Malformed(
                 "Data format shape",
                 f"Failed to interpret memory `{mem}`"
-                + " with {len(arr)} elements as `{form['shape']}` ",
+                + f" with {len(arr)} elements as `{form['shape']}` ",
             ) from e
 
         data[mem] = arr.tolist()

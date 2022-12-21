@@ -48,7 +48,7 @@ impl Visitor for SynthesisPapercut {
             .iter()
             .filter_map(|cell| {
                 let cell = &cell.borrow();
-                if let Some(parent) = cell.type_name() {
+                if let Some(ref parent) = cell.type_name() {
                     if self.memories.contains(parent) {
                         let has_external = cell.get_attribute("external");
                         if has_external.is_none() {
@@ -73,22 +73,22 @@ impl Visitor for SynthesisPapercut {
             });
 
         for mem in memory_cells {
-            let cell = comp.find_cell(&mem).unwrap();
+            let cell = comp.find_cell(mem).unwrap();
             let read_port = cell.borrow().get(READ_PORT);
-            if analysis.reads_from(&*read_port.borrow()).next().is_none() {
+            if analysis.reads_from(&read_port.borrow()).next().is_none() {
                 return Err(Error::papercut(
                     format!(
                         "Only writes performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
                     ),
-                ).with_pos(&mem));
+                ));
             }
             let write_port = cell.borrow().get(WRITE_PORT);
-            if analysis.writes_to(&*write_port.borrow()).next().is_none() {
+            if analysis.writes_to(&write_port.borrow()).next().is_none() {
                 return Err(Error::papercut(
                     format!(
                         "Only reads performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
                     ),
-                ).with_pos(&mem));
+                ));
             }
         }
         Ok(Action::Stop)

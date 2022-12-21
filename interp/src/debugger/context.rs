@@ -176,12 +176,9 @@ impl DebuggingContext {
             watchpoints_before: HashMap::new(),
             watchpoints_after: HashMap::new(),
             group_exec_info: GroupExecutionInfo::new(),
-            main_comp_name: main_component.clone(),
+            main_comp_name: *main_component,
 
-            comp_ctx: ctx
-                .iter()
-                .map(|x| (x.name.clone(), Rc::clone(x)))
-                .collect(),
+            comp_ctx: ctx.iter().map(|x| (x.name, Rc::clone(x))).collect(),
         }
     }
 
@@ -203,11 +200,10 @@ impl DebuggingContext {
         let component_ref = component_ref.unwrap();
 
         let group_exists = {
-            let exists =
-                component_ref.groups.find(&target.group_name).is_some();
+            let exists = component_ref.groups.find(target.group_name).is_some();
             // if there is no non-comb group, check comb groups
             if !exists {
-                component_ref.comb_groups.find(&target.group_name).is_some()
+                component_ref.comb_groups.find(target.group_name).is_some()
             } else {
                 true
             }

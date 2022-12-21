@@ -10,6 +10,79 @@ from fud import config as cfg
 from .json_to_dat import convert2dat, convert2json
 
 
+class JsonToDat(Stage):
+    name = "to-dat"
+
+    def __init__(self):
+        super().__init__(
+            src_state="mem-json",
+            target_state="mem-dat",
+            input_type=SourceType.Stream,
+            output_type=SourceType.Directory,
+            description="Converts JSON data to Dat.",
+        )
+
+    def _define_steps(self, input: Source, builder, config):
+        @builder.step()
+        def mktmp() -> SourceType.Directory:
+            """
+            Make temporary directory to store Verilator build files.
+            """
+            return TmpDir()
+
+        @builder.step()
+        def json_to_dat(json: SourceType.Stream, dir: SourceType.Directory):
+            """
+            Converts a `json` data format into a series of `.dat` files inside the given
+            temporary directory.
+            """
+            round_float_to_fixed = bool(
+                config.get(["stages", self.name, "round_float_to_fixed"])
+            )
+            convert2dat(
+                dir.name,
+                sjson.load(json, use_decimal=True),
+                "dat",
+                round_float_to_fixed,
+            )
+
+        dir = mktmp()
+        json_to_dat(input, dir)
+        return dir
+
+
+class DatToJson(Stage):
+    name = "to-json"
+
+    def __init__(self):
+        super().__init__(
+            src_state="mem-dat",
+            target_state="mem-json",
+            input_type=SourceType.Directory,
+            output_type=SourceType.Stream,
+            description="Converts JSON data to Dat.",
+        )
+
+    def _define_steps(self, input: Source, builder, config):
+        extension = config["stages", self.name, "extension"]
+
+        @builder.step()
+        def output_json(input: SourceType.Directory) -> SourceType.Stream:
+            """
+            Convert .dat files back into a JSON file
+            """
+            data = convert2json(input.name, extension)
+
+            tmp = TmpDir()
+            # Write to a file so we can return a stream.
+            out = Path(tmp.name) / "output.json"
+            with out.open("w") as f:
+                sjson.dump(data, f, indent=2, sort_keys=True, use_decimal=True)
+            return out.open("rb")
+
+        return output_json(input)
+
+
 class VerilatorStage(Stage):
 
     name = "verilog"

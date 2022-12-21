@@ -50,7 +50,7 @@ impl Debugger {
     ) -> InterpreterResult<InterpreterState> {
         let qin = ComponentQualifiedInstanceName::new_single(
             &self.main_component,
-            &self.main_component.name,
+            self.main_component.name,
         );
         let mut component_interpreter = ComponentInterpreter::from_component(
             &self.main_component,
@@ -374,7 +374,7 @@ impl Debugger {
     ) -> Result<String, DebuggerError> {
         let orig_string = print_list
             .iter()
-            .map(|s| s.id.clone())
+            .map(|s| s.id.as_str())
             .collect::<Vec<_>>()
             .join(".");
 
@@ -396,7 +396,7 @@ impl Debugger {
             // lowest level
             if idx == length - 1 {
                 // first look for cell
-                let cell = current_env.get_cell(target);
+                let cell = current_env.get_cell(*target);
                 if let Some(cell) = cell {
                     return Ok(print_cell(
                         &cell,
@@ -407,7 +407,7 @@ impl Debugger {
                 } else if idx != 0 {
                     let prior = &print_list[idx - 1];
 
-                    if let Some(parent) = current_env.get_cell(&prior) {
+                    if let Some(parent) = current_env.get_cell(*prior) {
                         let parent_ref = parent.borrow();
                         let pt = parent_ref
                             .ports()
@@ -430,7 +430,7 @@ impl Debugger {
                         return Ok(print_port(
                             &port,
                             &current_env,
-                            Some(print_list[idx - 1].clone()),
+                            Some(print_list[idx - 1]),
                             code,
                         ));
                     } else {
@@ -444,7 +444,7 @@ impl Debugger {
             // still walking
             else {
                 let map = Rc::clone(current_env.get_cell_map());
-                let cell = current_env.get_cell(target);
+                let cell = current_env.get_cell(*target);
                 if let Some(rrc_cell) = cell {
                     // need to release these references to replace current
                     // target
