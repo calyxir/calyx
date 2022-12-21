@@ -179,7 +179,7 @@ impl GPosIdx {
     }
 
     /// Format this position with a the error message `err_msg`
-    pub fn format(&self, err_msg: &str) -> String {
+    pub fn format<S: AsRef<str>>(&self, err_msg: S) -> String {
         let table = GlobalPositionTable::as_ref();
         let pos_d = table.get_pos(self.0);
         let name = &table.get_file_data(pos_d.file).name;
@@ -197,7 +197,15 @@ impl GPosIdx {
         let space: String = " ".repeat(pos_d.start - pos);
         writeln!(buf).unwrap();
         writeln!(buf, "{}|{}", linum_text, l).unwrap();
-        write!(buf, "{}|{}{} {}", linum_space, space, mark, err_msg).unwrap();
+        write!(
+            buf,
+            "{}|{}{} {}",
+            linum_space,
+            space,
+            mark,
+            err_msg.as_ref()
+        )
+        .unwrap();
         buf
     }
 
