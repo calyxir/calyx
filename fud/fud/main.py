@@ -62,7 +62,7 @@ def register_stages(registry):
     registry.register(
         futil.FutilStage(
             "synth-verilog",
-            "-b verilog --synthesis -p external",
+            "-b verilog --synthesis -p external --disable-init --disable-verify",
             "Compile Calyx to synthesizable Verilog",
         )
     )

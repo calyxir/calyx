@@ -297,8 +297,8 @@ paths = [
 cmd = """
 mkdir -p {}/hdl && \
 dir_name=$(basename {}) && \
-fud e -q {}/${dir_name}.futil  --to synth-verilog -o {}/hdl/main.sv -s futil.flags "\\-\\-disable-init" &&\
-fud e -q {}/${dir_name}.futil --to axi-wrapper -o {}/hdl/toplevel.v
+fud e -q {}/${dir_name}.futil  --to synth-verilog -o {}/hdl/main.sv &&\
+  fud e -q {}/${dir_name}.futil --to axi-wrapper -o {}/hdl/toplevel.v
 
 cd {}/../ && \
 make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
