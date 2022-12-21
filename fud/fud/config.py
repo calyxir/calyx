@@ -277,7 +277,7 @@ class Configuration:
                     raise errors.FudRegisterError(
                         args.name,
                         (
-                            f"Stage {stage_class.name} is missing `pre_install()` method."
+                            f"Stage {stage_class.name} missing `pre_install()` method."
                             " If the stage has no pre-installation steps, add the "
                             " following stub to the class:\n"
                             "    @staticmethod\n"
