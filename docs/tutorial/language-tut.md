@@ -127,7 +127,7 @@ name *group*:
 ```
 
 We also need one extra line in the group: that assignment to `the_answer[done]`.
-Here, we say that `the_answer`'s work is one once the update to `mem` has finished.
+Here, we say that `the_answer`'s work is done once the update to `mem` has finished.
 Calyx groups have *compilation holes* called `go` and `done` that the control program will use to orchestrate their execution.
 
 The last thing we need is a control program.
@@ -267,6 +267,6 @@ Take a look at the [full language reference][lang-ref] for details on the comple
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/cucapra/calyx/tree/master/examples/tutorial
 [icarus verilog]: http://iverilog.icarus.com
-[fud]: ./fud/index.md
+[fud]: ../fud/index.md
 [data-format]: ../lang/data-format.md
 [lang-ref]: ../lang/ref.md
