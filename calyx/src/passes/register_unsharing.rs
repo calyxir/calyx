@@ -145,7 +145,7 @@ impl Bookkeeper {
         for (new_name, old_name, grouplist) in rename_list {
             for group_or_invoke in grouplist {
                 let name = *old_name;
-                let cell = comp.find_cell(new_name).unwrap();
+                let cell = comp.find_cell(*new_name).unwrap();
                 match group_or_invoke {
                     GroupOrInvoke::Group(group) => {
                         grp_map.entry(group).or_default().insert(name, cell);
@@ -161,7 +161,7 @@ impl Bookkeeper {
         }
 
         for (grp, rename_cells) in grp_map {
-            let group_ref = comp.find_group(grp).unwrap();
+            let group_ref = comp.find_group(*grp).unwrap();
             let mut group = group_ref.borrow_mut();
             let empty_map = HashMap::new();
             let rewriter = ir::Rewriter::new(&rename_cells, &empty_map);

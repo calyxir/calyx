@@ -258,25 +258,27 @@ impl Cell {
     /// Get a reference to the first port that has the attribute `attr`.
     pub fn find_with_attr<S>(&self, attr: S) -> Option<RRC<Port>>
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
+        let key = attr.into();
         self.ports
             .iter()
-            .find(|&g| g.borrow().attributes.has(attr.as_ref()))
+            .find(|&g| g.borrow().attributes.has(key))
             .map(Rc::clone)
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr<'a, S>(
-        &'a self,
+    pub fn find_all_with_attr<S>(
+        &self,
         attr: S,
-    ) -> impl Iterator<Item = RRC<Port>> + 'a
+    ) -> impl Iterator<Item = RRC<Port>> + '_
     where
-        S: AsRef<str> + 'a,
+        S: Into<Id>,
     {
+        let key = attr.into();
         self.ports
             .iter()
-            .filter(move |&p| p.borrow().attributes.has(attr.as_ref()))
+            .filter(move |&p| p.borrow().attributes.has(key))
             .map(Rc::clone)
     }
 
@@ -327,13 +329,13 @@ impl Cell {
     /// exist.
     pub fn get_with_attr<S>(&self, attr: S) -> RRC<Port>
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
-        self.find_with_attr(&attr).unwrap_or_else(|| {
+        let key = attr.into();
+        self.find_with_attr(key).unwrap_or_else(|| {
             panic!(
                 "Port with attribute `{}' not found on cell `{}'",
-                attr.as_ref(),
-                self.name,
+                key, self.name,
             )
         })
     }
@@ -368,9 +370,10 @@ impl Cell {
     /// Return the value associated with this attribute key.
     pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
     where
-        S: AsRef<str>,
+        S: Into<Id>,
     {
-        self.attributes.get(attr.as_ref())
+        let key = attr.into();
+        self.attributes.get(key)
     }
 
     /// Add a new attribute to the group.

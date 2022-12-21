@@ -524,7 +524,7 @@ impl Visitor for WellFormed {
         if let Some(group) =
             all_groups.difference(&self.used_groups).into_iter().next()
         {
-            let gr = comp.find_group(&group).unwrap();
+            let gr = comp.find_group(*group).unwrap();
             let gr = gr.borrow();
             return Err(Error::unused(*group, "group").with_pos(&gr.attributes));
         };
@@ -536,7 +536,7 @@ impl Visitor for WellFormed {
             .into_iter()
             .next()
         {
-            let cgr = comp.find_comb_group(&comb_group).unwrap();
+            let cgr = comp.find_comb_group(*comb_group).unwrap();
             let cgr = cgr.borrow();
             return Err(Error::unused(*comb_group, "combinational group")
                 .with_pos(&cgr.attributes));

@@ -200,11 +200,10 @@ impl DebuggingContext {
         let component_ref = component_ref.unwrap();
 
         let group_exists = {
-            let exists =
-                component_ref.groups.find(&target.group_name).is_some();
+            let exists = component_ref.groups.find(target.group_name).is_some();
             // if there is no non-comb group, check comb groups
             if !exists {
-                component_ref.comb_groups.find(&target.group_name).is_some()
+                component_ref.comb_groups.find(target.group_name).is_some()
             } else {
                 true
             }

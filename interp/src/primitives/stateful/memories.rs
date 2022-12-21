@@ -358,9 +358,11 @@ impl StdMem<MemD1> {
         idx_size: u64,
         full_name: ir::Id,
     ) -> Self {
-        let bindings = construct_bindings(
-            [("WIDTH", width), ("SIZE", size), ("IDX_SIZE", idx_size)].iter(),
-        );
+        let bindings = construct_bindings([
+            ("WIDTH", width),
+            ("SIZE", size),
+            ("IDX_SIZE", idx_size),
+        ]);
         Self::new(&bindings, full_name, false)
     }
 }
@@ -374,16 +376,13 @@ impl StdMem<MemD2> {
         d1_idx_size: u64,
         full_name: ir::Id,
     ) -> Self {
-        let bindings = construct_bindings(
-            [
-                ("WIDTH", width),
-                ("D0_SIZE", d0_size),
-                ("D1_SIZE", d1_size),
-                ("D0_IDX_SIZE", d0_idx_size),
-                ("D1_IDX_SIZE", d1_idx_size),
-            ]
-            .iter(),
-        );
+        let bindings = construct_bindings([
+            ("WIDTH", width),
+            ("D0_SIZE", d0_size),
+            ("D1_SIZE", d1_size),
+            ("D0_IDX_SIZE", d0_idx_size),
+            ("D1_IDX_SIZE", d1_idx_size),
+        ]);
         Self::new(&bindings, full_name, false)
     }
 }
@@ -400,18 +399,15 @@ impl StdMem<MemD3> {
         d2_idx_size: u64,
         full_name: ir::Id,
     ) -> Self {
-        let bindings = construct_bindings(
-            [
-                ("WIDTH", width),
-                ("D0_SIZE", d0_size),
-                ("D1_SIZE", d1_size),
-                ("D2_SIZE", d2_size),
-                ("D0_IDX_SIZE", d0_idx_size),
-                ("D1_IDX_SIZE", d1_idx_size),
-                ("D2_IDX_SIZE", d2_idx_size),
-            ]
-            .iter(),
-        );
+        let bindings = construct_bindings([
+            ("WIDTH", width),
+            ("D0_SIZE", d0_size),
+            ("D1_SIZE", d1_size),
+            ("D2_SIZE", d2_size),
+            ("D0_IDX_SIZE", d0_idx_size),
+            ("D1_IDX_SIZE", d1_idx_size),
+            ("D2_IDX_SIZE", d2_idx_size),
+        ]);
         Self::new(&bindings, full_name, false)
     }
 }
@@ -430,20 +426,17 @@ impl StdMem<MemD4> {
         d3_idx_size: u64,
         full_name: ir::Id,
     ) -> Self {
-        let bindings = construct_bindings(
-            [
-                ("WIDTH", width),
-                ("D0_SIZE", d0_size),
-                ("D1_SIZE", d1_size),
-                ("D2_SIZE", d2_size),
-                ("D3_SIZE", d3_size),
-                ("D0_IDX_SIZE", d0_idx_size),
-                ("D1_IDX_SIZE", d1_idx_size),
-                ("D2_IDX_SIZE", d2_idx_size),
-                ("D3_IDX_SIZE", d3_idx_size),
-            ]
-            .iter(),
-        );
+        let bindings = construct_bindings([
+            ("WIDTH", width),
+            ("D0_SIZE", d0_size),
+            ("D1_SIZE", d1_size),
+            ("D2_SIZE", d2_size),
+            ("D3_SIZE", d3_size),
+            ("D0_IDX_SIZE", d0_idx_size),
+            ("D1_IDX_SIZE", d1_idx_size),
+            ("D2_IDX_SIZE", d2_idx_size),
+            ("D3_IDX_SIZE", d3_idx_size),
+        ]);
         Self::new(&bindings, full_name, false)
     }
 }

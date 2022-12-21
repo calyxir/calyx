@@ -76,9 +76,10 @@ fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
     for (name, width, direction) in INTERFACE_PORTS.iter() {
         // Check if there is already another interface port defined for the
         // component
-        if !sig.iter().any(|pd| pd.attributes.has(name)) {
+        let attr = Id::from(*name);
+        if !sig.iter().any(|pd| pd.attributes.has(attr)) {
             let mut attributes = Attributes::default();
-            attributes.insert(name, 1);
+            attributes.insert(attr, 1);
             sig.push(PortDef {
                 name: namegen.gen_name(name.to_string()),
                 width: *width,
@@ -174,15 +175,16 @@ fn validate_component(
         }
         cells.insert(cell.name, cell.attributes.copy_span());
 
-        let proto_name = &cell.prototype.name;
+        let proto_name = cell.prototype.name;
 
         if sig_ctx.lib.find_primitive(proto_name).is_none()
-            && !sig_ctx.comp_sigs.contains_key(proto_name)
+            && !sig_ctx.comp_sigs.contains_key(&proto_name)
         {
             return Err(Error::undefined(
-                *proto_name,
+                proto_name,
                 "primitive or component".to_string(),
-            ));
+            )
+            .with_pos(attrs));
         }
     }
 
@@ -261,7 +263,7 @@ fn build_component(
 ///////////////// Cell Construction /////////////////////////
 
 fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
-    let proto_name = &cell.prototype.name;
+    let proto_name = cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
         let c = builder.add_primitive(
@@ -275,8 +277,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
         // Validator ensures that if the protoype is not a primitive, it
         // is a component.
         let name = builder.component.generate_name(cell.name);
-        let sig = &sig_ctx.comp_sigs[proto_name];
-        let typ = CellType::Component { name: *proto_name };
+        let sig = &sig_ctx.comp_sigs[&proto_name];
+        let typ = CellType::Component { name: proto_name };
         let reference = cell.reference;
         // Components do not have any bindings for parameters
         let cell = Builder::cell_from_signature(name, typ, sig.clone());
@@ -317,7 +319,7 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
 fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
     match port {
         ast::Port::Comp { component, port } => comp
-            .find_cell(&component)
+            .find_cell(component)
             .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
             .borrow()
             .find(port)
@@ -328,7 +330,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             })
         }
         ast::Port::Hole { group, name: port } => comp
-            .find_group(&group)
+            .find_group(group)
             .ok_or_else(|| Error::undefined(group, "group".to_string()))?
             .borrow()
             .find(port)
@@ -465,7 +467,7 @@ fn build_control(
             attributes,
         } => {
             let mut en = Control::enable(Rc::clone(
-                &builder.component.find_group(&component).ok_or_else(|| {
+                &builder.component.find_group(component).ok_or_else(|| {
                     Error::undefined(component, "group".to_string())
                         .with_pos(&attributes)
                 })?,
@@ -482,11 +484,12 @@ fn build_control(
             ref_cells,
         } => {
             let cell = Rc::clone(
-                &builder.component.find_cell(&component).ok_or_else(|| {
+                &builder.component.find_cell(component).ok_or_else(|| {
                     Error::undefined(component, "cell".to_string())
                         .with_pos(&attributes)
                 })?,
             );
+
             let inputs = inputs
                 .into_iter()
                 .map(|(id, port)| {
@@ -512,10 +515,8 @@ fn build_control(
                 ref_cells: Vec::new(),
             };
             if let Some(cg) = comb_group {
-                let cg_ref = builder
-                    .component
-                    .find_comb_group(&cg)
-                    .ok_or_else(|| {
+                let cg_ref =
+                    builder.component.find_comb_group(cg).ok_or_else(|| {
                         Error::undefined(cg, "combinational group".to_string())
                             .with_pos(&inv.attributes)
                     })?;
@@ -525,7 +526,7 @@ fn build_control(
                 let mut ext_cell_tuples = Vec::new();
                 for (outcell, incell) in ref_cells {
                     let ext_cell_ref =
-                        builder.component.find_cell(&incell).ok_or_else(
+                        builder.component.find_cell(incell).ok_or_else(
                             || Error::undefined(incell, "cell".to_string()),
                         )?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
@@ -563,7 +564,7 @@ fn build_control(
         } => {
             let group = maybe_cond
                 .map(|cond| {
-                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                    builder.component.find_comb_group(cond).ok_or_else(|| {
                         Error::undefined(
                             cond,
                             "combinational group".to_string(),
@@ -592,7 +593,7 @@ fn build_control(
         } => {
             let group = maybe_cond
                 .map(|cond| {
-                    builder.component.find_comb_group(&cond).ok_or_else(|| {
+                    builder.component.find_comb_group(cond).ok_or_else(|| {
                         Error::undefined(
                             cond,
                             "combinational group".to_string(),
