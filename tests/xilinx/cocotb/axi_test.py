@@ -3,7 +3,7 @@ import cocotb
 from cocotb.clock import Clock
 from cocotbext.axi import AxiBus, AxiRam
 from cocotb.triggers import Timer, FallingEdge, with_timeout
-from typing import Mapping, Any
+from typing import Literal, Mapping, Any, Union
 from pathlib import Path
 import os
 
@@ -11,10 +11,8 @@ import os
 # NOTE (nathanielnrn) cocotb-bus 0.2.1 has a bug that does not recognize optional
 # signals such as WSTRB when it is capitalized. Install directly from the cocotb-bus
 # github repo to fix
-
-
 class KernelTB:
-    def __init__(self, toplevel, data_path: Path = None):
+    def __init__(self, toplevel, data_path: Path):
         self.toplevel = toplevel
         self.data_path = data_path
         assert os.path.isfile(
@@ -107,7 +105,7 @@ async def run_kernel_test(toplevel, data_path: str):
         post.update({mem: post_execution})
     post = {"memories": post}
 
-    print(prefix_string(json.dumps(post, indent=4)))
+    print("Output:" + json.dumps(post))
 
 
 def mem_size(mem: str, data):
@@ -127,7 +125,12 @@ def data_width(mem: str, data):
 
 
 # AxiRam assumes little bytorder, hence the defaults
-def decode(b: bytes, width: int, byteorder="little", signed=False):
+def decode(
+    b: bytes,
+    width: int,
+    byteorder: Union[Literal["little"], Literal["big"]] = "little",
+    signed=False,
+):
     """Return the list of `ints` corresponding to value in `b` based on
     encoding of `width` bytes
     For example, `decode('b\x00\x00\x00\04', 4)` returns `[4]`
@@ -143,15 +146,10 @@ def decode(b: bytes, width: int, byteorder="little", signed=False):
     return to_return
 
 
-def encode(lst: list[int], width, byteorder="little"):
+def encode(
+    lst: list[int],
+    width,
+    byteorder: Union[Literal["little"], Literal["big"]] = "little",
+):
     """Return the `width`-wide byte representation of lst with byteorder"""
     return [i.to_bytes(width, byteorder) for i in lst]
-
-
-# Processes a string to format nicely for runt.
-# Specifically, adds a semicolon at start of everyline
-def prefix_string(s, char="; "):
-    string_array = s.splitlines(keepends=True)
-    for i, line in enumerate(string_array):
-        string_array[i] = char + line
-    return "".join(string_array)
