@@ -18,7 +18,7 @@ impl std::fmt::Debug for Error {
         if self.pos == GPosIdx::UNKNOWN {
             write!(f, "{}", self.kind)?
         } else {
-            write!(f, "{}", self.pos.format(&self.kind.to_string()))?
+            write!(f, "{}", self.pos.format(self.kind.to_string()))?
         }
         if let Some(post) = &self.post_msg {
             write!(f, "\n{}", post)?;
