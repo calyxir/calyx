@@ -272,6 +272,33 @@ class Configuration:
 
             print(f"Registering external script: {args.name}")
             for stage_class in mod.__STAGES__:
+                # Ensure that the stage has a `pre_install` method.
+                if "pre_install" not in dir(stage_class):
+                    raise errors.FudRegisterError(
+                        args.name,
+                        (
+                            f"Stage {stage_class.name} is missing `pre_install()` method."
+                            " If the stage has no pre-installation steps, add the "
+                            " following stub to the class:\n"
+                            "    @staticmethod\n"
+                            "    def pre_install():\n"
+                            "        pass\n"
+                        ),
+                    )
+                stage_class.pre_install()
+                # Ensure that the stage has a `defaults` method.
+                if "defaults" not in dir(stage_class):
+                    raise errors.FudRegisterError(
+                        args.name,
+                        (
+                            f"Stage {stage_class.name} is missing `defaults()` method."
+                            " If the stage has no default configuration, add the "
+                            " following stub to the class:\n"
+                            "    @staticmethod\n"
+                            "    def defaults():\n"
+                            "        return {}\n"
+                        ),
+                    )
                 print(f"  - Registering stage `{stage_class.name}'.")
                 # Attach defaults for this stage if not present in the
                 # configuration.
