@@ -112,22 +112,7 @@ fn construct_invoke(
             if assign.guard.is_true() {
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
-                // assign has a guard condition,so need a wire
-                let width = assign.dst.borrow().width;
-                let wire = builder.add_primitive(
-                    format!("{}_guarded_wire", name),
-                    "std_wire",
-                    &[width],
-                );
-                let wire_in = wire.borrow().get("in");
-                let asmt = builder.build_assignment(
-                    wire_in,
-                    Rc::clone(&assign.src),
-                    *assign.guard.clone(),
-                );
-                comb_assigns.push(asmt);
-                let wire_out = wire.borrow().get("out");
-                inputs.push((name, wire_out));
+                unreachable!("Attempting to create an invoke for a cell that has guarded assignments, which should not be allowed")
             }
         }
     }
@@ -213,19 +198,23 @@ impl Visitor for GroupToInvoke {
             let mut done_wr_cnt = 0;
 
             'assigns: for assign in &group.assignments {
+                // Cannot transform groups with guarded assignments to any of cell's
+                // ports, since wires don't propogate undefinedness
+                // See https://github.com/cucapra/calyx/issues/1304 for deatils.
+                if !assign.guard.is_true() && cell.ports.contains(&assign.dst) {
+                    log::info!(
+                        "Cannot transform `{}` due to guarded write to port: {}",
+                        group.name(),
+                        ir::Printer::assignment_to_str(assign)
+                    );
+                    continue 'groups;
+                }
                 // @go port should have exactly one write and the src should be 1.
                 if assign.dst == go_port {
                     if go_wr_cnt > 0 {
                         log::info!(
                             "Cannot transform `{}` due to multiple writes to @go port",
                             group.name(),
-                        );
-                        continue 'groups;
-                    } else if !assign.guard.is_true() {
-                        log::info!(
-                            "Cannot transform `{}` due to guarded write to @go port: {}",
-                            group.name(),
-                            ir::Printer::assignment_to_str(assign)
                         );
                         continue 'groups;
                     } else if assign.src.borrow().is_constant(1, 1) {
@@ -243,13 +232,6 @@ impl Visitor for GroupToInvoke {
                         log::info!(
                             "Cannot transform `{}` due to multiple writes to @done port",
                             group.name(),
-                        );
-                        continue 'groups;
-                    } else if !assign.guard.is_true() {
-                        log::info!(
-                            "Cannot transform `{}` due to guarded write to @done port: {}",
-                            group.name(),
-                            ir::Printer::assignment_to_str(assign)
                         );
                         continue 'groups;
                     } else if assign.dst == group.get("done") {

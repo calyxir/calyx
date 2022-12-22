@@ -1,10 +1,12 @@
 // -p group2invoke -p dead-group-removal
 import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     r = std_reg(32);
     add = std_add(32);
     lt = std_lt(32);
+    mult = std_mult_pipe(32);
   }
   wires {
     // simple transformation
@@ -21,23 +23,16 @@ component main() -> () {
       add.left = 32'd2;
       add.right = 32'd3;
     }
-    // transform w comb group and build wire
-    group exp{
-      lt.left = 32'd2;
-      lt.right = 32'd4;
-      r.write_en = 1'd1;
-      r.in = lt.out ? 32'd19;
-      exp[done] = r.done;
-    }
     // need comb group that has multiple combinational cells
     group guard2{
       lt.left = 32'd2;
       lt.right = 32'd4;
       add.left = 32'd2;
       add.right = lt.out ? r.out;
-      r.write_en = 1'd1;
-      r.in = add.out;
-      guard2[done] = r.done;
+      mult.go = 1'd1;
+      mult.left = add.out;
+      mult.right = 32'd7;
+      guard2[done] = mult.done;
     }
     group read_write_same {
       r.write_en = 1'd1;
@@ -49,7 +44,6 @@ component main() -> () {
     seq{
       write_r;
       @foo add_write_r;
-      exp;
       @bar guard2;
       read_write_same;
     }
