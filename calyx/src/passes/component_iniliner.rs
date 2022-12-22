@@ -232,6 +232,7 @@ impl ComponentInliner {
             .extend(cont_assigns);
 
         // Generate a control program associated with this instance
+        dbg!(&name);
         let mut con = ir::Control::clone(&comp.control.borrow());
         rewrite.rewrite_control(&mut con, &group_map, &comb_group_map);
 
@@ -248,6 +249,9 @@ impl ComponentInliner {
                 };
                 (ir::Canonical(name, p), port.cell_parent().borrow().get(np))
             });
+
+        dbg!(&con);
+        dbg!(&rev_interface_map);
 
         (con, rev_interface_map)
     }
