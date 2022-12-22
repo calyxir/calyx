@@ -11,7 +11,7 @@ Then, clone the repository and build the Dahlia compiler:
 ```
 git clone https://github.com/cucapra/dahlia.git
 cd dahlia
-sbt install
+sbt compile
 sbt assembly
 chmod +x ./fuse
 ```
