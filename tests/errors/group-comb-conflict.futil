@@ -4,17 +4,21 @@ component main() -> () {
   cells {
     r = std_reg(32);
     w1 = std_wire(32);
-    w2 = std_wire(32);
   }
   wires {
+    comb group do_w1 {
+      w1.in = 32'd10;
+    }
     group do_r {
+      w1.in = r.out;
       r.write_en = 1'd1;
       r.in = 32'd10;
       do_r[done] = r.done;
     }
-    r.in = w1.out;
   }
   control {
-    do_r;
+    if w1.out with do_w1 {
+      do_r;
+    }
   }
 }

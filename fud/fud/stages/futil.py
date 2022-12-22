@@ -21,6 +21,9 @@ class FutilStage(Stage):
     def defaults():
         return {}
 
+    def known_opts(self):
+        return ["flags", "exec", "file_extensions"]
+
     def _define_steps(self, input, builder, config):
         calyx_exec = config["stages", self.name, "exec"]
         cmd = " ".join(

@@ -32,7 +32,7 @@ impl NameGenerator {
     /// ```
     pub fn gen_name<S>(&mut self, prefix: S) -> ir::Id
     where
-        S: Into<ir::Id> + Clone,
+        S: Into<ir::Id>,
     {
         let mut cur_prefix: ir::Id = prefix.into();
         loop {

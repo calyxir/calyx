@@ -100,6 +100,17 @@ class VerilatorStage(Stage):
             raise Exception("mem has to be 'vcd' or 'dat'")
         self.vcd = mem == "vcd"
 
+    def known_opts(self):
+        return [
+            "data",
+            "exec",
+            "top_module",
+            "round_float_to_fixed",
+            "vcd-target",
+            "cycle_limit",
+            "file_extensions",
+        ]
+
     def _define_steps(self, input_data, builder, config):
 
         testbench_files = [

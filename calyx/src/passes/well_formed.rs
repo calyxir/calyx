@@ -1,14 +1,42 @@
-use crate::errors::{CalyxResult, Error, WithPos};
+use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{
     self, CellType, CloneName, Component, GetAttributes, LibrarySignatures,
     RESERVED_NAMES,
 };
+use crate::utils::WithPos;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+
+#[derive(Default)]
+struct ActiveAssignments {
+    // Set of currently active assignments
+    assigns: Vec<ir::Assignment>,
+    // Stack representing the number of assignments added at each level
+    num_assigns: Vec<usize>,
+}
+impl ActiveAssignments {
+    /// Push a set of assignments to the stack.
+    pub fn push(&mut self, assign: &[ir::Assignment]) {
+        let prev_size = self.assigns.len();
+        self.assigns.extend(assign.iter().cloned());
+        // Number of assignments added at this level
+        self.num_assigns.push(self.assigns.len() - prev_size);
+    }
+
+    /// Pop the last set of assignments from the stack.
+    pub fn pop(&mut self) {
+        let num_assigns = self.num_assigns.pop().unwrap();
+        self.assigns.truncate(self.assigns.len() - num_assigns);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &ir::Assignment> {
+        self.assigns.iter()
+    }
+}
 
 /// Pass to check if the program is well-formed.
 ///
@@ -29,6 +57,8 @@ pub struct WellFormed {
     used_comb_groups: HashSet<ir::Id>,
     /// ref cell types of components used in the control.
     ref_cell_types: HashMap<ir::Id, LinkedHashMap<ir::Id, CellType>>,
+    /// Stack of currently active combinational groups
+    active_comb: ActiveAssignments,
 }
 
 impl ConstructVisitor for WellFormed {
@@ -90,6 +120,7 @@ impl ConstructVisitor for WellFormed {
             used_groups: HashSet::new(),
             used_comb_groups: HashSet::new(),
             ref_cell_types,
+            active_comb: ActiveAssignments::default(),
         };
 
         Ok(w_f)
@@ -131,6 +162,7 @@ where
                 .map(|a| {
                     a.attributes
                         .copy_span()
+                        .into_option()
                         .map(|s| s.show())
                         .unwrap_or_else(|| ir::Printer::assignment_to_str(a))
                 })
@@ -263,15 +295,9 @@ impl Visitor for WellFormed {
             }
         }
 
-        // Check for obvious conflicting assignments
-        for gr in comp.groups.iter() {
-            obvious_conflicts(
-                gr.borrow()
-                    .assignments
-                    .iter()
-                    .chain(comp.continuous_assignments.iter()),
-            )?;
-        }
+        // Check for obvious conflicting assignments in the continuous assignments
+        obvious_conflicts(comp.continuous_assignments.iter())?;
+        // Check for obvious conflicting assignments between the continuous assignments and the groups
         for cgr in comp.comb_groups.iter() {
             obvious_conflicts(
                 cgr.borrow()
@@ -280,7 +306,6 @@ impl Visitor for WellFormed {
                     .chain(comp.continuous_assignments.iter()),
             )?;
         }
-        obvious_conflicts(comp.continuous_assignments.iter())?;
 
         Ok(Action::Continue)
     }
@@ -288,7 +313,7 @@ impl Visitor for WellFormed {
     fn enable(
         &mut self,
         s: &mut ir::Enable,
-        _comp: &mut Component,
+        comp: &mut Component,
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
@@ -312,6 +337,23 @@ impl Visitor for WellFormed {
         {
             return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
         }
+
+        // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups
+        obvious_conflicts(
+            group
+                .assignments
+                .iter()
+                .chain(comp.continuous_assignments.iter())
+                .chain(self.active_comb.iter()),
+        )
+        .map_err(|err| {
+            let msg = s
+                .attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.format("Assigments activated by group enable"));
+            err.with_post_msg(msg)
+        })?;
 
         Ok(Action::Continue)
     }
@@ -377,6 +419,31 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
+    fn start_if(
+        &mut self,
+        s: &mut ir::If,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if let Some(cgr) = &s.cond {
+            let cg = cgr.borrow();
+            let assigns = &cg.assignments;
+            // Check if the combinational group conflicts with the active combinational groups
+            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
+                .map_err(|err| {
+                    let msg = s.attributes.copy_span().format(format!(
+                        "Assignments from `{}' are actived here",
+                        cg.name()
+                    ));
+                    err.with_post_msg(Some(msg))
+                })?;
+            // Push the combinational group to the stack of active groups
+            self.active_comb.push(assigns);
+        }
+        Ok(Action::Continue)
+    }
+
     fn finish_if(
         &mut self,
         s: &mut ir::If,
@@ -387,6 +454,33 @@ impl Visitor for WellFormed {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
             self.used_comb_groups.insert(cond.clone_name());
+            // Remove assignments from this combinational group
+            self.active_comb.pop();
+        }
+        Ok(Action::Continue)
+    }
+
+    fn start_while(
+        &mut self,
+        s: &mut ir::While,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if let Some(cgr) = &s.cond {
+            let cg = cgr.borrow();
+            let assigns = &cg.assignments;
+            // Check if the combinational group conflicts with the active combinational groups
+            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
+                .map_err(|err| {
+                    let msg = s.attributes.copy_span().format(format!(
+                        "Assignments from `{}' are actived here",
+                        cg.name()
+                    ));
+                    err.with_post_msg(Some(msg))
+                })?;
+            // Push the combinational group to the stack of active groups
+            self.active_comb.push(assigns);
         }
         Ok(Action::Continue)
     }
@@ -401,6 +495,8 @@ impl Visitor for WellFormed {
         // Add cond group as a used port.
         if let Some(cond) = &s.cond {
             self.used_comb_groups.insert(cond.clone_name());
+            // Remove assignments from this combinational group
+            self.active_comb.pop();
         }
         Ok(Action::Continue)
     }
@@ -428,7 +524,7 @@ impl Visitor for WellFormed {
         if let Some(group) =
             all_groups.difference(&self.used_groups).into_iter().next()
         {
-            let gr = comp.find_group(&group).unwrap();
+            let gr = comp.find_group(*group).unwrap();
             let gr = gr.borrow();
             return Err(Error::unused(*group, "group").with_pos(&gr.attributes));
         };
@@ -440,7 +536,7 @@ impl Visitor for WellFormed {
             .into_iter()
             .next()
         {
-            let cgr = comp.find_comb_group(&comb_group).unwrap();
+            let cgr = comp.find_comb_group(*comb_group).unwrap();
             let cgr = cgr.borrow();
             return Err(Error::unused(*comb_group, "combinational group")
                 .with_pos(&cgr.attributes));

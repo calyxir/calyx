@@ -73,7 +73,7 @@ impl Visitor for SynthesisPapercut {
             });
 
         for mem in memory_cells {
-            let cell = comp.find_cell(&mem).unwrap();
+            let cell = comp.find_cell(mem).unwrap();
             let read_port = cell.borrow().get(READ_PORT);
             if analysis.reads_from(&read_port.borrow()).next().is_none() {
                 return Err(Error::papercut(

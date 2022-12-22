@@ -28,6 +28,10 @@ class IcarusBaseStage(Stage):
         self.object_name = "main.vvp"
 
     @staticmethod
+    def pre_install():
+        pass
+
+    @staticmethod
     def defaults():
         parent = Path(__file__).parent.resolve()
         test_bench = parent / "./tb.sv"
@@ -36,6 +40,9 @@ class IcarusBaseStage(Stage):
             "testbench": str(test_bench.resolve()),
             "round_float_to_fixed": True,
         }
+
+    def known_opts(self):
+        return ["exec", "testbench", "round_float_to_fixed"]
 
     def _define_steps(self, input_data, builder, config):
         testbench = config["stages", self.name, "testbench"]

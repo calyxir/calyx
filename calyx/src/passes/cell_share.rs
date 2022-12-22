@@ -440,7 +440,7 @@ impl Visitor for CellShare {
                     graph
                         .color_greedy(*bound)
                         .iter()
-                        .map(|(a, b)| (*a, comp.find_cell(&b).unwrap())),
+                        .map(|(a, b)| (*a, comp.find_cell(*b).unwrap())),
                 );
                 // only generate share-freqs if we're going to use them.
                 if self.print_share_freqs.is_some() {

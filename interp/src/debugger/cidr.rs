@@ -396,7 +396,7 @@ impl Debugger {
             // lowest level
             if idx == length - 1 {
                 // first look for cell
-                let cell = current_env.get_cell(target);
+                let cell = current_env.get_cell(*target);
                 if let Some(cell) = cell {
                     return Ok(print_cell(
                         &cell,
@@ -407,7 +407,7 @@ impl Debugger {
                 } else if idx != 0 {
                     let prior = &print_list[idx - 1];
 
-                    if let Some(parent) = current_env.get_cell(&prior) {
+                    if let Some(parent) = current_env.get_cell(*prior) {
                         let parent_ref = parent.borrow();
                         let pt = parent_ref
                             .ports()
@@ -444,7 +444,7 @@ impl Debugger {
             // still walking
             else {
                 let map = Rc::clone(current_env.get_cell_map());
-                let cell = current_env.get_cell(target);
+                let cell = current_env.get_cell(*target);
                 if let Some(rrc_cell) = cell {
                     // need to release these references to replace current
                     // target
