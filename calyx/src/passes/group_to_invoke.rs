@@ -1,6 +1,5 @@
 use crate::analysis::ReadWriteSet;
 use crate::errors::CalyxResult;
-use crate::frontend::ast::Cell;
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
     self,
@@ -8,7 +7,7 @@ use crate::ir::{
 };
 use crate::ir::{CloneName, GetAttributes, RRC};
 use itertools::Itertools;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// Transform groups that are structurally invoking components into equivalent
@@ -115,16 +114,23 @@ fn construct_invoke(
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
                 // assign has a guard condition,so need a wire
-                let width = assign.dst.borrow().width;
-                let wire = match wire_map.get(&assign.dst.borrow().name) {
-                    Some(w) => w,
-                    None => builder.add_primitive(
-                        format!("{}_guarded_wire", name),
-                        "std_wire",
-                        &[width],
-                    ),
-                };
 
+                // We first need to check whether we have already built a wire
+                // for this port or not. If we already have, then we don't need a new
+                // wire.
+                let mut need_new_wire = false;
+                let wire = match wire_map.remove(&assign.dst.borrow().name) {
+                    Some(w) => w,
+                    None => {
+                        need_new_wire = true;
+                        let width = assign.dst.borrow().width;
+                        builder.add_primitive(
+                            format!("{}_guarded_wire", name),
+                            "std_wire",
+                            &[width],
+                        )
+                    }
+                };
                 let wire_in = wire.borrow().get("in");
                 let asmt = builder.build_assignment(
                     wire_in,
@@ -133,7 +139,14 @@ fn construct_invoke(
                 );
                 comb_assigns.push(asmt);
                 let wire_out = wire.borrow().get("out");
-                inputs.push((name, wire_out));
+                // we only need to add wire.out to the inputs of the invoke if
+                // we created a new wire
+                if need_new_wire {
+                    inputs.push((name, wire_out));
+                }
+                // since we used wire_map.remove() to get ownership of the wire,
+                // we need to reinsert the key-value pair at the end
+                wire_map.insert(assign.dst.borrow().name, wire);
             }
         }
     }

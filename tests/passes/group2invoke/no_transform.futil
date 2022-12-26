@@ -15,19 +15,10 @@ component main() -> () {
       a.write_en = r.done; 
       chain[done] = a.done; 
     }
-    // don't transform since r takes guarded assignment 
-    group exp{
-      lt.left = 32'd2;
-      lt.right = 32'd4;
-      r.write_en = 1'd1;
-      r.in = lt.out ? 32'd19;
-      exp[done] = r.done;
-    }
   }
   control {
     seq{
       chain;
-      exp; 
     }
   }
 }

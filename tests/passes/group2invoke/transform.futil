@@ -34,6 +34,13 @@ component main() -> () {
       mult.right = 32'd7;
       guard2[done] = mult.done;
     }
+    // multiple guarded assignments to r.in 
+    group g{
+      r.write_en = 1'd1;
+      r.in = 1'd0 ? 32'd1;
+      r.in = 1'd0 ? 32'd2;
+      g[done] = r.done;
+    }
     group read_write_same {
       r.write_en = 1'd1;
       r.in = r.out;
@@ -43,6 +50,7 @@ component main() -> () {
   control {
     seq{
       write_r;
+      g;
       @foo add_write_r;
       @bar guard2;
       read_write_same;

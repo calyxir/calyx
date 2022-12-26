@@ -6,6 +6,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add = std_add(32);
     lt = std_lt(32);
     mult = std_mult_pipe(32);
+    @generated in_guarded_wire = std_wire(32);
   }
   wires {
     comb group comb_invoke {
@@ -18,6 +19,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       add.left = 32'd2;
       add.right = lt.out ? r.out;
     }
+    comb group comb_invoke1 {
+      in_guarded_wire.in = 1'd0 ? 32'd1;
+      in_guarded_wire.in = 1'd0 ? 32'd2;
+    }
   }
 
   control {
@@ -25,6 +30,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       invoke r(
         in = 32'd1
       )();
+      invoke r(
+        in = in_guarded_wire.out
+      )() with comb_invoke1;
       @foo invoke r(
         in = add.out
       )() with comb_invoke;
