@@ -1,5 +1,6 @@
 use crate::analysis::ReadWriteSet;
 use crate::errors::CalyxResult;
+use crate::frontend::ast::Cell;
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
     self,
@@ -7,7 +8,7 @@ use crate::ir::{
 };
 use crate::ir::{CloneName, GetAttributes, RRC};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 /// Transform groups that are structurally invoking components into equivalent
@@ -91,6 +92,7 @@ fn construct_invoke(
 
     let mut inputs = Vec::new();
     let mut comb_assigns = Vec::new();
+    let mut wire_map: HashMap<ir::Id, ir::RRC<ir::Cell>> = HashMap::new();
 
     for assign in &group.assignments {
         // We know that all assignments in this group should write to either a)
@@ -112,7 +114,26 @@ fn construct_invoke(
             if assign.guard.is_true() {
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
-                unreachable!("Attempting to create an invoke for a cell that has guarded assignments, which should not be allowed")
+                // assign has a guard condition,so need a wire
+                let width = assign.dst.borrow().width;
+                let wire = match wire_map.get(&assign.dst.borrow().name) {
+                    Some(w) => w,
+                    None => builder.add_primitive(
+                        format!("{}_guarded_wire", name),
+                        "std_wire",
+                        &[width],
+                    ),
+                };
+
+                let wire_in = wire.borrow().get("in");
+                let asmt = builder.build_assignment(
+                    wire_in,
+                    Rc::clone(&assign.src),
+                    *assign.guard.clone(),
+                );
+                comb_assigns.push(asmt);
+                let wire_out = wire.borrow().get("out");
+                inputs.push((name, wire_out));
             }
         }
     }
@@ -198,23 +219,19 @@ impl Visitor for GroupToInvoke {
             let mut done_wr_cnt = 0;
 
             'assigns: for assign in &group.assignments {
-                // Cannot transform groups with guarded assignments to any of cell's
-                // ports, since wires don't propogate undefinedness
-                // See https://github.com/cucapra/calyx/issues/1304 for deatils.
-                if !assign.guard.is_true() && cell.ports.contains(&assign.dst) {
-                    log::info!(
-                        "Cannot transform `{}` due to guarded write to port: {}",
-                        group.name(),
-                        ir::Printer::assignment_to_str(assign)
-                    );
-                    continue 'groups;
-                }
                 // @go port should have exactly one write and the src should be 1.
                 if assign.dst == go_port {
                     if go_wr_cnt > 0 {
                         log::info!(
                             "Cannot transform `{}` due to multiple writes to @go port",
                             group.name(),
+                        );
+                        continue 'groups;
+                    } else if !assign.guard.is_true() {
+                        log::info!(
+                            "Cannot transform `{}` due to guarded write to @go port: {}",
+                            group.name(),
+                            ir::Printer::assignment_to_str(assign)
                         );
                         continue 'groups;
                     } else if assign.src.borrow().is_constant(1, 1) {
@@ -232,6 +249,13 @@ impl Visitor for GroupToInvoke {
                         log::info!(
                             "Cannot transform `{}` due to multiple writes to @done port",
                             group.name(),
+                        );
+                        continue 'groups;
+                    } else if !assign.guard.is_true() {
+                        log::info!(
+                            "Cannot transform `{}` due to guarded write to @done port: {}",
+                            group.name(),
+                            ir::Printer::assignment_to_str(assign)
                         );
                         continue 'groups;
                     } else if assign.dst == group.get("done") {
