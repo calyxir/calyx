@@ -212,11 +212,35 @@ impl ReadWriteSet {
     }
 }
 
+trait Unique {
+    /// The unique index type for this type.
+    type T: Eq + Clone + core::hash::Hash;
+
+    /// The canonical name for this type
+    fn unique(&self) -> Self::T;
+}
+
+impl Unique for ir::Cell {
+    type T = ir::Id;
+
+    fn unique(&self) -> Self::T {
+        self.clone_name()
+    }
+}
+
+impl Unique for ir::Port {
+    type T = ir::Canonical;
+
+    fn unique(&self) -> Self::T {
+        self.canonical()
+    }
+}
+
 /// A trait for types that make use of a type `T`.
 trait Uses<T> {
-    /// Unique reads of ports in this type
+    /// Reads of type T from this type. Not guaranteed to be unique.
     fn reads(&self) -> Vec<RRC<T>>;
-    /// Unique writes to ports in this type
+    /// Writes to type T in this type. Not guaranteed to be unique.
     fn writes(&self) -> Vec<RRC<T>>;
 
     /// Return the read and the write set. This method is exposed because it is
@@ -240,7 +264,6 @@ impl Uses<ir::Port> for ir::Assignment {
             .into_iter()
             .chain(iter::once(Rc::clone(&self.src)))
             .filter(|port| !port.borrow().is_hole())
-            .unique_by(|port| port.borrow().canonical())
             .collect_vec()
     }
 
@@ -256,7 +279,6 @@ impl Uses<ir::Port> for ir::Group {
             .flat_map(|assign| {
                 <ir::Assignment as Uses<ir::Port>>::reads(assign)
             })
-            .unique_by(|port| port.borrow().canonical())
             .chain(iter::once(Rc::clone(&self.done_cond)))
             .collect_vec()
     }
@@ -267,7 +289,6 @@ impl Uses<ir::Port> for ir::Group {
             .flat_map(|assign| {
                 <ir::Assignment as Uses<ir::Port>>::writes(assign)
             })
-            .unique_by(|port| port.borrow().canonical())
             .collect_vec()
     }
 }
@@ -279,7 +300,6 @@ impl Uses<ir::Port> for ir::CombGroup {
             .flat_map(|assign| {
                 <ir::Assignment as Uses<ir::Port>>::reads(assign)
             })
-            .unique_by(|port| port.borrow().canonical())
             .collect_vec()
     }
 
@@ -289,7 +309,6 @@ impl Uses<ir::Port> for ir::CombGroup {
             .flat_map(|assign| {
                 <ir::Assignment as Uses<ir::Port>>::writes(assign)
             })
-            .unique_by(|port| port.borrow().canonical())
             .collect_vec()
     }
 }
@@ -302,20 +321,36 @@ impl Uses<ir::Port> for ir::Control {
                 group.borrow().read_write_sets()
             }
             ir::Control::Invoke(ir::Invoke {
-                inputs, comb_group, ..
+                inputs,
+                outputs,
+                ref_cells,
+                comb_group,
+                ..
             }) => {
-                let inps = inputs.iter().map(|(_, p)| p).cloned();
-                let outs = inputs.iter().map(|(_, p)| p).cloned();
+                let mut inps =
+                    inputs.iter().map(|(_, p)| p).cloned().collect_vec();
+                let mut outs =
+                    outputs.iter().map(|(_, p)| p).cloned().collect_vec();
                 match comb_group {
                     Some(cgr) => {
-                        let (reads, writes) = cgr.borrow().read_write_sets();
-                        (
-                            reads.into_iter().chain(inps).collect(),
-                            writes.into_iter().chain(outs).collect(),
-                        )
+                        let (mut reads, mut writes) =
+                            cgr.borrow().read_write_sets();
+                        inps.append(&mut reads);
+                        outs.append(&mut writes);
                     }
-                    None => (inps.collect(), outs.collect()),
+                    None => (),
                 }
+                // All ports defined on the ref cells are uses
+                for (_, cell) in ref_cells {
+                    for port in &cell.borrow().ports {
+                        match &port.borrow().direction {
+                            ir::Direction::Input => inps.push(Rc::clone(port)),
+                            ir::Direction::Output => outs.push(Rc::clone(port)),
+                            ir::Direction::Inout => unreachable!(),
+                        }
+                    }
+                }
+                (inps, outs)
             }
 
             ir::Control::Seq(ir::Seq { stmts, .. })
