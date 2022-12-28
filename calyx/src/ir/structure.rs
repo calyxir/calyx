@@ -451,7 +451,7 @@ pub struct Group {
     /// Name of this group
     name: Id,
     /// Group's go hole
-    go_hole: RRC<Port>,
+    pub go_hole: RRC<Port>,
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
     /// Done condition of the group

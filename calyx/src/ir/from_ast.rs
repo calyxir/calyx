@@ -293,21 +293,6 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
 ///////////////// Group Construction /////////////////////////
 
-fn get_done_cond(
-    comp: &mut Component,
-    group: Id,
-    assigns: &[ast::Wire],
-) -> CalyxResult<Option<RRC<Port>>> {
-    for a in assigns {
-        if let ast::Port::Hole { group: g, name } = &a.dest {
-            if *g == group && name == "done" {
-                return Ok(Some(get_port_ref(a.dest.clone(), comp)?));
-            }
-        }
-    }
-    Ok(None)
-}
-
 /// Build an [super::Group] from an [ast::Group] and attach it to the [Component]
 /// associated with the [Builder]
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
@@ -318,17 +303,40 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
         ir_group.borrow_mut().attributes = group.attributes;
         ir_group.borrow_mut().assignments = assigns;
     } else {
-        // XXX(rachit): Iterating over the group wires twice
-        let done = get_done_cond(builder.component, group.name, &group.wires)?;
-        if done.is_none() {
+        let mut assigns = vec![];
+        let mut done_cond = None;
+        for assign in group.wires {
+            // Check if the assignment is to the done port
+            if let ast::Port::Hole { group: g, name } = &assign.dest {
+                if *g == group.name && name == "done" {
+                    done_cond = Some(assign.src);
+                    continue;
+                }
+            }
+            // Otherwise build the assignment
+            assigns.push(build_assignment(assign, builder)?)
+        }
+        let Some(done) = done_cond else {
             return Err(Error::malformed_structure(format!(
                 "No done condition found for group {}",
                 group.name
             ))
             .with_pos(&group.attributes));
-        }
-        let ir_group = builder.add_group(group.name, done.unwrap());
-        let assigns = build_assignments(group.wires, builder)?;
+        };
+        // If the guard is defined, check that the port is a constant
+        let src = atom_to_port(done.expr, builder)?;
+        let ir_group = if let Some(guard) = done.guard {
+            if !src.borrow().is_constant(1, 1) {
+                return Err(Error::malformed_structure(
+                    "Group's done condition cannot use both a guard and a non-constant port",
+                )
+                .with_pos(&group.attributes));
+            }
+            let guard = build_guard(guard, builder)?;
+            builder.add_group_with_guard(group.name, guard)
+        } else {
+            builder.add_group(group.name, src)
+        };
 
         ir_group.borrow_mut().attributes = group.attributes;
         ir_group.borrow_mut().assignments = assigns;
@@ -354,16 +362,19 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             })
         }
         ast::Port::Hole { group, name: port } => {
-            if port != "go" {
-                return Err(Error::malformed_structure(format!(
-                    "Expected hole {port} in group `{group}'",
-                )));
-            }
-            Ok(comp
+            let gr_ref = comp
                 .find_group(group)
-                .ok_or_else(|| Error::undefined(group, "group".to_string()))?
-                .borrow()
-                .get("go"))
+                .ok_or_else(|| Error::undefined(group, "group".to_string()))?;
+            let gr = gr_ref.borrow();
+            if port == "done" {
+                Ok(gr.done_cond.clone())
+            } else if port == "go" {
+                Ok(gr.go_hole.clone())
+            } else {
+                Err(Error::malformed_structure(format!(
+                    "Unexpected hole `{port}' in group `{group}'",
+                )))
+            }
         }
     }
 }
