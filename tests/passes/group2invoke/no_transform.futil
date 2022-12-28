@@ -17,8 +17,6 @@ component main() -> () {
     }
   }
   control {
-    seq{
-      chain;
-    }
+    chain;
   }
 }

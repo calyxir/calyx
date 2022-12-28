@@ -5,7 +5,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     r = std_reg(32);
     add = std_add(32);
     lt = std_lt(32);
-    mult = std_mult_pipe(32);
     @generated in_guarded_wire = std_wire(32);
   }
   wires {
@@ -36,9 +35,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       @foo invoke r(
         in = add.out
       )() with comb_invoke;
-      @bar invoke mult(
-        left = add.out,
-        right = 32'd7
+      @bar invoke r(
+        in = add.out
       )() with comb_invoke0;
       invoke r(
         in = r.out
