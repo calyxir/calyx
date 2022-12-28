@@ -107,6 +107,13 @@ impl<'a> Rewriter<'a> {
             }
         }
 
+        // Rewrite the ref cells
+        inv.ref_cells.iter_mut().for_each(|(name, cell)| {
+            if let Some(new_cell) = self.get_cell_rewrite(name) {
+                *cell = Rc::clone(&new_cell);
+            }
+        });
+
         // Rewrite the parameters
         inv.inputs
             .iter_mut()
