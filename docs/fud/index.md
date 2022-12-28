@@ -20,13 +20,13 @@ You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`. Instal
 You can then install `fud` with
 
 ```bash
-flit install
+cd fud && flit install
 ```
 (If using this method to install `fud`, `pip3` should be version >= 20)
 
 If you are working on `fud` itself, you can install it with a symlink with:
 ```bash
-flit install --symlink
+cd fud && flit install --symlink
 ```
 
 You can also install `fud` with
@@ -166,7 +166,7 @@ Frontend specific instructions:
 
 `fud` supports wraps the Vivado (`synth-verilog`) and Vivado HLS (`vivado-hls`)
 tools to generate area and resource estimates for Calyx designs.
-See [the instructions](./synthesis.md) to configure them.
+See [the instructions](./xilinx.md) to configure them.
 
 ## Working with Stages
 
