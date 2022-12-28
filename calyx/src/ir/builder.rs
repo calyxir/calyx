@@ -96,24 +96,10 @@ impl<'a> Builder<'a> {
             "Cannot construct group with empty name prefix"
         );
         let name = self.component.generate_name(prefix);
-
-        // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::Group::new(name, done_cond)));
-
-        // Add default holes to the group.
-        let (name, width) = &("go", 1);
-        let hole = Rc::new(RefCell::new(ir::Port {
-            name: ir::Id::from(*name),
-            width: *width,
-            direction: ir::Direction::Inout,
-            parent: ir::PortParent::Group(WRC::from(&group)),
-            attributes: ir::Attributes::default(),
-        }));
-        group.borrow_mut().holes.push(hole);
+        let group = ir::Group::new(name, done_cond);
 
         // Add the group to the component.
         self.component.groups.add(Rc::clone(&group));
-
         group
     }
 

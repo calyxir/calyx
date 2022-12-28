@@ -401,7 +401,7 @@ fn calculate_states_recur(
                 (cur_state, preds)
             };
 
-            let not_done = !guard!(group["done"]);
+            let not_done: ir::Guard = !ir::Guard::from(group.borrow().done_cond.clone());
             let signal_on = builder.add_constant(1, 1);
 
             // Activate this group in the current state
@@ -562,9 +562,9 @@ fn calc_while_recur(
     // First compute the entry and exit points.
     let mut exits = vec![];
     control_exits(&while_stmt.body, true, &mut exits);
-    let back_edge_prevs = exits
-        .into_iter()
-        .map(|(st, group)| (st, group.borrow().get("done").into()));
+    let back_edge_prevs = exits.into_iter().map(|(st, group)| {
+        (st, ir::Guard::from(group.borrow().done_cond.clone()))
+    });
 
     // Step 2: Generate the forward edges normally.
     // Previous transitions into the body require the condition to be
@@ -982,8 +982,8 @@ impl Visitor for TopDownCompileControl {
             structure!(builder;
                 let pd = prim std_reg(1);
             );
-            let group_go = !(guard!(pd["out"]) | guard!(group["done"]));
-            let group_done = guard!(group["done"]);
+            let group_done = ir::Guard::from(group.borrow().done_cond.clone());
+            let group_go = !(guard!(pd["out"]) | group_done.clone());
 
             // Save the done condition in a register.
             let mut assigns = build_assignments!(builder;

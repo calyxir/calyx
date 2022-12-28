@@ -502,7 +502,7 @@ impl InterpreterState {
         }
         for group in comp.groups.iter() {
             let grp = group.borrow();
-            for hole in &grp.holes {
+            for hole in grp.holes() {
                 let pt: &ir::Port = &hole.borrow();
                 map.insert(pt as ConstPort, Value::zeroes(pt.width as usize));
             }

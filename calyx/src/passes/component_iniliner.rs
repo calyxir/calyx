@@ -113,7 +113,7 @@ impl ComponentInliner {
                 port_rewrite.get(port).or_else(|| {
                     if let Some(grp) = new_group {
                         if port.borrow().is_hole() {
-                            return Some(grp.borrow().get(&port.borrow().name));
+                            return Some(grp.borrow().get(port.borrow().name));
                         }
                     }
                     None

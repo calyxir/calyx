@@ -256,45 +256,6 @@ impl Visitor for WellFormed {
             }
         }
 
-        // For each non-combinational group, check if there is at least one write to the done
-        // signal of that group and that the write is to the group's done signal.
-        for gr in comp.groups.iter() {
-            let group = gr.borrow();
-            let gname = group.name();
-            let mut has_done = false;
-            // Find an assignment writing to this group's done condition.
-            for assign in &group.assignments {
-                let dst = assign.dst.borrow();
-                if dst.is_hole() && dst.name == "done" {
-                    // Group has multiple done conditions
-                    if has_done {
-                        return Err(Error::malformed_structure(format!(
-                            "Group `{}` has multiple done conditions",
-                            gname
-                        ))
-                        .with_pos(&assign.attributes));
-                    } else {
-                        has_done = true;
-                    }
-                    // Group uses another group's done condition
-                    if gname != dst.get_parent_name() {
-                        return Err(Error::malformed_structure(
-                            format!("Group `{}` refers to the done condition of another group (`{}`).",
-                            gname,
-                            dst.get_parent_name())).with_pos(&dst.attributes));
-                    }
-                }
-            }
-
-            // Group does not have a done condition
-            if !has_done {
-                return Err(Error::malformed_structure(format!(
-                    "No writes to the `done' hole for group `{gname}'",
-                ))
-                .with_pos(&group.attributes));
-            }
-        }
-
         // Check for obvious conflicting assignments in the continuous assignments
         obvious_conflicts(comp.continuous_assignments.iter())?;
         // Check for obvious conflicting assignments between the continuous assignments and the groups

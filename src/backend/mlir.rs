@@ -285,6 +285,13 @@ impl MlirBackend {
             Self::write_assignment(assign, indent_level + 2, f)?;
             writeln!(f)?;
         }
+        // Write the done condition
+        write!(
+            f,
+            "{} calyx.done {}",
+            " ".repeat(indent_level + 2),
+            Self::get_port_access(&group.done_cond.borrow())
+        )?;
         write!(f, "{}}}", " ".repeat(indent_level))?;
         if let Some(attr) = group.get_attributes() {
             write!(f, "{}", Self::format_attributes(attr))?;

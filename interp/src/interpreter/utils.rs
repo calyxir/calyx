@@ -11,7 +11,7 @@ use crate::interpreter_ir as iir;
 
 #[inline]
 pub fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
-    group.get("done")
+    group.done_cond.clone()
 }
 
 #[inline]

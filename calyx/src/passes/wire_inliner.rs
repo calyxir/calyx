@@ -1,5 +1,5 @@
 use crate::{
-    build_assignments, guard,
+    build_assignments,
     ir::{self, LibrarySignatures},
     ir::{
         traversal::{Action, Named, VisResult, Visitor},
@@ -72,7 +72,7 @@ impl Visitor for WireInliner {
             structure!(builder;
                 let one = constant(1, 1);
             );
-            let group_done = guard!(group["done"]);
+            let group_done = ir::Guard::from(group.borrow().done_cond.clone());
             let mut assigns = build_assignments!(builder;
                 group["go"] = ? this["go"];
                 this["done"] = group_done ? one["out"];

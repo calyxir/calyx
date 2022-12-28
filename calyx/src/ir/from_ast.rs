@@ -353,12 +353,18 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
                 Error::undefined(port, "component port".to_string())
             })
         }
-        ast::Port::Hole { group, name: port } => comp
-            .find_group(group)
-            .ok_or_else(|| Error::undefined(group, "group".to_string()))?
-            .borrow()
-            .find(port)
-            .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+        ast::Port::Hole { group, name: port } => {
+            if port != "go" {
+                return Err(Error::malformed_structure(format!(
+                    "Expected hole {port} in group `{group}'",
+                )));
+            }
+            Ok(comp
+                .find_group(group)
+                .ok_or_else(|| Error::undefined(group, "group".to_string()))?
+                .borrow()
+                .get("go"))
+        }
     }
 }
 

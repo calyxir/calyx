@@ -3,6 +3,7 @@
 use super::{Attributes, GetAttributes, Guard, Id, PortDef, RRC, WRC};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
+use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -449,47 +450,57 @@ impl Assignment {
 pub struct Group {
     /// Name of this group
     name: Id,
+    /// Group's go hole
+    go_hole: RRC<Port>,
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
-    /// Holes for this group
-    pub holes: SmallVec<[RRC<Port>; 3]>,
     /// Done condition of the group
     pub done_cond: RRC<Port>,
     /// Attributes for this group.
     pub attributes: Attributes,
 }
 impl Group {
-    pub fn new(name: Id, done_cond: RRC<Port>) -> Self {
-        Self {
+    pub fn new(name: Id, done_cond: RRC<Port>) -> RRC<Self> {
+        // Create a fake port to be replaced later.
+        // The real go hole is created here.
+        let go_hole = Rc::new(RefCell::new(Port {
+            name: Id::from("go"),
+            width: 1,
+            direction: Direction::Inout,
+            parent: PortParent::Group(WRC::default()),
+            attributes: Attributes::default(),
+        }));
+        let group = Self {
             name,
             done_cond,
+            go_hole,
             assignments: vec![],
-            holes: smallvec![],
             attributes: Attributes::default(),
-        }
+        };
+        let group = Rc::new(RefCell::new(group));
+        // Update the parent of the go hole to point to this group.
+        group.borrow_mut().go_hole.borrow_mut().parent =
+            PortParent::Group(WRC::from(&group));
+        group
     }
 
     /// Get a reference to the named hole if it exists.
-    pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
-    where
-        S: std::fmt::Display,
-        Id: PartialEq<S>,
-    {
-        self.holes
-            .iter()
-            .find(|&g| g.borrow().name == name)
-            .map(Rc::clone)
-    }
-
-    /// Get a reference to the named hole or panic.
     pub fn get<S>(&self, name: S) -> RRC<Port>
     where
-        S: std::fmt::Display + Clone,
-        Id: PartialEq<S>,
+        S: Into<Id>,
     {
-        self.find(name.clone()).unwrap_or_else(|| {
-            panic!("Hole `{name}' not found on group `{}'", self.name)
-        })
+        let name: Id = name.into();
+        assert!(
+            name == Id::from("go"),
+            "Unknown hole `{}` on group `{}`",
+            name,
+            self.name
+        );
+        Rc::clone(&self.go_hole)
+    }
+
+    pub fn holes(&self) -> impl Iterator<Item = RRC<Port>> {
+        std::iter::once(Rc::clone(&self.go_hole))
     }
 
     /// The name of this group.

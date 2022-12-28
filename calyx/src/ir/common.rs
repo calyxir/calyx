@@ -14,6 +14,14 @@ pub struct WRC<T> {
     pub(super) internal: Weak<RefCell<T>>,
 }
 
+impl<T> Default for WRC<T> {
+    fn default() -> Self {
+        Self {
+            internal: Weak::new(),
+        }
+    }
+}
+
 impl<T> WRC<T> {
     /// Convinience method to upgrade and extract the underlying internal weak
     /// pointer.

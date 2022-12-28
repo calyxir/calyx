@@ -45,10 +45,7 @@ impl Visitor for GoInsertion {
             let mut group_assigns =
                 group.borrow_mut().assignments.drain(..).collect::<Vec<_>>();
             for assign in group_assigns.iter_mut() {
-                let dst = assign.dst.borrow();
-                if !(dst.is_hole() && dst.name == "done") {
-                    *assign.guard &= group_go.clone();
-                }
+                *assign.guard &= group_go.clone();
             }
             group.borrow_mut().assignments = group_assigns;
         }
