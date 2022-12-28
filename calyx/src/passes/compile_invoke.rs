@@ -1,3 +1,5 @@
+use std::iter;
+
 use crate::errors::Error;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, Attributes, LibrarySignatures};
@@ -28,8 +30,6 @@ impl Visitor for CompileInvoke {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, ctx);
-
-        let invoke_group = builder.add_group("invoke");
 
         if !s.ref_cells.is_empty() {
             return Err(Error::malformed_structure(format!(
@@ -64,17 +64,13 @@ impl Visitor for CompileInvoke {
         }
 
         // Build assignemnts
+        let done_cond = done_ports.pop().unwrap();
+        let invoke_group = builder.add_group("invoke", done_cond);
         let go_assign = builder.build_assignment(
             go_ports.pop().unwrap(),
             one.borrow().get("out"),
             ir::Guard::True,
         );
-        let done_assign = builder.build_assignment(
-            invoke_group.borrow().get("done"),
-            done_ports.pop().unwrap(),
-            ir::Guard::True,
-        );
-        let mut enable_assignments = vec![go_assign, done_assign];
 
         // Generate argument assignments
         let cell = &*s.comp.borrow();
@@ -88,7 +84,7 @@ impl Visitor for CompileInvoke {
             .chain(s.outputs.drain(..).into_iter().map(|(out, p)| {
                 builder.build_assignment(p, cell.get(out), ir::Guard::True)
             }))
-            .chain(enable_assignments.drain(..))
+            .chain(iter::once(go_assign))
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 

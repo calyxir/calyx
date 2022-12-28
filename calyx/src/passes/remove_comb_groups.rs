@@ -10,7 +10,7 @@ use crate::ir::{
     LibrarySignatures, RRC,
 };
 use crate::ir::{CloneName, GetAttributes};
-use crate::{analysis, guard, structure};
+use crate::{analysis, structure};
 
 #[derive(Default)]
 /// Transforms combinational groups, which have a constant done condition,
@@ -123,12 +123,9 @@ impl Visitor for RemoveCombGroups {
                     ))
                 })?;
 
-                // Group generated to replace this comb group.
-                let group_ref = builder.add_group(name);
-                let mut group = group_ref.borrow_mut();
                 // Attach assignmens from comb group
-                group.assignments =
-                    cg_ref.borrow_mut().assignments.drain(..).collect();
+                let mut assignments =
+                    cg_ref.borrow_mut().assignments.drain(..).collect_vec();
 
                 // Registers to save value for the group
                 let mut save_regs = Vec::with_capacity(used_ports.len());
@@ -148,43 +145,34 @@ impl Visitor for RemoveCombGroups {
                         signal_on.borrow().get("out"),
                         ir::Guard::True,
                     );
-                    group.assignments.push(write);
-                    group.assignments.push(en);
+                    assignments.push(write);
+                    assignments.push(en);
 
-                    // Define mapping from this port to the register's output
-                    // value.
-                    self.port_rewrite.insert(
-                        (name, port.borrow().canonical().clone()),
-                        (
-                            Rc::clone(&comb_reg.borrow().get("out")),
-                            Rc::clone(&group_ref),
-                        ),
-                    );
-
-                    save_regs.push(comb_reg);
+                    save_regs
+                        .push((port.borrow().canonical().clone(), comb_reg));
                 }
 
-                structure!(builder;
-                    let signal_on = constant(1, 1);
-                );
-
-                // Create a done condition
-                let done_guard = save_regs
-                    .drain(..)
-                    .map(|reg| guard!(reg["done"]))
-                    .fold(ir::Guard::True, ir::Guard::and);
-                let done_assign = builder.build_assignment(
-                    group.get("done"),
-                    signal_on.borrow().get("out"),
-                    done_guard,
-                );
-                group.assignments.push(done_assign);
-
+                let done_cond = save_regs[0].1.borrow().get("done");
+                let group = builder.add_group(name, done_cond);
+                group.borrow_mut().assignments.extend(assignments);
                 // Add a "static" attribute
-                group.attributes.insert("static", 1);
-                drop(group);
+                group.borrow_mut().attributes.insert("static", 1);
 
-                Ok(group_ref)
+                // Define mapping from this port to the register's output
+                // value.
+                self.port_rewrite.extend(save_regs.into_iter().map(
+                    |(port, reg)| {
+                        (
+                            (name, port),
+                            (
+                                Rc::clone(&reg.borrow().get("out")),
+                                Rc::clone(&group),
+                            ),
+                        )
+                    },
+                ));
+
+                Ok(group)
             })
             .collect::<CalyxResult<Vec<_>>>()?;
 

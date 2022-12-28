@@ -170,7 +170,7 @@ fn build_incr_barrier(
     save: &RRC<ir::Cell>,
     member_idx: &u64,
 ) -> RRC<ir::Group> {
-    let group = builder.add_group("incr_barrier");
+    let group = builder.add_group("incr_barrier", save.borrow().get("done"));
     structure!(builder;
         let incr = prim std_add(32);
         let cst_1 = constant(1, 1);
@@ -187,8 +187,6 @@ fn build_incr_barrier(
         save["in"] = read_done_guard? incr["out"];
         // save_*_*.write_en = barrier_*.read_done_*;
         save["write_en"] = ? barrier[format!("read_done_{member_idx}")];
-        // incr_barrier_*_*[done] = save_*_*.done;
-        group["done"] = ?save["done"];
     );
 
     group.borrow_mut().assignments.append(&mut assigns);
@@ -202,7 +200,8 @@ fn build_write_barrier(
     save: &RRC<ir::Cell>,
     member_idx: &u64,
 ) -> RRC<ir::Group> {
-    let group = builder.add_group("write_barrier");
+    let done_cond = barrier.borrow().get(format!("write_done_{member_idx}"));
+    let group = builder.add_group("write_barrier", done_cond);
     structure!(builder;
     let cst_1 = constant(1, 1););
     let mut assigns = build_assignments!(builder;
@@ -210,8 +209,6 @@ fn build_write_barrier(
         barrier[format!("write_en_{member_idx}")] = ?cst_1["out"];
         // barrier_*.in_* = save_*_*.out;
         barrier[format!("in_{member_idx}")] = ?save["out"];
-        // write_barrier_*_*[done] = barrier_*.write_done_*;
-        group["done"] = ?barrier[format!("write_done_{member_idx}")];
     );
     group.borrow_mut().assignments.append(&mut assigns);
     group
@@ -222,10 +219,11 @@ fn build_write_barrier(
 // We're only using it to make sure that the barrier has reached the expected
 // value.
 fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
-    let group = builder.add_group("wt");
     structure!(builder;
-    let wait_reg = prim std_reg(1);
-    let cst_1 = constant(1, 1););
+        let wait_reg = prim std_reg(1);
+        let cst_1 = constant(1, 1);
+    );
+    let group = builder.add_group("wt", wait_reg.borrow().get("done"));
     let eq_guard = guard!(eq["out"]);
     let mut assigns = build_assignments!(builder;
         // wait_reg_*.in = eq_*.out;
@@ -233,8 +231,7 @@ fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
         wait_reg["in"] = ?eq["out"];
         // wait_reg_*.write_en = eq_*.out? 1'd1;
         wait_reg["write_en"] = eq_guard? cst_1["out"];
-        // wait_*[done] = wait_reg_*.done;
-        group["done"] = ?wait_reg["done"];);
+    );
     group.borrow_mut().assignments.append(&mut assigns);
     group
 }
@@ -244,14 +241,13 @@ fn build_clear_barrier(
     builder: &mut ir::Builder,
     barrier: &RRC<ir::Cell>,
 ) -> RRC<ir::Group> {
-    let group = builder.add_group("clear_barrier");
+    let group =
+        builder.add_group("clear_barrier", barrier.borrow().get("read_done_0"));
     structure!(builder;
-    let cst_1 = constant(1, 1););
+        let cst_1 = constant(1, 1););
     let mut assigns = build_assignments!(builder;
-    // barrier_*.read_en_0 = 1'd1;
-    barrier["read_en_0"] = ?cst_1["out"];
-    //clear_barrier_*[done] = barrier_1.read_done_0;
-    group["done"] = ?barrier["read_done_0"];
+        // barrier_*.read_en_0 = 1'd1;
+        barrier["read_en_0"] = ?cst_1["out"];
     );
     group.borrow_mut().assignments.append(&mut assigns);
     group
@@ -262,17 +258,17 @@ fn build_restore(
     builder: &mut ir::Builder,
     barrier: &RRC<ir::Cell>,
 ) -> RRC<ir::Group> {
-    let group = builder.add_group("restore");
+    let group =
+        builder.add_group("restore", barrier.borrow().get("write_done_0"));
     structure!(builder;
-    let cst_1 = constant(1,1);
-    let cst_2 = constant(0, 32););
+        let cst_1 = constant(1,1);
+        let cst_2 = constant(0, 32);
+    );
     let mut assigns = build_assignments!(builder;
         // barrier_*.write_en_0 = 1'd1;
         barrier["write_en_0"] = ?cst_1["out"];
         // barrier_*.in_0 = 32'd0;
         barrier["in_0"] = ?cst_2["out"];
-        // restore_*[done] = barrier_*.write_done_0;
-        group["done"] = ?barrier["write_done_0"];
     );
     group.borrow_mut().assignments.append(&mut assigns);
     group
@@ -285,18 +281,18 @@ fn build_wait_restore(
     builder: &mut ir::Builder,
     eq: &RRC<ir::Cell>,
 ) -> RRC<ir::Group> {
-    let group = builder.add_group("wait_restore");
     structure!(builder;
-    let wait_restore_reg = prim std_reg(1);
-    let cst_1 = constant(1, 1););
+        let wait_restore_reg = prim std_reg(1);
+        let cst_1 = constant(1, 1);
+    );
+    let group = builder
+        .add_group("wait_restore", wait_restore_reg.borrow().get("done"));
     let eq_guard = !guard!(eq["out"]);
     let mut assigns = build_assignments!(builder;
-    // wait_restore_reg_*.in = !eq_*.out? 1'd1;
-    wait_restore_reg["in"] = eq_guard? cst_1["out"];
-    // wait_restore_reg_*.write_en = !eq_*.out? 1'd1;
-    wait_restore_reg["write_en"] = eq_guard? cst_1["out"];
-    //wait_restore_*[done] = wait_restore_reg_*.done;
-    group["done"] = ?wait_restore_reg["done"];
+        // wait_restore_reg_*.in = !eq_*.out? 1'd1;
+        wait_restore_reg["in"] = eq_guard? cst_1["out"];
+        // wait_restore_reg_*.write_en = !eq_*.out? 1'd1;
+        wait_restore_reg["write_en"] = eq_guard? cst_1["out"];
     );
     group.borrow_mut().assignments.append(&mut assigns);
     group

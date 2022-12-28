@@ -130,7 +130,8 @@ impl ComponentInliner {
         gr: &RRC<ir::Group>,
     ) -> (ir::Id, RRC<ir::Group>) {
         let group = gr.borrow();
-        let new_group = builder.add_group(group.clone_name());
+        let new_group =
+            builder.add_group(group.clone_name(), group.done_cond.clone());
         new_group.borrow_mut().attributes = group.attributes.clone();
 
         // Rewrite assignments

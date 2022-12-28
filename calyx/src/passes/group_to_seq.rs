@@ -1,7 +1,6 @@
 use crate::analysis::ReadWriteSet;
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
 use crate::ir::{self, CloneName};
-use std::cell::RefMut;
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -111,9 +110,6 @@ struct SplitAnalysis {
     /// Holds the first "go" assignment, *if* it is in the form a.go = !a.done ? 1'd1
     first_go_asmt: Option<ir::Assignment>,
 
-    /// Holds the group[done] = done assignment;
-    group_done_asmt: Option<ir::Assignment>,
-
     /// Assignments that write to first cell, unless the assignment is already accounted by a different field
     fst_asmts: Vec<ir::Assignment>,
 
@@ -135,7 +131,7 @@ impl SplitAnalysis {
         group_ref: &ir::RRC<ir::Group>,
         builder: &mut ir::Builder,
     ) -> Option<(ir::RRC<ir::Group>, ir::RRC<ir::Group>)> {
-        let group = group_ref.borrow_mut();
+        let mut group = group_ref.borrow_mut();
         let group_name = group.clone_name();
         let signal_on = builder.add_constant(1, 1);
 
@@ -147,7 +143,7 @@ impl SplitAnalysis {
         // Sets the first_go_asmt, fst_asmts, snd_asmts group_done_asmt, go_done_asmt
         // fields for split_analysis
         let mut split_analysis = SplitAnalysis::default();
-        split_analysis.organize_assignments(group, &first, &second);
+        split_analysis.organize_assignments(&mut group, &first, &second);
 
         // If there is assignment in the form first.go = !first.done ? 1'd1,
         // turn this into first.go = 1'd1.
@@ -166,7 +162,6 @@ impl SplitAnalysis {
 
         let first_group = Self::make_group(
             go_done.src,
-            ir::Guard::True,
             split_analysis.fst_asmts,
             builder,
             format!("beg_spl_{}", group_name.id),
@@ -180,16 +175,8 @@ impl SplitAnalysis {
         );
         split_analysis.snd_asmts.push(cell_go);
 
-        let group_done = split_analysis.group_done_asmt.unwrap_or_else(|| {
-            unreachable!(
-                "Couldn't find a group[done] = _.done assignment in {}",
-                group_name
-            )
-        });
-
         let second_group = Self::make_group(
-            group_done.src,
-            *group_done.guard,
+            group.done_cond.clone(),
             split_analysis.snd_asmts,
             builder,
             format!("end_spl_{}", group_name.id),
@@ -202,28 +189,25 @@ impl SplitAnalysis {
     // first_go_asmt, fst_asmts, snd_asmts, and group_done_asmt.
     fn organize_assignments(
         &mut self,
-        mut group: RefMut<ir::Group>,
+        group: &mut ir::Group,
         first_cell_name: &ir::Id,
         second_cell_name: &ir::Id,
     ) {
         for asmt in group.assignments.drain(..) {
-            match writes_to_cell(&asmt) {
-                Some(cell_name) => {
-                    if Self::is_go_done(&asmt) {
-                        self.go_done_asmt = Some(asmt);
-                    } else if Self::is_specific_go(&asmt, first_cell_name) {
-                        self.first_go_asmt = Some(asmt);
-                    } else if cell_name == first_cell_name {
-                        self.fst_asmts.push(asmt);
-                    } else if cell_name == second_cell_name {
-                        self.snd_asmts.push(asmt);
-                    } else {
-                        unreachable!(
-                            "Does not write to one of the two \"stateful\" cells"
-                            )
-                    }
+            if let Some(cell_name) = writes_to_cell(&asmt) {
+                if Self::is_go_done(&asmt) {
+                    self.go_done_asmt = Some(asmt);
+                } else if Self::is_specific_go(&asmt, first_cell_name) {
+                    self.first_go_asmt = Some(asmt);
+                } else if cell_name == first_cell_name {
+                    self.fst_asmts.push(asmt);
+                } else if cell_name == second_cell_name {
+                    self.snd_asmts.push(asmt);
+                } else {
+                    unreachable!(
+                        "Does not write to one of the two \"stateful\" cells"
+                    )
                 }
-                None => self.group_done_asmt = Some(asmt),
             }
         }
     }
@@ -341,19 +325,12 @@ impl SplitAnalysis {
     /// asmts, plus a write to groups's done, based on done_src and done_guard.
     fn make_group(
         done_src: ir::RRC<ir::Port>,
-        done_guard: ir::Guard,
         asmts: Vec<ir::Assignment>,
         builder: &mut ir::Builder,
         prefix: String,
     ) -> ir::RRC<ir::Group> {
-        let group = builder.add_group(prefix);
         let mut group_asmts = asmts;
-        let done_asmt = builder.build_assignment(
-            group.borrow().get("done"),
-            done_src,
-            done_guard,
-        );
-        group_asmts.push(done_asmt);
+        let group = builder.add_group(prefix, done_src);
         group.borrow_mut().assignments.append(&mut group_asmts);
         group
     }

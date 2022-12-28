@@ -87,41 +87,17 @@ impl Visitor for MergeStaticPar {
             }
         }
 
-        for (key, value) in static_group {
-            if value.len() != 1 {
+        for (key, groups) in static_group {
+            if groups.len() != 1 {
                 let mut builder = ir::Builder::new(comp, sigs);
-                let grp = builder.add_group("msp");
-                let mut assignments: Vec<ir::Assignment> = Vec::new();
-                for group in value.iter() {
-                    assignments.extend(group.borrow().assignments.clone());
-                }
+                // Because all the done conditions are expected to be asserted as the same time,
+                // we just pick the first one
+                let grp = builder
+                    .add_group("msp", groups[0].borrow().done_cond.clone());
 
-                let (done_asmts, asmts): (
-                    Vec<ir::Assignment>,
-                    Vec<ir::Assignment>,
-                ) = mem::take(&mut assignments)
-                    .into_iter()
-                    .partition(|x| x.dst.borrow().is_hole());
-
-                grp.borrow_mut().assignments.extend(asmts);
-
-                let mut fin_grd: ir::Guard = ir::Guard::True;
-                for asmt in done_asmts.clone() {
-                    let grd: ir::Guard = ir::Guard::Port(asmt.src);
-                    fin_grd &= grd;
-                    fin_grd &= *asmt.guard;
-                }
-
-                let cst = builder.add_constant(1, 1);
-
-                let done_asmt = builder.build_assignment(
-                    grp.borrow().get("done"),
-                    cst.borrow().get("out"),
-                    fin_grd,
+                grp.borrow_mut().assignments.extend(
+                    groups.iter().flat_map(|g| g.borrow().assignments.clone()),
                 );
-
-                grp.borrow_mut().assignments.push(done_asmt);
-
                 grp.borrow_mut().attributes.insert("static", key);
                 comp.groups.add(Rc::clone(&grp));
 
@@ -133,7 +109,7 @@ impl Visitor for MergeStaticPar {
                 s.stmts.push(ir::Control::Enable(enable));
             } else {
                 let mut enable: ir::Enable = Enable {
-                    group: Rc::clone(&value[0]),
+                    group: Rc::clone(&groups[0]),
                     attributes: Attributes::default(),
                 };
                 enable.attributes.insert("static", key);

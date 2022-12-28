@@ -117,8 +117,10 @@ impl<'a> Schedule<'a> {
         fsm_size: u64,
         fsm: &RRC<ir::Cell>,
     ) -> ir::Guard {
-        let lb_const = builder.add_constant(s, fsm_size);
-        let ub_const = builder.add_constant(e, fsm_size);
+        structure!(builder;
+            let lb_const = constant(s, fsm_size);
+            let ub_const = constant(e, fsm_size);
+        );
         if s == 0 {
             guard!(fsm["out"]).lt(guard!(ub_const["out"]))
         } else {
@@ -133,7 +135,6 @@ impl<'a> Schedule<'a> {
         let builder = self.builder;
         let (unconditional, conditional) =
             Self::calculate_runs(self.transitions.into_iter());
-        let group = builder.add_group("tdst");
         let fsm_size = get_bit_width_from(final_state + 1);
 
         structure!(builder;
@@ -144,22 +145,22 @@ impl<'a> Schedule<'a> {
         );
 
         // Enable assignments.
-        group.borrow_mut().assignments.extend(
-            self.enables
-                .into_iter()
-                .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-                .flat_map(|((lb, ub), mut assigns)| {
-                    let state_guard =
-                        Self::range_guard(builder, lb, ub, fsm_size, &fsm);
-                    assigns.iter_mut().for_each(|assign| {
-                        assign.guard.update(|g| g.and(state_guard.clone()))
-                    });
-                    assigns
-                }),
-        );
+        let mut assignments = self
+            .enables
+            .into_iter()
+            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+            .flat_map(|((lb, ub), mut assigns)| {
+                let state_guard =
+                    Self::range_guard(builder, lb, ub, fsm_size, &fsm);
+                assigns.iter_mut().for_each(|assign| {
+                    assign.guard.update(|g| g.and(state_guard.clone()))
+                });
+                assigns
+            })
+            .collect_vec();
 
         // Conditional Transition assignments.
-        group.borrow_mut().assignments.extend(
+        assignments.extend(
             conditional
                 .into_iter()
                 .sorted_by_key(|(start, _, _)| *start)
@@ -200,15 +201,12 @@ impl<'a> Schedule<'a> {
                 fsm["in"] = uncond_guard ? fsm_incr["out"];
                 fsm["write_en"] = uncond_guard ? signal_on["out"];
             );
-            group.borrow_mut().assignments.extend(uncond_incr);
+            assignments.extend(uncond_incr);
         }
 
         // Done condition for group.
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
-        let done_assign = build_assignments!(builder;
-            group["done"] = last_guard ? signal_on["out"];
-        );
-        group.borrow_mut().assignments.extend(done_assign);
+        let group = builder.add_group_with_guard("tdst", last_guard.clone());
 
         // Cleanup: Add a transition from last state to the first state.
         let mut reset_fsm = build_assignments!(builder;

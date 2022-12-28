@@ -449,20 +449,20 @@ impl Assignment {
 pub struct Group {
     /// Name of this group
     name: Id,
-
     /// The assignments used in this group
     pub assignments: Vec<Assignment>,
-
     /// Holes for this group
     pub holes: SmallVec<[RRC<Port>; 3]>,
-
+    /// Done condition of the group
+    pub done_cond: RRC<Port>,
     /// Attributes for this group.
     pub attributes: Attributes,
 }
 impl Group {
-    pub fn new(name: Id) -> Self {
+    pub fn new(name: Id, done_cond: RRC<Port>) -> Self {
         Self {
             name,
+            done_cond,
             assignments: vec![],
             holes: smallvec![],
             attributes: Attributes::default(),
@@ -490,32 +490,6 @@ impl Group {
         self.find(name.clone()).unwrap_or_else(|| {
             panic!("Hole `{name}' not found on group `{}'", self.name)
         })
-    }
-
-    /// Returns the index to the done assignment in the group.
-    fn find_done_cond(&self) -> usize {
-        self.assignments
-            .iter()
-            .position(|assign| {
-                let dst = assign.dst.borrow();
-                dst.is_hole() && dst.name == "done"
-            })
-            .unwrap_or_else(|| {
-                panic!("Group `{}' has no done condition", self.name)
-            })
-    }
-
-    /// Returns a reference to the assignment in the group that writes to the done condition.
-    pub fn done_cond(&self) -> &Assignment {
-        let idx = self.find_done_cond();
-        &self.assignments[idx]
-    }
-
-    /// Returns a mutable reference to the assignment in the group that writes to the done
-    /// condition.
-    pub fn done_cond_mut(&mut self) -> &mut Assignment {
-        let idx = self.find_done_cond();
-        &mut self.assignments[idx]
     }
 
     /// The name of this group.

@@ -84,7 +84,7 @@ impl ComponentDef {
 
 /// Statement that refers to a port on a subcomponent.
 /// This is distinct from a `Portdef` which defines a port.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Port {
     /// Refers to the port named `port` on the subcomponent
     /// `component`.

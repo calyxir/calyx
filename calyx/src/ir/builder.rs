@@ -1,6 +1,7 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::ir::{self, LibrarySignatures, RRC, WRC};
+use crate::structure;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -52,10 +53,40 @@ impl<'a> Builder<'a> {
         self
     }
 
+    /// Constructs a new group where the group's done condition is a guard.
+    /// Instantiates a new wire that is driven by the guard and used as the
+    /// group's done condition.`
+    pub fn add_group_with_guard<S>(
+        &mut self,
+        prefix: S,
+        guard: ir::Guard,
+    ) -> RRC<ir::Group>
+    where
+        S: Into<ir::Id>,
+    {
+        // Instantiate a new wire
+        structure!(self;
+            let dcw = prim std_wire(1);
+            let on = constant(1, 1);
+        );
+        let assign = self.build_assignment(
+            dcw.borrow().get("in"),
+            on.borrow().get("out"),
+            guard,
+        );
+        self.component.continuous_assignments.push(assign);
+        let done_cond = dcw.borrow().get("out");
+        self.add_group(prefix, done_cond)
+    }
+
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_group<S>(&mut self, prefix: S) -> RRC<ir::Group>
+    pub fn add_group<S>(
+        &mut self,
+        prefix: S,
+        done_cond: RRC<ir::Port>,
+    ) -> RRC<ir::Group>
     where
         S: Into<ir::Id>,
     {
@@ -67,19 +98,18 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::Group::new(name)));
+        let group = Rc::new(RefCell::new(ir::Group::new(name, done_cond)));
 
         // Add default holes to the group.
-        for (name, width) in &[("go", 1), ("done", 1)] {
-            let hole = Rc::new(RefCell::new(ir::Port {
-                name: ir::Id::from(*name),
-                width: *width,
-                direction: ir::Direction::Inout,
-                parent: ir::PortParent::Group(WRC::from(&group)),
-                attributes: ir::Attributes::default(),
-            }));
-            group.borrow_mut().holes.push(hole);
-        }
+        let (name, width) = &("go", 1);
+        let hole = Rc::new(RefCell::new(ir::Port {
+            name: ir::Id::from(*name),
+            width: *width,
+            direction: ir::Direction::Inout,
+            parent: ir::PortParent::Group(WRC::from(&group)),
+            attributes: ir::Attributes::default(),
+        }));
+        group.borrow_mut().holes.push(hole);
 
         // Add the group to the component.
         self.component.groups.add(Rc::clone(&group));

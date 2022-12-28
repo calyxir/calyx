@@ -126,7 +126,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         }
         ir::Control::Seq(ir::Seq { stmts, attributes }) => {
             let new_fsm = attributes.has("new_fsm");
-            // if new_fsm is true, then insert attribute at the seq, and then 
+            // if new_fsm is true, then insert attribute at the seq, and then
             // start over counting states from 0
             let mut cur = if new_fsm{
                 attributes.insert(NODE_ID, cur_state);
@@ -137,7 +137,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             stmts.iter_mut().for_each(|stmt| {
                 cur = compute_unique_ids(stmt, cur);
             });
-            // If new_fsm is true then we want to return cur_state + 1, since this 
+            // If new_fsm is true then we want to return cur_state + 1, since this
             // seq should really only take up 1 "state" on the "outer" fsm
             if new_fsm{
                 cur_state + 1
@@ -149,15 +149,15 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             tbranch, fbranch, attributes, ..
         }) => {
             let new_fsm = attributes.has("new_fsm");
-            // if new_fsm is true, then we want to add an attribute to this 
+            // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm {
                 attributes.insert(NODE_ID, cur_state);
             }
             // If the program starts with a branch then branches can't get
-            // the initial state. 
-            // Also, if new_fsm is true, we want to start with state 1 as well: 
-            // we can't start at 0 for the reason mentioned above  
+            // the initial state.
+            // Also, if new_fsm is true, we want to start with state 1 as well:
+            // we can't start at 0 for the reason mentioned above
             let cur = if new_fsm || cur_state == 0 {
                 1
             } else {
@@ -169,7 +169,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             let false_nxt = compute_unique_ids(
                 fbranch, tru_nxt
             );
-            // If new_fsm is true then we want to return cur_state + 1, since this 
+            // If new_fsm is true then we want to return cur_state + 1, since this
             // if stmt should really only take up 1 "state" on the "outer" fsm
             if new_fsm {
                 cur_state + 1
@@ -179,22 +179,22 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         }
         ir::Control::While(ir::While { body, attributes, .. }) => {
             let new_fsm = attributes.has("new_fsm");
-            // if new_fsm is true, then we want to add an attribute to this 
+            // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm{
                 attributes.insert(NODE_ID, cur_state);
             }
             // If the program starts with a branch then branches can't get
             // the initial state.
-            // Also, if new_fsm is true, we want to start with state 1 as well: 
-            // we can't start at 0 for the reason mentioned above 
+            // Also, if new_fsm is true, we want to start with state 1 as well:
+            // we can't start at 0 for the reason mentioned above
             let cur = if new_fsm || cur_state == 0 {
                 1
             } else {
                 cur_state
             };
             let body_nxt = compute_unique_ids(body, cur);
-            // If new_fsm is true then we want to return cur_state + 1, since this 
+            // If new_fsm is true then we want to return cur_state + 1, since this
             // while loop should really only take up 1 "state" on the "outer" fsm
             if new_fsm{
                 cur_state + 1
@@ -270,10 +270,11 @@ impl Schedule {
     /// implements it.
     fn realize_schedule(
         self,
-        group: RRC<ir::Group>,
         builder: &mut ir::Builder,
+        dump_fsm: bool,
     ) -> RRC<ir::Group> {
         self.validate();
+
         let final_state = self.last_state();
         let fsm_size = get_bit_width_from(
             final_state + 1, /* represent 0..final_state */
@@ -285,8 +286,23 @@ impl Schedule {
             let first_state = constant(0, fsm_size);
         );
 
+        // Done condition for group
+        let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        let group =
+            builder.add_group_with_guard("schedule", last_guard.clone());
+
+        if dump_fsm {
+            self.display(format!(
+                "{}:{}",
+                builder.component.name,
+                group.borrow().name()
+            ));
+        }
+
+        let mut g_mut = group.borrow_mut();
+
         // Enable assignments
-        group.borrow_mut().assignments.extend(
+        g_mut.assignments.extend(
             self.enables
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
@@ -298,12 +314,14 @@ impl Schedule {
                         asgn.guard.update(|g| g.and(state_guard.clone()))
                     });
                     assigns
-                }),
+                })
+                .collect_vec(),
         );
 
         // Transition assignments
-        group.borrow_mut().assignments.extend(
-            self.transitions.into_iter().flat_map(|(s, e, guard)| {
+        g_mut
+            .assignments
+            .extend(self.transitions.into_iter().flat_map(|(s, e, guard)| {
                 structure!(builder;
                     let end_const = constant(e, fsm_size);
                     let start_const = constant(s, fsm_size);
@@ -324,17 +342,8 @@ impl Schedule {
                         trans_guard,
                     ),
                 ]
-            }),
-        );
-
-        // Done condition for group
-        let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
-        let done_assign = builder.build_assignment(
-            group.borrow().get("done"),
-            signal_on.borrow().get("out"),
-            last_guard.clone(),
-        );
-        group.borrow_mut().assignments.push(done_assign);
+            }));
+        drop(g_mut);
 
         // Cleanup: Add a transition from last state to the first state.
         let mut reset_fsm = build_assignments!(builder;
@@ -862,15 +871,7 @@ impl Visitor for TopDownCompileControl {
         let seq_group = {
             let schedule =
                 calculate_states_seq(s, &mut builder, self.early_transitions)?;
-            let group = builder.add_group("tdcc");
-            if self.dump_fsm {
-                schedule.display(format!(
-                    "{}:{}",
-                    builder.component.name,
-                    group.borrow().name()
-                ));
-            }
-            schedule.realize_schedule(group, &mut builder)
+            schedule.realize_schedule(&mut builder, self.dump_fsm)
         };
 
         // Add NODE_ID to compiled group.
@@ -898,15 +899,7 @@ impl Visitor for TopDownCompileControl {
         let if_group = {
             let schedule =
                 calculate_states_if(i, &mut builder, self.early_transitions)?;
-            let group = builder.add_group("tdcc");
-            if self.dump_fsm {
-                schedule.display(format!(
-                    "{}:{}",
-                    builder.component.name,
-                    group.borrow().name()
-                ));
-            }
-            schedule.realize_schedule(group, &mut builder)
+            schedule.realize_schedule(&mut builder, self.dump_fsm)
         };
 
         // Add NODE_ID to compiled group.
@@ -936,15 +929,7 @@ impl Visitor for TopDownCompileControl {
                 &mut builder,
                 self.early_transitions,
             )?;
-            let group = builder.add_group("tdcc");
-            if self.dump_fsm {
-                schedule.display(format!(
-                    "{}:{}",
-                    builder.component.name,
-                    group.borrow().name()
-                ));
-            }
-            schedule.realize_schedule(group, &mut builder)
+            schedule.realize_schedule(&mut builder, self.dump_fsm)
         };
 
         // Add NODE_ID to compiled group.
@@ -966,8 +951,6 @@ impl Visitor for TopDownCompileControl {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
 
-        // Compilation group
-        let par_group = builder.add_group("par");
         structure!(builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -976,6 +959,7 @@ impl Visitor for TopDownCompileControl {
         // Registers to save the done signal from each child.
         let mut done_regs = Vec::with_capacity(s.stmts.len());
 
+        let mut assignments = vec![];
         // For each child, build the enabling logic.
         for con in &s.stmts {
             let group = match con {
@@ -990,15 +974,7 @@ impl Visitor for TopDownCompileControl {
                         &mut builder,
                         self.early_transitions,
                     )?;
-                    let group = builder.add_group("tdcc");
-                    if self.dump_fsm {
-                        schedule.display(format!(
-                            "{}:{}",
-                            builder.component.name,
-                            group.borrow().name()
-                        ));
-                    }
-                    schedule.realize_schedule(group, &mut builder)
+                    schedule.realize_schedule(&mut builder, self.dump_fsm)
                 }
             };
 
@@ -1015,7 +991,7 @@ impl Visitor for TopDownCompileControl {
                 pd["in"] = group_done ? signal_on["out"];
                 pd["write_en"] = group_done ? signal_on["out"];
             );
-            par_group.borrow_mut().assignments.append(&mut assigns);
+            assignments.append(&mut assigns);
             done_regs.push(pd)
         }
 
@@ -1025,6 +1001,8 @@ impl Visitor for TopDownCompileControl {
             .into_iter()
             .map(|r| guard!(r["out"]))
             .fold(ir::Guard::True, ir::Guard::and);
+        // Compilation group
+        let par_group = builder.add_group_with_guard("par", done_guard.clone());
 
         // CLEANUP: Reset the registers once the group is finished.
         let mut cleanup = done_regs
@@ -1072,15 +1050,7 @@ impl Visitor for TopDownCompileControl {
             &mut builder,
             self.early_transitions,
         )?;
-        let group = builder.add_group("tdcc");
-        if self.dump_fsm {
-            schedule.display(format!(
-                "{}:{}",
-                builder.component.name,
-                group.borrow().name()
-            ));
-        }
-        let comp_group = schedule.realize_schedule(group, &mut builder);
+        let comp_group = schedule.realize_schedule(&mut builder, self.dump_fsm);
 
         Ok(Action::change(ir::Control::enable(comp_group)))
     }

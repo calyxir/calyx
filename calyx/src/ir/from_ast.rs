@@ -293,6 +293,21 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
 ///////////////// Group Construction /////////////////////////
 
+fn get_done_cond(
+    comp: &mut Component,
+    group: Id,
+    assigns: &[ast::Wire],
+) -> CalyxResult<Option<RRC<Port>>> {
+    for a in assigns {
+        if let ast::Port::Hole { group: g, name } = &a.dest {
+            if *g == group && name == "done" {
+                return Ok(Some(get_port_ref(a.dest.clone(), comp)?));
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Build an [super::Group] from an [ast::Group] and attach it to the [Component]
 /// associated with the [Builder]
 fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
@@ -303,7 +318,16 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
         ir_group.borrow_mut().attributes = group.attributes;
         ir_group.borrow_mut().assignments = assigns;
     } else {
-        let ir_group = builder.add_group(group.name);
+        // XXX(rachit): Iterating over the group wires twice
+        let done = get_done_cond(builder.component, group.name, &group.wires)?;
+        if done.is_none() {
+            return Err(Error::malformed_structure(format!(
+                "No done condition found for group {}",
+                group.name
+            ))
+            .with_pos(&group.attributes));
+        }
+        let ir_group = builder.add_group(group.name, done.unwrap());
         let assigns = build_assignments(group.wires, builder)?;
 
         ir_group.borrow_mut().attributes = group.attributes;
