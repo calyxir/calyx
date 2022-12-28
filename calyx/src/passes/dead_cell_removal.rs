@@ -64,7 +64,8 @@ impl Visitor for DeadCellRemoval {
             .map(|(_, p)| p)
             .chain(outputs.iter().map(|(_, p)| p))
             .map(|p| p.borrow().get_parent_name())
-            .chain(iter::once(s.comp.clone_name()));
+            .chain(iter::once(s.comp.clone_name()))
+            .chain(s.ref_cells.iter().map(|(_, cell)| cell.clone_name()));
         self.all_reads.extend(cells);
         Ok(Action::Continue)
     }
@@ -79,7 +80,10 @@ impl Visitor for DeadCellRemoval {
         self.all_reads.extend(
             comp.cells
                 .iter()
-                .filter(|c| c.borrow().attributes.get("external").is_some())
+                .filter(|c| {
+                    c.borrow().is_reference()
+                        || c.borrow().attributes.get("external").is_some()
+                })
                 .map(|c| c.clone_name()),
         );
         // Add component signature
@@ -134,8 +138,12 @@ impl Visitor for DeadCellRemoval {
             // Remove unused cells
             let removed = comp.cells.retain(|c| {
                 let cell = c.borrow();
-                self.all_reads.contains(&cell.name())
-                    || wire_reads.contains(&cell.name())
+                let out = self.all_reads.contains(&cell.name())
+                    || wire_reads.contains(&cell.name());
+                if !out {
+                    log::debug!("Unused cell {}", cell.name());
+                }
+                out
             });
 
             if removed == 0 {
