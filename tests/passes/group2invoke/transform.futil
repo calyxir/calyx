@@ -21,13 +21,12 @@ component main() -> () {
       add.left = 32'd2;
       add.right = 32'd3;
     }
-    // transform w comb group and build wire
-    group exp{
-      lt.left = 32'd2;
-      lt.right = 32'd4;
+    // multiple guarded assignments to r.in 
+    group g{
       r.write_en = 1'd1;
-      r.in = lt.out ? 32'd19;
-      exp[done] = r.done;
+      r.in = 1'd0 ? 32'd1;
+      r.in = 1'd0 ? 32'd2;
+      g[done] = r.done;
     }
     // need comb group that has multiple combinational cells
     group guard2{
@@ -48,8 +47,8 @@ component main() -> () {
   control {
     seq{
       write_r;
+      g;
       @foo add_write_r;
-      exp;
       @bar guard2;
       read_write_same;
     }

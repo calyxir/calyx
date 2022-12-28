@@ -91,6 +91,7 @@ fn construct_invoke(
 
     let mut inputs = Vec::new();
     let mut comb_assigns = Vec::new();
+    let mut wire_map: HashMap<ir::Id, ir::RRC<ir::Port>> = HashMap::new();
 
     for assign in &group.assignments {
         // We know that all assignments in this group should write to either a)
@@ -113,21 +114,42 @@ fn construct_invoke(
                 inputs.push((name, Rc::clone(&assign.src)));
             } else {
                 // assign has a guard condition,so need a wire
-                let width = assign.dst.borrow().width;
-                let wire = builder.add_primitive(
-                    format!("{}_guarded_wire", name),
-                    "std_wire",
-                    &[width],
-                );
-                let wire_in = wire.borrow().get("in");
+                // We first check whether we have already built a wire
+                // for this port or not.
+                let wire_in = match wire_map.get(&assign.dst.borrow().name) {
+                    Some(w) => {
+                        // Already built a wire, so just need to return the
+                        // wire's input port (which wire_map stores)
+                        Rc::clone(w)
+                    }
+                    None => {
+                        // Need to create a new wire
+                        let width = assign.dst.borrow().width;
+                        let wire = builder.add_primitive(
+                            format!("{}_guarded_wire", name),
+                            "std_wire",
+                            &[width],
+                        );
+                        // Insert the wire's input port into wire_map
+                        let wire_in = wire.borrow().get("in");
+                        wire_map.insert(
+                            assign.dst.borrow().name,
+                            Rc::clone(&wire_in),
+                        );
+                        // add the wire's output port to the inputs of the
+                        // invoke statement we are building
+                        inputs.push((name, wire.borrow().get("out")));
+                        // return wire_in
+                        wire_in
+                    }
+                };
+                // Use wire_in to add another assignment to combinational group
                 let asmt = builder.build_assignment(
                     wire_in,
                     Rc::clone(&assign.src),
                     *assign.guard.clone(),
                 );
                 comb_assigns.push(asmt);
-                let wire_out = wire.borrow().get("out");
-                inputs.push((name, wire_out));
             }
         }
     }
