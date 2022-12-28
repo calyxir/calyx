@@ -308,7 +308,12 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
         for assign in group.wires {
             // Check if the assignment is to the done port
             if let ast::Port::Hole { group: g, name } = &assign.dest {
-                if *g == group.name && name == "done" {
+                if name == "done" {
+                    if *g != group.name {
+                        return Err(Error::malformed_structure(format!(
+                            "Attempting to define condition for group {} in group {}", g, group.name)
+                        ).with_pos(&assign.attributes));
+                    }
                     done_cond = Some(assign.src);
                     continue;
                 }
@@ -416,7 +421,7 @@ fn ensure_direction(pr: RRC<Port>, dir: Direction) -> CalyxResult<RRC<Port>> {
         (Direction::Output, Direction::Input) => {
             let Canonical(c, p) = pr.borrow().canonical();
             Err(Error::malformed_structure(format!(
-                "Port `{}.{}` occurs in write position but is an output port",
+                "Port `{}.{}` occurs in read position but is an input port",
                 c, p
             )))
         }
