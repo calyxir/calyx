@@ -432,7 +432,7 @@ fn calculate_states_recur(
                 .map(|(st, guard)| (st, cur_state, guard));
             schedule.transitions.extend(transitions);
 
-            let done_cond = guard!(group["done"]);
+            let done_cond = group.borrow().done_cond.clone().into();
             Ok(vec![(cur_state, done_cond)])
         }
         ir::Control::Seq(seq) => {

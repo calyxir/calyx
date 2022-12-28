@@ -338,6 +338,14 @@ impl Printer {
             Self::write_assignment(assign, indent_level + 2, f)?;
             writeln!(f)?;
         }
+        // The done condition
+        writeln!(
+            f,
+            "{}{}[done] = {};",
+            " ".repeat(indent_level + 2),
+            group.name().id,
+            Self::port_to_str(&group.done_cond.borrow())
+        )?;
         write!(f, "{}}}", " ".repeat(indent_level))
     }
 
