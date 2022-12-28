@@ -24,6 +24,10 @@ impl VariableDetection {
             .collect::<Vec<_>>();
 
         if writes.len() != 1 {
+            log::debug!(
+                "`{}' is not VariableLike: Writes performed to multiple cells",
+                group.name()
+            );
             // failed writes check
             return None;
         }
@@ -40,6 +44,7 @@ impl VariableDetection {
             .map(|src| src.borrow().is_constant(1, 1))
             .collect::<Vec<_>>();
         if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
+            log::debug!("`{}' is not variableLike: Assignment to cell's go port is not 1'd1", group.name());
             // failed write_en check
             return None;
         }
@@ -52,6 +57,7 @@ impl VariableDetection {
             .map(|src| src.borrow().get_parent_name() == cell.name())
             .collect::<Vec<_>>();
         if activation.len() != 1 || (!activation.is_empty() && !activation[0]) {
+            log::debug!("`{}' is not variableLike: Assignment to group's done port is not cell.done", group.name());
             // failed g[done] = reg.done check
             return None;
         }
