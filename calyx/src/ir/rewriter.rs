@@ -191,4 +191,41 @@ impl<'a> Rewriter<'a> {
             }
         }
     }
+
+    // Apply the rewrites to the component
+    pub fn rewrite(
+        &self,
+        comp: &mut ir::Component,
+        group_map: &RewriteMap<ir::Group>,
+        comb_group_map: &RewriteMap<ir::CombGroup>,
+    ) {
+        // Rewrite the groups
+        for group in comp.groups.iter_mut() {
+            let mut group = group.borrow_mut();
+            // Rewrite assignments in all the groups
+            for assign in group.assignments.iter_mut() {
+                assign.for_each_port(|port| self.get(port));
+            }
+            // Rewrite the done condition
+            if let Some(done) = self.get(&group.done_cond) {
+                group.done_cond = done;
+            }
+        }
+
+        // Rewrite the combinational groups
+        for comb_group in comp.comb_groups.iter_mut() {
+            let mut comb_group = comb_group.borrow_mut();
+            // Rewrite assignments in all the groups
+            for assign in comb_group.assignments.iter_mut() {
+                assign.for_each_port(|port| self.get(port));
+            }
+        }
+
+        // Rewrite the control program
+        self.rewrite_control(
+            &mut comp.control.borrow_mut(),
+            group_map,
+            comb_group_map,
+        );
+    }
 }
