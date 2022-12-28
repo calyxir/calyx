@@ -1,6 +1,5 @@
 // -p group2invoke -p dead-group-removal
 import "primitives/core.futil";
-import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     r = std_reg(32);
@@ -22,6 +21,13 @@ component main() -> () {
       add.left = 32'd2;
       add.right = 32'd3;
     }
+    // multiple guarded assignments to r.in 
+    group g{
+      r.write_en = 1'd1;
+      r.in = 1'd0 ? 32'd1;
+      r.in = 1'd0 ? 32'd2;
+      g[done] = r.done;
+    }
     // need comb group that has multiple combinational cells
     group guard2{
       lt.left = 32'd2;
@@ -31,13 +37,6 @@ component main() -> () {
       r.write_en = 1'd1;
       r.in = add.out;
       guard2[done] = r.done;
-    }
-    // multiple guarded assignments to r.in 
-    group g{
-      r.write_en = 1'd1;
-      r.in = 1'd0 ? 32'd1;
-      r.in = 1'd0 ? 32'd2;
-      g[done] = r.done;
     }
     group read_write_same {
       r.write_en = 1'd1;

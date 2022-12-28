@@ -3,7 +3,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
     a = std_reg(32);
-    lt = std_lt(32);
   }
   wires {
     group chain {

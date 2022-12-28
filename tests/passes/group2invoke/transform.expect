@@ -1,5 +1,4 @@
 import "primitives/core.futil";
-import "primitives/binary_operators.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
@@ -13,14 +12,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       add.right = 32'd3;
     }
     comb group comb_invoke0 {
+      in_guarded_wire.in = 1'd0 ? 32'd1;
+      in_guarded_wire.in = 1'd0 ? 32'd2;
+    }
+    comb group comb_invoke1 {
       lt.left = 32'd2;
       lt.right = 32'd4;
       add.left = 32'd2;
       add.right = lt.out ? r.out;
-    }
-    comb group comb_invoke1 {
-      in_guarded_wire.in = 1'd0 ? 32'd1;
-      in_guarded_wire.in = 1'd0 ? 32'd2;
     }
   }
 
@@ -31,13 +30,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       )();
       invoke r(
         in = in_guarded_wire.out
-      )() with comb_invoke1;
+      )() with comb_invoke0;
       @foo invoke r(
         in = add.out
       )() with comb_invoke;
       @bar invoke r(
         in = add.out
-      )() with comb_invoke0;
+      )() with comb_invoke1;
       invoke r(
         in = r.out
       )();
