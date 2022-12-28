@@ -332,8 +332,14 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
                 )
                 .with_pos(&group.attributes));
             }
-            let guard = build_guard(guard, builder)?;
-            builder.add_group_with_guard(group.name, guard)
+            // If the guard is a just a port, build with the port
+            if let ast::GuardExpr::Atom(atom) = guard {
+                let atom = atom_to_port(atom, builder)?;
+                builder.add_group(group.name, atom)
+            } else {
+                let guard = build_guard(guard, builder)?;
+                builder.add_group_with_guard(group.name, guard)
+            }
         } else {
             builder.add_group(group.name, src)
         };

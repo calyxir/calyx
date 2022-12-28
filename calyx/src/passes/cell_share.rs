@@ -461,16 +461,7 @@ impl Visitor for CellShare {
         // Rewrite assignments using the coloring generated.
         let empty_map: ir::rewriter::PortRewriteMap = HashMap::new();
         let rewriter = ir::Rewriter::new(&coloring, &empty_map);
-        comp.for_each_assignment(|assign| {
-            assign.for_each_port(|port| rewriter.get(port));
-        });
-
-        // Rewrite control uses of ports
-        rewriter.rewrite_control(
-            &mut comp.control.borrow_mut(),
-            &HashMap::new(),
-            &HashMap::new(),
-        );
+        rewriter.rewrite(comp, &HashMap::new(), &HashMap::new());
 
         Ok(Action::Stop)
     }
