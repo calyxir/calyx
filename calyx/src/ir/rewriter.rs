@@ -4,30 +4,25 @@ use std::rc::Rc;
 
 use super::CloneName;
 
-/// Map to rewrite cell uses. Maps name of the old cell to the new [ir::Cell]
-/// instance.
-pub type CellRewriteMap = HashMap<ir::Id, RRC<ir::Cell>>;
+/// Rewrite map indexed using [ir::Id] to [RRC<T>]
+pub type RewriteMap<T> = HashMap<ir::Id, RRC<T>>;
 
 /// Map to rewrite port uses. Maps the canonical name of an old port (generated using
 /// [ir::Port::canonical]) to the new [ir::Port] instance.
 pub type PortRewriteMap = HashMap<ir::Canonical, RRC<ir::Port>>;
 
-/// Map name of old group to new group
-type GroupRewriteMap = HashMap<ir::Id, RRC<ir::Group>>;
-/// Map name of old combination group to new combinational group
-pub type CombGroupRewriteMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
-
-/// A structure to track rewrite maps for ports. Stores both cell rewrites and direct port
-/// rewrites. Attempts to apply port rewrites first before trying the cell
-/// rewrite.
+/// A structure to track rewrite maps for ports and cells. Stores both cell
+/// rewrites and direct port rewrites.
+/// When rewriting ports, attempts to apply port rewrites first before trying
+/// the cell rewrite.
 pub struct Rewriter<'a> {
-    cell_map: &'a CellRewriteMap,
+    cell_map: &'a RewriteMap<ir::Cell>,
     port_map: &'a PortRewriteMap,
 }
 
 impl<'a> Rewriter<'a> {
     pub fn new(
-        cell_map: &'a CellRewriteMap,
+        cell_map: &'a RewriteMap<ir::Cell>,
         port_map: &'a PortRewriteMap,
     ) -> Self {
         Self { cell_map, port_map }
@@ -41,7 +36,7 @@ impl<'a> Rewriter<'a> {
     /// Return a cell rewrite for the given port. A cell rewrite will attempt
     /// to give the port with the same name on the new cell.
     ///
-    /// For example, given with `cell = a` and `new_cell = b`
+    /// For example, given with `a` -> `b`
     /// ```
     /// a.in = a.done ? a.out;
     /// ```
@@ -92,11 +87,11 @@ impl<'a> Rewriter<'a> {
     }
 
     // =========== Control Rewriting Methods =============
-    /// Rewrite a `invoke` node using a [CellRewriteMap] and a [CombGroupRewriteMap]
+    /// Rewrite a `invoke` node using a [RewriteMap<ir::Cell>] and a [RewriteMap<ir::CombGroup><ir::Group>]
     pub fn rewrite_invoke(
         &self,
         inv: &mut ir::Invoke,
-        comb_group_map: &CombGroupRewriteMap,
+        comb_group_map: &RewriteMap<ir::CombGroup>,
     ) {
         // Rewrite the name of the cell
         let name = inv.comp.borrow().clone_name();
@@ -128,8 +123,8 @@ impl<'a> Rewriter<'a> {
     pub fn rewrite_control(
         &self,
         c: &mut ir::Control,
-        group_map: &GroupRewriteMap,
-        comb_group_map: &CombGroupRewriteMap,
+        group_map: &RewriteMap<ir::Group>,
+        comb_group_map: &RewriteMap<ir::CombGroup>,
     ) {
         match c {
             ir::Control::Empty(_) => (),

@@ -49,7 +49,7 @@ impl Named for RegisterUnsharing {
     }
 }
 
-type RewriteMap<T> = HashMap<T, ir::rewriter::CellRewriteMap>;
+type RewriteMap<T> = HashMap<T, ir::rewriter::RewriteMap<ir::Cell>>;
 
 // A struct for managing the overlapping analysis and rewrite information
 #[derive(Default)]

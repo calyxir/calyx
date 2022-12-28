@@ -202,7 +202,7 @@ impl ComponentInliner {
     ) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
-        let cell_map: ir::rewriter::CellRewriteMap = comp
+        let cell_map: ir::rewriter::RewriteMap<ir::Cell> = comp
             .cells
             .iter()
             .map(|cell_ref| Self::inline_cell(builder, cell_ref))
