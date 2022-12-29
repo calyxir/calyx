@@ -16,6 +16,7 @@ pub mod reaching_defns;
 mod read_write_set;
 mod schedule_conflicts;
 mod share_set;
+mod uses;
 mod variable_detection;
 
 pub use control_id::ControlId;
@@ -30,4 +31,5 @@ pub use port_interface::PortInterface;
 pub use read_write_set::ReadWriteSet;
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
+pub use uses::{Unique, UniqueUses, Uses};
 pub use variable_detection::VariableDetection;

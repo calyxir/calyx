@@ -22,7 +22,7 @@ use crate::{
 ///
 /// C1 < C2 if (R1 subset of W2) and (R2 disjoint W1)
 /// C1 > C2 if (R2 subset of W1) and (R1 disjoint W2)
-/// C1 =!= if (R1 subset of W2) and (R2 subset of W1)
+/// C1 =!= C2 if (R1 subset of W2) and (R2 subset of W1)
 ///
 /// Setting `BETTER_ERR` turns on additional machinery to generate an explanation for what caused
 /// the error but may require expensive computations. Turn on when cycles should be a hard error.

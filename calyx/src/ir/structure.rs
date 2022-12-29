@@ -119,11 +119,17 @@ pub struct PortIterator<'a> {
     pub port_iter: Box<dyn Iterator<Item = RRC<Port>> + 'a>,
 }
 
-impl PortIterator<'_> {
+impl<'a> PortIterator<'a> {
+    pub fn new(port_iter: impl Iterator<Item = RRC<Port>> + 'a) -> Self {
+        Self {
+            port_iter: Box::new(port_iter),
+        }
+    }
+
     /// Returns an empty iterator over ports.
     pub fn empty() -> Self {
         PortIterator {
-            port_iter: Box::new(vec![].into_iter()),
+            port_iter: Box::new(std::iter::empty()),
         }
     }
 }
