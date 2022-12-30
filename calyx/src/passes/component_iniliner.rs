@@ -130,9 +130,8 @@ impl ComponentInliner {
     ) -> Vec<(ir::Id, RRC<ir::Port>)> {
         v.drain(..)
             .map(|(id, port)| {
-                if let Some(rewrite) = self
-                    .interface_rewrites
-                    .get(&port.borrow().canonical().clone())
+                if let Some(rewrite) =
+                    self.interface_rewrites.get(&port.borrow().canonical())
                 {
                     return (id, Rc::clone(rewrite));
                 }
