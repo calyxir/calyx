@@ -84,7 +84,7 @@ impl ComponentInliner {
                 ..
             } => builder.add_primitive(
                 cn,
-                name,
+                *name,
                 &param_binding.iter().map(|(_, v)| *v).collect_vec(),
             ),
             ir::CellType::Component { name } => {

@@ -181,34 +181,52 @@ def register_external_stages(cfg, registry):
                 ) from e
 
 
-def display_config(args, cfg):
+def display_or_edit_config(args, cfg):
+    """Print out the value in the config or update it"""
+    # If no key is specified, print out the entire config
     if args.key is None:
         print(f"Configuration file location: {cfg.config_file}\n")
         cfg.display()
-    else:
-        path = args.key.split(".")
-        if args.delete:
-            del cfg[path]
-            cfg.commit()
-        elif args.value is None:
-            # print out values
-            res = cfg[path]
-            if isinstance(res, dict):
-                print(toml.dumps(res))
-            else:
-                print(res)
+        return
+
+    # Construct a path from the key specification
+    path = args.key.split(".")
+
+    # Delete the key if --delete is specified
+    if args.delete:
+        del cfg[path]
+        cfg.commit()
+        return
+
+    # If no value is specified, print out the value at the path
+    if args.value is None:
+        # print out values
+        res = cfg[path]
+        if isinstance(res, dict):
+            print(toml.dumps(res))
         else:
-            val = int(args.value) if args.value.isdigit() else args.value
-            # create configuration if it doesn't exist
-            if path not in cfg:
-                cfg[path] = val
-            elif not isinstance(cfg[path], list):
-                cfg[path] = val
-            else:
-                raise Exception(
-                    "NYI: supporting updating lists. " + "Manually edit the file."
-                )
-            cfg.commit()
+            print(res)
+        return
+
+    # Update the path with the provided value
+    val = int(args.value) if args.value.isdigit() else args.value
+    # create configuration if it doesn't exist
+    if path not in cfg:
+        # Don't create a new field unless --create is specified
+        if not args.create:
+            raise errors.FudError(
+                f"Path `{'.'.join(path)}' does not exist. Provide the --create flag if "
+                " you meant to create a new field instead of updating an existing one."
+            )
+        cfg[path] = val
+    elif not isinstance(cfg[path], list):
+        cfg[path] = val
+    else:
+        raise errors.FudError(
+            "Cannot update a field. Use `fud c --edit` to"
+            " manually edit the configuration"
+        )
+    cfg.commit()
 
 
 def main():
@@ -302,7 +320,7 @@ def main():
                 log.info(f"Removing {cfg.config_file}")
                 os.remove(cfg.config_file)
             else:
-                display_config(args, cfg)
+                display_or_edit_config(args, cfg)
         elif args.command == "check":
             check.check(cfg)
         elif args.command == "register":
@@ -387,6 +405,9 @@ def config_config(parser):
     parser.add_argument("value", help="The value to write.", nargs="?")
     parser.add_argument(
         "-d", "--delete", help="Remove key from config.", action="store_true"
+    )
+    parser.add_argument(
+        "-c", "--create", help="Create key in config.", action="store_true"
     )
     parser.set_defaults(command="config")
 

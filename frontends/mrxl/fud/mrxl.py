@@ -23,6 +23,10 @@ class MrXLStage(Stage):
         )
 
     @staticmethod
+    def pre_install():
+        pass
+
+    @staticmethod
     def defaults():
         """
         Specify defaults that should be added to fud's configuration file when

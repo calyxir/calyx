@@ -42,7 +42,7 @@ impl Visitor for CompileEmpty {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let group_ref = match &self.group_name {
+        let group_ref = match self.group_name {
             Some(g) => comp.find_group(g).unwrap(),
             None => {
                 let mut builder = ir::Builder::new(comp, sigs);

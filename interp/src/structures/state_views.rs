@@ -227,23 +227,26 @@ impl<'a> StateView<'a> {
 
     /// Return a vector RRCs for all cells (across any component) which have the given
     /// name
-    pub fn get_cells<S: AsRef<str> + Clone>(
-        &self,
-        name: S,
-    ) -> Vec<RRC<ir::Cell>> {
+    pub fn get_cells<S>(&self, name: S) -> Vec<RRC<ir::Cell>>
+    where
+        S: Into<ir::Id> + Clone,
+    {
         let ctx_ref = self.get_ctx();
-        ctx_ref.iter().filter_map(|x| x.find_cell(&name)).collect()
+        ctx_ref
+            .iter()
+            .filter_map(|x| x.find_cell(name.clone()))
+            .collect()
     }
 
     /// Return an RRC for the given cell if it exists within the root component
     /// of the environment. Otherwise None
-    pub fn get_cell<S: AsRef<str> + Clone>(
-        &self,
-        name: S,
-    ) -> Option<RRC<ir::Cell>> {
+    pub fn get_cell<S>(&self, name: S) -> Option<RRC<ir::Cell>>
+    where
+        S: Into<ir::Id> + Clone,
+    {
         match self {
-            StateView::SingleView(sv) => sv.component.find_cell(&name),
-            StateView::Composite(cv) => cv.0.component.find_cell(&name),
+            StateView::SingleView(sv) => sv.component.find_cell(name),
+            StateView::Composite(cv) => cv.0.component.find_cell(name),
         }
     }
 

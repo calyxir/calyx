@@ -4,15 +4,12 @@ use std::collections::VecDeque;
 
 pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
 where
-    S: AsRef<str>,
+    S: Into<ir::Id>,
 {
-    params.iter().find_map(|(id, x)| {
-        if id == target.as_ref() {
-            Some(*x)
-        } else {
-            None
-        }
-    })
+    let target = target.into();
+    params
+        .iter()
+        .find_map(|(id, x)| if *id == target { Some(*x) } else { None })
 }
 
 pub(super) fn get_input<'a, S>(
@@ -20,12 +17,10 @@ pub(super) fn get_input<'a, S>(
     target: S,
 ) -> Option<&'a Value>
 where
-    S: AsRef<str>,
+    S: Into<calyx::ir::Id>,
 {
-    inputs
-        .iter()
-        .find(|(id, _)| id == target.as_ref())
-        .map(|(_, v)| *v)
+    let target = target.into();
+    inputs.iter().find(|(id, _)| *id == target).map(|(_, v)| *v)
 }
 
 pub(super) fn get_input_unwrap<'a, S>(
@@ -33,7 +28,7 @@ pub(super) fn get_input_unwrap<'a, S>(
     target: S,
 ) -> &'a Value
 where
-    S: AsRef<str>,
+    S: Into<calyx::ir::Id>,
 {
     get_input(inputs, target).unwrap()
 }

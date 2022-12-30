@@ -30,6 +30,7 @@ component main() -> () {
 
     //will also use this slicer to check the last bit
     slicer = std_slice(4, 1);
+    slicer0 = std_slice(4, 1);
 
     //for the while loop
     lt = std_lt(3); //counting to 4, b/c multiplying 4 bit numbers (4 = [100])
@@ -148,7 +149,7 @@ component main() -> () {
 
     comb group cond_if {
       //get LSB of Q
-      slicer.in = q.out;
+      slicer0.in = q.out;
     }
 
   }
@@ -158,7 +159,7 @@ component main() -> () {
       init;
       while lt.out with cond_while { //just 4 iterations (i starts as 0)
         seq {
-          if slicer.out with cond_if { //there is a 1 in LSB of Q
+          if slicer0.out with cond_if { //there is a 1 in LSB of Q
             seq {
               decide_c;
               add;

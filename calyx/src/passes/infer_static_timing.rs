@@ -61,7 +61,7 @@ impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
             .find_all_with_attr("done")
-            .map(|pd| (pd.attributes[&"done"], pd.name))
+            .map(|pd| (pd.attributes["done"], pd.name))
             .collect();
 
         let go_ports = prim
@@ -69,7 +69,7 @@ impl From<&ir::Primitive> for GoDone {
             .filter_map(|pd| {
                 pd.attributes.get("static").and_then(|st| {
                     done_ports
-                        .get(&pd.attributes[&"go"])
+                        .get(&pd.attributes["go"])
                         .map(|done_port| (pd.name, *done_port, *st))
                 })
             })
@@ -84,7 +84,7 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr("done")
             .map(|pr| {
                 let port = pr.borrow();
-                (port.attributes[&"done"], port.name)
+                (port.attributes["done"], port.name)
             })
             .collect();
 
@@ -94,7 +94,7 @@ impl From<&ir::Cell> for GoDone {
                 let port = pr.borrow();
                 port.attributes.get("static").and_then(|st| {
                     done_ports
-                        .get(&port.attributes[&"go"])
+                        .get(&port.attributes["go"])
                         .map(|done_port| (port.name, *done_port, *st))
                 })
             })
@@ -127,7 +127,7 @@ impl ConstructVisitor for InferStaticTiming {
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
                 .find_all_with_attr("done")
-                .map(|pd| (pd.attributes[&"done"], pd.name))
+                .map(|pd| (pd.attributes["done"], pd.name))
                 .collect();
 
             let go_ports = prim
@@ -135,7 +135,7 @@ impl ConstructVisitor for InferStaticTiming {
                 .filter_map(|pd| {
                     pd.attributes.get("static").and_then(|st| {
                         done_ports
-                            .get(&pd.attributes[&"go"])
+                            .get(&pd.attributes["go"])
                             .map(|done_port| (pd.name, *done_port, *st))
                     })
                 })

@@ -43,6 +43,19 @@ class UnsetConfiguration(FudError):
         super().__init__(msg)
 
 
+class UnknownConfiguration(FudError):
+    """
+    Unknown configuration option provided to stage
+    """
+
+    def __init__(self, stage, opt, known):
+        msg = (
+            f"Unknown configuration option `{opt}' for stage `{stage}'. "
+            + f"Known options: {', '.join(known)}"
+        )
+        super().__init__(msg)
+
+
 class MissingDynamicConfiguration(FudError):
     """
     Execution of a stage requires dynamic configuration. Thrown when such a

@@ -124,7 +124,7 @@ impl Visitor for RemoveCombGroups {
                 })?;
 
                 // Group generated to replace this comb group.
-                let group_ref = builder.add_group(name.as_ref());
+                let group_ref = builder.add_group(name);
                 let mut group = group_ref.borrow_mut();
                 // Attach assignmens from comb group
                 group.assignments =

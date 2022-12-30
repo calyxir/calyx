@@ -38,7 +38,7 @@ def chain_stages(
     return builder
 
 
-def run_fud(args, config):
+def run_fud(args, config: Configuration):
     """
     Execute all the stages implied by the passed `args`
     """
