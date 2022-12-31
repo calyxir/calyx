@@ -1,12 +1,13 @@
 //! Calculate the reaching definitions in a control program.
-use crate::analysis::ReadWriteSet;
-use crate::ir::{self, CloneName};
+use crate::ir::{self, CloneName, RRC};
 use std::cmp::Ordering;
 use std::cmp::{Ord, PartialOrd};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     ops::BitOr,
 };
+
+use super::Uses;
 
 const INVOKE_PREFIX: &str = "__invoke_";
 
@@ -202,18 +203,19 @@ impl ReachingDefinitionAnalysis {
     where
         I: Iterator<Item = &'a ir::Assignment> + Clone + 'a,
     {
-        let continuous_regs: Vec<ir::Id> =
-            ReadWriteSet::uses(continuous_assignments)
-                .filter_map(|cell| {
-                    let cell_ref = cell.borrow();
-                    if let Some(name) = cell_ref.type_name() {
-                        if name == "std_reg" {
-                            return Some(cell_ref.clone_name());
-                        }
+        let continuous_regs: Vec<ir::Id> = continuous_assignments
+            .uses()
+            .into_iter()
+            .filter_map(|cell: RRC<ir::Cell>| {
+                let cell_ref = cell.borrow();
+                if let Some(name) = cell_ref.type_name() {
+                    if name == "std_reg" {
+                        return Some(cell_ref.clone_name());
                     }
-                    None
-                })
-                .collect();
+                }
+                None
+            })
+            .collect();
 
         let mut overlap_map: BTreeMap<
             ir::Id,

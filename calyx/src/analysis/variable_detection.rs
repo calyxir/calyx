@@ -1,5 +1,5 @@
-use super::{GraphAnalysis, ReadWriteSet};
-use crate::analysis::ShareSet;
+use super::GraphAnalysis;
+use crate::analysis::{ShareSet, UniqueUses};
 use crate::ir;
 use ir::{CloneName, RRC};
 
@@ -19,7 +19,9 @@ impl VariableDetection {
     ) -> Option<(ir::CellType, ir::Id)> {
         let group = group_ref.borrow();
 
-        let mut writes = ReadWriteSet::write_set(group.assignments.iter())
+        let mut writes = group
+            .unique_writes()
+            .into_iter()
             .filter(|cell| state_share.is_shareable_component(cell));
 
         let Some(cr) = writes.next() else {

@@ -1,6 +1,8 @@
+use crate::analysis::Uses;
 use crate::errors::CalyxResult;
+use crate::ir::RRC;
 use crate::{
-    analysis::{GraphColoring, LiveRangeAnalysis, ReadWriteSet, ShareSet},
+    analysis::{GraphColoring, LiveRangeAnalysis, ShareSet},
     ir::{
         self,
         traversal::Named,
@@ -156,10 +158,13 @@ impl CellShare {
         _sigs: &ir::LibrarySignatures,
     ) {
         //add cont cells
-        self.cont_ref_cells =
-            ReadWriteSet::uses(comp.continuous_assignments.iter())
-                .map(|cr| cr.borrow().clone_name())
-                .collect();
+        self.cont_ref_cells = comp
+            .continuous_assignments
+            .iter()
+            .uses()
+            .into_iter()
+            .map(|cr: RRC<ir::Cell>| cr.borrow().clone_name())
+            .collect();
         //add ref cells
         self.cont_ref_cells.extend(
             comp.cells

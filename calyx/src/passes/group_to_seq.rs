@@ -1,6 +1,8 @@
-use crate::analysis::ReadWriteSet;
+use itertools::Itertools;
+
+use crate::analysis::{UniqueUses, Uses};
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, CloneName};
+use crate::ir::{self, CloneName, RRC};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -74,9 +76,9 @@ impl Visitor for GroupToSeq {
 // For all port reads from name in assignment, returns whether all ports are either stable
 // or done.
 fn if_name_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
-    let reads = ReadWriteSet::port_reads(assign);
-    reads
-        .filter(|port_ref| port_ref.borrow().get_parent_name() == name)
+    Uses::<ir::Port>::reads(assign)
+        .into_iter()
+        .filter(|pr| pr.borrow().get_parent_name() == name)
         .all(|port_ref| {
             let atts = &port_ref.borrow().attributes;
             atts.has("stable") || atts.has("done")
@@ -94,10 +96,11 @@ fn comp_or_non_comb(cell: &ir::RRC<ir::Cell>) -> bool {
 
 //If asmt is a write to a cell named name returns Some(name).
 //If asmt is a write to a group port, returns None.
-fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::Id> {
-    ReadWriteSet::write_set(std::iter::once(asmt))
-        .next()
-        .map(|cell| cell.clone_name())
+fn writes_to_cell(assign: &ir::Assignment) -> Option<ir::Id> {
+    assign
+        .unique_writes()
+        .pop()
+        .map(|cell: RRC<ir::Cell>| cell.clone_name())
 }
 
 #[derive(Default)]
@@ -218,9 +221,12 @@ impl SplitAnalysis {
     pub fn possible_split(
         asmts: &[ir::Assignment],
     ) -> Option<(ir::Id, ir::Id)> {
-        let v = ReadWriteSet::write_set(asmts.iter())
+        let v = asmts
+            .iter()
+            .unique_writes()
+            .into_iter()
             .map(|cell| cell.clone_name())
-            .collect::<Vec<ir::Id>>();
+            .collect_vec();
 
         if v.len() == 2 {
             let (maybe_first, maybe_last, last) =
