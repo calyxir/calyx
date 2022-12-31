@@ -1,6 +1,8 @@
-use crate::analysis::{DominatorMap, ReadWriteSet, ShareSet};
-use crate::ir;
+use itertools::Itertools;
+
+use crate::analysis::{DominatorMap, ShareSet, UniqueUses, Uses};
 use crate::ir::CloneName;
+use crate::ir::{self, RRC};
 use std::collections::HashSet;
 
 const BEGIN_ID: &str = "BEGIN_ID";
@@ -38,7 +40,10 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
 //if the assignment reads only dones, return true. This is used so that we
 //can ignore reads of "done" cells.
 fn reads_only_dones(assignment: &ir::Assignment) -> bool {
-    ReadWriteSet::port_reads(assignment).all(|port| done_or_const(&port))
+    assignment
+        .reads()
+        .into_iter()
+        .all(|port: RRC<ir::Port>| done_or_const(&port))
 }
 
 // Returns true if port is a "done" port or is a constant
@@ -53,11 +58,11 @@ fn add_assignment_reads(
     share: &ShareSet,
     assignments: &[ir::Assignment],
 ) {
-    for cell in ReadWriteSet::read_set(
-        assignments
-            .iter()
-            .filter(|assign| !reads_only_dones(assign)),
-    ) {
+    let assigns = assignments
+        .iter()
+        .filter(|assign| !reads_only_dones(assign))
+        .collect_vec();
+    for cell in UniqueUses::<ir::Cell>::unique_reads(&assigns) {
         if share.is_shareable_component(&cell) && !cell.borrow().is_reference()
         {
             reads.insert(cell.borrow().clone_name());

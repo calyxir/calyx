@@ -1,4 +1,4 @@
-use crate::analysis;
+use crate::analysis::{self, UniqueUses};
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
@@ -116,12 +116,12 @@ impl Visitor for Papercut {
                 .map_err(|err| err.with_pos(&cg.attributes))?;
         }
 
-        // Compute all cells that are driven in by the continuous assignments0
-        self.cont_cells = analysis::ReadWriteSet::write_set(
-            comp.continuous_assignments.iter(),
-        )
-        .map(|cr| cr.borrow().clone_name())
-        .collect();
+        // Compute all cells that are driven in by the continuous assignments
+        self.cont_cells =
+            UniqueUses::<ir::Cell>::unique_writes(&comp.continuous_assignments)
+                .into_iter()
+                .map(|cr| cr.borrow().clone_name())
+                .collect();
 
         Ok(Action::Continue)
     }

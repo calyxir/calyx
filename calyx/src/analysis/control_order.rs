@@ -7,11 +7,13 @@ use petgraph::{
     graph::{DiGraph, NodeIndex},
 };
 
-use crate::{analysis::ReadWriteSet, ir::RRC};
+use crate::ir::RRC;
 use crate::{
     errors::{CalyxResult, Error},
     ir::{self, CloneName},
 };
+
+use super::Uses;
 
 /// Extract the dependency order of a list of control programs.
 /// Dependencies are defined using read/write sets used in the control program.
@@ -69,8 +71,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
 
         // Compute read/write sets and add them to the maps
         for c in stmts {
-            let (port_reads, port_writes) =
-                ReadWriteSet::control_port_read_write_set(&c);
+            let (port_reads, port_writes) = c.read_write_sets();
             let idx = gr.add_node(Some(c));
             add_cells(idx, port_reads, &mut reads);
             add_cells(idx, port_writes, &mut writes);
@@ -106,8 +107,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     .map(|idx| {
                         let con = gr[*idx].as_ref().unwrap();
                         let mut msg = ir::Printer::control_to_str(con);
-                        let (port_reads, port_writes) =
-                            ReadWriteSet::control_port_read_write_set(con);
+                        let (port_reads, port_writes) = con.read_write_sets();
                         write!(
                             msg,
                             "  which reads: {}\n  and writes: {}",

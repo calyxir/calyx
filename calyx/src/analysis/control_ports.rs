@@ -7,6 +7,8 @@ use itertools::Itertools;
 
 use crate::ir::{self, CloneName, RRC};
 
+use super::Uses;
+
 type PortMap = HashMap<ir::Id, Vec<RRC<ir::Port>>>;
 type Binding = Vec<(ir::Id, RRC<ir::Port>)>;
 type InvokeMap = HashMap<ir::Id, Vec<Binding>>;
@@ -63,12 +65,12 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 ..
             }) => {
                 if let Some(c) = comb_group {
-                    let cells = super::ReadWriteSet::uses(
-                        c.borrow().assignments.iter(),
-                    )
-                    .into_iter()
-                    .map(|cell| cell.clone_name())
-                    .collect::<HashSet<_>>();
+                    let cells: HashSet<ir::Id> = c
+                        .borrow()
+                        .uses()
+                        .into_iter()
+                        .map(|cell: RRC<ir::Cell>| cell.clone_name())
+                        .collect();
                     // Only add ports that come from cells used in this comb group.
                     let ports = inputs
                         .iter()

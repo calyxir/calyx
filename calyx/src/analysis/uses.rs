@@ -1,212 +1,434 @@
-use std::{iter, rc::Rc};
+use std::rc::Rc;
 
 use itertools::Itertools;
 
 use crate::ir::{self, CloneName, RRC};
 
-/// A trait for types that make use of a type `T`.
+/// A trait for types that make use (read from or write to) of a type `T`. Implemented for [ir::Cell] and [ir::Port].
+/// Example:
+/// ```
+/// fn cell_and_ports(assigns: &[ir::Assignment]) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Port>>) {
+///   let cell_reads = Uses::<ir::Cell>::reads(assigns.iter());
+///   let port_writes = Uses::<ir::Port>::writes(assigns.iter());
+///   (cell_reads, port_writes)
+/// }
+/// ```
+///
+/// Provides convience methods to optimize the number of iterations over the
+/// type when computing the read and write sets.
+/// The in-place methods are useful to avoid reallocation of the underlying
+/// vectors when possible.
 pub trait Uses<T> {
+    /// Compute the set of reads of type `T` in this type and add them to the given vector.
+    /// Not guaranteed to be unique.
+    fn reads_in_place(&self, reads: &mut Vec<RRC<T>>);
+
+    /// Compute the set of writes of type `T` in this type and add them to the given vector.
+    /// Not guaranteed to be unique.
+    fn writes_in_place(&self, writes: &mut Vec<RRC<T>>);
+
+    /// Compute both the reads and writes. Implementing types should override this method
+    /// if it is cheaper to compute both sets at the same time.
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<T>>,
+        writes: &mut Vec<RRC<T>>,
+    ) {
+        self.reads_in_place(reads);
+        self.writes_in_place(writes);
+    }
+
     /// Reads of type T from this type. Not guaranteed to be unique.
-    fn reads(&self) -> Vec<RRC<T>>;
+    fn reads(&self) -> Vec<RRC<T>> {
+        let mut reads = Vec::new();
+        self.reads_in_place(&mut reads);
+        reads
+    }
     /// Writes to type T in this type. Not guaranteed to be unique.
-    fn writes(&self) -> Vec<RRC<T>>;
+    fn writes(&self) -> Vec<RRC<T>> {
+        let mut writes = Vec::new();
+        self.writes_in_place(&mut writes);
+        writes
+    }
 
     /// Return the read and the write set. This method is exposed because it is
     /// cheaper to compute both sets  at the same time on some types.
-    fn read_write_sets(&self) -> (Vec<RRC<T>>, Vec<RRC<T>>) {
-        (self.reads(), self.writes())
+    fn reads_and_writes(&self) -> (Vec<RRC<T>>, Vec<RRC<T>>) {
+        let mut reads = Vec::new();
+        let mut writes = Vec::new();
+        self.reads_and_writes_in_place(&mut reads, &mut writes);
+        (reads, writes)
     }
 
     /// Returns all uses of ports in this type constituting both reads and writes
     fn uses(&self) -> Vec<RRC<T>> {
-        let (mut reads, writes) = self.read_write_sets();
-        reads.extend(writes);
-        reads
+        let mut out = Vec::new();
+        self.reads_in_place(&mut out);
+        self.writes_in_place(&mut out);
+        out
     }
 }
 
 impl Uses<ir::Port> for ir::Assignment {
-    fn reads(&self) -> Vec<RRC<ir::Port>> {
-        self.guard
-            .all_ports()
-            .into_iter()
-            .chain(iter::once(Rc::clone(&self.src)))
-            .filter(|port| !port.borrow().is_hole())
-            .collect_vec()
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        // Reads from the source port
+        reads.push(Rc::clone(&self.src));
+        // Reads from the guard ports
+        reads.extend(
+            self.guard
+                .all_ports()
+                .into_iter()
+                .filter(|port| !port.borrow().is_hole()),
+        );
+        for port in self.guard.all_ports() {
+            if !port.borrow().is_hole() {
+                reads.push(Rc::clone(&port));
+            }
+        }
     }
 
-    fn writes(&self) -> Vec<RRC<ir::Port>> {
-        vec![Rc::clone(&self.dst)]
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        writes.push(Rc::clone(&self.dst));
+    }
+}
+
+impl<'a, I> Uses<ir::Port> for I
+where
+    I: Iterator<Item = &'a ir::Assignment>,
+{
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        self.for_each(|assign| {
+            reads.extend(assign.reads());
+            writes.extend(assign.writes());
+        });
+    }
+
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        reads.extend(self.flat_map(|a| a.reads()));
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        writes.extend(self.flat_map(|a| a.writes()));
     }
 }
 
 impl Uses<ir::Port> for ir::Group {
-    fn reads(&self) -> Vec<RRC<ir::Port>> {
-        self.assignments
-            .iter()
-            .flat_map(|assign| {
-                <ir::Assignment as Uses<ir::Port>>::reads(assign)
-            })
-            .chain(iter::once(Rc::clone(&self.done_cond)))
-            .collect_vec()
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        reads.reserve(self.assignments.len());
+        self.assignments.iter().reads_in_place(reads);
+        reads.push(Rc::clone(&self.done_cond));
     }
 
-    fn writes(&self) -> Vec<RRC<ir::Port>> {
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        writes.reserve(self.assignments.len());
+        self.assignments.iter().writes_in_place(writes)
+    }
+
+    // Manually implement read_write_sets because the one for Vec<ir::Assignment> is optimized to do only one iteration
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
         self.assignments
             .iter()
-            .flat_map(|assign| {
-                <ir::Assignment as Uses<ir::Port>>::writes(assign)
-            })
-            .collect_vec()
+            .reads_and_writes_in_place(reads, writes);
+        reads.push(Rc::clone(&self.done_cond));
     }
 }
 
 impl Uses<ir::Port> for ir::CombGroup {
-    fn reads(&self) -> Vec<RRC<ir::Port>> {
-        self.assignments
-            .iter()
-            .flat_map(|assign| {
-                <ir::Assignment as Uses<ir::Port>>::reads(assign)
-            })
-            .collect_vec()
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        reads.reserve(self.assignments.len());
+        self.assignments.iter().reads_in_place(reads);
     }
 
-    fn writes(&self) -> Vec<RRC<ir::Port>> {
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        writes.reserve(self.assignments.len());
+        self.assignments.iter().writes_in_place(writes)
+    }
+
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
         self.assignments
             .iter()
-            .flat_map(|assign| {
-                <ir::Assignment as Uses<ir::Port>>::writes(assign)
-            })
-            .collect_vec()
+            .reads_and_writes_in_place(reads, writes)
+    }
+}
+
+// Implementations for control nodes
+impl Uses<ir::Port> for ir::Empty {
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {}
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {}
+}
+
+impl Uses<ir::Port> for ir::Enable {
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        self.group.borrow().reads_in_place(reads);
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        self.group.borrow().writes_in_place(writes);
+    }
+
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        self.group.borrow().reads_and_writes_in_place(reads, writes);
+    }
+}
+
+impl Uses<ir::Port> for ir::Invoke {
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        let ir::Invoke {
+            inputs,
+            outputs,
+            ref_cells,
+            comb_group,
+            comp,
+            ..
+        } = self;
+        reads.extend(inputs.iter().map(|(_, p)| p).cloned());
+        writes.extend(outputs.iter().map(|(_, p)| p).cloned());
+        match comb_group {
+            Some(cgr) => {
+                cgr.borrow().reads_and_writes_in_place(reads, writes);
+            }
+            None => (),
+        }
+        // All ports defined on the ref cells are assumed to be used.
+        for (_, cell) in ref_cells {
+            for port in &cell.borrow().ports {
+                match &port.borrow().direction {
+                    ir::Direction::Input => reads.push(Rc::clone(port)),
+                    ir::Direction::Output => writes.push(Rc::clone(port)),
+                    ir::Direction::Inout => unreachable!(),
+                }
+            }
+        }
+    }
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        let mut writes = Vec::new();
+        self.reads_and_writes_in_place(reads, &mut writes);
+    }
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        let mut reads = Vec::new();
+        self.reads_and_writes_in_place(&mut reads, writes);
+    }
+}
+
+impl Uses<ir::Port> for ir::Seq {
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        let stmts = &self.stmts;
+        reads.reserve(stmts.len() * 2);
+        stmts.iter().for_each(|stmt| stmt.reads_in_place(reads))
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        let stmts = &self.stmts;
+        writes.reserve(stmts.len() * 2);
+        stmts.iter().for_each(|stmt| stmt.writes_in_place(writes))
+    }
+
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        let stmts = &self.stmts;
+        reads.reserve(stmts.len() * 2);
+        writes.reserve(stmts.len() * 2);
+        stmts
+            .iter()
+            .for_each(|stmt| stmt.reads_and_writes_in_place(reads, writes))
+    }
+}
+
+impl Uses<ir::Port> for ir::Par {
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        let stmts = &self.stmts;
+        reads.reserve(stmts.len() * 2);
+        stmts.iter().for_each(|stmt| stmt.reads_in_place(reads))
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        let stmts = &self.stmts;
+        writes.reserve(stmts.len() * 2);
+        stmts.iter().for_each(|stmt| stmt.writes_in_place(writes))
+    }
+
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        let stmts = &self.stmts;
+        reads.reserve(stmts.len() * 2);
+        writes.reserve(stmts.len() * 2);
+        stmts
+            .iter()
+            .for_each(|stmt| stmt.reads_and_writes_in_place(reads, writes))
+    }
+}
+
+impl Uses<ir::Port> for ir::If {
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        let ir::If {
+            port,
+            cond,
+            tbranch,
+            fbranch,
+            ..
+        } = self;
+        tbranch.reads_in_place(reads);
+        fbranch.reads_in_place(reads);
+        reads.push(Rc::clone(port));
+
+        if let Some(cg) = cond {
+            cg.borrow().reads_in_place(reads);
+        }
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        let ir::If {
+            cond,
+            tbranch,
+            fbranch,
+            ..
+        } = self;
+        tbranch.writes_in_place(writes);
+        fbranch.writes_in_place(writes);
+
+        if let Some(cg) = cond {
+            cg.borrow().writes_in_place(writes);
+        }
+    }
+
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        let ir::If {
+            port,
+            cond,
+            tbranch,
+            fbranch,
+            ..
+        } = self;
+        tbranch.reads_and_writes_in_place(reads, writes);
+        fbranch.reads_and_writes_in_place(reads, writes);
+        reads.push(Rc::clone(port));
+
+        if let Some(cg) = cond {
+            cg.borrow().reads_and_writes_in_place(reads, writes);
+        }
+    }
+}
+
+impl Uses<ir::Port> for ir::While {
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        let ir::While {
+            port, cond, body, ..
+        } = self;
+        body.reads_in_place(reads);
+        reads.push(Rc::clone(port));
+        if let Some(cg) = cond {
+            cg.borrow().reads_in_place(reads);
+        }
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        let ir::While { cond, body, .. } = self;
+        body.writes_in_place(writes);
+        if let Some(cg) = cond {
+            cg.borrow().writes_in_place(writes);
+        }
+    }
+
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        let ir::While {
+            port, cond, body, ..
+        } = self;
+        body.reads_and_writes_in_place(reads, writes);
+        reads.push(Rc::clone(port));
+        if let Some(cg) = cond {
+            cg.borrow().reads_and_writes_in_place(reads, writes);
+        }
     }
 }
 
 impl Uses<ir::Port> for ir::Control {
-    fn read_write_sets(&self) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
         match self {
-            ir::Control::Empty(_) => (vec![], vec![]),
-            ir::Control::Enable(ir::Enable { group, .. }) => {
-                group.borrow().read_write_sets()
+            ir::Control::Empty(em) => {
+                em.reads_and_writes_in_place(reads, writes)
             }
-            ir::Control::Invoke(ir::Invoke {
-                inputs,
-                outputs,
-                ref_cells,
-                comb_group,
-                ..
-            }) => {
-                let mut inps =
-                    inputs.iter().map(|(_, p)| p).cloned().collect_vec();
-                let mut outs =
-                    outputs.iter().map(|(_, p)| p).cloned().collect_vec();
-                match comb_group {
-                    Some(cgr) => {
-                        let (mut reads, mut writes) =
-                            cgr.borrow().read_write_sets();
-                        inps.append(&mut reads);
-                        outs.append(&mut writes);
-                    }
-                    None => (),
-                }
-                // All ports defined on the ref cells are assumed to be used.
-                for (_, cell) in ref_cells {
-                    for port in &cell.borrow().ports {
-                        match &port.borrow().direction {
-                            ir::Direction::Input => inps.push(Rc::clone(port)),
-                            ir::Direction::Output => outs.push(Rc::clone(port)),
-                            ir::Direction::Inout => unreachable!(),
-                        }
-                    }
-                }
-                (inps, outs)
+            ir::Control::Enable(en) => {
+                en.reads_and_writes_in_place(reads, writes)
             }
-
-            ir::Control::Seq(ir::Seq { stmts, .. })
-            | ir::Control::Par(ir::Par { stmts, .. }) => {
-                let (mut reads, mut writes) = (vec![], vec![]);
-                for stmt in stmts {
-                    let (mut read, mut write) = stmt.read_write_sets();
-                    reads.append(&mut read);
-                    writes.append(&mut write);
-                }
-                (reads, writes)
+            ir::Control::Seq(seq) => {
+                seq.reads_and_writes_in_place(reads, writes)
             }
-            ir::Control::If(ir::If {
-                port,
-                cond,
-                tbranch,
-                fbranch,
-                ..
-            }) => {
-                let (mut reads, mut writes) = tbranch.read_write_sets();
-                let (mut freads, mut fwrites) = fbranch.read_write_sets();
-                reads.append(&mut freads);
-                writes.append(&mut fwrites);
-                reads.push(Rc::clone(port));
-
-                if let Some(cg) = cond {
-                    let (cg_reads, cg_writes) = cg.borrow().read_write_sets();
-                    reads.extend(cg_reads);
-                    writes.extend(cg_writes);
-                }
-                (reads, writes)
+            ir::Control::Par(par) => {
+                par.reads_and_writes_in_place(reads, writes)
             }
-            ir::Control::While(ir::While {
-                port, cond, body, ..
-            }) => {
-                let (mut reads, mut writes) = body.read_write_sets();
-                reads.push(Rc::clone(port));
-
-                if let Some(cg) = cond {
-                    let (cg_reads, cg_writes) = cg.borrow().read_write_sets();
-                    reads.extend(cg_reads);
-                    writes.extend(cg_writes);
-                }
-                (reads, writes)
+            ir::Control::Invoke(inv) => {
+                inv.reads_and_writes_in_place(reads, writes)
+            }
+            ir::Control::If(if_) => {
+                if_.reads_and_writes_in_place(reads, writes)
+            }
+            ir::Control::While(wh) => {
+                wh.reads_and_writes_in_place(reads, writes)
             }
         }
     }
 
-    fn reads(&self) -> Vec<RRC<ir::Port>> {
-        self.read_write_sets().0
-    }
-
-    fn writes(&self) -> Vec<RRC<ir::Port>> {
-        self.read_write_sets().1
-    }
-}
-
-impl Uses<ir::Port> for ir::Component {
-    fn read_write_sets(&self) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
-        let (mut reads, mut writes) = (vec![], vec![]);
-        // The read and writes from all the groups
-        for gr in self.groups.iter() {
-            let (mut gr_reads, mut gr_writes) = gr.borrow().read_write_sets();
-            reads.append(&mut gr_reads);
-            writes.append(&mut gr_writes);
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        match self {
+            ir::Control::Empty(em) => em.reads_in_place(reads),
+            ir::Control::Enable(en) => en.reads_in_place(reads),
+            ir::Control::Seq(seq) => seq.reads_in_place(reads),
+            ir::Control::Par(par) => par.reads_in_place(reads),
+            ir::Control::Invoke(inv) => inv.reads_in_place(reads),
+            ir::Control::If(if_) => if_.reads_in_place(reads),
+            ir::Control::While(wh) => wh.reads_in_place(reads),
         }
+    }
 
-        for cg in self.comb_groups.iter() {
-            let (mut cg_reads, mut cg_writes) = cg.borrow().read_write_sets();
-            reads.append(&mut cg_reads);
-            writes.append(&mut cg_writes);
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        match self {
+            ir::Control::Empty(em) => em.writes_in_place(writes),
+            ir::Control::Enable(en) => en.writes_in_place(writes),
+            ir::Control::Seq(seq) => seq.writes_in_place(writes),
+            ir::Control::Par(par) => par.writes_in_place(writes),
+            ir::Control::Invoke(inv) => inv.writes_in_place(writes),
+            ir::Control::If(if_) => if_.writes_in_place(writes),
+            ir::Control::While(wh) => wh.writes_in_place(writes),
         }
-
-        // The read and writes from the control
-        let (mut ctrl_reads, mut ctrl_writes) =
-            self.control.borrow().read_write_sets();
-        reads.append(&mut ctrl_reads);
-        writes.append(&mut ctrl_writes);
-
-        (reads, writes)
-    }
-
-    fn reads(&self) -> Vec<RRC<ir::Port>> {
-        self.read_write_sets().0
-    }
-
-    fn writes(&self) -> Vec<RRC<ir::Port>> {
-        self.read_write_sets().1
     }
 }
 
@@ -214,20 +436,28 @@ impl<T> Uses<ir::Cell> for T
 where
     T: Uses<ir::Port>,
 {
-    fn reads(&self) -> Vec<RRC<ir::Cell>> {
-        self.reads()
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Cell>>) {
+        let cells = Uses::<ir::Port>::reads(self)
             .iter()
-            .map(|port| port.borrow().cell_parent())
-            .unique_by(|cell| cell.borrow().name())
-            .collect_vec()
+            .map(|port| port.borrow().cell_parent());
+        reads.extend(cells);
     }
 
-    fn writes(&self) -> Vec<RRC<ir::Cell>> {
-        self.writes()
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Cell>>) {
+        let cells = Uses::<ir::Port>::reads(self)
             .iter()
-            .map(|port| port.borrow().cell_parent())
-            .unique_by(|cell| cell.borrow().name())
-            .collect_vec()
+            .map(|port| port.borrow().cell_parent());
+        writes.extend(cells);
+    }
+
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Cell>>,
+        writes: &mut Vec<RRC<ir::Cell>>,
+    ) {
+        let (p_reads, p_writes) = Uses::<ir::Port>::reads_and_writes(self);
+        reads.extend(p_reads.iter().map(|p| p.borrow().cell_parent()));
+        writes.extend(p_writes.iter().map(|p| p.borrow().cell_parent()));
     }
 }
 

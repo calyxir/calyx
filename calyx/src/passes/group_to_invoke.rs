@@ -1,4 +1,4 @@
-use crate::analysis::ReadWriteSet;
+use crate::analysis::UniqueUses;
 use crate::errors::CalyxResult;
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
@@ -165,7 +165,8 @@ impl Visitor for GroupToInvoke {
         'groups: for g in &groups {
             let group = g.borrow();
 
-            let mut writes = ReadWriteSet::write_set(group.assignments.iter())
+            let mut writes = UniqueUses::<ir::Cell>::unique_writes(&*group)
+                .into_iter()
                 .filter(|cell| match cell.borrow().prototype {
                     ir::CellType::Primitive { is_comb, .. } => !is_comb,
                     _ => true,

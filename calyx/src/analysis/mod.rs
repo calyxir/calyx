@@ -28,7 +28,7 @@ pub use graph::GraphAnalysis;
 pub use graph_coloring::GraphColoring;
 pub use live_range_analysis::LiveRangeAnalysis;
 pub use port_interface::PortInterface;
-pub use read_write_set::ReadWriteSet;
+// pub use read_write_set::ReadWriteSet;
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
 pub use uses::{Unique, UniqueUses, Uses};
