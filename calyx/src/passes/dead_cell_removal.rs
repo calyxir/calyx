@@ -1,10 +1,10 @@
+use crate::analysis::Uses;
 use crate::ir::CloneName;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
 use std::collections::HashSet;
-use std::iter;
 
 /// Warn if dead cell removal loops more than this number of times
 const LOOP_THRESHOLD: u64 = 5;
@@ -56,16 +56,9 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let ir::Invoke {
-            inputs, outputs, ..
-        } = s;
-        let cells = inputs
-            .iter()
-            .map(|(_, p)| p)
-            .chain(outputs.iter().map(|(_, p)| p))
-            .map(|p| p.borrow().get_parent_name())
-            .chain(iter::once(s.comp.clone_name()))
-            .chain(s.ref_cells.iter().map(|(_, cell)| cell.clone_name()));
+        let cells = Uses::<ir::Cell>::uses(s)
+            .into_iter()
+            .map(|c| c.clone_name());
         self.all_reads.extend(cells);
         Ok(Action::Continue)
     }
@@ -93,6 +86,7 @@ impl Visitor for DeadCellRemoval {
         let mut count = 0;
         loop {
             let mut wire_reads = HashSet::new();
+
             comp.for_each_assignment(|assign| {
                 assign.for_each_port(|port| {
                     let port = port.borrow();
@@ -102,6 +96,14 @@ impl Visitor for DeadCellRemoval {
                     None
                 });
             });
+            for group in comp.groups.iter() {
+                let group = &*group.borrow();
+                wire_reads.extend(
+                    Uses::<ir::Cell>::uses(group)
+                        .into_iter()
+                        .map(|c| c.clone_name()),
+                )
+            }
 
             // Remove writes to ports on unused cells.
             for gr in comp.groups.iter() {

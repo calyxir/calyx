@@ -92,7 +92,10 @@ impl Uses<ir::Port> for ir::Assignment {
     }
 }
 
-impl Uses<ir::Port> for &[ir::Assignment] {
+impl<T> Uses<ir::Port> for &[T]
+where
+    T: Uses<ir::Port>,
+{
     fn reads_and_writes_in_place(
         &self,
         reads: &mut Vec<RRC<ir::Port>>,
@@ -113,7 +116,10 @@ impl Uses<ir::Port> for &[ir::Assignment] {
     }
 }
 
-impl Uses<ir::Port> for Vec<ir::Assignment> {
+impl<T> Uses<ir::Port> for Vec<T>
+where
+    T: Uses<ir::Port>,
+{
     fn reads_and_writes_in_place(
         &self,
         reads: &mut Vec<RRC<ir::Port>>,
@@ -134,24 +140,24 @@ impl Uses<ir::Port> for Vec<ir::Assignment> {
     }
 }
 
-impl Uses<ir::Port> for Vec<&ir::Assignment> {
+impl<T> Uses<ir::Port> for &T
+where
+    T: Uses<ir::Port>,
+{
     fn reads_and_writes_in_place(
         &self,
         reads: &mut Vec<RRC<ir::Port>>,
         writes: &mut Vec<RRC<ir::Port>>,
     ) {
-        self.iter().for_each(|assign| {
-            reads.extend(assign.reads());
-            writes.extend(assign.writes());
-        });
+        (*self).reads_and_writes_in_place(reads, writes)
     }
 
     fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
-        reads.extend(self.iter().flat_map(|a| a.reads()));
+        (*self).reads_in_place(reads)
     }
 
     fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
-        writes.extend(self.iter().flat_map(|a| a.writes()));
+        (*self).writes_in_place(writes)
     }
 }
 
