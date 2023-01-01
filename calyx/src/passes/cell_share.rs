@@ -160,7 +160,6 @@ impl CellShare {
         //add cont cells
         self.cont_ref_cells = comp
             .continuous_assignments
-            .iter()
             .uses()
             .into_iter()
             .map(|cr: RRC<ir::Cell>| cr.borrow().clone_name())

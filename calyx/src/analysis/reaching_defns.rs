@@ -7,7 +7,7 @@ use std::{
     ops::BitOr,
 };
 
-use super::Uses;
+use super::{ReadWriteSet, Uses};
 
 const INVOKE_PREFIX: &str = "__invoke_";
 
@@ -196,26 +196,23 @@ impl ReachingDefinitionAnalysis {
     /// **NOTE:** Includes dummy "definitions" for continuous assignments and
     /// uses within groups and invoke statements. This is to ensure that all
     /// uses of a given register are rewriten with the appropriate name.
-    pub fn calculate_overlap<'a, I>(
-        &'a self,
-        continuous_assignments: I,
-    ) -> OverlapMap
-    where
-        I: Iterator<Item = &'a ir::Assignment> + Clone + 'a,
-    {
-        let continuous_regs: Vec<ir::Id> = continuous_assignments
-            .uses()
-            .into_iter()
-            .filter_map(|cell: RRC<ir::Cell>| {
-                let cell_ref = cell.borrow();
-                if let Some(name) = cell_ref.type_name() {
-                    if name == "std_reg" {
-                        return Some(cell_ref.clone_name());
+    pub fn calculate_overlap(
+        &self,
+        continuous_assignments: &[ir::Assignment],
+    ) -> OverlapMap {
+        let continuous_regs: Vec<ir::Id> =
+            Uses::<ir::Cell>::uses(&continuous_assignments)
+                .into_iter()
+                .filter_map(|cell: RRC<ir::Cell>| {
+                    let cell_ref = cell.borrow();
+                    if let Some(name) = cell_ref.type_name() {
+                        if name == "std_reg" {
+                            return Some(cell_ref.clone_name());
+                        }
                     }
-                }
-                None
-            })
-            .collect();
+                    None
+                })
+                .collect();
 
         let mut overlap_map: BTreeMap<
             ir::Id,

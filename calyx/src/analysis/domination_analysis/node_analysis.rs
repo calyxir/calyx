@@ -62,7 +62,7 @@ fn add_assignment_reads(
         .iter()
         .filter(|assign| !reads_only_dones(assign))
         .collect_vec();
-    let uniq_cells = UniqueUses::<ir::Cell>::unique_reads(&assigns.into_iter());
+    let uniq_cells = UniqueUses::<ir::Cell>::unique_reads(&assigns);
     for cell in uniq_cells {
         if share.is_shareable_component(&cell) && !cell.borrow().is_reference()
         {

@@ -222,10 +222,9 @@ impl SplitAnalysis {
         asmts: &[ir::Assignment],
     ) -> Option<(ir::Id, ir::Id)> {
         let v = asmts
-            .iter()
             .unique_writes()
             .into_iter()
-            .map(|cell| cell.clone_name())
+            .map(|cell: RRC<ir::Cell>| cell.clone_name())
             .collect_vec();
 
         if v.len() == 2 {

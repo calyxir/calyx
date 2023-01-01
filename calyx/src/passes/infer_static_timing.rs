@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::analysis::{GraphAnalysis, ReadWriteSet};
+use crate::analysis::{GraphAnalysis, Uses};
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
@@ -238,9 +238,7 @@ impl InferStaticTiming {
         &self,
         group: &ir::Group,
     ) -> Vec<(RRC<ir::Port>, RRC<ir::Port>)> {
-        let done_cell = group.done_cond.borrow().cell_parent();
-        let rw_set = ReadWriteSet::uses(group.assignments.iter())
-            .chain(std::iter::once(done_cell));
+        let rw_set = Uses::<ir::Cell>::uses(group);
         let mut go_done_edges: Vec<(RRC<ir::Port>, RRC<ir::Port>)> = Vec::new();
 
         for cell_ref in rw_set {

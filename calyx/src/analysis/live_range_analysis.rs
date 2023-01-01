@@ -523,7 +523,8 @@ impl LiveRangeAnalysis {
                     } else {
                         true
                     }
-                });
+                })
+                .collect_vec();
 
             // calculate reads, but ignore `variable`. we've already dealt with that
             let reads: HashSet<_> = assignments
@@ -540,7 +541,6 @@ impl LiveRangeAnalysis {
         } else {
             let reads: HashSet<_> = group
                 .assignments
-                .iter()
                 .unique_reads()
                 .into_iter()
                 .filter(|c| sc_clone.is_shareable_component(c))
@@ -548,10 +548,12 @@ impl LiveRangeAnalysis {
                 .collect();
 
             // only consider write assignments where the guard is true
+            // XXX(rachit): Iter and collect needed because `unique_writes` requires a vec
             let assignments = group
                 .assignments
                 .iter()
-                .filter(|asgn| *asgn.guard == ir::Guard::True);
+                .filter(|asgn| *asgn.guard == ir::Guard::True)
+                .collect_vec();
 
             let writes: HashSet<_> = assignments
                 .unique_writes()

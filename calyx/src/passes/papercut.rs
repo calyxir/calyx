@@ -1,4 +1,4 @@
-use crate::analysis::{self, UniqueUses};
+use crate::analysis::{self, Uses};
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
@@ -118,7 +118,7 @@ impl Visitor for Papercut {
 
         // Compute all cells that are driven in by the continuous assignments
         self.cont_cells =
-            UniqueUses::<ir::Cell>::unique_writes(&comp.continuous_assignments)
+            Uses::<ir::Cell>::writes(&comp.continuous_assignments)
                 .into_iter()
                 .map(|cr| cr.borrow().clone_name())
                 .collect();
@@ -193,11 +193,15 @@ impl Visitor for Papercut {
 
 impl Papercut {
     fn check_specs(&mut self, assigns: &[ir::Assignment]) -> VisResult {
-        let all_writes = analysis::ReadWriteSet::port_write_set(assigns.iter())
+        let all_writes = assigns
+            .writes()
+            .into_iter()
             .filter_map(port_information)
             .into_grouping_map()
             .collect::<HashSet<_>>();
-        let all_reads = analysis::ReadWriteSet::port_read_set(assigns.iter())
+        let all_reads = assigns
+            .reads()
+            .into_iter()
             .filter_map(port_information)
             .into_grouping_map()
             .collect::<HashSet<_>>();

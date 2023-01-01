@@ -92,40 +92,79 @@ impl Uses<ir::Port> for ir::Assignment {
     }
 }
 
-impl<'a, I> Uses<ir::Port> for I
-where
-    I: Iterator<Item = &'a ir::Assignment>,
-{
+impl Uses<ir::Port> for &[ir::Assignment] {
     fn reads_and_writes_in_place(
         &self,
         reads: &mut Vec<RRC<ir::Port>>,
         writes: &mut Vec<RRC<ir::Port>>,
     ) {
-        self.for_each(|assign| {
+        self.iter().for_each(|assign| {
             reads.extend(assign.reads());
             writes.extend(assign.writes());
         });
     }
 
     fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
-        reads.extend(self.flat_map(|a| a.reads()));
+        reads.extend(self.iter().flat_map(|a| a.reads()));
     }
 
     fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
-        writes.extend(self.flat_map(|a| a.writes()));
+        writes.extend(self.iter().flat_map(|a| a.writes()));
+    }
+}
+
+impl Uses<ir::Port> for Vec<ir::Assignment> {
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        self.iter().for_each(|assign| {
+            reads.extend(assign.reads());
+            writes.extend(assign.writes());
+        });
+    }
+
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        reads.extend(self.iter().flat_map(|a| a.reads()));
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        writes.extend(self.iter().flat_map(|a| a.writes()));
+    }
+}
+
+impl Uses<ir::Port> for Vec<&ir::Assignment> {
+    fn reads_and_writes_in_place(
+        &self,
+        reads: &mut Vec<RRC<ir::Port>>,
+        writes: &mut Vec<RRC<ir::Port>>,
+    ) {
+        self.iter().for_each(|assign| {
+            reads.extend(assign.reads());
+            writes.extend(assign.writes());
+        });
+    }
+
+    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
+        reads.extend(self.iter().flat_map(|a| a.reads()));
+    }
+
+    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
+        writes.extend(self.iter().flat_map(|a| a.writes()));
     }
 }
 
 impl Uses<ir::Port> for ir::Group {
     fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
         reads.reserve(self.assignments.len());
-        self.assignments.iter().reads_in_place(reads);
+        self.assignments.reads_in_place(reads);
         reads.push(Rc::clone(&self.done_cond));
     }
 
     fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
         writes.reserve(self.assignments.len());
-        self.assignments.iter().writes_in_place(writes)
+        self.assignments.writes_in_place(writes)
     }
 
     // Manually implement read_write_sets because the one for Vec<ir::Assignment> is optimized to do only one iteration
@@ -134,9 +173,7 @@ impl Uses<ir::Port> for ir::Group {
         reads: &mut Vec<RRC<ir::Port>>,
         writes: &mut Vec<RRC<ir::Port>>,
     ) {
-        self.assignments
-            .iter()
-            .reads_and_writes_in_place(reads, writes);
+        self.assignments.reads_and_writes_in_place(reads, writes);
         reads.push(Rc::clone(&self.done_cond));
     }
 }
@@ -144,12 +181,12 @@ impl Uses<ir::Port> for ir::Group {
 impl Uses<ir::Port> for ir::CombGroup {
     fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {
         reads.reserve(self.assignments.len());
-        self.assignments.iter().reads_in_place(reads);
+        self.assignments.reads_in_place(reads);
     }
 
     fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {
         writes.reserve(self.assignments.len());
-        self.assignments.iter().writes_in_place(writes)
+        self.assignments.writes_in_place(writes)
     }
 
     fn reads_and_writes_in_place(
@@ -157,17 +194,15 @@ impl Uses<ir::Port> for ir::CombGroup {
         reads: &mut Vec<RRC<ir::Port>>,
         writes: &mut Vec<RRC<ir::Port>>,
     ) {
-        self.assignments
-            .iter()
-            .reads_and_writes_in_place(reads, writes)
+        self.assignments.reads_and_writes_in_place(reads, writes)
     }
 }
 
 // Implementations for control nodes
 impl Uses<ir::Port> for ir::Empty {
-    fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Port>>) {}
+    fn reads_in_place(&self, _: &mut Vec<RRC<ir::Port>>) {}
 
-    fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Port>>) {}
+    fn writes_in_place(&self, _: &mut Vec<RRC<ir::Port>>) {}
 }
 
 impl Uses<ir::Port> for ir::Enable {
@@ -199,7 +234,6 @@ impl Uses<ir::Port> for ir::Invoke {
             outputs,
             ref_cells,
             comb_group,
-            comp,
             ..
         } = self;
         reads.extend(inputs.iter().map(|(_, p)| p).cloned());
@@ -437,16 +471,14 @@ where
     T: Uses<ir::Port>,
 {
     fn reads_in_place(&self, reads: &mut Vec<RRC<ir::Cell>>) {
-        let cells = Uses::<ir::Port>::reads(self)
-            .iter()
-            .map(|port| port.borrow().cell_parent());
+        let r = Uses::<ir::Port>::reads(self);
+        let cells = r.iter().map(|port| port.borrow().cell_parent());
         reads.extend(cells);
     }
 
     fn writes_in_place(&self, writes: &mut Vec<RRC<ir::Cell>>) {
-        let cells = Uses::<ir::Port>::reads(self)
-            .iter()
-            .map(|port| port.borrow().cell_parent());
+        let w = Uses::<ir::Port>::reads(self);
+        let cells = w.iter().map(|port| port.borrow().cell_parent());
         writes.extend(cells);
     }
 
@@ -490,6 +522,7 @@ impl Unique for ir::Port {
 pub trait UniqueUses<T> {
     fn unique_reads(&self) -> Vec<RRC<T>>;
     fn unique_writes(&self) -> Vec<RRC<T>>;
+    fn unique_reads_and_writes(&self) -> (Vec<RRC<T>>, Vec<RRC<T>>);
 }
 
 impl<T, I> UniqueUses<I> for T
@@ -509,5 +542,19 @@ where
             .into_iter()
             .unique_by(|i| i.borrow().unique())
             .collect()
+    }
+
+    fn unique_reads_and_writes(&self) -> (Vec<RRC<I>>, Vec<RRC<I>>) {
+        let (reads, writes) = self.reads_and_writes();
+        (
+            reads
+                .into_iter()
+                .unique_by(|i| i.borrow().unique())
+                .collect(),
+            writes
+                .into_iter()
+                .unique_by(|i| i.borrow().unique())
+                .collect(),
+        )
     }
 }
