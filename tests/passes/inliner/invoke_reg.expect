@@ -1,0 +1,46 @@
+import "primitives/core.futil";
+component foo(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    f_reg = std_reg(32);
+  }
+  wires {
+    group foo_group {
+      f_reg.write_en = 1'd1;
+      f_reg.in = in;
+      foo_group[done] = f_reg.done;
+    }
+    out = f_reg.out;
+  }
+
+  control {
+    foo_group;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    @generated f_reg = std_reg(32);
+    @generated f_in = std_wire(32);
+    @generated f_out = std_wire(32);
+    @generated f_go = std_wire(1);
+    @generated f_clk = std_wire(1);
+    @generated f_reset = std_wire(1);
+    @generated f_done = std_wire(1);
+  }
+  wires {
+    group foo_group {
+      f_reg.write_en = 1'd1;
+      f_reg.in = f_in.out;
+      foo_group[done] = f_reg.done;
+    }
+    f_out.in = f_reg.out;
+  }
+
+  control {
+    seq {
+      invoke r(
+        in = f_out.out
+      )();
+    }
+  }
+}

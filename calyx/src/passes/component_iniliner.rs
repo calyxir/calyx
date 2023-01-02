@@ -122,6 +122,23 @@ impl ComponentInliner {
         })
     }
 
+    /// Rewrites vec based on self.interface_rewrites Used as a helper function
+    /// for rewrite_invoke_ports
+    fn rewrite_vec(&self, v: &mut [(ir::Id, RRC<ir::Port>)]) {
+        v.iter_mut().for_each(|(_, port)| {
+            let key = port.borrow().canonical();
+            if let Some(rewrite) = self.interface_rewrites.get(&key) {
+                *port = Rc::clone(rewrite);
+            }
+        })
+    }
+
+    /// Rewrites the input/output ports of the invoke based on self.interface_rewrites
+    fn rewrite_invoke_ports(&self, invoke: &mut ir::Invoke) {
+        self.rewrite_vec(&mut invoke.inputs);
+        self.rewrite_vec(&mut invoke.outputs);
+    }
+
     /// Inline a group definition from a component into the component associated
     /// with the `builder`.
     fn inline_group(
@@ -453,6 +470,10 @@ impl Visitor for ComponentInliner {
         if !s.ref_cells.is_empty() {
             return Err(Error::pass_assumption(Self::name(), format!("invoke with ref cell is not supported. Run {} before this pass", super::CompileRef::name())));
         }
+        // Regardless of whether the associated instance has been inlined,
+        // we still may need to rewrite the input/output ports
+        self.rewrite_invoke_ports(s);
+
         // If the associated instance has been inlined, replace the invoke with
         // its control program.
         let cell = s.comp.borrow();
