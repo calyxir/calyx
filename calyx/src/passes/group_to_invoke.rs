@@ -240,7 +240,7 @@ impl Visitor for GroupToInvoke {
                 // @done port should have exactly one read and the dst should be
                 // group's done signal.
                 if assign.src == done_port {
-                    if done_wr_cnt > 0 {
+                    if done_wr_cnt > 1 {
                         log::info!(
                             "Cannot transform `{}` due to multiple writes to @done port",
                             group.name(),
@@ -253,8 +253,6 @@ impl Visitor for GroupToInvoke {
                             ir::Printer::assignment_to_str(assign)
                         );
                         continue 'groups;
-                    } else if assign.dst == group.get("done") {
-                        done_wr_cnt += 1;
                     } else {
                         // If done port's guard is not true and does not write to group's done
                         // then Continue

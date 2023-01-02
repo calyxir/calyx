@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{iter, rc::Rc};
 
 use itertools::Itertools;
 
@@ -240,6 +240,7 @@ impl Uses<ir::Port> for ir::Invoke {
             outputs,
             ref_cells,
             comb_group,
+            comp,
             ..
         } = self;
         reads.extend(inputs.iter().map(|(_, p)| p).cloned());
@@ -251,7 +252,7 @@ impl Uses<ir::Port> for ir::Invoke {
             None => (),
         }
         // All ports defined on the ref cells are assumed to be used.
-        for (_, cell) in ref_cells {
+        for cell in ref_cells.iter().map(|(_, c)| c).chain(iter::once(comp)) {
             for port in &cell.borrow().ports {
                 match &port.borrow().direction {
                     ir::Direction::Input => reads.push(Rc::clone(port)),

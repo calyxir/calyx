@@ -3,6 +3,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
   cells {
     r = std_reg(1);
     q = std_reg(1);
+    dcw = std_wire(1);
   }
   wires {
     group a {
@@ -10,13 +11,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
       q.in = 1'd1;
       r.write_en = 1'd1;
       r.in = 1'd1;
-      a[done] = r.done & q.done ? 1'd1;
+      a[done] = dcw.out;
     }
     group b {
       r.write_en = 1'd1;
       r.in = 1'd1;
       b[done] = r.done;
     }
+    dcw.in = r.done & q.done ? 1'd1;
   }
 
   control {}

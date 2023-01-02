@@ -1,16 +1,23 @@
+import "primitives/core.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
+    r = std_reg(1);
   }
   wires {
     group A {
+      A[done] = r.done;
     }
     group B {
+      B[done] = r.done;
     }
     group C {
+      C[done] = r.done;
     }
     group D {
+      D[done] = r.done;
     }
     group A___ {
+      A___[done] = r.done;
     }
   }
 

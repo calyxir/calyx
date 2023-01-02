@@ -1019,14 +1019,6 @@ impl Visitor for TopDownCompileControl {
             .continuous_assignments
             .append(&mut cleanup);
 
-        // Done conditional for this group.
-        let done = builder.build_assignment(
-            par_group.borrow().get("done"),
-            signal_on.borrow().get("out"),
-            done_guard,
-        );
-        par_group.borrow_mut().assignments.push(done);
-
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(par_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();

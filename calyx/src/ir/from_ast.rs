@@ -243,7 +243,10 @@ fn build_component(
 
     let continuous_assignments =
         build_assignments(comp.continuous_assignments, &mut builder)?;
-    builder.component.continuous_assignments = continuous_assignments;
+    builder
+        .component
+        .continuous_assignments
+        .extend(continuous_assignments);
 
     // Build the Control ast using ast::Control.
     let control =

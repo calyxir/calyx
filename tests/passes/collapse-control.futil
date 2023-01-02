@@ -1,13 +1,26 @@
 // -p collapse-control
+import "primitives/core.futil";
 
 component main() -> () {
-  cells {}
+  cells {
+    r = std_reg(1);
+  }
   wires {
-    group A {}
-    group B {}
-    group C {}
-    group D {}
-    group A___ {}
+    group A {
+      A[done] = r.done;
+    }
+    group B {
+      B[done] = r.done;
+    }
+    group C {
+      C[done] = r.done;
+    }
+    group D {
+      D[done] = r.done;
+    }
+    group A___ {
+      A___[done] = r.done;
+    }
   }
   control {
     seq {
