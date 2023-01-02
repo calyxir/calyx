@@ -17,7 +17,6 @@ crate-type = ["rlib"]
 
 [dependencies]
 atty = "0.2.14"
-derivative = "2"
 pest_derive = "2"
 pest_consume = "1"
 itertools = "0.10"

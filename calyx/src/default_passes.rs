@@ -2,12 +2,12 @@
 use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, CompileSync, ComponentInliner,
-    ComponentInterface, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
-    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds, ResetInsertion,
-    SimplifyGuards, StaticParConv, SynthesisPapercut, TopDownCompileControl,
-    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
+    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
+    GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
+    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
+    RemoveCombGroups, RemoveIds, ResetInsertion, SimplifyGuards, StaticParConv,
+    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
+    UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -48,7 +48,6 @@ impl PassManager {
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
-        pm.register_pass::<ComponentInterface>()?;
         pm.register_pass::<WireInliner>()?;
         pm.register_pass::<ClkInsertion>()?;
         pm.register_pass::<ResetInsertion>()?;
