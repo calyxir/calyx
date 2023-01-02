@@ -122,7 +122,7 @@ impl PortIterator<'_> {
     /// Returns an empty iterator over ports.
     pub fn empty() -> Self {
         PortIterator {
-            port_iter: Box::new(vec![].into_iter()),
+            port_iter: Box::new(std::iter::empty()),
         }
     }
 }

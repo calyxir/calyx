@@ -20,12 +20,12 @@ type Conflict = (ir::Id, ir::Id);
 
 impl ScheduleConflicts {
     /// Return a vector of all nodes that conflict with this nodes.
-    pub fn conflicts_with(&self, node: &ir::Id) -> HashSet<&ir::Id> {
+    pub fn conflicts_with(&self, node: &ir::Id) -> HashSet<ir::Id> {
         self.graph
             .graph
             .neighbors(self.graph.index_map[node])
             .into_iter()
-            .map(|idx| &self.rev_map[&idx])
+            .map(|idx| self.rev_map[&idx])
             .collect()
     }
 
