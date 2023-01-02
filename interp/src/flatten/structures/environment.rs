@@ -14,18 +14,18 @@ pub const OUTPUT_CELL_PORT_COUNT: usize = 4;
 // second arg to contract or expand as needed
 
 // Reference for a port assuming a zero base, ie local to the component
-impl_index!(pub(crate) LocalPortRef);
+impl_index!(pub LocalPortRef);
 // Global port reference, used for value mapping
-impl_index!(pub(crate) GlobalPortRef);
+impl_index!(pub GlobalPortRef);
 // Global mapping for cell state
-impl_index!(pub(crate) GlobalCellRef);
+impl_index!(pub GlobalCellRef);
 // cell reference local to a given component definition
-impl_index!(pub(crate) LocalCellRef);
+impl_index!(pub LocalCellRef);
 // A local reference
-impl_index!(pub(crate) CellPortID);
+impl_index!(pub CellPortID);
 // ref cell index
-impl_index!(pub(crate) GlobalRCellRef);
-impl_index!(pub(crate) LocalRCellRef);
+impl_index!(pub GlobalRCellRef);
+impl_index!(pub LocalRCellRef);
 
 pub(crate) type PortMap = IndexedMap<Value, GlobalPortRef>;
 pub(crate) type CellMap = IndexedMap<CellLedger, GlobalCellRef>;
