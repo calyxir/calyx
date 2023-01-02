@@ -15,6 +15,11 @@ jobs:
         with:
           cache: yarn
           cache-dependency-path: web/yarn.lock
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: 1.66.0
+            override: true
       - name: Install wasm-pack
         uses: actions-rs/cargo@v1
         with:
