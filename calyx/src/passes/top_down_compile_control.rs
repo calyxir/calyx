@@ -230,11 +230,9 @@ impl<'b, 'a> Schedule<'b, 'a> {
     /// Validate that all states are reachable in the transition graph.
     fn validate(&self) {
         let graph = DiGraph::<(), u32>::from_edges(
-            &self
-                .transitions
+            self.transitions
                 .iter()
-                .map(|(s, e, _)| (*s as u32, *e as u32))
-                .collect::<Vec<_>>(),
+                .map(|(s, e, _)| (*s as u32, *e as u32)),
         );
 
         debug_assert!(
