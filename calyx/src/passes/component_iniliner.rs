@@ -8,12 +8,9 @@ use crate::errors::Error;
 use crate::ir::traversal::{
     Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use crate::ir::{self, CloneName, GetAttributes, LibrarySignatures, RRC};
-
-/// Map name of old group to new group
-type GroupMap = HashMap<ir::Id, RRC<ir::Group>>;
-/// Map name of old combination group to new combinational group
-type CombGroupMap = HashMap<ir::Id, RRC<ir::CombGroup>>;
+use crate::ir::{
+    self, rewriter, CloneName, GetAttributes, LibrarySignatures, RRC,
+};
 
 /// Inlines all sub-components marked with the `@inline` attribute.
 /// Cannot inline components when they:
@@ -35,7 +32,7 @@ pub struct ComponentInliner {
     /// Map from the name of an instance to its associated control program.
     control_map: HashMap<ir::Id, ir::Control>,
     /// Mapping for ports on cells that have been inlined.
-    interface_rewrites: ir::rewriter::PortRewriteMap,
+    interface_rewrites: rewriter::PortRewriteMap,
     /// Cells that have been inlined. We retain these so that references within
     /// the control program of the parent are valid.
     inlined_cells: Vec<RRC<ir::Cell>>,
@@ -180,7 +177,7 @@ impl ComponentInliner {
         builder: &mut ir::Builder,
         comp: &ir::Component,
         name: ir::Id,
-    ) -> ir::rewriter::PortRewriteMap {
+    ) -> rewriter::PortRewriteMap {
         // For each output port, generate a wire that will store its value
         comp.signature
             .borrow()
@@ -218,7 +215,7 @@ impl ComponentInliner {
     ) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
-        let cell_map: ir::rewriter::CellRewriteMap = comp
+        let cell_map: rewriter::RewriteMap<ir::Cell> = comp
             .cells
             .iter()
             .map(|cell_ref| Self::inline_cell(builder, cell_ref))
@@ -229,12 +226,12 @@ impl ComponentInliner {
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
-        let group_map: GroupMap = comp
+        let group_map: rewriter::RewriteMap<ir::Group> = comp
             .groups
             .iter()
             .map(|gr| Self::inline_group(builder, &rewrite, gr))
             .collect();
-        let comb_group_map: CombGroupMap = comp
+        let comb_group_map: rewriter::RewriteMap<ir::CombGroup> = comp
             .comb_groups
             .iter()
             .map(|gr| Self::inline_comb_group(builder, &rewrite, gr))
@@ -318,8 +315,7 @@ impl Visitor for ComponentInliner {
             .collect::<HashMap<_, _>>();
 
         // Rewrites for the interface ports of inlined cells.
-        let mut interface_rewrites: ir::rewriter::PortRewriteMap =
-            HashMap::new();
+        let mut interface_rewrites: rewriter::PortRewriteMap = HashMap::new();
         // Track names of cells that were inlined.
         let mut inlined_cells = HashSet::new();
         let mut builder = ir::Builder::new(comp, sigs);

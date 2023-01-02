@@ -1,4 +1,5 @@
 use crate::errors::CalyxResult;
+use crate::ir::rewriter;
 use crate::{
     analysis::{GraphColoring, LiveRangeAnalysis, ReadWriteSet, ShareSet},
     ir::{
@@ -414,7 +415,7 @@ impl Visitor for CellShare {
         }
 
         // perform graph coloring to rename the cells
-        let mut coloring: ir::rewriter::CellRewriteMap = HashMap::new();
+        let mut coloring: rewriter::RewriteMap<ir::Cell> = HashMap::new();
         let mut comp_share_freqs: HashMap<ir::CellType, HashMap<i64, i64>> =
             HashMap::new();
         for (cell_type, mut graph) in graphs_by_type {

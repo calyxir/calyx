@@ -124,25 +124,26 @@ impl GraphAnalysis {
     pub fn writes_to(&self, port: &ir::Port) -> PortIterator<'_> {
         if let Some(&idx) = self.nodes.get(&port.canonical()) {
             match port.direction {
-                ir::Direction::Input | ir::Direction::Inout => PortIterator {
-                    port_iter: Box::new(
-                        self.graph.edges_directed(idx, Incoming).map(
-                            move |edge| {
-                                let node_idx = self
-                                    .graph
-                                    .edge_endpoints(edge.id())
-                                    .unwrap()
-                                    .0;
-                                Rc::clone(&self.graph[node_idx])
-                            },
+                ir::Direction::Input | ir::Direction::Inout => {
+                    return PortIterator {
+                        port_iter: Box::new(
+                            self.graph.edges_directed(idx, Incoming).map(
+                                move |edge| {
+                                    let node_idx = self
+                                        .graph
+                                        .edge_endpoints(edge.id())
+                                        .unwrap()
+                                        .0;
+                                    Rc::clone(&self.graph[node_idx])
+                                },
+                            ),
                         ),
-                    ),
-                },
-                ir::Direction::Output => PortIterator::empty(),
+                    }
+                }
+                ir::Direction::Output => (),
             }
-        } else {
-            PortIterator::empty()
         }
+        PortIterator::empty()
     }
 
     /// Add each edge in `edges` to the graph.

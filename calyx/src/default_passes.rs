@@ -75,7 +75,7 @@ impl PassManager {
                 CompileSync,
                 GroupToSeq,
                 GroupToInvoke, // Creates Dead Groups potentially
-                CompileRef, //Must run before cell-share, and before componnt-inliner
+                CompileRef, //Must run before cell-share, and before component-inliner
                 ComponentInliner,
                 CombProp,
                 InferShare,

@@ -4,7 +4,7 @@ use crate::analysis::reaching_defns::{
     GroupOrInvoke, ReachingDefinitionAnalysis,
 };
 use crate::ir::traversal::{Action, Named, VisResult, Visitor};
-use crate::ir::{self, Builder, CloneName, LibrarySignatures};
+use crate::ir::{self, rewriter, Builder, CloneName, LibrarySignatures};
 use std::collections::HashMap;
 
 /// Unsharing registers reduces the amount of multiplexers used in the final design, trading them
@@ -49,14 +49,14 @@ impl Named for RegisterUnsharing {
     }
 }
 
-type RewriteMap<T> = HashMap<T, ir::rewriter::CellRewriteMap>;
+type RewriteMap = HashMap<ir::Id, rewriter::RewriteMap<ir::Cell>>;
 
 // A struct for managing the overlapping analysis and rewrite information
 #[derive(Default)]
 struct Bookkeeper {
     analysis: ReachingDefinitionAnalysis,
     widths: HashMap<ir::Id, u64>,
-    invoke_map: RewriteMap<ir::Id>,
+    invoke_map: RewriteMap,
 }
 
 impl Bookkeeper {
@@ -140,15 +140,15 @@ impl Bookkeeper {
         comp: &mut ir::Component,
         rename_list: &[(ir::Id, ir::Id, Vec<GroupOrInvoke>)],
     ) {
-        let mut grp_map: RewriteMap<&ir::Id> = HashMap::new();
-        let mut invoke_map: RewriteMap<ir::Id> = HashMap::new();
+        let mut grp_map: RewriteMap = HashMap::new();
+        let mut invoke_map: RewriteMap = HashMap::new();
         for (new_name, old_name, grouplist) in rename_list {
             for group_or_invoke in grouplist {
                 let name = *old_name;
                 let cell = comp.find_cell(*new_name).unwrap();
                 match group_or_invoke {
                     GroupOrInvoke::Group(group) => {
-                        grp_map.entry(group).or_default().insert(name, cell);
+                        grp_map.entry(*group).or_default().insert(name, cell);
                     }
                     GroupOrInvoke::Invoke(invoke) => {
                         invoke_map
@@ -161,7 +161,7 @@ impl Bookkeeper {
         }
 
         for (grp, rename_cells) in grp_map {
-            let group_ref = comp.find_group(*grp).unwrap();
+            let group_ref = comp.find_group(grp).unwrap();
             let mut group = group_ref.borrow_mut();
             let empty_map = HashMap::new();
             let rewriter = ir::Rewriter::new(&rename_cells, &empty_map);
