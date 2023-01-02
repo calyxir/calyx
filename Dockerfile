@@ -1,5 +1,5 @@
-# Use the official image as a parent image.
-FROM rust:latest
+# Use the official rust image as a parent image.
+FROM rust:1.66
 
 # Connect to the Calux repository.
 LABEL org.opencontainers.image.source https://github.com/cucapra/calyx
@@ -72,7 +72,7 @@ ENV PATH=$PATH:/root/.local/bin
 ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
 
 # Setup fud
-RUN fud config global.futil_directory /home/calyx && \
+RUN fud config --create global.futil_directory /home/calyx && \
     fud config stages.dahlia.exec '/home/dahlia/fuse' && \
     fud config stages.futil.exec '/home/calyx/target/debug/futil' && \
     fud config stages.interpreter.exec '/home/calyx/target/debug/interp' && \
