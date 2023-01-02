@@ -126,7 +126,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         }
         ir::Control::Seq(ir::Seq { stmts, attributes }) => {
             let new_fsm = attributes.has("new_fsm");
-            // if new_fsm is true, then insert attribute at the seq, and then 
+            // if new_fsm is true, then insert attribute at the seq, and then
             // start over counting states from 0
             let mut cur = if new_fsm{
                 attributes.insert(NODE_ID, cur_state);
@@ -137,7 +137,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             stmts.iter_mut().for_each(|stmt| {
                 cur = compute_unique_ids(stmt, cur);
             });
-            // If new_fsm is true then we want to return cur_state + 1, since this 
+            // If new_fsm is true then we want to return cur_state + 1, since this
             // seq should really only take up 1 "state" on the "outer" fsm
             if new_fsm{
                 cur_state + 1
@@ -149,15 +149,15 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             tbranch, fbranch, attributes, ..
         }) => {
             let new_fsm = attributes.has("new_fsm");
-            // if new_fsm is true, then we want to add an attribute to this 
+            // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm {
                 attributes.insert(NODE_ID, cur_state);
             }
             // If the program starts with a branch then branches can't get
-            // the initial state. 
-            // Also, if new_fsm is true, we want to start with state 1 as well: 
-            // we can't start at 0 for the reason mentioned above  
+            // the initial state.
+            // Also, if new_fsm is true, we want to start with state 1 as well:
+            // we can't start at 0 for the reason mentioned above
             let cur = if new_fsm || cur_state == 0 {
                 1
             } else {
@@ -169,7 +169,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             let false_nxt = compute_unique_ids(
                 fbranch, tru_nxt
             );
-            // If new_fsm is true then we want to return cur_state + 1, since this 
+            // If new_fsm is true then we want to return cur_state + 1, since this
             // if stmt should really only take up 1 "state" on the "outer" fsm
             if new_fsm {
                 cur_state + 1
@@ -179,22 +179,22 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         }
         ir::Control::While(ir::While { body, attributes, .. }) => {
             let new_fsm = attributes.has("new_fsm");
-            // if new_fsm is true, then we want to add an attribute to this 
+            // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm{
                 attributes.insert(NODE_ID, cur_state);
             }
             // If the program starts with a branch then branches can't get
             // the initial state.
-            // Also, if new_fsm is true, we want to start with state 1 as well: 
-            // we can't start at 0 for the reason mentioned above 
+            // Also, if new_fsm is true, we want to start with state 1 as well:
+            // we can't start at 0 for the reason mentioned above
             let cur = if new_fsm || cur_state == 0 {
                 1
             } else {
                 cur_state
             };
             let body_nxt = compute_unique_ids(body, cur);
-            // If new_fsm is true then we want to return cur_state + 1, since this 
+            // If new_fsm is true then we want to return cur_state + 1, since this
             // while loop should really only take up 1 "state" on the "outer" fsm
             if new_fsm{
                 cur_state + 1
@@ -208,15 +208,25 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 }
 
 /// Represents the dyanmic execution schedule of a control program.
-#[derive(Default)]
-struct Schedule {
+struct Schedule<'b, 'a: 'b> {
     /// Assigments that should be enabled in a given state.
     pub enables: HashMap<u64, Vec<ir::Assignment>>,
     /// Transition from one state to another when the guard is true.
     pub transitions: Vec<(u64, u64, ir::Guard)>,
+    /// The component builder. The reference has a shorter lifetime than the builder itself
+    /// to allow multiple schedules to use the same builder.
+    pub builder: &'b mut ir::Builder<'a>,
 }
 
-impl Schedule {
+impl<'b, 'a> Schedule<'b, 'a> {
+    fn new(builder: &'b mut ir::Builder<'a>) -> Self {
+        Schedule {
+            enables: HashMap::new(),
+            transitions: Vec::new(),
+            builder,
+        }
+    }
+
     /// Validate that all states are reachable in the transition graph.
     fn validate(&self) {
         let graph = DiGraph::<(), u32>::from_edges(
@@ -268,17 +278,13 @@ impl Schedule {
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
     /// implements it.
-    fn realize_schedule(
-        self,
-        group: RRC<ir::Group>,
-        builder: &mut ir::Builder,
-    ) -> RRC<ir::Group> {
+    fn realize_schedule(self, group: RRC<ir::Group>) -> RRC<ir::Group> {
         self.validate();
         let final_state = self.last_state();
         let fsm_size = get_bit_width_from(
             final_state + 1, /* represent 0..final_state */
         );
-        structure!(builder;
+        structure!(self.builder;
             let fsm = prim std_reg(fsm_size);
             let signal_on = constant(1, 1);
             let last_state = constant(final_state, fsm_size);
@@ -291,7 +297,8 @@ impl Schedule {
                 .into_iter()
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| {
-                    let state_const = builder.add_constant(state, fsm_size);
+                    let state_const =
+                        self.builder.add_constant(state, fsm_size);
                     let state_guard =
                         guard!(fsm["out"]).eq(guard!(state_const["out"]));
                     assigns.iter_mut().for_each(|asgn| {
@@ -304,7 +311,7 @@ impl Schedule {
         // Transition assignments
         group.borrow_mut().assignments.extend(
             self.transitions.into_iter().flat_map(|(s, e, guard)| {
-                structure!(builder;
+                structure!(self.builder;
                     let end_const = constant(e, fsm_size);
                     let start_const = constant(s, fsm_size);
                 );
@@ -313,12 +320,12 @@ impl Schedule {
                     guard!(fsm["out"]).eq(guard!(start_const["out"])) & guard;
 
                 vec![
-                    builder.build_assignment(
+                    self.builder.build_assignment(
                         fsm.borrow().get("in"),
                         ec_borrow.get("out"),
                         trans_guard.clone(),
                     ),
-                    builder.build_assignment(
+                    self.builder.build_assignment(
                         fsm.borrow().get("write_en"),
                         signal_on.borrow().get("out"),
                         trans_guard,
@@ -329,7 +336,7 @@ impl Schedule {
 
         // Done condition for group
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
-        let done_assign = builder.build_assignment(
+        let done_assign = self.builder.build_assignment(
             group.borrow().get("done"),
             signal_on.borrow().get("out"),
             last_guard.clone(),
@@ -337,11 +344,11 @@ impl Schedule {
         group.borrow_mut().assignments.push(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
-        let mut reset_fsm = build_assignments!(builder;
+        let mut reset_fsm = build_assignments!(self.builder;
             fsm["in"] = last_guard ? first_state["out"];
             fsm["write_en"] = last_guard ? signal_on["out"];
         );
-        builder
+        self.builder
             .component
             .continuous_assignments
             .append(&mut reset_fsm);
@@ -373,8 +380,6 @@ fn calculate_states_recur(
     preds: Vec<(u64, ir::Guard)>,
     // Current schedule.
     schedule: &mut Schedule,
-    // Component builder
-    builder: &mut ir::Builder,
     // True if early_transitions are allowed
     early_transitions: bool,
 ) -> CalyxResult<Vec<PredEdge>> {
@@ -393,10 +398,10 @@ fn calculate_states_recur(
             };
 
             let not_done = !guard!(group["done"]);
-            let signal_on = builder.add_constant(1, 1);
+            let signal_on = schedule.builder.add_constant(1, 1);
 
             // Activate this group in the current state
-            let mut en_go = build_assignments!(builder;
+            let mut en_go = build_assignments!(schedule.builder;
                 group["go"] = not_done ? signal_on["out"];
             );
             schedule
@@ -411,7 +416,7 @@ fn calculate_states_recur(
             // why.
             if early_transitions {
                 for (st, g) in &prev_states {
-                    let mut early_go = build_assignments!(builder;
+                    let mut early_go = build_assignments!(schedule.builder;
                         group["go"] = g ? signal_on["out"];
                     );
                     schedule.enables.entry(*st).or_default().append(&mut early_go);
@@ -427,13 +432,13 @@ fn calculate_states_recur(
             Ok(vec![(cur_state, done_cond)])
         }
         ir::Control::Seq(seq) => {
-            calc_seq_recur(seq, preds, schedule, builder, early_transitions)
+            calc_seq_recur(seq, preds, schedule, early_transitions)
         }
         ir::Control::If(if_stmt) => {
-            calc_if_recur(if_stmt, preds, schedule, builder, early_transitions)
+            calc_if_recur(if_stmt, preds, schedule, early_transitions)
         }
         ir::Control::While(while_stmt) => {
-            calc_while_recur(while_stmt, preds, schedule, builder, early_transitions)
+            calc_while_recur(while_stmt, preds, schedule, early_transitions)
         }
         ir::Control::Par(_) => unreachable!(),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
@@ -451,20 +456,12 @@ fn calc_seq_recur(
     preds: Vec<(u64, ir::Guard)>,
     // Current schedule.
     schedule: &mut Schedule,
-    // Component builder
-    builder: &mut ir::Builder,
     // True if early_transitions are allowed
     early_transitions: bool,
 ) -> CalyxResult<Vec<PredEdge>> {
     let mut prev = preds;
     for stmt in &seq.stmts {
-        prev = calculate_states_recur(
-            stmt,
-            prev,
-            schedule,
-            builder,
-            early_transitions,
-        )?;
+        prev = calculate_states_recur(stmt, prev, schedule, early_transitions)?;
     }
     Ok(prev)
 }
@@ -480,8 +477,6 @@ fn calc_if_recur(
     preds: Vec<(u64, ir::Guard)>,
     // Current schedule.
     schedule: &mut Schedule,
-    // Component builder
-    builder: &mut ir::Builder,
     // True if early_transitions are allowed
     early_transitions: bool,
 ) -> CalyxResult<Vec<PredEdge>> {
@@ -500,7 +495,6 @@ fn calc_if_recur(
         &if_stmt.tbranch,
         tru_transitions,
         schedule,
-        builder,
         early_transitions,
     )?;
     // Previous states transitioning into false branch need the conditional
@@ -519,7 +513,6 @@ fn calc_if_recur(
             &if_stmt.fbranch,
             fal_transitions,
             schedule,
-            builder,
             early_transitions,
         )?
     };
@@ -538,8 +531,6 @@ fn calc_while_recur(
     preds: Vec<(u64, ir::Guard)>,
     // Current schedule.
     schedule: &mut Schedule,
-    // Component builder
-    builder: &mut ir::Builder,
     // True if early_transitions are allowed
     early_transitions: bool,
 ) -> CalyxResult<Vec<PredEdge>> {
@@ -570,7 +561,6 @@ fn calc_while_recur(
         &while_stmt.body,
         transitions,
         schedule,
-        builder,
         early_transitions,
     )?;
 
@@ -588,12 +578,12 @@ fn calc_while_recur(
 }
 
 /// Creates a Schedule that represents `seq`, mainly relying on `calc_seq_recur()`.
-fn calculate_states_seq(
+fn calculate_states_seq<'b, 'a>(
     seq: &ir::Seq,
-    builder: &mut ir::Builder,
+    builder: &'b mut ir::Builder<'a>,
     early_transitions: bool,
-) -> CalyxResult<Schedule> {
-    let mut schedule = Schedule::default();
+) -> CalyxResult<Schedule<'b, 'a>> {
+    let mut schedule = Schedule::new(builder);
     let first_state = (0, ir::Guard::True);
     // We create an empty first state in case the control program starts with
     // a branch (if, while).
@@ -603,7 +593,6 @@ fn calculate_states_seq(
         seq,
         vec![first_state],
         &mut schedule,
-        builder,
         early_transitions,
     )?;
     add_nxt_transition(&mut schedule, prev);
@@ -611,12 +600,12 @@ fn calculate_states_seq(
 }
 
 /// Creates a Schedule that represents `if`, mainly relying on `calc_if_recur()`.
-fn calculate_states_if(
+fn calculate_states_if<'b, 'a>(
     if_stmt: &ir::If,
-    builder: &mut ir::Builder,
+    builder: &'b mut ir::Builder<'a>,
     early_transitions: bool,
-) -> CalyxResult<Schedule> {
-    let mut schedule = Schedule::default();
+) -> CalyxResult<Schedule<'b, 'a>> {
+    let mut schedule = Schedule::new(builder);
     let first_state = (0, ir::Guard::True);
     // We create an empty first state in case the control program starts with
     // a branch (if, while).
@@ -626,7 +615,6 @@ fn calculate_states_if(
         if_stmt,
         vec![first_state],
         &mut schedule,
-        builder,
         early_transitions,
     )?;
     add_nxt_transition(&mut schedule, prev);
@@ -634,12 +622,12 @@ fn calculate_states_if(
 }
 
 /// Creates a Schedule that represents `while`, mainly relying on `calc_while_recur()`.
-fn calculate_states_while(
+fn calculate_states_while<'b, 'a>(
     while_stmt: &ir::While,
-    builder: &mut ir::Builder,
+    builder: &'b mut ir::Builder<'a>,
     early_transitions: bool,
-) -> CalyxResult<Schedule> {
-    let mut schedule = Schedule::default();
+) -> CalyxResult<Schedule<'b, 'a>> {
+    let mut schedule = Schedule::new(builder);
     let first_state = (0, ir::Guard::True);
     // We create an empty first state in case the control program starts with
     // a branch (if, while).
@@ -649,7 +637,6 @@ fn calculate_states_while(
         while_stmt,
         vec![first_state],
         &mut schedule,
-        builder,
         early_transitions,
     )?;
     add_nxt_transition(&mut schedule, prev);
@@ -677,12 +664,12 @@ fn add_nxt_transition(schedule: &mut Schedule, prev: Vec<PredEdge>) {
 /// The reason why we need to define these as separate functions is because `finish_seq`
 /// (for example) we only gives us access to a `& mut seq` type, not a `& Control`
 /// type.
-fn calculate_states(
+fn calculate_states<'b, 'a>(
     con: &ir::Control,
-    builder: &mut ir::Builder,
+    builder: &'b mut ir::Builder<'a>,
     early_transitions: bool,
-) -> CalyxResult<Schedule> {
-    let mut schedule = Schedule::default();
+) -> CalyxResult<Schedule<'b, 'a>> {
+    let mut schedule = Schedule::new(builder);
     let first_state = (0, ir::Guard::True);
     // We create an empty first state in case the control program starts with
     // a branch (if, while).
@@ -692,7 +679,6 @@ fn calculate_states(
         con,
         vec![first_state],
         &mut schedule,
-        builder,
         early_transitions,
     )?;
     add_nxt_transition(&mut schedule, prev);
@@ -860,17 +846,17 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         // Compile schedule and return the group.
         let seq_group = {
-            let schedule =
+            let sch =
                 calculate_states_seq(s, &mut builder, self.early_transitions)?;
-            let group = builder.add_group("tdcc");
+            let group = sch.builder.add_group("tdcc");
             if self.dump_fsm {
-                schedule.display(format!(
+                sch.display(format!(
                     "{}:{}",
-                    builder.component.name,
+                    sch.builder.component.name,
                     group.borrow().name()
                 ));
             }
-            schedule.realize_schedule(group, &mut builder)
+            sch.realize_schedule(group)
         };
 
         // Add NODE_ID to compiled group.
@@ -896,17 +882,17 @@ impl Visitor for TopDownCompileControl {
 
         // Compile schedule and return the group.
         let if_group = {
-            let schedule =
+            let sch =
                 calculate_states_if(i, &mut builder, self.early_transitions)?;
-            let group = builder.add_group("tdcc");
+            let group = sch.builder.add_group("tdcc");
             if self.dump_fsm {
-                schedule.display(format!(
+                sch.display(format!(
                     "{}:{}",
-                    builder.component.name,
+                    sch.builder.component.name,
                     group.borrow().name()
                 ));
             }
-            schedule.realize_schedule(group, &mut builder)
+            sch.realize_schedule(group)
         };
 
         // Add NODE_ID to compiled group.
@@ -931,20 +917,20 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
         // Compile schedule and return the group.
         let if_group = {
-            let schedule = calculate_states_while(
+            let sch = calculate_states_while(
                 w,
                 &mut builder,
                 self.early_transitions,
             )?;
-            let group = builder.add_group("tdcc");
+            let group = sch.builder.add_group("tdcc");
             if self.dump_fsm {
-                schedule.display(format!(
+                sch.display(format!(
                     "{}:{}",
-                    builder.component.name,
+                    sch.builder.component.name,
                     group.borrow().name()
                 ));
             }
-            schedule.realize_schedule(group, &mut builder)
+            sch.realize_schedule(group)
         };
 
         // Add NODE_ID to compiled group.
@@ -985,20 +971,20 @@ impl Visitor for TopDownCompileControl {
                 }
                 // Compile complex schedule and return the group.
                 _ => {
-                    let schedule = calculate_states(
+                    let sch = calculate_states(
                         con,
                         &mut builder,
                         self.early_transitions,
                     )?;
-                    let group = builder.add_group("tdcc");
+                    let group = sch.builder.add_group("tdcc");
                     if self.dump_fsm {
-                        schedule.display(format!(
+                        sch.display(format!(
                             "{}:{}",
-                            builder.component.name,
+                            sch.builder.component.name,
                             group.borrow().name()
                         ));
                     }
-                    schedule.realize_schedule(group, &mut builder)
+                    sch.realize_schedule(group)
                 }
             };
 
@@ -1067,20 +1053,20 @@ impl Visitor for TopDownCompileControl {
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
         // Add assignments for the final states
-        let schedule = calculate_states(
+        let sch = calculate_states(
             &control.borrow(),
             &mut builder,
             self.early_transitions,
         )?;
-        let group = builder.add_group("tdcc");
+        let group = sch.builder.add_group("tdcc");
         if self.dump_fsm {
-            schedule.display(format!(
+            sch.display(format!(
                 "{}:{}",
-                builder.component.name,
+                sch.builder.component.name,
                 group.borrow().name()
             ));
         }
-        let comp_group = schedule.realize_schedule(group, &mut builder);
+        let comp_group = sch.realize_schedule(group);
 
         Ok(Action::change(ir::Control::enable(comp_group)))
     }
