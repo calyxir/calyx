@@ -122,28 +122,21 @@ impl ComponentInliner {
         })
     }
 
-    /// Rewrites vec based on self.interface_rewrites
-    /// Used as a helper function for rewrite_invoke_ports
-    fn rewrite_vec(
-        &self,
-        v: &mut Vec<(ir::Id, RRC<ir::Port>)>,
-    ) -> Vec<(ir::Id, RRC<ir::Port>)> {
-        v.drain(..)
-            .map(|(id, port)| {
-                if let Some(rewrite) =
-                    self.interface_rewrites.get(&port.borrow().canonical())
-                {
-                    return (id, Rc::clone(rewrite));
-                }
-                (id, port)
-            })
-            .collect::<Vec<(ir::Id, RRC<ir::Port>)>>()
+    /// Rewrites vec based on self.interface_rewrites Used as a helper function
+    /// for rewrite_invoke_ports
+    fn rewrite_vec(&self, v: &mut [(ir::Id, RRC<ir::Port>)]) {
+        v.iter_mut().for_each(|(_, port)| {
+            let key = port.borrow().canonical();
+            if let Some(rewrite) = self.interface_rewrites.get(&key) {
+                *port = Rc::clone(rewrite);
+            }
+        })
     }
 
     /// Rewrites the input/output ports of the invoke based on self.interface_rewrites
     fn rewrite_invoke_ports(&self, invoke: &mut ir::Invoke) {
-        invoke.inputs = self.rewrite_vec(&mut invoke.inputs);
-        invoke.outputs = self.rewrite_vec(&mut invoke.outputs);
+        self.rewrite_vec(&mut invoke.inputs);
+        self.rewrite_vec(&mut invoke.outputs);
     }
 
     /// Inline a group definition from a component into the component associated
