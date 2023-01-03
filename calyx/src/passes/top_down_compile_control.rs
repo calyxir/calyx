@@ -276,8 +276,18 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
     /// implements it.
-    fn realize_schedule(self, group: RRC<ir::Group>) -> RRC<ir::Group> {
+    fn realize_schedule(self, dump_fsm: bool) -> RRC<ir::Group> {
         self.validate();
+
+        let group = self.builder.add_group("tdcc");
+        if dump_fsm {
+            self.display(format!(
+                "{}:{}",
+                self.builder.component.name,
+                group.borrow().name()
+            ));
+        }
+
         let final_state = self.last_state();
         let fsm_size = get_bit_width_from(
             final_state + 1, /* represent 0..final_state */
@@ -375,7 +385,7 @@ type PredEdge = (u64, ir::Guard);
 fn calculate_states_recur(
     con: &ir::Control,
     // The set of previous states that want to transition into cur_state
-    preds: Vec<(u64, ir::Guard)>,
+    preds: Vec<PredEdge>,
     // Current schedule.
     schedule: &mut Schedule,
     // True if early_transitions are allowed
@@ -451,7 +461,7 @@ fn calculate_states_recur(
 fn calc_seq_recur(
     seq: &ir::Seq,
     // The set of previous states that want to transition into cur_state
-    preds: Vec<(u64, ir::Guard)>,
+    preds: Vec<PredEdge>,
     // Current schedule.
     schedule: &mut Schedule,
     // True if early_transitions are allowed
@@ -472,7 +482,7 @@ fn calc_seq_recur(
 fn calc_if_recur(
     if_stmt: &ir::If,
     // The set of previous states that want to transition into cur_state
-    preds: Vec<(u64, ir::Guard)>,
+    preds: Vec<PredEdge>,
     // Current schedule.
     schedule: &mut Schedule,
     // True if early_transitions are allowed
@@ -526,7 +536,7 @@ fn calc_if_recur(
 fn calc_while_recur(
     while_stmt: &ir::While,
     // The set of previous states that want to transition into cur_state
-    preds: Vec<(u64, ir::Guard)>,
+    preds: Vec<PredEdge>,
     // Current schedule.
     schedule: &mut Schedule,
     // True if early_transitions are allowed
@@ -549,7 +559,7 @@ fn calc_while_recur(
     // Step 2: Generate the forward edges normally.
     // Previous transitions into the body require the condition to be
     // true.
-    let transitions: Vec<(u64, ir::Guard)> = preds
+    let transitions: Vec<PredEdge> = preds
         .clone()
         .into_iter()
         .chain(back_edge_prevs)
@@ -854,7 +864,7 @@ impl Visitor for TopDownCompileControl {
                     group.borrow().name()
                 ));
             }
-            sch.realize_schedule(group)
+            sch.realize_schedule(self.dump_fsm)
         };
 
         // Add NODE_ID to compiled group.
@@ -879,19 +889,8 @@ impl Visitor for TopDownCompileControl {
         let mut builder = ir::Builder::new(comp, sigs);
 
         // Compile schedule and return the group.
-        let if_group = {
-            let sch =
-                calculate_states_if(i, &mut builder, self.early_transitions)?;
-            let group = sch.builder.add_group("tdcc");
-            if self.dump_fsm {
-                sch.display(format!(
-                    "{}:{}",
-                    sch.builder.component.name,
-                    group.borrow().name()
-                ));
-            }
-            sch.realize_schedule(group)
-        };
+        let sch = calculate_states_if(i, &mut builder, self.early_transitions)?;
+        let if_group = sch.realize_schedule(self.dump_fsm);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -920,15 +919,7 @@ impl Visitor for TopDownCompileControl {
                 &mut builder,
                 self.early_transitions,
             )?;
-            let group = sch.builder.add_group("tdcc");
-            if self.dump_fsm {
-                sch.display(format!(
-                    "{}:{}",
-                    sch.builder.component.name,
-                    group.borrow().name()
-                ));
-            }
-            sch.realize_schedule(group)
+            sch.realize_schedule(self.dump_fsm)
         };
 
         // Add NODE_ID to compiled group.
@@ -974,15 +965,7 @@ impl Visitor for TopDownCompileControl {
                         &mut builder,
                         self.early_transitions,
                     )?;
-                    let group = sch.builder.add_group("tdcc");
-                    if self.dump_fsm {
-                        sch.display(format!(
-                            "{}:{}",
-                            sch.builder.component.name,
-                            group.borrow().name()
-                        ));
-                    }
-                    sch.realize_schedule(group)
+                    sch.realize_schedule(self.dump_fsm)
                 }
             };
 
@@ -1056,15 +1039,7 @@ impl Visitor for TopDownCompileControl {
             &mut builder,
             self.early_transitions,
         )?;
-        let group = sch.builder.add_group("tdcc");
-        if self.dump_fsm {
-            sch.display(format!(
-                "{}:{}",
-                sch.builder.component.name,
-                group.borrow().name()
-            ));
-        }
-        let comp_group = sch.realize_schedule(group);
+        let comp_group = sch.realize_schedule(self.dump_fsm);
 
         Ok(Action::change(ir::Control::enable(comp_group)))
     }
