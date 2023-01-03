@@ -350,10 +350,11 @@ impl Schedule<'_> {
         pre_guard: &ir::Guard,
     ) -> CalyxResult<Vec<PredEdge>> {
         if con.cond.is_some() {
-            return Err(Error::malformed_structure(
-                format!("{}: Found group `{}` in with position of if. This should have compiled away.",
-                        TopDownStaticTiming::name(),
-                        con.cond.as_ref().unwrap().borrow().name()))
+            return Err(Error::pass_assumption(
+                    TopDownStaticTiming::name(),
+                     format!(
+                        "if-with construct should have been compiled away. Run `{}` before this pass.",
+                        super::RemoveCombGroups::name()))
             .with_pos(&con.attributes));
         }
 
@@ -384,10 +385,11 @@ impl Schedule<'_> {
         pre_guard: &ir::Guard,
     ) -> CalyxResult<Vec<PredEdge>> {
         if con.cond.is_some() {
-            return Err(Error::malformed_structure(
-                format!("{}: Found group `{}` in with position of while. This should have compiled away.",
-                        TopDownStaticTiming::name(),
-                        con.cond.as_ref().unwrap().borrow().name()))
+            return Err(Error::pass_assumption(
+                    TopDownStaticTiming::name(),
+                     format!(
+                        "while-with construct should have been compiled away. Run `{}` before this pass.",
+                        super::RemoveCombGroups::name()))
             .with_pos(&con.attributes));
         }
 
