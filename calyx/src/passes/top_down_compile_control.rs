@@ -370,28 +370,29 @@ impl<'b, 'a> Schedule<'b, 'a> {
 /// to be true for the predeccesor to transition to the current state.
 type PredEdge = (u64, ir::Guard);
 
-/// Recursively build an dynamic finite state machine represented by a [Schedule].
-/// Does the following, given an [ir::Control]:
-///     1. If needed, add transitions from predeccesors to the current state.
-///     2. Enable the groups in the current state
-///     3. Calculate [PredEdge] implied by this state
-///     4. Return [PredEdge] and the next state.
-/// Another note: the functions calc_seq_recur, calc_while_recur, and calc_if_recur
-/// are functions that `calculate_states_recur` uses for when con is a seq, while,
-/// and if respectively. The reason why they are defined as separate functions is because we
-/// need to call `calculate_seq_recur` (for example) directly when we are in `finish_seq`
-/// since `finish_seq` only gives us access to a `& mut seq` type, not a `& Control`
-/// type.
-fn calculate_states_recur(
-    con: &ir::Control,
-    // The set of previous states that want to transition into cur_state
-    preds: Vec<PredEdge>,
-    // Current schedule.
-    schedule: &mut Schedule,
-    // True if early_transitions are allowed
-    early_transitions: bool,
-) -> CalyxResult<Vec<PredEdge>> {
-    match con {
+impl Schedule<'_, '_> {
+    /// Recursively build an dynamic finite state machine represented by a [Schedule].
+    /// Does the following, given an [ir::Control]:
+    ///     1. If needed, add transitions from predeccesors to the current state.
+    ///     2. Enable the groups in the current state
+    ///     3. Calculate [PredEdge] implied by this state
+    ///     4. Return [PredEdge] and the next state.
+    /// Another note: the functions calc_seq_recur, calc_while_recur, and calc_if_recur
+    /// are functions that `calculate_states_recur` uses for when con is a seq, while,
+    /// and if respectively. The reason why they are defined as separate functions is because we
+    /// need to call `calculate_seq_recur` (for example) directly when we are in `finish_seq`
+    /// since `finish_seq` only gives us access to a `& mut seq` type, not a `& Control`
+    /// type.
+    fn calculate_states_recur(
+        // Current schedule.
+        &mut self,
+        con: &ir::Control,
+        // The set of previous states that want to transition into cur_state
+        preds: Vec<PredEdge>,
+        // True if early_transitions are allowed
+        early_transitions: bool,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = *attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
@@ -406,13 +407,13 @@ fn calculate_states_recur(
             };
 
             let not_done = !guard!(group["done"]);
-            let signal_on = schedule.builder.add_constant(1, 1);
+            let signal_on = self.builder.add_constant(1, 1);
 
             // Activate this group in the current state
-            let mut en_go = build_assignments!(schedule.builder;
+            let mut en_go = build_assignments!(self.builder;
                 group["go"] = not_done ? signal_on["out"];
             );
-            schedule
+            self
                 .enables
                 .entry(cur_state)
                 .or_default()
@@ -424,273 +425,255 @@ fn calculate_states_recur(
             // why.
             if early_transitions {
                 for (st, g) in &prev_states {
-                    let mut early_go = build_assignments!(schedule.builder;
+                    let mut early_go = build_assignments!(self.builder;
                         group["go"] = g ? signal_on["out"];
                     );
-                    schedule.enables.entry(*st).or_default().append(&mut early_go);
+                    self.enables.entry(*st).or_default().append(&mut early_go);
                 }
             }
 
             let transitions = prev_states
                 .into_iter()
                 .map(|(st, guard)| (st, cur_state, guard));
-            schedule.transitions.extend(transitions);
+            self.transitions.extend(transitions);
 
             let done_cond = guard!(group["done"]);
             Ok(vec![(cur_state, done_cond)])
         }
         ir::Control::Seq(seq) => {
-            calc_seq_recur(seq, preds, schedule, early_transitions)
+            self.calc_seq_recur(seq, preds, early_transitions)
         }
         ir::Control::If(if_stmt) => {
-            calc_if_recur(if_stmt, preds, schedule, early_transitions)
+            self.calc_if_recur(if_stmt, preds, early_transitions)
         }
         ir::Control::While(while_stmt) => {
-            calc_while_recur(while_stmt, preds, schedule, early_transitions)
+            self.calc_while_recur(while_stmt, preds, early_transitions)
         }
         ir::Control::Par(_) => unreachable!(),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
     }
-}
-
-/// Builds a finite state machine for `seq` represented by a [Schedule].
-/// At a high level, it iterates through each stmt in the seq's control, using the
-/// previous stmt's [PredEdge] as the `preds` for the current stmt, and returns
-/// the [PredEdge] implied by the last stmt in `seq`'s control.
-fn calc_seq_recur(
-    seq: &ir::Seq,
-    // The set of previous states that want to transition into cur_state
-    preds: Vec<PredEdge>,
-    // Current schedule.
-    schedule: &mut Schedule,
-    // True if early_transitions are allowed
-    early_transitions: bool,
-) -> CalyxResult<Vec<PredEdge>> {
-    let mut prev = preds;
-    for stmt in &seq.stmts {
-        prev = calculate_states_recur(stmt, prev, schedule, early_transitions)?;
     }
-    Ok(prev)
-}
 
-/// Builds a finite state machine for `if_stmt` represented by a [Schedule].
-/// First generates the transitions into the true branch + the transitions that exist
-/// inside the true branch. Then generates the transitions into the false branch + the transitions
-/// that exist inside the false branch. Then calculates the transitions needed to
-/// exit the if statmement (which include edges from both the true and false branches).
-fn calc_if_recur(
-    if_stmt: &ir::If,
-    // The set of previous states that want to transition into cur_state
-    preds: Vec<PredEdge>,
-    // Current schedule.
-    schedule: &mut Schedule,
-    // True if early_transitions are allowed
-    early_transitions: bool,
-) -> CalyxResult<Vec<PredEdge>> {
-    if if_stmt.cond.is_some() {
-        return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), if_stmt.cond.as_ref().unwrap().borrow().name())));
+    /// Builds a finite state machine for `seq` represented by a [Schedule].
+    /// At a high level, it iterates through each stmt in the seq's control, using the
+    /// previous stmt's [PredEdge] as the `preds` for the current stmt, and returns
+    /// the [PredEdge] implied by the last stmt in `seq`'s control.
+    fn calc_seq_recur(
+        &mut self,
+        seq: &ir::Seq,
+        // The set of previous states that want to transition into cur_state
+        preds: Vec<PredEdge>,
+        // True if early_transitions are allowed
+        early_transitions: bool,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        let mut prev = preds;
+        for stmt in &seq.stmts {
+            prev =
+                self.calculate_states_recur(stmt, prev, early_transitions)?;
+        }
+        Ok(prev)
     }
-    let port_guard: ir::Guard = Rc::clone(&if_stmt.port).into();
-    // Previous states transitioning into true branch need the conditional
-    // to be true.
-    let tru_transitions = preds
-        .clone()
-        .into_iter()
-        .map(|(s, g)| (s, g & port_guard.clone()))
-        .collect();
-    let tru_prev = calculate_states_recur(
-        &if_stmt.tbranch,
-        tru_transitions,
-        schedule,
-        early_transitions,
-    )?;
-    // Previous states transitioning into false branch need the conditional
-    // to be false.
-    let fal_transitions = preds
-        .into_iter()
-        .map(|(s, g)| (s, g & !port_guard.clone()))
-        .collect();
 
-    let fal_prev = if let ir::Control::Empty(..) = *if_stmt.fbranch {
-        // If the false branch is empty, then all the prevs to this node will become prevs
-        // to the next node.
-        fal_transitions
-    } else {
-        calculate_states_recur(
-            &if_stmt.fbranch,
-            fal_transitions,
-            schedule,
+    /// Builds a finite state machine for `if_stmt` represented by a [Schedule].
+    /// First generates the transitions into the true branch + the transitions that exist
+    /// inside the true branch. Then generates the transitions into the false branch + the transitions
+    /// that exist inside the false branch. Then calculates the transitions needed to
+    /// exit the if statmement (which include edges from both the true and false branches).
+    fn calc_if_recur(
+        &mut self,
+        if_stmt: &ir::If,
+        // The set of previous states that want to transition into cur_state
+        preds: Vec<PredEdge>,
+        // True if early_transitions are allowed
+        early_transitions: bool,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        if if_stmt.cond.is_some() {
+            return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), if_stmt.cond.as_ref().unwrap().borrow().name())));
+        }
+        let port_guard: ir::Guard = Rc::clone(&if_stmt.port).into();
+        // Previous states transitioning into true branch need the conditional
+        // to be true.
+        let tru_transitions = preds
+            .clone()
+            .into_iter()
+            .map(|(s, g)| (s, g & port_guard.clone()))
+            .collect();
+        let tru_prev = self.calculate_states_recur(
+            &if_stmt.tbranch,
+            tru_transitions,
             early_transitions,
-        )?
-    };
+        )?;
+        // Previous states transitioning into false branch need the conditional
+        // to be false.
+        let fal_transitions = preds
+            .into_iter()
+            .map(|(s, g)| (s, g & !port_guard.clone()))
+            .collect();
 
-    let prevs = tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
-    Ok(prevs)
-}
+        let fal_prev = if let ir::Control::Empty(..) = *if_stmt.fbranch {
+            // If the false branch is empty, then all the prevs to this node will become prevs
+            // to the next node.
+            fal_transitions
+        } else {
+            self.calculate_states_recur(
+                &if_stmt.fbranch,
+                fal_transitions,
+                early_transitions,
+            )?
+        };
 
-/// Builds a finite state machine for `while_stmt` represented by a [Schedule].
-/// It first generates the backwards edges (i.e., edges from the end of the while
-/// body back to the beginning of the while body), then generates the forwards
-/// edges in the body, then generates the edges that exit the while loop.
-fn calc_while_recur(
-    while_stmt: &ir::While,
-    // The set of previous states that want to transition into cur_state
-    preds: Vec<PredEdge>,
-    // Current schedule.
-    schedule: &mut Schedule,
-    // True if early_transitions are allowed
-    early_transitions: bool,
-) -> CalyxResult<Vec<PredEdge>> {
-    if while_stmt.cond.is_some() {
-        return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), while_stmt.cond.as_ref().unwrap().borrow().name())));
+        let prevs = tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
+        Ok(prevs)
     }
 
-    let port_guard: ir::Guard = Rc::clone(&while_stmt.port).into();
+    /// Builds a finite state machine for `while_stmt` represented by a [Schedule].
+    /// It first generates the backwards edges (i.e., edges from the end of the while
+    /// body back to the beginning of the while body), then generates the forwards
+    /// edges in the body, then generates the edges that exit the while loop.
+    fn calc_while_recur(
+        &mut self,
+        while_stmt: &ir::While,
+        // The set of previous states that want to transition into cur_state
+        preds: Vec<PredEdge>,
+        // True if early_transitions are allowed
+        early_transitions: bool,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        if while_stmt.cond.is_some() {
+            return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), while_stmt.cond.as_ref().unwrap().borrow().name())));
+        }
 
-    // Step 1: Generate the backward edges
-    // First compute the entry and exit points.
-    let mut exits = vec![];
-    control_exits(&while_stmt.body, true, &mut exits);
-    let back_edge_prevs = exits
-        .into_iter()
-        .map(|(st, group)| (st, group.borrow().get("done").into()));
+        let port_guard: ir::Guard = Rc::clone(&while_stmt.port).into();
 
-    // Step 2: Generate the forward edges normally.
-    // Previous transitions into the body require the condition to be
-    // true.
-    let transitions: Vec<PredEdge> = preds
-        .clone()
-        .into_iter()
-        .chain(back_edge_prevs)
-        .map(|(s, g)| (s, g & port_guard.clone()))
-        .collect();
-    let prevs = calculate_states_recur(
-        &while_stmt.body,
-        transitions,
-        schedule,
-        early_transitions,
-    )?;
+        // Step 1: Generate the backward edges
+        // First compute the entry and exit points.
+        let mut exits = vec![];
+        control_exits(&while_stmt.body, true, &mut exits);
+        let back_edge_prevs = exits
+            .into_iter()
+            .map(|(st, group)| (st, group.borrow().get("done").into()));
 
-    // Step 3: The final out edges from the while come from:
-    //   - Before the body when the condition is false
-    //   - Inside the body when the condition is false
-    let not_port_guard = !port_guard;
-    let all_prevs = preds
-        .into_iter()
-        .chain(prevs.into_iter())
-        .map(|(st, guard)| (st, guard & not_port_guard.clone()))
-        .collect();
+        // Step 2: Generate the forward edges normally.
+        // Previous transitions into the body require the condition to be
+        // true.
+        let transitions: Vec<PredEdge> = preds
+            .clone()
+            .into_iter()
+            .chain(back_edge_prevs)
+            .map(|(s, g)| (s, g & port_guard.clone()))
+            .collect();
+        let prevs = self.calculate_states_recur(
+            &while_stmt.body,
+            transitions,
+            early_transitions,
+        )?;
 
-    Ok(all_prevs)
-}
+        // Step 3: The final out edges from the while come from:
+        //   - Before the body when the condition is false
+        //   - Inside the body when the condition is false
+        let not_port_guard = !port_guard;
+        let all_prevs = preds
+            .into_iter()
+            .chain(prevs.into_iter())
+            .map(|(st, guard)| (st, guard & not_port_guard.clone()))
+            .collect();
 
-/// Creates a Schedule that represents `seq`, mainly relying on `calc_seq_recur()`.
-fn calculate_states_seq<'b, 'a>(
-    seq: &ir::Seq,
-    builder: &'b mut ir::Builder<'a>,
-    early_transitions: bool,
-) -> CalyxResult<Schedule<'b, 'a>> {
-    let mut schedule = Schedule::new(builder);
-    let first_state = (0, ir::Guard::True);
-    // We create an empty first state in case the control program starts with
-    // a branch (if, while).
-    // If the program doesn't branch, then the initial state is merged into
-    // the first group.
-    let prev = calc_seq_recur(
-        seq,
-        vec![first_state],
-        &mut schedule,
-        early_transitions,
-    )?;
-    add_nxt_transition(&mut schedule, prev);
-    Ok(schedule)
-}
+        Ok(all_prevs)
+    }
 
-/// Creates a Schedule that represents `if`, mainly relying on `calc_if_recur()`.
-fn calculate_states_if<'b, 'a>(
-    if_stmt: &ir::If,
-    builder: &'b mut ir::Builder<'a>,
-    early_transitions: bool,
-) -> CalyxResult<Schedule<'b, 'a>> {
-    let mut schedule = Schedule::new(builder);
-    let first_state = (0, ir::Guard::True);
-    // We create an empty first state in case the control program starts with
-    // a branch (if, while).
-    // If the program doesn't branch, then the initial state is merged into
-    // the first group.
-    let prev = calc_if_recur(
-        if_stmt,
-        vec![first_state],
-        &mut schedule,
-        early_transitions,
-    )?;
-    add_nxt_transition(&mut schedule, prev);
-    Ok(schedule)
-}
+    /// Creates a Schedule that represents `seq`, mainly relying on `calc_seq_recur()`.
+    fn calculate_states_seq(
+        &mut self,
+        seq: &ir::Seq,
+        early_transitions: bool,
+    ) -> CalyxResult<()> {
+        let first_state = (0, ir::Guard::True);
+        // We create an empty first state in case the control program starts with
+        // a branch (if, while).
+        // If the program doesn't branch, then the initial state is merged into
+        // the first group.
+        let prev =
+            self.calc_seq_recur(seq, vec![first_state], early_transitions)?;
+        self.add_nxt_transition(prev);
+        Ok(())
+    }
 
-/// Creates a Schedule that represents `while`, mainly relying on `calc_while_recur()`.
-fn calculate_states_while<'b, 'a>(
-    while_stmt: &ir::While,
-    builder: &'b mut ir::Builder<'a>,
-    early_transitions: bool,
-) -> CalyxResult<Schedule<'b, 'a>> {
-    let mut schedule = Schedule::new(builder);
-    let first_state = (0, ir::Guard::True);
-    // We create an empty first state in case the control program starts with
-    // a branch (if, while).
-    // If the program doesn't branch, then the initial state is merged into
-    // the first group.
-    let prev = calc_while_recur(
-        while_stmt,
-        vec![first_state],
-        &mut schedule,
-        early_transitions,
-    )?;
-    add_nxt_transition(&mut schedule, prev);
-    Ok(schedule)
-}
+    /// Creates a Schedule that represents `if`, mainly relying on `calc_if_recur()`.
+    fn calculate_states_if(
+        &mut self,
+        if_stmt: &ir::If,
+        early_transitions: bool,
+    ) -> CalyxResult<()> {
+        let first_state = (0, ir::Guard::True);
+        // We create an empty first state in case the control program starts with
+        // a branch (if, while).
+        // If the program doesn't branch, then the initial state is merged into
+        // the first group.
+        let prev =
+            self.calc_if_recur(if_stmt, vec![first_state], early_transitions)?;
+        self.add_nxt_transition(prev);
+        Ok(())
+    }
 
-fn add_nxt_transition(schedule: &mut Schedule, prev: Vec<PredEdge>) {
-    // Helper function: given predecessors prev, creates a new "next" state and
-    // transitions from each state in prev to the next state. In other words, it just
-    // adds an "end" state to `schedule` and the appropriate transitions to that
-    // "end" state.
-    let nxt = prev
-        .iter()
-        .max_by(|(st1, _), (st2, _)| st1.cmp(st2))
-        .unwrap()
-        .0
-        + 1;
-    let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
-    schedule.transitions.extend(transitions);
-}
+    /// Creates a Schedule that represents `while`, mainly relying on `calc_while_recur()`.
+    fn calculate_states_while(
+        &mut self,
+        while_stmt: &ir::While,
+        early_transitions: bool,
+    ) -> CalyxResult<()> {
+        let first_state = (0, ir::Guard::True);
+        // We create an empty first state in case the control program starts with
+        // a branch (if, while).
+        // If the program doesn't branch, then the initial state is merged into
+        // the first group.
+        let prev = self.calc_while_recur(
+            while_stmt,
+            vec![first_state],
+            early_transitions,
+        )?;
+        self.add_nxt_transition(prev);
+        Ok(())
+    }
 
-/// Note: the functions calculate_states_seq, calculate_states_while, and calculate_states_if
-/// are functions that basically do what `calculate_states` would do if `calculate_states` knew (for certain)
-/// that its input parameter would be a seq/while/if.
-/// The reason why we need to define these as separate functions is because `finish_seq`
-/// (for example) we only gives us access to a `& mut seq` type, not a `& Control`
-/// type.
-fn calculate_states<'b, 'a>(
-    con: &ir::Control,
-    builder: &'b mut ir::Builder<'a>,
-    early_transitions: bool,
-) -> CalyxResult<Schedule<'b, 'a>> {
-    let mut schedule = Schedule::new(builder);
-    let first_state = (0, ir::Guard::True);
-    // We create an empty first state in case the control program starts with
-    // a branch (if, while).
-    // If the program doesn't branch, then the initial state is merged into
-    // the first group.
-    let prev = calculate_states_recur(
-        con,
-        vec![first_state],
-        &mut schedule,
-        early_transitions,
-    )?;
-    add_nxt_transition(&mut schedule, prev);
-    Ok(schedule)
+    fn add_nxt_transition(&mut self, prev: Vec<PredEdge>) {
+        // Helper function: given predecessors prev, creates a new "next" state and
+        // transitions from each state in prev to the next state. In other words, it just
+        // adds an "end" state to `schedule` and the appropriate transitions to that
+        // "end" state.
+        let nxt = prev
+            .iter()
+            .max_by(|(st1, _), (st2, _)| st1.cmp(st2))
+            .unwrap()
+            .0
+            + 1;
+        let transitions = prev.into_iter().map(|(st, guard)| (st, nxt, guard));
+        self.transitions.extend(transitions);
+    }
+
+    /// Note: the functions calculate_states_seq, calculate_states_while, and calculate_states_if
+    /// are functions that basically do what `calculate_states` would do if `calculate_states` knew (for certain)
+    /// that its input parameter would be a seq/while/if.
+    /// The reason why we need to define these as separate functions is because `finish_seq`
+    /// (for example) we only gives us access to a `& mut seq` type, not a `& Control`
+    /// type.
+    fn calculate_states(
+        &mut self,
+        con: &ir::Control,
+        early_transitions: bool,
+    ) -> CalyxResult<()> {
+        let first_state = (0, ir::Guard::True);
+        // We create an empty first state in case the control program starts with
+        // a branch (if, while).
+        // If the program doesn't branch, then the initial state is merged into
+        // the first group.
+        let prev = self.calculate_states_recur(
+            con,
+            vec![first_state],
+            early_transitions,
+        )?;
+        self.add_nxt_transition(prev);
+        Ok(())
+    }
 }
 
 /// **Core lowering pass.**
@@ -852,20 +835,10 @@ impl Visitor for TopDownCompileControl {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
+        let mut sch = Schedule::new(&mut builder);
+        sch.calculate_states_seq(s, self.early_transitions)?;
         // Compile schedule and return the group.
-        let seq_group = {
-            let sch =
-                calculate_states_seq(s, &mut builder, self.early_transitions)?;
-            let group = sch.builder.add_group("tdcc");
-            if self.dump_fsm {
-                sch.display(format!(
-                    "{}:{}",
-                    sch.builder.component.name,
-                    group.borrow().name()
-                ));
-            }
-            sch.realize_schedule(self.dump_fsm)
-        };
+        let seq_group = sch.realize_schedule(self.dump_fsm);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
@@ -887,9 +860,10 @@ impl Visitor for TopDownCompileControl {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
+        let mut sch = Schedule::new(&mut builder);
 
         // Compile schedule and return the group.
-        let sch = calculate_states_if(i, &mut builder, self.early_transitions)?;
+        sch.calculate_states_if(i, self.early_transitions)?;
         let if_group = sch.realize_schedule(self.dump_fsm);
 
         // Add NODE_ID to compiled group.
@@ -912,15 +886,11 @@ impl Visitor for TopDownCompileControl {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
+        let mut sch = Schedule::new(&mut builder);
+        sch.calculate_states_while(w, self.early_transitions)?;
+
         // Compile schedule and return the group.
-        let if_group = {
-            let sch = calculate_states_while(
-                w,
-                &mut builder,
-                self.early_transitions,
-            )?;
-            sch.realize_schedule(self.dump_fsm)
-        };
+        let if_group = sch.realize_schedule(self.dump_fsm);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -960,11 +930,8 @@ impl Visitor for TopDownCompileControl {
                 }
                 // Compile complex schedule and return the group.
                 _ => {
-                    let sch = calculate_states(
-                        con,
-                        &mut builder,
-                        self.early_transitions,
-                    )?;
+                    let mut sch = Schedule::new(&mut builder);
+                    sch.calculate_states(con, self.early_transitions)?;
                     sch.realize_schedule(self.dump_fsm)
                 }
             };
@@ -1033,12 +1000,9 @@ impl Visitor for TopDownCompileControl {
         let control = Rc::clone(&comp.control);
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
+        let mut sch = Schedule::new(&mut builder);
         // Add assignments for the final states
-        let sch = calculate_states(
-            &control.borrow(),
-            &mut builder,
-            self.early_transitions,
-        )?;
+        sch.calculate_states(&control.borrow(), self.early_transitions)?;
         let comp_group = sch.realize_schedule(self.dump_fsm);
 
         Ok(Action::change(ir::Control::enable(comp_group)))
