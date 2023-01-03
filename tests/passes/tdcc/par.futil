@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d top-down-st -d post-opt -d group2invoke -d lower -d merge-static-par -b none
+// -x tdcc:dump-fsm -d tdst -d post-opt -d group2invoke -d lower -d merge-static-par -b none
 
 import "primitives/core.futil";
 
