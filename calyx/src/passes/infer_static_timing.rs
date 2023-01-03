@@ -465,6 +465,16 @@ impl Visitor for InferStaticTiming {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        if s.cond.is_some() {
+            return Err(Error::pass_assumption(
+                Self::name(),
+                format!(
+                    "Cannot infer timing for while-with. Run {} before this pass",
+                    super::RemoveCombGroups::name()
+                ),
+            )
+            .with_pos(&s.attributes));
+        }
         if let (Some(bound), Some(body_time)) = (
             s.attributes.get("bound").cloned(),
             s.body.get_attribute("static"),
@@ -481,11 +491,21 @@ impl Visitor for InferStaticTiming {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        if s.cond.is_some() {
+            return Err(Error::pass_assumption(
+                Self::name(),
+                format!(
+                    "Cannot infer timing for if-with. Run {} before this pass",
+                    super::RemoveCombGroups::name()
+                ),
+            )
+            .with_pos(&s.attributes));
+        }
         if let (Some(ttime), Some(ftime)) = (
             s.tbranch.get_attribute("static"),
             s.fbranch.get_attribute("static"),
         ) {
-            s.attributes.insert("static", 1 + cmp::max(ttime, ftime));
+            s.attributes.insert("static", *cmp::max(ttime, ftime));
         }
 
         Ok(Action::Continue)

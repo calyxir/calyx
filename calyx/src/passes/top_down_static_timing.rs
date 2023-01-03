@@ -46,12 +46,11 @@ impl<'a> Schedule<'a> {
         let (uncond, cond) =
             Self::calculate_runs(self.transitions.iter().cloned());
 
-        println!("enables:");
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|((start, end), assigns)| {
-                println!("[{}, {})", start, end);
+                println!("[{}, {}):", start, end);
                 assigns.iter().for_each(|assign| {
                     print!("  ");
                     Printer::write_assignment(assign, 0, out)
@@ -65,15 +64,17 @@ impl<'a> Schedule<'a> {
                 k1.cmp(k3).then_with(|| k2.cmp(k4)).then_with(|| g1.cmp(g2))
             })
             .for_each(|(i, f, g)| {
-                println!("({})->({})\n  {}", i, f, Printer::guard_str(g));
+                println!("  ({}, {}): {}", i, f, Printer::guard_str(g));
             });
 
         // Unconditional +1 transitions
-        let uncond_trans = uncond
-            .into_iter()
-            .map(|(s, e)| format!("({}, {})", s, e))
-            .join(", ");
-        println!("unconditional:\n{}", uncond_trans);
+        if !uncond.is_empty() {
+            let uncond_trans = uncond
+                .into_iter()
+                .map(|(s, e)| format!("({}, {})", s, e))
+                .join(", ");
+            println!("unconditional:\n{}", uncond_trans);
+        }
     }
 
     /// Returns "runs" of FSM states where transitions happen unconditionally
@@ -483,7 +484,7 @@ impl ConstructVisitor for TopDownStaticTiming {
 
 impl Named for TopDownStaticTiming {
     fn name() -> &'static str {
-        "top-down-st"
+        "tdst"
     }
 
     fn description() -> &'static str {
