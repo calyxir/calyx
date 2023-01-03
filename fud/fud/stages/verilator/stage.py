@@ -5,7 +5,6 @@ from pathlib import Path
 from fud import errors
 from fud.stages import Source, SourceType, Stage
 from fud.utils import TmpDir, shell, unwrap_or
-from fud import config as cfg
 
 from .json_to_dat import convert2dat, convert2json
 
@@ -113,9 +112,6 @@ class VerilatorStage(Stage):
 
     def _define_steps(self, input_data, builder, config):
 
-        testbench_files = [
-            str(Path(config["global", cfg.ROOT]) / "fud" / "sim" / "testbench.cpp"),
-        ]
         data_path = config.get(["stages", self.name, "data"])
 
         # Step 1: Make a new temporary directory
@@ -154,11 +150,9 @@ class VerilatorStage(Stage):
         cmd = " ".join(
             [
                 config["stages", self.name, "exec"],
-                "-cc",
                 "--trace",
                 "{input_path}",
-                "--exe " + " --exe ".join(testbench_files),
-                "--build",
+                "--binary",
                 "--top-module",
                 config["stages", self.name, "top_module"],
                 "--Mdir",
