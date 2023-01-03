@@ -218,15 +218,17 @@ struct Schedule<'b, 'a: 'b> {
     pub builder: &'b mut ir::Builder<'a>,
 }
 
-impl<'b, 'a> Schedule<'b, 'a> {
-    fn new(builder: &'b mut ir::Builder<'a>) -> Self {
+impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
+    fn from(builder: &'b mut ir::Builder<'a>) -> Self {
         Schedule {
             enables: HashMap::new(),
             transitions: Vec::new(),
             builder,
         }
     }
+}
 
+impl<'b, 'a> Schedule<'b, 'a> {
     /// Validate that all states are reachable in the transition graph.
     fn validate(&self) {
         let graph = DiGraph::<(), u32>::from_edges(
@@ -635,11 +637,11 @@ impl Schedule<'_, '_> {
         Ok(())
     }
 
+    /// Given predecessors prev, creates a new "next" state and transitions from
+    /// each state in prev to the next state.
+    /// In other words, it just adds an "end" state to [Schedule] and the
+    /// appropriate transitions to that "end" state.
     fn add_nxt_transition(&mut self, prev: Vec<PredEdge>) {
-        // Helper function: given predecessors prev, creates a new "next" state and
-        // transitions from each state in prev to the next state. In other words, it just
-        // adds an "end" state to `schedule` and the appropriate transitions to that
-        // "end" state.
         let nxt = prev
             .iter()
             .max_by(|(st1, _), (st2, _)| st1.cmp(st2))
@@ -835,7 +837,7 @@ impl Visitor for TopDownCompileControl {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut sch = Schedule::new(&mut builder);
+        let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
         // Compile schedule and return the group.
         let seq_group = sch.realize_schedule(self.dump_fsm);
@@ -860,7 +862,7 @@ impl Visitor for TopDownCompileControl {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut sch = Schedule::new(&mut builder);
+        let mut sch = Schedule::from(&mut builder);
 
         // Compile schedule and return the group.
         sch.calculate_states_if(i, self.early_transitions)?;
@@ -886,7 +888,7 @@ impl Visitor for TopDownCompileControl {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut sch = Schedule::new(&mut builder);
+        let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_while(w, self.early_transitions)?;
 
         // Compile schedule and return the group.
@@ -930,7 +932,7 @@ impl Visitor for TopDownCompileControl {
                 }
                 // Compile complex schedule and return the group.
                 _ => {
-                    let mut sch = Schedule::new(&mut builder);
+                    let mut sch = Schedule::from(&mut builder);
                     sch.calculate_states(con, self.early_transitions)?;
                     sch.realize_schedule(self.dump_fsm)
                 }
@@ -1000,7 +1002,7 @@ impl Visitor for TopDownCompileControl {
         let control = Rc::clone(&comp.control);
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut sch = Schedule::new(&mut builder);
+        let mut sch = Schedule::from(&mut builder);
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
         let comp_group = sch.realize_schedule(self.dump_fsm);
