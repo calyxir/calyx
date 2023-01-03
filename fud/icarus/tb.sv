@@ -11,7 +11,7 @@ main #() main (
 
 // Cycle counter. Make this signed to catch errors with cycle simulation
 // counts.
-logic signed [0:63] cycle_count;
+logic signed [63:0] cycle_count;
 
 always_ff @(posedge clk) begin
   cycle_count <= cycle_count + 1;
@@ -22,7 +22,7 @@ string OUT;
 // Disable VCD tracing
 int NOTRACE;
 // Maximum number of cycles to simulate
-int CYCLE_LIMIT;
+longint CYCLE_LIMIT;
 // Dummy variable to track value returned by $value$plusargs
 int CODE;
 
