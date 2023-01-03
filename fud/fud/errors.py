@@ -38,7 +38,7 @@ class UnsetConfiguration(FudError):
         path_str = ".".join(path)
         msg = (
             f"'{path_str}' is not set. "
-            + "Use `fud config {path_str} <val>` to set it."
+            + f"Use `fud config {path_str} <val>` to set it."
         )
         super().__init__(msg)
 
