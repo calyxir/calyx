@@ -182,7 +182,7 @@ class VerilatorStage(Stage):
             """
             return shell(
                 [
-                    f"{tmpdir.name}/Vmain",
+                    f"{tmpdir.name}/VTOP",
                     unwrap_or(
                         config["stages", self.name, "vcd-target"],
                         f"{tmpdir.name}/output.vcd",
