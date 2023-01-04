@@ -18,10 +18,6 @@ class FutilStage(Stage):
         )
 
     @staticmethod
-    def pre_install():
-        pass
-
-    @staticmethod
     def defaults():
         return {}
 

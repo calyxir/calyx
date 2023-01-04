@@ -186,6 +186,10 @@ class FutilToIcarus(futil.FutilStage):
 
     # No name since FutilStage already defines names
 
+    @staticmethod
+    def pre_install():
+        pass
+
     def __init__(self):
         super().__init__(
             "icarus-verilog",
