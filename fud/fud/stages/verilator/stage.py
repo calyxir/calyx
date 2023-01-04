@@ -161,6 +161,7 @@ class VerilatorStage(Stage):
                 "TOP",  # The wrapper module name from `tb.sv`.
                 "--Mdir",
                 "{tmpdir_name}",
+                "-fno-inline",
             ]
         )
 
