@@ -224,7 +224,7 @@ class VerilatorStage(Stage):
                 raise errors.CycleLimitedReached(self.name, found.group(1))
 
             # Look for output like: "Simulated 91 cycles"
-            r = re.search(r"Simulated (\d+) cycles", simulated_output)
+            r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
             data = {
                 "cycles": int(r.group(1)) if r is not None else 0,
                 "memories": convert2json(tmpdir.name, "out"),
