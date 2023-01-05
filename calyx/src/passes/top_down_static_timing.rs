@@ -66,17 +66,16 @@ impl<'a> Schedule<'a> {
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|((start, end), assigns)| {
-                if *end == start + 1 {
-                    println!("{start}:")
-                } else {
-                    println!("[{}, {}):", start, end);
-                }
+                println!("[{}, {}):", start, end);
                 assigns.iter().for_each(|assign| {
                     print!("  ");
                     Printer::write_assignment(assign, 0, out)
                         .expect("Printing failed!");
                     println!();
-                })
+                });
+                if assigns.is_empty() {
+                    println!("  <empty>");
+                }
             });
         println!("transitions:");
         cond.iter()
@@ -434,9 +433,12 @@ impl Schedule<'_> {
             self.add_transitions(
                 tpreds.into_iter().map(|(st, g)| (st, t_nxt, g)),
             );
-            // Add extra transitions from t_nxt to the balance of states
             let balance = max_time - tru_time;
             let last = t_nxt + balance;
+            // Add empty states
+            self.enables.entry((t_nxt, last)).or_default();
+
+            // Add extra transitions
             self.add_transitions(
                 (t_nxt..last - 1).map(|st| (st, st + 1, ir::Guard::True)),
             );
@@ -459,7 +461,7 @@ impl Schedule<'_> {
         )?;
 
         if fal_time != max_time {
-            unimplemented!("Balancing false branch");
+            unimplemented!("Balancing false branch. {fal_time} != {max_time}");
         }
 
         tpreds.extend(fpreds);
