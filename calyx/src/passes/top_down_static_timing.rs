@@ -458,6 +458,10 @@ impl Schedule<'_> {
                 .collect(),
         )?;
 
+        if fal_time != max_time {
+            unimplemented!("Balancing false branch");
+        }
+
         tpreds.extend(fpreds);
 
         Ok((tpreds, nxt_st))
