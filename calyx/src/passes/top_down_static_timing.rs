@@ -66,7 +66,11 @@ impl<'a> Schedule<'a> {
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|((start, end), assigns)| {
-                println!("[{}, {}):", start, end);
+                if *end == start + 1 {
+                    println!("{start}:")
+                } else {
+                    println!("[{}, {}):", start, end);
+                }
                 assigns.iter().for_each(|assign| {
                     print!("  ");
                     Printer::write_assignment(assign, 0, out)
@@ -89,7 +93,7 @@ impl<'a> Schedule<'a> {
                 .into_iter()
                 .map(|(s, e)| format!("({}, {})", s, e))
                 .join(", ");
-            println!("unconditional:\n{}", uncond_trans);
+            println!("Unconditional runs:\n  {}", uncond_trans);
         }
     }
 
@@ -117,7 +121,7 @@ impl<'a> Schedule<'a> {
             for nxt_s in unconditional {
                 if nxt_s != cur_s + 1 {
                     ranges.push((start_s, cur_s + 1));
-                    start_s = cur_s;
+                    start_s = nxt_s;
                 }
                 cur_s = nxt_s
             }
@@ -409,13 +413,13 @@ impl Schedule<'_> {
             .with_pos(&con.attributes));
         }
 
-        let tru_time = tbranch.get_attribute("static").unwrap();
-        let fal_time = fbranch.get_attribute("static").unwrap();
+        let tru_time = *tbranch.get_attribute("static").unwrap();
+        let fal_time = *fbranch.get_attribute("static").unwrap();
         let max_time = cmp::max(tru_time, fal_time);
 
         let port_guard: ir::Guard = Rc::clone(port).into();
 
-        let (mut tpreds, _) = self.calculate_states(
+        let (mut tpreds, t_nxt) = self.calculate_states(
             tbranch,
             cur_state,
             preds
@@ -423,11 +427,31 @@ impl Schedule<'_> {
                 .map(|(st, g)| (*st, g.clone() & port_guard.clone()))
                 .collect(),
         )?;
+
+        // Balance the true branch if it doesn't have sufficient transitions
+        let nxt = if tru_time != max_time {
+            // Make all predecessors of the true branch transition to balance state
+            self.add_transitions(
+                tpreds.into_iter().map(|(st, g)| (st, t_nxt, g)),
+            );
+            // Add extra transitions from t_nxt to the balance of states
+            let balance = max_time - tru_time;
+            let last = t_nxt + balance;
+            self.add_transitions(
+                (t_nxt..last - 1).map(|st| (st, st + 1, ir::Guard::True)),
+            );
+            tpreds = vec![(last - 1, ir::Guard::True)];
+            last
+        } else {
+            t_nxt
+        };
+
+        let f_start = nxt;
         // Compute the false branch transitions by starting from cur_state +
         // max_time since we require the branches to be balanced.
         let (fpreds, nxt_st) = self.calculate_states(
             fbranch,
-            cur_state + max_time,
+            f_start,
             preds
                 .into_iter()
                 .map(|(st, g)| (st, g & !port_guard.clone()))
@@ -510,11 +534,8 @@ impl Schedule<'_> {
 
         // Add any necessary internal transitions. In the case time is 1 and there
         // is a single transition, it is taken care of by the parent.
-        let starts = cur_st..last_st - 1;
-        let ends = cur_st + 1..last_st;
-
         self.add_transitions(
-            starts.zip(ends).map(|(s, e)| (s, e, ir::Guard::True)),
+            (cur_st..last_st - 1).map(|s| (s, s + 1, ir::Guard::True)),
         );
 
         Ok((vec![(last_st - 1, ir::Guard::True)], last_st))
