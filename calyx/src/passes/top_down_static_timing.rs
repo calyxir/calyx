@@ -8,6 +8,7 @@ use crate::ir::{
 };
 use crate::{build_assignments, guard, passes, structure};
 use itertools::Itertools;
+use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
@@ -39,6 +40,21 @@ impl<'a> Schedule<'a> {
     fn last_state(&self) -> u64 {
         assert!(!self.transitions.is_empty(), "Transitions are empty");
         self.transitions.iter().map(|(_, e, _)| *e).max().unwrap()
+    }
+
+    fn add_transition(&mut self, start: u64, end: u64, guard: ir::Guard) {
+        debug_assert!(
+            start != end,
+            "Attempting to transition to the same state {start}"
+        );
+        self.transitions.insert((start, end, guard));
+    }
+
+    fn add_transitions(
+        &mut self,
+        transitions: impl Iterator<Item = (u64, u64, ir::Guard)>,
+    ) {
+        transitions.for_each(|(s, e, g)| self.add_transition(s, e, g));
     }
 
     fn display(&self) {
@@ -236,24 +252,24 @@ impl Schedule<'_> {
         con: &ir::Control,
         // The current state
         cur_state: u64,
-        // Additional guard for this condition.
-        pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
+        // Predecessors
+        preds: Vec<PredEdge>,
+    ) -> CalyxResult<(Vec<PredEdge>, u64)> {
         match con {
         ir::Control::Enable(e) => {
-            self.enable_calculate_states(e, cur_state, pre_guard)
+            self.enable_calculate_states(e, cur_state, preds)
         }
         ir::Control::Seq(s) => {
-            self.seq_calculate_states(s, cur_state, pre_guard)
+            self.seq_calculate_states(s, cur_state, preds)
         }
         ir::Control::Par(p) => {
-            self.par_calculate_states(p, cur_state, pre_guard)
+            unimplemented!("Static par")
         }
         ir::Control::If(i) => {
-            self.if_calculate_states(i, cur_state, pre_guard)
+            self.if_calculate_states(i, cur_state, preds)
         }
         ir::Control::While(w) => {
-            self.while_calculate_states(w, cur_state, pre_guard)
+            unimplemented!("Static while")
         }
         ir::Control::Invoke(_) => unreachable!(
             "`invoke` statements should have been compiled away. Run `{}` before this pass.",
@@ -278,8 +294,9 @@ impl Schedule<'_> {
             .0;
 
         // Add transitions from each predecessor to the new state.
-        self.transitions
-            .extend(preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())));
+        self.add_transitions(
+            preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())),
+        );
 
         // Return the new state.
         new_state
@@ -288,25 +305,21 @@ impl Schedule<'_> {
     fn seq_calculate_states(
         &mut self,
         con: &ir::Seq,
-        cur_state: u64,
-        pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        let mut preds = vec![];
-        let default_pred = (cur_state, pre_guard.clone());
+        st: u64,
+        preds: Vec<PredEdge>,
+    ) -> CalyxResult<(Vec<PredEdge>, u64)> {
+        let mut cur_preds = preds;
+        let mut cur_st = st;
         for stmt in &con.stmts {
-            // Add transition(s) from last state to the new state.
-            let new_state = self.seq_add_transitions(&preds, &default_pred);
-
-            // Recurse into statement and save new predecessors.
-            preds = self.calculate_states(stmt, new_state, pre_guard)?;
+            eprintln!("cur_st: {cur_st}, cur_preds: {cur_preds:?}");
+            (cur_preds, cur_st) =
+                self.calculate_states(stmt, cur_st, cur_preds)?;
         }
 
-        // Add final transition(s) from the last statement.
-        self.seq_add_transitions(&preds, &default_pred);
-
-        Ok(preds)
+        Ok((cur_preds, cur_st))
     }
 
+    /*
     fn par_calculate_states(
         &mut self,
         con: &ir::Par,
@@ -342,14 +355,52 @@ impl Schedule<'_> {
         // Return a single predecessor for the last state.
         Ok(vec![(max_state, pre_guard.clone())])
     }
+    */
 
+    /// Compute the states needed for the `if` by allocating a path for the true
+    /// branch and another one for the false branch and ensuring it takes the same
+    /// amount of time regardless.
+    ///
+    /// For example:
+    /// ```
+    /// if lt.out {
+    ///     @static(3) tru;
+    /// } else {
+    ///     @static(5) fal;
+    /// }
+    /// ```
+    ///
+    /// Generates transitions:
+    /// ```
+    /// [0, 3): tru[go] = 1
+    /// [3, 5): <empty>
+    /// [5, 10): fal[go] = 1
+    ///
+    /// cond transitions:
+    ///   (PREV) -> 0: lt.out
+    ///   (PREV) -> 5: !lt.out
+    ///
+    /// unconditional transitions:
+    ///   0 -> 1 -> 2 -> 3 -> 4 -> (EXIT)
+    ///   5 -> 6 -> 7 -> 8 -> 9 -> (EXIT)
+    /// ```
+    ///
+    /// Where `PREV` and `EXIT` represent the predecessor and exit states of the
+    /// `if` construct.
     fn if_calculate_states(
         &mut self,
         con: &ir::If,
         cur_state: u64,
-        pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        if con.cond.is_some() {
+        preds: Vec<PredEdge>,
+    ) -> CalyxResult<(Vec<PredEdge>, u64)> {
+        let ir::If {
+            port,
+            cond,
+            tbranch,
+            fbranch,
+            ..
+        } = con;
+        if cond.is_some() {
             return Err(Error::pass_assumption(
                     TopDownStaticTiming::name(),
                      format!(
@@ -358,26 +409,37 @@ impl Schedule<'_> {
             .with_pos(&con.attributes));
         }
 
-        let port_guard: ir::Guard = Rc::clone(&con.port).into();
-        let mut preds = vec![];
+        let tru_time = tbranch.get_attribute("static").unwrap();
+        let fal_time = fbranch.get_attribute("static").unwrap();
+        let max_time = cmp::max(tru_time, fal_time);
 
-        // Then branch.
-        preds.extend(self.calculate_states(
-            &con.tbranch,
+        let port_guard: ir::Guard = Rc::clone(port).into();
+
+        let (mut tpreds, _) = self.calculate_states(
+            tbranch,
             cur_state,
-            &pre_guard.clone().and(port_guard.clone()),
-        )?);
+            preds
+                .iter()
+                .map(|(st, g)| (*st, g.clone() & port_guard.clone()))
+                .collect(),
+        )?;
+        // Compute the false branch transitions by starting from cur_state +
+        // max_time since we require the branches to be balanced.
+        let (fpreds, nxt_st) = self.calculate_states(
+            fbranch,
+            cur_state + max_time,
+            preds
+                .into_iter()
+                .map(|(st, g)| (st, g & !port_guard.clone()))
+                .collect(),
+        )?;
 
-        // Else branch.
-        preds.extend(self.calculate_states(
-            &con.fbranch,
-            cur_state,
-            &pre_guard.clone().and(port_guard.not()),
-        )?);
+        tpreds.extend(fpreds);
 
-        Ok(preds)
+        Ok((tpreds, nxt_st))
     }
 
+    /*
     fn while_calculate_states(
         &mut self,
         con: &ir::While,
@@ -411,49 +473,51 @@ impl Schedule<'_> {
 
         Ok(vec![(body_exit, pre_guard.clone())])
     }
+    */
 
-    /// Compiled to:
-    /// ```
-    /// group[go] = (fsm >= cur_start & fsm < cur_state + static) & pre_guard ? 1'd1;
-    /// ```
+    /// Generate transitions from all predecessors to the enable and keep it
+    /// active for its specified static time.
+    /// The start state of the enable is computed by taking the max of all
+    /// predecessors states.
     fn enable_calculate_states(
         &mut self,
         con: &ir::Enable,
-        // The current state
-        cur_state: u64,
-        // Additional guard for this condition.
-        pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
+        cur_st: u64,
+        preds: Vec<PredEdge>,
+    ) -> CalyxResult<(Vec<PredEdge>, u64)> {
         let time_option = con.attributes.get("static");
-        if time_option.is_none() {
+        let Some(time) = time_option else {
             return Err(Error::pass_assumption(
             TopDownStaticTiming::name(),
             "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
-        )
-        .with_pos(&con.attributes));
-        }
-        let time = time_option.unwrap();
+            ).with_pos(&con.attributes));
+        };
 
-        let range = (cur_state, cur_state + time);
+        // Transition from all predecessors to the start state
+        self.add_transitions(preds.into_iter().map(|(st, g)| (st, cur_st, g)));
+
+        // Activate the group during the latency
+        let last_st = cur_st + time;
+        let range = (cur_st, last_st);
         let group = &con.group;
         structure!(self.builder;
             let signal_on = constant(1, 1);
         );
         let mut assigns = build_assignments!(self.builder;
-            group["go"] = pre_guard ? signal_on["out"];
+            group["go"] = ? signal_on["out"];
         );
-
-        // Enable when in range of group's latency.
         self.enables.entry(range).or_default().append(&mut assigns);
 
         // Add any necessary internal transitions. In the case time is 1 and there
         // is a single transition, it is taken care of by the parent.
-        let starts = cur_state..cur_state + time - 1;
-        let ends = cur_state + 1..cur_state + time;
-        self.transitions
-            .extend(starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())));
+        let starts = cur_st..last_st - 1;
+        let ends = cur_st + 1..last_st;
 
-        Ok(vec![(cur_state + time, pre_guard.clone())])
+        self.add_transitions(
+            starts.zip(ends).map(|(s, e)| (s, e, ir::Guard::True)),
+        );
+
+        Ok((vec![(last_st - 1, ir::Guard::True)], last_st))
     }
 }
 
@@ -512,7 +576,7 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::new(&mut builder);
-        schedule.seq_calculate_states(con, 0, &ir::Guard::True)?;
+        schedule.seq_calculate_states(con, 0, vec![])?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -539,6 +603,9 @@ impl Visitor for TopDownStaticTiming {
             return Ok(Action::Continue);
         }
 
+        unimplemented!("Compilation of par static");
+
+        /*
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::new(&mut builder);
@@ -553,6 +620,7 @@ impl Visitor for TopDownStaticTiming {
         let group = schedule.realize_schedule();
 
         Ok(Action::change(ir::Control::enable(group)))
+        */
     }
 
     fn start_while(
@@ -569,7 +637,9 @@ impl Visitor for TopDownStaticTiming {
         if time_option.is_none() || bound_option.is_none() {
             return Ok(Action::Continue);
         }
+        unimplemented!("Compilation of while static")
 
+        /*
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::new(&mut builder);
@@ -584,6 +654,7 @@ impl Visitor for TopDownStaticTiming {
         let group = schedule.realize_schedule();
 
         Ok(Action::change(ir::Control::enable(group)))
+        */
     }
 
     fn start_if(
@@ -603,7 +674,7 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::new(&mut builder);
-        schedule.if_calculate_states(con, 0, &ir::Guard::True)?;
+        schedule.if_calculate_states(con, 0, vec![])?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
