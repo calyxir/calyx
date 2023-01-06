@@ -16,6 +16,70 @@ use std::rc::Rc;
 /// A range of FSM states.
 type Range = (u64, u64);
 
+/// Compute the states that exit from this control program.
+fn control_exits(
+    con: &ir::Control,
+    cur_st: u64,
+    is_exit: bool,
+    exits: &mut Vec<u64>,
+) -> u64 {
+    match con {
+        ir::Control::Enable(en) => {
+            let end = cur_st + en.attributes["static"];
+            if is_exit {
+                exits.push(end - 1);
+            }
+            end
+        }
+        ir::Control::Seq(s) => {
+            let mut st = cur_st;
+            for (idx, stmt) in s.stmts.iter().enumerate() {
+                let last = idx == s.stmts.len() - 1;
+                st = control_exits(stmt, st, is_exit && last, exits);
+            }
+            st
+        }
+        ir::Control::If(if_) => {
+            let ir::If {
+                tbranch, fbranch, ..
+            } = if_;
+
+            let ttime = *tbranch.get_attribute("static").unwrap();
+            let ftime = *fbranch.get_attribute("static").unwrap();
+            let max_time = cmp::max(ttime, ftime);
+            let tmax = ttime == max_time;
+            let fmax = ftime == max_time;
+            // Add exit states only if branch does not need balancing.
+            let tend = control_exits(tbranch, cur_st, is_exit & tmax, exits);
+            // Account for balancing states
+            let nxt = if !tmax {
+                let last = tend + (max_time - ttime);
+                exits.push(last - 1);
+                last
+            } else {
+                tend
+            };
+            let fend = control_exits(fbranch, nxt, is_exit & fmax, exits);
+            // Account for balancing states
+            if !fmax {
+                let last = fend + (max_time - ftime);
+                exits.push(last - 1);
+                last
+            } else {
+                fend
+            }
+        }
+        ir::Control::While(wh) => {
+            control_exits(&wh.body, cur_st, is_exit, exits)
+        }
+        ir::Control::Invoke(_) => {
+            unreachable!("Invoke should have been compiled away")
+        }
+        ir::Control::Par(_) => unreachable!("Par blocks in control_exits"),
+        ir::Control::Empty(_) => unreachable!("Empty block in control_exits"),
+    }
+}
+
 /// A schedule keeps track of two things:
 /// 1. `enables`: Specifies which groups are active during a range of
 ///     FSM states.
@@ -66,7 +130,11 @@ impl<'a> Schedule<'a> {
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|((start, end), assigns)| {
-                println!("[{}, {}):", start, end);
+                if *end == start + 1 {
+                    println!("{}:", start);
+                } else {
+                    println!("[{}, {}):", start, end);
+                }
                 assigns.iter().for_each(|assign| {
                     print!("  ");
                     Printer::write_assignment(assign, 0, out)
@@ -272,7 +340,7 @@ impl Schedule<'_> {
             self.if_calculate_states(i, cur_state, preds)
         }
         ir::Control::While(w) => {
-            unimplemented!("Static while")
+            self.while_calculate_states(w, cur_state, preds)
         }
         ir::Control::Invoke(_) => unreachable!(
             "`invoke` statements should have been compiled away. Run `{}` before this pass.",
@@ -283,6 +351,7 @@ impl Schedule<'_> {
     }
     }
 
+    /*
     /// Helper to add seqential transitions and return the next state.
     fn seq_add_transitions(
         &mut self,
@@ -303,7 +372,7 @@ impl Schedule<'_> {
 
         // Return the new state.
         new_state
-    }
+    }*/
 
     fn seq_calculate_states(
         &mut self,
@@ -314,7 +383,6 @@ impl Schedule<'_> {
         let mut cur_preds = preds;
         let mut cur_st = st;
         for stmt in &con.stmts {
-            eprintln!("cur_st: {cur_st}, cur_preds: {cur_preds:?}");
             (cur_preds, cur_st) =
                 self.calculate_states(stmt, cur_st, cur_preds)?;
         }
@@ -469,41 +537,110 @@ impl Schedule<'_> {
         Ok((tpreds, nxt_st))
     }
 
-    /*
+    /// Compute the transitions for a bounded while loop.
+    /// Iterations are guaranteed to execute the cycle right after the body
+    /// finishes executing.
+    ///
+    /// Generates its own counter that counts up to `bound*body` and then exits
+    /// the loop.
+    ///
+    /// For example:
+    /// ```
+    /// @bound(10) while lt.out {
+    ///   @static(1) one;
+    ///   @static(2) two;
+    /// }
+    /// ```
+    ///
+    /// Generates the following transitions:
+    /// ```
+    /// [0, 1):
+    ///     one[go] = 1
+    ///     idx = idx < 10 : idx + 1 : 0
+    /// [1, 3): two[go] = 1
+    ///
+    /// cond transitions:
+    ///   (PREV) -> 0: idx < 10
+    ///   2 -> 0:      idx < 10
+    ///   2 -> (EXIT): idx == 10
+    /// ```
     fn while_calculate_states(
         &mut self,
         con: &ir::While,
         cur_state: u64,
-        pre_guard: &ir::Guard,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        if con.cond.is_some() {
+        preds: Vec<PredEdge>,
+    ) -> CalyxResult<(Vec<PredEdge>, u64)> {
+        let ir::While {
+            cond,
+            port,
+            body,
+            attributes,
+        } = con;
+        if cond.is_some() {
             return Err(Error::pass_assumption(
-                    TopDownStaticTiming::name(),
-                     format!(
-                        "while-with construct should have been compiled away. Run `{}` before this pass.",
-                        super::RemoveCombGroups::name()))
-            .with_pos(&con.attributes));
+            TopDownStaticTiming::name(),
+            format!(
+                "while-with construct should have been compiled away. Run `{}` before this pass.",
+                super::RemoveCombGroups::name())
+            ).with_pos(&con.attributes));
         }
 
-        let mut body_exit = cur_state;
+        // Construct the index and incrementing logic.
+        let bound = attributes["bound"];
+        let size = get_bit_width_from(bound);
+        structure!(self.builder;
+            let idx = prim std_reg(size);
+            let st_incr = prim std_add(size);
+            let bc = constant(bound, size);
+            let one = constant(1, size);
+            let zero = constant(0, size);
+            let on = constant(1, 1);
+        );
+        let enter_guard = guard!(idx["out"]).lt(guard!(bc["out"]));
+        let mut incr_assigns = build_assignments!(self.builder;
+            st_incr["left"] = ? idx["out"];
+            st_incr["right"] = ? one["out"];
+            idx["in"] = enter_guard ? st_incr["out"];
+            idx["write_en"] = enter_guard ? on["out"];
+        );
+        self.enables
+            .entry((cur_state, cur_state + 1))
+            .or_default()
+            .append(&mut incr_assigns);
 
-        for _ in 0..*con.attributes.get("bound").unwrap() {
-            let preds = self.calculate_states(
-                &con.body,
-                body_exit,
-                &pre_guard.clone(),
-            )?;
+        // TODO: Add back edges
+        let mut exits = vec![];
+        control_exits(body, cur_state, true, &mut exits);
+        // eprintln!("exits: {:#?}", exits);
+        let back_edges = exits.iter().map(|st| (*st, enter_guard.clone()));
 
-            body_exit = preds
-                .iter()
-                .max_by_key(|(state, _)| state)
-                .unwrap_or(&(body_exit, pre_guard.clone()))
-                .0;
+        // Compute the body transitions.
+        let (body_preds, body_nxt) = self.calculate_states(
+            body,
+            cur_state,
+            preds.into_iter().chain(back_edges).collect_vec(),
+        )?;
+
+        // Reset the index when exiting the loop
+        let exit = guard!(idx["out"]).eq(guard!(bc["out"]));
+        let reset_assigns = build_assignments!(self.builder;
+            idx["in"] = exit ? zero["out"];
+            idx["write_en"] = exit ? on["out"];
+        );
+        for st in exits {
+            self.enables
+                .entry((st, st + 1))
+                .or_default()
+                .append(&mut reset_assigns.clone());
         }
 
-        Ok(vec![(body_exit, pre_guard.clone())])
+        let exits = body_preds
+            .into_iter()
+            .map(|(st, g)| (st, g & exit.clone()))
+            .collect_vec();
+
+        Ok((exits, body_nxt))
     }
-    */
 
     /// Generate transitions from all predecessors to the enable and keep it
     /// active for its specified static time.
