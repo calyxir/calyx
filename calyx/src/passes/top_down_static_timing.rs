@@ -242,7 +242,7 @@ impl<'a, 'b> Schedule<'a, 'b> {
     fn realize_schedule(
         self,
         final_state: u64,
-        out_edges: Vec<PredEdge>,
+        mut out_edges: Vec<PredEdge>,
         dump_fsm: bool,
     ) -> RRC<ir::Group> {
         if dump_fsm {
@@ -322,11 +322,13 @@ impl<'a, 'b> Schedule<'a, 'b> {
         }
 
         // Done condition for group.
-        let mut done_guard = ir::Guard::True;
+        let (st, g) = out_edges.pop().expect("No outgoing edges");
+        let c = builder.add_constant(st, fsm_size);
+        let mut done_guard = guard!(fsm["out"]).eq(guard!(c["out"])) & g;
         for (st, g) in out_edges {
             let stc = builder.add_constant(st, fsm_size);
             let st_guard = guard!(fsm["out"]).eq(guard!(stc["out"]));
-            done_guard &= st_guard & g;
+            done_guard |= st_guard & g;
         }
         let done_assign = build_assignments!(builder;
             group["done"] = done_guard ? signal_on["out"];
@@ -361,29 +363,30 @@ impl Schedule<'_, '_> {
         // Predecessors
         preds: Vec<PredEdge>,
     ) -> CalyxResult<(Vec<PredEdge>, u64)> {
+        debug_assert!(!preds.is_empty(), "Predecessors should not be empty.");
         match con {
-        ir::Control::Enable(e) => {
-            self.enable_calculate_states(e, cur_state, preds)
+            ir::Control::Enable(e) => {
+                self.enable_calculate_states(e, cur_state, preds)
+            }
+            ir::Control::Seq(s) => {
+                self.seq_calculate_states(s, cur_state, preds)
+            }
+            ir::Control::Par(_) => {
+                unimplemented!("Static par")
+            }
+            ir::Control::If(i) => {
+                self.if_calculate_states(i, cur_state, preds)
+            }
+            ir::Control::While(w) => {
+                self.while_calculate_states(w, cur_state, preds)
+            }
+            ir::Control::Invoke(_) => unreachable!(
+                "`invoke` statements should have been compiled away. Run `{}` before this pass.",
+                passes::CompileInvoke::name()),
+            ir::Control::Empty(_) => unreachable!(
+                "`empty` statements should have been compiled away. Run `{}` before this pass.",
+                passes::CompileEmpty::name()),
         }
-        ir::Control::Seq(s) => {
-            self.seq_calculate_states(s, cur_state, preds)
-        }
-        ir::Control::Par(_) => {
-            unimplemented!("Static par")
-        }
-        ir::Control::If(i) => {
-            self.if_calculate_states(i, cur_state, preds)
-        }
-        ir::Control::While(w) => {
-            self.while_calculate_states(w, cur_state, preds)
-        }
-        ir::Control::Invoke(_) => unreachable!(
-            "`invoke` statements should have been compiled away. Run `{}` before this pass.",
-            passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!(
-            "`empty` statements should have been compiled away. Run `{}` before this pass.",
-            passes::CompileEmpty::name()),
-    }
     }
 
     /// Generate transitions from all predecessors to the enable and keep it
@@ -405,17 +408,8 @@ impl Schedule<'_, '_> {
         };
 
         // If there are no predecessors, this means that the enable is at the
-        // start of the program so we allocate an empty predecessor and change
-        // the current state to 1.
-        let (preds, cur_st) = if preds.is_empty() {
-            // debug_assert!(
-            //     cur_st == 0,
-            //     "Empty predecessors but cur_st is {cur_st}"
-            // );
-            (vec![(0, ir::Guard::True)], 1)
-        } else {
-            (preds, cur_st)
-        };
+        // start of the program.
+        let cur_st = if cur_st == 0 { 1 } else { cur_st };
 
         // Enable the group during the transition. Note that this is similar to
         // what tdcc does the early transitions flag. However, unlike tdcc, we
@@ -457,29 +451,6 @@ impl Schedule<'_, '_> {
 
         Ok((vec![(last_st, ir::Guard::True)], last_st + 1))
     }
-
-    /*
-    /// Helper to add seqential transitions and return the next state.
-    fn seq_add_transitions(
-        &mut self,
-        preds: &[PredEdge],
-        default_pred: &PredEdge,
-    ) -> u64 {
-        // Compute the new start state from the latest predecessor.
-        let new_state = preds
-            .iter()
-            .max_by_key(|(state, _)| state)
-            .unwrap_or(default_pred)
-            .0;
-
-        // Add transitions from each predecessor to the new state.
-        self.add_transitions(
-            preds.iter().map(|(s, g)| (s - 1, new_state, g.clone())),
-        );
-
-        // Return the new state.
-        new_state
-    }*/
 
     fn seq_calculate_states(
         &mut self,
@@ -833,7 +804,11 @@ impl Visitor for TopDownStaticTiming {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule =
             Schedule::new(&mut builder, self.balance.as_ref().unwrap());
-        let (out, last) = schedule.seq_calculate_states(con, 0, vec![])?;
+        let (out, last) = schedule.seq_calculate_states(
+            con,
+            0,
+            vec![(0, ir::Guard::True)],
+        )?;
 
         // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule(last, out, self.dump_fsm);
@@ -896,7 +871,11 @@ impl Visitor for TopDownStaticTiming {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule =
             Schedule::new(&mut builder, self.balance.as_ref().unwrap());
-        let (out, last) = schedule.while_calculate_states(con, 0, vec![])?;
+        let (out, last) = schedule.while_calculate_states(
+            con,
+            0,
+            vec![(0, ir::Guard::True)],
+        )?;
 
         // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule(last, out, self.dump_fsm);
@@ -921,7 +900,8 @@ impl Visitor for TopDownStaticTiming {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule =
             Schedule::new(&mut builder, self.balance.as_ref().unwrap());
-        let (out, last) = schedule.if_calculate_states(con, 0, vec![])?;
+        let (out, last) =
+            schedule.if_calculate_states(con, 0, vec![(0, ir::Guard::True)])?;
 
         // Realize the schedule in a replacement control group.
         let group = schedule.realize_schedule(last, out, self.dump_fsm);
