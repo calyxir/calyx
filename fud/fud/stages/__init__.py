@@ -226,7 +226,9 @@ class Stage:
             opts = config["stages", self.name]
             for opt in opts.keys():
                 if opt not in known:
-                    raise errors.UnknownConfiguration(self.name, opt, known)
+                    log.warn(
+                        f"Unknown option `{self.name}.{opt}' for stage `{self.name}'"
+                    )
 
     def setup(
         self,
