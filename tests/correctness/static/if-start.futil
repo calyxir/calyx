@@ -16,14 +16,14 @@ component main() -> () {
             m.write_en = 1'd1;
             one[done] = m.done;
         }
-        group two<"static"=4> {
-            two[done] = r.out;
+        group four<"static"=4> {
+            four[done] = r.out;
         }
         cond.addr0 = 1'd0;
     }
     control {
         if cond.read_data {
-            two;
+            four;
         } else {
             one;
         }
