@@ -1,6 +1,7 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::ConstructVisitor;
+use crate::ir::GetAttributes;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
@@ -8,10 +9,10 @@ use crate::ir::{
 };
 use crate::{build_assignments, guard, passes, structure};
 use itertools::Itertools;
-use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
+use std::{cmp, iter};
 
 /// A range of FSM states.
 type Range = (u64, u64);
@@ -51,23 +52,7 @@ fn control_exits(
             let fmax = ftime == max_time;
             // Add exit states only if branch does not need balancing.
             let tend = control_exits(tbranch, cur_st, is_exit & tmax, exits);
-            // Account for balancing states
-            let nxt = if !tmax {
-                let last = tend + (max_time - ttime);
-                exits.push(last - 1);
-                last
-            } else {
-                tend
-            };
-            let fend = control_exits(fbranch, nxt, is_exit & fmax, exits);
-            // Account for balancing states
-            if !fmax {
-                let last = fend + (max_time - ftime);
-                exits.push(last - 1);
-                last
-            } else {
-                fend
-            }
+            control_exits(fbranch, tend, is_exit & fmax, exits)
         }
         ir::Control::While(wh) => {
             control_exits(&wh.body, cur_st, is_exit, exits)
@@ -91,28 +76,48 @@ struct Schedule<'a> {
     builder: &'a mut ir::Builder<'a>,
     enables: HashMap<Range, Vec<ir::Assignment>>,
     transitions: HashSet<(u64, u64, ir::Guard)>,
+    balance: ir::Control,
 }
 
 impl<'a> Schedule<'a> {
-    fn new(builder: &'a mut ir::Builder<'a>) -> Self {
+    fn new(builder: &'a mut ir::Builder<'a>, balance: ir::Control) -> Self {
         Self {
             enables: HashMap::default(),
             transitions: HashSet::default(),
             builder,
+            balance,
         }
     }
 
-    fn last_state(&self) -> u64 {
-        assert!(!self.transitions.is_empty(), "Transitions are empty");
-        self.enables.keys().map(|(_, e)| *e).max().unwrap()
-    }
-
+    /// Add a new transition between the range [start, end).
     fn add_transition(&mut self, start: u64, end: u64, guard: ir::Guard) {
         debug_assert!(
             start != end,
             "Attempting to transition to the same state {start}"
         );
+        // eprintln!(
+        //     "Adding transition [{}, {}): {}",
+        //     start,
+        //     end,
+        //     ir::Printer::guard_str(&guard)
+        // );
         self.transitions.insert((start, end, guard));
+    }
+
+    fn add_enables(
+        &mut self,
+        start: u64,
+        end: u64,
+        assigns: impl IntoIterator<Item = ir::Assignment>,
+    ) {
+        debug_assert!(
+            start != end,
+            "Attempting to enable groups in empty range [{start}, {start})"
+        );
+        self.enables
+            .entry((start, end))
+            .or_default()
+            .extend(assigns.into_iter());
     }
 
     fn add_transitions(
@@ -229,11 +234,16 @@ impl<'a> Schedule<'a> {
         mut self,
         final_state: u64,
         out_edges: Vec<PredEdge>,
+        dump_fsm: bool,
     ) -> RRC<ir::Group> {
         // Add edges from the outgoing edges to the last state
         out_edges.into_iter().for_each(|(st, guard)| {
             self.add_transition(st, final_state, guard);
         });
+
+        if dump_fsm {
+            self.display();
+        }
 
         let builder = self.builder;
         let (unconditional, conditional) =
@@ -337,7 +347,7 @@ type PredEdge = (u64, ir::Guard);
 impl Schedule<'_> {
     fn calculate_states(
         &mut self,
-        con: &ir::Control,
+        con: &mut ir::Control,
         // The current state
         cur_state: u64,
         // Predecessors
@@ -350,7 +360,7 @@ impl Schedule<'_> {
         ir::Control::Seq(s) => {
             self.seq_calculate_states(s, cur_state, preds)
         }
-        ir::Control::Par(p) => {
+        ir::Control::Par(_) => {
             unimplemented!("Static par")
         }
         ir::Control::If(i) => {
@@ -366,6 +376,78 @@ impl Schedule<'_> {
             "`empty` statements should have been compiled away. Run `{}` before this pass.",
             passes::CompileEmpty::name()),
     }
+    }
+
+    /// Generate transitions from all predecessors to the enable and keep it
+    /// active for its specified static time.
+    /// The start state of the enable is computed by taking the max of all
+    /// predecessors states.
+    fn enable_calculate_states(
+        &mut self,
+        con: &ir::Enable,
+        cur_st: u64,
+        preds: Vec<PredEdge>,
+    ) -> CalyxResult<(Vec<PredEdge>, u64)> {
+        let time_option = con.attributes.get("static");
+        let Some(&time) = time_option else {
+            return Err(Error::pass_assumption(
+            TopDownStaticTiming::name(),
+            "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
+            ).with_pos(&con.attributes));
+        };
+
+        // If there are no predecessors, this means that the enable is at the
+        // start of the program so we allocate an empty predecessor and change
+        // the current state to 1.
+        let (preds, cur_st) = if preds.is_empty() {
+            debug_assert!(
+                cur_st == 0,
+                "Empty predecessors but cur_st is {cur_st}"
+            );
+            (vec![(0, ir::Guard::True)], 1)
+        } else {
+            (preds, cur_st)
+        };
+
+        // Enable the group during the transition. Note that this is similar to
+        // what tdcc does the early transitions flag. However, unlike tdcc, we
+        // know that transitions do not use groups' done signals.
+        preds.clone().into_iter().for_each(|(st, g)| {
+            let group = &con.group;
+            structure!(self.builder;
+                let signal_on = constant(1, 1);
+            );
+            let assigns = build_assignments!(self.builder;
+                group["go"] = g ? signal_on["out"];
+            );
+            // We only enable this in the state when the transition starts
+            self.add_enables(st, st + 1, assigns);
+        });
+
+        // Transition from all predecessors to the start state
+        self.add_transitions(preds.into_iter().map(|(st, g)| (st, cur_st, g)));
+
+        // Activate the group during the latency. Subtract one because the group is also active during the transition.
+        let last_st = cur_st + time - 1;
+        // Add additional transitions if the group's latency is not 1
+        if time != 1 {
+            let group = &con.group;
+            structure!(self.builder;
+                let signal_on = constant(1, 1);
+            );
+            let assigns = build_assignments!(self.builder;
+                group["go"] = ? signal_on["out"];
+            );
+            self.add_enables(cur_st, last_st, assigns);
+
+            // Add any necessary internal transitions. In the case time is 1 and there
+            // is a single transition, it is taken care of by the parent.
+            self.add_transitions(
+                (cur_st..last_st).map(|s| (s, s + 1, ir::Guard::True)),
+            );
+        }
+
+        Ok((vec![(last_st, ir::Guard::True)], last_st + 1))
     }
 
     /*
@@ -393,13 +475,23 @@ impl Schedule<'_> {
 
     fn seq_calculate_states(
         &mut self,
-        con: &ir::Seq,
+        con: &mut ir::Seq,
         st: u64,
         preds: Vec<PredEdge>,
     ) -> CalyxResult<(Vec<PredEdge>, u64)> {
         let mut cur_preds = preds;
         let mut cur_st = st;
-        for stmt in &con.stmts {
+        for stmt in &mut con.stmts {
+            eprintln!(
+                "cur_st: {cur_st}, cur_preds: [{}]",
+                cur_preds
+                    .iter()
+                    .map(|(s, g)| format!(
+                        "({s}, {})",
+                        ir::Printer::guard_str(g)
+                    ))
+                    .join(", ")
+            );
             (cur_preds, cur_st) =
                 self.calculate_states(stmt, cur_st, cur_preds)?;
         }
@@ -451,33 +543,25 @@ impl Schedule<'_> {
     ///
     /// For example:
     /// ```
+    /// <PREV>
     /// if lt.out {
     ///     @static(3) tru;
     /// } else {
     ///     @static(5) fal;
     /// }
+    /// <EXIT>
     /// ```
     ///
-    /// Generates transitions:
-    /// ```
-    /// [0, 3): tru[go] = 1
-    /// [3, 5): <empty>
-    /// [5, 10): fal[go] = 1
+    /// We need to ensure that the previous group has finished performing its
+    /// computation before transitions to either the true or false branch.
     ///
-    /// cond transitions:
-    ///   (PREV) -> 0: lt.out
-    ///   (PREV) -> 5: !lt.out
-    ///
-    /// unconditional transitions:
-    ///   0 -> 1 -> 2 -> 3 -> 4 -> (EXIT)
-    ///   5 -> 6 -> 7 -> 8 -> 9 -> (EXIT)
-    /// ```
+    /// TODO: Add documentation
     ///
     /// Where `PREV` and `EXIT` represent the predecessor and exit states of the
     /// `if` construct.
     fn if_calculate_states(
         &mut self,
-        con: &ir::If,
+        con: &mut ir::If,
         cur_state: u64,
         preds: Vec<PredEdge>,
     ) -> CalyxResult<(Vec<PredEdge>, u64)> {
@@ -486,7 +570,7 @@ impl Schedule<'_> {
             cond,
             tbranch,
             fbranch,
-            ..
+            attributes,
         } = con;
         if cond.is_some() {
             return Err(Error::pass_assumption(
@@ -497,9 +581,11 @@ impl Schedule<'_> {
             .with_pos(&con.attributes));
         }
 
-        let tru_time = *tbranch.get_attribute("static").unwrap();
-        let fal_time = *fbranch.get_attribute("static").unwrap();
-        let max_time = cmp::max(tru_time, fal_time);
+        let time = attributes["static"];
+
+        // Balance the branches
+        extend_control(tbranch, time, &self.balance);
+        extend_control(fbranch, time, &self.balance);
 
         let port_guard: ir::Guard = Rc::clone(port).into();
 
@@ -512,42 +598,16 @@ impl Schedule<'_> {
                 .collect(),
         )?;
 
-        // Balance the true branch if it doesn't have sufficient transitions
-        let nxt = if tru_time != max_time {
-            // Make all predecessors of the true branch transition to balance state
-            self.add_transitions(
-                tpreds.into_iter().map(|(st, g)| (st, t_nxt, g)),
-            );
-            let balance = max_time - tru_time;
-            let last = t_nxt + balance;
-            // Add empty states
-            self.enables.entry((t_nxt, last)).or_default();
-
-            // Add extra transitions
-            self.add_transitions(
-                (t_nxt..last - 1).map(|st| (st, st + 1, ir::Guard::True)),
-            );
-            tpreds = vec![(last - 1, ir::Guard::True)];
-            last
-        } else {
-            t_nxt
-        };
-
-        let f_start = nxt;
         // Compute the false branch transitions by starting from cur_state +
         // max_time since we require the branches to be balanced.
         let (fpreds, nxt_st) = self.calculate_states(
             fbranch,
-            f_start,
+            t_nxt,
             preds
                 .into_iter()
                 .map(|(st, g)| (st, g & !port_guard.clone()))
                 .collect(),
         )?;
-
-        if fal_time != max_time {
-            unimplemented!("Balancing false branch. {fal_time} != {max_time}");
-        }
 
         tpreds.extend(fpreds);
 
@@ -583,7 +643,7 @@ impl Schedule<'_> {
     /// ```
     fn while_calculate_states(
         &mut self,
-        con: &ir::While,
+        con: &mut ir::While,
         cur_state: u64,
         preds: Vec<PredEdge>,
     ) -> CalyxResult<(Vec<PredEdge>, u64)> {
@@ -639,7 +699,7 @@ impl Schedule<'_> {
         let exit = guard!(idx["out"]).eq(guard!(total["out"]));
         let not_exit = !exit.clone();
         // Index incrementing logic
-        let mut incr_assigns = build_assignments!(self.builder;
+        let incr_assigns = build_assignments!(self.builder;
             st_incr["left"] = ? idx["out"];
             st_incr["right"] = ? one["out"];
             idx["in"] = not_exit ? st_incr["out"];
@@ -647,10 +707,7 @@ impl Schedule<'_> {
         );
         // Even though the assignments are active during [cur_state, body_nxt), we expect only `bound*body` number of
         // states will actually be traversed internally.
-        self.enables
-            .entry((cur_state, body_nxt))
-            .or_default()
-            .append(&mut incr_assigns);
+        self.add_enables(cur_state, body_nxt, incr_assigns);
 
         // Reset the index when exiting the loop
         let reset_assigns = build_assignments!(self.builder;
@@ -658,10 +715,7 @@ impl Schedule<'_> {
             idx["write_en"] = exit ? on["out"];
         );
         for st in exits {
-            self.enables
-                .entry((st, st + 1))
-                .or_default()
-                .append(&mut reset_assigns.clone());
+            self.add_enables(st, st + 1, reset_assigns.clone());
         }
 
         let exits = body_preds
@@ -670,48 +724,6 @@ impl Schedule<'_> {
             .collect_vec();
 
         Ok((exits, body_nxt))
-    }
-
-    /// Generate transitions from all predecessors to the enable and keep it
-    /// active for its specified static time.
-    /// The start state of the enable is computed by taking the max of all
-    /// predecessors states.
-    fn enable_calculate_states(
-        &mut self,
-        con: &ir::Enable,
-        cur_st: u64,
-        preds: Vec<PredEdge>,
-    ) -> CalyxResult<(Vec<PredEdge>, u64)> {
-        let time_option = con.attributes.get("static");
-        let Some(time) = time_option else {
-            return Err(Error::pass_assumption(
-            TopDownStaticTiming::name(),
-            "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
-            ).with_pos(&con.attributes));
-        };
-
-        // Transition from all predecessors to the start state
-        self.add_transitions(preds.into_iter().map(|(st, g)| (st, cur_st, g)));
-
-        // Activate the group during the latency
-        let last_st = cur_st + time;
-        let range = (cur_st, last_st);
-        let group = &con.group;
-        structure!(self.builder;
-            let signal_on = constant(1, 1);
-        );
-        let mut assigns = build_assignments!(self.builder;
-            group["go"] = ? signal_on["out"];
-        );
-        self.enables.entry(range).or_default().append(&mut assigns);
-
-        // Add any necessary internal transitions. In the case time is 1 and there
-        // is a single transition, it is taken care of by the parent.
-        self.add_transitions(
-            (cur_st..last_st - 1).map(|s| (s, s + 1, ir::Guard::True)),
-        );
-
-        Ok((vec![(last_st - 1, ir::Guard::True)], last_st))
     }
 }
 
@@ -725,6 +737,8 @@ impl Schedule<'_> {
 pub struct TopDownStaticTiming {
     /// Print out the FSM representation to STDOUT.
     dump_fsm: bool,
+    /// Control operator to enable the balancing group.
+    balance: Option<ir::Control>,
 }
 
 impl ConstructVisitor for TopDownStaticTiming {
@@ -734,7 +748,10 @@ impl ConstructVisitor for TopDownStaticTiming {
     {
         let opts = Self::get_opts(&["dump-fsm"], ctx);
 
-        Ok(TopDownStaticTiming { dump_fsm: opts[0] })
+        Ok(TopDownStaticTiming {
+            dump_fsm: opts[0],
+            balance: None,
+        })
     }
 
     fn clear_data(&mut self) {
@@ -753,6 +770,22 @@ impl Named for TopDownStaticTiming {
 }
 
 impl Visitor for TopDownStaticTiming {
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        // Add dummy group that is used for balancing branches
+        let mut builder = ir::Builder::new(comp, sigs);
+        let balance = builder.add_group("balance");
+        balance.borrow_mut().attributes.insert("static", 1);
+        let mut enable = ir::Control::enable(balance);
+        enable.get_mut_attributes().insert("static", 1);
+        self.balance = Some(enable);
+        Ok(Action::Continue)
+    }
+
     fn start_seq(
         &mut self,
         con: &mut ir::Seq,
@@ -769,20 +802,19 @@ impl Visitor for TopDownStaticTiming {
 
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::new(&mut builder);
+        let mut schedule = Schedule::new(
+            &mut builder,
+            ir::Control::clone(self.balance.as_ref().unwrap()),
+        );
         let (out, last) = schedule.seq_calculate_states(con, 0, vec![])?;
 
-        // Dump FSM if requested.
-        if self.dump_fsm {
-            schedule.display();
-        }
-
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule(last, out);
+        let group = schedule.realize_schedule(last, out, self.dump_fsm);
 
         Ok(Action::change(ir::Control::enable(group)))
     }
 
+    /*
     fn start_par(
         &mut self,
         con: &mut ir::Par,
@@ -816,6 +848,7 @@ impl Visitor for TopDownStaticTiming {
         Ok(Action::change(ir::Control::enable(group)))
         */
     }
+    */
 
     fn start_while(
         &mut self,
@@ -834,18 +867,17 @@ impl Visitor for TopDownStaticTiming {
 
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::new(&mut builder);
+        let mut schedule = Schedule::new(
+            &mut builder,
+            ir::Control::clone(self.balance.as_ref().unwrap()),
+        );
         let (out, last) = schedule.while_calculate_states(con, 0, vec![])?;
 
-        // Dump FSM if requested.
-        if self.dump_fsm {
-            schedule.display();
-        }
-
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule(last, out);
+        let group = schedule.realize_schedule(last, out, self.dump_fsm);
 
-        Ok(Action::change(ir::Control::enable(group)))
+        let en = ir::Control::enable(group);
+        Ok(Action::change(en))
     }
 
     fn start_if(
@@ -855,26 +887,50 @@ impl Visitor for TopDownStaticTiming {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let time_option = con.attributes.get("static");
-
         // If sub-tree is not static, skip this node.
-        if time_option.is_none() {
+        if con.attributes.get("static").is_none() {
             return Ok(Action::Continue);
         }
 
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::new(&mut builder);
+        let mut schedule = Schedule::new(
+            &mut builder,
+            ir::Control::clone(self.balance.as_ref().unwrap()),
+        );
         let (out, last) = schedule.if_calculate_states(con, 0, vec![])?;
 
-        // Dump FSM if requested.
-        if self.dump_fsm {
-            schedule.display();
-        }
-
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule(last, out);
+        let group = schedule.realize_schedule(last, out, self.dump_fsm);
 
         Ok(Action::change(ir::Control::enable(group)))
+    }
+
+    fn finish(
+        &mut self,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        // TODO(rachit): Remove the balance group and all assignment to it.
+        Ok(Action::Continue)
+    }
+}
+
+/// Take a control program and ensure that its execution time is at least `time`.
+fn extend_control(
+    con: &mut Box<ir::Control>,
+    time: u64,
+    balance: &ir::Control,
+) {
+    let cur_time = *con.get_attribute("static").unwrap();
+
+    if cur_time < time {
+        let bal = ir::Control::clone(balance);
+        let tru = *std::mem::replace(con, Box::new(ir::Control::empty()));
+        let extra = (0..time - cur_time).map(|_| ir::Control::clone(&bal));
+        let mut seq = ir::Control::seq(iter::once(tru).chain(extra).collect());
+        seq.get_mut_attributes().insert("static", time);
+        *con = Box::new(seq);
     }
 }
