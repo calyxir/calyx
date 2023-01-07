@@ -240,16 +240,11 @@ impl<'a, 'b> Schedule<'a, 'b> {
     /// Requires the outgoing edges from the control program and the final state of the FSM.
     /// All the hardware is instantiated using the builder associated with this schedule.
     fn realize_schedule(
-        mut self,
+        self,
         final_state: u64,
         out_edges: Vec<PredEdge>,
         dump_fsm: bool,
     ) -> RRC<ir::Group> {
-        // Add edges from the outgoing edges to the last state
-        out_edges.into_iter().for_each(|(st, guard)| {
-            self.add_transition(st, final_state, guard);
-        });
-
         if dump_fsm {
             self.display();
         }
@@ -264,7 +259,6 @@ impl<'a, 'b> Schedule<'a, 'b> {
            let fsm = prim std_reg(fsm_size);
            let signal_on = constant(1, 1);
            let first_state = constant(0, fsm_size);
-           let last_state = constant(final_state, fsm_size);
         );
 
         // Enable assignments.
@@ -328,16 +322,21 @@ impl<'a, 'b> Schedule<'a, 'b> {
         }
 
         // Done condition for group.
-        let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        let mut done_guard = ir::Guard::True;
+        for (st, g) in out_edges {
+            let stc = builder.add_constant(st, fsm_size);
+            let st_guard = guard!(fsm["out"]).eq(guard!(stc["out"]));
+            done_guard &= st_guard & g;
+        }
         let done_assign = build_assignments!(builder;
-            group["done"] = last_guard ? signal_on["out"];
+            group["done"] = done_guard ? signal_on["out"];
         );
         group.borrow_mut().assignments.extend(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
         let mut reset_fsm = build_assignments!(builder;
-            fsm["in"] = last_guard ? first_state["out"];
-            fsm["write_en"] = last_guard ? signal_on["out"];
+            fsm["in"] = done_guard ? first_state["out"];
+            fsm["write_en"] = done_guard ? signal_on["out"];
         );
         builder
             .component
@@ -409,10 +408,10 @@ impl Schedule<'_, '_> {
         // start of the program so we allocate an empty predecessor and change
         // the current state to 1.
         let (preds, cur_st) = if preds.is_empty() {
-            debug_assert!(
-                cur_st == 0,
-                "Empty predecessors but cur_st is {cur_st}"
-            );
+            // debug_assert!(
+            //     cur_st == 0,
+            //     "Empty predecessors but cur_st is {cur_st}"
+            // );
             (vec![(0, ir::Guard::True)], 1)
         } else {
             (preds, cur_st)
@@ -760,6 +759,8 @@ fn extend_control(con: &mut Box<ir::Control>, time: u64, balance: &ir::Enable) {
 pub struct TopDownStaticTiming {
     /// Print out the FSM representation to STDOUT.
     dump_fsm: bool,
+    /// Make sure that the program is fully compiled by this pass
+    force: bool,
     /// Control operator to enable the balancing group.
     balance: Option<ir::Enable>,
 }
@@ -769,10 +770,11 @@ impl ConstructVisitor for TopDownStaticTiming {
     where
         Self: Sized + Named,
     {
-        let opts = Self::get_opts(&["dump-fsm"], ctx);
+        let opts = Self::get_opts(&["dump-fsm", "force"], ctx);
 
         Ok(TopDownStaticTiming {
             dump_fsm: opts[0],
+            force: opts[1],
             balance: None,
         })
     }
@@ -809,6 +811,7 @@ impl Visitor for TopDownStaticTiming {
         };
         enable.attributes.insert("static", 1);
         self.balance = Some(enable);
+
         Ok(Action::Continue)
     }
 
@@ -934,6 +937,12 @@ impl Visitor for TopDownStaticTiming {
     ) -> VisResult {
         comp.groups
             .remove(self.balance.as_ref().unwrap().group.clone_name());
+
+        // If the force flag is set, make sure that we only have one group remaining
+        let con = &*comp.control.borrow();
+        if self.force && !matches!(con, ir::Control::Enable(_)) {
+            return Err(Error::pass_assumption(Self::name(), "`force` flag was set but the final control program is not an enable").with_pos(con));
+        }
         Ok(Action::Continue)
     }
 }

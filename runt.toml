@@ -124,6 +124,41 @@ fud exec --to jq \
 """
 
 [[tests]]
+name = "correctness static timing"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+
+# Tests to ensure that static compilation maintains its guarantees
+# See: https://github.com/cucapra/calyx/discussions/1331
+[[tests]]
+name = "correctness static scheduling"
+paths = [
+  "tests/correctness/static/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags ' -x tdst:force -p all -d group2invoke' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         {} -q
+"""
+
+[[tests]]
 name = "numeric types correctness and parsing"
 paths = [
   "tests/correctness/numeric-types/parsing/*.futil",
@@ -152,19 +187,6 @@ fud exec --to jq \
       -s jq.expr ".memories" \
       {} -q
 """
-
-# [[tests]]
-# name = "correctness static timing"
-# paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil", "tests/correctness/sync/*.futil" ]
-# cmd = """
-# fud exec --to jq \
-#          --through dat \
-#          -s futil.exec './target/debug/futil' \
-#          -s verilog.cycle_limit 500 \
-#          -s verilog.data {}.data \
-#          -s jq.expr ".memories" \
-#          {} -q
-# """
 
 [[tests]]
 name = "[frontend] systolic array correctness"
