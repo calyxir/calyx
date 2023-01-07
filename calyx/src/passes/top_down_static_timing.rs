@@ -103,7 +103,7 @@ impl<'a> Schedule<'a> {
 
     fn last_state(&self) -> u64 {
         assert!(!self.transitions.is_empty(), "Transitions are empty");
-        self.transitions.iter().map(|(_, e, _)| *e).max().unwrap()
+        self.enables.keys().map(|(_, e)| *e).max().unwrap()
     }
 
     fn add_transition(&mut self, start: u64, end: u64, guard: ir::Guard) {
@@ -145,14 +145,16 @@ impl<'a> Schedule<'a> {
                     println!("  <empty>");
                 }
             });
-        println!("transitions:");
-        cond.iter()
-            .sorted_by(|(k1, k2, g1), (k3, k4, g2)| {
-                k1.cmp(k3).then_with(|| k2.cmp(k4)).then_with(|| g1.cmp(g2))
-            })
-            .for_each(|(i, f, g)| {
-                println!("  ({}, {}): {}", i, f, Printer::guard_str(g));
-            });
+        if !cond.is_empty() {
+            println!("transitions:");
+            cond.iter()
+                .sorted_by(|(k1, k2, g1), (k3, k4, g2)| {
+                    k1.cmp(k3).then_with(|| k2.cmp(k4)).then_with(|| g1.cmp(g2))
+                })
+                .for_each(|(i, f, g)| {
+                    println!("  ({}, {}): {}", i, f, Printer::guard_str(g));
+                });
+        }
 
         // Unconditional +1 transitions
         if !uncond.is_empty() {
@@ -541,8 +543,8 @@ impl Schedule<'_> {
     /// Iterations are guaranteed to execute the cycle right after the body
     /// finishes executing.
     ///
-    /// Generates its own counter that counts up to `bound*body` and then exits
-    /// the loop.
+    /// Instantiates a counter that increments every cycle while the `while` loop is active and exits the
+    /// loop body when the counter reaches `body*bound`.
     ///
     /// For example:
     /// ```
@@ -587,28 +589,26 @@ impl Schedule<'_> {
 
         // Construct the index and incrementing logic.
         let bound = attributes["bound"];
-        let size = get_bit_width_from(bound);
+        // Loop bound should not be less than 1.
+        if bound < 1 {
+            return Err(Error::malformed_structure(
+                "Loop bound is less than 1",
+            )
+            .with_pos(&con.attributes));
+        }
+
+        let body_time = *body.get_attribute("static").unwrap();
+        let size = get_bit_width_from(bound * body_time + 1);
         structure!(self.builder;
             let idx = prim std_reg(size);
             let st_incr = prim std_add(size);
-            let bc = constant(bound, size);
+            let total = constant(bound * body_time, size);
             let one = constant(1, size);
             let zero = constant(0, size);
             let on = constant(1, 1);
         );
-        let enter_guard = guard!(idx["out"]).lt(guard!(bc["out"]));
-        let mut incr_assigns = build_assignments!(self.builder;
-            st_incr["left"] = ? idx["out"];
-            st_incr["right"] = ? one["out"];
-            idx["in"] = enter_guard ? st_incr["out"];
-            idx["write_en"] = enter_guard ? on["out"];
-        );
-        self.enables
-            .entry((cur_state, cur_state + 1))
-            .or_default()
-            .append(&mut incr_assigns);
-
-        // TODO: Add back edges
+        // Add back edges
+        let enter_guard = guard!(idx["out"]).lt(guard!(total["out"]));
         let mut exits = vec![];
         control_exits(body, cur_state, true, &mut exits);
         // eprintln!("exits: {:#?}", exits);
@@ -621,8 +621,23 @@ impl Schedule<'_> {
             preds.into_iter().chain(back_edges).collect_vec(),
         )?;
 
+        let exit = guard!(idx["out"]).eq(guard!(total["out"]));
+        let not_exit = !exit.clone();
+        // Index incrementing logic
+        let mut incr_assigns = build_assignments!(self.builder;
+            st_incr["left"] = ? idx["out"];
+            st_incr["right"] = ? one["out"];
+            idx["in"] = not_exit ? st_incr["out"];
+            idx["write_en"] =  not_exit ? on["out"];
+        );
+        // Even though the assignments are active during [cur_state, body_nxt), we expect only `bound*body` number of
+        // states will actually be traversed internally.
+        self.enables
+            .entry((cur_state, body_nxt))
+            .or_default()
+            .append(&mut incr_assigns);
+
         // Reset the index when exiting the loop
-        let exit = guard!(idx["out"]).eq(guard!(bc["out"]));
         let reset_assigns = build_assignments!(self.builder;
             idx["in"] = exit ? zero["out"];
             idx["write_en"] = exit ? on["out"];
