@@ -207,6 +207,14 @@ impl<T: GetName> IdList<T> {
         self.0.insert(name, item);
     }
 
+    // Remove and return the element with the given name.
+    pub fn remove<S>(&mut self, name: S) -> Option<RRC<T>>
+    where
+        S: Into<Id>,
+    {
+        self.0.remove(&name.into())
+    }
+
     /// Add all elements to the collection
     pub fn append(&mut self, items: impl Iterator<Item = RRC<T>>) {
         let map = items.map(|i| (i.clone_name(), i));

@@ -1,12 +1,12 @@
 use super::math_utilities::get_bit_width_from;
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::ConstructVisitor;
-use crate::ir::GetAttributes;
 use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures, Printer, RRC,
 };
+use crate::ir::{Attributes, CloneName, GetAttributes};
 use crate::{build_assignments, guard, passes, structure};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -71,16 +71,16 @@ fn control_exits(
 /// 2. `transitions`: Transitions for the FSM registers. A static FSM normally
 ///    transitions from `state` to `state + 1`. However, special transitions
 ///    are needed for loops, conditionals, and reseting the FSM.
-struct Schedule<'a> {
+struct Schedule<'a, 'b> {
     // Builder for the associated component
     builder: &'a mut ir::Builder<'a>,
     enables: HashMap<Range, Vec<ir::Assignment>>,
     transitions: HashSet<(u64, u64, ir::Guard)>,
-    balance: ir::Control,
+    balance: &'b ir::Enable,
 }
 
-impl<'a> Schedule<'a> {
-    fn new(builder: &'a mut ir::Builder<'a>, balance: ir::Control) -> Self {
+impl<'a, 'b> Schedule<'a, 'b> {
+    fn new(builder: &'a mut ir::Builder<'a>, balance: &'b ir::Enable) -> Self {
         Self {
             enables: HashMap::default(),
             transitions: HashSet::default(),
@@ -104,6 +104,8 @@ impl<'a> Schedule<'a> {
         self.transitions.insert((start, end, guard));
     }
 
+    // Add enables that are active in the range [start, end).
+    // Automatically ignores any enable statements that refer to the balance group.
     fn add_enables(
         &mut self,
         start: u64,
@@ -114,10 +116,15 @@ impl<'a> Schedule<'a> {
             start != end,
             "Attempting to enable groups in empty range [{start}, {start})"
         );
+        let remove_balance = assigns.into_iter().filter(|assign| {
+            let dst = assign.dst.borrow();
+            !(dst.is_hole()
+                && dst.get_parent_name() == self.balance.group.clone_name())
+        });
         self.enables
             .entry((start, end))
             .or_default()
-            .extend(assigns.into_iter());
+            .extend(remove_balance);
     }
 
     fn add_transitions(
@@ -219,6 +226,8 @@ impl<'a> Schedule<'a> {
         );
         if s == 0 {
             guard!(fsm["out"]).lt(guard!(ub_const["out"]))
+        } else if e == s + 1 {
+            guard!(fsm["out"]).eq(guard!(lb_const["out"]))
         } else {
             guard!(fsm["out"])
                 .ge(guard!(lb_const["out"]))
@@ -344,7 +353,7 @@ impl<'a> Schedule<'a> {
 /// to be true for the predeccesor to transition to the current state.
 type PredEdge = (u64, ir::Guard);
 
-impl Schedule<'_> {
+impl Schedule<'_, '_> {
     fn calculate_states(
         &mut self,
         con: &mut ir::Control,
@@ -584,8 +593,8 @@ impl Schedule<'_> {
         let time = attributes["static"];
 
         // Balance the branches
-        extend_control(tbranch, time, &self.balance);
-        extend_control(fbranch, time, &self.balance);
+        extend_control(tbranch, time, self.balance);
+        extend_control(fbranch, time, self.balance);
 
         let port_guard: ir::Guard = Rc::clone(port).into();
 
@@ -727,6 +736,20 @@ impl Schedule<'_> {
     }
 }
 
+/// Take a control program and ensure that its execution time is at least `time`.
+fn extend_control(con: &mut Box<ir::Control>, time: u64, balance: &ir::Enable) {
+    let cur_time = *con.get_attribute("static").unwrap();
+
+    if cur_time < time {
+        let bal = ir::Control::Enable(ir::Cloner::enable(balance));
+        let tru = *std::mem::replace(con, Box::new(ir::Control::empty()));
+        let extra = (0..time - cur_time).map(|_| ir::Cloner::control(&bal));
+        let mut seq = ir::Control::seq(iter::once(tru).chain(extra).collect());
+        seq.get_mut_attributes().insert("static", time);
+        *con = Box::new(seq);
+    }
+}
+
 /// Lowering pass that generates latency-sensitive FSMs when control sub-programs have `@static`
 /// annotations. The pass works opportunisitically and attempts to compile all nested static
 /// control programs nested within the overall program, replacing them with groups that implement
@@ -738,7 +761,7 @@ pub struct TopDownStaticTiming {
     /// Print out the FSM representation to STDOUT.
     dump_fsm: bool,
     /// Control operator to enable the balancing group.
-    balance: Option<ir::Control>,
+    balance: Option<ir::Enable>,
 }
 
 impl ConstructVisitor for TopDownStaticTiming {
@@ -780,8 +803,11 @@ impl Visitor for TopDownStaticTiming {
         let mut builder = ir::Builder::new(comp, sigs);
         let balance = builder.add_group("balance");
         balance.borrow_mut().attributes.insert("static", 1);
-        let mut enable = ir::Control::enable(balance);
-        enable.get_mut_attributes().insert("static", 1);
+        let mut enable = ir::Enable {
+            group: balance,
+            attributes: Attributes::default(),
+        };
+        enable.attributes.insert("static", 1);
         self.balance = Some(enable);
         Ok(Action::Continue)
     }
@@ -802,10 +828,8 @@ impl Visitor for TopDownStaticTiming {
 
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::new(
-            &mut builder,
-            ir::Control::clone(self.balance.as_ref().unwrap()),
-        );
+        let mut schedule =
+            Schedule::new(&mut builder, self.balance.as_ref().unwrap());
         let (out, last) = schedule.seq_calculate_states(con, 0, vec![])?;
 
         // Realize the schedule in a replacement control group.
@@ -867,10 +891,8 @@ impl Visitor for TopDownStaticTiming {
 
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::new(
-            &mut builder,
-            ir::Control::clone(self.balance.as_ref().unwrap()),
-        );
+        let mut schedule =
+            Schedule::new(&mut builder, self.balance.as_ref().unwrap());
         let (out, last) = schedule.while_calculate_states(con, 0, vec![])?;
 
         // Realize the schedule in a replacement control group.
@@ -894,10 +916,8 @@ impl Visitor for TopDownStaticTiming {
 
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::new(
-            &mut builder,
-            ir::Control::clone(self.balance.as_ref().unwrap()),
-        );
+        let mut schedule =
+            Schedule::new(&mut builder, self.balance.as_ref().unwrap());
         let (out, last) = schedule.if_calculate_states(con, 0, vec![])?;
 
         // Realize the schedule in a replacement control group.
@@ -908,29 +928,12 @@ impl Visitor for TopDownStaticTiming {
 
     fn finish(
         &mut self,
-        _comp: &mut ir::Component,
+        comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // TODO(rachit): Remove the balance group and all assignment to it.
+        comp.groups
+            .remove(self.balance.as_ref().unwrap().group.clone_name());
         Ok(Action::Continue)
-    }
-}
-
-/// Take a control program and ensure that its execution time is at least `time`.
-fn extend_control(
-    con: &mut Box<ir::Control>,
-    time: u64,
-    balance: &ir::Control,
-) {
-    let cur_time = *con.get_attribute("static").unwrap();
-
-    if cur_time < time {
-        let bal = ir::Control::clone(balance);
-        let tru = *std::mem::replace(con, Box::new(ir::Control::empty()));
-        let extra = (0..time - cur_time).map(|_| ir::Control::clone(&bal));
-        let mut seq = ir::Control::seq(iter::once(tru).chain(extra).collect());
-        seq.get_mut_attributes().insert("static", time);
-        *con = Box::new(seq);
     }
 }
