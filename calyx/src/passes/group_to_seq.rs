@@ -67,7 +67,7 @@ impl Visitor for GroupToSeq {
         let group_name = s.group.borrow().clone_name();
         match self.group_seq_map.get(&group_name) {
             None => Ok(Action::Continue),
-            Some(seq) => Ok(Action::Change(Box::new(ir::Control::clone(seq)))),
+            Some(seq) => Ok(Action::Change(Box::new(ir::Cloner::control(seq)))),
         }
     }
 }

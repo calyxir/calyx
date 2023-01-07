@@ -246,7 +246,7 @@ impl ComponentInliner {
             .extend(cont_assigns);
 
         // Generate a control program associated with this instance
-        let mut con = ir::Control::clone(&comp.control.borrow());
+        let mut con = ir::Cloner::control(&comp.control.borrow());
         rewrite.rewrite_control(&mut con, &group_map, &comb_group_map);
 
         // Generate interface map for use in the parent cell.
@@ -477,7 +477,7 @@ impl Visitor for ComponentInliner {
             if self.new_fsms {
                 con.get_mut_attributes().insert("new_fsm", 1);
             }
-            Ok(Action::change(ir::Control::clone(con)))
+            Ok(Action::change(ir::Cloner::control(con)))
         } else {
             Ok(Action::Continue)
         }
