@@ -87,9 +87,10 @@ fn control_exits(
 ///    transitions from `state` to `state + 1`. However, special transitions
 ///    are needed for loops, conditionals, and reseting the FSM.
 struct Schedule<'a> {
+    // Builder for the associated component
+    builder: &'a mut ir::Builder<'a>,
     enables: HashMap<Range, Vec<ir::Assignment>>,
     transitions: HashSet<(u64, u64, ir::Guard)>,
-    builder: &'a mut ir::Builder<'a>,
 }
 
 impl<'a> Schedule<'a> {
@@ -207,8 +208,10 @@ impl<'a> Schedule<'a> {
         fsm_size: u64,
         fsm: &RRC<ir::Cell>,
     ) -> ir::Guard {
-        let lb_const = builder.add_constant(s, fsm_size);
-        let ub_const = builder.add_constant(e, fsm_size);
+        structure!(builder;
+            let lb_const = constant(s, fsm_size);
+            let ub_const = constant(e, fsm_size);
+        );
         if s == 0 {
             guard!(fsm["out"]).lt(guard!(ub_const["out"]))
         } else {
@@ -218,8 +221,20 @@ impl<'a> Schedule<'a> {
         }
     }
 
-    fn realize_schedule(self) -> RRC<ir::Group> {
-        let final_state = self.last_state();
+    /// Construct hardware to implement the given schedule.
+    ///
+    /// Requires the outgoing edges from the control program and the final state of the FSM.
+    /// All the hardware is instantiated using the builder associated with this schedule.
+    fn realize_schedule(
+        mut self,
+        final_state: u64,
+        out_edges: Vec<PredEdge>,
+    ) -> RRC<ir::Group> {
+        // Add edges from the outgoing edges to the last state
+        out_edges.into_iter().for_each(|(st, guard)| {
+            self.add_transition(st, final_state, guard);
+        });
+
         let builder = self.builder;
         let (unconditional, conditional) =
             Self::calculate_runs(self.transitions.into_iter());
@@ -574,9 +589,9 @@ impl Schedule<'_> {
     ) -> CalyxResult<(Vec<PredEdge>, u64)> {
         let ir::While {
             cond,
-            port,
             body,
             attributes,
+            ..
         } = con;
         if cond.is_some() {
             return Err(Error::pass_assumption(
@@ -755,7 +770,7 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::new(&mut builder);
-        schedule.seq_calculate_states(con, 0, vec![])?;
+        let (out, last) = schedule.seq_calculate_states(con, 0, vec![])?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -763,7 +778,7 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule();
+        let group = schedule.realize_schedule(last, out);
 
         Ok(Action::change(ir::Control::enable(group)))
     }
@@ -816,13 +831,11 @@ impl Visitor for TopDownStaticTiming {
         if time_option.is_none() || bound_option.is_none() {
             return Ok(Action::Continue);
         }
-        unimplemented!("Compilation of while static")
 
-        /*
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::new(&mut builder);
-        schedule.while_calculate_states(con, 0, &ir::Guard::True)?;
+        let (out, last) = schedule.while_calculate_states(con, 0, vec![])?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -830,10 +843,9 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule();
+        let group = schedule.realize_schedule(last, out);
 
         Ok(Action::change(ir::Control::enable(group)))
-        */
     }
 
     fn start_if(
@@ -853,7 +865,7 @@ impl Visitor for TopDownStaticTiming {
         // Compile control program and save schedule.
         let mut builder = ir::Builder::new(comp, sigs);
         let mut schedule = Schedule::new(&mut builder);
-        schedule.if_calculate_states(con, 0, vec![])?;
+        let (out, last) = schedule.if_calculate_states(con, 0, vec![])?;
 
         // Dump FSM if requested.
         if self.dump_fsm {
@@ -861,7 +873,7 @@ impl Visitor for TopDownStaticTiming {
         }
 
         // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule();
+        let group = schedule.realize_schedule(last, out);
 
         Ok(Action::change(ir::Control::enable(group)))
     }
