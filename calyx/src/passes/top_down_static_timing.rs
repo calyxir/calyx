@@ -92,8 +92,8 @@ impl<'a, 'b> Schedule<'a, 'b> {
     /// Add a new transition between the range [start, end).
     fn add_transition(&mut self, start: u64, end: u64, guard: ir::Guard) {
         debug_assert!(
-            start != end,
-            "Attempting to transition to the same state {start}"
+            !(start == end && guard.is_true()),
+            "Unconditional transition to the same state {start}"
         );
         // eprintln!(
         //     "Adding transition [{}, {}): {}",
@@ -364,6 +364,14 @@ impl Schedule<'_, '_> {
         preds: Vec<PredEdge>,
     ) -> CalyxResult<(Vec<PredEdge>, u64)> {
         debug_assert!(!preds.is_empty(), "Predecessors should not be empty.");
+        eprintln!(
+            "cur_st: {cur_state}, cur_preds: [{}], control:\n{}",
+            preds
+                .iter()
+                .map(|(s, g)| format!("({s}, {})", ir::Printer::guard_str(g)))
+                .join(", "),
+            ir::Printer::control_to_str(con),
+        );
         match con {
             ir::Control::Enable(e) => {
                 self.enable_calculate_states(e, cur_state, preds)
@@ -461,16 +469,6 @@ impl Schedule<'_, '_> {
         let mut cur_preds = preds;
         let mut cur_st = st;
         for stmt in &mut con.stmts {
-            eprintln!(
-                "cur_st: {cur_st}, cur_preds: [{}]",
-                cur_preds
-                    .iter()
-                    .map(|(s, g)| format!(
-                        "({s}, {})",
-                        ir::Printer::guard_str(g)
-                    ))
-                    .join(", ")
-            );
             (cur_preds, cur_st) =
                 self.calculate_states(stmt, cur_st, cur_preds)?;
         }
@@ -676,13 +674,12 @@ impl Schedule<'_, '_> {
         )?;
 
         let exit = guard!(idx["out"]).eq(guard!(total["out"]));
-        let not_exit = !exit.clone();
         // Index incrementing logic
         let incr_assigns = build_assignments!(self.builder;
             st_incr["left"] = ? idx["out"];
             st_incr["right"] = ? one["out"];
-            idx["in"] = not_exit ? st_incr["out"];
-            idx["write_en"] =  not_exit ? on["out"];
+            idx["in"] = enter_guard ? st_incr["out"];
+            idx["write_en"] =  enter_guard ? on["out"];
         );
         // Even though the assignments are active during [cur_state, body_nxt), we expect only `bound*body` number of
         // states will actually be traversed internally.
@@ -860,7 +857,7 @@ impl Visitor for TopDownStaticTiming {
         _comps: &[ir::Component],
     ) -> VisResult {
         let time_option = con.attributes.get("static");
-        let bound_option = con.attributes.get("option");
+        let bound_option = con.attributes.get("bound");
 
         // If sub-tree is not static, skip this node.
         if time_option.is_none() || bound_option.is_none() {
@@ -921,7 +918,10 @@ impl Visitor for TopDownStaticTiming {
         // If the force flag is set, make sure that we only have one group remaining
         let con = &*comp.control.borrow();
         if self.force && !matches!(con, ir::Control::Enable(_)) {
-            return Err(Error::pass_assumption(Self::name(), "`force` flag was set but the final control program is not an enable").with_pos(con));
+            return Err(Error::pass_assumption(
+                Self::name(),
+                "`force` flag was set but the final control program is not an enable"
+            ).with_pos(con));
         }
         Ok(Action::Continue)
     }
