@@ -46,16 +46,12 @@ const NODE_ID: &str = "NODE_ID";
 /// }
 /// ```
 /// The exit set is `[true, false]`.
-fn control_exits(
-    con: &ir::Control,
-    is_exit: bool,
-    exits: &mut Vec<(u64, RRC<ir::Group>)>,
-) {
+fn control_exits(con: &ir::Control, is_exit: bool, exits: &mut Vec<PredEdge>) {
     match con {
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             if is_exit {
                 let cur_state = attributes.get(NODE_ID).unwrap();
-                exits.push((*cur_state, Rc::clone(group)))
+                exits.push((*cur_state, guard!(group["done"])))
             }
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
@@ -71,9 +67,14 @@ fn control_exits(
                 fbranch, is_exit, exits,
             )
         }
-        ir::Control::While(ir::While { body, .. }) => control_exits(
-            body, is_exit, exits,
-        ),
+        ir::Control::While(ir::While { body, port, .. }) => {
+            let mut loop_exits = vec![];
+            control_exits(body, is_exit, &mut loop_exits);
+            // Loop exits only happen when the loop guard is false
+            exits.extend(loop_exits.into_iter().map(|(s, g)| {
+                (s, g & !ir::Guard::from(port.clone()))
+            }));
+        },
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
         ir::Control::Par(_) => unreachable!(),
@@ -547,13 +548,9 @@ impl Schedule<'_, '_> {
 
         let port_guard: ir::Guard = Rc::clone(&while_stmt.port).into();
 
-        // Step 1: Generate the backward edges
-        // First compute the entry and exit points.
+        // Step 1: Generate the backward edges by computing the exit nodes.
         let mut exits = vec![];
         control_exits(&while_stmt.body, true, &mut exits);
-        let back_edge_prevs = exits
-            .into_iter()
-            .map(|(st, group)| (st, group.borrow().get("done").into()));
 
         // Step 2: Generate the forward edges normally.
         // Previous transitions into the body require the condition to be
@@ -561,7 +558,7 @@ impl Schedule<'_, '_> {
         let transitions: Vec<PredEdge> = preds
             .clone()
             .into_iter()
-            .chain(back_edge_prevs)
+            .chain(exits)
             .map(|(s, g)| (s, g & port_guard.clone()))
             .collect();
         let prevs = self.calculate_states_recur(
