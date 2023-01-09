@@ -670,7 +670,7 @@ impl Schedule<'_, '_> {
         let (body_preds, body_nxt) = self.calculate_states(
             body,
             cur_state,
-            preds.into_iter().chain(back_edges).collect_vec(),
+            preds.clone().into_iter().chain(back_edges).collect_vec(),
         )?;
 
         let exit = guard!(idx["out"]).eq(guard!(total["out"]));
@@ -683,7 +683,17 @@ impl Schedule<'_, '_> {
         );
         // Even though the assignments are active during [cur_state, body_nxt), we expect only `bound*body` number of
         // states will actually be traversed internally.
-        self.add_enables(cur_state, body_nxt, incr_assigns);
+        self.add_enables(cur_state, body_nxt, incr_assigns.clone());
+        // Activate increment assignments while transitioning into the loop
+        for (st, guard) in preds {
+            let mut assigns = incr_assigns.clone();
+            if !guard.is_true() {
+                assigns.iter_mut().for_each(|assign| {
+                    *assign.guard &= guard.clone();
+                });
+            };
+            self.add_enables(st, st + 1, assigns);
+        }
 
         // Reset the index when exiting the loop
         let reset_assigns = build_assignments!(self.builder;
