@@ -49,6 +49,7 @@ const NODE_ID: &str = "NODE_ID";
 /// The exit set is `[(8, tru[done] & !comb_reg.out), (9, fal & !comb_reg.out)]`.
 fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
+        ir::Control::Empty(_) => {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap();
             exits.push((*cur_state, guard!(group["done"])))
@@ -75,7 +76,6 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
             }));
         },
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
         ir::Control::Par(_) => unreachable!(),
     }
 }

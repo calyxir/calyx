@@ -1,0 +1,12 @@
+======== main:tdcc =========
+1:
+  grp1[go] = !grp1[done] ? 1'd1;
+2:
+  <end>
+transitions:
+  (0, 1): r_wh.out & r_if.out
+  (0, 2): !r_wh.out
+  (0, 2): r_wh.out & !r_if.out & !r_wh.out
+  (1, 1): grp1[done] & r_wh.out & r_if.out
+  (1, 2): grp1[done] & !r_wh.out
+  (1, 2): grp1[done] & r_wh.out & !r_if.out & !r_wh.out
