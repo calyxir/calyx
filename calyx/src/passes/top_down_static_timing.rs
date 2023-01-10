@@ -9,7 +9,7 @@ use crate::ir::{
 use crate::ir::{Attributes, CloneName, GetAttributes};
 use crate::{build_assignments, guard, passes, structure};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::ops::Not;
 use std::rc::Rc;
 use std::{cmp, iter};
@@ -235,7 +235,7 @@ struct Schedule<'a, 'b: 'a> {
     // Builder for the associated component
     builder: &'b mut ir::Builder<'a>,
     enables: HashMap<Range, Vec<ir::Assignment>>,
-    transitions: HashSet<(u64, u64, ir::Guard)>,
+    transitions: Vec<(u64, u64, ir::Guard)>,
     states: States,
 }
 
@@ -243,7 +243,7 @@ impl<'a, 'b> Schedule<'a, 'b> {
     fn new(builder: &'a mut ir::Builder<'a>, states: States) -> Self {
         Self {
             enables: HashMap::default(),
-            transitions: HashSet::default(),
+            transitions: Vec::new(),
             builder,
             states,
         }
@@ -261,7 +261,7 @@ impl<'a, 'b> Schedule<'a, 'b> {
         //     end,
         //     ir::Printer::guard_str(&guard)
         // );
-        self.transitions.insert((start, end, guard));
+        self.transitions.push((start, end, guard));
     }
 
     // Add enables that are active in the range [start, end).
@@ -738,6 +738,17 @@ impl Schedule<'_, '_> {
         Ok((tpreds, nxt_st))
     }
 
+    /// Ensure that transitions from state `st` only transition when `guard` is
+    /// true.
+    fn guard_all_transitions(&mut self, st: u64, guard: ir::Guard) {
+        self.transitions
+            .iter_mut()
+            .filter(|(s, _, _)| *s == st)
+            .for_each(|(_, _, g)| {
+                *g &= guard.clone();
+            });
+    }
+
     /// Compute the transitions for a bounded while loop.
     /// Iterations are guaranteed to execute the cycle right after the body
     /// finishes executing.
@@ -826,7 +837,6 @@ impl Schedule<'_, '_> {
             preds.clone().into_iter().chain(back_edges).collect_vec(),
         )?;
 
-        let exit = guard!(idx["out"]).eq(guard!(total["out"]));
         // Index incrementing logic
         let incr_assigns = build_assignments!(self.builder;
             st_incr["left"] = ? idx["out"];
@@ -849,23 +859,22 @@ impl Schedule<'_, '_> {
         }
 
         // Reset the index when exiting the loop
+        let exit = guard!(idx["out"]).eq(guard!(total["out"]));
+        let not_exit = !exit.clone();
         let reset_assigns = build_assignments!(self.builder;
             idx["in"] = exit ? zero["out"];
             idx["write_en"] = exit ? on["out"];
         );
-        for (st, g) in exits {
-            let guarded_resets = reset_assigns.clone();
-            guarded_resets.into_iter().for_each(|mut assign| {
-                *assign.guard &= g.clone();
-            });
+        for (st, _) in exits {
+            // Ensure that reset assignments are active when exiting the loop
             self.add_enables(st, st + 1, reset_assigns.clone());
+            // Ensure that exit transitions do not occur when the loop exit
+            // condition is true.
+            self.guard_all_transitions(st, not_exit.clone());
         }
 
         let exits = body_preds
             .into_iter()
-            // Exit the loop when counter reaches the bound without checking the
-            // body exit conditions since we know the body has run the required
-            // number of times.
             .map(|(st, _)| (st, exit.clone()))
             .collect_vec();
 
