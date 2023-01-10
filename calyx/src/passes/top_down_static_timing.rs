@@ -749,6 +749,46 @@ impl Schedule<'_, '_> {
             });
     }
 
+    /// Define a group that increments a counter every cycle
+    fn incr_group(&mut self, idx: &RRC<ir::Cell>) -> RRC<ir::Group> {
+        let group =
+            self.builder.add_group(format!("incr_{}", idx.clone_name()));
+        let size = idx.borrow().get_parameter("WIDTH").unwrap();
+        structure!(self.builder;
+            let st_incr = prim std_add(size);
+            let one = constant(1, size);
+            let on = constant(1, 1);
+        );
+        let incr_assigns = build_assignments!(self.builder;
+            st_incr["left"] = ? idx["out"];
+            st_incr["right"] = ? one["out"];
+            idx["in"] = ? st_incr["out"];
+            idx["write_en"] =  ? on["out"];
+            group["done"] = ? idx["done"];
+        );
+        group.borrow_mut().assignments = incr_assigns;
+        group
+    }
+
+    /// Define a group that resets a counter to 0
+    fn reset_group(&mut self, idx: &RRC<ir::Cell>) -> RRC<ir::Group> {
+        let group = self
+            .builder
+            .add_group(format!("reset_{}", idx.clone_name()));
+        let size = idx.borrow().get_parameter("WIDTH").unwrap();
+        structure!(self.builder;
+            let zero = constant(0, size);
+            let on = constant(1, 1);
+        );
+        let assigns = build_assignments!(self.builder;
+            idx["in"] = ? zero["out"];
+            idx["write_en"] = ? on["out"];
+            group["done"] = ? idx["done"];
+        );
+        group.borrow_mut().assignments = assigns;
+        group
+    }
+
     /// Compute the transitions for a bounded while loop.
     /// Iterations are guaranteed to execute the cycle right after the body
     /// finishes executing.
@@ -801,12 +841,8 @@ impl Schedule<'_, '_> {
             .with_pos(&wh.attributes));
         }
 
-        let size = get_bit_width_from(wh.attributes["static"] + 1);
         let (idx, total) = self.states.loop_bounds(wh, self.builder);
         structure!(self.builder;
-            let st_incr = prim std_add(size);
-            let one = constant(1, size);
-            let zero = constant(0, size);
             let on = constant(1, 1);
         );
         // Add back edges
@@ -814,7 +850,7 @@ impl Schedule<'_, '_> {
         let mut exits = vec![];
         self.states
             .control_exits(&wh.body, self.builder, &mut exits);
-        eprintln!(
+        /* eprintln!(
             "exits: [{}]",
             exits
                 .iter()
@@ -824,7 +860,7 @@ impl Schedule<'_, '_> {
                     ir::Printer::guard_str(g)
                 ))
                 .join(", ")
-        );
+        ); */
         let back_edges = exits
             .clone()
             .into_iter()
@@ -838,36 +874,38 @@ impl Schedule<'_, '_> {
         )?;
 
         // Index incrementing logic
-        let incr_assigns = build_assignments!(self.builder;
-            st_incr["left"] = ? idx["out"];
-            st_incr["right"] = ? one["out"];
-            idx["in"] = enter_guard ? st_incr["out"];
-            idx["write_en"] =  enter_guard ? on["out"];
+        let incr_group = self.incr_group(&idx);
+        let incr_activate = self.builder.build_assignment(
+            incr_group.borrow().get("go"),
+            on.borrow().get("out"),
+            enter_guard,
         );
         // Even though the assignments are active during [cur_state, body_nxt), we expect only `bound*body` number of
         // states will actually be traversed internally.
-        self.add_enables(cur_state, body_nxt, incr_assigns.clone());
+        self.add_enables(
+            cur_state,
+            body_nxt,
+            iter::once(incr_activate.clone()),
+        );
         // Activate increment assignments while transitioning into the loop
         for (st, guard) in preds {
-            let mut assigns = incr_assigns.clone();
-            if !guard.is_true() {
-                assigns.iter_mut().for_each(|assign| {
-                    *assign.guard &= guard.clone();
-                });
-            };
-            self.add_enables(st, st + 1, assigns);
+            let mut assign = incr_activate.clone();
+            *assign.guard &= guard.clone();
+            self.add_enables(st, st + 1, iter::once(assign));
         }
 
         // Reset the index when exiting the loop
         let exit = guard!(idx["out"]).eq(guard!(total["out"]));
         let not_exit = !exit.clone();
-        let reset_assigns = build_assignments!(self.builder;
-            idx["in"] = exit ? zero["out"];
-            idx["write_en"] = exit ? on["out"];
+        let reset_group = self.reset_group(&idx);
+        let reset_activate = self.builder.build_assignment(
+            reset_group.borrow().get("go"),
+            on.borrow().get("out"),
+            exit.clone(),
         );
         for (st, _) in exits {
             // Ensure that reset assignments are active when exiting the loop
-            self.add_enables(st, st + 1, reset_assigns.clone());
+            self.add_enables(st, st + 1, iter::once(reset_activate.clone()));
             // Ensure that exit transitions do not occur when the loop exit
             // condition is true.
             self.guard_all_transitions(st, not_exit.clone());
