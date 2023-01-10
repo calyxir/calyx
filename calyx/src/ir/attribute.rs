@@ -1,5 +1,8 @@
 use linked_hash_map::LinkedHashMap;
-use std::{convert::TryFrom, ops::Index};
+use std::{
+    convert::TryFrom,
+    ops::{Index, IndexMut},
+};
 
 use crate::{
     errors::CalyxResult,
@@ -129,5 +132,16 @@ where
         let idx = key.into();
         self.get(idx)
             .unwrap_or_else(|| panic!("No key `{}` in attribute map", idx))
+    }
+}
+
+impl<S> IndexMut<S> for Attributes
+where
+    S: Into<Id>,
+{
+    fn index_mut(&mut self, index: S) -> &mut Self::Output {
+        let key = index.into();
+        self.attrs.insert(key, 0);
+        self.attrs.get_mut(&key).unwrap()
     }
 }
