@@ -7,9 +7,6 @@ component main() -> () {
       r = std_reg(1);
     }
     wires {
-        group init<"static"=1> {
-            init[done] = r.out;
-        }
         group one {
             add.left = m.read_data;
             add.right = 32'd1;
@@ -20,7 +17,6 @@ component main() -> () {
         }
     }
     control {
-        init;
         @bound(10) while r.out {
             one;
         }
