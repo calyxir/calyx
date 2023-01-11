@@ -110,25 +110,65 @@ impl States {
                 let time = en.attributes["static"];
                 self.cur_st += time;
             }
-            ir::Control::Seq(seq) => {
-                self.compute_seq(seq, builder, balance);
-            }
-            ir::Control::If(if_) => {
-                self.compute_if(if_, builder, balance);
-            }
-            ir::Control::While(wh) => {
-                self.compute_while(wh, builder, balance);
-            }
-            ir::Control::Par(_) => todo!(),
-            ir::Control::Invoke(_) => {
-                unreachable!(
-                    "Invoke statements should have been compiled away."
-                )
-            }
+            ir::Control::Seq(seq) => self.compute_seq(seq, builder, balance),
+            ir::Control::If(if_) => self.compute_if(if_, builder, balance),
+            ir::Control::While(wh) => self.compute_while(wh, builder, balance),
+            ir::Control::Par(par) => self.compute_par(par, builder, balance),
+            ir::Control::Invoke(_) => unreachable!(
+                "Invoke statements should have been compiled away."
+            ),
             ir::Control::Empty(_) => {
                 unreachable!("Empty blocks should have been compiled away")
             }
         }
+    }
+
+    fn compute_par<'b, 'a: 'b>(
+        &mut self,
+        par: &mut ir::Par,
+        builder: &'b mut ir::Builder<'a>,
+        balance: &ir::Enable,
+    ) {
+        // Treat the `par` block as an enable since we will compile it into a
+        // group that executes each thread separately.
+        par.attributes[ID] = self.cur_st;
+
+        let old = self.cur_st;
+        structure!(builder;
+          let on = constant(1, 1);
+        );
+        let mut assigns = Vec::with_capacity(par.stmts.len());
+        for stmt in &mut par.stmts {
+            let group = match stmt {
+                ir::Control::Enable(en) => Rc::clone(&en.group),
+                con => {
+                    let out = Schedule::realize_control(
+                        con, builder, balance, /*TODO*/ false,
+                    );
+                    out.unwrap()
+                }
+            };
+            let activate = builder.build_assignment(
+                group.borrow().get("go"),
+                on.borrow().get("out"),
+                ir::Guard::True,
+            );
+            assigns.push(activate);
+        }
+        let par_group = builder.add_group("tdst_par");
+        par_group.borrow_mut().assignments.append(&mut assigns);
+        par_group.borrow_mut().attributes["static"] = par.attributes["static"];
+
+        self.cur_st = old + par.attributes["static"];
+    }
+    fn new_par<'b, 'a: 'b>(
+        par: &mut ir::Par,
+        builder: &'b mut ir::Builder<'a>,
+        balance: &ir::Enable,
+    ) -> Self {
+        let mut states = Self::default();
+        states.compute_par(par, builder, balance);
+        states
     }
 
     fn compute_while(
@@ -226,6 +266,10 @@ impl States {
                 let st = en.attributes[ID] + en.attributes["static"] - 1;
                 exits.push((st, ir::Guard::True));
             }
+            ir::Control::Par(par) => {
+                let st = par.attributes[ID] + par.attributes["static"] - 1;
+                exits.push((st, ir::Guard::True))
+            }
             ir::Control::Seq(s) => {
                 if let Some(stmt) = s.stmts.last() {
                     self.control_exits(stmt, builder, exits);
@@ -259,7 +303,6 @@ impl States {
             ir::Control::Empty(_) => {
                 unreachable!("Empty block in control_exits")
             }
-            ir::Control::Par(_) => unreachable!("Par blocks in control_exits"),
         }
     }
 
@@ -289,7 +332,7 @@ impl States {
 /// 2. `transitions`: Transitions for the FSM registers. A static FSM normally
 ///    transitions from `state` to `state + 1`. However, special transitions
 ///    are needed for loops, conditionals, and reseting the FSM.
-struct Schedule<'a, 'b: 'a> {
+struct Schedule<'b, 'a: 'b> {
     /// Enable assignments in a particular range
     enables: HashMap<Range, Vec<ir::Assignment>>,
     /// Transition from one state to another when a guard is true
@@ -299,8 +342,8 @@ struct Schedule<'a, 'b: 'a> {
     states: States,
 }
 
-impl<'a, 'b> Schedule<'a, 'b> {
-    fn new(builder: &'a mut ir::Builder<'a>, states: States) -> Self {
+impl<'b, 'a: 'b> Schedule<'b, 'a> {
+    fn new(builder: &'b mut ir::Builder<'a>, states: States) -> Self {
         Self {
             enables: HashMap::default(),
             transitions: Vec::new(),
@@ -308,7 +351,9 @@ impl<'a, 'b> Schedule<'a, 'b> {
             states,
         }
     }
+}
 
+impl Schedule<'_, '_> {
     fn last(&self) -> u64 {
         debug_assert!(!self.transitions.is_empty());
         self.transitions.iter().max_by_key(|(_, e, _)| e).unwrap().1
@@ -934,12 +979,48 @@ impl Schedule<'_, '_> {
 
         Ok(exits)
     }
+
+    fn par_calculate_states(
+        &mut self,
+        par: &mut ir::Par,
+        preds: Vec<PredEdge>,
+    ) -> CalyxResult<Vec<PredEdge>> {
+        todo!()
+        // let mut exits = vec![];
+        // for group in par.borrow().groups.iter_mut() {
+        //     let preds = self.calculate_states(group, preds.clone())?;
+        //     self.states.control_exits(group, self.builder, &mut exits);
+        // }
+        // Ok(exits)
+    }
 }
 
-impl<'a, 'b> Schedule<'a, 'b>
-where
-    'b: 'a,
-{
+impl<'b, 'a: 'b> Schedule<'b, 'a> {
+    fn realize_control(
+        con: &mut ir::Control,
+        builder: &'b mut ir::Builder<'a>,
+        balance: &ir::Enable,
+        dump_fsm: bool,
+    ) -> CalyxResult<RRC<ir::Group>> {
+        match con {
+            ir::Control::Seq(seq) => {
+                Self::realize_seq(seq, builder, balance, dump_fsm)
+            }
+            ir::Control::Par(par) => {
+                Self::realize_par(par, builder, balance, dump_fsm)
+            }
+            ir::Control::If(if_) => {
+                Self::realize_if(if_, builder, balance, dump_fsm)
+            }
+            ir::Control::While(wh) => {
+                Self::realize_while(wh, builder, balance, dump_fsm)
+            }
+            ir::Control::Enable(_)
+            | ir::Control::Invoke(_)
+            | ir::Control::Empty(_) => unreachable!(),
+        }
+    }
+
     fn realize_seq(
         seq: &mut ir::Seq,
         builder: &'b mut ir::Builder<'a>,
@@ -975,6 +1056,19 @@ where
         let mut sch = Self::new(builder, states);
         let edges =
             sch.while_calculate_states(wh, vec![(0, ir::Guard::True)])?;
+        Ok(sch.realize_schedule(edges, dump_fsm))
+    }
+
+    fn realize_par(
+        par: &mut ir::Par,
+        builder: &'b mut ir::Builder<'a>,
+        balance: &ir::Enable,
+        dump_fsm: bool,
+    ) -> CalyxResult<RRC<ir::Group>> {
+        let states = States::new_par(par, builder, balance);
+        let mut sch = Self::new(builder, states);
+        let edges =
+            sch.par_calculate_states(par, vec![(0, ir::Guard::True)])?;
         Ok(sch.realize_schedule(edges, dump_fsm))
     }
 }
@@ -1068,42 +1162,6 @@ impl Visitor for TopDownStaticTiming {
 
         Ok(Action::change(ir::Control::enable(group)))
     }
-
-    /*
-    fn start_par(
-        &mut self,
-        con: &mut ir::Par,
-        comp: &mut ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        let time_option = con.attributes.get("static");
-
-        // If sub-tree is not static, skip this node.
-        if time_option.is_none() {
-            return Ok(Action::Continue);
-        }
-
-        unimplemented!("Compilation of par static");
-
-        /*
-        // Compile control program and save schedule.
-        let mut builder = ir::Builder::new(comp, sigs);
-        let mut schedule = Schedule::new(&mut builder);
-        schedule.par_calculate_states(con, 0, &ir::Guard::True)?;
-
-        // Dump FSM if requested.
-        if self.dump_fsm {
-            schedule.display();
-        }
-
-        // Realize the schedule in a replacement control group.
-        let group = schedule.realize_schedule();
-
-        Ok(Action::change(ir::Control::enable(group)))
-        */
-    }
-    */
 
     fn start_while(
         &mut self,
