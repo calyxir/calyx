@@ -218,11 +218,11 @@ impl Control {
     }
 
     /// Returns the value of an attribute if present
-    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
     where
         S: Into<Id>,
     {
-        self.get_attributes().get(attr)
+        self.get_attributes().get(attr).cloned()
     }
 
     /// Returns true if the node has a specific attribute

@@ -96,7 +96,7 @@ fn get_static_sum(seq: &ir::Seq) -> Option<u64> {
         .stmts
         .iter()
         .map(|c| c.get_attribute("static"))
-        .collect::<Option<Vec<&u64>>>()?;
+        .collect::<Option<Vec<u64>>>()?;
 
     Some(static_vals.into_iter().sum())
 }
@@ -204,7 +204,7 @@ impl Visitor for StaticParConv {
                         .map(|stmt| {
                             match stmt.get_attribute("static")
                             {
-                                Some(&x1) => x1,
+                                Some(x1) => x1,
                                 None => unreachable!("every statement in the new par blocks should have a static attribute"),
                             }
                         })

@@ -36,7 +36,7 @@ impl States {
         time: u64,
         balance: &ir::Enable,
     ) {
-        let cur_time = *con.get_attribute("static").unwrap();
+        let cur_time = con.get_attribute("static").unwrap();
 
         if cur_time < time {
             let bal = ir::Control::Enable(ir::Cloner::enable(balance));

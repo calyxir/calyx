@@ -170,7 +170,7 @@ where
 {
     stmts
         .iter()
-        .map(|con| con.get_attribute("static").copied())
+        .map(|con| con.get_attribute("static"))
         .fold_options(start, acc)
 }
 
@@ -505,7 +505,7 @@ impl Visitor for InferStaticTiming {
             s.tbranch.get_attribute("static"),
             s.fbranch.get_attribute("static"),
         ) {
-            s.attributes.insert("static", *cmp::max(ttime, ftime));
+            s.attributes.insert("static", cmp::max(ttime, ftime));
         }
 
         Ok(Action::Continue)
@@ -588,7 +588,7 @@ impl Visitor for InferStaticTiming {
         if go_ports.len() == 1 {
             let go_port = go_ports.pop().unwrap();
             // If the control program has a static time, make sure the go port's static annotation matches it
-            if let Some(&time) = comp.control.borrow().get_attribute("static") {
+            if let Some(time) = comp.control.borrow().get_attribute("static") {
                 let maybe_go_time = {
                     let gp = go_port.borrow();
                     gp.attributes.get("static").copied()
