@@ -83,8 +83,8 @@ impl PassManager {
                 RemoveCombGroups, // Must run before infer-static-timing
                 InferStaticTiming,
                 CompileInvoke,    // creates dead comb groups
-                MergeStaticPar,   // creates dead groups potentially
-                StaticParConv,    // Must be before collapse-control
+                StaticParConv, // Must be before collapse-control and merge-static-par
+                MergeStaticPar, // creates dead groups potentially
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
             ]
