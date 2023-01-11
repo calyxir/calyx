@@ -788,6 +788,9 @@ impl Visitor for TopDownStaticTiming {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        if !con.attributes.has("static") {
+            return Ok(Action::Continue);
+        }
         let mut builder = ir::Builder::new(comp, sigs);
         // Ensure that all threads in the `par` block are group enables
         for stmt in &mut con.stmts {
