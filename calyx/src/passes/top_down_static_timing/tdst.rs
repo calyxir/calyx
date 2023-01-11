@@ -1,4 +1,4 @@
-use super::math_utilities::get_bit_width_from;
+use super::compute_states::{END, START};
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
@@ -6,325 +6,21 @@ use crate::ir::{
     traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures, Printer, RRC,
 };
-use crate::ir::{Attributes, CloneName, GetAttributes};
-use crate::{build_assignments, guard, passes, structure};
+use crate::ir::{CloneName, GetAttributes};
+use crate::passes::top_down_static_timing::{ComputeStates, Normalize};
+use crate::passes::{self, math_utilities::get_bit_width_from};
+use crate::{build_assignments, guard, structure};
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::iter;
 use std::ops::Not;
 use std::rc::Rc;
-use std::{cmp, iter};
 
-const ID: &str = "ST_ID";
-const LOOP: &str = "LOOP";
-const START: &str = "START";
-const END: &str = "END";
+use super::compute_states::ID;
 
 /// A range of FSM states.
 type Range = (u64, u64);
-
-/// Preprocessing phase applied before the generation of the FSM:
-/// 1. Allocates unique start states for each enable in the control program.
-/// 2. Balances the branches of all `if` so that they take the same amount of
-///    time to execute.
-/// 3. De-nest directly nested bounded `while` loops.
-///
-/// The FSM generation process requires the above noramalization to be applied.
-struct States {
-    /// Current state
-    cur_st: u64,
-    /// Mapping for loop indices
-    indices: Vec<RRC<ir::Cell>>,
-}
-impl Default for States {
-    fn default() -> Self {
-        Self {
-            /// 0 is a special start state allocated to the start of the
-            /// program so we start with the state 1.
-            cur_st: 1,
-            indices: vec![],
-        }
-    }
-}
-
-impl States {
-    /// Take a control program and ensure that its execution time is at least `time`.
-    fn extend_control(
-        &self,
-        con: &mut Box<ir::Control>,
-        time: u64,
-        balance: &ir::Enable,
-    ) {
-        let cur_time = con.get_attribute("static").unwrap();
-
-        if cur_time < time {
-            let bal = ir::Control::Enable(ir::Cloner::enable(balance));
-            let inner = *std::mem::replace(con, Box::new(ir::Control::empty()));
-            let extra = (0..time - cur_time).map(|_| ir::Cloner::control(&bal));
-            let mut seq =
-                ir::Control::seq(iter::once(inner).chain(extra).collect());
-            seq.get_mut_attributes().insert("static", time);
-            *con = Box::new(seq);
-        }
-    }
-
-    /// Transform nested bounded loops into a singly nested loop:
-    /// ```
-    /// @bound(m) while r0.out {
-    ///   @bound(n) while r1.out {
-    ///     @bound(l) while r2.out { body }
-    ///   }
-    /// }
-    /// ```
-    /// Into:
-    /// ```
-    /// @bound(m*n*l) while r0.out { body }
-    /// ```
-    ///
-    /// Note that after this transformation, it is no longer correct to lower
-    /// the loop using TDCC since we've ignored the loop entry conditions.
-    fn denest_loop(wh: &mut ir::While) {
-        let mut body =
-            std::mem::replace(&mut wh.body, Box::new(ir::Control::empty()));
-        let mut bound = wh.attributes["bound"];
-        let mut body_time = body.get_attribute("static").unwrap();
-
-        while let ir::Control::While(inner) = *body {
-            bound *= inner.attributes["bound"];
-            body = inner.body;
-            body_time = body.get_attribute("static").unwrap();
-        }
-        wh.body = body;
-        wh.attributes["bound"] = bound;
-        wh.attributes["static"] = body_time * bound;
-    }
-
-    fn compute_states(
-        &mut self,
-        con: &mut ir::Control,
-        builder: &mut ir::Builder,
-        balance: &ir::Enable,
-    ) {
-        match con {
-            ir::Control::Enable(en) => {
-                en.attributes[ID] = self.cur_st;
-                let time = en.attributes["static"];
-                self.cur_st += time;
-            }
-            ir::Control::Seq(seq) => self.compute_seq(seq, builder, balance),
-            ir::Control::If(if_) => self.compute_if(if_, builder, balance),
-            ir::Control::While(wh) => self.compute_while(wh, builder, balance),
-            ir::Control::Par(par) => self.compute_par(par, builder, balance),
-            ir::Control::Invoke(_) => unreachable!(
-                "Invoke statements should have been compiled away."
-            ),
-            ir::Control::Empty(_) => {
-                unreachable!("Empty blocks should have been compiled away")
-            }
-        }
-    }
-
-    fn compute_par<'b, 'a: 'b>(
-        &mut self,
-        par: &mut ir::Par,
-        builder: &'b mut ir::Builder<'a>,
-        balance: &ir::Enable,
-    ) {
-        // Treat the `par` block as an enable since we will compile it into a
-        // group that executes each thread separately.
-        par.attributes[ID] = self.cur_st;
-
-        let old = self.cur_st;
-        structure!(builder;
-          let on = constant(1, 1);
-        );
-        let mut assigns = Vec::with_capacity(par.stmts.len());
-        for stmt in &mut par.stmts {
-            let group = match stmt {
-                ir::Control::Enable(en) => Rc::clone(&en.group),
-                con => {
-                    let out = Schedule::realize_control(
-                        con, builder, balance, /*TODO*/ false,
-                    );
-                    out.unwrap()
-                }
-            };
-            let activate = builder.build_assignment(
-                group.borrow().get("go"),
-                on.borrow().get("out"),
-                ir::Guard::True,
-            );
-            assigns.push(activate);
-        }
-        let par_group = builder.add_group("tdst_par");
-        par_group.borrow_mut().assignments.append(&mut assigns);
-        par_group.borrow_mut().attributes["static"] = par.attributes["static"];
-
-        self.cur_st = old + par.attributes["static"];
-    }
-    fn new_par<'b, 'a: 'b>(
-        par: &mut ir::Par,
-        builder: &'b mut ir::Builder<'a>,
-        balance: &ir::Enable,
-    ) -> Self {
-        let mut states = Self::default();
-        states.compute_par(par, builder, balance);
-        states
-    }
-
-    fn compute_while(
-        &mut self,
-        wh: &mut ir::While,
-        builder: &mut ir::Builder,
-        balance: &ir::Enable,
-    ) {
-        // Normalize the loop
-        Self::denest_loop(wh);
-
-        // Compute START, END, and LOOP index attributes
-        wh.attributes[START] = self.cur_st;
-        let body_time = wh.attributes["static"];
-        // Instantiate the indexing variable for this while loop
-        let size = get_bit_width_from(body_time + 1);
-        structure!(builder;
-            let idx = prim std_reg(size);
-        );
-        self.indices.push(idx);
-        let idx_pos = self.indices.len() - 1;
-        // Add attribute to track the loop counter
-        wh.attributes[LOOP] = idx_pos as u64;
-        self.compute_states(&mut wh.body, builder, balance);
-        // Mark the end state of the body
-        wh.attributes[END] = self.cur_st;
-    }
-    fn new_while(
-        wh: &mut ir::While,
-        builder: &mut ir::Builder,
-        balance: &ir::Enable,
-    ) -> Self {
-        let mut states = Self::default();
-        states.compute_while(wh, builder, balance);
-        states
-    }
-
-    fn compute_if(
-        &mut self,
-        if_: &mut ir::If,
-        builder: &mut ir::Builder,
-        balance: &ir::Enable,
-    ) {
-        // Balance the branches
-        let ttime = if_.tbranch.get_attribute("static").unwrap();
-        let ftime = if_.fbranch.get_attribute("static").unwrap();
-        let max_time = cmp::max(ttime, ftime);
-        self.extend_control(&mut if_.tbranch, max_time, balance);
-        self.extend_control(&mut if_.fbranch, max_time, balance);
-        // Compute states
-        self.compute_states(&mut if_.tbranch, builder, balance);
-        self.compute_states(&mut if_.fbranch, builder, balance);
-    }
-    fn new_if(
-        if_: &mut ir::If,
-        builder: &mut ir::Builder,
-        balance: &ir::Enable,
-    ) -> Self {
-        let mut states = Self::default();
-        states.compute_if(if_, builder, balance);
-        states
-    }
-
-    fn compute_seq(
-        &mut self,
-        seq: &mut ir::Seq,
-        builder: &mut ir::Builder,
-        balance: &ir::Enable,
-    ) {
-        for stmt in &mut seq.stmts {
-            self.compute_states(stmt, builder, balance);
-        }
-    }
-    fn new_seq(
-        seq: &mut ir::Seq,
-        builder: &mut ir::Builder,
-        balance: &ir::Enable,
-    ) -> Self {
-        let mut states = Self::default();
-        states.compute_seq(seq, builder, balance);
-        states
-    }
-
-    /// Computes the outgoing edges from the control programs.
-    /// **Requires**: `con` is a sub-program of the control program used to
-    /// construct this [States] instance.
-    fn control_exits(
-        &self,
-        con: &ir::Control,
-        builder: &mut ir::Builder,
-        exits: &mut Vec<PredEdge>,
-    ) {
-        match con {
-            ir::Control::Enable(en) => {
-                let st = en.attributes[ID] + en.attributes["static"] - 1;
-                exits.push((st, ir::Guard::True));
-            }
-            ir::Control::Par(par) => {
-                let st = par.attributes[ID] + par.attributes["static"] - 1;
-                exits.push((st, ir::Guard::True))
-            }
-            ir::Control::Seq(s) => {
-                if let Some(stmt) = s.stmts.last() {
-                    self.control_exits(stmt, builder, exits);
-                }
-            }
-            ir::Control::If(if_) => {
-                let ir::If {
-                    tbranch, fbranch, ..
-                } = if_;
-                self.control_exits(tbranch, builder, exits);
-                self.control_exits(fbranch, builder, exits);
-            }
-            ir::Control::While(wh) => {
-                let ir::While { body, .. } = wh;
-                // Compute the exit conditions for the loop body
-                let mut loop_exits = Vec::new();
-                self.control_exits(body, builder, &mut loop_exits);
-
-                // Guard the exit edges for the body with the loop exit condition
-                let (idx, bound) = self.loop_bounds(wh, builder);
-                let guard = guard!(idx["out"]).eq(guard!(bound["out"]));
-                exits.extend(
-                    loop_exits
-                        .into_iter()
-                        .map(|(st, g)| (st, g & guard.clone())),
-                );
-            }
-            ir::Control::Invoke(_) => {
-                unreachable!("Invoke should have been compiled away")
-            }
-            ir::Control::Empty(_) => {
-                unreachable!("Empty block in control_exits")
-            }
-        }
-    }
-
-    /// Generate the guard condition for exiting the given loop.
-    /// **Requires**: The loop is a sub-program of the control program used to
-    /// generate this [States] instance.
-    fn loop_bounds(
-        &self,
-        wh: &ir::While,
-        builder: &mut ir::Builder,
-    ) -> (RRC<ir::Cell>, RRC<ir::Cell>) {
-        let max_count =
-            wh.body.get_attribute("static").unwrap() * wh.attributes["bound"];
-        let size = get_bit_width_from(max_count + 1);
-        structure!(builder;
-            let max = constant(max_count, size);
-        );
-        let idx_pos = wh.attributes[LOOP] as usize;
-        let idx = Rc::clone(&self.indices[idx_pos]);
-        (idx, max)
-    }
-}
 
 /// A schedule keeps track of two things:
 /// 1. `enables`: Specifies which groups are active during a range of
@@ -336,17 +32,17 @@ struct Schedule<'b, 'a: 'b> {
     /// Enable assignments in a particular range
     enables: HashMap<Range, Vec<ir::Assignment>>,
     /// Transition from one state to another when a guard is true
-    transitions: Vec<(u64, u64, ir::Guard)>,
+    transitions: HashSet<(u64, u64, ir::Guard)>,
     // Builder for the associated component
     builder: &'b mut ir::Builder<'a>,
-    states: States,
+    states: ComputeStates,
 }
 
 impl<'b, 'a: 'b> Schedule<'b, 'a> {
-    fn new(builder: &'b mut ir::Builder<'a>, states: States) -> Self {
+    fn new(builder: &'b mut ir::Builder<'a>, states: ComputeStates) -> Self {
         Self {
             enables: HashMap::default(),
-            transitions: Vec::new(),
+            transitions: HashSet::new(),
             builder,
             states,
         }
@@ -365,7 +61,7 @@ impl Schedule<'_, '_> {
             !(start == end && guard.is_true()),
             "Unconditional transition to the same state {start}"
         );
-        self.transitions.push((start, end, guard));
+        self.transitions.insert((start, end, guard));
     }
 
     // Add enables that are active in the range [start, end).
@@ -635,8 +331,8 @@ impl Schedule<'_, '_> {
             ir::Control::While(w) => {
                 self.while_calculate_states(w, preds)
             }
-            ir::Control::Par(_) => {
-                unimplemented!("Static par")
+            ir::Control::Par(par) => {
+                self.par_calculate_states(par, preds)
             }
             ir::Control::Invoke(_) => unreachable!(
                 "`invoke` statements should have been compiled away. Run `{}` before this pass.",
@@ -659,7 +355,7 @@ impl Schedule<'_, '_> {
         let time_option = con.attributes.get("static");
         let Some(&time) = time_option else {
             return Err(Error::pass_assumption(
-            TopDownStaticTiming::name(),
+        TopDownStaticTiming::name(),
             "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
             ).with_pos(&con.attributes));
         };
@@ -721,43 +417,27 @@ impl Schedule<'_, '_> {
         Ok(cur_preds)
     }
 
-    /*
+    /// Requires that all the threads are group enables.
+    /// Compilation simply compiles each enable with the current predecessors as
+    /// they must all start executing at the same time.
+    ///
+    /// They will all add transitions to their end time, possibly duplicating
+    /// transition edges but the group with the longest latency will add all the
+    /// needed transitions for last state.
     fn par_calculate_states(
         &mut self,
-        con: &ir::Par,
-        cur_state: u64,
-        pre_guard: &ir::Guard,
+        con: &mut ir::Par,
+        preds: Vec<PredEdge>,
     ) -> CalyxResult<Vec<PredEdge>> {
-        let mut max_state = 0;
-        for stmt in &con.stmts {
-            let preds = self.calculate_states(stmt, cur_state, pre_guard)?;
-
-            // Compute the start state from the latest predecessor.
-            let inner_max_state =
-                preds.iter().max_by_key(|(state, _)| state).unwrap().0;
-
-            // Keep track of the latest predecessor state from any statement.
-            if inner_max_state > max_state {
-                max_state = inner_max_state;
+        for stmt in &mut con.stmts {
+            if let ir::Control::Enable(en) = stmt {
+                self.enable_calculate_states(en, preds.clone())?;
+            } else {
+                unreachable!("Par should only contain enables")
             }
         }
-
-        // Add transitions from the cur_state up to the max_state.
-        if cur_state + 1 == max_state {
-            self.transitions
-                .insert((cur_state, max_state, pre_guard.clone()));
-        } else {
-            let starts = cur_state..max_state - 1;
-            let ends = cur_state + 1..max_state;
-            self.transitions.extend(
-                starts.zip(ends).map(|(s, e)| (s, e, pre_guard.clone())),
-            );
-        }
-
-        // Return a single predecessor for the last state.
-        Ok(vec![(max_state, pre_guard.clone())])
+        Ok(vec![(con.attributes[ID], ir::Guard::True)])
     }
-    */
 
     /// Compute the states needed for the `if` by allocating a path for the true
     /// branch and another one for the false branch and ensuring it takes the same
@@ -798,7 +478,7 @@ impl Schedule<'_, '_> {
                     TopDownStaticTiming::name(),
                      format!(
                         "if-with construct should have been compiled away. Run `{}` before this pass.",
-                        super::RemoveCombGroups::name()))
+                        passes::RemoveCombGroups::name()))
             .with_pos(&con.attributes));
         }
 
@@ -902,7 +582,7 @@ impl Schedule<'_, '_> {
             TopDownStaticTiming::name(),
             format!(
                 "while-with construct should have been compiled away. Run `{}` before this pass.",
-                super::RemoveCombGroups::name())
+                passes::RemoveCombGroups::name())
             ).with_pos(&wh.attributes));
         }
 
@@ -979,114 +659,60 @@ impl Schedule<'_, '_> {
 
         Ok(exits)
     }
-
-    fn par_calculate_states(
-        &mut self,
-        par: &mut ir::Par,
-        preds: Vec<PredEdge>,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        todo!()
-        // let mut exits = vec![];
-        // for group in par.borrow().groups.iter_mut() {
-        //     let preds = self.calculate_states(group, preds.clone())?;
-        //     self.states.control_exits(group, self.builder, &mut exits);
-        // }
-        // Ok(exits)
-    }
 }
 
-impl<'b, 'a: 'b> Schedule<'b, 'a> {
-    fn realize_control(
+impl Schedule<'_, '_> {
+    fn compile(
         con: &mut ir::Control,
-        builder: &'b mut ir::Builder<'a>,
-        balance: &ir::Enable,
+        builder: &mut ir::Builder,
         dump_fsm: bool,
     ) -> CalyxResult<RRC<ir::Group>> {
-        match con {
-            ir::Control::Seq(seq) => {
-                Self::realize_seq(seq, builder, balance, dump_fsm)
-            }
-            ir::Control::Par(par) => {
-                Self::realize_par(par, builder, balance, dump_fsm)
-            }
-            ir::Control::If(if_) => {
-                Self::realize_if(if_, builder, balance, dump_fsm)
-            }
-            ir::Control::While(wh) => {
-                Self::realize_while(wh, builder, balance, dump_fsm)
-            }
-            ir::Control::Enable(_)
-            | ir::Control::Invoke(_)
-            | ir::Control::Empty(_) => unreachable!(),
-        }
-    }
-
-    fn realize_seq(
-        seq: &mut ir::Seq,
-        builder: &'b mut ir::Builder<'a>,
-        balance: &ir::Enable,
-        dump_fsm: bool,
-    ) -> CalyxResult<RRC<ir::Group>> {
-        let states = States::new_seq(seq, builder, balance);
-        let mut sch = Self::new(builder, states);
-        let edges =
-            sch.seq_calculate_states(seq, vec![(0, ir::Guard::True)])?;
-        Ok(sch.realize_schedule(edges, dump_fsm))
-    }
-
-    fn realize_if(
-        if_: &mut ir::If,
-        builder: &'b mut ir::Builder<'a>,
-        balance: &ir::Enable,
-        dump_fsm: bool,
-    ) -> CalyxResult<RRC<ir::Group>> {
-        let states = States::new_if(if_, builder, balance);
-        let mut sch = Self::new(builder, states);
-        let edges = sch.if_calculate_states(if_, vec![(0, ir::Guard::True)])?;
-        Ok(sch.realize_schedule(edges, dump_fsm))
-    }
-
-    fn realize_while(
-        wh: &mut ir::While,
-        builder: &'b mut ir::Builder<'a>,
-        balance: &ir::Enable,
-        dump_fsm: bool,
-    ) -> CalyxResult<RRC<ir::Group>> {
-        let states = States::new_while(wh, builder, balance);
-        let mut sch = Self::new(builder, states);
-        let edges =
-            sch.while_calculate_states(wh, vec![(0, ir::Guard::True)])?;
-        Ok(sch.realize_schedule(edges, dump_fsm))
-    }
-
-    fn realize_par(
-        par: &mut ir::Par,
-        builder: &'b mut ir::Builder<'a>,
-        balance: &ir::Enable,
-        dump_fsm: bool,
-    ) -> CalyxResult<RRC<ir::Group>> {
-        let states = States::new_par(par, builder, balance);
-        let mut sch = Self::new(builder, states);
-        let edges =
-            sch.par_calculate_states(par, vec![(0, ir::Guard::True)])?;
-        Ok(sch.realize_schedule(edges, dump_fsm))
+        debug_assert!(
+            con.get_attribute("static").is_some(),
+            "Attempted to compile non-static program"
+        );
+        // Normalize the program
+        Normalize::apply(con, builder);
+        // Compute the states associated with the program
+        let states = ComputeStates::new(con, builder);
+        // Generate a schedule for this program
+        let mut schedule = Schedule::new(builder, states);
+        let out_edges =
+            schedule.calculate_states(con, vec![(0, ir::Guard::True)])?;
+        Ok(schedule.realize_schedule(out_edges, dump_fsm))
     }
 }
 
-/// Lowering pass that generates latency-sensitive FSMs when control sub-programs have `@static`
-/// annotations. The pass works opportunisitically and attempts to compile all nested static
-/// control programs nested within the overall program, replacing them with groups that implement
-/// the correct transitions.
+/// **Core Lowering Pass**: Generates latency-sensitive FSMs when control sub-programs have `@static`.
+/// Must be invoked for programs that need to use cycle-level reasoning. Expects that combinational
+/// groups and invoke statements have been compiled away.
 ///
-/// `while` control blocks can only be statically compiled when they additionally have a `@bound`
-/// annotation which mentions the expected number of times a loop will iterate.
+/// Compilation proceeds in the following high-level steps:
+/// 1. *Normalization*: Ensures all `if` branches are balanced, i.e. take the same number of cycles,
+///    and directly nested, bounded while loops are de-nested.
+/// 2. *State computation*: Assigns states to enables based on their timing.
+/// 3. *FSM Generation*: Generates FSM for each static control program and replaces the sub-program
+///    with an enable for the group implementing the schedule.
+///
+/// The pass provides strong guarantees on cycle-level execution of groups unlike [passes::TopDownCompileControl].
+/// - `seq { a; b; c }`: `b` starts execution exactly in the `a` is done.
+/// - `if port { t } else { f }`: Either branch will start executing as soon as the `if` program starts executing.
+/// - `@bound(n) while port { b }`: Each iteration starts execution exactly when the previous iteration is done.
+/// - `par { a; b }`: `a` and `b` start executing in the same cycle.
+///
+/// ## Compilation
+/// Like [passes::TopDownCompileControl], this pass first walks over the control
+/// program and compiles all `@static par` control programs by allocating each
+/// thread in the `par` with a separate FSM.
+///
+/// After this first traversal, the pass walks over the control program again
+/// and compiles each sub-program is marked as `@static`.
+/// [Schedule] encapsulates the compilation logic for each supported compilation operator.
 pub struct TopDownStaticTiming {
     /// Print out the FSM representation to STDOUT.
     dump_fsm: bool,
     /// Make sure that the program is fully compiled by this pass
     force: bool,
-    /// Control operator to enable the balancing group.
-    balance: Option<ir::Enable>,
 }
 
 impl ConstructVisitor for TopDownStaticTiming {
@@ -1099,7 +725,6 @@ impl ConstructVisitor for TopDownStaticTiming {
         Ok(TopDownStaticTiming {
             dump_fsm: opts[0],
             force: opts[1],
-            balance: None,
         })
     }
 
@@ -1118,112 +743,93 @@ impl Named for TopDownStaticTiming {
     }
 }
 
+impl TopDownStaticTiming {
+    fn compile_sub_programs(
+        con: &mut ir::Control,
+        builder: &mut ir::Builder,
+        dump_fsm: bool,
+    ) -> CalyxResult<()> {
+        if let Some(time) = con.get_attribute("static") {
+            let group = Schedule::compile(con, builder, dump_fsm)?;
+            let mut en = ir::Control::enable(group);
+            en.get_mut_attributes()["static"] = time;
+            *con = en;
+        } else {
+            match con {
+                ir::Control::Seq(ir::Seq { stmts, .. })
+                | ir::Control::Par(ir::Par { stmts, .. }) => {
+                    for stmt in stmts.iter_mut() {
+                        Self::compile_sub_programs(stmt, builder, dump_fsm)?;
+                    }
+                }
+                ir::Control::If(ir::If {
+                    tbranch, fbranch, ..
+                }) => {
+                    Self::compile_sub_programs(tbranch, builder, dump_fsm)?;
+                    Self::compile_sub_programs(fbranch, builder, dump_fsm)?;
+                }
+                ir::Control::While(ir::While { body, .. }) => {
+                    Self::compile_sub_programs(body, builder, dump_fsm)?;
+                }
+                ir::Control::Enable(_)
+                | ir::Control::Invoke(_)
+                | ir::Control::Empty(_) => {}
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Visitor for TopDownStaticTiming {
-    fn start(
+    fn start_par(
         &mut self,
+        con: &mut ir::Par,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Add dummy group that is used for balancing branches
         let mut builder = ir::Builder::new(comp, sigs);
-        let balance = builder.add_group("balance");
-        balance.borrow_mut().attributes.insert("static", 1);
-        let mut enable = ir::Enable {
-            group: balance,
-            attributes: Attributes::default(),
-        };
-        enable.attributes.insert("static", 1);
-        self.balance = Some(enable);
-
+        // Ensure that all threads in the `par` block are group enables
+        for stmt in &mut con.stmts {
+            match stmt {
+                ir::Control::Enable(_) => {}
+                con => {
+                    let time = con.get_attribute("static").unwrap();
+                    let group =
+                        Schedule::compile(con, &mut builder, self.dump_fsm)?;
+                    let mut en = ir::Control::enable(group);
+                    en.get_mut_attributes()["static"] = time;
+                    *con = en;
+                }
+            }
+        }
         Ok(Action::Continue)
-    }
-
-    fn start_seq(
-        &mut self,
-        con: &mut ir::Seq,
-        comp: &mut ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        let time_option = con.attributes.get("static");
-
-        // If sub-tree is not static, skip this node.
-        if time_option.is_none() {
-            return Ok(Action::Continue);
-        }
-
-        // Compile control program and save schedule.
-        let mut builder = ir::Builder::new(comp, sigs);
-        let balance = self.balance.as_ref().unwrap();
-        // Realize the schedule in a replacement control group.
-        let group =
-            Schedule::realize_seq(con, &mut builder, balance, self.dump_fsm)?;
-
-        Ok(Action::change(ir::Control::enable(group)))
-    }
-
-    fn start_while(
-        &mut self,
-        con: &mut ir::While,
-        comp: &mut ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        let time_option = con.attributes.get("static");
-        let bound_option = con.attributes.get("bound");
-
-        // If sub-tree is not static, skip this node.
-        if time_option.is_none() || bound_option.is_none() {
-            return Ok(Action::Continue);
-        }
-
-        // Compile control program and save schedule.
-        let mut builder = ir::Builder::new(comp, sigs);
-        let balance = self.balance.as_ref().unwrap();
-        // Realize the schedule in a replacement control group.
-        let group =
-            Schedule::realize_while(con, &mut builder, balance, self.dump_fsm)?;
-
-        let en = ir::Control::enable(group);
-        Ok(Action::change(en))
-    }
-
-    fn start_if(
-        &mut self,
-        con: &mut ir::If,
-        comp: &mut ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        // If sub-tree is not static, skip this node.
-        if con.attributes.get("static").is_none() {
-            return Ok(Action::Continue);
-        }
-
-        // Compile control program and save schedule.
-        let mut builder = ir::Builder::new(comp, sigs);
-        let balance = self.balance.as_ref().unwrap();
-        // Realize the schedule in a replacement control group.
-        let group =
-            Schedule::realize_if(con, &mut builder, balance, self.dump_fsm)?;
-
-        Ok(Action::change(ir::Control::enable(group)))
     }
 
     fn finish(
         &mut self,
         comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
+        sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Take ownership of the control program
+        let mut con = comp.control.replace(ir::Control::empty());
+
+        // Compile all sub-programs
+        let mut builder = ir::Builder::new(comp, sigs);
+        Self::compile_sub_programs(&mut con, &mut builder, self.dump_fsm)?;
+
+        // Add the control program back.
+        comp.control = Rc::new(RefCell::new(con));
+
         // If the force flag is set, make sure that we only have one group remaining
-        let con = &*comp.control.borrow();
-        if self.force && !matches!(con, ir::Control::Enable(_)) {
+        if self.force
+            && !matches!(&*comp.control.borrow(), ir::Control::Enable(_))
+        {
             return Err(Error::pass_assumption(
                 Self::name(),
                 "`force` flag was set but the final control program is not an enable"
-            ).with_pos(con));
+            ));
         }
         Ok(Action::Continue)
     }
