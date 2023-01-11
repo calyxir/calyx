@@ -49,7 +49,7 @@ impl ComputeStates {
     fn recur(&mut self, con: &mut ir::Control, builder: &mut ir::Builder) {
         match con {
             ir::Control::Enable(en) => {
-                // debug_assert!(en.attributes.get("static").is_none());
+                debug_assert!(en.attributes.get(ID).is_none());
                 en.attributes[ID] = self.cur_st;
                 let time = en.attributes["static"];
                 self.cur_st += time;

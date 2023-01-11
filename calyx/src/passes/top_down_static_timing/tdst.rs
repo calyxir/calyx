@@ -781,7 +781,7 @@ impl TopDownStaticTiming {
 }
 
 impl Visitor for TopDownStaticTiming {
-    fn start_par(
+    fn finish_par(
         &mut self,
         con: &mut ir::Par,
         comp: &mut ir::Component,
