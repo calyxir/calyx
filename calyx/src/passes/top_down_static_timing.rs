@@ -290,10 +290,12 @@ impl States {
 ///    transitions from `state` to `state + 1`. However, special transitions
 ///    are needed for loops, conditionals, and reseting the FSM.
 struct Schedule<'a, 'b: 'a> {
+    /// Enable assignments in a particular range
+    enables: HashMap<Range, Vec<ir::Assignment>>,
+    /// Transition from one state to another when a guard is true
+    transitions: Vec<(u64, u64, ir::Guard)>,
     // Builder for the associated component
     builder: &'b mut ir::Builder<'a>,
-    enables: HashMap<Range, Vec<ir::Assignment>>,
-    transitions: Vec<(u64, u64, ir::Guard)>,
     states: States,
 }
 
