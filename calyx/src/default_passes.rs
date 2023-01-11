@@ -89,7 +89,11 @@ impl PassManager {
                 CollapseControl,
             ]
         );
-        register_alias!(pm, "compile", [TopDownCompileControl]);
+        register_alias!(
+            pm,
+            "compile",
+            [TopDownStaticTiming, TopDownCompileControl]
+        );
         register_alias!(
             pm,
             "post-opt",
