@@ -377,8 +377,8 @@ impl InferStaticTiming {
         }
 
         let mut tsort = graph.toposort();
-        let start = tsort.next().unwrap();
-        let finish = tsort.last().unwrap();
+        let start = tsort.next()?;
+        let finish = tsort.last()?;
 
         let paths = graph.paths(&start.borrow(), &finish.borrow());
         // If there are no paths, give up.
