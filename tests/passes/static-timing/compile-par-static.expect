@@ -1,8 +1,10 @@
-enables:
-[0, 1)
+0:
+  C[go] = 1'd1;
   A[go] = 1'd1;
   B[go] = 1'd1;
+1:
+  B[go] = 1'd1;
+[1, 3):
   C[go] = 1'd1;
-transitions:
-unconditional:
-(0, 1)
+Unconditional runs:
+  (0, 3)

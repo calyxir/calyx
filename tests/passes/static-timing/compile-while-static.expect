@@ -1,14 +1,16 @@
-enables:
-[0, 1)
+0:
   cond0[go] = 1'd1;
-[1, 2)
+1:
   do_add[go] = 1'd1;
-[2, 3)
+  incr_idx[go] = idx.out < 3'd4 ? 1'd1;
+2:
   cond0[go] = 1'd1;
-[3, 4)
-  do_add[go] = 1'd1;
-[4, 5)
-  cond0[go] = 1'd1;
+[2, 4):
+  incr_idx[go] = idx.out < 3'd4 ? 1'd1;
+3:
+  do_add[go] = idx.out < 3'd4 ? 1'd1;
+  reset_idx[go] = idx.out == 3'd4 ? 1'd1;
 transitions:
-unconditional:
-(0, 5)
+  (3, 2): idx.out < 3'd4
+Unconditional runs:
+  (0, 3)
