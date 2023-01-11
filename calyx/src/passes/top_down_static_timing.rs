@@ -318,12 +318,6 @@ impl<'a, 'b> Schedule<'a, 'b> {
             !(start == end && guard.is_true()),
             "Unconditional transition to the same state {start}"
         );
-        /*eprintln!(
-            "Adding transition ({}, {}): {}",
-            start,
-            end,
-            ir::Printer::guard_str(&guard)
-        );*/
         self.transitions.push((start, end, guard));
     }
 
@@ -784,17 +778,6 @@ impl Schedule<'_, '_> {
         Ok(tpreds)
     }
 
-    /// Ensure that transitions from state `st` only transition when `guard` is
-    /// true.
-    fn guard_all_transitions(&mut self, st: u64, guard: ir::Guard) {
-        self.transitions
-            .iter_mut()
-            .filter(|(s, _, _)| *s == st)
-            .for_each(|(_, _, g)| {
-                *g &= guard.clone();
-            });
-    }
-
     /// Define a group that increments a counter every cycle
     fn incr_group(&mut self, idx: &RRC<ir::Cell>) -> RRC<ir::Group> {
         let group =
@@ -895,17 +878,6 @@ impl Schedule<'_, '_> {
         let mut exits = vec![];
         self.states
             .control_exits(&wh.body, self.builder, &mut exits);
-        /* eprintln!(
-            "exits: [{}]",
-            exits
-                .iter()
-                .map(|(st, g)| format!(
-                    "({},{})",
-                    st,
-                    ir::Printer::guard_str(g)
-                ))
-                .join(", ")
-        ); */
         let back_edges = exits
             .clone()
             .into_iter()
