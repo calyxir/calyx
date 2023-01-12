@@ -214,7 +214,7 @@ impl Schedule<'_, '_> {
         let fsm_size = get_bit_width_from(last + 1);
 
         structure!(builder;
-           let fsm = prim std_reg(fsm_size);
+           let st_fsm = prim std_reg(fsm_size);
            let signal_on = constant(1, 1);
            let first_state = constant(0, fsm_size);
         );
@@ -226,7 +226,7 @@ impl Schedule<'_, '_> {
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|((lb, ub), mut assigns)| {
                     let state_guard =
-                        Self::range_guard(builder, lb, ub, fsm_size, &fsm);
+                        Self::range_guard(builder, lb, ub, fsm_size, &st_fsm);
                     assigns.iter_mut().for_each(|assign| {
                         assign.guard.update(|g| g.and(state_guard.clone()))
                     });
@@ -245,13 +245,13 @@ impl Schedule<'_, '_> {
                         let end_const = constant(end, fsm_size);
                     );
 
-                    let transition_guard = guard!(fsm["out"])
+                    let transition_guard = guard!(st_fsm["out"])
                         .eq(guard!(start_const["out"]))
                         .and(guard);
 
                     let assigns = build_assignments!(builder;
-                        fsm["in"] = transition_guard ? end_const["out"];
-                        fsm["write_en"] = transition_guard ? signal_on["out"];
+                        st_fsm["in"] = transition_guard ? end_const["out"];
+                        st_fsm["write_en"] = transition_guard ? signal_on["out"];
                     );
                     assigns
                 }),
@@ -262,7 +262,7 @@ impl Schedule<'_, '_> {
                 ir::Guard::True.not(),
                 |g, (s, e)| {
                     let range =
-                        Self::range_guard(builder, s, e, fsm_size, &fsm);
+                        Self::range_guard(builder, s, e, fsm_size, &st_fsm);
                     g.or(range)
                 },
             );
@@ -271,10 +271,10 @@ impl Schedule<'_, '_> {
                 let one = constant(1, fsm_size);
             );
             let uncond_incr = build_assignments!(builder;
-                fsm_incr["left"] = ? fsm["out"];
+                fsm_incr["left"] = ? st_fsm["out"];
                 fsm_incr["right"] = ? one["out"];
-                fsm["in"] = uncond_guard ? fsm_incr["out"];
-                fsm["write_en"] = uncond_guard ? signal_on["out"];
+                st_fsm["in"] = uncond_guard ? fsm_incr["out"];
+                st_fsm["write_en"] = uncond_guard ? signal_on["out"];
             );
             group.borrow_mut().assignments.extend(uncond_incr);
         }
@@ -282,10 +282,10 @@ impl Schedule<'_, '_> {
         // Done condition for group.
         let (st, g) = out_edges.pop().expect("No outgoing edges");
         let c = builder.add_constant(st, fsm_size);
-        let mut done_guard = guard!(fsm["out"]).eq(guard!(c["out"])) & g;
+        let mut done_guard = guard!(st_fsm["out"]).eq(guard!(c["out"])) & g;
         for (st, g) in out_edges {
             let stc = builder.add_constant(st, fsm_size);
-            let st_guard = guard!(fsm["out"]).eq(guard!(stc["out"]));
+            let st_guard = guard!(st_fsm["out"]).eq(guard!(stc["out"]));
             done_guard |= st_guard & g;
         }
         let done_assign = build_assignments!(builder;
@@ -295,8 +295,8 @@ impl Schedule<'_, '_> {
 
         // Cleanup: Add a transition from last state to the first state.
         let mut reset_fsm = build_assignments!(builder;
-            fsm["in"] = done_guard ? first_state["out"];
-            fsm["write_en"] = done_guard ? signal_on["out"];
+            st_fsm["in"] = done_guard ? first_state["out"];
+            st_fsm["write_en"] = done_guard ? signal_on["out"];
         );
         builder
             .component
@@ -755,6 +755,10 @@ impl TopDownStaticTiming {
         builder: &mut ir::Builder,
         dump_fsm: bool,
     ) -> CalyxResult<()> {
+        // Do not attempt to compile Enable and Empty statement
+        if matches!(con, ir::Control::Enable(_) | ir::Control::Empty(_)) {
+            return Ok(());
+        }
         if let Some(time) = con.get_attribute("static") {
             let group = Schedule::compile(con, builder, dump_fsm)?;
             let mut en = ir::Control::enable(group);
