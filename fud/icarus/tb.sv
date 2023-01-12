@@ -71,7 +71,6 @@ initial begin
       $finish;
     end else if (cycle_count != 0 && cycle_count == CYCLE_LIMIT + RESET_CYCLES) begin
       $display("reached limit of %d cycles", CYCLE_LIMIT);
-      $display("Simulated %d cycles", cycle_count - RESET_CYCLES + 1);
       $finish;
     end
   end
