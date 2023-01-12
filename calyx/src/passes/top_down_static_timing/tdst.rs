@@ -439,7 +439,10 @@ impl Schedule<'_, '_> {
                 unreachable!("Par should only contain enables")
             }
         }
-        Ok(vec![(con.attributes[ID], ir::Guard::True)])
+        Ok(vec![(
+            con.attributes[ID] + con.attributes["static"] - 1,
+            ir::Guard::True,
+        )])
     }
 
     /// Compute the states needed for the `if` by allocating a path for the true
