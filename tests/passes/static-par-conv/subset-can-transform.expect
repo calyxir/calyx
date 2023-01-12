@@ -19,7 +19,7 @@ component main(@go @static(6) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
   }
 
   control {
-    @static(6) par {
+    par {
       @static(6) C;
       @static(6) seq {
         @static(2) par {

@@ -27,7 +27,7 @@ component main(@go @static(9) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
   }
 
   control {
-    @static(9) par {
+    par {
       @static(9) seq {
         @static(2) par {
           @static(2) C0;
