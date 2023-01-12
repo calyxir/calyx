@@ -10,6 +10,14 @@ pub struct Seq {
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
 }
+impl GetAttributes for Seq {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
 
 /// Data for the `par` control statement.
 #[derive(Debug)]
@@ -18,6 +26,14 @@ pub struct Par {
     pub stmts: Vec<Control>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+}
+impl GetAttributes for Par {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 /// Data for the `if` control statement.
@@ -38,6 +54,15 @@ pub struct If {
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
 }
+impl GetAttributes for If {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
 
 /// Data for the `if` control statement.
 #[derive(Debug)]
@@ -51,6 +76,15 @@ pub struct While {
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
 }
+impl GetAttributes for While {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
 
 /// Data for the `enable` control statement.
 #[derive(Debug)]
@@ -59,6 +93,15 @@ pub struct Enable {
     pub group: RRC<Group>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+}
+impl GetAttributes for Enable {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 type PortMap = Vec<(Id, RRC<Port>)>;
@@ -79,6 +122,15 @@ pub struct Invoke {
     pub comb_group: Option<RRC<CombGroup>>,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
     pub ref_cells: CellMap,
+}
+impl GetAttributes for Invoke {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 /// Data for the `empty` control statement.
