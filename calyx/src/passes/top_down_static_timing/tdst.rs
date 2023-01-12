@@ -1,4 +1,5 @@
 use super::compute_states::{END, START};
+use crate::analysis::WithStatic;
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::ConstructVisitor;
 use crate::ir::{
@@ -781,6 +782,16 @@ impl TopDownStaticTiming {
 }
 
 impl Visitor for TopDownStaticTiming {
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        // Propagate all static information through the control program.
+        comp.control.borrow_mut().update_static(&HashMap::new());
+        Ok(Action::Continue)
+    }
     fn finish_par(
         &mut self,
         con: &mut ir::Par,

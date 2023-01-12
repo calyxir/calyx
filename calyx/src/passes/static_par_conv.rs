@@ -228,15 +228,9 @@ impl Visitor for StaticParConv {
                 has_been_partitioned.pop().unwrap(),
             )))
         } else {
-            let max_time = has_been_partitioned
-                .iter()
-                .map(|con| con.get_attribute("static").unwrap())
-                .max()
-                .unwrap();
-            Ok(Action::Change(Box::new(ir::Control::Par(ir::Par {
-                stmts: has_been_partitioned,
-                attributes: attribute_with_static(max_time),
-            }))))
+            Ok(Action::Change(Box::new(ir::Control::par(
+                has_been_partitioned,
+            ))))
         }
     }
 }
