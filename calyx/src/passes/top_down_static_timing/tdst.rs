@@ -184,6 +184,8 @@ impl Schedule<'_, '_> {
             guard!(fsm["out"]).lt(guard!(ub_const["out"]))
         } else if e == s + 1 {
             guard!(fsm["out"]).eq(guard!(lb_const["out"]))
+        } else if e == 1 << fsm_size {
+            guard!(fsm["out"]).ge(guard!(lb_const["out"]))
         } else {
             guard!(fsm["out"])
                 .ge(guard!(lb_const["out"]))
@@ -788,8 +790,13 @@ impl Visitor for TopDownStaticTiming {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let mut con = comp.control.borrow_mut();
+        // Dont compile empty or single-enable control programs
+        if matches!(&*con, ir::Control::Enable(_) | ir::Control::Empty(_)) {
+            return Ok(Action::Stop);
+        }
         // Propagate all static information through the control program.
-        comp.control.borrow_mut().update_static(&HashMap::new());
+        con.update_static(&HashMap::new());
         Ok(Action::Continue)
     }
     fn finish_par(
