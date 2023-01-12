@@ -178,4 +178,9 @@ impl ComputeStates {
         let idx = Rc::clone(&self.indices[idx_pos]);
         (idx, max)
     }
+
+    /// Return iterator over all defined loop indexing cells
+    pub fn indices(self) -> impl Iterator<Item = RRC<ir::Cell>> {
+        self.indices.into_iter()
+    }
 }

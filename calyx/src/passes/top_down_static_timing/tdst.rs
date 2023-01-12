@@ -294,14 +294,28 @@ impl Schedule<'_, '_> {
         group.borrow_mut().assignments.extend(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
-        let mut reset_fsm = build_assignments!(builder;
+        let reset_fsm = build_assignments!(builder;
             st_fsm["in"] = done_guard ? first_state["out"];
             st_fsm["write_en"] = done_guard ? signal_on["out"];
         );
+        // Reset all loop indices to 0
+        let reset_indices = self
+            .states
+            .indices()
+            .flat_map(|c: RRC<ir::Cell>| {
+                let size = c.borrow().get_parameter("WIDTH").unwrap();
+                let zero = builder.add_constant(0, size);
+                let assigns = build_assignments!(builder;
+                    c["in"] = done_guard ? zero["out"];
+                    c["write_en"] = done_guard ? signal_on["out"];
+                );
+                assigns
+            })
+            .collect_vec();
         builder
             .component
             .continuous_assignments
-            .append(&mut reset_fsm);
+            .extend(reset_fsm.into_iter().chain(reset_indices));
 
         group
     }
@@ -654,7 +668,7 @@ impl Schedule<'_, '_> {
             exit.clone(),
         );
         for (st, _) in exits {
-            // Ensure that reset assignments are active when exiting the loop
+            // Ensure that reset assignments are active when exiting the loop.
             self.add_enables(st, st + 1, iter::once(reset_activate.clone()));
         }
 
