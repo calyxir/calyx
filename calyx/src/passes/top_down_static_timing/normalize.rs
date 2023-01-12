@@ -70,8 +70,11 @@ impl Normalize {
             let bal = ir::Control::Enable(ir::Cloner::enable(balance));
             let inner = *std::mem::replace(con, Box::new(ir::Control::empty()));
             let extra = (0..time - cur_time).map(|_| ir::Cloner::control(&bal));
-            let mut seq =
-                ir::Control::seq(iter::once(inner).chain(extra).collect());
+            let mut seq = if matches!(&inner, ir::Control::Empty(_)) {
+                ir::Control::seq(extra.collect())
+            } else {
+                ir::Control::seq(iter::once(inner).chain(extra).collect())
+            };
             seq.get_mut_attributes().insert("static", time);
             *con = Box::new(seq);
         }
