@@ -19,6 +19,23 @@ impl ReadWriteSet {
     }
 
     /// Returns [ir::Port] which are read from in the assignments.
+    pub fn meaningful_port_read_set<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
+        let mut go_writes = Self::port_write_set(assigns.clone())
+            .filter(|port| port.borrow().attributes.has("go"))
+            .map(|port| Rc::clone(&port.borrow().cell_parent()));
+        assigns.flat_map(Self::port_reads).filter(move |port| {
+            if port.borrow().attributes.has("done") {
+                let done_parent = Rc::clone(&port.borrow().cell_parent());
+                go_writes.all(|go_parent| !Rc::ptr_eq(&go_parent, &done_parent))
+            } else {
+                true
+            }
+        })
+    }
+
+    /// Returns [ir::Port] which are read from in the assignments.
     pub fn port_read_set<'a>(
         assigns: impl Iterator<Item = &'a ir::Assignment> + 'a,
     ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
@@ -32,6 +49,20 @@ impl ReadWriteSet {
         assigns
             .map(|assign| Rc::clone(&assign.dst))
             .filter(|port| !port.borrow().is_hole())
+    }
+
+    /// Returns [ir::Cell] which are read from in the assignments.
+    /// **Ignores** reads from group holes, and reads from done signals, when it
+    /// is safe to do so.
+    /// To ignore a read from a done signal:
+    /// 1) the `@done` signal must be from an assignment to the group's done hole
+    /// 2) the `@go` signal for the same cell must be written to in the group
+    pub fn meaningful_read_set<'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
+        Self::meaningful_port_read_set(assigns)
+            .map(|port| Rc::clone(&port.borrow().cell_parent()))
+            .unique_by(|cell| cell.clone_name())
     }
 
     /// Returns [ir::Cell] which are read from in the assignments.
