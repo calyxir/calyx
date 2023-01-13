@@ -1,0 +1,31 @@
+// -p well-formed -p remove-comb-groups -p cell-share -p dead-cell-removal -p remove-ids
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    r0 = std_reg(4);
+    r1 = std_reg(4); 
+    r2 = std_reg(4);
+    lt = std_lt(4);
+    slice = std_slice(32, 4);
+  }
+  wires {
+    group write_r2 {
+      r2.write_en = 1'd1; 
+      r2.in = 4'd3; 
+      write_r2[done] = r2.done; 
+    }
+    group compound {
+      r0.write_en = !r0.done ? 1'd1;
+      r0.in = 4'd2;
+      r1.write_en = r0.done;
+      r1.in = r0.out;
+      compound[done] = r1.done;
+    }
+  }
+  control {
+    seq{
+      write_r2; 
+      compound;
+    }
+  }
+}

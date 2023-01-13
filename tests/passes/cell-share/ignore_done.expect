@@ -1,0 +1,28 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r0 = std_reg(4);
+    r1 = std_reg(4);
+  }
+  wires {
+    group write_r2 {
+      r1.write_en = 1'd1;
+      r1.in = 4'd3;
+      write_r2[done] = r1.done;
+    }
+    group compound {
+      r0.write_en = !r0.done ? 1'd1;
+      r0.in = 4'd2;
+      r1.write_en = r0.done;
+      r1.in = r0.out;
+      compound[done] = r1.done;
+    }
+  }
+
+  control {
+    seq {
+      write_r2;
+      compound;
+    }
+  }
+}

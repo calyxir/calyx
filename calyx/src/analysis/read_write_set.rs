@@ -18,21 +18,41 @@ impl ReadWriteSet {
             .filter(|port| !port.borrow().is_hole())
     }
 
-    /// Returns [ir::Port] which are read from in the assignments.
+    /// Returns the "meaningful" [ir::Port] which are read from in the assignments.
+    /// "Meaningful" means we just exclude the following `@done` reads (this may be too conservative/strict):
+    /// 1) the `@done` signal must be from an assignment to the group's done hole
+    /// 2) the `@go` signal for the same cell must be written to in the group
     pub fn meaningful_port_read_set<'a>(
         assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
     ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
+        // go_writes = all cells which have their go port written to in assigns
         let mut go_writes = Self::port_write_set(assigns.clone())
             .filter(|port| port.borrow().attributes.has("go"))
             .map(|port| Rc::clone(&port.borrow().cell_parent()));
-        assigns.flat_map(Self::port_reads).filter(move |port| {
-            if port.borrow().attributes.has("done") {
-                let done_parent = Rc::clone(&port.borrow().cell_parent());
-                go_writes.all(|go_parent| !Rc::ptr_eq(&go_parent, &done_parent))
-            } else {
-                true
-            }
-        })
+        // partitions into regular assignments, and group_done_assigns (which should
+        // have length one)
+        let (regular_assigns, group_done_assigns): (Vec<_>, Vec<_>) =
+            assigns.partition(|assign| !assign.dst.borrow().is_hole());
+        // Get all port reads from group_done_assigns *unless* the port read is
+        // from a done signal, and the parent cell's go port has been written to
+        // in the same group
+        let group_done_filtered = group_done_assigns
+            .into_iter()
+            .flat_map(Self::port_reads)
+            .filter(move |port| {
+                if port.borrow().attributes.has("done") {
+                    let done_parent = Rc::clone(&port.borrow().cell_parent());
+                    go_writes
+                        .all(|go_parent| !Rc::ptr_eq(&go_parent, &done_parent))
+                } else {
+                    true
+                }
+            });
+        // get all port_reads from regular_assigns, and chain them with group_done_filtered
+        regular_assigns
+            .into_iter()
+            .flat_map(Self::port_reads)
+            .chain(group_done_filtered)
     }
 
     /// Returns [ir::Port] which are read from in the assignments.
@@ -54,7 +74,7 @@ impl ReadWriteSet {
     /// Returns [ir::Cell] which are read from in the assignments.
     /// **Ignores** reads from group holes, and reads from done signals, when it
     /// is safe to do so.
-    /// To ignore a read from a done signal:
+    /// To ignore a read from a done signal (this may be too conservative/strict):
     /// 1) the `@done` signal must be from an assignment to the group's done hole
     /// 2) the `@go` signal for the same cell must be written to in the group
     pub fn meaningful_read_set<'a>(

@@ -535,7 +535,7 @@ impl LiveRangeAnalysis {
             (reads, writes)
         } else {
             let reads: HashSet<_> =
-                ReadWriteSet::read_set(group.assignments.iter())
+                ReadWriteSet::meaningful_read_set(group.assignments.iter())
                     .filter(|c| sc_clone.is_shareable_component(c))
                     .map(|c| (c.borrow().prototype.clone(), c.clone_name()))
                     .collect();
