@@ -21,14 +21,18 @@ impl ReadWriteSet {
     /// Returns the "meaningful" [ir::Port] which are read from in the assignments.
     /// "Meaningful" means we just exclude the following `@done` reads (this may be too conservative/strict):
     /// 1) the `@done` signal must be from an assignment to the group's done hole
-    /// 2) the `@go` signal for the same cell must be written to in the group
+    /// 2) the `@go` signal for the same cell *must* be written to in the group
     pub fn meaningful_port_read_set<'a>(
         assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
     ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
-        // go_writes = all cells which have their go port written to in assigns
-        let mut go_writes = Self::port_write_set(assigns.clone())
-            .filter(|port| port.borrow().attributes.has("go"))
-            .map(|port| Rc::clone(&port.borrow().cell_parent()));
+        // go_writes = all cells which are guaranteed to have their go port written to in assigns
+        let mut go_writes = Self::port_write_set(
+            assigns
+                .clone()
+                .filter(|asgn| *asgn.guard == ir::Guard::True),
+        )
+        .filter(|port| port.borrow().attributes.has("go"))
+        .map(|port| Rc::clone(&port.borrow().cell_parent()));
         // partitions into regular assignments, and group_done_assigns (which should
         // have length one)
         let (regular_assigns, group_done_assigns): (Vec<_>, Vec<_>) =
@@ -76,7 +80,7 @@ impl ReadWriteSet {
     /// is safe to do so.
     /// To ignore a read from a done signal (this may be too conservative/strict):
     /// 1) the `@done` signal must be from an assignment to the group's done hole
-    /// 2) the `@go` signal for the same cell must be written to in the group
+    /// 2) the `@go` signal for the same cell *must* be written to in the group
     pub fn meaningful_read_set<'a>(
         assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
     ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
