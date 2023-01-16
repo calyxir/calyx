@@ -65,7 +65,7 @@ impl ReadWriteSet {
                 let done_parent = Rc::clone(&port.borrow().cell_parent());
                 go_writes
                     .iter()
-                    .all(|go_parent| !Rc::ptr_eq(&go_parent, &done_parent))
+                    .all(|go_parent| !Rc::ptr_eq(go_parent, &done_parent))
             } else {
                 true
             }
