@@ -3,15 +3,16 @@ use smallvec::SmallVec;
 use super::index_trait::IndexRef;
 use std::{marker::PhantomData, ops};
 
-pub struct IndexedMap<T, K, const N: usize = 0>
+#[derive(Debug)]
+pub struct IndexedMap<D, K, const N: usize = 0>
 where
     K: IndexRef,
 {
-    data: SmallVec<[T; N]>,
+    data: SmallVec<[D; N]>,
     phantom: PhantomData<K>,
 }
 
-impl<T, K, const N: usize> ops::IndexMut<K> for IndexedMap<T, K, N>
+impl<D, K, const N: usize> ops::IndexMut<K> for IndexedMap<D, K, N>
 where
     K: IndexRef,
 {
@@ -20,18 +21,18 @@ where
     }
 }
 
-impl<T, K, const N: usize> ops::Index<K> for IndexedMap<T, K, N>
+impl<D, K, const N: usize> ops::Index<K> for IndexedMap<D, K, N>
 where
     K: IndexRef,
 {
-    type Output = T;
+    type Output = D;
 
     fn index(&self, index: K) -> &Self::Output {
         &self.data[index.index()]
     }
 }
 
-impl<T, K, const N: usize> IndexedMap<T, K, N>
+impl<D, K, const N: usize> IndexedMap<D, K, N>
 where
     K: IndexRef,
 {
@@ -49,7 +50,7 @@ where
         }
     }
 
-    pub fn get(&self, index: K) -> Option<&T> {
+    pub fn get(&self, index: K) -> Option<&D> {
         if index.index() < self.data.len() {
             Some(&self.data[index.index()])
         } else {
@@ -57,7 +58,7 @@ where
         }
     }
 
-    pub fn get_mut(&mut self, index: K) -> Option<&mut T> {
+    pub fn get_mut(&mut self, index: K) -> Option<&mut D> {
         if index.index() < self.data.len() {
             Some(&mut self.data[index.index()])
         } else {
@@ -69,8 +70,57 @@ where
         self.data.len()
     }
 
-    pub fn push(&mut self, item: T) -> K {
+    pub fn push(&mut self, item: D) -> K {
         self.data.push(item);
         K::new(self.data.len() - 1)
+    }
+
+    pub fn next_idx(&self) -> K {
+        K::new(self.data.len())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+}
+
+impl<T, K, const N: usize> Default for IndexedMap<T, K, N>
+where
+    K: IndexRef,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug)]
+pub struct AuxillaryMap<D, K, const N: usize = 0>
+where
+    K: IndexRef,
+    D: Clone,
+{
+    data: SmallVec<[D; N]>,
+    phantom: PhantomData<K>,
+    default_value: D,
+}
+
+impl<D, K, const N: usize> AuxillaryMap<D, K, N>
+where
+    K: IndexRef,
+    D: Clone,
+{
+}
+
+impl<D, K, const N: usize> AuxillaryMap<D, K, N>
+where
+    K: IndexRef,
+    D: Clone + Default,
+{
+    pub fn new() -> Self {
+        Self {
+            data: Default::default(),
+            phantom: PhantomData,
+            default_value: Default::default(),
+        }
     }
 }

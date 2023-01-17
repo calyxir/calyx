@@ -26,6 +26,13 @@ impl_index!(pub CellPortID);
 // ref cell index
 impl_index!(pub GlobalRCellRef);
 impl_index!(pub LocalRCellRef);
+impl_index!(pub LocalRPortRef);
+
+#[derive(Debug)]
+pub enum PortRef {
+    Local(LocalPortRef),
+    Ref(LocalRPortRef),
+}
 
 pub(crate) type PortMap = IndexedMap<Value, GlobalPortRef>;
 pub(crate) type CellMap = IndexedMap<CellLedger, GlobalCellRef>;
