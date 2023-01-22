@@ -1,5 +1,4 @@
 //! Resource estimation backend for the Calyx compiler.
-//!
 //! Transforms an [`ir::Context`](crate::ir::Context) into a CSV that
 //! counts the number of different primitives in a program and loosely
 //! estimates the total size of the generated hardware.
@@ -99,7 +98,7 @@ fn gen_count_map(main_comp: &Component) -> HashMap<(Id, Binding), u32> {
                 _ if name == "std_mem_d4" => {
                     *count_map
                         .entry((
-                            Id::from("std_mem_d1"),
+                            Id::from("std_mem_d4"),
                             (**param_binding).clone(),
                         ))
                         .or_insert(0) += 1
@@ -131,7 +130,7 @@ fn gen_count_map(main_comp: &Component) -> HashMap<(Id, Binding), u32> {
                 _ if name == "seq_mem_d4" => {
                     *count_map
                         .entry((
-                            Id::from("seq_mem_d1"),
+                            Id::from("seq_mem_d4"),
                             (**param_binding).clone(),
                         ))
                         .or_insert(0) += 1
@@ -171,48 +170,45 @@ fn write_csv(count_map: HashMap<(Id, Binding), u32>) {
     wtr.flush().ok();
 }
 
-// Prints the estimated size in bits of the generated hardware along with a breakdown
+// Prints the estimated size (in bits) of the generated hardware along with a breakdown
 // of which primitives contributed to the total number.
 // TODO (priya): Add other primitives (need to discuss what reasonable size estimates are for them)
 fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
     let mut estimated_size: u64 = 0;
     let out = &mut (Box::new(io::stdout()) as Box<dyn Write>);
+    output("Summary of primitives:".to_string(), out);
     for ((name, params), count) in count_map {
         match name {
             _ if name == "std_reg" => {
                 estimated_size += (count as u64) * (params[0].1);
                 let str = format!(
-                    "There were {} {} primitives with a bitwidth of {}.",
+                    "{} {} primitive(s) with a bitwidth of {}.",
                     count, name, params[0].1
                 );
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "std_mem_d1" => {
                 estimated_size += (count as u64) * (params[0].1 * params[1].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.", 
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
                     count, name, params[1].1, params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "std_mem_d2" => {
                 estimated_size +=
                     (count as u64) * (params[0].1 * params[1].1 * params[2].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.", 
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
                     count, name, (params[1].1 * params[2].1), params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "std_mem_d3" => {
                 estimated_size += (count as u64)
                     * (params[0].1 * params[1].1 * params[2].1 * params[3].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.", 
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
                     count, name, (params[1].1 * params[2].1 * params[3].1), params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "std_mem_d4" => {
                 estimated_size += (count as u64)
@@ -222,36 +218,32 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                         * params[3].1
                         * params[4].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.", 
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
                     count, name, (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "seq_mem_d1" => {
                 estimated_size += (count as u64) * (params[0].1 * params[1].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.",
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
                      count, name, params[1].1, params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "seq_mem_d2" => {
                 estimated_size +=
                     (count as u64) * (params[0].1 * params[1].1 * params[2].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.",
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
                      count, name, (params[1].1 * params[2].1), params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "seq_mem_d3" => {
                 estimated_size += (count as u64)
                     * (params[0].1 * params[1].1 * params[2].1 * params[3].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.",
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
                      count, name, (params[1].1 * params[2].1 * params[3].1), params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ if name == "seq_mem_d4" => {
                 estimated_size += (count as u64)
@@ -261,15 +253,18 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                         * params[3].1
                         * params[4].1);
                 let str = format!(
-                    "There were {} {} primitives with {} slots of memory, each {} bits wide.",
+                    "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
                      count, name, (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
-                out.write_all(str.as_bytes()).ok();
-                writeln!(out).ok();
+                output(str, out);
             }
             _ => (),
         }
     }
-    out.write_all(b"Estimated size in bits: ").ok();
-    out.write_all(estimated_size.to_string().as_bytes()).ok();
+    let str = format!("Estimated size in bit(s): {}", estimated_size);
+    output(str, out);
+}
+
+fn output(str: String, out: &mut Box<dyn Write>) {
+    out.write_all(str.as_bytes()).ok();
     writeln!(out).ok();
 }
