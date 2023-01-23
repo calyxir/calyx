@@ -38,9 +38,21 @@ pub struct Group {
     pub done: LocalCellRef,
 }
 
+impl Group {
+    pub fn name(&self) -> Identifier {
+        self.name
+    }
+}
+
 #[derive(Debug)]
 pub struct CombGroup {
     name: Identifier,
     /// the assignments in this group
     pub assignments: IndexRange<AssignmentIdx>,
+}
+
+impl CombGroup {
+    pub fn name(&self) -> Identifier {
+        self.name
+    }
 }

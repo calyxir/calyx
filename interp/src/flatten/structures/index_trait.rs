@@ -10,7 +10,7 @@ macro_rules! impl_index {
     };
 
     ( $v:vis $struct_name: ident, $backing_ty: ty) => {
-        #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
+        #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
         $v struct $struct_name($backing_ty);
 
         impl $crate::flatten::structures::index_trait::IndexRef for $struct_name {
@@ -36,10 +36,61 @@ pub(crate) use impl_index;
 #[derive(Debug)]
 pub struct IndexRange<I>
 where
-    I: IndexRef,
+    I: IndexRef + PartialOrd,
 {
     /// The start of the range (inclusive).
     start: I,
     /// The end of the range (inclusive).
     end: I,
+}
+
+impl<'a, I> IntoIterator for &'a IndexRange<I>
+where
+    I: IndexRef + PartialOrd,
+{
+    type Item = I;
+
+    type IntoIter = IndexRangeIterator<'a, I>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IndexRangeIterator::new(self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IndexRangeIterator<'a, I>
+where
+    I: IndexRef + PartialOrd,
+{
+    range: &'a IndexRange<I>,
+    current: I,
+}
+
+impl<'a, I> IndexRangeIterator<'a, I>
+where
+    I: IndexRef + PartialOrd,
+{
+    pub fn new(range: &'a IndexRange<I>) -> Self {
+        Self {
+            range,
+            current: range.start,
+        }
+    }
+}
+
+impl<'a, I> Iterator for IndexRangeIterator<'a, I>
+where
+    I: IndexRef + PartialOrd,
+{
+    type Item = I;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current <= self.range.end {
+            let current = self.current;
+            self.current = I::new(self.current.index() + 1);
+            Some(current)
+        } else {
+            None
+        }
+    }
 }
