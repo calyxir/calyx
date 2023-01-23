@@ -32,3 +32,14 @@ macro_rules! impl_index {
 }
 
 pub(crate) use impl_index;
+
+#[derive(Debug)]
+pub struct IndexRange<I>
+where
+    I: IndexRef,
+{
+    /// The start of the range (inclusive).
+    start: I,
+    /// The end of the range (inclusive).
+    end: I,
+}

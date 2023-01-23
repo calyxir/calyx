@@ -28,7 +28,7 @@ impl_index!(pub GlobalRCellRef);
 impl_index!(pub LocalRCellRef);
 impl_index!(pub LocalRPortRef);
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum PortRef {
     Local(LocalPortRef),
     Ref(LocalRPortRef),
