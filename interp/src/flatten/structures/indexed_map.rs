@@ -1,7 +1,10 @@
 use smallvec::SmallVec;
 
 use super::index_trait::{IndexRangeIterator, IndexRef};
-use std::{marker::PhantomData, ops};
+use std::{
+    marker::PhantomData,
+    ops::{self, Index},
+};
 
 #[derive(Debug)]
 pub struct IndexedMap<D, K, const N: usize = 0>
@@ -139,11 +142,66 @@ where
     default_value: D,
 }
 
+// NOTE TO SELF: do not implement IndexMut
+
+impl<D, K, const N: usize> Index<K> for AuxillaryMap<D, K, N>
+where
+    K: IndexRef,
+    D: Clone,
+{
+    type Output = D;
+
+    fn index(&self, index: K) -> &Self::Output {
+        if index.index() < self.data.len() {
+            &self.data[index.index()]
+        } else {
+            &self.default_value
+        }
+    }
+}
+
 impl<D, K, const N: usize> AuxillaryMap<D, K, N>
 where
     K: IndexRef,
     D: Clone,
 {
+    pub fn new_with_default(default_value: D) -> Self {
+        Self {
+            data: Default::default(),
+            phantom: PhantomData,
+            default_value,
+        }
+    }
+
+    pub fn capacity_with_default(default_value: D, size: usize) -> Self {
+        Self {
+            data: SmallVec::with_capacity(size),
+            phantom: PhantomData,
+            default_value,
+        }
+    }
+
+    pub fn get(&self, index: K) -> &D {
+        if index.index() < self.data.len() {
+            &self.data[index.index()]
+        } else {
+            &self.default_value
+        }
+    }
+
+    pub fn push(&mut self, item: D) {
+        self.data.push(item);
+    }
+
+    pub fn insert(&mut self, index: K, item: D) {
+        if index.index() < self.data.len() {
+            self.data[index.index()] = item;
+        } else {
+            self.data
+                .resize(index.index() + 1, self.default_value.clone());
+            self.data[index.index()] = item;
+        }
+    }
 }
 
 impl<D, K, const N: usize> AuxillaryMap<D, K, N>
@@ -157,5 +215,23 @@ where
             phantom: PhantomData,
             default_value: Default::default(),
         }
+    }
+
+    pub fn with_capacity(size: usize) -> Self {
+        Self {
+            data: SmallVec::with_capacity(size),
+            phantom: PhantomData,
+            default_value: Default::default(),
+        }
+    }
+}
+
+impl<D, K, const N: usize> Default for AuxillaryMap<D, K, N>
+where
+    K: IndexRef,
+    D: Clone + Default,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
