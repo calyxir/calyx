@@ -1,6 +1,6 @@
 use smallvec::SmallVec;
 
-use super::index_trait::IndexRef;
+use super::index_trait::{IndexRangeIterator, IndexRef};
 use std::{marker::PhantomData, ops};
 
 #[derive(Debug)]
@@ -90,6 +90,41 @@ where
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct IndexedMapRangeIterator<'range, 'data, D, K, const N: usize>
+where
+    K: IndexRef + PartialOrd,
+{
+    iterator: IndexRangeIterator<'range, K>,
+    data: &'data IndexedMap<D, K, N>,
+}
+
+impl<'range, 'data, D, K, const N: usize> ExactSizeIterator
+    for IndexedMapRangeIterator<'range, 'data, D, K, N>
+where
+    K: IndexRef + PartialOrd,
+{
+}
+
+impl<'range, 'data, D, K, const N: usize> Iterator
+    for IndexedMapRangeIterator<'range, 'data, D, K, N>
+where
+    K: IndexRef + PartialOrd,
+{
+    type Item = &'data D;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(idx) = self.iterator.next() {
+            Some(&self.data[idx])
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iterator.size_hint()
     }
 }
 

@@ -66,6 +66,11 @@ where
     current: I,
 }
 
+impl<'a, I> ExactSizeIterator for IndexRangeIterator<'a, I> where
+    I: IndexRef + PartialOrd
+{
+}
+
 impl<'a, I> IndexRangeIterator<'a, I>
 where
     I: IndexRef + PartialOrd,
@@ -92,5 +97,15 @@ where
         } else {
             None
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = if self.range.end.index() >= self.current.index() {
+            self.range.end.index() - self.current.index() + 1
+        } else {
+            0
+        };
+
+        (size, Some(size))
     }
 }
