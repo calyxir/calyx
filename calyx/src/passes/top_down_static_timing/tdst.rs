@@ -14,6 +14,7 @@ use crate::{build_assignments, guard, structure};
 use itertools::Itertools;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::io::Write;
 use std::iter;
 use std::ops::Not;
 use std::rc::Rc;
@@ -90,8 +91,9 @@ impl Schedule<'_, '_> {
         transitions.for_each(|(s, e, g)| self.add_transition(s, e, g));
     }
 
-    fn display(&self) {
+    fn display(&self, name: String) {
         let out = &mut std::io::stdout();
+        writeln!(out, "======== {name} =========").unwrap();
         let (uncond, cond) =
             Self::calculate_runs(self.transitions.iter().cloned());
 
@@ -203,14 +205,18 @@ impl Schedule<'_, '_> {
         dump_fsm: bool,
     ) -> RRC<ir::Group> {
         let last = self.last();
-        if dump_fsm {
-            self.display();
-        }
 
+        let group = self.builder.add_group("tdst");
+        if dump_fsm {
+            self.display(format!(
+                "{}:{}",
+                self.builder.component.name,
+                group.borrow().name()
+            ));
+        }
         let builder = self.builder;
         let (unconditional, conditional) =
             Self::calculate_runs(self.transitions.into_iter());
-        let group = builder.add_group("tdst");
         let fsm_size = get_bit_width_from(last + 1);
 
         structure!(builder;
