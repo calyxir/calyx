@@ -6,12 +6,69 @@ use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
+    rc::Rc,
 };
 
 type TypeNameSet = HashSet<(ir::CellType, ir::Id)>;
 type CellsByType = HashMap<ir::CellType, HashSet<ir::Id>>;
 // maps cell type to maps that map cell name to control statement
 type LiveMapByType = HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>>;
+
+/// Returns [ir::Cell] which are read from in the assignments.
+/// **Ignores** reads from group holes, and reads from done signals, when it
+/// is safe to do so.
+/// To ignore a read from a done signal:
+/// the `@go` signal for the same cell *must* be written to in the group
+pub fn meaningful_read_set<'a>(
+    assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
+    meaningful_port_read_set(assigns)
+        .map(|port| Rc::clone(&port.borrow().cell_parent()))
+        .unique_by(|cell| cell.clone_name())
+}
+
+/// Returns the "meaningful" [ir::Port] which are read from in the assignments.
+/// "Meaningful" means we just exclude the following `@done` reads:
+/// the `@go` signal for the same cell *must* be written to in the group
+pub fn meaningful_port_read_set<'a>(
+    assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
+    // go_writes = all cells which are guaranteed to have their go port written to in assigns
+    let go_writes: Vec<RRC<ir::Cell>> =
+        ReadWriteSet::port_write_set(assigns.clone().filter(|asgn| {
+            // to be included in go_writes, one of the following must hold:
+            // a) guard is true
+            // b) cell.go = !cell.done ? 1'd1
+            if asgn.guard.is_true() {
+                return true;
+            }
+
+            // checking cell.go = !cell.done! 1'd1
+            asgn.dst.borrow().attributes.has("go")
+                && asgn.guard.is_not_done(
+                    &asgn.dst.borrow().cell_parent().borrow().name(),
+                )
+                && asgn.src.borrow().is_constant(1, 1)
+        }))
+        .filter(|port| port.borrow().attributes.has("go"))
+        .map(|port| Rc::clone(&port.borrow().cell_parent()))
+        .collect();
+
+    // if we have a done port that overlaps with go_writes, then can remove the
+    // done port. Otherwise, we should keep it.
+    assigns
+        .flat_map(ReadWriteSet::port_reads)
+        .filter(move |port| {
+            if port.borrow().attributes.has("done") {
+                let done_parent = Rc::clone(&port.borrow().cell_parent());
+                go_writes
+                    .iter()
+                    .all(|go_parent| !Rc::ptr_eq(go_parent, &done_parent))
+            } else {
+                true
+            }
+        })
+}
 
 /// The data structure used to represent sets of ids. This is used to represent
 /// the `live`, `gen`, and `kill` sets.
@@ -535,7 +592,7 @@ impl LiveRangeAnalysis {
             (reads, writes)
         } else {
             let reads: HashSet<_> =
-                ReadWriteSet::read_set(group.assignments.iter())
+                meaningful_read_set(group.assignments.iter())
                     .filter(|c| sc_clone.is_shareable_component(c))
                     .map(|c| (c.borrow().prototype.clone(), c.clone_name()))
                     .collect();
