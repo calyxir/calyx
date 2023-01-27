@@ -1,7 +1,7 @@
 use super::dump_ports;
 use crate::errors::CalyxResult;
 use crate::ir::traversal::{
-    Action, ConstructVisitor, Named, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use crate::ir::WRC;
 use crate::ir::{self, LibrarySignatures, RRC};
@@ -72,8 +72,8 @@ impl Named for CompileRef {
 }
 
 impl Visitor for CompileRef {
-    fn require_postorder() -> bool {
-        true
+    fn iteration_order() -> Order {
+        Order::Post
     }
 
     fn start(
