@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
-    Action, ConstructVisitor, Named, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use crate::ir::{self, LibrarySignatures, RRC};
 use itertools::Itertools;
@@ -414,8 +414,8 @@ impl InferStaticTiming {
 impl Visitor for InferStaticTiming {
     // Require post order traversal of components to ensure `invoke` nodes
     // get timing information for components.
-    fn require_postorder() -> bool {
-        true
+    fn iteration_order() -> Order {
+        Order::Post
     }
 
     fn start(
