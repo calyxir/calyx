@@ -17,6 +17,23 @@ pub struct Attributes {
     span: GPosIdx,
 }
 
+impl IntoIterator for Attributes {
+    type Item = (Id, u64);
+    type IntoIter = linked_hash_map::IntoIter<Id, u64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.attrs.into_iter()
+    }
+}
+impl<'a> IntoIterator for &'a Attributes {
+    type Item = (&'a Id, &'a u64);
+    type IntoIter = linked_hash_map::Iter<'a, Id, u64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.attrs.iter()
+    }
+}
+
 impl Default for Attributes {
     fn default() -> Self {
         Attributes {
@@ -99,11 +116,6 @@ impl Attributes {
         S: Into<Id>,
     {
         self.attrs.remove(&key.into())
-    }
-
-    /// Iterate over all attributes
-    pub fn iter(&self) -> impl Iterator<Item = (&Id, &u64)> {
-        self.attrs.iter()
     }
 
     /// Set the span information
