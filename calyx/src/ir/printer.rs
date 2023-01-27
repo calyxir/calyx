@@ -140,12 +140,16 @@ impl Printer {
                 outputs.push(pd)
             }
         }
-        writeln!(
+        write!(
             f,
-            "({}) -> ({});",
+            "({}) -> ({})",
             Self::format_port_def(&inputs),
             Self::format_port_def(&outputs)
-        )
+        )?;
+        if prim.body.is_some() {
+            write!(f, "{{ {} }}", prim.body.as_ref().unwrap())?;
+        };
+        writeln!(f, ";")
     }
 
     /// Formats and writes the Component to the formatter.

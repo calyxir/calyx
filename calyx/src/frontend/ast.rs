@@ -18,6 +18,8 @@ pub struct NamespaceDef {
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
     pub externs: Vec<(String, Vec<ir::Primitive>)>,
+    /// Inlined Primitives (i.e., primitives with verilog definitions)
+    pub prim_inlines: Vec<ir::Primitive>,
     /// Optional opaque metadata
     pub metadata: Option<String>,
 }

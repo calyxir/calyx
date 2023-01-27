@@ -3,7 +3,7 @@
 //! Parser for Calyx programs.
 use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
 use crate::errors::{self, CalyxResult};
-use crate::ir;
+use crate::ir::{self, Primitive};
 use crate::utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
@@ -131,6 +131,7 @@ impl CalyxParser {
 enum ExtOrComp {
     Ext((String, Vec<ir::Primitive>)),
     Comp(ComponentDef),
+    PrimInline(Primitive),
 }
 
 #[pest_consume::parser]
@@ -271,6 +272,17 @@ impl CalyxParser {
         ))
     }
 
+    fn block_char(input: Node) -> ParseResult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn block_string(input: Node) -> ParseResult<String> {
+        Ok(match_nodes!(
+            input.into_children();
+            [block_char(c)..] => c.collect::<String>().into()
+        ))
+    }
+
     fn attr_val(input: Node) -> ParseResult<u64> {
         Ok(match_nodes!(
             input.into_children();
@@ -377,6 +389,7 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: false,
+                body: None,
             },
             [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => ir::Primitive {
                 name,
@@ -384,6 +397,7 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: true,
+                body: None,
             },
         ))
     }
@@ -843,11 +857,36 @@ impl CalyxParser {
         ))
     }
 
+    fn prim_inline(input: Node) -> ParseResult<Primitive> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => {
+                ir::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs.add_span(span),
+                is_comb: false,
+                body: Some(b),
+            }},
+            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => ir::Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs.add_span(span),
+                is_comb: true,
+                body: Some(b),
+            },
+        ))
+    }
+
     fn extern_or_component(input: Node) -> ParseResult<ExtOrComp> {
         Ok(match_nodes!(
             input.into_children();
             [component(comp)] => ExtOrComp::Comp(comp),
-            [ext(ext)] => ExtOrComp::Ext(ext)
+            [ext(ext)] => ExtOrComp::Ext(ext),
+            [prim_inline(prim_inline)] => ExtOrComp::PrimInline(prim_inline),
         ))
     }
 
@@ -886,12 +925,14 @@ impl CalyxParser {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
+                        prim_inlines: Vec::new(),
                         metadata: if m != *"" { Some(m) } else { None }
                     };
                 for m in mixed {
                     match m {
                         ExtOrComp::Ext(ext) => namespace.externs.push(ext),
                         ExtOrComp::Comp(comp) => namespace.components.push(comp),
+                        ExtOrComp::PrimInline(prim) => namespace.prim_inlines.push(prim),
                     }
                 }
                 namespace
@@ -902,12 +943,14 @@ impl CalyxParser {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
+                        prim_inlines: Vec::new(),
                         metadata: None
                     };
                 for m in mixed {
                     match m {
                         ExtOrComp::Ext(ext) => namespace.externs.push(ext),
                         ExtOrComp::Comp(comp) => namespace.components.push(comp),
+                        ExtOrComp::PrimInline(prim) => namespace.prim_inlines.push(prim),
                     }
                 }
                 namespace

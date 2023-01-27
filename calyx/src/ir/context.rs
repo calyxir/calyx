@@ -13,6 +13,8 @@ use std::path::PathBuf;
 pub struct LibrarySignatures {
     /// Direct mapping from name to primitives
     primitive_definitions: Vec<(PathBuf, LinkedHashMap<Id, Primitive>)>,
+    /// Inlined Primitiveds
+    prim_inlines: LinkedHashMap<Id, Primitive>,
 }
 
 impl LibrarySignatures {
@@ -26,6 +28,9 @@ impl LibrarySignatures {
             if let Some(p) = sig.get(&key) {
                 return Some(p);
             }
+        }
+        if let Some(p) = self.prim_inlines.get(&key) {
+            return Some(p);
         }
         None
     }
@@ -46,11 +51,29 @@ impl LibrarySignatures {
         self.primitive_definitions
             .iter()
             .flat_map(|(_, sig)| sig.values())
+            .chain(self.prim_inlines.iter().map(|(_, p)| p))
     }
 
     /// Return the underlying externs
     pub fn externs(self) -> Vec<(PathBuf, LinkedHashMap<Id, Primitive>)> {
         self.primitive_definitions
+    }
+
+    pub fn all_prims(
+        self,
+    ) -> Vec<(Option<PathBuf>, LinkedHashMap<Id, Primitive>)> {
+        let mut res: Vec<(Option<PathBuf>, LinkedHashMap<Id, Primitive>)> =
+            self.primitive_definitions
+                .into_iter()
+                .map(|(pb, map)| (Some(pb), map))
+                .collect();
+        res.push((None, self.prim_inlines));
+        res
+    }
+
+    /// Return the underyling inlined primitives
+    pub fn prim_inlines(&self) -> impl Iterator<Item = &Primitive> + '_ {
+        self.prim_inlines.iter().map(|(_, prim)| prim)
     }
 
     /// Return the paths for the extern defining files
@@ -64,14 +87,17 @@ impl LibrarySignatures {
 
 impl<I> From<I> for LibrarySignatures
 where
-    I: IntoIterator<Item = (PathBuf, Vec<Primitive>)>,
+    I: IntoIterator<Item = (Option<PathBuf>, Vec<Primitive>)>,
 {
     fn from(externs: I) -> Self {
         let mut lib = LibrarySignatures::default();
         for (path, prims) in externs {
             let map: LinkedHashMap<_, _> =
                 prims.into_iter().map(|p| (p.name, p)).collect();
-            lib.primitive_definitions.push((path, map));
+            match path {
+                Some(p) => lib.primitive_definitions.push((p, map)),
+                None => lib.prim_inlines.extend(map),
+            }
         }
         lib
     }
