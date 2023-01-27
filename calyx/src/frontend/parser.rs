@@ -279,7 +279,7 @@ impl CalyxParser {
     fn block_string(input: Node) -> ParseResult<String> {
         Ok(match_nodes!(
             input.into_children();
-            [block_char(c)..] => c.collect::<String>().into()
+            [block_char(c)..] => c.collect::<String>()
         ))
     }
 
