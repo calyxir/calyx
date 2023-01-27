@@ -36,18 +36,20 @@ impl Backend for ResourcesBackend {
         Ok(())
     }
 
-    fn emit(ctx: &ir::Context, _file: &mut OutputFile) -> CalyxResult<()> {
+    fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let main_comp = ctx
             .components
             .iter()
             .find(|comp| comp.name == ctx.entrypoint)
             .unwrap();
 
-        let count_map: HashMap<(Id, Binding), u32> = gen_count_map(main_comp);
+        let count_map: &mut HashMap<(Id, Binding), u32> = &mut HashMap::new();
 
-        write_csv(count_map.clone());
+        gen_count_map(ctx, main_comp, count_map);
 
-        estimated_size(count_map);
+        write_csv(count_map.clone(), file);
+
+        estimated_size(count_map.clone());
 
         Ok(())
     }
@@ -56,116 +58,71 @@ impl Backend for ResourcesBackend {
 /// Counts the number of each primitive with a given set of parameters
 /// in the program with entrypoint `main_comp`.
 /// TODO: handle multi-component designs
-fn gen_count_map(main_comp: &Component) -> HashMap<(Id, Binding), u32> {
-    let mut count_map: HashMap<(Id, Binding), u32> = HashMap::new();
+fn gen_count_map(
+    ctx: &ir::Context,
+    main_comp: &Component,
+    count_map: &mut HashMap<(Id, Binding), u32>,
+) {
     for cell in main_comp.cells.iter() {
         let cell_ref = cell.borrow();
+        let primitives = vec![
+            "std_reg",
+            "std_mem_d1",
+            "std_mem_d2",
+            "std_mem_d3",
+            "std_mem_d4",
+            "seq_mem_d1",
+            "seq_mem_d2",
+            "seq_mem_d3",
+            "seq_mem_d4",
+        ];
         match &cell_ref.prototype {
             CellType::Primitive {
                 name,
                 param_binding,
                 ..
-            } => match name {
-                _ if name == "std_reg" => {
+            } => {
+                if primitives.contains(&name.id.as_str()) {
                     *count_map
-                        .entry((Id::from("std_reg"), (**param_binding).clone()))
-                        .or_insert(0) += 1
+                        .entry((*name, (**param_binding).clone()))
+                        .or_insert(0) += 1;
                 }
-                _ if name == "std_mem_d1" => {
-                    *count_map
-                        .entry((
-                            Id::from("std_mem_d1"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ if name == "std_mem_d2" => {
-                    *count_map
-                        .entry((
-                            Id::from("std_mem_d2"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ if name == "std_mem_d3" => {
-                    *count_map
-                        .entry((
-                            Id::from("std_mem_d3"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ if name == "std_mem_d4" => {
-                    *count_map
-                        .entry((
-                            Id::from("std_mem_d4"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ if name == "seq_mem_d1" => {
-                    *count_map
-                        .entry((
-                            Id::from("seq_mem_d1"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ if name == "seq_mem_d2" => {
-                    *count_map
-                        .entry((
-                            Id::from("seq_mem_d2"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ if name == "seq_mem_d3" => {
-                    *count_map
-                        .entry((
-                            Id::from("seq_mem_d3"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ if name == "seq_mem_d4" => {
-                    *count_map
-                        .entry((
-                            Id::from("seq_mem_d4"),
-                            (**param_binding).clone(),
-                        ))
-                        .or_insert(0) += 1
-                }
-                _ => (),
-            },
-            CellType::Component { name: _name } => todo!(),
+            }
+            CellType::Component { name } => {
+                let component = ctx
+                    .components
+                    .iter()
+                    .find(|comp| comp.name == name)
+                    .unwrap();
+                gen_count_map(ctx, component, count_map);
+            }
             _ => (),
         }
     }
-    count_map
 }
 
 /// Writes a CSV to stdout with primitive count information
 /// generated by `gen_count_map`.
 /// TODO (priya): fix the output format and have it output to an actual file!
-fn write_csv(count_map: HashMap<(Id, Binding), u32>) {
+fn write_csv(count_map: HashMap<(Id, Binding), u32>, _file: &mut OutputFile) {
     let mut wtr = csv::Writer::from_writer(io::stdout());
     let header = vec!["Primitive", "Count", "Parameters"];
     wtr.write_record(header).ok();
-    let mut result: Vec<u8> = vec![];
+    wtr.write_record(None::<&[u8]>).ok();
     for ((name, params), count) in count_map {
-        result.append(&mut name.id.to_string().as_str().as_bytes().to_vec());
-        result.append(&mut (", ").as_bytes().to_vec());
-        result.append(&mut count.to_string().as_str().as_bytes().to_vec());
-        result.append(&mut (", ").as_bytes().to_vec());
+        let mut result = String::new();
+        result.push_str(name.id.as_str());
+        result.push(',');
+        result.push_str(count.to_string().as_str());
         for (id, val) in params {
-            result.append(&mut id.id.to_string().into_bytes());
-            result.append(&mut (", ").as_bytes().to_vec());
-            result.append(&mut val.to_string().into_bytes());
-            result.append(&mut (", ").as_bytes().to_vec());
+            result.push(',');
+            result.push_str(id.id.as_str());
+            result.push(',');
+            result.push_str(val.to_string().as_str());
         }
-        result.append(&mut ("\n").as_bytes().to_vec());
-        wtr.write_record([&result]).ok();
-        result = vec![];
+        result.push('\n');
+        let ret: Vec<&str> = result.split(',').collect();
+        wtr.write_record(ret).ok();
     }
     wtr.flush().ok();
 }
@@ -176,10 +133,11 @@ fn write_csv(count_map: HashMap<(Id, Binding), u32>) {
 fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
     let mut estimated_size: u64 = 0;
     let out = &mut (Box::new(io::stdout()) as Box<dyn Write>);
+    writeln!(out).ok();
     output("Summary of primitives:".to_string(), out);
     for ((name, params), count) in count_map {
-        match name {
-            _ if name == "std_reg" => {
+        match name.as_ref() {
+            "std_reg" => {
                 estimated_size += (count as u64) * (params[0].1);
                 let str = format!(
                     "{} {} primitive(s) with a bitwidth of {}.",
@@ -187,14 +145,14 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                 );
                 output(str, out);
             }
-            _ if name == "std_mem_d1" => {
+            "std_mem_d1" => {
                 estimated_size += (count as u64) * (params[0].1 * params[1].1);
                 let str = format!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
                     count, name, params[1].1, params[0].1);
                 output(str, out);
             }
-            _ if name == "std_mem_d2" => {
+            "std_mem_d2" => {
                 estimated_size +=
                     (count as u64) * (params[0].1 * params[1].1 * params[2].1);
                 let str = format!(
@@ -202,7 +160,7 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                     count, name, (params[1].1 * params[2].1), params[0].1);
                 output(str, out);
             }
-            _ if name == "std_mem_d3" => {
+            "std_mem_d3" => {
                 estimated_size += (count as u64)
                     * (params[0].1 * params[1].1 * params[2].1 * params[3].1);
                 let str = format!(
@@ -210,7 +168,7 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                     count, name, (params[1].1 * params[2].1 * params[3].1), params[0].1);
                 output(str, out);
             }
-            _ if name == "std_mem_d4" => {
+            "std_mem_d4" => {
                 estimated_size += (count as u64)
                     * (params[0].1
                         * params[1].1
@@ -222,14 +180,14 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                     count, name, (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
                 output(str, out);
             }
-            _ if name == "seq_mem_d1" => {
+            "seq_mem_d1" => {
                 estimated_size += (count as u64) * (params[0].1 * params[1].1);
                 let str = format!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.",
                      count, name, params[1].1, params[0].1);
                 output(str, out);
             }
-            _ if name == "seq_mem_d2" => {
+            "seq_mem_d2" => {
                 estimated_size +=
                     (count as u64) * (params[0].1 * params[1].1 * params[2].1);
                 let str = format!(
@@ -237,7 +195,7 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                      count, name, (params[1].1 * params[2].1), params[0].1);
                 output(str, out);
             }
-            _ if name == "seq_mem_d3" => {
+            "seq_mem_d3" => {
                 estimated_size += (count as u64)
                     * (params[0].1 * params[1].1 * params[2].1 * params[3].1);
                 let str = format!(
@@ -245,7 +203,7 @@ fn estimated_size(count_map: HashMap<(Id, Binding), u32>) {
                      count, name, (params[1].1 * params[2].1 * params[3].1), params[0].1);
                 output(str, out);
             }
-            _ if name == "seq_mem_d4" => {
+            "seq_mem_d4" => {
                 estimated_size += (count as u64)
                     * (params[0].1
                         * params[1].1
