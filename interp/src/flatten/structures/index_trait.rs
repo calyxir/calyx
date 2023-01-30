@@ -44,6 +44,19 @@ where
     end: I,
 }
 
+impl<I> IndexRange<I>
+where
+    I: IndexRef + PartialOrd,
+{
+    pub fn new(start: I, end: I) -> Self {
+        Self { start, end }
+    }
+
+    pub fn iter(&self) -> IndexRangeIterator<I> {
+        IndexRangeIterator::new(self)
+    }
+}
+
 impl<'a, I> IntoIterator for &'a IndexRange<I>
 where
     I: IndexRef + PartialOrd,

@@ -11,6 +11,7 @@ mod structures;
 mod tests;
 mod utils;
 
+#[allow(dead_code)]
 pub mod flatten;
 
 pub use structures::{environment, stk_env, values};

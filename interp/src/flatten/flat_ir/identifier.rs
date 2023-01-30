@@ -17,13 +17,15 @@ impl IdMap {
         Self::default()
     }
 
+    /// Inserts a string mapping into the table and returns the identifier.
+    /// If already present, the original identifier is returned
     pub fn insert<S>(&mut self, input: S) -> Identifier
     where
-        S: AsRef<String>,
+        S: AsRef<str>,
     {
         let id = self
             .forward
-            .entry(input.as_ref().clone())
+            .entry(input.as_ref().to_string())
             .or_insert_with_key(|k| {
                 let id = Identifier::from(self.count);
                 self.count += 1;

@@ -1,10 +1,8 @@
 use smallvec::SmallVec;
 
 use crate::flatten::{
-    flat_ir::wires::core_structs::{CombGroupIdx, GroupIdx},
-    structures::{
-        environment::PortRef, index_trait::impl_index, indexed_map::IndexedMap,
-    },
+    flat_ir::prelude::*,
+    structures::{index_trait::impl_index, indexed_map::IndexedMap},
 };
 
 impl_index!(pub ControlIdx);

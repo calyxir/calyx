@@ -1,38 +1,17 @@
 use symbol_table::{Symbol, SymbolTable};
 
+use super::index_trait::{impl_index, IndexRef};
 use super::indexed_map::IndexedMap;
-use super::{
-    bookkeeping::ComponentRef,
-    index_trait::{impl_index, IndexRef},
+use crate::{
+    flatten::{
+        flat_ir::base::{
+            ComponentRef, GlobalCellRef, GlobalPortRef, GlobalRCellRef,
+        },
+        primitives::Primitive,
+    },
+    interpreter_ir::Component,
+    values::Value,
 };
-use crate::{interpreter_ir::Component, primitives::Primitive, values::Value};
-
-pub const INPUT_CELL_PORT_COUNT: usize = 8;
-pub const OUTPUT_CELL_PORT_COUNT: usize = 4;
-
-// making these all u32 for now, can give the macro an optional type as the
-// second arg to contract or expand as needed
-
-// Reference for a port assuming a zero base, ie local to the component
-impl_index!(pub LocalPortRef);
-// Global port reference, used for value mapping
-impl_index!(pub GlobalPortRef);
-// Global mapping for cell state
-impl_index!(pub GlobalCellRef);
-// cell reference local to a given component definition
-impl_index!(pub LocalCellRef);
-// A local reference
-impl_index!(pub CellPortID);
-// ref cell index
-impl_index!(pub GlobalRCellRef);
-impl_index!(pub LocalRCellRef);
-impl_index!(pub LocalRPortRef);
-
-#[derive(Debug, Copy, Clone)]
-pub enum PortRef {
-    Local(LocalPortRef),
-    Ref(LocalRPortRef),
-}
 
 pub(crate) type PortMap = IndexedMap<Value, GlobalPortRef>;
 pub(crate) type CellMap = IndexedMap<CellLedger, GlobalCellRef>;

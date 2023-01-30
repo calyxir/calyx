@@ -1,5 +1,5 @@
 use crate::{
-    flatten::structures::environment::{GlobalPortRef, PortMap},
+    flatten::{flat_ir::base::GlobalPortRef, structures::environment::PortMap},
     values::Value,
 };
 
