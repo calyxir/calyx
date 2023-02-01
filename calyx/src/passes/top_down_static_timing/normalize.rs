@@ -1,6 +1,9 @@
 use std::{cmp, iter};
 
-use crate::ir::{self, GetAttributes};
+use crate::{
+    ir::{self, GetAttributes},
+    structure,
+};
 
 /// Implements normalization for static `if` and `while`.
 /// - `if`: Ensure both the branches take the same number of cycles.
@@ -19,6 +22,16 @@ impl Normalize {
             "Attempting to normalize non-static program"
         );
         let balance = builder.add_group("balance");
+        // The done condition of a balance group is undefined
+        structure!(builder;
+            let undef = prim std_undef(1);
+        );
+        let done_cond = builder.build_assignment(
+            balance.borrow().get("done"),
+            undef.borrow().get("out"),
+            ir::Guard::True,
+        );
+        balance.borrow_mut().assignments.push(done_cond);
         balance.borrow_mut().attributes["static"] = 1;
         let mut balance = ir::Enable {
             group: balance,
