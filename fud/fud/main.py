@@ -108,6 +108,13 @@ def register_stages(registry):
             "Compile Calyx for interpretation with CIDR",
         )
     )
+    registry.register(
+        futil.FutilStage(
+            "resources",
+            "-b resources",
+            "Generate a CSV that estimates a Calyx program's resource usage",
+        )
+    )
 
     # Data conversion
     registry.register(verilator.JsonToDat())
