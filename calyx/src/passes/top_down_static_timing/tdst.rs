@@ -811,6 +811,12 @@ impl TopDownStaticTiming {
 }
 
 impl Visitor for TopDownStaticTiming {
+    fn precondition(ctx: &ir::Context) -> bool {
+        let con = ctx.entrypoint().control.borrow();
+        // The entire Calyx program must be static for this pass to trigger
+        con.has_attribute("static")
+    }
+
     fn start(
         &mut self,
         comp: &mut ir::Component,
@@ -818,10 +824,16 @@ impl Visitor for TopDownStaticTiming {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut con = comp.control.borrow_mut();
+
         // Dont compile empty or single-enable control programs
         if matches!(&*con, ir::Control::Enable(_) | ir::Control::Empty(_)) {
             return Ok(Action::Stop);
         }
+
+        if !con.has_attribute("static") {
+            unreachable!("Entire program must be static");
+        }
+
         // Propagate all static information through the control program.
         con.update_static(&HashMap::new());
         Ok(Action::Continue)
