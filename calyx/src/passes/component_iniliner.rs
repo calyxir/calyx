@@ -6,7 +6,7 @@ use itertools::Itertools;
 use crate::analysis;
 use crate::errors::Error;
 use crate::ir::traversal::{
-    Action, ConstructVisitor, Named, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use crate::ir::{
     self, rewriter, CloneName, GetAttributes, LibrarySignatures, RRC,
@@ -279,8 +279,8 @@ impl Named for ComponentInliner {
 
 impl Visitor for ComponentInliner {
     // Inlining should proceed bottom-up
-    fn require_postorder() -> bool {
-        true
+    fn iteration_order() -> Order {
+        Order::Post
     }
 
     fn start(

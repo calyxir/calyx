@@ -4,7 +4,7 @@
 use itertools::Itertools;
 
 use super::action::{Action, VisResult};
-use super::PostOrder;
+use super::{CompTraversal, Order};
 use crate::errors::CalyxResult;
 use crate::ir::{self, Component, Context, Control, LibrarySignatures};
 use std::collections::HashSet;
@@ -102,16 +102,13 @@ impl<T: Default + Sized + Visitor> ConstructVisitor for T {
 /// A pass will usually override one or more function and rely on the default
 /// visitors to automatically visit the children.
 pub trait Visitor {
-    /// Returns true if this pass requires a post-order traversal of the
-    /// components.
-    /// In a post-order traversal, if component `B` uses a component `A`,
-    /// then `A` is guaranteed to be traversed before `B`.
+    /// Define the iteration order in which components should be visited
     #[inline(always)]
-    fn require_postorder() -> bool
+    fn iteration_order() -> Order
     where
         Self: Sized,
     {
-        false
+        Order::No
     }
 
     /// Define the traversal over a component.
@@ -160,26 +157,16 @@ pub trait Visitor {
         Self: Sized + ConstructVisitor,
     {
         let signatures = &context.lib;
-        let mut comps = context.components.drain(..).collect_vec();
+        let comps = context.components.drain(..).collect_vec();
 
-        if Self::require_postorder() {
-            // Temporarily take ownership of components from context.
-            let mut po = PostOrder::new(comps);
-            po.apply_update(|comp, comps| {
-                self.traverse_component(comp, signatures, comps)?;
-                self.clear_data();
-                Ok(())
-            })?;
-            context.components = po.take();
-        } else {
-            for idx in 0..comps.len() {
-                let mut comp = comps.remove(idx);
-                self.traverse_component(&mut comp, signatures, &comps)?;
-                self.clear_data();
-                comps.insert(idx, comp);
-            }
-            context.components = comps;
-        }
+        // Temporarily take ownership of components from context.
+        let mut po = CompTraversal::new(comps, Self::iteration_order());
+        po.apply_update(|comp, comps| {
+            self.traverse_component(comp, signatures, comps)?;
+            self.clear_data();
+            Ok(())
+        })?;
+        context.components = po.take();
 
         Ok(())
     }

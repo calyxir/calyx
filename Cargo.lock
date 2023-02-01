@@ -539,6 +539,7 @@ dependencies = [
  "atty",
  "calyx",
  "criterion",
+ "csv",
  "env_logger",
  "itertools 0.9.0",
  "log",
