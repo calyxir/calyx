@@ -124,7 +124,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         unset JAVA_TOOL_OPTIONS
-        runt -x 'core|examples|errors|mrxl|relay|dahlia|NTT|systolic' -d -o fail -j 1
+        runt -x 'core|examples|errors|mrxl|relay|dahlia|NTT|systolic' -d -o fail -v
 
     - name: Run Python Tests
       working-directory: /home/calyx
