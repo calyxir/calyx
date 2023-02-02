@@ -56,12 +56,12 @@ impl Visitor for CompileEmpty {
                     let signal_on = constant(1, 1);
                     let empty_reg = prim std_reg(1);
                 );
-                let mut assigns: Vec<_> = build_assignments!(builder;
+                let assigns = build_assignments!(builder;
                     empty_reg["write_en"] = ? signal_on["out"];
                     empty_reg["in"] = ? signal_on["out"];
                     empty_group["done"] = ? empty_reg["done"];
                 );
-                empty_group.borrow_mut().assignments.append(&mut assigns);
+                empty_group.borrow_mut().assignments.extend(assigns);
 
                 // Register the name of the group to the pass
                 self.group_name = Some(empty_group.borrow().name());

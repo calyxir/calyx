@@ -73,11 +73,11 @@ impl Visitor for WireInliner {
                 let one = constant(1, 1);
             );
             let group_done = guard!(group["done"]);
-            let mut assigns = build_assignments!(builder;
+            let assigns = build_assignments!(builder;
                 group["go"] = ? this["go"];
                 this["done"] = group_done ? one["out"];
             );
-            comp.continuous_assignments.append(&mut assigns);
+            comp.continuous_assignments.extend(assigns);
         } else {
             return Err(crate::errors::Error::malformed_control(format!(
                 "{}: Structure has more than one group",
