@@ -8,14 +8,6 @@
  */
 `default_nettype none
 
-module std_undef #(
-    parameter WIDTH = 32
-) (
-   output logic [WIDTH - 1:0] out
-);
-  assign out = 'x;
-endmodule
-
 module std_const #(
     parameter WIDTH = 32,
     parameter VALUE = 0

@@ -1,6 +1,0 @@
-0:
-  incr_r0[go] = 1'd1;
-1:
-  incr_r1[go] = 1'd1;
-Unconditional runs:
-  (0, 2)
