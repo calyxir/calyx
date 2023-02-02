@@ -1,12 +1,24 @@
 extern "unsynthesizable.sv" {
   // Designs that use these primitives cannot be synthesized.
 
-  comb primitive std_unsyn_mult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  comb primitive std_unsyn_div<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  comb primitive std_unsyn_mod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  comb primitive std_unsyn_mult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    assign out = left * right;
+  };
+  comb primitive std_unsyn_div<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    assign out = left / right;
+  };
+  comb primitive std_unsyn_mod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+    assign out = left % right;
+  };
 
-  comb primitive std_unsyn_smult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  comb primitive std_unsyn_sdiv<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
-  comb primitive std_unsyn_smod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
+  comb primitive std_unsyn_smult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH){
+    assign out = $signed(left * right);
+  };
+  comb primitive std_unsyn_sdiv<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH){
+    assign out = $signed(left / right);
+  };
+  comb primitive std_unsyn_smod<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH){
+    assign out = $signed(left % right);
+  };
 
 }

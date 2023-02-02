@@ -129,7 +129,7 @@ impl CalyxParser {
 
 #[allow(clippy::large_enum_variant)]
 enum ExtOrComp {
-    Ext((String, Vec<ir::Primitive>)),
+    Ext((Option<String>, Vec<ir::Primitive>)),
     Comp(ComponentDef),
     PrimInline(Primitive),
 }
@@ -850,10 +850,10 @@ impl CalyxParser {
         ))
     }
 
-    fn ext(input: Node) -> ParseResult<(String, Vec<ir::Primitive>)> {
+    fn ext(input: Node) -> ParseResult<(Option<String>, Vec<ir::Primitive>)> {
         Ok(match_nodes!(
             input.into_children();
-            [string_lit(file), primitive(prims)..] => (file, prims.collect())
+            [string_lit(file), primitive(prims)..] => (Some(file), prims.collect())
         ))
     }
 
@@ -925,14 +925,20 @@ impl CalyxParser {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
-                        prim_inlines: Vec::new(),
                         metadata: if m != *"" { Some(m) } else { None }
                     };
                 for m in mixed {
                     match m {
                         ExtOrComp::Ext(ext) => namespace.externs.push(ext),
                         ExtOrComp::Comp(comp) => namespace.components.push(comp),
-                        ExtOrComp::PrimInline(prim) => namespace.prim_inlines.push(prim),
+                        ExtOrComp::PrimInline(prim) => {
+                            if let Some((_, prim_inlines)) = namespace.externs.iter_mut().find(|(filename, _)| filename.is_none()) {
+                                prim_inlines.push(prim)
+                            }
+                            else{
+                                namespace.externs.push((None, vec![prim]));
+                            }
+                        },
                     }
                 }
                 namespace
@@ -943,14 +949,20 @@ impl CalyxParser {
                         imports,
                         components: Vec::new(),
                         externs: Vec::new(),
-                        prim_inlines: Vec::new(),
                         metadata: None
                     };
                 for m in mixed {
                     match m {
                         ExtOrComp::Ext(ext) => namespace.externs.push(ext),
                         ExtOrComp::Comp(comp) => namespace.components.push(comp),
-                        ExtOrComp::PrimInline(prim) => namespace.prim_inlines.push(prim),
+                        ExtOrComp::PrimInline(prim) => {
+                            if let Some((_, prim_inlines)) = namespace.externs.iter_mut().find(|(filename, _)| filename.is_none()) {
+                                prim_inlines.push(prim)
+                            }
+                            else{
+                                namespace.externs.push((None, vec![prim]));
+                            }
+                        },
                     }
                 }
                 namespace

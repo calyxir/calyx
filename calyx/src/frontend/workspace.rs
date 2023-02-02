@@ -170,24 +170,30 @@ impl Workspace {
 
         // Function to merge contents of a namespace into the workspace and
         // return the dependencies that need to be parsed next.
-        let mut merge_into_ws = |mut ns: NamespaceDef,
+        let mut merge_into_ws = |ns: NamespaceDef,
                                  parent: &Path,
                                  shallow: bool|
          -> CalyxResult<Vec<PathBuf>> {
             // Canonicalize the extern paths and add them
             for (path, mut exts) in ns.externs {
-                let abs_path = Self::canonicalize_extern(path, parent)?;
-                workspace
-                    .externs
-                    .entry(Some(abs_path))
-                    .or_default()
-                    .append(&mut exts);
+                match path {
+                    Some(p) => {
+                        let abs_path = Self::canonicalize_extern(p, parent)?;
+                        workspace
+                            .externs
+                            .entry(Some(abs_path))
+                            .or_default()
+                            .append(&mut exts);
+                    }
+                    None => {
+                        workspace
+                            .externs
+                            .entry(None)
+                            .or_default()
+                            .append(&mut exts);
+                    }
+                }
             }
-            workspace
-                .externs
-                .entry(None)
-                .or_default()
-                .append(&mut ns.prim_inlines);
 
             // Add components defined by this namespace to either components or
             // declarations
