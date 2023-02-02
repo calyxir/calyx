@@ -259,6 +259,7 @@ impl Schedule<'_, '_> {
                         st_fsm["in"] = transition_guard ? end_const["out"];
                         st_fsm["write_en"] = transition_guard ? signal_on["out"];
                     );
+                    drop(end_const);
                     assigns
                 }),
         );
@@ -315,6 +316,7 @@ impl Schedule<'_, '_> {
                     c["in"] = done_guard ? zero["out"];
                     c["write_en"] = done_guard ? signal_on["out"];
                 );
+                drop(zero);
                 assigns
             })
             .collect_vec();
@@ -548,7 +550,7 @@ impl Schedule<'_, '_> {
             idx["write_en"] =  ? on["out"];
             group["done"] = ? idx["done"];
         );
-        group.borrow_mut().assignments = incr_assigns;
+        group.borrow_mut().assignments.extend(incr_assigns);
         group
     }
 
@@ -567,7 +569,7 @@ impl Schedule<'_, '_> {
             idx["write_en"] = ? on["out"];
             group["done"] = ? idx["done"];
         );
-        group.borrow_mut().assignments = assigns;
+        group.borrow_mut().assignments.extend(assigns);
         group
     }
 
