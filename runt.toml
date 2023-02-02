@@ -122,6 +122,7 @@ fud exec --to jq \
          -s jq.expr ".memories" \
          {} -q
 """
+timeout = 120
 
 [[tests]]
 name = "correctness static timing"
@@ -139,6 +140,7 @@ fud exec --to jq \
          -s jq.expr ".memories" \
          {} -q
 """
+timeout = 120
 
 # Tests to ensure that static compilation maintains its guarantees
 # See: https://github.com/cucapra/calyx/discussions/1331
@@ -157,6 +159,7 @@ fud exec --to jq \
          -s verilog.data {}.data \
          {} -q
 """
+timeout = 120
 
 [[tests]]
 name = "numeric types correctness and parsing"
