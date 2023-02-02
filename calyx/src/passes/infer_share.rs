@@ -2,7 +2,7 @@ use crate::analysis::{DominatorMap, ShareSet};
 use crate::errors::CalyxResult;
 use crate::ir;
 use crate::ir::traversal::{
-    Action, ConstructVisitor, Named, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 
 /// This pass checks if components are (state) shareable. Here is the process it
@@ -50,8 +50,8 @@ impl ConstructVisitor for InferShare {
 }
 
 impl Visitor for InferShare {
-    fn require_postorder() -> bool {
-        true
+    fn iteration_order() -> Order {
+        Order::Post
     }
     fn start(
         &mut self,

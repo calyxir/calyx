@@ -176,7 +176,7 @@ fn build_incr_barrier(
         let cst_1 = constant(1, 1);
         let cst_2 = constant(1, 32););
     let read_done_guard = guard!(barrier[format!("read_done_{member_idx}")]);
-    let mut assigns = build_assignments!(builder;
+    let assigns = build_assignments!(builder;
         // barrier_*.read_en_0 = 1'd1;
         barrier[format!("read_en_{member_idx}")] = ?cst_1["out"];
         //incr_*_*.left = barrier_*.out_*;
@@ -191,7 +191,7 @@ fn build_incr_barrier(
         group["done"] = ?save["done"];
     );
 
-    group.borrow_mut().assignments.append(&mut assigns);
+    group.borrow_mut().assignments.extend(assigns);
     group
 }
 
@@ -205,7 +205,7 @@ fn build_write_barrier(
     let group = builder.add_group("write_barrier");
     structure!(builder;
     let cst_1 = constant(1, 1););
-    let mut assigns = build_assignments!(builder;
+    let assigns = build_assignments!(builder;
         // barrier_*.write_en_* = 1'd1;
         barrier[format!("write_en_{member_idx}")] = ?cst_1["out"];
         // barrier_*.in_* = save_*_*.out;
@@ -213,7 +213,7 @@ fn build_write_barrier(
         // write_barrier_*_*[done] = barrier_*.write_done_*;
         group["done"] = ?barrier[format!("write_done_{member_idx}")];
     );
-    group.borrow_mut().assignments.append(&mut assigns);
+    group.borrow_mut().assignments.extend(assigns);
     group
 }
 
@@ -227,7 +227,7 @@ fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
     let wait_reg = prim std_reg(1);
     let cst_1 = constant(1, 1););
     let eq_guard = guard!(eq["out"]);
-    let mut assigns = build_assignments!(builder;
+    let assigns = build_assignments!(builder;
         // wait_reg_*.in = eq_*.out;
         // XXX(rachit): Since the value doesn't matter, can this just be zero?
         wait_reg["in"] = ?eq["out"];
@@ -235,7 +235,7 @@ fn build_wait(builder: &mut ir::Builder, eq: &RRC<ir::Cell>) -> RRC<ir::Group> {
         wait_reg["write_en"] = eq_guard? cst_1["out"];
         // wait_*[done] = wait_reg_*.done;
         group["done"] = ?wait_reg["done"];);
-    group.borrow_mut().assignments.append(&mut assigns);
+    group.borrow_mut().assignments.extend(assigns);
     group
 }
 
@@ -247,13 +247,13 @@ fn build_clear_barrier(
     let group = builder.add_group("clear_barrier");
     structure!(builder;
     let cst_1 = constant(1, 1););
-    let mut assigns = build_assignments!(builder;
+    let assigns = build_assignments!(builder;
     // barrier_*.read_en_0 = 1'd1;
     barrier["read_en_0"] = ?cst_1["out"];
     //clear_barrier_*[done] = barrier_1.read_done_0;
     group["done"] = ?barrier["read_done_0"];
     );
-    group.borrow_mut().assignments.append(&mut assigns);
+    group.borrow_mut().assignments.extend(assigns);
     group
 }
 
@@ -266,7 +266,7 @@ fn build_restore(
     structure!(builder;
     let cst_1 = constant(1,1);
     let cst_2 = constant(0, 32););
-    let mut assigns = build_assignments!(builder;
+    let assigns = build_assignments!(builder;
         // barrier_*.write_en_0 = 1'd1;
         barrier["write_en_0"] = ?cst_1["out"];
         // barrier_*.in_0 = 32'd0;
@@ -274,7 +274,7 @@ fn build_restore(
         // restore_*[done] = barrier_*.write_done_0;
         group["done"] = ?barrier["write_done_0"];
     );
-    group.borrow_mut().assignments.append(&mut assigns);
+    group.borrow_mut().assignments.extend(assigns);
     group
 }
 
@@ -290,7 +290,7 @@ fn build_wait_restore(
     let wait_restore_reg = prim std_reg(1);
     let cst_1 = constant(1, 1););
     let eq_guard = !guard!(eq["out"]);
-    let mut assigns = build_assignments!(builder;
+    let assigns = build_assignments!(builder;
     // wait_restore_reg_*.in = !eq_*.out? 1'd1;
     wait_restore_reg["in"] = eq_guard? cst_1["out"];
     // wait_restore_reg_*.write_en = !eq_*.out? 1'd1;
@@ -298,7 +298,7 @@ fn build_wait_restore(
     //wait_restore_*[done] = wait_restore_reg_*.done;
     group["done"] = ?wait_restore_reg["done"];
     );
-    group.borrow_mut().assignments.append(&mut assigns);
+    group.borrow_mut().assignments.extend(assigns);
     group
 }
 
@@ -373,16 +373,13 @@ impl Visitor for CompileSync {
                 let num_members = constant(*n_members, 32);
             );
             // add continuous assignments
-            let mut assigns = build_assignments!(builder;
+            let assigns = build_assignments!(builder;
             // eq_*.left = barrier_*.peek;
             eq["left"] = ?barrier["peek"];
             // eq_*.right = 32'd* (number of members);
             eq["right"] = ?num_members["out"];
             );
-            builder
-                .component
-                .continuous_assignments
-                .append(&mut assigns);
+            builder.component.continuous_assignments.extend(assigns);
 
             init_barriers.push(ir::Control::enable(restore));
         }

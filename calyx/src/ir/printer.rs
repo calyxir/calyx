@@ -15,18 +15,15 @@ impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     fn format_at_attributes(attrs: &ir::Attributes) -> String {
-        attrs
-            .attrs
-            .iter()
-            .map(|(k, v)| {
-                if *v == 1 {
-                    format!("@{}", k)
-                } else {
-                    format!("@{}({})", k, v)
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(" ")
+        let mut buf = String::new();
+        for (name, val) in attrs {
+            if *val == 1 {
+                buf.push_str(&format!("@{name} "));
+            } else {
+                buf.push_str(&format!("@{name}({val}) "));
+            }
+        }
+        buf
     }
 
     /// Format attributes of the form `<"static"=1>`.
@@ -54,14 +51,7 @@ impl Printer {
             .map(|p| {
                 format!(
                     "{}{}: {}",
-                    if !p.borrow().attributes.is_empty() {
-                        format!(
-                            "{} ",
-                            Self::format_at_attributes(&p.borrow().attributes)
-                        )
-                    } else {
-                        "".to_string()
-                    },
+                    Self::format_at_attributes(&p.borrow().attributes),
                     p.borrow().name.id,
                     p.borrow().width
                 )
@@ -90,14 +80,7 @@ impl Printer {
             .map(|pd| {
                 format!(
                     "{}{}: {}",
-                    if !pd.attributes.is_empty() {
-                        format!(
-                            "{} ",
-                            Self::format_at_attributes(&pd.attributes)
-                        )
-                    } else {
-                        "".to_string()
-                    },
+                    Self::format_at_attributes(&pd.attributes),
                     pd.name,
                     pd.width
                 )
@@ -202,18 +185,19 @@ impl Printer {
 
         // Add the control program.
         // Since the syntax doesn't allow combinational components to have a control block, the attributes will always be empty
-        match &*comp.control.borrow() {
-            ir::Control::Empty(ir::Empty { attributes })
-                if attributes.is_empty() =>
-            {
-                if !comp.is_comb {
+        if !comp.is_comb {
+            let con = &*comp.control.borrow();
+            match con {
+                ir::Control::Empty(ir::Empty { attributes })
+                    if attributes.is_empty() =>
+                {
                     writeln!(f, "\n  control {{}}")?;
                 }
-            }
-            _ => {
-                writeln!(f, "\n  control {{")?;
-                Self::write_control(&comp.control.borrow(), 4, f)?;
-                writeln!(f, "  }}")?;
+                _ => {
+                    writeln!(f, "\n  control {{")?;
+                    Self::write_control(&comp.control.borrow(), 4, f)?;
+                    writeln!(f, "  }}")?;
+                }
             }
         }
 
@@ -233,13 +217,7 @@ impl Printer {
                 ..
             } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
-                if !cell.attributes.is_empty() {
-                    write!(
-                        f,
-                        "{} ",
-                        Self::format_at_attributes(&cell.attributes)
-                    )?
-                }
+                write!(f, "{}", Self::format_at_attributes(&cell.attributes))?;
                 if cell.is_reference() {
                     write!(f, "ref ")?
                 }
@@ -257,13 +235,7 @@ impl Printer {
             }
             ir::CellType::Component { name, .. } => {
                 write!(f, "{}", " ".repeat(indent_level))?;
-                if !cell.attributes.is_empty() {
-                    write!(
-                        f,
-                        "{} ",
-                        Self::format_at_attributes(&cell.attributes)
-                    )?
-                }
+                write!(f, "{}", Self::format_at_attributes(&cell.attributes))?;
                 if cell.is_reference() {
                     write!(f, "ref ")?
                 }
@@ -281,9 +253,7 @@ impl Printer {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        if !assign.attributes.is_empty() {
-            write!(f, "{} ", Self::format_at_attributes(&assign.attributes))?
-        }
+        write!(f, "{}", Self::format_at_attributes(&assign.attributes))?;
         write!(f, "{} = ", Self::port_to_str(&assign.dst.borrow()))?;
         if !matches!(&*assign.guard, ir::Guard::True) {
             write!(f, "{} ? ", Self::guard_str(&assign.guard.clone()))?;
@@ -354,9 +324,7 @@ impl Printer {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
             ir::Control::Enable(ir::Enable { group, attributes }) => {
-                if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(attributes))?
-                }
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "{};", group.borrow().name().id)
             }
             ir::Control::Invoke(ir::Invoke {
@@ -368,7 +336,7 @@ impl Printer {
                 ref_cells,
             }) => {
                 if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(attributes))?
+                    write!(f, "{}", Self::format_at_attributes(attributes))?
                 }
                 write!(f, "invoke {}", comp.borrow().name())?;
                 if !ref_cells.is_empty() {
@@ -422,9 +390,7 @@ impl Printer {
                 }
             }
             ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-                if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(attributes))?
-                }
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "seq {{")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
@@ -432,9 +398,7 @@ impl Printer {
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Par(ir::Par { stmts, attributes }) => {
-                if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(attributes))?
-                }
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "par {{")?;
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
@@ -448,9 +412,7 @@ impl Printer {
                 fbranch,
                 attributes,
             }) => {
-                if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(attributes))?
-                }
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(f, "if {} ", Self::port_to_str(&port.borrow()),)?;
                 if let Some(c) = cond {
                     write!(f, "with {} ", c.borrow().name.id)?;
@@ -472,9 +434,7 @@ impl Printer {
                 body,
                 attributes,
             }) => {
-                if !attributes.is_empty() {
-                    write!(f, "{} ", Self::format_at_attributes(attributes))?
-                }
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(f, "while {} ", Self::port_to_str(&port.borrow()),)?;
                 if let Some(c) = cond {
                     write!(f, "with {} ", c.borrow().name.id)?;

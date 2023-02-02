@@ -173,11 +173,13 @@ impl<'a> Schedule<'a> {
                         .eq(guard!(start_const["out"]))
                         .and(guard);
 
-                    let assigns = build_assignments!(builder;
+                    let assign = build_assignments!(builder;
                         fsm["in"] = transition_guard ? end_const["out"];
                         fsm["write_en"] = transition_guard ? signal_on["out"];
                     );
-                    assigns
+                    // Explicitly needed because clippy suggests directly returning the assignment which leads to a borrow error
+                    drop(end_const);
+                    assign
                 }),
         );
         // Unconditional Transitions
@@ -211,14 +213,11 @@ impl<'a> Schedule<'a> {
         group.borrow_mut().assignments.extend(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
-        let mut reset_fsm = build_assignments!(builder;
+        let reset_fsm = build_assignments!(builder;
             fsm["in"] = last_guard ? first_state["out"];
             fsm["write_en"] = last_guard ? signal_on["out"];
         );
-        builder
-            .component
-            .continuous_assignments
-            .append(&mut reset_fsm);
+        builder.component.continuous_assignments.extend(reset_fsm);
 
         group
     }
@@ -436,12 +435,12 @@ impl Schedule<'_> {
         structure!(self.builder;
             let signal_on = constant(1, 1);
         );
-        let mut assigns = build_assignments!(self.builder;
+        let assigns = build_assignments!(self.builder;
             group["go"] = pre_guard ? signal_on["out"];
         );
 
         // Enable when in range of group's latency.
-        self.enables.entry(range).or_default().append(&mut assigns);
+        self.enables.entry(range).or_default().extend(assigns);
 
         // Add any necessary internal transitions. In the case time is 1 and there
         // is a single transition, it is taken care of by the parent.
