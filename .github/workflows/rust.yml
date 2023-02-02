@@ -103,13 +103,13 @@ jobs:
     - name: Relay
       working-directory: /home/calyx
       run: |
-        runt -i 'relay' -x 'core|examples|errors|dahlia|NTT|systolic|correctness' -d -o fail
+        runt -i 'relay' -x 'core|examples|errors|dahlia|NTT|systolic|correctness' -d -o fail -j $(expr $(nproc) / 2)
 
     - name: Misc tests
       working-directory: /home/calyx
       run: |
         unset JAVA_TOOL_OPTIONS
-        runt -x 'core|examples|errors|mrxl|relay|dahlia|NTT|systolic|correctness' -d -o fail
+        runt -x 'core|examples|errors|mrxl|relay|dahlia|NTT|systolic|correctness' -d -o fail -j $(nproc) / 2)
 
     - name: Run Python Tests
       working-directory: /home/calyx
