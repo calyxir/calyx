@@ -354,14 +354,14 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group.borrow_mut().assignments.push(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
-        let mut reset_fsm = build_assignments!(self.builder;
+        let reset_fsm = build_assignments!(self.builder;
             fsm["in"] = last_guard ? first_state["out"];
             fsm["write_en"] = last_guard ? signal_on["out"];
         );
         self.builder
             .component
             .continuous_assignments
-            .append(&mut reset_fsm);
+            .extend(reset_fsm);
 
         group
     }
@@ -412,14 +412,14 @@ impl Schedule<'_, '_> {
             let signal_on = self.builder.add_constant(1, 1);
 
             // Activate this group in the current state
-            let mut en_go = build_assignments!(self.builder;
+            let en_go = build_assignments!(self.builder;
                 group["go"] = not_done ? signal_on["out"];
             );
             self
                 .enables
                 .entry(cur_state)
                 .or_default()
-                .append(&mut en_go);
+                .extend(en_go);
 
             // Activate group in the cycle when previous state signals done.
             // NOTE: We explicilty do not add `not_done` to the guard.
@@ -427,10 +427,10 @@ impl Schedule<'_, '_> {
             // why.
             if early_transitions {
                 for (st, g) in &prev_states {
-                    let mut early_go = build_assignments!(self.builder;
+                    let early_go = build_assignments!(self.builder;
                         group["go"] = g ? signal_on["out"];
                     );
-                    self.enables.entry(*st).or_default().append(&mut early_go);
+                    self.enables.entry(*st).or_default().extend(early_go);
                 }
             }
 
@@ -942,12 +942,12 @@ impl Visitor for TopDownCompileControl {
             let group_done = guard!(group["done"]);
 
             // Save the done condition in a register.
-            let mut assigns = build_assignments!(builder;
+            let assigns = build_assignments!(builder;
                 group["go"] = group_go ? signal_on["out"];
                 pd["in"] = group_done ? signal_on["out"];
                 pd["write_en"] = group_done ? signal_on["out"];
             );
-            par_group.borrow_mut().assignments.append(&mut assigns);
+            par_group.borrow_mut().assignments.extend(assigns);
             done_regs.push(pd)
         }
 
