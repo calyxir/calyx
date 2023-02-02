@@ -81,7 +81,7 @@ macro_rules! build_assignments {
      $($dst_node:ident[$dst_port:expr] =
          $($guard:ident)? ?
          $src_node:ident[$src_port:expr];)*)  => {
-        vec![$(
+        [$(
             build_assignments!(@base $builder;
                 $dst_node[$dst_port] = $($guard)? ? $src_node[$src_port])
         ),*]
