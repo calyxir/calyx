@@ -811,10 +811,20 @@ impl TopDownStaticTiming {
 }
 
 impl Visitor for TopDownStaticTiming {
-    fn precondition(ctx: &ir::Context) -> bool {
-        let con = ctx.entrypoint().control.borrow();
-        // The entire Calyx program must be static for this pass to trigger
-        con.has_attribute("static")
+    fn precondition(ctx: &ir::Context) -> Option<String> {
+        let comp = ctx.entrypoint();
+        let has_subcomponents =
+            comp.cells.iter().any(|c| c.borrow().is_component());
+        if has_subcomponents {
+            Some("Subcomponents with static timing not supported".to_string())
+        } else if !comp.control.borrow().has_attribute("static") {
+            Some(
+                "Mixed static-dynamic control programs are not supported"
+                    .to_string(),
+            )
+        } else {
+            None
+        }
     }
 
     fn start(

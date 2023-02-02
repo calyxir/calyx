@@ -102,13 +102,13 @@ impl<T: Default + Sized + Visitor> ConstructVisitor for T {
 /// A pass will usually override one or more function and rely on the default
 /// visitors to automatically visit the children.
 pub trait Visitor {
-    /// Precondition for this pass to run on the program. If this returns false,
-    /// the pass will not be run.
-    fn precondition(_ctx: &ir::Context) -> bool
+    /// Precondition for this pass to run on the program. If this function returns
+    /// None, the pass triggers. Otherwise it aborts and logs the string as the reason.
+    fn precondition(_ctx: &ir::Context) -> Option<String>
     where
         Self: Sized,
     {
-        true
+        None
     }
 
     /// Define the iteration order in which components should be visited
@@ -165,11 +165,8 @@ pub trait Visitor {
     where
         Self: Sized + ConstructVisitor + Named,
     {
-        if !Self::precondition(&*context) {
-            log::info!(
-                "Skipping pass {} because precondition is false",
-                Self::name()
-            );
+        if let Some(msg) = Self::precondition(&*context) {
+            log::info!("Skipping `{}': {msg}", Self::name());
             return Ok(());
         }
 
