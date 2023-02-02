@@ -63,12 +63,6 @@ impl Schedule<'_, '_> {
             !(start == end && guard.is_true()),
             "Unconditional transition to the same state {start}"
         );
-        // eprintln!(
-        //     "Adding transition ({}, {}, {})",
-        //     start,
-        //     end,
-        //     ir::Printer::guard_str(&guard)
-        // );
         self.transitions.insert((start, end, guard));
     }
 
@@ -195,13 +189,11 @@ impl Schedule<'_, '_> {
         } else if e == 1 << fsm_size {
             guard!(fsm["out"]).ge(guard!(lb_const["out"]))
         } else {
-            guard!(fsm["out"]).ge(guard!(lb_const["out"]))
-                & guard!(fsm["out"]).lt(guard!(ub_const["out"]))
+            guard!(fsm["out"])
+                .ge(guard!(lb_const["out"]))
+                .and(guard!(fsm["out"]).lt(guard!(ub_const["out"])))
         }
     }
-
-    /// Fix up reset transitions for non-top-level FSMs. Instead of transitioning to the states in exit states
-    fn fixup_reset_transitions(&mut self, out_edges: Vec<PredEdge>) {}
 
     /// Construct hardware to implement the given schedule.
     ///
@@ -209,21 +201,10 @@ impl Schedule<'_, '_> {
     /// All the hardware is instantiated using the builder associated with this schedule.
     fn realize_schedule(
         self,
-        out_edges: Vec<PredEdge>,
+        mut out_edges: Vec<PredEdge>,
         dump_fsm: bool,
-        // Is this the top-level FSM for main
-        top_level: bool,
     ) -> RRC<ir::Group> {
         let last = self.last();
-        eprintln!(
-            "exits: {}",
-            out_edges
-                .iter()
-                .map(|(st, g)| {
-                    format!("({}, {})", st, ir::Printer::guard_str(g))
-                })
-                .join(", ")
-        );
 
         let group = self.builder.add_group("tdst");
         if dump_fsm {
@@ -253,7 +234,7 @@ impl Schedule<'_, '_> {
                     let state_guard =
                         Self::range_guard(builder, lb, ub, fsm_size, &st_fsm);
                     assigns.iter_mut().for_each(|assign| {
-                        assign.guard.update(|g| g & state_guard.clone())
+                        assign.guard.update(|g| g.and(state_guard.clone()))
                     });
                     assigns
                 }),
@@ -270,8 +251,9 @@ impl Schedule<'_, '_> {
                         let end_const = constant(end, fsm_size);
                     );
 
-                    let transition_guard =
-                        guard!(st_fsm["out"]).eq(guard!(start_const["out"])) & guard;
+                    let transition_guard = guard!(st_fsm["out"])
+                        .eq(guard!(start_const["out"]))
+                        .and(guard);
 
                     let assigns = build_assignments!(builder;
                         st_fsm["in"] = transition_guard ? end_const["out"];
@@ -287,7 +269,7 @@ impl Schedule<'_, '_> {
                 |g, (s, e)| {
                     let range =
                         Self::range_guard(builder, s, e, fsm_size, &st_fsm);
-                    g | range
+                    g.or(range)
                 },
             );
             structure!(builder;
@@ -303,28 +285,24 @@ impl Schedule<'_, '_> {
             group.borrow_mut().assignments.extend(uncond_incr);
         }
 
-        // If this is not the top-level FSM, then we cannot provide a done condition.
-        structure!(builder;
-            let undef = prim std_undef(1);
-        );
-        let done_assign = build_assignments!(builder;
-            group["done"] = ? undef["out"];
-        );
-        group.borrow_mut().assignments.extend(done_assign);
-
-        let mut reset_guard = ir::Guard::True.not();
+        // Done condition for group.
+        let (st, g) = out_edges.pop().expect("No outgoing edges");
+        let c = builder.add_constant(st, fsm_size);
+        let mut done_guard = guard!(st_fsm["out"]).eq(guard!(c["out"])) & g;
         for (st, g) in out_edges {
             let stc = builder.add_constant(st, fsm_size);
             let st_guard = guard!(st_fsm["out"]).eq(guard!(stc["out"]));
-            reset_guard |= st_guard & g;
+            done_guard |= st_guard & g;
         }
-
-        // Non-top-level FSMs reset during the final transition.
+        let done_assign = build_assignments!(builder;
+            group["done"] = done_guard ? signal_on["out"];
+        );
+        group.borrow_mut().assignments.extend(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
         let reset_fsm = build_assignments!(builder;
-            st_fsm["in"] = reset_guard ? first_state["out"];
-            st_fsm["write_en"] = reset_guard ? signal_on["out"];
+            st_fsm["in"] = done_guard ? first_state["out"];
+            st_fsm["write_en"] = done_guard ? signal_on["out"];
         );
         // Reset all loop indices to 0
         let reset_indices = self
@@ -334,8 +312,8 @@ impl Schedule<'_, '_> {
                 let size = c.borrow().get_parameter("WIDTH").unwrap();
                 let zero = builder.add_constant(0, size);
                 let assigns = build_assignments!(builder;
-                    c["in"] = reset_guard ? zero["out"];
-                    c["write_en"] = reset_guard ? signal_on["out"];
+                    c["in"] = done_guard ? zero["out"];
+                    c["write_en"] = done_guard ? signal_on["out"];
                 );
                 assigns
             })
@@ -362,7 +340,7 @@ impl Schedule<'_, '_> {
         preds: Vec<PredEdge>,
     ) -> CalyxResult<Vec<PredEdge>> {
         debug_assert!(!preds.is_empty(), "Predecessors should not be empty.");
-        // eprintln!("{}", ir::Printer::control_to_str(con));
+
         match con {
             ir::Control::Enable(e) => {
                 self.enable_calculate_states(e, preds)
@@ -653,15 +631,6 @@ impl Schedule<'_, '_> {
         let mut exits = vec![];
         self.states
             .control_exits(&wh.body, self.builder, &mut exits);
-        // eprintln!(
-        //     "exits: {}",
-        //     exits
-        //         .iter()
-        //         .map(|(st, g)| {
-        //             format!("({}, {})", st, ir::Printer::guard_str(g))
-        //         })
-        //         .join(", ")
-        // );
         let back_edges = exits
             .clone()
             .into_iter()
@@ -723,7 +692,6 @@ impl Schedule<'_, '_> {
         con: &mut ir::Control,
         builder: &mut ir::Builder,
         dump_fsm: bool,
-        top_level: bool,
     ) -> CalyxResult<RRC<ir::Group>> {
         debug_assert!(
             con.get_attribute("static").is_some(),
@@ -737,7 +705,7 @@ impl Schedule<'_, '_> {
         let mut schedule = Schedule::new(builder, states);
         let out_edges =
             schedule.calculate_states(con, vec![(0, ir::Guard::True)])?;
-        Ok(schedule.realize_schedule(out_edges, dump_fsm, top_level))
+        Ok(schedule.realize_schedule(out_edges, dump_fsm))
     }
 }
 
@@ -769,6 +737,8 @@ impl Schedule<'_, '_> {
 pub struct TopDownStaticTiming {
     /// Print out the FSM representation to STDOUT.
     dump_fsm: bool,
+    /// Make sure that the program is fully compiled by this pass
+    force: bool,
 }
 
 impl ConstructVisitor for TopDownStaticTiming {
@@ -776,9 +746,12 @@ impl ConstructVisitor for TopDownStaticTiming {
     where
         Self: Sized + Named,
     {
-        let opts = Self::get_opts(&["dump-fsm"], ctx);
+        let opts = Self::get_opts(&["dump-fsm", "force"], ctx);
 
-        Ok(TopDownStaticTiming { dump_fsm: opts[0] })
+        Ok(TopDownStaticTiming {
+            dump_fsm: opts[0],
+            force: opts[1],
+        })
     }
 
     fn clear_data(&mut self) {
@@ -801,14 +774,13 @@ impl TopDownStaticTiming {
         con: &mut ir::Control,
         builder: &mut ir::Builder,
         dump_fsm: bool,
-        top_level: bool,
     ) -> CalyxResult<()> {
         // Do not attempt to compile Enable and Empty statement
         if matches!(con, ir::Control::Enable(_) | ir::Control::Empty(_)) {
             return Ok(());
         }
         if let Some(time) = con.get_attribute("static") {
-            let group = Schedule::compile(con, builder, dump_fsm, top_level)?;
+            let group = Schedule::compile(con, builder, dump_fsm)?;
             let mut en = ir::Control::enable(group);
             en.get_mut_attributes()["static"] = time;
             *con = en;
@@ -817,25 +789,17 @@ impl TopDownStaticTiming {
                 ir::Control::Seq(ir::Seq { stmts, .. })
                 | ir::Control::Par(ir::Par { stmts, .. }) => {
                     for stmt in stmts.iter_mut() {
-                        Self::compile_sub_programs(
-                            stmt, builder, dump_fsm, top_level,
-                        )?;
+                        Self::compile_sub_programs(stmt, builder, dump_fsm)?;
                     }
                 }
                 ir::Control::If(ir::If {
                     tbranch, fbranch, ..
                 }) => {
-                    Self::compile_sub_programs(
-                        tbranch, builder, dump_fsm, top_level,
-                    )?;
-                    Self::compile_sub_programs(
-                        fbranch, builder, dump_fsm, top_level,
-                    )?;
+                    Self::compile_sub_programs(tbranch, builder, dump_fsm)?;
+                    Self::compile_sub_programs(fbranch, builder, dump_fsm)?;
                 }
                 ir::Control::While(ir::While { body, .. }) => {
-                    Self::compile_sub_programs(
-                        body, builder, dump_fsm, top_level,
-                    )?;
+                    Self::compile_sub_programs(body, builder, dump_fsm)?;
                 }
                 ir::Control::Enable(_)
                 | ir::Control::Invoke(_)
@@ -891,12 +855,8 @@ impl Visitor for TopDownStaticTiming {
                 ir::Control::Enable(_) => {}
                 con => {
                     let time = con.get_attribute("static").unwrap();
-                    let group = Schedule::compile(
-                        con,
-                        &mut builder,
-                        self.dump_fsm,
-                        false,
-                    )?;
+                    let group =
+                        Schedule::compile(con, &mut builder, self.dump_fsm)?;
                     let mut en = ir::Control::enable(group);
                     en.get_mut_attributes()["static"] = time;
                     *con = en;
@@ -915,23 +875,17 @@ impl Visitor for TopDownStaticTiming {
         // Take ownership of the control program
         let mut con = comp.control.replace(ir::Control::empty());
 
-        // Compile all sub-programs. Because of the current restriction
-        // requiring control programs to be completely static, we expect this to
-        // compile the entire program.
+        // Compile all sub-programs
         let mut builder = ir::Builder::new(comp, sigs);
-        Self::compile_sub_programs(
-            &mut con,
-            &mut builder,
-            self.dump_fsm,
-            false,
-        )?;
+        Self::compile_sub_programs(&mut con, &mut builder, self.dump_fsm)?;
 
         // Add the control program back.
         comp.control = Rc::new(RefCell::new(con));
 
-        // We ignore the force flag because we don't expect to compile sub-programs and ensure that
-        // the final control program was fully compiled.
-        if !matches!(&*comp.control.borrow(), ir::Control::Enable(_)) {
+        // If the force flag is set, make sure that we only have one group remaining
+        if self.force
+            && !matches!(&*comp.control.borrow(), ir::Control::Enable(_))
+        {
             return Err(Error::pass_assumption(
                 Self::name(),
                 "`force` flag was set but the final control program is not an enable"
