@@ -1,8 +1,0 @@
-enables:
-[0, 1)
-  incr_r0[go] = 1'd1;
-[1, 2)
-  incr_r1[go] = 1'd1;
-transitions:
-unconditional:
-(0, 2)

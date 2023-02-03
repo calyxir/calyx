@@ -1,0 +1,27 @@
+import "primitives/core.futil";
+
+component main() -> () {
+    cells {
+      @external m = std_mem_d1(32, 1, 1);
+      add = std_add(32);
+      r0 = std_reg(1);
+      r1 = std_reg(1);
+    }
+    wires {
+        group one {
+            add.left = m.read_data;
+            add.right = 32'd1;
+            m.write_data = add.out;
+            m.addr0 = 1'd0;
+            m.write_en = 1'd1;
+            one[done] = m.done;
+        }
+    }
+    control {
+        @bound(2) while r0.out {
+            @bound(2) while r1.out {
+                one;
+            }
+        }
+    }
+}

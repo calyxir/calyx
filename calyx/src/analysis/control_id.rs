@@ -105,7 +105,7 @@ impl ControlId {
     // Gets attribute s from c, panics otherwise. Should be used when you know
     // that c has attribute s.
     pub fn get_guaranteed_attribute(c: &ir::Control, s: &str) -> u64 {
-        *c.get_attribute(s).unwrap_or_else(||unreachable!(
+        c.get_attribute(s).unwrap_or_else(||unreachable!(
           "called get_guaranteed_attribute, meaning we had to be sure it had the id"
       ))
     }

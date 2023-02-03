@@ -9,6 +9,8 @@ main #() main (
   .done(done)
 );
 
+localparam RESET_CYCLES = 5;
+
 // Cycle counter. Make this signed to catch errors with cycle simulation
 // counts.
 logic signed [0:63] cycle_count;
@@ -51,7 +53,7 @@ initial begin
   #10;
   reset = 1;
   clk = 1;
-  repeat(5) begin
+  repeat(RESET_CYCLES) begin
     #10 clk = ~clk;
   end
 
@@ -65,11 +67,10 @@ initial begin
   forever begin
     #10 clk = ~clk;
     if (done == 1) begin
-      $display("Simulated %d cycles", cycle_count - 5);
+      $display("Simulated %d cycles", cycle_count - RESET_CYCLES + 1);
       $finish;
-    end else if (cycle_count != 0 && cycle_count == CYCLE_LIMIT) begin
-      $display("Cycle limit reached");
-      $display("Simulated %d cycles", cycle_count - 5);
+    end else if (cycle_count != 0 && cycle_count == CYCLE_LIMIT + RESET_CYCLES) begin
+      $display("reached limit of %d cycles", CYCLE_LIMIT);
       $finish;
     end
   end

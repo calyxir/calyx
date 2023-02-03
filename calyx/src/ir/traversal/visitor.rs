@@ -102,6 +102,15 @@ impl<T: Default + Sized + Visitor> ConstructVisitor for T {
 /// A pass will usually override one or more function and rely on the default
 /// visitors to automatically visit the children.
 pub trait Visitor {
+    /// Precondition for this pass to run on the program. If this function returns
+    /// None, the pass triggers. Otherwise it aborts and logs the string as the reason.
+    fn precondition(_ctx: &ir::Context) -> Option<String>
+    where
+        Self: Sized,
+    {
+        None
+    }
+
     /// Define the iteration order in which components should be visited
     #[inline(always)]
     fn iteration_order() -> Order
@@ -154,8 +163,13 @@ pub trait Visitor {
     /// Panics if the pass attempts to use the control program mutably.
     fn do_pass(&mut self, context: &mut Context) -> CalyxResult<()>
     where
-        Self: Sized + ConstructVisitor,
+        Self: Sized + ConstructVisitor + Named,
     {
+        if let Some(msg) = Self::precondition(&*context) {
+            log::info!("Skipping `{}': {msg}", Self::name());
+            return Ok(());
+        }
+
         let signatures = &context.lib;
         let comps = context.components.drain(..).collect_vec();
 
@@ -176,7 +190,7 @@ pub trait Visitor {
     #[inline(always)]
     fn do_pass_default(context: &mut Context) -> CalyxResult<Self>
     where
-        Self: ConstructVisitor + Sized,
+        Self: ConstructVisitor + Sized + Named,
     {
         let mut visitor = Self::from(&*context)?;
         visitor.do_pass(context)?;

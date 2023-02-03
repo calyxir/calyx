@@ -47,7 +47,7 @@ cmd = """
 name = "[core] futil examples"
 paths = ["examples/futil/*.futil"]
 cmd = """
-./target/debug/futil {} -m file -d top-down-st
+./target/debug/futil {} -m file -d tdst
 """
 
 ##### Backend Tests #####
@@ -117,11 +117,49 @@ fud exec --to jq \
          --through dat \
          -s verilog.data {}.data \
          -s futil.exec './target/debug/futil' \
-         -s futil.flags ' -d top-down-st' \
+         -s futil.flags ' -d tdst' \
          -s verilog.cycle_limit 500 \
          -s jq.expr ".memories" \
          {} -q
 """
+timeout = 120
+
+[[tests]]
+name = "correctness static timing"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+# Tests to ensure that static compilation maintains its guarantees
+# See: https://github.com/cucapra/calyx/discussions/1331
+[[tests]]
+name = "correctness static scheduling"
+paths = [
+  "tests/correctness/static/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags ' -x tdst:force -p all -d group2invoke' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         {} -q
+"""
+timeout = 120
 
 [[tests]]
 name = "numeric types correctness and parsing"
@@ -152,19 +190,6 @@ fud exec --to jq \
       -s jq.expr ".memories" \
       {} -q
 """
-
-# [[tests]]
-# name = "correctness static timing"
-# paths = [ "tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil", "tests/correctness/sync/*.futil" ]
-# cmd = """
-# fud exec --to jq \
-#          --through dat \
-#          -s futil.exec './target/debug/futil' \
-#          -s verilog.cycle_limit 500 \
-#          -s verilog.data {}.data \
-#          -s jq.expr ".memories" \
-#          {} -q
-# """
 
 [[tests]]
 name = "[frontend] systolic array correctness"
@@ -237,7 +262,7 @@ name = "[examples] language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d top-down-st' \
+         -s futil.flags ' -d tdst' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
          --to dat -q
@@ -248,7 +273,7 @@ name = "[examples] sync primitives"
 paths = ["examples/sync/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d top-down-st' \
+         -s futil.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q
@@ -259,7 +284,7 @@ name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d top-down-st' \
+         -s futil.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q

@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d top-down-st -d post-opt -d group2invoke -d lower -b none
+// -x tdcc:dump-fsm -d tdst -d post-opt -d group2invoke -d lower -b none
 
 import "primitives/core.futil";
 
@@ -17,8 +17,8 @@ component main() -> () {
 
   wires {
     comb group cond {
-      lt.left = 1'd1; 
-      lt.right = 1'd0; 
+      lt.left = 1'd1;
+      lt.right = 1'd0;
     }
 
     group A {
