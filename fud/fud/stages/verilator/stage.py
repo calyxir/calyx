@@ -4,10 +4,12 @@ from pathlib import Path
 
 from fud import errors
 from fud.stages import Source, SourceType, Stage
-from fud.utils import TmpDir, shell, unwrap_or
+from fud.utils import TmpDir, shell
 from fud import config as cfg
 
 from .json_to_dat import convert2dat, convert2json
+
+VCD_FILE = "output.vcd"
 
 
 class JsonToDat(Stage):
@@ -104,18 +106,13 @@ class VerilatorStage(Stage):
         return [
             "data",
             "exec",
-            "top_module",
             "round_float_to_fixed",
-            "vcd-target",
             "cycle_limit",
             "file_extensions",
         ]
 
     def _define_steps(self, input_data, builder, config):
 
-        testbench_files = [
-            str(Path(config["global", cfg.ROOT]) / "fud" / "sim" / "testbench.cpp"),
-        ]
         data_path = config.get(["stages", self.name, "data"])
 
         # Step 1: Make a new temporary directory
@@ -151,18 +148,21 @@ class VerilatorStage(Stage):
             )
 
         # Step 3: compile with verilator
+        testbench_sv = str(
+            Path(config["global", cfg.ROOT]) / "fud" / "icarus" / "tb.sv"
+        )
         cmd = " ".join(
             [
                 config["stages", self.name, "exec"],
-                "-cc",
                 "--trace",
                 "{input_path}",
-                "--exe " + " --exe ".join(testbench_files),
-                "--build",
+                testbench_sv,
+                "--binary",
                 "--top-module",
-                config["stages", self.name, "top_module"],
+                "TOP",  # The wrapper module name from `tb.sv`.
                 "--Mdir",
                 "{tmpdir_name}",
+                "-fno-inline",
             ]
         )
 
@@ -181,17 +181,14 @@ class VerilatorStage(Stage):
             """
             Simulates compiled Verilator code.
             """
+            cycle_limit = config["stages", self.name, "cycle_limit"]
             return shell(
                 [
-                    f"{tmpdir.name}/Vmain",
-                    unwrap_or(
-                        config["stages", self.name, "vcd-target"],
-                        f"{tmpdir.name}/output.vcd",
-                    ),
-                    str(config["stages", self.name, "cycle_limit"]),
-                    # Don't trace if we're only looking at memory outputs
-                    "--trace" if self.vcd else "",
+                    f"{tmpdir.name}/VTOP",
                     f"+DATA={tmpdir.name}",
+                    f"+CYCLE_LIMIT={str(cycle_limit)}",
+                    f"+OUT={tmpdir.name}/output.vcd",
+                    f"+NOTRACE={0 if self.vcd else 1}",
                 ]
             )
 
@@ -203,12 +200,7 @@ class VerilatorStage(Stage):
             """
             # return stream instead of path because tmpdir gets deleted before
             # the next stage runs
-
-            if config["stages", self.name, "vcd-target"] is not None:
-                target = Path(config["stages", self.name, "vcd-target"])
-            else:
-                target = Path(tmpdir.name) / "output.vcd"
-
+            target = Path(tmpdir.name) / VCD_FILE
             return target.open("rb")
 
         # Step 5(self.vcd == False): extract cycles + data
@@ -225,7 +217,7 @@ class VerilatorStage(Stage):
                 raise errors.CycleLimitedReached(self.name, found.group(1))
 
             # Look for output like: "Simulated 91 cycles"
-            r = re.search(r"Simulated (\d+) cycles", simulated_output)
+            r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
             data = {
                 "cycles": int(r.group(1)) if r is not None else 0,
                 "memories": convert2json(tmpdir.name, "out"),
