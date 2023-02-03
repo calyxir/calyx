@@ -278,6 +278,7 @@ module std_mem_d1 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -286,11 +287,19 @@ module std_mem_d1 #(
 
   /* verilator lint_off WIDTH */
   assign read_data = mem[addr0];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access
@@ -318,6 +327,7 @@ module std_mem_d2 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -326,11 +336,19 @@ module std_mem_d2 #(
   logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0];
 
   assign read_data = mem[addr0][addr1];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0][addr1] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access
@@ -367,6 +385,7 @@ module std_mem_d3 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -375,11 +394,19 @@ module std_mem_d3 #(
   logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0];
 
   assign read_data = mem[addr0][addr1][addr2];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0][addr1][addr2] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access
@@ -425,6 +452,7 @@ module std_mem_d4 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -433,11 +461,19 @@ module std_mem_d4 #(
   logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0][D3_SIZE-1:0];
 
   assign read_data = mem[addr0][addr1][addr2][addr3];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0][addr1][addr2][addr3] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access
@@ -494,12 +530,14 @@ logic [3:0] m0_addr0;
 logic [31:0] m0_write_data;
 logic m0_write_en;
 logic m0_clk;
+logic m0_reset;
 logic [31:0] m0_read_data;
 logic m0_done;
 logic [3:0] m1_addr0;
 logic [31:0] m1_write_data;
 logic m1_write_en;
 logic m1_clk;
+logic m1_reset;
 logic [31:0] m1_read_data;
 logic m1_done;
 initial begin
@@ -507,10 +545,12 @@ initial begin
   m0_write_data = 32'd0;;
   m0_write_en = 1'd0;;
   m0_clk = 1'd0;;
+  m0_reset = 1'd0;;
   m1_addr0 = 4'd0;;
   m1_write_data = 32'd0;;
   m1_write_en = 1'd0;;
   m1_clk = 1'd0;;
+  m1_reset = 1'd0;;
 end
 std_mem_d1 # (
     .IDX_SIZE(4),
@@ -521,6 +561,7 @@ std_mem_d1 # (
     .clk(m0_clk),
     .done(m0_done),
     .read_data(m0_read_data),
+    .reset(m0_reset),
     .write_data(m0_write_data),
     .write_en(m0_write_en)
 );
@@ -533,10 +574,12 @@ std_mem_d1 # (
     .clk(m1_clk),
     .done(m1_done),
     .read_data(m1_read_data),
+    .reset(m1_reset),
     .write_data(m1_write_data),
     .write_en(m1_write_en)
 );
 assign m0_clk = clk;
+assign m0_reset = reset;
 assign m1_clk = clk;
 assign done = m1_done;
 
