@@ -98,7 +98,7 @@ jobs:
     - name: Runt tests
       working-directory: /home/calyx
       run: |
-        runt -x 'mrxl' -d -o fail -j 1 --max-futures 8
+        runt -x 'mrxl' -d -o fail -j 1 --max-futures 20
 
     - name: Run Python Tests
       working-directory: /home/calyx
