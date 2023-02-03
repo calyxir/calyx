@@ -60,7 +60,7 @@ module seq_mem_d1 #(
 
   // Write value to the memory
   always_ff @(posedge clk) begin
-    if (write_en)
+    if (!reset && write_en)
       mem[addr0] <= in;
   end
 
