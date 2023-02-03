@@ -131,3 +131,24 @@ pub struct Context {
     /// An optional opaque metadata string which is used by Cider
     pub metadata: Option<String>,
 }
+
+impl Context {
+    // Return the index to the entrypoint component.
+    fn entrypoint_idx(&self) -> usize {
+        self.components
+            .iter()
+            .position(|c| c.name == self.entrypoint)
+            .unwrap_or_else(|| panic!("No entrypoint in the program"))
+    }
+
+    /// Return the entrypoint component.
+    pub fn entrypoint(&self) -> &Component {
+        &self.components[self.entrypoint_idx()]
+    }
+
+    /// Return the entrypoint component with mutable access.
+    pub fn entrypoint_mut(&mut self) -> &mut Component {
+        let idx = self.entrypoint_idx();
+        &mut self.components[idx]
+    }
+}

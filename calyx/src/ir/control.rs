@@ -10,6 +10,14 @@ pub struct Seq {
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
 }
+impl GetAttributes for Seq {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
 
 /// Data for the `par` control statement.
 #[derive(Debug)]
@@ -18,6 +26,14 @@ pub struct Par {
     pub stmts: Vec<Control>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+}
+impl GetAttributes for Par {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 /// Data for the `if` control statement.
@@ -38,20 +54,36 @@ pub struct If {
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
 }
+impl GetAttributes for If {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
 
 /// Data for the `if` control statement.
 #[derive(Debug)]
 pub struct While {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
-
     /// Group that makes the signal on the conditional port valid.
     pub cond: Option<RRC<CombGroup>>,
-
     /// Control for the loop body.
     pub body: Box<Control>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+}
+impl GetAttributes for While {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 /// Data for the `enable` control statement.
@@ -61,6 +93,15 @@ pub struct Enable {
     pub group: RRC<Group>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+}
+impl GetAttributes for Enable {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 type PortMap = Vec<(Id, RRC<Port>)>;
@@ -81,6 +122,15 @@ pub struct Invoke {
     pub comb_group: Option<RRC<CombGroup>>,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
     pub ref_cells: CellMap,
+}
+impl GetAttributes for Invoke {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 /// Data for the `empty` control statement.
@@ -220,11 +270,11 @@ impl Control {
     }
 
     /// Returns the value of an attribute if present
-    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
+    pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
     where
         S: Into<Id>,
     {
-        self.get_attributes().get(attr)
+        self.get_attributes().get(attr).cloned()
     }
 
     /// Returns true if the node has a specific attribute
@@ -236,76 +286,78 @@ impl Control {
     }
 }
 
-impl Control {
-    /// Associated clone method the control program. We don't define this using the
-    /// [Clone] trait because cloning control is not very common and clones
-    /// should be explicit.
-    #[allow(clippy::should_implement_trait)]
-    pub fn clone(con: &Control) -> Control {
+/// Implement cloning operations on control statements.
+/// We implement these separatily from the [Clone] trait because cloning trait
+/// is not very common and clones should be explicit.
+pub struct Cloner;
+
+impl Cloner {
+    pub fn enable(en: &Enable) -> Enable {
+        Enable {
+            group: Rc::clone(&en.group),
+            attributes: en.attributes.clone(),
+        }
+    }
+
+    pub fn invoke(inv: &Invoke) -> Invoke {
+        Invoke {
+            comp: Rc::clone(&inv.comp),
+            inputs: inv.inputs.clone(),
+            outputs: inv.outputs.clone(),
+            attributes: inv.attributes.clone(),
+            comb_group: inv.comb_group.clone(),
+            ref_cells: inv.ref_cells.clone(),
+        }
+    }
+
+    pub fn empty(en: &Empty) -> Empty {
+        Empty {
+            attributes: en.attributes.clone(),
+        }
+    }
+
+    pub fn while_(wh: &While) -> While {
+        While {
+            port: Rc::clone(&wh.port),
+            cond: wh.cond.clone(),
+            body: Box::new(Self::control(&wh.body)),
+            attributes: wh.attributes.clone(),
+        }
+    }
+
+    pub fn if_(if_: &If) -> If {
+        If {
+            port: Rc::clone(&if_.port),
+            cond: if_.cond.clone(),
+            tbranch: Box::new(Self::control(&if_.tbranch)),
+            fbranch: Box::new(Self::control(&if_.fbranch)),
+            attributes: if_.attributes.clone(),
+        }
+    }
+
+    pub fn par(par: &Par) -> Par {
+        Par {
+            stmts: par.stmts.iter().map(Self::control).collect(),
+            attributes: par.attributes.clone(),
+        }
+    }
+
+    pub fn seq(seq: &Seq) -> Seq {
+        Seq {
+            stmts: seq.stmts.iter().map(Self::control).collect(),
+            attributes: seq.attributes.clone(),
+        }
+    }
+
+    pub fn control(con: &Control) -> Control {
         match con {
-            Control::Seq(Seq { stmts, attributes }) => Control::Seq(Seq {
-                stmts: stmts.iter().map(Control::clone).collect(),
-                attributes: attributes.clone(),
-            }),
-            Control::Par(Par { stmts, attributes }) => Control::Par(Par {
-                stmts: stmts.iter().map(Control::clone).collect(),
-                attributes: attributes.clone(),
-            }),
-            Control::If(If {
-                port,
-                cond,
-                tbranch,
-                fbranch,
-                attributes,
-            }) => Control::If(If {
-                port: Rc::clone(port),
-                cond: cond.clone().map(|cg| Rc::clone(&cg)),
-                tbranch: Box::new(Control::clone(tbranch)),
-                fbranch: Box::new(Control::clone(fbranch)),
-                attributes: attributes.clone(),
-            }),
-            Control::While(While {
-                port,
-                cond,
-                body,
-                attributes,
-            }) => Control::While(While {
-                port: Rc::clone(port),
-                cond: cond.clone().map(|cg| Rc::clone(&cg)),
-                body: Box::new(Control::clone(body)),
-                attributes: attributes.clone(),
-            }),
-            Control::Invoke(Invoke {
-                comp,
-                inputs,
-                outputs,
-                attributes,
-                comb_group,
-                ref_cells,
-            }) => Control::Invoke(Invoke {
-                comp: Rc::clone(comp),
-                inputs: inputs
-                    .iter()
-                    .map(|(name, port)| (*name, Rc::clone(port)))
-                    .collect(),
-                outputs: outputs
-                    .iter()
-                    .map(|(name, port)| (*name, Rc::clone(port)))
-                    .collect(),
-                comb_group: comb_group.clone().map(|cg| Rc::clone(&cg)),
-                attributes: attributes.clone(),
-                ref_cells: ref_cells
-                    .iter()
-                    .map(|(outcell, incell)| (*outcell, Rc::clone(incell)))
-                    .collect(),
-            }),
-            Control::Enable(Enable { group, attributes }) => {
-                Control::Enable(Enable {
-                    group: Rc::clone(group),
-                    attributes: attributes.clone(),
-                })
-            }
-            Control::Empty(_) => Control::empty(),
+            Control::Seq(seq) => Control::Seq(Cloner::seq(seq)),
+            Control::Par(par) => Control::Par(Cloner::par(par)),
+            Control::If(if_) => Control::If(Cloner::if_(if_)),
+            Control::While(wh) => Control::While(Cloner::while_(wh)),
+            Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
+            Control::Enable(en) => Control::Enable(Cloner::enable(en)),
+            Control::Empty(en) => Control::Empty(Cloner::empty(en)),
         }
     }
 }

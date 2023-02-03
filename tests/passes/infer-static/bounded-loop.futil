@@ -11,11 +11,6 @@ component main() -> () {
   }
 
   wires {
-    comb group cond {
-      lt.left = i.read_data;
-      lt.right = 32'd5;
-    }
-
     group incr_i<"static"=1> {
       i.write_data = add.out;
       i.addr0 = 1'd0;
@@ -40,7 +35,7 @@ component main() -> () {
   }
 
   control {
-    @bound(5) while lt.out with cond {
+    @bound(5) while lt.out {
       seq { incr_i; incr_j; }
     }
   }

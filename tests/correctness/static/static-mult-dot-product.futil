@@ -1,0 +1,95 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+
+component main() -> () {
+    cells {
+        mul = pipelined_mult();
+        @external left = std_mem_d1(32, 10, 4);
+        @external right = std_mem_d1(32, 10, 4);
+        @external out = std_mem_d1(32, 10, 4);
+        idx = std_reg(4);
+        add = std_add(4);
+        sub = std_sub(4);
+        ud = undef(1);
+
+        lt = std_lt(4);
+        lt_10 = std_reg(1);
+        gt = std_gt(4);
+        gt_4 = std_reg(1);
+    }
+    wires {
+        group init<"static"=1>{
+            lt_10.in = 1'd1;
+            lt_10.write_en = 1'd1;
+            gt_4.in = 1'd0;
+            gt_4.write_en = 1'd1;
+            init[done] = lt_10.done & gt_4.done ? 1'd1;
+        }
+
+        group incr<"static"=1> {
+            add.left = idx.out;
+            add.right = 4'd1;
+            idx.in = add.out;
+            idx.write_en = 1'd1;
+
+            // idx < 10
+            lt.left = add.out;
+            lt.right = 4'd10;
+            lt_10.in = lt.out;
+            lt_10.write_en = 1'd1;
+
+            // idx > 4
+            gt.left = add.out;
+            gt.right = 4'd4;
+            gt_4.in = gt.out;
+            gt_4.write_en = 1'd1;
+
+            incr[done] = idx.done;
+        }
+
+        // The multiplier registers its inputs after a cycle.
+        group start_mult<"static"=1> {
+            left.addr0 = idx.out;
+            right.addr0 = idx.out;
+            mul.left = left.read_data;
+            mul.right = right.read_data;
+            start_mult[done] = ud.out;
+        }
+
+        group do_write<"static"=1> {
+            sub.left = idx.out;
+            sub.right = 4'd4;
+            out.addr0 = sub.out;
+            out.write_data = mul.out;
+            out.write_en = 1'd1;
+            do_write[done] = out.done;
+        }
+    }
+    control {
+        init;
+        // This version does not work because the FSMs for the two threads don't
+        // reset in time to be executed every cycle.
+        // @bound(14) while ud.out {
+        //     par {
+        //         incr;
+        //         if lt_10.out { start_mult; }
+        //         if gt_4.out { do_write; }
+        //     }
+        // }
+        par { start_mult; incr; }
+        par { start_mult; incr; }
+        par { start_mult; incr; }
+        par { start_mult; incr; }
+        @bound(6) while ud.out {
+            par {
+                incr;
+                start_mult;
+                do_write;
+            }
+        }
+        par { do_write; incr; }
+        par { do_write; incr; }
+        par { do_write; incr; }
+        par { do_write; incr; }
+    }
+}

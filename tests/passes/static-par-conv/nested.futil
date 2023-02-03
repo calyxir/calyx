@@ -1,4 +1,4 @@
-// -p static-par-conv
+// -p infer-static-timing -p static-par-conv
 
 component main() -> () {
   cells {
@@ -33,7 +33,7 @@ component main() -> () {
 
   control {
     par{
-      par { 
+      par {
         seq{@static(1)A0; @static(2)A1; @static(3)A2;}
         seq{@static(1)B0; @static(2)B1; @static(3)B2;}
       }

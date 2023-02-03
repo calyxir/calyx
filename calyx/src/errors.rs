@@ -67,9 +67,12 @@ impl Error {
             post_msg: None,
         }
     }
-    pub fn pass_assumption<S: ToString>(pass: S, msg: String) -> Self {
+    pub fn pass_assumption<S: ToString, M: ToString>(pass: S, msg: M) -> Self {
         Self {
-            kind: Box::new(ErrorKind::PassAssumption(pass.to_string(), msg)),
+            kind: Box::new(ErrorKind::PassAssumption(
+                pass.to_string(),
+                msg.to_string(),
+            )),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }

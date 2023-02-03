@@ -1,4 +1,4 @@
-// -x top-down-st:dump-fsm -p top-down-st -b none
+// -x tdst:dump-fsm -p tdst -b none
 
 import "primitives/core.futil";
 

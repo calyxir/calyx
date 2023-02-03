@@ -62,16 +62,13 @@ fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
     let mut counter = 0;
 
     while let (Some(c1), Some(c2)) = (long_val, short_val) {
-        match (c1.get_attribute("static"), c2.get_attribute("static")) {
-            (Some(x1), Some(x2)) => {
-                if x2 <= x1 {
-                    short_val = short_iter.next();
-                    index_counter.push(counter);
-                }
-                long_val = long_iter.next();
-            }
-            _ => return None,
+        let x1 = c1.get_attribute("static")?;
+        let x2 = c2.get_attribute("static")?;
+        if x2 <= x1 {
+            short_val = short_iter.next();
+            index_counter.push(counter);
         }
+        long_val = long_iter.next();
         counter += 1;
     }
 
@@ -92,13 +89,11 @@ fn attribute_with_static(v: u64) -> ir::Attributes {
 // stmt in seq. Returns None if there is at least one statement in seq
 // that does not have a static attribute
 fn get_static_sum(seq: &ir::Seq) -> Option<u64> {
-    let static_vals = seq
-        .stmts
-        .iter()
-        .map(|c| c.get_attribute("static"))
-        .collect::<Option<Vec<&u64>>>()?;
-
-    Some(static_vals.into_iter().sum())
+    let mut count = 0;
+    for stmt in &seq.stmts {
+        count += stmt.get_attribute("static")?;
+    }
+    Some(count)
 }
 
 impl Visitor for StaticParConv {
@@ -159,11 +154,8 @@ impl Visitor for StaticParConv {
                     if seq.stmts.len() != index_vec.len() {
                         unreachable!("seq should be same len as indices")
                     }
-                    let indexed_stmts: Vec<(ir::Control, usize)> = seq
-                        .stmts
-                        .into_iter()
-                        .zip(index_vec.into_iter())
-                        .collect();
+                    let indexed_stmts: Vec<(ir::Control, usize)> =
+                        seq.stmts.into_iter().zip(index_vec).collect();
                     partition_group.push(indexed_stmts);
                 } else {
                     i += 1;
@@ -201,16 +193,13 @@ impl Visitor for StaticParConv {
                 .map(|stmts| {
                     stmts
                         .iter()
-                        .map(|stmt| {
-                            match stmt.get_attribute("static")
-                            {
-                                Some(&x1) => x1,
-                                None => unreachable!("every statement in the new par blocks should have a static attribute"),
-                            }
-                        })
+                        .map(|stmt| stmt.get_attribute("static").unwrap())
                         .max()
                 })
-                .collect::<Option<Vec<u64>>>().unwrap_or_else(|| unreachable!("none of the par blocks should be empty"));
+                .collect::<Option<Vec<u64>>>()
+                .unwrap_or_else(|| {
+                    unreachable!("none of the par blocks should be empty")
+                });
 
             let new_seq_static = new_pars_static.iter().sum();
 
@@ -235,13 +224,13 @@ impl Visitor for StaticParConv {
 
         //no need for a par block if the par block will only contain one control statement
         if has_been_partitioned.len() == 1 {
-            return Ok(Action::Change(Box::new(
-                has_been_partitioned.remove(0),
-            )));
+            Ok(Action::Change(Box::new(
+                has_been_partitioned.pop().unwrap(),
+            )))
+        } else {
+            Ok(Action::Change(Box::new(ir::Control::par(
+                has_been_partitioned,
+            ))))
         }
-
-        Ok(Action::Change(Box::new(ir::Control::par(
-            has_been_partitioned,
-        ))))
     }
 }

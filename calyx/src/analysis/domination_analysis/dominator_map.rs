@@ -138,7 +138,7 @@ fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
         }
         _ => c.get_attribute(NODE_ID),
     };
-    *v.unwrap_or_else(|| unreachable!(
+    v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
     ))
 }
@@ -150,7 +150,7 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
         return true;
     }
     //could match the end id of an if statement as well
-    if let Some(&end) = c.get_attribute(END_ID) {
+    if let Some(end) = c.get_attribute(END_ID) {
         key == end
     } else {
         false

@@ -23,14 +23,10 @@ component main(@go @static(10) go: 1, @clk clk: 1, @reset reset: 1) -> (@done do
       add.left = 32'd1;
       incr_j[done] = j.done;
     }
-    comb group cond {
-      lt.left = i.read_data;
-      lt.right = 32'd5;
-    }
   }
 
   control {
-    @bound(5) @static(10) while lt.out with cond {
+    @bound(5) @static(10) while lt.out {
       @static(2) seq {
         @static incr_i;
         @static incr_j;

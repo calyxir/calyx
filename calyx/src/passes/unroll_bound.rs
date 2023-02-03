@@ -31,7 +31,7 @@ impl Visitor for UnrollBounded {
             let nb = ir::Control::seq(
                 (0..*bound)
                     .into_iter()
-                    .map(|_| ir::Control::clone(&body))
+                    .map(|_| ir::Cloner::control(&body))
                     .collect(),
             );
             Ok(Action::change(nb))
