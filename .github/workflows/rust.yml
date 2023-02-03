@@ -109,10 +109,12 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/cucapra/calyx:latest
     steps:
-    - name: Copy fud configuration
+    - name: Copy and clean up fud configuration
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
+        # Hack while we still have this key in the docker container
+        fud c --delete stages.verilog.top_module
 
     - name: Update Dahlia
       working-directory: /home/dahlia
