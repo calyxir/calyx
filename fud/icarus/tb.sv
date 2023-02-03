@@ -9,7 +9,7 @@ main #() main (
   .done(done)
 );
 
-localparam RESET_CYCLES = 5;
+localparam RESET_CYCLES = 3;
 
 // Cycle counter. Make this signed to catch errors with cycle simulation
 // counts.
@@ -17,6 +17,17 @@ logic signed [63:0] cycle_count;
 
 always_ff @(posedge clk) begin
   cycle_count <= cycle_count + 1;
+end
+
+always_ff @(posedge clk) begin
+  // Reset the design for a few cycles
+  if (cycle_count < RESET_CYCLES) begin
+    reset <= 1;
+    go <= 0;
+  end else begin
+    reset <= 0;
+    go <= 1;
+  end
 end
 
 // Output location of the VCD file
@@ -49,25 +60,12 @@ initial begin
   reset = 0;
   cycle_count = 0;
 
-  // Reset phase for 5 cycles
-  #10;
-  reset = 1;
-  clk = 1;
-  repeat(RESET_CYCLES) begin
-    #10 clk = ~clk;
-  end
-
-
-  // Start the design
-  #10;
-  reset = 0;
-  clk = 1;
-  go = 1;
-
   forever begin
     #10 clk = ~clk;
     if (done == 1) begin
-      $display("Simulated %d cycles", cycle_count - RESET_CYCLES + 1);
+      // Subtract 1 because the cycle counter is incremented at the end of the
+      // cycle.
+      $display("Simulated %d cycles", cycle_count - RESET_CYCLES - 1);
       $finish;
     end else if (cycle_count != 0 && cycle_count == CYCLE_LIMIT + RESET_CYCLES) begin
       $display("reached limit of %d cycles", CYCLE_LIMIT);
