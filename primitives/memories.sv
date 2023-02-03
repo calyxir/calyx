@@ -119,8 +119,8 @@ module seq_mem_d2 #(
   assign addr = addr0 * D1_SIZE + addr1;
 
   seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr), 
-    .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en), 
+     (.clk(clk), .reset(reset), .addr0(addr),
+    .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en),
     .write_done(write_done));
 endmodule
 
@@ -154,8 +154,8 @@ module seq_mem_d3 #(
   assign addr = addr0 * (D1_SIZE * D2_SIZE) + addr1 * (D2_SIZE) + addr2;
 
   seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE * D2_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr), 
-    .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en), 
+     (.clk(clk), .reset(reset), .addr0(addr),
+    .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en),
     .write_done(write_done));
 endmodule
 
@@ -192,7 +192,7 @@ module seq_mem_d4 #(
   assign addr = addr0 * (D1_SIZE * D2_SIZE * D3_SIZE) + addr1 * (D2_SIZE * D3_SIZE) + addr2 * (D3_SIZE) + addr3;
 
   seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE * D2_SIZE * D3_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE+D3_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr), 
-    .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en), 
+     (.clk(clk), .reset(reset), .addr0(addr),
+    .read_en(read_en), .out(out), .read_done(read_done), .in(in), .write_en(write_en),
     .write_done(write_done));
 endmodule

@@ -46,7 +46,7 @@ initial begin
   // Initial values
   go = 0;
   clk = 0;
-  reset = 0;
+  reset = 1;
   cycle_count = 0;
 
   // Reset phase for 5 cycles
