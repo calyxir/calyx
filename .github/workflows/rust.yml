@@ -95,9 +95,10 @@ jobs:
         command: test
         args: --manifest-path /home/calyx/calyx/Cargo.toml --doc lib
 
-    - name: Core tests
+    - name: Runt tests
       working-directory: /home/calyx
       run: |
+<<<<<<< HEAD
         runt -i 'core|examples|errors' -d -o fail
 
     - name: NTT
@@ -125,6 +126,9 @@ jobs:
       run: |
         unset JAVA_TOOL_OPTIONS
         runt -x 'core|examples|errors|mrxl|relay|dahlia|NTT|systolic' -d -o fail -v
+=======
+        runt -x 'mrxl' -d -o fail -j 1 --max-futures 5
+>>>>>>> master
 
     - name: Run Python Tests
       working-directory: /home/calyx
