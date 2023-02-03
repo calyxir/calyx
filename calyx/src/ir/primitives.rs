@@ -28,6 +28,8 @@ pub struct Primitive {
     pub attributes: Attributes,
     /// True iff this is a combinational primitive
     pub is_comb: bool,
+    /// body of the string, if it is an inlined primitive
+    pub body: Option<String>,
 }
 
 impl Primitive {
