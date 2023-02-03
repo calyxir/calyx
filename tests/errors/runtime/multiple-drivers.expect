@@ -1,2 +1,2 @@
-[0] %Error: Assertion failed in TOP.main: Multiple assignment to port `r.in'.
+[70] %Error: Assertion failed in TOP.main: Multiple assignment to port `r.in'.
 %Error: Verilog $stop
