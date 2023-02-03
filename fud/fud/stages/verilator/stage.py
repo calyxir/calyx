@@ -9,6 +9,8 @@ from fud import config as cfg
 
 from .json_to_dat import convert2dat, convert2json
 
+VCD_FILE = "output.vcd"
+
 
 class JsonToDat(Stage):
     name = "to-dat"
@@ -105,7 +107,6 @@ class VerilatorStage(Stage):
             "data",
             "exec",
             "round_float_to_fixed",
-            "vcd-target",
             "cycle_limit",
             "file_extensions",
         ]
@@ -180,17 +181,14 @@ class VerilatorStage(Stage):
             """
             Simulates compiled Verilator code.
             """
+            cycle_limit = config["stages", self.name, "cycle_limit"]
             return shell(
                 [
                     f"{tmpdir.name}/VTOP",
-                    unwrap_or(
-                        config["stages", self.name, "vcd-target"],
-                        f"{tmpdir.name}/output.vcd",
-                    ),
-                    str(config["stages", self.name, "cycle_limit"]),
-                    # Don't trace if we're only looking at memory outputs
-                    "--trace" if self.vcd else "",
                     f"+DATA={tmpdir.name}",
+                    f"+CYCLE_LIMIT={str(cycle_limit)}",
+                    f"+OUT={tmpdir.name}/output.vcd",
+                    f"+NOTRACE={0 if self.vcd else 1}",
                 ]
             )
 
@@ -202,12 +200,7 @@ class VerilatorStage(Stage):
             """
             # return stream instead of path because tmpdir gets deleted before
             # the next stage runs
-
-            if config["stages", self.name, "vcd-target"] is not None:
-                target = Path(config["stages", self.name, "vcd-target"])
-            else:
-                target = Path(tmpdir.name) / "output.vcd"
-
+            target = Path(tmpdir.name) / VCD_FILE
             return target.open("rb")
 
         # Step 5(self.vcd == False): extract cycles + data
