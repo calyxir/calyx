@@ -67,7 +67,7 @@ impl Visitor for GroupToSeq {
         let group_name = s.group.borrow().clone_name();
         match self.group_seq_map.get(&group_name) {
             None => Ok(Action::Continue),
-            Some(seq) => Ok(Action::Change(Box::new(ir::Control::clone(seq)))),
+            Some(seq) => Ok(Action::Change(Box::new(ir::Cloner::control(seq)))),
         }
     }
 }
@@ -317,22 +317,11 @@ impl SplitAnalysis {
     //Returns whether the given assignment writes to the go assignment of cell
     //in the form cell.go = !cell.done? 1'd1.
     pub fn is_specific_go(asmt: &ir::Assignment, cell: &ir::Id) -> bool {
-        //checks whether guard is !cell.done
-        let guard_not_done = |guard: &ir::Guard| -> bool {
-            if let ir::Guard::Not(g) = guard {
-                if let ir::Guard::Port(port) = &(**g) {
-                    return port.borrow().attributes.has("done")
-                        && port.borrow().get_parent_name() == cell;
-                }
-            }
-            false
-        };
-
         let dst = asmt.dst.borrow();
         // checks cell.go =
         dst.get_parent_name() == cell  && dst.attributes.has("go")
         // checks !cell.done ?
-        && guard_not_done(&asmt.guard)
+        && asmt.guard.is_not_done(cell)
         // checks 1'd1
         && asmt.src.borrow().is_constant(1, 1)
     }

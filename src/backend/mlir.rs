@@ -58,8 +58,8 @@ impl MlirBackend {
             format!(
                 " {{{}}}",
                 attrs
-                    .iter()
-                    .map(|(k, v)| { format!("{}={}", k, v) })
+                    .into_iter()
+                    .map(|(k, v)| { format!("{k}={v}") })
                     .collect::<Vec<_>>()
                     .join(", ")
             )

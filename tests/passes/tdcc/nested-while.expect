@@ -1,0 +1,18 @@
+======== main:tdcc =========
+0:
+  init[go] = !init[done] ? 1'd1;
+1:
+  body[go] = !body[done] ? 1'd1;
+2:
+  exit[go] = !exit[done] ? 1'd1;
+3:
+  <end>
+transitions:
+  (0, 1): init[done] & r0.out & r1.out
+  (0, 2): init[done] & !r0.out
+  (0, 2): init[done] & r0.out & !r1.out & !r0.out
+  (1, 1): body[done] & !r1.out & r0.out & r1.out
+  (1, 1): body[done] & r1.out
+  (1, 2): body[done] & !r1.out & r0.out & !r1.out & !r0.out
+  (1, 2): body[done] & !r1.out & !r0.out
+  (2, 3): exit[done]

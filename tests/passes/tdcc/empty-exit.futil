@@ -1,0 +1,23 @@
+// -x tdcc:dump-fsm -d tdst -d post-opt -d group2invoke -d lower -d merge-static-par -b none
+import "primitives/core.futil";
+
+component main() -> () {
+    cells {
+        r_wh = std_reg(1);
+        r_if = std_reg(1);
+    }
+    wires {
+        group grp1 {
+            r_wh.in = 1'd1;
+            r_wh.write_en = 1'd1;
+            grp1[done] = r_wh.done;
+        }
+    }
+    control {
+        while r_wh.out {
+            if r_if.out {
+                grp1;
+            }
+        }
+    }
+}

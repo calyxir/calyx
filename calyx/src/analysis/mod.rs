@@ -3,6 +3,7 @@
 //! The analyses construct data-structures that make answering certain queries
 //! about Calyx programs easier.
 
+mod compute_static;
 mod control_id;
 mod control_order;
 mod control_ports;
@@ -18,6 +19,7 @@ mod schedule_conflicts;
 mod share_set;
 mod variable_detection;
 
+pub use compute_static::WithStatic;
 pub use control_id::ControlId;
 pub use control_order::ControlOrder;
 pub use control_ports::ControlPorts;

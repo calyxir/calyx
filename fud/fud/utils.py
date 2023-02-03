@@ -199,7 +199,6 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
         stdout=stdout,
         stderr=stderr,
         env=os.environ,
-        preexec_fn=os.setsid,  # for killing subprocesses
     )
     proc.wait()
     if stdout:

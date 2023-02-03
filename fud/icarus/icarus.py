@@ -131,7 +131,7 @@ class IcarusBaseStage(Stage):
             # before the next stage runs
             return (Path(tmpdir.name) / "output.vcd").open("rb")
 
-        # Step 5(self.vc == False): extract cycles + data
+        # Step 5(self.vcd == False): extract cycles + data
         @builder.step()
         def output_json(
             simulated_output: SourceType.String, tmpdir: SourceType.Directory
@@ -139,6 +139,10 @@ class IcarusBaseStage(Stage):
             """
             Convert .dat files back into a json file
             """
+            found = re.search(r"reached limit of\s+(\d+) cycles", simulated_output)
+            if found is not None:
+                raise errors.CycleLimitedReached("verilog", found.group(1))
+
             r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
             cycle_count = int(r.group(1)) if r is not None else 0
             if cycle_count < 0:
@@ -185,6 +189,10 @@ class FutilToIcarus(futil.FutilStage):
     """
 
     # No name since FutilStage already defines names
+
+    @staticmethod
+    def pre_install():
+        pass
 
     def __init__(self):
         super().__init__(

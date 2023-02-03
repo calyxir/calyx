@@ -313,7 +313,7 @@ impl Visitor for GroupToInvoke {
         match self.group_invoke_map.get(&s.group.borrow().name()) {
             None => Ok(Action::Continue),
             Some(invoke) => {
-                let mut inv = ir::Control::clone(invoke);
+                let mut inv = ir::Cloner::control(invoke);
                 let attrs = std::mem::take(&mut s.attributes);
                 *inv.get_mut_attributes() = attrs;
                 Ok(Action::Change(Box::new(inv)))

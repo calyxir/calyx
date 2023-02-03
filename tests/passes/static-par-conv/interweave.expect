@@ -1,28 +1,28 @@
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go @static(9) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
   }
   wires {
-    group A0 {
+    group A0<"static"=2> {
     }
-    group A1 {
+    group A1<"static"=3> {
     }
-    group A2 {
+    group A2<"static"=4> {
     }
-    group B0 {
+    group B0<"static"=3> {
     }
-    group B1 {
+    group B1<"static"=4> {
     }
-    group C0 {
+    group C0<"static"=2> {
     }
-    group C1 {
+    group C1<"static"=4> {
     }
-    group D0 {
+    group D0<"static"=2> {
     }
-    group D1 {
+    group D1<"static"=5> {
     }
-    group E0 {
+    group E0<"static"=1> {
     }
-    group E1 {
+    group E1<"static"=2> {
     }
   }
 
@@ -45,7 +45,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           @static(4) A2;
         }
       }
-      seq {
+      @static(7) seq {
         @static(2) D0;
         @static(5) D1;
       }

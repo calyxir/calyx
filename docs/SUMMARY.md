@@ -7,6 +7,7 @@
   - [Passing Memories by Reference](./lang/memories-by-reference.md)
 - [Language Reference](./lang/ref.md)
   - [Data Format](./lang/data-format.md)
+  - [Static Timing](./lang/static.md)
   - [Experimental: Synchronization](./lang/sync.md)
   - [Undefined Behaviors](./lang/undefined.md)
 - [Attributes](./lang/attributes.md)

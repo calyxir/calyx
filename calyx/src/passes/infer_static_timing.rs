@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
-use crate::analysis::{GraphAnalysis, ReadWriteSet};
+use crate::analysis::{GraphAnalysis, ReadWriteSet, WithStatic};
 use crate::errors::{CalyxResult, Error};
 use crate::ir::traversal::{
-    Action, ConstructVisitor, Named, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use crate::ir::{self, LibrarySignatures, RRC};
 use itertools::Itertools;
-use std::{cmp, ops::Add};
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
 #[derive(Default, Debug)]
@@ -18,16 +17,6 @@ struct GoDone {
 impl GoDone {
     pub fn new(ports: Vec<(ir::Id, ir::Id, u64)>) -> Self {
         Self { ports }
-    }
-
-    // Returns the latency associated with invoking this primitive.
-    // The component is not invokable if it has multiple go-done ports.
-    pub fn invoke_latency(&self) -> Option<u64> {
-        if self.ports.len() == 1 {
-            Some(self.ports[0].2)
-        } else {
-            None
-        }
     }
 
     /// Returns true if this is @go port
@@ -155,23 +144,6 @@ impl ConstructVisitor for InferStaticTiming {
     fn clear_data(&mut self) {
         /* All data is transferred between components */
     }
-}
-
-/// Function to iterate over a vector of control statements and collect
-/// the "static" attribute using the `acc` function.
-/// Returns None if any of of the Control statements is a compound statement.
-fn accumulate_static_time<F>(
-    stmts: &[ir::Control],
-    start: u64,
-    acc: F,
-) -> Option<u64>
-where
-    F: FnMut(u64, u64) -> u64,
-{
-    stmts
-        .iter()
-        .map(|con| con.get_attribute("static").copied())
-        .fold_options(start, acc)
 }
 
 impl Named for InferStaticTiming {
@@ -377,8 +349,8 @@ impl InferStaticTiming {
         }
 
         let mut tsort = graph.toposort();
-        let start = tsort.next().unwrap();
-        let finish = tsort.last().unwrap();
+        let start = tsort.next()?;
+        let finish = tsort.last()?;
 
         let paths = graph.paths(&start.borrow(), &finish.borrow());
         // If there are no paths, give up.
@@ -414,8 +386,8 @@ impl InferStaticTiming {
 impl Visitor for InferStaticTiming {
     // Require post order traversal of components to ensure `invoke` nodes
     // get timing information for components.
-    fn require_postorder() -> bool {
-        true
+    fn iteration_order() -> Order {
+        Order::Post
     }
 
     fn start(
@@ -424,6 +396,7 @@ impl Visitor for InferStaticTiming {
         _lib: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Compute latencies for all groups.
         let mut latency_result: Option<u64>;
         for group in comp.groups.iter() {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
@@ -455,125 +428,35 @@ impl Visitor for InferStaticTiming {
                 None => continue,
             }
         }
-        Ok(Action::Continue)
-    }
 
-    fn finish_while(
-        &mut self,
-        s: &mut ir::While,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        if let (Some(bound), Some(body_time)) = (
-            s.attributes.get("bound").cloned(),
-            s.body.get_attribute("static"),
-        ) {
-            s.attributes.insert("static", bound * body_time);
-        }
-        Ok(Action::Continue)
-    }
+        // Compute the latency of the control-program.
+        let comp_lat: HashMap<ir::Id, u64> = self
+            .latency_data
+            .iter()
+            .filter_map(|(comp, go_done)| {
+                if go_done.ports.len() == 1 {
+                    Some((*comp, go_done.ports[0].2))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-    fn finish_if(
-        &mut self,
-        s: &mut ir::If,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        if let (Some(ttime), Some(ftime)) = (
-            s.tbranch.get_attribute("static"),
-            s.fbranch.get_attribute("static"),
-        ) {
-            s.attributes.insert("static", 1 + cmp::max(ttime, ftime));
-        }
+        if let Some(time) = comp.control.borrow_mut().update_static(&comp_lat) {
+            let mut go_ports = comp
+                .signature
+                .borrow()
+                .find_all_with_attr("go")
+                .collect_vec();
 
-        Ok(Action::Continue)
-    }
+            // Add the latency information for the component if the control program
+            // is completely static and there is exactly one go port.
+            if go_ports.len() == 1 {
+                let go_port = go_ports.pop().unwrap();
+                let mb_time =
+                    go_port.borrow().attributes.get("static").cloned();
 
-    fn finish_par(
-        &mut self,
-        s: &mut ir::Par,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        if let Some(time) = accumulate_static_time(&s.stmts, 0, cmp::max) {
-            s.attributes.insert("static", time);
-        }
-        Ok(Action::Continue)
-    }
-
-    fn finish_seq(
-        &mut self,
-        s: &mut ir::Seq,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        if let Some(time) = accumulate_static_time(&s.stmts, 0, Add::add) {
-            s.attributes.insert("static", time);
-        }
-        Ok(Action::Continue)
-    }
-
-    fn enable(
-        &mut self,
-        s: &mut ir::Enable,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        if let Some(time) = s.group.borrow().attributes.get("static") {
-            s.attributes.insert("static", *time);
-        }
-
-        Ok(Action::Continue)
-    }
-
-    fn invoke(
-        &mut self,
-        s: &mut ir::Invoke,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        // If we've found static timing for the invoked component, add
-        // this information to invoke.
-        if let Some(time) = &s
-            .comp
-            .borrow()
-            .type_name()
-            .and_then(|name| self.latency_data.get(&name))
-            .and_then(|ports| ports.invoke_latency())
-        {
-            s.attributes.insert("static", *time);
-        }
-        Ok(Action::Continue)
-    }
-
-    fn finish(
-        &mut self,
-        comp: &mut ir::Component,
-        _lib: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        let mut go_ports = comp
-            .signature
-            .borrow()
-            .find_all_with_attr("go")
-            .collect_vec();
-
-        // There is exactly one go port.
-        if go_ports.len() == 1 {
-            let go_port = go_ports.pop().unwrap();
-            // If the control program has a static time, make sure the go port's static annotation matches it
-            if let Some(&time) = comp.control.borrow().get_attribute("static") {
-                let maybe_go_time = {
-                    let gp = go_port.borrow();
-                    gp.attributes.get("static").copied()
-                };
-                if let Some(go_time) = maybe_go_time {
+                if let Some(go_time) = mb_time {
                     if go_time != time {
                         let msg1 = format!("Annotated latency: {}", go_time);
                         let msg2 = format!("Inferred latency: {}", time);
@@ -595,14 +478,14 @@ impl Visitor for InferStaticTiming {
                     time
                 );
             }
+
+            // Add all go-done latencies to the context
+            let sig = &*comp.signature.borrow();
+            let ports: GoDone = sig.into();
+
+            self.latency_data.insert(comp.name, ports);
         }
 
-        // Add all go-done latencies to the context
-        let sig = &*comp.signature.borrow();
-        let ports: GoDone = sig.into();
-
-        self.latency_data.insert(comp.name, ports);
-
-        Ok(Action::Continue)
+        Ok(Action::Stop)
     }
 }

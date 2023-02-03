@@ -1,19 +1,24 @@
-/// Returns the minimum bit width needed to represents n states. Panics otherwise.
+/// Returns the minimum bit width needed to represents n states with zero inclusive. Panics otherwise.
+/// Note: To represent the number `n`, you need to represent `n+1` states.
 ///
 /// For example,
 /// `get_bit_width_from(3)` == 2 // 3 states requires a minimum of 2 bits.
 /// `get_bit_width_from(4)` == 2 // 4 states can be represented with exactly 2 bits.
 /// `get_bit_width_from(5)` == 3 // 5 states requires a minimum of 3 bits.
 #[inline(always)]
-pub fn get_bit_width_from(n: u64) -> u64 {
-    if n == 0_u64 || n == 1_u64 {
-        return n;
+pub fn get_bit_width_from(states: u64) -> u64 {
+    if states == 0_u64 || states == 1_u64 {
+        return states;
     }
     for index in 0u8..63 {
         let x = (63 - index) as u64;
-        if n & (1u64 << x) != 0 {
+        if states & (1u64 << x) != 0 {
             // If n is a power of two, return x. Otherwise, x + 1.
-            return if (n & (n - 1)) == 0u64 { x } else { x + 1 };
+            return if (states & (states - 1)) == 0u64 {
+                x
+            } else {
+                x + 1
+            };
         }
     }
     panic!();

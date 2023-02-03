@@ -134,6 +134,17 @@ impl Guard {
         }
     }
 
+    /// returns true if the self is !cell_name, false otherwise.
+    pub fn is_not_done(&self, cell_name: &crate::ir::Id) -> bool {
+        if let Guard::Not(g) = self {
+            if let Guard::Port(port) = &(**g) {
+                return port.borrow().attributes.has("done")
+                    && port.borrow().get_parent_name() == cell_name;
+            }
+        }
+        false
+    }
+
     /// Update the guard in place. Replaces this guard with `upd(self)`.
     /// Uses `std::mem::take` for the in-place update.
     #[inline(always)]

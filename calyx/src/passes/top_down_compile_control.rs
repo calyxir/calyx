@@ -20,62 +20,62 @@ use std::rc::Rc;
 
 const NODE_ID: &str = "NODE_ID";
 
-/// Computes the entry and exit points of a given [ir::Control] program.
+/// Computes the exit edges of a given [ir::Control] program.
 ///
 /// ## Example
 /// In the following Calyx program:
 /// ```
 /// while comb_reg.out {
 ///   seq {
-///     incr;
-///     cond0;
+///     @NODE_ID(4) incr;
+///     @NODE_ID(5) cond0;
 ///   }
 /// }
 /// ```
-/// The exit point is `cond0`.
+/// The exit edge is is `[(5, cond0[done])]` indicating that the state 5 exits when the guard
+/// `cond0[done]` is true.
 ///
 /// Multiple exit points are created when conditions are used:
 /// ```
 /// while comb_reg.out {
-///   incr;
+///   @NODE_ID(7) incr;
 ///   if comb_reg2.out {
-///     true;
+///     @NODE_ID(8) tru;
 ///   } else {
-///     false;
+///     @NODE_ID(9) fal;
 ///   }
 /// }
 /// ```
-/// The exit set is `[true, false]`.
-fn control_exits(
-    con: &ir::Control,
-    is_exit: bool,
-    exits: &mut Vec<(u64, RRC<ir::Group>)>,
-) {
+/// The exit set is `[(8, tru[done] & !comb_reg.out), (9, fal & !comb_reg.out)]`.
+fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
     match con {
+        ir::Control::Empty(_) => {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            if is_exit {
-                let cur_state = attributes.get(NODE_ID).unwrap();
-                exits.push((*cur_state, Rc::clone(group)))
-            }
+            let cur_state = attributes.get(NODE_ID).unwrap();
+            exits.push((*cur_state, guard!(group["done"])))
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
-            if let Some(stmt) = stmts.last() { control_exits(stmt, true, exits) }
+            if let Some(stmt) = stmts.last() { control_exits(stmt, exits) }
         }
         ir::Control::If(ir::If {
             tbranch, fbranch, ..
         }) => {
             control_exits(
-                tbranch, is_exit, exits,
+                tbranch, exits,
             );
             control_exits(
-                fbranch, is_exit, exits,
+                fbranch, exits,
             )
         }
-        ir::Control::While(ir::While { body, .. }) => control_exits(
-            body, is_exit, exits,
-        ),
+        ir::Control::While(ir::While { body, port, .. }) => {
+            let mut loop_exits = vec![];
+            control_exits(body, &mut loop_exits);
+            // Loop exits only happen when the loop guard is false
+            exits.extend(loop_exits.into_iter().map(|(s, g)| {
+                (s, g & !ir::Guard::from(port.clone()))
+            }));
+        },
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
         ir::Control::Par(_) => unreachable!(),
     }
 }
@@ -354,14 +354,14 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group.borrow_mut().assignments.push(done_assign);
 
         // Cleanup: Add a transition from last state to the first state.
-        let mut reset_fsm = build_assignments!(self.builder;
+        let reset_fsm = build_assignments!(self.builder;
             fsm["in"] = last_guard ? first_state["out"];
             fsm["write_en"] = last_guard ? signal_on["out"];
         );
         self.builder
             .component
             .continuous_assignments
-            .append(&mut reset_fsm);
+            .extend(reset_fsm);
 
         group
     }
@@ -412,14 +412,14 @@ impl Schedule<'_, '_> {
             let signal_on = self.builder.add_constant(1, 1);
 
             // Activate this group in the current state
-            let mut en_go = build_assignments!(self.builder;
+            let en_go = build_assignments!(self.builder;
                 group["go"] = not_done ? signal_on["out"];
             );
             self
                 .enables
                 .entry(cur_state)
                 .or_default()
-                .append(&mut en_go);
+                .extend(en_go);
 
             // Activate group in the cycle when previous state signals done.
             // NOTE: We explicilty do not add `not_done` to the guard.
@@ -427,10 +427,10 @@ impl Schedule<'_, '_> {
             // why.
             if early_transitions {
                 for (st, g) in &prev_states {
-                    let mut early_go = build_assignments!(self.builder;
+                    let early_go = build_assignments!(self.builder;
                         group["go"] = g ? signal_on["out"];
                     );
-                    self.enables.entry(*st).or_default().append(&mut early_go);
+                    self.enables.entry(*st).or_default().extend(early_go);
                 }
             }
 
@@ -547,13 +547,9 @@ impl Schedule<'_, '_> {
 
         let port_guard: ir::Guard = Rc::clone(&while_stmt.port).into();
 
-        // Step 1: Generate the backward edges
-        // First compute the entry and exit points.
+        // Step 1: Generate the backward edges by computing the exit nodes.
         let mut exits = vec![];
-        control_exits(&while_stmt.body, true, &mut exits);
-        let back_edge_prevs = exits
-            .into_iter()
-            .map(|(st, group)| (st, group.borrow().get("done").into()));
+        control_exits(&while_stmt.body, &mut exits);
 
         // Step 2: Generate the forward edges normally.
         // Previous transitions into the body require the condition to be
@@ -561,7 +557,7 @@ impl Schedule<'_, '_> {
         let transitions: Vec<PredEdge> = preds
             .clone()
             .into_iter()
-            .chain(back_edge_prevs)
+            .chain(exits)
             .map(|(s, g)| (s, g & port_guard.clone()))
             .collect();
         let prevs = self.calculate_states_recur(
@@ -946,12 +942,12 @@ impl Visitor for TopDownCompileControl {
             let group_done = guard!(group["done"]);
 
             // Save the done condition in a register.
-            let mut assigns = build_assignments!(builder;
+            let assigns = build_assignments!(builder;
                 group["go"] = group_go ? signal_on["out"];
                 pd["in"] = group_done ? signal_on["out"];
                 pd["write_en"] = group_done ? signal_on["out"];
             );
-            par_group.borrow_mut().assignments.append(&mut assigns);
+            par_group.borrow_mut().assignments.extend(assigns);
             done_regs.push(pd)
         }
 

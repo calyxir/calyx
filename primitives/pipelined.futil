@@ -1,0 +1,13 @@
+extern "pipelined.sv" {
+    primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH);
+
+    // A latency-sensitive multiplier that takes 4 cycles to compute its result.
+    primitive pipelined_mult<"latency"=4>(
+        @clk clk: 1,
+        @reset reset: 1,
+        left: 32,
+        right: 32
+    ) -> (
+        out: 32
+    );
+}
