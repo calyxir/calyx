@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fud import errors
 from fud.stages import Source, SourceType, Stage
-from fud.utils import TmpDir, shell, unwrap_or
+from fud.utils import TmpDir, shell
 from fud import config as cfg
 
 from .json_to_dat import convert2dat, convert2json

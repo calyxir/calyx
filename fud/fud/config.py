@@ -48,7 +48,6 @@ DEFAULT_CONFIGURATION = {
             "cycle_limit": int(5e8),
             "round_float_to_fixed": True,
             "data": None,
-            "vcd-target": None,
         },
         "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
         "vcd_json": {"file_extensions": [".json"]},
