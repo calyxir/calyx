@@ -39,4 +39,4 @@ __pycache__
 !.vscode/launch.json
 !.vscode/tasks.json
 
-./tests/correctness/exp/*.futil
+tests/xilinx/cocotb/**/hdl
