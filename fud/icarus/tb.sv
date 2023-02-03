@@ -62,7 +62,7 @@ initial begin
 
   forever begin
     #10 clk = ~clk;
-    if (done == 1) begin
+    if (cycle_count > RESET_CYCLES && done == 1) begin
       // Subtract 1 because the cycle counter is incremented at the end of the
       // cycle.
       $display("Simulated %d cycles", cycle_count - RESET_CYCLES - 1);
