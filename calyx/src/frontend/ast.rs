@@ -17,7 +17,7 @@ pub struct NamespaceDef {
     /// List of component definitions.
     pub components: Vec<ComponentDef>,
     /// Extern statements and any primitive declarations in them.
-    pub externs: Vec<(String, Vec<ir::Primitive>)>,
+    pub externs: Vec<(Option<String>, Vec<ir::Primitive>)>,
     /// Optional opaque metadata
     pub metadata: Option<String>,
 }

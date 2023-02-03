@@ -100,6 +100,7 @@ pub fn ast_to_ir(mut workspace: frontend::Workspace) -> CalyxResult<Context> {
         .externs
         .iter()
         .flat_map(|(_, prims)| prims.iter().map(|prim| &prim.name));
+
     let comp_names = workspace.components.iter().map(|comp| &comp.name);
 
     for bound in prim_names.chain(comp_names) {

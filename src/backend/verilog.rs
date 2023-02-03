@@ -113,7 +113,7 @@ impl Backend for VerilogBackend {
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
         let fw = &mut file.get_write();
-        for extern_path in ctx.lib.extern_paths() {
+        for extern_path in &ctx.lib.extern_paths() {
             // The extern file is guaranteed to exist by the frontend.
             let mut ext = File::open(extern_path).unwrap();
             io::copy(&mut ext, fw).map_err(|err| {
@@ -125,6 +125,9 @@ impl Backend for VerilogBackend {
             })?;
             // Add a newline after appending a library file
             writeln!(fw)?;
+        }
+        for prim in ctx.lib.prim_inlines() {
+            emit_prim_inline(prim, fw)?;
         }
         Ok(())
     }
@@ -152,6 +155,74 @@ impl Backend for VerilogBackend {
             ))
         })
     }
+}
+
+// takes an inlined primitive and emits the corresponding verilog
+// note that this means that prim *must* have Some body
+fn emit_prim_inline<F: io::Write>(
+    prim: &ir::Primitive,
+    f: &mut F,
+) -> CalyxResult<()> {
+    write!(f, "module {}", prim.name)?;
+    if !prim.params.is_empty() {
+        writeln!(f, " #(")?;
+        for (idx, param) in prim.params.iter().enumerate() {
+            write!(f, "    parameter {} = 32", param)?;
+            if idx != prim.params.len() - 1 {
+                writeln!(f, ",")?;
+            } else {
+                writeln!(f)?;
+            }
+        }
+        write!(f, ")")?;
+    }
+    writeln!(f, " (")?;
+    for (idx, port) in prim.signature.iter().enumerate() {
+        // NOTE: The signature port definitions are reversed inside the component.
+        match port.direction {
+            ir::Direction::Input => {
+                write!(f, "   input")?;
+            }
+            ir::Direction::Output => {
+                write!(f, "   output")?;
+            }
+            ir::Direction::Inout => {
+                panic!("Unexpected Inout port on Component: {}", port.name)
+            }
+        }
+        match port.width {
+            ir::Width::Const { value } => {
+                if value == 1 {
+                    write!(f, " logic {}", port.name)?;
+                } else {
+                    write!(f, " logic [{}:0] {}", value - 1, port.name)?;
+                }
+            }
+            ir::Width::Param { value } => {
+                write!(f, " logic [{}-1:0] {}", value, port.name)?;
+            }
+        }
+        if idx == prim.signature.len() - 1 {
+            writeln!(f)?;
+        } else {
+            writeln!(f, ",")?;
+        }
+    }
+    writeln!(f, ");")?;
+
+    write!(
+        f,
+        "{}",
+        prim.body.as_ref().unwrap_or_else(|| panic!(
+            "expected primitive {} to have a body",
+            { prim.name }
+        ))
+    )?;
+
+    writeln!(f, "endmodule")?;
+    writeln!(f)?;
+
+    Ok(())
 }
 
 fn emit_component<F: io::Write>(
