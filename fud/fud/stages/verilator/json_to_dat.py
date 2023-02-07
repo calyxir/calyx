@@ -122,7 +122,6 @@ def convert2dat(output_dir, data, extension, round: bool):
     point. If False, an exception is thrown when a number
     cannot be represented exactly in fixed point format.
     """
-    log.info(f"convert2dat.round_float_to_fixed: {round}")
     output_dir = Path(output_dir)
     shape = {}
     for k, item in data.items():

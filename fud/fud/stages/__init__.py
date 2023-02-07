@@ -12,7 +12,6 @@ from enum import Enum, auto
 from io import IOBase
 from pathlib import Path
 
-from .. import errors
 from ..utils import Conversions as conv
 from ..utils import Directory, is_debug
 
@@ -226,7 +225,9 @@ class Stage:
             opts = config["stages", self.name]
             for opt in opts.keys():
                 if opt not in known:
-                    raise errors.UnknownConfiguration(self.name, opt, known)
+                    log.warn(
+                        f"Unknown option `{self.name}.{opt}' for stage `{self.name}'"
+                    )
 
     def setup(
         self,

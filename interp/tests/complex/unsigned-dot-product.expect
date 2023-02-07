@@ -42,7 +42,8 @@
         "write_data": 0,
         "done": 0,
         "read_data": 0,
-        "clk": 0
+        "clk": 0,
+        "reset": 0
       },
       "mem1": {
         "addr0": 0,
@@ -51,7 +52,8 @@
         "write_data": 0,
         "done": 0,
         "read_data": 0,
-        "clk": 0
+        "clk": 0,
+        "reset": 0
       },
       "add1": {
         "left": 0,
