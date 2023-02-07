@@ -1,0 +1,6 @@
+(coq.theory
+ (name Calyx)
+ (package coq-calyx)
+ (synopsis "")
+ (modules (:standard)))
+(include_subdirs qualified)

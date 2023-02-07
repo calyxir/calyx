@@ -1,0 +1,18 @@
+(lang dune 2.9)
+(using coq 0.2)
+(name coq-calyx)
+
+(generate_opam_files true)
+
+(package
+ (name coq-calyx)
+ (version dev)
+ (synopsis     "Coq formalization of the Calyx language.")
+ (maintainers  "")
+ (authors      "")
+ (homepage     "")
+ (bug_reports  "")
+ (license      "MIT")
+ (depends
+   (coq-stdpp (>= "1.8.0"))
+   (coq (>= "8.15.2"))))

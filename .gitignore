@@ -40,3 +40,42 @@ __pycache__
 !.vscode/tasks.json
 
 tests/xilinx/cocotb/**/hdl
+
+# Dune build directory
+_build
+# This opam file is generated from dune-project
+coq-calyx.opam
+# Github template for Coq .gitignores
+.*.aux
+.*.d
+*.a
+*.cma
+*.cmi
+*.cmo
+*.cmx
+*.cmxa
+*.cmxs
+*.glob
+*.ml.d
+*.ml4.d
+*.mli.d
+*.mllib.d
+*.mlpack.d
+*.native
+*.o
+*.v.d
+*.vio
+*.vo
+*.vok
+*.vos
+.coq-native/
+.csdp.cache
+.lia.cache
+.nia.cache
+.nlia.cache
+.nra.cache
+csdp.cache
+lia.cache
+nia.cache
+nlia.cache
+nra.cache
