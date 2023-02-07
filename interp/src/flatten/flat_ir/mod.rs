@@ -9,4 +9,5 @@ pub(crate) mod prelude {
 
     pub use super::base::*;
     pub use super::identifier::Identifier;
+    pub use super::wires::core::*;
 }

@@ -5,7 +5,7 @@ use crate::flatten::structures::index_trait::impl_index;
 
 impl_index!(pub Identifier);
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct IdMap {
     count: u32,
     forward: HashMap<String, Identifier>,
@@ -13,8 +13,31 @@ pub struct IdMap {
 }
 
 impl IdMap {
+    #[inline]
+    pub fn get_default_id() -> Identifier {
+        Identifier::from(0)
+    }
+
+    /// inner builder style utility function
+    fn insert_empty_string(mut self) -> Self {
+        self.insert("");
+        self
+    }
+
+    /// Initializes a new identifier map with the empty string pre-inserted
     pub fn new() -> Self {
-        Self::default()
+        Self::with_capacity(0)
+    }
+
+    /// Initializes a new identifier map with the given number of slots
+    /// preallocated and the empty string inserted
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            count: 0,
+            forward: HashMap::with_capacity(capacity + 1),
+            backward: HashMap::with_capacity(capacity + 1),
+        }
+        .insert_empty_string()
     }
 
     /// Inserts a string mapping into the table and returns the identifier.
@@ -37,11 +60,20 @@ impl IdMap {
         *id
     }
 
+    /// Returns the identifier associated with the string, if present
     pub fn lookup_id(&self, key: &String) -> Option<&Identifier> {
         self.forward.get(key)
     }
 
+    /// Returns the string associated with the identifier, if present
     pub fn lookup_string(&self, id: &Identifier) -> Option<&String> {
         self.backward.get(id)
+    }
+}
+
+impl Default for IdMap {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }
