@@ -20,7 +20,7 @@ The following commands help focus on specific tests to run:
 
 **Differences**. `-d` or `--diff` shows differences between the expected test output and the generated output. Use this in conjunction with `-i` to focus on particular failing tests.
 
-**Saving Files**. `-s` is used to save test outputs when the have expected changes. In the case of `miss` tests, i.e. tests that currently don't any expected output file, this saves a completely new `.expect` file.
+**Saving Files**. `-s` is used to save test outputs when they have expected changes. In the case of `miss` tests, i.e. tests that currently don't have any expected output file, this saves a completely new `.expect` file.
 
 **Dry run**. `-n` flag shows the commands that `runt` will run for each test. Use this when you directly want to run the command for the test directly.
 
