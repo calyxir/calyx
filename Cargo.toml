@@ -19,7 +19,7 @@ atty = "0.2.14"
 argh = "0.1"
 vast = "0.3.1"
 serde = "1.0.129"
-serde-lexpr = "0.1.2"
+serde_sexpr = "0.1.0"
 quick-xml = { version = "0.22.0", default-features = false, features = [
     "serialize",
 ] }

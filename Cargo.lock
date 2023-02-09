@@ -10,7 +10,7 @@ checksum = "fcb51a0695d8f838b1ee009b3fbf66bda078cd64590202a864a8f3e8c4315c47"
 dependencies = [
  "getrandom",
  "once_cell",
- "version_check",
+ "version_check 0.9.4",
 ]
 
 [[package]]
@@ -546,7 +546,7 @@ dependencies = [
  "pest",
  "quick-xml",
  "serde",
- "serde-lexpr",
+ "serde_sexpr",
  "vast",
 ]
 
@@ -557,7 +557,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bff49e947297f3312447abdca79f45f4738097cc82b06e72054d2223f601f1b9"
 dependencies = [
  "typenum",
- "version_check",
+ "version_check 0.9.4",
 ]
 
 [[package]]
@@ -729,29 +729,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
-name = "lexpr"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ceee0b80e0043f17bf81130471e1b0975179af75fe657af45577d80e2698fe3b"
-dependencies = [
- "itoa 0.4.8",
- "lexpr-macros",
- "proc-macro-hack",
- "ryu",
-]
-
-[[package]]
-name = "lexpr-macros"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd627fb38e19c00d8d068618259205f7a91c91aeade5c15bc35dbca037bb1c35"
-dependencies = [
- "proc-macro-hack",
- "proc-macro2",
- "quote",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -811,6 +788,16 @@ dependencies = [
  "bitflags",
  "cfg-if",
  "libc",
+]
+
+[[package]]
+name = "nom"
+version = "4.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ad2a91a8e869eeb30b9cb3119ae87773a8f4ae617f41b1eb9c154b2905f7bd6"
+dependencies = [
+ "memchr",
+ "version_check 0.1.5",
 ]
 
 [[package]]
@@ -1044,12 +1031,6 @@ dependencies = [
  "typed-arena",
  "unicode-segmentation",
 ]
-
-[[package]]
-name = "proc-macro-hack"
-version = "0.5.20+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
 
 [[package]]
 name = "proc-macro2"
@@ -1325,16 +1306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-lexpr"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b305d32ef3ad5ebf721122b0b9aeecbf67e843e6fbafb6b5cefa4fb9dc3909f"
-dependencies = [
- "lexpr",
- "serde",
-]
-
-[[package]]
 name = "serde_cbor"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1363,6 +1334,16 @@ checksum = "8e8b3801309262e8184d9687fb697586833e939767aea0dda89f5a8e650e8bd7"
 dependencies = [
  "itoa 1.0.4",
  "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_sexpr"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5318bfeed779c64075ce317c81462ed54dc00021be1c6b34957d798e11a68bdb"
+dependencies = [
+ "nom",
  "serde",
 ]
 
@@ -1650,6 +1631,12 @@ dependencies = [
  "itertools 0.10.5",
  "pretty",
 ]
+
+[[package]]
+name = "version_check"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "914b1a6776c4c929a602fafd8bc742e06365d4bcbe48c30f9cca5824f70dc9dd"
 
 [[package]]
 name = "version_check"

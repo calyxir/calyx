@@ -27,7 +27,7 @@ impl Backend for PrintBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
-        writeln!(out, "{}", serde_lexpr::to_string(ctx).unwrap())?;
+        writeln!(out, "{}", serde_sexpr::to_string(ctx).unwrap())?;
 
         Ok(())
     }
