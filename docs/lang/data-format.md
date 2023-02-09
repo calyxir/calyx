@@ -80,7 +80,7 @@ Often times, it can be useful to automatically generate random values for a larg
 
 
 [toplevel-attr]: attributes.md#toplevel
-[ext-attr]: attributed.md#external
+[ext-attr]: attributes.md#external
 [fud]: ../fud/index.md
 [data-gen]: ../tools/data-gen.md
 [iv]: ../fud/index.md#icarus-verilog

@@ -22,7 +22,7 @@ A `WIDTH`-wide register.
 
 - `in: WIDTH` - An input value to the register `WIDTH`-bits.
 - `write_en: 1` - The one bit write enabled signal. Indicates that the register
-  should store the value on the in wire.
+  should store the value on the `in` wire.
 
 **Outputs:**
 
@@ -46,7 +46,7 @@ A constant WIDTH-bit value with value VAL.
 
 ### `std_lsh<WIDTH>`
 
-A left bit shift. Performs `LEFT << RIGHT`. This component is combinational.
+A left bit shift. Performs `left << right`. This component is combinational.
 
 **Inputs:**
 
@@ -55,13 +55,13 @@ A left bit shift. Performs `LEFT << RIGHT`. This component is combinational.
 
 **Outputs:**
 
-- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT << RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `left << right`
 
 ---
 
 ### `std_rsh<WIDTH>`
 
-A right bit shift. Performs `LEFT >> RIGHT`. This component is combinational.
+A right bit shift. Performs `left >> right`. This component is combinational.
 
 **Inputs:**
 
@@ -70,13 +70,13 @@ A right bit shift. Performs `LEFT >> RIGHT`. This component is combinational.
 
 **Outputs:**
 
-- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT >> RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `left >> right`
 
 ---
 
 ### `std_add<WIDTH>`
 
-Bitwise addition without a carry flag. Performs `LEFT + RIGHT`. This component
+Bitwise addition without a carry flag. Performs `left + right`. This component
 is combinational.
 
 **Inputs:**
@@ -86,13 +86,13 @@ is combinational.
 
 **Outputs:**
 
-- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT + RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `left + right`
 
 ---
 
 ### `std_sub<WIDTH>`
 
-Bitwise subtraction. Performs `LEFT - RIGHT`. This component is combinational.
+Bitwise subtraction. Performs `left - right`. This component is combinational.
 
 **Inputs:**
 
@@ -101,14 +101,14 @@ Bitwise subtraction. Performs `LEFT - RIGHT`. This component is combinational.
 
 **Outputs:**
 
-- `out: WIDTH` - A WIDTH-bit value equivalent to `LEFT - RIGHT`
+- `out: WIDTH` - A WIDTH-bit value equivalent to `left - right`
 
 ---
 
 ### `std_slice<IN_WIDTH, OUT_WIDTH>`
 
 Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
-`in[out_width - 1 : 0]`. This component is combinational.
+`in[OUT_WIDTH - 1 : 0]`. This component is combinational.
 
 **Inputs:**
 
@@ -302,7 +302,7 @@ A one-dimensional memory.
 
 **Inputs:**
 
-- `addr0: IDX_SIZE - The index to be accessed or updated
+- `addr0: IDX_SIZE` - The index to be accessed or updated
 - `write_data: WIDTH` - Data to be written to the selected memory slot
 - `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`
 

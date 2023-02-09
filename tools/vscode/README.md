@@ -7,7 +7,7 @@ fancier features if anybody is ever interested in it.
 Add a link to the Calyx VSCode extension directory to your VSCode extensions directory.
 ```
 cd $HOME/.vscode/extensions
-ln -s <calyx root directory/tools/vscode calyx.calyx-0.0.1
+ln -s <calyx root directory>/tools/vscode calyx.calyx-0.0.1
 ```
 Restart VSCode.
 
