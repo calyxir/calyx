@@ -5,8 +5,8 @@ use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
 use super::{Component, Id, Primitive};
-use std::path::PathBuf;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
+use std::path::PathBuf;
 
 /// A representation of all the primitive definitions found while parsing
 /// the root program.

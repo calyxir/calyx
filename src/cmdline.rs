@@ -1,10 +1,7 @@
 use crate::backend::traits::Backend;
 use crate::backend::{
-    mlir::MlirBackend,
-    print::PrintBackend,
-    resources::ResourcesBackend,
-    verilog::VerilogBackend,
-    xilinx::XilinxInterfaceBackend,
+    mlir::MlirBackend, print::PrintBackend, resources::ResourcesBackend,
+    verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
     xilinx::XilinxXmlBackend,
 };
 use argh::FromArgs;

@@ -2,11 +2,7 @@
 //! For now, only prints s-expressions.
 
 use crate::backend::traits::Backend;
-use calyx::{
-    ir,
-    errors::CalyxResult,
-    utils::OutputFile,
-};
+use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 
 #[derive(Default)]
 pub struct PrintBackend;
