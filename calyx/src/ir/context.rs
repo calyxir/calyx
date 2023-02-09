@@ -6,6 +6,7 @@ use linked_hash_map::LinkedHashMap;
 
 use super::{Component, Id, Primitive};
 use std::path::PathBuf;
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 /// A representation of all the primitive definitions found while parsing
 /// the root program.
@@ -150,5 +151,24 @@ impl Context {
     pub fn entrypoint_mut(&mut self) -> &mut Component {
         let idx = self.entrypoint_idx();
         &mut self.components[idx]
+    }
+}
+
+impl Serialize for Context {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut ctx = ser.serialize_struct("Context", 1)?;
+        ctx.serialize_field("components", &self.components.len())?;
+        /*
+        ctx.serialize_field("components", &self.components)?;
+        ctx.serialize_field("lib", &self.lib)?;
+        ctx.serialize_field("entrypoint", &self.entrypoint)?;
+        ctx.serialize_field("bc", &self.bc)?;
+        ctx.serialize_field("extra_opts", &self.extra_opts)?;
+        ctx.serialize_field("metadata", &self.metadata)?;
+        */
+        ctx.end()
     }
 }
