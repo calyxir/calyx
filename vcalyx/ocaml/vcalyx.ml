@@ -1,2 +1,2 @@
 let f () =
-  Printf.printf "hello world\n"
+  Printf.printf "\nhello world\n"

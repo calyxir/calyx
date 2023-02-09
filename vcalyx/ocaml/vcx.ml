@@ -1,2 +1,6 @@
+open Extr
 let () =
-  Vcalyx.f ()
+  let c: control = CEmpty () in
+  match c with
+  | CEmpty tt -> Vcalyx.f tt
+  | _ -> ()
