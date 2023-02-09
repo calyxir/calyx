@@ -1,0 +1,12 @@
+(library
+ (name vcalyx)
+ (public_name vcalyx)
+ (modules vcalyx)
+ (libraries extr))
+
+(executable
+  (name vcx)
+  (public_name vcx)
+  (modules vcx)
+  (libraries vcalyx))
+

@@ -1,4 +1,4 @@
-Require Calyx.Vect.
+Require VCalyx.Vect.
 From stdpp Require Import streams.
 (** * Mealy Machines *)
 

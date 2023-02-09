@@ -1,0 +1,8 @@
+(library
+ (name extr)
+ (public_name vcalyx.extr))
+
+(coq.extraction
+ (prelude Extraction)
+ (extracted_modules extr)
+ (theories VCalyx))
