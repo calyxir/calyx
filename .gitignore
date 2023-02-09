@@ -44,7 +44,8 @@ tests/xilinx/cocotb/**/hdl
 # Dune build directory
 _build
 # This opam file is generated from dune-project
-coq-calyx.opam
+vcalyx.opam
+vcalyx.install
 # Github template for Coq .gitignores
 .*.aux
 .*.d
