@@ -1,0 +1,20 @@
+// -p cell-share -x cell-share:print_par_timing
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+    group A{
+    }
+    group B{
+    }
+    group C{
+    }
+  }
+
+  control {
+    @static(2) par {
+      @static(2) seq { @static(1) A; @static B;}
+      @static(2) B; 
+    }
+  }
+}
