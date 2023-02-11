@@ -231,10 +231,8 @@ impl CellShare {
             })
             .collect();
 
-        let print_par_timing = given_opts
-            .iter()
-            .find(|arg| **arg == "print_par_timing")
-            .is_some();
+        let print_par_timing =
+            given_opts.iter().any(|arg| *arg == "print_par_timing");
 
         // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
         let bounds_arg = given_opts.iter().find_map(|arg| {
