@@ -5,11 +5,11 @@ extern "memories.sv" {
     addr0: IDX_SIZE,
     // Write ports
     @write_together(1) @static(1) @go(1) write_en: 1,
-    @write_together(1) in: WIDTH,
+    @write_together(1) write_data: WIDTH,
     // Read ports
     @static(1) @go(2) read_en: 1
   ) -> (
-    @stable out: WIDTH,
+    @stable read_data: WIDTH,
     @done(1) write_done: 1,
     @done(2) read_done: 1
   );
@@ -21,11 +21,11 @@ extern "memories.sv" {
     addr1: D1_IDX_SIZE,
     // Write ports
     @write_together(1) @static(1) @go(1) write_en: 1,
-    @write_together(1) in: WIDTH,
+    @write_together(1) write_data: WIDTH,
     // Read ports
     @static(1) @go(2) read_en: 1
   ) -> (
-    @stable out: WIDTH,
+    @stable read_data: WIDTH,
     @done(1) write_done: 1,
     @done(2) read_done: 1
   );
@@ -38,11 +38,11 @@ extern "memories.sv" {
     addr2: D2_IDX_SIZE,
     // Write ports
     @write_together(1) @static(1) @go(1) write_en: 1,
-    @write_together(1) in: WIDTH,
+    @write_together(1) write_data: WIDTH,
     // Read ports
     @static(1) @go(2) read_en: 1
   ) -> (
-    @stable out: WIDTH,
+    @stable read_data: WIDTH,
     @done(1) write_done: 1,
     @done(2) read_done: 1
   );
@@ -56,11 +56,11 @@ extern "memories.sv" {
     addr3: D3_IDX_SIZE,
     // Write ports
     @write_together(1) @static(1) @go(1) write_en: 1,
-    @write_together(1) in: WIDTH,
+    @write_together(1) write_data: WIDTH,
     // Read ports
     @static(1) @go(2) read_en: 1
   ) -> (
-    @stable out: WIDTH,
+    @stable read_data: WIDTH,
     @done(1) write_done: 1,
     @done(2) read_done: 1
   );
