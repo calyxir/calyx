@@ -39,7 +39,7 @@ component main() -> () {
       let1[done] = i0.done;
     }
     group let2<"static"=2> {
-      a0_read0_0.in = a0.out;
+      a0_read0_0.in = a0.read_data;
       a0_read0_0.write_en = a0.read_done;
       let2[done] = a0_read0_0.done;
       a0.addr0 = slice0.out;
@@ -47,7 +47,7 @@ component main() -> () {
       a0.read_en = 1'd1;
     }
     group let3<"static"=2> {
-      b0_read0_0.in = b0.out;
+      b0_read0_0.in = b0.read_data;
       b0_read0_0.write_en = b0.read_done;
       let3[done] = b0_read0_0.done;
       b0.addr0 = slice1.out;

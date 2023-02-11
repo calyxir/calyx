@@ -172,7 +172,7 @@ component conv2d_5x512x14x14() -> () {
       let12[done] = __padded_tensor_val_0.done;
     }
     group let13<"static"=2> {
-      data_read0_0.in = data.out;
+      data_read0_0.in = data.read_data;
       data_read0_0.write_en = data.read_done;
       let13[done] = data_read0_0.done;
       data.addr3 = slice3.out;
@@ -190,7 +190,7 @@ component conv2d_5x512x14x14() -> () {
       data.read_en = 1'd1;
     }
     group let14<"static"=2> {
-      weight_read0_0.in = weight.out;
+      weight_read0_0.in = weight.read_data;
       weight_read0_0.write_en = weight.read_done;
       let14[done] = weight_read0_0.done;
       weight.addr3 = slice7.out;
@@ -299,7 +299,7 @@ component conv2d_5x512x14x14() -> () {
       x.addr0 = slice8.out;
       slice8.in = __b0.out;
       x.write_en = 1'd1;
-      x.in = __sum_0.out;
+      x.write_data = __sum_0.out;
       upd5[done] = x.write_done;
     }
     group upd6<"static"=1> {

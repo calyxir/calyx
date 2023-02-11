@@ -27,7 +27,7 @@ component negative_4() -> () {
       let0[done] = __i0.done;
     }
     group let1<"static"=2> {
-      x_read0_0.in = x.out;
+      x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let1[done] = x_read0_0.done;
       x.addr0 = __i0.out;
@@ -38,7 +38,7 @@ component negative_4() -> () {
       x1.write_en = 1'd1;
       sub0.left = const2.out;
       sub0.right = x_read0_0.out;
-      x1.in = sub0.out;
+      x1.write_data = sub0.out;
       upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {

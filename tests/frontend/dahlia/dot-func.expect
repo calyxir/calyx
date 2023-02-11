@@ -28,14 +28,14 @@ component dot() -> () {
       let0[done] = i0.done;
     }
     group let1<"static"=2> {
-      A_read0_0.in = A.out;
+      A_read0_0.in = A.read_data;
       A_read0_0.write_en = A.read_done;
       let1[done] = A_read0_0.done;
       A.addr0 = i0.out;
       A.read_en = 1'd1;
     }
     group let2<"static"=2> {
-      B_read0_0.in = B.out;
+      B_read0_0.in = B.read_data;
       B_read0_0.write_en = B.read_done;
       let2[done] = B_read0_0.done;
       B.addr0 = i0.out;
@@ -52,7 +52,7 @@ component dot() -> () {
     group upd0<"static"=1> {
       out.addr0 = i0.out;
       out.write_en = 1'd1;
-      out.in = bin_read0_0.out;
+      out.write_data = bin_read0_0.out;
       upd0[done] = out.write_done;
     }
     group upd1<"static"=1> {

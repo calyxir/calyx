@@ -129,7 +129,7 @@ component max_pool2d_2x2x2x2() -> () {
       add1.right = __n0.out;
     }
     group let13<"static"=2> {
-      __current_0.in = data.out;
+      __current_0.in = data.read_data;
       __current_0.write_en = data.read_done;
       let13[done] = __current_0.done;
       data.addr3 = slice7.out;
@@ -179,7 +179,7 @@ component max_pool2d_2x2x2x2() -> () {
       let7[done] = __stride_x_0.done;
     }
     group let8<"static"=2> {
-      __max_0.in = data.out;
+      __max_0.in = data.read_data;
       __max_0.write_en = data.read_done;
       let8[done] = __max_0.done;
       data.addr3 = slice3.out;
@@ -226,7 +226,7 @@ component max_pool2d_2x2x2x2() -> () {
       result.addr0 = slice8.out;
       slice8.in = __b0.out;
       result.write_en = 1'd1;
-      result.in = __max_0.out;
+      result.write_data = __max_0.out;
       upd3[done] = result.write_done;
     }
     group upd4<"static"=1> {

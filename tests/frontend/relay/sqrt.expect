@@ -42,7 +42,7 @@ component sqrt_1x4() -> () {
       let1[done] = __j0.done;
     }
     group let2<"static"=2> {
-      x_read0_0.in = x.out;
+      x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let2[done] = x_read0_0.done;
       x.addr1 = __j0.out;
@@ -58,7 +58,7 @@ component sqrt_1x4() -> () {
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      x1.in = __tmp_0.out;
+      x1.write_data = __tmp_0.out;
       upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {

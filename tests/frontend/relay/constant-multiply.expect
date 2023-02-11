@@ -27,7 +27,7 @@ component multiply_1(x1: 32) -> () {
       let0[done] = __i0.done;
     }
     group let1<"static"=2> {
-      x_read0_0.in = x.out;
+      x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let1[done] = x_read0_0.done;
       x.addr0 = __i0.out;
@@ -44,7 +44,7 @@ component multiply_1(x1: 32) -> () {
     group upd0<"static"=1> {
       x2.addr0 = __i0.out;
       x2.write_en = 1'd1;
-      x2.in = bin_read0_0.out;
+      x2.write_data = bin_read0_0.out;
       upd0[done] = x2.write_done;
     }
     group upd1<"static"=1> {
