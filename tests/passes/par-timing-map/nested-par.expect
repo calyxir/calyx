@@ -1,4 +1,4 @@
-This maps ids of par blocks to " par timing maps ", which map group ids to intervals (i,j), that signify the clock cycles the group is active for, 
+This maps ids of par blocks to " par timing maps ", which map enable ids to intervals (i,j), that signify the clock cycles the group is active for, 
  relative to the start of the given par block
 ======== Map for Component "main" ========
 ====Par Node ID: 0====
