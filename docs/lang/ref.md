@@ -200,7 +200,7 @@ Guards can use the following constructs:
 
 ### Continuous Assignments
 
-When an assignment is appears directly inside a component's `wires` section, it
+When an assignment appears directly inside a component's `wires` section, it
 is called a *continuous assignment* and is permanently active, even when the
 [control program](#the-control-operators) of the component is inactive.
 
@@ -220,7 +220,7 @@ Assignments within a group can be reasoned about in isolation from assignments
 in other groups.
 Unlike [continuous assignments][continuous], a group's encapsulated assignments
 only execute as dictated by the [control program][control].
-These means that seemingly conflicting writes to the same ports are allowed:
+This means that seemingly conflicting writes to the same ports are allowed:
 
 ```
 group foo {
@@ -302,7 +302,7 @@ invoke instance[ref cells](inputs)(outputs) [with comb_group];
   required [*cell reference*][ref]. (It can be omitted if the invoked component
   contains no cell references.)
 
-Invoking a instance runs its control program to completion before returning.
+Invoking an instance runs its control program to completion before returning.
 Any Calyx component or primitive that implements the [go-done interface](#the-go-done-interface) can be invoked.
 Like the [group enable](#group-enable) statement, `invoke` is a leaf node in the control program.
 
@@ -375,7 +375,7 @@ value of `port`.
 
 ## The `go`-`done` Interface
 
-By default, calyx components implement a one-sided ready-valid interface called
+By default, Calyx components implement a one-sided ready-valid interface called
 *the `go`-`done` interface*.
 During compilation, the Calyx compiler will add an input port marked with the attribute [`@go`][godoneattr] and an output port marked with the attribute [`@done`][godoneattr] to the interface of the component:
 

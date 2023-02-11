@@ -2,7 +2,7 @@
 
 The experimental Calyx interpreter resides in the `interp/` directory of the
 repository.
-The interpreter supports all Calyx programs---from high-level programs that
+The interpreter supports all Calyx programs—from high-level programs that
 make heavy use of control operators, to fully lowered Calyx programs.
 (RTL simulation, in contrast, only supports execution of fully lowered programs.)
 
