@@ -7,14 +7,15 @@ use std::{
     fmt::Debug,
 };
 
-/// maps the ids of groups to a set of tuples (i,j), the clock cycles (relative
-/// to the start of the par) that group is live
+/// maps the node ids of enables to a set of tuples (i,j), which is clock cycles (relative
+/// to the start of the par) that enable is live
 type ParTimingMap = HashMap<u64, HashSet<(u64, u64)>>;
 
 #[derive(Default)]
 pub struct StaticParTiming {
-    /// Map from from ids of par blocks to par_timing_maps
+    /// Map from from par block ids to par_timing_maps
     map: HashMap<u64, ParTimingMap>,
+    /// name of component
     component_name: ir::Id,
 }
 
@@ -23,11 +24,12 @@ impl Debug for StaticParTiming {
         //must sort the hashmap and hashsets in order to get consistent ordering
         writeln!(
             f,
-            "This maps ids of par blocks to \" par timing maps \", which map group ids to intervals (i,j), that signify the clock cycles the group is active for, \n relative to the start of the given par block"
+            "This maps ids of par blocks to \" par timing maps \", which map enable ids to intervals (i,j), that signify the clock cycles the group is active for, \n relative to the start of the given par block"
         )?;
         write!(f, "======== Map for Component \"{}\"", self.component_name)?;
         writeln!(f, " ========")?;
         let map = self.map.clone();
+        // Sorting map to get deterministic ordering
         let mut vec: Vec<(u64, ParTimingMap)> = map.into_iter().collect();
         vec.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
         for (par_id, par_timing_map) in vec.into_iter() {
@@ -57,7 +59,9 @@ impl StaticParTiming {
             ..Default::default()
         };
 
-        // compute_unique_ids should give same id labeling if the control is the same
+        // compute_unique_ids is deterministic
+        // so if we're calling it after we've called live range analysis (and the
+        // control program hasn't changed, then this is unnecessary)
         ControlId::compute_unique_ids(control, 0, false);
 
         time_map.build_time_map(control, None);
@@ -84,6 +88,7 @@ impl StaticParTiming {
             ir::Control::Empty(_) => cur_state,
             ir::Control::Enable(_) => match cur_state {
                 Some((par_id, cur_clock)) => {
+                    // add enable to self.map
                     let latency =
                         ControlId::get_guaranteed_attribute(c, "static");
                     let enable_id = ControlId::get_guaranteed_id(c);
@@ -116,8 +121,7 @@ impl StaticParTiming {
                     let max_latency =
                         std::cmp::max(tbranch_latency, fbranch_latency);
                     // we already know parent par + latency of the if stmt, so don't
-                    // care about return type
-                    // we just want to add to the timing map
+                    // care about return type: we just want to add enables to the timing map
                     self.build_time_map(tbranch, cur_state);
                     self.build_time_map(fbranch, cur_state);
                     Some((parent_par, cur_clock + max_latency))
@@ -156,7 +160,7 @@ impl StaticParTiming {
                     }
                     // If we have nested pars, want to get the clock cycles relative
                     // to the start of both the current par and the nested par.
-                    // So we need the following code to possibly get the clock cycles
+                    // So we have the following code to possibly get the clock cycles
                     // relative to the parent par.
                     // Might be overkill, but trying to keep it general.
                     match cur_state {
