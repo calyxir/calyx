@@ -1,0 +1,79 @@
+This maps ids of par blocks to " par timing maps ", which map group ids to intervals (i,j), that signify the clock cycles the group is active for, 
+ relative to the start of the given par block
+======== Map for Component "main" ========
+====Par Node ID: 0====
+Group Node ID: 2 -- [(1, 4)]
+Group Node ID: 3 -- [(5, 8)]
+Group Node ID: 4 -- [(9, 12)]
+Group Node ID: 6 -- [(1, 1)]
+Group Node ID: 9 -- [(2, 5)]
+Group Node ID: 10 -- [(6, 9)]
+Group Node ID: 12 -- [(2, 3)]
+Group Node ID: 13 -- [(4, 5)]
+Group Node ID: 14 -- [(10, 10)]
+Group Node ID: 17 -- [(1, 1), (3, 3), (5, 5), (7, 7)]
+Group Node ID: 18 -- [(2, 2), (4, 4), (6, 6), (8, 8)]
+====Par Node ID: 7====
+Group Node ID: 9 -- [(1, 4)]
+Group Node ID: 10 -- [(5, 8)]
+Group Node ID: 12 -- [(1, 2)]
+Group Node ID: 13 -- [(3, 4)]
+}
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(32);
+  }
+  wires {
+    group A {
+    }
+    group B {
+    }
+    group C {
+    }
+    group D {
+    }
+    group E {
+    }
+    group F {
+    }
+    group G {
+    }
+    group H {
+    }
+    group I {
+    }
+    group J {
+    }
+  }
+
+  control {
+    @static(12) @NODE_ID(0) par {
+      @static(12) @NODE_ID seq {
+        @static(4) @NODE_ID(2) A;
+        @static(4) @NODE_ID(3) B;
+        @static(4) @NODE_ID(4) C;
+      }
+      @static(10) @NODE_ID(5) seq {
+        @static @NODE_ID(6) D;
+        @static(8) @NODE_ID(7) par {
+          @static(8) @NODE_ID(8) seq {
+            @static(4) @NODE_ID(9) E;
+            @static(4) @NODE_ID(10) F;
+          }
+          @static(4) @NODE_ID(11) seq {
+            @static(2) @NODE_ID(12) G;
+            @static(2) @NODE_ID(13) H;
+          }
+        }
+        @static @NODE_ID(14) D;
+      }
+      @bound(4) @NODE_ID(15) while lt.out {
+        @static(2) @NODE_ID(16) seq {
+          @static @NODE_ID(17) I;
+          @static @NODE_ID(18) J;
+        }
+      }
+    }
+  }
+}

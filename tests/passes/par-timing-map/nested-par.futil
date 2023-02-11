@@ -1,0 +1,44 @@
+// -p cell-share -x cell-share:print_par_timing
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(32);
+  }
+  wires {
+    group A{
+    }
+    group B{
+    }
+    group C{
+    }
+    group D{
+    }
+    group E{
+    }
+    group F{
+    }
+    group G{
+    }
+    group H{
+    }
+    group I{
+    }
+    group J{
+    }
+  }
+
+  control {
+    @static(12) par {
+      @static(12) seq { @static(4) A; @static(4) B; @static(4) C;}
+      @static(10) seq { 
+        @static D; 
+        @static(8) par{ 
+            @static(8) seq {@static(4) E; @static(4) F;} 
+            @static(4) seq {@static(2) G; @static(2) H;} 
+        } 
+        @static D;
+      }
+      @bound(4) while lt.out {@static(2) seq{ @static I; @static J;}}
+    }
+  }
+}

@@ -11,7 +11,6 @@ use std::{
 /// to the start of the par) that group is live
 type ParTimingMap = HashMap<u64, HashSet<(u64, u64)>>;
 
-///
 #[derive(Default)]
 pub struct StaticParTiming {
     /// Map from from ids of par blocks to par_timing_maps
@@ -61,27 +60,30 @@ impl StaticParTiming {
         // compute_unique_ids should give same id labeling if the control is the same
         ControlId::compute_unique_ids(control, 0, false);
 
-        time_map.build_time_map(control, None, 1);
+        time_map.build_time_map(control, None);
 
         time_map
     }
 
+    // Recursively updates self.time_map
     fn build_time_map(
         &mut self,
         c: &ir::Control,
-        cur_parent_par: Option<u64>,
-        cur_clock: u64,
-    ) -> u64 {
+        // cur_state = Some(parent_par_id, cur_clock) if we're inside a static par, None otherwise.
+        // parent_par_id = Node ID of the static par that we're analyzing
+        // cur_clock = current clock cycles we're at relative to the start of parent_par
+        cur_state: Option<(u64, u64)>,
+    ) -> Option<(u64, u64)> {
         match c {
             ir::Control::Invoke(_) => {
-                if cur_parent_par.is_some() {
+                if cur_state.is_some() {
                     unreachable!("no static guarantees for invoke")
                 }
-                0
+                cur_state
             }
-            ir::Control::Empty(_) => cur_clock,
-            ir::Control::Enable(_) => match cur_parent_par {
-                Some(par_id) => {
+            ir::Control::Empty(_) => cur_state,
+            ir::Control::Enable(_) => match cur_state {
+                Some((par_id, cur_clock)) => {
                     let latency =
                         ControlId::get_guaranteed_attribute(c, "static");
                     let enable_id = ControlId::get_guaranteed_id(c);
@@ -91,69 +93,94 @@ impl StaticParTiming {
                         .entry(enable_id)
                         .or_default()
                         .insert((cur_clock, cur_clock + latency - 1));
-                    cur_clock + latency
+                    Some((par_id, cur_clock + latency))
                 }
-                None => 0,
+                None => cur_state,
             },
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                let mut new_clock = cur_clock;
+                // this works whether or not cur_state is None or Some
+                let mut new_state = cur_state;
                 for stmt in stmts {
-                    new_clock =
-                        self.build_time_map(stmt, cur_parent_par, new_clock);
+                    new_state = self.build_time_map(stmt, new_state);
                 }
-                new_clock
+                new_state
             }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
-            }) => {
-                let tbranch_new_clock =
-                    self.build_time_map(tbranch, cur_parent_par, cur_clock);
-                let fbranch_new_clock =
-                    self.build_time_map(fbranch, cur_parent_par, cur_clock);
-                std::cmp::max(tbranch_new_clock, fbranch_new_clock)
-            }
-            ir::Control::While(ir::While { body, .. }) => {
-                let bound = ControlId::get_guaranteed_attribute(c, "bound");
-                // might be inefficient bc we're basically just unrolling the
-                // loop
-                let mut new_clock = cur_clock;
-                for _ in 0..bound {
-                    new_clock =
-                        self.build_time_map(body, cur_parent_par, new_clock)
+            }) => match cur_state {
+                Some((parent_par, cur_clock)) => {
+                    let tbranch_latency =
+                        ControlId::get_guaranteed_attribute(tbranch, "static");
+                    let fbranch_latency =
+                        ControlId::get_guaranteed_attribute(fbranch, "static");
+                    let max_latency =
+                        std::cmp::max(tbranch_latency, fbranch_latency);
+                    // we already know parent par + latency of the if stmt, so don't
+                    // care about return type
+                    // we just want to add to the timing map
+                    self.build_time_map(tbranch, cur_state);
+                    self.build_time_map(fbranch, cur_state);
+                    Some((parent_par, cur_clock + max_latency))
                 }
-                new_clock
+                None => {
+                    // should still look thru the branches in case there are static pars
+                    // inside the branches
+                    self.build_time_map(tbranch, cur_state);
+                    self.build_time_map(fbranch, cur_state);
+                    None
+                }
+            },
+            ir::Control::While(ir::While { body, .. }) => {
+                if cur_state.is_some() {
+                    let bound = ControlId::get_guaranteed_attribute(c, "bound");
+                    // essentially just unrolling the loop
+                    let mut new_state = cur_state;
+                    for _ in 0..bound {
+                        new_state = self.build_time_map(body, new_state)
+                    }
+                    new_state
+                } else {
+                    // look thru while body for static pars
+                    self.build_time_map(body, cur_state);
+                    None
+                }
             }
             ir::Control::Par(ir::Par { stmts, attributes }) => {
                 if attributes.get("static").is_some() {
+                    // Analyze the Current Par
                     for stmt in stmts {
                         self.build_time_map(
                             stmt,
-                            Some(ControlId::get_guaranteed_id(c)),
-                            1,
+                            Some((ControlId::get_guaranteed_id(c), 1)),
                         );
                     }
                     // If we have nested pars, want to get the clock cycles relative
-                    // to the start of both par blocks. This is possibly overkill,
-                    // but trying to keep it general.
-                    if cur_parent_par.is_some() {
-                        let mut max_clock = cur_clock;
-                        for stmt in stmts {
-                            let new_clock = self.build_time_map(
-                                stmt,
-                                cur_parent_par,
-                                cur_clock,
-                            );
-                            max_clock = std::cmp::max(max_clock, new_clock);
+                    // to the start of both the current par and the nested par.
+                    // So we need the following code to possibly get the clock cycles
+                    // relative to the parent par.
+                    // Might be overkill, but trying to keep it general.
+                    match cur_state {
+                        Some((cur_parent_par, cur_clock)) => {
+                            let mut max_latency = 0;
+                            for stmt in stmts {
+                                self.build_time_map(stmt, cur_state);
+                                let cur_latency =
+                                    ControlId::get_guaranteed_attribute(
+                                        stmt, "static",
+                                    );
+                                max_latency =
+                                    std::cmp::max(max_latency, cur_latency)
+                            }
+                            Some((cur_parent_par, cur_clock + max_latency))
                         }
-                        max_clock
-                    } else {
-                        0
+                        None => None,
                     }
                 } else {
+                    // look thru par block for static pars
                     for stmt in stmts {
-                        self.build_time_map(stmt, None, 0);
+                        self.build_time_map(stmt, None);
                     }
-                    0
+                    None
                 }
             }
         }
