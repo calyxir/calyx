@@ -2,8 +2,8 @@
 
 The source code documentation for the compiler can be [found here][comp].
 
-The Calyx compiler has several command line to control the execution of various
-passes and backends.
+The Calyx compiler has several command line options to control the execution of
+various passes and backends.
 
 ## Specifying Primitives Library
 
@@ -55,8 +55,8 @@ Aliases:
 ...
 ```
 
-The first section list all the passes implemented in the compiler.
-The second section lists *aliases* for combination of passes that are commonly
+The first section lists all the passes implemented in the compiler.
+The second section lists *aliases* for combinations of passes that are commonly
 run together.
 For example, the alias `all` is an ordered sequence of default passes executed
 when the compiler is run from the command-line.

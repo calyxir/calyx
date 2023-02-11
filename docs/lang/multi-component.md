@@ -4,7 +4,7 @@ Calyx designs can define and instantiate other Calyx components that themselves
 encode complex `control` programs.
 
 As an example, we'll build a Calyx design that uses a simple Calyx component
-to save a value in a register and use it in different component.
+to save a value in a register and use it in a different component.
 
 We define a new component called `identity` that has an input port `in`
 and an output port `out`.
