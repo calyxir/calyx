@@ -40,11 +40,10 @@ fn translate_assignment(
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
 ) -> Assignment {
-    let g_idx = translate_guard(&assign.guard, interp_ctx, map);
     Assignment {
         dst: map[&assign.dst.as_raw()],
         src: map[&assign.src.as_raw()],
-        guard: g_idx,
+        guard: translate_guard(&assign.guard, interp_ctx, map),
     }
 }
 
@@ -60,6 +59,9 @@ fn translate_component(
     comp: &cir::Component,
     interp_ctx: &mut InterpretationContext,
 ) {
+    let mut portmap: PortMapper = HashMap::new();
+    
+
     todo!()
 }
 
@@ -68,16 +70,9 @@ impl FlattenTree for cir::Guard {
     type IdxType = GuardIdx;
     type AuxillaryData = PortMapper;
 
-    fn process_element<'a: 'data, 'handle, 'vec, 'data>(
-        &'a self,
-        mut handle: SingleHandle<
-            'handle,
-            'vec,
-            'data,
-            Self,
-            Self::Output,
-            Self::IdxType,
-        >,
+    fn process_element<'data>(
+        &'data self,
+        mut handle: SingleHandle<'_, 'data, Self, Self::Output, Self::IdxType>,
         aux: &Self::AuxillaryData,
     ) -> Self::Output {
         match self {

@@ -2,22 +2,27 @@ use std::{collections::VecDeque, marker::PhantomData, process::Output};
 
 use super::structures::{index_trait::IndexRef, indexed_map::IndexedMap};
 
+/// A handle bundling a queue of nodes to be processed and a vector of nodes that
+/// have already been processed. The vec itself is not owned by the handle.
+///
+/// This is used by the flatten tree trait and cannot be constructed normally
+/// Only uses one lifetime for the moment, but this may change in the future.
 #[derive(Debug)]
-pub struct VecHandle<'a, 'outer, In, Out, Idx>
+struct VecHandle<'outer, In, Out, Idx>
 where
     Idx: IndexRef,
 {
-    vec: &'a mut IndexedMap<Out, Idx>,
+    vec: &'outer mut IndexedMap<Out, Idx>,
     queue: VecDeque<&'outer In>,
     base: Option<Idx>,
 }
 
-impl<'a, 'outer, In, Out, Idx> VecHandle<'a, 'outer, In, Out, Idx>
+impl<'outer, In, Out, Idx> VecHandle<'outer, In, Out, Idx>
 where
     Idx: IndexRef,
 {
-    pub(crate) fn new(
-        vec: &'a mut IndexedMap<Out, Idx>,
+    fn new(
+        vec: &'outer mut IndexedMap<Out, Idx>,
         root_node: &'outer In,
         base: Option<Idx>,
     ) -> Self {
@@ -28,7 +33,7 @@ where
         }
     }
 
-    pub fn enqueue(&mut self, item: &'outer In) -> Idx {
+    fn enqueue(&mut self, item: &'outer In) -> Idx {
         self.queue.push_back(item);
 
         // assumes the current node is to be pushed into the finalized list
@@ -41,32 +46,33 @@ where
         )
     }
 
-    pub fn finish_processing(&mut self, result: Out) -> Idx {
+    fn finish_processing(&mut self, result: Out) -> Idx {
         self.vec.push(result);
         Idx::new(self.base.map_or(0, |x| x.index()) + self.vec.len() - 1)
     }
 
-    pub fn next_element(&mut self) -> Option<&'outer In> {
+    fn next_element(&mut self) -> Option<&'outer In> {
         self.queue.pop_front()
     }
 
     fn produce_limited_handle(
         &mut self,
-    ) -> SingleHandle<'_, 'a, 'outer, In, Out, Idx> {
+    ) -> SingleHandle<'_, 'outer, In, Out, Idx> {
         SingleHandle { handle: self }
     }
 }
 
 /// A limited handle which can only process a single element
+/// This is only meant to be used when implementing the `FlattenTree` trait
 #[derive(Debug)]
-pub struct SingleHandle<'a, 'b, 'outer, In, Out, Idx>
+pub struct SingleHandle<'a, 'outer, In, Out, Idx>
 where
     Idx: IndexRef,
 {
-    handle: &'a mut VecHandle<'b, 'outer, In, Out, Idx>,
+    handle: &'a mut VecHandle<'outer, In, Out, Idx>,
 }
 
-impl<'a, 'b, 'outer, In, Out, Idx> SingleHandle<'a, 'b, 'outer, In, Out, Idx>
+impl<'a, 'outer, In, Out, Idx> SingleHandle<'a, 'outer, In, Out, Idx>
 where
     Idx: IndexRef,
 {
@@ -80,16 +86,9 @@ pub trait FlattenTree: Sized {
     type IdxType: IndexRef;
     type AuxillaryData;
 
-    fn process_element<'a: 'data, 'handle, 'vec, 'data>(
-        &'a self,
-        handle: SingleHandle<
-            'handle,
-            'vec,
-            'data,
-            Self,
-            Self::Output,
-            Self::IdxType,
-        >,
+    fn process_element<'data>(
+        &'data self,
+        handle: SingleHandle<'_, 'data, Self, Self::Output, Self::IdxType>,
         aux: &Self::AuxillaryData,
     ) -> Self::Output;
 }
