@@ -7,7 +7,7 @@ use crate::passes::{
     MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
     RemoveCombGroups, RemoveIds, ResetInsertion, SimplifyGuards, StaticParConv,
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner,
+    UnrollBounded, WellFormed, WireInliner, CompileSyncWithoutSyncReg
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -45,6 +45,7 @@ impl PassManager {
         pm.register_pass::<TopDownCompileControl>()?;
         pm.register_pass::<CompileRef>()?;
         pm.register_pass::<CompileSync>()?;
+        pm.register_pass::<CompileSyncWithoutSyncReg>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -72,7 +73,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
-                CompileSync,
+                CompileSyncWithoutSyncReg,
                 GroupToSeq,
                 GroupToInvoke, // Creates Dead Groups potentially
                 CompileRef, //Must run before cell-share, and before component-inliner

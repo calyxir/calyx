@@ -1,0 +1,73 @@
+import "primitives/core.futil";
+import "primitives/sync.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    out = std_mem_d1(32, 1, 3);
+    val = std_reg(32);
+    add_0 = std_add(32);
+    no_use = std_reg(32);
+    @generated s = std_reg(1);
+    @generated bar = std_reg(1);
+    @generated bar0 = std_reg(1);
+  }
+  wires {
+    group no_op {
+      no_use.write_en = 1'd1;
+      no_use.in = 32'd0;
+      no_op[done] = no_use.done;
+    }
+    group calc_val {
+      val.write_en = 1'd1;
+      add_0.right = 32'd1;
+      add_0.left = 32'd2;
+      val.in = add_0.out;
+      calc_val[done] = val.done;
+    }
+    group reg_to_mem {
+      out.addr0 = 3'd0;
+      out.write_data = val.out;
+      out.write_en = 1'd1;
+      reg_to_mem[done] = out.done;
+    }
+    group barrier {
+      bar.in = 1'd1;
+      bar.write_en = 1'd1;
+      barrier[done] = s.out;
+    }
+    group clear {
+      bar.in = 1'd0;
+      bar.write_en = 1'd1;
+    }
+    group barrier0 {
+      bar0.in = 1'd1;
+      bar0.write_en = 1'd1;
+      barrier0[done] = s.out;
+    }
+    group clear0 {
+      bar0.in = 1'd0;
+      bar0.write_en = 1'd1;
+    }
+    s.in = bar.out & bar0.out ? 1'd1;
+    s.write_en = 1'd1;
+  }
+
+  control {
+    par {
+      seq {
+        no_op;
+        seq {
+          barrier;
+          clear;
+        }
+        reg_to_mem;
+      }
+      seq {
+        calc_val;
+        seq {
+          barrier0;
+          clear0;
+        }
+      }
+    }
+  }
+}
