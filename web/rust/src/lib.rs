@@ -14,8 +14,11 @@ fn ws_from_ns(ns: frontend::NamespaceDef) -> CalyxResult<frontend::Workspace> {
         ));
     }
     let mut ws = frontend::Workspace::default();
-    ws.externs
-        .extend(ns.externs.into_iter().map(|(p, es)| (p.into(), es)));
+    ws.externs.extend(
+        ns.externs
+            .into_iter()
+            .map(|(path, es)| (path.map(|p| p.into()), es)),
+    );
 
     // Add components defined by this namespace to either components or
     // declarations

@@ -62,7 +62,7 @@ component dense_1x10() -> () {
       let2[done] = __k0.done;
     }
     group let3<"static"=2> {
-      x_read0_0.in = x.out;
+      x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let3[done] = x_read0_0.done;
       x.addr1 = __k0.out;
@@ -70,7 +70,7 @@ component dense_1x10() -> () {
       x.read_en = 1'd1;
     }
     group let4<"static"=2> {
-      y_read0_0.in = y.out;
+      y_read0_0.in = y.read_data;
       y_read0_0.write_en = y.read_done;
       let4[done] = y_read0_0.done;
       y.addr1 = __k0.out;
@@ -91,7 +91,7 @@ component dense_1x10() -> () {
       let6[done] = __product_0.done;
     }
     group let7<"static"=2> {
-      red_read00.in = x1.out;
+      red_read00.in = x1.read_data;
       red_read00.write_en = x1.read_done;
       let7[done] = red_read00.done;
       x1.addr1 = __j0.out;
@@ -104,7 +104,7 @@ component dense_1x10() -> () {
       x1.write_en = 1'd1;
       add0.left = red_read00.out;
       add0.right = __product_0.out;
-      x1.in = add0.out;
+      x1.write_data = add0.out;
       upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {

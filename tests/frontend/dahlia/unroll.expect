@@ -42,7 +42,7 @@ component main() -> () {
       A0.addr0 = slice0.out;
       slice0.in = i0.out;
       A0.read_en = 1'd1;
-      acc_00.in = A0.out;
+      acc_00.in = A0.read_data;
       upd0[done] = acc_00.done;
     }
     group upd1<"static"=2> {
@@ -50,7 +50,7 @@ component main() -> () {
       A1.addr0 = slice1.out;
       slice1.in = i0.out;
       A1.read_en = 1'd1;
-      acc_10.in = A1.out;
+      acc_10.in = A1.read_data;
       upd1[done] = acc_10.done;
     }
     group upd2<"static"=2> {
@@ -58,7 +58,7 @@ component main() -> () {
       A2.addr0 = slice2.out;
       slice2.in = i0.out;
       A2.read_en = 1'd1;
-      acc_20.in = A2.out;
+      acc_20.in = A2.read_data;
       upd2[done] = acc_20.done;
     }
     group upd3<"static"=2> {
@@ -66,7 +66,7 @@ component main() -> () {
       A3.addr0 = slice3.out;
       slice3.in = i0.out;
       A3.read_en = 1'd1;
-      acc_30.in = A3.out;
+      acc_30.in = A3.read_data;
       upd3[done] = acc_30.done;
     }
     group upd4<"static"=1> {

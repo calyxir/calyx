@@ -44,7 +44,7 @@ pub struct Workspace {
     /// compilation mode.
     pub declarations: Vec<ComponentDef>,
     /// Absolute path to extern definitions and primitives defined by them.
-    pub externs: LinkedHashMap<PathBuf, Vec<ir::Primitive>>,
+    pub externs: LinkedHashMap<Option<PathBuf>, Vec<ir::Primitive>>,
     /// Original import statements present in the top-level file.
     pub original_imports: Vec<String>,
     /// Optional opaque metadata attached to the top-level file
@@ -176,12 +176,23 @@ impl Workspace {
          -> CalyxResult<Vec<PathBuf>> {
             // Canonicalize the extern paths and add them
             for (path, mut exts) in ns.externs {
-                let abs_path = Self::canonicalize_extern(path, parent)?;
-                workspace
-                    .externs
-                    .entry(abs_path)
-                    .or_default()
-                    .append(&mut exts);
+                match path {
+                    Some(p) => {
+                        let abs_path = Self::canonicalize_extern(p, parent)?;
+                        workspace
+                            .externs
+                            .entry(Some(abs_path))
+                            .or_default()
+                            .append(&mut exts);
+                    }
+                    None => {
+                        workspace
+                            .externs
+                            .entry(None)
+                            .or_default()
+                            .append(&mut exts);
+                    }
+                }
             }
 
             // Add components defined by this namespace to either components or

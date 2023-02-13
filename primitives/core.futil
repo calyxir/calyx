@@ -42,7 +42,8 @@ extern "core.sv" {
     @read_together(1) addr0: IDX_SIZE,
     @write_together(1) write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
-    @clk clk: 1
+    @clk clk: 1,
+    @reset reset: 1
   ) -> (
     @read_together(1) read_data: WIDTH,
     @done done: 1
@@ -53,7 +54,8 @@ extern "core.sv" {
     @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
     @write_together(1) write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
-    @clk clk: 1
+    @clk clk: 1,
+    @reset reset: 1
   ) -> (
     @read_together(1) read_data: WIDTH,
     @done done: 1
@@ -73,7 +75,8 @@ extern "core.sv" {
     @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
     @write_together(1) write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
-    @clk clk: 1
+    @clk clk: 1,
+    @reset reset: 1
   ) -> (
     @read_together(1) read_data: WIDTH,
     @done done: 1

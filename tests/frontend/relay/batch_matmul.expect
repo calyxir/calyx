@@ -104,7 +104,7 @@ component batch_matmul_4x7x7() -> () {
       let10[done] = __product_0.done;
     }
     group let11<"static"=2> {
-      red_read00.in = x.out;
+      red_read00.in = x.read_data;
       red_read00.write_en = x.read_done;
       let11[done] = red_read00.done;
       x.addr2 = __j1.out;
@@ -118,7 +118,7 @@ component batch_matmul_4x7x7() -> () {
       let2[done] = __j0.done;
     }
     group let3<"static"=2> {
-      b_read0_0.in = b.out;
+      b_read0_0.in = b.read_data;
       b_read0_0.write_en = b.read_done;
       let3[done] = b_read0_0.done;
       b.addr2 = __j0.out;
@@ -147,7 +147,7 @@ component batch_matmul_4x7x7() -> () {
       let7[done] = __k0.done;
     }
     group let8<"static"=2> {
-      a_read0_0.in = a.out;
+      a_read0_0.in = a.read_data;
       a_read0_0.write_en = a.read_done;
       let8[done] = a_read0_0.done;
       a.addr2 = __k0.out;
@@ -168,7 +168,7 @@ component batch_matmul_4x7x7() -> () {
       __transpose_b0_0_0.addr1 = __j0.out;
       __transpose_b0_0_0.addr0 = __batch0.out;
       __transpose_b0_0_0.write_en = 1'd1;
-      __transpose_b0_0_0.in = b_read0_0.out;
+      __transpose_b0_0_0.write_data = b_read0_0.out;
       upd0[done] = __transpose_b0_0_0.write_done;
     }
     group upd1<"static"=1> {
@@ -198,7 +198,7 @@ component batch_matmul_4x7x7() -> () {
       __transpose_b0_0_0.addr1 = __k0.out;
       __transpose_b0_0_0.addr0 = __batch1.out;
       __transpose_b0_0_0.read_en = 1'd1;
-      __transpose_b_read0_0.in = __transpose_b0_0_0.out;
+      __transpose_b_read0_0.in = __transpose_b0_0_0.read_data;
       upd4[done] = __transpose_b_read0_0.done;
     }
     group upd5<"static"=1> {
@@ -208,7 +208,7 @@ component batch_matmul_4x7x7() -> () {
       x.write_en = 1'd1;
       add3.left = red_read00.out;
       add3.right = __product_0.out;
-      x.in = add3.out;
+      x.write_data = add3.out;
       upd5[done] = x.write_done;
     }
     group upd6<"static"=1> {

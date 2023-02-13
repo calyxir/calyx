@@ -47,11 +47,26 @@ fn main() -> CalyxResult<()> {
     if opts.backend == BackendOpt::Calyx {
         let out = &mut opts.output.get_write();
         if opts.compile_mode == CompileMode::Project {
-            for (path, prims) in ctx.lib.externs() {
-                ir::Printer::write_extern(
-                    (&path, &prims.into_iter().map(|(_, v)| v).collect_vec()),
-                    out,
-                )?;
+            for (path, prims) in ctx.lib.all_prims() {
+                match path {
+                    Some(p) => {
+                        ir::Printer::write_extern(
+                            (
+                                &p,
+                                &prims
+                                    .into_iter()
+                                    .map(|(_, v)| v)
+                                    .collect_vec(),
+                            ),
+                            out,
+                        )?;
+                    }
+                    None => {
+                        for (_, prim) in prims {
+                            ir::Printer::write_primitive(&prim, 2, out)?;
+                        }
+                    }
+                }
             }
         } else {
             // Print out the original imports for this file.

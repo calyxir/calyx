@@ -78,7 +78,7 @@ component relu_2x4x8x32() -> () {
       let3[done] = __l0.done;
     }
     group let4<"static"=2> {
-      x_read0_0.in = x.out;
+      x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let4[done] = x_read0_0.done;
       x.addr3 = __l0.out;
@@ -88,7 +88,7 @@ component relu_2x4x8x32() -> () {
       x.read_en = 1'd1;
     }
     group let5<"static"=2> {
-      x_read1_0.in = x.out;
+      x_read1_0.in = x.read_data;
       x_read1_0.write_en = x.read_done;
       let5[done] = x_read1_0.done;
       x.addr3 = __l0.out;
@@ -103,7 +103,7 @@ component relu_2x4x8x32() -> () {
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      x1.in = x_read1_0.out;
+      x1.write_data = x_read1_0.out;
       upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {
@@ -112,7 +112,7 @@ component relu_2x4x8x32() -> () {
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      x1.in = fp_const1.out;
+      x1.write_data = fp_const1.out;
       upd1[done] = x1.write_done;
     }
     group upd2<"static"=1> {

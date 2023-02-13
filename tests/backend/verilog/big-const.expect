@@ -278,6 +278,7 @@ module std_mem_d1 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -286,11 +287,19 @@ module std_mem_d1 #(
 
   /* verilator lint_off WIDTH */
   assign read_data = mem[addr0];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access
@@ -318,6 +327,7 @@ module std_mem_d2 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -326,11 +336,19 @@ module std_mem_d2 #(
   logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0];
 
   assign read_data = mem[addr0][addr1];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0][addr1] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access
@@ -367,6 +385,7 @@ module std_mem_d3 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -375,11 +394,19 @@ module std_mem_d3 #(
   logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0];
 
   assign read_data = mem[addr0][addr1][addr2];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0][addr1][addr2] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access
@@ -425,6 +452,7 @@ module std_mem_d4 #(
    input wire                logic [ WIDTH-1:0] write_data,
    input wire                logic write_en,
    input wire                logic clk,
+   input wire                logic reset,
    output logic [ WIDTH-1:0] read_data,
    output logic              done
 );
@@ -433,11 +461,19 @@ module std_mem_d4 #(
   logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0][D3_SIZE-1:0];
 
   assign read_data = mem[addr0][addr1][addr2][addr3];
+
   always_ff @(posedge clk) begin
-    if (write_en) begin
+    if (reset)
+      done <= '0;
+    else if (write_en)
+      done <= '1;
+    else
+      done <= '0;
+  end
+
+  always_ff @(posedge clk) begin
+    if (!reset && write_en)
       mem[addr0][addr1][addr2][addr3] <= write_data;
-      done <= 1'd1;
-    end else done <= 1'd0;
   end
 
   // Check for out of bounds access

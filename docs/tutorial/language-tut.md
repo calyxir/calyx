@@ -18,7 +18,7 @@ statement to import the standard library:
 
     import "primitives/core.futil";
 
-    component main(go: 1) -> (done: 1) {
+    component main(@go go: 1) -> (@done done: 1) {
       cells {}
       wires {}
       control {}
@@ -262,7 +262,7 @@ The output should be the result of adding 4 to the initial value 8 times, so 10 
 
 Take a look at the [full language reference][lang-ref] for details on the complete language.
 
-[ext-attr]: ../lang/attributes.html#external1
+[ext-attr]: ../lang/attributes.html#external
 [json]: https://www.json.org/
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/cucapra/calyx/tree/master/examples/tutorial

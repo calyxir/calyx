@@ -21,7 +21,7 @@ There are two steps to passing a memory by reference in Calyx:
 1. Define the component in a manner such that it can accept a memory by reference.
 2. Pass the desired memory by reference.
 
-The language provides two ways to doing this.
+The language provides two ways of doing this.
 
 ## The Easy Way
 
