@@ -1,13 +1,14 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileEmpty, CompileInvoke, CompileRef, CompileSync, ComponentInliner,
-    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
-    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveCombGroups, RemoveIds, ResetInsertion, SimplifyGuards, StaticParConv,
+    CompileEmpty, CompileInvoke, CompileRef, CompileSync,
+    CompileSyncWithoutSyncReg, ComponentInliner, DeadCellRemoval,
+    DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
+    HoleInliner, InferShare, InferStaticTiming, LowerGuards, MergeAssign,
+    MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups,
+    RemoveIds, ResetInsertion, SimplifyGuards, StaticParConv,
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner, CompileSyncWithoutSyncReg
+    UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
