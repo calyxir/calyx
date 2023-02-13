@@ -6,10 +6,12 @@ From Coq.extraction Require Import
      ExtrOcamlNatInt
      ExtrOcamlZInt.
 From VCalyx Require
-     Syntax.
+     Syntax
+     Parse.
 
 (* This will extract all the listed identifiers and all their
 transitive dependencies. *)
 Extraction "extr.ml"
-           VCalyx.Syntax.comp.
+           VCalyx.Syntax.context
+           VCalyx.Parse.parse_context.
 

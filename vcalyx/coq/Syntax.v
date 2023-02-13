@@ -163,3 +163,7 @@ Record comp :=
          comp_wires: wires;
          comp_control: control;
          comp_is_comb: bool }.
+
+Record context :=
+  Context { ctx_comps: list comp;
+            ctx_entrypoint: ident; }.

@@ -14,5 +14,7 @@
  (bug_reports  "")
  (license      "MIT")
  (depends
+   (stdlib-shims (>= "0.3.0"))
+   (coq-ceres (>= "0.4.0"))
    (coq-stdpp (>= "1.8.0"))
    (coq (>= "8.15.2"))))
