@@ -426,13 +426,14 @@ impl Visitor for CellShare {
                                     par_thread_map.get(live_a).unwrap();
                                 let parent_b =
                                     par_thread_map.get(live_b).unwrap();
-                                if live_a != live_b && parent_a == parent_b {
-                                    if self.par_timing_map.liveness_overlaps(
+                                if live_a != live_b
+                                    && parent_a == parent_b
+                                    && self.par_timing_map.liveness_overlaps(
                                         parent_a, live_a, live_b, a, b,
-                                    ) {
-                                        g.insert_conflict(a, b);
-                                        break 'outer;
-                                    }
+                                    )
+                                {
+                                    g.insert_conflict(a, b);
+                                    break 'outer;
                                 }
                             }
                         }

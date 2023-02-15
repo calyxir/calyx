@@ -58,7 +58,7 @@ impl Debug for StaticParTiming {
                     writeln!(f, "{:?}", clock_intervals)?;
                 }
             }
-            writeln!(f, "")?
+            writeln!(f)?
         }
         write!(f, "")
     }
@@ -103,22 +103,22 @@ impl StaticParTiming {
     ) -> bool {
         // unwrapping cell_map data structure, eventually getting to the two vecs
         // a_liveness, b_liveness, that we actually care about
-        let thread_timing_map = match self.cell_map.get(&par_id) {
+        let thread_timing_map = match self.cell_map.get(par_id) {
             Some(m) => m,
             None => return true,
         };
         let a_liveness = thread_timing_map
-            .get(&thread_a)
+            .get(thread_a)
             .unwrap_or_else(|| {
                 unreachable!("{} not a thread in {}", thread_a, par_id)
             })
-            .get(&a);
+            .get(a);
         let b_liveness = thread_timing_map
-            .get(&thread_b)
+            .get(thread_b)
             .unwrap_or_else(|| {
                 unreachable!("{} not a thread in {}", thread_a, par_id)
             })
-            .get(&b);
+            .get(b);
         match (a_liveness, b_liveness) {
             (Some(a_intervals), Some(b_intervals)) => {
                 let mut a_iter = a_intervals.iter();
@@ -128,32 +128,26 @@ impl StaticParTiming {
                 // this relies on the fact that a_iter and b_iter are sorted
                 // in ascending order
                 while cur_a.is_some() && cur_b.is_some() {
-                    match (cur_a.unwrap(), cur_b.unwrap()) {
-                        ((a1, a2), (b1, b2)) => {
-                            // if a1 is smaller, checks if it overlaps with
-                            // b1. If it does, return true, otherwise, advance
-                            // a in the iteration
-                            if a1 < b1 {
-                                if a2 >= b1 {
-                                    return true;
-                                } else {
-                                    cur_a = a_iter.next();
-                                }
-                            }
-                            // same thing we did but in reverse
-                            else if b1 < a1 {
-                                if b2 >= a1 {
-                                    return true;
-                                } else {
-                                    cur_b = b_iter.next();
-                                }
-                            }
-                            // we know a and b are live in the same clock cycle:
-                            // namely, a1 == b1
-                            else {
+                    let ((a1, a2), (b1, b2)) = (cur_a.unwrap(), cur_b.unwrap());
+                    // if a1 is smaller, checks if it overlaps with
+                    // b1. If it does, return true, otherwise, advance
+                    // a in the iteration
+                    match a1.cmp(b1) {
+                        std::cmp::Ordering::Less => {
+                            if a2 >= b1 {
                                 return true;
+                            } else {
+                                cur_a = a_iter.next();
                             }
                         }
+                        std::cmp::Ordering::Greater => {
+                            if b2 >= a1 {
+                                return true;
+                            } else {
+                                cur_b = b_iter.next();
+                            }
+                        }
+                        std::cmp::Ordering::Equal => return true,
                     }
                 }
                 false
