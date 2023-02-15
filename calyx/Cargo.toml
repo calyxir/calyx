@@ -25,6 +25,7 @@ boolean_expression = "=0.4.1"
 linked-hash-map = "0.5"
 smallvec = "1"
 serde = { version = "1.0", features = ["derive"] }
+serde_with = "2.2.0"
 serde_json = "1.0.79"
 string-interner = "0.14.0"
 

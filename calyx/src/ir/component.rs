@@ -1,6 +1,6 @@
 use super::{
     Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
-    Control, GetName, Group, Id, PortDef, RRC,
+    Control, GetName, Group, Id, PortDef, SerCellRef, RRC,
 };
 use crate::utils;
 use itertools::Itertools;
@@ -10,16 +10,33 @@ use std::collections::HashSet;
 use std::iter::Extend;
 use std::rc::Rc;
 
+use serde::{ser::SerializeSeq, Serialize, Serializer};
+use serde_with::{serde_as, SerializeAs};
+
 /// The default name of the signature cell in a component.
 /// In general, this should not be used by anything.
 const THIS_ID: &str = "_this";
 
+impl SerializeAs<RRC<Control>> for Control {
+    fn serialize_as<S>(
+        value: &RRC<Control>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        value.borrow().serialize(serializer)
+    }
+}
+
 /// In memory representation of a Component.
-#[derive(Debug)]
+#[serde_as]
+#[derive(Debug, Serialize)]
 pub struct Component {
     /// Name of the component.
     pub name: Id,
     /// The input/output signature of this component.
+    #[serde_as(as = "SerCellRef")]
     pub signature: RRC<Cell>,
     /// The cells instantiated for this component.
     pub cells: IdList<Cell>,
@@ -31,6 +48,7 @@ pub struct Component {
     /// active.
     pub continuous_assignments: Vec<Assignment>,
     /// The control program for this component.
+    #[serde_as(as = "Control")]
     pub control: RRC<Control>,
     /// Attributes for this component
     pub attributes: Attributes,
@@ -40,6 +58,7 @@ pub struct Component {
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
     /// component (cell and group names).
+    #[serde(skip)]
     namegen: utils::NameGenerator,
 }
 
@@ -252,5 +271,19 @@ impl<T: GetName> IdList<T> {
 impl<T: GetName> Default for IdList<T> {
     fn default() -> Self {
         IdList(LinkedHashMap::new())
+    }
+}
+
+impl<T: GetName + Serialize> Serialize for IdList<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.len()))?;
+        for obj in self.iter() {
+            let obj = obj.borrow();
+            seq.serialize_element(&obj.name())?;
+        }
+        seq.end()
     }
 }

@@ -3,9 +3,9 @@
 //! Passes usually have transform/analyze the components in the IR.
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 use super::{Component, Id, Primitive};
-use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::path::PathBuf;
 
 /// A representation of all the primitive definitions found while parsing
@@ -159,16 +159,13 @@ impl Serialize for Context {
     where
         S: Serializer,
     {
-        let mut ctx = ser.serialize_struct("Context", 1)?;
-        ctx.serialize_field("components", &self.components.len())?;
-        /*
+        let mut ctx = ser.serialize_struct("Context", 2)?;
         ctx.serialize_field("components", &self.components)?;
-        ctx.serialize_field("lib", &self.lib)?;
+        //ctx.serialize_field("lib", &self.lib)?;
         ctx.serialize_field("entrypoint", &self.entrypoint)?;
-        ctx.serialize_field("bc", &self.bc)?;
-        ctx.serialize_field("extra_opts", &self.extra_opts)?;
-        ctx.serialize_field("metadata", &self.metadata)?;
-        */
+        //ctx.serialize_field("bc", &self.bc)?;
+        //ctx.serialize_field("extra_opts", &self.extra_opts)?;
+        //ctx.serialize_field("metadata", &self.metadata)?;
         ctx.end()
     }
 }

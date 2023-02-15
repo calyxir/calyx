@@ -1,10 +1,12 @@
-use super::{Port, RRC};
+use super::{Port, SerPortRef, RRC};
+use serde::Serialize;
+use serde_with::serde_as;
 use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
 /// Comparison operations that can be performed between ports by [Guard::CompOp].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum PortComp {
     /// p1 == p2
     Eq,
@@ -21,7 +23,8 @@ pub enum PortComp {
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
-#[derive(Debug, Clone)]
+#[serde_as]
+#[derive(Debug, Clone, Serialize)]
 pub enum Guard {
     /// Represents `c1 || c2`.
     Or(Box<Guard>, Box<Guard>),
@@ -32,9 +35,13 @@ pub enum Guard {
     /// The constant true
     True,
     /// Comparison operator.
-    CompOp(PortComp, RRC<Port>, RRC<Port>),
+    CompOp(
+        PortComp,
+        #[serde_as(as = "SerPortRef")] RRC<Port>,
+        #[serde_as(as = "SerPortRef")] RRC<Port>,
+    ),
     /// Uses the value on a port as the condition. Same as `p1 == true`
-    Port(RRC<Port>),
+    Port(#[serde_as(as = "SerPortRef")] RRC<Port>),
 }
 
 impl Default for Guard {
