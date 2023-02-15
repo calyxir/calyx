@@ -1,0 +1,76 @@
+// -p cell-share -p remove-ids
+import "primitives/core.futil";
+component main() -> () {
+  cells {
+    lt = std_lt(32);
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(16);
+    d = std_reg(16); 
+    x = std_reg(4);
+    sl = std_slice(16, 4);
+  }
+  wires {
+    group wr_a{
+      a.write_en = 1'd1; 
+      a.in = 32'd2; 
+      wr_a[done] = a.done; 
+    }
+    group wr_b{
+      b.write_en = 1'd1; 
+      b.in = 32'd2; 
+      wr_b[done] = b.done; 
+    }
+    group wr_x{
+      x.write_en = 1'd1; 
+      x.in = 4'd2; 
+      wr_x[done] = x.done;
+    }
+    group wr_c{
+      c.write_en = 1'd1; 
+      c.in = 16'd4; 
+      wr_c[done] = c.done; 
+    }
+    group wr_d{
+      d.write_en = 1'd1;
+      d.in = 16'd4; 
+      wr_d[done] = d.done; 
+    }
+    group read_c{
+      sl.in = c.out; 
+      x.write_en = 1'd1; 
+      x.in = sl.out; 
+      read_c[done] = x.done; 
+    }
+  }
+  control {
+    seq{
+      // a and b should be shared, never will be live at same time 
+      @static(3) par{
+        @static if lt.out{
+          @static wr_a;
+        }
+        else{
+          @static wr_b; 
+        }
+        @static(2) seq{
+          @static wr_x; 
+          @static wr_b;
+        }
+      }
+      // c and d shouldn't shared 
+      @static(3) par{
+        @static(3) seq{
+          @static wr_c; 
+          @static wr_x;
+          @static read_c;
+        }
+        @static(3) seq{
+          @static wr_x; 
+          @static wr_d;
+          @static wr_x; 
+        }
+      }
+    }
+  }
+}

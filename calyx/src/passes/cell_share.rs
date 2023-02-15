@@ -188,8 +188,11 @@ impl CellShare {
             self.shareable.clone(),
         );
 
-        self.par_timing_map =
-            StaticParTiming::new(&mut comp.control.borrow_mut(), comp.name);
+        self.par_timing_map = StaticParTiming::new(
+            &mut comp.control.borrow_mut(),
+            comp.name,
+            &self.live,
+        );
         if self.print_par_timing {
             println!("{:?}", self.par_timing_map);
         }
@@ -419,12 +422,17 @@ impl Visitor for CellShare {
                             for live_b in live_once_b {
                                 // a and b are live within the same par block but not within
                                 // the same child thread, then insert conflict.
-                                if live_a != live_b
-                                    && par_thread_map.get(live_a).unwrap()
-                                        == par_thread_map.get(live_b).unwrap()
-                                {
-                                    g.insert_conflict(a, b);
-                                    break 'outer;
+                                let parent_a =
+                                    par_thread_map.get(live_a).unwrap();
+                                let parent_b =
+                                    par_thread_map.get(live_b).unwrap();
+                                if live_a != live_b && parent_a == parent_b {
+                                    if self.par_timing_map.liveness_overlaps(
+                                        parent_a, live_a, live_b, a, b,
+                                    ) {
+                                        g.insert_conflict(a, b);
+                                        break 'outer;
+                                    }
                                 }
                             }
                         }
