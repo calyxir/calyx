@@ -225,19 +225,6 @@ impl CellType {
     }
 }
 
-pub struct SerVecPortRef10;
-impl SerializeAs<SmallVec<[RRC<Port>; 10]>> for SerVecPortRef10 {
-    fn serialize_as<S>(
-        value: &SmallVec<[RRC<Port>; 10]>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.collect_seq(value.iter().map(|v| v.borrow().name))
-    }
-}
-
 /// Represents an instantiated cell.
 #[serde_as]
 #[derive(Debug, Serialize)]
@@ -245,7 +232,7 @@ pub struct Cell {
     /// Name of this cell.
     name: Id,
     /// Ports on this cell
-    #[serde_as(as = "SerVecPortRef10")]
+    #[serde_as(as = "SerVecPortRef")]
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
     pub prototype: CellType,
@@ -505,10 +492,10 @@ impl Assignment {
     }
 }
 
-pub struct SerVecPortRef3;
-impl SerializeAs<SmallVec<[RRC<Port>; 3]>> for SerVecPortRef3 {
+pub struct SerVecPortRef;
+impl<const N: usize> SerializeAs<SmallVec<[RRC<Port>; N]>> for SerVecPortRef {
     fn serialize_as<S>(
-        value: &SmallVec<[RRC<Port>; 3]>,
+        value: &SmallVec<[RRC<Port>; N]>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
@@ -529,7 +516,7 @@ pub struct Group {
     pub assignments: Vec<Assignment>,
 
     /// Holes for this group
-    #[serde_as(as = "SerVecPortRef3")]
+    #[serde_as(as = "SerVecPortRef")]
     pub holes: SmallVec<[RRC<Port>; 3]>,
 
     /// Attributes for this group.
