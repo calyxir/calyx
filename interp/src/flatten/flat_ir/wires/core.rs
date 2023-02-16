@@ -8,9 +8,9 @@ use crate::flatten::{
     },
 };
 
-pub type AssignmentMap = IndexedMap<Assignment, AssignmentIdx>;
-pub type GroupMap = IndexedMap<Group, GroupIdx>;
-pub type CombGroupMap = IndexedMap<CombGroup, CombGroupIdx>;
+pub type AssignmentMap = IndexedMap<AssignmentIdx, Assignment>;
+pub type GroupMap = IndexedMap<GroupIdx, Group>;
+pub type CombGroupMap = IndexedMap<CombGroupIdx, CombGroup>;
 
 #[derive(Debug)]
 pub struct Assignment {

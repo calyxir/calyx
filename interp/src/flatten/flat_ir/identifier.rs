@@ -5,6 +5,13 @@ use crate::flatten::structures::index_trait::impl_index;
 
 impl_index!(pub Identifier);
 
+impl Identifier {
+    #[inline]
+    pub fn get_default_id() -> Identifier {
+        // manually construct
+        Identifier(0)
+    }
+}
 #[derive(Debug)]
 pub struct IdMap {
     count: u32,
@@ -13,11 +20,6 @@ pub struct IdMap {
 }
 
 impl IdMap {
-    #[inline]
-    pub fn get_default_id() -> Identifier {
-        Identifier::from(0)
-    }
-
     /// inner builder style utility function
     fn insert_empty_string(mut self) -> Self {
         self.insert("");

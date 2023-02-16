@@ -4,6 +4,10 @@ pub trait IndexRef: Copy + Eq {
     fn new(input: usize) -> Self;
 }
 
+/// This macro is used to implement the IndexRef trait for a type that wraps an
+/// unsigned integer value. By default, the macro will implement the trait using
+/// a [`u32`](std::u32) as the backing type. However, if a different backing type
+/// is desired, it can be specified as the second argument.
 macro_rules! impl_index {
     ($v: vis $struct_name: ident) => {
         impl_index!($v $struct_name, u32);
@@ -30,10 +34,56 @@ macro_rules! impl_index {
         }
     };
 }
+/// This macro is used to implement the IndexRef trait for a type that wraps a
+/// NonZero value. By default, the macro will implement the trait using a
+/// [`NonZeroU32`](std::num::NonZeroU32) as the backing type. However, if a
+/// different backing type is desired, it can be specified as the second
+/// argument to the macro.
+macro_rules! impl_index_nonzero {
 
-pub(crate) use impl_index;
+    // Cool and normal stuff here
 
-#[derive(Debug)]
+    ($v: vis $struct_name: ident) => {
+        impl_index_nonzero!($v $struct_name, std::num::NonZeroU32, u32);
+    };
+
+    ($v: vis $struct_name: ident, NonZeroU8) => {
+        impl_index_nonzero!($v $struct_name, std::num::NonZeroU8, u8);
+    };
+
+    ($v: vis $struct_name: ident, NonZeroU16) => {
+        impl_index_nonzero!($v $struct_name, std::num::NonZeroU16, u16);
+    };
+
+    ($v: vis $struct_name: ident, NonZeroU32) => {
+        impl_index_nonzero!($v $struct_name, std::num::NonZeroU32, u32);
+    };
+
+    ( $v:vis $struct_name: ident, $non_zero_type:ty, $normal_type:ty) => {
+        #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
+        $v struct $struct_name($non_zero_type);
+
+        impl $crate::flatten::structures::index_trait::IndexRef for $struct_name {
+            fn index(&self) -> usize {
+                self.0.get() as usize - 1
+            }
+
+            fn new(input: usize) -> Self {
+                Self(<$non_zero_type>::new((input + 1) as $normal_type).unwrap())
+            }
+        }
+
+        impl From<$non_zero_type> for $struct_name {
+            fn from(input: $non_zero_type) -> Self {
+                $struct_name(input)
+            }
+        }
+    };
+}
+
+pub(crate) use {impl_index, impl_index_nonzero};
+
+#[derive(Debug, Clone)]
 pub struct IndexRange<I>
 where
     I: IndexRef + PartialOrd,

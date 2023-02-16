@@ -2,6 +2,7 @@ use crate::flatten::flat_ir::{
     base::ComponentRef,
     component::ComponentMap,
     identifier::IdMap,
+    prelude::CombGroupMap,
     wires::{
         core::{AssignmentMap, GroupMap},
         guards::GuardMap,
@@ -19,6 +20,8 @@ pub struct InterpretationContext {
     pub components: ComponentMap,
     /// All the group definitions
     pub groups: GroupMap,
+    /// Comb group definitions
+    pub comb_groups: CombGroupMap,
     /// All assignment guards
     pub guards: GuardMap,
     /// table for mapping strings to identifiers

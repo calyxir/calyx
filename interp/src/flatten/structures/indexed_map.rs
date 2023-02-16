@@ -7,7 +7,7 @@ use std::{
 };
 
 #[derive(Debug)]
-pub struct IndexedMap<D, K, const N: usize = 0>
+pub struct IndexedMap<K, D, const N: usize = 0>
 where
     K: IndexRef,
 {
@@ -15,7 +15,7 @@ where
     phantom: PhantomData<K>,
 }
 
-impl<D, K, const N: usize> ops::IndexMut<K> for IndexedMap<D, K, N>
+impl<K, D, const N: usize> ops::IndexMut<K> for IndexedMap<K, D, N>
 where
     K: IndexRef,
 {
@@ -24,7 +24,7 @@ where
     }
 }
 
-impl<D, K, const N: usize> ops::Index<K> for IndexedMap<D, K, N>
+impl<K, D, const N: usize> ops::Index<K> for IndexedMap<K, D, N>
 where
     K: IndexRef,
 {
@@ -35,7 +35,7 @@ where
     }
 }
 
-impl<D, K, const N: usize> IndexedMap<D, K, N>
+impl<K, D, const N: usize> IndexedMap<K, D, N>
 where
     K: IndexRef,
 {
@@ -87,7 +87,7 @@ where
     }
 }
 
-impl<T, K, const N: usize> Default for IndexedMap<T, K, N>
+impl<T, K, const N: usize> Default for IndexedMap<K, T, N>
 where
     K: IndexRef,
 {
@@ -96,23 +96,23 @@ where
     }
 }
 
-pub struct IndexedMapRangeIterator<'range, 'data, D, K, const N: usize>
+pub struct IndexedMapRangeIterator<'range, 'data, K, D, const N: usize>
 where
     K: IndexRef + PartialOrd,
 {
     iterator: IndexRangeIterator<'range, K>,
-    data: &'data IndexedMap<D, K, N>,
+    data: &'data IndexedMap<K, D, N>,
 }
 
-impl<'range, 'data, D, K, const N: usize> ExactSizeIterator
-    for IndexedMapRangeIterator<'range, 'data, D, K, N>
+impl<'range, 'data, K, D, const N: usize> ExactSizeIterator
+    for IndexedMapRangeIterator<'range, 'data, K, D, N>
 where
     K: IndexRef + PartialOrd,
 {
 }
 
-impl<'range, 'data, D, K, const N: usize> Iterator
-    for IndexedMapRangeIterator<'range, 'data, D, K, N>
+impl<'range, 'data, K, D, const N: usize> Iterator
+    for IndexedMapRangeIterator<'range, 'data, K, D, N>
 where
     K: IndexRef + PartialOrd,
 {
@@ -132,7 +132,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct AuxillaryMap<D, K, const N: usize = 0>
+pub struct AuxillaryMap<K, D, const N: usize = 0>
 where
     K: IndexRef,
     D: Clone,
@@ -144,7 +144,7 @@ where
 
 // NOTE TO SELF: do not implement IndexMut
 
-impl<D, K, const N: usize> Index<K> for AuxillaryMap<D, K, N>
+impl<K, D, const N: usize> Index<K> for AuxillaryMap<K, D, N>
 where
     K: IndexRef,
     D: Clone,
@@ -160,7 +160,7 @@ where
     }
 }
 
-impl<D, K, const N: usize> AuxillaryMap<D, K, N>
+impl<K, D, const N: usize> AuxillaryMap<K, D, N>
 where
     K: IndexRef,
     D: Clone,
@@ -204,7 +204,7 @@ where
     }
 }
 
-impl<D, K, const N: usize> AuxillaryMap<D, K, N>
+impl<K, D, const N: usize> AuxillaryMap<K, D, N>
 where
     K: IndexRef,
     D: Clone + Default,
@@ -226,7 +226,7 @@ where
     }
 }
 
-impl<D, K, const N: usize> Default for AuxillaryMap<D, K, N>
+impl<K, D, const N: usize> Default for AuxillaryMap<K, D, N>
 where
     K: IndexRef,
     D: Clone + Default,

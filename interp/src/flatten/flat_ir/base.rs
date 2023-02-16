@@ -1,9 +1,14 @@
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
 
+use std::ops::Index;
+
 use crate::flatten::structures::{
-    index_trait::impl_index, indexed_map::IndexedMap,
+    index_trait::{impl_index, impl_index_nonzero, IndexRange},
+    indexed_map::{AuxillaryMap, IndexedMap},
 };
+
+use super::prelude::Identifier;
 
 impl_index!(pub ComponentRef);
 
@@ -28,10 +33,100 @@ pub enum PortRef {
     Ref(LocalRPortRef),
 }
 
+impl From<LocalRPortRef> for PortRef {
+    fn from(v: LocalRPortRef) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<LocalPortRef> for PortRef {
+    fn from(v: LocalPortRef) -> Self {
+        Self::Local(v)
+    }
+}
+
 impl_index!(pub AssignmentIdx);
 
 impl_index!(pub GroupIdx);
 
-impl_index!(pub CombGroupIdx);
+// This is non-zero to make the option-types of this index used in the IR If and
+// While nodes the same size as the index itself.
+impl_index_nonzero!(pub CombGroupIdx);
 
 impl_index!(pub GuardIdx);
+
+pub(crate) struct LocalPortRefGenerator {
+    next_normal: u32,
+    next_ref: u32,
+}
+
+impl LocalPortRefGenerator {
+    pub fn new() -> Self {
+        Self {
+            next_normal: 0,
+            next_ref: 0,
+        }
+    }
+
+    pub fn next_internal(&mut self) -> PortRef {
+        let ret = LocalPortRef(self.next_normal);
+        self.next_normal += 1;
+        ret.into()
+    }
+
+    pub fn next_ref(&mut self) -> PortRef {
+        let ret = LocalRPortRef(self.next_ref);
+        self.next_ref += 1;
+        ret.into()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RefCellInfo {
+    pub name: Identifier,
+    pub ports: IndexRange<LocalRPortRef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LocalCellInfo {
+    pub name: Identifier,
+    pub ports: IndexRange<LocalPortRef>,
+}
+
+#[derive(Debug)]
+pub struct CellInfoMap {
+    pub local_c: AuxillaryMap<LocalCellRef, LocalCellInfo>,
+    pub ref_c: AuxillaryMap<LocalRCellRef, RefCellInfo>,
+}
+
+impl CellInfoMap {
+    pub fn new() -> Self {
+        Self {
+            // TODO (griffin): Come up with a better default for IndexRange
+            local_c: AuxillaryMap::new_with_default(LocalCellInfo {
+                name: Identifier::get_default_id(),
+                ports: IndexRange::new(0.into(), 0.into()),
+            }),
+            ref_c: AuxillaryMap::new_with_default(RefCellInfo {
+                name: Identifier::get_default_id(),
+                ports: IndexRange::new(0.into(), 0.into()),
+            }),
+        }
+    }
+}
+
+impl Index<LocalCellRef> for CellInfoMap {
+    type Output = LocalCellInfo;
+
+    fn index(&self, index: LocalCellRef) -> &Self::Output {
+        &self.local_c[index]
+    }
+}
+
+impl Index<LocalRCellRef> for CellInfoMap {
+    type Output = RefCellInfo;
+
+    fn index(&self, index: LocalRCellRef) -> &Self::Output {
+        &self.ref_c[index]
+    }
+}

@@ -13,9 +13,9 @@ use crate::{
     values::Value,
 };
 
-pub(crate) type PortMap = IndexedMap<Value, GlobalPortRef>;
-pub(crate) type CellMap = IndexedMap<CellLedger, GlobalCellRef>;
-pub(crate) type RefCellMap = IndexedMap<Option<GlobalCellRef>, GlobalRCellRef>;
+pub(crate) type PortMap = IndexedMap<GlobalPortRef, Value>;
+pub(crate) type CellMap = IndexedMap<GlobalCellRef, CellLedger>;
+pub(crate) type RefCellMap = IndexedMap<GlobalRCellRef, Option<GlobalCellRef>>;
 
 pub(crate) enum CellLedger {
     Primitive {

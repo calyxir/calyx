@@ -5,7 +5,7 @@ use crate::flatten::{
     structures::indexed_map::IndexedMap,
 };
 
-pub type GuardMap = IndexedMap<Guard, GuardIdx>;
+pub type GuardMap = IndexedMap<GuardIdx, Guard>;
 
 #[derive(Debug)]
 pub enum Guard {

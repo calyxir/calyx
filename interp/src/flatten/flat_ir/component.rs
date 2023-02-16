@@ -5,15 +5,16 @@ use crate::flatten::structures::{
     indexed_map::{AuxillaryMap, IndexedMap},
 };
 
-use super::{control::structures::ControlIdx, prelude::*};
+use super::{control::structures::ControlIdx, identifier::IdMap, prelude::*};
 
+/// A structure which contains the basic information about a component
+/// definition needed during simulation.
 #[derive(Debug)]
 pub struct ComponentCore {
     /// The control program for this component.
     pub control: Option<ControlIdx>,
     /// The set of assignments that are always active.
     pub continuous_assignments: IndexRange<AssignmentIdx>,
-
     /// True iff component is combinational
     pub is_comb: bool,
 }
@@ -29,14 +30,38 @@ pub struct AuxillaryComponentInfo {
     pub names: CompNames,
 }
 
+#[derive(Debug)]
 pub struct CompNames {
-    pub port_names: AuxillaryMap<Identifier, LocalPortRef>,
-    pub cell_names: AuxillaryMap<Identifier, LocalCellRef>,
-    pub ref_cell_names: AuxillaryMap<Identifier, LocalRCellRef>,
-    pub ref_port_names: AuxillaryMap<Identifier, LocalRPortRef>,
+    pub port_names: AuxillaryMap<LocalPortRef, Identifier>,
+    pub cell_names: AuxillaryMap<LocalCellRef, Identifier>,
+    pub ref_cell_names: AuxillaryMap<LocalRCellRef, Identifier>,
+    pub ref_port_names: AuxillaryMap<LocalRPortRef, Identifier>,
 }
 
-pub type ComponentMap = IndexedMap<ComponentCore, ComponentRef>;
+impl CompNames {
+    /// Creates a new [`CompNames`] struct with the default value for the
+    /// auxillary maps being the empty string.
+    pub fn new() -> Self {
+        let default = Identifier::get_default_id();
+        Self {
+            port_names: AuxillaryMap::new_with_default(default),
+            cell_names: AuxillaryMap::new_with_default(default),
+            ref_cell_names: AuxillaryMap::new_with_default(default),
+            ref_port_names: AuxillaryMap::new_with_default(default),
+        }
+    }
+}
+
+impl Default for CompNames {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub type ComponentMap = IndexedMap<ComponentRef, ComponentCore>;
+
+// NOTHING IMPORTANT DOWN HERE, DO NOT READ
+// =======================================
 
 /// IGNORE FOR NOW
 ///

@@ -8,21 +8,21 @@ use super::structures::{index_trait::IndexRef, indexed_map::IndexedMap};
 /// This is used by the flatten tree trait and cannot be constructed normally
 /// Only uses one lifetime for the moment, but this may change in the future.
 #[derive(Debug)]
-struct VecHandle<'outer, In, Out, Idx>
+struct VecHandle<'outer, In, Idx, Out>
 where
     Idx: IndexRef,
 {
-    vec: &'outer mut IndexedMap<Out, Idx>,
+    vec: &'outer mut IndexedMap<Idx, Out>,
     queue: VecDeque<&'outer In>,
     base: Option<Idx>,
 }
 
-impl<'outer, In, Out, Idx> VecHandle<'outer, In, Out, Idx>
+impl<'outer, In, Idx, Out> VecHandle<'outer, In, Idx, Out>
 where
     Idx: IndexRef,
 {
     fn new(
-        vec: &'outer mut IndexedMap<Out, Idx>,
+        vec: &'outer mut IndexedMap<Idx, Out>,
         root_node: &'outer In,
         base: Option<Idx>,
     ) -> Self {
@@ -57,7 +57,7 @@ where
 
     fn produce_limited_handle(
         &mut self,
-    ) -> SingleHandle<'_, 'outer, In, Out, Idx> {
+    ) -> SingleHandle<'_, 'outer, In, Idx, Out> {
         SingleHandle { handle: self }
     }
 }
@@ -65,14 +65,14 @@ where
 /// A limited handle which can only process a single element
 /// This is only meant to be used when implementing the `FlattenTree` trait
 #[derive(Debug)]
-pub struct SingleHandle<'a, 'outer, In, Out, Idx>
+pub struct SingleHandle<'a, 'outer, In, Idx, Out>
 where
     Idx: IndexRef,
 {
-    handle: &'a mut VecHandle<'outer, In, Out, Idx>,
+    handle: &'a mut VecHandle<'outer, In, Idx, Out>,
 }
 
-impl<'a, 'outer, In, Out, Idx> SingleHandle<'a, 'outer, In, Out, Idx>
+impl<'a, 'outer, In, Idx, Out> SingleHandle<'a, 'outer, In, Idx, Out>
 where
     Idx: IndexRef,
 {
@@ -88,15 +88,15 @@ pub trait FlattenTree: Sized {
 
     fn process_element<'data>(
         &'data self,
-        handle: SingleHandle<'_, 'data, Self, Self::Output, Self::IdxType>,
+        handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
         aux: &Self::AuxillaryData,
     ) -> Self::Output;
 }
 
-pub fn flatten_tree<In, Out, Idx, Aux>(
+pub fn flatten_tree<In, Idx, Out, Aux>(
     root_node: &In,
     base: Option<Idx>,
-    vec: &mut IndexedMap<Out, Idx>,
+    vec: &mut IndexedMap<Idx, Out>,
     aux: &Aux,
 ) -> Idx
 where

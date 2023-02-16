@@ -26,6 +26,13 @@ impl Enable {
 pub struct Seq(CtrlVec);
 
 impl Seq {
+    pub fn new<S>(input: S) -> Self
+    where
+        S: Iterator<Item = ControlIdx>,
+    {
+        Self(input.collect())
+    }
+
     pub fn stms(&self) -> &[ControlIdx] {
         &self.0
     }
@@ -35,6 +42,13 @@ impl Seq {
 pub struct Par(CtrlVec);
 
 impl Par {
+    pub fn new<S>(input: S) -> Self
+    where
+        S: Iterator<Item = ControlIdx>,
+    {
+        Self(input.collect())
+    }
+
     pub fn stms(&self) -> &[ControlIdx] {
         &self.0
     }
