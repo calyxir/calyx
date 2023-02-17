@@ -237,8 +237,6 @@ impl CellShare {
             })
             .collect();
 
-        let print_par_timing = Self::get_opts(&["print_par_timing"], ctx)[0];
-
         // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
         let bounds_arg = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
@@ -249,6 +247,9 @@ impl CellShare {
             }
             None
         });
+
+        let print_par_timing =
+            given_opts.iter().any(|arg| *arg == "print_par_timing");
 
         // searching for "-x cell-share:print-share-freqs=file_name" and getting Some(file_name) back
         let print_pdf_arg = given_opts.iter().find_map(|arg| {
