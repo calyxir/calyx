@@ -5,12 +5,9 @@
  (libraries extr))
 
 (executable
-  (name vcx)
-  (public_name vcx)
-  (modules vcx)
-  (libraries
-    core
-    core_unix.command_unix
-    vcalyx)
-  (preprocess (pps ppx_let)))
-
+ (name vcx)
+ (public_name vcx)
+ (modules vcx)
+ (libraries core core_unix.command_unix vcalyx)
+ (preprocess
+  (pps ppx_let)))
