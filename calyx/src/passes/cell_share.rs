@@ -210,10 +210,13 @@ impl CellShare {
         }
     }
 
-    // given a ctx, gets the bounds and the file to write the sharing frequencies
-    // to. For example, if "-x cell-share:bounds=2,3,4"
-    // is passed in the cmd line, we should return [2,3,4]. If no such argument
-    // is given, return the default, which is [None, None, None]
+    // given a ctx, gets the
+    // 1) file to write the sharing frequencies. for example, if "-x cell-share:print-share-freqs=a.json",
+    // we would return Some(a.json).
+    // 2) gets the bounds. For example, if "-x cell-share:bounds=2,3,4" is passed
+    // we would return [Some(2),Some(3),Some(4)].
+    // 3) whether to print the par timing map. For exampe, if "-x cell-share:print_par_timing"
+    // is passed, then we would return true.
     fn parse_args(ctx: &ir::Context) -> (Option<String>, Vec<Option<i64>>, bool)
     where
         Self: Named,
@@ -234,8 +237,7 @@ impl CellShare {
             })
             .collect();
 
-        let print_par_timing =
-            given_opts.iter().any(|arg| *arg == "print_par_timing");
+        let print_par_timing = Self::get_opts(&["print_par_timing"], ctx)[0];
 
         // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
         let bounds_arg = given_opts.iter().find_map(|arg| {
@@ -333,7 +335,9 @@ impl CellShare {
 ///  c1 and c2
 ///  - if c1 and c2 don't have overlapping live ranges, check if c1 and c2 are ever
 ///  live at within the same par block, and they are live at different children
-///  of the par block, then add a conflict.
+///  of the par block. If the parent par is not static, then add a conflict.
+///  If the parent par is static, then we can use the static_par_timing analysis
+///  to check whether the cells' liveness actually overlaps.
 ///  - perform graph coloring using `self.ordering` to define the order of the greedy coloring
 ///  - use coloring to rewrite group assignments, continuous assignments, and conditional ports.
 impl Visitor for CellShare {

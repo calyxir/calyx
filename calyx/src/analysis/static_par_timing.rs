@@ -1,10 +1,9 @@
+use super::LiveRangeAnalysis;
 use crate::{
     analysis::ControlId,
     ir::{self},
 };
 use std::{collections::HashMap, fmt::Debug};
-
-use super::LiveRangeAnalysis;
 
 /// maps cell names to a vector of tuples (i,j), which is the clock
 /// cycles (relative to the start of the par) that enable is live
