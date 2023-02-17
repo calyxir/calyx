@@ -8,5 +8,9 @@
   (name vcx)
   (public_name vcx)
   (modules vcx)
-  (libraries vcalyx))
+  (libraries
+    core
+    core_unix.command_unix
+    vcalyx)
+  (preprocess (pps ppx_let)))
 

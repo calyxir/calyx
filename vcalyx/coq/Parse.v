@@ -7,7 +7,7 @@ From stdpp Require Import list strings.
 From VCalyx Require Import Syntax.
 From Ceres Require Import Ceres.
 
-Definition oops : forall {A}, A.
+Definition oops : forall {A}, () -> A.
 Admitted.
 
 Global Instance Deserialize_direction : Deserialize direction :=
@@ -17,28 +17,28 @@ Global Instance Deserialize_direction : Deserialize direction :=
                     [].
 
 Global Instance Deserialize_port_def : Deserialize port_def :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_prim : Deserialize prim :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_extern : Deserialize extern :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_proto : Deserialize proto :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_cell : Deserialize cell :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_port_ref : Deserialize port_ref :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_num : Deserialize num :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_atom : Deserialize atom :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_guard_cmp : Deserialize guard_cmp :=
     Deser.match_con "guard_cmp"
@@ -51,22 +51,22 @@ Global Instance Deserialize_guard_cmp : Deserialize guard_cmp :=
                     [].
 
 Global Instance Deserialize_guard_expr : Deserialize guard_expr :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_wire : Deserialize wire :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_control : Deserialize control :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_group : Deserialize group :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_comp : Deserialize comp :=
-  oops.
+  fun _ _ => oops ().
 
 Global Instance Deserialize_context : Deserialize context :=
-  oops.
+  fun _ _ => oops ().
 
 (* Entry point for the parser *)
 Definition parse_context (s: string) : error + context :=

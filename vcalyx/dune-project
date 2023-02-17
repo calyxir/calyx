@@ -14,6 +14,8 @@
  (bug_reports  "")
  (license      "MIT")
  (depends
+   (core (>= "0.15.0"))
+   (ppx_let (>= "0.15.0"))
    (stdlib-shims (>= "0.3.0"))
    (coq-ceres (>= "0.4.0"))
    (coq-stdpp (>= "1.8.0"))

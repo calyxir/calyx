@@ -5,8 +5,10 @@ From VCalyx Require
 Require Export Coq.extraction.Extraction.
 From Coq.extraction Require Import
      ExtrOcamlBasic
-     ExtrOcamlString
+     ExtrOcamlNativeString
      ExtrOcamlNatInt.
+
+Extract Constant VCalyx.Parse.oops => "(fun _ -> failwith ""oops!"")".
 
 (* This will extract all the listed identifiers and all their
 transitive dependencies. *)
