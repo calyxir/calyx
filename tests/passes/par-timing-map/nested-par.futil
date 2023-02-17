@@ -1,0 +1,83 @@
+// -p cell-share -x cell-share:print_par_timing
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(32);
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+    d = std_reg(32);
+    e = std_reg(32);
+    f = std_reg(32);
+    g = std_reg(32);
+    h = std_reg(32);
+    i = std_reg(32);
+    j = std_reg(32);
+  }
+  wires {
+    group A{
+      a.write_en = 1'd1; 
+      a.in = 32'd2; 
+      A[done] = a.done;
+    }
+    group B{
+      b.write_en = 1'd1; 
+      b.in = 32'd2; 
+      B[done] = b.done;
+    }
+    group C{
+      c.write_en = 1'd1; 
+      c.in = 32'd2; 
+      C[done] = c.done;  
+    }
+    group D{
+      d.write_en = 1'd1; 
+      d.in = 32'd2; 
+      D[done] = d.done;
+    }
+    group E{
+      e.write_en = 1'd1; 
+      e.in = 32'd2; 
+      E[done] = e.done;
+    }
+    group F{
+      f.write_en = 1'd1; 
+      f.in = 32'd2; 
+      F[done] = f.done;
+    }
+    group G{
+      g.write_en = 1'd1; 
+      g.in = 32'd2; 
+      G[done] = g.done;
+    }
+    group H {
+      h.write_en = 1'd1; 
+      h.in = 32'd2; 
+      H[done] = h.done;
+    }
+    group I {
+      i.write_en = 1'd1; 
+      i.in = 32'd2; 
+      I[done] = i.done;
+    }
+    group J {
+      j.write_en = 1'd1; 
+      j.in = 32'd2; 
+      J[done] = j.done;
+    }
+  }
+  control {
+    @static(12) par {
+      @static(12) seq { @static(4) A; @static(4) B; @static(4) C;}
+      @static(10) seq { 
+        @static D; 
+        @static(8) par{ 
+            @static(8) seq {@static(4) E; @static(4) F;} 
+            @static(4) seq {@static(2) G; @static(2) H;} 
+        } 
+        @static D;
+      }
+      @bound(4) while lt.out {@static(2) seq{ @static I; @static J;}}
+    }
+  }
+}
