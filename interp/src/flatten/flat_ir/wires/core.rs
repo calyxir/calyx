@@ -25,12 +25,26 @@ pub struct Group {
     /// the assignments in this group
     pub assignments: IndexRange<AssignmentIdx>,
     /// the go signal for this group
-    pub go: LocalCellRef,
+    pub go: LocalPortRef,
     /// the done signal for this group
-    pub done: LocalCellRef,
+    pub done: LocalPortRef,
 }
 
 impl Group {
+    pub fn new(
+        name: Identifier,
+        assignments: IndexRange<AssignmentIdx>,
+        go: LocalPortRef,
+        done: LocalPortRef,
+    ) -> Self {
+        Self {
+            name,
+            assignments,
+            go,
+            done,
+        }
+    }
+
     pub fn name(&self) -> Identifier {
         self.name
     }
