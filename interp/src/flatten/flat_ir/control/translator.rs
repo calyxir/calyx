@@ -8,8 +8,8 @@ use crate::{
         flat_ir::{
             identifier::IdMap,
             prelude::{
-                Assignment, CombGroup, CombGroupIdx, GroupIdx, GuardIdx,
-                Identifier, LocalPortRef, LocalRPortRef, PortRef,
+                Assignment, AssignmentIdx, CombGroup, CombGroupIdx, GroupIdx,
+                GuardIdx, Identifier, LocalPortRef, LocalRPortRef, PortRef,
             },
             wires::{
                 core::{Group, GroupMap},
@@ -17,7 +17,9 @@ use crate::{
             },
         },
         structures::{
-            context::InterpretationContext, indexed_map::IndexGenerator,
+            context::InterpretationContext,
+            index_trait::{IndexRange, IndexRef},
+            indexed_map::IndexGenerator,
         },
         utils::{flatten_tree, FlattenTree, SingleHandle},
     },
@@ -43,9 +45,23 @@ fn translate_group(
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
 ) -> Group {
-    let identifier = interp_ctx.string_table.insert(group.name());
+    let id = interp_ctx.string_table.insert(group.name());
+    let base = interp_ctx.assignments.next_idx();
 
-    todo!()
+    for assign in group.assignments.iter() {
+        let assign_new = translate_assignment(assign, interp_ctx, map);
+        interp_ctx.assignments.push(assign_new);
+    }
+
+    let range: IndexRange<AssignmentIdx> =
+        IndexRange::new(base, interp_ctx.assignments.next_idx());
+
+    Group::new(
+        id,
+        range,
+        *map[&group.get("go").as_raw()].unwrap_local(),
+        *map[&group.get("done").as_raw()].unwrap_local(),
+    )
 }
 
 fn translate_comb_group(
@@ -54,8 +70,17 @@ fn translate_comb_group(
     map: &PortMapper,
 ) -> CombGroup {
     let identifier = interp_ctx.string_table.insert(comb_group.name());
+    let base = interp_ctx.assignments.next_idx();
 
-    todo!()
+    for assign in comb_group.assignments.iter() {
+        let assign_new = translate_assignment(assign, interp_ctx, map);
+        interp_ctx.assignments.push(assign_new);
+    }
+
+    let range: IndexRange<AssignmentIdx> =
+        IndexRange::new(base, interp_ctx.assignments.next_idx());
+
+    CombGroup::new(identifier, range)
 }
 
 fn translate_assignment(

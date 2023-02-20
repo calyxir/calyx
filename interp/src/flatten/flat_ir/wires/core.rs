@@ -58,6 +58,13 @@ pub struct CombGroup {
 }
 
 impl CombGroup {
+    pub fn new(
+        name: Identifier,
+        assignments: IndexRange<AssignmentIdx>,
+    ) -> Self {
+        Self { name, assignments }
+    }
+
     pub fn name(&self) -> Identifier {
         self.name
     }

@@ -33,6 +33,21 @@ pub enum PortRef {
     Ref(LocalRPortRef),
 }
 
+impl PortRef {
+    #[must_use]
+    pub fn as_local(&self) -> Option<&LocalPortRef> {
+        if let Self::Local(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn unwrap_local(&self) -> &LocalPortRef {
+        self.as_local().unwrap()
+    }
+}
+
 impl From<LocalRPortRef> for PortRef {
     fn from(v: LocalRPortRef) -> Self {
         Self::Ref(v)
@@ -79,11 +94,11 @@ impl CellInfoMap {
             // TODO (griffin): Come up with a better default for IndexRange
             local_c: AuxillaryMap::new_with_default(LocalCellInfo {
                 name: Identifier::get_default_id(),
-                ports: IndexRange::new(0.into(), 0.into()),
+                ports: IndexRange::new(0_u32.into(), 0_u32.into()),
             }),
             ref_c: AuxillaryMap::new_with_default(RefCellInfo {
                 name: Identifier::get_default_id(),
-                ports: IndexRange::new(0.into(), 0.into()),
+                ports: IndexRange::new(0_u32.into(), 0_u32.into()),
             }),
         }
     }

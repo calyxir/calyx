@@ -32,6 +32,12 @@ macro_rules! impl_index {
                 $struct_name(input)
             }
         }
+
+        impl From<usize> for $struct_name {
+            fn from(input: usize) -> Self {
+                $crate::flatten::structures::index_trait::IndexRef::new(input)
+            }
+        }
     };
 }
 /// This macro is used to implement the IndexRef trait for a type that wraps a
@@ -78,11 +84,18 @@ macro_rules! impl_index_nonzero {
                 $struct_name(input)
             }
         }
+
+        impl From<usize> for $struct_name {
+            fn from(input: usize) -> Self {
+                $crate::flatten::structures::index_trait::IndexRef::new(input)
+            }
+        }
     };
 }
 
 pub(crate) use {impl_index, impl_index_nonzero};
 
+/// A half open range of indices. The start is inclusive, the end is exclusive.
 #[derive(Debug, Clone)]
 pub struct IndexRange<I>
 where
@@ -90,7 +103,7 @@ where
 {
     /// The start of the range (inclusive).
     start: I,
-    /// The end of the range (inclusive).
+    /// The end of the range (exclusive).
     end: I,
 }
 
@@ -153,7 +166,7 @@ where
     type Item = I;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current <= self.range.end {
+        if self.current < self.range.end {
             let current = self.current;
             self.current = I::new(self.current.index() + 1);
             Some(current)
@@ -163,8 +176,8 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = if self.range.end.index() >= self.current.index() {
-            self.range.end.index() - self.current.index() + 1
+        let size = if self.range.end.index() > self.current.index() {
+            self.range.end.index() - self.current.index()
         } else {
             0
         };
