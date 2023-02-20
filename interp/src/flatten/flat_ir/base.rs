@@ -5,7 +5,7 @@ use std::ops::Index;
 
 use crate::flatten::structures::{
     index_trait::{impl_index, impl_index_nonzero, IndexRange},
-    indexed_map::{AuxillaryMap, IndexedMap},
+    indexed_map::AuxillaryMap,
 };
 
 use super::prelude::Identifier;
@@ -54,32 +54,6 @@ impl_index!(pub GroupIdx);
 impl_index_nonzero!(pub CombGroupIdx);
 
 impl_index!(pub GuardIdx);
-
-pub(crate) struct LocalPortRefGenerator {
-    next_normal: u32,
-    next_ref: u32,
-}
-
-impl LocalPortRefGenerator {
-    pub fn new() -> Self {
-        Self {
-            next_normal: 0,
-            next_ref: 0,
-        }
-    }
-
-    pub fn next_internal(&mut self) -> PortRef {
-        let ret = LocalPortRef(self.next_normal);
-        self.next_normal += 1;
-        ret.into()
-    }
-
-    pub fn next_ref(&mut self) -> PortRef {
-        let ret = LocalRPortRef(self.next_ref);
-        self.next_ref += 1;
-        ret.into()
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct RefCellInfo {

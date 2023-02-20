@@ -20,6 +20,10 @@ impl Enable {
     pub fn group(&self) -> GroupIdx {
         self.0
     }
+
+    pub fn new(group: GroupIdx) -> Self {
+        Self(group)
+    }
 }
 
 #[derive(Debug)]
@@ -63,6 +67,20 @@ pub struct If {
 }
 
 impl If {
+    pub fn new(
+        cond_port: PortRef,
+        cond_group: Option<CombGroupIdx>,
+        tbranch: ControlIdx,
+        fbranch: ControlIdx,
+    ) -> Self {
+        Self {
+            cond_port,
+            cond_group,
+            tbranch,
+            fbranch,
+        }
+    }
+
     pub fn cond_port(&self) -> PortRef {
         self.cond_port
     }
@@ -88,6 +106,18 @@ pub struct While {
 }
 
 impl While {
+    pub fn new(
+        cond_port: PortRef,
+        cond_group: Option<CombGroupIdx>,
+        body: ControlIdx,
+    ) -> Self {
+        Self {
+            cond_port,
+            cond_group,
+            body,
+        }
+    }
+
     pub fn cond_port(&self) -> PortRef {
         self.cond_port
     }

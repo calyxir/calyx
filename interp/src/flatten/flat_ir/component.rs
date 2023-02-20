@@ -5,7 +5,7 @@ use crate::flatten::structures::{
     indexed_map::{AuxillaryMap, IndexedMap},
 };
 
-use super::{control::structures::ControlIdx, identifier::IdMap, prelude::*};
+use super::{control::structures::ControlIdx, prelude::*};
 
 /// A structure which contains the basic information about a component
 /// definition needed during simulation.
@@ -27,32 +27,29 @@ pub struct AuxillaryComponentInfo {
     pub inputs: IndexRange<LocalPortRef>,
     pub outputs: IndexRange<LocalPortRef>,
 
-    pub names: CompNames,
+    pub names: PortNames,
+    pub cell_info: CellInfoMap,
 }
 
 #[derive(Debug)]
-pub struct CompNames {
+pub struct PortNames {
     pub port_names: AuxillaryMap<LocalPortRef, Identifier>,
-    pub cell_names: AuxillaryMap<LocalCellRef, Identifier>,
-    pub ref_cell_names: AuxillaryMap<LocalRCellRef, Identifier>,
     pub ref_port_names: AuxillaryMap<LocalRPortRef, Identifier>,
 }
 
-impl CompNames {
+impl PortNames {
     /// Creates a new [`CompNames`] struct with the default value for the
     /// auxillary maps being the empty string.
     pub fn new() -> Self {
         let default = Identifier::get_default_id();
         Self {
             port_names: AuxillaryMap::new_with_default(default),
-            cell_names: AuxillaryMap::new_with_default(default),
-            ref_cell_names: AuxillaryMap::new_with_default(default),
             ref_port_names: AuxillaryMap::new_with_default(default),
         }
     }
 }
 
-impl Default for CompNames {
+impl Default for PortNames {
     fn default() -> Self {
         Self::new()
     }

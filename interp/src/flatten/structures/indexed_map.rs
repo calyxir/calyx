@@ -6,6 +6,8 @@ use std::{
     ops::{self, Index},
 };
 
+pub type IndexGenerator<K> = IndexedMap<K, ()>;
+
 #[derive(Debug)]
 pub struct IndexedMap<K, D, const N: usize = 0>
 where
@@ -13,6 +15,16 @@ where
 {
     data: SmallVec<[D; N]>,
     phantom: PhantomData<K>,
+}
+
+impl<K, const N: usize> IndexedMap<K, (), N>
+where
+    K: IndexRef,
+{
+    /// Special case for empty tuple to enable a key generator.
+    pub fn next(&mut self) -> K {
+        self.push(())
+    }
 }
 
 impl<K, D, const N: usize> ops::IndexMut<K> for IndexedMap<K, D, N>

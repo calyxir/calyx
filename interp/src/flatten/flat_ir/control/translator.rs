@@ -9,14 +9,16 @@ use crate::{
             identifier::IdMap,
             prelude::{
                 Assignment, CombGroup, CombGroupIdx, GroupIdx, GuardIdx,
-                Identifier, LocalPortRef, LocalPortRefGenerator, PortRef,
+                Identifier, LocalPortRef, LocalRPortRef, PortRef,
             },
             wires::{
                 core::{Group, GroupMap},
                 guards::Guard,
             },
         },
-        structures::context::InterpretationContext,
+        structures::{
+            context::InterpretationContext, indexed_map::IndexGenerator,
+        },
         utils::{flatten_tree, FlattenTree, SingleHandle},
     },
     utils::AsRaw,
@@ -106,14 +108,23 @@ fn translate_component(
 
 fn compute_local_layout(comp: &cir::Component) -> PortMapper {
     let mut portmap = PortMapper::new();
-    let mut generator = LocalPortRefGenerator::new();
+    let mut l_generator: IndexGenerator<LocalPortRef> = IndexGenerator::new();
+    let mut r_generator: IndexGenerator<LocalRPortRef> = IndexGenerator::new();
 
     // first, handle the signature ports
     for port in comp.signature.borrow().ports() {
-        portmap.insert(port.as_raw(), generator.next_internal());
+        portmap.insert(port.as_raw(), l_generator.next().into());
     }
 
-    // second, the primitive cells
+    // second the group holes
+    for group in &comp.groups {
+        let group = group.borrow();
+        for port in &group.holes {
+            portmap.insert(port.as_raw(), l_generator.next().into());
+        }
+    }
+
+    // third, the primitive cells
     for cell in comp.cells.iter() {
         let cell_ref = cell.borrow();
         // this is silly
@@ -122,11 +133,11 @@ fn compute_local_layout(comp: &cir::Component) -> PortMapper {
         {
             if !cell_ref.is_reference() {
                 for port in cell_ref.ports() {
-                    portmap.insert(port.as_raw(), generator.next_internal());
+                    portmap.insert(port.as_raw(), l_generator.next().into());
                 }
             } else {
                 for port in cell_ref.ports() {
-                    portmap.insert(port.as_raw(), generator.next_ref());
+                    portmap.insert(port.as_raw(), r_generator.next().into());
                 }
             }
         } else {
@@ -171,13 +182,14 @@ impl FlattenTree for cir::Control {
 
     type IdxType = ControlIdx;
 
-    type AuxillaryData = GroupMapper;
+    type AuxillaryData = (GroupMapper, PortMapper);
 
     fn process_element<'data>(
         &'data self,
         mut handle: SingleHandle<'_, 'data, Self, Self::IdxType, Self::Output>,
         aux: &Self::AuxillaryData,
     ) -> Self::Output {
+        let (group_map, port_map) = aux;
         match self {
             cir::Control::Seq(s) => ControlNode::Seq(Seq::new(
                 s.stmts.iter().map(|s| handle.enqueue(s)),
@@ -185,11 +197,22 @@ impl FlattenTree for cir::Control {
             cir::Control::Par(p) => ControlNode::Par(Par::new(
                 p.stmts.iter().map(|s| handle.enqueue(s)),
             )),
-            cir::Control::If(i) => todo!(),
-            cir::Control::While(_) => todo!(),
-            cir::Control::Invoke(_) => todo!(),
-            cir::Control::Enable(_) => todo!(),
-            cir::Control::Empty(_) => todo!(),
+            cir::Control::If(i) => ControlNode::If(If::new(
+                port_map[&i.port.as_raw()],
+                i.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
+                handle.enqueue(&i.tbranch),
+                handle.enqueue(&i.fbranch),
+            )),
+            cir::Control::While(w) => ControlNode::While(While::new(
+                port_map[&w.port.as_raw()],
+                w.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
+                handle.enqueue(&w.body),
+            )),
+            cir::Control::Invoke(_inv) => todo!("Invoke not yet supported"),
+            cir::Control::Enable(e) => ControlNode::Enable(Enable::new(
+                group_map.groups[&e.group.as_raw()],
+            )),
+            cir::Control::Empty(_) => ControlNode::Empty(Empty),
         }
     }
 }
