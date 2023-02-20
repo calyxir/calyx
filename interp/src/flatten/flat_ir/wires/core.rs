@@ -1,11 +1,6 @@
-use smallvec::SmallVec;
-
 use crate::flatten::{
     flat_ir::prelude::*,
-    structures::{
-        index_trait::{impl_index, IndexRange},
-        indexed_map::IndexedMap,
-    },
+    structures::{index_trait::IndexRange, indexed_map::IndexedMap},
 };
 
 pub type AssignmentMap = IndexedMap<AssignmentIdx, Assignment>;

@@ -1,15 +1,14 @@
-use symbol_table::{Symbol, SymbolTable};
-
-use super::index_trait::{impl_index, IndexRef};
 use super::indexed_map::IndexedMap;
 use crate::{
     flatten::{
-        flat_ir::base::{
-            ComponentRef, GlobalCellRef, GlobalPortRef, GlobalRCellRef,
+        flat_ir::{
+            base::{
+                ComponentRef, GlobalCellRef, GlobalPortRef, GlobalRCellRef,
+            },
+            prelude::Identifier,
         },
         primitives::Primitive,
     },
-    interpreter_ir::Component,
     values::Value,
 };
 
@@ -19,12 +18,12 @@ pub(crate) type RefCellMap = IndexedMap<GlobalRCellRef, Option<GlobalCellRef>>;
 
 pub(crate) enum CellLedger {
     Primitive {
-        name: Symbol,
+        name: Identifier,
         // wish there was a better option with this one
         cell_dyn: Box<dyn Primitive>,
     },
     Component {
-        name: Symbol,
+        name: Identifier,
         port_base_offset: GlobalPortRef,
         comp_id: ComponentRef,
     },

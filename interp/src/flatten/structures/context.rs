@@ -1,5 +1,4 @@
 use crate::flatten::flat_ir::{
-    base::ComponentRef,
     component::ComponentMap,
     identifier::IdMap,
     prelude::CombGroupMap,
@@ -8,8 +7,6 @@ use crate::flatten::flat_ir::{
         guards::GuardMap,
     },
 };
-
-use super::indexed_map::IndexedMap;
 
 /// The immutable program context for the interpreter.
 #[derive(Debug, Default)]

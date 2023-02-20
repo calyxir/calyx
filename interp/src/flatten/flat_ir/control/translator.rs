@@ -1,24 +1,17 @@
-use std::collections::VecDeque;
-
 use ahash::{HashMap as AHashMap, HashMapExt};
 use calyx::ir as cir;
 
 use crate::{
     flatten::{
         flat_ir::{
-            identifier::IdMap,
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx, GroupIdx,
-                GuardIdx, Identifier, LocalPortRef, LocalRPortRef, PortRef,
+                GuardIdx, LocalPortRef, LocalRPortRef, PortRef,
             },
-            wires::{
-                core::{Group, GroupMap},
-                guards::Guard,
-            },
+            wires::{core::Group, guards::Guard},
         },
         structures::{
-            context::InterpretationContext,
-            index_trait::{IndexRange, IndexRef},
+            context::InterpretationContext, index_trait::IndexRange,
             indexed_map::IndexGenerator,
         },
         utils::{flatten_tree, FlattenTree, SingleHandle},
