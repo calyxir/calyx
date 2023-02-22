@@ -7,6 +7,14 @@ use std::{
 };
 
 pub type IndexGenerator<K> = IndexedMap<K, ()>;
+/// Used to create a number of index generators.
+macro_rules! idx_gen {
+    ( $($name:ident : $ty_name:ty),*) => {
+        $(let mut $name = IndexGenerator::<$ty_name>::new();)*
+    };
+}
+
+pub(crate) use idx_gen;
 
 #[derive(Debug)]
 pub struct IndexedMap<K, D, const N: usize = 0>
@@ -90,7 +98,7 @@ where
         K::new(self.data.len() - 1)
     }
 
-    pub fn next_idx(&self) -> K {
+    pub fn peek_next_idx(&self) -> K {
         K::new(self.data.len())
     }
 

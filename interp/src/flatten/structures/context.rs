@@ -9,7 +9,7 @@ use crate::flatten::flat_ir::{
 };
 
 /// The immutable program context for the interpreter.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct InterpretationContext {
     /// All assignments in the program
     pub assignments: AssignmentMap,
@@ -23,4 +23,21 @@ pub struct InterpretationContext {
     pub guards: GuardMap,
     /// table for mapping strings to identifiers
     pub string_table: IdMap,
+}
+
+impl Default for InterpretationContext {
+    fn default() -> Self {
+        let mut string_table = IdMap::new();
+        string_table.insert("done");
+        string_table.insert("go");
+
+        Self {
+            assignments: Default::default(),
+            components: Default::default(),
+            groups: Default::default(),
+            comb_groups: Default::default(),
+            guards: Default::default(),
+            string_table,
+        }
+    }
 }

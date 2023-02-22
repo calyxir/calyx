@@ -118,6 +118,13 @@ where
     pub fn iter(&self) -> IndexRangeIterator<I> {
         IndexRangeIterator::new(self)
     }
+
+    pub fn empty_interval() -> Self {
+        Self {
+            start: I::new(0),
+            end: I::new(0),
+        }
+    }
 }
 
 impl<'a, I> IntoIterator for &'a IndexRange<I>

@@ -4,15 +4,18 @@ use calyx::ir as cir;
 use crate::{
     flatten::{
         flat_ir::{
+            component::AuxillaryComponentInfo,
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx, GroupIdx,
-                GuardIdx, LocalPortRef, LocalRPortRef, PortRef,
+                GuardIdx, LocalCellRef, LocalPortRef, LocalRCellRef,
+                LocalRPortRef, PortRef,
             },
             wires::{core::Group, guards::Guard},
         },
         structures::{
-            context::InterpretationContext, index_trait::IndexRange,
-            indexed_map::IndexGenerator,
+            context::InterpretationContext,
+            index_trait::IndexRange,
+            indexed_map::{idx_gen, IndexGenerator},
         },
         utils::{flatten_tree, FlattenTree, SingleHandle},
     },
@@ -39,7 +42,7 @@ fn translate_group(
     map: &PortMapper,
 ) -> Group {
     let id = interp_ctx.string_table.insert(group.name());
-    let base = interp_ctx.assignments.next_idx();
+    let base = interp_ctx.assignments.peek_next_idx();
 
     for assign in group.assignments.iter() {
         let assign_new = translate_assignment(assign, interp_ctx, map);
@@ -47,7 +50,7 @@ fn translate_group(
     }
 
     let range: IndexRange<AssignmentIdx> =
-        IndexRange::new(base, interp_ctx.assignments.next_idx());
+        IndexRange::new(base, interp_ctx.assignments.peek_next_idx());
 
     Group::new(
         id,
@@ -63,7 +66,7 @@ fn translate_comb_group(
     map: &PortMapper,
 ) -> CombGroup {
     let identifier = interp_ctx.string_table.insert(comb_group.name());
-    let base = interp_ctx.assignments.next_idx();
+    let base = interp_ctx.assignments.peek_next_idx();
 
     for assign in comb_group.assignments.iter() {
         let assign_new = translate_assignment(assign, interp_ctx, map);
@@ -71,7 +74,7 @@ fn translate_comb_group(
     }
 
     let range: IndexRange<AssignmentIdx> =
-        IndexRange::new(base, interp_ctx.assignments.next_idx());
+        IndexRange::new(base, interp_ctx.assignments.peek_next_idx());
 
     CombGroup::new(identifier, range)
 }
@@ -100,7 +103,11 @@ fn translate_component(
     comp: &cir::Component,
     interp_ctx: &mut InterpretationContext,
 ) {
-    let map = compute_local_layout(comp);
+    let mut aux_info = AuxillaryComponentInfo::new_with_name(
+        interp_ctx.string_table.insert(comp.name),
+    );
+
+    let map = compute_local_layout(comp, interp_ctx, &mut aux_info);
 
     let mut group_map = AHashMap::with_capacity(comp.groups.len());
 
@@ -124,39 +131,57 @@ fn translate_component(
     todo!()
 }
 
-fn compute_local_layout(comp: &cir::Component) -> PortMapper {
+fn compute_local_layout(
+    comp: &cir::Component,
+    ctx: &mut InterpretationContext,
+    aux: &mut AuxillaryComponentInfo,
+) -> PortMapper {
     let mut portmap = PortMapper::new();
-    let mut l_generator: IndexGenerator<LocalPortRef> = IndexGenerator::new();
-    let mut r_generator: IndexGenerator<LocalRPortRef> = IndexGenerator::new();
+    let mut lp_gen = IndexGenerator::<LocalPortRef>::new();
+    let mut rp_gen = IndexGenerator::<LocalRPortRef>::new();
 
     // first, handle the signature ports
     for port in comp.signature.borrow().ports() {
-        portmap.insert(port.as_raw(), l_generator.next().into());
+        ctx.string_table.insert(port.borrow().name);
+        portmap.insert(port.as_raw(), lp_gen.next().into());
     }
 
     // second the group holes
     for group in &comp.groups {
         let group = group.borrow();
         for port in &group.holes {
-            portmap.insert(port.as_raw(), l_generator.next().into());
+            // skip inserting strings since "go" and "done" are already in the
+            // string table at construction
+            portmap.insert(port.as_raw(), lp_gen.next().into());
         }
     }
 
     // third, the primitive cells
     for cell in comp.cells.iter() {
         let cell_ref = cell.borrow();
+        let id = ctx.string_table.insert(cell_ref.name());
+
         // this is silly
         if cell_ref.is_primitive::<&str>(None)
             || matches!(&cell_ref.prototype, cir::CellType::Constant { .. })
         {
             if !cell_ref.is_reference() {
+                let base = lp_gen.peek_next_idx();
+
                 for port in cell_ref.ports() {
-                    portmap.insert(port.as_raw(), l_generator.next().into());
+                    ctx.string_table.insert(port.borrow().name);
+                    portmap.insert(port.as_raw(), lp_gen.next().into());
                 }
+                let range = IndexRange::new(base, lp_gen.peek_next_idx());
+                aux.cell_info.push_local_cell(id, range);
             } else {
+                let base = rp_gen.peek_next_idx();
                 for port in cell_ref.ports() {
-                    portmap.insert(port.as_raw(), r_generator.next().into());
+                    ctx.string_table.insert(port.borrow().name);
+                    portmap.insert(port.as_raw(), rp_gen.next().into());
                 }
+                let range = IndexRange::new(base, rp_gen.peek_next_idx());
+                aux.cell_info.push_ref_cell(id, range);
             }
         } else {
             todo!("non-primitive cells are not yet supported")

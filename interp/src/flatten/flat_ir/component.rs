@@ -19,6 +19,8 @@ pub struct ComponentCore {
     pub is_comb: bool,
 }
 
+/// Other information about a component definition. This is not on the hot path
+/// and is instead needed primarily during setup and error reporting.
 pub struct AuxillaryComponentInfo {
     /// Name of the component.
     pub name: Identifier,
@@ -31,21 +33,42 @@ pub struct AuxillaryComponentInfo {
     pub cell_info: CellInfoMap,
 }
 
+impl AuxillaryComponentInfo {
+    /// Creates a new [`AuxillaryComponentInfo`] with the given name. And
+    /// default values elsewhere.
+    pub fn new_with_name(id: Identifier) -> Self {
+        Self {
+            name: id,
+            inputs: IndexRange::empty_interval(),
+            outputs: IndexRange::empty_interval(),
+            names: PortNames::new(),
+            cell_info: CellInfoMap::new(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PortNames {
-    pub port_names: AuxillaryMap<LocalPortRef, Identifier>,
-    pub ref_port_names: AuxillaryMap<LocalRPortRef, Identifier>,
+    pub port_names: IndexedMap<LocalPortRef, Identifier>,
+    pub ref_port_names: IndexedMap<LocalRPortRef, Identifier>,
 }
 
 impl PortNames {
     /// Creates a new [`CompNames`] struct with the default value for the
     /// auxillary maps being the empty string.
     pub fn new() -> Self {
-        let default = Identifier::get_default_id();
         Self {
-            port_names: AuxillaryMap::new_with_default(default),
-            ref_port_names: AuxillaryMap::new_with_default(default),
+            port_names: IndexedMap::new(),
+            ref_port_names: IndexedMap::new(),
         }
+    }
+
+    pub fn push_local_id(&mut self, id: Identifier) -> LocalPortRef {
+        self.port_names.push(id)
+    }
+
+    pub fn push_ref_id(&mut self, id: Identifier) -> LocalRPortRef {
+        self.ref_port_names.push(id)
     }
 }
 
@@ -60,7 +83,7 @@ pub type ComponentMap = IndexedMap<ComponentRef, ComponentCore>;
 // NOTHING IMPORTANT DOWN HERE, DO NOT READ
 // =======================================
 
-/// IGNORE FOR NOW
+/// IGNORE FOR NOW. THIS IS UNUSED
 ///
 ///  A map from various local references to the name of the port/cell
 ///
