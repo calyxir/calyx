@@ -546,6 +546,8 @@ pub struct StaticGroup {
     /// Attributes for this group.
     pub attributes: Attributes,
 }
+
+///implement the StaticGroup struct
 impl StaticGroup {
     pub fn new(name: Id) -> Self {
         Self {

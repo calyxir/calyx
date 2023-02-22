@@ -1,0 +1,19 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    r = std_reg(32);
+  }
+
+  wires {
+    static group r_read {
+      r.in = 32'd10;
+      r.write_en = %0;  // Asserted at `t+0`
+      r_read[done] = %1;   // Asserted at `t+1`
+    }
+  }
+
+  control {
+  }
+  
+}
