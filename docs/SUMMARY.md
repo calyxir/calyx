@@ -21,6 +21,7 @@
   - [External Stages](./fud/external.md)
   - [Multiple Paths](./fud/multiple-paths.md)
   - [CIRCT](./fud/circt.md)
+  - [Resource Estimation](./fud/resource-estimation.md)
 - [The Calyx Interpreter](./interpreter.md)
 
 # The Calyx Compiler
