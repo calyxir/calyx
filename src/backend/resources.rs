@@ -126,143 +126,130 @@ fn write_csv(
 fn estimated_size(count_map: HashMap<(Id, Binding, bool), u32>) {
     let mut estimated_size: u64 = 0;
     let mut estimated_external_size: u64 = 0;
+    let mut add_size =
+        |is_external: bool, count: u64, bitwidth: u64, slots: Option<u64>| {
+            let size = count * bitwidth * slots.unwrap_or(1);
+            if is_external {
+                estimated_external_size += size;
+            } else {
+                estimated_size += size;
+            }
+        };
+    let externalize_name = |name: Id, is_external: bool| {
+        let id = if is_external {
+            format!("external {}", name)
+        } else {
+            name.to_string()
+        };
+        id
+    };
     eprintln!("Summary of primitives:");
     for ((name, params, is_external), count) in count_map {
         match name.as_ref() {
             "std_reg" => {
-                if is_external {
-                    estimated_external_size += (count as u64) * (params[0].1);
-                } else {
-                    estimated_size += (count as u64) * (params[0].1);
-                    eprintln!(
-                        "{} {} primitive(s) with a bitwidth of {}.",
-                        count, name, params[0].1
-                    )
-                }
+                add_size(is_external, count as u64, params[0].1, None);
+                eprintln!(
+                    "{} {} primitive(s) with a bitwidth of {}.",
+                    count,
+                    externalize_name(name, is_external),
+                    params[0].1
+                )
             }
             "std_mem_d1" => {
-                if is_external {
-                    estimated_external_size +=
-                        (count as u64) * (params[0].1 * params[1].1);
-                } else {
-                    estimated_size +=
-                        (count as u64) * (params[0].1 * params[1].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, params[1].1, params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    params[1].1, params[0].1);
             }
             "std_mem_d2" => {
-                if is_external {
-                    estimated_external_size += (count as u64)
-                        * (params[0].1 * params[1].1 * params[2].1);
-                } else {
-                    estimated_size += (count as u64)
-                        * (params[0].1 * params[1].1 * params[2].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1 * params[2].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, (params[1].1 * params[2].1), params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    (params[1].1 * params[2].1), params[0].1);
             }
             "std_mem_d3" => {
-                if is_external {
-                    estimated_external_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1);
-                } else {
-                    estimated_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1 * params[2].1 * params[3].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, (params[1].1 * params[2].1 * params[3].1), params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    (params[1].1 * params[2].1 * params[3].1), params[0].1);
             }
             "std_mem_d4" => {
-                if is_external {
-                    estimated_external_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1
-                            * params[4].1);
-                } else {
-                    estimated_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1
-                            * params[4].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1 * params[2].1 * params[3].1* params[4].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
             }
             "seq_mem_d1" => {
-                if is_external {
-                    estimated_external_size +=
-                        (count as u64) * (params[0].1 * params[1].1);
-                } else {
-                    estimated_size +=
-                        (count as u64) * (params[0].1 * params[1].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, params[1].1, params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    params[1].1, params[0].1);
             }
             "seq_mem_d2" => {
-                if is_external {
-                    estimated_external_size += (count as u64)
-                        * (params[0].1 * params[1].1 * params[2].1);
-                } else {
-                    estimated_size += (count as u64)
-                        * (params[0].1 * params[1].1 * params[2].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1 * params[2].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, (params[1].1 * params[2].1), params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    (params[1].1 * params[2].1), params[0].1);
             }
             "seq_mem_d3" => {
-                if is_external {
-                    estimated_external_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1);
-                } else {
-                    estimated_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1 * params[2].1 * params[3].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, (params[1].1 * params[2].1 * params[3].1), params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    (params[1].1 * params[2].1 * params[3].1), params[0].1);
             }
             "seq_mem_d4" => {
-                if is_external {
-                    estimated_external_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1
-                            * params[4].1);
-                } else {
-                    estimated_size += (count as u64)
-                        * (params[0].1
-                            * params[1].1
-                            * params[2].1
-                            * params[3].1
-                            * params[4].1);
-                    eprintln!(
+                add_size(
+                    is_external,
+                    count as u64,
+                    params[0].1,
+                    Some(params[1].1 * params[2].1 * params[3].1* params[4].1),
+                );
+                eprintln!(
                     "{} {} primitive(s) with {} slot(s) of memory, each {} bit(s) wide.", 
-                    count, name, (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
-                }
+                    count, externalize_name(name, is_external), 
+                    (params[1].1 * params[2].1 * params[3].1 * params[4].1), params[0].1);
             }
             _ => (),
         }
