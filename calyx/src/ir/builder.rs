@@ -82,7 +82,42 @@ impl<'a> Builder<'a> {
         }
 
         // Add the group to the component.
-        self.component.groups.add(Rc::clone(&group));
+        self.component.get_groups().add(Rc::clone(&group));
+
+        group
+    }
+
+    /// Construct a new static group and add it to the Component.
+    /// The group is guaranteed to start with `prefix`.
+    /// Returns a reference to the group.
+    pub fn add_static_group<S>(&mut self, prefix: S) -> RRC<ir::StaticGroup>
+    where
+        S: Into<ir::Id>,
+    {
+        let prefix: ir::Id = prefix.into();
+        assert!(
+            prefix != "",
+            "Cannot construct group with empty name prefix"
+        );
+        let name = self.component.generate_name(prefix);
+
+        // Check if there is a group with the same name.
+        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name)));
+
+        // Add default holes to the group.
+        for (name, width) in &[("go", 1), ("done", 1)] {
+            let hole = Rc::new(RefCell::new(ir::Port {
+                name: ir::Id::from(*name),
+                width: *width,
+                direction: ir::Direction::Inout,
+                parent: ir::PortParent::StaticGroup(WRC::from(&group)),
+                attributes: ir::Attributes::default(),
+            }));
+            group.borrow_mut().holes.push(hole);
+        }
+
+        // Add the group to the component.
+        self.component.get_static_groups().add(Rc::clone(&group));
 
         group
     }
@@ -272,6 +307,12 @@ impl<'a> Builder<'a> {
 
                 let group = &group_ref.borrow();
                 self.component.find_group(group.name()).expect("Hole's parent cell not present in the component. Add the group to the component before using the Hole.");
+            }
+            ir::PortParent::StaticGroup(group_wref) => {
+                let group_ref = group_wref.internal.upgrade().expect("Weak reference to hole's parent group points to nothing. This usually means that the Component did not retain a pointer to the Group.");
+
+                let group = &group_ref.borrow();
+                self.component.find_static_group(group.name()).expect("Hole's parent cell not present in the component. Add the static group to the component before using the Hole.");
             }
         };
     }

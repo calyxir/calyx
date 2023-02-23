@@ -16,6 +16,7 @@ use itertools::Itertools;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::hash::Hash;
 
 // function to turn cell types to string when we are building the json for
 // share_freqs
@@ -502,6 +503,7 @@ impl Visitor for CellShare {
         // Rewrite control uses of ports
         rewriter.rewrite_control(
             &mut comp.control.borrow_mut(),
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );

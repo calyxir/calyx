@@ -59,7 +59,14 @@ impl From<&ir::Component> for GraphAnalysis {
             analysis.insert_assignment(asgn);
         }
         // add edges and nodes for all group assignments
-        for group in component.groups.iter() {
+        for group in component.get_groups().iter() {
+            for asgn in &group.borrow().assignments {
+                analysis.insert_assignment(asgn);
+            }
+        }
+
+        // add edges and nodes for all group assignments
+        for group in component.get_static_groups().iter() {
             for asgn in &group.borrow().assignments {
                 analysis.insert_assignment(asgn);
             }

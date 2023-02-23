@@ -119,6 +119,30 @@ impl ComponentInliner {
         })
     }
 
+    /// Rewrite assignments using a [CellMap], [PortMap], and an optional new group.
+    /// Attempts the following rewrites in order:
+    /// 1. Using the [CellMap] to get the same port on a new [Cell].
+    /// 2. Using the [PortMap] to a new [Port].
+    /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
+    fn rewrite_assigns_static(
+        assigns: &mut [ir::Assignment],
+        port_rewrite: &ir::Rewriter,
+        new_group: Option<&RRC<ir::StaticGroup>>,
+    ) {
+        assigns.iter_mut().for_each(|assign| {
+            assign.for_each_port(|port| {
+                port_rewrite.get(port).or_else(|| {
+                    if let Some(grp) = new_group {
+                        if port.borrow().is_hole() {
+                            return Some(grp.borrow().get(&port.borrow().name));
+                        }
+                    }
+                    None
+                })
+            });
+        })
+    }
+
     /// Rewrites vec based on self.interface_rewrites Used as a helper function
     /// for rewrite_invoke_ports
     fn rewrite_vec(&self, v: &mut [(ir::Id, RRC<ir::Port>)]) {
@@ -150,6 +174,28 @@ impl ComponentInliner {
         // Rewrite assignments
         let mut asgns = group.assignments.clone();
         Self::rewrite_assigns(&mut asgns, port_rewrite, Some(&new_group));
+        new_group.borrow_mut().assignments = asgns;
+        (group.clone_name(), new_group)
+    }
+
+    /// Inline a group definition from a component into the component associated
+    /// with the `builder`.
+    fn inline_static_group(
+        builder: &mut ir::Builder,
+        port_rewrite: &ir::Rewriter,
+        gr: &RRC<ir::StaticGroup>,
+    ) -> (ir::Id, RRC<ir::StaticGroup>) {
+        let group = gr.borrow();
+        let new_group = builder.add_static_group(group.clone_name());
+        new_group.borrow_mut().attributes = group.attributes.clone();
+
+        // Rewrite assignments
+        let mut asgns = group.assignments.clone();
+        Self::rewrite_assigns_static(
+            &mut asgns,
+            port_rewrite,
+            Some(&new_group),
+        );
         new_group.borrow_mut().assignments = asgns;
         (group.clone_name(), new_group)
     }
@@ -227,9 +273,14 @@ impl ComponentInliner {
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
         let group_map: rewriter::RewriteMap<ir::Group> = comp
-            .groups
+            .get_groups()
             .iter()
             .map(|gr| Self::inline_group(builder, &rewrite, gr))
+            .collect();
+        let static_group_map: rewriter::RewriteMap<ir::StaticGroup> = comp
+            .get_static_groups()
+            .iter()
+            .map(|gr| Self::inline_static_group(builder, &rewrite, gr))
             .collect();
         let comb_group_map: rewriter::RewriteMap<ir::CombGroup> = comp
             .comb_groups
@@ -247,7 +298,12 @@ impl ComponentInliner {
 
         // Generate a control program associated with this instance
         let mut con = ir::Cloner::control(&comp.control.borrow());
-        rewrite.rewrite_control(&mut con, &group_map, &comb_group_map);
+        rewrite.rewrite_control(
+            &mut con,
+            &group_map,
+            &comb_group_map,
+            &static_group_map,
+        );
 
         // Generate interface map for use in the parent cell.
         // Return as an iterator because it's immediately merged into the global rewrite map.

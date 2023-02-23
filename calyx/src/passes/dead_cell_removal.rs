@@ -100,7 +100,20 @@ impl Visitor for DeadCellRemoval {
             });
 
             // Remove writes to ports on unused cells.
-            for gr in comp.groups.iter() {
+            for gr in comp.get_groups().iter() {
+                gr.borrow_mut().assignments.retain(|asgn| {
+                    let dst = asgn.dst.borrow();
+                    if dst.is_hole() {
+                        true
+                    } else {
+                        let parent = &dst.get_parent_name();
+                        self.all_reads.contains(parent)
+                            || wire_reads.contains(parent)
+                    }
+                })
+            }
+            // Remove writes to ports on unused cells.
+            for gr in comp.get_static_groups().iter() {
                 gr.borrow_mut().assignments.retain(|asgn| {
                     let dst = asgn.dst.borrow();
                     if dst.is_hole() {

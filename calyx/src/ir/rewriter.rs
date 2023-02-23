@@ -124,10 +124,13 @@ impl<'a> Rewriter<'a> {
         c: &mut ir::Control,
         group_map: &RewriteMap<ir::Group>,
         comb_group_map: &RewriteMap<ir::CombGroup>,
+        static_group_map: &RewriteMap<ir::StaticGroup>,
     ) {
         match c {
             ir::Control::Empty(_) => (),
             ir::Control::Enable(en) => {
+                // Enable will become an enum,
+                // so we will need both static_group_map and group_map
                 let g = &en.group.borrow().clone_name();
                 if let Some(new_group) = group_map.get(g) {
                     en.group = Rc::clone(new_group);
@@ -136,7 +139,12 @@ impl<'a> Rewriter<'a> {
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter_mut().for_each(|c| {
-                    self.rewrite_control(c, group_map, comb_group_map)
+                    self.rewrite_control(
+                        c,
+                        group_map,
+                        comb_group_map,
+                        static_group_map,
+                    )
                 })
             }
             ir::Control::If(ife) => {
@@ -156,11 +164,13 @@ impl<'a> Rewriter<'a> {
                     &mut ife.tbranch,
                     group_map,
                     comb_group_map,
+                    static_group_map,
                 );
                 self.rewrite_control(
                     &mut ife.fbranch,
                     group_map,
                     comb_group_map,
+                    static_group_map,
                 );
             }
             ir::Control::While(wh) => {
@@ -176,7 +186,12 @@ impl<'a> Rewriter<'a> {
                     }
                 }
                 // rewrite body
-                self.rewrite_control(&mut wh.body, group_map, comb_group_map);
+                self.rewrite_control(
+                    &mut wh.body,
+                    group_map,
+                    comb_group_map,
+                    static_group_map,
+                );
             }
             ir::Control::Invoke(inv) => {
                 self.rewrite_invoke(inv, comb_group_map)

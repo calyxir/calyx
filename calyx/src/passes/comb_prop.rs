@@ -176,6 +176,7 @@ impl Visitor for CombProp {
                     cell.is_primitive(Some("std_wire"))
                 }
                 ir::PortParent::Group(_) => false,
+                ir::PortParent::StaticGroup(_) => false,
             }
         };
 
@@ -245,6 +246,7 @@ impl Visitor for CombProp {
         let rewriter = ir::Rewriter::new(&cell_rewrites, &rewrites);
         rewriter.rewrite_control(
             &mut comp.control.borrow_mut(),
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );

@@ -189,7 +189,7 @@ impl Visitor for RemoveCombGroups {
             .collect::<CalyxResult<Vec<_>>>()?;
 
         for group in groups {
-            comp.groups.add(group)
+            comp.get_groups_mut().add(group)
         }
 
         Ok(Action::Continue)

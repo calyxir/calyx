@@ -38,7 +38,7 @@ pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;
 pub use structure::{
     Assignment, Binding, Canonical, Cell, CellType, CloneName, CombGroup,
-    Direction, GetName, Group, Port, PortIterator, PortParent,
+    Direction, GetName, Group, Port, PortIterator, PortParent, StaticGroup,
 };
 
 /// Visitor to traverse a control program.

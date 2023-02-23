@@ -168,8 +168,12 @@ impl Printer {
 
         // Add the wires
         writeln!(f, "  wires {{")?;
-        for group in comp.groups.iter() {
+        for group in comp.get_groups().iter() {
             Self::write_group(&group.borrow(), 4, f)?;
+            writeln!(f)?;
+        }
+        for group in comp.get_static_groups().iter() {
+            Self::write_static_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
         for comb_group in comp.comb_groups.iter() {
@@ -298,6 +302,26 @@ impl Printer {
     /// Format and write a group.
     pub fn write_group<F: io::Write>(
         group: &ir::Group,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "group {}", group.name().id)?;
+        if !group.attributes.is_empty() {
+            write!(f, "{}", Self::format_attributes(&group.attributes))?;
+        }
+        writeln!(f, " {{")?;
+
+        for assign in &group.assignments {
+            Self::write_assignment(assign, indent_level + 2, f)?;
+            writeln!(f)?;
+        }
+        write!(f, "{}}}", " ".repeat(indent_level))
+    }
+
+    /// Format and write a static group.
+    pub fn write_static_group<F: io::Write>(
+        group: &ir::StaticGroup,
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {
@@ -511,6 +535,20 @@ impl Printer {
                 }
             }
             ir::PortParent::Group(group_wref) => format!(
+                "{}[{}]",
+                group_wref
+                    .internal
+                    .upgrade()
+                    .unwrap_or_else(|| panic!(
+                        "Malformed AST: No reference to Group for port `{:#?}'",
+                        port
+                    ))
+                    .borrow()
+                    .name()
+                    .id,
+                port.name.id
+            ),
+            ir::PortParent::StaticGroup(group_wref) => format!(
                 "{}[{}]",
                 group_wref
                     .internal

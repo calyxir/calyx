@@ -33,6 +33,7 @@ impl Direction {
 pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
+    StaticGroup(WRC<StaticGroup>),
 }
 
 /// Represents a port on a cell.
@@ -94,6 +95,7 @@ impl Port {
         match &self.parent {
             PortParent::Cell(cell) => cell.upgrade().borrow().name,
             PortParent::Group(group) => group.upgrade().borrow().name,
+            PortParent::StaticGroup(group) => group.upgrade().borrow().name,
         }
     }
 
