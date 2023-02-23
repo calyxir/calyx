@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use crate::ir::structure::StaticGroup;
 
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
@@ -104,6 +105,24 @@ impl GetAttributes for Enable {
     }
 }
 
+/// Data for the `enable` control for a static group.
+#[derive(Debug)]
+pub struct StaticEnable {
+    /// List of components to run.
+    pub group: RRC<StaticGroup>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
+}
+impl GetAttributes for StaticEnable {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
 type PortMap = Vec<(Id, RRC<Port>)>;
 type CellMap = Vec<(Id, RRC<Cell>)>;
 
@@ -156,6 +175,8 @@ pub enum Control {
     Enable(Enable),
     /// Control statement that does nothing.
     Empty(Empty),
+    /// Runs the control for a static group.
+    StaticEnable(StaticEnable)
 }
 
 impl From<Invoke> for Control {
@@ -179,7 +200,8 @@ impl GetAttributes for Control {
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
-            | Self::Empty(Empty { attributes }) => attributes,
+            | Self::Empty(Empty { attributes }) 
+            | Self::StaticEnable(StaticEnable {attributes, ..}) => attributes
         }
     }
 
@@ -191,7 +213,8 @@ impl GetAttributes for Control {
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
-            | Self::Empty(Empty { attributes }) => attributes,
+            | Self::Empty(Empty { attributes }) 
+            | Self::StaticEnable(StaticEnable{attributes, ..}) => attributes,
         }
     }
 }
@@ -299,6 +322,13 @@ impl Cloner {
         }
     }
 
+    pub fn static_enable(en: &StaticEnable) -> StaticEnable {
+        StaticEnable { 
+            group: Rc::clone(&en.group), 
+            attributes: en.attributes.clone(), 
+        }
+    }
+
     pub fn invoke(inv: &Invoke) -> Invoke {
         Invoke {
             comp: Rc::clone(&inv.comp),
@@ -357,6 +387,7 @@ impl Cloner {
             Control::While(wh) => Control::While(Cloner::while_(wh)),
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
+            Control::StaticEnable(en) => Control::StaticEnable(Cloner::static_enable(en)),
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),
         }
     }
