@@ -1,0 +1,44 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+  cells {
+    input0 = std_const(32, 21);
+    input1 = std_const(32, 2);
+    reg_q = std_reg(32);
+    reg_r = std_reg(32);
+    div = std_div_pipe(32);
+    or0 = std_or(32);
+    result = std_reg(32);
+  }
+
+  wires {
+    group div_group {
+      div.go = 1'd1; 
+      div.left = input0.out; 
+      div.right = input1.out; 
+      reg_q.write_en = div.done ? 1'd1; 
+      reg_r.write_en = div.done ? 1'd1; 
+      reg_q.in = div.out_quotient;
+      reg_r.in = div.out_remainder; 
+      div_group[done] = reg_q.done;
+    }
+    // reg_r should be 1, reg_q should be 10
+    group or_group {
+      or0.left = reg_q.out;
+      or0.right = reg_r.out; 
+
+      result.write_en = 1'd1;
+      result.in = or0.out; 
+      or_group[done] = result.done;
+    }
+    // result should be 11
+  }
+
+  control {
+    seq {
+      div_group;
+      or_group;
+    }
+  }
+}

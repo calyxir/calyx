@@ -1,0 +1,33 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    reg0 = std_reg(32);
+    reg1 = std_reg(32);
+    adder = std_add(32);
+    result = std_reg(32);
+  }
+
+  wires {
+    group incr {
+      reg0.write_en = 1'd1;
+      reg0.in = 32'd2;
+
+      reg1.write_en = 1'd1;
+      reg1.in = 32'd1;
+
+      adder.left = reg0.out;
+      adder.right = reg1.out;
+
+      result.write_en = 1'd1;
+      result.in = adder.out; 
+      incr[done] = result.done;
+    }
+  }
+
+  control {
+    seq {
+      incr;
+    }
+  }
+}
