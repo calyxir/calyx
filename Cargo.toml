@@ -45,10 +45,13 @@ lto = "thin"
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
+calyx-ir = { path = "calyx-ir" }
+calyx-opt = { path = "calyx-opt" }
+calyx-frontend = { path = "calyx-frontend" }
+
+[profile.release.package.interp]
+incremental = true
 
 [[bench]]
 name = "component-sharing"
 harness = false
-
-[profile.release.package.interp]
-incremental = true
