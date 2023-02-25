@@ -196,6 +196,12 @@ impl GetAttributes for Control {
     }
 }
 
+impl calyx_utils::WithPos for Control {
+    fn copy_span(&self) -> calyx_utils::GPosIdx {
+        self.get_attributes().copy_span()
+    }
+}
+
 impl Control {
     // ================ Constructor methods ================
     /// Convience constructor for empty.
