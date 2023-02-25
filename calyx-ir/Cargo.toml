@@ -1,0 +1,15 @@
+[package]
+name = "calyx-ir"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log.workspace = true
+petgraph.workspace = true
+string-interner.workspace = true
+itertools.workspace = true
+linked-hash-map.workspace = true
+smallvec.workspace = true
+
+calyx-utils = { path = "../calyx-utils" }
+calyx-frontend = { path = "../calyx-frontend" }

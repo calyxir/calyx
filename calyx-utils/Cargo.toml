@@ -1,14 +1,13 @@
 [package]
-name = "data_gen"
+name = "calyx-utils"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-calyx = { path = "../../calyx-opt"}
-serde_json = "1.0.79"
-rand = "0.8.4"
-argh = "0.1"
-serde = "1.0.137"
-lazy_static = "1.4.0"
+serde.workspace = true
+atty.workspace = true
+string-interner.workspace = true
+itertools.workspace = true
+petgraph.workspace = true

@@ -14,7 +14,7 @@ change-based-sim = []
 default = ["change-based-sim"]
 
 [dependencies]
-calyx = { path = "../calyx" }
+calyx = { path = "../calyx-opt" }
 bitvec = "1.0"
 smallvec = "1.6.1"
 base64 = "0.13.0"

@@ -1,8 +1,7 @@
+use calyx::{frontend, ir, passes};
 use criterion::{
     criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
 };
-
-use calyx::{frontend, ir, passes};
 use ir::traversal::Visitor;
 use std::path::Path;
 
