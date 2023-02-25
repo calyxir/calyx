@@ -15,3 +15,6 @@ serde = "1.0"
 console_error_panic_hook = "0.1.7"
 
 calyx-opt = { path = "../../calyx-opt" }
+calyx-ir = { path = "../../calyx-ir" }
+calyx-frontend = { path = "../../calyx-frontend" }
+calyx-utils = { path = "../../calyx-utils" }

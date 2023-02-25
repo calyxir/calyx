@@ -12,4 +12,7 @@ argh = "0.1"
 serde = "1.0.137"
 lazy_static = "1.4.0"
 
-    calyx-opt = { path = "../../calyx-opt"}
+calyx-ir = { path = "../../calyx-ir"}
+calyx-utils = { path = "../../calyx-utils"}
+calyx-frontend = { path = "../../calyx-frontend"}
+calyx-opt = { path = "../../calyx-opt"}

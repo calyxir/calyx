@@ -1,15 +1,14 @@
 #![allow(clippy::unused_unit)]
-use calyx::{
-    errors::{self, CalyxResult},
-    frontend, ir,
-    pass_manager::PassManager,
-};
+use calyx_frontend as frontend;
+use calyx_ir as ir;
+use calyx_opt::pass_manager::PassManager;
+use calyx_utils::{CalyxResult, Error};
 use wasm_bindgen::prelude::*;
 
 // Contruct a workspace from a namspace
 fn ws_from_ns(ns: frontend::NamespaceDef) -> CalyxResult<frontend::Workspace> {
     if !ns.imports.is_empty() {
-        return Err(errors::Error::misc(
+        return Err(Error::misc(
             "import not supported in the web demo".to_string(),
         ));
     }
@@ -31,7 +30,7 @@ fn compile(
     passes: &[String],
     library: &str,
     namespace: &str,
-) -> Result<String, errors::Error> {
+) -> CalyxResult<String> {
     let pm = PassManager::default_passes()?;
 
     let ns = frontend::parser::CalyxParser::parse(

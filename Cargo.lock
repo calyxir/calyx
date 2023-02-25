@@ -209,7 +209,10 @@ dependencies = [
 name = "calyx-web"
 version = "0.1.0"
 dependencies = [
+ "calyx-frontend",
+ "calyx-ir",
  "calyx-opt",
+ "calyx-utils",
  "console_error_panic_hook",
  "serde",
  "serde_derive",
@@ -446,7 +449,10 @@ name = "data_gen"
 version = "0.1.0"
 dependencies = [
  "argh",
+ "calyx-frontend",
+ "calyx-ir",
  "calyx-opt",
+ "calyx-utils",
  "lazy_static",
  "rand",
  "serde",

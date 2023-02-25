@@ -1,4 +1,6 @@
+use calyx_frontend as frontend;
 use calyx_ir as ir;
+use calyx_opt::passes;
 use criterion::{
     criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
 };
