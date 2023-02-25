@@ -1,8 +1,7 @@
 use crate::analysis;
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{
-    self as ir, guard, structure,
-    traversal::{Action, Named, VisResult, Visitor},
-    GetAttributes, LibrarySignatures, RRC,
+    self as ir, guard, structure, GetAttributes, LibrarySignatures, RRC,
 };
 use calyx_utils::{CalyxResult, Error};
 use itertools::Itertools;

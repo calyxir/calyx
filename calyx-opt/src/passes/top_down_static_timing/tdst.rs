@@ -2,10 +2,10 @@ use super::compute_states::{END, START};
 use crate::analysis::WithStatic;
 use crate::passes::top_down_static_timing::{ComputeStates, Normalize};
 use crate::passes::{self, math_utilities::get_bit_width_from};
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{
-    self as ir, build_assignments, guard, structure,
-    traversal::{Action, ConstructVisitor, Named, VisResult, Visitor},
-    GetAttributes, LibrarySignatures, Printer, RRC,
+    self as ir, build_assignments, guard, structure, GetAttributes,
+    LibrarySignatures, Printer, RRC,
 };
 use calyx_utils::{CalyxResult, Error};
 use itertools::Itertools;

@@ -40,9 +40,6 @@ pub use calyx_frontend::{
     Attributes, Direction, GetAttributes, PortDef, Primitive, Width,
 };
 
-/// Visitor to traverse a control program.
-pub mod traversal;
-
 /// Module to transform AST programs into IR.
 pub mod from_ast;
 

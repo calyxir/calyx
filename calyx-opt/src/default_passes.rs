@@ -9,8 +9,8 @@ use crate::passes::{
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
     UnrollBounded, WellFormed, WireInliner,
 };
+use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
-use calyx_ir::traversal::Named;
 use calyx_utils::CalyxResult;
 
 impl PassManager {

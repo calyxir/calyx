@@ -1,5 +1,5 @@
 use crate::analysis;
-use calyx_ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 
 #[derive(Default)]

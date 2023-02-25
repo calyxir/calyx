@@ -1,6 +1,7 @@
 //! Define the PassManager structure that is used to construct and run pass
 //! passes.
-use calyx_ir::{self as ir, traversal};
+use crate::traversal;
+use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;

@@ -1,9 +1,5 @@
-use calyx_ir::{
-    self as ir,
-    traversal::{Named, Visitor},
-    LibrarySignatures,
-};
-use ir::traversal::{Action, VisResult};
+use crate::traversal::{Action, VisResult, Named, Visitor};
+use calyx_ir::{self as ir, LibrarySignatures};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 

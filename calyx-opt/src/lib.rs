@@ -46,3 +46,4 @@ pub mod analysis;
 pub mod default_passes;
 pub mod pass_manager;
 pub mod passes;
+pub mod traversal;

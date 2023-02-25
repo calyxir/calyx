@@ -1,10 +1,10 @@
 use calyx_frontend as frontend;
 use calyx_ir as ir;
 use calyx_opt::passes;
+use calyx_opt::traversal::Visitor;
 use criterion::{
     criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
 };
-use ir::traversal::Visitor;
 use std::path::Path;
 
 fn cell_share_bench(c: &mut Criterion) {

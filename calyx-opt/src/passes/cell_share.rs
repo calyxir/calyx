@@ -1,12 +1,9 @@
 use crate::analysis::{
     GraphColoring, LiveRangeAnalysis, ReadWriteSet, ShareSet, StaticParTiming,
 };
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::rewriter;
-use calyx_ir::{
-    self as ir,
-    traversal::Named,
-    traversal::{Action, ConstructVisitor, VisResult, Visitor},
-};
+use calyx_ir::{self as ir};
 use calyx_utils::CalyxResult;
 use itertools::Itertools;
 use serde_json::{json, Value};

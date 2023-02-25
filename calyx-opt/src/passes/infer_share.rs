@@ -1,8 +1,8 @@
 use crate::analysis::{DominatorMap, ShareSet};
-use calyx_ir as ir;
-use calyx_ir::traversal::{
+use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
+use calyx_ir as ir;
 use calyx_utils::CalyxResult;
 
 /// This pass checks if components are (state) shareable. Here is the process it

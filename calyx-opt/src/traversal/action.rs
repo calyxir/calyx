@@ -1,5 +1,5 @@
 //! Actions control the traversal of control programs.
-use crate::Control;
+use calyx_ir::Control;
 use calyx_utils::CalyxResult;
 
 /// Result of performing a visit.

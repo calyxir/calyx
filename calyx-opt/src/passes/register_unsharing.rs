@@ -3,7 +3,7 @@
 use crate::analysis::reaching_defns::{
     GroupOrInvoke, ReachingDefinitionAnalysis,
 };
-use calyx_ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, rewriter, Builder, LibrarySignatures};
 use std::collections::HashMap;
 

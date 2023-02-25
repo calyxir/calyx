@@ -1,4 +1,4 @@
-use crate::{self as ir, CellType};
+use calyx_ir::{self as ir, CellType};
 use calyx_utils::CalyxResult;
 use petgraph::algo;
 use petgraph::graph::{DiGraph, NodeIndex};

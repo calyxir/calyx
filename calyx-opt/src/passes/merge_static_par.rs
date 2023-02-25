@@ -1,10 +1,5 @@
-use calyx_ir::Attributes;
-use calyx_ir::Enable;
-use calyx_ir::{
-    self as ir,
-    traversal::{Action, Named, VisResult, Visitor},
-    RRC,
-};
+use calyx_ir::{Attributes, Enable, self as ir, RRC};
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use linked_hash_map::LinkedHashMap;
 use std::iter::Iterator;
 use std::mem;

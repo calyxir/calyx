@@ -1,8 +1,8 @@
 use calyx_ir::{
     self as ir,
-    traversal::{Action, Named, VisResult, Visitor},
     GetAttributes, LibrarySignatures,
 };
+use crate::traversal::{Action, Named, VisResult, Visitor};
 
 const NODE_ID: &str = "NODE_ID";
 const BEGIN_ID: &str = "BEGIN_ID";

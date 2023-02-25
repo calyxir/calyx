@@ -1,5 +1,5 @@
 use super::dump_ports;
-use calyx_ir::traversal::{
+use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::WRC;

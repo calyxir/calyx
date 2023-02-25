@@ -1,7 +1,5 @@
 use crate::analysis;
-use calyx_ir::traversal::{
-    Action, ConstructVisitor, Named, VisResult, Visitor,
-};
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
 use itertools::Itertools;

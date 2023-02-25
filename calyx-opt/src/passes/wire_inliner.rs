@@ -2,9 +2,9 @@ use calyx_ir as ir;
 use ir::RRC;
 use ir::{
     build_assignments, guard, structure,
-    traversal::{Action, Named, VisResult, Visitor},
     LibrarySignatures,
 };
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
 

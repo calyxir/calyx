@@ -1,6 +1,6 @@
 use crate::analysis::ReadWriteSet;
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use calyx_ir::traversal::{Action, Named, VisResult, Visitor};
 use std::cell::RefMut;
 use std::collections::BTreeMap;
 

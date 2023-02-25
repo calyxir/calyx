@@ -1,9 +1,6 @@
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use crate::{analysis::GraphAnalysis, passes::TopDownCompileControl};
-use calyx_ir::{
-    self as ir, structure,
-    traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures, RRC,
-};
+use calyx_ir::{self as ir, structure, LibrarySignatures, RRC};
 use calyx_utils::Error;
 use std::{collections::HashMap, rc::Rc};
 

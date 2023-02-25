@@ -1,8 +1,5 @@
-use calyx_ir::{
-    self as ir,
-    traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures,
-};
+use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::{self as ir, LibrarySignatures};
 use std::collections::HashSet;
 
 /// Removes unused groups and combinational groups from components.

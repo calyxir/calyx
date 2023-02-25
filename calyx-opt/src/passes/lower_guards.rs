@@ -1,8 +1,5 @@
-use calyx_ir::{
-    self as ir,
-    traversal::{Action, Named, VisResult, Visitor},
-    RRC,
-};
+use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::{self as ir, RRC};
 
 /// Lowers guards into a purely structural representation. After this pass,
 /// all guards are guaranteed to be either [ir::Guard::True] or [ir::Guard::Port].

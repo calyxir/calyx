@@ -1,7 +1,5 @@
-use calyx_ir::{
-    self as ir,
-    traversal::{Action, Named, VisResult, Visitor},
-};
+use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::{self as ir};
 
 /// Fully unroll all `while` loops with a given `@bound`.
 #[derive(Default)]

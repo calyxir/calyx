@@ -1,5 +1,5 @@
 use crate::analysis::{GraphAnalysis, ReadWriteSet, WithStatic};
-use calyx_ir::traversal::{
+use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, LibrarySignatures, RRC};

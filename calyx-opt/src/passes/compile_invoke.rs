@@ -1,5 +1,5 @@
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::structure;
-use calyx_ir::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::Error;
 use itertools::Itertools;

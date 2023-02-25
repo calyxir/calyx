@@ -1,10 +1,7 @@
 use super::math_utilities::get_bit_width_from;
 use crate::passes;
-use calyx_ir::{
-    self as ir,
-    traversal::{Action, ConstructVisitor, Named, VisResult, Visitor},
-    GetAttributes, LibrarySignatures, Printer, RRC,
-};
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
 use calyx_ir::{build_assignments, guard, structure};
 use calyx_utils::CalyxResult;
 use calyx_utils::Error;

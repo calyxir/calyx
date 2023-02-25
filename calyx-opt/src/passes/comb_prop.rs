@@ -1,8 +1,5 @@
-use calyx_ir::{
-    self as ir,
-    traversal::{Action, ConstructVisitor, VisResult, Visitor},
-    RRC,
-};
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use calyx_ir::{self as ir, RRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -147,7 +144,7 @@ impl ConstructVisitor for CombProp {
     }
 }
 
-impl ir::traversal::Named for CombProp {
+impl Named for CombProp {
     fn name() -> &'static str {
         "comb-prop"
     }

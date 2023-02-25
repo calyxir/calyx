@@ -1,4 +1,4 @@
-use calyx_ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, Component, Control, LibrarySignatures};
 use calyx_ir::{build_assignments, structure};
 use std::rc::Rc;

@@ -1,9 +1,5 @@
-use calyx_ir::{
-    self as ir,
-    traversal::{Named, Visitor},
-    LibrarySignatures,
-};
-use ir::traversal::{Action, VisResult};
+use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::{self as ir, LibrarySignatures};
 
 #[derive(Default)]
 /// Adds assignments from a components `reset` port to every

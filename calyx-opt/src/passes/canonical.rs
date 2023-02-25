@@ -1,11 +1,7 @@
 use crate::analysis;
-use calyx_ir::traversal::ConstructVisitor;
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::Guard;
-use calyx_ir::{
-    self as ir,
-    traversal::{Action, Named, VisResult, Visitor},
-    LibrarySignatures,
-};
+use calyx_ir::{self as ir, LibrarySignatures};
 
 /// Perform serval canonicalizations on the program.
 ///

@@ -1,12 +1,11 @@
 //! Implements a visitor for `ir::Control` programs.
 //! Program passes implemented as the Visitor are directly invoked on
 //! [`ir::Context`] to compile every [`ir::Component`] using the pass.
-use itertools::Itertools;
-
 use super::action::{Action, VisResult};
 use super::{CompTraversal, Order};
-use crate::{self as ir, Component, Context, Control, LibrarySignatures};
+use calyx_ir::{self as ir, Component, Context, Control, LibrarySignatures};
 use calyx_utils::CalyxResult;
+use itertools::Itertools;
 use std::collections::HashSet;
 use std::rc::Rc;
 

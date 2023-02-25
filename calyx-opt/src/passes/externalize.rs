@@ -1,6 +1,5 @@
 use super::dump_ports;
-use calyx_ir::traversal::ConstructVisitor;
-use calyx_ir::traversal::{Action, Named, VisResult, Visitor};
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::CalyxResult;
 use std::collections::HashMap;
