@@ -1,5 +1,5 @@
 use crate::values::Value;
-use calyx::ir;
+use calyx_ir as ir;
 use std::collections::VecDeque;
 
 pub(super) fn get_param<S>(params: &ir::Binding, target: S) -> Option<u64>
@@ -13,22 +13,22 @@ where
 }
 
 pub(super) fn get_input<'a, S>(
-    inputs: &[(calyx::ir::Id, &'a Value)],
+    inputs: &[(calyx_ir::Id, &'a Value)],
     target: S,
 ) -> Option<&'a Value>
 where
-    S: Into<calyx::ir::Id>,
+    S: Into<calyx_ir::Id>,
 {
     let target = target.into();
     inputs.iter().find(|(id, _)| *id == target).map(|(_, v)| *v)
 }
 
 pub(super) fn get_input_unwrap<'a, S>(
-    inputs: &[(calyx::ir::Id, &'a Value)],
+    inputs: &[(calyx_ir::Id, &'a Value)],
     target: S,
 ) -> &'a Value
 where
-    S: Into<calyx::ir::Id>,
+    S: Into<calyx_ir::Id>,
 {
     get_input(inputs, target).unwrap()
 }
@@ -123,7 +123,7 @@ macro_rules! get_params {
 macro_rules! output {
     ( $(($id:expr, $val:expr) ),+ ) => {
         vec![
-            $((calyx::ir::Id::from($id), $val)),+
+            $((calyx_ir::Id::from($id), $val)),+
         ]
     }
 }

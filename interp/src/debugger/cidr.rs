@@ -14,7 +14,7 @@ use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
 use crate::{interpreter_ir as iir, primitives::Serializable};
-use calyx::ir::{self, Id, RRC};
+use calyx_ir::{self as ir, Id, RRC};
 use std::fmt::Write;
 
 /// Constant amount of space used for debugger messages

@@ -1,10 +1,10 @@
-use calyx::ir::Control as CalyxControl;
-use calyx::ir::{self, Attributes, CombGroup, Port, RRC};
+use calyx_ir::Control as CalyxControl;
+use calyx_ir::{self as ir, Attributes, CombGroup, Port, RRC};
 
 use std::rc::Rc;
 
 // These IR constructs are unchanged but are here re-exported for consistency
-pub use calyx::ir::{Empty, Enable, Invoke};
+pub use calyx_ir::{Empty, Enable, Invoke};
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]

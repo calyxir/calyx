@@ -1,4 +1,4 @@
-use calyx::ir::Id;
+use calyx_ir::Id;
 use itertools::{self, Itertools};
 use lazy_static::lazy_static;
 use std::{
@@ -10,12 +10,12 @@ use crate::structures::names::CompGroupName;
 
 #[derive(Debug)]
 pub struct ParsedGroupName {
-    component: Option<calyx::ir::Id>,
-    group: calyx::ir::Id,
+    component: Option<calyx_ir::Id>,
+    group: calyx_ir::Id,
 }
 
 impl ParsedGroupName {
-    pub fn from_group_name(group: calyx::ir::Id) -> Self {
+    pub fn from_group_name(group: calyx_ir::Id) -> Self {
         Self {
             component: None,
             group,
@@ -23,8 +23,8 @@ impl ParsedGroupName {
     }
 
     pub fn from_comp_and_group(
-        component: calyx::ir::Id,
-        group: calyx::ir::Id,
+        component: calyx_ir::Id,
+        group: calyx_ir::Id,
     ) -> Self {
         Self {
             component: Some(component),
@@ -42,7 +42,7 @@ impl ParsedGroupName {
 
     pub fn concretize(
         mut self,
-        main_comp_name: &calyx::ir::Id,
+        main_comp_name: &calyx_ir::Id,
     ) -> CompGroupName {
         if !self.is_concrete() {
             self.component = Some(*main_comp_name);
@@ -170,7 +170,7 @@ pub enum Command {
     Continue,  // Execute until breakpoint
     Empty,     // Empty command, does nothing
     Display,   // Display full environment contents
-    Print(Vec<Vec<calyx::ir::Id>>, Option<PrintCode>, PrintMode), // Print something
+    Print(Vec<Vec<calyx_ir::Id>>, Option<PrintCode>, PrintMode), // Print something
     Break(Vec<ParsedGroupName>), // Create a breakpoint
     Help,                        // Help message
     Exit,                        // Exit the debugger
@@ -184,7 +184,7 @@ pub enum Command {
     Watch(
         ParsedGroupName,
         WatchPosition,
-        Vec<Vec<calyx::ir::Id>>,
+        Vec<Vec<calyx_ir::Id>>,
         Option<PrintCode>,
         PrintMode,
     ),

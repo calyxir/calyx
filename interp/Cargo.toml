@@ -32,10 +32,13 @@ lazy_static = "1.4.0"
 slog = "2.7.0"
 slog-term = "2.8.0"
 slog-async = "2.7.0"
-
-calyx-opt = { path = "../calyx-opt" }
-
 once_cell = "1.9.0"
+
+calyx-ir = { path = "../calyx-ir" }
+calyx-utils = { path = "../calyx-utils" }
+calyx-opt = { path = "../calyx-opt" }
+calyx-frontend = { path = "../calyx-frontend" }
+
 [dev-dependencies]
 proptest = "1.0.0"
 
