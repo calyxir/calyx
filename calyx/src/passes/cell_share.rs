@@ -479,18 +479,16 @@ impl Visitor for CellShare {
                                 let parent_b =
                                     par_thread_map.get(live_b).unwrap();
                                 if live_a != live_b && parent_a == parent_b {
-                                    // if share_static_par, then we need to check
-                                    // par timing map before building conflict
-                                    // between two cells.
-                                    // if not share_static_par, then we can immediately insert conflict
-                                    // insert conflict
-                                    if (self.share_static_par
-                                        && self
+                                    // if not share_static_par, then we can
+                                    // insert a conflict immediately
+                                    // otherwise, we have to check par_timing_map
+                                    // to see whether liveness overlaps
+                                    if !self.share_static_par
+                                        || self
                                             .par_timing_map
                                             .liveness_overlaps(
                                                 parent_a, live_a, live_b, a, b,
-                                            ))
-                                        || !self.share_static_par
+                                            )
                                     {
                                         g.insert_conflict(a, b);
                                         break 'outer;
@@ -517,21 +515,20 @@ impl Visitor for CellShare {
                     let is_comb = self.shareable.contains(name);
                     let is_reg = name == "std_reg";
                     // if self.calyx_2020, then set bounds based on that
-                    // otherwise, look at the actual self.bounds values
+                    // otherwise, look at the actual self.bounds values to
+                    // get the bounds
                     if self.calyx_2020 {
                         if is_comb || is_reg {
                             &None
                         } else {
                             &Some(1)
                         }
+                    } else if is_comb {
+                        comb_bound
+                    } else if is_reg {
+                        reg_bound
                     } else {
-                        if is_comb {
-                            comb_bound
-                        } else if is_reg {
-                            reg_bound
-                        } else {
-                            other_bound
-                        }
+                        other_bound
                     }
                 } else {
                     // sharing bound doesn't really matter for ThisComponent/Constants

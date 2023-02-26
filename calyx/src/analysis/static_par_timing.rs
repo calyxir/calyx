@@ -104,6 +104,7 @@ impl StaticParTiming {
         // a_liveness, b_liveness, that we actually care about
         let thread_timing_map = match self.cell_map.get(par_id) {
             Some(m) => m,
+            // not a static par block, so must assume overlap
             None => return true,
         };
         let a_liveness = thread_timing_map
