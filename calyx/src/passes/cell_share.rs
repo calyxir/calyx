@@ -95,7 +95,9 @@ fn cell_type_to_string(cell_type: &ir::CellType) -> String {
 ///
 /// Other flags:
 /// print_par_timing: prints the par-timing-map
-/// calyx_2020:
+/// calyx_2020: shares using the Calyx 2020 settings: unlimited sharing of combinational
+/// components and registers, but no sharing of anything else
+///
 ///
 /// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the definitions.
@@ -515,33 +517,27 @@ impl Visitor for CellShare {
             // getting bound, based on self.bounds and cell_type
             let bound = {
                 if let Some(ref name) = cell_type.get_name() {
-                    if self.shareable.contains(name) {
-                        // if calyx_2020 is true, then always share combinational
-                        // components. Otherwise go by what the setting says
-                        if self.calyx_2020 {
+                    let is_comb = self.shareable.contains(name);
+                    let is_reg = name == "std_reg";
+                    // if self.calyx_2020, then set bounds based on that
+                    // otherwise, look at the actual self.bounds values
+                    if self.calyx_2020 {
+                        if is_comb || is_reg {
                             &None
                         } else {
-                            comb_bound
-                        }
-                    } else if name == "std_reg" {
-                        // if calyx_2020 is true, then always share registers
-                        // Otherwise go by what the setting says
-                        if self.calyx_2020 {
-                            &None
-                        } else {
-                            reg_bound
+                            &Some(1)
                         }
                     } else {
-                        if self.calyx_2020 {
-                            // if calyx_2020 is true, then never share non registers (or
-                            // equivalently, set sharing bound to 1)
-                            // Otherwise go by what the setting says
-                            &Some(1)
+                        if is_comb {
+                            comb_bound
+                        } else if is_reg {
+                            reg_bound
                         } else {
                             other_bound
                         }
                     }
                 } else {
+                    // sharing bound doesn't really matter for ThisComponent/Constants
                     &None
                 }
             };
