@@ -480,21 +480,18 @@ impl Visitor for CellShare {
                                     par_thread_map.get(live_b).unwrap();
                                 if live_a != live_b && parent_a == parent_b {
                                     // if share_static_par, then we need to check
-                                    // another condition before building conflict
+                                    // par timing map before building conflict
                                     // between two cells.
-                                    // if not share_static_par, then we immediately
+                                    // if not share_static_par, then we can immediately insert conflict
                                     // insert conflict
-                                    if self.share_static_par {
-                                        if self
+                                    if (self.share_static_par
+                                        && self
                                             .par_timing_map
                                             .liveness_overlaps(
                                                 parent_a, live_a, live_b, a, b,
-                                            )
-                                        {
-                                            g.insert_conflict(a, b);
-                                            break 'outer;
-                                        }
-                                    } else {
+                                            ))
+                                        || !self.share_static_par
+                                    {
                                         g.insert_conflict(a, b);
                                         break 'outer;
                                     }
