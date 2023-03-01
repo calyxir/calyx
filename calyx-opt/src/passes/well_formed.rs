@@ -1,4 +1,4 @@
-use crate::traversal::{ConstructVisitor, Action, Named, VisResult, Visitor};
+use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{
     self as ir, CellType, Component, GetAttributes, LibrarySignatures,
     RESERVED_NAMES,

@@ -1,4 +1,4 @@
-use crate::traversal::{Action, VisResult, Named, Visitor};
+use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
