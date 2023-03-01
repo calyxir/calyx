@@ -3,7 +3,9 @@ name = "calyxc"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "futil"
+path = "src/main.rs"
 
 [dependencies]
 atty.workspace = true
