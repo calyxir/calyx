@@ -135,6 +135,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
+name = "calyx"
+version = "0.1.2"
+dependencies = [
+ "calyx-frontend",
+ "calyx-ir",
+ "calyx-opt",
+ "criterion",
+]
+
+[[package]]
 name = "calyx-frontend"
 version = "0.1.0"
 dependencies = [
@@ -204,25 +214,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "calyxc"
-version = "0.1.0"
-dependencies = [
- "argh",
- "atty",
- "calyx-frontend",
- "calyx-ir",
- "calyx-opt",
- "calyx-utils",
- "csv",
- "env_logger",
- "itertools 0.10.5",
- "log",
- "quick-xml",
- "serde",
- "vast",
 ]
 
 [[package]]
@@ -581,12 +572,21 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "futil"
-version = "0.1.2"
+version = "0.1.0"
 dependencies = [
+ "argh",
+ "atty",
  "calyx-frontend",
  "calyx-ir",
  "calyx-opt",
- "criterion",
+ "calyx-utils",
+ "csv",
+ "env_logger",
+ "itertools 0.10.5",
+ "log",
+ "quick-xml",
+ "serde",
+ "vast",
 ]
 
 [[package]]

@@ -1,11 +1,7 @@
 [package]
-name = "calyxc"
+name = "futil"
 version = "0.1.0"
 edition = "2021"
-
-[[bin]]
-name = "futil"
-path = "src/main.rs"
 
 [dependencies]
 atty.workspace = true

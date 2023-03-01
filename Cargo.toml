@@ -1,5 +1,5 @@
 [package]
-name = "futil"
+name = "calyx"
 version = "0.1.2"
 authors = ["The Calyx Team"]
 edition = "2021"

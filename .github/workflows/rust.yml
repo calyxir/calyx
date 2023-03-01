@@ -87,7 +87,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --manifest-path /home/calyx/Cargo.toml
+        args: -p futil
 
 #    - name: Source code doc tests
 #      uses: actions-rs/cargo@v1
