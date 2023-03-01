@@ -14,7 +14,9 @@
 //!
 //! ```rust
 //! use std::io::Write;
-//! use calyx::{frontend, ir, errors::CalyxResult};
+//! use calyx_ir as ir;
+//! use calyx_frontend as frontend;
+//! use calyx_utils::CalyxResult;
 //! fn main() -> CalyxResult<()> {
 //!   // File to parse
 //!   let file: std::path::PathBuf = "../tests/correctness/seq.futil".into();

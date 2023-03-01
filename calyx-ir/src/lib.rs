@@ -1,4 +1,4 @@
-//! Internal representation for the Calyx compiler.
+//! Internal representation for the [Calyx compiler](https://calyxir.org).
 //!
 //! The representation is generated from the frontend AST.
 //! The key differences between the frontend AST and the IR are:
@@ -15,8 +15,10 @@ mod control;
 mod guard;
 mod printer;
 mod reserved_names;
-pub mod rewriter;
 mod structure;
+
+/// Modules to rewrite the IR
+pub mod rewriter;
 
 // Re-export types at the module level.
 pub use builder::Builder;
@@ -36,6 +38,7 @@ pub use structure::{
     PortIterator, PortParent,
 };
 
+// Re-export types from the frontend.
 pub use calyx_frontend::{
     Attributes, Direction, GetAttributes, PortDef, Primitive, Width,
 };

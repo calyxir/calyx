@@ -1,11 +1,12 @@
 use crate::GSym;
-use serde::{Deserialize, Serialize};
 
 /// Represents an identifier in a Calyx program
-#[derive(
-    Clone, Copy, Deserialize, Hash, PartialEq, Eq, Debug, PartialOrd, Ord,
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Deserialize),
+    serde(transparent)
 )]
-#[serde(transparent)]
 pub struct Id {
     pub id: GSym,
 }
@@ -91,7 +92,8 @@ impl From<&Id> for GSym {
     }
 }
 
-impl Serialize for Id {
+#[cfg(feature = "serialize")]
+impl serde::Serialize for Id {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

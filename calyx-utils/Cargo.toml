@@ -3,10 +3,12 @@ name = "calyx-utils"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+serialize = ["dep:serde"]
 
 [dependencies]
-serde.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
 atty.workspace = true
 string-interner.workspace = true
 itertools.workspace = true

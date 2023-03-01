@@ -11,8 +11,8 @@ lazy_static.workspace = true
 linked-hash-map.workspace = true
 log.workspace = true
 smallvec.workspace = true
-pest = "2.0"
-pest_derive = "2"
-pest_consume = "1"
+pest.workspace = true
+pest_derive.workspace = true
+pest_consume.workspace = true
 
 calyx-utils = { path = "../calyx-utils" }
