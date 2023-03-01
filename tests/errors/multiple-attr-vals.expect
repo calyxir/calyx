@@ -1,7 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Calyx Parser:  --> 4:5
+Error: Failed to parse `tests/errors/multiple-attr-vals.futil`:  --> 4:5
   |
 4 |     @external(1) @external(2) r = std_reg(32);
   |     ^-----------------------^
