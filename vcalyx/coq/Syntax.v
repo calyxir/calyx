@@ -51,17 +51,22 @@ Record extern :=
     }.
 
 (** Cell prototype references. *)
-Record proto :=
-  Proto {
-      proto_name: ident;
-      params: list N;
-    }.
+Inductive proto :=
+| ProtoPrim (name: ident)
+            (param_binding: list (N * ident))
+            (is_comb: bool)
+| ProtoComp (name: ident)
+| ProtoThis
+| ProtoConst (val: N) (width: N).
 
 (** Cells. *)
 Record cell :=
   Cell {
       (* name of this cell. *)
       cell_name: ident;
+      (* ports *)
+      cell_in_ports: list port_def;
+      cell_out_ports: list port_def;
       (* name of the prototype this cell was built from. *)
       cell_proto: proto;
       (* whether this cell is by-reference or not *)

@@ -11,3 +11,6 @@ Fixpoint vect T n : Type :=
   | 0 => unit
   | S n => vect T n * T
   end.
+
+Definition bitvec n : Type :=
+  vect bool n.
