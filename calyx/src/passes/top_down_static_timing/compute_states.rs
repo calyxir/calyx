@@ -54,6 +54,12 @@ impl ComputeStates {
                 let time = en.attributes["static"];
                 self.cur_st += time;
             }
+            ir::Control::StaticEnable(en) => {
+                debug_assert!(en.attributes.get(ID).is_none());
+                en.attributes[ID] = self.cur_st;
+                let time = en.attributes["static"];
+                self.cur_st += time;
+            }
             ir::Control::Seq(seq) => {
                 for stmt in &mut seq.stmts {
                     self.recur(stmt, builder);
@@ -118,6 +124,10 @@ impl ComputeStates {
     ) {
         match con {
             ir::Control::Enable(en) => {
+                let st = en.attributes[ID] + en.attributes["static"] - 1;
+                exits.push((st, ir::Guard::True));
+            }
+            ir::Control::StaticEnable(en) => {
                 let st = en.attributes[ID] + en.attributes["static"] - 1;
                 exits.push((st, ir::Guard::True));
             }

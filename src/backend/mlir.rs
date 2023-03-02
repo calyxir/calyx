@@ -406,6 +406,7 @@ impl MlirBackend {
                 }
             }
             ir::PortParent::Group(_) => unimplemented!(),
+            ir::PortParent::StaticGroup(_) => unimplemented!(),
         }
     }
 }

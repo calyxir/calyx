@@ -300,8 +300,8 @@ impl Visitor for GroupToInvoke {
         let static_groups = comp.get_static_groups_mut().drain().collect_vec();
         let mut builder = ir::Builder::new(comp, sigs);
 
-        self.analyze_groups(groups, &mut builder);
-        self.analyze_static_groups(static_groups, &mut builder);
+        self.analyze_groups(&groups, &mut builder);
+        self.analyze_static_groups(&static_groups, &mut builder);
 
         comp.get_groups_mut().append(groups.into_iter());
         comp.get_static_groups_mut()
@@ -332,10 +332,10 @@ impl Visitor for GroupToInvoke {
 impl GroupToInvoke {
     pub fn analyze_groups(
         &mut self,
-        groups: Vec<ir::RRC<ir::Group>>,
+        groups: &Vec<ir::RRC<ir::Group>>,
         builder: &mut ir::Builder,
     ) {
-        'groups: for g in &groups {
+        'groups: for g in groups {
             let group = g.borrow();
 
             let mut writes = ReadWriteSet::write_set(group.assignments.iter())
@@ -447,18 +447,16 @@ impl GroupToInvoke {
                 continue 'groups;
             }
 
-            self.group_invoke_map.insert(
-                g.clone_name(),
-                construct_invoke(&group, cr, &mut builder),
-            );
+            self.group_invoke_map
+                .insert(g.clone_name(), construct_invoke(&group, cr, builder));
         }
     }
     pub fn analyze_static_groups(
         &mut self,
-        groups: Vec<ir::RRC<ir::StaticGroup>>,
+        groups: &Vec<ir::RRC<ir::StaticGroup>>,
         builder: &mut ir::Builder,
     ) {
-        'groups: for g in &groups {
+        'groups: for g in groups {
             let group = g.borrow();
 
             let mut writes = ReadWriteSet::write_set(group.assignments.iter())
@@ -572,7 +570,7 @@ impl GroupToInvoke {
 
             self.group_invoke_map.insert(
                 g.clone_name(),
-                construct_invoke_static(&group, cr, &mut builder),
+                construct_invoke_static(&group, cr, builder),
             );
         }
     }

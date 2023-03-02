@@ -82,7 +82,7 @@ impl<'a> Builder<'a> {
         }
 
         // Add the group to the component.
-        self.component.get_groups().add(Rc::clone(&group));
+        self.component.get_groups_mut().add(Rc::clone(&group));
 
         group
     }
@@ -117,7 +117,9 @@ impl<'a> Builder<'a> {
         }
 
         // Add the group to the component.
-        self.component.get_static_groups().add(Rc::clone(&group));
+        self.component
+            .get_static_groups_mut()
+            .add(Rc::clone(&group));
 
         group
     }

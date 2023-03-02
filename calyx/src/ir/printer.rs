@@ -351,6 +351,13 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "{};", group.borrow().name().id)
             }
+            ir::Control::StaticEnable(ir::StaticEnable {
+                group,
+                attributes,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "{};", group.borrow().name().id)
+            }
             ir::Control::Invoke(ir::Invoke {
                 comp,
                 inputs,

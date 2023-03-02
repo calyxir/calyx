@@ -175,52 +175,59 @@ impl StaticParTiming {
                 cur_state
             }
             ir::Control::Empty(_) => cur_state,
-            ir::Control::Enable(_) => match cur_state {
-                Some((par_id, thread_id, cur_clock)) => {
-                    let enable_id = ControlId::get_guaranteed_id(c);
-                    // add enable to self.map
-                    let latency =
-                        ControlId::get_guaranteed_attribute(c, "static");
-                    // live set is all cells live at this enable, organized by cell type
-                    let live_set = live.get(&enable_id).clone();
-                    // go thru all live cells in this enable add them to appropriate entry in
-                    // self.cell_map
-                    for (_, live_cells) in live_set {
-                        for cell in live_cells {
-                            let interval_vec = self
-                                .cell_map
-                                .entry(par_id)
-                                .or_default()
-                                .entry(thread_id)
-                                .or_default()
-                                .entry(cell)
-                                .or_default();
-                            // we need to check whether we've already added this
-                            // to vec before or not. If we haven't,
-                            // then we can push
-                            // This can sometimes occur if there is a par block,
-                            // that contains a while loop, and that while loop
-                            // contains another par block.
-                            match interval_vec.last() {
-                                None => interval_vec
-                                    .push((cur_clock, cur_clock + latency - 1)),
-                                Some(interval) => {
-                                    if *interval
-                                        != (cur_clock, cur_clock + latency - 1)
-                                    {
-                                        interval_vec.push((
-                                            cur_clock,
-                                            cur_clock + latency - 1,
-                                        ))
+            ir::Control::StaticEnable(_) | ir::Control::Enable(_) => {
+                match cur_state {
+                    Some((par_id, thread_id, cur_clock)) => {
+                        let enable_id = ControlId::get_guaranteed_id(c);
+                        // add enable to self.map
+                        let latency =
+                            ControlId::get_guaranteed_attribute(c, "static");
+                        // live set is all cells live at this enable, organized by cell type
+                        let live_set = live.get(&enable_id).clone();
+                        // go thru all live cells in this enable add them to appropriate entry in
+                        // self.cell_map
+                        for (_, live_cells) in live_set {
+                            for cell in live_cells {
+                                let interval_vec = self
+                                    .cell_map
+                                    .entry(par_id)
+                                    .or_default()
+                                    .entry(thread_id)
+                                    .or_default()
+                                    .entry(cell)
+                                    .or_default();
+                                // we need to check whether we've already added this
+                                // to vec before or not. If we haven't,
+                                // then we can push
+                                // This can sometimes occur if there is a par block,
+                                // that contains a while loop, and that while loop
+                                // contains another par block.
+                                match interval_vec.last() {
+                                    None => interval_vec.push((
+                                        cur_clock,
+                                        cur_clock + latency - 1,
+                                    )),
+                                    Some(interval) => {
+                                        if *interval
+                                            != (
+                                                cur_clock,
+                                                cur_clock + latency - 1,
+                                            )
+                                        {
+                                            interval_vec.push((
+                                                cur_clock,
+                                                cur_clock + latency - 1,
+                                            ))
+                                        }
                                     }
                                 }
                             }
                         }
+                        Some((par_id, thread_id, cur_clock + latency))
                     }
-                    Some((par_id, thread_id, cur_clock + latency))
+                    None => cur_state,
                 }
-                None => cur_state,
-            },
+            }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 // this works whether or not cur_state is None or Some
                 let mut new_state = cur_state;

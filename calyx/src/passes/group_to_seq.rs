@@ -33,7 +33,8 @@ impl Visitor for GroupToSeq {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let groups: Vec<ir::RRC<ir::Group>> = comp.groups.drain().collect();
+        let groups: Vec<ir::RRC<ir::Group>> =
+            comp.get_groups_mut().drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
             if let Some((group1, group2)) =
@@ -49,11 +50,36 @@ impl Visitor for GroupToSeq {
 
         // Add back the groups we drained at the beginning of this method, but
         // filter out the empty groups that were split into smaller groups
-        comp.groups.append(
+        comp.get_groups_mut().append(
             groups
                 .into_iter()
                 .filter(|group| !group.borrow().assignments.is_empty()),
         );
+
+        // do the same thing with static groups
+        let groups: Vec<ir::RRC<ir::StaticGroup>> =
+            comp.get_static_groups_mut().drain().collect();
+        let mut builder = ir::Builder::new(comp, sigs);
+        for g in groups.iter() {
+            if let Some((group1, group2)) =
+                SplitAnalysis::get_split_static(g, &mut builder)
+            {
+                let seq = ir::Control::seq(vec![
+                    ir::Control::static_enable(group1),
+                    ir::Control::static_enable(group2),
+                ]);
+                self.group_seq_map.insert(g.clone_name(), seq);
+            }
+        }
+
+        // Add back the groups we drained at the beginning of this method, but
+        // filter out the empty groups that were split into smaller groups
+        comp.get_static_groups_mut().append(
+            groups
+                .into_iter()
+                .filter(|group| !group.borrow().assignments.is_empty()),
+        );
+
         Ok(Action::Continue)
     }
 
@@ -122,6 +148,101 @@ struct SplitAnalysis {
 }
 
 impl SplitAnalysis {
+    pub fn get_split_static(
+        group_ref: &ir::RRC<ir::StaticGroup>,
+        builder: &mut ir::Builder,
+    ) -> Option<(ir::RRC<ir::StaticGroup>, ir::RRC<ir::StaticGroup>)> {
+        let group = group_ref.borrow_mut();
+        let group_name = group.clone_name();
+        let signal_on = builder.add_constant(1, 1);
+
+        // Builds ordering. If it cannot build a valid linear ordering of length 2,
+        // then returns None, and we stop.
+        let (first, second) =
+            SplitAnalysis::possible_split(&group.assignments)?;
+
+        // Sets the first_go_asmt, fst_asmts, snd_asmts group_done_asmt, go_done_asmt
+        // fields for split_analysis
+        let mut split_analysis = SplitAnalysis::default();
+        split_analysis.organize_assignments_static(group, &first, &second);
+
+        // If there is assignment in the form first.go = !first.done ? 1'd1,
+        // turn this into first.go = 1'd1.
+        if let Some(go_asmt) = split_analysis.first_go_asmt {
+            let new_go_asmt = builder.build_assignment(
+                go_asmt.dst,
+                signal_on.borrow().get("out"),
+                ir::Guard::True,
+            );
+            split_analysis.fst_asmts.push(new_go_asmt);
+        }
+
+        let go_done = split_analysis.go_done_asmt.unwrap_or_else(|| {
+            unreachable!("couldn't find a go-done assignment in {}", group_name)
+        });
+
+        let first_group = Self::make_group_static(
+            go_done.src,
+            ir::Guard::True,
+            split_analysis.fst_asmts,
+            builder,
+            format!("beg_spl_{}", group_name.id),
+        );
+
+        // Pushing second.go = 1'd1 onto snd_asmts
+        let cell_go = builder.build_assignment(
+            go_done.dst,
+            signal_on.borrow().get("out"),
+            ir::Guard::True,
+        );
+        split_analysis.snd_asmts.push(cell_go);
+
+        let group_done = split_analysis.group_done_asmt.unwrap_or_else(|| {
+            unreachable!(
+                "Couldn't find a group[done] = _.done assignment in {}",
+                group_name
+            )
+        });
+
+        let second_group = Self::make_group_static(
+            group_done.src,
+            *group_done.guard,
+            split_analysis.snd_asmts,
+            builder,
+            format!("end_spl_{}", group_name.id),
+        );
+
+        Some((first_group, second_group))
+    }
+
+    fn organize_assignments_static(
+        &mut self,
+        mut group: RefMut<ir::StaticGroup>,
+        first_cell_name: &ir::Id,
+        second_cell_name: &ir::Id,
+    ) {
+        for asmt in group.assignments.drain(..) {
+            match writes_to_cell(&asmt) {
+                Some(cell_name) => {
+                    if Self::is_go_done(&asmt) {
+                        self.go_done_asmt = Some(asmt);
+                    } else if Self::is_specific_go(&asmt, first_cell_name) {
+                        self.first_go_asmt = Some(asmt);
+                    } else if cell_name == first_cell_name {
+                        self.fst_asmts.push(asmt);
+                    } else if cell_name == second_cell_name {
+                        self.snd_asmts.push(asmt);
+                    } else {
+                        unreachable!(
+                            "Does not write to one of the two \"stateful\" cells"
+                            )
+                    }
+                }
+                None => self.group_done_asmt = Some(asmt),
+            }
+        }
+    }
+
     /// Based on assigns, returns Ok(group1, group2), where (group1,group2) are
     /// the groups that can be made by splitting assigns. If it is not possible to split
     /// assigns into two groups, then just regurn Err(assigns).
@@ -336,6 +457,27 @@ impl SplitAnalysis {
         prefix: String,
     ) -> ir::RRC<ir::Group> {
         let group = builder.add_group(prefix);
+        let mut group_asmts = asmts;
+        let done_asmt = builder.build_assignment(
+            group.borrow().get("done"),
+            done_src,
+            done_guard,
+        );
+        group_asmts.push(done_asmt);
+        group.borrow_mut().assignments.append(&mut group_asmts);
+        group
+    }
+
+    /// Returns group with made using builder with prefix. The assignments are
+    /// asmts, plus a write to groups's done, based on done_src and done_guard.
+    fn make_group_static(
+        done_src: ir::RRC<ir::Port>,
+        done_guard: ir::Guard,
+        asmts: Vec<ir::Assignment>,
+        builder: &mut ir::Builder,
+        prefix: String,
+    ) -> ir::RRC<ir::StaticGroup> {
+        let group = builder.add_static_group(prefix);
         let mut group_asmts = asmts;
         let done_asmt = builder.build_assignment(
             group.borrow().get("done"),

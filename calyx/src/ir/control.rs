@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use crate::ir::structure::StaticGroup;
+use std::rc::Rc;
 
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
@@ -176,7 +176,7 @@ pub enum Control {
     /// Control statement that does nothing.
     Empty(Empty),
     /// Runs the control for a static group.
-    StaticEnable(StaticEnable)
+    StaticEnable(StaticEnable),
 }
 
 impl From<Invoke> for Control {
@@ -200,8 +200,8 @@ impl GetAttributes for Control {
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
-            | Self::Empty(Empty { attributes }) 
-            | Self::StaticEnable(StaticEnable {attributes, ..}) => attributes
+            | Self::Empty(Empty { attributes })
+            | Self::StaticEnable(StaticEnable { attributes, .. }) => attributes,
         }
     }
 
@@ -213,8 +213,8 @@ impl GetAttributes for Control {
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
-            | Self::Empty(Empty { attributes }) 
-            | Self::StaticEnable(StaticEnable{attributes, ..}) => attributes,
+            | Self::Empty(Empty { attributes })
+            | Self::StaticEnable(StaticEnable { attributes, .. }) => attributes,
         }
     }
 }
@@ -245,6 +245,14 @@ impl Control {
     /// Convience constructor for enable.
     pub fn enable(group: RRC<Group>) -> Self {
         Control::Enable(Enable {
+            group,
+            attributes: Attributes::default(),
+        })
+    }
+
+    /// Convience constructor for static enable.
+    pub fn static_enable(group: RRC<StaticGroup>) -> Self {
+        Control::StaticEnable(StaticEnable {
             group,
             attributes: Attributes::default(),
         })
@@ -323,9 +331,9 @@ impl Cloner {
     }
 
     pub fn static_enable(en: &StaticEnable) -> StaticEnable {
-        StaticEnable { 
-            group: Rc::clone(&en.group), 
-            attributes: en.attributes.clone(), 
+        StaticEnable {
+            group: Rc::clone(&en.group),
+            attributes: en.attributes.clone(),
         }
     }
 
@@ -387,7 +395,9 @@ impl Cloner {
             Control::While(wh) => Control::While(Cloner::while_(wh)),
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
-            Control::StaticEnable(en) => Control::StaticEnable(Cloner::static_enable(en)),
+            Control::StaticEnable(en) => {
+                Control::StaticEnable(Cloner::static_enable(en))
+            }
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),
         }
     }

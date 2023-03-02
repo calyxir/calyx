@@ -28,7 +28,7 @@ pub use common::{RRC, WRC};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context, LibrarySignatures};
 pub use control::{
-    Cloner, Control, Empty, Enable, If, Invoke, Par, Seq, While,
+    Cloner, Control, Empty, Enable, If, Invoke, Par, Seq, StaticEnable, While,
 };
 pub use guard::{Guard, PortComp};
 pub use id::Id;

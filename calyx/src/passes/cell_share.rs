@@ -16,7 +16,6 @@ use itertools::Itertools;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::hash::Hash;
 
 // function to turn cell types to string when we are building the json for
 // share_freqs

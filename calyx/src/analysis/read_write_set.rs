@@ -132,6 +132,12 @@ impl ReadWriteSet {
                 Self::port_write_set(group.borrow().assignments.iter())
                     .collect(),
             ),
+            ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => (
+                Self::port_read_set(group.borrow().assignments.iter())
+                    .collect(),
+                Self::port_write_set(group.borrow().assignments.iter())
+                    .collect(),
+            ),
             ir::Control::Invoke(ir::Invoke {
                 inputs, comb_group, ..
             }) => {

@@ -89,18 +89,23 @@ impl Component {
         self.namegen.add_names(names)
     }
 
+    /// gives the component's groups
+    pub fn give_groups(self) -> IdList<Group> {
+        self.groups
+    }
+
     /// gets the component's groups
     pub fn get_groups(&self) -> &IdList<Group> {
         &self.groups
     }
 
     /// gets the component's groups
-    pub fn get_groups_mut(&self) -> &mut IdList<Group> {
+    pub fn get_groups_mut(&mut self) -> &mut IdList<Group> {
         &mut self.groups
     }
 
     /// gets the component's groups
-    pub fn get_static_groups_mut(&self) -> &mut IdList<StaticGroup> {
+    pub fn get_static_groups_mut(&mut self) -> &mut IdList<StaticGroup> {
         &mut self.static_groups
     }
 

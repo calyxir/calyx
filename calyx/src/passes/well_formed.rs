@@ -578,7 +578,6 @@ impl Visitor for WellFormed {
         {
             match comp.find_group(*group) {
                 Some(gr) => {
-                    let gr = comp.find_group(*group).unwrap();
                     let gr = gr.borrow();
                     return Err(
                         Error::unused(*group, "group").with_pos(&gr.attributes)
