@@ -112,6 +112,7 @@ where
     I: IndexRef + PartialOrd,
 {
     pub fn new(start: I, end: I) -> Self {
+        debug_assert!(start <= end, "start must be less than or equal to end");
         Self { start, end }
     }
 
@@ -124,6 +125,14 @@ where
             start: I::new(0),
             end: I::new(0),
         }
+    }
+
+    pub fn size(&self) -> usize {
+        self.end.index().saturating_sub(self.start.index())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.start >= self.end
     }
 }
 

@@ -13,7 +13,7 @@ use crate::{
             wires::{core::Group, guards::Guard},
         },
         structures::{
-            context::InterpretationContext,
+            context::{InterpretationContext, SecondaryContext},
             index_trait::IndexRange,
             indexed_map::{idx_gen, IndexGenerator},
         },
@@ -39,13 +39,15 @@ pub fn translate(orig_ctx: cir::Context) -> InterpretationContext {
 fn translate_group(
     group: &cir::Group,
     interp_ctx: &mut InterpretationContext,
+    secondary_ctx: &mut SecondaryContext,
     map: &PortMapper,
 ) -> Group {
-    let id = interp_ctx.string_table.insert(group.name());
+    let id = secondary_ctx.string_table.insert(group.name());
     let base = interp_ctx.assignments.peek_next_idx();
 
     for assign in group.assignments.iter() {
-        let assign_new = translate_assignment(assign, interp_ctx, map);
+        let assign_new =
+            translate_assignment(assign, interp_ctx, secondary_ctx, map);
         interp_ctx.assignments.push(assign_new);
     }
 
@@ -63,13 +65,15 @@ fn translate_group(
 fn translate_comb_group(
     comb_group: &cir::CombGroup,
     interp_ctx: &mut InterpretationContext,
+    secondary_ctx: &mut SecondaryContext,
     map: &PortMapper,
 ) -> CombGroup {
-    let identifier = interp_ctx.string_table.insert(comb_group.name());
+    let identifier = secondary_ctx.string_table.insert(comb_group.name());
     let base = interp_ctx.assignments.peek_next_idx();
 
     for assign in comb_group.assignments.iter() {
-        let assign_new = translate_assignment(assign, interp_ctx, map);
+        let assign_new =
+            translate_assignment(assign, interp_ctx, secondary_ctx, map);
         interp_ctx.assignments.push(assign_new);
     }
 
@@ -82,18 +86,20 @@ fn translate_comb_group(
 fn translate_assignment(
     assign: &cir::Assignment,
     interp_ctx: &mut InterpretationContext,
+    secondary_ctx: &mut SecondaryContext,
     map: &PortMapper,
 ) -> Assignment {
     Assignment {
         dst: map[&assign.dst.as_raw()],
         src: map[&assign.src.as_raw()],
-        guard: translate_guard(&assign.guard, interp_ctx, map),
+        guard: translate_guard(&assign.guard, interp_ctx, secondary_ctx, map),
     }
 }
 
 fn translate_guard(
     guard: &cir::Guard,
     interp_ctx: &mut InterpretationContext,
+    secondary_ctx: &mut SecondaryContext,
     map: &PortMapper,
 ) -> GuardIdx {
     flatten_tree(guard, None, &mut interp_ctx.guards, map)
@@ -102,18 +108,21 @@ fn translate_guard(
 fn translate_component(
     comp: &cir::Component,
     interp_ctx: &mut InterpretationContext,
+    secondary_ctx: &mut SecondaryContext,
 ) {
     let mut aux_info = AuxillaryComponentInfo::new_with_name(
-        interp_ctx.string_table.insert(comp.name),
+        secondary_ctx.string_table.insert(comp.name),
     );
 
-    let map = compute_local_layout(comp, interp_ctx, &mut aux_info);
+    let map =
+        compute_local_layout(comp, interp_ctx, secondary_ctx, &mut aux_info);
 
     let mut group_map = AHashMap::with_capacity(comp.groups.len());
 
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
-        let group_idx = translate_group(&group_brw, interp_ctx, &map);
+        let group_idx =
+            translate_group(&group_brw, interp_ctx, secondary_ctx, &map);
         let k = interp_ctx.groups.push(group_idx);
         group_map.insert(group.as_raw(), k);
     }
@@ -122,8 +131,12 @@ fn translate_component(
 
     for comb_grp in comp.comb_groups.iter() {
         let comb_grp_brw = comb_grp.borrow();
-        let comb_grp_idx =
-            translate_comb_group(&comb_grp_brw, interp_ctx, &map);
+        let comb_grp_idx = translate_comb_group(
+            &comb_grp_brw,
+            interp_ctx,
+            secondary_ctx,
+            &map,
+        );
         let k = interp_ctx.comb_groups.push(comb_grp_idx);
         comb_group_map.insert(comb_grp.as_raw(), k);
     }
@@ -134,6 +147,7 @@ fn translate_component(
 fn compute_local_layout(
     comp: &cir::Component,
     ctx: &mut InterpretationContext,
+    secondary_ctx: &mut SecondaryContext,
     aux: &mut AuxillaryComponentInfo,
 ) -> PortMapper {
     let mut portmap = PortMapper::new();
@@ -142,7 +156,7 @@ fn compute_local_layout(
 
     // first, handle the signature ports
     for port in comp.signature.borrow().ports() {
-        ctx.string_table.insert(port.borrow().name);
+        secondary_ctx.string_table.insert(port.borrow().name);
         portmap.insert(port.as_raw(), lp_gen.next().into());
     }
 
@@ -159,7 +173,7 @@ fn compute_local_layout(
     // third, the primitive cells
     for cell in comp.cells.iter() {
         let cell_ref = cell.borrow();
-        let id = ctx.string_table.insert(cell_ref.name());
+        let id = secondary_ctx.string_table.insert(cell_ref.name());
 
         // this is silly
         if cell_ref.is_primitive::<&str>(None)
@@ -169,19 +183,19 @@ fn compute_local_layout(
                 let base = lp_gen.peek_next_idx();
 
                 for port in cell_ref.ports() {
-                    ctx.string_table.insert(port.borrow().name);
+                    secondary_ctx.string_table.insert(port.borrow().name);
                     portmap.insert(port.as_raw(), lp_gen.next().into());
                 }
                 let range = IndexRange::new(base, lp_gen.peek_next_idx());
-                aux.cell_info.push_local_cell(id, range);
+                secondary_ctx.push_local_cell(id, range);
             } else {
                 let base = rp_gen.peek_next_idx();
                 for port in cell_ref.ports() {
-                    ctx.string_table.insert(port.borrow().name);
+                    secondary_ctx.string_table.insert(port.borrow().name);
                     portmap.insert(port.as_raw(), rp_gen.next().into());
                 }
                 let range = IndexRange::new(base, rp_gen.peek_next_idx());
-                aux.cell_info.push_ref_cell(id, range);
+                secondary_ctx.push_ref_cell(id, range);
             }
         } else {
             todo!("non-primitive cells are not yet supported")

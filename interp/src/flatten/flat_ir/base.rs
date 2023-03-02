@@ -27,6 +27,11 @@ impl_index!(pub GlobalRCellRef);
 impl_index!(pub LocalRCellRef);
 impl_index!(pub LocalRPortRef);
 
+pub struct RelativePortIdx(u32);
+pub struct RelativeRefPortIdx(u32);
+pub struct RelativeCellIdx(u32);
+pub struct RelativeRefCellIdx(u32);
+
 #[derive(Debug, Copy, Clone)]
 pub enum PortRef {
     Local(LocalPortRef),
@@ -120,52 +125,5 @@ impl LocalCellInfo {
 
     pub fn ports(&self) -> &IndexRange<LocalPortRef> {
         &self.ports
-    }
-}
-
-#[derive(Debug)]
-pub struct CellInfoMap {
-    pub local_c: IndexedMap<LocalCellRef, LocalCellInfo>,
-    pub ref_c: IndexedMap<LocalRCellRef, RefCellInfo>,
-}
-
-impl CellInfoMap {
-    pub fn new() -> Self {
-        Self {
-            local_c: IndexedMap::new(),
-            ref_c: IndexedMap::new(),
-        }
-    }
-
-    pub fn push_local_cell(
-        &mut self,
-        name: Identifier,
-        ports: IndexRange<LocalPortRef>,
-    ) {
-        self.local_c.push(LocalCellInfo::new(name, ports));
-    }
-
-    pub fn push_ref_cell(
-        &mut self,
-        name: Identifier,
-        ports: IndexRange<LocalRPortRef>,
-    ) {
-        self.ref_c.push(RefCellInfo::new(name, ports));
-    }
-}
-
-impl Index<LocalCellRef> for CellInfoMap {
-    type Output = LocalCellInfo;
-
-    fn index(&self, index: LocalCellRef) -> &Self::Output {
-        &self.local_c[index]
-    }
-}
-
-impl Index<LocalRCellRef> for CellInfoMap {
-    type Output = RefCellInfo;
-
-    fn index(&self, index: LocalRCellRef) -> &Self::Output {
-        &self.ref_c[index]
     }
 }

@@ -2,10 +2,50 @@ use std::ops::Index;
 
 use crate::flatten::structures::{
     index_trait::{IndexRange, IndexRef},
-    indexed_map::{AuxillaryMap, IndexedMap},
+    indexed_map::IndexedMap,
 };
 
 use super::{control::structures::ControlIdx, prelude::*};
+
+#[derive(Debug, Clone)]
+pub struct BaseIndexes {
+    port_base: LocalPortRef,
+    cell_base: LocalCellRef,
+    rport_base: LocalRPortRef,
+    rcell_base: LocalRCellRef,
+}
+
+impl BaseIndexes {
+    pub fn new(
+        port_base: LocalPortRef,
+        cell_base: LocalCellRef,
+        rport_base: LocalRPortRef,
+        rcell_base: LocalRCellRef,
+    ) -> Self {
+        Self {
+            port_base,
+            cell_base,
+            rport_base,
+            rcell_base,
+        }
+    }
+
+    pub fn port_base(&self) -> LocalPortRef {
+        self.port_base
+    }
+
+    pub fn cell_base(&self) -> LocalCellRef {
+        self.cell_base
+    }
+
+    pub fn rport_base(&self) -> LocalRPortRef {
+        self.rport_base
+    }
+
+    pub fn rcell_base(&self) -> LocalRCellRef {
+        self.rcell_base
+    }
+}
 
 /// A structure which contains the basic information about a component
 /// definition needed during simulation.
@@ -17,8 +57,11 @@ pub struct ComponentCore {
     pub continuous_assignments: IndexRange<AssignmentIdx>,
     /// True iff component is combinational
     pub is_comb: bool,
+
+    pub indices: BaseIndexes,
 }
 
+#[derive(Debug, Clone)]
 /// Other information about a component definition. This is not on the hot path
 /// and is instead needed primarily during setup and error reporting.
 pub struct AuxillaryComponentInfo {
@@ -29,8 +72,19 @@ pub struct AuxillaryComponentInfo {
     pub inputs: IndexRange<LocalPortRef>,
     pub outputs: IndexRange<LocalPortRef>,
 
-    pub names: PortNames,
-    pub cell_info: CellInfoMap,
+    /// all ports nested underneath this component, including the sub-components
+    pub total_port_range: IndexRange<LocalPortRef>,
+}
+
+impl Default for AuxillaryComponentInfo {
+    fn default() -> Self {
+        Self {
+            name: Identifier::get_default_id(),
+            inputs: IndexRange::empty_interval(),
+            outputs: IndexRange::empty_interval(),
+            total_port_range: IndexRange::empty_interval(),
+        }
+    }
 }
 
 impl AuxillaryComponentInfo {
@@ -41,8 +95,7 @@ impl AuxillaryComponentInfo {
             name: id,
             inputs: IndexRange::empty_interval(),
             outputs: IndexRange::empty_interval(),
-            names: PortNames::new(),
-            cell_info: CellInfoMap::new(),
+            total_port_range: IndexRange::empty_interval(),
         }
     }
 }
@@ -61,14 +114,6 @@ impl PortNames {
             port_names: IndexedMap::new(),
             ref_port_names: IndexedMap::new(),
         }
-    }
-
-    pub fn push_local_id(&mut self, id: Identifier) -> LocalPortRef {
-        self.port_names.push(id)
-    }
-
-    pub fn push_ref_id(&mut self, id: Identifier) -> LocalRPortRef {
-        self.ref_port_names.push(id)
     }
 }
 
