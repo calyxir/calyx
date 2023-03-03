@@ -25,7 +25,7 @@ component main() -> () {
       let0[done] = i0.done;
     }
     group let1<"static"=2> {
-      acc_0.in = A.out;
+      acc_0.in = A.read_data;
       acc_0.write_en = A.read_done;
       let1[done] = acc_0.done;
       A.addr0 = i0.out;

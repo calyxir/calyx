@@ -84,7 +84,7 @@ component softmax_1x10() -> () {
       le4.right = const14.out;
     }
     group let0<"static"=2> {
-      __max_0.in = x.out;
+      __max_0.in = x.read_data;
       __max_0.write_en = x.read_done;
       let0[done] = __max_0.done;
       x.addr1 = const1.out;
@@ -107,7 +107,7 @@ component softmax_1x10() -> () {
       let11[done] = __k0.done;
     }
     group let12<"static"=2> {
-      x_read3_0.in = x.out;
+      x_read3_0.in = x.read_data;
       x_read3_0.write_en = x.read_done;
       let12[done] = x_read3_0.done;
       x.addr1 = __k0.out;
@@ -140,7 +140,7 @@ component softmax_1x10() -> () {
       let2[done] = __j0.done;
     }
     group let3<"static"=2> {
-      x_read0_0.in = x.out;
+      x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let3[done] = x_read0_0.done;
       x.addr1 = __j0.out;
@@ -148,7 +148,7 @@ component softmax_1x10() -> () {
       x.read_en = 1'd1;
     }
     group let4<"static"=2> {
-      x_read1_0.in = x.out;
+      x_read1_0.in = x.read_data;
       x_read1_0.write_en = x.read_done;
       let4[done] = x_read1_0.done;
       x.addr1 = __j0.out;
@@ -171,7 +171,7 @@ component softmax_1x10() -> () {
       let7[done] = __j1.done;
     }
     group let8<"static"=2> {
-      x_read2_0.in = x.out;
+      x_read2_0.in = x.read_data;
       x_read2_0.write_en = x.read_done;
       let8[done] = x_read2_0.done;
       x.addr1 = __j1.out;
@@ -222,7 +222,7 @@ component softmax_1x10() -> () {
       x1.addr1 = __k0.out;
       x1.addr0 = __i1.out;
       x1.write_en = 1'd1;
-      x1.in = bin_read0_0.out;
+      x1.write_data = bin_read0_0.out;
       upd5[done] = x1.write_done;
     }
     group upd6<"static"=1> {

@@ -49,7 +49,7 @@ component batch_flatten_2x4096() -> () {
       let2[done] = __j0.done;
     }
     group let3<"static"=2> {
-      x_read0_0.in = x.out;
+      x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let3[done] = x_read0_0.done;
       x.addr1 = __j0.out;
@@ -60,7 +60,7 @@ component batch_flatten_2x4096() -> () {
       x1.addr1 = __k_0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
-      x1.in = x_read0_0.out;
+      x1.write_data = x_read0_0.out;
       upd0[done] = x1.write_done;
     }
     group upd1<"static"=1> {

@@ -20,14 +20,14 @@ component main() -> () {
     group upd0<"static"=1> {
       A.addr0 = const1.out;
       A.write_en = 1'd1;
-      A.in = const0.out;
+      A.write_data = const0.out;
       upd0[done] = A.write_done;
     }
     group upd1<"static"=1> {
       B.addr1 = const4.out;
       B.addr0 = const3.out;
       B.write_en = 1'd1;
-      B.in = const2.out;
+      B.write_data = const2.out;
       upd1[done] = B.write_done;
     }
     group upd2<"static"=1> {
@@ -35,7 +35,7 @@ component main() -> () {
       C.addr1 = const7.out;
       C.addr0 = const6.out;
       C.write_en = 1'd1;
-      C.in = const5.out;
+      C.write_data = const5.out;
       upd2[done] = C.write_done;
     }
   }

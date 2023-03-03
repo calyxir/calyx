@@ -572,7 +572,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
             read_en [bool]: "read_en",
             write_en [bool]: "write_en",
             reset [bool]: "reset",
-            input: "in"
+            input: "write_data"
         ];
 
         let idx = self
@@ -606,7 +606,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
                 }
 
                 Ok(vec![
-                    ("out".into(), self.read_out.clone()),
+                    ("read_data".into(), self.read_out.clone()),
                     ("read_done".into(), Value::bit_high()),
                     ("write_done".into(), Value::bit_low()),
                 ])
@@ -620,7 +620,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
                 self.read_out = Value::zeroes(self.width);
 
                 Ok(vec![
-                    ("out".into(), self.read_out.clone()),
+                    ("read_data".into(), self.read_out.clone()),
                     ("read_done".into(), Value::bit_low()),
                     ("write_done".into(), Value::bit_high()),
                 ])
@@ -628,13 +628,13 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
             SeqMemAction::Reset => {
                 self.read_out = Value::zeroes(self.width);
                 Ok(vec![
-                    ("out".into(), self.read_out.clone()),
+                    ("read_data".into(), self.read_out.clone()),
                     ("read_done".into(), Value::bit_low()),
                     ("write_done".into(), Value::bit_low()),
                 ])
             }
             SeqMemAction::None => Ok(vec![
-                ("out".into(), self.read_out.clone()),
+                ("read_data".into(), self.read_out.clone()),
                 ("read_done".into(), Value::bit_low()),
                 ("write_done".into(), Value::bit_low()),
             ]),
@@ -649,7 +649,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
         self.update.clear();
 
         Ok(vec![
-            ("out".into(), self.read_out.clone()),
+            ("read_data".into(), self.read_out.clone()),
             ("read_done".into(), Value::bit_low()),
             ("write_done".into(), Value::bit_low()),
         ])
