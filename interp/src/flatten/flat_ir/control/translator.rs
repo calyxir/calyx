@@ -1,5 +1,5 @@
 use ahash::{HashMap as AHashMap, HashMapExt};
-use calyx::ir as cir;
+use calyx::ir::{self as cir};
 
 use crate::{
     flatten::{
@@ -7,22 +7,21 @@ use crate::{
             component::AuxillaryComponentInfo,
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx, GroupIdx,
-                GuardIdx, LocalCellRef, LocalPortRef, LocalRCellRef,
-                LocalRPortRef, PortRef,
+                GuardIdx, LocalPortRef, LocalRPortRef, PortRef,
             },
             wires::{core::Group, guards::Guard},
         },
         structures::{
             context::{InterpretationContext, SecondaryContext},
             index_trait::IndexRange,
-            indexed_map::{idx_gen, IndexGenerator},
+            indexed_map::IndexGenerator,
         },
         utils::{flatten_tree, FlattenTree, SingleHandle},
     },
     utils::AsRaw,
 };
 
-use super::structures::*;
+use super::{structures::*, utils::CompTraversal};
 
 type PortMapper = AHashMap<*const cir::Port, PortRef>;
 
@@ -32,7 +31,20 @@ pub struct GroupMapper {
     groups: AHashMap<*const cir::Group, GroupIdx>,
 }
 
-pub fn translate(orig_ctx: cir::Context) -> InterpretationContext {
+pub fn translate(
+    orig_ctx: &cir::Context,
+) -> (InterpretationContext, SecondaryContext) {
+    let mut primary_ctx = InterpretationContext::new();
+    let mut secondary_ctx = SecondaryContext::new();
+
+    // TODO (griffin)
+    // the current component traversal is not well equipped for immutable
+    // iteration over the components in a post-order so this is a hack instead
+
+    for comp in CompTraversal::new(&orig_ctx.components).iter() {
+        translate_component(comp, &mut primary_ctx, &mut secondary_ctx);
+    }
+
     todo!()
 }
 
