@@ -1,6 +1,5 @@
 From stdpp Require Import numbers.
 Require Import VCalyx.Syntax.
-Require Import VCalyx.Vect.
 
 Inductive value := 
   (* Top: more than 1 assignment to this port has occurred *)
@@ -22,7 +21,11 @@ Record port_val :=
     port_value: nat
   }.
 
-(* Internal state as well as the parameters when initialized *)
+(* This thing can go but the compute functions for std_reg should live somewhere
+See Syntax.proto
+and Syntax.cell
+and only handle ProtoPrim and ProtoConst for now.
+*)
 Record cell := 
   Cell {
     cell_name: ident;
@@ -40,6 +43,7 @@ Inductive expr :=
 (* arg type looks like vec (ar 0) expr *)
 | Op (o: unit) (args: unit).
 
+(* This should be Syntax.guard_exp *)
 (* https://docs.calyxir.org/lang/ref.html?highlight=guard#guards *)
 Inductive guard_exp := 
 | True
@@ -47,6 +51,7 @@ Inductive guard_exp :=
 (* if the guard is an expr like reg0.out && reg1.out *)
 | Def (loc: expr).
 
+(* This should be wire *)
 Record assignment := 
   Assign {
     lval: cell * ident;
@@ -59,9 +64,24 @@ Definition cell_env := list cell.
 Definition port_env := cell -> list port_val.
 
 (* Updates cell ports *)
-Definition update : cell -> port_env -> list port_val -> port_env.
+Definition update :
+  cell ->
+  port_env ->
+  list port_val ->
+  port_env.
+Admitted.
+
+Definition interp_assign :
+  cell_env ->
+  assignment ->
+  port_env ->
+  port_env.
 Admitted.
 
 (* The interpreter *)
-Definition interp : cell_env -> port_env -> list assignment -> port_env.
-Admitted.
+Definition interp
+  (ce: cell_env)
+  (assigns: list assignment)
+  (pe: port_env)
+  : port_env :=
+  fold_right (interp_assign ce) pe assigns.
