@@ -170,15 +170,73 @@ impl NodeSearch {
         NodeSearch { name }
     }
 
+    // 1) checks whether assign is of form dst.go = src.done;
+    // 2) checks whether assignments contains both:
+    // src.go = 1;
+    // group[done] = dst.done;
+    // If all of this is true, then returns true
+    // otherwise return false
+    fn special_case(
+        assignments: &[ir::Assignment],
+        assign: &ir::Assignment,
+    ) -> bool {
+        let src_port = &assign.src;
+        let dst_port = &assign.dst;
+
+        // checks whether dst.go = src.done
+        if !(src_port.borrow().attributes.has("done")
+            && dst_port.borrow().attributes.has("go")
+            && assign.guard.is_true())
+        {
+            return false;
+        }
+
+        let src_port_name = match src_port.borrow().parent {
+            ir::PortParent::Cell(_) => src_port.borrow().get_parent_name(),
+            _ => return false,
+        };
+        let dst_port_name = match dst_port.borrow().parent {
+            ir::PortParent::Cell(_) => dst_port.borrow().get_parent_name(),
+            _ => return false,
+        };
+
+        let mut src_go = false;
+        let mut dst_done = false;
+
+        for assign in assignments {
+            let src_ref = assign.src.borrow();
+            let dst_ref = assign.dst.borrow();
+            // checks src.go = 1'd1
+            if dst_ref.attributes.has("go")
+                && assign.guard.is_true()
+                && assign.src.borrow().is_constant(1, 1)
+                && dst_ref.get_parent_name() == src_port_name
+            {
+                src_go = true
+            }
+            // checks group[done] = dst.done;
+            if dst_ref.is_hole()
+                && dst_ref.name == "done"
+                && assign.guard.is_true()
+                && src_ref.attributes.has("done")
+                && src_ref.get_parent_name() == dst_port_name
+            {
+                dst_done = true
+            }
+        }
+        src_go && dst_done
+    }
+
     // Given a vec of assignments, return true if the go port of self.name
     // is guaranteed to be written to in assignments. By "guarantee" we mean
     // the guard is true and the src is constant(1,1).
     fn go_is_written(&self, assignments: &[ir::Assignment]) -> bool {
         assignments.iter().any(|assign: &ir::Assignment| {
             let dst_ref = assign.dst.borrow();
-            if dst_ref.attributes.has("go")
+            if (dst_ref.attributes.has("go")
                 && assign.guard.is_true()
-                && assign.src.borrow().is_constant(1, 1)
+                && assign.src.borrow().is_constant(1, 1))
+                || (Self::special_case(assignments, assign))
             {
                 if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
                     return cell_wref.upgrade().borrow().name() == self.name;
