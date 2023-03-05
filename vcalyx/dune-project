@@ -7,11 +7,11 @@
 (package
  (name vcalyx)
  (version dev)
- (synopsis     "Coq formalization of the Calyx language.")
- (maintainers  "")
- (authors      "")
- (homepage     "")
- (bug_reports  "")
+ (synopsis     "Coq formalization of the Calyx language")
+ (maintainers  "Ryan Doenges and Priya Srikumar")
+ (authors      "Ryan Doenges and Priya Srikumar")
+ (homepage     "https://github.com/cucapra/calyx/tree/vcalyx")
+ (bug_reports  "https://github.com/cucapra/calyx/tree/vcalyx")
  (license      "MIT")
  (depends
    (core (>= "0.15.0"))
