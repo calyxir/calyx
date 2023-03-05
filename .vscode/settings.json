@@ -18,5 +18,18 @@
     "jupyter.enableCellCodeLens": true,
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.inlayHints.variableTypes": true,
-    "python.linting.flake8Enabled": true
+    "python.linting.flake8Enabled": true,
+    "files.exclude": {
+        "**/*.vo": true,
+        "**/*.vok": true,
+        "**/*.vos": true,
+        "**/*.aux": true,
+        "**/*.glob": true,
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    }
 }
