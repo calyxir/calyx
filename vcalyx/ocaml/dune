@@ -11,3 +11,7 @@
  (libraries core core_unix.command_unix vcalyx yojson)
  (preprocess
   (pps ppx_let ppx_deriving.show)))
+
+(test
+ (name test)
+ (modules test))
