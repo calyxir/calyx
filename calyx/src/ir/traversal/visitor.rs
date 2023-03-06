@@ -171,7 +171,7 @@ pub trait Visitor {
         }
 
         let signatures = &context.lib;
-        let comps = context.components.drain(..).collect_vec();
+        let comps = std::mem::take(&mut context.components);
 
         // Temporarily take ownership of components from context.
         let mut po = CompTraversal::new(comps, Self::iteration_order());
