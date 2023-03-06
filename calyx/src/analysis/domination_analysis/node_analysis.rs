@@ -170,61 +170,63 @@ impl NodeSearch {
         NodeSearch { name }
     }
 
-    // 1) checks whether assign is of form dst.go = src.done;
-    // 2) checks whether assignments contains both:
-    // src.go = 1;
-    // group[done] = dst.done;
-    // If all of this is true, then returns true: we can be confident dst is
-    // written to. otherwise return false
-    fn special_case(
+    // Takes individual assignment `assign` and vector of assignments `assignments`
+    // We check whether we can analyze `assignments` to guarantee `assign` is written to
+    // 1) checks whether assign is of form cell1.go = cell2.done;
+    // 2) checks whether assignments contains assignments of form:
+    // cell1.go = 1;
+    // group[done] = cell2.done;
+    // If all of this is true, then returns true: we can be confident cell1 is
+    // written to. Ottherwise return false
+    fn assign_is_written(
         assignments: &[ir::Assignment],
         assign: &ir::Assignment,
     ) -> bool {
-        let src_port = &assign.src;
-        let dst_port = &assign.dst;
+        let port1 = &assign.dst;
+        let port2 = &assign.src;
 
-        // checks whether dst.go = src.done
-        if !(src_port.borrow().attributes.has("done")
-            && dst_port.borrow().attributes.has("go")
+        // checks whether cell1.go = cell2.done
+        if !(port1.borrow().attributes.has("go")
+            && port2.borrow().attributes.has("done")
             && assign.guard.is_true())
         {
             return false;
         }
 
-        let src_port_name = match src_port.borrow().parent {
-            ir::PortParent::Cell(_) => src_port.borrow().get_parent_name(),
+        let cell1 = match port1.borrow().parent {
+            ir::PortParent::Cell(_) => port1.borrow().get_parent_name(),
             _ => return false,
         };
-        let dst_port_name = match dst_port.borrow().parent {
-            ir::PortParent::Cell(_) => dst_port.borrow().get_parent_name(),
+        let cell2 = match port2.borrow().parent {
+            ir::PortParent::Cell(_) => port2.borrow().get_parent_name(),
             _ => return false,
         };
 
-        let mut src_go = false;
-        let mut dst_done = false;
+        let mut cell1_go = false;
+        let mut cell2_done = false;
 
         for assign in assignments {
             let src_ref = assign.src.borrow();
             let dst_ref = assign.dst.borrow();
-            // checks src.go = 1'd1
+            // checks cell1.go = 1'd1
             if dst_ref.attributes.has("go")
                 && assign.guard.is_true()
                 && assign.src.borrow().is_constant(1, 1)
-                && dst_ref.get_parent_name() == src_port_name
+                && dst_ref.get_parent_name() == cell1
             {
-                src_go = true
+                cell1_go = true
             }
-            // checks group[done] = dst.done;
+            // checks group[done] = cell2.done;
             if dst_ref.is_hole()
                 && dst_ref.name == "done"
                 && assign.guard.is_true()
                 && src_ref.attributes.has("done")
-                && src_ref.get_parent_name() == dst_port_name
+                && src_ref.get_parent_name() == cell2
             {
-                dst_done = true
+                cell2_done = true
             }
         }
-        src_go && dst_done
+        cell1_go && cell2_done
     }
 
     // Given a vec of assignments, return true if the go port of self.name
@@ -236,7 +238,7 @@ impl NodeSearch {
             if (dst_ref.attributes.has("go")
                 && assign.guard.is_true()
                 && assign.src.borrow().is_constant(1, 1))
-                || (Self::special_case(assignments, assign))
+                || (Self::assign_is_written(assignments, assign))
             {
                 if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
                     return cell_wref.upgrade().borrow().name() == self.name;
