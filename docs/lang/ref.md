@@ -59,6 +59,13 @@ Calyx standard library:
 The primitive defines one parameter called `WIDTH`, which describes the sizes for
 the `in` and the `out` ports.
 
+*Inlined primitives* do not have a corresponding Verilog file, and are defined within Calyx. The Calyx backend then converts these definitions into Verilog.
+
+For example, the `std_unsyn_mult` primitive is inlined:
+```
+{{#include ../../primitives/unsynthesizable.futil:std_unsyn_mult_def}}
+```
+
 ## Calyx Components
 
 `component`s are the primary encapsulation unit of a Calyx program.
