@@ -174,8 +174,8 @@ impl NodeSearch {
     // 2) checks whether assignments contains both:
     // src.go = 1;
     // group[done] = dst.done;
-    // If all of this is true, then returns true
-    // otherwise return false
+    // If all of this is true, then returns true: we can be confident dst is
+    // written to. otherwise return false
     fn special_case(
         assignments: &[ir::Assignment],
         assign: &ir::Assignment,
