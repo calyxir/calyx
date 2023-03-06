@@ -1,5 +1,5 @@
 From stdpp Require Import numbers.
-Require Import VCalyx.Syntax.
+Require Import VCalyx.IRSyntax.
 
 Inductive value := 
   (* Top: more than 1 assignment to this port has occurred *)
@@ -9,55 +9,17 @@ Inductive value :=
   (* Bottom: no assignment to this port has occurred *)
   | X.
 
-Record port := 
-  Port {
-    port_id: ident;
-    port_width: nat
-  }.
-
 Record port_val := 
   PortVal {
-    port_name: ident;
-    port_value: nat
+    port_ref: port;
+    port_value: value
   }.
 
-(* This thing can go but the compute functions for std_reg should live somewhere
-See Syntax.proto
-and Syntax.cell
-and only handle ProtoPrim and ProtoConst for now.
-*)
-Record cell := 
-  Cell {
-    cell_name: ident;
-    width: nat;
-    in_ports: list port;
-    out_ports: list port;
-    (* The function that computes the operation done by the component *)
-    compute: list port_val -> list port_val
-  }.
-
-Inductive expr := 
-| Val (v: value)
-| PortExp (loc: cell * port)
-(* TODO make op + arg type *)
-(* arg type looks like vec (ar 0) expr *)
-| Op (o: unit) (args: unit).
-
-(* This should be Syntax.guard_exp *)
-(* https://docs.calyxir.org/lang/ref.html?highlight=guard#guards *)
-Inductive guard_exp := 
-| True
-| False 
-(* if the guard is an expr like reg0.out && reg1.out *)
-| Def (loc: expr).
-
-(* This should be wire *)
-Record assignment := 
-  Assign {
-    lval: cell * ident;
-    rval: cell * ident; 
-    assign_guard: guard_exp
-  }.
+(* TODO put the computations in here *)
+Definition prim_compute (prim: prim) (inputs: list port_val) : list port_val := 
+  match prim.(prim_name) with 
+  | _ => []
+  end.
 
 Definition cell_env := list cell.
 
@@ -78,10 +40,12 @@ Definition interp_assign :
   port_env.
 Admitted.
 
+Definition program := (cell_env * list assignment)%type.
+
 (* The interpreter *)
 Definition interp
-  (ce: cell_env)
-  (assigns: list assignment)
+  (program: program)
   (pe: port_env)
   : port_env :=
+  let (ce, assigns) := program in 
   fold_right (interp_assign ce) pe assigns.
