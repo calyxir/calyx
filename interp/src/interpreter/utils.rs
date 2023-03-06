@@ -62,7 +62,9 @@ where
                 }
             }
             ir::PortParent::Group(_) => None,
-            ir::PortParent::StaticGroup(_) => None,
+            ir::PortParent::StaticGroup(_) => {
+                panic!("Static Groups not yet implemented for interpreter")
+            }
         }
     });
     output_vec.extend(iterator);

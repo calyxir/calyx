@@ -129,16 +129,12 @@ impl<'a> Rewriter<'a> {
         match c {
             ir::Control::Empty(_) => (),
             ir::Control::Enable(en) => {
-                // Enable will become an enum,
-                // so we will need both static_group_map and group_map
                 let g = &en.group.borrow().clone_name();
                 if let Some(new_group) = group_map.get(g) {
                     en.group = Rc::clone(new_group);
                 }
             }
             ir::Control::StaticEnable(en) => {
-                // Enable will become an enum,
-                // so we will need both static_group_map and group_map
                 let g = &en.group.borrow().clone_name();
                 if let Some(new_group) = static_group_map.get(g) {
                     en.group = Rc::clone(new_group);

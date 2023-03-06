@@ -76,7 +76,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
             }));
         },
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::StaticEnable(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
+        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
         ir::Control::Par(_) => unreachable!(),
     }
 }

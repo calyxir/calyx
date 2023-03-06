@@ -646,8 +646,8 @@ impl LiveRangeAnalysis {
         (reads, writes)
     }
 
-    fn find_uses_assigns<'a>(
-        assigns: &Vec<ir::Assignment>,
+    fn find_uses_assigns(
+        assigns: &[ir::Assignment],
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
         ReadWriteSet::uses(assigns.iter())

@@ -69,6 +69,8 @@ impl WithStatic for ir::Enable {
 
 impl WithStatic for ir::StaticEnable {
     type Info = ();
+    // TODO (Caleb/Pai): this method doesn't really make sense rn, bc it's using
+    // attribtues to compute static timing for groups that are already static
     fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
