@@ -494,6 +494,8 @@ fn emit_assignment(
     let mut pool = ir::GuardPool::new();
     for asgn in assignments {
         let flat_guard = pool.flatten(&asgn.guard);
+        dbg!(&asgn.guard);
+        dbg!(pool.display(flat_guard));
     }
 
     // Mux over the assignment with the given default value.

@@ -1,8 +1,10 @@
 use super::{Port, RRC};
 use super::guard::{PortComp, Guard};
 
+#[derive(Debug, Copy, Clone)]
 pub struct GuardRef(u16);
 
+#[derive(Debug, Clone)]
 pub enum FlatGuard {
     Or(GuardRef, GuardRef),
     And(GuardRef, GuardRef),
@@ -51,6 +53,32 @@ impl GuardPool {
             Guard::True => self.add(FlatGuard::True),
             Guard::CompOp(op, l, r) => self.add(FlatGuard::CompOp(op.clone(), l.clone(), r.clone())),
             Guard::Port(p) => self.add(FlatGuard::Port(p.clone())),
+        }
+    }
+
+    pub fn get(&self, guard: GuardRef) -> &FlatGuard {
+        &self.0[guard.0 as usize]
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn display(&self, guard: GuardRef) -> String {
+        match self.get(guard) {
+            FlatGuard::Or(l, r) => format!("({} | {})", self.display(*l), self.display(*r)),
+            FlatGuard::And(l, r) => format!("({} & {})", self.display(*l), self.display(*r)),
+            FlatGuard::Not(g) => format!("!{}", self.display(*g)),
+            FlatGuard::True => "true".to_string(),
+            FlatGuard::CompOp(op, l, r) => {
+                let op_str = match op {
+                    PortComp::Eq => "==",
+                    PortComp::Neq => "!=",
+                    PortComp::Lt => "<",
+                    PortComp::Leq => "<=",
+                    PortComp::Gt => ">",
+                    PortComp::Geq => ">=",
+                };
+                format!("({} {} {})", l.borrow().name, op_str, r.borrow().name)
+            },
+            FlatGuard::Port(p) => p.borrow().name.to_string(),
         }
     }
 }
