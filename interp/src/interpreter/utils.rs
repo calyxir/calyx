@@ -62,6 +62,7 @@ where
                 }
             }
             ir::PortParent::Group(_) => None,
+            ir::PortParent::StaticGroup(_) => None,
         }
     });
     output_vec.extend(iterator);

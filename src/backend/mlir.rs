@@ -109,7 +109,7 @@ impl MlirBackend {
 
         // Add the wires
         writeln!(f, "  calyx.wires {{")?;
-        for group in comp.groups.iter() {
+        for group in comp.get_groups().iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
@@ -323,6 +323,9 @@ impl MlirBackend {
         match control {
             ir::Control::Enable(ir::Enable { group, .. }) => {
                 write!(f, "calyx.enable @{}", group.borrow().name().id)
+            }
+            ir::Control::StaticEnable(_) => {
+                panic!("StaticEnable not yet supported")
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for MLIR backend")

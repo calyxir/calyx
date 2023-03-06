@@ -24,7 +24,7 @@ pub struct Component {
     /// The cells instantiated for this component.
     pub cells: IdList<Cell>,
     /// Groups of assignment wires.
-    groups: IdList<Group>,
+    pub groups: IdList<Group>,
     /// Groups of assignment wires
     pub static_groups: IdList<StaticGroup>,
     /// Groups of assignment wires.
