@@ -490,6 +490,12 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
+    // HACK HACK HACK JUST FOR FUN
+    let mut pool = ir::GuardPool::new();
+    for asgn in assignments {
+        let flat_guard = pool.flatten(&asgn.guard);
+    }
+
     // Mux over the assignment with the given default value.
     let fold_assigns = |init: v::Expr| -> v::Expr {
         assignments.iter().rfold(init, |acc, e| {
