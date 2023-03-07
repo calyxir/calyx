@@ -86,7 +86,6 @@ class DatToJson(Stage):
 
 
 class VerilatorStage(Stage):
-
     name = "verilog"
 
     def __init__(self, mem, desc):
@@ -112,7 +111,6 @@ class VerilatorStage(Stage):
         ]
 
     def _define_steps(self, input_data, builder, config):
-
         data_path = config.get(["stages", self.name, "data"])
 
         # Step 1: Make a new temporary directory
