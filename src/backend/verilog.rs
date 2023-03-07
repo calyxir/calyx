@@ -578,12 +578,13 @@ fn emit_assignment(
         // Flatten the mux expression if there is exactly one assignment with a true guard.
         if assignments.len() == 1 {
             let (src, gr) = &assignments[0];
-            let guard = pool.get(*gr);
-            if guard.is_true() {
+            if gr.is_true() {
                 port_to_ref(&src)
             } else if src.borrow().is_constant(1, 1) {
+                let guard = pool.get(*gr);
                 guard_to_expr(guard, pool)
             } else {
+                let guard = pool.get(*gr);
                 v::Expr::new_mux(
                     guard_to_expr(guard, pool),
                     port_to_ref(&src),

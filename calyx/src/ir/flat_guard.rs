@@ -10,6 +10,14 @@ impl std::fmt::Display for GuardRef {
     }
 }
 
+impl GuardRef {
+    /// Check whether this refers to a `FlatGuard::True`. (We can do this because the first guard
+    /// in the pool is always `True`.)
+    pub fn is_true(&self) -> bool {
+        self.0 == 0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum FlatGuard {
     Or(GuardRef, GuardRef),
@@ -30,22 +38,31 @@ impl FlatGuard {
     }
 }
 
-/// A GuardPool stores FlatGuard. It can have multiple "roots," or it can have just one (as in when
-/// we are just replacing a single guard with this). It has an important invariant: GuardRefs are
-/// always within the same pool (obviously), and they can only go "backward," in the sense that
-/// they refer to smaller indices than the current FlatGuard.
+/// A `GuardPool` is an "arena"-style storage area for `FlatGuard`s.
 ///
-/// This currently does not do *any* kind of hash-consing or deduplication. It also naively grows
-/// the underlying vector; a more efficient implementation would pre-allocate the space. But we are
-/// currently focused on building up guards of unknown size, so I'm leaving this off for now.
+/// Some invariants for the underlying vector:
+/// * `GuardRefs` are always within the same pool (obviously).
+/// * The underlyings numbers in `GuardRef`s can only go "backward," in the sense that
+///   they refer to smaller indices than the current `FlatGuard`.
+/// * The first `FlatGuard` is always `FlatGuard::True`.
+///
+/// This could be used to do some interesting hash-consing/deduplication; it currently does the
+/// weakest possible form of that: deduplicating `True` guards only.
 pub struct GuardPool(Vec<FlatGuard>);
 
 impl GuardPool {
     pub fn new() -> Self {
-        Self(Vec::new())
+        let mut vec = Vec::<FlatGuard>::with_capacity(1024);
+        vec.push(FlatGuard::True);
+        Self(vec)
     }
 
     fn add(&mut self, guard: FlatGuard) -> GuardRef {
+        // `True` is always the first guard.
+        if guard.is_true() {
+            return GuardRef(0);
+        }
+
         self.0.push(guard);
         GuardRef(
             (self.0.len() - 1)
