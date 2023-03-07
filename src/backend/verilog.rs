@@ -566,12 +566,7 @@ fn emit_assignment_flat<F: io::Write>(
     assignments: Vec<(RRC<ir::Port>, GuardRef)>,
     f: &mut F,
 ) -> io::Result<()> {
-    // The default value depends on whether we are assigning to a data or control port.
-    let default = if is_data_port(&dst) {
-        "'x".to_owned()
-    } else {
-        format!("{}'d0", dst.borrow().width)
-    };
+    let data = is_data_port(&dst);
 
     // TODO This doesn't do either of the little rewrites that the proper `emit_assignment` does
     // when there is a single assignment.
@@ -586,7 +581,13 @@ fn emit_assignment_flat<F: io::Write>(
             port_to_ref(&src)
         )?;
     }
-    writeln!(f, "  {};", default)
+
+    // The default value depends on whether we are assigning to a data or control port.
+    if data {
+        writeln!(f, "  'x;")
+    } else {
+        writeln!(f, "  {}'d0;", dst.borrow().width)
+    }
 }
 
 fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
