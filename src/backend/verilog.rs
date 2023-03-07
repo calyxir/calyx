@@ -328,6 +328,8 @@ fn emit_component<F: io::Write>(
         (dst, flat_asgns)
     }).collect();
 
+    writeln!(f, "always @* begin")?;
+
     // Emit Verilog for the flattened guards.
     for (idx, guard) in pool.iter() {
         writeln!(f, "logic {} = {};", guard_ref_to_name(idx), flat_guard_to_expr(guard))?;
@@ -337,6 +339,8 @@ fn emit_component<F: io::Write>(
     for (dst, asgns) in grouped_asgns {
         emit_assignment_flat(dst.clone(), asgns, f)?;
     }
+
+    writeln!(f, "end")?;
 
     if !synthesis_mode {
         writeln!(f, "{checks}")?;
