@@ -494,7 +494,9 @@ fn emit_assignment(
     let mut pool = ir::GuardPool::new();
     for asgn in assignments {
         let flat_guard = pool.flatten(&asgn.guard);
-        dbg!(&asgn.guard);
+        // TODO save the ref
+    }
+    for flat_guard in pool.iter() {
         dbg!(pool.display(flat_guard));
     }
 

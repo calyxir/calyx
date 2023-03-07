@@ -61,11 +61,11 @@ impl GuardPool {
     }
 
     #[cfg(debug_assertions)]
-    pub fn display(&self, guard: GuardRef) -> String {
-        match self.get(guard) {
-            FlatGuard::Or(l, r) => format!("({} | {})", self.display(*l), self.display(*r)),
-            FlatGuard::And(l, r) => format!("({} & {})", self.display(*l), self.display(*r)),
-            FlatGuard::Not(g) => format!("!{}", self.display(*g)),
+    pub fn display(&self, guard: &FlatGuard) -> String {
+        match guard {
+            FlatGuard::Or(l, r) => format!("({} | {})", self.display(self.get(*l)), self.display(self.get(*r))),
+            FlatGuard::And(l, r) => format!("({} & {})", self.display(self.get(*l)), self.display(self.get(*r))),
+            FlatGuard::Not(g) => format!("!{}", self.display(self.get(*g))),
             FlatGuard::True => "true".to_string(),
             FlatGuard::CompOp(op, l, r) => {
                 let op_str = match op {
@@ -76,9 +76,14 @@ impl GuardPool {
                     PortComp::Gt => ">",
                     PortComp::Geq => ">=",
                 };
-                format!("({} {} {})", l.borrow().name, op_str, r.borrow().name)
+                format!("({} {} {})", l.borrow().canonical(), op_str, r.borrow().canonical())
             },
-            FlatGuard::Port(p) => p.borrow().name.to_string(),
+            FlatGuard::Port(p) => format!("{}", p.borrow().canonical()),
         }
+    }
+
+    /// Iterate over *all* the guards in the pool.
+    pub fn iter(&self) -> impl Iterator<Item = &FlatGuard> {
+        self.0.iter()
     }
 }
