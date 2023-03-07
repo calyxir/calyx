@@ -4,7 +4,6 @@ import shutil
 import subprocess
 from packaging import version
 import sys
-import logging as log
 from fud import config
 
 # Dictionary that defines how to check the version for different tools.
