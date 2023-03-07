@@ -42,6 +42,10 @@ pub struct Opts {
     #[argh(switch)]
     pub disable_init: bool,
 
+    /// emit flat assignments (only relevant to the Verilog backend)
+    #[argh(switch, long = "flat")]
+    pub flat_assign: bool,
+
     /// select a backend
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,

@@ -142,6 +142,7 @@ impl Backend for VerilogBackend {
                 ctx.bc.synthesis_mode,
                 ctx.bc.enable_verification,
                 ctx.bc.initialize_inputs,
+                ctx.bc.flat_assign,
                 out,
             );
             log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
@@ -230,6 +231,7 @@ fn emit_component<F: io::Write>(
     synthesis_mode: bool,
     enable_verification: bool,
     initialize_inputs: bool,
+    flat_assign: bool,
     f: &mut F,
 ) -> io::Result<()> {
     writeln!(f, "module {}(", comp.name)?;
@@ -334,21 +336,32 @@ fn emit_component<F: io::Write>(
         })
         .collect();
 
-    writeln!(f, "always @* begin")?;
+    if flat_assign {
+        // Emit "flattened" assignments as ANF statements.
+        writeln!(f, "always @* begin")?;
 
-    // Emit Verilog for the flattened guards.
-    for (idx, guard) in pool.iter() {
-        write!(f, "logic {} = ", guard_ref_to_name(idx))?;
-        emit_guard(guard, f)?;
-        writeln!(f, ";")?;
+        // Emit Verilog for the flattened guards.
+        for (idx, guard) in pool.iter() {
+            write!(f, "logic {} = ", guard_ref_to_name(idx))?;
+            emit_guard(guard, f)?;
+            writeln!(f, ";")?;
+        }
+
+        // Emit assignments using these guards.
+        for (dst, asgns) in grouped_asgns {
+            emit_assignment_flat(dst.clone(), asgns, f)?;
+        }
+
+        writeln!(f, "end")?;
+    } else {
+        // Emit nested assignments.
+        for (dst, asgns) in grouped_asgns {
+            let stmt = v::Stmt::new_parallel(
+                emit_assignment(dst, asgns, &pool)
+            );
+            writeln!(f, "{stmt}")?;
+        }
     }
-
-    // Emit assignments using these guards.
-    for (dst, asgns) in grouped_asgns {
-        emit_assignment_flat(dst.clone(), asgns, f)?;
-    }
-
-    writeln!(f, "end")?;
 
     if !synthesis_mode {
         writeln!(f, "{checks}")?;
