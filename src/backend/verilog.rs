@@ -338,12 +338,9 @@ fn emit_component<F: io::Write>(
 
     // Emit Verilog for the flattened guards.
     for (idx, guard) in pool.iter() {
-        writeln!(
-            f,
-            "logic {} = {};",
-            guard_ref_to_name(idx),
-            flat_guard_to_expr(guard)
-        )?;
+        write!(f, "logic {} = ", guard_ref_to_name(idx))?;
+        emit_guard(guard, f)?;
+        writeln!(f, ";")?;
     }
 
     // Emit assignments using these guards.
@@ -459,7 +456,7 @@ fn emit_guard_disjoint_check(
     // Construct concat with all guards.
     let mut concat = v::ExprConcat::default();
     assignments.iter().for_each(|assign| {
-        concat.add_expr(guard_to_expr(&assign.guard));
+        todo!(); //concat.add_expr(guard_to_expr(&assign.guard));
     });
 
     let onehot0 = v::Expr::new_call("$onehot0", vec![v::Expr::Concat(concat)]);
@@ -510,47 +507,50 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
 /// assign a_in = foo ? 2'd0 : bar ? 2d'1 : 2'd0;
 /// ```
 fn emit_assignment(
-    (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
+    dst: &RRC<ir::Port>,
+    assignments: Vec<(RRC<ir::Port>, GuardRef)>,
+    pool: &ir::GuardPool,
 ) -> v::Parallel {
     // Mux over the assignment with the given default value.
     let fold_assigns = |init: v::Expr| -> v::Expr {
-        assignments.iter().rfold(init, |acc, e| {
-            let guard = guard_to_expr(&e.guard);
-            let asgn = port_to_ref(&e.src);
-            v::Expr::new_mux(guard, asgn, acc)
+        assignments.iter().rfold(init, |acc, (src, gr)| {
+            let guard = pool.get(*gr);
+            let asgn = port_to_ref(src);
+            v::Expr::new_mux(guard_to_expr(guard, pool), asgn, acc)
         })
     };
 
     // If this is a data port
-    let rhs: v::Expr = if is_data_port(dst_ref) {
+    let rhs: v::Expr = if is_data_port(dst) {
         if assignments.len() == 1 {
             // If there is exactly one guard, generate a continuous assignment.
             // This encodes the rewrite:
             // in = g ? out : 'x => in = out;
             // This is valid because 'x can be replaced with any value
-            let assign = assignments[0];
-            port_to_ref(&assign.src)
+            let (dst, _) = &assignments[0];
+            port_to_ref(dst)
         } else {
             // Produce an assignment with 'x as the default case.
             fold_assigns(v::Expr::X)
         }
     } else {
         let init = v::Expr::new_ulit_dec(
-            dst_ref.borrow().width as u32,
+            dst.borrow().width as u32,
             &0.to_string(),
         );
 
         // Flatten the mux expression if there is exactly one assignment with a true guard.
         if assignments.len() == 1 {
-            let assign = assignments[0];
-            if assign.guard.is_true() {
-                port_to_ref(&assign.src)
-            } else if assign.src.borrow().is_constant(1, 1) {
-                guard_to_expr(&assign.guard)
+            let (src, gr) = &assignments[0];
+            let guard = pool.get(*gr);
+            if guard.is_true() {
+                port_to_ref(&src)
+            } else if src.borrow().is_constant(1, 1) {
+                guard_to_expr(guard, pool)
             } else {
                 v::Expr::new_mux(
-                    guard_to_expr(&assign.guard),
-                    port_to_ref(&assign.src),
+                    guard_to_expr(guard, pool),
+                    port_to_ref(&src),
                     init,
                 )
             }
@@ -558,7 +558,7 @@ fn emit_assignment(
             fold_assigns(init)
         }
     };
-    v::Parallel::ParAssign(port_to_ref(dst_ref), rhs)
+    v::Parallel::ParAssign(port_to_ref(dst), rhs)
 }
 
 fn emit_assignment_flat<F: io::Write>(
@@ -613,11 +613,11 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
     }
 }
 
-fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
-    let op = |g: &ir::Guard| match g {
-        Guard::Or(..) => v::Expr::new_bit_or,
-        Guard::And(..) => v::Expr::new_bit_and,
-        Guard::CompOp(op, ..) => match op {
+fn guard_to_expr(guard: &ir::FlatGuard, pool: &ir::GuardPool) -> v::Expr {
+    let op = |g: &ir::FlatGuard| match g {
+        FlatGuard::Or(..) => v::Expr::new_bit_or,
+        FlatGuard::And(..) => v::Expr::new_bit_and,
+        FlatGuard::CompOp(op, ..) => match op {
             ir::PortComp::Eq => v::Expr::new_eq,
             ir::PortComp::Neq => v::Expr::new_neq,
             ir::PortComp::Gt => v::Expr::new_gt,
@@ -625,17 +625,22 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
             ir::PortComp::Geq => v::Expr::new_geq,
             ir::PortComp::Leq => v::Expr::new_leq,
         },
-        Guard::Not(..) | Guard::Port(..) | Guard::True => unreachable!(),
+        FlatGuard::Not(..) | FlatGuard::Port(..) | FlatGuard::True => unreachable!(),
     };
 
     match guard {
-        Guard::And(l, r) | Guard::Or(l, r) => {
-            op(guard)(guard_to_expr(l), guard_to_expr(r))
+        FlatGuard::And(l, r) | FlatGuard::Or(l, r) => {
+            let lg = pool.get(*l);
+            let rg = pool.get(*r);
+            op(guard)(guard_to_expr(lg, pool), guard_to_expr(rg, pool))
         }
-        Guard::CompOp(_, l, r) => op(guard)(port_to_ref(l), port_to_ref(r)),
-        Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
-        Guard::Port(p) => port_to_ref(p),
-        Guard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
+        FlatGuard::CompOp(_, l, r) => op(guard)(port_to_ref(l), port_to_ref(r)),
+        FlatGuard::Not(r) => {
+            let g = pool.get(*r);
+            v::Expr::new_not(guard_to_expr(g, pool))
+        }
+        FlatGuard::Port(p) => port_to_ref(p),
+        FlatGuard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
     }
 }
 
@@ -643,12 +648,12 @@ fn guard_ref_to_name(guard: GuardRef) -> String {
     format!("_guard{}", guard)
 }
 
-fn flat_guard_to_expr(guard: &ir::FlatGuard) -> String {
+fn emit_guard<F: std::io::Write>(guard: &ir::FlatGuard, f: &mut F) -> io::Result<()> {
     use guard_ref_to_name as gr;
 
     match guard {
-        FlatGuard::Or(l, r) => format!("{} | {}", gr(*l), gr(*r)),
-        FlatGuard::And(l, r) => format!("{} & {}", gr(*l), gr(*r)),
+        FlatGuard::Or(l, r) => write!(f, "{} | {}", gr(*l), gr(*r)),
+        FlatGuard::And(l, r) => write!(f, "{} & {}", gr(*l), gr(*r)),
         FlatGuard::CompOp(op, l, r) => {
             let op = match op {
                 ir::PortComp::Eq => "==",
@@ -658,11 +663,38 @@ fn flat_guard_to_expr(guard: &ir::FlatGuard) -> String {
                 ir::PortComp::Geq => ">=",
                 ir::PortComp::Leq => "<=",
             };
-            format!("{} {} {}", port_to_ref(l), op, port_to_ref(r))
+            write!(f, "{} {} {}", port_to_ref(l), op, port_to_ref(r))
         }
-        FlatGuard::Not(o) => format!("~{}", gr(*o)),
-        FlatGuard::True => "1".to_string(),
-        FlatGuard::Port(p) => port_to_ref(p).to_string(),
+        FlatGuard::Not(o) => write!(f, "~{}", gr(*o)),
+        FlatGuard::True => write!(f, "1"),
+        FlatGuard::Port(p) => write!(f, "{}", port_to_ref(p)),
+    }
+}
+
+fn guard_to_nested_expr(guard: ir::GuardRef, pool: &ir::GuardPool) -> v::Expr {
+    match pool.get(guard) {
+        FlatGuard::And(l, r) => v::Expr::new_bit_and(
+            guard_to_nested_expr(*l, pool),
+            guard_to_nested_expr(*r, pool),
+        ),
+        FlatGuard::Or(l, r) => v::Expr::new_bit_or(
+            guard_to_nested_expr(*l, pool),
+            guard_to_nested_expr(*r, pool),
+        ),
+        FlatGuard::CompOp(op, l, r) => {
+            let op = match op {
+                ir::PortComp::Eq => v::Expr::new_eq,
+                ir::PortComp::Neq => v::Expr::new_neq,
+                ir::PortComp::Gt => v::Expr::new_gt,
+                ir::PortComp::Lt => v::Expr::new_lt,
+                ir::PortComp::Geq => v::Expr::new_geq,
+                ir::PortComp::Leq => v::Expr::new_leq,
+            };
+            op(port_to_ref(&l), port_to_ref(&r))
+        }
+        FlatGuard::Not(g) => v::Expr::new_not(guard_to_nested_expr(*g, pool)),
+        FlatGuard::Port(p) => port_to_ref(&p),
+        FlatGuard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
     }
 }
 

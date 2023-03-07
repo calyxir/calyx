@@ -20,6 +20,16 @@ pub enum FlatGuard {
     Port(RRC<Port>),
 }
 
+impl FlatGuard {
+    pub fn is_true(&self) -> bool {
+        match self {
+            FlatGuard::True => true,
+            FlatGuard::Port(p) => p.borrow().is_constant(1, 1),
+            _ => false,
+        }
+    }
+}
+
 /// A GuardPool stores FlatGuard. It can have multiple "roots," or it can have just one (as in when
 /// we are just replacing a single guard with this). It has an important invariant: GuardRefs are
 /// always within the same pool (obviously), and they can only go "backward," in the sense that
