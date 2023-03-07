@@ -9,7 +9,7 @@ use calyx::{
     ir,
     utils::OutputFile,
 };
-use ir::{Control, Group, Guard, RRC};
+use ir::{Control, Group, Guard, RRC, FlatGuard, GuardRef};
 use itertools::Itertools;
 use std::io;
 use std::{collections::HashMap, rc::Rc};
@@ -326,9 +326,8 @@ fn emit_component<F: io::Write>(
             // TODO save the ref
         }
     }
-    for (idx, flat_guard) in pool.iter().enumerate() {
-        dbg!(idx);
-        dbg!(pool.display(flat_guard));
+    for (idx, guard) in pool.iter() {
+        writeln!(f, "logic {} = {};", guard_ref_to_name(idx), flat_guard_to_expr(guard))?;
     }
 
     map.values()
@@ -599,6 +598,33 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
         Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
         Guard::Port(p) => port_to_ref(p),
         Guard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
+    }
+}
+
+fn guard_ref_to_name(guard: GuardRef) -> String {
+    format!("_guard{}", guard)
+}
+
+fn flat_guard_to_expr(guard: &ir::FlatGuard) -> String {
+    use guard_ref_to_name as gr;
+
+    match guard {
+        FlatGuard::Or(l, r) => format!("{} | {}", gr(*l), gr(*r)),
+        FlatGuard::And(l, r) => format!("{} & {}", gr(*l), gr(*r)),
+        FlatGuard::CompOp(op, l, r) => {
+            let op = match op {
+                ir::PortComp::Eq => "==",
+                ir::PortComp::Neq => "!=",
+                ir::PortComp::Gt => ">",
+                ir::PortComp::Lt => "<",
+                ir::PortComp::Geq => ">=",
+                ir::PortComp::Leq => "<=",
+            };
+            format!("{} {} {}", port_to_ref(l), op, port_to_ref(r))
+        },
+        FlatGuard::Not(o) => format!("~{}", gr(*o)),
+        FlatGuard::True => "1".to_string(),
+        FlatGuard::Port(p) => port_to_ref(p).to_string(),
     }
 }
 

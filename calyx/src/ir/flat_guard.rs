@@ -4,6 +4,12 @@ use super::guard::{PortComp, Guard};
 #[derive(Debug, Copy, Clone)]
 pub struct GuardRef(u16);
 
+impl std::fmt::Display for GuardRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum FlatGuard {
     Or(GuardRef, GuardRef),
@@ -83,7 +89,9 @@ impl GuardPool {
     }
 
     /// Iterate over *all* the guards in the pool.
-    pub fn iter(&self) -> impl Iterator<Item = &FlatGuard> {
-        self.0.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (GuardRef, &FlatGuard)> {
+        self.0.iter().enumerate().map(|(i, g)| {
+            (GuardRef(i.try_into().unwrap()), g)
+        })
     }
 }
