@@ -318,6 +318,19 @@ fn emit_component<F: io::Write>(
     // Build a top-level always block to contain verilator checks for assignments
     let mut checks = v::ParallelProcess::new_always_comb();
 
+    // HACK HACK HACK JUST FOR FUN
+    let mut pool = ir::GuardPool::new();
+    for (_, (port, asgns)) in &map {
+        for asgn in asgns {
+            let flat_guard = pool.flatten(&asgn.guard);
+            // TODO save the ref
+        }
+    }
+    for (idx, flat_guard) in pool.iter().enumerate() {
+        dbg!(idx);
+        dbg!(pool.display(flat_guard));
+    }
+
     map.values()
         .sorted_by_key(|(port, _)| port.borrow().canonical())
         .try_for_each(|asgns| {
@@ -327,6 +340,7 @@ fn emit_component<F: io::Write>(
                     checks.add_seq(check);
                 };
             }
+
             let stmt = v::Stmt::new_parallel(emit_assignment(asgns));
             writeln!(f, "{stmt}")
         })?;
@@ -490,16 +504,6 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
 fn emit_assignment(
     (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
 ) -> v::Parallel {
-    // HACK HACK HACK JUST FOR FUN
-    let mut pool = ir::GuardPool::new();
-    for asgn in assignments {
-        let flat_guard = pool.flatten(&asgn.guard);
-        // TODO save the ref
-    }
-    for flat_guard in pool.iter() {
-        dbg!(pool.display(flat_guard));
-    }
-
     // Mux over the assignment with the given default value.
     let fold_assigns = |init: v::Expr| -> v::Expr {
         assignments.iter().rfold(init, |acc, e| {
