@@ -312,7 +312,9 @@ class Configuration:
                 # Only delete the stage if it's marked as an external
                 del self[["externals", args.name]]
             else:
-                log.error(f"No external script named `{args.name}'.")
+                log.warn(
+                    f"Ignoring delete command, no external script named `{args.name}'."
+                )
 
     def discover_implied_states(self, filename) -> str:
         """
