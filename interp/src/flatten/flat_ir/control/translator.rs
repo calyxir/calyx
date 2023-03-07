@@ -1,5 +1,5 @@
-use ahash::{HashMap as AHashMap, HashMapExt};
 use calyx::ir::{self as cir};
+use hashbrown::HashMap;
 
 use crate::{
     flatten::{
@@ -7,14 +7,13 @@ use crate::{
             component::AuxillaryComponentInfo,
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx, GroupIdx,
-                GuardIdx, LocalPortRef, LocalRPortRef, PortRef,
+                GuardIdx, PortRef,
             },
             wires::{core::Group, guards::Guard},
         },
         structures::{
             context::{InterpretationContext, SecondaryContext},
             index_trait::IndexRange,
-            indexed_map::IndexGenerator,
         },
         utils::{flatten_tree, FlattenTree, SingleHandle},
     },
@@ -23,12 +22,12 @@ use crate::{
 
 use super::{structures::*, utils::CompTraversal};
 
-type PortMapper = AHashMap<*const cir::Port, PortRef>;
+type PortMapper = HashMap<*const cir::Port, PortRef>;
 
 /// An ephemeral structure used during the translation of a component.
 pub struct GroupMapper {
-    comb_groups: AHashMap<*const cir::CombGroup, CombGroupIdx>,
-    groups: AHashMap<*const cir::Group, GroupIdx>,
+    comb_groups: HashMap<*const cir::CombGroup, CombGroupIdx>,
+    groups: HashMap<*const cir::Group, GroupIdx>,
 }
 
 pub fn translate(
@@ -129,7 +128,7 @@ fn translate_component(
     let map =
         compute_local_layout(comp, interp_ctx, secondary_ctx, &mut aux_info);
 
-    let mut group_map = AHashMap::with_capacity(comp.groups.len());
+    let mut group_map = HashMap::with_capacity(comp.groups.len());
 
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
@@ -139,7 +138,7 @@ fn translate_component(
         group_map.insert(group.as_raw(), k);
     }
 
-    let mut comb_group_map = AHashMap::with_capacity(comp.comb_groups.len());
+    let mut comb_group_map = HashMap::with_capacity(comp.comb_groups.len());
 
     for comb_grp in comp.comb_groups.iter() {
         let comb_grp_brw = comb_grp.borrow();
@@ -163,6 +162,8 @@ fn compute_local_layout(
     aux: &mut AuxillaryComponentInfo,
 ) -> PortMapper {
     let mut portmap = PortMapper::new();
+
+    let sig_base = secondary_ctx.local_port_defs.peek_next_idx();
     // first, handle the signature ports
     for port in comp.signature.borrow().ports() {
         let id = secondary_ctx.string_table.insert(port.borrow().name);
@@ -170,6 +171,11 @@ fn compute_local_layout(
 
         portmap.insert(port.as_raw(), idx.into());
     }
+    // update the aux info with the signature layout
+    aux.signature = IndexRange::new(
+        sig_base,
+        secondary_ctx.local_port_defs.peek_next_idx(),
+    );
 
     // second the group holes
     for group in &comp.groups {
@@ -185,6 +191,8 @@ fn compute_local_layout(
             portmap.insert(port.as_raw(), idx.into());
         }
     }
+
+    let mut sub_component_queue = vec![];
 
     // third, the primitive cells
     for cell in comp.cells.iter() {
@@ -224,8 +232,13 @@ fn compute_local_layout(
                 secondary_ctx.push_ref_cell(id, range);
             }
         } else {
-            todo!("non-primitive cells are not yet supported")
+            sub_component_queue.push(cell);
         }
+    }
+
+    // fourth, the sub-components
+    for _cell in sub_component_queue {
+        todo!("non-primitive cells are not yet supported")
     }
 
     portmap

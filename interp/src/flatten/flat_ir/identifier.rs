@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::hash::Hash;
 
 use crate::flatten::structures::index_trait::impl_index;
@@ -12,6 +12,12 @@ impl Identifier {
         Identifier(0)
     }
 }
+
+/// This is using the [hashbrown] crate instead of the std
+/// [HashMap](std::collections::HashMap) for general speed though that is likely
+/// unnecessary as this should not be on any hot paths. If we want to be
+/// resistant to hash attacks the forward map can be changed to be amenable to
+/// that
 #[derive(Debug)]
 pub struct IdMap {
     count: u32,

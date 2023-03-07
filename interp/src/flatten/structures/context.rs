@@ -87,10 +87,8 @@ impl SecondaryContext {
 
 impl Default for SecondaryContext {
     fn default() -> Self {
-        let mut string_table = IdMap::new();
-
         Self {
-            string_table,
+            string_table: IdMap::new(),
             local_port_defs: Default::default(),
             ref_port_defs: Default::default(),
             local_cell_defs: Default::default(),

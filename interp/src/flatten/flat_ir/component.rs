@@ -69,8 +69,7 @@ pub struct AuxillaryComponentInfo {
     pub name: Identifier,
 
     /// The input/output signature of this component.
-    pub inputs: IndexRange<LocalPortRef>,
-    pub outputs: IndexRange<LocalPortRef>,
+    pub signature: IndexRange<LocalPortRef>,
 
     /// all ports nested underneath this component, including the sub-components
     pub total_port_range: IndexRange<LocalPortRef>,
@@ -80,8 +79,7 @@ impl Default for AuxillaryComponentInfo {
     fn default() -> Self {
         Self {
             name: Identifier::get_default_id(),
-            inputs: IndexRange::empty_interval(),
-            outputs: IndexRange::empty_interval(),
+            signature: IndexRange::empty_interval(),
             total_port_range: IndexRange::empty_interval(),
         }
     }
@@ -93,8 +91,7 @@ impl AuxillaryComponentInfo {
     pub fn new_with_name(id: Identifier) -> Self {
         Self {
             name: id,
-            inputs: IndexRange::empty_interval(),
-            outputs: IndexRange::empty_interval(),
+            signature: IndexRange::empty_interval(),
             total_port_range: IndexRange::empty_interval(),
         }
     }
