@@ -24,6 +24,7 @@ WIZARD_DATA = {
 
 DEFAULT_CONFIGURATION = {
     "global": {},
+    "externals": {},
     "stages": {
         "futil": {
             "exec": "./target/debug/futil",
@@ -321,7 +322,7 @@ class Configuration:
         """
         suffix = Path(filename).suffix
         stages = []
-        for (name, stage) in self["stages"].items():
+        for name, stage in self["stages"].items():
             if "file_extensions" not in stage:
                 continue
             if any([ext == suffix for ext in stage["file_extensions"]]):
