@@ -605,8 +605,23 @@ fn emit_assignment_flat<F: io::Write>(
 ) -> io::Result<()> {
     let data = is_data_port(&dst);
 
-    // TODO This doesn't do either of the little rewrites that the proper `emit_assignment` does
-    // when there is a single assignment.
+    // Simple optimizations for 1-guard cases.
+    if assignments.len() == 1 {
+        let (src, guard) = &assignments[0];
+        if data {
+            // For data ports (for whom unassigned values are undefined), we can drop the guard
+            // entirely and assume it is always true (because it would be UB if it were ever false).
+            return writeln!(f, "assign {} = {};", port_to_ref(&dst), port_to_ref(&src));
+        } else {
+            // For non-data ("control") ports, we have special cases for true guards and constant-1 RHSes.
+            if guard.is_true() {
+                return writeln!(f, "assign {} = {};", port_to_ref(&dst), port_to_ref(&src));
+            } else if src.borrow().is_constant(1, 1) {
+                let guard = guard_ref_to_name(*guard);
+                return writeln!(f, "assign {} = {};", port_to_ref(&dst), guard);
+            }
+        }
+    }
 
     // Use a cascade of ternary expressions to assign the right RHS to dst.
     writeln!(f, "assign {} =", port_to_ref(&dst))?;
