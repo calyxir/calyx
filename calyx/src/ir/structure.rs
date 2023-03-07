@@ -409,6 +409,15 @@ impl Cell {
             })
             .collect()
     }
+
+    // returns true if cell is comb, false otherwise
+    // note that neither components,cells, nor constants can be combinational
+    pub fn is_comb(&self) -> bool {
+        match self.prototype {
+            CellType::Primitive { is_comb, .. } => is_comb,
+            _ => false,
+        }
+    }
 }
 
 /// Represents a guarded assignment in the program
