@@ -317,9 +317,6 @@ fn emit_component<F: io::Write>(
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
-    // Build a top-level always block to contain verilator checks for assignments
-    let mut checks = v::ParallelProcess::new_always_comb();
-
     // Flatten all the guard expressions.
     let mut pool = ir::GuardPool::new();
     let grouped_asgns: Vec<_> = map
@@ -335,6 +332,9 @@ fn emit_component<F: io::Write>(
             (dst, flat_asgns)
         })
         .collect();
+        
+     // Build a top-level always block to contain verilator checks for assignments
+    let mut checks = v::ParallelProcess::new_always_comb();
 
     if flat_assign {
         // Emit "flattened" assignments as ANF statements.
@@ -348,8 +348,14 @@ fn emit_component<F: io::Write>(
         }
 
         // Emit assignments using these guards.
-        for (dst, asgns) in grouped_asgns {
-            emit_assignment_flat(dst.clone(), asgns, f)?;
+        for (dst, asgns) in &grouped_asgns {
+            emit_assignment_flat(dst, &asgns, f)?;
+
+            if enable_verification {
+                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool) {
+                    checks.add_seq(check);
+                }
+            }
         }
 
         writeln!(f, "end")?;
@@ -357,9 +363,15 @@ fn emit_component<F: io::Write>(
         // Emit nested assignments.
         for (dst, asgns) in grouped_asgns {
             let stmt = v::Stmt::new_parallel(
-                emit_assignment(dst, asgns, &pool)
+                emit_assignment(dst, &asgns, &pool)
             );
             writeln!(f, "{stmt}")?;
+
+            if enable_verification {
+                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool) {
+                    checks.add_seq(check);
+                }
+            }
         }
     }
 
@@ -461,15 +473,18 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// end
 /// ```
 fn emit_guard_disjoint_check(
-    (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
+    dst: &RRC<ir::Port>,
+    assignments: &Vec<(RRC<ir::Port>, GuardRef)>,
+    pool: &ir::GuardPool,
 ) -> Option<v::Sequential> {
     if assignments.len() < 2 {
         return None;
     }
     // Construct concat with all guards.
     let mut concat = v::ExprConcat::default();
-    assignments.iter().for_each(|assign| {
-        todo!(); //concat.add_expr(guard_to_expr(&assign.guard));
+    assignments.iter().for_each(|(src, gr)| {
+        let guard = pool.get(*gr);
+        concat.add_expr(guard_to_expr(guard, &pool));
     });
 
     let onehot0 = v::Expr::new_call("$onehot0", vec![v::Expr::Concat(concat)]);
@@ -477,7 +492,7 @@ fn emit_guard_disjoint_check(
     let mut check = v::SequentialIfElse::new(not_onehot0);
 
     // Generated error message
-    let ir::Canonical(cell, port) = dst_ref.borrow().canonical();
+    let ir::Canonical(cell, port) = dst.borrow().canonical();
     let msg = format!("Multiple assignment to port `{}.{}'.", cell, port);
     let err = v::Sequential::new_seqexpr(v::Expr::new_call(
         "$fatal",
@@ -521,7 +536,7 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
 /// ```
 fn emit_assignment(
     dst: &RRC<ir::Port>,
-    assignments: Vec<(RRC<ir::Port>, GuardRef)>,
+    assignments: &Vec<(RRC<ir::Port>, GuardRef)>,
     pool: &ir::GuardPool,
 ) -> v::Parallel {
     // Mux over the assignment with the given default value.
@@ -575,8 +590,8 @@ fn emit_assignment(
 }
 
 fn emit_assignment_flat<F: io::Write>(
-    dst: RRC<ir::Port>,
-    assignments: Vec<(RRC<ir::Port>, GuardRef)>,
+    dst: &RRC<ir::Port>,
+    assignments: &Vec<(RRC<ir::Port>, GuardRef)>,
     f: &mut F,
 ) -> io::Result<()> {
     let data = is_data_port(&dst);
@@ -590,7 +605,7 @@ fn emit_assignment_flat<F: io::Write>(
         writeln!(
             f,
             "  {} ? {} :",
-            guard_ref_to_name(guard),
+            guard_ref_to_name(*guard),
             port_to_ref(&src)
         )?;
     }
