@@ -4,17 +4,17 @@ use super::{Port, RRC};
 #[derive(Debug, Copy, Clone)]
 pub struct GuardRef(u32);
 
-impl std::fmt::Display for GuardRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 impl GuardRef {
     /// Check whether this refers to a `FlatGuard::True`. (We can do this because the first guard
     /// in the pool is always `True`.)
     pub fn is_true(&self) -> bool {
         self.0 == 0
+    }
+
+    /// Get the underlying number for this reference. Clients should only rely on this being unique
+    /// for non-equal guards in a single pool; no other aspects of the number are relevant.
+    pub fn index(&self) -> u32 {
+        self.0
     }
 }
 

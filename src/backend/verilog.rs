@@ -343,7 +343,7 @@ fn emit_component<F: io::Write>(
 
         // Emit Verilog for the flattened guards.
         for (idx, guard) in pool.iter() {
-            write!(f, "logic {} = ", guard_ref_to_name(idx))?;
+            write!(f, "logic {} = ", VerilogGuardRef::from(idx))?;
             emit_guard(guard, f)?;
             writeln!(f, ";")?;
         }
@@ -489,7 +489,7 @@ fn emit_guard_disjoint_check(
     let mut concat = v::ExprConcat::default();
     assignments.iter().for_each(|(_, gr)| {
         let expr = if flat {
-            v::Expr::new_ref(guard_ref_to_name(*gr))
+            v::Expr::new_ref(VerilogGuardRef::from(*gr).to_string())
         } else {
             let guard = pool.get(*gr);
             guard_to_expr(guard, &pool)
@@ -617,8 +617,7 @@ fn emit_assignment_flat<F: io::Write>(
             if guard.is_true() {
                 return writeln!(f, "assign {} = {};", port_to_ref(&dst), port_to_ref(&src));
             } else if src.borrow().is_constant(1, 1) {
-                let guard = guard_ref_to_name(*guard);
-                return writeln!(f, "assign {} = {};", port_to_ref(&dst), guard);
+                return writeln!(f, "assign {} = {};", port_to_ref(&dst), VerilogGuardRef::from(*guard));
             }
         }
     }
@@ -629,7 +628,7 @@ fn emit_assignment_flat<F: io::Write>(
         writeln!(
             f,
             "  {} ? {} :",
-            guard_ref_to_name(*guard),
+            VerilogGuardRef::from(*guard),
             port_to_ref(&src)
         )?;
     }
@@ -698,16 +697,26 @@ fn guard_to_expr(guard: &ir::FlatGuard, pool: &ir::GuardPool) -> v::Expr {
     }
 }
 
-fn guard_ref_to_name(guard: GuardRef) -> String {
-    format!("_guard{}", guard)
+/// A little newtype wrapper for GuardRefs that makes it easy to format them as Verilog variables.
+struct VerilogGuardRef(GuardRef);
+
+impl std::fmt::Display for VerilogGuardRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "_guard{}", self.0.index())
+    }
+}
+
+impl From<GuardRef> for VerilogGuardRef {
+    fn from(g: GuardRef) -> Self {
+        VerilogGuardRef(g)
+    }
 }
 
 fn emit_guard<F: std::io::Write>(
     guard: &ir::FlatGuard,
     f: &mut F,
 ) -> io::Result<()> {
-    use guard_ref_to_name as gr;
-
+    let gr = VerilogGuardRef::from;
     match guard {
         FlatGuard::Or(l, r) => write!(f, "{} | {}", gr(*l), gr(*r)),
         FlatGuard::And(l, r) => write!(f, "{} & {}", gr(*l), gr(*r)),
@@ -722,7 +731,7 @@ fn emit_guard<F: std::io::Write>(
             };
             write!(f, "{} {} {}", port_to_ref(l), op, port_to_ref(r))
         }
-        FlatGuard::Not(o) => write!(f, "~{}", gr(*o)),
+        FlatGuard::Not(g) => write!(f, "~{}", gr(*g)),
         FlatGuard::True => write!(f, "1"),
         FlatGuard::Port(p) => write!(f, "{}", port_to_ref(p)),
     }
