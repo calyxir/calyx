@@ -487,7 +487,7 @@ fn emit_guard_disjoint_check(
     }
     // Construct concat with all guards.
     let mut concat = v::ExprConcat::default();
-    assignments.iter().for_each(|(src, gr)| {
+    assignments.iter().for_each(|(_, gr)| {
         let expr = if flat {
             v::Expr::new_ref(guard_ref_to_name(*gr))
         } else {
@@ -709,33 +709,6 @@ fn emit_guard<F: std::io::Write>(
         FlatGuard::Not(o) => write!(f, "~{}", gr(*o)),
         FlatGuard::True => write!(f, "1"),
         FlatGuard::Port(p) => write!(f, "{}", port_to_ref(p)),
-    }
-}
-
-fn guard_to_nested_expr(guard: ir::GuardRef, pool: &ir::GuardPool) -> v::Expr {
-    match pool.get(guard) {
-        FlatGuard::And(l, r) => v::Expr::new_bit_and(
-            guard_to_nested_expr(*l, pool),
-            guard_to_nested_expr(*r, pool),
-        ),
-        FlatGuard::Or(l, r) => v::Expr::new_bit_or(
-            guard_to_nested_expr(*l, pool),
-            guard_to_nested_expr(*r, pool),
-        ),
-        FlatGuard::CompOp(op, l, r) => {
-            let op = match op {
-                ir::PortComp::Eq => v::Expr::new_eq,
-                ir::PortComp::Neq => v::Expr::new_neq,
-                ir::PortComp::Gt => v::Expr::new_gt,
-                ir::PortComp::Lt => v::Expr::new_lt,
-                ir::PortComp::Geq => v::Expr::new_geq,
-                ir::PortComp::Leq => v::Expr::new_leq,
-            };
-            op(port_to_ref(&l), port_to_ref(&r))
-        }
-        FlatGuard::Not(g) => v::Expr::new_not(guard_to_nested_expr(*g, pool)),
-        FlatGuard::Port(p) => port_to_ref(&p),
-        FlatGuard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
     }
 }
 
