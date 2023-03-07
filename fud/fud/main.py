@@ -167,7 +167,7 @@ def register_external_stages(cfg, registry):
     if not ["externals"] in cfg:
         return
 
-    for (ext, location) in cfg[["externals"]].items():
+    for ext, location in cfg[["externals"]].items():
         mod = external.validate_external_stage(ext, cfg)
 
         # register the discovered stages
@@ -329,7 +329,7 @@ def main():
             else:
                 display_or_edit_config(args, cfg)
         elif args.command == "check":
-            check.check(cfg)
+            check.check(args, cfg)
         elif args.command == "register":
             cfg.setup_external_stage(args)
 
@@ -425,6 +425,10 @@ def config_info(parser):
 
 def config_check(parser):
     parser.set_defaults(command="check")
+    # Take names of optional stages to check
+    parser.add_argument(
+        "stages", help="Names of stages to check", nargs="*", default=[]
+    )
 
 
 def config_register(parser):

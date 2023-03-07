@@ -227,7 +227,6 @@ class LocalSandbox:
         """
 
         def copy_file(tmpdir, src, dst):
-
             src_str = "{src}" if isinstance(src, Source) else str(src)
             dst_str = "{dst}" if isinstance(dst, Source) else str(dst)
             tmp_str = "{tmpdir}" if isinstance(tmpdir, Source) else str(tmpdir)

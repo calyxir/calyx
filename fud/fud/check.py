@@ -109,7 +109,7 @@ def check_version(name, exec_path):
         print(f"Error during version check: {e}")
 
 
-def check(cfg):
+def check(args, cfg):
     """
     Check the entire configuration `cfg`.
     """
@@ -129,9 +129,16 @@ def check(cfg):
 
     uninstalled = []
     wrong_version = []
+    stages = set(args.stages) if args.stages else None
 
     # check executables in stages
     for name, stage in cfg["stages"].items():
+        if stages is not None:
+            if name not in stages:
+                continue
+            else:
+                stages.remove(name)
+
         if "exec" in stage:
             cprint(f"stages.{name}.exec:", attrs=["bold"])
             exec_path = shutil.which(stage["exec"])
@@ -173,6 +180,10 @@ def check(cfg):
         verb = "versions" if len(wrong_version) > 1 else "version"
         print(f"Incorrect {verb} for {bad_stages}.")
         print("Stages may fail or not execute correctly.")
+
+    if stages:
+        bad_stages = colored(", ".join(stages), "red")
+        print(f"Stage(s) not found in configuration: {bad_stages}")
 
     # exit with -1 if something went wrong
     if len(uninstalled) > 0 or len(wrong_version) > 0:
