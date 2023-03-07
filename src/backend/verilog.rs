@@ -333,8 +333,8 @@ fn emit_component<F: io::Write>(
             (dst, flat_asgns)
         })
         .collect();
-        
-     // Build a top-level always block to contain verilator checks for assignments
+
+    // Build a top-level always block to contain verilator checks for assignments
     let mut checks = v::ParallelProcess::new_always_comb();
 
     if flat_assign {
@@ -353,7 +353,9 @@ fn emit_component<F: io::Write>(
             emit_assignment_flat(dst, &asgns, f)?;
 
             if enable_verification {
-                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool, true) {
+                if let Some(check) =
+                    emit_guard_disjoint_check(dst, &asgns, &pool, true)
+                {
                     checks.add_seq(check);
                 }
             }
@@ -363,13 +365,14 @@ fn emit_component<F: io::Write>(
     } else {
         // Emit nested assignments.
         for (dst, asgns) in grouped_asgns {
-            let stmt = v::Stmt::new_parallel(
-                emit_assignment(dst, &asgns, &pool)
-            );
+            let stmt =
+                v::Stmt::new_parallel(emit_assignment(dst, &asgns, &pool));
             writeln!(f, "{stmt}")?;
 
             if enable_verification {
-                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool, false) {
+                if let Some(check) =
+                    emit_guard_disjoint_check(dst, &asgns, &pool, false)
+                {
                     checks.add_seq(check);
                 }
             }
@@ -569,10 +572,8 @@ fn emit_assignment(
             fold_assigns(v::Expr::X)
         }
     } else {
-        let init = v::Expr::new_ulit_dec(
-            dst.borrow().width as u32,
-            &0.to_string(),
-        );
+        let init =
+            v::Expr::new_ulit_dec(dst.borrow().width as u32, &0.to_string());
 
         // Flatten the mux expression if there is exactly one assignment with a true guard.
         if assignments.len() == 1 {
@@ -660,7 +661,9 @@ fn guard_to_expr(guard: &ir::FlatGuard, pool: &ir::GuardPool) -> v::Expr {
             ir::PortComp::Geq => v::Expr::new_geq,
             ir::PortComp::Leq => v::Expr::new_leq,
         },
-        FlatGuard::Not(..) | FlatGuard::Port(..) | FlatGuard::True => unreachable!(),
+        FlatGuard::Not(..) | FlatGuard::Port(..) | FlatGuard::True => {
+            unreachable!()
+        }
     };
 
     match guard {
@@ -683,7 +686,10 @@ fn guard_ref_to_name(guard: GuardRef) -> String {
     format!("_guard{}", guard)
 }
 
-fn emit_guard<F: std::io::Write>(guard: &ir::FlatGuard, f: &mut F) -> io::Result<()> {
+fn emit_guard<F: std::io::Write>(
+    guard: &ir::FlatGuard,
+    f: &mut F,
+) -> io::Result<()> {
     use guard_ref_to_name as gr;
 
     match guard {
