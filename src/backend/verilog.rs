@@ -566,7 +566,7 @@ fn emit_assignment_flat<F: io::Write>(
     for (src, guard) in assignments {
         writeln!(f, "  {} ? {} :", guard_ref_to_name(guard), port_to_ref(&src))?;
     }
-    writeln!(f, " {};", default)
+    writeln!(f, "  {};", default)
 }
 
 fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
