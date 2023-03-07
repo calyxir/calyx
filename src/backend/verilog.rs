@@ -352,7 +352,7 @@ fn emit_component<F: io::Write>(
             emit_assignment_flat(dst, &asgns, f)?;
 
             if enable_verification {
-                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool) {
+                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool, true) {
                     checks.add_seq(check);
                 }
             }
@@ -368,7 +368,7 @@ fn emit_component<F: io::Write>(
             writeln!(f, "{stmt}")?;
 
             if enable_verification {
-                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool) {
+                if let Some(check) = emit_guard_disjoint_check(dst, &asgns, &pool, false) {
                     checks.add_seq(check);
                 }
             }
@@ -476,6 +476,7 @@ fn emit_guard_disjoint_check(
     dst: &RRC<ir::Port>,
     assignments: &Vec<(RRC<ir::Port>, GuardRef)>,
     pool: &ir::GuardPool,
+    flat: bool,
 ) -> Option<v::Sequential> {
     if assignments.len() < 2 {
         return None;
@@ -483,8 +484,13 @@ fn emit_guard_disjoint_check(
     // Construct concat with all guards.
     let mut concat = v::ExprConcat::default();
     assignments.iter().for_each(|(src, gr)| {
-        let guard = pool.get(*gr);
-        concat.add_expr(guard_to_expr(guard, &pool));
+        let expr = if flat {
+            v::Expr::new_ref(guard_ref_to_name(*gr))
+        } else {
+            let guard = pool.get(*gr);
+            guard_to_expr(guard, &pool)
+        };
+        concat.add_expr(expr);
     });
 
     let onehot0 = v::Expr::new_call("$onehot0", vec![v::Expr::Concat(concat)]);
