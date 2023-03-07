@@ -318,31 +318,25 @@ fn emit_component<F: io::Write>(
     // Build a top-level always block to contain verilator checks for assignments
     let mut checks = v::ParallelProcess::new_always_comb();
 
-    // HACK HACK HACK JUST FOR FUN
+    // Flatten all the guard expressions.
     let mut pool = ir::GuardPool::new();
-    for (_, (port, asgns)) in &map {
-        for asgn in asgns {
-            let flat_guard = pool.flatten(&asgn.guard);
-            // TODO save the ref
-        }
-    }
+    let grouped_asgns: Vec<_> = map.values().map(|(dst, asgns)| {
+        let flat_asgns: Vec<_> = asgns.iter().map(|asgn| {
+            let guard = pool.flatten(&asgn.guard);
+            (asgn.src.clone(), guard)
+        }).collect();
+        (dst, flat_asgns)
+    }).collect();
+
+    // Emit Verilog for the flattened guards.
     for (idx, guard) in pool.iter() {
         writeln!(f, "logic {} = {};", guard_ref_to_name(idx), flat_guard_to_expr(guard))?;
     }
 
-    map.values()
-        .sorted_by_key(|(port, _)| port.borrow().canonical())
-        .try_for_each(|asgns| {
-            // If verification generation is enabled, emit disjointness check.
-            if enable_verification {
-                if let Some(check) = emit_guard_disjoint_check(asgns) {
-                    checks.add_seq(check);
-                };
-            }
-
-            let stmt = v::Stmt::new_parallel(emit_assignment(asgns));
-            writeln!(f, "{stmt}")
-        })?;
+    // Emit assignments using these guards.
+    for (dst, asgns) in grouped_asgns {
+        emit_assignment_flat(dst.clone(), asgns, f)?;
+    }
 
     if !synthesis_mode {
         writeln!(f, "{checks}")?;
@@ -550,6 +544,29 @@ fn emit_assignment(
         }
     };
     v::Parallel::ParAssign(port_to_ref(dst_ref), rhs)
+}
+
+fn emit_assignment_flat<F: io::Write>(
+    dst: RRC<ir::Port>,
+    assignments: Vec<(RRC<ir::Port>, GuardRef)>,
+    f: &mut F,
+) -> io::Result<()> {
+    // The default value depends on whether we are assigning to a data or control port.
+    let default = if is_data_port(&dst) {
+        "'x".to_owned()
+    } else {
+        format!("{}'d0", dst.borrow().width)
+    };
+
+    // TODO This doesn't do either of the little rewrites that the proper `emit_assignment` does
+    // when there is a single assignment.
+
+    // Use a cascade of ternary expressions to assign the right RHS to dst.
+    writeln!(f, "assign {} =", port_to_ref(&dst))?;
+    for (src, guard) in assignments {
+        writeln!(f, "  {} ? {}", guard_ref_to_name(guard), port_to_ref(&src))?;
+    }
+    writeln!(f, "  : {};", default)
 }
 
 fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
