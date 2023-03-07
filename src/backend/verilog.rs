@@ -321,6 +321,7 @@ fn emit_component<F: io::Write>(
     let mut pool = ir::GuardPool::new();
     let grouped_asgns: Vec<_> = map
         .values()
+        .sorted_by_key(|(port, _)| port.borrow().canonical())
         .map(|(dst, asgns)| {
             let flat_asgns: Vec<_> = asgns
                 .iter()
