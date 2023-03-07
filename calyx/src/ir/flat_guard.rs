@@ -1,5 +1,5 @@
+use super::guard::{Guard, PortComp};
 use super::{Port, RRC};
-use super::guard::{PortComp, Guard};
 
 #[derive(Debug, Copy, Clone)]
 pub struct GuardRef(u32);
@@ -24,7 +24,7 @@ pub enum FlatGuard {
 /// we are just replacing a single guard with this). It has an important invariant: GuardRefs are
 /// always within the same pool (obviously), and they can only go "backward," in the sense that
 /// they refer to smaller indices than the current FlatGuard.
-/// 
+///
 /// This currently does not do *any* kind of hash-consing or deduplication. It also naively grows
 /// the underlying vector; a more efficient implementation would pre-allocate the space. But we are
 /// currently focused on building up guards of unknown size, so I'm leaving this off for now.
@@ -37,9 +37,13 @@ impl GuardPool {
 
     fn add(&mut self, guard: FlatGuard) -> GuardRef {
         self.0.push(guard);
-        GuardRef((self.0.len() - 1).try_into().expect("too many guards in the pool"))
+        GuardRef(
+            (self.0.len() - 1)
+                .try_into()
+                .expect("too many guards in the pool"),
+        )
     }
-    
+
     pub fn flatten(&mut self, old: &Guard) -> GuardRef {
         match old {
             Guard::Or(l, r) => {
@@ -57,7 +61,9 @@ impl GuardPool {
                 self.add(FlatGuard::Not(flat_g))
             }
             Guard::True => self.add(FlatGuard::True),
-            Guard::CompOp(op, l, r) => self.add(FlatGuard::CompOp(op.clone(), l.clone(), r.clone())),
+            Guard::CompOp(op, l, r) => {
+                self.add(FlatGuard::CompOp(op.clone(), l.clone(), r.clone()))
+            }
             Guard::Port(p) => self.add(FlatGuard::Port(p.clone())),
         }
     }
@@ -69,8 +75,16 @@ impl GuardPool {
     #[cfg(debug_assertions)]
     pub fn display(&self, guard: &FlatGuard) -> String {
         match guard {
-            FlatGuard::Or(l, r) => format!("({} | {})", self.display(self.get(*l)), self.display(self.get(*r))),
-            FlatGuard::And(l, r) => format!("({} & {})", self.display(self.get(*l)), self.display(self.get(*r))),
+            FlatGuard::Or(l, r) => format!(
+                "({} | {})",
+                self.display(self.get(*l)),
+                self.display(self.get(*r))
+            ),
+            FlatGuard::And(l, r) => format!(
+                "({} & {})",
+                self.display(self.get(*l)),
+                self.display(self.get(*r))
+            ),
             FlatGuard::Not(g) => format!("!{}", self.display(self.get(*g))),
             FlatGuard::True => "true".to_string(),
             FlatGuard::CompOp(op, l, r) => {
@@ -82,16 +96,22 @@ impl GuardPool {
                     PortComp::Gt => ">",
                     PortComp::Geq => ">=",
                 };
-                format!("({} {} {})", l.borrow().canonical(), op_str, r.borrow().canonical())
-            },
+                format!(
+                    "({} {} {})",
+                    l.borrow().canonical(),
+                    op_str,
+                    r.borrow().canonical()
+                )
+            }
             FlatGuard::Port(p) => format!("{}", p.borrow().canonical()),
         }
     }
 
     /// Iterate over *all* the guards in the pool.
     pub fn iter(&self) -> impl Iterator<Item = (GuardRef, &FlatGuard)> {
-        self.0.iter().enumerate().map(|(i, g)| {
-            (GuardRef(i.try_into().unwrap()), g)
-        })
+        self.0
+            .iter()
+            .enumerate()
+            .map(|(i, g)| (GuardRef(i.try_into().unwrap()), g))
     }
 }

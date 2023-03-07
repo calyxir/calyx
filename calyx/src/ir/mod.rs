@@ -13,8 +13,8 @@ mod common;
 mod component;
 mod context;
 mod control;
-mod guard;
 mod flat_guard;
+mod guard;
 mod id;
 mod primitives;
 mod printer;
@@ -31,8 +31,8 @@ pub use context::{BackendConf, Context, LibrarySignatures};
 pub use control::{
     Cloner, Control, Empty, Enable, If, Invoke, Par, Seq, StaticEnable, While,
 };
-pub use guard::{Guard, PortComp};
 pub use flat_guard::{FlatGuard, GuardPool, GuardRef};
+pub use guard::{Guard, PortComp};
 pub use id::Id;
 pub use primitives::{PortDef, Primitive, Width};
 pub use printer::Printer;

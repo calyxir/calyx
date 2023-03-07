@@ -9,7 +9,7 @@ use calyx::{
     ir,
     utils::OutputFile,
 };
-use ir::{Control, Group, Guard, RRC, FlatGuard, GuardRef};
+use ir::{Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use itertools::Itertools;
 use std::io;
 use std::{collections::HashMap, rc::Rc};
@@ -320,19 +320,30 @@ fn emit_component<F: io::Write>(
 
     // Flatten all the guard expressions.
     let mut pool = ir::GuardPool::new();
-    let grouped_asgns: Vec<_> = map.values().map(|(dst, asgns)| {
-        let flat_asgns: Vec<_> = asgns.iter().map(|asgn| {
-            let guard = pool.flatten(&asgn.guard);
-            (asgn.src.clone(), guard)
-        }).collect();
-        (dst, flat_asgns)
-    }).collect();
+    let grouped_asgns: Vec<_> = map
+        .values()
+        .map(|(dst, asgns)| {
+            let flat_asgns: Vec<_> = asgns
+                .iter()
+                .map(|asgn| {
+                    let guard = pool.flatten(&asgn.guard);
+                    (asgn.src.clone(), guard)
+                })
+                .collect();
+            (dst, flat_asgns)
+        })
+        .collect();
 
     writeln!(f, "always @* begin")?;
 
     // Emit Verilog for the flattened guards.
     for (idx, guard) in pool.iter() {
-        writeln!(f, "logic {} = {};", guard_ref_to_name(idx), flat_guard_to_expr(guard))?;
+        writeln!(
+            f,
+            "logic {} = {};",
+            guard_ref_to_name(idx),
+            flat_guard_to_expr(guard)
+        )?;
     }
 
     // Emit assignments using these guards.
@@ -568,7 +579,12 @@ fn emit_assignment_flat<F: io::Write>(
     // Use a cascade of ternary expressions to assign the right RHS to dst.
     writeln!(f, "assign {} =", port_to_ref(&dst))?;
     for (src, guard) in assignments {
-        writeln!(f, "  {} ? {} :", guard_ref_to_name(guard), port_to_ref(&src))?;
+        writeln!(
+            f,
+            "  {} ? {} :",
+            guard_ref_to_name(guard),
+            port_to_ref(&src)
+        )?;
     }
     writeln!(f, "  {};", default)
 }
@@ -642,7 +658,7 @@ fn flat_guard_to_expr(guard: &ir::FlatGuard) -> String {
                 ir::PortComp::Leq => "<=",
             };
             format!("{} {} {}", port_to_ref(l), op, port_to_ref(r))
-        },
+        }
         FlatGuard::Not(o) => format!("~{}", gr(*o)),
         FlatGuard::True => "1".to_string(),
         FlatGuard::Port(p) => port_to_ref(p).to_string(),
