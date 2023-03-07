@@ -2,7 +2,7 @@ use super::{Port, RRC};
 use super::guard::{PortComp, Guard};
 
 #[derive(Debug, Copy, Clone)]
-pub struct GuardRef(u16);
+pub struct GuardRef(u32);
 
 impl std::fmt::Display for GuardRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
