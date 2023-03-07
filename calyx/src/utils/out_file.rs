@@ -1,4 +1,8 @@
-use std::{io, path::PathBuf, str::FromStr};
+use std::{
+    io::{self, BufWriter},
+    path::PathBuf,
+    str::FromStr,
+};
 
 /// Possible choices for output streams.
 /// Used by the `-o` option to the compiler.
@@ -52,9 +56,9 @@ impl OutputFile {
 
     pub fn get_write(&self) -> Box<dyn io::Write> {
         match self {
-            OutputFile::Stdout => Box::new(std::io::stdout()),
+            OutputFile::Stdout => Box::new(BufWriter::new(std::io::stdout())),
             OutputFile::File(path) => {
-                Box::new(std::fs::File::create(path).unwrap())
+                Box::new(BufWriter::new(std::fs::File::create(path).unwrap()))
             }
         }
     }
