@@ -564,9 +564,9 @@ fn emit_assignment_flat<F: io::Write>(
     // Use a cascade of ternary expressions to assign the right RHS to dst.
     writeln!(f, "assign {} =", port_to_ref(&dst))?;
     for (src, guard) in assignments {
-        writeln!(f, "  {} ? {}", guard_ref_to_name(guard), port_to_ref(&src))?;
+        writeln!(f, "  {} ? {} :", guard_ref_to_name(guard), port_to_ref(&src))?;
     }
-    writeln!(f, "  : {};", default)
+    writeln!(f, " {};", default)
 }
 
 fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
