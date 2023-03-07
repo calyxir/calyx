@@ -119,6 +119,9 @@ struct SplitAnalysis {
 
     /// Assignments that write to second cell, unless the assignment is already accounted by a different field
     snd_asmts: Vec<ir::Assignment>,
+
+    /// Writes to combinational assignments
+    comb_asmts: Vec<ir::Assignment>,
 }
 
 impl SplitAnalysis {
@@ -234,9 +237,12 @@ impl SplitAnalysis {
     pub fn possible_split(
         asmts: &[ir::Assignment],
     ) -> Option<(ir::Id, ir::Id)> {
-        let v = ReadWriteSet::write_set(asmts.iter())
-            .map(|cell| cell.clone_name())
-            .collect::<Vec<ir::Id>>();
+        let writes = ReadWriteSet::write_set(asmts.iter())
+            //.map(|cell| cell.clone_name())
+            .collect::<Vec<ir::RRC<ir::Cell>>>();
+
+        let (state_writes, comb_writes) =
+            writes.into_iter().partition(|cell| cell.borrow().is_comb());
 
         if v.len() == 2 {
             let (maybe_first, maybe_last, last) =
