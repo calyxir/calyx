@@ -7,7 +7,7 @@ impl_index!(pub Identifier);
 
 impl Identifier {
     #[inline]
-    pub fn get_default_id() -> Identifier {
+    pub(crate) fn get_default_id() -> Identifier {
         // manually construct
         Identifier(0)
     }
@@ -20,9 +20,15 @@ pub struct IdMap {
 }
 
 impl IdMap {
+    /// number of strings that are included by default. Used when constructing a
+    /// table with a specific capacity
+    const PREALLOCATED: usize = 3;
+
     /// inner builder style utility function
-    fn insert_empty_string(mut self) -> Self {
+    fn insert_basic_strings(mut self) -> Self {
         self.insert("");
+        self.insert("go");
+        self.insert("done");
         self
     }
 
@@ -36,10 +42,10 @@ impl IdMap {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             count: 0,
-            forward: HashMap::with_capacity(capacity + 1),
-            backward: HashMap::with_capacity(capacity + 1),
+            forward: HashMap::with_capacity(capacity + Self::PREALLOCATED),
+            backward: HashMap::with_capacity(capacity + Self::PREALLOCATED),
         }
-        .insert_empty_string()
+        .insert_basic_strings()
     }
 
     /// Inserts a string mapping into the table and returns the identifier.
@@ -63,8 +69,8 @@ impl IdMap {
     }
 
     /// Returns the identifier associated with the string, if present
-    pub fn lookup_id(&self, key: &String) -> Option<&Identifier> {
-        self.forward.get(key)
+    pub fn lookup_id<S: AsRef<str>>(&self, key: S) -> Option<&Identifier> {
+        self.forward.get(key.as_ref())
     }
 
     /// Returns the string associated with the identifier, if present

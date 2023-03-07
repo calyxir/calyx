@@ -44,7 +44,7 @@ pub struct SecondaryContext {
     /// table for mapping strings to identifiers
     pub string_table: IdMap,
     /// non-ref port definitions
-    pub port_defs: IndexedMap<LocalPortRef, Identifier>,
+    pub local_port_defs: IndexedMap<LocalPortRef, Identifier>,
     /// ref-cell ports
     pub ref_port_defs: IndexedMap<LocalRPortRef, Identifier>,
     /// non-ref-cell definitions
@@ -60,11 +60,11 @@ impl SecondaryContext {
         Default::default()
     }
 
-    pub fn push_local_id(&mut self, id: Identifier) -> LocalPortRef {
-        self.port_defs.push(id)
+    pub fn push_local_port(&mut self, id: Identifier) -> LocalPortRef {
+        self.local_port_defs.push(id)
     }
 
-    pub fn push_ref_id(&mut self, id: Identifier) -> LocalRPortRef {
+    pub fn push_ref_port(&mut self, id: Identifier) -> LocalRPortRef {
         self.ref_port_defs.push(id)
     }
 
@@ -88,12 +88,10 @@ impl SecondaryContext {
 impl Default for SecondaryContext {
     fn default() -> Self {
         let mut string_table = IdMap::new();
-        string_table.insert("done");
-        string_table.insert("go");
 
         Self {
             string_table,
-            port_defs: Default::default(),
+            local_port_defs: Default::default(),
             ref_port_defs: Default::default(),
             local_cell_defs: Default::default(),
             ref_cell_defs: Default::default(),

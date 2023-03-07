@@ -45,7 +45,7 @@ pub fn translate(
         translate_component(comp, &mut primary_ctx, &mut secondary_ctx);
     }
 
-    todo!()
+    (primary_ctx, secondary_ctx)
 }
 
 fn translate_group(
@@ -163,13 +163,12 @@ fn compute_local_layout(
     aux: &mut AuxillaryComponentInfo,
 ) -> PortMapper {
     let mut portmap = PortMapper::new();
-    let mut lp_gen = IndexGenerator::<LocalPortRef>::new();
-    let mut rp_gen = IndexGenerator::<LocalRPortRef>::new();
-
     // first, handle the signature ports
     for port in comp.signature.borrow().ports() {
-        secondary_ctx.string_table.insert(port.borrow().name);
-        portmap.insert(port.as_raw(), lp_gen.next().into());
+        let id = secondary_ctx.string_table.insert(port.borrow().name);
+        let idx = secondary_ctx.push_local_port(id);
+
+        portmap.insert(port.as_raw(), idx.into());
     }
 
     // second the group holes
@@ -178,7 +177,12 @@ fn compute_local_layout(
         for port in &group.holes {
             // skip inserting strings since "go" and "done" are already in the
             // string table at construction
-            portmap.insert(port.as_raw(), lp_gen.next().into());
+            let id = secondary_ctx
+                .string_table
+                .lookup_id(port.borrow().name)
+                .unwrap();
+            let idx = secondary_ctx.push_local_port(*id);
+            portmap.insert(port.as_raw(), idx.into());
         }
     }
 
@@ -192,21 +196,31 @@ fn compute_local_layout(
             || matches!(&cell_ref.prototype, cir::CellType::Constant { .. })
         {
             if !cell_ref.is_reference() {
-                let base = lp_gen.peek_next_idx();
+                let base = secondary_ctx.local_port_defs.peek_next_idx();
 
                 for port in cell_ref.ports() {
-                    secondary_ctx.string_table.insert(port.borrow().name);
-                    portmap.insert(port.as_raw(), lp_gen.next().into());
+                    let id =
+                        secondary_ctx.string_table.insert(port.borrow().name);
+                    let idx = secondary_ctx.push_local_port(id);
+                    portmap.insert(port.as_raw(), idx.into());
                 }
-                let range = IndexRange::new(base, lp_gen.peek_next_idx());
+                let range = IndexRange::new(
+                    base,
+                    secondary_ctx.local_port_defs.peek_next_idx(),
+                );
                 secondary_ctx.push_local_cell(id, range);
             } else {
-                let base = rp_gen.peek_next_idx();
+                let base = secondary_ctx.ref_port_defs.peek_next_idx();
                 for port in cell_ref.ports() {
-                    secondary_ctx.string_table.insert(port.borrow().name);
-                    portmap.insert(port.as_raw(), rp_gen.next().into());
+                    let id =
+                        secondary_ctx.string_table.insert(port.borrow().name);
+                    let idx = secondary_ctx.push_ref_port(id);
+                    portmap.insert(port.as_raw(), idx.into());
                 }
-                let range = IndexRange::new(base, rp_gen.peek_next_idx());
+                let range = IndexRange::new(
+                    base,
+                    secondary_ctx.ref_port_defs.peek_next_idx(),
+                );
                 secondary_ctx.push_ref_cell(id, range);
             }
         } else {
