@@ -334,8 +334,6 @@ fn emit_component<F: io::Write>(
         })
         .collect();
 
-    // Build a top-level always block to contain verilator checks for assignments
-    let mut checks = v::ParallelProcess::new_always_comb();
 
     if flat_assign {
         // Emit "flattened" assignments as ANF statements.
@@ -356,13 +354,16 @@ fn emit_component<F: io::Write>(
                 if let Some(check) =
                     emit_guard_disjoint_check(dst, &asgns, &pool, true)
                 {
-                    checks.add_seq(check);
+                    writeln!(f, "{check}")?;
                 }
             }
         }
 
         writeln!(f, "end")?;
     } else {
+        // Build a top-level always block to contain verilator checks for assignments
+        let mut checks = v::ParallelProcess::new_always_comb();
+
         // Emit nested assignments.
         for (dst, asgns) in grouped_asgns {
             let stmt =
@@ -377,10 +378,10 @@ fn emit_component<F: io::Write>(
                 }
             }
         }
-    }
 
-    if !synthesis_mode {
-        writeln!(f, "{checks}")?;
+        if !synthesis_mode {
+            writeln!(f, "{checks}")?;
+        }
     }
 
     // Add COMPONENT END: <name> anchor
