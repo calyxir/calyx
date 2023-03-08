@@ -611,13 +611,28 @@ fn emit_assignment_flat<F: io::Write>(
         if data {
             // For data ports (for whom unassigned values are undefined), we can drop the guard
             // entirely and assume it is always true (because it would be UB if it were ever false).
-            return writeln!(f, "assign {} = {};", VerilogPortRef(&dst), VerilogPortRef(&src));
+            return writeln!(
+                f,
+                "assign {} = {};",
+                VerilogPortRef(&dst),
+                VerilogPortRef(&src)
+            );
         } else {
             // For non-data ("control") ports, we have special cases for true guards and constant-1 RHSes.
             if guard.is_true() {
-                return writeln!(f, "assign {} = {};", VerilogPortRef(&dst), VerilogPortRef(&src));
+                return writeln!(
+                    f,
+                    "assign {} = {};",
+                    VerilogPortRef(&dst),
+                    VerilogPortRef(&src)
+                );
             } else if src.borrow().is_constant(1, 1) {
-                return writeln!(f, "assign {} = {};", VerilogPortRef(&dst), VerilogGuardRef(*guard));
+                return writeln!(
+                    f,
+                    "assign {} = {};",
+                    VerilogPortRef(&dst),
+                    VerilogGuardRef(*guard)
+                );
             }
         }
     }
