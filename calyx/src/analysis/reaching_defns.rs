@@ -459,6 +459,9 @@ fn build_reaching_def(
             (cur_reach, killed)
         }
         ir::Control::StaticEnable(en) => {
+            // (Note Caleb/Pai): This is similar to case for enable group right now
+            // We could eventually try to merge it, but we should do it after we have
+            // hammered down the details of the rest of the static IR assignments
             let asgns = &en.group.borrow().assignments;
             let writes = ReadWriteSet::must_write_set(asgns.iter());
             // for each write:

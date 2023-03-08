@@ -133,6 +133,7 @@ impl ReadWriteSet {
                     .collect(),
             ),
             ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => (
+                // Will have to change when we implement static assignments
                 Self::port_read_set(group.borrow().assignments.iter())
                     .collect(),
                 Self::port_write_set(group.borrow().assignments.iter())

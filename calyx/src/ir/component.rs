@@ -89,14 +89,14 @@ impl Component {
         self.namegen.add_names(names)
     }
 
-    /// gives the component's groups
-    pub fn give_groups(self) -> IdList<Group> {
-        self.groups
-    }
-
     /// gets the component's groups
     pub fn get_groups(&self) -> &IdList<Group> {
         &self.groups
+    }
+
+    /// gets the component's static groups
+    pub fn get_static_groups(&self) -> &IdList<StaticGroup> {
+        &self.static_groups
     }
 
     /// gets the component's groups
@@ -117,11 +117,6 @@ impl Component {
     /// gets the component's groups
     pub fn set_static_groups(&mut self, static_groups: IdList<StaticGroup>) {
         self.static_groups = static_groups
-    }
-
-    /// gets the component's static groups
-    pub fn get_static_groups(&self) -> &IdList<StaticGroup> {
-        &self.static_groups
     }
 
     /// Return a reference to the group with `name` if present.

@@ -159,11 +159,11 @@ impl Visitor for HoleInliner {
             let mut group = group.borrow_mut();
             assignments.append(&mut group.assignments.drain(..).collect());
         }
-        for group in builder.component.get_static_groups().iter() {
-            // remove all assignments from group, taking ownership
-            let mut group = group.borrow_mut();
-            assignments.append(&mut group.assignments.drain(..).collect());
-        }
+
+        assert!(
+            builder.component.get_static_groups().is_empty(),
+            "should have removed static groups when inlining holes"
+        );
 
         // add the continuous assignment edges
         assignments.append(
