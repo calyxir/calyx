@@ -74,6 +74,7 @@ impl IdMap {
                 self.count += 1;
 
                 self.backward.push(k.clone());
+                debug_assert!(self.backward.len() == self.count as usize);
                 id
             });
 
