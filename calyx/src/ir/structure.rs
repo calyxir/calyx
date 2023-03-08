@@ -411,10 +411,11 @@ impl Cell {
     }
 
     // returns true if cell is comb, false otherwise
-    // note that neither components,cells, nor constants can be combinational
+    // note that this component/component cannot be combinational
     pub fn is_comb(&self) -> bool {
         match self.prototype {
             CellType::Primitive { is_comb, .. } => is_comb,
+            CellType::Constant { .. } => true,
             _ => false,
         }
     }
