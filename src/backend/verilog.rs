@@ -611,25 +611,25 @@ fn emit_assignment_flat<F: io::Write>(
         if data {
             // For data ports (for whom unassigned values are undefined), we can drop the guard
             // entirely and assume it is always true (because it would be UB if it were ever false).
-            return writeln!(f, "assign {} = {};", port_to_ref(&dst), port_to_ref(&src));
+            return writeln!(f, "assign {} = {};", VerilogPortRef(&dst), VerilogPortRef(&src));
         } else {
             // For non-data ("control") ports, we have special cases for true guards and constant-1 RHSes.
             if guard.is_true() {
-                return writeln!(f, "assign {} = {};", port_to_ref(&dst), port_to_ref(&src));
+                return writeln!(f, "assign {} = {};", VerilogPortRef(&dst), VerilogPortRef(&src));
             } else if src.borrow().is_constant(1, 1) {
-                return writeln!(f, "assign {} = {};", port_to_ref(&dst), VerilogGuardRef(*guard));
+                return writeln!(f, "assign {} = {};", VerilogPortRef(&dst), VerilogGuardRef(*guard));
             }
         }
     }
 
     // Use a cascade of ternary expressions to assign the right RHS to dst.
-    writeln!(f, "assign {} =", port_to_ref(&dst))?;
+    writeln!(f, "assign {} =", VerilogPortRef(&dst))?;
     for (src, guard) in assignments {
         writeln!(
             f,
             "  {} ? {} :",
             VerilogGuardRef(*guard),
-            port_to_ref(&src)
+            VerilogPortRef(&src)
         )?;
     }
 
@@ -706,6 +706,38 @@ impl std::fmt::Display for VerilogGuardRef {
     }
 }
 
+/// Similarly, a little wrapper for PortRefs that makes it easy to format them as Verilog variables.
+struct VerilogPortRef<'a>(&'a RRC<ir::Port>);
+
+impl<'a> std::fmt::Display for VerilogPortRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let port = self.0.borrow();
+        match &port.parent {
+            ir::PortParent::Cell(cell) => {
+                let parent_ref = cell.upgrade();
+                let parent = parent_ref.borrow();
+                match parent.prototype {
+                    ir::CellType::Constant { val, width } => {
+                        write!(f, "{width}'d{val}")
+                    }
+                    ir::CellType::ThisComponent => {
+                        write!(f, "{}", port.name)
+                    }
+                    _ => {
+                        write!(
+                            f,
+                            "{}_{}",
+                            parent.name().as_ref(),
+                            port.name.as_ref()
+                        )
+                    }
+                }
+            }
+            ir::PortParent::Group(_) => unreachable!(),
+        }
+    }
+}
+
 fn emit_guard<F: std::io::Write>(
     guard: &ir::FlatGuard,
     f: &mut F,
@@ -723,11 +755,11 @@ fn emit_guard<F: std::io::Write>(
                 ir::PortComp::Geq => ">=",
                 ir::PortComp::Leq => "<=",
             };
-            write!(f, "{} {} {}", port_to_ref(l), op, port_to_ref(r))
+            write!(f, "{} {} {}", VerilogPortRef(l), op, VerilogPortRef(r))
         }
         FlatGuard::Not(g) => write!(f, "~{}", gr(*g)),
         FlatGuard::True => write!(f, "1"),
-        FlatGuard::Port(p) => write!(f, "{}", port_to_ref(p)),
+        FlatGuard::Port(p) => write!(f, "{}", VerilogPortRef(p)),
     }
 }
 
