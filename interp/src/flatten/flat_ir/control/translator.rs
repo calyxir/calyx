@@ -110,7 +110,7 @@ fn translate_assignment(
 fn translate_guard(
     guard: &cir::Guard,
     interp_ctx: &mut InterpretationContext,
-    secondary_ctx: &mut SecondaryContext,
+    _secondary_ctx: &mut SecondaryContext,
     map: &PortMapper,
 ) -> GuardIdx {
     flatten_tree(guard, None, &mut interp_ctx.guards, map)
@@ -157,7 +157,7 @@ fn translate_component(
 
 fn compute_local_layout(
     comp: &cir::Component,
-    ctx: &mut InterpretationContext,
+    _ctx: &mut InterpretationContext,
     secondary_ctx: &mut SecondaryContext,
     aux: &mut AuxillaryComponentInfo,
 ) -> PortMapper {

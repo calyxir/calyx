@@ -1,14 +1,11 @@
-// making these all u32 for now, can give the macro an optional type as the
-// second arg to contract or expand as needed
-
-use std::ops::Index;
-
-use crate::flatten::structures::{
-    index_trait::{impl_index, impl_index_nonzero, IndexRange},
-    indexed_map::{AuxillaryMap, IndexedMap},
+use crate::flatten::structures::index_trait::{
+    impl_index, impl_index_nonzero, IndexRange,
 };
 
 use super::prelude::Identifier;
+
+// making these all u32 for now, can give the macro an optional type as the
+// second arg to contract or expand as needed
 
 impl_index!(pub ComponentRef);
 
@@ -27,6 +24,8 @@ impl_index!(pub GlobalRCellRef);
 impl_index!(pub LocalRCellRef);
 impl_index!(pub LocalRPortRef);
 
+// I forget why I thought I needed these, truly not sure if they are need at the
+// moment but easy to delete later
 pub struct RelativePortIdx(u32);
 pub struct RelativeRefPortIdx(u32);
 pub struct RelativeCellIdx(u32);
