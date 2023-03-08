@@ -125,6 +125,26 @@ fud exec --to jq \
 timeout = 120
 
 [[tests]]
+name = "correctness dynamic flat"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s verilog.data {}.data \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags ' -d tdst --flat' \
+         -s verilog.cycle_limit 500 \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+[[tests]]
 name = "correctness static timing"
 paths = [
   "tests/correctness/*.futil",
@@ -135,6 +155,25 @@ fud exec --to jq \
          --through verilog \
          --through dat \
          -s futil.exec './target/debug/futil' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+[[tests]]
+name = "correctness static timing flat"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags ' --flat' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \
