@@ -337,11 +337,9 @@ fn emit_component<F: io::Write>(
 
     if flat_assign {
         // Emit "flattened" assignments as ANF statements.
-        writeln!(f, "always @* begin")?;
-
         // Emit Verilog for the flattened guards.
         for (idx, guard) in pool.iter() {
-            write!(f, "logic {} = ", VerilogGuardRef(idx))?;
+            write!(f, "wire {} = ", VerilogGuardRef(idx))?;
             emit_guard(guard, f)?;
             writeln!(f, ";")?;
         }
@@ -354,12 +352,14 @@ fn emit_component<F: io::Write>(
                 if let Some(check) =
                     emit_guard_disjoint_check(dst, &asgns, &pool, true)
                 {
-                    writeln!(f, "{check}")?;
+                    writeln!(f, "always_comb begin")?;
+                    writeln!(f, "  {check}")?;
+                    writeln!(f, "end")?;
                 }
             }
         }
 
-        writeln!(f, "end")?;
+
     } else {
         // Build a top-level always block to contain verilator checks for assignments
         let mut checks = v::ParallelProcess::new_always_comb();
