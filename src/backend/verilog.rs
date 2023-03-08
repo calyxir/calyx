@@ -345,11 +345,11 @@ fn emit_component<F: io::Write>(
 
         // Emit assignments using these guards.
         for (dst, asgns) in &grouped_asgns {
-            emit_assignment_flat(dst, &asgns, f)?;
+            emit_assignment_flat(dst, asgns, f)?;
 
             if enable_verification {
                 if let Some(check) =
-                    emit_guard_disjoint_check(dst, &asgns, &pool, true)
+                    emit_guard_disjoint_check(dst, asgns, &pool, true)
                 {
                     writeln!(f, "always_comb begin")?;
                     writeln!(f, "  {check}")?;
@@ -476,7 +476,7 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// ```
 fn emit_guard_disjoint_check(
     dst: &RRC<ir::Port>,
-    assignments: &Vec<(RRC<ir::Port>, GuardRef)>,
+    assignments: &[(RRC<ir::Port>, GuardRef)],
     pool: &ir::GuardPool,
     flat: bool,
 ) -> Option<v::Sequential> {
@@ -490,7 +490,7 @@ fn emit_guard_disjoint_check(
             v::Expr::new_ref(VerilogGuardRef(*gr).to_string())
         } else {
             let guard = pool.get(*gr);
-            guard_to_expr(guard, &pool)
+            guard_to_expr(guard, pool)
         };
         concat.add_expr(expr);
     });
@@ -544,7 +544,7 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
 /// ```
 fn emit_assignment(
     dst: &RRC<ir::Port>,
-    assignments: &Vec<(RRC<ir::Port>, GuardRef)>,
+    assignments: &[(RRC<ir::Port>, GuardRef)],
     pool: &ir::GuardPool,
 ) -> v::Parallel {
     // Mux over the assignment with the given default value.
@@ -577,7 +577,7 @@ fn emit_assignment(
         if assignments.len() == 1 {
             let (src, gr) = &assignments[0];
             if gr.is_true() {
-                port_to_ref(&src)
+                port_to_ref(src)
             } else if src.borrow().is_constant(1, 1) {
                 let guard = pool.get(*gr);
                 guard_to_expr(guard, pool)
@@ -585,7 +585,7 @@ fn emit_assignment(
                 let guard = pool.get(*gr);
                 v::Expr::new_mux(
                     guard_to_expr(guard, pool),
-                    port_to_ref(&src),
+                    port_to_ref(src),
                     init,
                 )
             }
@@ -598,10 +598,10 @@ fn emit_assignment(
 
 fn emit_assignment_flat<F: io::Write>(
     dst: &RRC<ir::Port>,
-    assignments: &Vec<(RRC<ir::Port>, GuardRef)>,
+    assignments: &[(RRC<ir::Port>, GuardRef)],
     f: &mut F,
 ) -> io::Result<()> {
-    let data = is_data_port(&dst);
+    let data = is_data_port(dst);
 
     // Simple optimizations for 1-guard cases.
     if assignments.len() == 1 {
@@ -612,8 +612,8 @@ fn emit_assignment_flat<F: io::Write>(
             return writeln!(
                 f,
                 "assign {} = {};",
-                VerilogPortRef(&dst),
-                VerilogPortRef(&src)
+                VerilogPortRef(dst),
+                VerilogPortRef(src)
             );
         } else {
             // For non-data ("control") ports, we have special cases for true guards and constant-1 RHSes.
@@ -621,14 +621,14 @@ fn emit_assignment_flat<F: io::Write>(
                 return writeln!(
                     f,
                     "assign {} = {};",
-                    VerilogPortRef(&dst),
-                    VerilogPortRef(&src)
+                    VerilogPortRef(dst),
+                    VerilogPortRef(src)
                 );
             } else if src.borrow().is_constant(1, 1) {
                 return writeln!(
                     f,
                     "assign {} = {};",
-                    VerilogPortRef(&dst),
+                    VerilogPortRef(dst),
                     VerilogGuardRef(*guard)
                 );
             }
@@ -636,13 +636,13 @@ fn emit_assignment_flat<F: io::Write>(
     }
 
     // Use a cascade of ternary expressions to assign the right RHS to dst.
-    writeln!(f, "assign {} =", VerilogPortRef(&dst))?;
+    writeln!(f, "assign {} =", VerilogPortRef(dst))?;
     for (src, guard) in assignments {
         writeln!(
             f,
             "  {} ? {} :",
             VerilogGuardRef(*guard),
-            VerilogPortRef(&src)
+            VerilogPortRef(src)
         )?;
     }
 

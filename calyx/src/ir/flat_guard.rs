@@ -142,3 +142,9 @@ impl GuardPool {
             .map(|(i, g)| (GuardRef(i.try_into().unwrap()), g))
     }
 }
+
+impl Default for GuardPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
