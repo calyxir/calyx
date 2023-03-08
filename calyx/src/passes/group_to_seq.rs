@@ -36,14 +36,15 @@ impl Visitor for GroupToSeq {
             comp.get_groups_mut().drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
+            let group_name = g.clone_name();
             if let Some(seq) = SplitAnalysis::get_split(
                 &mut g.borrow_mut().assignments,
-                g.clone_name(),
+                group_name.clone(),
                 &mut builder,
                 // seqs should not include static groups
                 false,
             ) {
-                self.group_seq_map.insert(g.clone_name(), seq);
+                self.group_seq_map.insert(group_name, seq);
             }
         }
 
