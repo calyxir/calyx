@@ -25,7 +25,6 @@ impl Identifier {
 /// issue
 #[derive(Debug)]
 pub struct IdMap {
-    count: u32,
     forward: HashMap<String, Identifier>,
     // Identifiers are handed out linearly so this is a simple vector
     backward: Vec<String>,
@@ -53,7 +52,6 @@ impl IdMap {
     /// preallocated and the empty string inserted
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            count: 0,
             forward: HashMap::with_capacity(capacity + Self::PREALLOCATED),
             backward: Vec::with_capacity(capacity + Self::PREALLOCATED),
         }
@@ -70,11 +68,8 @@ impl IdMap {
             .forward
             .entry(input.as_ref().to_string())
             .or_insert_with_key(|k| {
-                let id = Identifier::from(self.count);
-                self.count += 1;
-
+                let id = Identifier::from(self.backward.len());
                 self.backward.push(k.clone());
-                debug_assert!(self.backward.len() == self.count as usize);
                 id
             });
 
