@@ -2,7 +2,7 @@
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
 use itertools::Itertools;
-
+use crate::ir::guard::NGuard;
 use crate::ir::{self, RRC};
 use std::io;
 use std::path::Path;
@@ -454,7 +454,7 @@ impl Printer {
     }
 
     /// Generate a String-based representation for a guard.
-    pub fn guard_str(guard: &ir::Guard) -> String {
+    pub fn guard_str(guard: &ir::NGuard) -> String {
         match &guard {
             ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
                 let left = if &**l > guard {
