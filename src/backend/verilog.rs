@@ -334,7 +334,6 @@ fn emit_component<F: io::Write>(
         })
         .collect();
 
-
     if flat_assign {
         // Emit "flattened" assignments as ANF statements.
         // Emit Verilog for the flattened guards.
@@ -358,8 +357,6 @@ fn emit_component<F: io::Write>(
                 }
             }
         }
-
-
     } else {
         // Build a top-level always block to contain verilator checks for assignments
         let mut checks = v::ParallelProcess::new_always_comb();
