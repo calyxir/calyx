@@ -1,5 +1,5 @@
+use ahash::{HashMap, HashMapExt};
 use calyx::ir::{self as cir};
-use hashbrown::HashMap;
 
 use crate::{
     flatten::{

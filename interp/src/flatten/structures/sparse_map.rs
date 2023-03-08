@@ -1,7 +1,7 @@
 use std::{hash::Hash, ops::Index};
 
 use super::index_trait::IndexRef;
-use hashbrown::HashMap;
+use ahash::{HashMap, HashMapExt};
 
 #[derive(Debug, Default)]
 pub struct SparseMap<K, D>
