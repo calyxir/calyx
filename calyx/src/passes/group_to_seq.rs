@@ -39,7 +39,7 @@ impl Visitor for GroupToSeq {
             let group_name = g.clone_name();
             if let Some(seq) = SplitAnalysis::get_split(
                 &mut g.borrow_mut().assignments,
-                group_name.clone(),
+                group_name,
                 &mut builder,
                 // seqs should not include static groups
                 false,
