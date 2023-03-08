@@ -1,7 +1,7 @@
 use ahash::{HashMap, HashMapExt};
 use std::hash::Hash;
 
-use crate::flatten::structures::index_trait::impl_index;
+use crate::flatten::structures::index_trait::{impl_index, IndexRef};
 
 impl_index!(pub Identifier);
 
@@ -13,6 +13,10 @@ impl Identifier {
     }
 }
 
+/// A map used to store strings and assign them unique identifiers. This is
+/// designed to work both forward and backwards. The forward map is a hashmap
+/// while the backward map is a simple dense vector
+///
 /// This is using the [ahash] crate instead of the std
 /// [HashMap](std::collections::HashMap) for general speed though that is likely
 /// unnecessary as this should not be on any hot paths. If we want to be
@@ -23,7 +27,8 @@ impl Identifier {
 pub struct IdMap {
     count: u32,
     forward: HashMap<String, Identifier>,
-    backward: HashMap<Identifier, String>,
+    // Identifiers are handed out linearly so this is a simple vector
+    backward: Vec<String>,
 }
 
 impl IdMap {
@@ -50,7 +55,7 @@ impl IdMap {
         Self {
             count: 0,
             forward: HashMap::with_capacity(capacity + Self::PREALLOCATED),
-            backward: HashMap::with_capacity(capacity + Self::PREALLOCATED),
+            backward: Vec::with_capacity(capacity + Self::PREALLOCATED),
         }
         .insert_basic_strings()
     }
@@ -68,7 +73,7 @@ impl IdMap {
                 let id = Identifier::from(self.count);
                 self.count += 1;
 
-                self.backward.insert(id, k.clone());
+                self.backward.push(k.clone());
                 id
             });
 
@@ -82,7 +87,7 @@ impl IdMap {
 
     /// Returns the string associated with the identifier, if present
     pub fn lookup_string(&self, id: &Identifier) -> Option<&String> {
-        self.backward.get(id)
+        self.backward.get(id.index())
     }
 }
 
