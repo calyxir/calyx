@@ -50,8 +50,8 @@ impl PassManager {
         });
         self.passes.insert(name.clone(), pass_closure);
         let mut help = format!("- {}: {}", name, Pass::description());
-        for opt in Pass::opts() {
-            write!(&mut help, "\n  * {}", opt).unwrap();
+        for (opt, desc) in Pass::opts() {
+            write!(&mut help, "\n  * {}: {}", opt, desc).unwrap();
         }
         self.help.insert(name, help);
         Ok(())

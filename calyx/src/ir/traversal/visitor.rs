@@ -21,7 +21,8 @@ pub trait Named {
     /// A short description of the pass.
     fn description() -> &'static str;
     /// Set of options that can be passed to the pass.
-    fn opts() -> &'static [&'static str] {
+    /// The options contains a tuple of the option name and a description.
+    fn opts() -> &'static [(&'static str, &'static str)] {
         &[]
     }
 }
@@ -53,9 +54,15 @@ pub trait ConstructVisitor {
             })
             .collect();
 
-        let values = opts.iter().map(|o| given_opts.contains(o)).collect_vec();
+        let values = opts
+            .iter()
+            .map(|(o, _)| given_opts.contains(o))
+            .collect_vec();
 
-        if let Some(unknown) = given_opts.iter().find(|o| !opts.contains(o)) {
+        if let Some(unknown) = given_opts
+            .iter()
+            .find(|&&o| !opts.iter().any(|(opts, _)| opts == &o))
+        {
             log::warn!(
                 "Ignoring unknown option for pass `{}`: {}",
                 Self::name(),
@@ -69,7 +76,7 @@ pub trait ConstructVisitor {
                 Self::name(),
                 opts.iter()
                     .zip(values.iter())
-                    .map(|(o, v)| format!("{o}->{v}"))
+                    .map(|((o, _), v)| format!("{o}->{v}"))
                     .join(", ")
             );
         }

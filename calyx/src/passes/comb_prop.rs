@@ -158,8 +158,11 @@ impl ir::traversal::Named for CombProp {
         "propagate unconditional continuous assignments"
     }
 
-    fn opts() -> &'static [&'static str] {
-        &["no-eliminate"]
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[(
+            "no-eliminate",
+            "mark dead assignments with @dead instead of removing them",
+        )]
     }
 }
 

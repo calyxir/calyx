@@ -799,8 +799,17 @@ impl Named for TopDownCompileControl {
         "Top-down compilation for removing control constructs"
     }
 
-    fn opts() -> &'static [&'static str] {
-        &["dump-fsm", "early-transitions"]
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[
+            (
+                "dump-fsm",
+                "Print out the state machine implementing the schedule",
+            ),
+            (
+                "early-transitions",
+                "Experimental: Enable early transitions for group enables",
+            ),
+        ]
     }
 }
 

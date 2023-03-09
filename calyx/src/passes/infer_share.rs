@@ -27,8 +27,8 @@ impl Named for InferShare {
         "Infer User Defined Components as Shareable"
     }
 
-    fn opts() -> &'static [&'static str] {
-        &["print-dmap"]
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[("print-dmap", "Print the domination map")]
     }
 }
 

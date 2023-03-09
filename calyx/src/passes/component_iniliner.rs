@@ -47,8 +47,14 @@ impl Named for ComponentInliner {
         "inline all component instances marked with @inline attribute"
     }
 
-    fn opts() -> &'static [&'static str] {
-        &["always", "new-fsms"]
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[
+            (
+                "always",
+                "Attempt to inline all components into the main component",
+            ),
+            ("new-fsms", "Instantiate new FSM for each inlined component"),
+        ]
     }
 }
 

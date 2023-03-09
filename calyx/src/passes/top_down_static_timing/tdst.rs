@@ -770,8 +770,11 @@ impl Named for TopDownStaticTiming {
         "Top-down latency-sensitive compilation for removing control constructs"
     }
 
-    fn opts() -> &'static [&'static str] {
-        &["dump-fsm", "force"]
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[
+            ("dump-fsm", "Print out the state machine implementing the schedule"),
+            ("force", "Error if the program cannot be fully compiled using static timing")
+        ]
     }
 }
 
