@@ -90,41 +90,51 @@ impl_index_nonzero!(pub CombGroupIdx);
 impl_index!(pub GuardIdx);
 
 #[derive(Debug, Clone)]
-pub struct RefCellInfo {
+pub struct CellDefinitionInfo<C>
+where
+    C: sealed::PortType,
+{
     name: Identifier,
-    ports: IndexRange<RefPortDefinition>,
+    ports: IndexRange<C>,
+    parent: ComponentRef,
 }
 
-impl RefCellInfo {
-    pub fn new(name: Identifier, ports: IndexRange<RefPortDefinition>) -> Self {
-        Self { name, ports }
+impl<C> CellDefinitionInfo<C>
+where
+    C: sealed::PortType,
+{
+    pub fn new(
+        name: Identifier,
+        ports: IndexRange<C>,
+        parent: ComponentRef,
+    ) -> Self {
+        Self {
+            name,
+            ports,
+            parent,
+        }
     }
 
     pub fn name(&self) -> Identifier {
         self.name
     }
 
-    pub fn ports(&self) -> &IndexRange<RefPortDefinition> {
+    pub fn ports(&self) -> &IndexRange<C> {
         &self.ports
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct LocalCellInfo {
-    name: Identifier,
-    ports: IndexRange<PortDefinition>,
-}
+pub type CellInfo = CellDefinitionInfo<LocalPortOffset>;
+pub type RefCellInfo = CellDefinitionInfo<LocalRefPortOffset>;
 
-impl LocalCellInfo {
-    pub fn new(name: Identifier, ports: IndexRange<PortDefinition>) -> Self {
-        Self { name, ports }
-    }
+// don't look at this. Seriously
+mod sealed {
+    use crate::flatten::structures::index_trait::IndexRef;
 
-    pub fn name(&self) -> Identifier {
-        self.name
-    }
+    use super::{LocalPortOffset, LocalRefPortOffset};
 
-    pub fn ports(&self) -> &IndexRange<PortDefinition> {
-        &self.ports
-    }
+    pub trait PortType: IndexRef + PartialOrd {}
+
+    impl PortType for LocalPortOffset {}
+    impl PortType for LocalRefPortOffset {}
 }

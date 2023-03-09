@@ -2,8 +2,9 @@ use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
     identifier::IdMap,
     prelude::{
-        CellDefinition, CombGroupMap, ComponentRef, Identifier, LocalCellInfo,
-        PortDefinition, RefCellDefinition, RefCellInfo, RefPortDefinition,
+        CellDefinition, CellInfo, CombGroupMap, ComponentRef, Identifier,
+        LocalPortOffset, LocalRefPortOffset, PortDefinition, RefCellDefinition,
+        RefCellInfo, RefPortDefinition,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -48,7 +49,7 @@ pub struct SecondaryContext {
     /// ref-cell ports
     pub ref_port_defs: IndexedMap<RefPortDefinition, Identifier>,
     /// non-ref-cell definitions
-    pub local_cell_defs: IndexedMap<CellDefinition, LocalCellInfo>,
+    pub local_cell_defs: IndexedMap<CellDefinition, CellInfo>,
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinition, RefCellInfo>,
     /// auxillary information for components
@@ -71,17 +72,21 @@ impl SecondaryContext {
     pub fn push_local_cell(
         &mut self,
         name: Identifier,
-        ports: IndexRange<PortDefinition>,
+        ports: IndexRange<LocalPortOffset>,
+        parent: ComponentRef,
     ) -> CellDefinition {
-        self.local_cell_defs.push(LocalCellInfo::new(name, ports))
+        self.local_cell_defs
+            .push(CellInfo::new(name, ports, parent))
     }
 
     pub fn push_ref_cell(
         &mut self,
         name: Identifier,
-        ports: IndexRange<RefPortDefinition>,
+        ports: IndexRange<LocalRefPortOffset>,
+        parent: ComponentRef,
     ) -> RefCellDefinition {
-        self.ref_cell_defs.push(RefCellInfo::new(name, ports))
+        self.ref_cell_defs
+            .push(RefCellInfo::new(name, ports, parent))
     }
 }
 

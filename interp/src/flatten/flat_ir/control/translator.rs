@@ -185,10 +185,17 @@ fn insert_port(
 
 fn compute_local_layout(
     comp: &cir::Component,
-    _ctx: &mut InterpretationContext,
+    ctx: &mut InterpretationContext,
     secondary_ctx: &mut SecondaryContext,
     aux: &mut AuxillaryComponentInfo,
 ) -> PortMapper {
+    let comp_id = ctx.components.peek_next_idx();
+
+    let port_def_base = secondary_ctx.local_port_defs.peek_next_idx();
+    let ref_port_def_base = secondary_ctx.ref_port_defs.peek_next_idx();
+    let cell_def_base = secondary_ctx.local_cell_defs.peek_next_idx();
+    let ref_cell_def_base = secondary_ctx.ref_cell_defs.peek_next_idx();
+
     let mut portmap = PortMapper::new();
 
     // need this to set the appropriate signature range on the component
@@ -229,7 +236,7 @@ fn compute_local_layout(
         {
             // CASE 1 - Normal Cell
             if !cell_ref.is_reference() {
-                let base = secondary_ctx.local_port_defs.peek_next_idx();
+                let base = aux.port_offset_map.peek_next_index();
 
                 for port in cell_ref.ports() {
                     let local_offset =
@@ -238,13 +245,15 @@ fn compute_local_layout(
                 }
                 let range = IndexRange::new(
                     base,
-                    secondary_ctx.local_port_defs.peek_next_idx(),
+                    aux.port_offset_map.peek_next_index(),
                 );
-                secondary_ctx.push_local_cell(id, range);
+                let cell_def =
+                    secondary_ctx.push_local_cell(id, range, comp_id);
+                aux.cell_offset_map.insert(cell_def);
             }
             // CASE 2 - Reference Cell
             else {
-                let base = secondary_ctx.ref_port_defs.peek_next_idx();
+                let base = aux.ref_port_offset_map.peek_next_index();
                 for port in cell_ref.ports() {
                     let local_offset =
                         insert_port(secondary_ctx, aux, port, PortType::Ref);
@@ -253,9 +262,11 @@ fn compute_local_layout(
                 }
                 let range = IndexRange::new(
                     base,
-                    secondary_ctx.ref_port_defs.peek_next_idx(),
+                    aux.ref_port_offset_map.peek_next_index(),
                 );
-                secondary_ctx.push_ref_cell(id, range);
+                let ref_cell_def =
+                    secondary_ctx.push_ref_cell(id, range, comp_id);
+                aux.ref_cell_offset_map.insert(ref_cell_def);
             }
         }
         // CASE 3 - Subcomponent
@@ -269,6 +280,23 @@ fn compute_local_layout(
     for _cell in sub_component_queue {
         todo!("non-primitive cells are not yet supported")
     }
+
+    aux.set_port_range(
+        port_def_base,
+        secondary_ctx.local_port_defs.peek_next_idx(),
+    );
+    aux.set_ref_port_range(
+        ref_port_def_base,
+        secondary_ctx.ref_port_defs.peek_next_idx(),
+    );
+    aux.set_cell_range(
+        cell_def_base,
+        secondary_ctx.local_cell_defs.peek_next_idx(),
+    );
+    aux.set_ref_cell_range(
+        ref_cell_def_base,
+        secondary_ctx.ref_cell_defs.peek_next_idx(),
+    );
 
     portmap
 }
