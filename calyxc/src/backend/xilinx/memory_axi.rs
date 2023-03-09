@@ -144,7 +144,7 @@ impl MemoryInterface for AxiInterface {
         // count the number of read transactions we've received
         module.add_decl(v::Decl::new_reg(
             "read_txn_count",
-            utils::math::bits_needed_for(bus_data_width / data_width),
+            utils::bits_needed_for(bus_data_width / data_width),
         ));
         module.add_stmt(super::utils::cond_non_blk_assign(
             "ACLK",
@@ -174,7 +174,7 @@ impl MemoryInterface for AxiInterface {
         ));
 
         // add 1 so offset can count up to memory size inclusively
-        let offset_width = utils::math::bits_needed_for(memory_size) + 1;
+        let offset_width = utils::bits_needed_for(memory_size) + 1;
 
         // synchronise channels
         let read_controller = axi4
@@ -200,7 +200,7 @@ impl MemoryInterface for AxiInterface {
         let shift_by = 2;
         let burst_size = v::Expr::new_ulit_dec(
             3,
-            &utils::math::bits_needed_for(data_width / 8).to_string(),
+            &utils::bits_needed_for(data_width / 8).to_string(),
         );
         //AxBURST corresponds to type of burst as follows:
         // 0b00: Fixed

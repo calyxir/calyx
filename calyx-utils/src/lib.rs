@@ -1,17 +1,19 @@
-//! Shared utilities.
+//! Shared utilities for the Calyx compiler.
 mod errors;
 mod global_sym;
 mod id;
-pub mod math;
-pub(crate) mod measure_time;
 mod namegenerator;
 mod out_file;
 mod position;
 mod weight_graph;
 
-pub use errors::{CalyxResult, Error, ErrorKind};
+mod math;
+pub(crate) mod measure_time;
+
+pub use errors::{CalyxResult, Error};
 pub use global_sym::GSym;
 pub use id::{GetName, Id};
+pub use math::bits_needed_for;
 pub use namegenerator::NameGenerator;
 pub use out_file::OutputFile;
 pub use position::{

@@ -1,3 +1,4 @@
+//! Helpers for traversing Control programs
 mod action;
 mod post_order;
 mod visitor;

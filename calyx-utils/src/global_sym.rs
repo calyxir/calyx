@@ -4,6 +4,7 @@ use string_interner::{
     backend::BucketBackend, symbol::SymbolU32, StringInterner,
 };
 
+/// A Globally interned symbol.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "serialize",

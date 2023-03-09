@@ -3,6 +3,7 @@ use petgraph::matrix_graph::{MatrixGraph, NodeIndex, UnMatrix, Zero};
 use petgraph::visit::IntoEdgeReferences;
 use std::{collections::HashMap, hash::Hash};
 
+/// Index into a [WeightGraph]
 pub type Idx = NodeIndex;
 
 /// Edge weight used for the graph nodes

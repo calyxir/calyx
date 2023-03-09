@@ -1,3 +1,4 @@
+/// Names that are reserved in Calyx and Verilog.
 pub const RESERVED_NAMES: &[&str] = &[
     // Calyx keywords
     "invoke",
