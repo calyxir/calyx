@@ -134,6 +134,10 @@ where
     pub fn is_empty(&self) -> bool {
         self.start >= self.end
     }
+
+    pub fn contains(&self, candidate: I) -> bool {
+        self.start > candidate && self.end < candidate
+    }
 }
 
 impl<'a, I> IntoIterator for &'a IndexRange<I>
