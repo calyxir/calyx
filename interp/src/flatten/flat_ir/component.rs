@@ -1,9 +1,5 @@
-use std::ops::Index;
-
 use crate::flatten::structures::{
-    index_trait::{IndexRange, IndexRef},
-    indexed_map::IndexedMap,
-    sparse_map::SparseMap,
+    index_trait::IndexRange, indexed_map::IndexedMap, sparse_map::SparseMap,
 };
 
 use super::{control::structures::ControlIdx, prelude::*};
