@@ -77,6 +77,7 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 enum Command {
     Interpret(CommandInterpret),
     Debug(CommandDebug),
+    Flat(FlatInterp),
 }
 
 #[derive(FromArgs)]
@@ -88,6 +89,11 @@ struct CommandInterpret {}
 #[argh(subcommand, name = "debug")]
 /// Interpret the given program with the interactive debugger
 struct CommandDebug {}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "flat")]
+/// tests the flattened interpreter
+struct FlatInterp {}
 
 #[inline]
 fn print_res(
@@ -182,6 +188,16 @@ fn main() -> InterpreterResult<()> {
             };
             let mut cidb = Debugger::new(&components, main_component, map);
             cidb.main_loop(env)
+        }
+        Command::Flat(_) => {
+            // this is stupid but will work for testing purposes. This should be
+            // fixed later
+            let ws =
+                frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
+            let ctx = ir::from_ast::ast_to_ir(ws)?;
+
+            interp::flatten::flat_main(&ctx);
+            todo!("The flat interpreter cannot yet interpret programs")
         }
     };
 
