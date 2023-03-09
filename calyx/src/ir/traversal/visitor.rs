@@ -18,9 +18,13 @@ use std::rc::Rc;
 pub trait Named {
     /// The name of a pass. Is used for identifying passes.
     fn name() -> &'static str;
-
     /// A short description of the pass.
     fn description() -> &'static str;
+    /// Set of options that can be passed to the pass.
+    /// The options contains a tuple of the option name and a description.
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[]
+    }
 }
 
 /// Trait defining method that can be used to construct a Visitor from an
@@ -31,10 +35,11 @@ pub trait Named {
 /// For passes that don't need to use the context, this trait can be automatically
 /// be derived from [Default].
 pub trait ConstructVisitor {
-    fn get_opts(opts: &[&'static str], ctx: &ir::Context) -> Vec<bool>
+    fn get_opts(ctx: &ir::Context) -> Vec<bool>
     where
         Self: Named,
     {
+        let opts = Self::opts();
         let n = Self::name();
         let given_opts: HashSet<_> = ctx
             .extra_opts
@@ -49,9 +54,15 @@ pub trait ConstructVisitor {
             })
             .collect();
 
-        let values = opts.iter().map(|o| given_opts.contains(o)).collect_vec();
+        let values = opts
+            .iter()
+            .map(|(o, _)| given_opts.contains(o))
+            .collect_vec();
 
-        if let Some(unknown) = given_opts.iter().find(|o| !opts.contains(o)) {
+        if let Some(unknown) = given_opts
+            .iter()
+            .find(|&&o| !opts.iter().any(|(opts, _)| opts == &o))
+        {
             log::warn!(
                 "Ignoring unknown option for pass `{}`: {}",
                 Self::name(),
@@ -65,7 +76,7 @@ pub trait ConstructVisitor {
                 Self::name(),
                 opts.iter()
                     .zip(values.iter())
-                    .map(|(o, v)| format!("{o}->{v}"))
+                    .map(|((o, _), v)| format!("{o}->{v}"))
                     .join(", ")
             );
         }
