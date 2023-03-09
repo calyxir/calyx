@@ -2,9 +2,9 @@ use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
     identifier::IdMap,
     prelude::{
-        CellDefinition, CellInfo, CombGroupMap, ComponentRef, Identifier,
-        LocalPortOffset, LocalRefPortOffset, PortDefinition, RefCellDefinition,
-        RefCellInfo, RefPortDefinition,
+        CellDefinition, CellInfo, CombGroupMap, ComponentRef, ControlMap,
+        Identifier, LocalPortOffset, LocalRefPortOffset, PortDefinition,
+        RefCellDefinition, RefCellInfo, RefPortDefinition,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -31,6 +31,8 @@ pub struct InterpretationContext {
     pub comb_groups: CombGroupMap,
     /// All assignment guards
     pub guards: GuardMap,
+    /// Control trees
+    pub control: ControlMap,
 }
 
 impl InterpretationContext {

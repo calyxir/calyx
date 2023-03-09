@@ -6,7 +6,7 @@ use calyx::ir::{self as cir};
 use crate::{
     flatten::{
         flat_ir::{
-            component::AuxillaryComponentInfo,
+            component::{AuxillaryComponentInfo, ComponentCore},
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx, GroupIdx,
                 GuardIdx, PortRef,
@@ -123,23 +123,29 @@ fn translate_component(
     interp_ctx: &mut InterpretationContext,
     secondary_ctx: &mut SecondaryContext,
 ) {
-    let mut aux_info = AuxillaryComponentInfo::new_with_name(
+    let mut auxillary_component_info = AuxillaryComponentInfo::new_with_name(
         secondary_ctx.string_table.insert(comp.name),
     );
 
-    let map =
-        compute_local_layout(comp, interp_ctx, secondary_ctx, &mut aux_info);
+    let port_map = compute_local_layout(
+        comp,
+        interp_ctx,
+        secondary_ctx,
+        &mut auxillary_component_info,
+    );
 
+    // Translate the groups
     let mut group_map = HashMap::with_capacity(comp.groups.len());
 
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
         let group_idx =
-            translate_group(&group_brw, interp_ctx, secondary_ctx, &map);
+            translate_group(&group_brw, interp_ctx, secondary_ctx, &port_map);
         let k = interp_ctx.groups.push(group_idx);
         group_map.insert(group.as_raw(), k);
     }
 
+    // Translate comb groups
     let mut comb_group_map = HashMap::with_capacity(comp.comb_groups.len());
 
     for comb_grp in comp.comb_groups.iter() {
@@ -148,13 +154,53 @@ fn translate_component(
             &comb_grp_brw,
             interp_ctx,
             secondary_ctx,
-            &map,
+            &port_map,
         );
         let k = interp_ctx.comb_groups.push(comb_grp_idx);
         comb_group_map.insert(comb_grp.as_raw(), k);
     }
 
-    todo!()
+    let group_mapper = GroupMapper {
+        comb_groups: comb_group_map,
+        groups: group_map,
+    };
+
+    // Continuous Assignments
+    let cont_assignment_base = interp_ctx.assignments.peek_next_idx();
+    for assign in &comp.continuous_assignments {
+        translate_assignment(assign, interp_ctx, secondary_ctx, &port_map);
+    }
+
+    let continuous_assignments = IndexRange::new(
+        cont_assignment_base,
+        interp_ctx.assignments.peek_next_idx(),
+    );
+
+    let ctrl_ref = comp.control.borrow();
+
+    let control: Option<ControlIdx> =
+        if matches!(*ctrl_ref, cir::Control::Empty(_)) {
+            None
+        } else {
+            let ctrl_node = flatten_tree(
+                &*ctrl_ref,
+                None,
+                &mut interp_ctx.control,
+                &(group_mapper, port_map),
+            );
+            Some(ctrl_node)
+        };
+
+    let comp_core = ComponentCore {
+        control,
+        continuous_assignments,
+        is_comb: comp.is_comb,
+    };
+
+    let ctrl_ref = interp_ctx.components.push(comp_core);
+    secondary_ctx
+        .comp_aux_info
+        .insert(ctrl_ref, auxillary_component_info);
 }
 
 enum PortType {

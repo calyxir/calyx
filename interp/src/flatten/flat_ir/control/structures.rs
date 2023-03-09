@@ -6,7 +6,7 @@ use crate::flatten::{
 };
 
 impl_index!(pub ControlIdx);
-pub type ControlMap = IndexedMap<ControlNode, ControlIdx>;
+pub type ControlMap = IndexedMap<ControlIdx, ControlNode>;
 
 pub type CtrlVec = SmallVec<[ControlIdx; 4]>;
 
