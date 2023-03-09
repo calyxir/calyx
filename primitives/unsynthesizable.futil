@@ -1,8 +1,10 @@
 // Designs that use these primitives cannot be synthesized.
 
+// ANCHOR: std_unsyn_mult_def
 comb primitive std_unsyn_mult<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
   assign out = left * right;
 };
+// ANCHOR_END: std_unsyn_mult_def
 comb primitive std_unsyn_div<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
   assign out = left / right;
 };

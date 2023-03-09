@@ -411,7 +411,6 @@ class ComputationGraph:
 
             # the modified function that the decorator creates
             def wrapper(*args: Source) -> Source:
-
                 # check to make sure the num of args match the num of expected
                 # args
                 if len(args) != len(input_types):

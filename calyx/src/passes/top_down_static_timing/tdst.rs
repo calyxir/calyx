@@ -748,7 +748,7 @@ impl ConstructVisitor for TopDownStaticTiming {
     where
         Self: Sized + Named,
     {
-        let opts = Self::get_opts(&["dump-fsm", "force"], ctx);
+        let opts = Self::get_opts(ctx);
 
         Ok(TopDownStaticTiming {
             dump_fsm: opts[0],
@@ -768,6 +768,13 @@ impl Named for TopDownStaticTiming {
 
     fn description() -> &'static str {
         "Top-down latency-sensitive compilation for removing control constructs"
+    }
+
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[
+            ("dump-fsm", "Print out the state machine implementing the schedule"),
+            ("force", "Error if the program cannot be fully compiled using static timing")
+        ]
     }
 }
 
