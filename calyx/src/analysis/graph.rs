@@ -16,8 +16,8 @@ type Edge = ();
 pub type CellGraph = DiGraph<Node, Edge>;
 
 /// Constructs a graph based representation of a component. Each node represents
-/// a [`ir::Port`](crate::ir::Port) and each directed edge (`X -> Y`) means
-/// that `X`'s value is read in an assignment to `Y`.
+/// a [`ir::Port`] and each directed edge (`X -> Y`) means that `X`'s value is
+/// read in an assignment to `Y`.
 ///
 /// # Example
 ///  ```
@@ -53,18 +53,9 @@ impl From<&ir::Group> for GraphAnalysis {
 impl From<&ir::Component> for GraphAnalysis {
     fn from(component: &ir::Component) -> Self {
         let mut analysis = GraphAnalysis::default();
-
-        // add edges and nodes for continuous assignments
-        for asgn in &component.continuous_assignments {
+        component.iter_assignments(|asgn| {
             analysis.insert_assignment(asgn);
-        }
-        // add edges and nodes for all group assignments
-        for group in component.groups.iter() {
-            for asgn in &group.borrow().assignments {
-                analysis.insert_assignment(asgn);
-            }
-        }
-
+        });
         analysis
     }
 }
@@ -99,8 +90,8 @@ impl GraphAnalysis {
         if let Some(&idx) = self.nodes.get(&port.canonical()) {
             match port.direction {
                 ir::Direction::Input => PortIterator::empty(),
-                ir::Direction::Output | ir::Direction::Inout => PortIterator {
-                    port_iter: Box::new(
+                ir::Direction::Output | ir::Direction::Inout => {
+                    PortIterator::new(Box::new(
                         self.graph.edges_directed(idx, Outgoing).map(
                             move |edge| {
                                 let node_idx = self
@@ -111,8 +102,8 @@ impl GraphAnalysis {
                                 Rc::clone(&self.graph[node_idx])
                             },
                         ),
-                    ),
-                },
+                    ))
+                }
             }
         } else {
             PortIterator::empty()
@@ -125,20 +116,18 @@ impl GraphAnalysis {
         if let Some(&idx) = self.nodes.get(&port.canonical()) {
             match port.direction {
                 ir::Direction::Input | ir::Direction::Inout => {
-                    return PortIterator {
-                        port_iter: Box::new(
-                            self.graph.edges_directed(idx, Incoming).map(
-                                move |edge| {
-                                    let node_idx = self
-                                        .graph
-                                        .edge_endpoints(edge.id())
-                                        .unwrap()
-                                        .0;
-                                    Rc::clone(&self.graph[node_idx])
-                                },
-                            ),
+                    return PortIterator::new(Box::new(
+                        self.graph.edges_directed(idx, Incoming).map(
+                            move |edge| {
+                                let node_idx = self
+                                    .graph
+                                    .edge_endpoints(edge.id())
+                                    .unwrap()
+                                    .0;
+                                Rc::clone(&self.graph[node_idx])
+                            },
                         ),
-                    }
+                    ))
                 }
                 ir::Direction::Output => (),
             }
@@ -165,14 +154,12 @@ impl GraphAnalysis {
 
     /// Return a topological sort of this graph.
     pub fn toposort(&self) -> PortIterator<'_> {
-        PortIterator {
-            port_iter: Box::new(
-                algo::toposort(&self.graph, None)
-                    .unwrap()
-                    .into_iter()
-                    .map(move |node_idx| Rc::clone(&self.graph[node_idx])),
-            ),
-        }
+        PortIterator::new(Box::new(
+            algo::toposort(&self.graph, None)
+                .unwrap()
+                .into_iter()
+                .map(move |node_idx| Rc::clone(&self.graph[node_idx])),
+        ))
     }
 
     /// Return a Vec of paths from `start` to `finish`, each path a Vec of ports.
