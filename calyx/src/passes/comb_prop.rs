@@ -138,7 +138,7 @@ impl ConstructVisitor for CombProp {
     where
         Self: Sized,
     {
-        let opts = Self::get_opts(&["no-eliminate"], ctx);
+        let opts = Self::get_opts(ctx);
         Ok(CombProp {
             do_not_eliminate: opts[0],
         })
@@ -156,6 +156,10 @@ impl ir::traversal::Named for CombProp {
 
     fn description() -> &'static str {
         "propagate unconditional continuous assignments"
+    }
+
+    fn opts() -> &'static [&'static str] {
+        &["no-eliminate"]
     }
 }
 

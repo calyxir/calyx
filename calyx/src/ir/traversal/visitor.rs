@@ -18,9 +18,12 @@ use std::rc::Rc;
 pub trait Named {
     /// The name of a pass. Is used for identifying passes.
     fn name() -> &'static str;
-
     /// A short description of the pass.
     fn description() -> &'static str;
+    /// Set of options that can be passed to the pass.
+    fn opts() -> &'static [&'static str] {
+        &[]
+    }
 }
 
 /// Trait defining method that can be used to construct a Visitor from an
@@ -31,10 +34,11 @@ pub trait Named {
 /// For passes that don't need to use the context, this trait can be automatically
 /// be derived from [Default].
 pub trait ConstructVisitor {
-    fn get_opts(opts: &[&'static str], ctx: &ir::Context) -> Vec<bool>
+    fn get_opts(ctx: &ir::Context) -> Vec<bool>
     where
         Self: Named,
     {
+        let opts = Self::opts();
         let n = Self::name();
         let given_opts: HashSet<_> = ctx
             .extra_opts

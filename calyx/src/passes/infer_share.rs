@@ -26,6 +26,10 @@ impl Named for InferShare {
     fn description() -> &'static str {
         "Infer User Defined Components as Shareable"
     }
+
+    fn opts() -> &'static [&'static str] {
+        &["print-dmap"]
+    }
 }
 
 impl ConstructVisitor for InferShare {
@@ -33,7 +37,7 @@ impl ConstructVisitor for InferShare {
     where
         Self: Sized + Named,
     {
-        let opts = Self::get_opts(&["print-dmap"], ctx);
+        let opts = Self::get_opts(ctx);
 
         let state_shareable = ShareSet::from_context::<true>(ctx);
         let shareable = ShareSet::from_context::<false>(ctx);
