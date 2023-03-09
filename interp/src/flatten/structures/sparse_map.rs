@@ -77,4 +77,9 @@ where
     pub fn peek_next_index(&self) -> K {
         K::new(self.count)
     }
+
+    /// The count index value
+    pub fn count(&self) -> usize {
+        self.count
+    }
 }

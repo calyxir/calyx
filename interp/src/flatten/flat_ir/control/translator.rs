@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use ahash::{HashMap, HashMapExt};
 use calyx::ir::{self as cir};
 
@@ -155,6 +157,32 @@ fn translate_component(
     todo!()
 }
 
+enum PortType {
+    Ref,
+    Local,
+}
+
+fn insert_port(
+    secondary_ctx: &mut SecondaryContext,
+    aux: &mut AuxillaryComponentInfo,
+    port: &Rc<RefCell<cir::Port>>,
+    port_type: PortType,
+) -> PortRef {
+    let id = secondary_ctx.string_table.insert(port.borrow().name);
+    match port_type {
+        PortType::Ref => {
+            let idx_definition = secondary_ctx.push_ref_port(id);
+            let local_offset = aux.ref_port_offset_map.insert(idx_definition);
+            local_offset.into()
+        }
+        PortType::Local => {
+            let idx_definition = secondary_ctx.push_local_port(id);
+            let local_offset = aux.port_offset_map.insert(idx_definition);
+            local_offset.into()
+        }
+    }
+}
+
 fn compute_local_layout(
     comp: &cir::Component,
     _ctx: &mut InterpretationContext,
@@ -163,32 +191,28 @@ fn compute_local_layout(
 ) -> PortMapper {
     let mut portmap = PortMapper::new();
 
-    let sig_base = secondary_ctx.local_port_defs.peek_next_idx();
+    // need this to set the appropriate signature range on the component
+    let sig_base = aux.port_offset_map.peek_next_index();
+
     // first, handle the signature ports
     for port in comp.signature.borrow().ports() {
-        let id = secondary_ctx.string_table.insert(port.borrow().name);
-        let idx = secondary_ctx.push_local_port(id);
+        let local_offset =
+            insert_port(secondary_ctx, aux, port, PortType::Local);
 
-        // portmap.insert(port.as_raw(), idx.into());
+        portmap.insert(port.as_raw(), local_offset);
     }
+
     // update the aux info with the signature layout
-    aux.signature = IndexRange::new(
-        sig_base,
-        secondary_ctx.local_port_defs.peek_next_idx(),
-    );
+    aux.signature =
+        IndexRange::new(sig_base, aux.port_offset_map.peek_next_index());
 
     // second the group holes
     for group in &comp.groups {
         let group = group.borrow();
         for port in &group.holes {
-            // skip inserting strings since "go" and "done" are already in the
-            // string table at construction
-            let id = secondary_ctx
-                .string_table
-                .lookup_id(port.borrow().name)
-                .unwrap();
-            let idx = secondary_ctx.push_local_port(*id);
-            // portmap.insert(port.as_raw(), idx.into());
+            let local_offset =
+                insert_port(secondary_ctx, aux, port, PortType::Local);
+            portmap.insert(port.as_raw(), local_offset);
         }
     }
 
@@ -203,27 +227,29 @@ fn compute_local_layout(
         if cell_ref.is_primitive::<&str>(None)
             || matches!(&cell_ref.prototype, cir::CellType::Constant { .. })
         {
+            // CASE 1 - Normal Cell
             if !cell_ref.is_reference() {
                 let base = secondary_ctx.local_port_defs.peek_next_idx();
 
                 for port in cell_ref.ports() {
-                    let id =
-                        secondary_ctx.string_table.insert(port.borrow().name);
-                    let idx = secondary_ctx.push_local_port(id);
-                    // portmap.insert(port.as_raw(), idx.into());
+                    let local_offset =
+                        insert_port(secondary_ctx, aux, port, PortType::Local);
+                    portmap.insert(port.as_raw(), local_offset);
                 }
                 let range = IndexRange::new(
                     base,
                     secondary_ctx.local_port_defs.peek_next_idx(),
                 );
                 secondary_ctx.push_local_cell(id, range);
-            } else {
+            }
+            // CASE 2 - Reference Cell
+            else {
                 let base = secondary_ctx.ref_port_defs.peek_next_idx();
                 for port in cell_ref.ports() {
-                    let id =
-                        secondary_ctx.string_table.insert(port.borrow().name);
-                    let idx = secondary_ctx.push_ref_port(id);
-                    // portmap.insert(port.as_raw(), idx.into());
+                    let local_offset =
+                        insert_port(secondary_ctx, aux, port, PortType::Ref);
+
+                    portmap.insert(port.as_raw(), local_offset);
                 }
                 let range = IndexRange::new(
                     base,
@@ -231,7 +257,10 @@ fn compute_local_layout(
                 );
                 secondary_ctx.push_ref_cell(id, range);
             }
-        } else {
+        }
+        // CASE 3 - Subcomponent
+        else {
+            // put in the queue to handle after
             sub_component_queue.push(cell);
         }
     }
