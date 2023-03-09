@@ -2,9 +2,7 @@ use super::indexed_map::IndexedMap;
 use crate::{
     flatten::{
         flat_ir::{
-            base::{
-                ComponentRef, GlobalCellRef, GlobalPortRef, GlobalRCellRef,
-            },
+            base::{ComponentRef, GlobalCellId, GlobalPortId, GlobalRefCellId},
             prelude::Identifier,
         },
         primitives::Primitive,
@@ -12,9 +10,9 @@ use crate::{
     values::Value,
 };
 
-pub(crate) type PortMap = IndexedMap<GlobalPortRef, Value>;
-pub(crate) type CellMap = IndexedMap<GlobalCellRef, CellLedger>;
-pub(crate) type RefCellMap = IndexedMap<GlobalRCellRef, Option<GlobalCellRef>>;
+pub(crate) type PortMap = IndexedMap<GlobalPortId, Value>;
+pub(crate) type CellMap = IndexedMap<GlobalCellId, CellLedger>;
+pub(crate) type RefCellMap = IndexedMap<GlobalRefCellId, Option<GlobalCellId>>;
 
 pub(crate) enum CellLedger {
     Primitive {
@@ -24,7 +22,7 @@ pub(crate) enum CellLedger {
     },
     Component {
         name: Identifier,
-        port_base_offset: GlobalPortRef,
+        port_base_offset: GlobalPortId,
         comp_id: ComponentRef,
     },
 }

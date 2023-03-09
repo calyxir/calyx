@@ -3,24 +3,25 @@ use std::ops::Index;
 use crate::flatten::structures::{
     index_trait::{IndexRange, IndexRef},
     indexed_map::IndexedMap,
+    sparse_map::SparseMap,
 };
 
 use super::{control::structures::ControlIdx, prelude::*};
 
 #[derive(Debug, Clone)]
 pub struct BaseIndexes {
-    port_base: LocalPortRef,
-    cell_base: LocalCellRef,
-    rport_base: LocalRPortRef,
-    rcell_base: LocalRCellRef,
+    port_base: PortDefinition,
+    cell_base: CellDefinition,
+    rport_base: RefPortDefinition,
+    rcell_base: RefCellDefinition,
 }
 
 impl BaseIndexes {
     pub fn new(
-        port_base: LocalPortRef,
-        cell_base: LocalCellRef,
-        rport_base: LocalRPortRef,
-        rcell_base: LocalRCellRef,
+        port_base: PortDefinition,
+        cell_base: CellDefinition,
+        rport_base: RefPortDefinition,
+        rcell_base: RefCellDefinition,
     ) -> Self {
         Self {
             port_base,
@@ -30,19 +31,19 @@ impl BaseIndexes {
         }
     }
 
-    pub fn port_base(&self) -> LocalPortRef {
+    pub fn port_base(&self) -> PortDefinition {
         self.port_base
     }
 
-    pub fn cell_base(&self) -> LocalCellRef {
+    pub fn cell_base(&self) -> CellDefinition {
         self.cell_base
     }
 
-    pub fn rport_base(&self) -> LocalRPortRef {
+    pub fn rport_base(&self) -> RefPortDefinition {
         self.rport_base
     }
 
-    pub fn rcell_base(&self) -> LocalRCellRef {
+    pub fn rcell_base(&self) -> RefCellDefinition {
         self.rcell_base
     }
 }
@@ -67,12 +68,15 @@ pub struct ComponentCore {
 pub struct AuxillaryComponentInfo {
     /// Name of the component.
     pub name: Identifier,
-
     /// The input/output signature of this component.
-    pub signature: IndexRange<LocalPortRef>,
-
+    pub signature: IndexRange<PortDefinition>,
     /// all ports nested underneath this component, including the sub-components
-    pub total_port_range: IndexRange<LocalPortRef>,
+    pub total_port_range: IndexRange<PortDefinition>,
+    // -------------------
+    port_offset_map: SparseMap<LocalPortOffset, PortDefinition>,
+    ref_port_offset_map: SparseMap<LocalRefPortOffset, RefPortDefinition>,
+    cell_offset_map: SparseMap<LocalCellOffset, CellDefinition>,
+    ref_cell_offset_map: SparseMap<LocalRefCellOffset, RefCellDefinition>,
 }
 
 impl Default for AuxillaryComponentInfo {
@@ -81,6 +85,10 @@ impl Default for AuxillaryComponentInfo {
             name: Identifier::get_default_id(),
             signature: IndexRange::empty_interval(),
             total_port_range: IndexRange::empty_interval(),
+            port_offset_map: Default::default(),
+            ref_port_offset_map: Default::default(),
+            cell_offset_map: Default::default(),
+            ref_cell_offset_map: Default::default(),
         }
     }
 }
@@ -93,30 +101,11 @@ impl AuxillaryComponentInfo {
             name: id,
             signature: IndexRange::empty_interval(),
             total_port_range: IndexRange::empty_interval(),
+            port_offset_map: Default::default(),
+            ref_port_offset_map: Default::default(),
+            cell_offset_map: Default::default(),
+            ref_cell_offset_map: Default::default(),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct PortNames {
-    pub port_names: IndexedMap<LocalPortRef, Identifier>,
-    pub ref_port_names: IndexedMap<LocalRPortRef, Identifier>,
-}
-
-impl PortNames {
-    /// Creates a new [`CompNames`] struct with the default value for the
-    /// auxillary maps being the empty string.
-    pub fn new() -> Self {
-        Self {
-            port_names: IndexedMap::new(),
-            ref_port_names: IndexedMap::new(),
-        }
-    }
-}
-
-impl Default for PortNames {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -181,37 +170,37 @@ impl Index<PortRef> for CompactLocalNameMap {
     }
 }
 
-impl Index<LocalPortRef> for CompactLocalNameMap {
+impl Index<PortDefinition> for CompactLocalNameMap {
     type Output = Identifier;
 
-    fn index(&self, index: LocalPortRef) -> &Self::Output {
+    fn index(&self, index: PortDefinition) -> &Self::Output {
         debug_assert!(self.port_base != usize::MAX);
         &self.names[self.port_base + index.index()]
     }
 }
 
-impl Index<LocalRPortRef> for CompactLocalNameMap {
+impl Index<RefPortDefinition> for CompactLocalNameMap {
     type Output = Identifier;
 
-    fn index(&self, index: LocalRPortRef) -> &Self::Output {
+    fn index(&self, index: RefPortDefinition) -> &Self::Output {
         debug_assert!(self.rport_base != usize::MAX);
         &self.names[self.rport_base + index.index()]
     }
 }
 
-impl Index<LocalRCellRef> for CompactLocalNameMap {
+impl Index<RefCellDefinition> for CompactLocalNameMap {
     type Output = Identifier;
 
-    fn index(&self, index: LocalRCellRef) -> &Self::Output {
+    fn index(&self, index: RefCellDefinition) -> &Self::Output {
         debug_assert!(self.rcell_base != usize::MAX);
         &self.names[self.rcell_base + index.index()]
     }
 }
 
-impl Index<LocalCellRef> for CompactLocalNameMap {
+impl Index<CellDefinition> for CompactLocalNameMap {
     type Output = Identifier;
 
-    fn index(&self, index: LocalCellRef) -> &Self::Output {
+    fn index(&self, index: CellDefinition) -> &Self::Output {
         debug_assert!(self.cell_base != usize::MAX);
         &self.names[self.cell_base + index.index()]
     }

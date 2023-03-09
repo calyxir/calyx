@@ -3,13 +3,26 @@ use std::{hash::Hash, ops::Index};
 use super::index_trait::IndexRef;
 use ahash::{HashMap, HashMapExt};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone)]
 pub struct SparseMap<K, D>
 where
     K: IndexRef + Hash,
 {
     data: HashMap<K, D>,
     count: usize,
+}
+
+// This is not quite the same as the derived version, sorry!
+impl<K, D> Default for SparseMap<K, D>
+where
+    K: IndexRef + Hash,
+{
+    fn default() -> Self {
+        Self {
+            data: HashMap::new(),
+            count: 0,
+        }
+    }
 }
 
 impl<K, D> Index<K> for SparseMap<K, D>

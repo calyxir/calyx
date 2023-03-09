@@ -9,20 +9,22 @@ use super::prelude::Identifier;
 
 impl_index!(pub ComponentRef);
 
-// Reference for a port assuming a zero base, ie local to the component
-impl_index!(pub LocalPortRef);
-// Global port reference, used for value mapping
-impl_index!(pub GlobalPortRef);
-// Global mapping for cell state
-impl_index!(pub GlobalCellRef);
-// cell reference local to a given component definition
-impl_index!(pub LocalCellRef);
-// A local reference
-impl_index!(pub CellPortID);
-// ref cell index
-impl_index!(pub GlobalRCellRef);
-impl_index!(pub LocalRCellRef);
-impl_index!(pub LocalRPortRef);
+// Definition indexes, used to address information
+impl_index!(pub CellDefinition);
+impl_index!(pub PortDefinition);
+impl_index!(pub RefCellDefinition);
+impl_index!(pub RefPortDefinition);
+
+// Global indices
+impl_index!(pub GlobalPortId);
+impl_index!(pub GlobalCellId);
+impl_index!(pub GlobalRefCellId);
+
+// Offset indices
+impl_index!(pub LocalPortOffset);
+impl_index!(pub LocalRefPortOffset);
+impl_index!(pub LocalCellOffset);
+impl_index!(pub LocalRefCellOffset);
 
 // I forget why I thought I needed these, truly not sure if they are need at the
 // moment but easy to delete later
@@ -33,13 +35,13 @@ pub struct RelativeRefCellIdx(u32);
 
 #[derive(Debug, Copy, Clone)]
 pub enum PortRef {
-    Local(LocalPortRef),
-    Ref(LocalRPortRef),
+    Local(LocalPortOffset),
+    Ref(LocalRefPortOffset),
 }
 
 impl PortRef {
     #[must_use]
-    pub fn as_local(&self) -> Option<&LocalPortRef> {
+    pub fn as_local(&self) -> Option<&LocalPortOffset> {
         if let Self::Local(v) = self {
             Some(v)
         } else {
@@ -48,7 +50,7 @@ impl PortRef {
     }
 
     #[must_use]
-    pub fn as_ref(&self) -> Option<&LocalRPortRef> {
+    pub fn as_ref(&self) -> Option<&LocalRefPortOffset> {
         if let Self::Ref(v) = self {
             Some(v)
         } else {
@@ -56,23 +58,23 @@ impl PortRef {
         }
     }
 
-    pub fn unwrap_local(&self) -> &LocalPortRef {
+    pub fn unwrap_local(&self) -> &LocalPortOffset {
         self.as_local().unwrap()
     }
 
-    pub fn unwrap_ref(&self) -> &LocalRPortRef {
+    pub fn unwrap_ref(&self) -> &LocalRefPortOffset {
         self.as_ref().unwrap()
     }
 }
 
-impl From<LocalRPortRef> for PortRef {
-    fn from(v: LocalRPortRef) -> Self {
+impl From<LocalRefPortOffset> for PortRef {
+    fn from(v: LocalRefPortOffset) -> Self {
         Self::Ref(v)
     }
 }
 
-impl From<LocalPortRef> for PortRef {
-    fn from(v: LocalPortRef) -> Self {
+impl From<LocalPortOffset> for PortRef {
+    fn from(v: LocalPortOffset) -> Self {
         Self::Local(v)
     }
 }
@@ -90,11 +92,11 @@ impl_index!(pub GuardIdx);
 #[derive(Debug, Clone)]
 pub struct RefCellInfo {
     name: Identifier,
-    ports: IndexRange<LocalRPortRef>,
+    ports: IndexRange<RefPortDefinition>,
 }
 
 impl RefCellInfo {
-    pub fn new(name: Identifier, ports: IndexRange<LocalRPortRef>) -> Self {
+    pub fn new(name: Identifier, ports: IndexRange<RefPortDefinition>) -> Self {
         Self { name, ports }
     }
 
@@ -102,7 +104,7 @@ impl RefCellInfo {
         self.name
     }
 
-    pub fn ports(&self) -> &IndexRange<LocalRPortRef> {
+    pub fn ports(&self) -> &IndexRange<RefPortDefinition> {
         &self.ports
     }
 }
@@ -110,11 +112,11 @@ impl RefCellInfo {
 #[derive(Debug, Clone)]
 pub struct LocalCellInfo {
     name: Identifier,
-    ports: IndexRange<LocalPortRef>,
+    ports: IndexRange<PortDefinition>,
 }
 
 impl LocalCellInfo {
-    pub fn new(name: Identifier, ports: IndexRange<LocalPortRef>) -> Self {
+    pub fn new(name: Identifier, ports: IndexRange<PortDefinition>) -> Self {
         Self { name, ports }
     }
 
@@ -122,7 +124,7 @@ impl LocalCellInfo {
         self.name
     }
 
-    pub fn ports(&self) -> &IndexRange<LocalPortRef> {
+    pub fn ports(&self) -> &IndexRange<PortDefinition> {
         &self.ports
     }
 }

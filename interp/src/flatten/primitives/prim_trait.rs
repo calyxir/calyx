@@ -1,10 +1,10 @@
 use crate::{
-    flatten::{flat_ir::base::GlobalPortRef, structures::environment::PortMap},
+    flatten::{flat_ir::base::GlobalPortId, structures::environment::PortMap},
     values::Value,
 };
 
 // Placeholder
-pub type PortResults = Vec<(GlobalPortRef, Value)>;
+pub type PortResults = Vec<(GlobalPortId, Value)>;
 
 pub trait Primitive {
     fn exec_comb_paths(&self, portmap: &PortMap) -> PortResults;

@@ -169,7 +169,7 @@ fn compute_local_layout(
         let id = secondary_ctx.string_table.insert(port.borrow().name);
         let idx = secondary_ctx.push_local_port(id);
 
-        portmap.insert(port.as_raw(), idx.into());
+        // portmap.insert(port.as_raw(), idx.into());
     }
     // update the aux info with the signature layout
     aux.signature = IndexRange::new(
@@ -188,7 +188,7 @@ fn compute_local_layout(
                 .lookup_id(port.borrow().name)
                 .unwrap();
             let idx = secondary_ctx.push_local_port(*id);
-            portmap.insert(port.as_raw(), idx.into());
+            // portmap.insert(port.as_raw(), idx.into());
         }
     }
 
@@ -210,7 +210,7 @@ fn compute_local_layout(
                     let id =
                         secondary_ctx.string_table.insert(port.borrow().name);
                     let idx = secondary_ctx.push_local_port(id);
-                    portmap.insert(port.as_raw(), idx.into());
+                    // portmap.insert(port.as_raw(), idx.into());
                 }
                 let range = IndexRange::new(
                     base,
@@ -223,7 +223,7 @@ fn compute_local_layout(
                     let id =
                         secondary_ctx.string_table.insert(port.borrow().name);
                     let idx = secondary_ctx.push_ref_port(id);
-                    portmap.insert(port.as_raw(), idx.into());
+                    // portmap.insert(port.as_raw(), idx.into());
                 }
                 let range = IndexRange::new(
                     base,

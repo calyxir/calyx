@@ -2,8 +2,8 @@ use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
     identifier::IdMap,
     prelude::{
-        CombGroupMap, ComponentRef, Identifier, LocalCellInfo, LocalCellRef,
-        LocalPortRef, LocalRCellRef, LocalRPortRef, RefCellInfo,
+        CellDefinition, CombGroupMap, ComponentRef, Identifier, LocalCellInfo,
+        PortDefinition, RefCellDefinition, RefCellInfo, RefPortDefinition,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -44,13 +44,13 @@ pub struct SecondaryContext {
     /// table for mapping strings to identifiers
     pub string_table: IdMap,
     /// non-ref port definitions
-    pub local_port_defs: IndexedMap<LocalPortRef, Identifier>,
+    pub local_port_defs: IndexedMap<PortDefinition, Identifier>,
     /// ref-cell ports
-    pub ref_port_defs: IndexedMap<LocalRPortRef, Identifier>,
+    pub ref_port_defs: IndexedMap<RefPortDefinition, Identifier>,
     /// non-ref-cell definitions
-    pub local_cell_defs: IndexedMap<LocalCellRef, LocalCellInfo>,
+    pub local_cell_defs: IndexedMap<CellDefinition, LocalCellInfo>,
     /// ref-cell definitions
-    pub ref_cell_defs: IndexedMap<LocalRCellRef, RefCellInfo>,
+    pub ref_cell_defs: IndexedMap<RefCellDefinition, RefCellInfo>,
     /// auxillary information for components
     pub comp_aux_info: AuxillaryMap<ComponentRef, AuxillaryComponentInfo>,
 }
@@ -60,27 +60,27 @@ impl SecondaryContext {
         Default::default()
     }
 
-    pub fn push_local_port(&mut self, id: Identifier) -> LocalPortRef {
+    pub fn push_local_port(&mut self, id: Identifier) -> PortDefinition {
         self.local_port_defs.push(id)
     }
 
-    pub fn push_ref_port(&mut self, id: Identifier) -> LocalRPortRef {
+    pub fn push_ref_port(&mut self, id: Identifier) -> RefPortDefinition {
         self.ref_port_defs.push(id)
     }
 
     pub fn push_local_cell(
         &mut self,
         name: Identifier,
-        ports: IndexRange<LocalPortRef>,
-    ) -> LocalCellRef {
+        ports: IndexRange<PortDefinition>,
+    ) -> CellDefinition {
         self.local_cell_defs.push(LocalCellInfo::new(name, ports))
     }
 
     pub fn push_ref_cell(
         &mut self,
         name: Identifier,
-        ports: IndexRange<LocalRPortRef>,
-    ) -> LocalRCellRef {
+        ports: IndexRange<RefPortDefinition>,
+    ) -> RefCellDefinition {
         self.ref_cell_defs.push(RefCellInfo::new(name, ports))
     }
 }

@@ -20,17 +20,17 @@ pub struct Group {
     /// the assignments in this group
     pub assignments: IndexRange<AssignmentIdx>,
     /// the go signal for this group
-    pub go: LocalPortRef,
+    pub go: LocalPortOffset,
     /// the done signal for this group
-    pub done: LocalPortRef,
+    pub done: LocalPortOffset,
 }
 
 impl Group {
     pub fn new(
         name: Identifier,
         assignments: IndexRange<AssignmentIdx>,
-        go: LocalPortRef,
-        done: LocalPortRef,
+        go: LocalPortOffset,
+        done: LocalPortOffset,
     ) -> Self {
         Self {
             name,
