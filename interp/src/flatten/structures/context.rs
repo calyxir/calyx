@@ -41,6 +41,7 @@ impl InterpretationContext {
     }
 }
 
+#[derive(Debug)]
 /// Immutable context for the interpreter. Relevant at setup time and during
 /// error printing and debugging
 pub struct SecondaryContext {
