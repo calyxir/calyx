@@ -17,9 +17,10 @@ pub type PassClosure = Box<dyn Fn(&mut ir::Context) -> CalyxResult<()>>;
 pub struct PassManager {
     /// All registered passes
     passes: HashMap<String, PassClosure>,
-
     /// Tracks alias for groups of passes that run together.
     aliases: HashMap<String, Vec<String>>,
+    // Track the help information for passes
+    help: HashMap<String, String>,
 }
 
 impl PassManager {
@@ -47,7 +48,12 @@ impl PassManager {
             Pass::do_pass_default(ir)?;
             Ok(())
         });
-        self.passes.insert(name, pass_closure);
+        self.passes.insert(name.clone(), pass_closure);
+        let mut help = format!("- {}: {}", name, Pass::description());
+        for opt in Pass::opts() {
+            write!(&mut help, "\n  * {}", opt).unwrap();
+        }
+        self.help.insert(name, help);
         Ok(())
     }
 
@@ -91,8 +97,8 @@ impl PassManager {
         let mut pass_names = self.passes.keys().collect::<Vec<_>>();
         pass_names.sort();
         ret.push_str("Passes:\n");
-        pass_names.iter().for_each(|pass| {
-            writeln!(ret, "- {}", pass).unwrap();
+        pass_names.iter().for_each(|&pass| {
+            writeln!(ret, "{}", self.help[pass]).unwrap();
         });
 
         // Push all aliases
