@@ -24,7 +24,7 @@
   - [Resource Estimation](./fud/resource-estimation.md)
 - [The Calyx Interpreter](./interpreter.md)
 
-# The Calyx Compiler
+# Compile Development Guide
 
 - [The Calyx Compiler](./compiler.md)
 - [Primitive Library](./libraries/core.md)
