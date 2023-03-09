@@ -34,6 +34,26 @@ pub struct ComponentInliner {
     inlined_cells: Vec<RRC<ir::Cell>>,
 }
 
+impl Named for ComponentInliner {
+    fn name() -> &'static str {
+        "inline"
+    }
+
+    fn description() -> &'static str {
+        "inline all component instances marked with @inline attribute"
+    }
+
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[
+            (
+                "always",
+                "Attempt to inline all components into the main component",
+            ),
+            ("new-fsms", "Instantiate new FSM for each inlined component"),
+        ]
+    }
+}
+
 impl ComponentInliner {
     /// Equivalent to a default method but not automatically derived because
     /// it conflicts with the autogeneration of `ConstructVisitor`.
@@ -53,7 +73,7 @@ impl ConstructVisitor for ComponentInliner {
     where
         Self: Sized,
     {
-        let opts = Self::get_opts(&["always", "new-fsms"], ctx);
+        let opts = Self::get_opts(ctx);
         Ok(ComponentInliner::new(opts[0], opts[1]))
     }
 
@@ -260,16 +280,6 @@ impl ComponentInliner {
             });
 
         (con, rev_interface_map)
-    }
-}
-
-impl Named for ComponentInliner {
-    fn name() -> &'static str {
-        "inline"
-    }
-
-    fn description() -> &'static str {
-        "inline all component instances marked with @inline attribute"
     }
 }
 

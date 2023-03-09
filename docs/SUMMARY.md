@@ -24,9 +24,10 @@
   - [Resource Estimation](./fud/resource-estimation.md)
 - [The Calyx Interpreter](./interpreter.md)
 
-# The Calyx Compiler
+# Compile Development Guide
 
 - [The Calyx Compiler](./compiler.md)
+- [Adding a New Pass](./new-pass.md)
 - [Primitive Library](./libraries/core.md)
 - [The `calyx` Library](./compiler-as-library.md)
 - [Dataflow Analysis](./optimizations/dataflow.md)

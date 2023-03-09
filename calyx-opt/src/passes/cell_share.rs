@@ -86,6 +86,12 @@ fn cell_type_to_string(cell_type: &ir::CellType) -> String {
 /// exactly n times. So the key n = 2 will be mapped to the number of cells in the
 /// new design that are shared exactly twice.
 ///
+/// Other flags:
+/// print_par_timing: prints the par-timing-map
+/// calyx_2020: shares using the Calyx 2020 settings: unlimited sharing of combinational
+/// components and registers, but no sharing of anything else
+///
+///
 /// This pass only renames uses of cells. [crate::passes::DeadCellRemoval] should be run after this
 /// to actually remove the definitions.
 pub struct CellShare {
@@ -107,7 +113,13 @@ pub struct CellShare {
     /// maps the ids of groups to a set of tuples (i,j), the clock cycles (relative
     /// to the start of the par) that group is live
     par_timing_map: StaticParTiming,
+
     print_par_timing: bool,
+    /// executes cell share pass using Calyx 2020 benchmarks: no component
+    /// sharing, and only sharing registers and combinational components
+    calyx_2020: bool,
+    /// whether to share across static pars or not
+    share_static_par: bool,
 
     /// Maps cell types to the corresponding pdf. Each pdf is a hashmap which maps
     /// the number of times a given cell name reused (i.e., shared) to the
@@ -130,8 +142,13 @@ impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let state_shareable = ShareSet::from_context::<true>(ctx);
         let shareable = ShareSet::from_context::<false>(ctx);
-        let (print_share_freqs, bounds, print_par_timing) =
-            Self::parse_args(ctx);
+        let (
+            print_share_freqs,
+            bounds,
+            print_par_timing,
+            calyx_2020,
+            share_static_par,
+        ) = Self::parse_args(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -142,6 +159,8 @@ impl ConstructVisitor for CellShare {
             bounds,
             par_timing_map: StaticParTiming::default(),
             print_par_timing,
+            calyx_2020,
+            share_static_par,
             share_freqs: HashMap::new(),
             print_share_freqs,
         })
@@ -209,8 +228,13 @@ impl CellShare {
     // 2) gets the bounds. For example, if "-x cell-share:bounds=2,3,4" is passed
     // we would return [Some(2),Some(3),Some(4)].
     // 3) whether to print the par timing map. For exampe, if "-x cell-share:print_par_timing"
+    ///4) whether to run sharing with Calyx 2020 settings: no component sharing,
+    /// only share registers/combinational components (e.g., "-x cell-share:calyx_2020")
+    /// 5) whether to share across static par threads (e.g., "-x cell-share:share_static_par")
     // is passed, then we would return true.
-    fn parse_args(ctx: &ir::Context) -> (Option<String>, Vec<Option<i64>>, bool)
+    fn parse_args(
+        ctx: &ir::Context,
+    ) -> (Option<String>, Vec<Option<i64>>, bool, bool, bool)
     where
         Self: Named,
     {
@@ -241,8 +265,19 @@ impl CellShare {
             None
         });
 
-        let print_par_timing =
-            given_opts.iter().any(|arg| *arg == "print_par_timing");
+        let (mut print_par_timing, mut calyx_2020, mut share_static_par) =
+            (false, false, false);
+        // these we know what the exact flags will be so we don't have to pars,e
+        // just check if they're there
+        given_opts.iter().for_each(|arg| {
+            if *arg == "print_par_timing" {
+                print_par_timing = true
+            } else if *arg == "calyx_2020" {
+                calyx_2020 = true
+            } else if *arg == "share_static_par" {
+                share_static_par = true
+            };
+        });
 
         // searching for "-x cell-share:print-share-freqs=file_name" and getting Some(file_name) back
         let print_pdf_arg = given_opts.iter().find_map(|arg| {
@@ -283,9 +318,21 @@ impl CellShare {
         if set_default {
             // could possibly put vec![x,y,z] where x,y, and z are deliberately
             // chosen numbers here instead
-            (print_pdf_arg, vec![None, None, None], print_par_timing)
+            (
+                print_pdf_arg,
+                vec![None, None, None],
+                print_par_timing,
+                calyx_2020,
+                share_static_par,
+            )
         } else {
-            (print_pdf_arg, bounds, print_par_timing)
+            (
+                print_pdf_arg,
+                bounds,
+                print_par_timing,
+                calyx_2020,
+                share_static_par,
+            )
         }
     }
 
@@ -424,14 +471,21 @@ impl Visitor for CellShare {
                                     par_thread_map.get(live_a).unwrap();
                                 let parent_b =
                                     par_thread_map.get(live_b).unwrap();
-                                if live_a != live_b
-                                    && parent_a == parent_b
-                                    && self.par_timing_map.liveness_overlaps(
-                                        parent_a, live_a, live_b, a, b,
-                                    )
-                                {
-                                    g.insert_conflict(a, b);
-                                    break 'outer;
+                                if live_a != live_b && parent_a == parent_b {
+                                    // if not share_static_par, then we can
+                                    // insert a conflict immediately
+                                    // otherwise, we have to check par_timing_map
+                                    // to see whether liveness overlaps
+                                    if !self.share_static_par
+                                        || self
+                                            .par_timing_map
+                                            .liveness_overlaps(
+                                                parent_a, live_a, live_b, a, b,
+                                            )
+                                    {
+                                        g.insert_conflict(a, b);
+                                        break 'outer;
+                                    }
                                 }
                             }
                         }
@@ -444,21 +498,33 @@ impl Visitor for CellShare {
         let mut coloring: rewriter::RewriteMap<ir::Cell> = HashMap::new();
         let mut comp_share_freqs: HashMap<ir::CellType, HashMap<i64, i64>> =
             HashMap::new();
+        let comb_bound = self.bounds.get(0).unwrap_or(&None);
+        let reg_bound = self.bounds.get(1).unwrap_or(&None);
+        let other_bound = self.bounds.get(2).unwrap_or(&None);
         for (cell_type, mut graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {
                 if let Some(ref name) = cell_type.get_name() {
-                    let comb_bound = self.bounds.get(0).unwrap_or(&None);
-                    let reg_bound = self.bounds.get(1).unwrap_or(&None);
-                    let other_bound = self.bounds.get(2).unwrap_or(&None);
-                    if self.shareable.contains(name) {
+                    let is_comb = self.shareable.contains(name);
+                    let is_reg = name == "std_reg";
+                    // if self.calyx_2020, then set bounds based on that
+                    // otherwise, look at the actual self.bounds values to
+                    // get the bounds
+                    if self.calyx_2020 {
+                        if is_comb || is_reg {
+                            &None
+                        } else {
+                            &Some(1)
+                        }
+                    } else if is_comb {
                         comb_bound
-                    } else if name == "std_reg" {
+                    } else if is_reg {
                         reg_bound
                     } else {
                         other_bound
                     }
                 } else {
+                    // sharing bound doesn't really matter for ThisComponent/Constants
                     &None
                 }
             };
