@@ -26,14 +26,14 @@ jobs:
             toolchain: 1.66.0
             override: true
             components: rustfmt, clippy
-      # - name: Build source documentation
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: doc
-      #     args: -p calyx --no-deps
-      # - name: Move source documentation
-      #   run: |
-      #     mv ./target/doc ./book/source
+      - name: Build source documentation
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: -p calyx-ir -p calyx-utils -p calyx-frontend -p calyx-opt --no-deps
+      - name: Move source documentation
+        run: |
+          mv ./target/doc ./book/source
       - name: Create CNAME files
         run: |
           echo 'docs.calyxir.org' > ./book/CNAME
