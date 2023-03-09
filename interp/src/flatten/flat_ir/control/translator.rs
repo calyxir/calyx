@@ -59,8 +59,7 @@ fn translate_group(
     let base = interp_ctx.assignments.peek_next_idx();
 
     for assign in group.assignments.iter() {
-        let assign_new =
-            translate_assignment(assign, interp_ctx, secondary_ctx, map);
+        let assign_new = translate_assignment(assign, interp_ctx, map);
         interp_ctx.assignments.push(assign_new);
     }
 
@@ -85,8 +84,7 @@ fn translate_comb_group(
     let base = interp_ctx.assignments.peek_next_idx();
 
     for assign in comb_group.assignments.iter() {
-        let assign_new =
-            translate_assignment(assign, interp_ctx, secondary_ctx, map);
+        let assign_new = translate_assignment(assign, interp_ctx, map);
         interp_ctx.assignments.push(assign_new);
     }
 
@@ -99,20 +97,18 @@ fn translate_comb_group(
 fn translate_assignment(
     assign: &cir::Assignment,
     interp_ctx: &mut InterpretationContext,
-    secondary_ctx: &mut SecondaryContext,
     map: &PortMapper,
 ) -> Assignment {
     Assignment {
         dst: map[&assign.dst.as_raw()],
         src: map[&assign.src.as_raw()],
-        guard: translate_guard(&assign.guard, interp_ctx, secondary_ctx, map),
+        guard: translate_guard(&assign.guard, interp_ctx, map),
     }
 }
 
 fn translate_guard(
     guard: &cir::Guard,
     interp_ctx: &mut InterpretationContext,
-    _secondary_ctx: &mut SecondaryContext,
     map: &PortMapper,
 ) -> GuardIdx {
     flatten_tree(guard, None, &mut interp_ctx.guards, map)
@@ -168,7 +164,7 @@ fn translate_component(
     // Continuous Assignments
     let cont_assignment_base = interp_ctx.assignments.peek_next_idx();
     for assign in &comp.continuous_assignments {
-        translate_assignment(assign, interp_ctx, secondary_ctx, &port_map);
+        translate_assignment(assign, interp_ctx, &port_map);
     }
 
     let continuous_assignments = IndexRange::new(
