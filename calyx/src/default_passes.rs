@@ -2,12 +2,12 @@
 use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, CompileSync, ComponentInliner,
-    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
-    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveCombGroups, RemoveIds, ResetInsertion, SimplifyGuards, StaticParConv,
-    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner,
+    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, Externalize,
+    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
+    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
+    ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds, ResetInsertion,
+    SimplifyGuards, StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::{
     errors::CalyxResult, ir::traversal::Named, pass_manager::PassManager,
@@ -29,6 +29,7 @@ impl PassManager {
         pm.register_pass::<ComponentInliner>()?;
         pm.register_pass::<CollapseControl>()?;
         pm.register_pass::<CompileEmpty>()?;
+        pm.register_pass::<DeadAssignmentRemoval>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;
         pm.register_pass::<GroupToSeq>()?;
@@ -74,6 +75,7 @@ impl PassManager {
             [
                 CompileSync,
                 GroupToSeq,
+                DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
                 InferShare,
                 CompileRef, //Must run before cell-share, and before component-inliner

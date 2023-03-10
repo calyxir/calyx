@@ -1,4 +1,4 @@
-//-p validate -p group2seq
+//-p validate -p group2seq -p dead-assign-removal
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";

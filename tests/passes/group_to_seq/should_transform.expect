@@ -42,8 +42,6 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
     group end_spl_chain_plus_adders {
       x.in = b.out;
       x.write_en = 1'd1;
-      add.right = 32'd4;
-      add.left = 32'd2;
       end_spl_chain_plus_adders[done] = x.done;
     }
     group write_a {
