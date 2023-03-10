@@ -8,9 +8,6 @@ from the Calyx dialect (MLIR) to the native compiler representation (used by the
 you can lower from your favorite frontend in MLIR to the Calyx dialect, and continue all the way to
 SystemVerilog (with spunky optimizations) using the native compiler.
 
-Want to try compiling the Calyx dialect in your web browser? CIRCT has recently added support for 
-[Compiler Explorer](godbolt) (informally known as Godbolt)!
-
 The native compiler also supports round-tripping back into the MLIR representation. We'll assume you've
 already built the Rust compiler and installed `fud`. Here are the steps below to round-trip:
 
@@ -55,6 +52,5 @@ fud exec tests/backend/mlir/simple.futil --to mlir
 This should emit the Calyx dialect once again.
 
 [circt]: https://circt.llvm.org/
-[godbolt]: https://godbolt.org/z/c6YW6MT97
 [circt-setup]: https://github.com/llvm/circt#setting-this-up
 [calyx-dialect]: https://circt.llvm.org/docs/Dialects/Calyx/
