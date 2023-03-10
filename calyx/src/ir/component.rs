@@ -174,6 +174,14 @@ impl Component {
             }
             group_ref.borrow_mut().assignments = assigns;
         }
+        for group_ref in self.get_static_groups().iter() {
+            let mut assigns =
+                group_ref.borrow_mut().assignments.drain(..).collect_vec();
+            for assign in &mut assigns {
+                f(assign)
+            }
+            group_ref.borrow_mut().assignments = assigns;
+        }
         for group_ref in self.comb_groups.iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
@@ -191,6 +199,11 @@ impl Component {
         F: FnMut(&Assignment),
     {
         for group_ref in self.groups.iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
+        for group_ref in self.get_static_groups().iter() {
             for assign in &group_ref.borrow().assignments {
                 f(assign)
             }
