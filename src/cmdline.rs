@@ -1,6 +1,6 @@
 use crate::backend::traits::Backend;
 use crate::backend::{
-    mlir::MlirBackend, print::PrintBackend, resources::ResourcesBackend,
+    mlir::MlirBackend, sexp::SexpBackend, resources::ResourcesBackend,
     verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
     xilinx::XilinxXmlBackend,
 };
@@ -110,7 +110,7 @@ pub enum BackendOpt {
     Calyx,
     Mlir,
     Resources,
-    Print,
+    Sexp,
     None,
 }
 
@@ -125,7 +125,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("calyx", BackendOpt::Calyx),
         ("mlir", BackendOpt::Mlir),
         ("resources", BackendOpt::Resources),
-        ("print", BackendOpt::Print),
+        ("sexp", BackendOpt::Sexp),
         ("none", BackendOpt::None),
     ]
 }
@@ -169,7 +169,7 @@ impl ToString for BackendOpt {
         match self {
             Self::Mlir => "mlir",
             Self::Resources => "resources",
-            Self::Print => "print",
+            Self::Sexp => "sexp",
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
@@ -192,8 +192,8 @@ impl Opts {
                 let backend = ResourcesBackend::default();
                 backend.run(context, self.output)
             }
-            BackendOpt::Print => {
-                let backend = PrintBackend::default();
+            BackendOpt::Sexp => {
+                let backend = SexpBackend::default();
                 backend.run(context, self.output)
             }
             BackendOpt::Verilog => {

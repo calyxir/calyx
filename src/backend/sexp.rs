@@ -1,15 +1,15 @@
 //! Pretty-printer for Calyx syntax.
-//! For now, only prints s-expressions.
+//! Outputs s-expressions.
 
 use crate::backend::traits::Backend;
 use calyx::{errors::CalyxResult, ir, utils::OutputFile};
 
 #[derive(Default)]
-pub struct PrintBackend;
+pub struct SexpBackend;
 
-impl Backend for PrintBackend {
+impl Backend for SexpBackend {
     fn name(&self) -> &'static str {
-        "print"
+        "sexp"
     }
 
     /// OK to run this analysis on any Calyx program
