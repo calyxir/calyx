@@ -525,7 +525,7 @@ std_const # (
 ) c (
     .out(c_out)
 );
+wire _guard0 = 1;
 assign done = 1'd1;
-
 // COMPONENT END: main
 endmodule

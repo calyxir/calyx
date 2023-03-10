@@ -578,10 +578,10 @@ std_mem_d1 # (
     .write_data(m1_write_data),
     .write_en(m1_write_en)
 );
+wire _guard0 = 1;
 assign m0_clk = clk;
 assign m0_reset = reset;
 assign m1_clk = clk;
 assign done = m1_done;
-
 // COMPONENT END: main
 endmodule
