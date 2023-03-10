@@ -67,9 +67,10 @@ impl Visitor for DeadAssignmentRemoval {
                 let src_name = src.get_parent_name();
                 if src.parent_is_comb() {
                     // all writes to src are now safe, as well as src
-                    match comb_dependence_map.get(&src_name) {
-                        Some(writes_to_src) => used_combs.extend(writes_to_src),
-                        None => (),
+                    if let Some(writes_to_src) =
+                        comb_dependence_map.get(&src_name)
+                    {
+                        used_combs.extend(writes_to_src)
                     }
                     used_combs.insert(src_name);
                 }
@@ -77,9 +78,10 @@ impl Visitor for DeadAssignmentRemoval {
                     let p_name = p.borrow().get_parent_name();
                     if p.borrow().parent_is_comb() {
                         // all writes to p are now safe, as well as p
-                        match comb_dependence_map.get(&p_name) {
-                            Some(writes_to_p) => used_combs.extend(writes_to_p),
-                            None => (),
+                        if let Some(writes_to_p) =
+                            comb_dependence_map.get(&p_name)
+                        {
+                            used_combs.extend(writes_to_p)
                         }
                         used_combs.insert(p_name);
                     }
@@ -97,7 +99,7 @@ impl Visitor for DeadAssignmentRemoval {
                 if dst.parent_is_comb() {
                     return used_combs.contains(&dst.get_parent_name());
                 }
-                return true;
+                true
             })
             .collect_vec();
         s.group.borrow_mut().assignments = used_assigns;
