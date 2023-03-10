@@ -81,7 +81,7 @@ impl Visitor for Canonicalize {
             group.assignments = self.order.dataflow_sort(assigns)?;
         }
         for gr in comp.get_static_groups().iter() {
-            // Handles group[done] = do *not* fix group[done] = a ? 1'd1. Keep it as is.
+            // Do *not* handle group[done] = a ? 1'd1. Keep it as is.
             // Deals with aassignment orderin
             let mut group = gr.borrow_mut();
             let assigns = std::mem::take(&mut group.assignments);
