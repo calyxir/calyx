@@ -747,6 +747,7 @@ impl<'a> std::fmt::Display for VerilogPortRef<'a> {
                 }
             }
             ir::PortParent::Group(_) => unreachable!(),
+            ir::PortParent::StaticGroup(_) => unreachable!(),
         }
     }
 }
