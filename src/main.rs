@@ -36,7 +36,7 @@ fn main() -> CalyxResult<()> {
         synthesis_mode: opts.enable_synthesis,
         enable_verification: !opts.disable_verify,
         initialize_inputs: !opts.disable_init,
-        flat_assign: opts.flat_assign,
+        flat_assign: !opts.nested_assign,
     };
     // Extra options for the passes
     ctx.extra_opts = opts.extra_opts.drain(..).collect();
