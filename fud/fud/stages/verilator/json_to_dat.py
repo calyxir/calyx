@@ -179,7 +179,7 @@ def convert2json(input_dir, extension):
     data = {}
     shape_json = sjson.load(shape_json_path.open("r"), use_decimal=True)
 
-    for (mem, form) in shape_json.items():
+    for mem, form in shape_json.items():
         path = input_dir / f"{mem}.{extension}"
         # Copy the shape information and remove fields so we can use `args`` as kwargs
         # for building the FixedPoint or Bitnum classes.

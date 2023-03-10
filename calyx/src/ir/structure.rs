@@ -117,10 +117,20 @@ impl Eq for Port {}
 /// Wraps generic iterators over ports to allow functions to build and return port iterators in
 /// different ways.
 pub struct PortIterator<'a> {
-    pub port_iter: Box<dyn Iterator<Item = RRC<Port>> + 'a>,
+    port_iter: Box<dyn Iterator<Item = RRC<Port>> + 'a>,
 }
 
-impl PortIterator<'_> {
+impl<'a> PortIterator<'a> {
+    /// Construct a new PortIterator from an iterator over ports.
+    pub fn new<T>(iter: T) -> Self
+    where
+        T: Iterator<Item = RRC<Port>> + 'a,
+    {
+        PortIterator {
+            port_iter: Box::new(iter),
+        }
+    }
+
     /// Returns an empty iterator over ports.
     pub fn empty() -> Self {
         PortIterator {

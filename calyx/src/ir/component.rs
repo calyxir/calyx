@@ -184,6 +184,24 @@ impl Component {
         }
         self.continuous_assignments.iter_mut().for_each(f);
     }
+
+    /// Iterate over all assignments contained within the component.
+    pub fn iter_assignments<F>(&self, mut f: F)
+    where
+        F: FnMut(&Assignment),
+    {
+        for group_ref in self.groups.iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
+        for group_ref in self.comb_groups.iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
+        self.continuous_assignments.iter().for_each(f);
+    }
 }
 
 /// A wrapper struct exposing an ordered collection of named entities within an
