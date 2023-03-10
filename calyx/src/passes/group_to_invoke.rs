@@ -5,7 +5,7 @@ use crate::ir::{
     self,
     traversal::{Action, Named, VisResult, Visitor},
 };
-use crate::ir::{CloneName, GetAttributes, RRC};
+use crate::ir::{GetAttributes, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -63,7 +63,7 @@ impl Named for GroupToInvoke {
 
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
-    group: &ir::Group,
+    assigns: &[ir::Assignment],
     comp: RRC<ir::Cell>,
     builder: &mut ir::Builder,
 ) -> ir::Control {
@@ -93,7 +93,7 @@ fn construct_invoke(
     let mut comb_assigns = Vec::new();
     let mut wire_map: HashMap<ir::Id, ir::RRC<ir::Port>> = HashMap::new();
 
-    for assign in &group.assignments {
+    for assign in assigns {
         // We know that all assignments in this group should write to either a)
         // a combinational component or b) comp or c) the group's done port-- we
         // should have checked for this condition before calling this function
@@ -182,123 +182,29 @@ impl Visitor for GroupToInvoke {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let groups = comp.groups.drain().collect_vec();
+        let groups = comp.get_groups_mut().drain().collect_vec();
+        let static_groups = comp.get_static_groups_mut().drain().collect_vec();
         let mut builder = ir::Builder::new(comp, sigs);
-        'groups: for g in &groups {
-            let group = g.borrow();
-
-            let mut writes = ReadWriteSet::write_set(group.assignments.iter())
-                .filter(|cell| match cell.borrow().prototype {
-                    ir::CellType::Primitive { is_comb, .. } => !is_comb,
-                    _ => true,
-                })
-                .collect_vec();
-            // Excluding writes to combinational components, should write to exactly
-            // one cell
-            if writes.len() != 1 {
-                continue;
-            }
-
-            // If component is ThisComponent, Reference, or External, don't turn into invoke
-            let cr = writes.pop().unwrap();
-            let cell = cr.borrow();
-            match &cell.prototype {
-                ir::CellType::Primitive { name, .. }
-                    if self.blacklist.contains(name) =>
-                {
-                    continue;
-                }
-                ir::CellType::ThisComponent => continue,
-                _ => {}
-            }
-            if cell.is_reference() || cell.attributes.has("external") {
-                continue;
-            }
-
-            // Component must define a @go/@done interface
-            let maybe_go_port = cell.find_with_attr("go");
-            let maybe_done_port = cell.find_with_attr("done");
-            if maybe_go_port.is_none() || maybe_done_port.is_none() {
-                continue;
-            }
-
-            // Component must have a single @go/@done pair
-            let go_ports = cell.find_all_with_attr("go").count();
-            let done_ports = cell.find_all_with_attr("done").count();
-            if go_ports > 1 || done_ports > 1 {
-                continue;
-            }
-
-            let go_port = maybe_go_port.unwrap();
-            let done_port = maybe_done_port.unwrap();
-            let mut go_wr_cnt = 0;
-            let mut done_wr_cnt = 0;
-
-            'assigns: for assign in &group.assignments {
-                // @go port should have exactly one write and the src should be 1.
-                if assign.dst == go_port {
-                    if go_wr_cnt > 0 {
-                        log::info!(
-                            "Cannot transform `{}` due to multiple writes to @go port",
-                            group.name(),
-                        );
-                        continue 'groups;
-                    } else if !assign.guard.is_true() {
-                        log::info!(
-                            "Cannot transform `{}` due to guarded write to @go port: {}",
-                            group.name(),
-                            ir::Printer::assignment_to_str(assign)
-                        );
-                        continue 'groups;
-                    } else if assign.src.borrow().is_constant(1, 1) {
-                        go_wr_cnt += 1;
-                    } else {
-                        // if go port's guard is not true, src is not (1,1), then
-                        // Continue
-                        continue 'assigns;
-                    }
-                }
-                // @done port should have exactly one read and the dst should be
-                // group's done signal.
-                if assign.src == done_port {
-                    if done_wr_cnt > 0 {
-                        log::info!(
-                            "Cannot transform `{}` due to multiple writes to @done port",
-                            group.name(),
-                        );
-                        continue 'groups;
-                    } else if !assign.guard.is_true() {
-                        log::info!(
-                            "Cannot transform `{}` due to guarded write to @done port: {}",
-                            group.name(),
-                            ir::Printer::assignment_to_str(assign)
-                        );
-                        continue 'groups;
-                    } else if assign.dst == group.get("done") {
-                        done_wr_cnt += 1;
-                    } else {
-                        // If done port's guard is not true and does not write to group's done
-                        // then Continue
-                        continue 'assigns;
-                    }
-                }
-            }
-            drop(cell);
-
-            if go_wr_cnt != 1 {
-                log::info!("Cannot transform `{}` because there are no writes to @go port", group.name());
-                continue 'groups;
-            } else if done_wr_cnt != 1 {
-                log::info!("Cannot transform `{}` because there are no writes to @done port", group.name());
-                continue 'groups;
-            }
-
-            self.group_invoke_map.insert(
-                g.clone_name(),
-                construct_invoke(&group, cr, &mut builder),
-            );
+        for g in &groups {
+            self.analyze_group(
+                &mut builder,
+                g.borrow().name(),
+                &g.borrow().assignments,
+                &g.borrow().get("done"),
+            )
         }
-        comp.groups.append(groups.into_iter());
+        for g in &static_groups {
+            self.analyze_group(
+                &mut builder,
+                g.borrow().name(),
+                &g.borrow().assignments,
+                &g.borrow().get("done"),
+            )
+        }
+
+        comp.get_groups_mut().append(groups.into_iter());
+        comp.get_static_groups_mut()
+            .append(static_groups.into_iter());
 
         Ok(Action::Continue)
     }
@@ -319,5 +225,128 @@ impl Visitor for GroupToInvoke {
                 Ok(Action::Change(Box::new(inv)))
             }
         }
+    }
+}
+
+impl GroupToInvoke {
+    // if g is able to be turned into invoke, then add to self.group_invoke_map
+    fn analyze_group(
+        &mut self,
+        builder: &mut ir::Builder,
+        group_name: ir::Id,
+        assigns: &[ir::Assignment],
+        group_done_port: &ir::RRC<ir::Port>,
+    ) {
+        let mut writes = ReadWriteSet::write_set(assigns.iter())
+            .filter(|cell| match cell.borrow().prototype {
+                ir::CellType::Primitive { is_comb, .. } => !is_comb,
+                _ => true,
+            })
+            .collect_vec();
+        // Excluding writes to combinational components, should write to exactly
+        // one cell
+        if writes.len() != 1 {
+            return;
+        }
+
+        // If component is ThisComponent, Reference, or External, don't turn into invoke
+        let cr = writes.pop().unwrap();
+        let cell = cr.borrow();
+        match &cell.prototype {
+            ir::CellType::Primitive { name, .. }
+                if self.blacklist.contains(name) =>
+            {
+                return;
+            }
+            ir::CellType::ThisComponent => return,
+            _ => {}
+        }
+        if cell.is_reference() || cell.attributes.has("external") {
+            return;
+        }
+
+        // Component must define a @go/@done interface
+        let maybe_go_port = cell.find_with_attr("go");
+        let maybe_done_port = cell.find_with_attr("done");
+        if maybe_go_port.is_none() || maybe_done_port.is_none() {
+            return;
+        }
+
+        // Component must have a single @go/@done pair
+        let go_ports = cell.find_all_with_attr("go").count();
+        let done_ports = cell.find_all_with_attr("done").count();
+        if go_ports > 1 || done_ports > 1 {
+            return;
+        }
+
+        let go_port = maybe_go_port.unwrap();
+        let done_port = maybe_done_port.unwrap();
+        let mut go_wr_cnt = 0;
+        let mut done_wr_cnt = 0;
+
+        'assigns: for assign in assigns {
+            // @go port should have exactly one write and the src should be 1.
+            if assign.dst == go_port {
+                if go_wr_cnt > 0 {
+                    log::info!(
+                            "Cannot transform `{}` due to multiple writes to @go port",
+                            group_name,
+                        );
+                    return;
+                } else if !assign.guard.is_true() {
+                    log::info!(
+                            "Cannot transform `{}` due to guarded write to @go port: {}",
+                            group_name,
+                            ir::Printer::assignment_to_str(assign)
+                        );
+                    return;
+                } else if assign.src.borrow().is_constant(1, 1) {
+                    go_wr_cnt += 1;
+                } else {
+                    // if go port's guard is not true, src is not (1,1), then
+                    // Continue
+                    continue 'assigns;
+                }
+            }
+            // @done port should have exactly one read and the dst should be
+            // group's done signal.
+            if assign.src == done_port {
+                if done_wr_cnt > 0 {
+                    log::info!(
+                            "Cannot transform `{}` due to multiple writes to @done port",
+                            group_name,
+                        );
+                    return;
+                } else if !assign.guard.is_true() {
+                    log::info!(
+                            "Cannot transform `{}` due to guarded write to @done port: {}",
+                            group_name,
+                            ir::Printer::assignment_to_str(assign)
+                        );
+                    return;
+                } else if assign.dst == *group_done_port {
+                    done_wr_cnt += 1;
+                } else {
+                    // If done port's guard is not true and does not write to group's done
+                    // then Continue
+                    continue 'assigns;
+                }
+            }
+        }
+        drop(cell);
+
+        if go_wr_cnt != 1 {
+            log::info!(
+                "Cannot transform `{}` because there are no writes to @go port",
+                group_name
+            );
+            return;
+        } else if done_wr_cnt != 1 {
+            log::info!("Cannot transform `{}` because there are no writes to @done port", group_name);
+            return;
+        }
+
+        self.group_invoke_map
+            .insert(group_name, construct_invoke(assigns, cr, builder));
     }
 }

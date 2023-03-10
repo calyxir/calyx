@@ -99,7 +99,7 @@ impl Backend for VerilogBackend {
 
     fn validate(ctx: &ir::Context) -> CalyxResult<()> {
         for component in &ctx.components {
-            validate_structure(component.groups.iter())?;
+            validate_structure(component.get_groups().iter())?;
             validate_control(&component.control.borrow())?;
         }
         Ok(())
@@ -362,6 +362,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
                 }
             }
             ir::PortParent::Group(_) => unreachable!(),
+            ir::PortParent::StaticGroup(_) => unreachable!(),
         })
         .collect()
 }
@@ -557,6 +558,7 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
             }
         }
         ir::PortParent::Group(_) => unreachable!(),
+        ir::PortParent::StaticGroup(_) => unreachable!(),
     }
 }
 
