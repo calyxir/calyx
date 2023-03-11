@@ -9,7 +9,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 /// Direction of a port on a cell.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum Direction {
     /// Input port.
     Input,
@@ -31,7 +31,7 @@ impl Direction {
 }
 
 /// Ports can come from Cells or Groups
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
@@ -39,7 +39,7 @@ pub enum PortParent {
 }
 
 /// Represents a port on a cell.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Port {
     /// Name of the port
     pub name: Id,
@@ -607,7 +607,7 @@ impl Group {
 }
 
 /// A Group of assignments that perform a logical action.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct StaticGroup {
     /// Name of this group
     name: Id,

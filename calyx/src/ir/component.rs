@@ -2,6 +2,7 @@ use super::{
     Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
     Control, GetName, Group, Id, PortDef, StaticGroup, RRC,
 };
+use crate::ir::structure::SerCellRef;
 use crate::utils;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;

@@ -1,12 +1,11 @@
-use crate::ir::structure::StaticGroup;
+use crate::ir::structure::{SerCellRef, SerPortRef, StaticGroup};
 use std::rc::Rc;
 
 use serde::Serialize;
 use serde_with::{serde_as, SerializeAs};
 
 use super::{
-    Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, SerCellRef,
-    SerPortRef, RRC,
+    Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC,
 };
 
 /// Data for the `seq` control statement.
@@ -146,7 +145,7 @@ impl GetAttributes for Enable {
 }
 
 /// Data for the `enable` control for a static group.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct StaticEnable {
     /// List of components to run.
     pub group: RRC<StaticGroup>,
@@ -165,7 +164,6 @@ impl GetAttributes for StaticEnable {
 
 type PortMap = Vec<(Id, RRC<Port>)>;
 type CellMap = Vec<(Id, RRC<Cell>)>;
-type PortMap = Vec<(Id, RRC<Port>)>;
 
 /// Data for an `invoke` control statement.
 #[serde_as]

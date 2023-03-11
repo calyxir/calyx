@@ -1,4 +1,5 @@
-use super::{Port, SerPortRef, RRC};
+use crate::ir::structure::SerPortRef;
+use super::{Port, RRC};
 use serde::Serialize;
 use serde_with::serde_as;
 use std::mem;

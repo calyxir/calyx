@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use super::CloneName;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -9,7 +11,7 @@ pub type RRC<T> = Rc<RefCell<T>>;
 /// A Wrapper for a weak RefCell pointer.
 /// Used by parent pointers in the internal representation.
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct WRC<T> {
     pub(super) internal: Weak<RefCell<T>>,
 }
