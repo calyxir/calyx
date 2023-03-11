@@ -138,7 +138,7 @@ impl ConstructVisitor for CombProp {
     where
         Self: Sized,
     {
-        let opts = Self::get_opts(&["no-eliminate"], ctx);
+        let opts = Self::get_opts(ctx);
         Ok(CombProp {
             do_not_eliminate: opts[0],
         })
@@ -156,6 +156,13 @@ impl ir::traversal::Named for CombProp {
 
     fn description() -> &'static str {
         "propagate unconditional continuous assignments"
+    }
+
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[(
+            "no-eliminate",
+            "mark dead assignments with @dead instead of removing them",
+        )]
     }
 }
 
@@ -176,6 +183,7 @@ impl Visitor for CombProp {
                     cell.is_primitive(Some("std_wire"))
                 }
                 ir::PortParent::Group(_) => false,
+                ir::PortParent::StaticGroup(_) => false,
             }
         };
 
@@ -245,6 +253,7 @@ impl Visitor for CombProp {
         let rewriter = ir::Rewriter::new(&cell_rewrites, &rewrites);
         rewriter.rewrite_control(
             &mut comp.control.borrow_mut(),
+            &HashMap::new(),
             &HashMap::new(),
             &HashMap::new(),
         );

@@ -85,7 +85,8 @@ impl Visitor for WireInliner {
             )));
         }
 
-        let groups = comp.groups.drain().collect_vec();
+        // assume static groups is empty
+        let groups = comp.get_groups_mut().drain().collect_vec();
         let mut builder = ir::Builder::new(comp, sigs);
         // for each group, instantiate wires to hold its `go` and `done` signals.
         let hole_map: HoleMapping = groups

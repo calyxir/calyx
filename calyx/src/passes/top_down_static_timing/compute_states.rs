@@ -54,6 +54,9 @@ impl ComputeStates {
                 let time = en.attributes["static"];
                 self.cur_st += time;
             }
+            ir::Control::StaticEnable(_) => {
+                panic!("StaticEnable behavior on tdst TBD")
+            }
             ir::Control::Seq(seq) => {
                 for stmt in &mut seq.stmts {
                     self.recur(stmt, builder);
@@ -120,6 +123,9 @@ impl ComputeStates {
             ir::Control::Enable(en) => {
                 let st = en.attributes[ID] + en.attributes["static"] - 1;
                 exits.push((st, ir::Guard::True));
+            }
+            ir::Control::StaticEnable(_) => {
+                panic!("StaticEnable behavior on tdst TBD")
             }
             ir::Control::Par(par) => {
                 let st = par.attributes[ID] + par.attributes["static"] - 1;

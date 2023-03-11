@@ -1,6 +1,6 @@
 use super::{
     Assignment, Attributes, Builder, Cell, CellType, CloneName, CombGroup,
-    Control, GetName, Group, Id, PortDef, RRC,
+    Control, GetName, Group, Id, PortDef, StaticGroup, RRC,
 };
 use crate::utils;
 use itertools::Itertools;
@@ -25,6 +25,8 @@ pub struct Component {
     pub cells: IdList<Cell>,
     /// Groups of assignment wires.
     pub groups: IdList<Group>,
+    /// Groups of assignment wires
+    pub static_groups: IdList<StaticGroup>,
     /// Groups of assignment wires.
     pub comb_groups: IdList<CombGroup>,
     /// The set of "continuous assignments", i.e., assignments that are always
@@ -73,6 +75,7 @@ impl Component {
             signature: this_sig,
             cells: IdList::default(),
             groups: IdList::default(),
+            static_groups: IdList::default(),
             comb_groups: IdList::default(),
             continuous_assignments: vec![],
             control: Rc::new(RefCell::new(Control::empty())),
@@ -86,12 +89,50 @@ impl Component {
         self.namegen.add_names(names)
     }
 
+    /// gets the component's groups
+    pub fn get_groups(&self) -> &IdList<Group> {
+        &self.groups
+    }
+
+    /// gets the component's static groups
+    pub fn get_static_groups(&self) -> &IdList<StaticGroup> {
+        &self.static_groups
+    }
+
+    /// gets the component's groups
+    pub fn get_groups_mut(&mut self) -> &mut IdList<Group> {
+        &mut self.groups
+    }
+
+    /// gets the component's groups
+    pub fn get_static_groups_mut(&mut self) -> &mut IdList<StaticGroup> {
+        &mut self.static_groups
+    }
+
+    /// gets the component's groups
+    pub fn set_groups(&mut self, groups: IdList<Group>) {
+        self.groups = groups
+    }
+
+    /// gets the component's groups
+    pub fn set_static_groups(&mut self, static_groups: IdList<StaticGroup>) {
+        self.static_groups = static_groups
+    }
+
     /// Return a reference to the group with `name` if present.
     pub fn find_group<S>(&self, name: S) -> Option<RRC<Group>>
     where
         S: Into<Id>,
     {
         self.groups.find(name)
+    }
+
+    /// Return a reference to the group with `name` if present.
+    pub fn find_static_group<S>(&self, name: S) -> Option<RRC<StaticGroup>>
+    where
+        S: Into<Id>,
+    {
+        self.static_groups.find(name)
     }
 
     /// Return a refernece to a combination group with `name` if present.
@@ -133,6 +174,14 @@ impl Component {
             }
             group_ref.borrow_mut().assignments = assigns;
         }
+        for group_ref in self.get_static_groups().iter() {
+            let mut assigns =
+                group_ref.borrow_mut().assignments.drain(..).collect_vec();
+            for assign in &mut assigns {
+                f(assign)
+            }
+            group_ref.borrow_mut().assignments = assigns;
+        }
         for group_ref in self.comb_groups.iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
@@ -142,6 +191,29 @@ impl Component {
             group_ref.borrow_mut().assignments = assigns;
         }
         self.continuous_assignments.iter_mut().for_each(f);
+    }
+
+    /// Iterate over all assignments contained within the component.
+    pub fn iter_assignments<F>(&self, mut f: F)
+    where
+        F: FnMut(&Assignment),
+    {
+        for group_ref in self.groups.iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
+        for group_ref in self.get_static_groups().iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
+        for group_ref in self.comb_groups.iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
+        self.continuous_assignments.iter().for_each(f);
     }
 }
 

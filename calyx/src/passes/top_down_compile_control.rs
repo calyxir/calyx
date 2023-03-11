@@ -76,6 +76,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
             }));
         },
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
         ir::Control::Par(_) => unreachable!(),
     }
 }
@@ -204,6 +205,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         }
         ir::Control::Empty(_) => cur_state,
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
+        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
     }
 }
 
@@ -454,6 +456,7 @@ impl Schedule<'_, '_> {
         ir::Control::Par(_) => unreachable!(),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
     }
     }
 
@@ -777,7 +780,7 @@ impl ConstructVisitor for TopDownCompileControl {
     where
         Self: Sized + Named,
     {
-        let opts = Self::get_opts(&["dump-fsm", "early-transitions"], ctx);
+        let opts = Self::get_opts(ctx);
 
         Ok(TopDownCompileControl {
             dump_fsm: opts[0],
@@ -797,6 +800,19 @@ impl Named for TopDownCompileControl {
 
     fn description() -> &'static str {
         "Top-down compilation for removing control constructs"
+    }
+
+    fn opts() -> &'static [(&'static str, &'static str)] {
+        &[
+            (
+                "dump-fsm",
+                "Print out the state machine implementing the schedule",
+            ),
+            (
+                "early-transitions",
+                "Experimental: Enable early transitions for group enables",
+            ),
+        ]
     }
 }
 

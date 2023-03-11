@@ -80,6 +80,7 @@ impl From<CalyxControl> for Control {
             CalyxControl::While(wh) => Control::While(Rc::new(wh.into())),
             CalyxControl::Invoke(invoke) => Control::Invoke(Rc::new(invoke)),
             CalyxControl::Enable(enable) => Control::Enable(Rc::new(enable)),
+            CalyxControl::StaticEnable(_) => panic!("not yet implemented"),
             CalyxControl::Empty(empty) => Control::Empty(Rc::new(empty)),
         }
     }
