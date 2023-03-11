@@ -1,6 +1,6 @@
 use crate::backend::traits::Backend;
 use crate::backend::{
-    mlir::MlirBackend, sexp::SexpBackend, resources::ResourcesBackend,
+    mlir::MlirBackend, resources::ResourcesBackend, sexp::SexpBackend,
     verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
     xilinx::XilinxXmlBackend,
 };
