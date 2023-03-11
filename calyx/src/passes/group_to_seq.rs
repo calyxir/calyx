@@ -194,13 +194,6 @@ impl SplitAnalysis {
         let comb_assigns_clones = split_analysis.comb_asmts.clone();
         // writes to comb components should be included in the first group
         split_analysis.fst_asmts.extend(comb_assigns_clones);
-        let first_group = Self::make_group(
-            go_done.src,
-            ir::Guard::True,
-            split_analysis.fst_asmts,
-            builder,
-            format!("beg_spl_{}", group_name.id),
-        );
 
         // Pushing second.go = 1'd1 onto snd_asmts
         let cell_go = builder.build_assignment(
