@@ -43,6 +43,11 @@ DEFAULT_CONFIGURATION = {
             "file_extensions": [".fuse", ".dahlia"],
             "flags": None,
         },
+        "vcalyx": {
+            "exec": "./vcalyx/_build/default/ocaml/vcx.exe",
+            "flags": "parse",
+            "round_float_to_fixed": True,
+        },
         "verilog": {
             "exec": "verilator",
             "file_extensions": [".v", ".sv"],
