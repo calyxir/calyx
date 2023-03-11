@@ -4,7 +4,7 @@
     in the Syntax module. We use the [coq-ceres] library. *)
 
 From stdpp Require Import list strings.
-From VCalyx Require Import Syntax.
+From VCalyx Require Import IRSyntax.
 From Ceres Require Import Ceres.
 
 Definition oops : forall {A}, () -> A.
@@ -16,7 +16,7 @@ Global Instance Deserialize_direction : Deserialize direction :=
                       ("output", Output) ]
                     [].
 
-Global Instance Deserialize_port_def : Deserialize port_def :=
+Global Instance Deserialize_port : Deserialize port :=
   fun _ _ => oops ().
 
 Global Instance Deserialize_prim : Deserialize prim :=
@@ -53,7 +53,7 @@ Global Instance Deserialize_guard_cmp : Deserialize guard_cmp :=
 Global Instance Deserialize_guard_expr : Deserialize guard_expr :=
   fun _ _ => oops ().
 
-Global Instance Deserialize_wire : Deserialize wire :=
+Global Instance Deserialize_assignment : Deserialize assignment :=
   fun _ _ => oops ().
 
 Global Instance Deserialize_control : Deserialize control :=
