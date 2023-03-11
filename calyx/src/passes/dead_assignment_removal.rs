@@ -6,8 +6,8 @@ use crate::ir::{
 };
 use std::collections::{HashMap, HashSet};
 
-// maps combinational components to set of all combinational components that it reads from
-// so the entries are (component, <set of comb components that write to component>)
+// maps combinational combinational components to set of all combinational components that it reads from
+// so the entries are (comb component, <set of comb components that write to comb component>)
 fn get_comb_depdendence_map(
     assigns: &Vec<ir::Assignment>,
 ) -> HashMap<ir::Id, HashSet<ir::Id>> {
@@ -94,8 +94,8 @@ impl Visitor for DeadAssignmentRemoval {
         // a) be a non_comb_write
         // b) writes to a used_comb
         let mut used_combs: HashSet<ir::Id> = HashSet::new();
-        // while loop is bound in timing by size of comb_dependence_map, which is bound
-        // in size by number of ports in the groups
+        // while loop is bound by size of comb_dependence_map, which is bound
+        // in size by number of ports in the group's assignments
         while !(non_comb_writes.is_empty()) {
             let used = non_comb_writes.pop().unwrap();
             // add all writes to used to non_comb_writes
