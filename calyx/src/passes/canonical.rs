@@ -66,7 +66,7 @@ impl Visitor for Canonicalize {
             }
         });
 
-        for gr in comp.groups.iter() {
+        for gr in comp.get_groups().iter() {
             // Handles group[done] = a ? 1'd1 -> group[done] = a
             let mut group = gr.borrow_mut();
             let done_assign = group.done_cond_mut();
@@ -77,6 +77,13 @@ impl Visitor for Canonicalize {
                 }
             }
             // Deals with aassignment ordering
+            let assigns = std::mem::take(&mut group.assignments);
+            group.assignments = self.order.dataflow_sort(assigns)?;
+        }
+        for gr in comp.get_static_groups().iter() {
+            // Do *not* handle group[done] = a ? 1'd1. Keep it as is.
+            // Deals with aassignment orderin
+            let mut group = gr.borrow_mut();
             let assigns = std::mem::take(&mut group.assignments);
             group.assignments = self.order.dataflow_sort(assigns)?;
         }

@@ -113,6 +113,8 @@ pub struct BackendConf {
     pub enable_verification: bool,
     /// Generate initial assignments for input ports
     pub initialize_inputs: bool,
+    /// Use flat (ANF) assignments for guards instead of deep expression trees.
+    pub flat_assign: bool,
 }
 
 /// The IR Context that represents an entire Calyx program with all of its

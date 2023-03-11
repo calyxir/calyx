@@ -84,7 +84,15 @@ impl Visitor for DeadGroupRemoval {
     ) -> VisResult {
         // Groups that are driven by their `go` signals should not be
         // removed.
-        for group in comp.groups.iter() {
+        for group in comp.get_groups().iter() {
+            for assign in &group.borrow().assignments {
+                let dst = assign.dst.borrow();
+                if dst.is_hole() && dst.name == "go" {
+                    self.used_groups.insert(dst.get_parent_name());
+                }
+            }
+        }
+        for group in comp.get_static_groups().iter() {
             for assign in &group.borrow().assignments {
                 let dst = assign.dst.borrow();
                 if dst.is_hole() && dst.name == "go" {
@@ -94,7 +102,9 @@ impl Visitor for DeadGroupRemoval {
         }
 
         // Remove Groups that are not used
-        comp.groups
+        comp.get_groups_mut()
+            .retain(|g| self.used_groups.contains(&g.borrow().name()));
+        comp.get_static_groups_mut()
             .retain(|g| self.used_groups.contains(&g.borrow().name()));
         comp.comb_groups
             .retain(|cg| self.used_comb_groups.contains(&cg.borrow().name()));

@@ -484,7 +484,9 @@ impl LiveRangeAnalysis {
                     }
                 }
             }
-            ir::Control::Enable(_) | ir::Control::Invoke(_) => {
+            ir::Control::Enable(_)
+            | ir::Control::Invoke(_)
+            | ir::Control::StaticEnable(_) => {
                 let id = ControlId::get_guaranteed_id(c);
                 let live_set = self.live.get(&id).unwrap().map.clone();
                 for (cell_type, live_cells) in live_set {
@@ -615,12 +617,43 @@ impl LiveRangeAnalysis {
         }
     }
 
-    fn find_uses_group(
-        group_ref: &RRC<ir::Group>,
+    // (Note Caleb/Pai): This is similar to find_static_group right now
+    // We could eventually try to merge it, but we should do it after we have
+    // hammered down the details of the rest of the static IR assignments
+    fn find_gen_kill_static_group(
+        &mut self,
+        group_ref: &RRC<ir::StaticGroup>,
+    ) -> (TypeNameSet, TypeNameSet) {
+        let group = group_ref.borrow();
+        // we don't have to worry about variable like for static groups
+        let sc_clone = &self.state_share;
+        // if the group contains what looks like a variable write,
+        // then just add variable to write set
+        let reads: HashSet<_> = meaningful_read_set(group.assignments.iter())
+            .filter(|c| sc_clone.is_shareable_component(c))
+            .map(|c| (c.borrow().prototype.clone(), c.clone_name()))
+            .collect();
+        // only consider write assignments where the guard is true
+        let assignments = group
+            .assignments
+            .iter()
+            .filter(|asgn| *asgn.guard == ir::Guard::True)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        let writes: HashSet<_> = ReadWriteSet::write_set(assignments.iter())
+            .filter(|c| sc_clone.is_shareable_component(c))
+            .map(|c| (c.borrow().prototype.clone(), c.clone_name()))
+            .collect();
+
+        (reads, writes)
+    }
+
+    fn find_uses_assigns(
+        assigns: &[ir::Assignment],
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
-        let group = group_ref.borrow();
-        ReadWriteSet::uses(group.assignments.iter())
+        ReadWriteSet::uses(assigns.iter())
             .filter(|cell| shareable_components.is_shareable_component(cell))
             .map(|cell| (cell.borrow().prototype.clone(), cell.clone_name()))
             .collect::<HashSet<_>>()
@@ -803,14 +836,54 @@ impl LiveRangeAnalysis {
                 )
             }
             ir::Control::Enable(ir::Enable { group, .. }) => {
-                let uses_share =
-                    LiveRangeAnalysis::find_uses_group(group, &self.share);
+                let uses_share = LiveRangeAnalysis::find_uses_assigns(
+                    &group.borrow().assignments,
+                    &self.share,
+                );
                 self.invokes_enables_map
                     .entry(ControlId::get_guaranteed_id(c))
                     .or_default()
                     .extend(uses_share);
                 // XXX(sam) no reason to compute this every time
                 let (reads, writes) = self.find_gen_kill_group(group);
+
+                // compute transfer function
+                alive.transfer_set(reads.clone(), writes.clone());
+                let alive_out = alive.clone();
+
+                // set the live set of this node to be the things live on the
+                // output of this node plus the things written to in this group
+                self.live.insert(ControlId::get_guaranteed_id(c), {
+                    alive.or_set(writes.clone());
+                    alive
+                });
+                (
+                    alive_out,
+                    {
+                        gens.sub_set(writes.clone());
+                        gens.or_set(reads);
+                        gens
+                    },
+                    {
+                        kills.or_set(writes);
+                        kills
+                    },
+                )
+            }
+            ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => {
+                // (Note Caleb/Pai): This is similar to case for enable group right now
+                // We could eventually try to merge it, but we should do it after we have
+                // hammered down the details of the rest of the static IR assignments
+                let uses_share = LiveRangeAnalysis::find_uses_assigns(
+                    &group.borrow().assignments,
+                    &self.share,
+                );
+                self.invokes_enables_map
+                    .entry(ControlId::get_guaranteed_id(c))
+                    .or_default()
+                    .extend(uses_share);
+                // XXX(sam) no reason to compute this every time
+                let (reads, writes) = self.find_gen_kill_static_group(group);
 
                 // compute transfer function
                 alive.transfer_set(reads.clone(), writes.clone());

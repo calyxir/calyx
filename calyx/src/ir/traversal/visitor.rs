@@ -1,12 +1,12 @@
 //! Implements a visitor for `ir::Control` programs.
 //! Program passes implemented as the Visitor are directly invoked on
 //! [`ir::Context`] to compile every [`ir::Component`] using the pass.
-use itertools::Itertools;
-
 use super::action::{Action, VisResult};
 use super::{CompTraversal, Order};
 use crate::errors::CalyxResult;
+use crate::ir::control::StaticEnable;
 use crate::ir::{self, Component, Context, Control, LibrarySignatures};
+use itertools::Itertools;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -329,6 +329,17 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed at an [ir::StaticEnable] node.
+    fn static_enable(
+        &mut self,
+        _s: &mut StaticEnable,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::Invoke] node.
     fn invoke(
         &mut self,
@@ -410,6 +421,9 @@ impl Visitable for Control {
                 })?,
             Control::Enable(ctrl) => {
                 visitor.enable(ctrl, component, sigs, comps)?
+            }
+            Control::StaticEnable(ctrl) => {
+                visitor.static_enable(ctrl, component, sigs, comps)?
             }
             Control::Empty(ctrl) => {
                 visitor.empty(ctrl, component, sigs, comps)?

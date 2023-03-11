@@ -133,7 +133,14 @@ impl Visitor for SimplifyGuards {
         _: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        for group in comp.groups.iter() {
+        for group in comp.get_groups().iter() {
+            group
+                .borrow_mut()
+                .assignments
+                .iter_mut()
+                .for_each(|assign| assign.guard.update(simplify_guard));
+        }
+        for group in comp.get_static_groups().iter() {
             group
                 .borrow_mut()
                 .assignments
