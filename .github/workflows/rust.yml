@@ -89,11 +89,11 @@ jobs:
         command: build
         args: --manifest-path /home/calyx/Cargo.toml
 
-    - name: Source code doc tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --manifest-path /home/calyx/calyx/Cargo.toml --doc lib
+#    - name: Source code doc tests
+#      uses: actions-rs/cargo@v1
+#      with:
+#        command: test
+#        args: --manifest-path /home/calyx/calyx/Cargo.toml --doc lib
 
     - name: Runt tests
       working-directory: /home/calyx

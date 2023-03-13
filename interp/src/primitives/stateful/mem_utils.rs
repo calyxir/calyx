@@ -1,4 +1,4 @@
-use calyx::ir;
+use calyx_ir as ir;
 
 use crate::{
     errors::{InterpreterError, InterpreterResult},

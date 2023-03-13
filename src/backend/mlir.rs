@@ -1,12 +1,10 @@
-use calyx::errors::Error;
-use calyx::ir::GetAttributes;
-
-use crate::ir::{self, RRC};
+use super::traits::Backend;
+use calyx_frontend::GetAttributes;
+use calyx_ir::{self as ir, RRC};
+use calyx_utils::Error;
 use std::collections::HashMap;
 use std::io;
 use std::rc::Rc;
-
-use super::traits::Backend;
 
 #[derive(Default)]
 pub struct MlirBackend;
@@ -16,14 +14,14 @@ impl Backend for MlirBackend {
         "mlir"
     }
 
-    fn validate(_prog: &ir::Context) -> calyx::errors::CalyxResult<()> {
+    fn validate(_prog: &ir::Context) -> calyx_utils::CalyxResult<()> {
         Ok(())
     }
 
     fn emit(
         ctx: &ir::Context,
-        file: &mut calyx::utils::OutputFile,
-    ) -> calyx::errors::CalyxResult<()> {
+        file: &mut calyx_utils::OutputFile,
+    ) -> calyx_utils::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
             writeln!(f, "calyx.program \"{}\" {{\n", ctx.entrypoint)?;
@@ -44,8 +42,8 @@ impl Backend for MlirBackend {
 
     fn link_externs(
         _prog: &ir::Context,
-        _write: &mut calyx::utils::OutputFile,
-    ) -> calyx::errors::CalyxResult<()> {
+        _write: &mut calyx_utils::OutputFile,
+    ) -> calyx_utils::CalyxResult<()> {
         Ok(())
     }
 }

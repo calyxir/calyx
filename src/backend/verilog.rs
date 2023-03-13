@@ -4,12 +4,8 @@
 //! valid SystemVerilog program.
 
 use crate::backend::traits::Backend;
-use calyx::{
-    errors::{CalyxResult, Error},
-    ir,
-    utils::OutputFile,
-};
-use ir::{Control, FlatGuard, Group, Guard, GuardRef, RRC};
+use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
+use calyx_utils::{CalyxResult, Error, OutputFile};
 use itertools::Itertools;
 use std::io;
 use std::{collections::HashMap, rc::Rc};

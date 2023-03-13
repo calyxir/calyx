@@ -1,5 +1,6 @@
 use crate::backend::traits::Backend;
-use calyx::{errors::CalyxResult, ir};
+use calyx_ir as ir;
+use calyx_utils::CalyxResult;
 use serde::Serialize;
 
 /// Backend that generates XML that Xilinx needs to define the address
@@ -89,14 +90,14 @@ impl Backend for XilinxXmlBackend {
 
     fn link_externs(
         _prog: &ir::Context,
-        _write: &mut calyx::utils::OutputFile,
+        _write: &mut calyx_utils::OutputFile,
     ) -> CalyxResult<()> {
         Ok(())
     }
 
     fn emit(
         prog: &ir::Context,
-        file: &mut calyx::utils::OutputFile,
+        file: &mut calyx_utils::OutputFile,
     ) -> CalyxResult<()> {
         let toplevel = prog
             .components

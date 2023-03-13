@@ -1,6 +1,6 @@
 use crate::values::Value;
-use calyx::ir;
-use calyx::ir::RRC;
+use calyx_ir as ir;
+use calyx_ir::RRC;
 use std::cell::Ref;
 use std::collections::HashSet;
 use std::ops::Deref;
