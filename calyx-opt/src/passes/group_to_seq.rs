@@ -1,7 +1,6 @@
 use crate::analysis::ReadWriteSet;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use std::cell::RefMut;
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -37,7 +36,7 @@ impl Visitor for GroupToSeq {
             comp.get_groups_mut().drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
-            let group_name = g.clone_name();
+            let group_name = g.borrow().name();
             if let Some(seq) = SplitAnalysis::get_split(
                 &mut g.borrow_mut().assignments,
                 group_name,
@@ -64,12 +63,12 @@ impl Visitor for GroupToSeq {
         for g in groups.iter() {
             if let Some(seq) = SplitAnalysis::get_split(
                 &mut g.borrow_mut().assignments,
-                g.clone_name(),
+                g.borrow().name(),
                 &mut builder,
                 // seqs should include static groups
                 true,
             ) {
-                self.group_seq_map.insert(g.clone_name(), seq);
+                self.group_seq_map.insert(g.borrow().name(), seq);
             }
         }
 

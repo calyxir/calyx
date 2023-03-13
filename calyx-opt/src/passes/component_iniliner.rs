@@ -202,7 +202,7 @@ impl ComponentInliner {
         gr: &RRC<ir::StaticGroup>,
     ) -> (ir::Id, RRC<ir::StaticGroup>) {
         let group = gr.borrow();
-        let new_group = builder.add_static_group(group.clone_name());
+        let new_group = builder.add_static_group(group.name());
         new_group.borrow_mut().attributes = group.attributes.clone();
 
         // Rewrite assignments
@@ -213,7 +213,7 @@ impl ComponentInliner {
             Some(&new_group),
         );
         new_group.borrow_mut().assignments = asgns;
-        (group.clone_name(), new_group)
+        (group.name(), new_group)
     }
 
     /// Inline a group definition from a component into the component associated

@@ -27,10 +27,7 @@ impl Visitor for UnrollBounded {
             let body =
                 *std::mem::replace(&mut s.body, Box::new(ir::Control::empty()));
             let nb = ir::Control::seq(
-                (0..*bound)
-                    .into_iter()
-                    .map(|_| ir::Cloner::control(&body))
-                    .collect(),
+                (0..*bound).map(|_| ir::Cloner::control(&body)).collect(),
             );
             Ok(Action::change(nb))
         } else {

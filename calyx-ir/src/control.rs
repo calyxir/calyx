@@ -1,4 +1,4 @@
-use crate::ir::structure::StaticGroup;
+use super::StaticGroup;
 use std::rc::Rc;
 
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};

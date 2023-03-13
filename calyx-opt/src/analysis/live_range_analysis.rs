@@ -629,7 +629,7 @@ impl LiveRangeAnalysis {
         // then just add variable to write set
         let reads: HashSet<_> = meaningful_read_set(group.assignments.iter())
             .filter(|c| sc_clone.is_shareable_component(c))
-            .map(|c| (c.borrow().prototype.clone(), c.clone_name()))
+            .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
             .collect();
         // only consider write assignments where the guard is true
         let assignments = group
@@ -641,7 +641,7 @@ impl LiveRangeAnalysis {
 
         let writes: HashSet<_> = ReadWriteSet::write_set(assignments.iter())
             .filter(|c| sc_clone.is_shareable_component(c))
-            .map(|c| (c.borrow().prototype.clone(), c.clone_name()))
+            .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
             .collect();
 
         (reads, writes)

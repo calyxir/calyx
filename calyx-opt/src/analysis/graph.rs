@@ -281,7 +281,6 @@ impl ToString for GraphAnalysis {
                 src,
                 self.graph
                     .neighbors_directed(idx, petgraph::Direction::Outgoing)
-                    .into_iter()
                     .map(|idx| {
                         let port = self.graph[idx].borrow();
                         format!("{}.{}", port.get_parent_name(), port.name)

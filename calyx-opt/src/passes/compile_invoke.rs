@@ -81,11 +81,10 @@ impl Visitor for CompileInvoke {
         let assigns = s
             .inputs
             .drain(..)
-            .into_iter()
             .map(|(inp, p)| {
                 builder.build_assignment(cell.get(inp), p, ir::Guard::True)
             })
-            .chain(s.outputs.drain(..).into_iter().map(|(out, p)| {
+            .chain(s.outputs.drain(..).map(|(out, p)| {
                 builder.build_assignment(p, cell.get(out), ir::Guard::True)
             }))
             .chain(enable_assignments.drain(..))

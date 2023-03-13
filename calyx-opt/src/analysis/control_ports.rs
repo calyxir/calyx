@@ -66,7 +66,6 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                     let cells = super::ReadWriteSet::uses(
                         c.borrow().assignments.iter(),
                     )
-                    .into_iter()
                     .map(|cell| cell.borrow().name())
                     .collect::<HashSet<_>>();
                     // Only add ports that come from cells used in this comb group.

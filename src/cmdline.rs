@@ -76,18 +76,13 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 }
 
 // Compilation modes
-#[derive(PartialEq, Eq)]
+#[derive(Default, PartialEq, Eq)]
 pub enum CompileMode {
     /// Compile the input file and ignore the dependencies.
     File,
+    #[default]
     /// Transitively compile all dependencies `import`ed by the input file.
     Project,
-}
-
-impl Default for CompileMode {
-    fn default() -> Self {
-        CompileMode::Project
-    }
 }
 
 impl FromStr for CompileMode {
@@ -105,12 +100,13 @@ impl FromStr for CompileMode {
 // ================== Backend Variant and Parsing ===================== //
 
 /// Enumeration of valid backends
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub enum BackendOpt {
+    #[default]
+    Calyx,
     Verilog,
     Xilinx,
     XilinxXml,
-    Calyx,
     Mlir,
     Resources,
     None,
@@ -129,12 +125,6 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("resources", BackendOpt::Resources),
         ("none", BackendOpt::None),
     ]
-}
-
-impl Default for BackendOpt {
-    fn default() -> Self {
-        BackendOpt::Calyx
-    }
 }
 
 /// Command line parsing for the Backend enum

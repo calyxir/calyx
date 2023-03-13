@@ -133,7 +133,7 @@ impl<'a> Rewriter<'a> {
                 }
             }
             ir::Control::StaticEnable(en) => {
-                let g = &en.group.borrow().clone_name();
+                let g = &en.group.borrow().name();
                 if let Some(new_group) = static_group_map.get(g) {
                     en.group = Rc::clone(new_group);
                 }

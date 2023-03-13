@@ -24,7 +24,6 @@ impl ScheduleConflicts {
         self.graph
             .graph
             .neighbors(self.graph.index_map[node])
-            .into_iter()
             .map(|idx| self.rev_map[&idx])
             .collect()
     }
@@ -101,7 +100,7 @@ fn build_conflict_graph(
         }
         ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => {
             confs.add_node(group.borrow().name());
-            all_nodes.push(group.clone_name());
+            all_nodes.push(group.borrow().name());
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => stmts
             .iter()

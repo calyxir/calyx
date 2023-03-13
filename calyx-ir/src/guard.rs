@@ -21,26 +21,21 @@ pub enum PortComp {
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum Guard {
+    #[default]
+    /// The constant true
+    True,
     /// Represents `c1 || c2`.
     Or(Box<Guard>, Box<Guard>),
     /// Represents `c1 && c2`.
     And(Box<Guard>, Box<Guard>),
     /// Represents `!c1`
     Not(Box<Guard>),
-    /// The constant true
-    True,
     /// Comparison operator.
     CompOp(PortComp, RRC<Port>, RRC<Port>),
     /// Uses the value on a port as the condition. Same as `p1 == true`
     Port(RRC<Port>),
-}
-
-impl Default for Guard {
-    fn default() -> Self {
-        Guard::True
-    }
 }
 
 impl Hash for Guard {

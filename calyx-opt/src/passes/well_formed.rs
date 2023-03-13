@@ -225,13 +225,13 @@ impl Visitor for WellFormed {
 
             if !comp.get_groups().is_empty() {
                 let group = comp.get_groups().iter().next().unwrap().borrow();
-                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.name())).with_pos(&group.attributes));
             }
 
             if !comp.get_static_groups().is_empty() {
                 let group =
                     comp.get_static_groups().iter().next().unwrap().borrow();
-                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.name())).with_pos(&group.attributes));
             }
 
             if !comp.comb_groups.is_empty() {
@@ -562,18 +562,19 @@ impl Visitor for WellFormed {
         });
 
         // Find unused groups
-        let mut all_groups: HashSet<ir::Id> =
-            comp.get_groups().iter().map(|g| g.clone_name()).collect();
+        let mut all_groups: HashSet<ir::Id> = comp
+            .get_groups()
+            .iter()
+            .map(|g| g.borrow().name())
+            .collect();
         let static_groups: HashSet<ir::Id> = comp
             .get_static_groups()
             .iter()
-            .map(|g| g.clone_name())
+            .map(|g| g.borrow().name())
             .collect();
         all_groups.extend(static_groups);
 
-        if let Some(group) =
-            all_groups.difference(&self.used_groups).into_iter().next()
-        {
+        if let Some(group) = all_groups.difference(&self.used_groups).next() {
             match comp.find_group(*group) {
                 Some(gr) => {
                     let gr = gr.borrow();
@@ -593,10 +594,8 @@ impl Visitor for WellFormed {
 
         let all_comb_groups: HashSet<ir::Id> =
             comp.comb_groups.iter().map(|g| g.borrow().name()).collect();
-        if let Some(comb_group) = all_comb_groups
-            .difference(&self.used_comb_groups)
-            .into_iter()
-            .next()
+        if let Some(comb_group) =
+            all_comb_groups.difference(&self.used_comb_groups).next()
         {
             let cgr = comp.find_comb_group(*comb_group).unwrap();
             let cgr = cgr.borrow();

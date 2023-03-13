@@ -6,8 +6,9 @@ use std::{
 
 /// Possible choices for output streams.
 /// Used by the `-o` option to the compiler.
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub enum OutputFile {
+    #[default]
     Stdout,
     File(PathBuf),
 }
@@ -37,12 +38,6 @@ impl ToString for OutputFile {
             OutputFile::Stdout => "-".to_string(),
             OutputFile::File(p) => p.to_str().unwrap().to_string(),
         }
-    }
-}
-
-impl Default for OutputFile {
-    fn default() -> Self {
-        OutputFile::Stdout
     }
 }
 

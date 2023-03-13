@@ -132,12 +132,11 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
             }
         };
     let externalize_name = |name: ir::Id, is_external: bool| {
-        let id = if is_external {
+        if is_external {
             format!("external {}", name)
         } else {
             name.to_string()
-        };
-        id
+        }
     };
     eprintln!("Summary of primitives:");
     for ((name, params, is_external), count) in count_map {
