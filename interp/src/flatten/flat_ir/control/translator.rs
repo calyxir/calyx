@@ -431,7 +431,7 @@ impl FlattenTree for cir::Control {
                 w.cond.as_ref().map(|c| group_map.comb_groups[&c.as_raw()]),
                 handle.enqueue(&w.body),
             )),
-            cir::Control::Invoke(_inv) => todo!("Invoke not yet supported"),
+            cir::Control::Invoke(_inv) => ControlNode::Invoke(Invoke {}),
             cir::Control::Enable(e) => ControlNode::Enable(Enable::new(
                 group_map.groups[&e.group.as_raw()],
             )),
