@@ -122,6 +122,40 @@ impl AuxillaryComponentInfo {
     ) {
         self.definitions.ref_cells = IndexRange::new(start, end)
     }
+
+    pub fn offset_sizes(&self) -> IdxSkipSizes {
+        IdxSkipSizes {
+            port: self.port_offset_map.count() - self.signature.size(),
+            ref_port: self.ref_port_offset_map.count(),
+            cell: self.cell_offset_map.count(),
+            ref_cell: self.ref_cell_offset_map.count(),
+        }
+    }
+}
+
+pub struct IdxSkipSizes {
+    port: usize,
+    ref_port: usize,
+    cell: usize,
+    ref_cell: usize,
+}
+
+impl IdxSkipSizes {
+    pub fn port(&self) -> usize {
+        self.port
+    }
+
+    pub fn ref_port(&self) -> usize {
+        self.ref_port
+    }
+
+    pub fn cell(&self) -> usize {
+        self.cell
+    }
+
+    pub fn ref_cell(&self) -> usize {
+        self.ref_cell
+    }
 }
 
 pub type ComponentMap = IndexedMap<ComponentRef, ComponentCore>;
