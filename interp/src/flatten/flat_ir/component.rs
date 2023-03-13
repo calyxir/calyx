@@ -131,6 +131,21 @@ impl AuxillaryComponentInfo {
             ref_cell: self.ref_cell_offset_map.count(),
         }
     }
+
+    pub fn skip_offsets(
+        &mut self,
+        IdxSkipSizes {
+            port,
+            ref_port,
+            cell,
+            ref_cell,
+        }: IdxSkipSizes,
+    ) {
+        self.port_offset_map.skip(port);
+        self.ref_port_offset_map.skip(ref_port);
+        self.cell_offset_map.skip(cell);
+        self.ref_cell_offset_map.skip(ref_cell);
+    }
 }
 
 pub struct IdxSkipSizes {
