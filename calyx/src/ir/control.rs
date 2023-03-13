@@ -4,9 +4,7 @@ use std::rc::Rc;
 use serde::Serialize;
 use serde_with::{serde_as, SerializeAs};
 
-use super::{
-    Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC,
-};
+use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
 /// Data for the `seq` control statement.
 #[derive(Debug, Serialize)]

@@ -62,7 +62,12 @@ impl SerializeAs<RRC<Port>> for SerPortRef {
     where
         S: serde::Serializer,
     {
-        value.borrow().name.serialize(serializer)
+        (format!(
+            "{}.{}",
+            value.borrow().get_parent_name(),
+            value.borrow().name
+        ))
+        .serialize(serializer)
     }
 }
 
