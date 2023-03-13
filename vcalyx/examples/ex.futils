@@ -2,17 +2,35 @@
   (((name main) 
     (signature _this) 
     (cells (reg0 
-            reg1 
-            adder 
-            result 
-            _1_1 
-            _2_32 
-            _1_32 
-            incr_go 
-            incr_done)) 
-  (groups ()) 
-  (comb_groups ()) 
-  (continuous_assignments (((dst write_en) 
-                            (src out) 
-                            (guard (Port out)) 
-                            (attributes ((attrs ()) (span 7)))) ((dst in) (src out) (guard (Port out)) (attributes ((attrs ()) (span 9)))) ((dst clk) (src clk) (guard True) (attributes ((attrs ()) (span 0)))) ((dst reset) (src reset) (guard True) (attributes ((attrs ()) (span 0)))) ((dst write_en) (src out) (guard (Port out)) (attributes ((attrs ()) (span 11)))) ((dst in) (src out) (guard (Port out)) (attributes ((attrs ()) (span 13)))) ((dst clk) (src clk) (guard True) (attributes ((attrs ()) (span 0)))) ((dst reset) (src reset) (guard True) (attributes ((attrs ()) (span 0)))) ((dst left) (src out) (guard (Port out)) (attributes ((attrs ()) (span 15)))) ((dst right) (src out) (guard (Port out)) (attributes ((attrs ()) (span 16)))) ((dst write_en) (src out) (guard (Port out)) (attributes ((attrs ()) (span 17)))) ((dst in) (src out) (guard (Port out)) (attributes ((attrs ()) (span 19)))) ((dst clk) (src clk) (guard True) (attributes ((attrs ()) (span 0)))) ((dst reset) (src reset) (guard True) (attributes ((attrs ()) (span 0)))) ((dst done) (src out) (guard (Port out)) (attributes ((attrs ()) (span 0)))) ((dst in) (src go) (guard True) (attributes ((attrs ()) (span 0)))) ((dst in) (src done) (guard True) (attributes ((attrs ()) (span 20)))))) (control (Empty ((attributes ((attrs ()) (span 0)))))) (attributes ((attrs ()) (span 1))) (is_comb false)))) (entrypoint main))
+          reg1 
+          adder 
+          result 
+          _1_1 _2_32 
+          _1_32 
+          incr_go
+          incr_done)) 
+    (groups ()) 
+    (static_groups ()) 
+    (comb_groups ()) 
+    (continuous_assignments 
+      (((dst reg0.write_en) (src _1_1.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 7)))) 
+      ((dst reg0.in) (src _2_32.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 9)))) 
+      ((dst reg0.clk) (src _this.clk) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst reg0.reset) (src _this.reset) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst reg1.write_en) (src _1_1.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 11)))) 
+      ((dst reg1.in) (src _1_32.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 13)))) 
+      ((dst reg1.clk) (src _this.clk) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst reg1.reset) (src _this.reset) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst adder.left) (src reg0.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 15)))) 
+      ((dst adder.right) (src reg1.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 16)))) 
+      ((dst result.write_en) (src _1_1.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 17)))) 
+      ((dst result.in) (src adder.out) (guard (Port incr_go.out)) (attributes ((attrs ()) (span 19)))) 
+      ((dst result.clk) (src _this.clk) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst result.reset) (src _this.reset) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst _this.done) (src _1_1.out) (guard (Port incr_done.out)) (attributes ((attrs ()) (span 0)))) 
+      ((dst incr_go.in) (src _this.go) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst incr_done.in) (src result.done) (guard True) (attributes ((attrs ()) (span 20)))))) 
+    (control (Empty ((attributes ((attrs ()) (span 0)))))) 
+    (attributes ((attrs ()) (span 1))) 
+    (is_comb false)))) 
+(entrypoint main))
