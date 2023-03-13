@@ -150,6 +150,16 @@ fn main() -> InterpreterResult<()> {
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[])?;
     }
 
+    let command = opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}));
+
+    // up here temporarily
+    if let Command::Flat(_) = &command {
+        // this is stupid but will work for testing purposes. This should be
+        // fixed later
+        interp::flatten::flat_main(&ctx);
+        todo!("The flat interpreter cannot yet interpret programs")
+    }
+
     let entry_point = ctx.entrypoint;
 
     let metadata = ctx.metadata;
@@ -174,8 +184,8 @@ fn main() -> InterpreterResult<()> {
         &mut mems,
         &config,
     )?;
-    let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
-    {
+
+    let res = match &command {
         Command::Interpret(_) => {
             ComponentInterpreter::interpret_program(env, main_component)
         }
@@ -190,13 +200,6 @@ fn main() -> InterpreterResult<()> {
             cidb.main_loop(env)
         }
         Command::Flat(_) => {
-            // this is stupid but will work for testing purposes. This should be
-            // fixed later
-            let ws =
-                frontend::Workspace::construct(&opts.file, &opts.lib_path)?;
-            let ctx = ir::from_ast::ast_to_ir(ws)?;
-
-            interp::flatten::flat_main(&ctx);
             todo!("The flat interpreter cannot yet interpret programs")
         }
     };
