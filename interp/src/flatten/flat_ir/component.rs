@@ -123,13 +123,13 @@ impl AuxillaryComponentInfo {
         self.definitions.ref_cells = IndexRange::new(start, end)
     }
 
-    fn offset_sizes(&self, cell_ty: CellType) -> IdxSkipSizes {
+    fn offset_sizes(&self, cell_ty: ContainmentType) -> IdxSkipSizes {
         let (port, ref_port) = match cell_ty {
-            CellType::Local => (
+            ContainmentType::Local => (
                 self.port_offset_map.count() - self.signature.size(),
                 self.ref_port_offset_map.count(),
             ),
-            CellType::Ref => (
+            ContainmentType::Ref => (
                 self.port_offset_map.count(),
                 self.ref_port_offset_map.count() - self.signature.size(),
             ),
@@ -145,12 +145,12 @@ impl AuxillaryComponentInfo {
 
     /// The skip sizes for ref-cell instances of this component
     pub fn skip_sizes_for_ref(&self) -> IdxSkipSizes {
-        self.offset_sizes(CellType::Ref)
+        self.offset_sizes(ContainmentType::Ref)
     }
 
     /// The skip sizes for non-ref cell instances of this component
     pub fn skip_sizes_for_local(&self) -> IdxSkipSizes {
-        self.offset_sizes(CellType::Local)
+        self.offset_sizes(ContainmentType::Local)
     }
 
     pub fn skip_offsets(
@@ -169,10 +169,6 @@ impl AuxillaryComponentInfo {
     }
 }
 
-enum CellType {
-    Local,
-    Ref,
-}
 pub struct IdxSkipSizes {
     port: usize,
     ref_port: usize,

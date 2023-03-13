@@ -1,15 +1,14 @@
-use std::{cell::RefCell, rc::Rc};
-
 use ahash::{HashMap, HashMapExt};
 use calyx::ir::{self as cir};
+use cir::RRC;
 
 use crate::{
     flatten::{
         flat_ir::{
             component::{AuxillaryComponentInfo, ComponentCore},
             prelude::{
-                Assignment, AssignmentIdx, CombGroup, CombGroupIdx, GroupIdx,
-                GuardIdx, PortRef,
+                Assignment, AssignmentIdx, CombGroup, CombGroupIdx,
+                ComponentRef, GroupIdx, GuardIdx, PortRef,
             },
             wires::{core::Group, guards::Guard},
         },
@@ -25,6 +24,7 @@ use crate::{
 use super::{structures::*, utils::CompTraversal};
 
 type PortMapper = HashMap<*const cir::Port, PortRef>;
+type ComponentMapper = HashMap<cir::Id, ComponentRef>;
 
 /// An ephemeral structure used during the translation of a component.
 pub struct GroupMapper {
@@ -37,13 +37,19 @@ pub fn translate(
 ) -> (InterpretationContext, SecondaryContext) {
     let mut primary_ctx = InterpretationContext::new();
     let mut secondary_ctx = SecondaryContext::new();
+    let mut component_id_map = ComponentMapper::new();
 
     // TODO (griffin)
     // the current component traversal is not well equipped for immutable
     // iteration over the components in a post-order so this is a hack instead
 
     for comp in CompTraversal::new(&orig_ctx.components).iter() {
-        translate_component(comp, &mut primary_ctx, &mut secondary_ctx);
+        translate_component(
+            comp,
+            &mut primary_ctx,
+            &mut secondary_ctx,
+            &mut component_id_map,
+        );
     }
 
     (primary_ctx, secondary_ctx)
@@ -118,7 +124,8 @@ fn translate_component(
     comp: &cir::Component,
     interp_ctx: &mut InterpretationContext,
     secondary_ctx: &mut SecondaryContext,
-) {
+    component_id_map: &mut ComponentMapper,
+) -> ComponentRef {
     let mut auxillary_component_info = AuxillaryComponentInfo::new_with_name(
         secondary_ctx.string_table.insert(comp.name),
     );
@@ -128,6 +135,7 @@ fn translate_component(
         interp_ctx,
         secondary_ctx,
         &mut auxillary_component_info,
+        component_id_map,
     );
 
     // Translate the groups
@@ -197,31 +205,68 @@ fn translate_component(
     secondary_ctx
         .comp_aux_info
         .insert(ctrl_ref, auxillary_component_info);
-}
 
-enum PortType {
-    Ref,
-    Local,
+    component_id_map.insert(comp.name, ctrl_ref);
+    ctrl_ref
 }
 
 fn insert_port(
     secondary_ctx: &mut SecondaryContext,
     aux: &mut AuxillaryComponentInfo,
-    port: &Rc<RefCell<cir::Port>>,
-    port_type: PortType,
+    port: &RRC<cir::Port>,
+    port_type: ContainmentType,
 ) -> PortRef {
     let id = secondary_ctx.string_table.insert(port.borrow().name);
     match port_type {
-        PortType::Ref => {
+        ContainmentType::Ref => {
             let idx_definition = secondary_ctx.push_ref_port(id);
             let local_offset = aux.ref_port_offset_map.insert(idx_definition);
             local_offset.into()
         }
-        PortType::Local => {
+        ContainmentType::Local => {
             let idx_definition = secondary_ctx.push_local_port(id);
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
         }
+    }
+}
+
+fn insert_cell(
+    secondary_ctx: &mut SecondaryContext,
+    aux: &mut AuxillaryComponentInfo,
+    cell: &RRC<cir::Cell>,
+    port_map: &mut PortMapper,
+    comp_id: ComponentRef,
+) {
+    let cell_ref = cell.borrow();
+    let id = secondary_ctx.string_table.insert(cell_ref.name());
+
+    if !cell_ref.is_reference() {
+        let base = aux.port_offset_map.peek_next_index();
+        for port in cell_ref.ports() {
+            port_map.insert(
+                port.as_raw(),
+                insert_port(secondary_ctx, aux, port, ContainmentType::Local),
+            );
+        }
+        let range =
+            IndexRange::new(base, aux.port_offset_map.peek_next_index());
+        let cell_def = secondary_ctx.push_local_cell(id, range, comp_id);
+        aux.cell_offset_map.insert(cell_def);
+    }
+    // CASE 2 - Reference Cell
+    else {
+        let base = aux.ref_port_offset_map.peek_next_index();
+        for port in cell_ref.ports() {
+            port_map.insert(
+                port.as_raw(),
+                insert_port(secondary_ctx, aux, port, ContainmentType::Ref),
+            );
+        }
+        let range =
+            IndexRange::new(base, aux.ref_port_offset_map.peek_next_index());
+        let ref_cell_def = secondary_ctx.push_ref_cell(id, range, comp_id);
+        aux.ref_cell_offset_map.insert(ref_cell_def);
     }
 }
 
@@ -230,6 +275,7 @@ fn compute_local_layout(
     ctx: &mut InterpretationContext,
     secondary_ctx: &mut SecondaryContext,
     aux: &mut AuxillaryComponentInfo,
+    component_id_map: &ComponentMapper,
 ) -> PortMapper {
     let comp_id = ctx.components.peek_next_idx();
 
@@ -238,7 +284,7 @@ fn compute_local_layout(
     let cell_def_base = secondary_ctx.local_cell_defs.peek_next_idx();
     let ref_cell_def_base = secondary_ctx.ref_cell_defs.peek_next_idx();
 
-    let mut portmap = PortMapper::new();
+    let mut port_map = PortMapper::new();
 
     // need this to set the appropriate signature range on the component
     let sig_base = aux.port_offset_map.peek_next_index();
@@ -246,9 +292,8 @@ fn compute_local_layout(
     // first, handle the signature ports
     for port in comp.signature.borrow().ports() {
         let local_offset =
-            insert_port(secondary_ctx, aux, port, PortType::Local);
-
-        portmap.insert(port.as_raw(), local_offset);
+            insert_port(secondary_ctx, aux, port, ContainmentType::Local);
+        port_map.insert(port.as_raw(), local_offset);
     }
 
     // update the aux info with the signature layout
@@ -260,8 +305,8 @@ fn compute_local_layout(
         let group = group.borrow();
         for port in &group.holes {
             let local_offset =
-                insert_port(secondary_ctx, aux, port, PortType::Local);
-            portmap.insert(port.as_raw(), local_offset);
+                insert_port(secondary_ctx, aux, port, ContainmentType::Local);
+            port_map.insert(port.as_raw(), local_offset);
         }
     }
 
@@ -269,47 +314,10 @@ fn compute_local_layout(
 
     // third, the primitive cells
     for cell in comp.cells.iter() {
-        let cell_ref = cell.borrow();
-        let id = secondary_ctx.string_table.insert(cell_ref.name());
-
         // this is silly
-        if cell_ref.is_primitive::<&str>(None)
-            || matches!(&cell_ref.prototype, cir::CellType::Constant { .. })
-        {
-            // CASE 1 - Normal Cell
-            if !cell_ref.is_reference() {
-                let base = aux.port_offset_map.peek_next_index();
-
-                for port in cell_ref.ports() {
-                    let local_offset =
-                        insert_port(secondary_ctx, aux, port, PortType::Local);
-                    portmap.insert(port.as_raw(), local_offset);
-                }
-                let range = IndexRange::new(
-                    base,
-                    aux.port_offset_map.peek_next_index(),
-                );
-                let cell_def =
-                    secondary_ctx.push_local_cell(id, range, comp_id);
-                aux.cell_offset_map.insert(cell_def);
-            }
-            // CASE 2 - Reference Cell
-            else {
-                let base = aux.ref_port_offset_map.peek_next_index();
-                for port in cell_ref.ports() {
-                    let local_offset =
-                        insert_port(secondary_ctx, aux, port, PortType::Ref);
-
-                    portmap.insert(port.as_raw(), local_offset);
-                }
-                let range = IndexRange::new(
-                    base,
-                    aux.ref_port_offset_map.peek_next_index(),
-                );
-                let ref_cell_def =
-                    secondary_ctx.push_ref_cell(id, range, comp_id);
-                aux.ref_cell_offset_map.insert(ref_cell_def);
-            }
+        // CASE 1 & 2 - local/ref cells
+        if is_primitive(&cell.borrow()) {
+            insert_cell(secondary_ctx, aux, cell, &mut port_map, comp_id)
         }
         // CASE 3 - Subcomponent
         else {
@@ -319,8 +327,23 @@ fn compute_local_layout(
     }
 
     // fourth, the sub-components
-    for _cell in sub_component_queue {
-        todo!("non-primitive cells are not yet supported")
+    for cell in sub_component_queue {
+        // insert the cells and ports
+        insert_cell(secondary_ctx, aux, cell, &mut port_map, comp_id);
+
+        // Advance the offsets to appropriately layout the next comp-cell
+        let cell_ref = cell.borrow();
+        if let cir::CellType::Component { name } = &cell_ref.prototype {
+            let aux_info = &secondary_ctx.comp_aux_info[component_id_map[name]];
+            let skips = if cell_ref.is_reference() {
+                aux_info.skip_sizes_for_ref()
+            } else {
+                aux_info.skip_sizes_for_local()
+            };
+            aux.skip_offsets(skips);
+        } else {
+            unreachable!("Component cell isn't a component?. This shouldn't be possible please report this.")
+        }
     }
 
     aux.set_port_range(
@@ -340,7 +363,12 @@ fn compute_local_layout(
         secondary_ctx.ref_cell_defs.peek_next_idx(),
     );
 
-    portmap
+    port_map
+}
+
+fn is_primitive(cell_ref: &std::cell::Ref<cir::Cell>) -> bool {
+    cell_ref.is_primitive::<&str>(None)
+        || matches!(&cell_ref.prototype, cir::CellType::Constant { .. })
 }
 
 impl FlattenTree for cir::Guard {

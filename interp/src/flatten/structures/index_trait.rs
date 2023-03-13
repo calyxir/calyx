@@ -107,6 +107,15 @@ where
     end: I,
 }
 
+impl<I> From<(I, I)> for IndexRange<I>
+where
+    I: IndexRef + PartialOrd,
+{
+    fn from(value: (I, I)) -> Self {
+        Self::new(value.0, value.1)
+    }
+}
+
 impl<I> IndexRange<I>
 where
     I: IndexRef + PartialOrd,

@@ -146,3 +146,32 @@ pub enum ControlNode {
     While(While),
     Invoke(Invoke),
 }
+
+// ---------------------
+
+/// An enum indicating whether an entity is entirely local to the given context
+/// or a reference from another context (i.e. refcell or port on a refcell)
+pub(crate) enum ContainmentType {
+    /// A local cell/port
+    Local,
+    /// A ref cell/port
+    Ref,
+}
+
+impl ContainmentType {
+    /// Returns `true` if the containment type is [`Local`].
+    ///
+    /// [`Local`]: ContainmentType::Local
+    #[must_use]
+    pub(crate) fn is_local(&self) -> bool {
+        matches!(self, Self::Local)
+    }
+
+    /// Returns `true` if the containment type is [`Ref`].
+    ///
+    /// [`Ref`]: ContainmentType::Ref
+    #[must_use]
+    pub(crate) fn is_ref(&self) -> bool {
+        matches!(self, Self::Ref)
+    }
+}
