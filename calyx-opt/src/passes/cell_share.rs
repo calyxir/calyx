@@ -563,6 +563,7 @@ impl Visitor for CellShare {
             &mut comp.control.borrow_mut(),
             &HashMap::new(),
             &HashMap::new(),
+            &HashMap::new(),
         );
 
         Ok(Action::Stop)

@@ -46,6 +46,16 @@ The following commands enable remote usage of `vivado` and `vivado-hls` by defau
 
 The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
 
+To tell if this has been set up correctly, run `ssh <username>@<xilinx.tool.server>` and ensure that you are not prompted for a password. The `ssh-copy-id` command will let you setup your server to authenticate without a password. Note that after you SSH into the server, the Vivado command should work without needing to run any source command. 
+
+Here's how you would ssh into Havarti:
+
+    ssh user@havarti.cs.cornell.edu
+    user@havarti:~$ vivado
+    
+    ****** Vivado v2020.2 (64-bit)
+
+
 ### Setting up Local Tools
 
 To instead **invoke the Xilinx tools locally**, just let `fud` run the `vivado` and `vivado_hls` commands.

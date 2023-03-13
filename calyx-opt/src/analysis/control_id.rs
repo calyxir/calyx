@@ -43,7 +43,10 @@ impl ControlId {
     ) -> u64 {
         match con {
             ir::Control::Enable(ir::Enable { attributes, .. })
-            | ir::Control::Invoke(ir::Invoke { attributes, .. }) => {
+            | ir::Control::Invoke(ir::Invoke { attributes, .. })
+            | ir::Control::StaticEnable(ir::StaticEnable {
+                attributes, ..
+            }) => {
                 attributes.insert(NODE_ID, cur_state);
                 cur_state + 1
             }

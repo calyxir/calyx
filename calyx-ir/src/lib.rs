@@ -12,6 +12,7 @@ mod common;
 mod component;
 mod context;
 mod control;
+mod flat_guard;
 mod guard;
 mod printer;
 mod reserved_names;
@@ -27,15 +28,16 @@ pub use common::{RRC, WRC};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context, LibrarySignatures};
 pub use control::{
-    Cloner, Control, Empty, Enable, If, Invoke, Par, Seq, While,
+    Cloner, Control, Empty, Enable, If, Invoke, Par, Seq, StaticEnable, While,
 };
+pub use flat_guard::{FlatGuard, GuardPool, GuardRef};
 pub use guard::{Guard, PortComp};
 pub use printer::Printer;
 pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;
 pub use structure::{
-    Assignment, Binding, Canonical, Cell, CellType, CombGroup, Group, Port,
-    PortIterator, PortParent,
+    Assignment, Binding, Canonical, Cell, CellType, CloneName, CombGroup,
+    Direction, GetName, Group, Port, PortIterator, PortParent, StaticGroup,
 };
 
 // Re-export types from the frontend.

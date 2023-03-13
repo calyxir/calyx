@@ -118,7 +118,7 @@ impl Visitor for MergeStaticPar {
                 grp.borrow_mut().assignments.push(done_asmt);
 
                 grp.borrow_mut().attributes.insert("static", key);
-                comp.groups.add(Rc::clone(&grp));
+                comp.get_groups_mut().add(Rc::clone(&grp));
 
                 let mut enable: ir::Enable = Enable {
                     group: Rc::clone(&grp),

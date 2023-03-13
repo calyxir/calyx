@@ -51,6 +51,7 @@ impl Normalize {
             }
             ir::Control::Invoke(_)
             | ir::Control::Enable(_)
+            | ir::Control::StaticEnable(_)
             | ir::Control::Empty(_) => {}
         }
     }

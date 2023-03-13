@@ -14,6 +14,7 @@ use std::rc::Rc;
 pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
+    StaticGroup(WRC<StaticGroup>),
 }
 
 /// Represents a port on a cell.
@@ -75,6 +76,7 @@ impl Port {
         match &self.parent {
             PortParent::Cell(cell) => cell.upgrade().borrow().name,
             PortParent::Group(group) => group.upgrade().borrow().name,
+            PortParent::StaticGroup(group) => group.upgrade().borrow().name,
         }
     }
 
@@ -522,6 +524,95 @@ impl Group {
     }
 }
 
+/// A Group of assignments that perform a logical action.
+#[derive(Debug)]
+pub struct StaticGroup {
+    /// Name of this group
+    name: Id,
+
+    /// The assignments used in this group
+    pub assignments: Vec<Assignment>,
+
+    /// Holes for this group
+    pub holes: SmallVec<[RRC<Port>; 3]>,
+
+    /// Attributes for this group.
+    pub attributes: Attributes,
+}
+
+///implement the StaticGroup struct
+impl StaticGroup {
+    pub fn new(name: Id) -> Self {
+        Self {
+            name,
+            assignments: vec![],
+            holes: smallvec![],
+            attributes: Attributes::default(),
+        }
+    }
+
+    /// Get a reference to the named hole if it exists.
+    pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
+    where
+        S: std::fmt::Display,
+        Id: PartialEq<S>,
+    {
+        self.holes
+            .iter()
+            .find(|&g| g.borrow().name == name)
+            .map(Rc::clone)
+    }
+
+    /// Get a reference to the named hole or panic.
+    pub fn get<S>(&self, name: S) -> RRC<Port>
+    where
+        S: std::fmt::Display + Clone,
+        Id: PartialEq<S>,
+    {
+        self.find(name.clone()).unwrap_or_else(|| {
+            panic!("Hole `{name}' not found on group `{}'", self.name)
+        })
+    }
+
+    /// Returns the index to the done assignment in the group.
+    fn find_done_cond(&self) -> usize {
+        self.assignments
+            .iter()
+            .position(|assign| {
+                let dst = assign.dst.borrow();
+                dst.is_hole() && dst.name == "done"
+            })
+            .unwrap_or_else(|| {
+                panic!("Group `{}' has no done condition", self.name)
+            })
+    }
+
+    /// Returns a reference to the assignment in the group that writes to the done condition.
+    pub fn done_cond(&self) -> &Assignment {
+        let idx = self.find_done_cond();
+        &self.assignments[idx]
+    }
+
+    /// Returns a mutable reference to the assignment in the group that writes to the done
+    /// condition.
+    pub fn done_cond_mut(&mut self) -> &mut Assignment {
+        let idx = self.find_done_cond();
+        &mut self.assignments[idx]
+    }
+
+    /// The name of this group.
+    #[inline]
+    pub fn name(&self) -> Id {
+        self.name
+    }
+
+    /// The attributes of this group.
+    #[inline]
+    pub fn get_attributes(&self) -> Option<&Attributes> {
+        Some(&self.attributes)
+    }
+}
+
 /// A combinational group.
 /// A combinational group does not have any holes and should only contain assignments that should
 /// will be combinationally active
@@ -563,6 +654,12 @@ impl GetName for Group {
 }
 
 impl GetName for CombGroup {
+    fn name(&self) -> Id {
+        self.name()
+    }
+}
+
+impl GetName for StaticGroup {
     fn name(&self) -> Id {
         self.name()
     }

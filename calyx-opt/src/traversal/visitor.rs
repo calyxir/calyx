@@ -328,6 +328,17 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed at an [ir::StaticEnable] node.
+    fn static_enable(
+        &mut self,
+        _s: &mut ir::StaticEnable,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::Invoke] node.
     fn invoke(
         &mut self,
@@ -409,6 +420,9 @@ impl Visitable for Control {
                 })?,
             Control::Enable(ctrl) => {
                 visitor.enable(ctrl, component, sigs, comps)?
+            }
+            Control::StaticEnable(ctrl) => {
+                visitor.static_enable(ctrl, component, sigs, comps)?
             }
             Control::Empty(ctrl) => {
                 visitor.empty(ctrl, component, sigs, comps)?

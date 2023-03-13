@@ -48,6 +48,9 @@ impl WithStatic for ir::Control {
             ir::Control::While(wh) => wh.update_static(extra),
             ir::Control::Invoke(inv) => inv.update_static(extra),
             ir::Control::Enable(en) => en.update_static(&()),
+            ir::Control::StaticEnable(_) => {
+                panic!("static enables not supported for computed_static()")
+            }
             ir::Control::Empty(_) => Some(0),
         }
     }

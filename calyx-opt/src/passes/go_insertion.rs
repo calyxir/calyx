@@ -39,7 +39,8 @@ impl Visitor for GoInsertion {
         _c: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        for group in comp.groups.iter() {
+        // assume static groups is empty
+        for group in comp.get_groups().iter() {
             let group_go = guard!(group["go"]);
             // Detach the group's assignments so we can drop the mutable access to it.
             let mut group_assigns =

@@ -39,6 +39,7 @@ fn remove_ids(c: &mut ir::Control) {
     match c {
         ir::Control::Empty(_)
         | ir::Control::Invoke(_)
+        | ir::Control::StaticEnable(_)
         | ir::Control::Enable(_) => (),
         ir::Control::While(ir::While { body, .. }) => {
             remove_ids(body);

@@ -223,9 +223,15 @@ impl Visitor for WellFormed {
                 return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but has a non-empty control program", comp.name)));
             }
 
-            if !comp.groups.is_empty() {
-                let group = comp.groups.iter().next().unwrap().borrow();
-                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.name())).with_pos(&group.attributes));
+            if !comp.get_groups().is_empty() {
+                let group = comp.get_groups().iter().next().unwrap().borrow();
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
+            }
+
+            if !comp.get_static_groups().is_empty() {
+                let group =
+                    comp.get_static_groups().iter().next().unwrap().borrow();
+                return Err(Error::malformed_structure(format!("Component `{}` is marked combinational but contains a group `{}`", comp.name, group.clone_name())).with_pos(&group.attributes));
             }
 
             if !comp.comb_groups.is_empty() {
@@ -256,7 +262,46 @@ impl Visitor for WellFormed {
 
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
-        for gr in comp.groups.iter() {
+        for gr in comp.get_groups().iter() {
+            let group = gr.borrow();
+            let gname = group.name();
+            let mut has_done = false;
+            // Find an assignment writing to this group's done condition.
+            for assign in &group.assignments {
+                let dst = assign.dst.borrow();
+                if dst.is_hole() && dst.name == "done" {
+                    // Group has multiple done conditions
+                    if has_done {
+                        return Err(Error::malformed_structure(format!(
+                            "Group `{}` has multiple done conditions",
+                            gname
+                        ))
+                        .with_pos(&assign.attributes));
+                    } else {
+                        has_done = true;
+                    }
+                    // Group uses another group's done condition
+                    if gname != dst.get_parent_name() {
+                        return Err(Error::malformed_structure(
+                            format!("Group `{}` refers to the done condition of another group (`{}`).",
+                            gname,
+                            dst.get_parent_name())).with_pos(&dst.attributes));
+                    }
+                }
+            }
+
+            // Group does not have a done condition
+            if !has_done {
+                return Err(Error::malformed_structure(format!(
+                    "No writes to the `done' hole for group `{gname}'",
+                ))
+                .with_pos(&group.attributes));
+            }
+        }
+
+        // For each non-combinational group, check if there is at least one write to the done
+        // signal of that group and that the write is to the group's done signal.
+        for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
             let gname = group.name();
             let mut has_done = false;
@@ -517,14 +562,33 @@ impl Visitor for WellFormed {
         });
 
         // Find unused groups
-        let all_groups: HashSet<ir::Id> =
-            comp.groups.iter().map(|g| g.borrow().name()).collect();
+        let mut all_groups: HashSet<ir::Id> =
+            comp.get_groups().iter().map(|g| g.clone_name()).collect();
+        let static_groups: HashSet<ir::Id> = comp
+            .get_static_groups()
+            .iter()
+            .map(|g| g.clone_name())
+            .collect();
+        all_groups.extend(static_groups);
+
         if let Some(group) =
             all_groups.difference(&self.used_groups).into_iter().next()
         {
-            let gr = comp.find_group(*group).unwrap();
-            let gr = gr.borrow();
-            return Err(Error::unused(*group, "group").with_pos(&gr.attributes));
+            match comp.find_group(*group) {
+                Some(gr) => {
+                    let gr = gr.borrow();
+                    return Err(
+                        Error::unused(*group, "group").with_pos(&gr.attributes)
+                    );
+                }
+                None => {
+                    let gr = comp.find_static_group(*group).unwrap();
+                    let gr = gr.borrow();
+                    return Err(
+                        Error::unused(*group, "group").with_pos(&gr.attributes)
+                    );
+                }
+            }
         };
 
         let all_comb_groups: HashSet<ir::Id> =

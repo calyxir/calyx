@@ -149,11 +149,16 @@ impl Visitor for HoleInliner {
         // map of holes to their guard expressions
         let mut map: Store = HashMap::new();
         let mut assignments = vec![];
-        for group in builder.component.groups.iter() {
+        for group in builder.component.get_groups().iter() {
             // remove all assignments from group, taking ownership
             let mut group = group.borrow_mut();
             assignments.append(&mut group.assignments.drain(..).collect());
         }
+
+        assert!(
+            builder.component.get_static_groups().is_empty(),
+            "should have removed static groups when inlining holes"
+        );
 
         // add the continuous assignment edges
         assignments.append(
@@ -214,7 +219,8 @@ impl Visitor for HoleInliner {
         comp.continuous_assignments = assignments;
 
         // remove all groups
-        comp.groups.clear();
+        comp.get_groups_mut().clear();
+        comp.get_static_groups_mut().clear();
 
         // remove group from control
         Ok(Action::change(ir::Control::empty()))

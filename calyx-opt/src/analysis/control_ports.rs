@@ -52,7 +52,9 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
 impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
     fn construct(&mut self, con: &ir::Control) {
         match con {
-            ir::Control::Enable(_) | ir::Control::Empty(_) => {}
+            ir::Control::Enable(_)
+            | ir::Control::Empty(_)
+            | ir::Control::StaticEnable(_) => {}
             ir::Control::Invoke(ir::Invoke {
                 comp,
                 comb_group,

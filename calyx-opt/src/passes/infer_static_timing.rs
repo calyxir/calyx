@@ -273,7 +273,6 @@ impl InferStaticTiming {
                         }
                     }
                 }
-
                 ir::PortParent::Group(_) => {
                     if port.borrow().name == "done" {
                         for write_port in graph.writes_to(&port.borrow()) {
@@ -288,6 +287,9 @@ impl InferStaticTiming {
                         }
                     }
                 }
+
+                ir::PortParent::StaticGroup(_) => // done ports of static groups should clearly NOT have static latencies  
+                panic!("Have not decided how to handle static groups in infer-static-timing"),
             }
         }
         false
@@ -397,7 +399,8 @@ impl Visitor for InferStaticTiming {
     ) -> VisResult {
         // Compute latencies for all groups.
         let mut latency_result: Option<u64>;
-        for group in comp.groups.iter() {
+        // don't need to do all this work for static groups
+        for group in comp.get_groups().iter() {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
                 let grp = group.borrow();
                 if let Some(curr_lat) = grp.attributes.get("static") {

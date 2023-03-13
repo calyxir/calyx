@@ -103,7 +103,12 @@ impl Visitor for Papercut {
         // that component's `write_together' and `read_together' are also driven.
         // For example, for a register, both the `.in' port and the `.write_en' port need to be
         // driven.
-        for group_ref in comp.groups.iter() {
+        for group_ref in comp.get_groups().iter() {
+            let group = group_ref.borrow();
+            self.check_specs(&group.assignments)
+                .map_err(|err| err.with_pos(&group.attributes))?;
+        }
+        for group_ref in comp.get_static_groups().iter() {
             let group = group_ref.borrow();
             self.check_specs(&group.assignments)
                 .map_err(|err| err.with_pos(&group.attributes))?;
