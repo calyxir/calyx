@@ -1,5 +1,3 @@
-use calyx::ir;
-
 use super::mem_utils::{MemBinder, MemD1, MemD2, MemD3, MemD4};
 use crate::{
     debugger::PrintCode,
@@ -12,6 +10,7 @@ use crate::{
     validate, validate_friendly,
     values::Value,
 };
+use calyx_ir as ir;
 
 pub(super) enum RegUpdate {
     None,
@@ -93,7 +92,7 @@ impl Primitive for StdReg {
         false
     }
 
-    fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
+    fn validate(&self, inputs: &[(calyx_ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
                 "in" => assert_eq!(v.len() as u64, self.width),
@@ -107,7 +106,7 @@ impl Primitive for StdReg {
 
     fn execute(
         &mut self,
-        inputs: &[(calyx::ir::Id, &Value)],
+        inputs: &[(calyx_ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_inputs![inputs;
             input: "in",
@@ -128,7 +127,7 @@ impl Primitive for StdReg {
 
     fn reset(
         &mut self,
-        _: &[(calyx::ir::Id, &Value)],
+        _: &[(calyx_ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.update.clear();
         Ok(vec![

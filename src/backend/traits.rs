@@ -1,5 +1,6 @@
 //! Interface for a Calyx backend.
-use calyx::{errors::CalyxResult, ir, utils::OutputFile};
+use calyx_ir as ir;
+use calyx_utils::{CalyxResult, OutputFile};
 
 /// A backend for Calyx.
 pub trait Backend {

@@ -1,4 +1,8 @@
-use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
+use argh::FromArgs;
+use calyx_frontend as frontend;
+use calyx_ir as ir;
+use calyx_opt::pass_manager::PassManager;
+use calyx_utils::OutputFile;
 use interp::{
     configuration,
     debugger::{source::SourceMap, Debugger},
@@ -7,8 +11,6 @@ use interp::{
     interpreter::ComponentInterpreter,
     interpreter_ir as iir,
 };
-
-use argh::FromArgs;
 use rustyline::error::ReadlineError;
 use slog::warn;
 use std::{

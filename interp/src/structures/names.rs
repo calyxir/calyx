@@ -1,5 +1,5 @@
 use crate::interpreter_ir as iir;
-use calyx::ir::Id;
+use calyx_ir::Id;
 use itertools::Itertools;
 use std::{
     fmt::{Display, Write},

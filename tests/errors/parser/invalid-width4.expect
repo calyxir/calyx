@@ -1,7 +1,7 @@
 ---CODE---
 1
 ---STDERR---
-Error: Calyx Parser:  --> 4:12
+Error: Failed to parse `tests/errors/parser/invalid-width4.futil`:  --> 4:12
   |
 4 |     r.in = 2'd4;
   |            ^--^

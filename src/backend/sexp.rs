@@ -2,7 +2,8 @@
 //! Outputs s-expressions.
 
 use crate::backend::traits::Backend;
-use calyx::{errors::CalyxResult, ir, utils::OutputFile};
+use calyx_ir as ir;
+use calyx_utils::{CalyxResult, OutputFile};
 
 #[derive(Default)]
 pub struct SexpBackend;

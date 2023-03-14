@@ -87,7 +87,7 @@ macro_rules! comb_primitive {
         #[allow(non_snake_case)]
         pub struct $name {
             $($param: u64),+,
-            name: calyx::ir::Id,
+            name: calyx_ir::Id,
             logger: $crate::logging::Logger,
         }
 
@@ -103,7 +103,7 @@ macro_rules! comb_primitive {
 
 
         impl $name {
-            pub fn new(params: &calyx::ir::Binding, name: calyx::ir::Id) -> Self {
+            pub fn new(params: &calyx_ir::Binding, name: calyx_ir::Id) -> Self {
                 let mut base = Self::default();
                 for (param, value) in params {
                     match param.as_ref() {
@@ -117,7 +117,7 @@ macro_rules! comb_primitive {
             }
 
             #[allow(non_snake_case)]
-            pub fn from_constants($( $param: u64 ),+, name: calyx::ir::Id) -> Self {
+            pub fn from_constants($( $param: u64 ),+, name: calyx_ir::Id) -> Self {
                 $name {
                     $($param),+,
                     logger: $crate::logging::new_sublogger(&name),
@@ -127,7 +127,7 @@ macro_rules! comb_primitive {
         }
 
         impl $crate::primitives::Named for $name {
-            fn get_full_name(&self) -> &calyx::ir::Id {
+            fn get_full_name(&self) -> &calyx_ir::Id {
                 &self.name
             }
         }
@@ -136,7 +136,7 @@ macro_rules! comb_primitive {
         impl $crate::primitives::Primitive for $name {
 
             //null-op; comb don't use do_tick()
-            fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>>{
+            fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx_ir::Id, $crate::values::Value)>>{
                 Ok(vec![])
             }
 
@@ -144,7 +144,7 @@ macro_rules! comb_primitive {
 
             fn validate(
                 &self,
-                inputs: &[(calyx::ir::Id, &$crate::values::Value)]
+                inputs: &[(calyx_ir::Id, &$crate::values::Value)]
             ) {
                 for (id, v) in inputs {
                     match id.as_ref() {
@@ -157,8 +157,8 @@ macro_rules! comb_primitive {
             #[allow(non_snake_case,unused)]
             fn execute(
                 &mut self,
-                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
-            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
+                inputs: &[(calyx_ir::Id, &$crate::values::Value)],
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx_ir::Id, $crate::values::Value)>> {
 
                 #[derive(Default)]
                 struct Ports<'a> {
@@ -174,7 +174,7 @@ macro_rules! comb_primitive {
                     }
                 }
 
-                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $log: &$crate::logging::Logger, $full_name:&calyx::ir::Id| -> $crate::errors::InterpreterResult<Value> {
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $log: &$crate::logging::Logger, $full_name:&calyx_ir::Id| -> $crate::errors::InterpreterResult<Value> {
                     $execute
                 };
 
@@ -197,8 +197,8 @@ macro_rules! comb_primitive {
             // Combinational components cannot be reset
             fn reset(
                 &mut self,
-                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
-            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
+                inputs: &[(calyx_ir::Id, &$crate::values::Value)],
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx_ir::Id, $crate::values::Value)>> {
                 self.execute(inputs)
             }
 
@@ -214,7 +214,7 @@ macro_rules! comb_primitive {
         #[allow(non_snake_case)]
         pub struct $name {
             $($param: u64),+,
-            name: calyx::ir::Id,
+            name: calyx_ir::Id,
             logger: $crate::logging::Logger,
             $flag: bool
         }
@@ -232,7 +232,7 @@ macro_rules! comb_primitive {
 
 
         impl $name {
-            pub fn new(params: &calyx::ir::Binding, name: calyx::ir::Id, $flag: bool) -> Self {
+            pub fn new(params: &calyx_ir::Binding, name: calyx_ir::Id, $flag: bool) -> Self {
                 let mut base = Self::default();
                 for (param, value) in params {
                     match param.as_ref() {
@@ -247,7 +247,7 @@ macro_rules! comb_primitive {
             }
 
             #[allow(non_snake_case)]
-            pub fn from_constants($( $param: u64 ),+, name: calyx::ir::Id, $flag: bool) -> Self {
+            pub fn from_constants($( $param: u64 ),+, name: calyx_ir::Id, $flag: bool) -> Self {
                 $name {
                     $($param),+,
                     logger: $crate::logging::new_sublogger(&name),
@@ -258,7 +258,7 @@ macro_rules! comb_primitive {
         }
 
         impl $crate::primitives::Named for $name {
-            fn get_full_name(&self) -> &calyx::ir::Id {
+            fn get_full_name(&self) -> &calyx_ir::Id {
                 &self.name
             }
         }
@@ -267,7 +267,7 @@ macro_rules! comb_primitive {
         impl $crate::primitives::Primitive for $name {
 
             //null-op; comb don't use do_tick()
-            fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>>{
+            fn do_tick(&mut self) -> $crate::errors::InterpreterResult<Vec<(calyx_ir::Id, $crate::values::Value)>>{
                 Ok(vec![])
             }
 
@@ -275,7 +275,7 @@ macro_rules! comb_primitive {
 
             fn validate(
                 &self,
-                inputs: &[(calyx::ir::Id, &$crate::values::Value)]
+                inputs: &[(calyx_ir::Id, &$crate::values::Value)]
             ) {
                 for (id, v) in inputs {
                     match id.as_ref() {
@@ -288,8 +288,8 @@ macro_rules! comb_primitive {
             #[allow(non_snake_case,unused)]
             fn execute(
                 &mut self,
-                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
-            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
+                inputs: &[(calyx_ir::Id, &$crate::values::Value)],
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx_ir::Id, $crate::values::Value)>> {
 
                 #[derive(Default)]
                 struct Ports<'a> {
@@ -305,7 +305,7 @@ macro_rules! comb_primitive {
                     }
                 }
 
-                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $log: &$crate::logging::Logger, $full_name:&calyx::ir::Id, $flag: bool| -> $crate::errors::InterpreterResult<Value> {
+                let exec_func = |$($param: u64),+, $( $port: &Value ),+, $log: &$crate::logging::Logger, $full_name:&calyx_ir::Id, $flag: bool| -> $crate::errors::InterpreterResult<Value> {
                     $execute
                 };
 
@@ -329,8 +329,8 @@ macro_rules! comb_primitive {
             // Combinational components cannot be reset
             fn reset(
                 &mut self,
-                inputs: &[(calyx::ir::Id, &$crate::values::Value)],
-            ) -> $crate::errors::InterpreterResult<Vec<(calyx::ir::Id, $crate::values::Value)>> {
+                inputs: &[(calyx_ir::Id, &$crate::values::Value)],
+            ) -> $crate::errors::InterpreterResult<Vec<(calyx_ir::Id, $crate::values::Value)>> {
                 self.execute(inputs)
             }
 
@@ -380,7 +380,7 @@ macro_rules! lit_or_id {
 macro_rules! port_bindings {
     ( $binds: ident; $( $port: ident -> ($val: tt, $width: tt) ),+ ) => {
         $( let $port = $crate::values::Value::from($crate::lit_or_id!($val), $crate::lit_or_id!($width)); )+
-        let $binds = vec![ $( (calyx::ir::Id::from($crate::in_fix!($port)), &$port) ),+ ];
+        let $binds = vec![ $( (calyx_ir::Id::from($crate::in_fix!($port)), &$port) ),+ ];
     }
 }
 

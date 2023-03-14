@@ -4,7 +4,7 @@ use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::utils::get_dest_cells;
 use crate::utils::{AsRaw, PortAssignment, RcOrConst};
 use crate::values::Value;
-use calyx::ir::{self, Assignment, Cell, RRC};
+use calyx_ir::{self as ir, Assignment, Cell, RRC};
 use std::cell::Ref;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;

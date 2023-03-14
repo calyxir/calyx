@@ -3,10 +3,8 @@ use super::{
     memory_axi::MemoryInterface, utils,
 };
 use crate::backend::traits::Backend;
-use calyx::{
-    errors::{CalyxResult, Error},
-    ir,
-};
+use calyx_ir as ir;
+use calyx_utils::{CalyxResult, Error};
 use vast::v05::ast as v;
 
 /// A backend that generates the Xilinx interfacing for a Calyx program.
@@ -24,14 +22,14 @@ impl Backend for XilinxInterfaceBackend {
 
     fn link_externs(
         _lib: &ir::Context,
-        _write: &mut calyx::utils::OutputFile,
+        _write: &mut calyx_utils::OutputFile,
     ) -> CalyxResult<()> {
         Ok(())
     }
 
     fn emit(
         prog: &ir::Context,
-        file: &mut calyx::utils::OutputFile,
+        file: &mut calyx_utils::OutputFile,
     ) -> CalyxResult<()> {
         let toplevel = prog
             .components
@@ -97,7 +95,7 @@ impl Backend for XilinxInterfaceBackend {
 
 fn external_memories_cells(
     comp: &ir::Component,
-) -> Vec<calyx::ir::RRC<ir::Cell>> {
+) -> Vec<calyx_ir::RRC<ir::Cell>> {
     comp.cells
         .iter()
         // find external memories
