@@ -1,5 +1,5 @@
 use crate::values::Value;
-use calyx::ir::{self, Assignment, Binding, Id, Port, RRC};
+use calyx_ir::{self as ir, Assignment, Binding, Id, Port, RRC};
 use serde::Deserialize;
 use std::cell::Ref;
 use std::collections::HashMap;

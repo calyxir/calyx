@@ -1,4 +1,4 @@
-use calyx::utils;
+use calyx_utils as utils;
 use std::collections::BTreeMap;
 use vast::v05::ast as v;
 
@@ -84,7 +84,7 @@ impl LinearFsm {
     /// Given a verilog module, emit the fsm.
     pub fn emit(&self, module: &mut v::Module) {
         let num_states = self.states.len();
-        let width = utils::math::bits_needed_for(num_states as u64);
+        let width = utils::bits_needed_for(num_states as u64);
 
         module.add_decl(v::Decl::new_reg(&self.state_reg, width));
         module.add_decl(v::Decl::new_reg(&self.next_reg, width));

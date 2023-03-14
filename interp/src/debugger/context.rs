@@ -5,7 +5,7 @@ use super::commands::{
 
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
-use calyx::ir::Id;
+use calyx_ir::Id;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Display;

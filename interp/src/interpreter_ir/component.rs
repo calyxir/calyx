@@ -1,6 +1,6 @@
 use super::control::Control;
-use calyx::ir::Component as CalyxComponent;
-use calyx::ir::{
+use calyx_ir::Component as CalyxComponent;
+use calyx_ir::{
     Assignment, Attributes, Cell, CombGroup, Group, Id, IdList, RRC,
 };
 use std::rc::Rc;

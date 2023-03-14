@@ -6,7 +6,7 @@ use crate::logging::{self, warn};
 use crate::utils::PrintCode;
 use crate::validate;
 use crate::values::Value;
-use calyx::ir;
+use calyx_ir as ir;
 use ibig::ops::RemEuclid;
 use ibig::{ibig, ubig, IBig, UBig};
 
@@ -156,7 +156,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
         false
     }
 
-    fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
+    fn validate(&self, inputs: &[(calyx_ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
                 "left" => assert_eq!(v.len() as u64, self.width),
@@ -170,7 +170,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
 
     fn execute(
         &mut self,
-        inputs: &[(calyx::ir::Id, &Value)],
+        inputs: &[(calyx_ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_inputs![inputs;
             left: "left",
@@ -192,7 +192,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
 
     fn reset(
         &mut self,
-        _: &[(calyx::ir::Id, &Value)],
+        _: &[(calyx_ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.update.clear();
         self.queue.reset();
@@ -365,7 +365,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
         false
     }
 
-    fn validate(&self, inputs: &[(calyx::ir::Id, &Value)]) {
+    fn validate(&self, inputs: &[(calyx_ir::Id, &Value)]) {
         for (id, v) in inputs {
             match id.as_ref() {
                 "left" => assert_eq!(v.len() as u64, self.width),
@@ -379,7 +379,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
 
     fn execute(
         &mut self,
-        inputs: &[(calyx::ir::Id, &Value)],
+        inputs: &[(calyx_ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_inputs![inputs;
             left: "left",
@@ -401,7 +401,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
 
     fn reset(
         &mut self,
-        _: &[(calyx::ir::Id, &Value)],
+        _: &[(calyx_ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         self.update.clear();
         self.queue.reset();

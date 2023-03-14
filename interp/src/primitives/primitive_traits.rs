@@ -6,7 +6,7 @@ use crate::{
     values::Value,
 };
 
-use calyx::ir;
+use calyx_ir as ir;
 use fraction::Fraction;
 
 use itertools::Itertools;

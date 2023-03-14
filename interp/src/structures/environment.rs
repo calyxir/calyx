@@ -16,7 +16,7 @@ use crate::{
     utils::{AsRaw, MemoryMap},
     values::Value,
 };
-use calyx::ir::{self, RRC};
+use calyx_ir::{self as ir, RRC};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::iter::once;

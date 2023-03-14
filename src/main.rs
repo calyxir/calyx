@@ -1,7 +1,9 @@
 mod backend;
 mod cmdline;
-
-use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
+use calyx_frontend as frontend;
+use calyx_ir as ir;
+use calyx_opt::pass_manager::PassManager;
+use calyx_utils::CalyxResult;
 use cmdline::{BackendOpt, CompileMode, Opts};
 use itertools::Itertools;
 
