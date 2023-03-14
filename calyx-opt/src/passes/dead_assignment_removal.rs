@@ -1,13 +1,11 @@
 use itertools::Itertools;
 
-use crate::ir::{
-    self,
-    traversal::{Action, Named, VisResult, Visitor},
-};
+use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::{self as ir};
 use std::collections::{HashMap, HashSet};
 
 // maps combinational combinational components to set of all combinational components that it reads from
-// so the entries are (comb component, <set of comb components that write to comb component>)
+// so the entries are (comb comp, <set of comb components that write to comb comp>)
 fn get_comb_depdendence_map(
     assigns: &Vec<ir::Assignment>,
 ) -> HashMap<ir::Id, HashSet<ir::Id>> {
@@ -37,7 +35,7 @@ fn get_comb_depdendence_map(
     comb_dependence_map
 }
 
-// non_comb_writes includes all cells that write to
+// non_comb_writes includes all combinational cells that write to
 // something besides a combinational cell
 // i.e., the combinational cells that write to group holes or stateful cells
 fn get_non_comb_writes(assigns: &Vec<ir::Assignment>) -> Vec<ir::Id> {
