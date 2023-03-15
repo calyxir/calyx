@@ -31,7 +31,7 @@ pub struct Component {
     pub comb_groups: IdList<CombGroup>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
-    pub continuous_assignments: Vec<Assignment>,
+    pub continuous_assignments: Vec<Assignment<()>>,
     /// The control program for this component.
     pub control: RRC<Control>,
     /// Attributes for this component

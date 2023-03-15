@@ -247,8 +247,8 @@ impl<'a> Builder<'a> {
         &self,
         dst: RRC<ir::Port>,
         src: RRC<ir::Port>,
-        guard: ir::Guard,
-    ) -> ir::Assignment {
+        guard: ir::Guard<()>,
+    ) -> ir::Assignment<()> {
         // Valid the ports if required.
         if self.validate {
             self.is_port_well_formed(&dst.borrow());
