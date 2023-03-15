@@ -121,10 +121,8 @@ fn comp_or_non_comb(cell: &ir::RRC<ir::Cell>) -> bool {
 
 //If asmt is a write to a cell named name returns Some(name).
 //If asmt is a write to a group port, returns None.
-fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::Id> {
-    ReadWriteSet::write_set(std::iter::once(asmt))
-        .next()
-        .map(|cell| cell.borrow().name())
+fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::RRC<ir::Cell>> {
+    ReadWriteSet::write_set(std::iter::once(asmt)).next()
 }
 
 #[derive(Default)]
@@ -145,6 +143,9 @@ struct SplitAnalysis {
 
     /// Assignments that write to second cell, unless the assignment is already accounted by a different field
     snd_asmts: Vec<ir::Assignment>,
+
+    /// Writes to combinational components
+    comb_asmts: Vec<ir::Assignment>,
 }
 
 impl SplitAnalysis {
@@ -185,6 +186,9 @@ impl SplitAnalysis {
             );
             split_analysis.fst_asmts.push(new_go_asmt);
         }
+        let comb_assigns_clones = split_analysis.comb_asmts.clone();
+        // writes to comb components should be included in the first group
+        split_analysis.fst_asmts.extend(comb_assigns_clones);
 
         let go_done = split_analysis.go_done_asmt.unwrap_or_else(|| {
             unreachable!("couldn't find a go-done assignment in {}", group_name)
@@ -197,6 +201,8 @@ impl SplitAnalysis {
             ir::Guard::True,
         );
         split_analysis.snd_asmts.push(cell_go);
+        // writes to comb assigns should also be in the second group
+        split_analysis.snd_asmts.extend(split_analysis.comb_asmts);
 
         let group_done = split_analysis.group_done_asmt.unwrap_or_else(|| {
             unreachable!(
@@ -259,7 +265,8 @@ impl SplitAnalysis {
     ) {
         for asmt in assigns.drain(..) {
             match writes_to_cell(&asmt) {
-                Some(cell_name) => {
+                Some(cell_ref) => {
+                    let cell_name = cell_ref.borrow().name();
                     if Self::is_go_done(&asmt) {
                         self.go_done_asmt = Some(asmt);
                     } else if Self::is_specific_go(&asmt, first_cell_name) {
@@ -269,33 +276,39 @@ impl SplitAnalysis {
                     } else if cell_name == second_cell_name {
                         self.snd_asmts.push(asmt);
                     } else {
-                        unreachable!(
-                            "Does not write to one of the two \"stateful\" cells"
-                            )
+                        // assert that we're writing to a combinational component
+                        assert!(cell_ref.borrow().is_comb_cell(), "writes to more than 2 stateful cells: {first_cell_name}, {second_cell_name}, {}", cell_ref.borrow().name());
+                        self.comb_asmts.push(asmt);
                     }
                 }
                 None => self.group_done_asmt = Some(asmt),
             }
         }
     }
-
     // Builds ordering for self. If there is a possible ordering of asmts that
     // satisfy group2seq's criteria, then return the ordering in the form of
     // Some(cell1, cell2). Otherwise return None.
     pub fn possible_split(
         asmts: &[ir::Assignment],
     ) -> Option<(ir::Id, ir::Id)> {
-        let v = ReadWriteSet::write_set(asmts.iter())
-            .map(|cell| cell.borrow().name())
-            .collect::<Vec<ir::Id>>();
+        let stateful_writes: Vec<ir::Id> =
+            ReadWriteSet::write_set(asmts.iter())
+                .filter_map(|cell| {
+                    if cell.borrow().is_comb_cell() {
+                        None
+                    } else {
+                        Some(cell.borrow().name())
+                    }
+                })
+                .collect();
 
-        if v.len() == 2 {
+        if stateful_writes.len() == 2 {
             let (maybe_first, maybe_last, last) =
                 Self::look_for_assigns(asmts)?;
             if maybe_last == last
                 // making sure maybe_first and maybe_last are the only 2 cells written to
-                && v.contains(&maybe_first)
-                && v.contains(&maybe_last)
+                && stateful_writes.contains(&maybe_first)
+                && stateful_writes.contains(&maybe_last)
                 // making sure that all reads of the first cell are from stable ports
                 && asmts.iter().all(|assign| {
                     if_name_stable_or_done(assign, &maybe_first)
@@ -306,7 +319,6 @@ impl SplitAnalysis {
         }
         None
     }
-
     // Searches thru asmts for an a.go = b.done, or a group[done] = c.done assignment.
     // If we can find examples of such assignments, returns Some(b,a,c).
     // Otherwise returns None.

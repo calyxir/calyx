@@ -80,6 +80,14 @@ impl Port {
         }
     }
 
+    /// Checks if parent is combinational component
+    pub fn parent_is_comb(&self) -> bool {
+        match &self.parent {
+            PortParent::Cell(cell) => cell.upgrade().borrow().is_comb_cell(),
+            _ => false,
+        }
+    }
+
     /// Get the canonical representation for this Port.
     pub fn canonical(&self) -> Canonical {
         Canonical(self.get_parent_name(), self.name)
@@ -401,6 +409,15 @@ impl Cell {
                 }
             })
             .collect()
+    }
+
+    // returns true if cell is comb, false otherwise
+    // note that this component/component cannot be combinational
+    pub fn is_comb_cell(&self) -> bool {
+        match self.prototype {
+            CellType::Primitive { is_comb, .. } => is_comb,
+            _ => false,
+        }
     }
 }
 
