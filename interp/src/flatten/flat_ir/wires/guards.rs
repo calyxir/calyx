@@ -1,4 +1,4 @@
-use calyx::ir::PortComp;
+use calyx_ir::PortComp;
 
 use crate::flatten::{
     flat_ir::prelude::{GuardIdx, PortRef},

@@ -14,7 +14,7 @@ change-based-sim = []
 default = ["change-based-sim"]
 
 [dependencies]
-smallvec.workspace = true
+smallvec = { workspace = true, features = ["union", "const_generics"] }
 serde = { workspace = true, features = ["derive", "rc"] }
 lazy_static.workspace = true
 itertools.workspace = true
@@ -24,7 +24,6 @@ pest_consume.workspace = true
 argh.workspace = true
 
 bitvec = "1.0"
-smallvec = { version = "1.10.0", features = ["union", "const_generics"] }
 base64 = "0.13.0"
 serde_json = "1.0"
 rustyline = "=10.0.0"
