@@ -20,7 +20,7 @@ use crate::{
     utils::AsRaw,
     values::Value,
 };
-use calyx::ir::{self, Port, RRC};
+use calyx_ir::{self as ir, Port, RRC};
 use std::rc::Rc;
 
 enum StructuralOrControl {
@@ -124,7 +124,7 @@ impl ComponentInterpreter {
                 let cell_ref = cell.borrow();
                 for port in cell_ref.ports() {
                     let port_ref = port.borrow();
-                    if let calyx::ir::Direction::Output = port_ref.direction {
+                    if let calyx_ir::Direction::Output = port_ref.direction {
                         override_set.insert(port.as_raw());
                     }
                 }

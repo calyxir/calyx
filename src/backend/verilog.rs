@@ -4,12 +4,8 @@
 //! valid SystemVerilog program.
 
 use crate::backend::traits::Backend;
-use calyx::{
-    errors::{CalyxResult, Error},
-    ir,
-    utils::OutputFile,
-};
-use ir::{Control, Group, Guard, RRC};
+use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
+use calyx_utils::{CalyxResult, Error, OutputFile};
 use itertools::Itertools;
 use std::io;
 use std::{collections::HashMap, rc::Rc};
@@ -99,7 +95,7 @@ impl Backend for VerilogBackend {
 
     fn validate(ctx: &ir::Context) -> CalyxResult<()> {
         for component in &ctx.components {
-            validate_structure(component.groups.iter())?;
+            validate_structure(component.get_groups().iter())?;
             validate_control(&component.control.borrow())?;
         }
         Ok(())
@@ -142,6 +138,7 @@ impl Backend for VerilogBackend {
                 ctx.bc.synthesis_mode,
                 ctx.bc.enable_verification,
                 ctx.bc.initialize_inputs,
+                ctx.bc.flat_assign,
                 out,
             );
             log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
@@ -230,6 +227,7 @@ fn emit_component<F: io::Write>(
     synthesis_mode: bool,
     enable_verification: bool,
     initialize_inputs: bool,
+    flat_assign: bool,
     f: &mut F,
 ) -> io::Result<()> {
     writeln!(f, "module {}(", comp.name)?;
@@ -315,24 +313,68 @@ fn emit_component<F: io::Write>(
             .or_insert((Rc::clone(&asgn.dst), vec![asgn]));
     }
 
-    // Build a top-level always block to contain verilator checks for assignments
-    let mut checks = v::ParallelProcess::new_always_comb();
-
-    map.values()
+    // Flatten all the guard expressions.
+    let mut pool = ir::GuardPool::new();
+    let grouped_asgns: Vec<_> = map
+        .values()
         .sorted_by_key(|(port, _)| port.borrow().canonical())
-        .try_for_each(|asgns| {
-            // If verification generation is enabled, emit disjointness check.
-            if enable_verification {
-                if let Some(check) = emit_guard_disjoint_check(asgns) {
-                    checks.add_seq(check);
-                };
-            }
-            let stmt = v::Stmt::new_parallel(emit_assignment(asgns));
-            writeln!(f, "{stmt}")
-        })?;
+        .map(|(dst, asgns)| {
+            let flat_asgns: Vec<_> = asgns
+                .iter()
+                .map(|asgn| {
+                    let guard = pool.flatten(&asgn.guard);
+                    (asgn.src.clone(), guard)
+                })
+                .collect();
+            (dst, flat_asgns)
+        })
+        .collect();
 
-    if !synthesis_mode {
-        writeln!(f, "{checks}")?;
+    if flat_assign {
+        // Emit "flattened" assignments as ANF statements.
+        // Emit Verilog for the flattened guards.
+        for (idx, guard) in pool.iter() {
+            write!(f, "wire {} = ", VerilogGuardRef(idx))?;
+            emit_guard(guard, f)?;
+            writeln!(f, ";")?;
+        }
+
+        // Emit assignments using these guards.
+        for (dst, asgns) in &grouped_asgns {
+            emit_assignment_flat(dst, asgns, f)?;
+
+            if enable_verification {
+                if let Some(check) =
+                    emit_guard_disjoint_check(dst, asgns, &pool, true)
+                {
+                    writeln!(f, "always_comb begin")?;
+                    writeln!(f, "  {check}")?;
+                    writeln!(f, "end")?;
+                }
+            }
+        }
+    } else {
+        // Build a top-level always block to contain verilator checks for assignments
+        let mut checks = v::ParallelProcess::new_always_comb();
+
+        // Emit nested assignments.
+        for (dst, asgns) in grouped_asgns {
+            let stmt =
+                v::Stmt::new_parallel(emit_assignment(dst, &asgns, &pool));
+            writeln!(f, "{stmt}")?;
+
+            if enable_verification {
+                if let Some(check) =
+                    emit_guard_disjoint_check(dst, &asgns, &pool, false)
+                {
+                    checks.add_seq(check);
+                }
+            }
+        }
+
+        if !synthesis_mode {
+            writeln!(f, "{checks}")?;
+        }
     }
 
     // Add COMPONENT END: <name> anchor
@@ -362,6 +404,7 @@ fn wire_decls(cell: &ir::Cell) -> Vec<(String, u64, ir::Direction)> {
                 }
             }
             ir::PortParent::Group(_) => unreachable!(),
+            ir::PortParent::StaticGroup(_) => unreachable!(),
         })
         .collect()
 }
@@ -428,15 +471,24 @@ fn cell_instance(cell: &ir::Cell) -> Option<v::Instance> {
 /// end
 /// ```
 fn emit_guard_disjoint_check(
-    (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
+    dst: &RRC<ir::Port>,
+    assignments: &[(RRC<ir::Port>, GuardRef)],
+    pool: &ir::GuardPool,
+    flat: bool,
 ) -> Option<v::Sequential> {
     if assignments.len() < 2 {
         return None;
     }
     // Construct concat with all guards.
     let mut concat = v::ExprConcat::default();
-    assignments.iter().for_each(|assign| {
-        concat.add_expr(guard_to_expr(&assign.guard));
+    assignments.iter().for_each(|(_, gr)| {
+        let expr = if flat {
+            v::Expr::new_ref(VerilogGuardRef(*gr).to_string())
+        } else {
+            let guard = pool.get(*gr);
+            guard_to_expr(guard, pool)
+        };
+        concat.add_expr(expr);
     });
 
     let onehot0 = v::Expr::new_call("$onehot0", vec![v::Expr::Concat(concat)]);
@@ -444,7 +496,7 @@ fn emit_guard_disjoint_check(
     let mut check = v::SequentialIfElse::new(not_onehot0);
 
     // Generated error message
-    let ir::Canonical(cell, port) = dst_ref.borrow().canonical();
+    let ir::Canonical(cell, port) = dst.borrow().canonical();
     let msg = format!("Multiple assignment to port `{}.{}'.", cell, port);
     let err = v::Sequential::new_seqexpr(v::Expr::new_call(
         "$fatal",
@@ -487,47 +539,49 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
 /// assign a_in = foo ? 2'd0 : bar ? 2d'1 : 2'd0;
 /// ```
 fn emit_assignment(
-    (dst_ref, assignments): &(RRC<ir::Port>, Vec<&ir::Assignment>),
+    dst: &RRC<ir::Port>,
+    assignments: &[(RRC<ir::Port>, GuardRef)],
+    pool: &ir::GuardPool,
 ) -> v::Parallel {
     // Mux over the assignment with the given default value.
     let fold_assigns = |init: v::Expr| -> v::Expr {
-        assignments.iter().rfold(init, |acc, e| {
-            let guard = guard_to_expr(&e.guard);
-            let asgn = port_to_ref(&e.src);
-            v::Expr::new_mux(guard, asgn, acc)
+        assignments.iter().rfold(init, |acc, (src, gr)| {
+            let guard = pool.get(*gr);
+            let asgn = port_to_ref(src);
+            v::Expr::new_mux(guard_to_expr(guard, pool), asgn, acc)
         })
     };
 
     // If this is a data port
-    let rhs: v::Expr = if is_data_port(dst_ref) {
+    let rhs: v::Expr = if is_data_port(dst) {
         if assignments.len() == 1 {
             // If there is exactly one guard, generate a continuous assignment.
             // This encodes the rewrite:
             // in = g ? out : 'x => in = out;
             // This is valid because 'x can be replaced with any value
-            let assign = assignments[0];
-            port_to_ref(&assign.src)
+            let (dst, _) = &assignments[0];
+            port_to_ref(dst)
         } else {
             // Produce an assignment with 'x as the default case.
             fold_assigns(v::Expr::X)
         }
     } else {
-        let init = v::Expr::new_ulit_dec(
-            dst_ref.borrow().width as u32,
-            &0.to_string(),
-        );
+        let init =
+            v::Expr::new_ulit_dec(dst.borrow().width as u32, &0.to_string());
 
         // Flatten the mux expression if there is exactly one assignment with a true guard.
         if assignments.len() == 1 {
-            let assign = assignments[0];
-            if assign.guard.is_true() {
-                port_to_ref(&assign.src)
-            } else if assign.src.borrow().is_constant(1, 1) {
-                guard_to_expr(&assign.guard)
+            let (src, gr) = &assignments[0];
+            if gr.is_true() {
+                port_to_ref(src)
+            } else if src.borrow().is_constant(1, 1) {
+                let guard = pool.get(*gr);
+                guard_to_expr(guard, pool)
             } else {
+                let guard = pool.get(*gr);
                 v::Expr::new_mux(
-                    guard_to_expr(&assign.guard),
-                    port_to_ref(&assign.src),
+                    guard_to_expr(guard, pool),
+                    port_to_ref(src),
                     init,
                 )
             }
@@ -535,7 +589,65 @@ fn emit_assignment(
             fold_assigns(init)
         }
     };
-    v::Parallel::ParAssign(port_to_ref(dst_ref), rhs)
+    v::Parallel::ParAssign(port_to_ref(dst), rhs)
+}
+
+fn emit_assignment_flat<F: io::Write>(
+    dst: &RRC<ir::Port>,
+    assignments: &[(RRC<ir::Port>, GuardRef)],
+    f: &mut F,
+) -> io::Result<()> {
+    let data = is_data_port(dst);
+
+    // Simple optimizations for 1-guard cases.
+    if assignments.len() == 1 {
+        let (src, guard) = &assignments[0];
+        if data {
+            // For data ports (for whom unassigned values are undefined), we can drop the guard
+            // entirely and assume it is always true (because it would be UB if it were ever false).
+            return writeln!(
+                f,
+                "assign {} = {};",
+                VerilogPortRef(dst),
+                VerilogPortRef(src)
+            );
+        } else {
+            // For non-data ("control") ports, we have special cases for true guards and constant-1 RHSes.
+            if guard.is_true() {
+                return writeln!(
+                    f,
+                    "assign {} = {};",
+                    VerilogPortRef(dst),
+                    VerilogPortRef(src)
+                );
+            } else if src.borrow().is_constant(1, 1) {
+                return writeln!(
+                    f,
+                    "assign {} = {};",
+                    VerilogPortRef(dst),
+                    VerilogGuardRef(*guard)
+                );
+            }
+        }
+    }
+
+    // Use a cascade of ternary expressions to assign the right RHS to dst.
+    writeln!(f, "assign {} =", VerilogPortRef(dst))?;
+    for (src, guard) in assignments {
+        writeln!(
+            f,
+            "  {} ? {} :",
+            VerilogGuardRef(*guard),
+            VerilogPortRef(src)
+        )?;
+    }
+
+    // The default value depends on whether we are assigning to a data or control port.
+    if data {
+        writeln!(f, "  'x;")
+    } else {
+        writeln!(f, "  {}'d0;", dst.borrow().width)
+    }
 }
 
 fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
@@ -557,14 +669,15 @@ fn port_to_ref(port_ref: &RRC<ir::Port>) -> v::Expr {
             }
         }
         ir::PortParent::Group(_) => unreachable!(),
+        ir::PortParent::StaticGroup(_) => unreachable!(),
     }
 }
 
-fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
-    let op = |g: &ir::Guard| match g {
-        Guard::Or(..) => v::Expr::new_bit_or,
-        Guard::And(..) => v::Expr::new_bit_and,
-        Guard::CompOp(op, ..) => match op {
+fn guard_to_expr(guard: &ir::FlatGuard, pool: &ir::GuardPool) -> v::Expr {
+    let op = |g: &ir::FlatGuard| match g {
+        FlatGuard::Or(..) => v::Expr::new_bit_or,
+        FlatGuard::And(..) => v::Expr::new_bit_and,
+        FlatGuard::CompOp(op, ..) => match op {
             ir::PortComp::Eq => v::Expr::new_eq,
             ir::PortComp::Neq => v::Expr::new_neq,
             ir::PortComp::Gt => v::Expr::new_gt,
@@ -572,17 +685,91 @@ fn guard_to_expr(guard: &ir::Guard) -> v::Expr {
             ir::PortComp::Geq => v::Expr::new_geq,
             ir::PortComp::Leq => v::Expr::new_leq,
         },
-        Guard::Not(..) | Guard::Port(..) | Guard::True => unreachable!(),
+        FlatGuard::Not(..) | FlatGuard::Port(..) | FlatGuard::True => {
+            unreachable!()
+        }
     };
 
     match guard {
-        Guard::And(l, r) | Guard::Or(l, r) => {
-            op(guard)(guard_to_expr(l), guard_to_expr(r))
+        FlatGuard::And(l, r) | FlatGuard::Or(l, r) => {
+            let lg = pool.get(*l);
+            let rg = pool.get(*r);
+            op(guard)(guard_to_expr(lg, pool), guard_to_expr(rg, pool))
         }
-        Guard::CompOp(_, l, r) => op(guard)(port_to_ref(l), port_to_ref(r)),
-        Guard::Not(o) => v::Expr::new_not(guard_to_expr(o)),
-        Guard::Port(p) => port_to_ref(p),
-        Guard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
+        FlatGuard::CompOp(_, l, r) => op(guard)(port_to_ref(l), port_to_ref(r)),
+        FlatGuard::Not(r) => {
+            let g = pool.get(*r);
+            v::Expr::new_not(guard_to_expr(g, pool))
+        }
+        FlatGuard::Port(p) => port_to_ref(p),
+        FlatGuard::True => v::Expr::new_ulit_bin(1, &1.to_string()),
+    }
+}
+
+/// A little newtype wrapper for GuardRefs that makes it easy to format them as Verilog variables.
+struct VerilogGuardRef(GuardRef);
+
+impl std::fmt::Display for VerilogGuardRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "_guard{}", self.0.index())
+    }
+}
+
+/// Similarly, a little wrapper for PortRefs that makes it easy to format them as Verilog variables.
+struct VerilogPortRef<'a>(&'a RRC<ir::Port>);
+
+impl<'a> std::fmt::Display for VerilogPortRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let port = self.0.borrow();
+        match &port.parent {
+            ir::PortParent::Cell(cell) => {
+                let parent_ref = cell.upgrade();
+                let parent = parent_ref.borrow();
+                match parent.prototype {
+                    ir::CellType::Constant { val, width } => {
+                        write!(f, "{width}'d{val}")
+                    }
+                    ir::CellType::ThisComponent => {
+                        write!(f, "{}", port.name)
+                    }
+                    _ => {
+                        write!(
+                            f,
+                            "{}_{}",
+                            parent.name().as_ref(),
+                            port.name.as_ref()
+                        )
+                    }
+                }
+            }
+            ir::PortParent::Group(_) => unreachable!(),
+            ir::PortParent::StaticGroup(_) => unreachable!(),
+        }
+    }
+}
+
+fn emit_guard<F: std::io::Write>(
+    guard: &ir::FlatGuard,
+    f: &mut F,
+) -> io::Result<()> {
+    let gr = VerilogGuardRef;
+    match guard {
+        FlatGuard::Or(l, r) => write!(f, "{} | {}", gr(*l), gr(*r)),
+        FlatGuard::And(l, r) => write!(f, "{} & {}", gr(*l), gr(*r)),
+        FlatGuard::CompOp(op, l, r) => {
+            let op = match op {
+                ir::PortComp::Eq => "==",
+                ir::PortComp::Neq => "!=",
+                ir::PortComp::Gt => ">",
+                ir::PortComp::Lt => "<",
+                ir::PortComp::Geq => ">=",
+                ir::PortComp::Leq => "<=",
+            };
+            write!(f, "{} {} {}", VerilogPortRef(l), op, VerilogPortRef(r))
+        }
+        FlatGuard::Not(g) => write!(f, "~{}", gr(*g)),
+        FlatGuard::True => write!(f, "1"),
+        FlatGuard::Port(p) => write!(f, "{}", VerilogPortRef(p)),
     }
 }
 

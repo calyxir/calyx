@@ -9,7 +9,7 @@ use crate::logging::warn;
 use crate::values::Value;
 use crate::{comb_primitive, errors::InterpreterError};
 use bitvec::vec::BitVec;
-use calyx::ir;
+use calyx_ir as ir;
 use std::ops::Not;
 
 /// A constant.

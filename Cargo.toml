@@ -1,5 +1,39 @@
+# =========== Workspace configuration ===========
+[workspace]
+members = [
+    "calyx-ir",
+    "calyx-utils",
+    "calyx-opt",
+    "calyx-frontend",
+    "interp",
+    "web/rust",
+    "tools/data_gen"
+]
+exclude = ["site"]
+
+[workspace.dependencies]
+itertools = "0.10"
+atty = "0.2.14"
+log = "0.4.14"
+string-interner = "0.14.0"
+lazy_static = "1"
+linked-hash-map = "0.5"
+smallvec = "1"
+serde = { version = "1.0", features = ["derive"] }
+pest = "2.0"
+pest_derive = "2"
+pest_consume = "1"
+argh = "0.1"
+
+[workspace.dependencies.petgraph]
+version = "0.6"
+default-features = false
+features = ["matrix_graph"]
+
+# =========== Package configuration ===========
+
 [package]
-name = "futil"
+name = "calyx"
 version = "0.1.2"
 authors = ["The Calyx Team"]
 edition = "2021"
@@ -11,38 +45,47 @@ readme = "README.md"
 description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 
+[[bin]]
+name = "futil"
+path = "src/main.rs"
+
 [dependencies]
-calyx = { path = "calyx", version = "0.1.0" }
-pest = "2.0"
-itertools = "0.9.0"
-atty = "0.2.14"
-argh = "0.1"
-vast = "0.3.1"
-serde = "1.0.129"
-quick-xml = { version = "0.22.0", default-features = false, features = [
-    "serialize",
-] }
-log = "0.4.14"
+atty.workspace = true
+itertools.workspace = true
+log.workspace = true
+serde.workspace = true
+argh.workspace = true
 csv = "1.1"
+vast = "0.3.1"
+
+calyx-utils = { path = "calyx-utils" }
+calyx-ir = { path = "calyx-ir" }
+calyx-frontend = { path = "calyx-frontend" }
+calyx-opt = { path = "calyx-opt" }
+
+[dependencies.quick-xml]
+version = "0.22.0"
+default-features = false
+features = [ "serialize" ]
 
 [dependencies.env_logger]
 version = "0.9.0"
 features = ["termcolor", "atty"]
 default-features = false
 
-[workspace]
-members = ["calyx", "interp", "web/rust", "tools/data_gen"]
-exclude = ["site"]
-
 [profile.release]
 lto = "thin"
 
+# = ========== Benchmarks ===========
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
+calyx-ir = { path = "calyx-ir" }
+calyx-opt = { path = "calyx-opt" }
+calyx-frontend = { path = "calyx-frontend" }
+
+[profile.release.package.interp]
+incremental = true
 
 [[bench]]
 name = "component-sharing"
 harness = false
-
-[profile.release.package.interp]
-incremental = true

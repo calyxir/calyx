@@ -1,7 +1,9 @@
 mod backend;
 mod cmdline;
-
-use calyx::{errors::CalyxResult, frontend, ir, pass_manager::PassManager};
+use calyx_frontend as frontend;
+use calyx_ir as ir;
+use calyx_opt::pass_manager::PassManager;
+use calyx_utils::CalyxResult;
 use cmdline::{BackendOpt, CompileMode, Opts};
 use itertools::Itertools;
 
@@ -36,6 +38,7 @@ fn main() -> CalyxResult<()> {
         synthesis_mode: opts.enable_synthesis,
         enable_verification: !opts.disable_verify,
         initialize_inputs: !opts.disable_init,
+        flat_assign: !opts.nested_assign,
     };
     // Extra options for the passes
     ctx.extra_opts = opts.extra_opts.drain(..).collect();

@@ -4,6 +4,9 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
   cells {
     A = std_reg(32);
     B = std_reg(32);
+    x = std_reg(32);
+    b = std_reg(32);
+    add = std_add(32);
     mult_pipe0 = std_mult_pipe(32);
   }
   wires {
@@ -29,6 +32,18 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
       mult_pipe0.go = 1'd1;
       end_spl_write_bmult[done] = mult_pipe0.done;
     }
+    group beg_spl_chain_plus_adders {
+      b.in = add.out;
+      b.write_en = 1'd1;
+      add.right = 32'd4;
+      add.left = 32'd2;
+      beg_spl_chain_plus_adders[done] = b.done;
+    }
+    group end_spl_chain_plus_adders {
+      x.in = b.out;
+      x.write_en = 1'd1;
+      end_spl_chain_plus_adders[done] = x.done;
+    }
     group write_a {
       A.write_en = 1'd1;
       A.in = 32'd2;
@@ -48,6 +63,10 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
           beg_spl_write_bmult;
           end_spl_write_bmult;
         }
+      }
+      seq {
+        beg_spl_chain_plus_adders;
+        end_spl_chain_plus_adders;
       }
     }
   }
