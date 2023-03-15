@@ -1,0 +1,24 @@
+((components 
+  (((name main) 
+    (signature _this) 
+    (cells 
+      (reg0 
+      reg1 
+      _1_1 
+      invoke0_go 
+      invoke0_done)) 
+    (groups ()) 
+    (static_groups ()) 
+    (comb_groups ()) 
+    (continuous_assignments 
+      (((dst reg1.write_en) 
+      (src _1_1.out) (guard (Port invoke0_go.out)) (attributes ((attrs ()) (span 0)))) 
+      ((dst reg1.in) (src reg0.out) (guard (Port invoke0_go.out)) (attributes ((attrs ()) (span 0)))) 
+      ((dst reg1.clk) (src _this.clk) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst reg1.reset) (src _this.reset) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst _this.done) (src _1_1.out) (guard (Port invoke0_done.out)) (attributes ((attrs ()) (span 0)))) 
+      ((dst invoke0_go.in) (src _this.go) (guard True) (attributes ((attrs ()) (span 0)))) 
+      ((dst invoke0_done.in) (src reg1.done) (guard True) (attributes ((attrs ()) (span 0)))))) 
+    (control (Empty ((attributes ((attrs ()) (span 0)))))) 
+    (attributes ((attrs ()) (span 1))) (is_comb false)))) 
+(entrypoint main))
