@@ -64,7 +64,7 @@ fn get_non_comb_writes(assigns: &Vec<ir::Assignment>) -> Vec<ir::Id> {
 /// 1) write to a non-combinational cell/group hole
 /// 2) write to a non-combinational cell that has been shown to be "used"
 #[derive(Default)]
-pub struct DeadAssignmentRemoval {}
+pub struct DeadAssignmentRemoval;
 
 impl Named for DeadAssignmentRemoval {
     fn name() -> &'static str {
