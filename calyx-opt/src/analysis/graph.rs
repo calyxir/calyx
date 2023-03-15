@@ -1,4 +1,5 @@
 use calyx_ir::{self as ir, Id, PortIterator, RRC};
+use ir::Nothing;
 use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},
@@ -61,7 +62,7 @@ impl From<&ir::Component> for GraphAnalysis {
 }
 
 impl GraphAnalysis {
-    fn insert_assignment(&mut self, asgn: &ir::Assignment) {
+    fn insert_assignment(&mut self, asgn: &ir::Assignment<Nothing>) {
         let GraphAnalysis { nodes, graph } = self;
         // insert nodes for src and dst ports
         let src_key = asgn.src.borrow().canonical();

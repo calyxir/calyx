@@ -1,6 +1,17 @@
 use super::{Port, RRC};
+use std::fmt::Debug;
+use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
+
+#[derive(Debug, Clone, Default)]
+pub struct Nothing;
+
+impl ToString for Nothing {
+    fn to_string(&self) -> String {
+        "".to_string()
+    }
+}
 
 /// Comparison operations that can be performed between ports by [Guard::CompOp].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,13 +55,15 @@ impl<T> Default for Guard<T> {
     }
 }
 
-pub type NGuard = Guard<()>;
+pub type NGuard = Guard<Nothing>;
 
-pub struct StaticTiming;
+pub struct StaticTiming {
+    interval: (u64, u64),
+}
 
 pub type SGuard = Guard<StaticTiming>;
 
-impl Hash for NGuard {
+impl<T> Hash for Guard<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Guard::Or(l, r) | Guard::And(l, r) => {
@@ -69,7 +82,194 @@ impl Hash for NGuard {
                 p.borrow().get_parent_name().hash(state);
             }
             Guard::True => {}
-            Guard::Info(()) => {}
+            Guard::Info(_) => panic!("unimplemented"),
+        }
+    }
+}
+
+impl<T> Guard<T> {
+    /// Returns true if this is a `Guard::True`.
+    pub fn is_true(&self) -> bool {
+        match self {
+            Guard::True => true,
+            Guard::Port(p) => p.borrow().is_constant(1, 1),
+            _ => false,
+        }
+    }
+
+    /// returns true if the self is !cell_name, false otherwise.
+    pub fn is_not_done(&self, cell_name: &crate::Id) -> bool {
+        if let Guard::Not(g) = self {
+            if let Guard::Port(port) = &(**g) {
+                return port.borrow().attributes.has("done")
+                    && port.borrow().get_parent_name() == cell_name;
+            }
+        }
+        false
+    }
+
+    /// Update the guard in place. Replaces this guard with `upd(self)`.
+    /// Uses `std::mem::take` for the in-place update.
+    #[inline(always)]
+    pub fn update<F>(&mut self, upd: F)
+    where
+        F: FnOnce(Guard<T>) -> Guard<T>,
+    {
+        let old = mem::take(self);
+        let new = upd(old);
+        *self = new;
+    }
+
+    /// Return the string corresponding to the guard operation.
+    pub fn op_str(&self) -> String {
+        match self {
+            Guard::And(..) => "&".to_string(),
+            Guard::Or(..) => "|".to_string(),
+            Guard::CompOp(op, _, _) => match op {
+                PortComp::Eq => "==".to_string(),
+                PortComp::Neq => "!=".to_string(),
+                PortComp::Gt => ">".to_string(),
+                PortComp::Lt => "<".to_string(),
+                PortComp::Geq => ">=".to_string(),
+                PortComp::Leq => "<=".to_string(),
+            },
+            Guard::Not(..) => "!".to_string(),
+            Guard::Port(..) | Guard::True | Guard::Info(_) => {
+                panic!("No operator string for Guard::Port/True/Info")
+            }
+        }
+    }
+
+    pub fn port(p: RRC<Port>) -> Self {
+        if p.borrow().is_constant(1, 1) {
+            Guard::True
+        } else {
+            Guard::Port(p)
+        }
+    }
+
+    pub fn and(self, rhs: Guard<T>) -> Self {
+        if rhs == Guard::True {
+            self
+        } else if self == Guard::True {
+            rhs
+        } else if self == rhs {
+            self
+        } else {
+            Guard::And(Box::new(self), Box::new(rhs))
+        }
+    }
+
+    pub fn or(self, rhs: Guard<T>) -> Self {
+        match (self, rhs) {
+            (Guard::True, _) | (_, Guard::True) => Guard::True,
+            (Guard::Not(n), g) | (g, Guard::Not(n)) => {
+                if *n == Guard::True {
+                    g
+                } else {
+                    Guard::Or(Box::new(Guard::Not(n)), Box::new(g))
+                }
+            }
+            (l, r) => {
+                if l == r {
+                    l
+                } else {
+                    Guard::Or(Box::new(l), Box::new(r))
+                }
+            }
+        }
+    }
+
+    pub fn eq(self, other: Guard<T>) -> Self
+    where
+        T: Debug,
+    {
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Eq, l, r)
+            }
+            (l, r) => {
+                unreachable!("Cannot build Guard::Eq using {:?} and {:?}", l, r)
+            }
+        }
+    }
+
+    pub fn neq(self, other: Guard<T>) -> Self
+    where
+        T: Debug,
+    {
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Neq, l, r)
+            }
+            (l, r) => {
+                unreachable!(
+                    "Cannot build Guard::Neq using {:?} and {:?}",
+                    l, r
+                )
+            }
+        }
+    }
+
+    pub fn le(self, other: Guard<T>) -> Self
+    where
+        T: Debug,
+    {
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Leq, l, r)
+            }
+            (l, r) => {
+                unreachable!(
+                    "Cannot build Guard::Leq using {:?} and {:?}",
+                    l, r
+                )
+            }
+        }
+    }
+
+    pub fn lt(self, other: Guard<T>) -> Self
+    where
+        T: Debug,
+    {
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Lt, l, r)
+            }
+            (l, r) => {
+                unreachable!("Cannot build Guard::Lt using {:?} and {:?}", l, r)
+            }
+        }
+    }
+
+    pub fn ge(self, other: Guard<T>) -> Self
+    where
+        T: Debug,
+    {
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Geq, l, r)
+            }
+            (l, r) => {
+                unreachable!(
+                    "Cannot build Guard::Geq using {:?} and {:?}",
+                    l, r
+                )
+            }
+        }
+    }
+
+    pub fn gt(self, other: Guard<T>) -> Self
+    where
+        T: Debug,
+    {
+        match (self, other) {
+            (Guard::Port(l), Guard::Port(r)) => {
+                Guard::CompOp(PortComp::Gt, l, r)
+            }
+            (l, r) => {
+                unreachable!("Cannot build Guard::Gt using {:?} and {:?}", l, r)
+            }
         }
     }
 }
@@ -81,7 +281,7 @@ impl NGuard {
     /// returns.
     pub fn for_each<F>(&mut self, f: &mut F)
     where
-        F: FnMut(RRC<Port>) -> Option<Guard<()>>,
+        F: FnMut(RRC<Port>) -> Option<Guard<Nothing>>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
@@ -113,7 +313,7 @@ impl NGuard {
                 *self = guard;
             }
             Guard::True => {}
-            Guard::Info(()) => {}
+            Guard::Info(Nothing) => panic!("Info shouldn't be in guards"),
         }
     }
 
@@ -131,186 +331,19 @@ impl NGuard {
             }
             Guard::Not(g) => g.all_ports(),
             Guard::True => vec![],
-            Guard::Info(()) => vec![],
-        }
-    }
-
-    /// Returns true if this is a `Guard::True`.
-    pub fn is_true(&self) -> bool {
-        match self {
-            Guard::True => true,
-            Guard::Port(p) => p.borrow().is_constant(1, 1),
-            _ => false,
-        }
-    }
-
-    /// returns true if the self is !cell_name, false otherwise.
-    pub fn is_not_done(&self, cell_name: &crate::Id) -> bool {
-        if let Guard::Not(g) = self {
-            if let Guard::Port(port) = &(**g) {
-                return port.borrow().attributes.has("done")
-                    && port.borrow().get_parent_name() == cell_name;
-            }
-        }
-        false
-    }
-
-    /// Update the guard in place. Replaces this guard with `upd(self)`.
-    /// Uses `std::mem::take` for the in-place update.
-    #[inline(always)]
-    pub fn update<F>(&mut self, upd: F)
-    where
-        F: FnOnce(NGuard) -> NGuard,
-    {
-        let old = mem::take(self);
-        let new = upd(old);
-        *self = new;
-    }
-
-    /// Return the string corresponding to the guard operation.
-    pub fn op_str(&self) -> String {
-        match self {
-            Guard::And(..) => "&".to_string(),
-            Guard::Or(..) => "|".to_string(),
-            Guard::CompOp(op, _, _) => match op {
-                PortComp::Eq => "==".to_string(),
-                PortComp::Neq => "!=".to_string(),
-                PortComp::Gt => ">".to_string(),
-                PortComp::Lt => "<".to_string(),
-                PortComp::Geq => ">=".to_string(),
-                PortComp::Leq => "<=".to_string(),
-            },
-            Guard::Not(..) => "!".to_string(),
-            Guard::Port(..) | Guard::True | Guard::Info(()) => {
-                panic!("No operator string for Guard::Port")
-            }
-        }
-    }
-
-    pub fn port(p: RRC<Port>) -> Self {
-        if p.borrow().is_constant(1, 1) {
-            Guard::True
-        } else {
-            Guard::Port(p)
-        }
-    }
-
-    pub fn and(self, rhs: NGuard) -> Self {
-        if rhs == Guard::True {
-            self
-        } else if self == Guard::True {
-            rhs
-        } else if self == rhs {
-            self
-        } else {
-            Guard::And(Box::new(self), Box::new(rhs))
-        }
-    }
-
-    pub fn or(self, rhs: NGuard) -> Self {
-        match (self, rhs) {
-            (Guard::True, _) | (_, Guard::True) => Guard::True,
-            (Guard::Not(n), g) | (g, Guard::Not(n)) => {
-                if *n == Guard::True {
-                    g
-                } else {
-                    Guard::Or(Box::new(Guard::Not(n)), Box::new(g))
-                }
-            }
-            (l, r) => {
-                if l == r {
-                    l
-                } else {
-                    Guard::Or(Box::new(l), Box::new(r))
-                }
-            }
-        }
-    }
-
-    pub fn eq(self, other: NGuard) -> Self {
-        match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => {
-                Guard::CompOp(PortComp::Eq, l, r)
-            }
-            (l, r) => {
-                unreachable!("Cannot build Guard::Eq using {:?} and {:?}", l, r)
-            }
-        }
-    }
-
-    pub fn neq(self, other: NGuard) -> Self {
-        match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => {
-                Guard::CompOp(PortComp::Neq, l, r)
-            }
-            (l, r) => {
-                unreachable!(
-                    "Cannot build Guard::Neq using {:?} and {:?}",
-                    l, r
-                )
-            }
-        }
-    }
-
-    pub fn le(self, other: NGuard) -> Self {
-        match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => {
-                Guard::CompOp(PortComp::Leq, l, r)
-            }
-            (l, r) => {
-                unreachable!(
-                    "Cannot build Guard::Leq using {:?} and {:?}",
-                    l, r
-                )
-            }
-        }
-    }
-
-    pub fn lt(self, other: NGuard) -> Self {
-        match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => {
-                Guard::CompOp(PortComp::Lt, l, r)
-            }
-            (l, r) => {
-                unreachable!("Cannot build Guard::Lt using {:?} and {:?}", l, r)
-            }
-        }
-    }
-
-    pub fn ge(self, other: NGuard) -> Self {
-        match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => {
-                Guard::CompOp(PortComp::Geq, l, r)
-            }
-            (l, r) => {
-                unreachable!(
-                    "Cannot build Guard::Geq using {:?} and {:?}",
-                    l, r
-                )
-            }
-        }
-    }
-
-    pub fn gt(self, other: NGuard) -> Self {
-        match (self, other) {
-            (Guard::Port(l), Guard::Port(r)) => {
-                Guard::CompOp(PortComp::Gt, l, r)
-            }
-            (l, r) => {
-                unreachable!("Cannot build Guard::Gt using {:?} and {:?}", l, r)
-            }
+            Guard::Info(_) => panic!("all ports not yet implemented"),
         }
     }
 }
 
 /// Construct guards from ports
-impl From<RRC<Port>> for NGuard {
+impl<T> From<RRC<Port>> for Guard<T> {
     fn from(port: RRC<Port>) -> Self {
         Guard::Port(Rc::clone(&port))
     }
 }
 
-impl PartialEq for NGuard {
+impl<T> PartialEq for Guard<T> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Guard::Or(la, ra), Guard::Or(lb, rb))
@@ -333,10 +366,13 @@ impl PartialEq for NGuard {
     }
 }
 
-impl Eq for NGuard {}
+impl<T> Eq for Guard<T> {}
 
 /// Define order on guards
-impl PartialOrd for NGuard {
+impl<T> PartialOrd for Guard<T>
+where
+    Guard<T>: PartialEq,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -344,7 +380,10 @@ impl PartialOrd for NGuard {
 
 /// Define an ordering on the precedence of guards. Guards are
 /// considered equal when they have the same precedence.
-impl Ord for NGuard {
+impl<T> Ord for Guard<T>
+where
+    Guard<T>: std::cmp::Eq,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (Guard::Or(..), Guard::Or(..))
@@ -373,6 +412,8 @@ impl Ord for NGuard {
             (_, Guard::Not(..)) => Ordering::Less,
             (Guard::Port(..), _) => Ordering::Greater,
             (_, Guard::Port(..)) => Ordering::Less,
+            (_, Guard::Info(..)) => panic!("Not yet covered"),
+            (Guard::Info(..), _) => panic!("Not yet covered"),
         }
     }
 }
@@ -383,7 +424,7 @@ impl Ord for NGuard {
 /// ```
 /// let and_guard = g1 & g2;
 /// ```
-impl BitAnd for NGuard {
+impl<T> BitAnd for Guard<T> {
     type Output = Self;
 
     fn bitand(self, other: Self) -> Self::Output {
@@ -395,7 +436,7 @@ impl BitAnd for NGuard {
 /// ```
 /// let or_guard = g1 | g2;
 /// ```
-impl BitOr for NGuard {
+impl<T> BitOr for Guard<T> {
     type Output = Self;
 
     fn bitor(self, other: Self) -> Self::Output {
@@ -407,7 +448,7 @@ impl BitOr for NGuard {
 /// ```
 /// let not_guard = !g1;
 /// ```
-impl Not for NGuard {
+impl<T> Not for Guard<T> {
     type Output = Self;
 
     fn not(self) -> Self {
@@ -440,7 +481,7 @@ impl Not for NGuard {
 /// ```
 /// g1 |= g2;
 /// ```
-impl BitOrAssign for NGuard {
+impl<T> BitOrAssign for Guard<T> {
     fn bitor_assign(&mut self, other: Self) {
         self.update(|old| old | other)
     }
@@ -450,7 +491,7 @@ impl BitOrAssign for NGuard {
 /// ```
 /// g1 &= g2;
 /// ```
-impl BitAndAssign for NGuard {
+impl<T> BitAndAssign for Guard<T> {
     fn bitand_assign(&mut self, other: Self) {
         self.update(|old| old & other)
     }

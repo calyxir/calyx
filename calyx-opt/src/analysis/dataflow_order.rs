@@ -2,7 +2,7 @@ use super::read_write_set::ReadWriteSet;
 use crate::analysis;
 use calyx_ir::{self as ir};
 use calyx_utils::{CalyxResult, Error};
-use ir::RRC;
+use ir::{Nothing, RRC};
 use itertools::Itertools;
 use petgraph::{
     algo,
@@ -85,8 +85,8 @@ impl DataflowOrder {
 
     pub fn dataflow_sort(
         &self,
-        assigns: Vec<ir::Assignment>,
-    ) -> CalyxResult<Vec<ir::Assignment>> {
+        assigns: Vec<ir::Assignment<Nothing>>,
+    ) -> CalyxResult<Vec<ir::Assignment<Nothing>>> {
         // Construct a graph where a node is an assignment and there is edge between
         // nodes if one should occur before another.
         let mut gr: DiGraph<Option<ir::Assignment>, ()> = DiGraph::new();

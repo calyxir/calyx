@@ -1,6 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::{self as ir, LibrarySignatures, RRC, WRC};
+use crate::{self as ir, guard::Nothing, LibrarySignatures, RRC, WRC};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -247,8 +247,8 @@ impl<'a> Builder<'a> {
         &self,
         dst: RRC<ir::Port>,
         src: RRC<ir::Port>,
-        guard: ir::Guard<()>,
-    ) -> ir::Assignment<()> {
+        guard: ir::Guard<Nothing>,
+    ) -> ir::Assignment<Nothing> {
         // Valid the ports if required.
         if self.validate {
             self.is_port_well_formed(&dst.borrow());

@@ -36,7 +36,7 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
 
 //if the assignment reads only dones, return true. This is used so that we
 //can ignore reads of "done" cells.
-fn reads_only_dones(assignment: &ir::Assignment) -> bool {
+fn reads_only_dones(assignment: &ir::Assignment<ir::Nothing>) -> bool {
     ReadWriteSet::port_reads(assignment).all(|port| done_or_const(&port))
 }
 
@@ -50,7 +50,7 @@ fn done_or_const(port: &ir::RRC<ir::Port>) -> bool {
 fn add_assignment_reads(
     reads: &mut HashSet<ir::Id>,
     share: &ShareSet,
-    assignments: &[ir::Assignment],
+    assignments: &[ir::Assignment<ir::Nothing>],
 ) {
     for cell in ReadWriteSet::read_set(
         assignments
@@ -181,7 +181,10 @@ impl NodeSearch {
     // Given a vec of assignments, return true if the go port of self.name
     // is guaranteed to be written to in assignments. By "guarantee" we mean
     // the guard is true and the src is constant(1,1).
-    fn go_is_written(&self, assignments: &[ir::Assignment]) -> bool {
+    fn go_is_written(
+        &self,
+        assignments: &[ir::Assignment<ir::Nothing>],
+    ) -> bool {
         assignments.iter().any(|assign: &ir::Assignment| {
             let dst_ref = assign.dst.borrow();
             if dst_ref.attributes.has("go")
