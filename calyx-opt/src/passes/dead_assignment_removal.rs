@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 // maps combinational combinational components to set of all combinational components that it reads from
 // so the entries are (comb comp, <set of comb components that write to comb comp>)
-fn get_comb_depdendence_map(
+fn get_comb_dependence_map(
     assigns: &Vec<ir::Assignment>,
 ) -> HashMap<ir::Id, HashSet<ir::Id>> {
     let mut comb_dependence_map: HashMap<ir::Id, HashSet<ir::Id>> =
@@ -85,7 +85,7 @@ impl Visitor for DeadAssignmentRemoval {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut comb_dependence_map: HashMap<ir::Id, HashSet<ir::Id>> =
-            get_comb_depdendence_map(&s.group.borrow().assignments);
+            get_comb_dependence_map(&s.group.borrow().assignments);
         let mut non_comb_writes: Vec<ir::Id> =
             get_non_comb_writes(&s.group.borrow().assignments);
         // To be a used_comb, must
