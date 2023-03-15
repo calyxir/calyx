@@ -9,6 +9,7 @@ use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use crate::ir::guard::NGuard;
 
 /// Context to store the signature information for all defined primitives and
 /// components.
@@ -380,7 +381,7 @@ fn ensure_direction(pr: RRC<Port>, dir: Direction) -> CalyxResult<RRC<Port>> {
 fn build_assignment(
     wire: ast::Wire,
     builder: &mut Builder,
-) -> CalyxResult<Assignment> {
+) -> CalyxResult<Assignment<()>> {
     let src_port: RRC<Port> = ensure_direction(
         atom_to_port(wire.src.expr, builder)?,
         Direction::Output,
@@ -410,7 +411,7 @@ fn build_assignment(
 fn build_assignments(
     assigns: Vec<ast::Wire>,
     builder: &mut Builder,
-) -> CalyxResult<Vec<Assignment>> {
+) -> CalyxResult<Vec<Assignment<()>>> {
     assigns
         .into_iter()
         .map(|w| {
@@ -421,7 +422,7 @@ fn build_assignments(
 }
 
 /// Transform an ast::GuardExpr to an ir::Guard.
-fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> CalyxResult<Guard> {
+fn build_guard(guard: ast::GuardExpr, bd: &mut Builder) -> CalyxResult<NGuard> {
     use ast::GuardExpr as GE;
 
     let into_box_guard = |g: Box<GE>, bd: &mut Builder| -> CalyxResult<_> {

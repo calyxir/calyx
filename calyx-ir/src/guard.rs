@@ -1,5 +1,4 @@
 use super::{Port, RRC};
-use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
@@ -21,24 +20,37 @@ pub enum PortComp {
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
-#[derive(Default, Debug, Clone)]
-pub enum Guard {
-    #[default]
+#[derive(Debug, Clone)]
+pub enum Guard<T> {
+    /// Represents `c1 || c2`.
+    Or(Box<Guard<T>>, Box<Guard<T>>),
+    /// Represents `c1 && c2`.
+    And(Box<Guard<T>>, Box<Guard<T>>),
+    /// Represents `!c1`
+    Not(Box<Guard<T>>),
     /// The constant true
     True,
-    /// Represents `c1 || c2`.
-    Or(Box<Guard>, Box<Guard>),
-    /// Represents `c1 && c2`.
-    And(Box<Guard>, Box<Guard>),
-    /// Represents `!c1`
-    Not(Box<Guard>),
     /// Comparison operator.
     CompOp(PortComp, RRC<Port>, RRC<Port>),
     /// Uses the value on a port as the condition. Same as `p1 == true`
     Port(RRC<Port>),
+    /// Other types of information.
+    Info(T),
 }
 
-impl Hash for Guard {
+impl<T> Default for Guard<T> {
+    fn default() -> Self {
+        Guard::True
+    }
+}
+
+pub type NGuard = Guard<()>;
+
+pub struct StaticTiming;
+
+pub type SGuard = Guard<StaticTiming>;
+
+impl Hash for NGuard {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Guard::Or(l, r) | Guard::And(l, r) => {
@@ -57,18 +69,19 @@ impl Hash for Guard {
                 p.borrow().get_parent_name().hash(state);
             }
             Guard::True => {}
+            Guard::Info(()) => {}
         }
     }
 }
 
 /// Helper functions for the guard.
-impl Guard {
+impl NGuard {
     /// Mutates a guard by calling `f` on every leaf in the
     /// guard tree and replacing the leaf with the guard that `f`
     /// returns.
     pub fn for_each<F>(&mut self, f: &mut F)
     where
-        F: FnMut(RRC<Port>) -> Option<Guard>,
+        F: FnMut(RRC<Port>) -> Option<Guard<()>>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
@@ -100,6 +113,7 @@ impl Guard {
                 *self = guard;
             }
             Guard::True => {}
+            Guard::Info(()) => {}
         }
     }
 
@@ -117,6 +131,7 @@ impl Guard {
             }
             Guard::Not(g) => g.all_ports(),
             Guard::True => vec![],
+            Guard::Info(()) => vec![],
         }
     }
 
@@ -145,7 +160,7 @@ impl Guard {
     #[inline(always)]
     pub fn update<F>(&mut self, upd: F)
     where
-        F: FnOnce(Guard) -> Guard,
+        F: FnOnce(NGuard) -> NGuard,
     {
         let old = mem::take(self);
         let new = upd(old);
@@ -166,7 +181,7 @@ impl Guard {
                 PortComp::Leq => "<=".to_string(),
             },
             Guard::Not(..) => "!".to_string(),
-            Guard::Port(..) | Guard::True => {
+            Guard::Port(..) | Guard::True | Guard::Info(()) => {
                 panic!("No operator string for Guard::Port")
             }
         }
@@ -180,7 +195,7 @@ impl Guard {
         }
     }
 
-    pub fn and(self, rhs: Guard) -> Self {
+    pub fn and(self, rhs: NGuard) -> Self {
         if rhs == Guard::True {
             self
         } else if self == Guard::True {
@@ -192,7 +207,7 @@ impl Guard {
         }
     }
 
-    pub fn or(self, rhs: Guard) -> Self {
+    pub fn or(self, rhs: NGuard) -> Self {
         match (self, rhs) {
             (Guard::True, _) | (_, Guard::True) => Guard::True,
             (Guard::Not(n), g) | (g, Guard::Not(n)) => {
@@ -212,7 +227,7 @@ impl Guard {
         }
     }
 
-    pub fn eq(self, other: Guard) -> Self {
+    pub fn eq(self, other: NGuard) -> Self {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Eq, l, r)
@@ -223,7 +238,7 @@ impl Guard {
         }
     }
 
-    pub fn neq(self, other: Guard) -> Self {
+    pub fn neq(self, other: NGuard) -> Self {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Neq, l, r)
@@ -237,7 +252,7 @@ impl Guard {
         }
     }
 
-    pub fn le(self, other: Guard) -> Self {
+    pub fn le(self, other: NGuard) -> Self {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Leq, l, r)
@@ -251,7 +266,7 @@ impl Guard {
         }
     }
 
-    pub fn lt(self, other: Guard) -> Self {
+    pub fn lt(self, other: NGuard) -> Self {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Lt, l, r)
@@ -262,7 +277,7 @@ impl Guard {
         }
     }
 
-    pub fn ge(self, other: Guard) -> Self {
+    pub fn ge(self, other: NGuard) -> Self {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Geq, l, r)
@@ -276,7 +291,7 @@ impl Guard {
         }
     }
 
-    pub fn gt(self, other: Guard) -> Self {
+    pub fn gt(self, other: NGuard) -> Self {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Gt, l, r)
@@ -289,13 +304,13 @@ impl Guard {
 }
 
 /// Construct guards from ports
-impl From<RRC<Port>> for Guard {
+impl From<RRC<Port>> for NGuard {
     fn from(port: RRC<Port>) -> Self {
         Guard::Port(Rc::clone(&port))
     }
 }
 
-impl PartialEq for Guard {
+impl PartialEq for NGuard {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Guard::Or(la, ra), Guard::Or(lb, rb))
@@ -318,10 +333,10 @@ impl PartialEq for Guard {
     }
 }
 
-impl Eq for Guard {}
+impl Eq for NGuard {}
 
 /// Define order on guards
-impl PartialOrd for Guard {
+impl PartialOrd for NGuard {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -329,7 +344,7 @@ impl PartialOrd for Guard {
 
 /// Define an ordering on the precedence of guards. Guards are
 /// considered equal when they have the same precedence.
-impl Ord for Guard {
+impl Ord for NGuard {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (Guard::Or(..), Guard::Or(..))
@@ -368,7 +383,7 @@ impl Ord for Guard {
 /// ```
 /// let and_guard = g1 & g2;
 /// ```
-impl BitAnd for Guard {
+impl BitAnd for NGuard {
     type Output = Self;
 
     fn bitand(self, other: Self) -> Self::Output {
@@ -380,7 +395,7 @@ impl BitAnd for Guard {
 /// ```
 /// let or_guard = g1 | g2;
 /// ```
-impl BitOr for Guard {
+impl BitOr for NGuard {
     type Output = Self;
 
     fn bitor(self, other: Self) -> Self::Output {
@@ -392,7 +407,7 @@ impl BitOr for Guard {
 /// ```
 /// let not_guard = !g1;
 /// ```
-impl Not for Guard {
+impl Not for NGuard {
     type Output = Self;
 
     fn not(self) -> Self {
@@ -425,7 +440,7 @@ impl Not for Guard {
 /// ```
 /// g1 |= g2;
 /// ```
-impl BitOrAssign for Guard {
+impl BitOrAssign for NGuard {
     fn bitor_assign(&mut self, other: Self) {
         self.update(|old| old | other)
     }
@@ -435,7 +450,7 @@ impl BitOrAssign for Guard {
 /// ```
 /// g1 &= g2;
 /// ```
-impl BitAndAssign for Guard {
+impl BitAndAssign for NGuard {
     fn bitand_assign(&mut self, other: Self) {
         self.update(|old| old & other)
     }

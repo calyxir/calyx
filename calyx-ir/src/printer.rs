@@ -484,7 +484,7 @@ impl Printer {
     }
 
     /// Generate a String-based representation for a guard.
-    pub fn guard_str(guard: &ir::Guard) -> String {
+    pub fn guard_str(guard: &ir::NGuard) -> String {
         match &guard {
             ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
                 let left = if &**l > guard {
