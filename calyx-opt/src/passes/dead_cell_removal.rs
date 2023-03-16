@@ -95,6 +95,15 @@ impl Visitor for DeadCellRemoval {
                     None
                 });
             });
+            comp.for_each_static_assignment(|assign| {
+                assign.for_each_port(|port| {
+                    let port = port.borrow();
+                    if port.direction == ir::Direction::Output {
+                        wire_reads.insert(port.get_parent_name());
+                    }
+                    None
+                });
+            });
 
             // Remove writes to ports on unused cells.
             for gr in comp.get_groups().iter() {

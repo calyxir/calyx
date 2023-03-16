@@ -1,9 +1,8 @@
-use crate::guard::Nothing;
-
 use super::{
     Assignment, Attributes, Builder, Cell, CellType, CombGroup, Control,
     GetName, Group, Id, PortDef, StaticGroup, RRC,
 };
+use crate::guard::{Nothing, StaticTiming};
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -161,8 +160,22 @@ impl Component {
         self.namegen.gen_name(prefix)
     }
 
+    pub fn for_each_static_assignment<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut Assignment<StaticTiming>),
+    {
+        for group_ref in self.get_static_groups().iter() {
+            let mut assigns =
+                group_ref.borrow_mut().assignments.drain(..).collect_vec();
+            for assign in &mut assigns {
+                f(assign)
+            }
+            group_ref.borrow_mut().assignments = assigns;
+        }
+    }
+
     /// Apply function on all assignments contained within the component.
-    fn for_each_assignment<F>(&mut self, mut f: F)
+    pub fn for_each_assignment<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut Assignment<Nothing>),
     {
@@ -176,14 +189,6 @@ impl Component {
             }
             group_ref.borrow_mut().assignments = assigns;
         }
-        /*for group_ref in self.get_static_groups().iter() {
-            let mut assigns =
-                group_ref.borrow_mut().assignments.drain(..).collect_vec();
-            for assign in &mut assigns {
-                f(assign)
-            }
-            group_ref.borrow_mut().assignments = assigns;
-        }*/
         for group_ref in self.comb_groups.iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();

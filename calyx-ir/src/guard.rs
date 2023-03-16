@@ -58,10 +58,10 @@ impl<T> Default for Guard<T> {
 
 pub type NGuard = Guard<Nothing>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StaticTiming {
     interval: (u64, u64),
-    parent: RRC<Group>,
+    //parent: RRC<Group>,
 }
 
 impl ToString for StaticTiming {
@@ -307,13 +307,13 @@ impl<T> Guard<T> {
 }
 
 /// Helper functions for the guard.
-impl NGuard {
+impl<T> Guard<T> {
     /// Mutates a guard by calling `f` on every leaf in the
     /// guard tree and replacing the leaf with the guard that `f`
     /// returns.
     pub fn for_each<F>(&mut self, f: &mut F)
     where
-        F: FnMut(RRC<Port>) -> Option<Guard<Nothing>>,
+        F: FnMut(RRC<Port>) -> Option<Guard<T>>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
@@ -345,7 +345,7 @@ impl NGuard {
                 *self = guard;
             }
             Guard::True => {}
-            Guard::Info(Nothing) => panic!("Info shouldn't be in guards"),
+            Guard::Info(_) => panic!("Info shouldn't be in guards"),
         }
     }
 }

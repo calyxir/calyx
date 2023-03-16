@@ -83,14 +83,16 @@ impl DataflowOrder {
         Ok(DataflowOrder { write_map })
     }
 
-    pub fn dataflow_sort(
+    pub fn dataflow_sort<T>(
         &self,
-        assigns: Vec<ir::Assignment<Nothing>>,
-    ) -> CalyxResult<Vec<ir::Assignment<Nothing>>> {
+        assigns: Vec<ir::Assignment<T>>,
+    ) -> CalyxResult<Vec<ir::Assignment<T>>>
+    where
+        T: ToString + Clone,
+    {
         // Construct a graph where a node is an assignment and there is edge between
         // nodes if one should occur before another.
-        let mut gr: DiGraph<Option<ir::Assignment<Nothing>>, ()> =
-            DiGraph::new();
+        let mut gr: DiGraph<Option<ir::Assignment<T>>, ()> = DiGraph::new();
 
         // Mapping from the index corresponding to an assignment to its read/write sets.
         let mut writes: HashMap<ir::Canonical, Vec<NodeIndex>> = HashMap::new();
@@ -98,7 +100,7 @@ impl DataflowOrder {
             Vec::with_capacity(assigns.len());
 
         // Assignments to the hole are not considered in the sorting.
-        let mut hole_writes: Vec<ir::Assignment<Nothing>> = Vec::new();
+        let mut hole_writes: Vec<ir::Assignment<T>> = Vec::new();
 
         // Construct the nodes that contain the assignments
         for assign in assigns {

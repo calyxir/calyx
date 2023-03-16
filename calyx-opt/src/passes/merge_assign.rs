@@ -65,12 +65,11 @@ impl Visitor for MergeAssign {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        assert!(
+            comp.static_groups.is_empty(),
+            "static groups should have been compiled away"
+        );
         for group in comp.get_groups().iter() {
-            let assigns = group.borrow_mut().assignments.drain(..).collect();
-            let merged = merge_assigns(assigns);
-            group.borrow_mut().assignments = merged;
-        }
-        for group in comp.get_static_groups().iter() {
             let assigns = group.borrow_mut().assignments.drain(..).collect();
             let merged = merge_assigns(assigns);
             group.borrow_mut().assignments = merged;

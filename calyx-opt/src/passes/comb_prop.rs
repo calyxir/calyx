@@ -243,6 +243,11 @@ impl Visitor for CombProp {
                 rewrites.get(&port.borrow().canonical()).cloned()
             })
         });
+        comp.for_each_static_assignment(|assign| {
+            assign.for_each_port(|port| {
+                rewrites.get(&port.borrow().canonical()).cloned()
+            })
+        });
 
         let cell_rewrites = HashMap::new();
         let rewriter = ir::Rewriter::new(&cell_rewrites, &rewrites);

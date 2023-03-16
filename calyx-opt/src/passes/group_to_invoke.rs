@@ -191,14 +191,15 @@ impl Visitor for GroupToInvoke {
                 &g.borrow().get("done"),
             )
         }
-        for g in &static_groups {
+        // Not transforming static groups rn
+        /*for g in &static_groups {
             self.analyze_group(
                 &mut builder,
                 g.borrow().name(),
                 &g.borrow().assignments,
                 &g.borrow().get("done"),
             )
-        }
+        }*/
 
         comp.get_groups_mut().append(groups.into_iter());
         comp.get_static_groups_mut()

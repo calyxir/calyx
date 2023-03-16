@@ -439,7 +439,7 @@ pub struct Assignment<T> {
     pub attributes: Attributes,
 }
 
-impl Assignment<Nothing> {
+impl<T> Assignment<T> {
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
     pub fn for_each_port<F>(&mut self, mut f: F)

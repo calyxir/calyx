@@ -266,7 +266,10 @@ impl Printer {
     }
 
     /// Convinience method to get string representation of [ir::Assignment].
-    pub fn assignment_to_str(assign: &ir::Assignment<Nothing>) -> String {
+    pub fn assignment_to_str<T>(assign: &ir::Assignment<T>) -> String
+    where
+        T: ToString + Clone,
+    {
         let mut buf = Vec::new();
         Self::write_assignment(assign, 0, &mut buf).ok();
         String::from_utf8_lossy(buf.as_slice()).to_string()
