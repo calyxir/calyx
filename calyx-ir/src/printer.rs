@@ -251,8 +251,8 @@ impl Printer {
     }
 
     /// Format and write an assignment.
-    pub fn write_assignment<F: io::Write>(
-        assign: &ir::Assignment<Nothing>,
+    pub fn write_assignment<F: io::Write, T: Clone + ToString>(
+        assign: &ir::Assignment<T>,
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {

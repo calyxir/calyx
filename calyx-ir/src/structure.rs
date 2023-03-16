@@ -1,6 +1,6 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 
-use crate::guard::Nothing;
+use crate::guard::{Nothing, StaticTiming};
 
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
@@ -550,7 +550,7 @@ pub struct StaticGroup {
     name: Id,
 
     /// The assignments used in this group
-    pub assignments: Vec<Assignment<Nothing>>,
+    pub assignments: Vec<Assignment<StaticTiming>>,
 
     /// Holes for this group
     pub holes: SmallVec<[RRC<Port>; 3]>,
@@ -607,14 +607,14 @@ impl StaticGroup {
     }
 
     /// Returns a reference to the assignment in the group that writes to the done condition.
-    pub fn done_cond(&self) -> &Assignment<Nothing> {
+    pub fn done_cond(&self) -> &Assignment<StaticTiming> {
         let idx = self.find_done_cond();
         &self.assignments[idx]
     }
 
     /// Returns a mutable reference to the assignment in the group that writes to the done
     /// condition.
-    pub fn done_cond_mut(&mut self) -> &mut Assignment<Nothing> {
+    pub fn done_cond_mut(&mut self) -> &mut Assignment<StaticTiming> {
         let idx = self.find_done_cond();
         &mut self.assignments[idx]
     }
