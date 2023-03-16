@@ -1,5 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
+use ir::Nothing;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
@@ -31,10 +32,14 @@ impl Named for MergeAssign {
     }
 }
 
-fn merge_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
+fn merge_assigns(
+    assigns: Vec<ir::Assignment<Nothing>>,
+) -> Vec<ir::Assignment<Nothing>> {
     // Map from (dst, src) -> Assignment
-    let mut map: LinkedHashMap<(ir::Canonical, ir::Canonical), ir::Assignment> =
-        LinkedHashMap::new();
+    let mut map: LinkedHashMap<
+        (ir::Canonical, ir::Canonical),
+        ir::Assignment<Nothing>,
+    > = LinkedHashMap::new();
 
     for assign in assigns {
         let src_key = assign.src.borrow().canonical();

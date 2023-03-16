@@ -1,5 +1,6 @@
 use crate::analysis::{DominatorMap, ReadWriteSet, ShareSet};
 use calyx_ir as ir;
+use ir::Nothing;
 use std::collections::HashSet;
 
 const BEGIN_ID: &str = "BEGIN_ID";
@@ -185,7 +186,7 @@ impl NodeSearch {
         &self,
         assignments: &[ir::Assignment<ir::Nothing>],
     ) -> bool {
-        assignments.iter().any(|assign: &ir::Assignment| {
+        assignments.iter().any(|assign: &ir::Assignment<Nothing>| {
             let dst_ref = assign.dst.borrow();
             if dst_ref.attributes.has("go")
                 && assign.guard.is_true()

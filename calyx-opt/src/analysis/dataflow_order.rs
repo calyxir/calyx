@@ -89,7 +89,8 @@ impl DataflowOrder {
     ) -> CalyxResult<Vec<ir::Assignment<Nothing>>> {
         // Construct a graph where a node is an assignment and there is edge between
         // nodes if one should occur before another.
-        let mut gr: DiGraph<Option<ir::Assignment>, ()> = DiGraph::new();
+        let mut gr: DiGraph<Option<ir::Assignment<Nothing>>, ()> =
+            DiGraph::new();
 
         // Mapping from the index corresponding to an assignment to its read/write sets.
         let mut writes: HashMap<ir::Canonical, Vec<NodeIndex>> = HashMap::new();
@@ -97,7 +98,7 @@ impl DataflowOrder {
             Vec::with_capacity(assigns.len());
 
         // Assignments to the hole are not considered in the sorting.
-        let mut hole_writes: Vec<ir::Assignment> = Vec::new();
+        let mut hole_writes: Vec<ir::Assignment<Nothing>> = Vec::new();
 
         // Construct the nodes that contain the assignments
         for assign in assigns {

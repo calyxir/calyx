@@ -4,6 +4,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, rewriter, GetAttributes, LibrarySignatures, RRC};
 use calyx_utils::Error;
+use ir::Nothing;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -117,7 +118,7 @@ impl ComponentInliner {
     /// 2. Using the [PortMap] to a new [Port].
     /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns(
-        assigns: &mut [ir::Assignment],
+        assigns: &mut [ir::Assignment<Nothing>],
         port_rewrite: &ir::Rewriter,
         new_group: Option<&RRC<ir::Group>>,
     ) {
@@ -141,7 +142,7 @@ impl ComponentInliner {
     /// 2. Using the [PortMap] to a new [Port].
     /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns_static(
-        assigns: &mut [ir::Assignment],
+        assigns: &mut [ir::Assignment<Nothing>],
         port_rewrite: &ir::Rewriter,
         new_group: Option<&RRC<ir::StaticGroup>>,
     ) {

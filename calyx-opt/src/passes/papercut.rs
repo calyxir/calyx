@@ -2,6 +2,7 @@ use crate::analysis;
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
+use ir::Nothing;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
@@ -195,7 +196,10 @@ impl Visitor for Papercut {
 }
 
 impl Papercut {
-    fn check_specs(&mut self, assigns: &[ir::Assignment]) -> VisResult {
+    fn check_specs(
+        &mut self,
+        assigns: &[ir::Assignment<Nothing>],
+    ) -> VisResult {
         let all_writes = analysis::ReadWriteSet::port_write_set(assigns.iter())
             .filter_map(port_information)
             .into_grouping_map()

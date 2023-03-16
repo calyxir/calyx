@@ -1,5 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, Attributes, Enable, RRC};
+use ir::Nothing;
 use linked_hash_map::LinkedHashMap;
 use std::iter::Iterator;
 use std::mem;
@@ -86,23 +87,23 @@ impl Visitor for MergeStaticPar {
             if value.len() != 1 {
                 let mut builder = ir::Builder::new(comp, sigs);
                 let grp = builder.add_group("msp");
-                let mut assignments: Vec<ir::Assignment> = Vec::new();
+                let mut assignments: Vec<ir::Assignment<Nothing>> = Vec::new();
                 for group in value.iter() {
                     assignments.extend(group.borrow().assignments.clone());
                 }
 
                 let (done_asmts, asmts): (
-                    Vec<ir::Assignment>,
-                    Vec<ir::Assignment>,
+                    Vec<ir::Assignment<Nothing>>,
+                    Vec<ir::Assignment<Nothing>>,
                 ) = mem::take(&mut assignments)
                     .into_iter()
                     .partition(|x| x.dst.borrow().is_hole());
 
                 grp.borrow_mut().assignments.extend(asmts);
 
-                let mut fin_grd: ir::Guard = ir::Guard::True;
+                let mut fin_grd: ir::Guard<Nothing> = ir::Guard::True;
                 for asmt in done_asmts.clone() {
-                    let grd: ir::Guard = ir::Guard::Port(asmt.src);
+                    let grd: ir::Guard<Nothing> = ir::Guard::Port(asmt.src);
                     fin_grd &= grd;
                     fin_grd &= *asmt.guard;
                 }

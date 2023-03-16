@@ -4,21 +4,23 @@ use calyx_ir::{
     RESERVED_NAMES,
 };
 use calyx_utils::{CalyxResult, Error, WithPos};
+use ir::Nothing;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::ops::Not;
 
 #[derive(Default)]
 struct ActiveAssignments {
     // Set of currently active assignments
-    assigns: Vec<ir::Assignment>,
+    assigns: Vec<ir::Assignment<Nothing>>,
     // Stack representing the number of assignments added at each level
     num_assigns: Vec<usize>,
 }
 impl ActiveAssignments {
     /// Push a set of assignments to the stack.
-    pub fn push(&mut self, assign: &[ir::Assignment]) {
+    pub fn push(&mut self, assign: &[ir::Assignment<Nothing>]) {
         let prev_size = self.assigns.len();
         self.assigns.extend(assign.iter().cloned());
         // Number of assignments added at this level
@@ -31,7 +33,7 @@ impl ActiveAssignments {
         self.assigns.truncate(self.assigns.len() - num_assigns);
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &ir::Assignment> {
+    pub fn iter(&self) -> impl Iterator<Item = &ir::Assignment<Nothing>> {
         self.assigns.iter()
     }
 }
@@ -144,7 +146,7 @@ impl Named for WellFormed {
 /// assignments assign to the same port unconditionally.
 fn obvious_conflicts<'a, I>(assigns: I) -> CalyxResult<()>
 where
-    I: Iterator<Item = &'a ir::Assignment>,
+    I: Iterator<Item = &'a ir::Assignment<Nothing>>,
 {
     let dst_grps = assigns
         .filter(|a| a.guard.is_true())

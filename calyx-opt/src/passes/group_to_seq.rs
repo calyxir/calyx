@@ -1,6 +1,7 @@
 use crate::analysis::ReadWriteSet;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
+use ir::Nothing;
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -100,7 +101,10 @@ impl Visitor for GroupToSeq {
 
 // For all port reads from name in assignment, returns whether all ports are either stable
 // or done.
-fn if_name_stable_or_done(assign: &ir::Assignment, name: &ir::Id) -> bool {
+fn if_name_stable_or_done(
+    assign: &ir::Assignment<Nothing>,
+    name: &ir::Id,
+) -> bool {
     let reads = ReadWriteSet::port_reads(assign);
     reads
         .filter(|port_ref| port_ref.borrow().get_parent_name() == name)
@@ -121,7 +125,7 @@ fn comp_or_non_comb(cell: &ir::RRC<ir::Cell>) -> bool {
 
 //If asmt is a write to a cell named name returns Some(name).
 //If asmt is a write to a group port, returns None.
-fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::RRC<ir::Cell>> {
+fn writes_to_cell(asmt: &ir::Assignment<Nothing>) -> Option<ir::RRC<ir::Cell>> {
     ReadWriteSet::write_set(std::iter::once(asmt)).next()
 }
 
@@ -130,22 +134,22 @@ fn writes_to_cell(asmt: &ir::Assignment) -> Option<ir::RRC<ir::Cell>> {
 ///the group, and if possible, to transform a group into a seq of two smaller groups
 struct SplitAnalysis {
     /// Holds the go-done assignment, i.e. a.go = b.done
-    go_done_asmt: Option<ir::Assignment>,
+    go_done_asmt: Option<ir::Assignment<Nothing>>,
 
     /// Holds the first "go" assignment, *if* it is in the form a.go = !a.done ? 1'd1
-    first_go_asmt: Option<ir::Assignment>,
+    first_go_asmt: Option<ir::Assignment<Nothing>>,
 
     /// Holds the group[done] = done assignment;
-    group_done_asmt: Option<ir::Assignment>,
+    group_done_asmt: Option<ir::Assignment<Nothing>>,
 
     /// Assignments that write to first cell, unless the assignment is already accounted by a different field
-    fst_asmts: Vec<ir::Assignment>,
+    fst_asmts: Vec<ir::Assignment<Nothing>>,
 
     /// Assignments that write to second cell, unless the assignment is already accounted by a different field
-    snd_asmts: Vec<ir::Assignment>,
+    snd_asmts: Vec<ir::Assignment<Nothing>>,
 
     /// Writes to combinational components
-    comb_asmts: Vec<ir::Assignment>,
+    comb_asmts: Vec<ir::Assignment<Nothing>>,
 }
 
 impl SplitAnalysis {
@@ -159,7 +163,7 @@ impl SplitAnalysis {
     /// 3) Must have group[done] = cell2.done and cell2.go = cell1.done;
     /// 4) All reads of cell1 must be a stable port or cell1.done.
     pub fn get_split(
-        assigns: &mut Vec<ir::Assignment>,
+        assigns: &mut Vec<ir::Assignment<Nothing>>,
         group_name: ir::Id,
         builder: &mut ir::Builder,
         // whether the resulting seq should be of static groups or dynamic groups
@@ -259,7 +263,7 @@ impl SplitAnalysis {
     // first_go_asmt, fst_asmts, snd_asmts, and group_done_asmt.
     fn organize_assignments(
         &mut self,
-        assigns: &mut Vec<ir::Assignment>,
+        assigns: &mut Vec<ir::Assignment<Nothing>>,
         first_cell_name: &ir::Id,
         second_cell_name: &ir::Id,
     ) {
@@ -289,7 +293,7 @@ impl SplitAnalysis {
     // satisfy group2seq's criteria, then return the ordering in the form of
     // Some(cell1, cell2). Otherwise return None.
     pub fn possible_split(
-        asmts: &[ir::Assignment],
+        asmts: &[ir::Assignment<Nothing>],
     ) -> Option<(ir::Id, ir::Id)> {
         let stateful_writes: Vec<ir::Id> =
             ReadWriteSet::write_set(asmts.iter())
@@ -323,7 +327,7 @@ impl SplitAnalysis {
     // If we can find examples of such assignments, returns Some(b,a,c).
     // Otherwise returns None.
     fn look_for_assigns(
-        asmts: &[ir::Assignment],
+        asmts: &[ir::Assignment<Nothing>],
     ) -> Option<(ir::Id, ir::Id, ir::Id)> {
         let mut done_go: Option<(ir::Id, ir::Id)> = None;
         let mut last: Option<ir::Id> = None;
@@ -366,7 +370,7 @@ impl SplitAnalysis {
     }
     //Returns whether the given assignment is a go-done assignment
     //i.e. cell1.go = cell2.done.
-    pub fn is_go_done(asmt: &ir::Assignment) -> bool {
+    pub fn is_go_done(asmt: &ir::Assignment<Nothing>) -> bool {
         let src = asmt.src.borrow();
         let dst = asmt.dst.borrow();
         match (&src.parent, &dst.parent) {
@@ -379,7 +383,10 @@ impl SplitAnalysis {
 
     //Returns whether the given assignment writes to the go assignment of cell
     //in the form cell.go = !cell.done? 1'd1.
-    pub fn is_specific_go(asmt: &ir::Assignment, cell: &ir::Id) -> bool {
+    pub fn is_specific_go(
+        asmt: &ir::Assignment<Nothing>,
+        cell: &ir::Id,
+    ) -> bool {
         let dst = asmt.dst.borrow();
         // checks cell.go =
         dst.get_parent_name() == cell  && dst.attributes.has("go")
@@ -393,8 +400,8 @@ impl SplitAnalysis {
     /// asmts, plus a write to groups's done, based on done_src and done_guard.
     fn make_group(
         done_src: ir::RRC<ir::Port>,
-        done_guard: ir::Guard,
-        asmts: Vec<ir::Assignment>,
+        done_guard: ir::Guard<Nothing>,
+        asmts: Vec<ir::Assignment<Nothing>>,
         builder: &mut ir::Builder,
         prefix: String,
     ) -> ir::RRC<ir::Group> {
@@ -414,8 +421,8 @@ impl SplitAnalysis {
     /// asmts, plus a write to groups's done, based on done_src and done_guard.
     fn make_group_static(
         done_src: ir::RRC<ir::Port>,
-        done_guard: ir::Guard,
-        asmts: Vec<ir::Assignment>,
+        done_guard: ir::Guard<Nothing>,
+        asmts: Vec<ir::Assignment<Nothing>>,
         builder: &mut ir::Builder,
         prefix: String,
     ) -> ir::RRC<ir::StaticGroup> {

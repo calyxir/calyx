@@ -3,6 +3,7 @@ use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir};
 use calyx_ir::{GetAttributes, RRC};
 use calyx_utils::CalyxResult;
+use ir::Nothing;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -60,7 +61,7 @@ impl Named for GroupToInvoke {
 
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
-    assigns: &[ir::Assignment],
+    assigns: &[ir::Assignment<Nothing>],
     comp: RRC<ir::Cell>,
     builder: &mut ir::Builder,
 ) -> ir::Control {
@@ -231,7 +232,7 @@ impl GroupToInvoke {
         &mut self,
         builder: &mut ir::Builder,
         group_name: ir::Id,
-        assigns: &[ir::Assignment],
+        assigns: &[ir::Assignment<Nothing>],
         group_done_port: &ir::RRC<ir::Port>,
     ) {
         let mut writes = ReadWriteSet::write_set(assigns.iter())
