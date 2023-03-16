@@ -286,6 +286,24 @@ impl<T> Guard<T> {
             }
         }
     }
+
+    /// Returns all the ports used by this guard.
+    pub fn all_ports(&self) -> Vec<RRC<Port>> {
+        match self {
+            Guard::Port(a) => vec![Rc::clone(a)],
+            Guard::And(l, r) | Guard::Or(l, r) => {
+                let mut atoms = l.all_ports();
+                atoms.append(&mut r.all_ports());
+                atoms
+            }
+            Guard::CompOp(_, l, r) => {
+                vec![Rc::clone(l), Rc::clone(r)]
+            }
+            Guard::Not(g) => g.all_ports(),
+            Guard::True => vec![],
+            Guard::Info(_) => vec![],
+        }
+    }
 }
 
 /// Helper functions for the guard.
@@ -328,24 +346,6 @@ impl NGuard {
             }
             Guard::True => {}
             Guard::Info(Nothing) => panic!("Info shouldn't be in guards"),
-        }
-    }
-
-    /// Returns all the ports used by this guard.
-    pub fn all_ports(&self) -> Vec<RRC<Port>> {
-        match self {
-            Guard::Port(a) => vec![Rc::clone(a)],
-            Guard::And(l, r) | Guard::Or(l, r) => {
-                let mut atoms = l.all_ports();
-                atoms.append(&mut r.all_ports());
-                atoms
-            }
-            Guard::CompOp(_, l, r) => {
-                vec![Rc::clone(l), Rc::clone(r)]
-            }
-            Guard::Not(g) => g.all_ports(),
-            Guard::True => vec![],
-            Guard::Info(_) => panic!("all ports not yet implemented"),
         }
     }
 }

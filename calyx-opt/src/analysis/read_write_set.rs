@@ -8,8 +8,8 @@ pub struct ReadWriteSet;
 
 impl ReadWriteSet {
     /// Returns [ir::Port] that are read from in the given Assignment.
-    pub fn port_reads(
-        assign: &ir::Assignment<Nothing>,
+    pub fn port_reads<T>(
+        assign: &ir::Assignment<T>,
     ) -> impl Iterator<Item = RRC<ir::Port>> + '_ {
         assign
             .guard
@@ -20,15 +20,15 @@ impl ReadWriteSet {
     }
 
     /// Returns [ir::Port] which are read from in the assignments.
-    pub fn port_read_set<'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<Nothing>> + 'a,
+    pub fn port_read_set<'a, T: 'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
     ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
         assigns.flat_map(Self::port_reads)
     }
 
     /// Returns [ir::Port] which are written to in the assignments.
-    pub fn port_write_set<'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<Nothing>> + 'a,
+    pub fn port_write_set<'a, T: 'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
     ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
         assigns
             .map(|assign| Rc::clone(&assign.dst))
@@ -37,8 +37,8 @@ impl ReadWriteSet {
 
     /// Returns [ir::Cell] which are read from in the assignments.
     /// **Ignores** reads from group holes.
-    pub fn read_set<'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<Nothing>> + 'a,
+    pub fn read_set<'a, T: 'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
     ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         Self::port_read_set(assigns)
             .map(|port| Rc::clone(&port.borrow().cell_parent()))
@@ -47,8 +47,8 @@ impl ReadWriteSet {
 
     /// Returns [ir::Cell] which are written to by the assignments.
     /// **Ignores** reads from group holes.
-    pub fn write_set<'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<Nothing>> + 'a,
+    pub fn write_set<'a, T: 'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
     ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         Self::port_write_set(assigns)
             .map(|port| Rc::clone(&port.borrow().cell_parent()))
@@ -57,8 +57,8 @@ impl ReadWriteSet {
 
     /// Returns the register cells whose out port is read anywhere in the given
     /// assignments
-    pub fn register_reads<'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<Nothing>> + Clone + 'a,
+    pub fn register_reads<'a, T: 'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
     ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         fn is_register_out(port_ref: RRC<ir::Port>) -> Option<RRC<ir::Cell>> {
             let port = port_ref.borrow();
@@ -92,8 +92,8 @@ impl ReadWriteSet {
     /// Return the name of the cells that these assignments write to for writes
     /// that are guarded by true.
     /// **Ignores** writes to group holes.
-    pub fn must_write_set<'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<Nothing>> + 'a,
+    pub fn must_write_set<'a, T: 'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
     ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         assigns
             .filter_map(|assignment| {
@@ -110,8 +110,8 @@ impl ReadWriteSet {
 
     /// Returns all uses of cells in this group. Uses constitute both reads and
     /// writes to cells.
-    pub fn uses<'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<Nothing>> + Clone + 'a,
+    pub fn uses<'a, T: 'a>(
+        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
     ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
         let reads = Self::read_set(assigns.clone());
         reads

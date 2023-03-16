@@ -31,7 +31,7 @@ pub use control::{
     Cloner, Control, Empty, Enable, If, Invoke, Par, Seq, StaticEnable, While,
 };
 pub use flat_guard::{FlatGuard, GuardPool, GuardRef};
-pub use guard::{Guard, Nothing, PortComp};
+pub use guard::{Guard, Nothing, PortComp, StaticTiming};
 pub use printer::Printer;
 pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;
