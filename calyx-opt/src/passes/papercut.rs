@@ -2,7 +2,6 @@ use crate::analysis;
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
-use ir::Nothing;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 

@@ -2,7 +2,7 @@ use super::read_write_set::ReadWriteSet;
 use crate::analysis;
 use calyx_ir::{self as ir};
 use calyx_utils::{CalyxResult, Error};
-use ir::{Nothing, RRC};
+use ir::RRC;
 use itertools::Itertools;
 use petgraph::{
     algo,

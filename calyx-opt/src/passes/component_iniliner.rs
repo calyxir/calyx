@@ -4,7 +4,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, rewriter, GetAttributes, LibrarySignatures, RRC};
 use calyx_utils::Error;
-use ir::{Nothing, StaticTiming};
+use ir::Nothing;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;

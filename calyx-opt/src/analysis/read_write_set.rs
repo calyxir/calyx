@@ -1,5 +1,4 @@
 use calyx_ir::{self as ir, RRC};
-use ir::Nothing;
 use itertools::Itertools;
 use std::{iter, rc::Rc};
 

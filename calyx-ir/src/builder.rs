@@ -1,6 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::{self as ir, guard::Nothing, LibrarySignatures, RRC, WRC};
+use crate::{self as ir, LibrarySignatures, RRC, WRC};
 use std::cell::RefCell;
 use std::rc::Rc;
 

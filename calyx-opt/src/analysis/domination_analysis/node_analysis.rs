@@ -1,6 +1,5 @@
 use crate::analysis::{DominatorMap, ReadWriteSet, ShareSet};
 use calyx_ir as ir;
-use ir::Nothing;
 use std::collections::HashSet;
 
 const BEGIN_ID: &str = "BEGIN_ID";

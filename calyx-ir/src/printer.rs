@@ -3,7 +3,6 @@
 //! to the Component.
 use itertools::Itertools;
 
-use crate::guard::{Nothing, StaticTiming};
 use crate::{self as ir, RRC};
 use std::io;
 use std::path::Path;

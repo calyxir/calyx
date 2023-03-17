@@ -155,7 +155,7 @@ impl Visitor for LowerGuards {
             .into();
         builder.component.set_groups(groups);
 
-        let static_groups = builder
+        /*let static_groups = builder
             .component
             .get_static_groups_mut()
             .drain()
@@ -167,7 +167,7 @@ impl Visitor for LowerGuards {
                 group
             })
             .into();
-        builder.component.set_static_groups(static_groups);
+        builder.component.set_static_groups(static_groups);*/
 
         // Transform comb group assignments
         let comb_groups = builder

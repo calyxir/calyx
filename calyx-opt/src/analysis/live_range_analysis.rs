@@ -1,6 +1,5 @@
 use crate::analysis::{ControlId, ReadWriteSet, ShareSet, VariableDetection};
 use calyx_ir::{self as ir, Id, RRC};
-use ir::Nothing;
 use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},

@@ -9,7 +9,6 @@ use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::ops::Not;
 
 #[derive(Default)]
 struct ActiveAssignments {

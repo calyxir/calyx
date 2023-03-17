@@ -58,10 +58,10 @@ impl<T> Default for Guard<T> {
 
 pub type NGuard = Guard<Nothing>;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct StaticTiming {
     interval: (u64, u64),
-    //parent: RRC<Group>,
+    parent: RRC<Group>,
 }
 
 impl ToString for StaticTiming {
