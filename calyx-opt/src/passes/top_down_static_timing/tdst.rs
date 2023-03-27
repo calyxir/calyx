@@ -22,6 +22,8 @@ use super::compute_states::ID;
 /// A range of FSM states.
 type Range = (u64, u64);
 
+type Conditional = (u64, u64, ir::Guard<Nothing>);
+
 /// A schedule keeps track of two things:
 /// 1. `enables`: Specifies which groups are active during a range of
 ///     FSM states.
@@ -32,7 +34,7 @@ struct Schedule<'b, 'a: 'b> {
     /// Enable assignments in a particular range
     enables: HashMap<Range, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when a guard is true
-    transitions: HashSet<(u64, u64, ir::Guard<Nothing>)>,
+    transitions: HashSet<Conditional>,
     // Builder for the associated component
     builder: &'b mut ir::Builder<'a>,
     states: ComputeStates,
@@ -89,7 +91,7 @@ impl Schedule<'_, '_> {
 
     fn add_transitions(
         &mut self,
-        transitions: impl Iterator<Item = (u64, u64, ir::Guard<Nothing>)>,
+        transitions: impl Iterator<Item = Conditional>,
     ) {
         transitions.for_each(|(s, e, g)| self.add_transition(s, e, g));
     }
@@ -141,11 +143,9 @@ impl Schedule<'_, '_> {
     }
 
     /// Returns "runs" of FSM states where transitions happen unconditionally
-    fn calculate_runs<I>(
-        transitions: I,
-    ) -> (Vec<Range>, Vec<(u64, u64, ir::Guard<Nothing>)>)
+    fn calculate_runs<I>(transitions: I) -> (Vec<Range>, Vec<Conditional>)
     where
-        I: Iterator<Item = (u64, u64, ir::Guard<Nothing>)>,
+        I: Iterator<Item = Conditional>,
     {
         // XXX(rachit): This only works for "true" guards and fails to compress if there is any
         // other guard. For example, if there is a sequence under a conditional branch, this will

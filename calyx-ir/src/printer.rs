@@ -520,7 +520,7 @@ impl Printer {
             }
             ir::Guard::Port(port_ref) => Self::port_to_str(&port_ref.borrow()),
             ir::Guard::True => "1'b1".to_string(),
-            ir::Guard::Info(T) => T.to_string(),
+            ir::Guard::Info(i) => i.to_string(),
         }
     }
 

@@ -56,8 +56,6 @@ impl<T> Default for Guard<T> {
     }
 }
 
-pub type NGuard = Guard<Nothing>;
-
 #[derive(Debug, Clone)]
 pub struct StaticTiming {
     interval: (u64, u64),
@@ -66,16 +64,16 @@ pub struct StaticTiming {
 
 impl ToString for StaticTiming {
     fn to_string(&self) -> String {
-        let mut full_string = "%[".to_owned();
+        let mut full_string = "%".to_owned();
+        full_string.push_str(self.parent.borrow().name().as_ref());
+        full_string.push('[');
         full_string.push_str(&self.interval.0.to_string());
-        full_string.push_str(":");
+        full_string.push(':');
         full_string.push_str(&self.interval.1.to_string());
-        full_string.push_str("]");
+        full_string.push(']');
         full_string
     }
 }
-
-pub type SGuard = Guard<StaticTiming>;
 
 impl<T> Hash for Guard<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
