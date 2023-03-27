@@ -658,7 +658,10 @@ impl InterpreterState {
     /// Evaluates the truth value of a guard under the current environment. It
     /// can error if the program checks the truth value of a port which is not
     /// exactly one bit.
-    pub fn eval_guard(&self, guard: &ir::Guard) -> InterpreterResult<bool> {
+    pub fn eval_guard(
+        &self,
+        guard: &ir::Guard<ir::Nothing>,
+    ) -> InterpreterResult<bool> {
         Ok(match guard {
             ir::Guard::Or(g1, g2) => {
                 self.eval_guard(g1)? || self.eval_guard(g2)?
@@ -693,6 +696,7 @@ impl InterpreterState {
                 }
             }
             ir::Guard::True => true,
+            ir::Guard::Info(_) => panic!("unimplemented"),
         })
     }
 

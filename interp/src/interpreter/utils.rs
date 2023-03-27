@@ -29,7 +29,7 @@ pub fn get_dest_cells<'a, I>(
     done_sig: Option<RRC<ir::Port>>,
 ) -> Vec<RRC<ir::Cell>>
 where
-    I: Iterator<Item = &'a ir::Assignment>,
+    I: Iterator<Item = &'a ir::Assignment<ir::Nothing>>,
 {
     let mut assign_set: HashSet<*const ir::Cell> = HashSet::new();
     let mut output_vec = vec![];
