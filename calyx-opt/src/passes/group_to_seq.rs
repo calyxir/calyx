@@ -37,21 +37,22 @@ impl Visitor for GroupToSeq {
             comp.get_groups_mut().drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for g in groups.iter() {
-            let group_name = g.borrow().name();
+            let mut g_ref = g.borrow_mut();
+            let group_name = g_ref.name();
             let split_analysis: SplitAnalysis<Nothing> =
                 SplitAnalysis::default();
             if let Some((outline1, outline2)) = split_analysis.get_split(
-                &mut g.borrow_mut().assignments,
+                &mut g_ref.assignments,
                 group_name,
                 &mut builder,
             ) {
                 let g1 = outline1.make_group(
                     &mut builder,
-                    format!("beg_spl_{}", g.borrow().name().id),
+                    format!("beg_spl_{}", g_ref.name().id),
                 );
                 let g2 = outline2.make_group(
                     &mut builder,
-                    format!("end_spl{}", g.borrow().name().id),
+                    format!("end_spl_{}", g_ref.name().id),
                 );
                 let seq = ir::Control::seq(vec![
                     ir::Control::enable(g1),
