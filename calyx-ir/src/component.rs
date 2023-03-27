@@ -210,17 +210,22 @@ impl Component {
                 f(assign)
             }
         }
-        /*for group_ref in self.get_static_groups().iter() {
-            for assign in &group_ref.borrow().assignments {
-                f(assign)
-            }
-        }*/
         for group_ref in self.comb_groups.iter() {
             for assign in &group_ref.borrow().assignments {
                 f(assign)
             }
         }
         self.continuous_assignments.iter().for_each(f);
+    }
+    pub fn iter_static_assignments<F>(&self, mut f: F)
+    where
+        F: FnMut(&Assignment<StaticTiming>),
+    {
+        for group_ref in self.get_static_groups().iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
     }
 }
 
