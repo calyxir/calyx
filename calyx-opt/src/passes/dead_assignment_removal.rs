@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 
 // maps combinational combinational components to set of all combinational components that it reads from
 // so the entries are (comb comp, <set of comb components that write to comb comp>)
-fn get_comb_dependence_map(
-    assigns: &Vec<ir::Assignment<Nothing>>,
+fn get_comb_dependence_map<T>(
+    assigns: &Vec<ir::Assignment<T>>,
 ) -> HashMap<ir::Id, HashSet<ir::Id>> {
     let mut comb_dependence_map: HashMap<ir::Id, HashSet<ir::Id>> =
         HashMap::new();
@@ -39,7 +39,7 @@ fn get_comb_dependence_map(
 // non_comb_writes includes all combinational cells that write to
 // something besides a combinational cell
 // i.e., the combinational cells that write to group holes or stateful cells
-fn get_non_comb_writes(assigns: &Vec<ir::Assignment<Nothing>>) -> Vec<ir::Id> {
+fn get_non_comb_writes<T>(assigns: &Vec<ir::Assignment<T>>) -> Vec<ir::Id> {
     let mut non_comb_writes: Vec<ir::Id> = Vec::new();
     for assign in assigns {
         if !assign.dst.borrow().parent_is_comb() {

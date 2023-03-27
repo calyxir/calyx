@@ -143,9 +143,11 @@ impl Named for WellFormed {
 
 /// Returns an error if the assignments are obviously conflicting. This happens when two
 /// assignments assign to the same port unconditionally.
-fn obvious_conflicts<'a, I>(assigns: I) -> CalyxResult<()>
+fn obvious_conflicts<'a, I, T: 'a + Clone + ToString>(
+    assigns: I,
+) -> CalyxResult<()>
 where
-    I: Iterator<Item = &'a ir::Assignment<Nothing>>,
+    I: Iterator<Item = &'a ir::Assignment<T>>,
 {
     let dst_grps = assigns
         .filter(|a| a.guard.is_true())

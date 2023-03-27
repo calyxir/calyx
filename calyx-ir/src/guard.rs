@@ -75,7 +75,10 @@ impl ToString for StaticTiming {
     }
 }
 
-impl<T> Hash for Guard<T> {
+impl<T> Hash for Guard<T>
+where
+    T: ToString,
+{
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Guard::Or(l, r) | Guard::And(l, r) => {
@@ -94,7 +97,7 @@ impl<T> Hash for Guard<T> {
                 p.borrow().get_parent_name().hash(state);
             }
             Guard::True => {}
-            Guard::Info(_) => panic!("unimplemented"),
+            Guard::Info(i) => i.to_string().hash(state),
         }
     }
 }
@@ -343,7 +346,9 @@ impl<T> Guard<T> {
                 *self = guard;
             }
             Guard::True => {}
-            Guard::Info(_) => panic!("Info shouldn't be in guards"),
+            Guard::Info(_) =>
+                // Info shouldn't count as port
+                {}
         }
     }
 }
@@ -424,8 +429,9 @@ where
             (_, Guard::Not(..)) => Ordering::Less,
             (Guard::Port(..), _) => Ordering::Greater,
             (_, Guard::Port(..)) => Ordering::Less,
-            (_, Guard::Info(..)) => panic!("Not yet covered"),
-            (Guard::Info(..), _) => panic!("Not yet covered"),
+            // maybe we should change this?
+            (Guard::Info(..), _) => Ordering::Greater,
+            (_, Guard::Info(..)) => Ordering::Less,
         }
     }
 }
