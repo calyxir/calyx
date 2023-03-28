@@ -46,6 +46,8 @@ pub struct ComponentDef {
     pub cells: Vec<Cell>,
     /// List of groups
     pub groups: Vec<Group>,
+    /// List of StaticGroups
+    pub static_groups: Vec<StaticGroup>,
     /// List of continuous assignments
     pub continuous_assignments: Vec<Wire>,
     /// Single control statement for this component.
@@ -66,6 +68,7 @@ impl ComponentDef {
             signature,
             cells: Vec::new(),
             groups: Vec::new(),
+            static_groups: Vec::new(),
             continuous_assignments: Vec::new(),
             control: Control::empty(),
             attributes: Attributes::default(),
@@ -205,6 +208,14 @@ pub struct Group {
     pub wires: Vec<Wire>,
     pub attributes: Attributes,
     pub is_comb: bool,
+}
+
+#[derive(Debug)]
+pub struct StaticGroup {
+    pub name: Id,
+    pub wires: Vec<Wire>,
+    pub attributes: Attributes,
+    pub latency: u64,
 }
 
 /// Data for the `->` structure statement.

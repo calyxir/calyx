@@ -557,16 +557,20 @@ pub struct StaticGroup {
 
     /// Attributes for this group.
     pub attributes: Attributes,
+
+    /// Latency of static group
+    pub latency: u64,
 }
 
 ///implement the StaticGroup struct
 impl StaticGroup {
-    pub fn new(name: Id) -> Self {
+    pub fn new(name: Id, latency: u64) -> Self {
         Self {
             name,
             assignments: vec![],
             holes: smallvec![],
             attributes: Attributes::default(),
+            latency,
         }
     }
 

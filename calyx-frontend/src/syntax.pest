@@ -41,6 +41,8 @@ comb = { "comb" }
 
 reference = { "ref" }
 
+static_word = { "static" }
+
 file = {
       SOI
       ~ imports
@@ -222,6 +224,12 @@ at_attributes = {
 
 group = {
      comb? ~ "group" ~ name_with_attribute ~ "{"
+      ~ wire*
+      ~ "}"
+}
+
+static_group = {
+      static_word ~ "group" ~ name_with_attribute ~ "<" ~ bitwidth ~  ">" ~ "{"
       ~ wire*
       ~ "}"
 }

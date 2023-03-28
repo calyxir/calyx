@@ -177,6 +177,10 @@ impl CalyxParser {
         Ok(())
     }
 
+    fn static_word(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
     fn reference(_input: Node) -> ParseResult<()> {
         Ok(())
     }
@@ -593,19 +597,37 @@ impl CalyxParser {
         ))
     }
 
+    fn static_group(input: Node) -> ParseResult<ast::StaticGroup> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), name_with_attribute((name, attrs)), bitwidth(latency), wire(wire)..] => ast::StaticGroup {
+                name,
+                attributes: attrs.add_span(span),
+                wires: wire.collect(),
+                latency: latency,
+            }
+        ))
+    }
+
     fn connections(
         input: Node,
-    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
+    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>, Vec<ast::StaticGroup>)>
+    {
         let mut wires = Vec::new();
         let mut groups = Vec::new();
+        let mut static_groups = Vec::new();
         for node in input.into_children() {
             match node.as_rule() {
                 Rule::wire => wires.push(Self::wire(node)?),
                 Rule::group => groups.push(Self::group(node)?),
+                Rule::static_group => {
+                    static_groups.push(Self::static_group(node)?)
+                }
                 _ => unreachable!(),
             }
         }
-        Ok((wires, groups))
+        Ok((wires, groups, static_groups))
     }
 
     // ================ Control program =====================
@@ -811,7 +833,7 @@ impl CalyxParser {
             cells(cells),
             connections(connections)
         ] => {
-            let (continuous_assignments, groups) = connections;
+            let (continuous_assignments, groups, static_groups) = connections;
             let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
                 if let Width::Const { value } = width {
                     Ok(PortDef {
@@ -829,6 +851,7 @@ impl CalyxParser {
                 signature: sig,
                 cells,
                 groups,
+                static_groups,
                 continuous_assignments,
                 control: Control::empty(),
                 attributes: attributes.add_span(span),
@@ -842,7 +865,7 @@ impl CalyxParser {
             connections(connections),
             control(control)
         ] => {
-            let (continuous_assignments, groups) = connections;
+            let (continuous_assignments, groups, static_groups) = connections;
             let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
                 if let Width::Const { value } = width {
                     Ok(PortDef {
@@ -860,6 +883,7 @@ impl CalyxParser {
                 signature: sig,
                 cells,
                 groups,
+                static_groups,
                 continuous_assignments,
                 control,
                 attributes: attributes.add_span(span),

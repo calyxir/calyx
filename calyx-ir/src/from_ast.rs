@@ -312,6 +312,21 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
     Ok(())
 }
 
+/// Build an [super::StaticGroup] from an [ast::StaticGroup] and attach it to the [Component]
+/// associated with the [Builder]
+fn add_static_group(
+    group: ast::StaticGroup,
+    builder: &mut Builder,
+) -> CalyxResult<()> {
+    let ir_group = builder.add_static_group(group.name, group.latency);
+    // let assigns = build_assignments(group.wires, builder)?;
+
+    ir_group.borrow_mut().attributes = group.attributes;
+    // ir_group.borrow_mut().assignments = assigns;
+
+    Ok(())
+}
+
 ///////////////// Assignment Construction /////////////////////////
 
 /// Get the pointer to the Port represented by `port`.

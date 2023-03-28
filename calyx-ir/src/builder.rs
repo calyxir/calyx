@@ -90,7 +90,11 @@ impl<'a> Builder<'a> {
     /// Construct a new static group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_static_group<S>(&mut self, prefix: S) -> RRC<ir::StaticGroup>
+    pub fn add_static_group<S>(
+        &mut self,
+        prefix: S,
+        latency: u64,
+    ) -> RRC<ir::StaticGroup>
     where
         S: Into<ir::Id>,
     {
@@ -102,7 +106,7 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name)));
+        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name, latency)));
 
         // Add default holes to the group.
         for (name, width) in &[("go", 1), ("done", 1)] {
