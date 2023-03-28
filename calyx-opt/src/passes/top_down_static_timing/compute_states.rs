@@ -1,5 +1,6 @@
 use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir, guard, structure, RRC};
+use ir::Nothing;
 use std::rc::Rc;
 
 /// Name of the attributes added by this pass.
@@ -112,7 +113,7 @@ impl ComputeStates {
         &self,
         con: &ir::Control,
         builder: &mut ir::Builder,
-        exits: &mut Vec<(u64, ir::Guard)>,
+        exits: &mut Vec<(u64, ir::Guard<Nothing>)>,
     ) {
         match con {
             ir::Control::Enable(en) => {

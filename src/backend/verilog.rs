@@ -6,6 +6,7 @@
 use crate::backend::traits::Backend;
 use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
+use ir::Nothing;
 use itertools::Itertools;
 use std::io;
 use std::{collections::HashMap, rc::Rc};
@@ -34,7 +35,7 @@ fn get_mem_str(mem_type: &str) -> &str {
 
 /// Checks to make sure that there are no holes being
 /// used in a guard.
-fn validate_guard(guard: &ir::Guard) -> bool {
+fn validate_guard(guard: &ir::Guard<Nothing>) -> bool {
     match guard {
         Guard::Or(left, right) | Guard::And(left, right) => {
             validate_guard(left) && validate_guard(right)
@@ -45,6 +46,7 @@ fn validate_guard(guard: &ir::Guard) -> bool {
         Guard::Not(inner) => validate_guard(inner),
         Guard::Port(port) => !port.borrow().is_hole(),
         Guard::True => true,
+        Guard::Info(_) => true,
     }
 }
 

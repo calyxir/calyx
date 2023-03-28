@@ -1,3 +1,5 @@
+use crate::Nothing;
+
 use super::guard::{Guard, PortComp};
 use super::{Port, RRC};
 
@@ -71,7 +73,7 @@ impl GuardPool {
         )
     }
 
-    pub fn flatten(&mut self, old: &Guard) -> GuardRef {
+    pub fn flatten(&mut self, old: &Guard<Nothing>) -> GuardRef {
         match old {
             Guard::Or(l, r) => {
                 let flat_l = self.flatten(l);
@@ -92,6 +94,9 @@ impl GuardPool {
                 self.add(FlatGuard::CompOp(op.clone(), l.clone(), r.clone()))
             }
             Guard::Port(p) => self.add(FlatGuard::Port(p.clone())),
+            Guard::Info(_) => {
+                panic!("flat guard sees info, think about this more")
+            }
         }
     }
 

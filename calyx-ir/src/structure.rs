@@ -1,5 +1,7 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 
+use crate::guard::{Nothing, StaticTiming};
+
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
 };
@@ -423,7 +425,7 @@ impl Cell {
 
 /// Represents a guarded assignment in the program
 #[derive(Clone, Debug)]
-pub struct Assignment {
+pub struct Assignment<T> {
     /// The destination for the assignment.
     pub dst: RRC<Port>,
 
@@ -431,13 +433,13 @@ pub struct Assignment {
     pub src: RRC<Port>,
 
     /// The guard for this assignment.
-    pub guard: Box<Guard>,
+    pub guard: Box<Guard<T>>,
 
     /// Attributes for this assignment.
     pub attributes: Attributes,
 }
 
-impl Assignment {
+impl<T> Assignment<T> {
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
     pub fn for_each_port<F>(&mut self, mut f: F)
@@ -461,7 +463,7 @@ pub struct Group {
     name: Id,
 
     /// The assignments used in this group
-    pub assignments: Vec<Assignment>,
+    pub assignments: Vec<Assignment<Nothing>>,
 
     /// Holes for this group
     pub holes: SmallVec<[RRC<Port>; 3]>,
@@ -516,14 +518,14 @@ impl Group {
     }
 
     /// Returns a reference to the assignment in the group that writes to the done condition.
-    pub fn done_cond(&self) -> &Assignment {
+    pub fn done_cond(&self) -> &Assignment<Nothing> {
         let idx = self.find_done_cond();
         &self.assignments[idx]
     }
 
     /// Returns a mutable reference to the assignment in the group that writes to the done
     /// condition.
-    pub fn done_cond_mut(&mut self) -> &mut Assignment {
+    pub fn done_cond_mut(&mut self) -> &mut Assignment<Nothing> {
         let idx = self.find_done_cond();
         &mut self.assignments[idx]
     }
@@ -548,7 +550,7 @@ pub struct StaticGroup {
     name: Id,
 
     /// The assignments used in this group
-    pub assignments: Vec<Assignment>,
+    pub assignments: Vec<Assignment<StaticTiming>>,
 
     /// Holes for this group
     pub holes: SmallVec<[RRC<Port>; 3]>,
@@ -605,14 +607,14 @@ impl StaticGroup {
     }
 
     /// Returns a reference to the assignment in the group that writes to the done condition.
-    pub fn done_cond(&self) -> &Assignment {
+    pub fn done_cond(&self) -> &Assignment<StaticTiming> {
         let idx = self.find_done_cond();
         &self.assignments[idx]
     }
 
     /// Returns a mutable reference to the assignment in the group that writes to the done
     /// condition.
-    pub fn done_cond_mut(&mut self) -> &mut Assignment {
+    pub fn done_cond_mut(&mut self) -> &mut Assignment<StaticTiming> {
         let idx = self.find_done_cond();
         &mut self.assignments[idx]
     }
@@ -639,7 +641,7 @@ pub struct CombGroup {
     pub(super) name: Id,
 
     /// The assignments used in this group
-    pub assignments: Vec<Assignment>,
+    pub assignments: Vec<Assignment<Nothing>>,
 
     /// Attributes for this group.
     pub attributes: Attributes,

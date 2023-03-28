@@ -240,7 +240,7 @@ impl MlirBackend {
 
     /// Format and write an assignment.
     pub fn write_assignment<F: io::Write>(
-        assign: &ir::Assignment,
+        assign: &ir::Assignment<ir::Nothing>,
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {

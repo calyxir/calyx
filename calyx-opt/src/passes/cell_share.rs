@@ -557,6 +557,9 @@ impl Visitor for CellShare {
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| rewriter.get(port));
         });
+        comp.for_each_static_assignment(|assign| {
+            assign.for_each_port(|port| rewriter.get(port));
+        });
 
         // Rewrite control uses of ports
         rewriter.rewrite_control(

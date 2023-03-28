@@ -243,12 +243,12 @@ impl<'a> Builder<'a> {
     }
 
     /// Construct an assignment.
-    pub fn build_assignment(
+    pub fn build_assignment<T>(
         &self,
         dst: RRC<ir::Port>,
         src: RRC<ir::Port>,
-        guard: ir::Guard,
-    ) -> ir::Assignment {
+        guard: ir::Guard<T>,
+    ) -> ir::Assignment<T> {
         // Valid the ports if required.
         if self.validate {
             self.is_port_well_formed(&dst.borrow());

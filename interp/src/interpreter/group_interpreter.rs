@@ -15,7 +15,7 @@ use crate::interpreter_ir as iir;
 pub enum AssignmentHolder {
     CombGroup(RRC<ir::CombGroup>),
     Group(RRC<ir::Group>),
-    Vec(Rc<Vec<Assignment>>),
+    Vec(Rc<Vec<Assignment<ir::Nothing>>>),
 }
 
 impl Default for AssignmentHolder {
@@ -36,14 +36,14 @@ impl From<RRC<ir::Group>> for AssignmentHolder {
     }
 }
 
-impl From<Vec<Assignment>> for AssignmentHolder {
-    fn from(v: Vec<Assignment>) -> Self {
+impl From<Vec<Assignment<ir::Nothing>>> for AssignmentHolder {
+    fn from(v: Vec<Assignment<ir::Nothing>>) -> Self {
         Self::Vec(Rc::new(v))
     }
 }
 
-impl From<Rc<Vec<Assignment>>> for AssignmentHolder {
-    fn from(v: Rc<Vec<Assignment>>) -> Self {
+impl From<Rc<Vec<Assignment<ir::Nothing>>>> for AssignmentHolder {
+    fn from(v: Rc<Vec<Assignment<ir::Nothing>>>) -> Self {
         Self::Vec(v)
     }
 }
@@ -79,11 +79,13 @@ impl AssignmentHolder {
 pub enum IterRef<'a> {
     CombGroup(Ref<'a, ir::CombGroup>),
     Group(Ref<'a, ir::Group>),
-    Vec(&'a Rc<Vec<Assignment>>),
+    Vec(&'a Rc<Vec<Assignment<ir::Nothing>>>),
 }
 
 impl<'a> IterRef<'a> {
-    pub fn iter(&self) -> Box<dyn Iterator<Item = &ir::Assignment> + '_> {
+    pub fn iter(
+        &self,
+    ) -> Box<dyn Iterator<Item = &ir::Assignment<ir::Nothing>> + '_> {
         match self {
             IterRef::CombGroup(cg) => Box::new(cg.assignments.iter()),
             IterRef::Group(g) => Box::new(g.assignments.iter()),
@@ -117,7 +119,7 @@ impl AssignmentInterpreter {
         state: InterpreterState,
         done_signal: Option<RRC<ir::Port>>,
         assigns: A,
-        cont_assigns: Rc<Vec<ir::Assignment>>,
+        cont_assigns: Rc<Vec<ir::Assignment<ir::Nothing>>>,
     ) -> Self {
         let done_port = done_signal.as_ref().map(|x| x.as_raw());
         let assigns: AssignmentHolder = assigns.into();
@@ -215,17 +217,18 @@ impl AssignmentInterpreter {
 
             let assign_ref = self.assigns.get_ref();
 
-            let assigns: Box<dyn Iterator<Item = &ir::Assignment>> =
-                match converge_type {
-                    ConvergeType::Continuous => {
-                        Box::new(self.cont_assigns.iter())
-                            as Box<dyn Iterator<Item = &ir::Assignment>>
-                    }
-                    ConvergeType::Both => Box::new(
-                        assign_ref.iter().chain(self.cont_assigns.iter()),
-                    )
-                        as Box<dyn Iterator<Item = &ir::Assignment>>,
-                };
+            let assigns: Box<
+                dyn Iterator<Item = &ir::Assignment<ir::Nothing>>,
+            > = match converge_type {
+                ConvergeType::Continuous => Box::new(self.cont_assigns.iter())
+                    as Box<dyn Iterator<Item = &ir::Assignment<ir::Nothing>>>,
+                ConvergeType::Both => {
+                    Box::new(assign_ref.iter().chain(self.cont_assigns.iter()))
+                        as Box<
+                            dyn Iterator<Item = &ir::Assignment<ir::Nothing>>,
+                        >
+                }
+            };
 
             // compute all updates from the assignments
             for assignment in assigns {
@@ -547,7 +550,7 @@ fn get_inputs<'a>(
 /// accordingly using zero as a placeholder for values that are undefined
 pub(crate) fn finish_interpretation<
     'a,
-    I: Iterator<Item = &'a ir::Assignment>,
+    I: Iterator<Item = &'a ir::Assignment<ir::Nothing>>,
     P: Into<RcOrConst<ir::Port>>,
 >(
     mut env: InterpreterState,

@@ -2,6 +2,7 @@ use super::{
     Assignment, Attributes, Builder, Cell, CellType, CombGroup, Control,
     GetName, Group, Id, PortDef, StaticGroup, RRC,
 };
+use crate::guard::{Nothing, StaticTiming};
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -31,7 +32,7 @@ pub struct Component {
     pub comb_groups: IdList<CombGroup>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
-    pub continuous_assignments: Vec<Assignment>,
+    pub continuous_assignments: Vec<Assignment<Nothing>>,
     /// The control program for this component.
     pub control: RRC<Control>,
     /// Attributes for this component
@@ -159,14 +160,11 @@ impl Component {
         self.namegen.gen_name(prefix)
     }
 
-    /// Apply function on all assignments contained within the component.
-    pub fn for_each_assignment<F>(&mut self, mut f: F)
+    pub fn for_each_static_assignment<F>(&mut self, mut f: F)
     where
-        F: FnMut(&mut Assignment),
+        F: FnMut(&mut Assignment<StaticTiming>),
     {
-        // Detach assignments from the group so that ports that use group
-        // `go` and `done` condition can access the parent group.
-        for group_ref in self.groups.iter() {
+        for group_ref in self.get_static_groups().iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
             for assign in &mut assigns {
@@ -174,7 +172,16 @@ impl Component {
             }
             group_ref.borrow_mut().assignments = assigns;
         }
-        for group_ref in self.get_static_groups().iter() {
+    }
+
+    /// Apply function on all assignments contained within the component.
+    pub fn for_each_assignment<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut Assignment<Nothing>),
+    {
+        // Detach assignments from the group so that ports that use group
+        // `go` and `done` condition can access the parent group.
+        for group_ref in self.groups.iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
             for assign in &mut assigns {
@@ -196,14 +203,9 @@ impl Component {
     /// Iterate over all assignments contained within the component.
     pub fn iter_assignments<F>(&self, mut f: F)
     where
-        F: FnMut(&Assignment),
+        F: FnMut(&Assignment<Nothing>),
     {
         for group_ref in self.groups.iter() {
-            for assign in &group_ref.borrow().assignments {
-                f(assign)
-            }
-        }
-        for group_ref in self.get_static_groups().iter() {
             for assign in &group_ref.borrow().assignments {
                 f(assign)
             }
@@ -214,6 +216,16 @@ impl Component {
             }
         }
         self.continuous_assignments.iter().for_each(f);
+    }
+    pub fn iter_static_assignments<F>(&self, mut f: F)
+    where
+        F: FnMut(&Assignment<StaticTiming>),
+    {
+        for group_ref in self.get_static_groups().iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
     }
 }
 

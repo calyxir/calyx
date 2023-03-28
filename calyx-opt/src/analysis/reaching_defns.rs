@@ -195,12 +195,12 @@ impl ReachingDefinitionAnalysis {
     /// **NOTE:** Includes dummy "definitions" for continuous assignments and
     /// uses within groups and invoke statements. This is to ensure that all
     /// uses of a given register are rewriten with the appropriate name.
-    pub fn calculate_overlap<'a, I>(
+    pub fn calculate_overlap<'a, I, T: 'a>(
         &'a self,
         continuous_assignments: I,
     ) -> OverlapMap
     where
-        I: Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+        I: Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
     {
         let continuous_regs: Vec<ir::Id> =
             ReadWriteSet::uses(continuous_assignments)

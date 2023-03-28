@@ -4,6 +4,7 @@ use calyx_ir::{
     RESERVED_NAMES,
 };
 use calyx_utils::{CalyxResult, Error, WithPos};
+use ir::Nothing;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
@@ -12,13 +13,13 @@ use std::collections::HashSet;
 #[derive(Default)]
 struct ActiveAssignments {
     // Set of currently active assignments
-    assigns: Vec<ir::Assignment>,
+    assigns: Vec<ir::Assignment<Nothing>>,
     // Stack representing the number of assignments added at each level
     num_assigns: Vec<usize>,
 }
 impl ActiveAssignments {
     /// Push a set of assignments to the stack.
-    pub fn push(&mut self, assign: &[ir::Assignment]) {
+    pub fn push(&mut self, assign: &[ir::Assignment<Nothing>]) {
         let prev_size = self.assigns.len();
         self.assigns.extend(assign.iter().cloned());
         // Number of assignments added at this level
@@ -31,7 +32,7 @@ impl ActiveAssignments {
         self.assigns.truncate(self.assigns.len() - num_assigns);
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &ir::Assignment> {
+    pub fn iter(&self) -> impl Iterator<Item = &ir::Assignment<Nothing>> {
         self.assigns.iter()
     }
 }
@@ -142,9 +143,11 @@ impl Named for WellFormed {
 
 /// Returns an error if the assignments are obviously conflicting. This happens when two
 /// assignments assign to the same port unconditionally.
-fn obvious_conflicts<'a, I>(assigns: I) -> CalyxResult<()>
+fn obvious_conflicts<'a, I, T: 'a + Clone + ToString>(
+    assigns: I,
+) -> CalyxResult<()>
 where
-    I: Iterator<Item = &'a ir::Assignment>,
+    I: Iterator<Item = &'a ir::Assignment<T>>,
 {
     let dst_grps = assigns
         .filter(|a| a.guard.is_true())
@@ -552,6 +555,15 @@ impl Visitor for WellFormed {
     ) -> VisResult {
         // Go signals of groups mentioned in other groups are considered used
         comp.for_each_assignment(|assign| {
+            assign.for_each_port(|pr| {
+                let port = pr.borrow();
+                if port.is_hole() && port.name == "go" {
+                    self.used_groups.insert(port.get_parent_name());
+                }
+                None
+            })
+        });
+        comp.for_each_static_assignment(|assign| {
             assign.for_each_port(|pr| {
                 let port = pr.borrow();
                 if port.is_hole() && port.name == "go" {

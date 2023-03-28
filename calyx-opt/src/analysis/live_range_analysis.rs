@@ -17,8 +17,8 @@ type LiveMapByType = HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>>;
 /// is safe to do so.
 /// To ignore a read from a done signal:
 /// the `@go` signal for the same cell *must* be written to in the group
-pub fn meaningful_read_set<'a>(
-    assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+pub fn meaningful_read_set<'a, T: 'a>(
+    assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
 ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
     meaningful_port_read_set(assigns)
         .map(|port| Rc::clone(&port.borrow().cell_parent()))
@@ -28,8 +28,8 @@ pub fn meaningful_read_set<'a>(
 /// Returns the "meaningful" [ir::Port] which are read from in the assignments.
 /// "Meaningful" means we just exclude the following `@done` reads:
 /// the `@go` signal for the same cell *must* be written to in the group
-pub fn meaningful_port_read_set<'a>(
-    assigns: impl Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+pub fn meaningful_port_read_set<'a, T: 'a>(
+    assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
 ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
     // go_writes = all cells which are guaranteed to have their go port written to in assigns
     let go_writes: Vec<RRC<ir::Cell>> =
@@ -647,8 +647,8 @@ impl LiveRangeAnalysis {
         (reads, writes)
     }
 
-    fn find_uses_assigns(
-        assigns: &[ir::Assignment],
+    fn find_uses_assigns<T>(
+        assigns: &[ir::Assignment<T>],
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
         ReadWriteSet::uses(assigns.iter())

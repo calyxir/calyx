@@ -8,6 +8,7 @@ use calyx_ir::{
     LibrarySignatures, Printer, RRC,
 };
 use calyx_utils::{CalyxResult, Error};
+use ir::Nothing;
 use itertools::Itertools;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -21,6 +22,8 @@ use super::compute_states::ID;
 /// A range of FSM states.
 type Range = (u64, u64);
 
+type Conditional = (u64, u64, ir::Guard<Nothing>);
+
 /// A schedule keeps track of two things:
 /// 1. `enables`: Specifies which groups are active during a range of
 ///     FSM states.
@@ -29,9 +32,9 @@ type Range = (u64, u64);
 ///    are needed for loops, conditionals, and reseting the FSM.
 struct Schedule<'b, 'a: 'b> {
     /// Enable assignments in a particular range
-    enables: HashMap<Range, Vec<ir::Assignment>>,
+    enables: HashMap<Range, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when a guard is true
-    transitions: HashSet<(u64, u64, ir::Guard)>,
+    transitions: HashSet<Conditional>,
     // Builder for the associated component
     builder: &'b mut ir::Builder<'a>,
     states: ComputeStates,
@@ -55,7 +58,12 @@ impl Schedule<'_, '_> {
     }
 
     /// Add a new transition between the range [start, end).
-    fn add_transition(&mut self, start: u64, end: u64, guard: ir::Guard) {
+    fn add_transition(
+        &mut self,
+        start: u64,
+        end: u64,
+        guard: ir::Guard<Nothing>,
+    ) {
         debug_assert!(
             !(start == end && guard.is_true()),
             "Unconditional transition to the same state {start}"
@@ -69,7 +77,7 @@ impl Schedule<'_, '_> {
         &mut self,
         start: u64,
         end: u64,
-        assigns: impl IntoIterator<Item = ir::Assignment>,
+        assigns: impl IntoIterator<Item = ir::Assignment<Nothing>>,
     ) {
         debug_assert!(
             start != end,
@@ -83,7 +91,7 @@ impl Schedule<'_, '_> {
 
     fn add_transitions(
         &mut self,
-        transitions: impl Iterator<Item = (u64, u64, ir::Guard)>,
+        transitions: impl Iterator<Item = Conditional>,
     ) {
         transitions.for_each(|(s, e, g)| self.add_transition(s, e, g));
     }
@@ -135,11 +143,9 @@ impl Schedule<'_, '_> {
     }
 
     /// Returns "runs" of FSM states where transitions happen unconditionally
-    fn calculate_runs<I>(
-        transitions: I,
-    ) -> (Vec<Range>, Vec<(u64, u64, ir::Guard)>)
+    fn calculate_runs<I>(transitions: I) -> (Vec<Range>, Vec<Conditional>)
     where
-        I: Iterator<Item = (u64, u64, ir::Guard)>,
+        I: Iterator<Item = Conditional>,
     {
         // XXX(rachit): This only works for "true" guards and fails to compress if there is any
         // other guard. For example, if there is a sequence under a conditional branch, this will
@@ -174,7 +180,7 @@ impl Schedule<'_, '_> {
         e: u64,
         fsm_size: u64,
         fsm: &RRC<ir::Cell>,
-    ) -> ir::Guard {
+    ) -> ir::Guard<Nothing> {
         structure!(builder;
             let lb_const = constant(s, fsm_size);
             let ub_const = constant(e, fsm_size);
@@ -262,14 +268,13 @@ impl Schedule<'_, '_> {
         );
         // Unconditional Transitions
         if !unconditional.is_empty() {
-            let uncond_guard: ir::Guard = unconditional.into_iter().fold(
-                ir::Guard::True.not(),
-                |g, (s, e)| {
+            let uncond_guard: ir::Guard<Nothing> = unconditional
+                .into_iter()
+                .fold(ir::Guard::True.not(), |g, (s, e)| {
                     let range =
                         Self::range_guard(builder, s, e, fsm_size, &st_fsm);
                     g.or(range)
-                },
-            );
+                });
             structure!(builder;
                 let fsm_incr = prim std_add(fsm_size);
                 let one = constant(1, fsm_size);
@@ -329,7 +334,7 @@ impl Schedule<'_, '_> {
 /// Represents an edge from a predeccesor to the current control node.
 /// The `u64` represents the FSM state of the predeccesor and the guard needs
 /// to be true for the predeccesor to transition to the current state.
-type PredEdge = (u64, ir::Guard);
+type PredEdge = (u64, ir::Guard<Nothing>);
 
 impl Schedule<'_, '_> {
     fn calculate_states(
@@ -571,7 +576,7 @@ impl Schedule<'_, '_> {
             .with_pos(&con.attributes));
         }
 
-        let port_guard: ir::Guard = Rc::clone(port).into();
+        let port_guard: ir::Guard<Nothing> = Rc::clone(port).into();
         let mut tpreds = self.calculate_states(
             tbranch,
             preds

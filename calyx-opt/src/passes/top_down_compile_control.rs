@@ -5,6 +5,7 @@ use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
 use calyx_ir::{build_assignments, guard, structure};
 use calyx_utils::CalyxResult;
 use calyx_utils::Error;
+use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
 use std::collections::HashMap;
@@ -205,9 +206,9 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 /// Represents the dyanmic execution schedule of a control program.
 struct Schedule<'b, 'a: 'b> {
     /// Assigments that should be enabled in a given state.
-    pub enables: HashMap<u64, Vec<ir::Assignment>>,
+    pub enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when the guard is true.
-    pub transitions: Vec<(u64, u64, ir::Guard)>,
+    pub transitions: Vec<(u64, u64, ir::Guard<Nothing>)>,
     /// The component builder. The reference has a shorter lifetime than the builder itself
     /// to allow multiple schedules to use the same builder.
     pub builder: &'b mut ir::Builder<'a>,
@@ -365,7 +366,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 /// Represents an edge from a predeccesor to the current control node.
 /// The `u64` represents the FSM state of the predeccesor and the guard needs
 /// to be true for the predeccesor to transition to the current state.
-type PredEdge = (u64, ir::Guard);
+type PredEdge = (u64, ir::Guard<Nothing>);
 
 impl Schedule<'_, '_> {
     /// Recursively build an dynamic finite state machine represented by a [Schedule].
@@ -489,7 +490,7 @@ impl Schedule<'_, '_> {
         if if_stmt.cond.is_some() {
             return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), if_stmt.cond.as_ref().unwrap().borrow().name())));
         }
-        let port_guard: ir::Guard = Rc::clone(&if_stmt.port).into();
+        let port_guard: ir::Guard<Nothing> = Rc::clone(&if_stmt.port).into();
         // Previous states transitioning into true branch need the conditional
         // to be true.
         let tru_transitions = preds
@@ -541,7 +542,7 @@ impl Schedule<'_, '_> {
             return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), while_stmt.cond.as_ref().unwrap().borrow().name())));
         }
 
-        let port_guard: ir::Guard = Rc::clone(&while_stmt.port).into();
+        let port_guard: ir::Guard<Nothing> = Rc::clone(&while_stmt.port).into();
 
         // Step 1: Generate the backward edges by computing the exit nodes.
         let mut exits = vec![];

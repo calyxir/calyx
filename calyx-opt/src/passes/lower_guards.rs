@@ -1,5 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, RRC};
+use ir::Nothing;
 
 /// Lowers guards into a purely structural representation. After this pass,
 /// all guards are guaranteed to be either [ir::Guard::True] or [ir::Guard::Port].
@@ -16,7 +17,7 @@ impl Named for LowerGuards {
     }
 }
 
-fn guard_to_prim(guard: &ir::Guard) -> Option<String> {
+fn guard_to_prim(guard: &ir::Guard<ir::Nothing>) -> Option<String> {
     let var_name = match guard {
         ir::Guard::Or(..) => "or",
         ir::Guard::And(..) => "and",
@@ -31,13 +32,16 @@ fn guard_to_prim(guard: &ir::Guard) -> Option<String> {
         ir::Guard::True | ir::Guard::Not(_) | ir::Guard::Port(_) => {
             return None;
         }
+        ir::Guard::Info(_) => {
+            panic!("Guards Shouldn't Take Info at this Point")
+        }
     };
     Some(var_name.to_string())
 }
 
 fn lower_guard(
-    guard: ir::Guard,
-    assigns: &mut Vec<ir::Assignment>,
+    guard: ir::Guard<Nothing>,
+    assigns: &mut Vec<ir::Assignment<Nothing>>,
     builder: &mut ir::Builder,
 ) -> RRC<ir::Port> {
     let maybe_prim = guard_to_prim(&guard);
@@ -101,13 +105,14 @@ fn lower_guard(
         }
         ir::Guard::True => builder.add_constant(1, 1).borrow().get("out"),
         ir::Guard::Port(p) => p,
+        ir::Guard::Info(_) => panic!("shouldn't have info ports at this point"),
     }
 }
 
 fn lower_assigns(
-    assigns: Vec<ir::Assignment>,
+    assigns: Vec<ir::Assignment<Nothing>>,
     builder: &mut ir::Builder,
-) -> Vec<ir::Assignment> {
+) -> Vec<ir::Assignment<Nothing>> {
     let mut new_assigns = Vec::with_capacity(assigns.len() * 2);
     for mut assign in assigns {
         let g = std::mem::take(&mut assign.guard);
@@ -150,7 +155,7 @@ impl Visitor for LowerGuards {
             .into();
         builder.component.set_groups(groups);
 
-        let static_groups = builder
+        /*let static_groups = builder
             .component
             .get_static_groups_mut()
             .drain()
@@ -162,7 +167,7 @@ impl Visitor for LowerGuards {
                 group
             })
             .into();
-        builder.component.set_static_groups(static_groups);
+        builder.component.set_static_groups(static_groups);*/
 
         // Transform comb group assignments
         let comb_groups = builder

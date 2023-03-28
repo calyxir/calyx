@@ -195,7 +195,7 @@ impl Visitor for Papercut {
 }
 
 impl Papercut {
-    fn check_specs(&mut self, assigns: &[ir::Assignment]) -> VisResult {
+    fn check_specs<T>(&mut self, assigns: &[ir::Assignment<T>]) -> VisResult {
         let all_writes = analysis::ReadWriteSet::port_write_set(assigns.iter())
             .filter_map(port_information)
             .into_grouping_map()
