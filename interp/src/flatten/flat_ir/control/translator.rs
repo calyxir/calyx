@@ -100,7 +100,7 @@ fn translate_comb_group(
 }
 
 fn translate_assignment(
-    assign: &cir::Assignment,
+    assign: &cir::Assignment<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
 ) -> Assignment {
@@ -112,7 +112,7 @@ fn translate_assignment(
 }
 
 fn translate_guard(
-    guard: &cir::Guard,
+    guard: &cir::Guard<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
     map: &PortMapper,
 ) -> GuardIdx {
@@ -370,7 +370,7 @@ fn is_primitive(cell_ref: &std::cell::Ref<cir::Cell>) -> bool {
         || matches!(&cell_ref.prototype, cir::CellType::Constant { .. })
 }
 
-impl FlattenTree for cir::Guard {
+impl FlattenTree for cir::Guard<cir::Nothing> {
     type Output = Guard;
     type IdxType = GuardIdx;
     type AuxillaryData = PortMapper;
@@ -395,6 +395,7 @@ impl FlattenTree for cir::Guard {
                 *aux.get(&b.as_raw()).unwrap(),
             ),
             cir::Guard::Port(p) => Guard::Port(*aux.get(&p.as_raw()).unwrap()),
+            cir::Guard::Info(_) => panic!("Guard::Info(_) not handled yet"),
         }
     }
 }
