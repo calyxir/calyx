@@ -198,6 +198,24 @@ wire = {
       at_attributes ~ LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
+static_timing_expr = { "%" ~  bitwidth | "%[" ~ bitwidth ~ ":" ~ bitwidth  ~ "]"}
+
+static_term = {
+      term | static_timing_expr 
+}
+
+static_guard_expr = {
+      static_term ~ (operator ~ static_term)*
+}
+
+static_switch_stmt = {
+      static_guard_expr ~ "?" ~ expr
+}
+
+static_wire = {
+      at_attributes ~ LHS ~ "=" ~ (static_switch_stmt | expr) ~ ";"
+}
+
 // =========== Attribute parsing ===============
 
 // <"static" = 1> style annotation
@@ -230,7 +248,7 @@ group = {
 
 static_group = {
       static_word ~ "group" ~ name_with_attribute ~ "<" ~ bitwidth ~  ">" ~ "{"
-      ~ wire*
+      ~ static_wire*
       ~ "}"
 }
 

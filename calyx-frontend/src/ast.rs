@@ -136,6 +136,13 @@ pub enum GuardExpr {
     Atom(Atom),
 }
 
+/// The AST for StaticGuardExprs
+#[derive(Debug)]
+pub enum StaticGuardExpr {
+    RegGuard(GuardExpr),
+    StaticInfo((u64, u64)),
+}
+
 /// Possible comparison operators for guards.
 #[derive(Debug)]
 pub enum GuardComp {
@@ -151,6 +158,13 @@ pub enum GuardComp {
 #[derive(Debug)]
 pub struct Guard {
     pub guard: Option<GuardExpr>,
+    pub expr: Atom,
+}
+
+/// Guards `expr` using the optional guard condition `guard`.
+#[derive(Debug)]
+pub struct StaticGuard {
+    pub guard: Option<StaticGuardExpr>,
     pub expr: Atom,
 }
 
@@ -213,7 +227,7 @@ pub struct Group {
 #[derive(Debug)]
 pub struct StaticGroup {
     pub name: Id,
-    pub wires: Vec<Wire>,
+    pub wires: Vec<StaticWire>,
     pub attributes: Attributes,
     pub latency: u64,
 }
@@ -223,6 +237,19 @@ pub struct StaticGroup {
 pub struct Wire {
     /// Source of the wire.
     pub src: Guard,
+
+    /// Guarded destinations of the wire.
+    pub dest: Port,
+
+    /// Attributes for this assignment
+    pub attributes: Attributes,
+}
+
+/// Data for the `->` structure statement.
+#[derive(Debug)]
+pub struct StaticWire {
+    /// Source of the wire.
+    pub src: StaticGuard,
 
     /// Guarded destinations of the wire.
     pub dest: Port,

@@ -1,7 +1,9 @@
 #![allow(clippy::upper_case_acronyms)]
 
 //! Parser for Calyx programs.
-use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
+use super::ast::{
+    self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
+};
 use super::Attributes;
 use crate::{Direction, PortDef, Primitive, Width};
 use calyx_utils::{self, CalyxResult, Id};
@@ -151,6 +153,25 @@ impl CalyxParser {
                     Rule::guard_and => Box::new(GuardExpr::And(lhs?, rhs?)),
                     _ => unreachable!(),
                 })
+            })
+            .parse(pairs)
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn static_guard_expr_helper(
+        ud: UserData,
+        pairs: pest::iterators::Pairs<Rule>,
+    ) -> ParseResult<Box<StaticGuardExpr>> {
+        PRATT
+            .map_primary(|primary| match primary.as_rule() {
+                Rule::static_term => Self::static_term(
+                    Node::new_with_user_data(primary, ud.clone()),
+                )
+                .map(Box::new),
+                x => unreachable!(
+                    "Unexpected rule {:?} for static_guard_expr",
+                    x
+                ),
             })
             .parse(pairs)
     }
@@ -534,6 +555,11 @@ impl CalyxParser {
         Self::guard_expr_helper(ud, input.into_pair().into_inner())
     }
 
+    fn static_guard_expr(input: Node) -> ParseResult<Box<StaticGuardExpr>> {
+        let ud = input.user_data().clone();
+        Self::static_guard_expr_helper(ud, input.into_pair().into_inner())
+    }
+
     fn term(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
@@ -554,10 +580,25 @@ impl CalyxParser {
         ))
     }
 
+    fn static_term(input: Node) -> ParseResult<ast::StaticGuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_timing_expr(interval)] => ast::StaticGuardExpr::StaticInfo(interval),
+            [term(t)] => ast::StaticGuardExpr::RegGuard(t),
+        ))
+    }
+
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(*guard), expr },
+        ))
+    }
+
+    fn static_switch_stmt(input: Node) -> ParseResult<ast::StaticGuard> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_guard_expr(guard), expr(expr)] => ast::StaticGuard { guard: Some(*guard), expr },
         ))
     }
 
@@ -575,6 +616,31 @@ impl CalyxParser {
                 dest,
                 attributes: attrs.add_span(span),
             }
+        ))
+    }
+
+    fn static_wire(input: Node) -> ParseResult<ast::StaticWire> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), LHS(dest), expr(expr)] => ast::StaticWire {
+                src: ast::StaticGuard { guard: None, expr },
+                dest,
+                attributes: attrs.add_span(span),
+            },
+            [at_attributes(attrs), LHS(dest), static_switch_stmt(src)] => ast::StaticWire {
+                src,
+                dest,
+                attributes: attrs.add_span(span),
+            }
+        ))
+    }
+
+    fn static_timing_expr(input: Node) -> ParseResult<(u64, u64)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(single_num)] => (single_num, single_num),
+            [bitwidth(start_interval), bitwidth(end_interval)] => (start_interval, end_interval)
         ))
     }
 
@@ -601,7 +667,7 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [static_word(_), name_with_attribute((name, attrs)), bitwidth(latency), wire(wire)..] => ast::StaticGroup {
+            [static_word(_), name_with_attribute((name, attrs)), bitwidth(latency), static_wire(wire)..] => ast::StaticGroup {
                 name,
                 attributes: attrs.add_span(span),
                 wires: wire.collect(),
