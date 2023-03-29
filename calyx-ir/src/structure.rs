@@ -456,6 +456,17 @@ impl<T> Assignment<T> {
     }
 }
 
+impl<StaticTiming> Assignment<StaticTiming> {
+    /// Apply function `f` to each port contained within the assignment and
+    /// replace the port with the generated value if not None.
+    pub fn for_each_interval<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut StaticTiming) -> Guard<StaticTiming>,
+    {
+        self.guard.for_each_interval(&mut |interval| f(interval))
+    }
+}
+
 /// A Group of assignments that perform a logical action.
 #[derive(Debug)]
 pub struct Group {

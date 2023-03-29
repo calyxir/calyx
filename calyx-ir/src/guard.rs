@@ -360,6 +360,29 @@ impl<T> Guard<T> {
     }
 }
 
+impl<StaticTiming> Guard<StaticTiming> {
+    pub fn for_each_interval<F>(&mut self, f: &mut F)
+    where
+        F: FnMut(&mut StaticTiming) -> Guard<StaticTiming>,
+    {
+        match self {
+            Guard::And(l, r) | Guard::Or(l, r) => {
+                l.for_each_interval(f);
+                r.for_each_interval(f);
+            }
+            Guard::Not(inner) => {
+                inner.for_each_interval(f);
+            }
+            Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => {}
+            Guard::Info(timing_interval) =>
+            // Info shouldn't count as port
+            {
+                *self = f(timing_interval);
+            }
+        }
+    }
+}
+
 /// Construct guards from ports
 impl<T> From<RRC<Port>> for Guard<T> {
     fn from(port: RRC<Port>) -> Self {
