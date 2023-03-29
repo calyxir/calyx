@@ -173,6 +173,15 @@ impl CalyxParser {
                     x
                 ),
             })
+            .map_infix(|lhs, op, rhs| {
+                Ok(match op.as_rule() {
+                    Rule::guard_or => Box::new(StaticGuardExpr::Or(lhs?, rhs?)),
+                    Rule::guard_and => {
+                        Box::new(StaticGuardExpr::And(lhs?, rhs?))
+                    }
+                    _ => unreachable!(),
+                })
+            })
             .parse(pairs)
     }
 }
@@ -546,6 +555,18 @@ impl CalyxParser {
         ))
     }
 
+    fn static_cmp_expr(input: Node) -> ParseResult<ast::StaticGuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [expr(l), guard_eq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Eq, l, r),
+            [expr(l), guard_neq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Neq, l, r),
+            [expr(l), guard_geq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Geq, l, r),
+            [expr(l), guard_leq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Leq, l, r),
+            [expr(l), guard_gt(_), expr(r)] =>  StaticGuardExpr::CompOp(GC::Gt, l, r),
+            [expr(l), guard_lt(_), expr(r)] =>  StaticGuardExpr::CompOp(GC::Lt, l, r),
+        ))
+    }
+
     fn guard_not(_input: Node) -> ParseResult<()> {
         Ok(())
     }
@@ -584,7 +605,20 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [static_timing_expr(interval)] => ast::StaticGuardExpr::StaticInfo(interval),
-            [term(t)] => ast::StaticGuardExpr::RegGuard(t),
+            [static_guard_expr(guard)] => *guard,
+            [static_cmp_expr(e)] => e,
+            [expr(e)] => ast::StaticGuardExpr::Atom(e),
+            [guard_not(_), expr(e)] => {
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::Atom(e)))
+            },
+            [guard_not(_), static_cmp_expr(e)] => {
+                ast::StaticGuardExpr::Not(Box::new(e))
+            },
+            [guard_not(_), static_guard_expr(e)] => {
+                ast::StaticGuardExpr::Not(e)
+            },
+            [guard_not(_), expr(e)] =>
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::Atom(e)))
         ))
     }
 

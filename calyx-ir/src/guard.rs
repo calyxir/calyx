@@ -1,4 +1,4 @@
-use super::Group;
+use super::StaticGroup;
 use super::{Port, RRC};
 use std::fmt::Debug;
 use std::mem;
@@ -59,19 +59,27 @@ impl<T> Default for Guard<T> {
 #[derive(Debug, Clone)]
 pub struct StaticTiming {
     interval: (u64, u64),
-    parent: RRC<Group>,
 }
 
 impl ToString for StaticTiming {
     fn to_string(&self) -> String {
         let mut full_string = "%".to_owned();
-        full_string.push_str(self.parent.borrow().name().as_ref());
         full_string.push('[');
         full_string.push_str(&self.interval.0.to_string());
         full_string.push(':');
         full_string.push_str(&self.interval.1.to_string());
         full_string.push(']');
         full_string
+    }
+}
+
+impl StaticTiming {
+    pub fn new(interval: (u64, u64)) -> Self {
+        StaticTiming { interval }
+    }
+
+    pub fn get_interval(&self) -> (u64, u64) {
+        self.interval
     }
 }
 

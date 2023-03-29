@@ -139,7 +139,11 @@ pub enum GuardExpr {
 /// The AST for StaticGuardExprs
 #[derive(Debug)]
 pub enum StaticGuardExpr {
-    RegGuard(GuardExpr),
+    And(Box<StaticGuardExpr>, Box<StaticGuardExpr>),
+    Or(Box<StaticGuardExpr>, Box<StaticGuardExpr>),
+    Not(Box<StaticGuardExpr>),
+    CompOp(GuardComp, Atom, Atom),
+    Atom(Atom),
     StaticInfo((u64, u64)),
 }
 
