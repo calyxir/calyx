@@ -2,7 +2,7 @@ use super::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure};
-use ir::{Builder, StaticTiming};
+use ir::{build_assignments, Builder, Nothing, StaticTiming};
 use itertools::Itertools;
 
 #[derive(Default)]
@@ -34,6 +34,10 @@ impl Visitor for CompileStatic {
             get_bit_width_from(latency + 1 /* represent 0..latency */);
         structure!( builder;
             let fsm = prim std_reg(fsm_size);
+            let adder = prim std_add(fsm_size);
+            let const_one = constant(1, fsm_size);
+            let first_state = constant(0, fsm_size);
+            let last_state = constant(latency, fsm_size);
         );
         let assigns = sgroup.assignments.drain(..).collect_vec();
         for mut assign in assigns {
@@ -55,6 +59,19 @@ impl Visitor for CompileStatic {
                 }
             })
         }
+
+        let last_state_guard: ir::Guard<ir::Nothing> =
+            guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        let not_last_state_guard: ir::Guard<ir::Nothing> =
+            guard!(fsm["out"]).neq(guard!(last_state["out"]));
+        let fsm_incr_assigns = build_assignments!(
+          builder;
+          adder["left"] = ? fsm["out"];
+          adder["right"] = ? const_one["out"];
+          fsm["in"] = not_last_state_guard ? adder["out"];
+          fsm["in"] = last_state_guard ? first_state["out"];
+        );
+        builder.add_continuous_assignments(fsm_incr_assigns.to_vec());
         Ok(Action::Continue)
     }
 }

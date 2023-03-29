@@ -52,6 +52,20 @@ impl<'a> Builder<'a> {
         self
     }
 
+    pub fn add_continuous_assignment(
+        &mut self,
+        assign: ir::Assignment<ir::Nothing>,
+    ) {
+        self.component.continuous_assignments.push(assign);
+    }
+
+    pub fn add_continuous_assignments(
+        &mut self,
+        assigns: Vec<ir::Assignment<ir::Nothing>>,
+    ) {
+        self.component.continuous_assignments.extend(assigns);
+    }
+
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
