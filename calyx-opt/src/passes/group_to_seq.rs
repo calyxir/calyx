@@ -71,7 +71,7 @@ impl Visitor for GroupToSeq {
         );
 
         // do the same thing with static groups
-        let static_groups: Vec<ir::RRC<ir::StaticGroup>> =
+        /*let static_groups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
         let mut builder = ir::Builder::new(comp, sigs);
         for sg in static_groups.iter() {
@@ -104,6 +104,7 @@ impl Visitor for GroupToSeq {
             .append(static_groups.into_iter().filter(|static_group| {
                 !static_group.borrow().assignments.is_empty()
             }));
+        */
 
         Ok(Action::Continue)
     }
@@ -448,7 +449,8 @@ impl GroupOutline<StaticTiming> {
         builder: &mut ir::Builder,
         prefix: String,
     ) -> ir::RRC<ir::StaticGroup> {
-        let group = builder.add_static_group(prefix);
+        panic!("doesn't work, need to think about");
+        let group = builder.add_static_group(prefix, 0);
         let mut group_asmts = self.assignments;
         let done_asmt = builder.build_assignment(
             group.borrow().get("done"),

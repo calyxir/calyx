@@ -203,7 +203,8 @@ impl ComponentInliner {
         gr: &RRC<ir::StaticGroup>,
     ) -> (ir::Id, RRC<ir::StaticGroup>) {
         let group = gr.borrow();
-        let new_group = builder.add_static_group(group.name());
+        let new_group =
+            builder.add_static_group(group.name(), group.get_latency());
         new_group.borrow_mut().attributes = group.attributes.clone();
 
         // Rewrite assignments

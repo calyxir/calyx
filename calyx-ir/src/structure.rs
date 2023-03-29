@@ -574,6 +574,10 @@ impl StaticGroup {
         }
     }
 
+    pub fn get_latency(&self) -> u64 {
+        self.latency
+    }
+
     /// Get a reference to the named hole if it exists.
     pub fn find<S>(&self, name: S) -> Option<RRC<Port>>
     where

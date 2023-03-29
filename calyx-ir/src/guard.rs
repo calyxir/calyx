@@ -1,4 +1,3 @@
-use super::StaticGroup;
 use super::{Port, RRC};
 use std::fmt::Debug;
 use std::mem;
