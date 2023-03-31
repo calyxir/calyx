@@ -269,7 +269,7 @@ static_group = {
 connections = {
       "wires"
       ~ "{"
-      ~ (wire | group)*
+      ~ (wire | group | static_group )*
       ~ "}"
 }
 

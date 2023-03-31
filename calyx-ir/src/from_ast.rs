@@ -347,12 +347,18 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
                 Error::undefined(port, "component port".to_string())
             })
         }
-        ast::Port::Hole { group, name: port } => comp
-            .find_group(group)
-            .ok_or_else(|| Error::undefined(group, "group".to_string()))?
-            .borrow()
-            .find(port)
-            .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+        ast::Port::Hole { group, name: port } => match comp.find_group(group) {
+            Some(g) => g
+                .borrow()
+                .find(port)
+                .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+            None => comp
+                .find_static_group(group)
+                .ok_or_else(|| Error::undefined(group, "group".to_string()))?
+                .borrow()
+                .find(port)
+                .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+        },
     }
 }
 
@@ -572,16 +578,26 @@ fn build_control(
         ast::Control::Enable {
             comp: component,
             attributes,
-        } => {
-            let mut en = Control::enable(Rc::clone(
-                &builder.component.find_group(component).ok_or_else(|| {
-                    Error::undefined(component, "group".to_string())
-                        .with_pos(&attributes)
-                })?,
-            ));
-            *en.get_mut_attributes() = attributes;
-            en
-        }
+        } => match builder.component.find_group(component) {
+            Some(g) => {
+                let mut en = Control::enable(Rc::clone(&g));
+                *en.get_mut_attributes() = attributes;
+                en
+            }
+            None => {
+                let mut en = Control::static_enable(Rc::clone(
+                    &builder
+                        .component
+                        .find_static_group(component)
+                        .ok_or_else(|| {
+                            Error::undefined(component, "group".to_string())
+                                .with_pos(&attributes)
+                        })?,
+                ));
+                *en.get_mut_attributes() = attributes;
+                en
+            }
+        },
         ast::Control::Invoke {
             comp: component,
             inputs,

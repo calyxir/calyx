@@ -1,12 +1,12 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileEmpty, CompileInvoke, CompileRef, CompileSync, ComponentInliner,
-    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
-    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds, ResetInsertion,
-    StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
+    ComponentInliner, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
+    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
+    InferShare, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds,
+    ResetInsertion, StaticParConv, SynthesisPapercut, TopDownCompileControl,
     TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::traversal::Named;
@@ -59,6 +59,7 @@ impl PassManager {
 
         // Disabled by default
         pm.register_pass::<UnrollBounded>()?;
+        pm.register_pass::<CompileStatic>()?;
         // pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GroupToInvoke>()?;
