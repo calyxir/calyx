@@ -48,6 +48,7 @@ impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
         matches!(&self.parent, PortParent::Group(_))
+            || matches!(&self.parent, PortParent::StaticGroup(_))
     }
 
     /// Returns the parent of the [Port] which must be [Cell]. Throws an error

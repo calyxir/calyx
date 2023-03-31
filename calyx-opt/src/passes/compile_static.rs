@@ -64,13 +64,25 @@ fn make_guard_dyn(
 
 fn make_assign_dyn(
     assign: ir::Assignment<StaticTiming>,
+    dyn_group: &ir::RRC<ir::Group>,
     fsm: &ir::RRC<ir::Cell>,
     fsm_size: u64,
     builder: &mut ir::Builder,
 ) -> ir::Assignment<Nothing> {
+    let new_dst = if assign.dst.borrow().is_hole() {
+        if assign.dst.borrow().name == "go" {
+            dyn_group.borrow().get("go")
+        } else if assign.dst.borrow().name == "done" {
+            dyn_group.borrow().get("done")
+        } else {
+            panic!("hole port other than go/done")
+        }
+    } else {
+        assign.dst
+    };
     ir::Assignment {
         src: assign.src,
-        dst: assign.dst,
+        dst: new_dst,
         attributes: assign.attributes,
         guard: make_guard_dyn(assign.guard, fsm, fsm_size, builder),
     }
@@ -96,13 +108,17 @@ impl Visitor for CompileStatic {
             let first_state = constant(0, fsm_size);
             let last_state = constant(latency, fsm_size);
         );
+        // create the dynamic group we will use to replace
+        let g = builder.add_group(sgroup.name());
         // converting static assignments to dynamic assignments
-        let assigns = sgroup
+        let mut assigns = sgroup
             .assignments
             .drain(..)
-            .map(|assign| make_assign_dyn(assign, &fsm, fsm_size, &mut builder))
+            .map(|assign| {
+                make_assign_dyn(assign, &g, &fsm, fsm_size, &mut builder)
+            })
             .collect_vec();
-        // still need to add continuous assignments
+        // still need to increment the fsm
         let last_state_guard: ir::Guard<ir::Nothing> =
             guard!(fsm["out"]).eq(guard!(last_state["out"]));
         let not_last_state_guard: ir::Guard<ir::Nothing> =
@@ -112,16 +128,32 @@ impl Visitor for CompileStatic {
           adder["left"] = ? fsm["out"];
           adder["right"] = ? const_one["out"];
           fsm["in"] = not_last_state_guard ? adder["out"];
-          fsm["in"] = last_state_guard ? first_state["out"];
         );
-        builder.add_continuous_assignments(fsm_incr_assigns.to_vec());
-        // adding the actual group
-        let g = builder.add_group(sgroup.name());
+        assigns.extend(fsm_incr_assigns.to_vec());
+        // adding the assignments to the new dynamic group and creating a new enable
         g.borrow_mut().assignments = assigns;
         g.borrow_mut().attributes = sgroup.attributes.clone();
         let mut e = ir::Control::enable(g);
         let attrs = std::mem::take(&mut s.attributes);
         *e.get_mut_attributes() = attrs;
+        // need to add a continuous assignment before returning the new enable
+        let fsm_reset_assigns = build_assignments!(builder; fsm["in"] = last_state_guard ? first_state["out"];);
+        builder.add_continuous_assignments(fsm_reset_assigns.to_vec());
         Ok(Action::Change(Box::new(e)))
+    }
+
+    fn finish(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        for g in comp.get_static_groups() {
+            if !g.borrow().assignments.is_empty() {
+                unreachable!("Should have converted all static groups to dynamic. {} still has assignments in it", g.borrow().name());
+            }
+        }
+        comp.get_static_groups_mut().retain(|_| false);
+        Ok(Action::Continue)
     }
 }
