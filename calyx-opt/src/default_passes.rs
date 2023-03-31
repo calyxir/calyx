@@ -39,6 +39,7 @@ impl PassManager {
         pm.register_pass::<StaticParConv>()?;
 
         // Compilation passes
+        pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<RemoveCombGroups>()?;
         pm.register_pass::<TopDownStaticTiming>()?;
@@ -59,7 +60,6 @@ impl PassManager {
 
         // Disabled by default
         pm.register_pass::<UnrollBounded>()?;
-        pm.register_pass::<CompileStatic>()?;
         // pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GroupToInvoke>()?;
@@ -94,7 +94,7 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [TopDownStaticTiming, TopDownCompileControl]
+            [CompileStatic, TopDownStaticTiming, TopDownCompileControl]
         );
         register_alias!(
             pm,

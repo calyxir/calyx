@@ -46,6 +46,11 @@ fn make_guard_dyn(
                 let interval_const = builder.add_constant(beg, fsm_size);
                 let g = guard!(fsm["out"]).eq(guard!(interval_const["out"]));
                 Box::new(g)
+            } else if beg == 0 {
+                let end_const = builder.add_constant(end, fsm_size);
+                let lt: ir::Guard<Nothing> =
+                    guard!(fsm["out"]).le(guard!(end_const["out"]));
+                Box::new(lt)
             } else {
                 let beg_const = builder.add_constant(beg, fsm_size);
                 let end_const = builder.add_constant(end, fsm_size);
@@ -103,6 +108,7 @@ impl Visitor for CompileStatic {
             get_bit_width_from(latency + 1 /* represent 0..latency */);
         structure!( builder;
             let fsm = prim std_reg(fsm_size);
+            let signal_on = constant(1,1);
             let adder = prim std_add(fsm_size);
             let const_one = constant(1, fsm_size);
             let first_state = constant(0, fsm_size);
@@ -127,6 +133,7 @@ impl Visitor for CompileStatic {
           builder;
           adder["left"] = ? fsm["out"];
           adder["right"] = ? const_one["out"];
+          fsm["write_en"] = not_last_state_guard ? signal_on["out"];
           fsm["in"] = not_last_state_guard ? adder["out"];
         );
         assigns.extend(fsm_incr_assigns.to_vec());
@@ -137,7 +144,10 @@ impl Visitor for CompileStatic {
         let attrs = std::mem::take(&mut s.attributes);
         *e.get_mut_attributes() = attrs;
         // need to add a continuous assignment before returning the new enable
-        let fsm_reset_assigns = build_assignments!(builder; fsm["in"] = last_state_guard ? first_state["out"];);
+        let fsm_reset_assigns = build_assignments!(builder;
+            fsm["in"] = last_state_guard ? first_state["out"];
+            fsm["write_en"] = last_state_guard ? signal_on["out"];
+        );
         builder.add_continuous_assignments(fsm_reset_assigns.to_vec());
         Ok(Action::Change(Box::new(e)))
     }

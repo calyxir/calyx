@@ -356,6 +356,54 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
+    fn static_enable(
+        &mut self,
+        s: &mut ir::StaticEnable,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        self.used_groups.insert(s.group.borrow().name());
+
+        let group = s.group.borrow();
+        let asgn = group.done_cond();
+        let const_done_assign =
+            asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1);
+
+        if const_done_assign {
+            return Err(Error::malformed_structure("Group with constant done condition is invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));
+        }
+
+        // A group with "static"=0 annotation
+        if group
+            .attributes
+            .get("static")
+            .map(|v| *v == 0)
+            .unwrap_or(false)
+        {
+            return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
+        }
+
+        // // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups
+        // obvious_conflicts(
+        //     group
+        //         .assignments
+        //         .iter()
+        //         .chain(comp.continuous_assignments.iter())
+        //         .chain(self.active_comb.iter()),
+        // )
+        // .map_err(|err| {
+        //     let msg = s
+        //         .attributes
+        //         .copy_span()
+        //         .into_option()
+        //         .map(|s| s.format("Assigments activated by group enable"));
+        //     err.with_post_msg(msg)
+        // })?;
+
+        Ok(Action::Continue)
+    }
+
     fn enable(
         &mut self,
         s: &mut ir::Enable,
