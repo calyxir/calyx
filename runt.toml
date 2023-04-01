@@ -201,6 +201,25 @@ fud exec --to jq \
 """
 timeout = 120
 
+# Tests to ensure that static compilation maintains its guarantees
+# See: https://github.com/cucapra/calyx/discussions/1331 & https://github.com/cucapra/calyx/issues/1344
+[[tests]]
+name = "correctness static control"
+paths = [
+  "tests/correctness/static-control/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags '-p all -d tdst -d group2invoke' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         {} -q
+"""
+timeout = 120
+
 [[tests]]
 name = "numeric types correctness and parsing"
 paths = [
