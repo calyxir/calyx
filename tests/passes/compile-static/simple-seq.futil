@@ -1,4 +1,4 @@
-// -p compile-static
+// -p well-formed -p compile-static
 
 import "primitives/core.futil";
 

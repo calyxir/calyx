@@ -55,7 +55,7 @@ impl<T> Default for Guard<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct StaticTiming {
     interval: (u64, u64),
 }
