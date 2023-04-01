@@ -340,9 +340,9 @@ impl Visitor for WellFormed {
                                     return Err(Error::malformed_structure(
                                         format!("The done condition of StaticGroup `{}` equals [{}:{}], but its latency is {}",
                                         gname,
-                                        beg, 
-                                        end, 
-                                        latency 
+                                        beg,
+                                        end,
+                                        latency
                                         )).with_pos(&dst.attributes));
                                 }
                             }
