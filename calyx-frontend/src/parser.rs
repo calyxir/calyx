@@ -705,7 +705,7 @@ impl CalyxParser {
                 name,
                 attributes: attrs.add_span(span),
                 wires: wire.collect(),
-                latency: latency,
+                latency,
             }
         ))
     }

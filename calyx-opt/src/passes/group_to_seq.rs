@@ -1,7 +1,7 @@
 use crate::analysis::ReadWriteSet;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use ir::{Builder, Nothing, StaticTiming};
+use ir::Nothing;
 use std::collections::BTreeMap;
 
 #[derive(Default)]

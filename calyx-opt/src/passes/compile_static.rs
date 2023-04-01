@@ -19,39 +19,46 @@ impl Named for CompileStatic {
     }
 }
 
+// Takes in a static guard `guard`, and returns equivalent dynamic guard
+// The only thing that actually changes is the Guard::Info case
+// We need to turn static_timing to dynamic guards using `fsm`.
+// E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out <= 3
 fn make_guard_dyn(
-    guard: Box<ir::Guard<StaticTiming>>,
+    guard: ir::Guard<StaticTiming>,
     fsm: &ir::RRC<ir::Cell>,
     fsm_size: u64,
     builder: &mut ir::Builder,
 ) -> Box<ir::Guard<Nothing>> {
-    match *guard {
+    match guard {
         ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-            make_guard_dyn(l, fsm, fsm_size, builder),
-            make_guard_dyn(r, fsm, fsm_size, builder),
+            make_guard_dyn(*l, fsm, fsm_size, builder),
+            make_guard_dyn(*r, fsm, fsm_size, builder),
         )),
         ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-            make_guard_dyn(l, fsm, fsm_size, builder),
-            make_guard_dyn(r, fsm, fsm_size, builder),
+            make_guard_dyn(*l, fsm, fsm_size, builder),
+            make_guard_dyn(*r, fsm, fsm_size, builder),
         )),
-        ir::Guard::CompOp(op, l, r) => Box::new(ir::Guard::CompOp(op, l, r)),
         ir::Guard::Not(g) => {
-            Box::new(ir::Guard::Not(make_guard_dyn(g, fsm, fsm_size, builder)))
+            Box::new(ir::Guard::Not(make_guard_dyn(*g, fsm, fsm_size, builder)))
         }
+        ir::Guard::CompOp(op, l, r) => Box::new(ir::Guard::CompOp(op, l, r)),
         ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
         ir::Guard::True => Box::new(ir::Guard::True),
         ir::Guard::Info(static_timing) => {
             let (beg, end) = static_timing.get_interval();
             if beg == end {
+                // if beg == end then we only need to test if fsm == beg
                 let interval_const = builder.add_constant(beg, fsm_size);
                 let g = guard!(fsm["out"]).eq(guard!(interval_const["out"]));
                 Box::new(g)
             } else if beg == 0 {
+                // if beg == 0, then we only need to test if fsm <= end
                 let end_const = builder.add_constant(end, fsm_size);
                 let lt: ir::Guard<Nothing> =
                     guard!(fsm["out"]).le(guard!(end_const["out"]));
                 Box::new(lt)
             } else {
+                // otherwise, test fsm >= beg & fsm <= end
                 let beg_const = builder.add_constant(beg, fsm_size);
                 let end_const = builder.add_constant(end, fsm_size);
                 let beg_guard: ir::Guard<Nothing> =
@@ -67,6 +74,13 @@ fn make_guard_dyn(
     }
 }
 
+// Takes in static assignment `assign` and retunrs a dynamic assignments
+// Mainly does two things:
+// 1) if `assign` writes to a go/done hole, we should change that to the go/done
+// hole of the new, dynamic group instead of the old static group
+// 2) for each static Info guard (e.g. %[2:3]), we need to convert that to
+// dynamic guards, using `fsm`.
+// E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out <= 3
 fn make_assign_dyn(
     assign: ir::Assignment<StaticTiming>,
     dyn_group: &ir::RRC<ir::Group>,
@@ -75,6 +89,7 @@ fn make_assign_dyn(
     builder: &mut ir::Builder,
 ) -> ir::Assignment<Nothing> {
     let new_dst = if assign.dst.borrow().is_hole() {
+        // holes should be either go/done
         if assign.dst.borrow().name == "go" {
             dyn_group.borrow().get("go")
         } else if assign.dst.borrow().name == "done" {
@@ -83,13 +98,14 @@ fn make_assign_dyn(
             panic!("hole port other than go/done")
         }
     } else {
+        // if dst is not a hole, then we should keep it as is for the new assignment
         assign.dst
     };
     ir::Assignment {
         src: assign.src,
         dst: new_dst,
         attributes: assign.attributes,
-        guard: make_guard_dyn(assign.guard, fsm, fsm_size, builder),
+        guard: make_guard_dyn(*assign.guard, fsm, fsm_size, builder),
     }
 }
 
@@ -101,6 +117,7 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // create the builder/cells that we need to turn static group dynamic
         let mut builder = ir::Builder::new(comp, sigs);
         let mut sgroup = s.group.borrow_mut();
         let latency = sgroup.get_latency();
@@ -114,7 +131,7 @@ impl Visitor for CompileStatic {
             let first_state = constant(0, fsm_size);
             let last_state = constant(latency, fsm_size);
         );
-        // create the dynamic group we will use to replace
+        // create the dynamic group we will use to replace the static group
         let g = builder.add_group(sgroup.name());
         // converting static assignments to dynamic assignments
         let mut assigns = sgroup
@@ -124,9 +141,7 @@ impl Visitor for CompileStatic {
                 make_assign_dyn(assign, &g, &fsm, fsm_size, &mut builder)
             })
             .collect_vec();
-        // still need to increment the fsm
-        let last_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        // assignments to increment the fsm
         let not_last_state_guard: ir::Guard<ir::Nothing> =
             guard!(fsm["out"]).neq(guard!(last_state["out"]));
         let fsm_incr_assigns = build_assignments!(
@@ -137,13 +152,16 @@ impl Visitor for CompileStatic {
           fsm["in"] = not_last_state_guard ? adder["out"];
         );
         assigns.extend(fsm_incr_assigns.to_vec());
-        // adding the assignments to the new dynamic group and creating a new enable
+        // adding the assignments to the new dynamic group and creating a
+        // new (dynamic) enable
         g.borrow_mut().assignments = assigns;
         g.borrow_mut().attributes = sgroup.attributes.clone();
         let mut e = ir::Control::enable(g);
         let attrs = std::mem::take(&mut s.attributes);
         *e.get_mut_attributes() = attrs;
-        // need to add a continuous assignment before returning the new enable
+        // need to add a continuous assignment to reset the fsm
+        let last_state_guard: ir::Guard<ir::Nothing> =
+            guard!(fsm["out"]).eq(guard!(last_state["out"]));
         let fsm_reset_assigns = build_assignments!(builder;
             fsm["in"] = last_state_guard ? first_state["out"];
             fsm["write_en"] = last_state_guard ? signal_on["out"];
@@ -158,11 +176,14 @@ impl Visitor for CompileStatic {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // make sure static groups have no assignments
+        // we should have already drained them
         for g in comp.get_static_groups() {
             if !g.borrow().assignments.is_empty() {
                 unreachable!("Should have converted all static groups to dynamic. {} still has assignments in it", g.borrow().name());
             }
         }
+        // remove all static groups
         comp.get_static_groups_mut().retain(|_| false);
         Ok(Action::Continue)
     }

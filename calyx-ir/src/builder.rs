@@ -52,13 +52,6 @@ impl<'a> Builder<'a> {
         self
     }
 
-    pub fn add_continuous_assignment(
-        &mut self,
-        assign: ir::Assignment<ir::Nothing>,
-    ) {
-        self.component.continuous_assignments.push(assign);
-    }
-
     pub fn add_continuous_assignments(
         &mut self,
         assigns: Vec<ir::Assignment<ir::Nothing>>,
