@@ -88,7 +88,7 @@ impl DataflowOrder {
         assigns: Vec<ir::Assignment<T>>,
     ) -> CalyxResult<Vec<ir::Assignment<T>>>
     where
-        T: ToString + Clone,
+        T: ToString + Clone + Eq,
     {
         // Construct a graph where a node is an assignment and there is edge between
         // nodes if one should occur before another.

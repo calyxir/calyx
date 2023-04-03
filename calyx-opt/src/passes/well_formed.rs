@@ -143,7 +143,7 @@ impl Named for WellFormed {
 
 /// Returns an error if the assignments are obviously conflicting. This happens when two
 /// assignments assign to the same port unconditionally.
-fn obvious_conflicts<'a, I, T: 'a + Clone + ToString>(
+fn obvious_conflicts<'a, I, T: 'a + Clone + ToString + Eq>(
     assigns: I,
 ) -> CalyxResult<()>
 where

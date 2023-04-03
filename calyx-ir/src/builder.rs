@@ -1,6 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::{self as ir, LibrarySignatures, RRC, WRC};
+use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -54,7 +54,7 @@ impl<'a> Builder<'a> {
 
     pub fn add_continuous_assignments(
         &mut self,
-        assigns: Vec<ir::Assignment<ir::Nothing>>,
+        assigns: Vec<ir::Assignment<Nothing>>,
     ) {
         self.component.continuous_assignments.extend(assigns);
     }

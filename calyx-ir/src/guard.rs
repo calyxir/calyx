@@ -4,7 +4,7 @@ use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct Nothing;
 
 impl ToString for Nothing {
@@ -55,20 +55,18 @@ impl<T> Default for Guard<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StaticTiming {
     interval: (u64, u64),
 }
 
 impl ToString for StaticTiming {
     fn to_string(&self) -> String {
-        let mut full_string = "%".to_owned();
-        full_string.push('[');
-        full_string.push_str(&self.interval.0.to_string());
-        full_string.push(':');
-        full_string.push_str(&self.interval.1.to_string());
-        full_string.push(']');
-        full_string
+        format!(
+            "%[{}:{}]",
+            self.interval.0.to_string(),
+            self.interval.1.to_string()
+        )
     }
 }
 
@@ -170,7 +168,10 @@ impl<T> Guard<T> {
         }
     }
 
-    pub fn and(self, rhs: Guard<T>) -> Self {
+    pub fn and(self, rhs: Guard<T>) -> Self
+    where
+        T: Eq,
+    {
         if rhs == Guard::True {
             self
         } else if self == Guard::True {
@@ -182,7 +183,10 @@ impl<T> Guard<T> {
         }
     }
 
-    pub fn or(self, rhs: Guard<T>) -> Self {
+    pub fn or(self, rhs: Guard<T>) -> Self
+    where
+        T: Eq,
+    {
         match (self, rhs) {
             (Guard::True, _) | (_, Guard::True) => Guard::True,
             (Guard::Not(n), g) | (g, Guard::Not(n)) => {
@@ -390,7 +394,10 @@ impl<T> From<RRC<Port>> for Guard<T> {
     }
 }
 
-impl<T> PartialEq for Guard<T> {
+impl<T> PartialEq for Guard<T>
+where
+    T: Eq,
+{
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Guard::Or(la, ra), Guard::Or(lb, rb))
@@ -408,17 +415,18 @@ impl<T> PartialEq for Guard<T> {
                     == (b.borrow().get_parent_name(), &b.borrow().name)
             }
             (Guard::True, Guard::True) => true,
+            (Guard::Info(i1), Guard::Info(i2)) => i1 == i2,
             _ => false,
         }
     }
 }
 
-impl<T> Eq for Guard<T> {}
+impl<T> Eq for Guard<T> where T: Eq {}
 
 /// Define order on guards
 impl<T> PartialOrd for Guard<T>
 where
-    Guard<T>: PartialEq,
+    T: Eq,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -429,7 +437,7 @@ where
 /// considered equal when they have the same precedence.
 impl<T> Ord for Guard<T>
 where
-    Guard<T>: std::cmp::Eq,
+    T: Eq,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
@@ -438,6 +446,7 @@ where
             | (Guard::CompOp(..), Guard::CompOp(..))
             | (Guard::Not(..), Guard::Not(..))
             | (Guard::Port(..), Guard::Port(..))
+            | (Guard::Info(_), Guard::Info(_))
             | (Guard::True, Guard::True) => Ordering::Equal,
             (Guard::Or(..), _) => Ordering::Greater,
             (_, Guard::Or(..)) => Ordering::Less,
@@ -472,7 +481,10 @@ where
 /// ```
 /// let and_guard = g1 & g2;
 /// ```
-impl<T> BitAnd for Guard<T> {
+impl<T> BitAnd for Guard<T>
+where
+    T: Eq,
+{
     type Output = Self;
 
     fn bitand(self, other: Self) -> Self::Output {
@@ -484,7 +496,10 @@ impl<T> BitAnd for Guard<T> {
 /// ```
 /// let or_guard = g1 | g2;
 /// ```
-impl<T> BitOr for Guard<T> {
+impl<T> BitOr for Guard<T>
+where
+    T: Eq,
+{
     type Output = Self;
 
     fn bitor(self, other: Self) -> Self::Output {
@@ -529,7 +544,10 @@ impl<T> Not for Guard<T> {
 /// ```
 /// g1 |= g2;
 /// ```
-impl<T> BitOrAssign for Guard<T> {
+impl<T> BitOrAssign for Guard<T>
+where
+    T: Eq,
+{
     fn bitor_assign(&mut self, other: Self) {
         self.update(|old| old | other)
     }
@@ -539,7 +557,10 @@ impl<T> BitOrAssign for Guard<T> {
 /// ```
 /// g1 &= g2;
 /// ```
-impl<T> BitAndAssign for Guard<T> {
+impl<T> BitAndAssign for Guard<T>
+where
+    T: Eq,
+{
     fn bitand_assign(&mut self, other: Self) {
         self.update(|old| old & other)
     }

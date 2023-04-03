@@ -1,6 +1,7 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 
-use crate::guard::{Nothing, StaticTiming};
+use crate::guard::StaticTiming;
+use crate::Nothing;
 
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
