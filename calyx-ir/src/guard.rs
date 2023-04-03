@@ -62,11 +62,7 @@ pub struct StaticTiming {
 
 impl ToString for StaticTiming {
     fn to_string(&self) -> String {
-        format!(
-            "%[{}:{}]",
-            self.interval.0.to_string(),
-            self.interval.1.to_string()
-        )
+        format!("%[{}:{}]", self.interval.0, self.interval.1)
     }
 }
 
