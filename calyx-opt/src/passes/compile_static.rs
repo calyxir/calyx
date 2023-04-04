@@ -52,19 +52,19 @@ fn make_guard_dyn(
                 let g = guard!(fsm["out"]).eq(guard!(interval_const["out"]));
                 Box::new(g)
             } else if beg == 0 {
-                // if beg == 0, then we only need to check if fsm <= end
+                // if beg == 0, then we only need to check if fsm < end
                 let end_const = builder.add_constant(end, fsm_size);
                 let lt: ir::Guard<Nothing> =
-                    guard!(fsm["out"]).le(guard!(end_const["out"]));
+                    guard!(fsm["out"]).lt(guard!(end_const["out"]));
                 Box::new(lt)
             } else {
-                // otherwise, check if fsm >= beg & fsm <= end
+                // otherwise, check if fsm >= beg & fsm < end
                 let beg_const = builder.add_constant(beg, fsm_size);
                 let end_const = builder.add_constant(end, fsm_size);
                 let beg_guard: ir::Guard<Nothing> =
                     guard!(fsm["out"]).ge(guard!(beg_const["out"]));
                 let end_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"]).le(guard!(end_const["out"]));
+                    guard!(fsm["out"]).lt(guard!(end_const["out"]));
                 Box::new(ir::Guard::And(
                     Box::new(beg_guard),
                     Box::new(end_guard),
