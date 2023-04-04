@@ -47,18 +47,18 @@ fn make_guard_dyn(
         ir::Guard::Info(static_timing) => {
             let (beg, end) = static_timing.get_interval();
             if beg == end {
-                // if beg == end then we only need to test if fsm == beg
+                // if beg == end then we only need to check if fsm == beg
                 let interval_const = builder.add_constant(beg, fsm_size);
                 let g = guard!(fsm["out"]).eq(guard!(interval_const["out"]));
                 Box::new(g)
             } else if beg == 0 {
-                // if beg == 0, then we only need to test if fsm <= end
+                // if beg == 0, then we only need to check if fsm <= end
                 let end_const = builder.add_constant(end, fsm_size);
                 let lt: ir::Guard<Nothing> =
                     guard!(fsm["out"]).le(guard!(end_const["out"]));
                 Box::new(lt)
             } else {
-                // otherwise, test fsm >= beg & fsm <= end
+                // otherwise, check if fsm >= beg & fsm <= end
                 let beg_const = builder.add_constant(beg, fsm_size);
                 let end_const = builder.add_constant(end, fsm_size);
                 let beg_guard: ir::Guard<Nothing> =
@@ -74,7 +74,7 @@ fn make_guard_dyn(
     }
 }
 
-// Takes in static assignment `assign` and retunrs a dynamic assignments
+// Takes in static assignment `assign` and returns a dynamic assignments
 // Mainly does two things:
 // 1) if `assign` writes to a go/done hole, we should change that to the go/done
 // hole of the new, dynamic group instead of the old static group
@@ -176,8 +176,8 @@ impl Visitor for CompileStatic {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // make sure static groups have no assignments
-        // we should have already drained them
+        // make sure static groups have no assignments, since
+        // we should have already drained the assignments in static groups
         for g in comp.get_static_groups() {
             if !g.borrow().assignments.is_empty() {
                 unreachable!("Should have converted all static groups to dynamic. {} still has assignments in it", g.borrow().name());
