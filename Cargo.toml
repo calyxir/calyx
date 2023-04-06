@@ -7,7 +7,7 @@ members = [
     "calyx-frontend",
     "interp",
     "web/rust",
-    "tools/data_gen"
+    "tools/data_gen",
 ]
 exclude = ["site"]
 
@@ -64,9 +64,9 @@ calyx-frontend = { path = "calyx-frontend" }
 calyx-opt = { path = "calyx-opt" }
 
 [dependencies.quick-xml]
-version = "0.22.0"
+version = "0.28"
 default-features = false
-features = [ "serialize" ]
+features = ["serialize"]
 
 [dependencies.env_logger]
 version = "0.9.0"
