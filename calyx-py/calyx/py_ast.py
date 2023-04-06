@@ -379,7 +379,7 @@ class If(Control):
     port: Port
     cond: Optional[CompVar]
     true_branch: Control
-    false_branch: Control = Empty()
+    false_branch: Control = field(default_factory=Empty)
 
     def doc(self) -> str:
         cond = f"if {self.port.doc()}"
