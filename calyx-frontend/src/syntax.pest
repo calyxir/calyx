@@ -169,14 +169,6 @@ cmp_expr = {
   | expr ~ guard_gt ~ expr
   | expr ~ guard_lt ~ expr
 }
-static_cmp_expr = {
-    expr ~ guard_eq ~ expr
-  | expr ~ guard_neq ~ expr
-  | expr ~ guard_geq ~ expr
-  | expr ~ guard_leq ~ expr
-  | expr ~ guard_gt ~ expr
-  | expr ~ guard_lt ~ expr
-}
 
 guard_or = { "|" }
 guard_and = { "&" }
@@ -210,10 +202,10 @@ static_timing_expr = { "%" ~  bitwidth | "%[" ~ bitwidth ~ ":" ~ bitwidth  ~ "]"
 
 static_term = {
       guard_not ~ expr
-    | guard_not ~ "(" ~ static_cmp_expr ~ ")"
+    | guard_not ~ "(" ~ cmp_expr ~ ")"
     | guard_not ~ "(" ~ static_guard_expr ~ ")"
     | "(" ~ static_guard_expr ~ ")"
-    | static_cmp_expr
+    | cmp_expr
     | expr
     | static_timing_expr 
 }

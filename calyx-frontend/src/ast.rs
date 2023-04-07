@@ -132,9 +132,12 @@ pub enum GuardExpr {
     And(Box<GuardExpr>, Box<GuardExpr>),
     Or(Box<GuardExpr>, Box<GuardExpr>),
     Not(Box<GuardExpr>),
-    CompOp(GuardComp, Atom, Atom),
+    CompOp(CompGuard),
     Atom(Atom),
 }
+
+/// Guard Comparison Type
+pub type CompGuard = (GuardComp, Atom, Atom);
 
 /// The AST for StaticGuardExprs
 #[derive(Debug)]
@@ -142,7 +145,7 @@ pub enum StaticGuardExpr {
     And(Box<StaticGuardExpr>, Box<StaticGuardExpr>),
     Or(Box<StaticGuardExpr>, Box<StaticGuardExpr>),
     Not(Box<StaticGuardExpr>),
-    CompOp(GuardComp, Atom, Atom),
+    CompOp(CompGuard),
     Atom(Atom),
     StaticInfo((u64, u64)),
 }

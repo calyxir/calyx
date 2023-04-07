@@ -543,27 +543,15 @@ impl CalyxParser {
         Ok(())
     }
 
-    fn cmp_expr(input: Node) -> ParseResult<ast::GuardExpr> {
+    fn cmp_expr(input: Node) -> ParseResult<ast::CompGuard> {
         Ok(match_nodes!(
             input.into_children();
-            [expr(l), guard_eq(_), expr(r)] => GuardExpr::CompOp(GC::Eq, l, r),
-            [expr(l), guard_neq(_), expr(r)] => GuardExpr::CompOp(GC::Neq, l, r),
-            [expr(l), guard_geq(_), expr(r)] => GuardExpr::CompOp(GC::Geq, l, r),
-            [expr(l), guard_leq(_), expr(r)] => GuardExpr::CompOp(GC::Leq, l, r),
-            [expr(l), guard_gt(_), expr(r)] =>  GuardExpr::CompOp(GC::Gt, l, r),
-            [expr(l), guard_lt(_), expr(r)] =>  GuardExpr::CompOp(GC::Lt, l, r),
-        ))
-    }
-
-    fn static_cmp_expr(input: Node) -> ParseResult<ast::StaticGuardExpr> {
-        Ok(match_nodes!(
-            input.into_children();
-            [expr(l), guard_eq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Eq, l, r),
-            [expr(l), guard_neq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Neq, l, r),
-            [expr(l), guard_geq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Geq, l, r),
-            [expr(l), guard_leq(_), expr(r)] => StaticGuardExpr::CompOp(GC::Leq, l, r),
-            [expr(l), guard_gt(_), expr(r)] =>  StaticGuardExpr::CompOp(GC::Gt, l, r),
-            [expr(l), guard_lt(_), expr(r)] =>  StaticGuardExpr::CompOp(GC::Lt, l, r),
+            [expr(l), guard_eq(_), expr(r)] => (GC::Eq, l, r),
+            [expr(l), guard_neq(_), expr(r)] => (GC::Neq, l, r),
+            [expr(l), guard_geq(_), expr(r)] => (GC::Geq, l, r),
+            [expr(l), guard_leq(_), expr(r)] => (GC::Leq, l, r),
+            [expr(l), guard_gt(_), expr(r)] =>  (GC::Gt, l, r),
+            [expr(l), guard_lt(_), expr(r)] =>  (GC::Lt, l, r),
         ))
     }
 
@@ -585,13 +573,13 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard)] => *guard,
-            [cmp_expr(e)] => e,
+            [cmp_expr((gc, a1, a2))] => ast::GuardExpr::CompOp((gc, a1, a2)),
             [expr(e)] => ast::GuardExpr::Atom(e),
             [guard_not(_), expr(e)] => {
                 ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
             },
-            [guard_not(_), cmp_expr(e)] => {
-                ast::GuardExpr::Not(Box::new(e))
+            [guard_not(_), cmp_expr((gc, a1, a2))] => {
+                ast::GuardExpr::Not(Box::new(ast::GuardExpr::CompOp((gc, a1, a2))))
             },
             [guard_not(_), guard_expr(e)] => {
                 ast::GuardExpr::Not(e)
@@ -606,13 +594,13 @@ impl CalyxParser {
             input.into_children();
             [static_timing_expr(interval)] => ast::StaticGuardExpr::StaticInfo(interval),
             [static_guard_expr(guard)] => *guard,
-            [static_cmp_expr(e)] => e,
+            [cmp_expr((gc, a1, a2))] => ast::StaticGuardExpr::CompOp((gc, a1, a2)),
             [expr(e)] => ast::StaticGuardExpr::Atom(e),
             [guard_not(_), expr(e)] => {
                 ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::Atom(e)))
             },
-            [guard_not(_), static_cmp_expr(e)] => {
-                ast::StaticGuardExpr::Not(Box::new(e))
+            [guard_not(_), cmp_expr((gc, a1, a2))] => {
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::CompOp((gc, a1, a2))))
             },
             [guard_not(_), static_guard_expr(e)] => {
                 ast::StaticGuardExpr::Not(e)

@@ -510,7 +510,7 @@ fn build_guard(
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
-        GE::CompOp(op, l, r) => {
+        GE::CompOp((op, l, r)) => {
             let nl = ensure_direction(atom_to_port(l, bd)?, Direction::Output)?;
             let nr = ensure_direction(atom_to_port(r, bd)?, Direction::Output)?;
             let nop = match op {
@@ -550,7 +550,7 @@ fn build_static_guard(
             Guard::and(build_static_guard(*l, bd)?, build_static_guard(*r, bd)?)
         }
         SGE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
-        SGE::CompOp(op, l, r) => {
+        SGE::CompOp((op, l, r)) => {
             let nl = ensure_direction(atom_to_port(l, bd)?, Direction::Output)?;
             let nr = ensure_direction(atom_to_port(r, bd)?, Direction::Output)?;
             let nop = match op {
