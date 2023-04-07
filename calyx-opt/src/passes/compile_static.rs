@@ -150,6 +150,7 @@ impl Visitor for CompileStatic {
           adder["right"] = ? const_one["out"];
           fsm["write_en"] = not_last_state_guard ? signal_on["out"];
           fsm["in"] = not_last_state_guard ? adder["out"];
+          // need done condition because we are creating a dynamic group
           g["done"] = last_state_guard ? signal_on["out"];
         );
         assigns.extend(fsm_incr_assigns.to_vec());

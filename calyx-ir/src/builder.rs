@@ -118,16 +118,15 @@ impl<'a> Builder<'a> {
         // Add default holes to the group.
         // Static Groups don't need a done hole.
         // May be beneficial to have a go hole, though (although maybe not)
-        for (name, width) in &[("go", 1)] {
-            let hole = Rc::new(RefCell::new(ir::Port {
-                name: ir::Id::from(*name),
-                width: *width,
-                direction: ir::Direction::Inout,
-                parent: ir::PortParent::StaticGroup(WRC::from(&group)),
-                attributes: ir::Attributes::default(),
-            }));
-            group.borrow_mut().holes.push(hole);
-        }
+        let (name, width) = ("go", 1);
+        let hole = Rc::new(RefCell::new(ir::Port {
+            name: ir::Id::from(name),
+            width,
+            direction: ir::Direction::Inout,
+            parent: ir::PortParent::StaticGroup(WRC::from(&group)),
+            attributes: ir::Attributes::default(),
+        }));
+        group.borrow_mut().holes.push(hole);
 
         // Add the group to the component.
         self.component
