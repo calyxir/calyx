@@ -46,6 +46,8 @@ pub struct ComponentDef {
     pub cells: Vec<Cell>,
     /// List of groups
     pub groups: Vec<Group>,
+    /// List of StaticGroups
+    pub static_groups: Vec<StaticGroup>,
     /// List of continuous assignments
     pub continuous_assignments: Vec<Wire>,
     /// Single control statement for this component.
@@ -66,6 +68,7 @@ impl ComponentDef {
             signature,
             cells: Vec::new(),
             groups: Vec::new(),
+            static_groups: Vec::new(),
             continuous_assignments: Vec::new(),
             control: Control::empty(),
             attributes: Attributes::default(),
@@ -129,8 +132,22 @@ pub enum GuardExpr {
     And(Box<GuardExpr>, Box<GuardExpr>),
     Or(Box<GuardExpr>, Box<GuardExpr>),
     Not(Box<GuardExpr>),
-    CompOp(GuardComp, Atom, Atom),
+    CompOp(CompGuard),
     Atom(Atom),
+}
+
+/// Guard Comparison Type
+pub type CompGuard = (GuardComp, Atom, Atom);
+
+/// The AST for StaticGuardExprs
+#[derive(Debug)]
+pub enum StaticGuardExpr {
+    And(Box<StaticGuardExpr>, Box<StaticGuardExpr>),
+    Or(Box<StaticGuardExpr>, Box<StaticGuardExpr>),
+    Not(Box<StaticGuardExpr>),
+    CompOp(CompGuard),
+    Atom(Atom),
+    StaticInfo((u64, u64)),
 }
 
 /// Possible comparison operators for guards.
@@ -148,6 +165,13 @@ pub enum GuardComp {
 #[derive(Debug)]
 pub struct Guard {
     pub guard: Option<GuardExpr>,
+    pub expr: Atom,
+}
+
+/// Guards `expr` using the optional guard condition `guard`.
+#[derive(Debug)]
+pub struct StaticGuard {
+    pub guard: Option<StaticGuardExpr>,
     pub expr: Atom,
 }
 
@@ -207,11 +231,32 @@ pub struct Group {
     pub is_comb: bool,
 }
 
+#[derive(Debug)]
+pub struct StaticGroup {
+    pub name: Id,
+    pub wires: Vec<StaticWire>,
+    pub attributes: Attributes,
+    pub latency: u64,
+}
+
 /// Data for the `->` structure statement.
 #[derive(Debug)]
 pub struct Wire {
     /// Source of the wire.
     pub src: Guard,
+
+    /// Guarded destinations of the wire.
+    pub dest: Port,
+
+    /// Attributes for this assignment
+    pub attributes: Attributes,
+}
+
+/// Data for the `->` structure statement.
+#[derive(Debug)]
+pub struct StaticWire {
+    /// Source of the wire.
+    pub src: StaticGuard,
 
     /// Guarded destinations of the wire.
     pub dest: Port,

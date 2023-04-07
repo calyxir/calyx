@@ -1,6 +1,6 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::{self as ir, LibrarySignatures, RRC, WRC};
+use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -52,6 +52,13 @@ impl<'a> Builder<'a> {
         self
     }
 
+    pub fn add_continuous_assignments(
+        &mut self,
+        assigns: Vec<ir::Assignment<Nothing>>,
+    ) {
+        self.component.continuous_assignments.extend(assigns);
+    }
+
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
@@ -90,7 +97,11 @@ impl<'a> Builder<'a> {
     /// Construct a new static group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_static_group<S>(&mut self, prefix: S) -> RRC<ir::StaticGroup>
+    pub fn add_static_group<S>(
+        &mut self,
+        prefix: S,
+        latency: u64,
+    ) -> RRC<ir::StaticGroup>
     where
         S: Into<ir::Id>,
     {
@@ -102,19 +113,20 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name)));
+        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name, latency)));
 
         // Add default holes to the group.
-        for (name, width) in &[("go", 1), ("done", 1)] {
-            let hole = Rc::new(RefCell::new(ir::Port {
-                name: ir::Id::from(*name),
-                width: *width,
-                direction: ir::Direction::Inout,
-                parent: ir::PortParent::StaticGroup(WRC::from(&group)),
-                attributes: ir::Attributes::default(),
-            }));
-            group.borrow_mut().holes.push(hole);
-        }
+        // Static Groups don't need a done hole.
+        // May be beneficial to have a go hole, though (although maybe not)
+        let (name, width) = ("go", 1);
+        let hole = Rc::new(RefCell::new(ir::Port {
+            name: ir::Id::from(name),
+            width,
+            direction: ir::Direction::Inout,
+            parent: ir::PortParent::StaticGroup(WRC::from(&group)),
+            attributes: ir::Attributes::default(),
+        }));
+        group.borrow_mut().holes.push(hole);
 
         // Add the group to the component.
         self.component

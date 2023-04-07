@@ -250,7 +250,7 @@ impl Printer {
     }
 
     /// Format and write an assignment.
-    pub fn write_assignment<F: io::Write, T: Clone + ToString>(
+    pub fn write_assignment<F: io::Write, T: Clone + ToString + Eq>(
         assign: &ir::Assignment<T>,
         indent_level: usize,
         f: &mut F,
@@ -267,7 +267,7 @@ impl Printer {
     /// Convinience method to get string representation of [ir::Assignment].
     pub fn assignment_to_str<T>(assign: &ir::Assignment<T>) -> String
     where
-        T: ToString + Clone,
+        T: ToString + Clone + Eq,
     {
         let mut buf = Vec::new();
         Self::write_assignment(assign, 0, &mut buf).ok();
@@ -328,7 +328,12 @@ impl Printer {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "group {}", group.name().id)?;
+        write!(
+            f,
+            "static group {}<{}>",
+            group.name().id,
+            group.get_latency()
+        )?;
         if !group.attributes.is_empty() {
             write!(f, "{}", Self::format_attributes(&group.attributes))?;
         }
@@ -487,7 +492,10 @@ impl Printer {
     }
 
     /// Generate a String-based representation for a guard.
-    pub fn guard_str<T: ToString>(guard: &ir::Guard<T>) -> String {
+    pub fn guard_str<T: ToString>(guard: &ir::Guard<T>) -> String
+    where
+        T: Eq,
+    {
         match &guard {
             ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
                 let left = if &**l > guard {

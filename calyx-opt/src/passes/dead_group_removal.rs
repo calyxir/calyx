@@ -34,6 +34,17 @@ impl Visitor for DeadGroupRemoval {
         Ok(Action::Continue)
     }
 
+    fn static_enable(
+        &mut self,
+        s: &mut ir::StaticEnable,
+        _comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        self.used_groups.insert(s.group.borrow().name());
+        Ok(Action::Continue)
+    }
+
     fn finish_if(
         &mut self,
         s: &mut ir::If,

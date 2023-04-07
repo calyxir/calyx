@@ -1,7 +1,9 @@
 #![allow(clippy::upper_case_acronyms)]
 
 //! Parser for Calyx programs.
-use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
+use super::ast::{
+    self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
+};
 use super::Attributes;
 use crate::{Direction, PortDef, Primitive, Width};
 use calyx_utils::{self, CalyxResult, Id};
@@ -154,6 +156,34 @@ impl CalyxParser {
             })
             .parse(pairs)
     }
+
+    #[allow(clippy::result_large_err)]
+    fn static_guard_expr_helper(
+        ud: UserData,
+        pairs: pest::iterators::Pairs<Rule>,
+    ) -> ParseResult<Box<StaticGuardExpr>> {
+        PRATT
+            .map_primary(|primary| match primary.as_rule() {
+                Rule::static_term => Self::static_term(
+                    Node::new_with_user_data(primary, ud.clone()),
+                )
+                .map(Box::new),
+                x => unreachable!(
+                    "Unexpected rule {:?} for static_guard_expr",
+                    x
+                ),
+            })
+            .map_infix(|lhs, op, rhs| {
+                Ok(match op.as_rule() {
+                    Rule::guard_or => Box::new(StaticGuardExpr::Or(lhs?, rhs?)),
+                    Rule::guard_and => {
+                        Box::new(StaticGuardExpr::And(lhs?, rhs?))
+                    }
+                    _ => unreachable!(),
+                })
+            })
+            .parse(pairs)
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -174,6 +204,10 @@ impl CalyxParser {
     }
 
     fn comb(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
+    fn static_word(_input: Node) -> ParseResult<()> {
         Ok(())
     }
 
@@ -509,15 +543,15 @@ impl CalyxParser {
         Ok(())
     }
 
-    fn cmp_expr(input: Node) -> ParseResult<ast::GuardExpr> {
+    fn cmp_expr(input: Node) -> ParseResult<ast::CompGuard> {
         Ok(match_nodes!(
             input.into_children();
-            [expr(l), guard_eq(_), expr(r)] => GuardExpr::CompOp(GC::Eq, l, r),
-            [expr(l), guard_neq(_), expr(r)] => GuardExpr::CompOp(GC::Neq, l, r),
-            [expr(l), guard_geq(_), expr(r)] => GuardExpr::CompOp(GC::Geq, l, r),
-            [expr(l), guard_leq(_), expr(r)] => GuardExpr::CompOp(GC::Leq, l, r),
-            [expr(l), guard_gt(_), expr(r)] =>  GuardExpr::CompOp(GC::Gt, l, r),
-            [expr(l), guard_lt(_), expr(r)] =>  GuardExpr::CompOp(GC::Lt, l, r),
+            [expr(l), guard_eq(_), expr(r)] => (GC::Eq, l, r),
+            [expr(l), guard_neq(_), expr(r)] => (GC::Neq, l, r),
+            [expr(l), guard_geq(_), expr(r)] => (GC::Geq, l, r),
+            [expr(l), guard_leq(_), expr(r)] => (GC::Leq, l, r),
+            [expr(l), guard_gt(_), expr(r)] =>  (GC::Gt, l, r),
+            [expr(l), guard_lt(_), expr(r)] =>  (GC::Lt, l, r),
         ))
     }
 
@@ -530,17 +564,22 @@ impl CalyxParser {
         Self::guard_expr_helper(ud, input.into_pair().into_inner())
     }
 
+    fn static_guard_expr(input: Node) -> ParseResult<Box<StaticGuardExpr>> {
+        let ud = input.user_data().clone();
+        Self::static_guard_expr_helper(ud, input.into_pair().into_inner())
+    }
+
     fn term(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard)] => *guard,
-            [cmp_expr(e)] => e,
+            [cmp_expr((gc, a1, a2))] => ast::GuardExpr::CompOp((gc, a1, a2)),
             [expr(e)] => ast::GuardExpr::Atom(e),
             [guard_not(_), expr(e)] => {
                 ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
             },
-            [guard_not(_), cmp_expr(e)] => {
-                ast::GuardExpr::Not(Box::new(e))
+            [guard_not(_), cmp_expr((gc, a1, a2))] => {
+                ast::GuardExpr::Not(Box::new(ast::GuardExpr::CompOp((gc, a1, a2))))
             },
             [guard_not(_), guard_expr(e)] => {
                 ast::GuardExpr::Not(e)
@@ -550,10 +589,38 @@ impl CalyxParser {
         ))
     }
 
+    fn static_term(input: Node) -> ParseResult<ast::StaticGuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_timing_expr(interval)] => ast::StaticGuardExpr::StaticInfo(interval),
+            [static_guard_expr(guard)] => *guard,
+            [cmp_expr((gc, a1, a2))] => ast::StaticGuardExpr::CompOp((gc, a1, a2)),
+            [expr(e)] => ast::StaticGuardExpr::Atom(e),
+            [guard_not(_), expr(e)] => {
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::Atom(e)))
+            },
+            [guard_not(_), cmp_expr((gc, a1, a2))] => {
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::CompOp((gc, a1, a2))))
+            },
+            [guard_not(_), static_guard_expr(e)] => {
+                ast::StaticGuardExpr::Not(e)
+            },
+            [guard_not(_), expr(e)] =>
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::Atom(e)))
+        ))
+    }
+
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(*guard), expr },
+        ))
+    }
+
+    fn static_switch_stmt(input: Node) -> ParseResult<ast::StaticGuard> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_guard_expr(guard), expr(expr)] => ast::StaticGuard { guard: Some(*guard), expr },
         ))
     }
 
@@ -571,6 +638,31 @@ impl CalyxParser {
                 dest,
                 attributes: attrs.add_span(span),
             }
+        ))
+    }
+
+    fn static_wire(input: Node) -> ParseResult<ast::StaticWire> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), LHS(dest), expr(expr)] => ast::StaticWire {
+                src: ast::StaticGuard { guard: None, expr },
+                dest,
+                attributes: attrs.add_span(span),
+            },
+            [at_attributes(attrs), LHS(dest), static_switch_stmt(src)] => ast::StaticWire {
+                src,
+                dest,
+                attributes: attrs.add_span(span),
+            }
+        ))
+    }
+
+    fn static_timing_expr(input: Node) -> ParseResult<(u64, u64)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(single_num)] => (single_num, single_num+1),
+            [bitwidth(start_interval), bitwidth(end_interval)] => (start_interval, end_interval)
         ))
     }
 
@@ -593,19 +685,37 @@ impl CalyxParser {
         ))
     }
 
+    fn static_group(input: Node) -> ParseResult<ast::StaticGroup> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), name_with_attribute((name, attrs)), bitwidth(latency), static_wire(wire)..] => ast::StaticGroup {
+                name,
+                attributes: attrs.add_span(span),
+                wires: wire.collect(),
+                latency,
+            }
+        ))
+    }
+
     fn connections(
         input: Node,
-    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
+    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>, Vec<ast::StaticGroup>)>
+    {
         let mut wires = Vec::new();
         let mut groups = Vec::new();
+        let mut static_groups = Vec::new();
         for node in input.into_children() {
             match node.as_rule() {
                 Rule::wire => wires.push(Self::wire(node)?),
                 Rule::group => groups.push(Self::group(node)?),
+                Rule::static_group => {
+                    static_groups.push(Self::static_group(node)?)
+                }
                 _ => unreachable!(),
             }
         }
-        Ok((wires, groups))
+        Ok((wires, groups, static_groups))
     }
 
     // ================ Control program =====================
@@ -811,7 +921,7 @@ impl CalyxParser {
             cells(cells),
             connections(connections)
         ] => {
-            let (continuous_assignments, groups) = connections;
+            let (continuous_assignments, groups, static_groups) = connections;
             let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
                 if let Width::Const { value } = width {
                     Ok(PortDef {
@@ -829,6 +939,7 @@ impl CalyxParser {
                 signature: sig,
                 cells,
                 groups,
+                static_groups,
                 continuous_assignments,
                 control: Control::empty(),
                 attributes: attributes.add_span(span),
@@ -842,7 +953,7 @@ impl CalyxParser {
             connections(connections),
             control(control)
         ] => {
-            let (continuous_assignments, groups) = connections;
+            let (continuous_assignments, groups, static_groups) = connections;
             let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
                 if let Width::Const { value } = width {
                     Ok(PortDef {
@@ -860,6 +971,7 @@ impl CalyxParser {
                 signature: sig,
                 cells,
                 groups,
+                static_groups,
                 continuous_assignments,
                 control,
                 attributes: attributes.add_span(span),

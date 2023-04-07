@@ -5,6 +5,7 @@ use calyx_ir::{
 };
 use calyx_utils::{CalyxResult, Error, WithPos};
 use ir::Nothing;
+use ir::StaticTiming;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
@@ -143,7 +144,7 @@ impl Named for WellFormed {
 
 /// Returns an error if the assignments are obviously conflicting. This happens when two
 /// assignments assign to the same port unconditionally.
-fn obvious_conflicts<'a, I, T: 'a + Clone + ToString>(
+fn obvious_conflicts<'a, I, T: 'a + Clone + ToString + Eq>(
     assigns: I,
 ) -> CalyxResult<()>
 where
@@ -302,42 +303,28 @@ impl Visitor for WellFormed {
             }
         }
 
-        // For each non-combinational group, check if there is at least one write to the done
-        // signal of that group and that the write is to the group's done signal.
+        // Don't need to check done condition for static groups. Instead, just
+        // checking that the static timing intervals are well formed.
         for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
-            let gname = group.name();
-            let mut has_done = false;
-            // Find an assignment writing to this group's done condition.
+            // Check that for each interval %[beg, end], end > beg.
             for assign in &group.assignments {
-                let dst = assign.dst.borrow();
-                if dst.is_hole() && dst.name == "done" {
-                    // Group has multiple done conditions
-                    if has_done {
-                        return Err(Error::malformed_structure(format!(
-                            "Group `{}` has multiple done conditions",
-                            gname
-                        ))
-                        .with_pos(&assign.attributes));
-                    } else {
-                        has_done = true;
-                    }
-                    // Group uses another group's done condition
-                    if gname != dst.get_parent_name() {
-                        return Err(Error::malformed_structure(
-                            format!("Group `{}` refers to the done condition of another group (`{}`).",
-                            gname,
-                            dst.get_parent_name())).with_pos(&dst.attributes));
-                    }
-                }
-            }
-
-            // Group does not have a done condition
-            if !has_done {
-                return Err(Error::malformed_structure(format!(
-                    "No writes to the `done' hole for group `{gname}'",
-                ))
-                .with_pos(&group.attributes));
+                assign.guard.check_for_each_interval(
+                    &mut |static_timing: &StaticTiming| {
+                        if static_timing.get_interval().0
+                            >= static_timing.get_interval().1
+                        {
+                            return Err(Error::malformed_structure(format!(
+                                "Static Timing Guard has improper interval: `%[{},{}]`",
+                                static_timing.get_interval().0,
+                                static_timing.get_interval().1
+                            ))
+                            .with_pos(&assign.attributes));
+                        } else {
+                            Ok(())
+                        }
+                    },
+                )?;
             }
         }
 
@@ -352,6 +339,47 @@ impl Visitor for WellFormed {
                     .chain(comp.continuous_assignments.iter()),
             )?;
         }
+
+        Ok(Action::Continue)
+    }
+
+    fn static_enable(
+        &mut self,
+        s: &mut ir::StaticEnable,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        self.used_groups.insert(s.group.borrow().name());
+
+        let group = s.group.borrow();
+
+        // A group with "static"=0 annotation
+        if group
+            .attributes
+            .get("static")
+            .map(|v| *v == 0)
+            .unwrap_or(false)
+        {
+            return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
+        }
+
+        // // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups
+        // obvious_conflicts(
+        //     group
+        //         .assignments
+        //         .iter()
+        //         .chain(comp.continuous_assignments.iter())
+        //         .chain(self.active_comb.iter()),
+        // )
+        // .map_err(|err| {
+        //     let msg = s
+        //         .attributes
+        //         .copy_span()
+        //         .into_option()
+        //         .map(|s| s.format("Assigments activated by group enable"));
+        //     err.with_post_msg(msg)
+        // })?;
 
         Ok(Action::Continue)
     }

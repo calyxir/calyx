@@ -48,11 +48,18 @@ impl WithStatic for ir::Control {
             ir::Control::While(wh) => wh.update_static(extra),
             ir::Control::Invoke(inv) => inv.update_static(extra),
             ir::Control::Enable(en) => en.update_static(&()),
-            ir::Control::StaticEnable(_) => {
-                panic!("static enables not supported for computed_static()")
-            }
+            ir::Control::StaticEnable(se) => se.update_static(&()),
             ir::Control::Empty(_) => Some(0),
         }
+    }
+}
+
+impl WithStatic for ir::StaticEnable {
+    type Info = ();
+    fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
+        // Attempt to get the latency from the attribute on the enable first, or
+        // failing that, from the group.
+        Some(self.group.borrow().get_latency())
     }
 }
 

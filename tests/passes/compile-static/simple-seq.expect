@@ -1,0 +1,45 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    @generated fsm = std_reg(2);
+    @generated adder = std_add(2);
+    @generated fsm0 = std_reg(1);
+    @generated adder0 = std_add(1);
+  }
+  wires {
+    group A0 {
+      a.in = 2'd0;
+      a.write_en = fsm.out == 2'd0 ? 1'd1;
+      b.in = 2'd1;
+      b.write_en = fsm.out == 2'd1 ? 1'd1;
+      adder.left = fsm.out;
+      adder.right = 2'd1;
+      fsm.write_en = fsm.out != 2'd2 ? 1'd1;
+      fsm.in = fsm.out != 2'd2 ? adder.out;
+      A0[done] = fsm.out == 2'd2 ? 1'd1;
+    }
+    group C0 {
+      c.in = 2'd2;
+      c.write_en = fsm0.out == 1'd0 ? 1'd1;
+      adder0.left = fsm0.out;
+      adder0.right = 1'd1;
+      fsm0.write_en = fsm0.out != 1'd1 ? 1'd1;
+      fsm0.in = fsm0.out != 1'd1 ? adder0.out;
+      C0[done] = fsm0.out == 1'd1 ? 1'd1;
+    }
+    fsm.in = fsm.out == 2'd2 ? 2'd0;
+    fsm.write_en = fsm.out == 2'd2 ? 1'd1;
+    fsm0.in = fsm0.out == 1'd1 ? 1'd0;
+    fsm0.write_en = fsm0.out == 1'd1 ? 1'd1;
+  }
+
+  control {
+    seq {
+      A0;
+      C0;
+    }
+  }
+}

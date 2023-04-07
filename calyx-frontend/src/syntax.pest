@@ -41,6 +41,8 @@ comb = { "comb" }
 
 reference = { "ref" }
 
+static_word = { "static" }
+
 file = {
       SOI
       ~ imports
@@ -196,6 +198,30 @@ wire = {
       at_attributes ~ LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
+static_timing_expr = { "%" ~  bitwidth | "%[" ~ bitwidth ~ ":" ~ bitwidth  ~ "]"}
+
+static_term = {
+      guard_not ~ expr
+    | guard_not ~ "(" ~ cmp_expr ~ ")"
+    | guard_not ~ "(" ~ static_guard_expr ~ ")"
+    | "(" ~ static_guard_expr ~ ")"
+    | cmp_expr
+    | expr
+    | static_timing_expr 
+}
+
+static_guard_expr = {
+      static_term ~ (operator ~ static_term)*
+}
+
+static_switch_stmt = {
+      static_guard_expr ~ "?" ~ expr
+}
+
+static_wire = {
+      at_attributes ~ LHS ~ "=" ~ (static_switch_stmt | expr) ~ ";"
+}
+
 // =========== Attribute parsing ===============
 
 // <"static" = 1> style annotation
@@ -226,10 +252,16 @@ group = {
       ~ "}"
 }
 
+static_group = {
+      static_word ~ "group" ~ name_with_attribute ~ "<" ~ bitwidth ~  ">" ~ "{"
+      ~ static_wire*
+      ~ "}"
+}
+
 connections = {
       "wires"
       ~ "{"
-      ~ (wire | group)*
+      ~ (wire | group | static_group )*
       ~ "}"
 }
 

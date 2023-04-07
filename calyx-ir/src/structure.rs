@@ -1,6 +1,7 @@
 //! Representation for structure (wires and cells) in a Calyx program.
 
-use crate::guard::{Nothing, StaticTiming};
+use crate::guard::StaticTiming;
+use crate::Nothing;
 
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
@@ -48,6 +49,7 @@ impl Port {
     /// Checks if this port is a hole
     pub fn is_hole(&self) -> bool {
         matches!(&self.parent, PortParent::Group(_))
+            || matches!(&self.parent, PortParent::StaticGroup(_))
     }
 
     /// Returns the parent of the [Port] which must be [Cell]. Throws an error
@@ -456,6 +458,17 @@ impl<T> Assignment<T> {
     }
 }
 
+impl<StaticTiming> Assignment<StaticTiming> {
+    /// Apply function `f` to each port contained within the assignment and
+    /// replace the port with the generated value if not None.
+    pub fn for_each_interval<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut StaticTiming) -> Option<Guard<StaticTiming>>,
+    {
+        self.guard.for_each_interval(&mut |interval| f(interval))
+    }
+}
+
 /// A Group of assignments that perform a logical action.
 #[derive(Debug)]
 pub struct Group {
@@ -557,17 +570,25 @@ pub struct StaticGroup {
 
     /// Attributes for this group.
     pub attributes: Attributes,
+
+    /// Latency of static group
+    pub latency: u64,
 }
 
 ///implement the StaticGroup struct
 impl StaticGroup {
-    pub fn new(name: Id) -> Self {
+    pub fn new(name: Id, latency: u64) -> Self {
         Self {
             name,
             assignments: vec![],
             holes: smallvec![],
             attributes: Attributes::default(),
+            latency,
         }
+    }
+
+    pub fn get_latency(&self) -> u64 {
+        self.latency
     }
 
     /// Get a reference to the named hole if it exists.
@@ -591,32 +612,6 @@ impl StaticGroup {
         self.find(name.clone()).unwrap_or_else(|| {
             panic!("Hole `{name}' not found on group `{}'", self.name)
         })
-    }
-
-    /// Returns the index to the done assignment in the group.
-    fn find_done_cond(&self) -> usize {
-        self.assignments
-            .iter()
-            .position(|assign| {
-                let dst = assign.dst.borrow();
-                dst.is_hole() && dst.name == "done"
-            })
-            .unwrap_or_else(|| {
-                panic!("Group `{}' has no done condition", self.name)
-            })
-    }
-
-    /// Returns a reference to the assignment in the group that writes to the done condition.
-    pub fn done_cond(&self) -> &Assignment<StaticTiming> {
-        let idx = self.find_done_cond();
-        &self.assignments[idx]
-    }
-
-    /// Returns a mutable reference to the assignment in the group that writes to the done
-    /// condition.
-    pub fn done_cond_mut(&mut self) -> &mut Assignment<StaticTiming> {
-        let idx = self.find_done_cond();
-        &mut self.assignments[idx]
     }
 
     /// The name of this group.

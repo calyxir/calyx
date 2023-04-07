@@ -1,7 +1,7 @@
 use crate::analysis::ReadWriteSet;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use ir::{Nothing, StaticTiming};
+use ir::Nothing;
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -70,40 +70,40 @@ impl Visitor for GroupToSeq {
                 .filter(|group| !group.borrow().assignments.is_empty()),
         );
 
-        // do the same thing with static groups
-        let static_groups: Vec<ir::RRC<ir::StaticGroup>> =
-            comp.get_static_groups_mut().drain().collect();
-        let mut builder = ir::Builder::new(comp, sigs);
-        for sg in static_groups.iter() {
-            let split_analysis: SplitAnalysis<StaticTiming> =
-                SplitAnalysis::default();
-            if let Some((outline1, outline2)) = split_analysis.get_split(
-                &mut sg.borrow_mut().assignments,
-                sg.borrow().name(),
-                &mut builder,
-            ) {
-                let g1 = outline1.make_group_static(
-                    &mut builder,
-                    format!("beg_spl_{}", sg.borrow().name().id),
-                );
-                let g2 = outline2.make_group_static(
-                    &mut builder,
-                    format!("end_spl{}", sg.borrow().name().id),
-                );
-                let seq = ir::Control::seq(vec![
-                    ir::Control::static_enable(g1),
-                    ir::Control::static_enable(g2),
-                ]);
-                self.group_seq_map.insert(sg.borrow().name(), seq);
-            }
-        }
+        // // do the same thing with static groups
+        // let static_groups: Vec<ir::RRC<ir::StaticGroup>> =
+        //     comp.get_static_groups_mut().drain().collect();
+        // let mut builder = ir::Builder::new(comp, sigs);
+        // for sg in static_groups.iter() {
+        //     let split_analysis: SplitAnalysis<StaticTiming> =
+        //         SplitAnalysis::default();
+        //     if let Some((outline1, outline2)) = split_analysis.get_split(
+        //         &mut sg.borrow_mut().assignments,
+        //         sg.borrow().name(),
+        //         &mut builder,
+        //     ) {
+        //         let g1 = outline1.make_group_static(
+        //             &mut builder,
+        //             format!("beg_spl_{}", sg.borrow().name().id),
+        //         );
+        //         let g2 = outline2.make_group_static(
+        //             &mut builder,
+        //             format!("end_spl{}", sg.borrow().name().id),
+        //         );
+        //         let seq = ir::Control::seq(vec![
+        //             ir::Control::static_enable(g1),
+        //             ir::Control::static_enable(g2),
+        //         ]);
+        //         self.group_seq_map.insert(sg.borrow().name(), seq);
+        //     }
+        // }
 
-        // Add back the groups we drained at the beginning of this method, but
-        // filter out the empty groups that were split into smaller groups
-        comp.get_static_groups_mut()
-            .append(static_groups.into_iter().filter(|static_group| {
-                !static_group.borrow().assignments.is_empty()
-            }));
+        // // Add back the groups we drained at the beginning of this method, but
+        // // filter out the empty groups that were split into smaller groups
+        // comp.get_static_groups_mut()
+        //     .append(static_groups.into_iter().filter(|static_group| {
+        //         !static_group.borrow().assignments.is_empty()
+        //     }));
 
         Ok(Action::Continue)
     }
@@ -214,7 +214,6 @@ where
         builder: &mut ir::Builder,
     ) -> Option<(GroupOutline<T>, GroupOutline<T>)> {
         let signal_on = builder.add_constant(1, 1);
-
         // Builds ordering. If it cannot build a valid linear ordering of length 2,
         // then returns None, and we stop.
         let (first, second) = SplitAnalysis::possible_split(assigns)?;
@@ -440,23 +439,24 @@ impl GroupOutline<Nothing> {
     }
 }
 
-impl GroupOutline<StaticTiming> {
-    /// Returns group with made using builder with prefix. The assignments are
-    /// self.assignments, plus a write to groups's done, based on done_src and done_guard.
-    fn make_group_static(
-        self,
-        builder: &mut ir::Builder,
-        prefix: String,
-    ) -> ir::RRC<ir::StaticGroup> {
-        let group = builder.add_static_group(prefix);
-        let mut group_asmts = self.assignments;
-        let done_asmt = builder.build_assignment(
-            group.borrow().get("done"),
-            self.done_src,
-            self.done_guard,
-        );
-        group_asmts.push(done_asmt);
-        group.borrow_mut().assignments.append(&mut group_asmts);
-        group
-    }
-}
+// impl GroupOutline<StaticTiming> {
+//     /// Returns group with made using builder with prefix. The assignments are
+//     /// self.assignments, plus a write to groups's done, based on done_src and done_guard.
+//     fn make_group_static(
+//         self,
+//         builder: &mut ir::Builder,
+//         prefix: String,
+//     ) -> ir::RRC<ir::StaticGroup> {
+//         panic!("not implemented");
+//         let group = builder.add_static_group(prefix, 0);
+//         let mut group_asmts = self.assignments;
+//         let done_asmt = builder.build_assignment(
+//             group.borrow().get("done"),
+//             self.done_src,
+//             self.done_guard,
+//         );
+//         group_asmts.push(done_asmt);
+//         group.borrow_mut().assignments.append(&mut group_asmts);
+//         group
+//     }
+// }

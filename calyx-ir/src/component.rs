@@ -2,7 +2,8 @@ use super::{
     Assignment, Attributes, Builder, Cell, CellType, CombGroup, Control,
     GetName, Group, Id, PortDef, StaticGroup, RRC,
 };
-use crate::guard::{Nothing, StaticTiming};
+use crate::guard::StaticTiming;
+use crate::Nothing;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;

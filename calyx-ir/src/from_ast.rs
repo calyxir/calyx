@@ -3,8 +3,7 @@ use super::{
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
     LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
 };
-use crate::guard::Nothing;
-use crate::PortComp;
+use crate::{Nothing, PortComp, StaticTiming};
 use calyx_frontend::{ast, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;
@@ -240,6 +239,10 @@ fn build_component(
         .into_iter()
         .try_for_each(|g| add_group(g, &mut builder))?;
 
+    comp.static_groups
+        .into_iter()
+        .try_for_each(|g| add_static_group(g, &mut builder))?;
+
     let continuous_assignments =
         build_assignments(comp.continuous_assignments, &mut builder)?;
     builder.component.continuous_assignments = continuous_assignments;
@@ -312,6 +315,21 @@ fn add_group(group: ast::Group, builder: &mut Builder) -> CalyxResult<()> {
     Ok(())
 }
 
+/// Build an [super::StaticGroup] from an [ast::StaticGroup] and attach it to the [Component]
+/// associated with the [Builder]
+fn add_static_group(
+    group: ast::StaticGroup,
+    builder: &mut Builder,
+) -> CalyxResult<()> {
+    let ir_group = builder.add_static_group(group.name, group.latency);
+    let assigns = build_static_assignments(group.wires, builder)?;
+
+    ir_group.borrow_mut().attributes = group.attributes;
+    ir_group.borrow_mut().assignments = assigns;
+
+    Ok(())
+}
+
 ///////////////// Assignment Construction /////////////////////////
 
 /// Get the pointer to the Port represented by `port`.
@@ -328,12 +346,18 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
                 Error::undefined(port, "component port".to_string())
             })
         }
-        ast::Port::Hole { group, name: port } => comp
-            .find_group(group)
-            .ok_or_else(|| Error::undefined(group, "group".to_string()))?
-            .borrow()
-            .find(port)
-            .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+        ast::Port::Hole { group, name: port } => match comp.find_group(group) {
+            Some(g) => g
+                .borrow()
+                .find(port)
+                .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+            None => comp
+                .find_static_group(group)
+                .ok_or_else(|| Error::undefined(group, "group".to_string()))?
+                .borrow()
+                .find(port)
+                .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+        },
     }
 }
 
@@ -408,6 +432,38 @@ fn build_assignment(
     Ok(assign)
 }
 
+/// Build an ir::StaticAssignment from ast::StaticWire.
+/// The Assignment contains pointers to the relevant ports.
+fn build_static_assignment(
+    wire: ast::StaticWire,
+    builder: &mut Builder,
+) -> CalyxResult<Assignment<StaticTiming>> {
+    let src_port: RRC<Port> = ensure_direction(
+        atom_to_port(wire.src.expr, builder)?,
+        Direction::Output,
+    )?;
+    let dst_port: RRC<Port> = ensure_direction(
+        get_port_ref(wire.dest, builder.component)?,
+        Direction::Input,
+    )?;
+    if src_port.borrow().width != dst_port.borrow().width {
+        let msg = format!(
+            "Mismatched port widths. Source has size {} while destination requires {}.",
+            src_port.borrow().width,
+            dst_port.borrow().width,
+        );
+        return Err(Error::malformed_structure(msg).with_pos(&wire.attributes));
+    }
+    let guard = match wire.src.guard {
+        Some(g) => build_static_guard(g, builder)?,
+        None => Guard::True,
+    };
+
+    let mut assign = builder.build_assignment(dst_port, src_port, guard);
+    assign.attributes = wire.attributes;
+    Ok(assign)
+}
+
 fn build_assignments(
     assigns: Vec<ast::Wire>,
     builder: &mut Builder,
@@ -417,6 +473,20 @@ fn build_assignments(
         .map(|w| {
             let attrs = w.attributes.clone();
             build_assignment(w, builder).map_err(|err| err.with_pos(&attrs))
+        })
+        .collect::<CalyxResult<Vec<_>>>()
+}
+
+fn build_static_assignments(
+    assigns: Vec<ast::StaticWire>,
+    builder: &mut Builder,
+) -> CalyxResult<Vec<Assignment<StaticTiming>>> {
+    assigns
+        .into_iter()
+        .map(|w| {
+            let attrs = w.attributes.clone();
+            build_static_assignment(w, builder)
+                .map_err(|err| err.with_pos(&attrs))
         })
         .collect::<CalyxResult<Vec<_>>>()
 }
@@ -440,7 +510,47 @@ fn build_guard(
         GE::Or(l, r) => Guard::or(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::And(l, r) => Guard::and(build_guard(*l, bd)?, build_guard(*r, bd)?),
         GE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
-        GE::CompOp(op, l, r) => {
+        GE::CompOp((op, l, r)) => {
+            let nl = ensure_direction(atom_to_port(l, bd)?, Direction::Output)?;
+            let nr = ensure_direction(atom_to_port(r, bd)?, Direction::Output)?;
+            let nop = match op {
+                ast::GuardComp::Eq => PortComp::Eq,
+                ast::GuardComp::Neq => PortComp::Neq,
+                ast::GuardComp::Gt => PortComp::Gt,
+                ast::GuardComp::Lt => PortComp::Lt,
+                ast::GuardComp::Geq => PortComp::Geq,
+                ast::GuardComp::Leq => PortComp::Leq,
+            };
+            Guard::CompOp(nop, nl, nr)
+        }
+    })
+}
+
+/// Transform an ast::GuardExpr to an ir::Guard.
+fn build_static_guard(
+    guard: ast::StaticGuardExpr,
+    bd: &mut Builder,
+) -> CalyxResult<Guard<StaticTiming>> {
+    use ast::StaticGuardExpr as SGE;
+
+    let into_box_guard = |g: Box<SGE>, bd: &mut Builder| -> CalyxResult<_> {
+        Ok(Box::new(build_static_guard(*g, bd)?))
+    };
+
+    Ok(match guard {
+        SGE::StaticInfo(interval) => Guard::Info(StaticTiming::new(interval)),
+        SGE::Atom(atom) => Guard::port(ensure_direction(
+            atom_to_port(atom, bd)?,
+            Direction::Output,
+        )?),
+        SGE::Or(l, r) => {
+            Guard::or(build_static_guard(*l, bd)?, build_static_guard(*r, bd)?)
+        }
+        SGE::And(l, r) => {
+            Guard::and(build_static_guard(*l, bd)?, build_static_guard(*r, bd)?)
+        }
+        SGE::Not(g) => Guard::Not(into_box_guard(g, bd)?),
+        SGE::CompOp((op, l, r)) => {
             let nl = ensure_direction(atom_to_port(l, bd)?, Direction::Output)?;
             let nr = ensure_direction(atom_to_port(r, bd)?, Direction::Output)?;
             let nop = match op {
@@ -467,16 +577,26 @@ fn build_control(
         ast::Control::Enable {
             comp: component,
             attributes,
-        } => {
-            let mut en = Control::enable(Rc::clone(
-                &builder.component.find_group(component).ok_or_else(|| {
-                    Error::undefined(component, "group".to_string())
-                        .with_pos(&attributes)
-                })?,
-            ));
-            *en.get_mut_attributes() = attributes;
-            en
-        }
+        } => match builder.component.find_group(component) {
+            Some(g) => {
+                let mut en = Control::enable(Rc::clone(&g));
+                *en.get_mut_attributes() = attributes;
+                en
+            }
+            None => {
+                let mut en = Control::static_enable(Rc::clone(
+                    &builder
+                        .component
+                        .find_static_group(component)
+                        .ok_or_else(|| {
+                            Error::undefined(component, "group".to_string())
+                                .with_pos(&attributes)
+                        })?,
+                ));
+                *en.get_mut_attributes() = attributes;
+                en
+            }
+        },
         ast::Control::Invoke {
             comp: component,
             inputs,
