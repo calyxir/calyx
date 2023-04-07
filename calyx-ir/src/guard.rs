@@ -397,13 +397,10 @@ impl<StaticTiming> Guard<StaticTiming> {
             Guard::And(l, r) | Guard::Or(l, r) => {
                 let l_result = l.check_for_each_interval(f);
                 if l_result.is_err() {
-                    return l_result;
+                    l_result
+                } else {
+                    r.check_for_each_interval(f)
                 }
-                let r_result = r.check_for_each_interval(f);
-                if r_result.is_err() {
-                    return r_result;
-                }
-                Ok(())
             }
             Guard::Not(inner) => inner.check_for_each_interval(f),
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => Ok(()),
