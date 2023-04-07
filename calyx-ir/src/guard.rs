@@ -379,9 +379,7 @@ impl<StaticTiming> Guard<StaticTiming> {
                 inner.for_each_interval(f);
             }
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => {}
-            Guard::Info(timing_interval) =>
-            // Info shouldn't count as port
-            {
+            Guard::Info(timing_interval) => {
                 if let Some(new_interval) = f(timing_interval) {
                     *self = new_interval
                 }
@@ -404,11 +402,7 @@ impl<StaticTiming> Guard<StaticTiming> {
             }
             Guard::Not(inner) => inner.check_for_each_interval(f),
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => Ok(()),
-            Guard::Info(timing_interval) =>
-            // Info shouldn't count as port
-            {
-                f(timing_interval)
-            }
+            Guard::Info(timing_interval) => f(timing_interval),
         }
     }
 }
