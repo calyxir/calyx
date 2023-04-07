@@ -92,10 +92,8 @@ fn make_assign_dyn(
         // holes should be either go/done
         if assign.dst.borrow().name == "go" {
             dyn_group.borrow().get("go")
-        } else if assign.dst.borrow().name == "done" {
-            dyn_group.borrow().get("done")
         } else {
-            panic!("hole port other than go/done")
+            panic!("hole port other than go port")
         }
     } else {
         // if dst is not a hole, then we should keep it as is for the new assignment
@@ -144,12 +142,15 @@ impl Visitor for CompileStatic {
         // assignments to increment the fsm
         let not_last_state_guard: ir::Guard<ir::Nothing> =
             guard!(fsm["out"]).neq(guard!(last_state["out"]));
+        let last_state_guard: ir::Guard<ir::Nothing> =
+            guard!(fsm["out"]).eq(guard!(last_state["out"]));
         let fsm_incr_assigns = build_assignments!(
           builder;
           adder["left"] = ? fsm["out"];
           adder["right"] = ? const_one["out"];
           fsm["write_en"] = not_last_state_guard ? signal_on["out"];
           fsm["in"] = not_last_state_guard ? adder["out"];
+          g["done"] = last_state_guard ? signal_on["out"];
         );
         assigns.extend(fsm_incr_assigns.to_vec());
         // adding the assignments to the new dynamic group and creating a
@@ -160,8 +161,6 @@ impl Visitor for CompileStatic {
         let attrs = std::mem::take(&mut s.attributes);
         *e.get_mut_attributes() = attrs;
         // need to add a continuous assignment to reset the fsm
-        let last_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"]).eq(guard!(last_state["out"]));
         let fsm_reset_assigns = build_assignments!(builder;
             fsm["in"] = last_state_guard ? first_state["out"];
             fsm["write_en"] = last_state_guard ? signal_on["out"];

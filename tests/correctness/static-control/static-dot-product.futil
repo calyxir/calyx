@@ -26,7 +26,6 @@ component main() -> () {
     static group init_idx<1> {
       idx.in = 4'd0;
       idx.write_en = 1'd1;
-      init_idx[done] = %1 ? 1'd1;
     }
 
     static group incr_idx<1> {
@@ -34,33 +33,28 @@ component main() -> () {
       incr.left = idx.out;
       incr.right = 4'd1;
       idx.in = incr.out;
-      incr_idx[done] = %1 ? 1'd1;
     }
 
     // Prime memories for reading
     static group prime_in1<1> {
       in1.read_en = 1'd1;
       in1.addr0 = idx.out;
-      prime_in1[done] = %1 ? 1'd1;
     }
     static group prime_in2<1> {
       in2.read_en = 1'd1;
       in2.addr0 = idx.out;
-      prime_in2[done] = %1 ? 1'd1;
     }
 
     // Computation
     static group init_tmp<1> {
       tmp.in = 32'd0;
       tmp.write_en = 1'd1;
-      init_tmp[done] = %1 ? 1'd1;
     }
     static group do_add<1> {
       add.left = tmp.out;
       add.right = mult.out;
       tmp.in = add.out;
       tmp.write_en = 1'd1;
-      do_add[done] = %1 ? 1'd1;
     }
 
     // Write to output
@@ -68,7 +62,6 @@ component main() -> () {
       out.addr0 = 1'd0;
       out.write_en = 1'd1;
       out.write_data = tmp.out;
-      write[done] = %1 ? 1'd1;
     }
   }
   control {

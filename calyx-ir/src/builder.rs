@@ -116,7 +116,9 @@ impl<'a> Builder<'a> {
         let group = Rc::new(RefCell::new(ir::StaticGroup::new(name, latency)));
 
         // Add default holes to the group.
-        for (name, width) in &[("go", 1), ("done", 1)] {
+        // Static Groups don't need a done hole.
+        // May be beneficial to have a go hole, though (although maybe not)
+        for (name, width) in &[("go", 1)] {
             let hole = Rc::new(RefCell::new(ir::Port {
                 name: ir::Id::from(*name),
                 width: *width,

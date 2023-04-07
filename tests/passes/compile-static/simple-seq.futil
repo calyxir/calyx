@@ -15,13 +15,11 @@ component main() -> () {
       a.write_en = %0 ? 1'd1;
       b.in = 2'd1;
       b.write_en = %1 ? 1'd1;
-      A[done] = %2 ? 1'd1;
     }
 
     static group C<1>{
       c.in = 2'd2;
       c.write_en = %0 ? 1'd1;
-      C[done] = %1 ? 1'd1;
     }
   }
 

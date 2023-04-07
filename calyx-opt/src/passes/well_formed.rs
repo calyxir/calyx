@@ -303,14 +303,11 @@ impl Visitor for WellFormed {
             }
         }
 
-        // For each non-combinational group, check if there is at least one write to the done
-        // signal of that group and that the write is to the group's done signal.
+        // Don't need to check done condition for static groups. Instead, just
+        // checking that the static timing intervals are well formed.
         for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
-            let gname = group.name();
-            let latency = group.get_latency();
-            let mut has_done = false;
-            // Find an assignment writing to this group's done condition.
+            // Check that for each interval %[beg, end], end > beg.
             for assign in &group.assignments {
                 assign.guard.check_for_each_interval(
                     &mut |static_timing: &StaticTiming| {
@@ -328,59 +325,6 @@ impl Visitor for WellFormed {
                         }
                     },
                 )?;
-                let dst = assign.dst.borrow();
-                let src = assign.src.borrow();
-                if dst.is_hole() && dst.name == "done" {
-                    // Group has multiple done conditions
-                    if has_done {
-                        return Err(Error::malformed_structure(format!(
-                            "Group `{}` has multiple done conditions",
-                            gname
-                        ))
-                        .with_pos(&assign.attributes));
-                    } else {
-                        has_done = true;
-                    }
-                    // Group uses another group's done condition
-                    if gname != dst.get_parent_name() {
-                        return Err(Error::malformed_structure(
-                            format!("Group `{}` refers to the done condition of another group (`{}`).",
-                            gname,
-                            dst.get_parent_name())).with_pos(&dst.attributes));
-                    }
-                    // Check that sgroup[done] = %latency ? 1'd1
-                    if src.is_constant(1, 1) {
-                        match *assign.guard {
-                            ir::Guard::Info(st) => {
-                                let (beg, end) = st.get_interval();
-                                if beg != latency || end != latency + 1 {
-                                    return Err(Error::malformed_structure(
-                                        format!("The done condition of StaticGroup `{}` equals [{}:{}], but its latency is {}",
-                                        gname,
-                                        beg,
-                                        end,
-                                        latency
-                                        )).with_pos(&dst.attributes));
-                                }
-                            }
-                            _ => return Err(Error::malformed_structure(
-                                format!("Group `{}` has a done condition that is not in the form %latency ? 1'd1",
-                                gname)).with_pos(&dst.attributes)),
-                        }
-                    } else {
-                        return Err(Error::malformed_structure(
-                            format!("Group `{}` has a done condition that is not in the form %latency ? 1'd1",
-                            gname)).with_pos(&dst.attributes));
-                    }
-                }
-            }
-
-            // Group does not have a done condition
-            if !has_done {
-                return Err(Error::malformed_structure(format!(
-                    "No writes to the `done' hole for group `{gname}'",
-                ))
-                .with_pos(&group.attributes));
             }
         }
 
@@ -409,13 +353,6 @@ impl Visitor for WellFormed {
         self.used_groups.insert(s.group.borrow().name());
 
         let group = s.group.borrow();
-        let asgn = group.done_cond();
-        let const_done_assign =
-            asgn.guard.is_true() && asgn.src.borrow().is_constant(1, 1);
-
-        if const_done_assign {
-            return Err(Error::malformed_structure("Group with constant done condition is invalid. Use `comb group` instead to define a combinational group.").with_pos(&group.attributes));
-        }
 
         // A group with "static"=0 annotation
         if group

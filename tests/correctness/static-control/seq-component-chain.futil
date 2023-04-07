@@ -23,8 +23,6 @@ component main() -> () {
       x.write_data = mult_pipe0.out;
       x.addr0 = 1'd0;
       x.write_en = %3 ? 1'd1;
-
-      let1[done] = %4 ? 1'd1;
     }
     static group let2<4> {
       mult_pipe0.left = 32'd30;
@@ -34,8 +32,6 @@ component main() -> () {
       y.write_data = mult_pipe0.out;
       y.addr0 = 1'd0;
       y.write_en = %3 ? 1'd1;
-
-      let2[done] = %4 ? 1'd1;
     }
     static group let3<4> {
       mult_pipe0.left = 32'd50;
@@ -45,8 +41,6 @@ component main() -> () {
       z.write_data = mult_pipe0.out;
       z.addr0 = 1'd0;
       z.write_en = %3 ? 1'd1;
-
-      let3[done] = %4 ? 1'd1;
     }
   }
   control {
