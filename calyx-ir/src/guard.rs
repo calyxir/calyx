@@ -1,4 +1,5 @@
 use super::{Port, RRC};
+use calyx_utils::Error;
 use std::fmt::Debug;
 use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
@@ -62,7 +63,11 @@ pub struct StaticTiming {
 
 impl ToString for StaticTiming {
     fn to_string(&self) -> String {
-        format!("%[{}:{}]", self.interval.0, self.interval.1)
+        if self.interval.0 + 1 == self.interval.1 {
+            format!("%{}", self.interval.0)
+        } else {
+            format!("%[{}:{}]", self.interval.0, self.interval.1)
+        }
     }
 }
 
@@ -363,7 +368,7 @@ impl<T> Guard<T> {
 impl<StaticTiming> Guard<StaticTiming> {
     pub fn for_each_interval<F>(&mut self, f: &mut F)
     where
-        F: FnMut(&mut StaticTiming) -> Guard<StaticTiming>,
+        F: FnMut(&mut StaticTiming) -> Option<Guard<StaticTiming>>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
@@ -377,7 +382,35 @@ impl<StaticTiming> Guard<StaticTiming> {
             Guard::Info(timing_interval) =>
             // Info shouldn't count as port
             {
-                *self = f(timing_interval);
+                if let Some(new_interval) = f(timing_interval) {
+                    *self = new_interval
+                }
+            }
+        }
+    }
+
+    pub fn check_for_each_interval<F>(&self, f: &mut F) -> Result<(), Error>
+    where
+        F: Fn(&StaticTiming) -> Result<(), Error>,
+    {
+        match self {
+            Guard::And(l, r) | Guard::Or(l, r) => {
+                let l_result = l.check_for_each_interval(f);
+                if l_result.is_err() {
+                    return l_result;
+                }
+                let r_result = r.check_for_each_interval(f);
+                if r_result.is_err() {
+                    return r_result;
+                }
+                Ok(())
+            }
+            Guard::Not(inner) => inner.check_for_each_interval(f),
+            Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => Ok(()),
+            Guard::Info(timing_interval) =>
+            // Info shouldn't count as port
+            {
+                f(timing_interval)
             }
         }
     }

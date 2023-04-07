@@ -661,7 +661,7 @@ impl CalyxParser {
     fn static_timing_expr(input: Node) -> ParseResult<(u64, u64)> {
         Ok(match_nodes!(
             input.into_children();
-            [bitwidth(single_num)] => (single_num, single_num),
+            [bitwidth(single_num)] => (single_num, single_num+1),
             [bitwidth(start_interval), bitwidth(end_interval)] => (start_interval, end_interval)
         ))
     }

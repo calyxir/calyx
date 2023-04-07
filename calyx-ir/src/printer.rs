@@ -328,7 +328,12 @@ impl Printer {
         f: &mut F,
     ) -> io::Result<()> {
         write!(f, "{}", " ".repeat(indent_level))?;
-        write!(f, "group {}", group.name().id)?;
+        write!(
+            f,
+            "static group {}<{}>",
+            group.name().id,
+            group.get_latency()
+        )?;
         if !group.attributes.is_empty() {
             write!(f, "{}", Self::format_attributes(&group.attributes))?;
         }

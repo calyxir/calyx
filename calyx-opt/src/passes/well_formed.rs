@@ -5,6 +5,7 @@ use calyx_ir::{
 };
 use calyx_utils::{CalyxResult, Error, WithPos};
 use ir::Nothing;
+use ir::StaticTiming;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
@@ -311,6 +312,22 @@ impl Visitor for WellFormed {
             let mut has_done = false;
             // Find an assignment writing to this group's done condition.
             for assign in &group.assignments {
+                assign.guard.check_for_each_interval(
+                    &mut |static_timing: &StaticTiming| {
+                        if static_timing.get_interval().0
+                            >= static_timing.get_interval().1
+                        {
+                            return Err(Error::malformed_structure(format!(
+                                "Static Timing Guard has improper interval: `%[{},{}]`",
+                                static_timing.get_interval().0,
+                                static_timing.get_interval().1
+                            ))
+                            .with_pos(&assign.attributes));
+                        } else {
+                            Ok(())
+                        }
+                    },
+                )?;
                 let dst = assign.dst.borrow();
                 let src = assign.src.borrow();
                 if dst.is_hole() && dst.name == "done" {
@@ -336,7 +353,7 @@ impl Visitor for WellFormed {
                         match *assign.guard {
                             ir::Guard::Info(st) => {
                                 let (beg, end) = st.get_interval();
-                                if beg != latency || end != latency {
+                                if beg != latency || end != latency + 1 {
                                     return Err(Error::malformed_structure(
                                         format!("The done condition of StaticGroup `{}` equals [{}:{}], but its latency is {}",
                                         gname,

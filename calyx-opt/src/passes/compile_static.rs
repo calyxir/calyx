@@ -46,8 +46,8 @@ fn make_guard_dyn(
         ir::Guard::True => Box::new(ir::Guard::True),
         ir::Guard::Info(static_timing) => {
             let (beg, end) = static_timing.get_interval();
-            if beg == end {
-                // if beg == end then we only need to check if fsm == beg
+            if beg + 1 == end {
+                // if beg + 1 == end then we only need to check if fsm == beg
                 let interval_const = builder.add_constant(beg, fsm_size);
                 let g = guard!(fsm["out"]).eq(guard!(interval_const["out"]));
                 Box::new(g)

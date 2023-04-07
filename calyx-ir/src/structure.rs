@@ -463,7 +463,7 @@ impl<StaticTiming> Assignment<StaticTiming> {
     /// replace the port with the generated value if not None.
     pub fn for_each_interval<F>(&mut self, mut f: F)
     where
-        F: FnMut(&mut StaticTiming) -> Guard<StaticTiming>,
+        F: FnMut(&mut StaticTiming) -> Option<Guard<StaticTiming>>,
     {
         self.guard.for_each_interval(&mut |interval| f(interval))
     }
