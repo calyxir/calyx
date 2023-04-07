@@ -52,7 +52,7 @@ DEFAULT_CONFIGURATION = {
         },
         "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
         "vcd_json": {"file_extensions": [".json"]},
-        "jq": {"exec": "jq"},
+        "jq": {"exec": "jq", "flags": None},
         "dat": {"file_extensions": [".dat"]},
         "relay": {"file_extensions": [".relay"], "flags": None},
         "systolic": {"file_extensions": [".systolic"], "flags": None},

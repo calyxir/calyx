@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 default = []
-serialize = ["dep:serde"]
+serialize = ["dep:serde", "symbol_table/serde"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"], optional = true }
@@ -13,3 +13,4 @@ atty.workspace = true
 string-interner.workspace = true
 itertools.workspace = true
 petgraph.workspace = true
+symbol_table = { version = "0.3", features = ["global"] }

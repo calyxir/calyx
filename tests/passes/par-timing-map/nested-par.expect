@@ -3,26 +3,26 @@ This maps ids of par blocks to " cell timing maps ", which map cells to interval
 ============ Map for Component "main" ============
 ========Par Node ID: 0 ========
 ====Child/Thread ID: 1 ====
-Id { id: "a" } -- [(1, 4)]
 Id { id: "b" } -- [(5, 8)]
+Id { id: "a" } -- [(1, 4)]
 Id { id: "c" } -- [(9, 12)]
 ====Child/Thread ID: 5 ====
-Id { id: "d" } -- [(1, 1), (10, 10)]
 Id { id: "e" } -- [(2, 5)]
+Id { id: "d" } -- [(1, 1), (10, 10)]
 Id { id: "f" } -- [(6, 9)]
-Id { id: "g" } -- [(2, 3)]
 Id { id: "h" } -- [(4, 5)]
+Id { id: "g" } -- [(2, 3)]
 ====Child/Thread ID: 15 ====
-Id { id: "i" } -- [(1, 1), (3, 3), (5, 5), (7, 7)]
 Id { id: "j" } -- [(2, 2), (4, 4), (6, 6), (8, 8)]
+Id { id: "i" } -- [(1, 1), (3, 3), (5, 5), (7, 7)]
 
 ========Par Node ID: 7 ========
 ====Child/Thread ID: 8 ====
 Id { id: "e" } -- [(1, 4)]
 Id { id: "f" } -- [(5, 8)]
 ====Child/Thread ID: 11 ====
-Id { id: "g" } -- [(1, 2)]
 Id { id: "h" } -- [(3, 4)]
+Id { id: "g" } -- [(1, 2)]
 
 
 import "primitives/core.futil";
