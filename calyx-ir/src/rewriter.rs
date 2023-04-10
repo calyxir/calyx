@@ -117,6 +117,31 @@ impl<'a> Rewriter<'a> {
 
     /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
     /// rewrite maps.
+    pub fn rewrite_static_control(
+        &self,
+        sc: &mut ir::StaticControl,
+        group_map: &RewriteMap<ir::Group>,
+        comb_group_map: &RewriteMap<ir::CombGroup>,
+        static_group_map: &RewriteMap<ir::StaticGroup>,
+    ) {
+        match sc {
+            ir::StaticControl::Enable(sen) => {
+                let g = &sen.group.borrow().name();
+                if let Some(new_group) = static_group_map.get(g) {
+                    sen.group = Rc::clone(new_group);
+                }
+            }
+            ir::StaticControl::Repeat(rep) => self.rewrite_static_control(
+                &mut rep.body,
+                group_map,
+                comb_group_map,
+                static_group_map,
+            ),
+        }
+    }
+
+    /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
+    /// rewrite maps.
     pub fn rewrite_control(
         &self,
         c: &mut ir::Control,
@@ -198,6 +223,12 @@ impl<'a> Rewriter<'a> {
             ir::Control::Invoke(inv) => {
                 self.rewrite_invoke(inv, comb_group_map)
             }
+            ir::Control::Static(s) => self.rewrite_static_control(
+                s,
+                group_map,
+                comb_group_map,
+                static_group_map,
+            ),
         }
     }
 }

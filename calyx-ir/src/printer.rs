@@ -346,6 +346,36 @@ impl Printer {
         write!(f, "{}}}", " ".repeat(indent_level))
     }
 
+    /// Format and write a static control program
+    pub fn write_static_control<F: io::Write>(
+        scontrol: &ir::StaticControl,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        match scontrol {
+            ir::StaticControl::Enable(ir::StaticEnable {
+                group,
+                attributes,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "{};", group.borrow().name().id)
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat {
+                num_repeats,
+                attributes,
+                body,
+                ..
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "static repeat {} ", num_repeats)?;
+                writeln!(f, "{{")?;
+                Self::write_static_control(body, indent_level + 2, f)?;
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
+        }
+    }
+
     /// Format and write a control program
     pub fn write_control<F: io::Write>(
         control: &ir::Control,
@@ -487,6 +517,9 @@ impl Printer {
                 } else {
                     writeln!(f)
                 }
+            }
+            ir::Control::Static(sc) => {
+                Self::write_static_control(sc, indent_level, f)
             }
         }
     }

@@ -65,7 +65,7 @@ impl GetAttributes for If {
     }
 }
 
-/// Data for the `if` control statement.
+/// Data for the `while` control statement.
 #[derive(Debug)]
 pub struct While {
     /// Port that connects the conditional check.
@@ -78,6 +78,28 @@ pub struct While {
     pub attributes: Attributes,
 }
 impl GetAttributes for While {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
+/// Data for the `StaticRepeat` control statement.
+#[derive(Debug)]
+pub struct StaticRepeat {
+    /// Attributes
+    pub attributes: Attributes,
+    /// Body to repeat
+    pub body: Box<StaticControl>,
+    /// Number of times to repeat the body
+    pub num_repeats: u64,
+    /// latency = num_repeats * (body latency)
+    pub latency: u64,
+}
+impl GetAttributes for StaticRepeat {
     fn get_attributes(&self) -> &Attributes {
         &self.attributes
     }
@@ -177,6 +199,15 @@ pub enum Control {
     Empty(Empty),
     /// Runs the control for a static group.
     StaticEnable(StaticEnable),
+    /// Static Control
+    Static(StaticControl),
+}
+
+/// Control AST nodes.
+#[derive(Debug)]
+pub enum StaticControl {
+    Repeat(StaticRepeat),
+    Enable(StaticEnable),
 }
 
 impl From<Invoke> for Control {
@@ -202,6 +233,7 @@ impl GetAttributes for Control {
             | Self::Enable(Enable { attributes, .. })
             | Self::Empty(Empty { attributes })
             | Self::StaticEnable(StaticEnable { attributes, .. }) => attributes,
+            Self::Static(s) => s.get_mut_attributes(),
         }
     }
 
@@ -215,6 +247,22 @@ impl GetAttributes for Control {
             | Self::Enable(Enable { attributes, .. })
             | Self::Empty(Empty { attributes })
             | Self::StaticEnable(StaticEnable { attributes, .. }) => attributes,
+            Self::Static(s) => s.get_attributes(),
+        }
+    }
+}
+
+impl GetAttributes for StaticControl {
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        match self {
+            Self::Enable(StaticEnable { attributes, .. }) => attributes,
+            Self::Repeat(StaticRepeat { attributes, .. }) => attributes,
+        }
+    }
+    fn get_attributes(&self) -> &Attributes {
+        match self {
+            Self::Enable(StaticEnable { attributes, .. }) => attributes,
+            Self::Repeat(StaticRepeat { attributes, .. }) => attributes,
         }
     }
 }
@@ -369,6 +417,15 @@ impl Cloner {
         }
     }
 
+    pub fn repeat(rep: &StaticRepeat) -> StaticRepeat {
+        StaticRepeat {
+            attributes: rep.attributes.clone(),
+            body: Box::new(Self::static_(&rep.body)),
+            num_repeats: rep.num_repeats,
+            latency: rep.latency,
+        }
+    }
+
     pub fn if_(if_: &If) -> If {
         If {
             port: Rc::clone(&if_.port),
@@ -393,6 +450,17 @@ impl Cloner {
         }
     }
 
+    pub fn static_(s: &StaticControl) -> StaticControl {
+        match s {
+            StaticControl::Enable(sen) => {
+                StaticControl::Enable(Cloner::static_enable(sen))
+            }
+            StaticControl::Repeat(rep) => {
+                StaticControl::Repeat(Cloner::repeat(rep))
+            }
+        }
+    }
+
     pub fn control(con: &Control) -> Control {
         match con {
             Control::Seq(seq) => Control::Seq(Cloner::seq(seq)),
@@ -405,6 +473,7 @@ impl Cloner {
                 Control::StaticEnable(Cloner::static_enable(en))
             }
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),
+            Control::Static(s) => Control::Static(Cloner::static_(s)),
         }
     }
 }
