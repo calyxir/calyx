@@ -121,6 +121,23 @@ impl ReadWriteSet {
 
 impl ReadWriteSet {
     /// Returns the ports that are read by the given control program.
+    pub fn control_port_read_write_set_static(
+        scon: &ir::StaticControl,
+    ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
+        match scon {
+            ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => (
+                Self::port_read_set(group.borrow().assignments.iter())
+                    .collect(),
+                Self::port_write_set(group.borrow().assignments.iter())
+                    .collect(),
+            ),
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                Self::control_port_read_write_set_static(body)
+            }
+        }
+    }
+
+    /// Returns the ports that are read by the given control program.
     pub fn control_port_read_write_set(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
@@ -158,7 +175,6 @@ impl ReadWriteSet {
                     None => (inps.collect(), outs.collect()),
                 }
             }
-
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 let (mut reads, mut writes) = (vec![], vec![]);
@@ -214,6 +230,9 @@ impl ReadWriteSet {
                     ));
                 }
                 (reads, writes)
+            }
+            ir::Control::Static(sc) => {
+                Self::control_port_read_write_set_static(sc)
             }
         }
     }

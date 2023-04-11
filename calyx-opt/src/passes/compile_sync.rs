@@ -103,7 +103,7 @@ fn count_barriers(
             Ok(())
         }
         ir::Control::Par(_) => Ok(()),
-        ir::Control::Static(_) => Ok(())
+        ir::Control::Static(_) => Ok(()),
     }
 }
 

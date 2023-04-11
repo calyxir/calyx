@@ -82,6 +82,21 @@ fn all_conflicting(
     }
 }
 
+fn build_conflict_graph_static(
+    sc: &ir::StaticControl,
+    confs: &mut ScheduleConflicts,
+    all_nodes: &mut Vec<ir::Id>,
+) {
+    match sc {
+        ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+            confs.add_node(group.borrow().name());
+            all_nodes.push(group.borrow().name());
+        }
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            build_conflict_graph_static(body, confs, all_nodes);
+        }
+    }
+}
 /// Construct a conflict graph by traversing the Control program.
 fn build_conflict_graph(
     c: &ir::Control,
@@ -147,6 +162,9 @@ fn build_conflict_graph(
             // Add the enables from visiting the children to the current
             // set of enables.
             all_nodes.append(&mut par_nodes.into_iter().flatten().collect());
+        }
+        ir::Control::Static(sc) => {
+            build_conflict_graph_static(sc, confs, all_nodes)
         }
     }
 }

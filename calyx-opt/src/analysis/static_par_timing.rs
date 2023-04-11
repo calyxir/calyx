@@ -153,6 +153,95 @@ impl StaticParTiming {
             _ => false,
         }
     }
+
+    // Recursively updates self.time_map
+    fn build_time_map_static(
+        &mut self,
+        sc: &ir::StaticControl,
+        // cur_state = Some(parent_par_id, thread_id, cur_clock) if we're inside a static par, None otherwise.
+        // parent_par_id = Node ID of the static par that we're analyzing
+        // thread_id = Node ID of the thread that we're analyzing within the par
+        // note that this thread_id only corresponds to "direct" children
+        // cur_clock = current clock cycles we're at relative to the start of parent_par
+        cur_state: Option<(u64, u64, u64)>,
+        // LiveRangeAnalysis instance
+        live: &LiveRangeAnalysis,
+    ) -> Option<(u64, u64, u64)> {
+        match sc {
+            ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+                match cur_state {
+                    Some((par_id, thread_id, cur_clock)) => {
+                        let enable_id = ControlId::get_guaranteed_id_static(sc);
+                        // add enable to self.map
+                        let latency = group.borrow().get_latency();
+                        // live set is all cells live at this enable, organized by cell type
+                        let live_set = live.get(&enable_id).clone();
+                        // go thru all live cells in this enable add them to appropriate entry in
+                        // self.cell_map
+                        for (_, live_cells) in live_set {
+                            for cell in live_cells {
+                                let interval_vec = self
+                                    .cell_map
+                                    .entry(par_id)
+                                    .or_default()
+                                    .entry(thread_id)
+                                    .or_default()
+                                    .entry(cell)
+                                    .or_default();
+                                // we need to check whether we've already added this
+                                // to vec before or not. If we haven't,
+                                // then we can push
+                                // This can sometimes occur if there is a par block,
+                                // that contains a while loop, and that while loop
+                                // contains another par block.
+                                match interval_vec.last() {
+                                    None => interval_vec.push((
+                                        cur_clock,
+                                        cur_clock + latency - 1,
+                                    )),
+                                    Some(interval) => {
+                                        if *interval
+                                            != (
+                                                cur_clock,
+                                                cur_clock + latency - 1,
+                                            )
+                                        {
+                                            interval_vec.push((
+                                                cur_clock,
+                                                cur_clock + latency - 1,
+                                            ))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Some((par_id, thread_id, cur_clock + latency))
+                    }
+                    None => cur_state,
+                }
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat {
+                body,
+                num_repeats,
+                ..
+            }) => {
+                if cur_state.is_some() {
+                    // essentially just unrolling the loop
+                    let mut new_state = cur_state;
+                    for _ in 0..*num_repeats {
+                        new_state =
+                            self.build_time_map_static(body, new_state, live)
+                    }
+                    new_state
+                } else {
+                    // look thru while body for static pars
+                    self.build_time_map_static(body, cur_state, live);
+                    None
+                }
+            }
+        }
+    }
+
     // Recursively updates self.time_map
     fn build_time_map(
         &mut self,
@@ -320,6 +409,9 @@ impl StaticParTiming {
                     }
                     None
                 }
+            }
+            ir::Control::Static(sc) => {
+                self.build_time_map_static(sc, cur_state, live)
             }
         }
     }

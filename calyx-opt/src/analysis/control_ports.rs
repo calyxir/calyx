@@ -50,6 +50,15 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
 }
 
 impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
+    fn construct_static(&mut self, scon: &ir::StaticControl) {
+        match scon {
+            ir::StaticControl::Enable(_) => (),
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                self.construct_static(body)
+            }
+        }
+    }
+
     fn construct(&mut self, con: &ir::Control) {
         match con {
             ir::Control::Enable(_)
@@ -122,6 +131,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter().for_each(|con| self.construct(con));
             }
+            ir::Control::Static(sc) => self.construct_static(sc),
         }
     }
 }
