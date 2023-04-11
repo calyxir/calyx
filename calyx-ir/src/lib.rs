@@ -28,8 +28,8 @@ pub use common::{RRC, WRC};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context, LibrarySignatures};
 pub use control::{
-    Cloner, Control, Empty, Enable, If, Invoke, Par, Seq, StaticControl,
-    StaticEnable, StaticRepeat, While,
+    Cloner, Control, Empty, Enable, GenericControl, If, Invoke, Par, Seq,
+    StaticControl, StaticEnable, StaticRepeat, While,
 };
 pub use flat_guard::{FlatGuard, GuardPool, GuardRef};
 pub use guard::{Guard, Nothing, PortComp, StaticTiming};

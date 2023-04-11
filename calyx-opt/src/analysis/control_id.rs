@@ -8,6 +8,30 @@ const END_ID: &str = "END_ID";
 pub struct ControlId;
 
 impl ControlId {
+    fn compute_unique_ids_static(
+        scon: &mut ir::StaticControl,
+        mut cur_state: u64,
+        two_if_ids: bool,
+    ) -> u64 {
+        match scon {
+            ir::StaticControl::Enable(ir::StaticEnable {
+                attributes, ..
+            }) => {
+                attributes.insert(NODE_ID, cur_state);
+                cur_state + 1
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat {
+                attributes,
+                body,
+                ..
+            }) => {
+                attributes.insert(NODE_ID, cur_state);
+                cur_state += 1;
+                Self::compute_unique_ids_static(body, cur_state, two_if_ids)
+            }
+        }
+    }
+
     /// Adds the @NODE_ID attribute to all control stmts except emtpy ones.
     /// If two_if_ids is true, then if statements get a BEGIN_ID and END_ID instead
     /// of a NODE_ID
@@ -101,6 +125,9 @@ impl ControlId {
                 cur_state += 1;
                 Self::compute_unique_ids(body, cur_state, two_if_ids)
             }
+            ir::Control::Static(s) => {
+                Self::compute_unique_ids_static(s, cur_state, two_if_ids)
+            }
             ir::Control::Empty(_) => cur_state,
         }
     }
@@ -113,8 +140,24 @@ impl ControlId {
       ))
     }
 
+    // Gets attribute s from c, panics otherwise. Should be used when you know
+    // that c has attribute s.
+    pub fn get_guaranteed_attribute_static(
+        sc: &ir::StaticControl,
+        s: &str,
+    ) -> u64 {
+        sc.get_attribute(s).unwrap_or_else(||unreachable!(
+          "called get_guaranteed_attribute_static, meaning we had to be sure it had the id"
+      ))
+    }
+
     // Gets attribute NODE_ID from c
     pub fn get_guaranteed_id(c: &ir::Control) -> u64 {
         Self::get_guaranteed_attribute(c, NODE_ID)
+    }
+
+    // Gets attribute NODE_ID from c
+    pub fn get_guaranteed_id_static(sc: &ir::StaticControl) -> u64 {
+        Self::get_guaranteed_attribute_static(sc, NODE_ID)
     }
 }

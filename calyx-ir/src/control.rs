@@ -371,6 +371,22 @@ impl Control {
     }
 }
 
+impl StaticControl {
+    /// Returns the value of an attribute if present
+    pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
+    where
+        S: Into<Id>,
+    {
+        self.get_attributes().get(attr).cloned()
+    }
+}
+
+#[derive(Debug)]
+pub enum GenericControl<'a> {
+    Static(&'a StaticControl),
+    Dynamic(&'a Control),
+}
+
 /// Implement cloning operations on control statements.
 /// We implement these separatily from the [Clone] trait because cloning trait
 /// is not very common and clones should be explicit.

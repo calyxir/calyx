@@ -156,6 +156,20 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
         false
     }
 }
+
+fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
+    let mut hs = HashSet::new();
+    match sc {
+        ir::StaticControl::Enable(_) => {
+            hs.insert(ControlId::get_guaranteed_attribute_static(sc, NODE_ID));
+        }
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            return get_final_static(body);
+        }
+    }
+    hs
+}
+
 // Gets the "final" nodes in control c. Used to build exits_map.
 fn get_final(c: &ir::Control) -> HashSet<u64> {
     let mut hs = HashSet::new();
@@ -181,6 +195,7 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
                 hs = hs.union(&stmt_final).copied().collect()
             }
         }
+        ir::Control::Static(s) => return get_final_static(s),
     }
     hs
 }
@@ -197,6 +212,22 @@ impl DominatorMap {
         map.build_exit_map(control);
         map.build_map(control);
         map
+    }
+
+    fn build_exit_map_static(&mut self, sc: &ir::StaticControl) {
+        match sc {
+            ir::StaticControl::Enable(_) => {
+                let id =
+                    ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
+                self.exits_map.insert(id, HashSet::from([id]));
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                let id =
+                    ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
+                self.exits_map.insert(id, get_final_static(sc));
+                self.build_exit_map_static(body);
+            }
+        }
     }
 
     // Builds the "exit map" of c. This is getting what will be the final "node"
@@ -233,6 +264,7 @@ impl DominatorMap {
                 let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
                 self.exits_map.insert(id, get_final(c));
             }
+            ir::Control::Static(sc) => self.build_exit_map_static(sc),
         }
     }
 
