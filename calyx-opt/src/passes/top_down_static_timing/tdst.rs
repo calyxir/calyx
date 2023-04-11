@@ -364,6 +364,11 @@ impl Schedule<'_, '_> {
             ir::Control::Par(par) => {
                 self.par_calculate_states(par, preds)
             }
+            ir::Control::Static(_) => {
+                unimplemented!(
+                "we don't know what to do with `static` statements yet."
+                )
+            }
             ir::Control::Invoke(_) => unreachable!(
                 "`invoke` statements should have been compiled away. Run `{}` before this pass.",
                 passes::CompileInvoke::name()),
@@ -880,6 +885,7 @@ impl TopDownStaticTiming {
                 ir::Control::Enable(_)
                 | ir::Control::Invoke(_)
                 | ir::Control::StaticEnable(_)
+                | ir::Control::Static(_)
                 | ir::Control::Empty(_) => {}
             }
         }
