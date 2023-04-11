@@ -284,6 +284,83 @@ fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
         .collect();
 }
 
+fn build_reaching_def_static(
+    sc: &ir::StaticControl,
+    reach: DefSet,
+    killed: KilledSet,
+    rd: &mut ReachingDefinitionAnalysis,
+    counter: &mut u64,
+) -> (DefSet, KilledSet) {
+    match sc {
+        ir::StaticControl::Enable(sen) => {
+            // (Note Caleb/Pai): This is similar to case for enable group right now
+            // We could eventually try to merge it, but we should do it after we have
+            // hammered down the details of the rest of the static IR assignments
+            let asgns = &sen.group.borrow().assignments;
+            let writes = ReadWriteSet::must_write_set(asgns.iter());
+            // for each write:
+            // Killing all other reaching defns for that var
+            // generating a new defn (Id, GROUP)
+            let write_set = writes
+                .filter(|x| match &x.borrow().prototype {
+                    ir::CellType::Primitive { name, .. } => name == "std_reg",
+                    _ => false,
+                })
+                .map(|x| x.borrow().name())
+                .collect::<BTreeSet<_>>();
+
+            let read_set = ReadWriteSet::register_reads(
+                sen.group.borrow().assignments.iter(),
+            )
+            .map(|x| x.borrow().name())
+            .collect::<BTreeSet<_>>();
+            // only kill a def if the value is not read.
+            let (mut cur_reach, killed) =
+                reach.kill_from_writeread(&write_set, &read_set);
+            cur_reach.extend(write_set, sen.group.borrow().name());
+
+            rd.reach.insert(
+                GroupOrInvoke::Group(sen.group.borrow().name()),
+                cur_reach.clone(),
+            );
+
+            (cur_reach, killed)
+        }
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            let (round_1_def, mut round_1_killed) = build_reaching_def_static(
+                body,
+                reach.clone(),
+                killed,
+                rd,
+                counter,
+            );
+
+            remove_entries_defined_by(&mut round_1_killed, &reach);
+
+            let (post_cond2_def, post_cond2_killed) = build_reaching_def(
+                &ir::Control::empty(),
+                &round_1_def | &reach,
+                round_1_killed,
+                rd,
+                counter,
+            );
+            // Run the analysis a second time to get the fixed point of the
+            // while loop using the defsets calculated during the first iteration
+            let (final_def, mut final_kill) = build_reaching_def_static(
+                body,
+                post_cond2_def.clone(),
+                post_cond2_killed,
+                rd,
+                counter,
+            );
+
+            remove_entries_defined_by(&mut final_kill, &post_cond2_def);
+
+            (&final_def | &post_cond2_def, final_kill)
+        }
+    }
+}
+
 fn build_reaching_def(
     c: &ir::Control,
     reach: DefSet,
@@ -493,5 +570,8 @@ fn build_reaching_def(
             (cur_reach, killed)
         }
         ir::Control::Empty(_) => (reach, killed),
+        ir::Control::Static(sc) => {
+            build_reaching_def_static(sc, reach, killed, rd, counter)
+        }
     }
 }
