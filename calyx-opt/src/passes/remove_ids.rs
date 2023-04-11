@@ -31,6 +31,19 @@ impl Visitor for RemoveIds {
     }
 }
 
+fn remove_ids_static(sc: &mut ir::StaticControl) {
+    let atts = sc.get_mut_attributes();
+    atts.remove(BEGIN_ID);
+    atts.remove(END_ID);
+    atts.remove(NODE_ID);
+    match sc {
+        ir::StaticControl::Enable(_) => (),
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            remove_ids_static(body)
+        }
+    }
+}
+
 fn remove_ids(c: &mut ir::Control) {
     let atts = c.get_mut_attributes();
     atts.remove(BEGIN_ID);
@@ -56,5 +69,6 @@ fn remove_ids(c: &mut ir::Control) {
                 remove_ids(stmt);
             }
         }
+        ir::Control::Static(sc) => remove_ids_static(sc),
     }
 }

@@ -310,7 +310,7 @@ pub struct LiveRangeAnalysis {
     state_share: ShareSet,
     /// Set of shareable components (as type names)
     share: ShareSet,
-    /// maps invokes/enable ids to the shareable cell types/names live in them
+    /// maps invokes/enable ids to the shareable cell types/names used in them
     invokes_enables_map: HashMap<u64, TypeNameSet>,
     /// maps comb groups of if/while statements to the cell types/
     /// names used in them
@@ -356,10 +356,45 @@ impl LiveRangeAnalysis {
             }
         }
 
-        // LivRangeAnalysis does not handle comb groups currently. Eventually, we want to and make
-        // remove-comb-groups optional.
-
         ranges
+    }
+
+    fn get_live_control_data_static(
+        &self,
+        live_once_map: &mut LiveMapByType,
+        par_thread_map: &mut HashMap<u64, u64>,
+        live_cell_map: &mut LiveMapByType,
+        parents: &HashSet<u64>,
+        sc: &ir::StaticControl,
+    ) {
+        match sc {
+            ir::StaticControl::Enable(_) => {
+                let id = ControlId::get_guaranteed_id_static(sc);
+                let live_set = self.live.get(&id).unwrap().map.clone();
+                for (cell_type, live_cells) in live_set {
+                    let cell_to_node =
+                        live_cell_map.entry(cell_type.clone()).or_default();
+                    let cell_to_control =
+                        live_once_map.entry(cell_type).or_default();
+                    for cell in live_cells {
+                        cell_to_node.entry(cell).or_default().insert(id);
+                        cell_to_control
+                            .entry(cell)
+                            .or_default()
+                            .extend(parents);
+                    }
+                }
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                self.get_live_control_data_static(
+                    live_once_map,
+                    par_thread_map,
+                    live_cell_map,
+                    parents,
+                    body,
+                );
+            }
+        }
     }
 
     /// Updates live_once_map and par_thread_map.
@@ -367,8 +402,10 @@ impl LiveRangeAnalysis {
     /// celltype to control statements in which it is live for at least one group
     /// or invoke in the control. We only map to control statements that are
     /// direct children of par blocks.
+    /// par_thread_map maps direct children of par blocks to their parents
+    /// live_cell_map maps cells to the nodes in which it is live
     /// parents is the list of current control statements (that are direct children
-    /// of par blocks) that are parents (at any level of neesting) of c.
+    /// of par blocks) that are parents (at any level of nesting) of c.
     pub fn get_live_control_data(
         &self,
         live_once_map: &mut LiveMapByType,
@@ -501,6 +538,13 @@ impl LiveRangeAnalysis {
                     }
                 }
             }
+            ir::Control::Static(sc) => self.get_live_control_data_static(
+                live_once_map,
+                par_thread_map,
+                live_cell_map,
+                parents,
+                sc,
+            ),
         }
     }
 
@@ -625,8 +669,6 @@ impl LiveRangeAnalysis {
         let group = group_ref.borrow();
         // we don't have to worry about variable like for static groups
         let sc_clone = &self.state_share;
-        // if the group contains what looks like a variable write,
-        // then just add variable to write set
         let reads: HashSet<_> = meaningful_read_set(group.assignments.iter())
             .filter(|c| sc_clone.is_shareable_component(c))
             .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
@@ -783,6 +825,61 @@ impl LiveRangeAnalysis {
             );
         }
         invoke_uses
+    }
+
+    fn build_live_ranges_static(
+        &mut self,
+        sc: &ir::StaticControl,
+        mut alive: Prop,
+        mut gens: Prop,
+        mut kills: Prop,
+    ) -> (Prop, Prop, Prop) {
+        match sc {
+            ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+                // (Note Caleb/Pai): This is similar to case for enable group right now
+                // We could eventually try to merge it, but we should do it after we have
+                // hammered down the details of the rest of the static IR assignments
+                let uses_share = LiveRangeAnalysis::find_uses_assigns(
+                    &group.borrow().assignments,
+                    &self.share,
+                );
+                self.invokes_enables_map
+                    .entry(ControlId::get_guaranteed_id_static(sc))
+                    .or_default()
+                    .extend(uses_share);
+                // XXX(sam) no reason to compute this every time
+                let (reads, writes) = self.find_gen_kill_static_group(group);
+
+                // compute transfer function
+                alive.transfer_set(reads.clone(), writes.clone());
+                let alive_out = alive.clone();
+
+                // set the live set of this node to be the things live on the
+                // output of this node plus the things written to in this group
+                self.live.insert(ControlId::get_guaranteed_id_static(sc), {
+                    alive.or_set(writes.clone());
+                    alive
+                });
+                (
+                    alive_out,
+                    {
+                        gens.sub_set(writes.clone());
+                        gens.or_set(reads);
+                        gens
+                    },
+                    {
+                        kills.or_set(writes);
+                        kills
+                    },
+                )
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                // have to go through the repeat body twice in order to get a correct live range analysis
+                (alive, gens, kills) =
+                    self.build_live_ranges_static(body, alive, gens, kills);
+                self.build_live_ranges_static(body, alive, gens, kills)
+            }
+        }
     }
 
     /// Implements the parallel dataflow analysis that computes the liveness of every state shareable component
@@ -1073,6 +1170,9 @@ impl LiveRangeAnalysis {
                 }
 
                 (alive, gens, input_kills)
+            }
+            ir::Control::Static(sc) => {
+                self.build_live_ranges_static(sc, alive, gens, kills)
             }
         }
     }
