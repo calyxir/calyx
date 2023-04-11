@@ -3,6 +3,7 @@ use crate::analysis::{
     ControlId, ShareSet,
 };
 use calyx_ir as ir;
+use ir::GenericControl;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -122,6 +123,14 @@ impl Debug for DominatorMap {
     }
 }
 
+#[inline]
+fn get_id_static<const BEGIN: bool>(c: &ir::StaticControl) -> u64 {
+    let v = c.get_attribute(NODE_ID);
+    v.unwrap_or_else(|| unreachable!(
+            "get_id() shouldn't be called on control stmts that don't have id numbering"
+    ))
+}
+
 // Given a control, gets its associated id. For if statments, gets the
 // beginning id if begin_id is true and end_id if begin_id is false.
 // Should not be called on empty control
@@ -141,6 +150,18 @@ fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
     v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
     ))
+}
+
+fn matches_key_static(sc: &ir::StaticControl, key: u64) -> bool {
+    if get_id_static::<true>(sc) == key {
+        return true;
+    }
+    //could match the end id of an if statement as well
+    if let Some(end) = sc.get_attribute(END_ID) {
+        key == end
+    } else {
+        false
+    }
 }
 
 // Given a control stmt c and a key, returns true if c matches key, false
@@ -293,6 +314,31 @@ impl DominatorMap {
         self.map.insert(id, union);
     }
 
+    fn update_map_static(
+        &mut self,
+        main_sc: &ir::StaticControl,
+        cur_id: u64,
+        pred: &HashSet<u64>,
+    ) {
+        match Self::get_static_control(cur_id, main_sc) {
+            GenericControl::Dynamic(_) => {
+                unreachable!("should never get dynamic from get_static_control")
+            }
+            GenericControl::None => return,
+            GenericControl::Static(sc) => match sc {
+                ir::StaticControl::Enable(_) => {
+                    self.update_node(pred, cur_id);
+                }
+                ir::StaticControl::Repeat(ir::StaticRepeat {
+                    body, ..
+                }) => {
+                    let body_id = get_id_static::<true>(body);
+                    self.update_map_static(main_sc, body_id, pred);
+                }
+            },
+        }
+    }
+
     // Looks through each "node" in the "graph" and updates the dominators accordingly
     fn update_map(
         &mut self,
@@ -300,141 +346,187 @@ impl DominatorMap {
         cur_id: u64,
         pred: &HashSet<u64>,
     ) {
-        let c = match Self::get_control(cur_id, main_c) {
-            Some(control) => control,
-            None => return,
+        match Self::get_control(cur_id, main_c) {
+            GenericControl::None => return,
+            GenericControl::Dynamic(c) => {
+                match c {
+                    ir::Control::Empty(_) => {
+                        unreachable!(
+                            "should not pattern match agaisnt empty in update_map()"
+                        )
+                    }
+                    ir::Control::Invoke(_)
+                    | ir::Control::Enable(_)
+                    | ir::Control::StaticEnable(_) => {
+                        self.update_node(pred, cur_id);
+                    }
+                    ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                        let mut p = pred;
+                        let mut nxt: HashSet<u64>;
+                        for stmt in stmts {
+                            let id = get_id::<true>(stmt);
+                            self.update_map(main_c, id, p);
+                            nxt = self
+                                .exits_map
+                                .get(&id)
+                                .unwrap_or_else(|| {
+                                    unreachable!(
+                                        "{}", "exit node map does not have value for {prev_id}",
+                                    )
+                                }).clone();
+                            p = &nxt;
+                        }
+                    }
+                    ir::Control::Par(ir::Par { stmts, .. }) => {
+                        for stmt in stmts {
+                            let id = get_id::<true>(stmt);
+                            self.update_map(main_c, id, pred);
+                        }
+                    }
+                    // Keep in mind that NODE_IDs attached to while loops/if statements
+                    // refer to the while/if guard, and as we pattern match against a while
+                    // or if statement, the control statement refers to the "guard",
+                    // which includes their combinational group and the conditional port
+                    // So (for example) if a while loop has NODE_ID = 10, then "node 10"
+                    // refers to the while guard-- comb group and conditional port-- but not the body.
+                    ir::Control::While(ir::While { body, .. }) => {
+                        self.update_node(pred, cur_id);
+                        // updating the while body
+                        let body_id = get_id::<true>(body);
+                        self.update_map(
+                            main_c,
+                            body_id,
+                            &HashSet::from([cur_id]),
+                        );
+                    }
+                    ir::Control::If(ir::If {
+                        tbranch, fbranch, ..
+                    }) => {
+                        //updating the if guard
+                        self.update_node(pred, cur_id);
+
+                        //building a set w/ just the if_guard id in it
+                        let if_guard_set = HashSet::from([cur_id]);
+
+                        //updating the tbranch
+                        let t_id = get_id::<true>(tbranch);
+                        self.update_map(main_c, t_id, &if_guard_set);
+
+                        // If the false branch is present, update the map
+                        if !matches!(**fbranch, ir::Control::Empty(_)) {
+                            let f_id = get_id::<true>(fbranch);
+                            self.update_map(main_c, f_id, &if_guard_set);
+                        }
+
+                        let end_id =
+                            ControlId::get_guaranteed_attribute(c, END_ID);
+                        self.update_node(&if_guard_set, end_id)
+                    }
+                    ir::Control::Static(_) => panic!("when matching c in GenericControl::Dynamic(c), c shouldn't be Static Control")
+                };
+            }
+            GenericControl::Static(sc) => {
+                let static_id = get_id_static::<true>(sc);
+                self.update_map_static(sc, static_id, pred);
+            }
+        }
+    }
+
+    pub fn get_static_control(
+        id: u64,
+        sc: &ir::StaticControl,
+    ) -> GenericControl {
+        if matches_key_static(sc, id) {
+            return GenericControl::Static(sc);
         };
-        match c {
-            ir::Control::Empty(_) => {
-                unreachable!(
-                    "should not pattern match agaisnt empty in update_map()"
-                )
+        match sc {
+            ir::StaticControl::Enable(_) => GenericControl::None,
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                Self::get_static_control(id, body)
             }
-            ir::Control::Invoke(_)
-            | ir::Control::Enable(_)
-            | ir::Control::StaticEnable(_) => {
-                self.update_node(pred, cur_id);
-            }
-            ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                let mut p = pred;
-                let mut nxt: HashSet<u64>;
-                for stmt in stmts {
-                    let id = get_id::<true>(stmt);
-                    self.update_map(main_c, id, p);
-                    nxt = self
-                        .exits_map
-                        .get(&id)
-                        .unwrap_or_else(|| {
-                            unreachable!(
-                                "{}", "exit node map does not have value for {prev_id}",
-                            )
-                        }).clone();
-                    p = &nxt;
-                }
-            }
-            ir::Control::Par(ir::Par { stmts, .. }) => {
-                for stmt in stmts {
-                    let id = get_id::<true>(stmt);
-                    self.update_map(main_c, id, pred);
-                }
-            }
-            // Keep in mind that NODE_IDs attached to while loops/if statements
-            // refer to the while/if guard, and as we pattern match against a while
-            // or if statement, the control statement refers to the "guard",
-            // which includes their combinational group and the conditional port
-            // So (for example) if a while loop has NODE_ID = 10, then "node 10"
-            // refers to the while guard-- comb group and conditional port-- but not the body.
-            ir::Control::While(ir::While { body, .. }) => {
-                self.update_node(pred, cur_id);
-                // updating the while body
-                let body_id = get_id::<true>(body);
-                self.update_map(main_c, body_id, &HashSet::from([cur_id]));
-            }
-            ir::Control::If(ir::If {
-                tbranch, fbranch, ..
-            }) => {
-                //updating the if guard
-                self.update_node(pred, cur_id);
-
-                //building a set w/ just the if_guard id in it
-                let if_guard_set = HashSet::from([cur_id]);
-
-                //updating the tbranch
-                let t_id = get_id::<true>(tbranch);
-                self.update_map(main_c, t_id, &if_guard_set);
-
-                // If the false branch is present, update the map
-                if !matches!(**fbranch, ir::Control::Empty(_)) {
-                    let f_id = get_id::<true>(fbranch);
-                    self.update_map(main_c, f_id, &if_guard_set);
-                }
-
-                let end_id = ControlId::get_guaranteed_attribute(c, END_ID);
-                self.update_node(&if_guard_set, end_id)
-            }
-        };
+        }
     }
 
     /// Given a control c and an id, finds the control statement within c that
     /// has id, if it exists. If it doesn't, return None.
-    pub fn get_control(id: u64, c: &ir::Control) -> Option<&ir::Control> {
+    pub fn get_control(id: u64, c: &ir::Control) -> GenericControl {
         if matches!(c, ir::Control::Empty(_)) {
-            return None;
+            return GenericControl::None;
         }
         if matches_key(c, id) {
-            return Some(c);
+            return GenericControl::Dynamic(c);
         }
         match c {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
             | ir::Control::StaticEnable(_)
-            | ir::Control::Enable(_) => None,
+            | ir::Control::Enable(_) => GenericControl::None,
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 for stmt in stmts {
-                    if let Some(stmt) = Self::get_control(id, stmt) {
-                        return Some(stmt);
+                    match Self::get_control(id, stmt) {
+                        GenericControl::None => (),
+                        GenericControl::Dynamic(c) => {
+                            return GenericControl::Dynamic(c)
+                        }
+                        GenericControl::Static(sc) => {
+                            return GenericControl::Static(sc)
+                        }
                     }
                 }
-                None
+                GenericControl::None
             }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
             }) => {
-                //probably a better way to do this...
-                if let Some(stmt) = Self::get_control(id, tbranch) {
-                    Some(stmt)
-                } else if let Some(stmt) = Self::get_control(id, fbranch) {
-                    Some(stmt)
-                } else {
-                    None
+                match Self::get_control(id, tbranch) {
+                    GenericControl::Dynamic(c) => {
+                        return GenericControl::Dynamic(c)
+                    }
+                    GenericControl::Static(sc) => {
+                        return GenericControl::Static(sc)
+                    }
+                    GenericControl::None => (),
                 }
+                match Self::get_control(id, fbranch) {
+                    GenericControl::Dynamic(c) => {
+                        return GenericControl::Dynamic(c)
+                    }
+                    GenericControl::Static(sc) => {
+                        return GenericControl::Static(sc)
+                    }
+                    GenericControl::None => (),
+                }
+                GenericControl::None
             }
             ir::Control::While(ir::While { body, .. }) => {
-                if let Some(stmt) = Self::get_control(id, body) {
-                    return Some(stmt);
-                }
-                None
+                Self::get_control(id, body)
             }
+            ir::Control::Static(sc) => Self::get_static_control(id, sc),
         }
     }
 
     // Given a set of nodes, gets the control in main_control that corresponds
     // to the node. If there is a node in the set not corresponding to a control
     // statement in main_control, then it gives an unreachable! error.
+    // Returns two vectors: controls, static_controls
+    // (the dynamic and static nodes)
     pub fn get_control_nodes<'a>(
         nodes: &HashSet<u64>,
         main_control: &'a ir::Control,
-    ) -> Vec<&'a ir::Control> {
+    ) -> (Vec<&'a ir::Control>, Vec<&'a ir::StaticControl>) {
         let mut controls: Vec<&ir::Control> = Vec::new();
+        let mut static_controls: Vec<&ir::StaticControl> = Vec::new();
         for node in nodes {
-            let c =
-                Self::get_control(*node, main_control).unwrap_or_else(|| {
-                    unreachable!("{}", "No control statement for ID {node}")
-                });
-            controls.push(c);
+            match Self::get_control(*node, main_control) {
+                GenericControl::Static(sc) => static_controls.push(sc),
+                GenericControl::Dynamic(c) => controls.push(c),
+                GenericControl::None => {
+                    unreachable!("No control statemetn for ID {}", node)
+                }
+            }
         }
-        controls
+        (controls, static_controls)
     }
 
     // Gets the reads of shareable cells in node

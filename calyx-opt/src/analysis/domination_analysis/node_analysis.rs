@@ -90,15 +90,15 @@ impl NodeReads {
         state_shareable: &ShareSet,
     ) -> HashSet<ir::Id> {
         let mut reads: HashSet<ir::Id> = HashSet::new();
-        if let Some(c) =
-            DominatorMap::get_control(*node, &comp.control.borrow())
-        {
-            match c {
+        match DominatorMap::get_control(*node, &comp.control.borrow()) {
+            ir::GenericControl::None => (),
+            ir::GenericControl::Dynamic(c) => match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
-                | ir::Control::Par(_) => {
+                | ir::Control::Par(_)
+                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars should be in domination map"
+                        "no empty/seqs/pars/static should be in domination map"
                     )
                 }
                 ir::Control::If(ir::If { port, cond, .. })
@@ -161,8 +161,23 @@ impl NodeReads {
                         );
                     }
                 }
-            }
+            },
+            ir::GenericControl::Static(sc) => match sc {
+                ir::StaticControl::Enable(ir::StaticEnable {
+                    group, ..
+                }) => {
+                    add_assignment_reads(
+                        &mut reads,
+                        state_shareable,
+                        &group.borrow().assignments,
+                    );
+                }
+                ir::StaticControl::Repeat(_) => unreachable!(
+                    "static repeates shouldn't be in domination map"
+                ),
+            },
         }
+
         reads
     }
 }
@@ -204,15 +219,16 @@ impl NodeSearch {
         comp: &mut ir::Component,
     ) -> bool {
         let main_control = comp.control.borrow();
-        let dominator_controls =
+        let (dominator_controls, dominator_static_controls) =
             DominatorMap::get_control_nodes(dominators, &main_control);
         for c in dominator_controls {
             match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
-                | ir::Control::Par(_) => {
+                | ir::Control::Par(_)
+                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars should be in domination map"
+                        "no empty/seqs/pars/static should be in domination map"
                     )
                 }
                 ir::Control::StaticEnable(ir::StaticEnable {
@@ -237,6 +253,20 @@ impl NodeSearch {
                         }
                     }
                     if comp.borrow().name() == self.name {
+                        return true;
+                    }
+                }
+            }
+        }
+        for sc in dominator_static_controls {
+            match sc {
+                ir::StaticControl::Repeat(_) => unreachable!(
+                    "no static repeats should be in domination map"
+                ),
+                ir::StaticControl::Enable(ir::StaticEnable {
+                    group, ..
+                }) => {
+                    if self.go_is_written(&group.borrow().assignments) {
                         return true;
                     }
                 }
