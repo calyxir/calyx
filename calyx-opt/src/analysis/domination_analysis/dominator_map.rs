@@ -181,6 +181,7 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
 fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
     let mut hs = HashSet::new();
     match sc {
+        ir::StaticControl::Empty => (),
         ir::StaticControl::Enable(_) => {
             hs.insert(ControlId::get_guaranteed_attribute_static(sc, NODE_ID));
         }
@@ -199,6 +200,9 @@ fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
                 let stmt_final = get_final_static(stmt);
                 hs = hs.union(&stmt_final).copied().collect()
             }
+        }
+        ir::StaticControl::If(_) => {
+            hs.insert(ControlId::get_guaranteed_attribute_static(sc, END_ID));
         }
     }
     hs
