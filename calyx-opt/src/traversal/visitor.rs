@@ -5,6 +5,7 @@ use super::action::{Action, VisResult};
 use super::{CompTraversal, Order};
 use calyx_ir::{self as ir, Component, Context, Control, LibrarySignatures};
 use calyx_utils::CalyxResult;
+use ir::StaticControl;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -339,6 +340,28 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed before visiting the children of a [ir::StaticRepeat] node.
+    fn start_static_repeat(
+        &mut self,
+        _s: &mut ir::StaticRepeat,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed after visiting the children of a [ir::StaticRepeat] node.
+    fn finish_static_repeat(
+        &mut self,
+        _s: &mut ir::StaticRepeat,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::Invoke] node.
     fn invoke(
         &mut self,
@@ -424,6 +447,9 @@ impl Visitable for Control {
             Control::StaticEnable(ctrl) => {
                 visitor.static_enable(ctrl, component, sigs, comps)?
             }
+            Control::Static(sctrl) => {
+                sctrl.visit(visitor, component, sigs, comps)?
+            }
             Control::Empty(ctrl) => {
                 visitor.empty(ctrl, component, sigs, comps)?
             }
@@ -432,6 +458,29 @@ impl Visitable for Control {
             }
         };
         Ok(res.apply_change(self))
+    }
+}
+
+impl Visitable for StaticControl {
+    fn visit(
+            &mut self,
+            visitor: &mut dyn Visitor,
+            component: &mut Component,
+            signatures: &LibrarySignatures,
+            components: &[ir::Component],
+        ) -> VisResult {
+        let res = match self {
+            StaticControl::Enable(ctrl) => {
+                visitor.static_enable(ctrl, component, signatures, components)?
+            }
+            StaticControl::Repeat(ctrl) => {
+                visitor.finish_static_repeat(ctrl, component, signatures, components)?
+                .and_then(|| ctrl.body.visit(visitor, component, signatures, components))?
+                .pop()
+                .and_then(|| visitor.finish_static_repeat(ctrl, component, signatures, components))?
+            }
+        };
+        Ok(res.apply_static_change(self))
     }
 }
 
@@ -447,7 +496,7 @@ impl<V: Visitable> Visitable for Vec<V> {
         for t in self {
             let res = t.visit(visitor, component, sigs, components)?;
             match res {
-                Action::Continue | Action::SkipChildren | Action::Change(_) => {
+                Action::Continue | Action::SkipChildren | Action::Change(_) | Action::StaticChange(_)=> {
                     continue;
                 }
                 Action::Stop => return Ok(Action::Stop),

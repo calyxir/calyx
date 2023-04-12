@@ -1,5 +1,6 @@
 //! Actions control the traversal of control programs.
 use calyx_ir::Control;
+use calyx_ir::StaticControl;
 use calyx_utils::CalyxResult;
 
 /// Result of performing a visit.
@@ -14,10 +15,14 @@ pub enum Action {
     /// Skips the traversal of this node's children but continues traversing\
     /// the sibling nodes.
     SkipChildren,
-    /// Replace the the current ast node with a new node.
+    /// Replace the current ast node with a new node.
     /// If performed using a start_* method, none of the newly created children
     /// will be visited.
     Change(Box<Control>),
+    /// Replace the current StaticControl node with a new node
+    /// If performed using a start_* method, none of the newly created children 
+    /// will be visited.
+    StaticChange(Box<StaticControl>)
 }
 
 impl Action {
@@ -30,7 +35,7 @@ impl Action {
     {
         match self {
             Action::Continue => next(),
-            Action::Change(_) | Action::Stop | Action::SkipChildren => Ok(self),
+            Action::Change(_) | Action::Stop | Action::SkipChildren | Action::StaticChange(_) => Ok(self),
         }
     }
 
@@ -43,6 +48,18 @@ impl Action {
     pub(super) fn apply_change(self, con: &mut Control) -> Action {
         match self {
             Action::Change(c) => {
+                *con = *c;
+                Action::Continue
+            }
+            action => action,
+        }
+    }
+
+    /// Applies the StaticChange action if `self is a StaticChange action.
+    /// Otherwise passes the action through unchanged
+    pub(super) fn apply_static_change(self, con: &mut StaticControl) -> Action {
+        match self {
+            Action::StaticChange(c) => {
                 *con = *c;
                 Action::Continue
             }
