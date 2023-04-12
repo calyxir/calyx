@@ -103,6 +103,34 @@ impl GetAttributes for If {
     }
 }
 
+/// Data for the `if` control statement.
+#[derive(Debug)]
+pub struct StaticIf {
+    /// Port that connects the conditional check.
+    pub port: RRC<Port>,
+
+    /// latency field
+    pub latency: u64,
+
+    /// Control for the true branch.
+    pub tbranch: Box<StaticControl>,
+
+    /// Control for the false branch.
+    pub fbranch: Box<StaticControl>,
+
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
+}
+impl GetAttributes for StaticIf {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
 /// Data for the `while` control statement.
 #[derive(Debug)]
 pub struct While {
@@ -249,6 +277,8 @@ pub enum StaticControl {
     Enable(StaticEnable),
     Par(StaticPar),
     Seq(StaticSeq),
+    If(StaticIf),
+    Empty,
 }
 
 impl From<Invoke> for Control {
