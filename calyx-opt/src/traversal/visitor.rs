@@ -463,22 +463,26 @@ impl Visitable for Control {
 
 impl Visitable for StaticControl {
     fn visit(
-            &mut self,
-            visitor: &mut dyn Visitor,
-            component: &mut Component,
-            signatures: &LibrarySignatures,
-            components: &[ir::Component],
-        ) -> VisResult {
+        &mut self,
+        visitor: &mut dyn Visitor,
+        component: &mut Component,
+        signatures: &LibrarySignatures,
+        components: &[ir::Component],
+    ) -> VisResult {
         let res = match self {
-            StaticControl::Enable(ctrl) => {
-                visitor.static_enable(ctrl, component, signatures, components)?
-            }
-            StaticControl::Repeat(ctrl) => {
-                visitor.finish_static_repeat(ctrl, component, signatures, components)?
-                .and_then(|| ctrl.body.visit(visitor, component, signatures, components))?
+            StaticControl::Enable(ctrl) => visitor
+                .static_enable(ctrl, component, signatures, components)?,
+            StaticControl::Repeat(ctrl) => visitor
+                .start_static_repeat(ctrl, component, signatures, components)?
+                .and_then(|| {
+                    ctrl.body.visit(visitor, component, signatures, components)
+                })?
                 .pop()
-                .and_then(|| visitor.finish_static_repeat(ctrl, component, signatures, components))?
-            }
+                .and_then(|| {
+                    visitor.finish_static_repeat(
+                        ctrl, component, signatures, components,
+                    )
+                })?,
         };
         Ok(res.apply_static_change(self))
     }
@@ -496,7 +500,10 @@ impl<V: Visitable> Visitable for Vec<V> {
         for t in self {
             let res = t.visit(visitor, component, sigs, components)?;
             match res {
-                Action::Continue | Action::SkipChildren | Action::Change(_) | Action::StaticChange(_)=> {
+                Action::Continue
+                | Action::SkipChildren
+                | Action::Change(_)
+                | Action::StaticChange(_) => {
                     continue;
                 }
                 Action::Stop => return Ok(Action::Stop),
