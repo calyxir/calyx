@@ -580,13 +580,6 @@ impl LiveRangeAnalysis {
                 parents,
                 sc,
             ),
-            ir::Control::Static(sc) => self.get_live_control_data_static(
-                live_once_map,
-                par_thread_map,
-                live_cell_map,
-                parents,
-                sc,
-            ),
         }
     }
 
@@ -1256,9 +1249,6 @@ impl LiveRangeAnalysis {
                 }
 
                 (alive, gens, input_kills)
-            }
-            ir::Control::Static(sc) => {
-                self.build_live_ranges_static(sc, alive, gens, kills)
             }
             ir::Control::Static(sc) => {
                 self.build_live_ranges_static(sc, alive, gens, kills)

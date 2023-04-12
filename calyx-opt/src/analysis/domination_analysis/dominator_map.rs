@@ -308,7 +308,6 @@ impl DominatorMap {
                 self.exits_map.insert(id, get_final(c));
             }
             ir::Control::Static(sc) => self.build_exit_map_static(sc),
-            ir::Control::Static(sc) => self.build_exit_map_static(sc),
         }
     }
 
@@ -452,8 +451,6 @@ impl DominatorMap {
                         //updating the if guard
                         self.update_node(pred, cur_id);
 
-                        //building a set w/ just the if_guard id in it
-                        let if_guard_set = HashSet::from([cur_id]);
                         //building a set w/ just the if_guard id in it
                         let if_guard_set = HashSet::from([cur_id]);
 

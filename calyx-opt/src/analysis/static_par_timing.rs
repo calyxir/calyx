@@ -459,9 +459,6 @@ impl StaticParTiming {
             ir::Control::Static(sc) => {
                 self.build_time_map_static(sc, cur_state, live)
             }
-            ir::Control::Static(sc) => {
-                self.build_time_map_static(sc, cur_state, live)
-            }
         }
     }
 }
