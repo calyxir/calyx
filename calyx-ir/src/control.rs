@@ -20,6 +20,23 @@ impl GetAttributes for Seq {
     }
 }
 
+/// Data for the `seq` control statement.
+#[derive(Debug)]
+pub struct StaticSeq {
+    /// List of `StaticControl` statements to run in sequence.
+    pub stmts: Vec<StaticControl>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
+}
+impl GetAttributes for StaticSeq {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
 /// Data for the `par` control statement.
 #[derive(Debug)]
 pub struct Par {
@@ -29,6 +46,23 @@ pub struct Par {
     pub attributes: Attributes,
 }
 impl GetAttributes for Par {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
+// Data for the `par` control statement.
+#[derive(Debug)]
+pub struct StaticPar {
+    /// List of `StaticControl` statements to run in parallel.
+    pub stmts: Vec<StaticControl>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
+}
+impl GetAttributes for StaticPar {
     fn get_attributes(&self) -> &Attributes {
         &self.attributes
     }
@@ -206,8 +240,11 @@ pub enum Control {
 /// Control AST nodes.
 #[derive(Debug)]
 pub enum StaticControl {
+    /// Essentially a Static While Loop
     Repeat(StaticRepeat),
     Enable(StaticEnable),
+    Par(StaticPar),
+    Seq(StaticSeq),
 }
 
 impl From<Invoke> for Control {
