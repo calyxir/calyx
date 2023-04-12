@@ -4,7 +4,6 @@ use crate::analysis::{
 };
 use calyx_ir as ir;
 use ir::GenericControl;
-use ir::GenericControl;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -151,18 +150,6 @@ fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
     v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
     ))
-}
-
-fn matches_key_static(sc: &ir::StaticControl, key: u64) -> bool {
-    if get_id_static::<true>(sc) == key {
-        return true;
-    }
-    //could match the end id of an if statement as well
-    if let Some(end) = sc.get_attribute(END_ID) {
-        key == end
-    } else {
-        false
-    }
 }
 
 fn matches_key_static(sc: &ir::StaticControl, key: u64) -> bool {
@@ -464,64 +451,6 @@ impl DominatorMap {
                     }) => {
                         //updating the if guard
                         self.update_node(pred, cur_id);
-        match Self::get_control(cur_id, main_c) {
-            GenericControl::None => return,
-            GenericControl::Dynamic(c) => {
-                match c {
-                    ir::Control::Empty(_) => {
-                        unreachable!(
-                            "should not pattern match agaisnt empty in update_map()"
-                        )
-                    }
-                    ir::Control::Invoke(_)
-                    | ir::Control::Enable(_)
-                    | ir::Control::StaticEnable(_) => {
-                        self.update_node(pred, cur_id);
-                    }
-                    ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                        let mut p = pred;
-                        let mut nxt: HashSet<u64>;
-                        for stmt in stmts {
-                            let id = get_id::<true>(stmt);
-                            self.update_map(main_c, id, p);
-                            nxt = self
-                                .exits_map
-                                .get(&id)
-                                .unwrap_or_else(|| {
-                                    unreachable!(
-                                        "{}", "exit node map does not have value for {prev_id}",
-                                    )
-                                }).clone();
-                            p = &nxt;
-                        }
-                    }
-                    ir::Control::Par(ir::Par { stmts, .. }) => {
-                        for stmt in stmts {
-                            let id = get_id::<true>(stmt);
-                            self.update_map(main_c, id, pred);
-                        }
-                    }
-                    // Keep in mind that NODE_IDs attached to while loops/if statements
-                    // refer to the while/if guard, and as we pattern match against a while
-                    // or if statement, the control statement refers to the "guard",
-                    // which includes their combinational group and the conditional port
-                    // So (for example) if a while loop has NODE_ID = 10, then "node 10"
-                    // refers to the while guard-- comb group and conditional port-- but not the body.
-                    ir::Control::While(ir::While { body, .. }) => {
-                        self.update_node(pred, cur_id);
-                        // updating the while body
-                        let body_id = get_id::<true>(body);
-                        self.update_map(
-                            main_c,
-                            body_id,
-                            &HashSet::from([cur_id]),
-                        );
-                    }
-                    ir::Control::If(ir::If {
-                        tbranch, fbranch, ..
-                    }) => {
-                        //updating the if guard
-                        self.update_node(pred, cur_id);
 
                         //building a set w/ just the if_guard id in it
                         let if_guard_set = HashSet::from([cur_id]);
@@ -546,26 +475,6 @@ impl DominatorMap {
                             self.update_map(main_c, f_id, &if_guard_set);
                         }
 
-                        let end_id =
-                            ControlId::get_guaranteed_attribute(c, END_ID);
-                        self.update_node(&if_guard_set, end_id)
-                    }
-                    ir::Control::Static(_) => panic!("when matching c in GenericControl::Dynamic(c), c shouldn't be Static Control")
-                };
-            }
-            GenericControl::Static(sc) => {
-                let static_id = get_id_static::<true>(sc);
-                self.update_map_static(sc, static_id, pred);
-            }
-        }
-    }
-
-    pub fn get_static_control(
-        id: u64,
-        sc: &ir::StaticControl,
-    ) -> GenericControl {
-        if matches_key_static(sc, id) {
-            return GenericControl::Static(sc);
                         let end_id =
                             ControlId::get_guaranteed_attribute(c, END_ID);
                         self.update_node(&if_guard_set, end_id)
@@ -613,20 +522,16 @@ impl DominatorMap {
     /// Given a control c and an id, finds the control statement within c that
     /// has id, if it exists. If it doesn't, return None.
     pub fn get_control(id: u64, c: &ir::Control) -> GenericControl {
-    pub fn get_control(id: u64, c: &ir::Control) -> GenericControl {
         if matches!(c, ir::Control::Empty(_)) {
-            return GenericControl::None;
             return GenericControl::None;
         }
         if matches_key(c, id) {
-            return GenericControl::Dynamic(c);
             return GenericControl::Dynamic(c);
         }
         match c {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
             | ir::Control::StaticEnable(_)
-            | ir::Control::Enable(_) => GenericControl::None,
             | ir::Control::Enable(_) => GenericControl::None,
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
@@ -639,17 +544,8 @@ impl DominatorMap {
                         GenericControl::Static(sc) => {
                             return GenericControl::Static(sc)
                         }
-                    match Self::get_control(id, stmt) {
-                        GenericControl::None => (),
-                        GenericControl::Dynamic(c) => {
-                            return GenericControl::Dynamic(c)
-                        }
-                        GenericControl::Static(sc) => {
-                            return GenericControl::Static(sc)
-                        }
                     }
                 }
-                GenericControl::None
                 GenericControl::None
             }
             ir::Control::If(ir::If {
@@ -672,32 +568,12 @@ impl DominatorMap {
                         return GenericControl::Static(sc)
                     }
                     GenericControl::None => (),
-                match Self::get_control(id, tbranch) {
-                    GenericControl::Dynamic(c) => {
-                        return GenericControl::Dynamic(c)
-                    }
-                    GenericControl::Static(sc) => {
-                        return GenericControl::Static(sc)
-                    }
-                    GenericControl::None => (),
-                }
-                match Self::get_control(id, fbranch) {
-                    GenericControl::Dynamic(c) => {
-                        return GenericControl::Dynamic(c)
-                    }
-                    GenericControl::Static(sc) => {
-                        return GenericControl::Static(sc)
-                    }
-                    GenericControl::None => (),
-                }
-                GenericControl::None
+                };
                 GenericControl::None
             }
             ir::Control::While(ir::While { body, .. }) => {
                 Self::get_control(id, body)
-                Self::get_control(id, body)
             }
-            ir::Control::Static(sc) => Self::get_static_control(id, sc),
             ir::Control::Static(sc) => Self::get_static_control(id, sc),
         }
     }
@@ -713,9 +589,7 @@ impl DominatorMap {
         nodes: &HashSet<u64>,
         main_control: &'a ir::Control,
     ) -> (Vec<&'a ir::Control>, Vec<&'a ir::StaticControl>) {
-    ) -> (Vec<&'a ir::Control>, Vec<&'a ir::StaticControl>) {
         let mut controls: Vec<&ir::Control> = Vec::new();
-        let mut static_controls: Vec<&ir::StaticControl> = Vec::new();
         let mut static_controls: Vec<&ir::StaticControl> = Vec::new();
         for node in nodes {
             match Self::get_control(*node, main_control) {
@@ -733,7 +607,6 @@ impl DominatorMap {
                 }
             }
         }
-        (controls, static_controls)
         (controls, static_controls)
     }
 

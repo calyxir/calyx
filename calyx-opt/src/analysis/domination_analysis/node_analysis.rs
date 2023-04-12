@@ -93,17 +93,11 @@ impl NodeReads {
         match DominatorMap::get_control(*node, &comp.control.borrow()) {
             ir::GenericControl::None => (),
             ir::GenericControl::Dynamic(c) => match c {
-        match DominatorMap::get_control(*node, &comp.control.borrow()) {
-            ir::GenericControl::None => (),
-            ir::GenericControl::Dynamic(c) => match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
                 | ir::Control::Static(_) => {
-                | ir::Control::Par(_)
-                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars/static should be in domination map"
                         "no empty/seqs/pars/static should be in domination map"
                     )
                 }
@@ -185,7 +179,6 @@ impl NodeReads {
                 ),
             },
         }
-
         reads
     }
 }
@@ -235,10 +228,7 @@ impl NodeSearch {
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
                 | ir::Control::Static(_) => {
-                | ir::Control::Par(_)
-                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars/static should be in domination map"
                         "no empty/seqs/pars/static should be in domination map"
                     )
                 }

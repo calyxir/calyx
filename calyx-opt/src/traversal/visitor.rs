@@ -406,7 +406,6 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-
     /// Executed at an [ir::Invoke] node.
     fn invoke(
         &mut self,
@@ -511,34 +510,48 @@ impl Visitable for Control {
 
 impl Visitable for StaticControl {
     fn visit(
-            &mut self,
-            visitor: &mut dyn Visitor,
-            component: &mut Component,
-            signatures: &LibrarySignatures,
-            components: &[ir::Component],
-        ) -> VisResult {
+        &mut self,
+        visitor: &mut dyn Visitor,
+        component: &mut Component,
+        signatures: &LibrarySignatures,
+        components: &[ir::Component],
+    ) -> VisResult {
         let res = match self {
-            StaticControl::Enable(ctrl) => {
-                visitor.static_enable(ctrl, component, signatures, components)?
-            }
-            StaticControl::Repeat(ctrl) => {
-                visitor.start_static_repeat(ctrl, component, signatures, components)?
-                .and_then(|| ctrl.body.visit(visitor, component, signatures, components))?
+            StaticControl::Enable(ctrl) => visitor
+                .static_enable(ctrl, component, signatures, components)?,
+            StaticControl::Repeat(ctrl) => visitor
+                .start_static_repeat(ctrl, component, signatures, components)?
+                .and_then(|| {
+                    ctrl.body.visit(visitor, component, signatures, components)
+                })?
                 .pop()
-                .and_then(|| visitor.finish_static_repeat(ctrl, component, signatures, components))?
-            }
-            StaticControl::Seq(ctrl) => {
-                visitor.start_static_seq(ctrl, component, signatures, components)?
-                .and_then(|| ctrl.stmts.visit(visitor, component, signatures, components))?
+                .and_then(|| {
+                    visitor.finish_static_repeat(
+                        ctrl, component, signatures, components,
+                    )
+                })?,
+            StaticControl::Seq(ctrl) => visitor
+                .start_static_seq(ctrl, component, signatures, components)?
+                .and_then(|| {
+                    ctrl.stmts.visit(visitor, component, signatures, components)
+                })?
                 .pop()
-                .and_then(|| visitor.finish_static_seq(ctrl, component, signatures, components))?
-            }
-            StaticControl::Par(ctrl) => {
-                visitor.start_static_par(ctrl, component, signatures, components)?
-                .and_then(|| ctrl.stmts.visit(visitor, component, signatures, components))?
+                .and_then(|| {
+                    visitor.finish_static_seq(
+                        ctrl, component, signatures, components,
+                    )
+                })?,
+            StaticControl::Par(ctrl) => visitor
+                .start_static_par(ctrl, component, signatures, components)?
+                .and_then(|| {
+                    ctrl.stmts.visit(visitor, component, signatures, components)
+                })?
                 .pop()
-                .and_then(|| visitor.finish_static_par(ctrl, component, signatures, components))?
-            }
+                .and_then(|| {
+                    visitor.finish_static_par(
+                        ctrl, component, signatures, components,
+                    )
+                })?,
         };
         Ok(res.apply_static_change(self))
     }
