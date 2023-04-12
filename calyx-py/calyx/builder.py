@@ -91,6 +91,7 @@ class ComponentBuilder:
 
     def group(self, name: str) -> "GroupBuilder":
         group = ast.Group(ast.CompVar(name), connections=[])
+        # XXX: This should throw an error if the group already exists.
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
@@ -98,6 +99,7 @@ class ComponentBuilder:
 
     def comb_group(self, name: str) -> "GroupBuilder":
         group = ast.CombGroup(ast.CompVar(name), connections=[])
+        # XXX: This should throw an error if the group already exists.
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
@@ -116,6 +118,7 @@ class ComponentBuilder:
             comp = ast.CompInst(comp.component.name, [])
 
         cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
+        # XXX: This should throw an error if the cell already exists.
         self.component.cells.append(cell)
         builder = CellBuilder(cell)
         self.index[name] = builder
