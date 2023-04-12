@@ -439,6 +439,9 @@ impl FlattenTree for cir::Control {
             cir::Control::StaticEnable(_) => {
                 todo!("The interpreter does not support static groups yet")
             }
+            cir::Control::Static(_) => {
+                todo!("The interpreter does not support static control yet")
+            }
         }
     }
 }

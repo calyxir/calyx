@@ -325,6 +325,9 @@ impl MlirBackend {
             ir::Control::StaticEnable(_) => {
                 panic!("StaticEnable not yet supported")
             }
+            ir::Control::Static(_) => {
+                panic!("Static not yet supported")
+            }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for MLIR backend")
             }

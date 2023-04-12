@@ -81,6 +81,7 @@ impl From<CalyxControl> for Control {
             CalyxControl::Invoke(invoke) => Control::Invoke(Rc::new(invoke)),
             CalyxControl::Enable(enable) => Control::Enable(Rc::new(enable)),
             CalyxControl::StaticEnable(_) => panic!("not yet implemented"),
+            CalyxControl::Static(_) => panic!("not yet implemented"),
             CalyxControl::Empty(empty) => Control::Empty(Rc::new(empty)),
         }
     }
