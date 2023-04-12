@@ -95,6 +95,28 @@ fn build_conflict_graph_static(
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
             build_conflict_graph_static(body, confs, all_nodes);
         }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+            .iter()
+            .for_each(|c| build_conflict_graph_static(c, confs, all_nodes)),
+        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            let par_nodes = stmts
+                .iter()
+                .map(|c| {
+                    // Visit this child and add conflict edges.
+                    // Collect the enables in this into a new vector.
+                    let mut nodes = Vec::new();
+                    build_conflict_graph_static(c, confs, &mut nodes);
+                    nodes
+                })
+                .collect::<Vec<_>>();
+
+            // Add conflict edges between all children.
+            all_conflicting(&par_nodes, confs);
+
+            // Add the enables from visiting the children to the current
+            // set of enables.
+            all_nodes.append(&mut par_nodes.into_iter().flatten().collect());
+        }
     }
 }
 /// Construct a conflict graph by traversing the Control program.

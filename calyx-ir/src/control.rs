@@ -424,6 +424,18 @@ impl StaticControl {
     {
         self.get_attributes().get(attr).cloned()
     }
+
+    /// Returns the value of an attribute if present
+    pub fn get_latency(&self) -> u64 {
+        match self {
+            StaticControl::Enable(StaticEnable { group, .. }) => {
+                group.borrow().get_latency()
+            }
+            StaticControl::Seq(StaticSeq { latency, .. })
+            | StaticControl::Par(StaticPar { latency, .. })
+            | StaticControl::Repeat(StaticRepeat { latency, .. }) => *latency,
+        }
+    }
 }
 
 #[derive(Debug)]

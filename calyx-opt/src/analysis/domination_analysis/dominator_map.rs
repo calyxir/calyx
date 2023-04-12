@@ -187,6 +187,19 @@ fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
             return get_final_static(body);
         }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+            return get_final_static(stmts[..].last().unwrap_or_else(|| {
+                panic!(
+                    "error: empty Static Seq block. TODO: Make Static Seq work on collapse-control pass."
+                )
+            }));
+        }
+        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            for stmt in stmts {
+                let stmt_final = get_final_static(stmt);
+                hs = hs.union(&stmt_final).copied().collect()
+            }
+        }
     }
     hs
 }
@@ -247,6 +260,15 @@ impl DominatorMap {
                     ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
                 self.exits_map.insert(id, get_final_static(sc));
                 self.build_exit_map_static(body);
+            }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                for stmt in stmts {
+                    self.build_exit_map_static(stmt);
+                }
+                let id =
+                    ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
+                self.exits_map.insert(id, get_final_static(sc));
             }
         }
     }
@@ -334,6 +356,30 @@ impl DominatorMap {
                 }) => {
                     let body_id = get_id_static::<true>(body);
                     self.update_map_static(main_sc, body_id, pred);
+                }
+                ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+                    let mut p = pred;
+                    let mut nxt: HashSet<u64>;
+                    for stmt in stmts {
+                        let id = get_id_static::<true>(stmt);
+                        self.update_map_static(main_sc, id, p);
+                        // updating the predecessors for the next stmt we iterate
+                        nxt = self
+                            .exits_map
+                            .get(&id)
+                            .unwrap_or_else(|| {
+                                unreachable!(
+                                    "{}", "exit node map does not have value for {prev_id}",
+                                )
+                            }).clone();
+                        p = &nxt;
+                    }
+                }
+                ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                    for stmt in stmts {
+                        let id = get_id_static::<true>(stmt);
+                        self.update_map_static(main_sc, id, pred);
+                    }
                 }
             },
         }
@@ -443,6 +489,21 @@ impl DominatorMap {
             ir::StaticControl::Enable(_) => GenericControl::None,
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 Self::get_static_control(id, body)
+            }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                for stmt in stmts {
+                    match Self::get_static_control(id, stmt) {
+                        GenericControl::None => (),
+                        GenericControl::Dynamic(c) => {
+                            return GenericControl::Dynamic(c)
+                        }
+                        GenericControl::Static(sc) => {
+                            return GenericControl::Static(sc)
+                        }
+                    }
+                }
+                GenericControl::None
             }
         }
     }

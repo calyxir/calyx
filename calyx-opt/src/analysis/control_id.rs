@@ -29,6 +29,22 @@ impl ControlId {
                 cur_state += 1;
                 Self::compute_unique_ids_static(body, cur_state, two_if_ids)
             }
+            ir::StaticControl::Par(ir::StaticPar {
+                stmts, attributes, ..
+            })
+            | ir::StaticControl::Seq(ir::StaticSeq {
+                stmts, attributes, ..
+            }) => {
+                attributes.insert(NODE_ID, cur_state);
+                cur_state += 1;
+                stmts.iter_mut().for_each(|stmt| {
+                    let new_state = Self::compute_unique_ids_static(
+                        stmt, cur_state, two_if_ids,
+                    );
+                    cur_state = new_state;
+                });
+                cur_state
+            }
         }
     }
 

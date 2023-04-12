@@ -134,6 +134,17 @@ impl ReadWriteSet {
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 Self::control_port_read_write_set_static(body)
             }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                let (mut reads, mut writes) = (vec![], vec![]);
+                for stmt in stmts {
+                    let (mut read, mut write) =
+                        Self::control_port_read_write_set_static(stmt);
+                    reads.append(&mut read);
+                    writes.append(&mut write);
+                }
+                (reads, writes)
+            }
         }
     }
 

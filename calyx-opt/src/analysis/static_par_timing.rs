@@ -239,6 +239,52 @@ impl StaticParTiming {
                     None
                 }
             }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+                // this works whether or not cur_state is None or Some
+                let mut new_state = cur_state;
+                for stmt in stmts {
+                    new_state =
+                        self.build_time_map_static(stmt, new_state, live);
+                }
+                new_state
+            }
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                // We know that all children must be static
+                // Analyze the Current Par
+                for stmt in stmts {
+                    self.build_time_map_static(
+                        stmt,
+                        Some((
+                            ControlId::get_guaranteed_id_static(sc),
+                            ControlId::get_guaranteed_id_static(stmt),
+                            1,
+                        )),
+                        live,
+                    );
+                }
+                // If we have nested pars, want to get the clock cycles relative
+                // to the start of both the current par and the nested par.
+                // So we have the following code to possibly get the clock cycles
+                // relative to the parent par.
+                // Might be overkill, but trying to keep it general.
+                match cur_state {
+                    Some((cur_parent_par, cur_thread, cur_clock)) => {
+                        let mut max_latency = 0;
+                        for stmt in stmts {
+                            self.build_time_map_static(stmt, cur_state, live);
+                            let cur_latency = stmt.get_latency();
+                            max_latency =
+                                std::cmp::max(max_latency, cur_latency)
+                        }
+                        Some((
+                            cur_parent_par,
+                            cur_thread,
+                            cur_clock + max_latency,
+                        ))
+                    }
+                    None => None,
+                }
+            }
         }
     }
 

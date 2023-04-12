@@ -172,8 +172,10 @@ impl NodeReads {
                         &group.borrow().assignments,
                     );
                 }
-                ir::StaticControl::Repeat(_) => unreachable!(
-                    "static repeates shouldn't be in domination map"
+                ir::StaticControl::Par(_)
+                | ir::StaticControl::Seq(_)
+                | ir::StaticControl::Repeat(_) => unreachable!(
+                    "static repeats/seqs/pars shouldn't be in domination map"
                 ),
             },
         }
@@ -260,8 +262,10 @@ impl NodeSearch {
         }
         for sc in dominator_static_controls {
             match sc {
-                ir::StaticControl::Repeat(_) => unreachable!(
-                    "no static repeats should be in domination map"
+                ir::StaticControl::Seq(_)
+                | ir::StaticControl::Par(_)
+                | ir::StaticControl::Repeat(_) => unreachable!(
+                    "no static repeats/seqs/pars should be in domination map"
                 ),
                 ir::StaticControl::Enable(ir::StaticEnable {
                     group, ..

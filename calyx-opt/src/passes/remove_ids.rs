@@ -41,6 +41,12 @@ fn remove_ids_static(sc: &mut ir::StaticControl) {
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
             remove_ids_static(body)
         }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+        | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            for stmt in stmts {
+                remove_ids_static(stmt);
+            }
+        }
     }
 }
 

@@ -56,6 +56,10 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 self.construct_static(body)
             }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                stmts.iter().for_each(|con| self.construct_static(con));
+            }
         }
     }
 

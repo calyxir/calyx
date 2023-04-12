@@ -358,6 +358,38 @@ fn build_reaching_def_static(
 
             (&final_def | &post_cond2_def, final_kill)
         }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+            .iter()
+            .fold((reach, killed), |(acc, killed), inner_c| {
+                build_reaching_def_static(inner_c, acc, killed, rd, counter)
+            }),
+        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            let (defs, par_killed): (Vec<DefSet>, Vec<KilledSet>) = stmts
+                .iter()
+                .map(|ctrl| {
+                    build_reaching_def_static(
+                        ctrl,
+                        reach.clone(),
+                        KilledSet::new(),
+                        rd,
+                        counter,
+                    )
+                })
+                .unzip();
+
+            let global_killed = par_killed
+                .iter()
+                .fold(KilledSet::new(), |acc, set| &acc | set);
+
+            let par_exit_defs = defs
+                .iter()
+                .zip(par_killed.iter())
+                .map(|(defs, kills)| {
+                    defs.kill_from_hashset(&(&global_killed - kills))
+                })
+                .fold(DefSet::default(), |acc, element| &acc | &element);
+            (par_exit_defs, &global_killed | &killed)
+        }
     }
 }
 

@@ -394,6 +394,38 @@ impl LiveRangeAnalysis {
                     body,
                 );
             }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+                for stmt in stmts {
+                    self.get_live_control_data_static(
+                        live_once_map,
+                        par_thread_map,
+                        live_cell_map,
+                        parents,
+                        stmt,
+                    );
+                }
+            }
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                let parent_id = ControlId::get_guaranteed_id_static(sc);
+                let mut new_parents = parents.clone();
+                for stmt in stmts {
+                    // building par_thread_map
+                    let child_id = ControlId::get_guaranteed_id_static(stmt);
+                    par_thread_map.insert(child_id, parent_id);
+
+                    // building live_once_map by adding child_id to parents when
+                    // we recursively call get_live_control_data on each child
+                    new_parents.insert(child_id);
+                    self.get_live_control_data_static(
+                        live_once_map,
+                        par_thread_map,
+                        live_cell_map,
+                        &new_parents,
+                        stmt,
+                    );
+                    new_parents.remove(&child_id);
+                }
+            }
         }
     }
 
@@ -878,6 +910,50 @@ impl LiveRangeAnalysis {
                 (alive, gens, kills) =
                     self.build_live_ranges_static(body, alive, gens, kills);
                 self.build_live_ranges_static(body, alive, gens, kills)
+            }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+                .iter()
+                .rev()
+                .fold((alive, gens, kills), |(alive, gens, kills), e| {
+                    self.build_live_ranges_static(e, alive, gens, kills)
+                }),
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                let (mut alive, gens, kills) = stmts
+                    .iter()
+                    .rev()
+                    .map(|e| {
+                        self.build_live_ranges_static(
+                            e,
+                            alive.clone(),
+                            Prop::default(),
+                            Prop::default(),
+                        )
+                    })
+                    .fold(
+                        (Prop::default(), Prop::default(), Prop::default()),
+                        |(mut acc_alive, mut acc_gen, mut acc_kill),
+                         (alive, gen, kill)| {
+                            (
+                                // Doing in place operations saves time
+                                {
+                                    acc_alive.or(alive);
+                                    acc_alive
+                                },
+                                {
+                                    acc_gen.or(gen);
+                                    acc_gen
+                                },
+                                {
+                                    acc_kill.or(kill);
+                                    acc_kill
+                                },
+                            )
+                        },
+                    );
+                // should only count as a "gen" if it is alive on at least one
+                // of the outputs of the child node
+                alive.transfer(gens.clone(), kills.clone());
+                (alive, gens, kills)
             }
         }
     }
