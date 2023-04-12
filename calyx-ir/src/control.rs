@@ -27,6 +27,8 @@ pub struct StaticSeq {
     pub stmts: Vec<StaticControl>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+    /// Latency, in cycles
+    pub latency: u64,
 }
 impl GetAttributes for StaticSeq {
     fn get_attributes(&self) -> &Attributes {
@@ -61,6 +63,8 @@ pub struct StaticPar {
     pub stmts: Vec<StaticControl>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
+    /// Latency, in cycles
+    pub latency: u64,
 }
 impl GetAttributes for StaticPar {
     fn get_attributes(&self) -> &Attributes {
