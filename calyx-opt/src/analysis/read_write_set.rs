@@ -245,6 +245,9 @@ impl ReadWriteSet {
             ir::Control::Static(sc) => {
                 Self::control_port_read_write_set_static(sc)
             }
+            ir::Control::Static(sc) => {
+                Self::control_port_read_write_set_static(sc)
+            }
         }
     }
 }

@@ -188,6 +188,9 @@ fn build_conflict_graph(
         ir::Control::Static(sc) => {
             build_conflict_graph_static(sc, confs, all_nodes)
         }
+        ir::Control::Static(sc) => {
+            build_conflict_graph_static(sc, confs, all_nodes)
+        }
     }
 }
 

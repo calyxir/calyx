@@ -311,6 +311,7 @@ pub struct LiveRangeAnalysis {
     /// Set of shareable components (as type names)
     share: ShareSet,
     /// maps invokes/enable ids to the shareable cell types/names used in them
+    /// maps invokes/enable ids to the shareable cell types/names used in them
     invokes_enables_map: HashMap<u64, TypeNameSet>,
     /// maps comb groups of if/while statements to the cell types/
     /// names used in them
@@ -434,6 +435,8 @@ impl LiveRangeAnalysis {
     /// celltype to control statements in which it is live for at least one group
     /// or invoke in the control. We only map to control statements that are
     /// direct children of par blocks.
+    /// par_thread_map maps direct children of par blocks to their parents
+    /// live_cell_map maps cells to the nodes in which it is live
     /// par_thread_map maps direct children of par blocks to their parents
     /// live_cell_map maps cells to the nodes in which it is live
     /// parents is the list of current control statements (that are direct children
@@ -570,6 +573,13 @@ impl LiveRangeAnalysis {
                     }
                 }
             }
+            ir::Control::Static(sc) => self.get_live_control_data_static(
+                live_once_map,
+                par_thread_map,
+                live_cell_map,
+                parents,
+                sc,
+            ),
             ir::Control::Static(sc) => self.get_live_control_data_static(
                 live_once_map,
                 par_thread_map,
@@ -1246,6 +1256,9 @@ impl LiveRangeAnalysis {
                 }
 
                 (alive, gens, input_kills)
+            }
+            ir::Control::Static(sc) => {
+                self.build_live_ranges_static(sc, alive, gens, kills)
             }
             ir::Control::Static(sc) => {
                 self.build_live_ranges_static(sc, alive, gens, kills)

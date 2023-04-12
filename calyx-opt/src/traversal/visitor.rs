@@ -362,6 +362,51 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    // Executed before visiting the children of a [ir::StaticSeq] node.
+    fn start_static_seq(
+        &mut self,
+        _s: &mut ir::StaticSeq,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    // Executed after visiting the children of a [ir::StaticSeq] node.
+    fn finish_static_seq(
+        &mut self,
+        _s: &mut ir::StaticSeq,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    // Executed before visiting the children of a [ir::StaticPar] node.
+    fn start_static_par(
+        &mut self,
+        _s: &mut ir::StaticPar,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    // Executed after visiting the children of a [ir::StaticPar] node.
+    fn finish_static_par(
+        &mut self,
+        _s: &mut ir::StaticPar,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+
     /// Executed at an [ir::Invoke] node.
     fn invoke(
         &mut self,
@@ -450,6 +495,9 @@ impl Visitable for Control {
             Control::Static(sctrl) => {
                 sctrl.visit(visitor, component, sigs, comps)?
             }
+            Control::Static(sctrl) => {
+                sctrl.visit(visitor, component, sigs, comps)?
+            }
             Control::Empty(ctrl) => {
                 visitor.empty(ctrl, component, sigs, comps)?
             }
@@ -463,26 +511,34 @@ impl Visitable for Control {
 
 impl Visitable for StaticControl {
     fn visit(
-        &mut self,
-        visitor: &mut dyn Visitor,
-        component: &mut Component,
-        signatures: &LibrarySignatures,
-        components: &[ir::Component],
-    ) -> VisResult {
+            &mut self,
+            visitor: &mut dyn Visitor,
+            component: &mut Component,
+            signatures: &LibrarySignatures,
+            components: &[ir::Component],
+        ) -> VisResult {
         let res = match self {
-            StaticControl::Enable(ctrl) => visitor
-                .static_enable(ctrl, component, signatures, components)?,
-            StaticControl::Repeat(ctrl) => visitor
-                .start_static_repeat(ctrl, component, signatures, components)?
-                .and_then(|| {
-                    ctrl.body.visit(visitor, component, signatures, components)
-                })?
+            StaticControl::Enable(ctrl) => {
+                visitor.static_enable(ctrl, component, signatures, components)?
+            }
+            StaticControl::Repeat(ctrl) => {
+                visitor.start_static_repeat(ctrl, component, signatures, components)?
+                .and_then(|| ctrl.body.visit(visitor, component, signatures, components))?
                 .pop()
-                .and_then(|| {
-                    visitor.finish_static_repeat(
-                        ctrl, component, signatures, components,
-                    )
-                })?,
+                .and_then(|| visitor.finish_static_repeat(ctrl, component, signatures, components))?
+            }
+            StaticControl::Seq(ctrl) => {
+                visitor.start_static_seq(ctrl, component, signatures, components)?
+                .and_then(|| ctrl.stmts.visit(visitor, component, signatures, components))?
+                .pop()
+                .and_then(|| visitor.finish_static_seq(ctrl, component, signatures, components))?
+            }
+            StaticControl::Par(ctrl) => {
+                visitor.start_static_par(ctrl, component, signatures, components)?
+                .and_then(|| ctrl.stmts.visit(visitor, component, signatures, components))?
+                .pop()
+                .and_then(|| visitor.finish_static_par(ctrl, component, signatures, components))?
+            }
         };
         Ok(res.apply_static_change(self))
     }

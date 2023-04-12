@@ -136,6 +136,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 stmts.iter().for_each(|con| self.construct(con));
             }
             ir::Control::Static(sc) => self.construct_static(sc),
+            ir::Control::Static(sc) => self.construct_static(sc),
         }
     }
 }
