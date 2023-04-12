@@ -373,6 +373,30 @@ impl Printer {
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
+            ir::StaticControl::Seq(ir::StaticSeq {
+                stmts,
+                attributes,
+                latency,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "static seq <{}>{{", latency)?;
+                for stmt in stmts {
+                    Self::write_static_control(stmt, indent_level + 2, f)?;
+                }
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::StaticControl::Par(ir::StaticPar {
+                stmts,
+                attributes,
+                latency,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "static par <{}>{{", latency)?;
+                for stmt in stmts {
+                    Self::write_static_control(stmt, indent_level + 2, f)?;
+                }
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
         }
     }
 

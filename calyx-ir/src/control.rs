@@ -298,12 +298,16 @@ impl GetAttributes for StaticControl {
         match self {
             Self::Enable(StaticEnable { attributes, .. }) => attributes,
             Self::Repeat(StaticRepeat { attributes, .. }) => attributes,
+            Self::Par(StaticPar { attributes, .. }) => attributes,
+            Self::Seq(StaticSeq { attributes, .. }) => attributes,
         }
     }
     fn get_attributes(&self) -> &Attributes {
         match self {
             Self::Enable(StaticEnable { attributes, .. }) => attributes,
             Self::Repeat(StaticRepeat { attributes, .. }) => attributes,
+            Self::Par(StaticPar { attributes, .. }) => attributes,
+            Self::Seq(StaticSeq { attributes, .. }) => attributes,
         }
     }
 }
@@ -501,10 +505,26 @@ impl Cloner {
         }
     }
 
+    pub fn static_par(par: &StaticPar) -> StaticPar {
+        StaticPar {
+            stmts: par.stmts.iter().map(Self::static_).collect(),
+            attributes: par.attributes.clone(),
+            latency: par.latency,
+        }
+    }
+
     pub fn seq(seq: &Seq) -> Seq {
         Seq {
             stmts: seq.stmts.iter().map(Self::control).collect(),
             attributes: seq.attributes.clone(),
+        }
+    }
+
+    pub fn static_seq(seq: &StaticSeq) -> StaticSeq {
+        StaticSeq {
+            stmts: seq.stmts.iter().map(Self::static_).collect(),
+            attributes: seq.attributes.clone(),
+            latency: seq.latency,
         }
     }
 
@@ -515,6 +535,12 @@ impl Cloner {
             }
             StaticControl::Repeat(rep) => {
                 StaticControl::Repeat(Cloner::repeat(rep))
+            }
+            StaticControl::Seq(sseq) => {
+                StaticControl::Seq(Cloner::static_seq(sseq))
+            }
+            StaticControl::Par(spar) => {
+                StaticControl::Par(Cloner::static_par(spar))
             }
         }
     }

@@ -137,6 +137,17 @@ impl<'a> Rewriter<'a> {
                 comb_group_map,
                 static_group_map,
             ),
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                stmts.iter_mut().for_each(|c| {
+                    self.rewrite_static_control(
+                        c,
+                        group_map,
+                        comb_group_map,
+                        static_group_map,
+                    )
+                })
+            }
         }
     }
 
