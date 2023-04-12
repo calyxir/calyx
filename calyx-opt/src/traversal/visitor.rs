@@ -494,9 +494,6 @@ impl Visitable for Control {
             Control::Static(sctrl) => {
                 sctrl.visit(visitor, component, sigs, comps)?
             }
-            Control::Static(sctrl) => {
-                sctrl.visit(visitor, component, sigs, comps)?
-            }
             Control::Empty(ctrl) => {
                 visitor.empty(ctrl, component, sigs, comps)?
             }
