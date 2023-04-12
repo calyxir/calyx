@@ -181,7 +181,7 @@ fn matches_key(c: &ir::Control, key: u64) -> bool {
 fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
     let mut hs = HashSet::new();
     match sc {
-        ir::StaticControl::Empty => (),
+        ir::StaticControl::Empty(_) => (),
         ir::StaticControl::Enable(_) => {
             hs.insert(ControlId::get_guaranteed_attribute_static(sc, NODE_ID));
         }
@@ -274,6 +274,19 @@ impl DominatorMap {
                     ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
                 self.exits_map.insert(id, get_final_static(sc));
             }
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
+            }) => {
+                let begin_id =
+                    ControlId::get_guaranteed_attribute_static(sc, BEGIN_ID);
+                let end_id =
+                    ControlId::get_guaranteed_attribute_static(sc, END_ID);
+                self.exits_map.insert(begin_id, HashSet::from([end_id]));
+                self.exits_map.insert(end_id, HashSet::from([end_id]));
+                self.build_exit_map_static(tbranch);
+                self.build_exit_map_static(fbranch);
+            }
+            ir::StaticControl::Empty(_) => (),
         }
     }
 
@@ -352,6 +365,7 @@ impl DominatorMap {
             }
             GenericControl::None => return,
             GenericControl::Static(sc) => match sc {
+                ir::StaticControl::Empty(_) => (),
                 ir::StaticControl::Enable(_) => {
                     self.update_node(pred, cur_id);
                 }
@@ -384,6 +398,31 @@ impl DominatorMap {
                         let id = get_id_static::<true>(stmt);
                         self.update_map_static(main_sc, id, pred);
                     }
+                }
+                ir::StaticControl::If(ir::StaticIf {
+                    tbranch,
+                    fbranch,
+                    ..
+                }) => {
+                    //updating the if guard
+                    self.update_node(pred, cur_id);
+
+                    //building a set w/ just the if_guard id in it
+                    let if_guard_set = HashSet::from([cur_id]);
+
+                    //updating the tbranch
+                    let t_id = get_id_static::<true>(tbranch);
+                    self.update_map_static(main_sc, t_id, &if_guard_set);
+
+                    // If the false branch is present, update the map
+                    if !matches!(**fbranch, ir::StaticControl::Empty(_)) {
+                        let f_id = get_id_static::<true>(fbranch);
+                        self.update_map_static(main_sc, f_id, &if_guard_set);
+                    }
+
+                    let end_id =
+                        ControlId::get_guaranteed_attribute_static(sc, END_ID);
+                    self.update_node(&if_guard_set, end_id)
                 }
             },
         }
@@ -461,15 +500,7 @@ impl DominatorMap {
                         //updating the tbranch
                         let t_id = get_id::<true>(tbranch);
                         self.update_map(main_c, t_id, &if_guard_set);
-                        //updating the tbranch
-                        let t_id = get_id::<true>(tbranch);
-                        self.update_map(main_c, t_id, &if_guard_set);
 
-                        // If the false branch is present, update the map
-                        if !matches!(**fbranch, ir::Control::Empty(_)) {
-                            let f_id = get_id::<true>(fbranch);
-                            self.update_map(main_c, f_id, &if_guard_set);
-                        }
                         // If the false branch is present, update the map
                         if !matches!(**fbranch, ir::Control::Empty(_)) {
                             let f_id = get_id::<true>(fbranch);
@@ -494,11 +525,16 @@ impl DominatorMap {
         id: u64,
         sc: &ir::StaticControl,
     ) -> GenericControl {
+        if matches!(sc, ir::StaticControl::Empty(_)) {
+            return GenericControl::None;
+        }
         if matches_key_static(sc, id) {
             return GenericControl::Static(sc);
         };
         match sc {
-            ir::StaticControl::Enable(_) => GenericControl::None,
+            ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => {
+                GenericControl::None
+            }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 Self::get_static_control(id, body)
             }
@@ -515,6 +551,29 @@ impl DominatorMap {
                         }
                     }
                 }
+                GenericControl::None
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
+            }) => {
+                match Self::get_static_control(id, tbranch) {
+                    GenericControl::Dynamic(c) => {
+                        return GenericControl::Dynamic(c)
+                    }
+                    GenericControl::Static(sc) => {
+                        return GenericControl::Static(sc)
+                    }
+                    GenericControl::None => (),
+                }
+                match Self::get_static_control(id, fbranch) {
+                    GenericControl::Dynamic(c) => {
+                        return GenericControl::Dynamic(c)
+                    }
+                    GenericControl::Static(sc) => {
+                        return GenericControl::Static(sc)
+                    }
+                    GenericControl::None => (),
+                };
                 GenericControl::None
             }
         }

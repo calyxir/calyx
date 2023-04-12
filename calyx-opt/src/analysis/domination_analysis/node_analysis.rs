@@ -34,6 +34,29 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
     }
 }
 
+// Inputs are a control statement c and a u64 id. If control is an if statment, then
+// the id should refer to either the begin or end id of stmt c. Returns true if id refers
+// to the begin id and false if it refers to the end id. If it is not an if statement
+// return true.
+fn not_end_id_static(c: &ir::StaticControl, id: u64) -> bool {
+    match c {
+        ir::StaticControl::If(if_control) => {
+            if let Some(&begin) = if_control.attributes.get(BEGIN_ID) {
+                if begin == id {
+                    return true;
+                }
+            }
+            if let Some(&end) = if_control.attributes.get(END_ID) {
+                if end == id {
+                    return false;
+                }
+            }
+            unreachable!("id should match either beginning or ending id")
+        }
+        _ => true,
+    }
+}
+
 //if the assignment reads only dones, return true. This is used so that we
 //can ignore reads of "done" cells.
 fn reads_only_dones<T>(assignment: &ir::Assignment<T>) -> bool {
@@ -172,10 +195,20 @@ impl NodeReads {
                         &group.borrow().assignments,
                     );
                 }
-                ir::StaticControl::Par(_)
+                ir::StaticControl::If(ir::StaticIf { port, .. }) => {
+                    if not_end_id_static(sc, *node) {
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
+                    }
+                }
+                ir::StaticControl::Empty(_)
+                | ir::StaticControl::Par(_)
                 | ir::StaticControl::Seq(_)
                 | ir::StaticControl::Repeat(_) => unreachable!(
-                    "static repeats/seqs/pars shouldn't be in domination map"
+                    "static emptys/repeats/seqs/pars shouldn't be in domination map"
                 ),
             },
         }
@@ -261,7 +294,8 @@ impl NodeSearch {
         }
         for sc in dominator_static_controls {
             match sc {
-                ir::StaticControl::Seq(_)
+                ir::StaticControl::Empty(_)
+                | ir::StaticControl::Seq(_)
                 | ir::StaticControl::Par(_)
                 | ir::StaticControl::Repeat(_) => unreachable!(
                     "no static repeats/seqs/pars should be in domination map"
@@ -273,6 +307,9 @@ impl NodeSearch {
                         return true;
                     }
                 }
+                // "if nodes" (which are really just the guard) do not write to components
+                // therefore, we should return false
+                ir::StaticControl::If(_) => (),
             }
         }
         false

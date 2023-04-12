@@ -330,8 +330,8 @@ impl GetAttributes for StaticControl {
             Self::Repeat(StaticRepeat { attributes, .. }) => attributes,
             Self::Par(StaticPar { attributes, .. }) => attributes,
             Self::Seq(StaticSeq { attributes, .. }) => attributes,
-            Self::If(StaticIf {attributes, ..}) => attributes,
-            Self::Empty(Empty {attributes, ..}) => attributes
+            Self::If(StaticIf { attributes, .. }) => attributes,
+            Self::Empty(Empty { attributes, .. }) => attributes,
         }
     }
     fn get_attributes(&self) -> &Attributes {
@@ -340,8 +340,8 @@ impl GetAttributes for StaticControl {
             Self::Repeat(StaticRepeat { attributes, .. }) => attributes,
             Self::Par(StaticPar { attributes, .. }) => attributes,
             Self::Seq(StaticSeq { attributes, .. }) => attributes,
-            Self::If(StaticIf {attributes, ..}) => attributes,
-            Self::Empty(Empty {attributes, ..}) => attributes
+            Self::If(StaticIf { attributes, .. }) => attributes,
+            Self::Empty(Empty { attributes, .. }) => attributes,
         }
     }
 }
@@ -468,8 +468,8 @@ impl StaticControl {
             StaticControl::Seq(StaticSeq { latency, .. })
             | StaticControl::Par(StaticPar { latency, .. })
             | StaticControl::Repeat(StaticRepeat { latency, .. })
-            | StaticControl::If(StaticIf {latency, ..}) => *latency,
-            | &StaticControl::Empty(_) => 0
+            | StaticControl::If(StaticIf { latency, .. }) => *latency,
+            &StaticControl::Empty(_) => 0,
         }
     }
 }
@@ -547,13 +547,13 @@ impl Cloner {
     }
 
     pub fn static_if(sif: &StaticIf) -> StaticIf {
-        StaticIf { 
-            port: Rc::clone(&sif.port), 
-            latency: sif.latency, 
-            tbranch: Box::new(Self::static_(&sif.tbranch)), 
+        StaticIf {
+            port: Rc::clone(&sif.port),
+            latency: sif.latency,
+            tbranch: Box::new(Self::static_(&sif.tbranch)),
             fbranch: Box::new(Self::static_(&sif.fbranch)),
             attributes: sif.attributes.clone(),
-         }
+        }
     }
 
     pub fn par(par: &Par) -> Par {
@@ -600,12 +600,8 @@ impl Cloner {
             StaticControl::Par(spar) => {
                 StaticControl::Par(Cloner::static_par(spar))
             }
-            StaticControl::If(sif) => {
-                StaticControl::If(Cloner::static_if(sif))
-            }
-            StaticControl::Empty(e) => {
-                StaticControl::Empty(Self::empty(e))
-            } 
+            StaticControl::If(sif) => StaticControl::If(Cloner::static_if(sif)),
+            StaticControl::Empty(e) => StaticControl::Empty(Self::empty(e)),
         }
     }
 

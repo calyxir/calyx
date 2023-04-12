@@ -379,7 +379,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static seq <{}>{{", latency)?;
+                writeln!(f, "static<{}> seq {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -391,11 +391,43 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static par <{}>{{", latency)?;
+                writeln!(f, "static<{}> par {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
                 writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::StaticControl::Empty(ir::Empty { attributes }) => {
+                if !attributes.is_empty() {
+                    writeln!(f, "{};", Self::format_at_attributes(attributes))
+                } else {
+                    writeln!(f)
+                }
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                port,
+                latency,
+                tbranch,
+                fbranch,
+                attributes,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                write!(
+                    f,
+                    "static<{}> if {} ",
+                    latency,
+                    Self::port_to_str(&port.borrow()),
+                )?;
+                writeln!(f, "{{")?;
+                Self::write_static_control(tbranch, indent_level + 2, f)?;
+                write!(f, "{}}}", " ".repeat(indent_level))?;
+                if let ir::StaticControl::Empty(_) = **fbranch {
+                    writeln!(f)
+                } else {
+                    writeln!(f, " else {{")?;
+                    Self::write_static_control(fbranch, indent_level + 2, f)?;
+                    writeln!(f, "{}}}", " ".repeat(indent_level))
+                }
             }
         }
     }

@@ -125,6 +125,7 @@ impl<'a> Rewriter<'a> {
         static_group_map: &RewriteMap<ir::StaticGroup>,
     ) {
         match sc {
+            ir::StaticControl::Empty(_) => (),
             ir::StaticControl::Enable(sen) => {
                 let g = &sen.group.borrow().name();
                 if let Some(new_group) = static_group_map.get(g) {
@@ -147,6 +148,25 @@ impl<'a> Rewriter<'a> {
                         static_group_map,
                     )
                 })
+            }
+            ir::StaticControl::If(sif) => {
+                // Rewrite port use
+                if let Some(new_port) = self.get(&sif.port) {
+                    sif.port = new_port;
+                }
+                // rewrite branches
+                self.rewrite_static_control(
+                    &mut sif.tbranch,
+                    group_map,
+                    comb_group_map,
+                    static_group_map,
+                );
+                self.rewrite_static_control(
+                    &mut sif.fbranch,
+                    group_map,
+                    comb_group_map,
+                    static_group_map,
+                );
             }
         }
     }
