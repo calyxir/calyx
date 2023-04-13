@@ -363,6 +363,57 @@ impl LiveRangeAnalysis {
         ranges
     }
 
+    // updates live_cell_map and live_once_map
+    // maps all cells live at node `id` to node `id` in `live_cells_map`,
+    // and maps all cells live at node `id` to `parents` in `live_once_map`.
+    fn update_live_control_data(
+        &self,
+        id: u64,
+        live_once_map: &mut LiveMapByType,
+        live_cell_map: &mut LiveMapByType,
+        parents: &HashSet<u64>,
+    ) {
+        let live_set = self.live.get(&id).unwrap().map.clone();
+        for (cell_type, live_cells) in live_set {
+            let cell_to_node =
+                live_cell_map.entry(cell_type.clone()).or_default();
+            let cell_to_control = live_once_map.entry(cell_type).or_default();
+            for cell in live_cells {
+                cell_to_node.entry(cell).or_default().insert(id);
+                cell_to_control.entry(cell).or_default().extend(parents);
+            }
+        }
+    }
+
+    fn add_cell_to_control_data(
+        &self,
+        id: u64,
+        (cell_type, cell_name): (ir::CellType, ir::Id),
+        live_once_map: &mut LiveMapByType,
+        live_cell_map: &mut LiveMapByType,
+        parents: &HashSet<u64>,
+    ) {
+        // add cells as live within whichever direct children of
+        // par blocks they're located within
+        if !parents.is_empty() {
+            live_once_map
+                .entry(cell_type.clone())
+                .or_default()
+                .entry(cell_name)
+                .or_default()
+                .extend(parents);
+        }
+        // mark cell as live in the control id of the if statement.
+        // What this really means, though, is that the cell is live
+        // at the comb group/port guard of the if statement
+        live_cell_map
+            .entry(cell_type.clone())
+            .or_default()
+            .entry(cell_name)
+            .or_default()
+            .insert(id);
+    }
+
     fn get_live_control_data_static(
         &self,
         live_once_map: &mut LiveMapByType,
@@ -375,20 +426,12 @@ impl LiveRangeAnalysis {
             ir::StaticControl::Empty(_) => (),
             ir::StaticControl::Enable(_) => {
                 let id = ControlId::get_guaranteed_id_static(sc);
-                let live_set = self.live.get(&id).unwrap().map.clone();
-                for (cell_type, live_cells) in live_set {
-                    let cell_to_node =
-                        live_cell_map.entry(cell_type.clone()).or_default();
-                    let cell_to_control =
-                        live_once_map.entry(cell_type).or_default();
-                    for cell in live_cells {
-                        cell_to_node.entry(cell).or_default().insert(id);
-                        cell_to_control
-                            .entry(cell)
-                            .or_default()
-                            .extend(parents);
-                    }
-                }
+                self.update_live_control_data(
+                    id,
+                    live_once_map,
+                    live_cell_map,
+                    parents,
+                )
             }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 self.get_live_control_data_static(
@@ -611,20 +654,12 @@ impl LiveRangeAnalysis {
             | ir::Control::Invoke(_)
             | ir::Control::StaticEnable(_) => {
                 let id = ControlId::get_guaranteed_id(c);
-                let live_set = self.live.get(&id).unwrap().map.clone();
-                for (cell_type, live_cells) in live_set {
-                    let cell_to_node =
-                        live_cell_map.entry(cell_type.clone()).or_default();
-                    let cell_to_control =
-                        live_once_map.entry(cell_type).or_default();
-                    for cell in live_cells {
-                        cell_to_node.entry(cell).or_default().insert(id);
-                        cell_to_control
-                            .entry(cell)
-                            .or_default()
-                            .extend(parents);
-                    }
-                }
+                self.update_live_control_data(
+                    id,
+                    live_once_map,
+                    live_cell_map,
+                    parents,
+                )
             }
             ir::Control::Static(sc) => self.get_live_control_data_static(
                 live_once_map,
