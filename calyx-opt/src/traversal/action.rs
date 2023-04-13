@@ -20,9 +20,9 @@ pub enum Action {
     /// will be visited.
     Change(Box<Control>),
     /// Replace the current StaticControl node with a new node
-    /// If performed using a start_* method, none of the newly created children 
+    /// If performed using a start_* method, none of the newly created children
     /// will be visited.
-    StaticChange(Box<StaticControl>)
+    StaticChange(Box<StaticControl>),
 }
 
 impl Action {
@@ -35,7 +35,10 @@ impl Action {
     {
         match self {
             Action::Continue => next(),
-            Action::Change(_) | Action::Stop | Action::SkipChildren | Action::StaticChange(_) => Ok(self),
+            Action::Change(_)
+            | Action::Stop
+            | Action::SkipChildren
+            | Action::StaticChange(_) => Ok(self),
         }
     }
 
